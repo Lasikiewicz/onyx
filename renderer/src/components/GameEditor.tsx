@@ -8,6 +8,7 @@ interface GameEditorProps {
   onSave: (game: Game) => Promise<void>;
   onDelete?: (gameId: string) => Promise<void>;
   allCategories?: string[];
+  initialTab?: 'details' | 'images' | 'modManager';
 }
 
 interface IGDBGameResult {
@@ -24,7 +25,7 @@ interface IGDBGameResult {
   categories?: string[];
 }
 
-export const GameEditor: React.FC<GameEditorProps> = ({ isOpen, onClose, onSave, game, onDelete, allCategories = [] }) => {
+export const GameEditor: React.FC<GameEditorProps> = ({ isOpen, onClose, onSave, game, onDelete, allCategories = [], initialTab = 'details' }) => {
   const [editedGame, setEditedGame] = useState<Game | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -36,7 +37,7 @@ export const GameEditor: React.FC<GameEditorProps> = ({ isOpen, onClose, onSave,
   const [showImageSelector, setShowImageSelector] = useState<'cover' | 'banner' | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [categoryInput, setCategoryInput] = useState<string>('');
-  const [activeTab, setActiveTab] = useState<'details' | 'images'>('details');
+  const [activeTab, setActiveTab] = useState<'details' | 'images' | 'modManager'>('details');
   const [imageSearchQuery, setImageSearchQuery] = useState<string>('');
   const [isSearchingImages, setIsSearchingImages] = useState(false);
   const [imageSearchResults, setImageSearchResults] = useState<IGDBGameResult[]>([]);
@@ -50,11 +51,11 @@ export const GameEditor: React.FC<GameEditorProps> = ({ isOpen, onClose, onSave,
       setSearchResults([]);
       setImageSearchResults([]);
       setShowDeleteConfirm(false);
-      setActiveTab('details');
+      setActiveTab(initialTab);
       setImageSearchQuery('');
       setSelectedImageResult(null);
     }
-  }, [game, isOpen]);
+  }, [game, isOpen, initialTab]);
 
   if (!isOpen || !editedGame) return null;
 
@@ -266,8 +267,8 @@ export const GameEditor: React.FC<GameEditorProps> = ({ isOpen, onClose, onSave,
           : 'w-full max-w-2xl'
       }`}>
         {/* Main Edit Form */}
-        <div className={`${(searchResults.length > 0 && !showImageSelector) || (imageSearchResults.length > 0 && activeTab === 'images') ? 'w-1/2' : 'w-full'} overflow-y-auto flex flex-col`}>
-          <div className="p-6 flex-1">
+        <div className={`${(searchResults.length > 0 && !showImageSelector) || (imageSearchResults.length > 0 && activeTab === 'images') ? 'w-1/2' : 'w-full'} flex flex-col`}>
+          <div className="p-6 flex-1 overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-2xl font-bold text-white">Edit Game</h2>
               <button
@@ -304,6 +305,17 @@ export const GameEditor: React.FC<GameEditorProps> = ({ isOpen, onClose, onSave,
                 }`}
               >
                 Images
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('modManager')}
+                className={`px-6 py-3 font-medium transition-colors ${
+                  activeTab === 'modManager'
+                    ? 'text-white border-b-2 border-blue-500'
+                    : 'text-gray-400 hover:text-gray-300'
+                }`}
+              >
+                Mod Manager
               </button>
             </div>
 
@@ -680,6 +692,45 @@ export const GameEditor: React.FC<GameEditorProps> = ({ isOpen, onClose, onSave,
               </div>
             )}
 
+            {/* Mod Manager Tab */}
+            {activeTab === 'modManager' && (
+              <div className="space-y-4">
+                <div>
+                  <label htmlFor="mod-manager-url" className="block text-sm font-medium text-gray-300 mb-2">
+                    Mod Manager Link
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      id="mod-manager-url"
+                      type="text"
+                      value={editedGame.modManagerUrl || ''}
+                      onChange={(e) => handleFieldChange('modManagerUrl', e.target.value)}
+                      disabled={isSaving || isDeleting}
+                      className="flex-1 px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                      placeholder="Enter mod manager URL or path (e.g., https://example.com/mod-manager)"
+                    />
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const path = await window.electronAPI.showOpenDialog();
+                        if (path) {
+                          handleFieldChange('modManagerUrl', path);
+                        }
+                      }}
+                      disabled={isSaving || isDeleting}
+                      className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white font-medium rounded-lg transition-colors disabled:opacity-50"
+                      title="Browse for mod manager executable"
+                    >
+                      Browse
+                    </button>
+                  </div>
+                  <p className="text-xs text-gray-400 mt-2">
+                    Enter the URL or path to your mod manager. This will appear in the game's context menu and bottom bar.
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* Delete Confirmation */}
             {showDeleteConfirm && (
               <div className="bg-red-900/20 border border-red-500 rounded p-4">
@@ -709,9 +760,11 @@ export const GameEditor: React.FC<GameEditorProps> = ({ isOpen, onClose, onSave,
                 </div>
               </div>
             )}
+          </div>
 
-            {/* Action Buttons */}
-            <div className="flex gap-3 pt-4">
+          {/* Action Buttons - Pinned to Bottom */}
+          <div className="p-6 pt-0 flex-shrink-0">
+            <div className="flex gap-3">
               {onDelete && !showDeleteConfirm && (
                 <button
                   type="button"

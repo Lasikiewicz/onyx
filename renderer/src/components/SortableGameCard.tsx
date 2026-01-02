@@ -10,10 +10,11 @@ interface SortableGameCardProps {
   onPlay?: (game: Game) => void;
   onClick?: (game: Game) => void;
   onEdit?: (game: Game) => void;
+  onEditImages?: (game: Game) => void;
   onFavorite?: (game: Game) => void;
 }
 
-export const SortableGameCard: React.FC<SortableGameCardProps> = ({ game, onPlay, onClick, onEdit, onFavorite }) => {
+export const SortableGameCard: React.FC<SortableGameCardProps> = ({ game, onPlay, onClick, onEdit, onEditImages, onFavorite }) => {
   const {
     attributes,
     listeners,
@@ -78,6 +79,7 @@ export const SortableGameCard: React.FC<SortableGameCardProps> = ({ game, onPlay
           onClose={() => setContextMenu(null)}
           onPlay={onPlay}
           onEdit={onEdit}
+          onEditImages={onEditImages}
           onFavorite={onFavorite}
         />
       )}

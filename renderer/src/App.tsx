@@ -47,6 +47,7 @@ function App() {
   // Game editor state
   const [isGameEditorOpen, setIsGameEditorOpen] = useState(false);
   const [editingGame, setEditingGame] = useState<Game | null>(null);
+  const [initialEditorTab, setInitialEditorTab] = useState<'details' | 'images'>('details');
   
   // Toast notification state
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
@@ -298,6 +299,13 @@ function App() {
 
   const handleEditGame = (game: Game) => {
     setEditingGame(game);
+    setInitialEditorTab('details');
+    setIsGameEditorOpen(true);
+  };
+
+  const handleEditImages = (game: Game) => {
+    setEditingGame(game);
+    setInitialEditorTab('images');
     setIsGameEditorOpen(true);
   };
 
@@ -663,6 +671,7 @@ function App() {
                       onPlay={handlePlay}
                       onGameClick={handleGameClick}
                       onEdit={handleEditGame}
+                      onEditImages={handleEditImages}
                       onFavorite={handleToggleFavorite}
                       gridSize={gridSize}
                     />
@@ -760,10 +769,12 @@ function App() {
         onClose={() => {
           setIsGameEditorOpen(false);
           setEditingGame(null);
+          setInitialEditorTab('details');
         }}
         onSave={handleSaveGame}
         onDelete={handleDeleteGame}
         allCategories={allCategories}
+        initialTab={initialEditorTab}
       />
 
       {/* App Settings Modal */}
@@ -839,7 +850,7 @@ function App() {
 
       {/* Toast Notification */}
       {toast && (
-        <div className="fixed bottom-4 right-4 z-50 animate-in slide-in-from-bottom-5">
+        <div className="fixed bottom-20 left-1/2 transform -translate-x-1/2 z-50 animate-in slide-in-from-bottom-5">
           <div
             className={`px-6 py-3 rounded-lg shadow-xl flex items-center gap-3 ${
               toast.type === 'success'
