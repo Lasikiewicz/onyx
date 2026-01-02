@@ -1,0 +1,100 @@
+import React from 'react';
+import { Game } from '../types/game';
+
+interface BottomBarProps {
+  game: Game | null;
+  onPlay?: (game: Game) => void;
+  onFavorite?: (game: Game) => void;
+  onAppSettings?: () => void;
+  onEdit?: (game: Game) => void;
+  gridSize?: number;
+  onGridSizeChange?: (size: number) => void;
+}
+
+export const BottomBar: React.FC<BottomBarProps> = ({ game, onPlay, onFavorite, onAppSettings, onEdit, gridSize = 120, onGridSizeChange }) => {
+  return (
+    <div className="onyx-glass-panel h-16 flex items-center justify-between px-6 flex-shrink-0">
+      {/* Left side - App Settings and Grid Size */}
+      <div className="flex items-center gap-4">
+        <button
+          onClick={onAppSettings}
+          className="p-2 hover:bg-gray-700 rounded transition-colors"
+          title="App Settings"
+        >
+          <svg className="w-5 h-5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+        </button>
+
+        {/* Grid Size Slider */}
+        {onGridSizeChange && (
+          <div className="flex items-center gap-3 px-3 py-2 bg-gray-700/50 rounded-lg">
+            <label htmlFor="grid-size-slider" className="text-gray-300 text-sm whitespace-nowrap">
+              Grid Size:
+            </label>
+            <input
+              id="grid-size-slider"
+              type="range"
+              min="80"
+              max="500"
+              value={gridSize}
+              onChange={(e) => onGridSizeChange(Number(e.target.value))}
+              className="w-32 h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-blue-600"
+            />
+            <span className="text-gray-300 text-sm w-12">{gridSize}px</span>
+          </div>
+        )}
+      </div>
+
+      {/* Right side - Actions and Play */}
+      {game ? (
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => onFavorite?.(game)}
+            className={`p-2 rounded transition-colors ${
+              game.favorite ? 'text-yellow-400' : 'text-gray-300 hover:bg-gray-700'
+            }`}
+            title="Favorite"
+          >
+            <svg className="w-5 h-5" fill={game.favorite ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+            </svg>
+          </button>
+
+          <button
+            className="p-2 hover:bg-gray-700 rounded transition-colors"
+            title="More"
+          >
+            <svg className="w-5 h-5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+            </svg>
+          </button>
+
+          {onEdit && (
+            <button
+              onClick={() => onEdit(game)}
+              className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white font-medium rounded-lg transition-colors flex items-center gap-2"
+              title="Edit Game"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+              Edit
+            </button>
+          )}
+
+          <button
+            onClick={() => onPlay?.(game)}
+            className="onyx-btn-primary px-6 py-2 rounded-lg flex items-center gap-2"
+          >
+            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M8 5v14l11-7z" />
+            </svg>
+            Play
+          </button>
+        </div>
+      ) : null}
+    </div>
+  );
+};

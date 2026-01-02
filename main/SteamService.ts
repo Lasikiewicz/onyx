@@ -1,0 +1,323 @@
+import { readFileSync, readdirSync, existsSync } from 'node:fs';
+import { join } from 'node:path';
+import { platform } from 'node:os';
+
+export interface SteamGame {
+  appId: string;
+  name: string;
+  installDir: string;
+  libraryPath: string;
+}
+
+export class SteamService {
+  private customSteamPath: string | null = null;
+
+  constructor() {
+    // Don't set default path in constructor - let it be set via setSteamPath
+  }
+
+  /**
+   * Set a custom Steam installation path
+   */
+  setSteamPath(path: string): void {
+    if (!existsSync(path)) {
+      throw new Error(`Steam path does not exist: ${path}`);
+    }
+    this.customSteamPath = path;
+  }
+
+  /**
+   * Get the Steam installation path (custom or default)
+   */
+  getSteamPath(): string {
+    if (this.customSteamPath) {
+      return this.customSteamPath;
+    }
+    return this.getDefaultSteamPath();
+  }
+
+  /**
+   * Get the default Steam installation path on Windows
+   */
+  private getDefaultSteamPath(): string {
+    if (platform() !== 'win32') {
+      throw new Error('Steam scanning is currently only supported on Windows');
+    }
+
+    const defaultPath = 'C:\\Program Files (x86)\\Steam';
+    const altPath = 'C:\\Program Files\\Steam';
+
+    if (existsSync(defaultPath)) {
+      return defaultPath;
+    }
+    if (existsSync(altPath)) {
+      return altPath;
+    }
+
+    throw new Error('Steam installation not found in default locations');
+  }
+
+  /**
+   * Parse a VDF (Valve Data Format) file
+   * VDF files use a simple text format with key-value pairs
+   * Handles both tabs and spaces, and different quote styles
+   */
+  private parseVDF(content: string): any {
+    const result: any = {};
+    const lines = content.split('\n');
+    const stack: any[] = [result];
+    const keyStack: string[] = [];
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const trimmed = line.trim();
+      
+      // Skip empty lines and comments
+      if (!trimmed || trimmed.startsWith('//')) continue;
+
+      // Match opening brace with key: "key" { or "key"\t{
+      const openMatch = trimmed.match(/^"([^"]+)"\s*\{/);
+      if (openMatch) {
+        const key = openMatch[1];
+        const current = stack[stack.length - 1];
+        if (!current[key]) {
+          current[key] = {};
+        }
+        stack.push(current[key]);
+        keyStack.push(key);
+        continue;
+      }
+
+      // Match closing brace
+      if (trimmed === '}' || trimmed.startsWith('}')) {
+        if (stack.length > 1) {
+          stack.pop();
+          keyStack.pop();
+        }
+        continue;
+      }
+
+      // Match key-value pair - handles tabs and spaces
+      // Pattern: "key" "value" or "key"\t"value" or "key"\t\t"value"
+      // Also handle values that might span multiple lines or have special characters
+      const kvMatch = trimmed.match(/^"([^"]+)"\s+"([^"]*)"$/);
+      if (kvMatch) {
+        const [, key, value] = kvMatch;
+        const current = stack[stack.length - 1];
+        current[key] = value;
+        continue;
+      }
+
+      // Try to match key-value with escaped quotes or special characters
+      // Some ACF files might have values with escaped quotes or other characters
+      const kvMatch2 = trimmed.match(/^"([^"]+)"\s+"(.+)"$/);
+      if (kvMatch2) {
+        const [, key, value] = kvMatch2;
+        const current = stack[stack.length - 1];
+        // Remove surrounding quotes from value if present
+        current[key] = value.replace(/^"|"$/g, '');
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * Read and parse libraryfolders.vdf to find all Steam library locations
+   */
+  private getLibraryFolders(): string[] {
+    const steamPath = this.getSteamPath();
+    const libraryFoldersPath = join(steamPath, 'steamapps', 'libraryfolders.vdf');
+    
+    const libraries: string[] = [steamPath]; // Always include main Steam path
+    
+    if (!existsSync(libraryFoldersPath)) {
+      console.warn(`libraryfolders.vdf not found at ${libraryFoldersPath}, using default Steam path only`);
+      console.log(`Will scan: ${steamPath}`);
+      return libraries;
+    }
+
+    try {
+      const content = readFileSync(libraryFoldersPath, 'utf-8');
+      const parsed = this.parseVDF(content);
+
+      // libraryfolders.vdf structure can be:
+      // libraryfolders { "0" { "path" "..." } "1" { "path" "..." } }
+      // or in newer versions: libraryfolders { "contentstatsid" "..." "0" { "path" "..." } }
+      if (parsed.libraryfolders) {
+        const folders = parsed.libraryfolders;
+        for (const key in folders) {
+          // Skip non-numeric keys and special keys
+          if (key !== 'TimeNextStatsReport' && key !== 'contentstatsid' && folders[key]?.path) {
+            const libraryPath = folders[key].path.replace(/\\\\/g, '\\').replace(/\//g, '\\');
+            if (existsSync(libraryPath) && !libraries.includes(libraryPath)) {
+              libraries.push(libraryPath);
+              console.log(`Found additional Steam library: ${libraryPath}`);
+            }
+          }
+        }
+      }
+
+      console.log(`Total Steam libraries to scan: ${libraries.length}`);
+      return libraries;
+    } catch (error) {
+      console.error('Error reading libraryfolders.vdf:', error);
+      console.log(`Falling back to default Steam path: ${steamPath}`);
+      return libraries;
+    }
+  }
+
+  /**
+   * Parse an ACF (App Cache File) manifest to extract game information
+   */
+  private parseACF(content: string): { appId: string; name: string; installDir: string } | null {
+    try {
+      const parsed = this.parseVDF(content);
+      
+      // ACF files can have AppState or appstate at the root level
+      const appState = parsed.AppState || parsed.appstate || parsed;
+      
+      if (!appState) {
+        console.warn('No AppState found in ACF file');
+        return null;
+      }
+
+      // Try various case variations for the fields
+      const appId = appState.appid || appState.AppID || appState.appID || '';
+      const name = appState.name || appState.Name || appState.NAME || '';
+      const installDir = appState.installdir || appState.InstallDir || appState.INSTALLDIR || '';
+
+      if (!appId) {
+        console.warn('No appid found in ACF file');
+        return null;
+      }
+
+      // Some ACF files might not have a name field, skip those (they're likely DLC or other content)
+      if (!name) {
+        console.warn(`ACF file has appid ${appId} but no name field`);
+        return null;
+      }
+
+      return {
+        appId: String(appId),
+        name: String(name),
+        installDir: installDir ? String(installDir) : name, // Fallback to name if installDir is missing
+      };
+    } catch (error) {
+      console.error('Error parsing ACF file:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Scan a single Steam library folder for installed games
+   */
+  private scanLibraryFolder(libraryPath: string): SteamGame[] {
+    const steamappsPath = join(libraryPath, 'steamapps');
+    
+    if (!existsSync(steamappsPath)) {
+      console.warn(`Steamapps folder not found: ${steamappsPath}`);
+      return [];
+    }
+
+    const games: SteamGame[] = [];
+
+    try {
+      const files = readdirSync(steamappsPath);
+      const acfFiles = files.filter(file => file.endsWith('.acf'));
+      
+      console.log(`Scanning ${steamappsPath}`);
+      console.log(`Total files in steamapps: ${files.length}`);
+      console.log(`Found ${acfFiles.length} ACF files`);
+
+      if (acfFiles.length === 0) {
+        console.warn(`No ACF files found in ${steamappsPath}`);
+        console.log(`Files found: ${files.slice(0, 10).join(', ')}${files.length > 10 ? '...' : ''}`);
+      }
+
+      for (const acfFile of acfFiles) {
+        const acfPath = join(steamappsPath, acfFile);
+        
+        try {
+          const content = readFileSync(acfPath, 'utf-8');
+          
+          // Debug: log first few lines of problematic files
+          if (content.length < 100) {
+            console.warn(`ACF file ${acfFile} is very small (${content.length} bytes)`);
+          }
+          
+          const gameInfo = this.parseACF(content);
+          
+          if (gameInfo) {
+            games.push({
+              appId: gameInfo.appId,
+              name: gameInfo.name,
+              installDir: gameInfo.installDir,
+              libraryPath: libraryPath,
+            });
+            console.log(`✓ Parsed: ${gameInfo.name} (AppID: ${gameInfo.appId})`);
+          } else {
+            // Try to extract appid from filename as fallback
+            const appIdMatch = acfFile.match(/appmanifest_(\d+)\.acf/);
+            if (appIdMatch) {
+              const appId = appIdMatch[1];
+              // Try to get name from parsed content even if full parse failed
+              const parsed = this.parseVDF(content);
+              const appState = parsed.AppState || parsed.appstate || parsed;
+              const name = appState?.name || appState?.Name || `Steam Game ${appId}`;
+              
+              games.push({
+                appId: appId,
+                name: String(name),
+                installDir: appState?.installdir || appState?.InstallDir || name,
+                libraryPath: libraryPath,
+              });
+              console.log(`✓ Parsed (fallback): ${name} (AppID: ${appId})`);
+            } else {
+              console.warn(`✗ Failed to parse ACF file: ${acfFile}`);
+            }
+          }
+        } catch (error) {
+          console.error(`✗ Error reading ACF file ${acfFile}:`, error);
+        }
+      }
+    } catch (error) {
+      console.error(`Error scanning library folder ${libraryPath}:`, error);
+    }
+
+    return games;
+  }
+
+  /**
+   * Scan all Steam libraries for installed games
+   */
+  public scanSteamGames(): SteamGame[] {
+    try {
+      const steamPath = this.getSteamPath();
+      console.log(`Scanning Steam games from: ${steamPath}`);
+      
+      const libraries = this.getLibraryFolders();
+      console.log(`Found ${libraries.length} Steam library folder(s)`);
+      
+      const allGames: SteamGame[] = [];
+
+      for (const library of libraries) {
+        console.log(`Scanning library: ${library}`);
+        const games = this.scanLibraryFolder(library);
+        console.log(`Found ${games.length} games in ${library}`);
+        allGames.push(...games);
+      }
+
+      // Remove duplicates (same appId might appear in multiple libraries)
+      const uniqueGames = Array.from(
+        new Map(allGames.map(game => [game.appId, game])).values()
+      );
+
+      console.log(`Total unique games found: ${uniqueGames.length}`);
+      return uniqueGames.sort((a, b) => a.name.localeCompare(b.name));
+    } catch (error) {
+      console.error('Error scanning Steam games:', error);
+      throw error; // Re-throw to let caller handle it
+    }
+  }
+}
