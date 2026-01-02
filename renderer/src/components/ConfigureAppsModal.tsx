@@ -49,6 +49,21 @@ const getDefaultPaths = (appId: string): string[] => {
       'C:\\XboxGames',
       'C:\\Program Files\\WindowsApps',
     ],
+    humble: [
+      'C:\\Program Files\\Humble App',
+      'C:\\Program Files (x86)\\Humble App',
+      '%LOCALAPPDATA%\\Humble App',
+    ],
+    itch: [
+      '%LOCALAPPDATA%\\itch',
+      'C:\\Program Files\\itch',
+      'C:\\Program Files (x86)\\itch',
+    ],
+    rockstar: [
+      'C:\\Program Files\\Rockstar Games',
+      'C:\\Program Files (x86)\\Rockstar Games',
+      '%USERPROFILE%\\Documents\\Rockstar Games',
+    ],
   };
   return paths[appId] || [];
 };
@@ -61,6 +76,9 @@ const defaultApps: Omit<AppConfig, 'enabled' | 'path'>[] = [
   { id: 'ubisoft', name: 'Ubisoft Connect', defaultPaths: getDefaultPaths('ubisoft'), placeholder: 'C:\\Program Files (x86)\\Ubisoft\\Ubisoft Game Launcher' },
   { id: 'battle', name: 'Battle.net', defaultPaths: getDefaultPaths('battle'), placeholder: 'C:\\Program Files (x86)\\Battle.net' },
   { id: 'xbox', name: 'Xbox Game Pass', defaultPaths: getDefaultPaths('xbox'), placeholder: 'C:\\XboxGames' },
+  { id: 'humble', name: 'Humble', defaultPaths: getDefaultPaths('humble'), placeholder: 'C:\\Program Files\\Humble App' },
+  { id: 'itch', name: 'itch.io', defaultPaths: getDefaultPaths('itch'), placeholder: '%LOCALAPPDATA%\\itch' },
+  { id: 'rockstar', name: 'Rockstar Games', defaultPaths: getDefaultPaths('rockstar'), placeholder: 'C:\\Program Files\\Rockstar Games' },
 ];
 
 // Helper to check if a path exists (we'll need to add IPC for this, but for now we'll just use the first default)
@@ -310,99 +328,101 @@ export const ConfigureAppsModal: React.FC<ConfigureAppsModalProps> = ({
           </div>
 
           {/* Content */}
-          <div className="p-6 space-y-6 overflow-y-auto flex-1">
+          <div className="p-6 overflow-y-auto flex-1">
             {isLoading ? (
               <div className="text-center py-8">
                 <p className="text-gray-300">Loading app configurations...</p>
               </div>
             ) : (
-              apps.map((app) => (
-                <div key={app.id} className="border-b border-gray-700 pb-6 last:border-b-0 last:pb-0">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-3">
-                      <h3 className="text-sm font-semibold text-gray-300 uppercase tracking-wide">
-                        {app.name}
-                      </h3>
-                      {/* Enable/Disable Toggle */}
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={app.enabled}
-                          onChange={() => handleToggleEnabled(app.id)}
-                          className="sr-only peer"
-                        />
-                        <div className="w-11 h-6 bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                        <span className="ml-3 text-sm text-gray-400">
-                          {app.enabled ? 'Enabled' : 'Disabled'}
-                        </span>
-                      </label>
-                    </div>
-                  </div>
-                  
-                  {app.enabled && (
-                    <div className="space-y-3">
-                      <div>
-                        <label className="block text-sm text-gray-400 mb-2">
-                          {app.name} Installation Path
-                        </label>
-                        <div className="flex gap-2">
+              <div className="grid grid-cols-2 gap-6">
+                {apps.map((app) => (
+                  <div key={app.id} className="border border-gray-700 rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-3">
+                        <h3 className="text-sm font-semibold text-gray-300 uppercase tracking-wide">
+                          {app.name}
+                        </h3>
+                        {/* Enable/Disable Toggle */}
+                        <label className="relative inline-flex items-center cursor-pointer">
                           <input
-                            type="text"
-                            value={app.path}
-                            onChange={(e) => handlePathChange(app.id, e.target.value)}
-                            placeholder={app.placeholder}
-                            className="flex-1 px-4 py-2 bg-gray-700/50 border border-gray-600 rounded text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            type="checkbox"
+                            checked={app.enabled}
+                            onChange={() => handleToggleEnabled(app.id)}
+                            className="sr-only peer"
                           />
-                          <button
-                            onClick={() => handleBrowse(app.id)}
-                            className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white text-sm rounded transition-colors"
-                          >
-                            Browse
-                          </button>
-                        </div>
-                        <p className="text-xs text-gray-500 mt-1">
-                          Path to your {app.name} installation directory
-                        </p>
+                          <div className="w-11 h-6 bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                          <span className="ml-3 text-sm text-gray-400">
+                            {app.enabled ? 'Enabled' : 'Disabled'}
+                          </span>
+                        </label>
                       </div>
-                      
-                      {/* Scan Now button for newly enabled apps */}
-                      {newlyEnabledApps.has(app.id) && app.path && (
-                        <div className="flex items-center gap-2 pt-2">
-                          <button
-                            onClick={() => handleScanNow(app.id)}
-                            disabled={scanningAppId === app.id}
-                            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                          >
-                            {scanningAppId === app.id ? (
-                              <>
-                                <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                                </svg>
-                                Scanning...
-                              </>
-                            ) : (
-                              <>
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                                </svg>
-                                Scan Now
-                              </>
-                            )}
-                          </button>
-                          <p className="text-xs text-gray-400">
-                            Scan for games after enabling this launcher
+                    </div>
+                    
+                    {app.enabled && (
+                      <div className="space-y-3">
+                        <div>
+                          <label className="block text-sm text-gray-400 mb-2">
+                            {app.name} Installation Path
+                          </label>
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              value={app.path}
+                              onChange={(e) => handlePathChange(app.id, e.target.value)}
+                              placeholder={app.placeholder}
+                              className="flex-1 px-4 py-2 bg-gray-700/50 border border-gray-600 rounded text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                            <button
+                              onClick={() => handleBrowse(app.id)}
+                              className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white text-sm rounded transition-colors"
+                            >
+                              Browse
+                            </button>
+                          </div>
+                          <p className="text-xs text-gray-500 mt-1">
+                            Path to your {app.name} installation directory
                           </p>
                         </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              ))
+                        
+                        {/* Scan Now button for newly enabled apps */}
+                        {newlyEnabledApps.has(app.id) && app.path && (
+                          <div className="flex items-center gap-2 pt-2">
+                            <button
+                              onClick={() => handleScanNow(app.id)}
+                              disabled={scanningAppId === app.id}
+                              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                            >
+                              {scanningAppId === app.id ? (
+                                <>
+                                  <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                  </svg>
+                                  Scanning...
+                                </>
+                              ) : (
+                                <>
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                  </svg>
+                                  Scan Now
+                                </>
+                              )}
+                            </button>
+                            <p className="text-xs text-gray-400">
+                              Scan for games after enabling this launcher
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
             )}
 
             {/* Action Buttons */}
-            <div className="flex justify-end gap-3 pt-4 border-t border-gray-700">
+            <div className="flex justify-end gap-3 pt-6 mt-6 border-t border-gray-700">
               <button
                 onClick={onClose}
                 className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white text-sm rounded transition-colors"

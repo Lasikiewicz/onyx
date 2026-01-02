@@ -48,6 +48,21 @@ const getDefaultPaths = (appId: string): string[] => {
       'C:\\XboxGames',
       'C:\\Program Files\\WindowsApps',
     ],
+    humble: [
+      'C:\\Program Files\\Humble App',
+      'C:\\Program Files (x86)\\Humble App',
+      '%LOCALAPPDATA%\\Humble App',
+    ],
+    itch: [
+      '%LOCALAPPDATA%\\itch',
+      'C:\\Program Files\\itch',
+      'C:\\Program Files (x86)\\itch',
+    ],
+    rockstar: [
+      'C:\\Program Files\\Rockstar Games',
+      'C:\\Program Files (x86)\\Rockstar Games',
+      '%USERPROFILE%\\Documents\\Rockstar Games',
+    ],
   };
   return paths[appId] || [];
 };
@@ -60,6 +75,9 @@ const defaultApps: Omit<AppConfig, 'enabled' | 'path'>[] = [
   { id: 'ubisoft', name: 'Ubisoft Connect', defaultPaths: getDefaultPaths('ubisoft'), placeholder: 'C:\\Program Files (x86)\\Ubisoft\\Ubisoft Game Launcher' },
   { id: 'battle', name: 'Battle.net', defaultPaths: getDefaultPaths('battle'), placeholder: 'C:\\Program Files (x86)\\Battle.net' },
   { id: 'xbox', name: 'Xbox Game Pass', defaultPaths: getDefaultPaths('xbox'), placeholder: 'C:\\XboxGames' },
+  { id: 'humble', name: 'Humble', defaultPaths: getDefaultPaths('humble'), placeholder: 'C:\\Program Files\\Humble App' },
+  { id: 'itch', name: 'itch.io', defaultPaths: getDefaultPaths('itch'), placeholder: '%LOCALAPPDATA%\\itch' },
+  { id: 'rockstar', name: 'Rockstar Games', defaultPaths: getDefaultPaths('rockstar'), placeholder: 'C:\\Program Files\\Rockstar Games' },
 ];
 
 // Helper to check if a path exists
@@ -395,8 +413,8 @@ export const UpdateLibraryModal: React.FC<UpdateLibraryModalProps> = ({
                   </button>
                 </div>
 
-                {/* App List - Two Row Grid */}
-                <div className="grid grid-cols-2 gap-3">
+                {/* App List - Three Column Grid */}
+                <div className="grid grid-cols-3 gap-3">
                   {enabledApps.map((app) => {
                     const isScanning = scanningApps.has(app.id);
                     const result = scanResults.get(app.id);
