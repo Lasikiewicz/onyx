@@ -8,6 +8,7 @@ interface AppSettingsModalProps {
   onUpdateLibrary?: () => void;
   onConfigureApps?: () => void;
   onOnyxSettings?: () => void;
+  onAPISettings?: () => void;
   onExit?: () => void;
 }
 
@@ -19,6 +20,7 @@ export const AppSettingsModal: React.FC<AppSettingsModalProps> = ({
   onUpdateLibrary,
   onConfigureApps,
   onOnyxSettings,
+  onAPISettings,
   onExit,
 }) => {
   if (!isOpen) return null;
@@ -103,6 +105,19 @@ export const AppSettingsModal: React.FC<AppSettingsModalProps> = ({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
               </svg>
               <span>Onyx Settings</span>
+            </button>
+
+            <button
+              onClick={() => {
+                onAPISettings?.();
+                onClose();
+              }}
+              className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-gray-200 hover:bg-gray-700 rounded transition-colors"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              </svg>
+              <span>APIs</span>
             </button>
 
             <hr className="border-white/10 my-2" />

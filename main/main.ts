@@ -11,6 +11,7 @@ import { IGDBService } from './IGDBService.js';
 import { AppConfigService } from './AppConfigService.js';
 import { XboxService } from './XboxService.js';
 import { UserPreferencesService } from './UserPreferencesService.js';
+import { APICredentialsService } from './APICredentialsService.js';
 
 // Load environment variables
 dotenv.config();
@@ -533,23 +534,47 @@ const gameStore = new GameStore();
 const appConfigService = new AppConfigService();
 const xboxService = new XboxService();
 const userPreferencesService = new UserPreferencesService();
+const apiCredentialsService = new APICredentialsService();
 const metadataFetcher = new MetadataFetcherService(true); // Start with mock mode enabled
 const launcherService = new LauncherService(gameStore);
 
 // Initialize IGDB service if credentials are available
 let igdbService: IGDBService | null = null;
-const igdbClientId = process.env.IGDB_CLIENT_ID;
-const igdbClientSecret = process.env.IGDB_CLIENT_SECRET;
-if (igdbClientId && igdbClientSecret) {
+
+// Function to initialize IGDB service with credentials
+const initializeIGDBService = async () => {
   try {
-    igdbService = new IGDBService(igdbClientId, igdbClientSecret);
-    console.log('IGDB service initialized');
+    // First check stored credentials, then fall back to environment variables
+    const storedCreds = await apiCredentialsService.getCredentials();
+    const igdbClientId = storedCreds.igdbClientId || process.env.IGDB_CLIENT_ID;
+    const igdbClientSecret = storedCreds.igdbClientSecret || process.env.IGDB_CLIENT_SECRET;
+    
+    if (igdbClientId && igdbClientSecret) {
+      try {
+        igdbService = new IGDBService(igdbClientId, igdbClientSecret);
+        console.log('IGDB service initialized');
+        return true;
+      } catch (error) {
+        console.error('Failed to initialize IGDB service:', error);
+        igdbService = null;
+        return false;
+      }
+    } else {
+      console.warn('IGDB credentials not found. IGDB features will be unavailable.');
+      igdbService = null;
+      return false;
+    }
   } catch (error) {
-    console.error('Failed to initialize IGDB service:', error);
+    console.error('Error initializing IGDB service:', error);
+    igdbService = null;
+    return false;
   }
-} else {
-  console.warn('IGDB credentials not found in environment variables. IGDB features will be unavailable.');
-}
+};
+
+// Initialize on startup (wrapped in IIFE to handle async)
+(async () => {
+  await initializeIGDBService();
+})();
 
 // Try to set default Steam path if it exists
 try {
@@ -693,7 +718,7 @@ ipcMain.handle('metadata:setMockMode', async (_event, enabled: boolean) => {
 ipcMain.handle('metadata:searchMetadata', async (_event, gameTitle: string) => {
   try {
     if (!igdbService) {
-      return { success: false, error: 'IGDB service not configured. Please set IGDB_CLIENT_ID and IGDB_CLIENT_SECRET in .env file.', results: [] };
+      return { success: false, error: 'IGDB service not configured. Please configure your API credentials in Settings > APIs.', results: [] };
     }
     
     const results = await igdbService.searchGame(gameTitle);
@@ -1067,6 +1092,31 @@ ipcMain.handle('preferences:save', async (_event, preferences: { gridSize?: numb
     return { success: true };
   } catch (error) {
     console.error('Error saving user preferences:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+});
+
+// API credentials IPC handlers
+ipcMain.handle('api:getCredentials', async () => {
+  try {
+    return await apiCredentialsService.getCredentials();
+  } catch (error) {
+    console.error('Error getting API credentials:', error);
+    return {
+      igdbClientId: undefined,
+      igdbClientSecret: undefined,
+    };
+  }
+});
+
+ipcMain.handle('api:saveCredentials', async (_event, credentials: { igdbClientId?: string; igdbClientSecret?: string }) => {
+  try {
+    await apiCredentialsService.saveCredentials(credentials);
+    // Reinitialize IGDB service with new credentials
+    await initializeIGDBService();
+    return { success: true };
+  } catch (error) {
+    console.error('Error saving API credentials:', error);
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
 });

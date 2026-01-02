@@ -76,6 +76,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   applySystemTraySettings: (settings: { showSystemTrayIcon: boolean; minimizeToTray: boolean }) => ipcRenderer.invoke('app:applySystemTraySettings', settings),
   applyStartupSettings: (settings: { startWithComputer: boolean; startClosedToTray: boolean }) => ipcRenderer.invoke('app:applyStartupSettings', settings),
   openExternal: (url: string) => ipcRenderer.invoke('app:openExternal', url),
+  // API credentials methods
+  getAPICredentials: () => ipcRenderer.invoke('api:getCredentials'),
+  saveAPICredentials: (credentials: { igdbClientId?: string; igdbClientSecret?: string }) => ipcRenderer.invoke('api:saveCredentials', credentials),
 });
 
 // Debug: Log that electronAPI was exposed

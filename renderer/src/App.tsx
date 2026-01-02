@@ -15,6 +15,7 @@ import { AppSettingsModal } from './components/AppSettingsModal';
 import { ConfigureAppsModal } from './components/ConfigureAppsModal';
 import { UpdateLibraryModal } from './components/UpdateLibraryModal';
 import { OnyxSettingsModal } from './components/OnyxSettingsModal';
+import { APISettingsModal } from './components/APISettingsModal';
 import { Game, ExecutableFile, GameMetadata } from './types/game';
 
 function App() {
@@ -59,6 +60,7 @@ function App() {
   const [isConfigureAppsOpen, setIsConfigureAppsOpen] = useState(false);
   const [isUpdateLibraryOpen, setIsUpdateLibraryOpen] = useState(false);
   const [isOnyxSettingsOpen, setIsOnyxSettingsOpen] = useState(false);
+  const [isAPISettingsOpen, setIsAPISettingsOpen] = useState(false);
   const [gridSize, setGridSize] = useState(120);
   const [pinnedCategories, setPinnedCategories] = useState<string[]>([]);
   const [hideVRTitles, setHideVRTitles] = useState(true);
@@ -773,6 +775,7 @@ function App() {
         onUpdateLibrary={handleUpdateSteamLibrary}
         onConfigureApps={() => setIsConfigureAppsOpen(true)}
         onOnyxSettings={() => setIsOnyxSettingsOpen(true)}
+        onAPISettings={() => setIsAPISettingsOpen(true)}
         onExit={handleExit}
       />
 
@@ -780,6 +783,12 @@ function App() {
       <OnyxSettingsModal
         isOpen={isOnyxSettingsOpen}
         onClose={() => setIsOnyxSettingsOpen(false)}
+      />
+
+      {/* API Settings Modal */}
+      <APISettingsModal
+        isOpen={isAPISettingsOpen}
+        onClose={() => setIsAPISettingsOpen(false)}
       />
 
       {/* Configure Apps Modal */}
