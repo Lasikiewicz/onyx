@@ -23,13 +23,13 @@ export class LauncherService {
         return { success: false, error: `Game with ID ${gameId} not found` };
       }
 
-      if (game.platform === 'steam') {
-        // Extract AppID from game ID (format: steam-<AppID>)
-        const appIdMatch = gameId.match(/^steam-(.+)$/);
-        if (!appIdMatch || !appIdMatch[1]) {
-          return { success: false, error: 'Invalid Steam game ID format' };
-        }
-
+      // Check if this is a Steam game by ID format (most reliable indicator)
+      // Game ID format for Steam games: steam-<AppID>
+      // This is more reliable than checking the platform field which might be missing
+      const appIdMatch = gameId.match(/^steam-(.+)$/);
+      
+      if (appIdMatch && appIdMatch[1]) {
+        // This is a Steam game - launch via Steam URL protocol
         const appId = appIdMatch[1];
         const steamUrl = `steam://rungameid/${appId}`;
 
@@ -37,6 +37,17 @@ export class LauncherService {
         // This is safer than finding the EXE directly
         await shell.openExternal(steamUrl);
         return { success: true };
+      } else if (game.platform === 'steam') {
+        // Fallback: platform is set to 'steam' but ID format doesn't match
+        // Try to extract appId from the ID anyway
+        const fallbackMatch = gameId.match(/steam-?(\d+)/);
+        if (fallbackMatch && fallbackMatch[1]) {
+          const appId = fallbackMatch[1];
+          const steamUrl = `steam://rungameid/${appId}`;
+          await shell.openExternal(steamUrl);
+          return { success: true };
+        }
+        return { success: false, error: 'Invalid Steam game ID format' };
       } else {
         // Non-Steam game: launch the executable
         if (!game.exePath) {

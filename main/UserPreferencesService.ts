@@ -9,6 +9,15 @@ export interface UserPreferences {
   startWithComputer?: boolean;
   startClosedToTray?: boolean;
   updateLibrariesOnStartup?: boolean;
+  activeGameId?: string | null;
+  hideVRTitles?: boolean;
+  windowState?: {
+    x?: number;
+    y?: number;
+    width?: number;
+    height?: number;
+    isMaximized?: boolean;
+  };
 }
 
 interface UserPreferencesSchema {
@@ -38,6 +47,9 @@ export class UserPreferencesService {
             startWithComputer: false,
             startClosedToTray: false,
             updateLibrariesOnStartup: false,
+            activeGameId: null,
+            hideVRTitles: true,
+            windowState: undefined,
           },
         },
       });
@@ -68,6 +80,9 @@ export class UserPreferencesService {
       startWithComputer: false,
       startClosedToTray: false,
       updateLibrariesOnStartup: false,
+      activeGameId: null,
+      hideVRTitles: true,
+      windowState: undefined,
     });
   }
 
@@ -87,6 +102,9 @@ export class UserPreferencesService {
       startWithComputer: false,
       startClosedToTray: false,
       updateLibrariesOnStartup: false,
+      activeGameId: null,
+      hideVRTitles: true,
+      windowState: undefined,
     });
     store.set('preferences', { ...current, ...preferences });
   }

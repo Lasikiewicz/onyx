@@ -15,6 +15,9 @@ interface MenuBarProps {
   sortBy?: 'title' | 'releaseDate' | 'playtime' | 'lastPlayed';
   onSortChange?: (sort: 'title' | 'releaseDate' | 'playtime' | 'lastPlayed') => void;
   hasFavoriteGames?: boolean;
+  hasVRCategory?: boolean;
+  hideVRTitles?: boolean;
+  onToggleHideVRTitles?: () => void;
 }
 
 export const MenuBar: React.FC<MenuBarProps> = ({
@@ -28,6 +31,9 @@ export const MenuBar: React.FC<MenuBarProps> = ({
   sortBy = 'title',
   onSortChange,
   hasFavoriteGames = false,
+  hasVRCategory = false,
+  hideVRTitles = true,
+  onToggleHideVRTitles,
 }) => {
   const [isFilterDropdownOpen, setIsFilterDropdownOpen] = useState(false);
   const [isSortDropdownOpen, setIsSortDropdownOpen] = useState(false);
@@ -166,43 +172,63 @@ export const MenuBar: React.FC<MenuBarProps> = ({
                     <div className="border-t border-gray-700 my-1" />
                     {allCategories.map((category) => {
                   const isPinned = pinnedCategories?.includes(category);
+                  const isVR = category === 'VR';
                   return (
-                    <div
-                      key={category}
-                      className="flex items-center gap-2 group"
-                    >
-                      <button
-                        onClick={() => {
-                          onCategoryChange?.(category);
-                          setIsFilterDropdownOpen(false);
-                        }}
-                        className={`flex-1 text-left px-3 py-2 rounded text-sm transition-colors ${
-                          selectedCategory === category
-                            ? 'bg-blue-600 text-white'
-                            : 'text-gray-300 hover:bg-gray-700'
-                        }`}
+                    <React.Fragment key={category}>
+                      <div
+                        className="flex items-center gap-2 group"
                       >
-                        {category}
-                      </button>
-                      {onTogglePinCategory && (
                         <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onTogglePinCategory(category);
+                          onClick={() => {
+                            onCategoryChange?.(category);
+                            setIsFilterDropdownOpen(false);
                           }}
-                          className={`p-1.5 rounded transition-colors ${
-                            isPinned
-                              ? 'text-yellow-400 hover:bg-gray-700'
-                              : 'text-gray-500 hover:text-yellow-400 hover:bg-gray-700'
+                          className={`flex-1 text-left px-3 py-2 rounded text-sm transition-colors ${
+                            selectedCategory === category
+                              ? 'bg-blue-600 text-white'
+                              : 'text-gray-300 hover:bg-gray-700'
                           }`}
-                          title={isPinned ? 'Unpin category' : 'Pin category'}
                         >
-                          <svg className="w-4 h-4" fill={isPinned ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
-                          </svg>
+                          {category}
                         </button>
+                        {onTogglePinCategory && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onTogglePinCategory(category);
+                            }}
+                            className={`p-1.5 rounded transition-colors ${
+                              isPinned
+                                ? 'text-yellow-400 hover:bg-gray-700'
+                                : 'text-gray-500 hover:text-yellow-400 hover:bg-gray-700'
+                            }`}
+                            title={isPinned ? 'Unpin category' : 'Pin category'}
+                          >
+                            <svg className="w-4 h-4" fill={isPinned ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                            </svg>
+                          </button>
+                        )}
+                      </div>
+                      {isVR && hasVRCategory && (
+                        <label
+                          className="w-full px-3 py-2 rounded text-sm transition-colors flex items-center gap-2 text-gray-300 hover:bg-gray-700 cursor-pointer ml-0"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={hideVRTitles}
+                            onChange={() => {
+                              onToggleHideVRTitles?.();
+                            }}
+                            className="w-4 h-4 rounded border-gray-600 bg-gray-700 text-blue-600 focus:ring-blue-500 focus:ring-2 cursor-pointer"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                            }}
+                          />
+                          <span>Hide VR Titles</span>
+                        </label>
                       )}
-                    </div>
+                    </React.Fragment>
                   );
                 })}
                   </>

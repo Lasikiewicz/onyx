@@ -61,6 +61,7 @@ function App() {
   const [isOnyxSettingsOpen, setIsOnyxSettingsOpen] = useState(false);
   const [gridSize, setGridSize] = useState(120);
   const [pinnedCategories, setPinnedCategories] = useState<string[]>([]);
+  const [hideVRTitles, setHideVRTitles] = useState(true);
 
   // Load preferences on mount
   useEffect(() => {
@@ -69,6 +70,11 @@ function App() {
         const prefs = await window.electronAPI.getPreferences();
         if (prefs.gridSize) setGridSize(prefs.gridSize);
         if (prefs.pinnedCategories) setPinnedCategories(prefs.pinnedCategories);
+        if (prefs.hideVRTitles !== undefined) setHideVRTitles(prefs.hideVRTitles);
+        // Restore active game selection if it exists
+        if (prefs.activeGameId) {
+          setActiveGameId(prefs.activeGameId);
+        }
       } catch (error) {
         console.error('Error loading preferences:', error);
       }
@@ -103,6 +109,46 @@ function App() {
     const timeoutId = setTimeout(savePinnedCategories, 300);
     return () => clearTimeout(timeoutId);
   }, [pinnedCategories]);
+
+  // Save hideVRTitles when it changes
+  useEffect(() => {
+    const saveHideVRTitles = async () => {
+      try {
+        await window.electronAPI.savePreferences({ hideVRTitles });
+      } catch (error) {
+        console.error('Error saving hide VR titles preference:', error);
+      }
+    };
+    // Debounce saves
+    const timeoutId = setTimeout(saveHideVRTitles, 300);
+    return () => clearTimeout(timeoutId);
+  }, [hideVRTitles]);
+
+  // Save activeGameId when it changes
+  useEffect(() => {
+    const saveActiveGameId = async () => {
+      try {
+        await window.electronAPI.savePreferences({ activeGameId });
+      } catch (error) {
+        console.error('Error saving active game ID:', error);
+      }
+    };
+    // Debounce saves
+    const timeoutId = setTimeout(saveActiveGameId, 300);
+    return () => clearTimeout(timeoutId);
+  }, [activeGameId]);
+
+  // Restore active game selection after games are loaded
+  useEffect(() => {
+    if (!loading && games.length > 0 && activeGameId) {
+      // Verify the saved game still exists in the library
+      const gameExists = games.some(g => g.id === activeGameId);
+      if (!gameExists) {
+        // Game no longer exists, clear the selection
+        setActiveGameId(null);
+      }
+    }
+  }, [loading, games, activeGameId]);
 
   // Toggle pin category
   const handleTogglePinCategory = (category: string) => {
@@ -157,6 +203,11 @@ function App() {
     return games.some(g => g.favorite === true);
   }, [games]);
 
+  // Check if VR category exists
+  const hasVRCategory = useMemo(() => {
+    return allCategories.includes('VR');
+  }, [allCategories]);
+
   // Filter games based on search, section, and category
   const filteredGames = useMemo(() => {
     let filtered = games;
@@ -174,6 +225,13 @@ function App() {
     } else if (selectedCategory) {
       filtered = filtered.filter(g => 
         g.categories?.includes(selectedCategory)
+      );
+    }
+    
+    // Filter out VR titles if hideVRTitles is enabled, but not if VR category is selected
+    if (hideVRTitles && selectedCategory !== 'VR') {
+      filtered = filtered.filter(g => 
+        !g.categories?.includes('VR')
       );
     }
     
@@ -210,7 +268,7 @@ function App() {
     });
     
     return filtered;
-  }, [games, searchQuery, activeSection, selectedCategory, sortBy]);
+  }, [games, searchQuery, activeSection, selectedCategory, sortBy, hideVRTitles]);
 
   const activeGame = activeGameId ? games.find(g => g.id === activeGameId) || null : null;
 
@@ -315,12 +373,19 @@ function App() {
             libraryId = `steam-${appId}`;
             scannedGameIdToLibraryId.set(appId, libraryId);
           }
-        } else {
+        } else if ('installPath' in scannedGame && 'type' in scannedGame && (scannedGame.type === 'uwp' || scannedGame.type === 'pc')) {
           // Xbox game
           const xboxId = scannedGame.id;
           if (xboxId) {
             libraryId = xboxId;
             scannedGameIdToLibraryId.set(xboxId, libraryId);
+          }
+        } else {
+          // Other game (Epic, EA, GOG, Ubisoft, Battle.net)
+          const otherId = scannedGame.id;
+          if (otherId) {
+            libraryId = otherId;
+            scannedGameIdToLibraryId.set(otherId, libraryId);
           }
         }
       });
@@ -550,6 +615,9 @@ function App() {
         sortBy={sortBy}
         onSortChange={setSortBy}
         hasFavoriteGames={hasFavoriteGames}
+        hasVRCategory={hasVRCategory}
+        hideVRTitles={hideVRTitles}
+        onToggleHideVRTitles={() => setHideVRTitles(prev => !prev)}
       />
 
       {/* Top Bar - Hidden by default, shown when menu is open */}

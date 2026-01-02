@@ -111,50 +111,80 @@ function createMenu() {
 
 // Create system tray
 function createTray() {
-  // Try to load icon from resources (prefer SVG, fallback to PNG)
+  // System tray icons work better with PNG/ICO on Windows, prefer PNG over SVG
   let iconPath: string;
   let icon: Electron.NativeImage;
   
   try {
     if (app.isPackaged) {
-      // In packaged app, try SVG first, then PNG
-      const svgPath = path.join(process.resourcesPath, 'icon.svg');
+      // In packaged app, prefer PNG for system tray (better Windows support)
       const pngPath = path.join(process.resourcesPath, 'icon.png');
+      const svgPath = path.join(process.resourcesPath, 'icon.svg');
       
-      if (existsSync(svgPath)) {
-        iconPath = svgPath;
-      } else if (existsSync(pngPath)) {
+      if (existsSync(pngPath)) {
         iconPath = pngPath;
+      } else if (existsSync(svgPath)) {
+        iconPath = svgPath;
       } else {
         throw new Error('No icon file found');
       }
     } else {
-      // In development, try SVG first, then PNG
-      const svgPath = path.join(__dirname, '../../resources/icon.svg');
+      // In development, prefer PNG for system tray
       const pngPath = path.join(__dirname, '../../resources/icon.png');
+      const svgPath = path.join(__dirname, '../../resources/icon.svg');
       
-      if (existsSync(svgPath)) {
-        iconPath = svgPath;
-      } else if (existsSync(pngPath)) {
+      if (existsSync(pngPath)) {
         iconPath = pngPath;
+      } else if (existsSync(svgPath)) {
+        iconPath = svgPath;
       } else {
         throw new Error('No icon file found');
       }
     }
     
-    // Load the icon (nativeImage supports SVG)
+    // Load the icon
     icon = nativeImage.createFromPath(iconPath);
+    
+    // Check if icon is empty (common issue with SVG on Windows)
+    if (icon.isEmpty()) {
+      throw new Error('Icon loaded but is empty');
+    }
     
     // Resize for system tray (typically 16x16 or 22x22 depending on OS)
     const size = process.platform === 'darwin' ? 22 : 16;
-    icon = icon.resize({ width: size, height: size });
+    const resizedIcon = icon.resize({ width: size, height: size });
     
-    tray = new Tray(icon);
+    // Verify resized icon is not empty
+    if (resizedIcon.isEmpty()) {
+      throw new Error('Resized icon is empty');
+    }
+    
+    tray = new Tray(resizedIcon);
   } catch (error) {
     console.error('Error creating tray icon:', error);
-    // Fallback: create a simple icon
-    icon = nativeImage.createEmpty();
-    tray = new Tray(icon);
+    // Try to create a fallback icon from the original
+    try {
+      // Last resort: try to load PNG directly without resize
+      const fallbackPath = app.isPackaged
+        ? path.join(process.resourcesPath, 'icon.png')
+        : path.join(__dirname, '../../resources/icon.png');
+      
+      if (existsSync(fallbackPath)) {
+        icon = nativeImage.createFromPath(fallbackPath);
+        if (!icon.isEmpty()) {
+          tray = new Tray(icon);
+        } else {
+          throw new Error('Fallback icon is empty');
+        }
+      } else {
+        throw new Error('No fallback icon available');
+      }
+    } catch (fallbackError) {
+      console.error('Fallback icon creation failed:', fallbackError);
+      // Final fallback: create a simple colored icon
+      icon = nativeImage.createEmpty();
+      tray = new Tray(icon);
+    }
   }
 
   const contextMenu = Menu.buildFromTemplate([
@@ -194,7 +224,7 @@ function createTray() {
   });
 }
 
-function createWindow() {
+async function createWindow() {
   // Load app icon (prefer SVG, fallback to PNG)
   let appIcon: Electron.NativeImage | undefined;
   try {
@@ -221,9 +251,24 @@ function createWindow() {
     console.error('Error loading app icon:', error);
   }
 
+  // Load saved window state
+  let windowState: { x?: number; y?: number; width?: number; height?: number; isMaximized?: boolean } | undefined;
+  try {
+    const prefs = await userPreferencesService.getPreferences();
+    windowState = prefs.windowState;
+  } catch (error) {
+    console.error('Error loading window state:', error);
+  }
+
+  // Default window dimensions
+  const defaultWidth = 1920;
+  const defaultHeight = 1080;
+
   win = new BrowserWindow({
-    width: 1920,
-    height: 1080,
+    width: windowState?.width ?? defaultWidth,
+    height: windowState?.height ?? defaultHeight,
+    x: windowState?.x,
+    y: windowState?.y,
     minWidth: 1280,
     minHeight: 720,
     backgroundColor: '#1a1a1a',
@@ -246,9 +291,65 @@ function createWindow() {
     show: false, // Don't show initially if startClosedToTray is enabled
   });
 
+  // Restore maximized state if it was maximized
+  if (windowState?.isMaximized) {
+    win.maximize();
+  }
+
+  // Save window state when window is moved or resized
+  let saveWindowStateTimeout: NodeJS.Timeout | null = null;
+  const saveWindowState = async () => {
+    if (!win) return;
+    
+    // Debounce saves to avoid too many writes
+    if (saveWindowStateTimeout) {
+      clearTimeout(saveWindowStateTimeout);
+    }
+    
+    saveWindowStateTimeout = setTimeout(async () => {
+      try {
+        const bounds = win!.getBounds();
+        const isMaximized = win!.isMaximized();
+        
+        await userPreferencesService.savePreferences({
+          windowState: {
+            x: bounds.x,
+            y: bounds.y,
+            width: bounds.width,
+            height: bounds.height,
+            isMaximized,
+          },
+        });
+      } catch (error) {
+        console.error('Error saving window state:', error);
+      }
+    }, 500); // Debounce for 500ms
+  };
+
+  win.on('move', saveWindowState);
+  win.on('resize', saveWindowState);
+  win.on('maximize', saveWindowState);
+  win.on('unmaximize', saveWindowState);
+
   // Handle window close based on preferences
   win.on('close', async (event) => {
     try {
+      // Save window state before closing
+      if (win) {
+        const bounds = win.getBounds();
+        const isMaximized = win.isMaximized();
+        
+        await userPreferencesService.savePreferences({
+          windowState: {
+            x: bounds.x,
+            y: bounds.y,
+            width: bounds.width,
+            height: bounds.height,
+            isMaximized,
+          },
+        });
+      }
+
       const prefs = await userPreferencesService.getPreferences();
       if (prefs.minimizeToTray) {
         event.preventDefault();
@@ -834,7 +935,7 @@ ipcMain.handle('preferences:get', async () => {
   }
 });
 
-ipcMain.handle('preferences:save', async (_event, preferences: { gridSize?: number; panelWidth?: number; fanartHeight?: number; descriptionHeight?: number; pinnedCategories?: string[]; minimizeToTray?: boolean; showSystemTrayIcon?: boolean; startWithComputer?: boolean; startClosedToTray?: boolean; updateLibrariesOnStartup?: boolean }) => {
+ipcMain.handle('preferences:save', async (_event, preferences: { gridSize?: number; panelWidth?: number; fanartHeight?: number; descriptionHeight?: number; pinnedCategories?: string[]; minimizeToTray?: boolean; showSystemTrayIcon?: boolean; startWithComputer?: boolean; startClosedToTray?: boolean; updateLibrariesOnStartup?: boolean; activeGameId?: string | null; hideVRTitles?: boolean; windowState?: { x?: number; y?: number; width?: number; height?: number; isMaximized?: boolean } }) => {
   try {
     await userPreferencesService.savePreferences(preferences);
     return { success: true };

@@ -232,12 +232,61 @@ export const UpdateLibraryModal: React.FC<UpdateLibraryModalProps> = ({
           });
         }
       } else {
-        // For other launchers, show a "not implemented" message for now
-        setScanResults(prev => {
-          const newMap = new Map(prev);
-          newMap.set(appId, { success: false, error: 'Scanning not yet implemented for this launcher' });
-          return newMap;
-        });
+        // For other launchers (Epic, EA, GOG, Ubisoft, Battle.net), scan for executables
+        try {
+          const executables = await window.electronAPI.scanFolderForExecutables(app.path);
+          
+          if (executables && executables.length > 0) {
+            // Convert executables to game format compatible with import modal
+            const games = executables.map((exe, index) => {
+              // Extract game name from executable filename (remove .exe extension)
+              const gameName = exe.fileName.replace(/\.exe$/i, '').trim();
+              // Create a unique ID based on the executable path (use btoa for base64 encoding in browser)
+              const pathHash = btoa(exe.fullPath).replace(/[^a-zA-Z0-9]/g, '').slice(0, 16);
+              const gameId = `${appId}-${pathHash}`;
+              
+              return {
+                id: gameId,
+                name: gameName,
+                installPath: exe.fullPath,
+                exePath: exe.fullPath,
+                type: appId,
+              };
+            });
+            
+            // Show import modal with scanned games
+            if (onShowImportModal) {
+              onShowImportModal(games, 'other');
+            }
+            
+            setScanResults(prev => {
+              const newMap = new Map(prev);
+              newMap.set(appId, { 
+                success: true, 
+                gamesFound: games.length 
+              });
+              return newMap;
+            });
+          } else {
+            setScanResults(prev => {
+              const newMap = new Map(prev);
+              newMap.set(appId, { 
+                success: true, 
+                gamesFound: 0 
+              });
+              return newMap;
+            });
+          }
+        } catch (err) {
+          setScanResults(prev => {
+            const newMap = new Map(prev);
+            newMap.set(appId, { 
+              success: false, 
+              error: err instanceof Error ? err.message : 'Failed to scan games' 
+            });
+            return newMap;
+          });
+        }
       }
     } catch (err) {
       setScanResults(prev => {
@@ -277,7 +326,7 @@ export const UpdateLibraryModal: React.FC<UpdateLibraryModalProps> = ({
       {/* Modal - Centered on screen */}
       <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
         <div 
-          className="bg-gray-800 rounded-lg shadow-xl w-full max-w-4xl max-h-[85vh] border border-gray-700 flex flex-col"
+          className="bg-gray-800 rounded-lg shadow-xl w-full max-w-6xl max-h-[90vh] border border-gray-700 flex flex-col"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
@@ -337,8 +386,8 @@ export const UpdateLibraryModal: React.FC<UpdateLibraryModalProps> = ({
                   </button>
                 </div>
 
-                {/* App List */}
-                <div className="space-y-3">
+                {/* App List - Two Row Grid */}
+                <div className="grid grid-cols-2 gap-3">
                   {enabledApps.map((app) => {
                     const isScanning = scanningApps.has(app.id);
                     const result = scanResults.get(app.id);
@@ -346,14 +395,14 @@ export const UpdateLibraryModal: React.FC<UpdateLibraryModalProps> = ({
                     return (
                       <div
                         key={app.id}
-                        className="bg-gray-700/50 rounded-lg border border-gray-600 p-4"
+                        className="bg-gray-700/50 rounded-lg border border-gray-600 p-5 min-h-[120px]"
                       >
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1">
-                            <h3 className="text-sm font-semibold text-white mb-1">
+                        <div className="flex flex-col h-full">
+                          <div className="flex-1 mb-3">
+                            <h3 className="text-sm font-semibold text-white mb-2">
                               {app.name}
                             </h3>
-                            <p className="text-xs text-gray-400 truncate" title={app.path}>
+                            <p className="text-xs text-gray-400 break-words mb-2" title={app.path}>
                               {app.path}
                             </p>
                             {result && (
@@ -375,7 +424,7 @@ export const UpdateLibraryModal: React.FC<UpdateLibraryModalProps> = ({
                           <button
                             onClick={() => handleRescanApp(app.id)}
                             disabled={isScanning}
-                            className="ml-4 px-4 py-2 bg-gray-600 hover:bg-gray-500 text-white text-sm rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 whitespace-nowrap"
+                            className="w-full px-4 py-2 bg-gray-600 hover:bg-gray-500 text-white text-sm rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 whitespace-nowrap"
                           >
                             {isScanning ? (
                               <>

@@ -236,23 +236,6 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game }) => {
                 </div>
               )}
 
-              {/* Genres */}
-              {game.genres && game.genres.length > 0 && (
-                <div>
-                  <h3 className="text-lg font-semibold text-white mb-3">Genres</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {game.genres.map((genre, index) => (
-                      <span
-                        key={index}
-                        className="px-3 py-1 bg-blue-600/20 border border-blue-500/50 rounded text-blue-300 text-sm"
-                      >
-                        {genre}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-
               {/* Features */}
               {game.features && game.features.length > 0 && (
                 <div>
