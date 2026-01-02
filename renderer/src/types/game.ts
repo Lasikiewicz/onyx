@@ -90,6 +90,8 @@ declare global {
       applySystemTraySettings: (settings: { showSystemTrayIcon: boolean; minimizeToTray: boolean }) => Promise<{ success: boolean; error?: string }>;
       applyStartupSettings: (settings: { startWithComputer: boolean; startClosedToTray: boolean }) => Promise<{ success: boolean; error?: string }>;
       openExternal: (url: string) => Promise<{ success: boolean; error?: string }>;
+      getAPICredentials: () => Promise<{ igdbClientId?: string; igdbClientSecret?: string }>;
+      saveAPICredentials: (credentials: { igdbClientId?: string; igdbClientSecret?: string }) => Promise<{ success: boolean; error?: string }>;
     };
   }
 }
