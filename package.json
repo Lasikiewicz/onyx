@@ -72,7 +72,22 @@
       "dist-electron/**/*",
       "package.json",
       "resources/icon.svg",
-      "resources/icon.png"
+      "resources/icon.png",
+      "build/icon.ico"
+    ],
+    "extraResources": [
+      {
+        "from": "build/icon.ico",
+        "to": "icon.ico"
+      },
+      {
+        "from": "resources/icon.png",
+        "to": "icon.png"
+      },
+      {
+        "from": "resources/icon.svg",
+        "to": "icon.svg"
+      }
     ]
   }
 }

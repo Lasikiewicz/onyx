@@ -238,11 +238,20 @@ export const UpdateLibraryModal: React.FC<UpdateLibraryModalProps> = ({
           
           if (executables && executables.length > 0) {
             // Convert executables to game format compatible with import modal
-            const games = executables.map((exe, index) => {
+            const games = executables.map((exe) => {
               // Extract game name from executable filename (remove .exe extension)
               const gameName = exe.fileName.replace(/\.exe$/i, '').trim();
-              // Create a unique ID based on the executable path (use btoa for base64 encoding in browser)
-              const pathHash = btoa(exe.fullPath).replace(/[^a-zA-Z0-9]/g, '').slice(0, 16);
+              // Create a unique ID based on the executable path using a simple hash function
+              // This ensures each unique path gets a unique ID
+              let hash = 0;
+              const pathStr = exe.fullPath.toLowerCase();
+              for (let i = 0; i < pathStr.length; i++) {
+                const char = pathStr.charCodeAt(i);
+                hash = ((hash << 5) - hash) + char;
+                hash = hash & hash; // Convert to 32-bit integer
+              }
+              // Use absolute value and convert to base36 for shorter string
+              const pathHash = Math.abs(hash).toString(36);
               const gameId = `${appId}-${pathHash}`;
               
               return {

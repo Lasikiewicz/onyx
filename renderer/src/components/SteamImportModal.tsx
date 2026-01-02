@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Game } from '../types/game';
 import { GameMetadata } from '../types/game';
 import { SteamGameMetadataEditor } from './SteamGameMetadataEditor';
@@ -59,6 +59,33 @@ const getGameName = (game: ScannedGame): string => {
   return game.name;
 };
 
+// Helper to get a better search name for "other" games by extracting from path
+const getSearchNameForOtherGame = (game: OtherGame): string => {
+  // Try to extract a better name from the path
+  const path = game.exePath || game.installPath || '';
+  if (path) {
+    // Extract parent directory name (often the game name)
+    const pathParts = path.split(/[/\\]/);
+    // Look for common game directory patterns, starting from the executable's parent
+    // Skip the executable itself and look at parent directories
+    for (let i = pathParts.length - 2; i >= 0; i--) {
+      const part = pathParts[i];
+      // Skip common non-game directories and installer/utility folders
+      if (part && 
+          !part.match(/^(Program Files|Program Files \(x86\)|Games|Steam|Epic|EA|GOG|Ubisoft|Battle\.net|__Installer|_Installer|Installer|SP|MP|Bin|Binaries|Win64|Win32|Common|Redist|Redistributables)$/i) &&
+          !part.match(/^(setup|install|uninstall|cleanup|touchup|repair|config|launcher|updater)$/i) &&
+          part.length > 2) {
+        // Clean up the name - remove common suffixes
+        const cleaned = part.replace(/[_\s]*(trial|demo|beta|alpha|test)[_\s]*$/i, '').trim();
+        return cleaned || part;
+      }
+    }
+  }
+  // Fallback to the executable name without extension, but clean it up
+  const name = game.name.replace(/[_\s]*(trial|demo|beta|alpha|test|\.exe)[_\s]*$/i, '').trim();
+  return name || game.name;
+};
+
 export const SteamImportModal: React.FC<SteamImportModalProps> = ({ isOpen, onClose, onImport, preScannedGames, appType = 'steam', existingLibrary }) => {
   const [scannedGames, setScannedGames] = useState<ScannedGame[]>([]);
   const [selectedGames, setSelectedGames] = useState<Set<string>>(new Set());
@@ -72,11 +99,19 @@ export const SteamImportModal: React.FC<SteamImportModalProps> = ({ isOpen, onCl
   const [persistedSelections, setPersistedSelections] = useState<Set<string>>(new Set());
   // Track all previously seen games (to distinguish new vs existing, even if unchecked)
   const [previouslySeenGames, setPreviouslySeenGames] = useState<Set<string>>(new Set());
+  // Track if we've already initialized selections for the current games to prevent resetting on re-renders
+  const initializedGamesRef = useRef<string>('');
 
   useEffect(() => {
     if (isOpen) {
       try {
         if (preScannedGames && preScannedGames.length > 0) {
+          // Create a unique key for the current set of games
+          const gamesKey = preScannedGames.map(g => getGameId(g)).sort().join(',');
+          
+          // Only initialize if this is a new set of games
+          const needsInitialization = initializedGamesRef.current !== gamesKey;
+          
           // Use pre-scanned games
           setScannedGames(preScannedGames);
         
@@ -138,44 +173,79 @@ export const SteamImportModal: React.FC<SteamImportModalProps> = ({ isOpen, onCl
         
         // For existing games in library that weren't in persistedSelections, don't select them
         // (they were previously unchecked)
-        setSelectedGames(restoredSelections);
+        // Only update selections if we're initializing for the first time
+        if (needsInitialization) {
+          setSelectedGames(restoredSelections);
+          initializedGamesRef.current = gamesKey;
+        }
         
         // Load existing metadata from library if available
+        // Only update metadata if we're initializing, to avoid overwriting user changes
         const metadataMap = new Map<string, GameMetadata>();
-        if (existingLibrary) {
-          preScannedGames.forEach(scannedGame => {
-            const gameId = getGameId(scannedGame);
-            let libraryId: string;
-            if (isSteamGame(scannedGame)) {
-              libraryId = `steam-${scannedGame.appId}`;
-            } else {
-              libraryId = scannedGame.id;
-            }
-            
-            const existingGame = existingLibrary.find(g => g.id === libraryId);
-            if (existingGame && (existingGame.boxArtUrl || existingGame.bannerUrl)) {
-              metadataMap.set(gameId, {
-                boxArtUrl: existingGame.boxArtUrl || '',
-                bannerUrl: existingGame.bannerUrl || '',
+        if (needsInitialization) {
+          if (existingLibrary) {
+            preScannedGames.forEach(scannedGame => {
+              const gameId = getGameId(scannedGame);
+              let libraryId: string;
+              if (isSteamGame(scannedGame)) {
+                libraryId = `steam-${scannedGame.appId}`;
+              } else {
+                libraryId = scannedGame.id;
+              }
+              
+              const existingGame = existingLibrary.find(g => g.id === libraryId);
+              if (existingGame && (existingGame.boxArtUrl || existingGame.bannerUrl)) {
+                metadataMap.set(gameId, {
+                  boxArtUrl: existingGame.boxArtUrl || '',
+                  bannerUrl: existingGame.bannerUrl || '',
+                });
+              }
+            });
+          }
+          setGameMetadata(metadataMap);
+        } else {
+          // If not initializing, merge with existing metadata to preserve user changes
+          setGameMetadata(prev => {
+            const newMap = new Map(prev);
+            if (existingLibrary) {
+              preScannedGames.forEach(scannedGame => {
+                const gameId = getGameId(scannedGame);
+                let libraryId: string;
+                if (isSteamGame(scannedGame)) {
+                  libraryId = `steam-${scannedGame.appId}`;
+                } else {
+                  libraryId = scannedGame.id;
+                }
+                
+                const existingGame = existingLibrary.find(g => g.id === libraryId);
+                // Only add if we don't already have metadata for this game
+                if (existingGame && (existingGame.boxArtUrl || existingGame.bannerUrl) && !newMap.has(gameId)) {
+                  newMap.set(gameId, {
+                    boxArtUrl: existingGame.boxArtUrl || '',
+                    bannerUrl: existingGame.bannerUrl || '',
+                  });
+                }
               });
             }
+            return newMap;
           });
         }
-        setGameMetadata(metadataMap);
         
         // Fetch metadata for games that don't have images (Steam and Xbox)
+        // Use current metadata state for checking what exists
+        const currentMetadata = needsInitialization ? metadataMap : gameMetadata;
         if (appType === 'steam') {
           const steamGames = preScannedGames.filter(isSteamGame);
-          fetchMetadataForAll(steamGames, metadataMap);
+          fetchMetadataForAll(steamGames, currentMetadata);
         } else if (appType === 'xbox') {
           // Fetch metadata for Xbox games that don't have images
           const xboxGames = preScannedGames.filter((g): g is XboxGame => !isSteamGame(g) && 'installPath' in g && 'type' in g && (g.type === 'uwp' || g.type === 'pc'));
-          fetchMetadataForXboxGames(xboxGames, metadataMap);
+          fetchMetadataForXboxGames(xboxGames, currentMetadata);
         } else if (appType === 'other') {
           // Fetch metadata for other launcher games
           const otherGames = preScannedGames.filter((g): g is OtherGame => !isSteamGame(g) && !('installPath' in g && 'type' in g && (g.type === 'uwp' || g.type === 'pc')));
           // Fetch metadata for all other games in parallel
-          Promise.all(otherGames.map(game => fetchMetadataForXboxGame(game as any, metadataMap))).catch(err => {
+          Promise.all(otherGames.map(game => fetchMetadataForXboxGame(game as any, currentMetadata))).catch(err => {
             console.error('Error fetching metadata for other games:', err);
           });
         }
@@ -191,10 +261,15 @@ export const SteamImportModal: React.FC<SteamImportModalProps> = ({ isOpen, onCl
       // Save current selections when modal closes (including unchecked state)
       // Save all games that were selected, so unchecked games remain unchecked
       setPersistedSelections(new Set(selectedGames));
+      // Reset initialization tracking when modal closes
+      initializedGamesRef.current = '';
       // Don't reset games/metadata when closing, just clear error
       setError(null);
       setEditingGame(null);
     }
+    // Note: We intentionally don't include persistedSelections and previouslySeenGames in deps
+    // to avoid resetting selections when they update. They're only used for initial restoration.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, preScannedGames, appType, existingLibrary]);
 
   const handleScan = async () => {
@@ -267,6 +342,12 @@ export const SteamImportModal: React.FC<SteamImportModalProps> = ({ isOpen, onCl
       }
     }
     
+    // Also check current metadata state to avoid duplicate fetches
+    const currentMetadataCheck = gameMetadata.get(gameId);
+    if (currentMetadataCheck && (currentMetadataCheck.boxArtUrl || currentMetadataCheck.bannerUrl)) {
+      return; // Already has metadata, don't fetch again
+    }
+    
     setIsFetchingMetadata(prev => new Set(prev).add(gameId));
     
     try {
@@ -312,7 +393,7 @@ export const SteamImportModal: React.FC<SteamImportModalProps> = ({ isOpen, onCl
     }
   };
 
-  const fetchMetadataForXboxGame = async (game: XboxGame, existingMetadata?: Map<string, GameMetadata>) => {
+  const fetchMetadataForXboxGame = async (game: XboxGame | OtherGame, existingMetadata?: Map<string, GameMetadata>) => {
     const gameId = getGameId(game);
     
     // Skip if we already have metadata from the library
@@ -324,11 +405,25 @@ export const SteamImportModal: React.FC<SteamImportModalProps> = ({ isOpen, onCl
       }
     }
     
+    // Also check current metadata state to avoid duplicate fetches
+    const currentMetadata = gameMetadata.get(gameId);
+    if (currentMetadata && (currentMetadata.boxArtUrl || currentMetadata.bannerUrl)) {
+      return; // Already has metadata, don't fetch again
+    }
+    
     setIsFetchingMetadata(prev => new Set(prev).add(gameId));
     
     try {
+      // For "other" games, use a better search name extracted from path
+      const searchName = ('type' in game && (game.type === 'uwp' || game.type === 'pc')) 
+        ? game.name 
+        : getSearchNameForOtherGame(game as OtherGame);
+      
+      const gamePath = (game as OtherGame).exePath || (game as OtherGame).installPath || 'N/A';
+      console.log(`[Metadata] Fetching for gameId: ${gameId}, searchName: "${searchName}", gameName: "${game.name}", path: ${gamePath}`);
+      
       // Search for metadata using game name
-      const response = await window.electronAPI.searchMetadata(game.name);
+      const response = await window.electronAPI.searchMetadata(searchName);
       if (response.success && response.results && response.results.length > 0) {
         const topResult = response.results[0];
         const metadata: GameMetadata = {
@@ -344,25 +439,34 @@ export const SteamImportModal: React.FC<SteamImportModalProps> = ({ isOpen, onCl
         
         if (hasNoImage && metadata.boxArtUrl) {
           // Auto-apply the top result if no image exists
+          console.log(`[Metadata] Setting metadata for gameId: ${gameId}, found game: "${topResult.name || searchName}"`);
           setGameMetadata(prev => {
             const newMap = new Map(prev);
+            // Ensure we're setting it with the correct gameId - this is critical!
             newMap.set(gameId, metadata);
+            console.log(`[Metadata] Updated map. gameId: ${gameId}, has metadata: ${newMap.has(gameId)}`);
             return newMap;
           });
         } else if (!existingMetadata?.has(gameId)) {
           // Store metadata but don't auto-apply if user previously selected something
+          console.log(`[Metadata] Storing (not auto-applying) metadata for gameId: ${gameId}`);
           setGameMetadata(prev => {
             const newMap = new Map(prev);
-            // Only update if we don't already have metadata
+            // Only update if we don't already have metadata for THIS specific gameId
             if (!newMap.has(gameId)) {
               newMap.set(gameId, metadata);
+              console.log(`[Metadata] Stored metadata for gameId: ${gameId}`);
+            } else {
+              console.log(`[Metadata] Skipped storing - already exists for gameId: ${gameId}`);
             }
             return newMap;
           });
         }
+      } else {
+        console.log(`[Metadata] No results found for gameId: ${gameId}, searchName: "${searchName}"`);
       }
     } catch (err) {
-      console.error(`Error fetching metadata for ${game.name}:`, err);
+      console.error(`Error fetching metadata for ${game.name} (gameId: ${gameId}):`, err);
     } finally {
       setIsFetchingMetadata(prev => {
         const newSet = new Set(prev);
@@ -373,15 +477,20 @@ export const SteamImportModal: React.FC<SteamImportModalProps> = ({ isOpen, onCl
   };
 
   const toggleGameSelection = (gameId: string) => {
+    console.log(`[Selection] Toggling gameId: ${gameId}`);
     setSelectedGames(prev => {
       const newSet = new Set(prev);
-      if (newSet.has(gameId)) {
+      const wasSelected = newSet.has(gameId);
+      if (wasSelected) {
         newSet.delete(gameId);
+        console.log(`[Selection] Deselected gameId: ${gameId}. New selection count: ${newSet.size}`);
       } else {
         newSet.add(gameId);
+        console.log(`[Selection] Selected gameId: ${gameId}. New selection count: ${newSet.size}`);
       }
       // Update persisted selections
       setPersistedSelections(new Set(newSet));
+      console.log(`[Selection] Current selected games:`, Array.from(newSet));
       return newSet;
     });
   };
@@ -491,26 +600,26 @@ export const SteamImportModal: React.FC<SteamImportModalProps> = ({ isOpen, onCl
             };
             
             // Build the game object, preserving existing fields and filling in missing metadata from IGDB
-            const baseGame = existingGame || {};
+            const baseGame: Game | undefined = existingGame;
             const gameData: Game = {
-              ...baseGame,
+              ...(baseGame || {}),
               id: libraryId,
               title: game.name,
               platform: isSteamGame(game) ? 'steam' as const : ('installPath' in game && 'type' in game && (game.type === 'uwp' || game.type === 'pc')) ? 'xbox' as const : (game as OtherGame).type || 'other',
-              exePath: baseGame.exePath || (isSteamGame(game) ? '' : ('installPath' in game ? game.installPath : (game as OtherGame).exePath || '')),
+              exePath: baseGame?.exePath || (isSteamGame(game) ? '' : ('installPath' in game && game.installPath ? game.installPath : ((game as OtherGame).exePath || ''))),
               // Images: use existing if available, otherwise use IGDB or defaults
-              boxArtUrl: baseGame.boxArtUrl || boxArtUrl || (isSteamGame(game) ? `https://cdn.cloudflare.steamstatic.com/steam/apps/${game.appId}/header.jpg` : ''),
-              bannerUrl: baseGame.bannerUrl || bannerUrl || (isSteamGame(game) ? `https://cdn.cloudflare.steamstatic.com/steam/apps/${game.appId}/library_600x900.jpg` : ''),
+              boxArtUrl: baseGame?.boxArtUrl || boxArtUrl || (isSteamGame(game) ? `https://cdn.cloudflare.steamstatic.com/steam/apps/${game.appId}/header.jpg` : ''),
+              bannerUrl: baseGame?.bannerUrl || bannerUrl || (isSteamGame(game) ? `https://cdn.cloudflare.steamstatic.com/steam/apps/${game.appId}/library_600x900.jpg` : ''),
               // Description: use existing if available, otherwise use IGDB
-              description: baseGame.description || igdbMetadata?.summary || undefined,
+              description: baseGame?.description || igdbMetadata?.summary || undefined,
               // Release date: use existing if available, otherwise use IGDB
-              releaseDate: baseGame.releaseDate || formatReleaseDate(igdbMetadata?.releaseDate) || undefined,
+              releaseDate: baseGame?.releaseDate || formatReleaseDate(igdbMetadata?.releaseDate) || undefined,
               // Genres: use existing if available, otherwise use IGDB
-              genres: baseGame.genres && baseGame.genres.length > 0 ? baseGame.genres : (igdbMetadata?.genres || undefined),
+              genres: baseGame?.genres && baseGame.genres.length > 0 ? baseGame.genres : (igdbMetadata?.genres || undefined),
               // Age rating: use existing if available, otherwise use IGDB
-              ageRating: baseGame.ageRating || igdbMetadata?.ageRating || undefined,
+              ageRating: baseGame?.ageRating || igdbMetadata?.ageRating || undefined,
               // Categories: use existing if available, otherwise use IGDB
-              categories: baseGame.categories && baseGame.categories.length > 0 ? baseGame.categories : (igdbMetadata?.categories || undefined),
+              categories: baseGame?.categories && baseGame.categories.length > 0 ? baseGame.categories : (igdbMetadata?.categories || undefined),
             };
             
             return gameData;
@@ -642,6 +751,7 @@ export const SteamImportModal: React.FC<SteamImportModalProps> = ({ isOpen, onCl
                           {newGames.map((game) => {
                             const gameId = getGameId(game);
                             const gameName = getGameName(game);
+                            console.log(`[Render] Rendering game - gameId: ${gameId}, name: "${gameName}", fullId: ${(game as OtherGame).id || 'N/A'}`);
                             let libraryId: string;
                             if (isSteamGame(game)) {
                               libraryId = `steam-${game.appId}`;

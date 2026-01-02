@@ -111,68 +111,132 @@ function createMenu() {
 
 // Create system tray
 function createTray() {
-  // System tray icons work better with PNG/ICO on Windows, prefer PNG over SVG
+  // System tray icons work better with ICO on Windows, PNG on other platforms
   let iconPath: string;
   let icon: Electron.NativeImage;
   
   try {
     if (app.isPackaged) {
-      // In packaged app, prefer PNG for system tray (better Windows support)
-      const pngPath = path.join(process.resourcesPath, 'icon.png');
-      const svgPath = path.join(process.resourcesPath, 'icon.svg');
-      
-      if (existsSync(pngPath)) {
-        iconPath = pngPath;
-      } else if (existsSync(svgPath)) {
-        iconPath = svgPath;
+      // In packaged app, prefer ICO for Windows system tray (best Windows support)
+      if (process.platform === 'win32') {
+        // Try ICO first on Windows (best for system tray)
+        const icoPath = path.join(process.resourcesPath, 'icon.ico');
+        const pngPath = path.join(process.resourcesPath, 'icon.png');
+        
+        if (existsSync(icoPath)) {
+          iconPath = icoPath;
+        } else if (existsSync(pngPath)) {
+          iconPath = pngPath;
+        } else {
+          throw new Error('No icon file found');
+        }
       } else {
-        throw new Error('No icon file found');
+        // On other platforms, prefer PNG
+        const pngPath = path.join(process.resourcesPath, 'icon.png');
+        const svgPath = path.join(process.resourcesPath, 'icon.svg');
+        
+        if (existsSync(pngPath)) {
+          iconPath = pngPath;
+        } else if (existsSync(svgPath)) {
+          iconPath = svgPath;
+        } else {
+          throw new Error('No icon file found');
+        }
       }
     } else {
-      // In development, prefer PNG for system tray
-      const pngPath = path.join(__dirname, '../../resources/icon.png');
-      const svgPath = path.join(__dirname, '../../resources/icon.svg');
-      
-      if (existsSync(pngPath)) {
-        iconPath = pngPath;
-      } else if (existsSync(svgPath)) {
-        iconPath = svgPath;
+      // In development, prefer ICO on Windows, PNG on other platforms
+      if (process.platform === 'win32') {
+        const icoPath = path.join(__dirname, '../../build/icon.ico');
+        const pngPath = path.join(__dirname, '../../resources/icon.png');
+        
+        if (existsSync(icoPath)) {
+          iconPath = icoPath;
+        } else if (existsSync(pngPath)) {
+          iconPath = pngPath;
+        } else {
+          throw new Error('No icon file found');
+        }
       } else {
-        throw new Error('No icon file found');
+        const pngPath = path.join(__dirname, '../../resources/icon.png');
+        const svgPath = path.join(__dirname, '../../resources/icon.svg');
+        
+        if (existsSync(pngPath)) {
+          iconPath = pngPath;
+        } else if (existsSync(svgPath)) {
+          iconPath = svgPath;
+        } else {
+          throw new Error('No icon file found');
+        }
       }
     }
+    
+    console.log('Loading tray icon from:', iconPath);
     
     // Load the icon
     icon = nativeImage.createFromPath(iconPath);
     
     // Check if icon is empty (common issue with SVG on Windows)
     if (icon.isEmpty()) {
+      console.error('Icon loaded but is empty, trying fallback...');
       throw new Error('Icon loaded but is empty');
     }
     
-    // Resize for system tray (typically 16x16 or 22x22 depending on OS)
-    const size = process.platform === 'darwin' ? 22 : 16;
-    const resizedIcon = icon.resize({ width: size, height: size });
-    
-    // Verify resized icon is not empty
-    if (resizedIcon.isEmpty()) {
-      throw new Error('Resized icon is empty');
+    // For Windows, use appropriate size (16x16 is standard, but 32x32 works better for high DPI)
+    // On Windows, system tray icons are typically 16x16, but we can use a larger size for better quality
+    // Note: On Windows, ICO files contain multiple sizes, so we might not need to resize
+    if (process.platform === 'win32' && iconPath.endsWith('.ico')) {
+      // For ICO files on Windows, use directly without resize (ICO contains multiple sizes)
+      tray = new Tray(icon);
+    } else {
+      const size = process.platform === 'darwin' ? 22 : (process.platform === 'win32' ? 32 : 16);
+      const resizedIcon = icon.resize({ width: size, height: size, quality: 'best' });
+      
+      // Verify resized icon is not empty
+      if (resizedIcon.isEmpty()) {
+        console.error('Resized icon is empty, trying without resize...');
+        // Try using the original icon without resize
+        if (!icon.isEmpty()) {
+          tray = new Tray(icon);
+        } else {
+          throw new Error('Resized icon is empty');
+        }
+      } else {
+        tray = new Tray(resizedIcon);
+      }
     }
     
-    tray = new Tray(resizedIcon);
+    console.log('Tray icon created successfully');
   } catch (error) {
     console.error('Error creating tray icon:', error);
     // Try to create a fallback icon from the original
     try {
-      // Last resort: try to load PNG directly without resize
+      // Last resort: try to load icon directly without resize
       const fallbackPath = app.isPackaged
-        ? path.join(process.resourcesPath, 'icon.png')
-        : path.join(__dirname, '../../resources/icon.png');
+        ? (process.platform === 'win32' 
+            ? (existsSync(path.join(process.resourcesPath, 'icon.ico')) 
+                ? path.join(process.resourcesPath, 'icon.ico')
+                : path.join(process.resourcesPath, 'icon.png'))
+            : path.join(process.resourcesPath, 'icon.png'))
+        : (process.platform === 'win32'
+            ? (existsSync(path.join(__dirname, '../../build/icon.ico'))
+                ? path.join(__dirname, '../../build/icon.ico')
+                : path.join(__dirname, '../../resources/icon.png'))
+            : path.join(__dirname, '../../resources/icon.png'));
+      
+      console.log('Trying fallback icon from:', fallbackPath);
       
       if (existsSync(fallbackPath)) {
         icon = nativeImage.createFromPath(fallbackPath);
         if (!icon.isEmpty()) {
-          tray = new Tray(icon);
+          // Try a smaller resize for tray
+          const smallIcon = icon.resize({ width: 16, height: 16, quality: 'best' });
+          if (!smallIcon.isEmpty()) {
+            tray = new Tray(smallIcon);
+            console.log('Fallback tray icon created successfully');
+          } else {
+            tray = new Tray(icon);
+            console.log('Fallback tray icon created (without resize)');
+          }
         } else {
           throw new Error('Fallback icon is empty');
         }
@@ -181,9 +245,11 @@ function createTray() {
       }
     } catch (fallbackError) {
       console.error('Fallback icon creation failed:', fallbackError);
-      // Final fallback: create a simple colored icon
+      // Last resort: create empty icon (will show as blank, but app won't crash)
+      // This should not happen if icon files are properly included
       icon = nativeImage.createEmpty();
       tray = new Tray(icon);
+      console.error('WARNING: Tray icon is empty. Please ensure icon.png exists in resources/');
     }
   }
 
@@ -225,27 +291,62 @@ function createTray() {
 }
 
 async function createWindow() {
-  // Load app icon (prefer SVG, fallback to PNG)
+  // Load app icon (prefer PNG/ICO on Windows, SVG on other platforms)
   let appIcon: Electron.NativeImage | undefined;
   try {
     if (app.isPackaged) {
-      const svgPath = path.join(process.resourcesPath, 'icon.svg');
-      const pngPath = path.join(process.resourcesPath, 'icon.png');
-      
-      if (existsSync(svgPath)) {
-        appIcon = nativeImage.createFromPath(svgPath);
-      } else if (existsSync(pngPath)) {
-        appIcon = nativeImage.createFromPath(pngPath);
+      // In packaged app, prefer ICO on Windows for better taskbar support
+      if (process.platform === 'win32') {
+        const icoPath = path.join(process.resourcesPath, 'icon.ico');
+        const pngPath = path.join(process.resourcesPath, 'icon.png');
+        
+        if (existsSync(icoPath)) {
+          appIcon = nativeImage.createFromPath(icoPath);
+        } else if (existsSync(pngPath)) {
+          appIcon = nativeImage.createFromPath(pngPath);
+        }
+      } else {
+        // On other platforms, try SVG first, then PNG
+        const svgPath = path.join(process.resourcesPath, 'icon.svg');
+        const pngPath = path.join(process.resourcesPath, 'icon.png');
+        
+        if (existsSync(svgPath)) {
+          appIcon = nativeImage.createFromPath(svgPath);
+        } else if (existsSync(pngPath)) {
+          appIcon = nativeImage.createFromPath(pngPath);
+        }
       }
     } else {
-      const svgPath = path.join(__dirname, '../../resources/icon.svg');
-      const pngPath = path.join(__dirname, '../../resources/icon.png');
-      
-      if (existsSync(svgPath)) {
-        appIcon = nativeImage.createFromPath(svgPath);
-      } else if (existsSync(pngPath)) {
-        appIcon = nativeImage.createFromPath(pngPath);
+      // In development, prefer ICO on Windows
+      if (process.platform === 'win32') {
+        const icoPath = path.join(__dirname, '../../build/icon.ico');
+        const pngPath = path.join(__dirname, '../../resources/icon.png');
+        
+        if (existsSync(icoPath)) {
+          appIcon = nativeImage.createFromPath(icoPath);
+        } else if (existsSync(pngPath)) {
+          appIcon = nativeImage.createFromPath(pngPath);
+        }
+      } else {
+        const svgPath = path.join(__dirname, '../../resources/icon.svg');
+        const pngPath = path.join(__dirname, '../../resources/icon.png');
+        
+        if (existsSync(svgPath)) {
+          appIcon = nativeImage.createFromPath(svgPath);
+        } else if (existsSync(pngPath)) {
+          appIcon = nativeImage.createFromPath(pngPath);
+        }
       }
+    }
+    
+    // Verify icon is not empty
+    if (appIcon && appIcon.isEmpty()) {
+      console.warn('App icon loaded but is empty, clearing it');
+      appIcon = undefined;
+    } else if (appIcon) {
+      console.log('Window icon loaded successfully');
+    } else {
+      console.warn('No window icon loaded - icon files may be missing');
     }
   } catch (error) {
     console.error('Error loading app icon:', error);
@@ -386,13 +487,11 @@ async function createWindow() {
   if (VITE_DEV_SERVER_URL) {
     // Load from Vite dev server
     win.loadURL(VITE_DEV_SERVER_URL);
-    // Open devTool if the app is not packaged
-    win.webContents.openDevTools();
+    // DevTools can be opened manually with Ctrl+Shift+I or F12
   } else {
     // Load from built files
     win.loadFile(path.join(process.env.DIST || '', 'index.html'));
-    // Open DevTools in production for error viewing
-    win.webContents.openDevTools();
+    // DevTools can be opened manually with Ctrl+Shift+I or F12
   }
 }
 
@@ -723,6 +822,7 @@ ipcMain.handle('import:scanFolderForExecutables', async (_event, folderPath: str
       /unins\d+/i,
       /setup/i,
       /install/i,
+      /cleanup/i,
       /crashhandler/i,
       /unitycrashhandler/i,
       /unity/i,
@@ -782,7 +882,33 @@ ipcMain.handle('import:scanFolderForExecutables', async (_event, folderPath: str
     
     scanDirectory(folderPath, 0);
     
-    return executables;
+    // Deduplicate executables: if same filename exists in root and subdirectory, prefer root
+    const executableMap = new Map<string, { fileName: string; fullPath: string; depth: number }>();
+    
+    for (const exe of executables) {
+      const fileNameLower = exe.fileName.toLowerCase();
+      const relativePath = path.relative(folderPath, exe.fullPath);
+      const depth = relativePath.split(path.sep).length - 1; // Number of directory separators
+      
+      const existing = executableMap.get(fileNameLower);
+      
+      if (!existing || depth < existing.depth) {
+        // Prefer executables closer to root (lower depth)
+        executableMap.set(fileNameLower, {
+          fileName: exe.fileName,
+          fullPath: exe.fullPath,
+          depth: depth,
+        });
+      }
+    }
+    
+    // Convert back to array format
+    const deduplicatedExecutables = Array.from(executableMap.values()).map(exe => ({
+      fileName: exe.fileName,
+      fullPath: exe.fullPath,
+    }));
+    
+    return deduplicatedExecutables;
   } catch (error) {
     console.error('Error in import:scanFolderForExecutables handler:', error);
     return [];
@@ -1021,6 +1147,10 @@ ipcMain.handle('app:openExternal', async (_event, url: string) => {
 });
 
 app.whenReady().then(async () => {
+  // Note: On Windows, the taskbar icon comes from the executable's icon resource (set via electron-builder)
+  // The window icon is set in createWindow() via BrowserWindow's icon property
+  // app.setIcon() is only available on macOS/Linux, so we don't use it here
+
   // Register a custom protocol to serve local files
   protocol.registerFileProtocol('onyx-local', (request, callback) => {
     const filePath = request.url.replace('onyx-local://', '');

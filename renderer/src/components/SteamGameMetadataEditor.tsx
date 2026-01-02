@@ -11,11 +11,19 @@ interface SteamGame {
 interface XboxGame {
   id: string;
   name: string;
-  installPath: string;
+  installPath?: string;
   type: 'uwp' | 'pc';
 }
 
-type ScannedGame = SteamGame | XboxGame;
+interface OtherGame {
+  id: string;
+  name: string;
+  installPath?: string;
+  exePath?: string;
+  type?: string;
+}
+
+type ScannedGame = SteamGame | XboxGame | OtherGame;
 
 interface IGDBGameResult {
   id: number;
@@ -139,7 +147,7 @@ export const SteamGameMetadataEditor: React.FC<SteamGameMetadataEditorProps> = (
             <div>
               <h2 className="text-2xl font-bold text-white">Select Metadata for {game.name}</h2>
               <p className="text-gray-400 text-sm mt-1">
-                {isSteamGame(game) ? `App ID: ${game.appId}` : `ID: ${game.id}`}
+                {isSteamGame(game) ? `App ID: ${game.appId}` : `ID: ${'id' in game ? game.id : 'unknown'}`}
               </p>
             </div>
             <button
