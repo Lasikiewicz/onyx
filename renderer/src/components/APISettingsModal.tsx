@@ -67,9 +67,9 @@ export const APISettingsModal: React.FC<APISettingsModalProps> = ({
 
   const handleOpenIGDB = async () => {
     try {
-      await window.electronAPI.openExternal('https://api.igdb.com/');
+      await window.electronAPI.openExternal('https://dev.twitch.tv/console/apps/create');
     } catch (error) {
-      console.error('Error opening IGDB website:', error);
+      console.error('Error opening Twitch Developer Console:', error);
     }
   };
 
@@ -112,19 +112,28 @@ export const APISettingsModal: React.FC<APISettingsModalProps> = ({
                   <h4 className="text-sm font-medium text-white mb-2">How to obtain IGDB API credentials:</h4>
                   <ol className="list-decimal list-inside space-y-2 text-sm text-gray-300">
                     <li>
-                      Visit{' '}
+                      Visit the{' '}
                       <button
                         onClick={handleOpenIGDB}
                         className="text-blue-400 hover:text-blue-300 underline"
                       >
-                        https://api.igdb.com/
+                        Twitch Developer Console
                       </button>
+                      {' '}at https://dev.twitch.tv/console/apps/create
                     </li>
-                    <li>Click on "Sign in" or "Get Started" to create a Twitch account (IGDB uses Twitch authentication)</li>
-                    <li>Once logged in, go to your Twitch Developer Console</li>
-                    <li>Create a new application or select an existing one</li>
-                    <li>Copy your <strong>Client ID</strong> and <strong>Client Secret</strong></li>
-                    <li>Paste them into the fields below</li>
+                    <li>Sign in with your Twitch account (create one if needed)</li>
+                    <li>Click "Register Your Application" to create a new application</li>
+                    <li>Fill in the form:
+                      <ul className="list-disc list-inside ml-4 mt-1 space-y-1">
+                        <li><strong>Name:</strong> Enter your application name (e.g., "Onyx")</li>
+                        <li><strong>OAuth Redirect URLs:</strong> Enter <code className="bg-gray-800 px-1 rounded">http://localhost</code> and click "Add"</li>
+                        <li><strong>Category:</strong> Select "Game Integration" from the dropdown</li>
+                        <li><strong>Client Type:</strong> Select "Confidential" (recommended for desktop applications)</li>
+                      </ul>
+                    </li>
+                    <li>Click the "Create" button</li>
+                    <li>On the next page, you'll see your <strong>Client ID</strong> and can click "New Secret" to generate a <strong>Client Secret</strong></li>
+                    <li>Copy both values and paste them into the fields below</li>
                   </ol>
                 </div>
 
