@@ -54,6 +54,26 @@ export const GameEditor: React.FC<GameEditorProps> = ({ isOpen, onClose, onSave,
       setActiveTab(initialTab);
       setImageSearchQuery('');
       setSelectedImageResult(null);
+      // Reset loading states when opening a new game
+      setIsSaving(false);
+      setIsDeleting(false);
+      setIsSearchingMetadata(false);
+      setIsSearchingImages(false);
+    } else if (!isOpen) {
+      // Reset all state when modal closes
+      setEditedGame(null);
+      setIsSaving(false);
+      setIsDeleting(false);
+      setIsSearchingMetadata(false);
+      setIsSearchingImages(false);
+      setError(null);
+      setSuccess(null);
+      setSearchResults([]);
+      setImageSearchResults([]);
+      setShowDeleteConfirm(false);
+      setSelectedGameResult(null);
+      setSelectedImageResult(null);
+      setShowImageSelector(null);
     }
   }, [game, isOpen, initialTab]);
 
@@ -100,7 +120,7 @@ export const GameEditor: React.FC<GameEditorProps> = ({ isOpen, onClose, onSave,
     // Check if we need to show image selector
     const hasMultipleScreenshots = result.screenshotUrls && result.screenshotUrls.length > 1;
     
-    // Auto-apply all fields immediately, including age rating and description
+    // Auto-apply all fields immediately, including all metadata
     const updatedGame: Game = {
       ...editedGame,
       title: result.name || editedGame.title,
@@ -111,6 +131,9 @@ export const GameEditor: React.FC<GameEditorProps> = ({ isOpen, onClose, onSave,
       categories: result.categories && result.categories.length > 0 
         ? result.categories 
         : editedGame.categories || [],
+      genres: result.genres && result.genres.length > 0
+        ? result.genres
+        : editedGame.genres || [],
       boxArtUrl: result.coverUrl || editedGame.boxArtUrl,
       bannerUrl: result.screenshotUrls && result.screenshotUrls.length > 0 
         ? result.screenshotUrls[0] 
@@ -235,6 +258,9 @@ export const GameEditor: React.FC<GameEditorProps> = ({ isOpen, onClose, onSave,
     try {
       await onDelete(editedGame.id);
       setSuccess('Game deleted successfully');
+      // Reset deleting state before closing
+      setIsDeleting(false);
+      setShowDeleteConfirm(false);
       setTimeout(() => {
         setSuccess(null);
         onClose();
@@ -248,15 +274,19 @@ export const GameEditor: React.FC<GameEditorProps> = ({ isOpen, onClose, onSave,
   };
 
   const handleClose = () => {
-    if (!isSaving && !isDeleting) {
-      setError(null);
-      setSuccess(null);
-      setSearchResults([]);
-      setSelectedGameResult(null);
-      setShowImageSelector(null);
-      setShowDeleteConfirm(false);
-      onClose();
+    // Always allow closing, but reset states first
+    if (isSaving || isDeleting) {
+      // If in the middle of an operation, just close anyway to prevent stuck state
+      setIsSaving(false);
+      setIsDeleting(false);
     }
+    setError(null);
+    setSuccess(null);
+    setSearchResults([]);
+    setSelectedGameResult(null);
+    setShowImageSelector(null);
+    setShowDeleteConfirm(false);
+    onClose();
   };
 
   return (

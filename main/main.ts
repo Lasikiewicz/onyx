@@ -670,6 +670,25 @@ ipcMain.handle('gameStore:deleteGame', async (_event, gameId: string) => {
   }
 });
 
+// Reset app handler - clears all data
+ipcMain.handle('app:reset', async () => {
+  try {
+    // Clear all stores
+    await gameStore.clearLibrary();
+    await userPreferencesService.resetPreferences();
+    await appConfigService.clearAppConfigs();
+    await apiCredentialsService.clearCredentials();
+    
+    // Reinitialize IGDB service (will be null since credentials are cleared)
+    await initializeIGDBService();
+    
+    return { success: true };
+  } catch (error) {
+    console.error('Error in app:reset handler:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+});
+
 // Metadata fetcher IPC handlers
 ipcMain.handle('metadata:searchArtwork', async (_event, title: string, steamAppId?: string) => {
   try {
@@ -1086,7 +1105,7 @@ ipcMain.handle('preferences:get', async () => {
   }
 });
 
-ipcMain.handle('preferences:save', async (_event, preferences: { gridSize?: number; panelWidth?: number; fanartHeight?: number; descriptionHeight?: number; pinnedCategories?: string[]; minimizeToTray?: boolean; showSystemTrayIcon?: boolean; startWithComputer?: boolean; startClosedToTray?: boolean; updateLibrariesOnStartup?: boolean; activeGameId?: string | null; hideVRTitles?: boolean; hideGameTitles?: boolean; gameTilePadding?: number; windowState?: { x?: number; y?: number; width?: number; height?: number; isMaximized?: boolean } }) => {
+ipcMain.handle('preferences:save', async (_event, preferences: { gridSize?: number; panelWidth?: number; fanartHeight?: number; descriptionHeight?: number; pinnedCategories?: string[]; minimizeToTray?: boolean; showSystemTrayIcon?: boolean; startWithComputer?: boolean; startClosedToTray?: boolean; updateLibrariesOnStartup?: boolean; activeGameId?: string | null; hideVRTitles?: boolean; hideGameTitles?: boolean; gameTilePadding?: number; ignoredGames?: string[]; windowState?: { x?: number; y?: number; width?: number; height?: number; isMaximized?: boolean } }) => {
   try {
     await userPreferencesService.savePreferences(preferences);
     return { success: true };

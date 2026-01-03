@@ -34,6 +34,9 @@ interface IGDBGameResult {
   rating?: number;
   releaseDate?: number;
   genres?: string[];
+  platform?: string;
+  ageRating?: string;
+  categories?: string[];
 }
 
 interface SteamGameMetadataEditorProps {
@@ -59,6 +62,8 @@ export const SteamGameMetadataEditor: React.FC<SteamGameMetadataEditorProps> = (
   const [isSearching, setIsSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<IGDBGameResult[]>([]);
   const [selectedResult, setSelectedResult] = useState<IGDBGameResult | null>(null);
+  const [searchQuery, setSearchQuery] = useState(game.name);
+  const [hasSearched, setHasSearched] = useState(false);
   const [metadata, setMetadata] = useState<GameMetadata>(
     currentMetadata || (isSteamGame(game) ? {
       boxArtUrl: `https://cdn.cloudflare.steamstatic.com/steam/apps/${game.appId}/header.jpg`,
@@ -72,6 +77,9 @@ export const SteamGameMetadataEditor: React.FC<SteamGameMetadataEditorProps> = (
 
   useEffect(() => {
     if (isOpen) {
+      // Reset search query to game name when modal opens
+      setSearchQuery(game.name);
+      setHasSearched(false);
       // Auto-search for metadata when modal opens
       handleSearch();
     }
@@ -83,14 +91,19 @@ export const SteamGameMetadataEditor: React.FC<SteamGameMetadataEditorProps> = (
     return date.getFullYear().toString();
   };
 
-  const handleSearch = async () => {
+  const handleSearch = async (customQuery?: string) => {
+    const query = customQuery || searchQuery || game.name;
+    if (!query.trim()) {
+      return;
+    }
+
     setIsSearching(true);
     setSearchResults([]);
     setSelectedResult(null);
+    setHasSearched(true);
 
     try {
-      const gameName = game.name;
-      const response = await window.electronAPI.searchMetadata(gameName);
+      const response = await window.electronAPI.searchMetadata(query.trim());
       if (response.success && response.results && response.results.length > 0) {
         setSearchResults(response.results);
       }
@@ -104,13 +117,29 @@ export const SteamGameMetadataEditor: React.FC<SteamGameMetadataEditorProps> = (
   const handleSelectResult = (result: IGDBGameResult) => {
     setSelectedResult(result);
     
-    // Update metadata with selected result
+    // Format release date from timestamp if available
+    const formatReleaseDate = (timestamp?: number): string | undefined => {
+      if (!timestamp) return undefined;
+      const date = new Date(timestamp * 1000);
+      return date.toISOString().split('T')[0];
+    };
+    
+    // Update metadata with all selected result data
     const newMetadata: GameMetadata = {
       boxArtUrl: result.coverUrl || metadata.boxArtUrl,
       bannerUrl: result.screenshotUrls && result.screenshotUrls.length > 0 
         ? result.screenshotUrls[0] 
         : metadata.bannerUrl,
       screenshots: result.screenshotUrls,
+      // Import all metadata fields
+      title: result.name,
+      description: result.summary,
+      releaseDate: formatReleaseDate(result.releaseDate),
+      genres: result.genres,
+      ageRating: result.ageRating,
+      categories: result.categories,
+      rating: result.rating,
+      platform: result.platform,
     };
     
     setMetadata(newMetadata);
@@ -260,6 +289,38 @@ export const SteamGameMetadataEditor: React.FC<SteamGameMetadataEditorProps> = (
               )}
             </div>
 
+            {/* Manual Search Input */}
+            <div className="border border-gray-600 rounded-lg p-4 bg-gray-700/30">
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Search for Game Metadata
+              </label>
+              <p className="text-xs text-gray-400 mb-3">
+                If no results were found, try searching with a different title (e.g., "Final Fantasy VI" instead of "FINAL.FANTASY.VI.RexaGames.com")
+              </p>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handleSearch();
+                    }
+                  }}
+                  placeholder="Enter game title to search..."
+                  className="flex-1 px-4 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                <button
+                  type="button"
+                  onClick={() => handleSearch()}
+                  disabled={isSearching || !searchQuery.trim()}
+                  className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isSearching ? 'Searching...' : 'Search'}
+                </button>
+              </div>
+            </div>
+
             {/* Search Results */}
             {isSearching ? (
               <div className="text-center py-8">
@@ -268,6 +329,16 @@ export const SteamGameMetadataEditor: React.FC<SteamGameMetadataEditorProps> = (
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                 </svg>
                 <p className="text-gray-300">Searching for metadata...</p>
+              </div>
+            ) : hasSearched && searchResults.length === 0 ? (
+              <div className="border border-gray-600 rounded-lg p-6 bg-gray-700/30 text-center">
+                <p className="text-gray-300 mb-2">No results found for "{searchQuery}"</p>
+                <p className="text-gray-400 text-sm mb-4">
+                  Try searching with a different title or check your API credentials in Settings &gt; APIs
+                </p>
+                <p className="text-gray-500 text-xs">
+                  You can still save the game without metadata, or manually set images using the "Change" buttons above.
+                </p>
               </div>
             ) : searchResults.length > 0 ? (
               <div className="border border-gray-600 rounded-lg p-4 bg-gray-700/30">

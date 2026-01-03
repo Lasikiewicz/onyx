@@ -1,10 +1,17 @@
 import React, { useState, useRef, useEffect } from 'react';
+import iconPng from '../../../resources/icon.png';
+import iconSvg from '../../../resources/icon.svg';
 
 interface MenuBarProps {
   onAddGame?: () => void;
   onScanFolder?: () => void;
   onUpdateSteamLibrary?: () => void;
+  onUpdateLibrary?: () => void;
   onConfigureSteam?: () => void;
+  onOnyxSettings?: () => void;
+  onAPISettings?: () => void;
+  onAbout?: () => void;
+  onExit?: () => void;
   searchQuery?: string;
   onSearchChange?: (query: string) => void;
   selectedCategory?: string | null;
@@ -34,11 +41,20 @@ export const MenuBar: React.FC<MenuBarProps> = ({
   hasVRCategory = false,
   hideVRTitles = true,
   onToggleHideVRTitles,
+  onAddGame,
+  onScanFolder,
+  onUpdateLibrary,
+  onOnyxSettings,
+  onAPISettings,
+  onAbout,
+  onExit,
 }) => {
   const [isFilterDropdownOpen, setIsFilterDropdownOpen] = useState(false);
   const [isSortDropdownOpen, setIsSortDropdownOpen] = useState(false);
+  const [isOnyxSettingsMenuOpen, setIsOnyxSettingsMenuOpen] = useState(false);
   const filterDropdownRef = useRef<HTMLDivElement>(null);
   const sortDropdownRef = useRef<HTMLDivElement>(null);
+  const onyxSettingsMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -47,6 +63,9 @@ export const MenuBar: React.FC<MenuBarProps> = ({
       }
       if (sortDropdownRef.current && !sortDropdownRef.current.contains(event.target as Node)) {
         setIsSortDropdownOpen(false);
+      }
+      if (onyxSettingsMenuRef.current && !onyxSettingsMenuRef.current.contains(event.target as Node)) {
+        setIsOnyxSettingsMenuOpen(false);
       }
     };
 
@@ -63,6 +82,176 @@ export const MenuBar: React.FC<MenuBarProps> = ({
     >
       {/* Left section - Search, Sort by, Categories, Favorites, Pinned Categories */}
       <div className="flex items-center gap-2" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+        {/* Onyx Settings Button with Dropdown */}
+        {onOnyxSettings && (
+          <div className="relative" ref={onyxSettingsMenuRef}>
+            <button
+              onClick={() => {
+                setIsOnyxSettingsMenuOpen(!isOnyxSettingsMenuOpen);
+                setIsFilterDropdownOpen(false);
+                setIsSortDropdownOpen(false);
+              }}
+              className="p-1.5 hover:bg-gray-700/40 rounded transition-colors flex items-center justify-center"
+              title="Onyx Settings"
+            >
+              <img 
+                src={iconPng} 
+                alt="Onyx Settings" 
+                className="w-6 h-6"
+                onError={(e) => {
+                  // Fallback to SVG if PNG fails
+                  const target = e.target as HTMLImageElement;
+                  target.src = iconSvg;
+                }}
+              />
+            </button>
+            
+            {/* Dropdown Menu */}
+            {isOnyxSettingsMenuOpen && (
+              <div className="absolute left-0 top-full mt-1 bg-gray-800 border border-gray-700 rounded-lg shadow-xl z-50 min-w-[240px]">
+                <div className="p-1">
+                  {onAddGame && (
+                    <button
+                      onClick={() => {
+                        onAddGame();
+                        setIsOnyxSettingsMenuOpen(false);
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-gray-200 hover:bg-gray-700 rounded transition-colors whitespace-nowrap"
+                    >
+                      <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                      </svg>
+                      <span className="flex-1">Add Game Manually</span>
+                    </button>
+                  )}
+
+                  {onScanFolder && (
+                    <button
+                      onClick={() => {
+                        onScanFolder();
+                        setIsOnyxSettingsMenuOpen(false);
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-gray-200 hover:bg-gray-700 rounded transition-colors whitespace-nowrap"
+                    >
+                      <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                      </svg>
+                      <span className="flex-1">Scan Folder for Games</span>
+                    </button>
+                  )}
+
+                  {onUpdateLibrary && (
+                    <button
+                      onClick={() => {
+                        onUpdateLibrary();
+                        setIsOnyxSettingsMenuOpen(false);
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-gray-200 hover:bg-gray-700 rounded transition-colors whitespace-nowrap"
+                    >
+                      <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                      <span className="flex-1">Update Library</span>
+                    </button>
+                  )}
+
+                  {onOnyxSettings && (
+                    <button
+                      onClick={() => {
+                        onOnyxSettings();
+                        setIsOnyxSettingsMenuOpen(false);
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-gray-200 hover:bg-gray-700 rounded transition-colors whitespace-nowrap"
+                    >
+                      <img 
+                        src={iconPng} 
+                        alt="Onyx" 
+                        className="w-5 h-5 flex-shrink-0"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.src = iconSvg;
+                        }}
+                      />
+                      <span className="flex-1">Onyx Settings</span>
+                    </button>
+                  )}
+
+                  {onAPISettings && (
+                    <button
+                      onClick={() => {
+                        onAPISettings();
+                        setIsOnyxSettingsMenuOpen(false);
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-gray-200 hover:bg-gray-700 rounded transition-colors whitespace-nowrap"
+                    >
+                      <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                      </svg>
+                      <span className="flex-1">APIs</span>
+                    </button>
+                  )}
+
+                  <hr className="border-white/10 my-2" />
+
+                  <button
+                    onClick={async () => {
+                      try {
+                        if (window.electronAPI && window.electronAPI.openExternal) {
+                          const result = await window.electronAPI.openExternal('https://ko-fi.com/oynxgilga');
+                          if (!result.success) {
+                            console.error('Failed to open external URL:', result.error);
+                          }
+                        } else {
+                          console.error('window.electronAPI.openExternal is not available');
+                        }
+                      } catch (error) {
+                        console.error('Failed to open external URL:', error);
+                      }
+                      setIsOnyxSettingsMenuOpen(false);
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-slate-300 hover:bg-rose-500/10 hover:text-rose-400 rounded transition-colors whitespace-nowrap"
+                  >
+                    <svg className="w-5 h-5 text-rose-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                    </svg>
+                    <span className="flex-1">Support Onyx</span>
+                  </button>
+
+                  {onAbout && (
+                    <button
+                      onClick={() => {
+                        onAbout();
+                        setIsOnyxSettingsMenuOpen(false);
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-gray-200 hover:bg-gray-700 rounded transition-colors whitespace-nowrap"
+                    >
+                      <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <span className="flex-1">About</span>
+                    </button>
+                  )}
+
+                  {onExit && (
+                    <button
+                      onClick={() => {
+                        onExit();
+                        setIsOnyxSettingsMenuOpen(false);
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-red-400 hover:bg-gray-700 rounded transition-colors whitespace-nowrap"
+                    >
+                      <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                      </svg>
+                      <span className="flex-1">Exit</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+        
         {/* Search */}
         <div className="relative w-64">
           <input

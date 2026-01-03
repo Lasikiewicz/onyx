@@ -94,13 +94,57 @@ export const UpdateLibraryModal: React.FC<UpdateLibraryModalProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [scanningApps, setScanningApps] = useState<Set<string>>(new Set());
   const [scanResults, setScanResults] = useState<Map<string, { success: boolean; gamesFound?: number; error?: string }>>(new Map());
+  const [gameCounts, setGameCounts] = useState<Map<string, number>>(new Map());
 
   useEffect(() => {
     if (isOpen) {
       loadAppConfigs();
+      loadGameCounts();
       setScanResults(new Map());
     }
   }, [isOpen]);
+
+  const loadGameCounts = async () => {
+    try {
+      const games = await window.electronAPI.getLibrary();
+      const counts = new Map<string, number>();
+      
+      // Map platform values to app IDs
+      games.forEach(game => {
+        const platform = game.platform || 'other';
+        let appId = platform;
+        
+        // Map common platform values to app IDs
+        if (platform === 'steam') {
+          appId = 'steam';
+        } else if (platform === 'xbox' || platform === 'xbox game pass') {
+          appId = 'xbox';
+        } else if (platform === 'epic' || platform === 'epic games') {
+          appId = 'epic';
+        } else if (platform === 'ea' || platform === 'origin' || platform === 'ea app') {
+          appId = 'ea';
+        } else if (platform === 'gog' || platform === 'gog galaxy') {
+          appId = 'gog';
+        } else if (platform === 'ubisoft' || platform === 'ubisoft connect') {
+          appId = 'ubisoft';
+        } else if (platform === 'battle' || platform === 'battle.net') {
+          appId = 'battle';
+        } else if (platform === 'humble') {
+          appId = 'humble';
+        } else if (platform === 'itch' || platform === 'itch.io') {
+          appId = 'itch';
+        } else if (platform === 'rockstar' || platform === 'rockstar games') {
+          appId = 'rockstar';
+        }
+        
+        counts.set(appId, (counts.get(appId) || 0) + 1);
+      });
+      
+      setGameCounts(counts);
+    } catch (err) {
+      console.error('Error loading game counts:', err);
+    }
+  };
 
   const loadAppConfigs = async () => {
     setIsLoading(true);
@@ -426,9 +470,16 @@ export const UpdateLibraryModal: React.FC<UpdateLibraryModalProps> = ({
                       >
                         <div className="flex flex-col h-full">
                           <div className="flex-1 mb-3">
-                            <h3 className="text-sm font-semibold text-white mb-2">
-                              {app.name}
-                            </h3>
+                            <div className="flex items-center justify-between mb-2">
+                              <h3 className="text-sm font-semibold text-white">
+                                {app.name}
+                              </h3>
+                              {gameCounts.has(app.id) && (
+                                <span className="text-xs text-blue-400 font-medium">
+                                  {gameCounts.get(app.id)} {gameCounts.get(app.id) === 1 ? 'game' : 'games'}
+                                </span>
+                              )}
+                            </div>
                             <p className="text-xs text-gray-400 break-words mb-2" title={app.path}>
                               {app.path}
                             </p>

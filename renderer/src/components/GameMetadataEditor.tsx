@@ -11,6 +11,9 @@ interface IGDBGameResult {
   rating?: number;
   releaseDate?: number;
   genres?: string[];
+  platform?: string;
+  ageRating?: string;
+  categories?: string[];
 }
 
 interface GameMetadataEditorProps {
@@ -72,13 +75,29 @@ export const GameMetadataEditor: React.FC<GameMetadataEditorProps> = ({
     setSelectedResult(result);
     setTitle(result.name);
     
-    // Convert IGDB result to GameMetadata
+    // Format release date from timestamp if available
+    const formatReleaseDate = (timestamp?: number): string | undefined => {
+      if (!timestamp) return undefined;
+      const date = new Date(timestamp * 1000);
+      return date.toISOString().split('T')[0];
+    };
+    
+    // Convert IGDB result to GameMetadata with all fields
     const gameMetadata: GameMetadata = {
       boxArtUrl: result.coverUrl || '',
       bannerUrl: result.screenshotUrls && result.screenshotUrls.length > 0 
         ? result.screenshotUrls[0] 
         : result.coverUrl || '',
       screenshots: result.screenshotUrls,
+      // Import all metadata fields
+      title: result.name,
+      description: result.summary,
+      releaseDate: formatReleaseDate(result.releaseDate),
+      genres: result.genres,
+      ageRating: result.ageRating,
+      categories: result.categories,
+      rating: result.rating,
+      platform: result.platform,
     };
     
     setMetadata(gameMetadata);

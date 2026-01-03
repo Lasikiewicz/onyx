@@ -13,6 +13,7 @@ export interface UserPreferences {
   hideVRTitles?: boolean;
   hideGameTitles?: boolean;
   gameTilePadding?: number;
+  ignoredGames?: string[]; // Array of game IDs to always ignore
   windowState?: {
     x?: number;
     y?: number;
@@ -53,6 +54,7 @@ export class UserPreferencesService {
             hideVRTitles: true,
             hideGameTitles: false,
             gameTilePadding: 16,
+            ignoredGames: [],
             windowState: undefined,
           },
         },
@@ -88,6 +90,7 @@ export class UserPreferencesService {
       hideVRTitles: true,
       hideGameTitles: false,
       gameTilePadding: 16,
+      ignoredGames: [],
       windowState: undefined,
     });
   }
@@ -112,8 +115,34 @@ export class UserPreferencesService {
       hideVRTitles: true,
       hideGameTitles: false,
       gameTilePadding: 16,
+      ignoredGames: [],
       windowState: undefined,
     });
     store.set('preferences', { ...current, ...preferences });
+  }
+
+  /**
+   * Reset preferences to defaults
+   */
+  async resetPreferences(): Promise<void> {
+    const store = await this.ensureStore();
+    store.set('preferences', {
+      gridSize: 120,
+      panelWidth: 800,
+      fanartHeight: 320,
+      descriptionHeight: 400,
+      pinnedCategories: [],
+      minimizeToTray: false,
+      showSystemTrayIcon: true,
+      startWithComputer: false,
+      startClosedToTray: false,
+      updateLibrariesOnStartup: false,
+      activeGameId: null,
+      hideVRTitles: true,
+      hideGameTitles: false,
+      gameTilePadding: 16,
+      ignoredGames: [],
+      windowState: undefined,
+    });
   }
 }

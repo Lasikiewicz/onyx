@@ -58,4 +58,15 @@ export class APICredentialsService {
     });
     store.set('credentials', { ...current, ...credentials });
   }
+
+  /**
+   * Clear API credentials
+   */
+  async clearCredentials(): Promise<void> {
+    const store = await this.ensureStore();
+    store.set('credentials', {
+      igdbClientId: undefined,
+      igdbClientSecret: undefined,
+    });
+  }
 }

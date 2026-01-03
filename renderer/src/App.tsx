@@ -11,8 +11,6 @@ import { GameEditor } from './components/GameEditor';
 import { TopBar } from './components/TopBar';
 import { BottomBar } from './components/BottomBar';
 import { MenuBar } from './components/MenuBar';
-import { AppSettingsModal } from './components/AppSettingsModal';
-import { ConfigureAppsModal } from './components/ConfigureAppsModal';
 import { UpdateLibraryModal } from './components/UpdateLibraryModal';
 import { OnyxSettingsModal } from './components/OnyxSettingsModal';
 import { APISettingsModal } from './components/APISettingsModal';
@@ -57,11 +55,9 @@ function App() {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [activeSection] = useState('library');
   const [showTopBar] = useState(false);
-  const [isAppSettingsOpen, setIsAppSettingsOpen] = useState(false);
-  const [isConfigureAppsOpen, setIsConfigureAppsOpen] = useState(false);
   const [isUpdateLibraryOpen, setIsUpdateLibraryOpen] = useState(false);
   const [isOnyxSettingsOpen, setIsOnyxSettingsOpen] = useState(false);
-  const [onyxSettingsInitialTab, setOnyxSettingsInitialTab] = useState<'general' | 'appearance' | 'apis'>('general');
+  const [onyxSettingsInitialTab, setOnyxSettingsInitialTab] = useState<'general' | 'appearance' | 'apis' | 'apps' | 'about'>('general');
   const [isAPISettingsOpen, setIsAPISettingsOpen] = useState(false);
   const [gridSize, setGridSize] = useState(120);
   const [pinnedCategories, setPinnedCategories] = useState<string[]>([]);
@@ -534,31 +530,53 @@ function App() {
   };
 
   // Handle executable selection from file selection modal
-  const handleExecutableSelect = (file: ExecutableFile) => {
-    setSelectedExecutable(file);
-    setIsFileSelectionOpen(false);
-    setIsMetadataEditorOpen(true);
+  const handleExecutableSelect = async (file: ExecutableFile, metadata?: GameMetadata) => {
+    // Create game with all metadata if available
+    const gameId = `custom-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const newGame: Game = {
+      id: gameId,
+      title: metadata?.title || file.fileName.replace(/\.exe$/i, '').trim(),
+      platform: metadata?.platform || 'other',
+      exePath: file.fullPath,
+      boxArtUrl: metadata?.boxArtUrl || '',
+      bannerUrl: metadata?.bannerUrl || '',
+      description: metadata?.description,
+      releaseDate: metadata?.releaseDate,
+      genres: metadata?.genres,
+      ageRating: metadata?.ageRating,
+      categories: metadata?.categories,
+    };
+    
+    const success = await window.electronAPI.saveGame(newGame);
+    if (success) {
+      await loadLibrary();
+    }
   };
 
   // Handle save from metadata editor
   const handleSaveGameWithMetadata = async (title: string, exePath: string, metadata: GameMetadata) => {
     try {
-      // Create game with metadata
+      // Create game with all metadata
       const gameId = `custom-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       const newGame: Game = {
         id: gameId,
-        title,
-        platform: 'other',
+        title: metadata.title || title,
+        platform: metadata.platform || 'other',
         exePath,
         boxArtUrl: metadata.boxArtUrl || '',
         bannerUrl: metadata.bannerUrl || '',
+        description: metadata.description,
+        releaseDate: metadata.releaseDate,
+        genres: metadata.genres,
+        ageRating: metadata.ageRating,
+        categories: metadata.categories,
       };
 
       // Save the game
       const success = await window.electronAPI.saveGame(newGame);
       if (success) {
         await loadLibrary();
-        showToast(`Game "${title}" added successfully`, 'success');
+        showToast(`Game "${metadata.title || title}" added successfully`, 'success');
         setIsMetadataEditorOpen(false);
         setSelectedExecutable(null);
       } else {
@@ -641,7 +659,21 @@ function App() {
         onAddGame={() => setIsModalOpen(true)}
         onScanFolder={handleScanFolder}
         onUpdateSteamLibrary={handleUpdateSteamLibrary}
+        onUpdateLibrary={handleUpdateSteamLibrary}
         onConfigureSteam={() => setIsSteamConfigOpen(true)}
+        onOnyxSettings={() => {
+          setOnyxSettingsInitialTab('general');
+          setIsOnyxSettingsOpen(true);
+        }}
+        onAPISettings={() => {
+          setOnyxSettingsInitialTab('apis');
+          setIsOnyxSettingsOpen(true);
+        }}
+        onAbout={() => {
+          setOnyxSettingsInitialTab('about');
+          setIsOnyxSettingsOpen(true);
+        }}
+        onExit={handleExit}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         selectedCategory={selectedCategory}
@@ -706,14 +738,83 @@ function App() {
                     />
                   </div>
                 ) : (
-                  <div className="text-center py-8">
-                    <p className="text-gray-100 mb-4 text-sm">No games found.</p>
-                    <button
-                      onClick={() => setIsModalOpen(true)}
-                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
-                    >
-                      Add Game
-                    </button>
+                  <div className="text-center py-12 px-4">
+                    <div className="max-w-md mx-auto">
+                      <p className="text-gray-100 mb-6 text-base font-medium">No games found.</p>
+                      
+                      <div className="space-y-4 mb-6">
+                        <div className="bg-gray-700/30 border border-gray-600 rounded-lg p-4 text-left">
+                          <p className="text-gray-300 text-sm mb-3">
+                            Get started by configuring game launchers or scanning for games:
+                          </p>
+                          
+                          <div className="mb-3 pb-3 border-b border-gray-600">
+                            <p className="text-gray-400 text-xs mb-2">
+                              💡 <strong>Tip:</strong> For better game metadata and images,{' '}
+                              <button
+                                onClick={() => {
+                                  setOnyxSettingsInitialTab('apis');
+                                  setIsOnyxSettingsOpen(true);
+                                }}
+                                className="text-blue-400 hover:text-blue-300 underline font-medium"
+                              >
+                                set up API credentials
+                              </button>
+                              {' '}first.
+                            </p>
+                          </div>
+                          
+                          <div className="space-y-3">
+                            <button
+                              onClick={() => {
+                                setOnyxSettingsInitialTab('apps');
+                                setIsOnyxSettingsOpen(true);
+                              }}
+                              className="w-full flex items-center justify-between px-4 py-3 bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/50 rounded-lg transition-colors group"
+                            >
+                              <div className="flex items-center gap-3">
+                                <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                </svg>
+                                <div className="text-left">
+                                  <p className="text-blue-300 font-medium text-sm">Configure Apps</p>
+                                  <p className="text-gray-400 text-xs">Set up Steam, Xbox, and other launchers</p>
+                                </div>
+                              </div>
+                              <svg className="w-5 h-5 text-blue-400 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                              </svg>
+                            </button>
+                            
+                            <button
+                              onClick={handleScanFolder}
+                              className="w-full flex items-center justify-between px-4 py-3 bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/50 rounded-lg transition-colors group"
+                            >
+                              <div className="flex items-center gap-3">
+                                <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                                </svg>
+                                <div className="text-left">
+                                  <p className="text-blue-300 font-medium text-sm">Scan Folder for Games</p>
+                                  <p className="text-gray-400 text-xs">Browse and import games from a folder</p>
+                                </div>
+                              </div>
+                              <svg className="w-5 h-5 text-blue-400 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                              </svg>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <button
+                        onClick={() => setIsModalOpen(true)}
+                        className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm font-medium rounded-lg transition-colors"
+                      >
+                        Or Add Game Manually
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
@@ -730,7 +831,6 @@ function App() {
           game={activeGame}
           onPlay={handlePlay}
           onFavorite={handleToggleFavorite}
-          onAppSettings={() => setIsAppSettingsOpen(true)}
           onEdit={handleEditGame}
           gridSize={gridSize}
           onGridSizeChange={setGridSize}
@@ -755,6 +855,7 @@ function App() {
         executables={scannedExecutables}
         onSelect={handleExecutableSelect}
         folderPath={scannedFolderPath}
+        existingLibrary={games}
       />
 
       {/* Game Metadata Editor */}
@@ -806,30 +907,17 @@ function App() {
         initialTab={initialEditorTab}
       />
 
-      {/* App Settings Modal */}
-      <AppSettingsModal
-        isOpen={isAppSettingsOpen}
-        onClose={() => setIsAppSettingsOpen(false)}
-        onAddGame={() => setIsModalOpen(true)}
-        onScanFolder={handleScanFolder}
-        onUpdateLibrary={handleUpdateSteamLibrary}
-        onConfigureApps={() => setIsConfigureAppsOpen(true)}
-        onOnyxSettings={() => {
-          setOnyxSettingsInitialTab('general');
-          setIsOnyxSettingsOpen(true);
-        }}
-        onAPISettings={() => {
-          setOnyxSettingsInitialTab('apis');
-          setIsOnyxSettingsOpen(true);
-        }}
-        onExit={handleExit}
-      />
 
       {/* Onyx Settings Modal */}
       <OnyxSettingsModal
         isOpen={isOnyxSettingsOpen}
         onClose={() => setIsOnyxSettingsOpen(false)}
         initialTab={onyxSettingsInitialTab}
+        onShowImportModal={(games, appType) => {
+          setIsSteamImportOpen(true);
+          setScannedSteamGames(games);
+          setImportAppType(appType || 'steam');
+        }}
         onSave={async () => {
           // Reload preferences after saving to update UI immediately
           try {
@@ -844,6 +932,8 @@ function App() {
             if (prefs.minimizeToTray !== undefined) {
               // These are handled by the modal, but we can reload them too if needed
             }
+            // Reload library if app configs were saved
+            await loadLibrary();
           } catch (error) {
             console.error('Error reloading preferences after save:', error);
           }
@@ -856,36 +946,6 @@ function App() {
         onClose={() => setIsAPISettingsOpen(false)}
       />
 
-      {/* Configure Apps Modal */}
-      <ConfigureAppsModal
-        isOpen={isConfigureAppsOpen}
-        onClose={() => setIsConfigureAppsOpen(false)}
-        onSave={() => {
-          loadLibrary();
-        }}
-        onScan={async (appId: string) => {
-          const apps = await window.electronAPI.getAppConfigs();
-          const app = apps[appId];
-          if (app && app.enabled && app.path) {
-            if (appId === 'xbox') {
-              const result = await window.electronAPI.scanXboxGames(app.path);
-              if (result.success) {
-                await loadLibrary();
-                showToast(`Xbox Game Pass library scanned successfully`, 'success');
-              } else {
-                showToast(`Failed to scan: ${result.error || 'Unknown error'}`, 'error');
-              }
-            } else {
-              showToast(`Scanning for ${app.name} is not yet implemented`, 'error');
-            }
-          }
-        }}
-        onShowImportModal={(games, appType = 'steam') => {
-          setIsSteamImportOpen(true);
-          setScannedSteamGames(games);
-          setImportAppType(appType);
-        }}
-      />
 
       {/* Update Library Modal */}
       <UpdateLibraryModal

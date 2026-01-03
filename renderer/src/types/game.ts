@@ -48,6 +48,15 @@ export interface GameMetadata {
   boxArtUrl: string;
   bannerUrl: string;
   screenshots?: string[];
+  // Full IGDB metadata
+  title?: string;
+  description?: string;
+  releaseDate?: string;
+  genres?: string[];
+  ageRating?: string;
+  categories?: string[];
+  rating?: number;
+  platform?: string;
 }
 
 export interface ExecutableFile {
@@ -83,8 +92,8 @@ declare global {
       saveAppConfigs: (configs: Array<{ id: string; name: string; enabled: boolean; path: string }>) => Promise<{ success: boolean; error?: string }>;
       scanXboxGames: (path: string, autoMerge?: boolean) => Promise<{ success: boolean; error?: string; games: Array<{ id: string; name: string; installPath: string; type: string }> }>;
       onMenuEvent: (channel: string, callback: () => void) => () => void;
-      getPreferences: () => Promise<{ gridSize?: number; panelWidth?: number; fanartHeight?: number; descriptionHeight?: number; pinnedCategories?: string[]; minimizeToTray?: boolean; showSystemTrayIcon?: boolean; startWithComputer?: boolean; startClosedToTray?: boolean; updateLibrariesOnStartup?: boolean; hideVRTitles?: boolean; hideGameTitles?: boolean; gameTilePadding?: number; activeGameId?: string | null }>;
-      savePreferences: (preferences: { gridSize?: number; panelWidth?: number; fanartHeight?: number; descriptionHeight?: number; pinnedCategories?: string[]; minimizeToTray?: boolean; showSystemTrayIcon?: boolean; startWithComputer?: boolean; startClosedToTray?: boolean; updateLibrariesOnStartup?: boolean; hideVRTitles?: boolean; hideGameTitles?: boolean; gameTilePadding?: number; activeGameId?: string | null }) => Promise<{ success: boolean; error?: string }>;
+      getPreferences: () => Promise<{ gridSize?: number; panelWidth?: number; fanartHeight?: number; descriptionHeight?: number; pinnedCategories?: string[]; minimizeToTray?: boolean; showSystemTrayIcon?: boolean; startWithComputer?: boolean; startClosedToTray?: boolean; updateLibrariesOnStartup?: boolean; hideVRTitles?: boolean; hideGameTitles?: boolean; gameTilePadding?: number; activeGameId?: string | null; ignoredGames?: string[] }>;
+      savePreferences: (preferences: { gridSize?: number; panelWidth?: number; fanartHeight?: number; descriptionHeight?: number; pinnedCategories?: string[]; minimizeToTray?: boolean; showSystemTrayIcon?: boolean; startWithComputer?: boolean; startClosedToTray?: boolean; updateLibrariesOnStartup?: boolean; hideVRTitles?: boolean; hideGameTitles?: boolean; gameTilePadding?: number; activeGameId?: string | null; ignoredGames?: string[] }) => Promise<{ success: boolean; error?: string }>;
       requestExit: () => Promise<{ shouldMinimizeToTray: boolean; canMinimizeToTray: boolean }>;
       exit: () => Promise<void>;
       minimizeToTray: () => Promise<void>;
@@ -93,6 +102,7 @@ declare global {
       openExternal: (url: string) => Promise<{ success: boolean; error?: string }>;
       getAPICredentials: () => Promise<{ igdbClientId?: string; igdbClientSecret?: string }>;
       saveAPICredentials: (credentials: { igdbClientId?: string; igdbClientSecret?: string }) => Promise<{ success: boolean; error?: string }>;
+      resetApp: () => Promise<{ success: boolean; error?: string }>;
     };
   }
 }

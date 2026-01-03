@@ -87,4 +87,12 @@ export class AppConfigService {
     delete apps[appId];
     store.set('apps', apps);
   }
+
+  /**
+   * Clear all app configurations
+   */
+  async clearAppConfigs(): Promise<void> {
+    const store = await this.ensureStore();
+    store.set('apps', {});
+  }
 }

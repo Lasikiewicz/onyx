@@ -79,6 +79,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // API credentials methods
   getAPICredentials: () => ipcRenderer.invoke('api:getCredentials'),
   saveAPICredentials: (credentials: { igdbClientId?: string; igdbClientSecret?: string }) => ipcRenderer.invoke('api:saveCredentials', credentials),
+  // App reset method
+  resetApp: () => ipcRenderer.invoke('app:reset'),
 });
 
 // Debug: Log that electronAPI was exposed
