@@ -42,18 +42,39 @@ export class MetadataFetcherService {
       const boxArtUrl = `https://cdn.cloudflare.steamstatic.com/steam/apps/${appId}/header.jpg`;
       const bannerUrl = `https://cdn.cloudflare.steamstatic.com/steam/apps/${appId}/library_600x900.jpg`;
       
-      // Verify images exist by checking if they load
-      const boxArtResponse = await fetch(boxArtUrl, { method: 'HEAD' });
-      const bannerResponse = await fetch(bannerUrl, { method: 'HEAD' });
+      // Add timeout to prevent long waits (5 seconds per request)
+      const timeoutMs = 5000;
       
-      if (boxArtResponse.ok || bannerResponse.ok) {
+      const fetchWithTimeout = async (url: string): Promise<Response | null> => {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+        
+        try {
+          const response = await fetch(url, { method: 'HEAD', signal: controller.signal });
+          clearTimeout(timeoutId);
+          return response;
+        } catch (error) {
+          clearTimeout(timeoutId);
+          // Silently handle timeout/network errors - fallback is expected
+          return null;
+        }
+      };
+      
+      // Verify images exist by checking if they load (with timeout)
+      const [boxArtResponse, bannerResponse] = await Promise.all([
+        fetchWithTimeout(boxArtUrl),
+        fetchWithTimeout(bannerUrl),
+      ]);
+      
+      if (boxArtResponse?.ok || bannerResponse?.ok) {
         return {
-          boxArtUrl: boxArtResponse.ok ? boxArtUrl : bannerUrl,
-          bannerUrl: bannerResponse.ok ? bannerUrl : boxArtUrl,
+          boxArtUrl: boxArtResponse?.ok ? boxArtUrl : bannerUrl,
+          bannerUrl: bannerResponse?.ok ? bannerUrl : boxArtUrl,
         };
       }
     } catch (error) {
-      console.warn('Steam CDN fetch failed:', error);
+      // Silently fallback - network issues are expected and handled gracefully
+      // No need to log every timeout/connection error
     }
     
     // Fallback to placeholder

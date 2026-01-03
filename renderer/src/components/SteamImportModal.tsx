@@ -159,11 +159,7 @@ export const SteamImportModal: React.FC<SteamImportModalProps> = ({ isOpen, onCl
         // A game is "existing" if:
         // 1. It's in the existing library OR
         // 2. It was seen in a previous scan (even if unchecked)
-        const newGameIds = new Set(
-          Array.from(allGameIds).filter(id => 
-            !existingGameIds.has(id) && !previouslySeenGames.has(id)
-          )
-        );
+        // Note: newGameIds is no longer used since new games are unchecked by default
         
         // Update previously seen games to include all current games (but not ignored ones)
         setPreviouslySeenGames(prev => {
@@ -578,7 +574,6 @@ export const SteamImportModal: React.FC<SteamImportModalProps> = ({ isOpen, onCl
       // Fetch metadata for all newly selected games
       const currentMetadata = gameMetadata;
       scannedGames.forEach(game => {
-        const gameId = getGameId(game);
         if (isSteamGame(game)) {
           fetchMetadataForGame(game, currentMetadata);
         } else if ('installPath' in game && 'type' in game && (game.type === 'uwp' || game.type === 'pc')) {

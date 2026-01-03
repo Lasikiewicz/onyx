@@ -273,14 +273,10 @@ limit 50;`;
           const categoryName = categoryMap[game.category];
           if (categoryName) {
             result.categories = [categoryName];
-          } else {
-            // Default to Main Game if category value is not recognized
-            result.categories = ['Main Game'];
           }
-        } else {
-          // Default to Main Game if category is not provided
-          result.categories = ['Main Game'];
+          // Don't set a default category if category value is not recognized
         }
+        // Don't set a default category if category is not provided
 
         // Convert cover URL - handle both object and string formats
         let coverUrl: string | undefined;

@@ -69,25 +69,17 @@
     },
     "files": [
       "dist/**/*",
-      "dist-electron/**/*",
-      "package.json",
-      "resources/icon.svg",
-      "resources/icon.png",
-      "build/icon.ico"
+      "dist-electron/**/*.js",
+      "package.json"
     ],
-    "extraResources": [
-      {
-        "from": "build/icon.ico",
-        "to": "icon.ico"
-      },
-      {
-        "from": "resources/icon.png",
-        "to": "icon.png"
-      },
-      {
-        "from": "resources/icon.svg",
-        "to": "icon.svg"
-      }
-    ]
+    "asar": true,
+    "asarUnpack": [],
+    "compression": "maximum",
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
   }
 }

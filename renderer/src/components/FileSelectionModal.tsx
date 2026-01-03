@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ExecutableFile, GameMetadata } from '../types/game';
+import { ExecutableFile, GameMetadata, Game } from '../types/game';
 import { SteamGameMetadataEditor } from './SteamGameMetadataEditor';
 
 interface FileSelectionModalProps {
