@@ -80,8 +80,7 @@ export const SteamGameMetadataEditor: React.FC<SteamGameMetadataEditorProps> = (
       // Reset search query to game name when modal opens
       setSearchQuery(game.name);
       setHasSearched(false);
-      // Auto-search for metadata when modal opens
-      handleSearch();
+      // Don't auto-search - require user to click search button
     }
   }, [isOpen, game]);
 
@@ -189,58 +188,94 @@ export const SteamGameMetadataEditor: React.FC<SteamGameMetadataEditorProps> = (
             </button>
           </div>
 
-          <div className="space-y-6">
-            {/* Current Images Preview */}
-            <div className="grid grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Box Art</label>
-                <div className="relative">
-                  <img
-                    src={metadata.boxArtUrl}
-                    alt="Box art"
-                    className="w-full h-auto rounded-lg border border-gray-600 cursor-pointer hover:opacity-80 transition-opacity"
-                    onClick={() => setShowImageSelector('boxart')}
-                    onError={(e) => {
-                      if (isSteamGame(game)) {
-                        (e.target as HTMLImageElement).src = `https://cdn.cloudflare.steamstatic.com/steam/apps/${game.appId}/header.jpg`;
-                      } else {
-                        (e.target as HTMLImageElement).style.display = 'none';
+          <div className="grid grid-cols-2 gap-6">
+            {/* Left Column */}
+            <div className="space-y-6">
+              {/* Search for Game Metadata - Top Left */}
+              <div className="border border-gray-600 rounded-lg p-4 bg-gray-700/30">
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Search for Game Metadata
+                </label>
+                <p className="text-xs text-gray-400 mb-3">
+                  If no results were found, try searching with a different title (e.g., "Final Fantasy VI" instead of "FINAL.FANTASY.VI")
+                </p>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        handleSearch();
                       }
                     }}
+                    placeholder="Enter game title to search..."
+                    className="flex-1 px-4 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                   <button
-                    onClick={() => setShowImageSelector('boxart')}
-                    className="absolute top-2 right-2 px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded transition-colors"
+                    type="button"
+                    onClick={() => handleSearch()}
+                    disabled={isSearching || !searchQuery.trim()}
+                    className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Change
+                    {isSearching ? 'Searching...' : 'Search'}
                   </button>
                 </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Banner Art</label>
-                <div className="relative">
-                  <img
-                    src={metadata.bannerUrl}
-                    alt="Banner art"
-                    className="w-full h-auto rounded-lg border border-gray-600 cursor-pointer hover:opacity-80 transition-opacity"
-                    onClick={() => setShowImageSelector('banner')}
-                    onError={(e) => {
-                      if (isSteamGame(game)) {
-                        (e.target as HTMLImageElement).src = `https://cdn.cloudflare.steamstatic.com/steam/apps/${game.appId}/library_600x900.jpg`;
-                      } else {
-                        (e.target as HTMLImageElement).style.display = 'none';
-                      }
-                    }}
-                  />
-                  <button
-                    onClick={() => setShowImageSelector('banner')}
-                    className="absolute top-2 right-2 px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded transition-colors"
-                  >
-                    Change
-                  </button>
+
+              {/* Current Images Preview - Below Search Box */}
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Box Art</label>
+                  <div className="relative" style={{ width: '120px' }}>
+                    <img
+                      src={metadata.boxArtUrl}
+                      alt="Box art"
+                      className="w-full h-auto rounded-lg border border-gray-600 cursor-pointer hover:opacity-80 transition-opacity"
+                      onClick={() => setShowImageSelector('boxart')}
+                      onError={(e) => {
+                        if (isSteamGame(game)) {
+                          (e.target as HTMLImageElement).src = `https://cdn.cloudflare.steamstatic.com/steam/apps/${game.appId}/header.jpg`;
+                        } else {
+                          (e.target as HTMLImageElement).style.display = 'none';
+                        }
+                      }}
+                    />
+                    <button
+                      onClick={() => setShowImageSelector('boxart')}
+                      className="absolute top-2 right-2 px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded transition-colors"
+                    >
+                      Change
+                    </button>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Banner Art</label>
+                  <div className="relative w-full">
+                    <img
+                      src={metadata.bannerUrl}
+                      alt="Banner art"
+                      className="w-full h-auto rounded-lg border border-gray-600 cursor-pointer hover:opacity-80 transition-opacity"
+                      onClick={() => setShowImageSelector('banner')}
+                      onError={(e) => {
+                        if (isSteamGame(game)) {
+                          (e.target as HTMLImageElement).src = `https://cdn.cloudflare.steamstatic.com/steam/apps/${game.appId}/library_600x900.jpg`;
+                        } else {
+                          (e.target as HTMLImageElement).style.display = 'none';
+                        }
+                      }}
+                    />
+                    <button
+                      onClick={() => setShowImageSelector('banner')}
+                      className="absolute top-2 right-2 px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded transition-colors"
+                    >
+                      Change
+                    </button>
+                  </div>
                 </div>
               </div>
-              {/* Image Selector - appears to the right */}
+
+              {/* Image Selector - appears below images when selecting */}
               {(showImageSelector === 'boxart' || showImageSelector === 'banner') && selectedResult && (
                 <div className="border border-gray-600 rounded-lg p-4 bg-gray-700/30">
                   <h4 className="text-sm font-semibold text-white mb-3">
@@ -289,124 +324,95 @@ export const SteamGameMetadataEditor: React.FC<SteamGameMetadataEditorProps> = (
               )}
             </div>
 
-            {/* Manual Search Input */}
-            <div className="border border-gray-600 rounded-lg p-4 bg-gray-700/30">
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Search for Game Metadata
-              </label>
-              <p className="text-xs text-gray-400 mb-3">
-                If no results were found, try searching with a different title (e.g., "Final Fantasy VI" instead of "FINAL.FANTASY.VI.RexaGames.com")
-              </p>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      handleSearch();
-                    }
-                  }}
-                  placeholder="Enter game title to search..."
-                  className="flex-1 px-4 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-                <button
-                  type="button"
-                  onClick={() => handleSearch()}
-                  disabled={isSearching || !searchQuery.trim()}
-                  className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isSearching ? 'Searching...' : 'Search'}
-                </button>
-              </div>
-            </div>
-
-            {/* Search Results */}
-            {isSearching ? (
-              <div className="text-center py-8">
-                <svg className="animate-spin h-8 w-8 text-blue-500 mx-auto mb-4" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                </svg>
-                <p className="text-gray-300">Searching for metadata...</p>
-              </div>
-            ) : hasSearched && searchResults.length === 0 ? (
-              <div className="border border-gray-600 rounded-lg p-6 bg-gray-700/30 text-center">
-                <p className="text-gray-300 mb-2">No results found for "{searchQuery}"</p>
-                <p className="text-gray-400 text-sm mb-4">
-                  Try searching with a different title or check your API credentials in Settings &gt; APIs
-                </p>
-                <p className="text-gray-500 text-xs">
-                  You can still save the game without metadata, or manually set images using the "Change" buttons above.
-                </p>
-              </div>
-            ) : searchResults.length > 0 ? (
-              <div className="border border-gray-600 rounded-lg p-4 bg-gray-700/30">
-                <h3 className="text-lg font-semibold text-white mb-4">
-                  Search Results ({searchResults.length})
-                </h3>
-                <div className="space-y-2 max-h-96 overflow-y-auto">
-                  {searchResults.map((result) => {
-                    const isSelected = selectedResult?.id === result.id;
-                    const releaseYear = formatReleaseYear(result.releaseDate);
-                    
-                    return (
-                      <button
-                        key={result.id}
-                        type="button"
-                        onClick={() => handleSelectResult(result)}
-                        className={`w-full flex items-center gap-4 p-3 rounded-lg border transition-colors text-left ${
-                          isSelected
-                            ? 'bg-blue-600/30 border-blue-500'
-                            : 'bg-gray-700/50 border-gray-600 hover:bg-gray-700 hover:border-gray-500'
-                        }`}
-                      >
-                        <div className="flex-shrink-0 w-20 h-28 bg-gray-600 rounded overflow-hidden">
-                          {result.coverUrl ? (
-                            <img
-                              src={result.coverUrl}
-                              alt={result.name}
-                              className="w-full h-full object-cover"
-                              onError={(e) => {
-                                (e.target as HTMLImageElement).style.display = 'none';
-                              }}
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">
-                              No Cover
-                            </div>
-                          )}
-                        </div>
-                        
-                        <div className="flex-1 min-w-0">
-                          <h4 className="text-white font-semibold text-base mb-1 truncate">
-                            {result.name}
-                          </h4>
-                          <div className="flex items-center gap-3 text-sm text-gray-400">
-                            {releaseYear && <span>{releaseYear}</span>}
-                            {result.rating && <span>{Math.round(result.rating)}/100</span>}
-                            {result.genres && result.genres.length > 0 && (
-                              <span className="truncate">{result.genres.slice(0, 2).join(', ')}</span>
+            {/* Right Column - Search Results */}
+            <div>
+              {isSearching ? (
+                <div className="text-center py-8">
+                  <svg className="animate-spin h-8 w-8 text-blue-500 mx-auto mb-4" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  <p className="text-gray-300">Searching for metadata...</p>
+                </div>
+              ) : hasSearched && searchResults.length === 0 ? (
+                <div className="border border-gray-600 rounded-lg p-6 bg-gray-700/30 text-center">
+                  <p className="text-gray-300 mb-2">No results found for "{searchQuery}"</p>
+                  <p className="text-gray-400 text-sm mb-4">
+                    Try searching with a different title or check your API credentials in Settings &gt; APIs
+                  </p>
+                  <p className="text-gray-500 text-xs">
+                    You can still save the game without metadata, or manually set images using the "Change" buttons above.
+                  </p>
+                </div>
+              ) : searchResults.length > 0 ? (
+                <div className="border border-gray-600 rounded-lg p-4 bg-gray-700/30">
+                  <h3 className="text-lg font-semibold text-white mb-4">
+                    Search Results ({searchResults.length})
+                  </h3>
+                  <div className="space-y-2 max-h-[calc(90vh-300px)] overflow-y-auto">
+                    {searchResults.map((result) => {
+                      const isSelected = selectedResult?.id === result.id;
+                      const releaseYear = formatReleaseYear(result.releaseDate);
+                      
+                      return (
+                        <button
+                          key={result.id}
+                          type="button"
+                          onClick={() => handleSelectResult(result)}
+                          className={`w-full flex items-center gap-4 p-3 rounded-lg border transition-colors text-left ${
+                            isSelected
+                              ? 'bg-blue-600/30 border-blue-500'
+                              : 'bg-gray-700/50 border-gray-600 hover:bg-gray-700 hover:border-gray-500'
+                          }`}
+                        >
+                          <div className="flex-shrink-0 w-20 h-28 bg-gray-600 rounded overflow-hidden">
+                            {result.coverUrl ? (
+                              <img
+                                src={result.coverUrl}
+                                alt={result.name}
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).style.display = 'none';
+                                }}
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">
+                                No Cover
+                              </div>
                             )}
                           </div>
-                          {result.summary && (
-                            <p className="text-xs text-gray-500 mt-2 line-clamp-2">{result.summary}</p>
-                          )}
-                        </div>
-                        
-                        {isSelected && (
-                          <div className="flex-shrink-0">
-                            <svg className="w-6 h-6 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                            </svg>
+                          
+                          <div className="flex-1 min-w-0">
+                            <h4 className="text-white font-semibold text-base mb-1 truncate">
+                              {result.name}
+                            </h4>
+                            <div className="flex items-center gap-3 text-sm text-gray-400">
+                              {releaseYear && <span>{releaseYear}</span>}
+                              {result.rating && <span>{Math.round(result.rating)}/100</span>}
+                              {result.genres && result.genres.length > 0 && (
+                                <span className="truncate">{result.genres.slice(0, 2).join(', ')}</span>
+                              )}
+                            </div>
+                            {result.summary && (
+                              <p className="text-xs text-gray-500 mt-2 line-clamp-2">{result.summary}</p>
+                            )}
                           </div>
-                        )}
-                      </button>
-                    );
-                  })}
+                          
+                          {isSelected && (
+                            <div className="flex-shrink-0">
+                              <svg className="w-6 h-6 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                              </svg>
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            ) : null}
+              ) : null}
+            </div>
+          </div>
 
 
             {/* Action Buttons */}
@@ -429,6 +435,5 @@ export const SteamGameMetadataEditor: React.FC<SteamGameMetadataEditorProps> = (
           </div>
         </div>
       </div>
-    </div>
   );
 };

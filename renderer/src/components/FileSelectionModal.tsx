@@ -204,8 +204,8 @@ export const FileSelectionModal: React.FC<FileSelectionModalProps> = ({
         newSet.delete(originalIndex);
       } else {
         newSet.add(originalIndex);
-        // Fetch metadata when a file is checked
-        fetchMetadataForFile(file);
+        // Open metadata editor when a file is checked
+        setEditingFile(file);
       }
       return newSet;
     });
@@ -230,19 +230,10 @@ export const FileSelectionModal: React.FC<FileSelectionModalProps> = ({
       // Select all files in current tab
       setSelectedFiles(prev => {
         const newSet = new Set(prev);
-        const newlySelected: ExecutableFile[] = [];
         currentTabIndices.forEach(idx => {
-          if (!prev.has(idx)) {
-            newlySelected.push(executables[idx]);
-          }
           newSet.add(idx);
         });
-        
-        // Fetch metadata for newly selected files
-        newlySelected.forEach(file => {
-          fetchMetadataForFile(file);
-        });
-        
+        // Don't auto-fetch metadata - user can open metadata editor for each file individually
         return newSet;
       });
     }

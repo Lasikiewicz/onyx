@@ -245,38 +245,7 @@ export const SteamImportModal: React.FC<SteamImportModalProps> = ({ isOpen, onCl
           });
         }
         
-        // Only fetch metadata for selected games that don't have images
-        // Use current metadata state for checking what exists
-        const currentMetadata = needsInitialization ? metadataMap : gameMetadata;
-        const selectedGameIds = needsInitialization ? restoredSelections : selectedGames;
-        
-        // Only fetch metadata for games that are selected
-        if (selectedGameIds.size > 0) {
-          if (appType === 'steam') {
-            const steamGames = filteredGames.filter(game => {
-              const gameId = getGameId(game);
-              return isSteamGame(game) && selectedGameIds.has(gameId);
-            });
-            fetchMetadataForAll(steamGames as SteamGame[], currentMetadata);
-          } else if (appType === 'xbox') {
-            // Fetch metadata for selected Xbox games that don't have images
-            const xboxGames = filteredGames.filter((g): g is XboxGame => {
-              const gameId = getGameId(g);
-              return !isSteamGame(g) && 'installPath' in g && 'type' in g && (g.type === 'uwp' || g.type === 'pc') && selectedGameIds.has(gameId);
-            });
-            fetchMetadataForXboxGames(xboxGames, currentMetadata);
-          } else if (appType === 'other') {
-            // Fetch metadata for selected other launcher games
-            const otherGames = filteredGames.filter((g): g is OtherGame => {
-              const gameId = getGameId(g);
-              return !isSteamGame(g) && !('installPath' in g && 'type' in g && (g.type === 'uwp' || g.type === 'pc')) && selectedGameIds.has(gameId);
-            });
-            // Fetch metadata for all selected other games in parallel
-            Promise.all(otherGames.map(game => fetchMetadataForXboxGame(game as any, currentMetadata))).catch(err => {
-              console.error('Error fetching metadata for other games:', err);
-            });
-          }
-        }
+        // Don't auto-fetch metadata - user must manually open metadata editor for each game
           } else {
             // Scan now
             handleScan();
@@ -542,17 +511,10 @@ export const SteamImportModal: React.FC<SteamImportModalProps> = ({ isOpen, onCl
         newSet.add(gameId);
         console.log(`[Selection] Selected gameId: ${gameId}. New selection count: ${newSet.size}`);
         
-        // Fetch metadata when a game is checked
+        // Open metadata editor when a game is checked
         const game = scannedGames.find(g => getGameId(g) === gameId);
         if (game) {
-          const currentMetadata = gameMetadata;
-          if (isSteamGame(game)) {
-            fetchMetadataForGame(game, currentMetadata);
-          } else if ('installPath' in game && 'type' in game && (game.type === 'uwp' || game.type === 'pc')) {
-            fetchMetadataForXboxGame(game as XboxGame, currentMetadata);
-          } else {
-            fetchMetadataForXboxGame(game as OtherGame, currentMetadata);
-          }
+          setEditingGame(game);
         }
       }
       // Update persisted selections
@@ -571,18 +533,7 @@ export const SteamImportModal: React.FC<SteamImportModalProps> = ({ isOpen, onCl
       const allGameIds = new Set(scannedGames.map(g => getGameId(g)));
       setSelectedGames(allGameIds);
       setPersistedSelections(allGameIds);
-      
-      // Fetch metadata for all newly selected games
-      const currentMetadata = gameMetadata;
-      scannedGames.forEach(game => {
-        if (isSteamGame(game)) {
-          fetchMetadataForGame(game, currentMetadata);
-        } else if ('installPath' in game && 'type' in game && (game.type === 'uwp' || game.type === 'pc')) {
-          fetchMetadataForXboxGame(game as XboxGame, currentMetadata);
-        } else {
-          fetchMetadataForXboxGame(game as OtherGame, currentMetadata);
-        }
-      });
+      // Don't auto-fetch metadata - user can open metadata editor for each game individually
     }
   };
 
@@ -681,68 +632,9 @@ export const SteamImportModal: React.FC<SteamImportModalProps> = ({ isOpen, onCl
             // Use metadata from manually selected result if available (has full metadata)
             const hasManualMetadata = metadata && (metadata.description || metadata.releaseDate || metadata.genres || metadata.ageRating || metadata.categories);
             
-            // Check if any metadata is missing (not just images)
-            // Fetch from IGDB if game doesn't exist OR if any metadata fields are missing
-            const hasMissingMetadata = !existingGame || 
-                                      (!hasManualMetadata && (
-                                        !existingGame.description ||
-                                        !existingGame.releaseDate ||
-                                        !existingGame.genres?.length ||
-                                        !existingGame.ageRating ||
-                                        !existingGame.categories?.length ||
-                                        !boxArtUrl || 
-                                        !bannerUrl
-                                      ));
-            
-            // If metadata is missing, try to fetch from IGDB
-            let igdbMetadata: { summary?: string; coverUrl?: string; screenshotUrls?: string[]; releaseDate?: number; genres?: string[]; ageRating?: string; categories?: string[] } | null = null;
-            
-            if (hasMissingMetadata && !isFetchingMetadata.has(gameId)) {
-              try {
-                setIsFetchingMetadata(prev => new Set(prev).add(gameId));
-                const response = await window.electronAPI.searchMetadata(game.name);
-                if (response.success && response.results && response.results.length > 0) {
-                  const result = response.results[0];
-                  igdbMetadata = {
-                    summary: result.summary,
-                    coverUrl: result.coverUrl,
-                    screenshotUrls: result.screenshotUrls,
-                    releaseDate: result.releaseDate,
-                    genres: result.genres,
-                    ageRating: result.ageRating,
-                    categories: result.categories,
-                  };
-                  
-                  // Update images if missing
-                  if (!boxArtUrl && result.coverUrl) {
-                    boxArtUrl = result.coverUrl;
-                  }
-                  if (!bannerUrl && result.screenshotUrls && result.screenshotUrls.length > 0) {
-                    bannerUrl = result.screenshotUrls[0];
-                  } else if (!bannerUrl && result.coverUrl) {
-                    bannerUrl = result.coverUrl;
-                  }
-                }
-              } catch (err) {
-                console.error(`Error fetching IGDB metadata for ${game.name}:`, err);
-              } finally {
-                setIsFetchingMetadata(prev => {
-                  const newSet = new Set(prev);
-                  newSet.delete(gameId);
-                  return newSet;
-                });
-              }
-            }
-            
-            // Format release date from timestamp if available
-            const formatReleaseDate = (timestamp?: number): string | undefined => {
-              if (!timestamp) return undefined;
-              const date = new Date(timestamp * 1000);
-              return date.toISOString().split('T')[0];
-            };
-            
-            // Build the game object, preserving existing fields and filling in missing metadata
-            // Priority: existing game > manually selected metadata > IGDB fetched metadata > defaults
+            // Build the game object, preserving existing fields and using manually selected metadata
+            // Priority: existing game > manually selected metadata > defaults
+            // No automatic metadata fetching - user must manually select metadata via metadata editor
             const baseGame: Game | undefined = existingGame;
             const gameData: Game = {
               ...(baseGame || {}),
@@ -750,19 +642,19 @@ export const SteamImportModal: React.FC<SteamImportModalProps> = ({ isOpen, onCl
               title: baseGame?.title || metadata?.title || game.name,
               platform: baseGame?.platform || (isSteamGame(game) ? 'steam' as const : ('installPath' in game && 'type' in game && (game.type === 'uwp' || game.type === 'pc')) ? 'xbox' as const : (game as OtherGame).type || metadata?.platform || 'other'),
               exePath: baseGame?.exePath || (isSteamGame(game) ? '' : ('installPath' in game && game.installPath ? game.installPath : ((game as OtherGame).exePath || ''))),
-              // Images: use existing if available, otherwise use manually selected metadata, then IGDB, then defaults
+              // Images: use existing if available, otherwise use manually selected metadata, then defaults
               boxArtUrl: baseGame?.boxArtUrl || boxArtUrl || (isSteamGame(game) ? `https://cdn.cloudflare.steamstatic.com/steam/apps/${game.appId}/header.jpg` : ''),
               bannerUrl: baseGame?.bannerUrl || bannerUrl || (isSteamGame(game) ? `https://cdn.cloudflare.steamstatic.com/steam/apps/${game.appId}/library_600x900.jpg` : ''),
-              // Description: use existing if available, otherwise use manually selected metadata, then IGDB
-              description: baseGame?.description || metadata?.description || igdbMetadata?.summary || undefined,
-              // Release date: use existing if available, otherwise use manually selected metadata, then IGDB
-              releaseDate: baseGame?.releaseDate || metadata?.releaseDate || formatReleaseDate(igdbMetadata?.releaseDate) || undefined,
-              // Genres: use existing if available, otherwise use manually selected metadata, then IGDB
-              genres: (baseGame?.genres && baseGame.genres.length > 0) ? baseGame.genres : (metadata?.genres && metadata.genres.length > 0) ? metadata.genres : (igdbMetadata?.genres || undefined),
-              // Age rating: use existing if available, otherwise use manually selected metadata, then IGDB
-              ageRating: baseGame?.ageRating || metadata?.ageRating || igdbMetadata?.ageRating || undefined,
-              // Categories: use existing if available, otherwise use manually selected metadata, then IGDB
-              categories: (baseGame?.categories && baseGame.categories.length > 0) ? baseGame.categories : (metadata?.categories && metadata.categories.length > 0) ? metadata.categories : (igdbMetadata?.categories || undefined),
+              // Description: use existing if available, otherwise use manually selected metadata
+              description: baseGame?.description || metadata?.description || undefined,
+              // Release date: use existing if available, otherwise use manually selected metadata
+              releaseDate: baseGame?.releaseDate || metadata?.releaseDate || undefined,
+              // Genres: use existing if available, otherwise use manually selected metadata
+              genres: (baseGame?.genres && baseGame.genres.length > 0) ? baseGame.genres : (metadata?.genres && metadata.genres.length > 0) ? metadata.genres : undefined,
+              // Age rating: use existing if available, otherwise use manually selected metadata
+              ageRating: baseGame?.ageRating || metadata?.ageRating || undefined,
+              // Categories: use existing if available, otherwise use manually selected metadata
+              categories: (baseGame?.categories && baseGame.categories.length > 0) ? baseGame.categories : (metadata?.categories && metadata.categories.length > 0) ? metadata.categories : undefined,
             };
             
             return gameData;
