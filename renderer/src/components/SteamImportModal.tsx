@@ -641,6 +641,15 @@ export const SteamImportModal: React.FC<SteamImportModalProps> = ({ isOpen, onCl
       return;
     }
 
+    // Check if APIs are configured
+    const { areAPIsConfigured } = await import('../utils/apiValidation');
+    const apisConfigured = await areAPIsConfigured();
+    if (!apisConfigured) {
+      setError('API credentials must be configured before adding games. Please configure them in Settings.');
+      setIsImporting(false);
+      return;
+    }
+
     setIsImporting(true);
     setError(null);
 

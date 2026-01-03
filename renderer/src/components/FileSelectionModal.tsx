@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ExecutableFile, GameMetadata, Game } from '../types/game';
 import { SteamGameMetadataEditor } from './SteamGameMetadataEditor';
+import { areAPIsConfigured } from '../utils/apiValidation';
 
 interface FileSelectionModalProps {
   isOpen: boolean;
@@ -9,6 +10,7 @@ interface FileSelectionModalProps {
   onSelect: (file: ExecutableFile, metadata?: GameMetadata) => void;
   folderPath: string;
   existingLibrary?: Game[]; // Optional: existing library games to check if already imported
+  onAPIConfigRequired?: () => void; // Callback when API configuration is required
 }
 
 export const FileSelectionModal: React.FC<FileSelectionModalProps> = ({
@@ -18,6 +20,7 @@ export const FileSelectionModal: React.FC<FileSelectionModalProps> = ({
   onSelect,
   folderPath,
   existingLibrary = [],
+  onAPIConfigRequired,
 }) => {
   const [selectedFiles, setSelectedFiles] = useState<Set<number>>(new Set());
   const [ignoredFiles, setIgnoredFiles] = useState<Set<string>>(new Set());
@@ -291,7 +294,19 @@ export const FileSelectionModal: React.FC<FileSelectionModalProps> = ({
     }
   };
 
-  const handleImport = () => {
+  const handleImport = async () => {
+    // Check if APIs are configured
+    const apisConfigured = await areAPIsConfigured();
+    if (!apisConfigured) {
+      // Notify parent component to handle API configuration
+      if (onAPIConfigRequired) {
+        onAPIConfigRequired();
+      } else {
+        alert('API credentials must be configured before adding games. Please configure them in Settings.');
+      }
+      return;
+    }
+
     // Import all selected files with their metadata
     filteredExecutables.forEach((file) => {
       const originalIndex = executables.findIndex(f => f.fullPath === file.fullPath);

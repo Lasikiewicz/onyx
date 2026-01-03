@@ -15,6 +15,7 @@ import { UpdateLibraryModal } from './components/UpdateLibraryModal';
 import { OnyxSettingsModal } from './components/OnyxSettingsModal';
 import { APISettingsModal } from './components/APISettingsModal';
 import { Game, ExecutableFile, GameMetadata } from './types/game';
+import { areAPIsConfigured } from './utils/apiValidation';
 
 function App() {
   const { games, loading, error, reorderGames, addCustomGame, loadLibrary, saveGame, deleteGame } = useGameLibrary();
@@ -194,7 +195,14 @@ function App() {
 
   // Listen to menu events
   useEffect(() => {
-    const cleanup1 = window.electronAPI.onMenuEvent('menu:addGame', () => {
+    const cleanup1 = window.electronAPI.onMenuEvent('menu:addGame', async () => {
+      const apisConfigured = await areAPIsConfigured();
+      if (!apisConfigured) {
+        showToast('API credentials must be configured before adding games. Please configure them in Settings.', 'error');
+        setIsOnyxSettingsOpen(true);
+        setOnyxSettingsInitialTab('apis');
+        return;
+      }
       setIsModalOpen(true);
     });
     const cleanup2 = window.electronAPI.onMenuEvent('menu:scanFolder', () => {
@@ -372,6 +380,15 @@ function App() {
   };
 
   const handleAddGame = async (game: Game) => {
+    // Check if APIs are configured
+    const apisConfigured = await areAPIsConfigured();
+    if (!apisConfigured) {
+      showToast('API credentials must be configured before adding games. Please configure them in Settings.', 'error');
+      setIsModalOpen(false);
+      setIsOnyxSettingsOpen(true);
+      setOnyxSettingsInitialTab('apis');
+      return;
+    }
     await addCustomGame(game);
   };
 
@@ -383,11 +400,29 @@ function App() {
 
   // Update Library handler - opens update library modal
   const handleUpdateSteamLibrary = async () => {
+    // Check if APIs are configured
+    const apisConfigured = await areAPIsConfigured();
+    if (!apisConfigured) {
+      showToast('API credentials must be configured before adding games. Please configure them in Settings.', 'error');
+      setIsOnyxSettingsOpen(true);
+      setOnyxSettingsInitialTab('apis');
+      return;
+    }
     setIsUpdateLibraryOpen(true);
   };
 
   // Handle Steam games import
   const handleSteamGamesImport = async (gamesToImport: Game[], scannedGames: Array<{ appId?: string; id?: string; name: string; installDir?: string; libraryPath?: string; installPath?: string; type?: string }>, selectedGameIds: Set<string>) => {
+    // Check if APIs are configured
+    const apisConfigured = await areAPIsConfigured();
+    if (!apisConfigured) {
+      showToast('API credentials must be configured before adding games. Please configure them in Settings.', 'error');
+      setIsSteamImportOpen(false);
+      setIsOnyxSettingsOpen(true);
+      setOnyxSettingsInitialTab('apis');
+      return;
+    }
+
     try {
       // Get current library to find games that should be removed
       const currentLibrary = await window.electronAPI.getLibrary();
@@ -503,6 +538,15 @@ function App() {
 
   // Scan Folder handler
   const handleScanFolder = async () => {
+    // Check if APIs are configured
+    const apisConfigured = await areAPIsConfigured();
+    if (!apisConfigured) {
+      showToast('API credentials must be configured before adding games. Please configure them in Settings.', 'error');
+      setIsOnyxSettingsOpen(true);
+      setOnyxSettingsInitialTab('apis');
+      return;
+    }
+
     try {
       const folderPath = await window.electronAPI.showFolderDialog();
       if (!folderPath) {
@@ -531,6 +575,16 @@ function App() {
 
   // Handle executable selection from file selection modal
   const handleExecutableSelect = async (file: ExecutableFile, metadata?: GameMetadata) => {
+    // Check if APIs are configured
+    const apisConfigured = await areAPIsConfigured();
+    if (!apisConfigured) {
+      showToast('API credentials must be configured before adding games. Please configure them in Settings.', 'error');
+      setIsFileSelectionOpen(false);
+      setIsOnyxSettingsOpen(true);
+      setOnyxSettingsInitialTab('apis');
+      return;
+    }
+
     // Create game with all metadata if available
     const gameId = `custom-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     const newGame: Game = {
@@ -809,7 +863,16 @@ function App() {
                       </div>
                       
                       <button
-                        onClick={() => setIsModalOpen(true)}
+                        onClick={async () => {
+                          const apisConfigured = await areAPIsConfigured();
+                          if (!apisConfigured) {
+                            showToast('API credentials must be configured before adding games. Please configure them in Settings.', 'error');
+                            setIsOnyxSettingsOpen(true);
+                            setOnyxSettingsInitialTab('apis');
+                            return;
+                          }
+                          setIsModalOpen(true);
+                        }}
                         className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm font-medium rounded-lg transition-colors"
                       >
                         Or Add Game Manually
@@ -856,6 +919,12 @@ function App() {
         onSelect={handleExecutableSelect}
         folderPath={scannedFolderPath}
         existingLibrary={games}
+        onAPIConfigRequired={() => {
+          setIsFileSelectionOpen(false);
+          setIsOnyxSettingsOpen(true);
+          setOnyxSettingsInitialTab('apis');
+          showToast('API credentials must be configured before adding games.', 'error');
+        }}
       />
 
       {/* Game Metadata Editor */}
