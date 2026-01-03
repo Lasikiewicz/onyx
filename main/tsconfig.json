@@ -11,11 +11,11 @@
     "resolveJsonModule": true,
     "outDir": "../dist-electron",
     "rootDir": ".",
-    "declaration": false,
+    "declaration": true,
     "declarationMap": false,
     "sourceMap": false,
     "noEmit": false,
-    "composite": false
+    "composite": true
   },
   "include": ["**/*.ts"],
   "exclude": ["node_modules", "preload.ts"]

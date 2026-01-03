@@ -70,6 +70,8 @@
     "files": [
       "dist/**/*",
       "dist-electron/**/*.js",
+      "!dist-electron/**/*.d.ts",
+      "!dist-electron/**/*.tsbuildinfo",
       "package.json"
     ],
     "asar": true,
