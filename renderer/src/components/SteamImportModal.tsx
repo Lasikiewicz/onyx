@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Game } from '../types/game';
 import { GameMetadata } from '../types/game';
 import { SteamGameMetadataEditor } from './SteamGameMetadataEditor';
+import { areAPIsConfigured } from '../utils/apiValidation';
 
 interface SteamGame {
   appId: string;
@@ -642,7 +643,6 @@ export const SteamImportModal: React.FC<SteamImportModalProps> = ({ isOpen, onCl
     }
 
     // Check if APIs are configured
-    const { areAPIsConfigured } = await import('../utils/apiValidation');
     const apisConfigured = await areAPIsConfigured();
     if (!apisConfigured) {
       setError('API credentials must be configured before adding games. Please configure them in Settings.');
