@@ -12,9 +12,10 @@ interface SortableGameCardProps {
   onEdit?: (game: Game) => void;
   onEditImages?: (game: Game) => void;
   onFavorite?: (game: Game) => void;
+  hideTitle?: boolean;
 }
 
-export const SortableGameCard: React.FC<SortableGameCardProps> = ({ game, onPlay, onClick, onEdit, onEditImages, onFavorite }) => {
+export const SortableGameCard: React.FC<SortableGameCardProps> = ({ game, onPlay, onClick, onEdit, onEditImages, onFavorite, hideTitle = false }) => {
   const {
     attributes,
     listeners,
@@ -69,7 +70,7 @@ export const SortableGameCard: React.FC<SortableGameCardProps> = ({ game, onPlay
         onContextMenu={handleContextMenu}
         className="cursor-pointer"
       >
-        <GameCard game={game} onPlay={onPlay} onEdit={onEdit} />
+        <GameCard game={game} onPlay={onPlay} onEdit={onEdit} hideTitle={hideTitle} />
       </div>
       {contextMenu && (
         <GameContextMenu

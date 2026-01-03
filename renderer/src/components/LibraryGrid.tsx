@@ -26,9 +26,11 @@ interface LibraryGridProps {
   onEditImages?: (game: Game) => void;
   onFavorite?: (game: Game) => void;
   gridSize?: number;
+  gameTilePadding?: number;
+  hideGameTitles?: boolean;
 }
 
-export const LibraryGrid: React.FC<LibraryGridProps> = ({ games, onReorder, onPlay, onGameClick, onEdit, onEditImages, onFavorite, gridSize = 120 }) => {
+export const LibraryGrid: React.FC<LibraryGridProps> = ({ games, onReorder, onPlay, onGameClick, onEdit, onEditImages, onFavorite, gridSize = 120, gameTilePadding = 16, hideGameTitles = false }) => {
   const [items, setItems] = useState<Game[]>(games);
 
   // Update items when games prop changes
@@ -73,9 +75,10 @@ export const LibraryGrid: React.FC<LibraryGridProps> = ({ games, onReorder, onPl
         >
           <SortableContext items={items.map((g) => g.id)} strategy={rectSortingStrategy}>
             <div
-              className="grid gap-4"
+              className="grid"
               style={{
                 gridTemplateColumns: `repeat(auto-fill, minmax(${gridSize}px, 1fr))`,
+                gap: `${gameTilePadding}px`,
               }}
             >
               {items.map((game) => (
@@ -87,6 +90,7 @@ export const LibraryGrid: React.FC<LibraryGridProps> = ({ games, onReorder, onPl
                   onEdit={onEdit}
                   onEditImages={onEditImages}
                   onFavorite={onFavorite}
+                  hideTitle={hideGameTitles}
                 />
               ))}
             </div>

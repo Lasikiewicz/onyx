@@ -1086,7 +1086,7 @@ ipcMain.handle('preferences:get', async () => {
   }
 });
 
-ipcMain.handle('preferences:save', async (_event, preferences: { gridSize?: number; panelWidth?: number; fanartHeight?: number; descriptionHeight?: number; pinnedCategories?: string[]; minimizeToTray?: boolean; showSystemTrayIcon?: boolean; startWithComputer?: boolean; startClosedToTray?: boolean; updateLibrariesOnStartup?: boolean; activeGameId?: string | null; hideVRTitles?: boolean; windowState?: { x?: number; y?: number; width?: number; height?: number; isMaximized?: boolean } }) => {
+ipcMain.handle('preferences:save', async (_event, preferences: { gridSize?: number; panelWidth?: number; fanartHeight?: number; descriptionHeight?: number; pinnedCategories?: string[]; minimizeToTray?: boolean; showSystemTrayIcon?: boolean; startWithComputer?: boolean; startClosedToTray?: boolean; updateLibrariesOnStartup?: boolean; activeGameId?: string | null; hideVRTitles?: boolean; hideGameTitles?: boolean; gameTilePadding?: number; windowState?: { x?: number; y?: number; width?: number; height?: number; isMaximized?: boolean } }) => {
   try {
     await userPreferencesService.savePreferences(preferences);
     return { success: true };

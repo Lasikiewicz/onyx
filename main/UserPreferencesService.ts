@@ -11,6 +11,8 @@ export interface UserPreferences {
   updateLibrariesOnStartup?: boolean;
   activeGameId?: string | null;
   hideVRTitles?: boolean;
+  hideGameTitles?: boolean;
+  gameTilePadding?: number;
   windowState?: {
     x?: number;
     y?: number;
@@ -49,6 +51,8 @@ export class UserPreferencesService {
             updateLibrariesOnStartup: false,
             activeGameId: null,
             hideVRTitles: true,
+            hideGameTitles: false,
+            gameTilePadding: 16,
             windowState: undefined,
           },
         },
@@ -82,6 +86,8 @@ export class UserPreferencesService {
       updateLibrariesOnStartup: false,
       activeGameId: null,
       hideVRTitles: true,
+      hideGameTitles: false,
+      gameTilePadding: 16,
       windowState: undefined,
     });
   }
@@ -104,6 +110,8 @@ export class UserPreferencesService {
       updateLibrariesOnStartup: false,
       activeGameId: null,
       hideVRTitles: true,
+      hideGameTitles: false,
+      gameTilePadding: 16,
       windowState: undefined,
     });
     store.set('preferences', { ...current, ...preferences });

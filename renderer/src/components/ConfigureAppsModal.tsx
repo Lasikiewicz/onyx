@@ -311,7 +311,7 @@ export const ConfigureAppsModal: React.FC<ConfigureAppsModalProps> = ({
       {/* Modal - Centered on screen */}
       <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
         <div 
-          className="bg-gray-800 rounded-lg shadow-xl w-full max-w-4xl max-h-[85vh] border border-gray-700 flex flex-col"
+          className="bg-gray-800 rounded-lg shadow-xl w-full max-w-7xl max-h-[85vh] border border-gray-700 flex flex-col"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
@@ -334,7 +334,7 @@ export const ConfigureAppsModal: React.FC<ConfigureAppsModalProps> = ({
                 <p className="text-gray-300">Loading app configurations...</p>
               </div>
             ) : (
-              <div className="grid grid-cols-2 gap-6">
+              <div className="grid grid-cols-3 gap-6">
                 {apps.map((app) => (
                   <div key={app.id} className="border border-gray-700 rounded-lg p-4">
                     <div className="flex items-center justify-between mb-3">

@@ -68,7 +68,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   // User preferences methods
   getPreferences: () => ipcRenderer.invoke('preferences:get'),
-  savePreferences: (preferences: { gridSize?: number; panelWidth?: number; fanartHeight?: number; descriptionHeight?: number; pinnedCategories?: string[]; minimizeToTray?: boolean; showSystemTrayIcon?: boolean; startWithComputer?: boolean; startClosedToTray?: boolean; updateLibrariesOnStartup?: boolean; activeGameId?: string | null }) => ipcRenderer.invoke('preferences:save', preferences),
+  savePreferences: (preferences: { gridSize?: number; panelWidth?: number; fanartHeight?: number; descriptionHeight?: number; pinnedCategories?: string[]; minimizeToTray?: boolean; showSystemTrayIcon?: boolean; startWithComputer?: boolean; startClosedToTray?: boolean; updateLibrariesOnStartup?: boolean; activeGameId?: string | null; hideVRTitles?: boolean; hideGameTitles?: boolean; gameTilePadding?: number }) => ipcRenderer.invoke('preferences:save', preferences),
   // App control methods
   requestExit: () => ipcRenderer.invoke('app:requestExit'),
   exit: () => ipcRenderer.invoke('app:exit'),

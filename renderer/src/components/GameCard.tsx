@@ -5,9 +5,10 @@ interface GameCardProps {
   game: Game;
   onPlay?: (game: Game) => void;
   onEdit?: (game: Game) => void;
+  hideTitle?: boolean;
 }
 
-export const GameCard: React.FC<GameCardProps> = ({ game }) => {
+export const GameCard: React.FC<GameCardProps> = ({ game, hideTitle = false }) => {
   const formatPlaytime = (minutes?: number) => {
     if (!minutes) return 'Not Played';
     if (minutes < 60) return `${minutes} minutes`;
@@ -38,17 +39,19 @@ export const GameCard: React.FC<GameCardProps> = ({ game }) => {
         </div>
       )}
       
-      {/* Game Title and Status Overlay (always visible at bottom) */}
-      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/70 to-transparent p-2">
-        <h3 className="text-sm font-semibold text-white line-clamp-1">
-          {game.title}
-        </h3>
-        {game.playtime && (
-          <p className="text-xs text-gray-300 mt-1">
-            {formatPlaytime(game.playtime)}
-          </p>
-        )}
-      </div>
+      {/* Game Title and Status Overlay (conditionally visible) */}
+      {!hideTitle && (
+        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/70 to-transparent p-2">
+          <h3 className="text-sm font-semibold text-white line-clamp-1">
+            {game.title}
+          </h3>
+          {game.playtime && (
+            <p className="text-xs text-gray-300 mt-1">
+              {formatPlaytime(game.playtime)}
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 };

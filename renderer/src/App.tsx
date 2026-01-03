@@ -61,10 +61,14 @@ function App() {
   const [isConfigureAppsOpen, setIsConfigureAppsOpen] = useState(false);
   const [isUpdateLibraryOpen, setIsUpdateLibraryOpen] = useState(false);
   const [isOnyxSettingsOpen, setIsOnyxSettingsOpen] = useState(false);
+  const [onyxSettingsInitialTab, setOnyxSettingsInitialTab] = useState<'general' | 'appearance' | 'apis'>('general');
   const [isAPISettingsOpen, setIsAPISettingsOpen] = useState(false);
   const [gridSize, setGridSize] = useState(120);
   const [pinnedCategories, setPinnedCategories] = useState<string[]>([]);
   const [hideVRTitles, setHideVRTitles] = useState(true);
+  const [hideGameTitles, setHideGameTitles] = useState(false);
+  const [gameTilePadding, setGameTilePadding] = useState(16);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
 
   // Load preferences on mount
   useEffect(() => {
@@ -74,12 +78,16 @@ function App() {
         if (prefs.gridSize) setGridSize(prefs.gridSize);
         if (prefs.pinnedCategories) setPinnedCategories(prefs.pinnedCategories);
         if (prefs.hideVRTitles !== undefined) setHideVRTitles(prefs.hideVRTitles);
+        if (prefs.hideGameTitles !== undefined) setHideGameTitles(prefs.hideGameTitles);
+        if (prefs.gameTilePadding !== undefined) setGameTilePadding(prefs.gameTilePadding);
         // Restore active game selection if it exists
         if (prefs.activeGameId) {
           setActiveGameId(prefs.activeGameId);
         }
+        setIsInitialLoad(false);
       } catch (error) {
         console.error('Error loading preferences:', error);
+        setIsInitialLoad(false);
       }
     };
     loadPreferences();
@@ -126,6 +134,25 @@ function App() {
     const timeoutId = setTimeout(saveHideVRTitles, 300);
     return () => clearTimeout(timeoutId);
   }, [hideVRTitles]);
+
+  // Save appearance preferences when they change (but skip initial load)
+  useEffect(() => {
+    if (isInitialLoad) return; // Skip saving on initial load
+    
+    const saveAppearancePrefs = async () => {
+      try {
+        await window.electronAPI.savePreferences({ 
+          hideGameTitles,
+          gameTilePadding 
+        });
+      } catch (error) {
+        console.error('Error saving appearance preferences:', error);
+      }
+    };
+    // Debounce saves
+    const timeoutId = setTimeout(saveAppearancePrefs, 500);
+    return () => clearTimeout(timeoutId);
+  }, [hideGameTitles, gameTilePadding, isInitialLoad]);
 
   // Save activeGameId when it changes
   useEffect(() => {
@@ -674,6 +701,8 @@ function App() {
                       onEditImages={handleEditImages}
                       onFavorite={handleToggleFavorite}
                       gridSize={gridSize}
+                      gameTilePadding={gameTilePadding}
+                      hideGameTitles={hideGameTitles}
                     />
                   </div>
                 ) : (
@@ -785,8 +814,14 @@ function App() {
         onScanFolder={handleScanFolder}
         onUpdateLibrary={handleUpdateSteamLibrary}
         onConfigureApps={() => setIsConfigureAppsOpen(true)}
-        onOnyxSettings={() => setIsOnyxSettingsOpen(true)}
-        onAPISettings={() => setIsAPISettingsOpen(true)}
+        onOnyxSettings={() => {
+          setOnyxSettingsInitialTab('general');
+          setIsOnyxSettingsOpen(true);
+        }}
+        onAPISettings={() => {
+          setOnyxSettingsInitialTab('apis');
+          setIsOnyxSettingsOpen(true);
+        }}
         onExit={handleExit}
       />
 
@@ -794,6 +829,25 @@ function App() {
       <OnyxSettingsModal
         isOpen={isOnyxSettingsOpen}
         onClose={() => setIsOnyxSettingsOpen(false)}
+        initialTab={onyxSettingsInitialTab}
+        onSave={async () => {
+          // Reload preferences after saving to update UI immediately
+          try {
+            const prefs = await window.electronAPI.getPreferences();
+            if (prefs.hideGameTitles !== undefined) {
+              setHideGameTitles(prefs.hideGameTitles);
+            }
+            if (prefs.gameTilePadding !== undefined) {
+              setGameTilePadding(prefs.gameTilePadding);
+            }
+            // Also update other settings that might have changed
+            if (prefs.minimizeToTray !== undefined) {
+              // These are handled by the modal, but we can reload them too if needed
+            }
+          } catch (error) {
+            console.error('Error reloading preferences after save:', error);
+          }
+        }}
       />
 
       {/* API Settings Modal */}
