@@ -1,12 +1,18 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Game } from '../types/game';
+import { ImageContextMenu } from './ImageContextMenu';
+import { TextStyleContextMenu } from './TextStyleContextMenu';
+import { DetailsContextMenu } from './DetailsContextMenu';
+import { ImageSearchModal } from './ImageSearchModal';
+import { GameDetailsSimpleContextMenu } from './GameDetailsSimpleContextMenu';
 
 interface GameDetailsPanelProps {
   game: Game | null;
   onPlay?: (game: Game) => void;
+  onSaveGame?: (game: Game) => Promise<void>;
 }
 
-export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game }) => {
+export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game, onSaveGame }) => {
   const [width, setWidth] = useState(800);
   const [fanartHeight, setFanartHeight] = useState(320);
   const [descriptionHeight, setDescriptionHeight] = useState(400);
@@ -17,6 +23,39 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game }) => {
   const fanartRef = useRef<HTMLDivElement>(null);
   const descriptionRef = useRef<HTMLDivElement>(null);
 
+  // Simple context menu states (appears at right-click location)
+  const [simpleContextMenu, setSimpleContextMenu] = useState<{ x: number; y: number; type: 'artwork' | 'boxart' | 'title' | 'description' | 'details' } | null>(null);
+
+  // Full settings menu states (appears over game list)
+  const [showArtworkMenu, setShowArtworkMenu] = useState(false);
+  const [showBoxartMenu, setShowBoxartMenu] = useState(false);
+  const [showTitleMenu, setShowTitleMenu] = useState(false);
+  const [showDescriptionMenu, setShowDescriptionMenu] = useState(false);
+  const [showDetailsMenu, setShowDetailsMenu] = useState(false);
+
+  // Image search modal
+  const [imageSearchModal, setImageSearchModal] = useState<{ type: 'artwork' | 'boxart' } | null>(null);
+
+  // Font and style preferences
+  const [titleFontSize, setTitleFontSize] = useState(24);
+  const [titleFontFamily, setTitleFontFamily] = useState('system-ui');
+  const [descriptionFontSize, setDescriptionFontSize] = useState(14);
+  const [descriptionFontFamily, setDescriptionFontFamily] = useState('system-ui');
+  const [detailsFontSize, setDetailsFontSize] = useState(14);
+  const [detailsFontFamily, setDetailsFontFamily] = useState('system-ui');
+  const [visibleDetails, setVisibleDetails] = useState({
+    releaseDate: true,
+    platform: true,
+    ageRating: true,
+    genres: true,
+    developers: true,
+    publishers: true,
+    communityScore: true,
+    userScore: true,
+    criticScore: true,
+    installationDirectory: true,
+  });
+
   // Load preferences on mount
   useEffect(() => {
     const loadPreferences = async () => {
@@ -25,6 +64,13 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game }) => {
         if (prefs.panelWidth) setWidth(prefs.panelWidth);
         if (prefs.fanartHeight) setFanartHeight(prefs.fanartHeight);
         if (prefs.descriptionHeight) setDescriptionHeight(prefs.descriptionHeight);
+        if (prefs.titleFontSize) setTitleFontSize(prefs.titleFontSize);
+        if (prefs.titleFontFamily) setTitleFontFamily(prefs.titleFontFamily);
+        if (prefs.descriptionFontSize) setDescriptionFontSize(prefs.descriptionFontSize);
+        if (prefs.descriptionFontFamily) setDescriptionFontFamily(prefs.descriptionFontFamily);
+        if (prefs.detailsFontSize) setDetailsFontSize(prefs.detailsFontSize);
+        if (prefs.detailsFontFamily) setDetailsFontFamily(prefs.detailsFontFamily);
+        if (prefs.visibleDetails) setVisibleDetails(prefs.visibleDetails);
       } catch (error) {
         console.error('Error loading preferences:', error);
       }
@@ -40,6 +86,13 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game }) => {
           panelWidth: width,
           fanartHeight,
           descriptionHeight,
+          titleFontSize,
+          titleFontFamily,
+          descriptionFontSize,
+          descriptionFontFamily,
+          detailsFontSize,
+          detailsFontFamily,
+          visibleDetails,
         });
       } catch (error) {
         console.error('Error saving preferences:', error);
@@ -48,7 +101,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game }) => {
     // Debounce saves
     const timeoutId = setTimeout(savePreferences, 500);
     return () => clearTimeout(timeoutId);
-  }, [width, fanartHeight, descriptionHeight]);
+  }, [width, fanartHeight, descriptionHeight, titleFontSize, titleFontFamily, descriptionFontSize, descriptionFontFamily, detailsFontSize, detailsFontFamily, visibleDetails]);
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -148,10 +201,16 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game }) => {
           <img
             src={backgroundImageUrl}
             alt={game.title}
-            className="w-full h-full object-cover"
+            className="w-full h-full object-cover cursor-pointer"
             style={{ height: `${fanartHeight}px` }}
             onError={(e) => {
               (e.target as HTMLImageElement).style.display = 'none';
+            }}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              console.log('Artwork right-click:', e.clientX, e.clientY);
+              setSimpleContextMenu({ x: e.clientX, y: e.clientY, type: 'artwork' });
             }}
           />
         )}
@@ -162,7 +221,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game }) => {
             <img
               src={game.boxArtUrl}
               alt={game.title}
-              className="w-32 aspect-[2/3] object-cover rounded border border-gray-600 shadow-lg"
+              className="w-32 aspect-[2/3] object-cover rounded border border-gray-600 shadow-lg cursor-pointer"
               onError={(e) => {
                 const target = e.target as HTMLImageElement;
                 // Try banner URL as fallback
@@ -171,6 +230,12 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game }) => {
                 } else {
                   target.style.display = 'none';
                 }
+              }}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('Boxart right-click:', e.clientX, e.clientY);
+                setSimpleContextMenu({ x: e.clientX, y: e.clientY, type: 'boxart' });
               }}
             />
           </div>
@@ -212,8 +277,24 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game }) => {
           {/* Upper Section: Title - positioned to avoid overlapping box art */}
           <div className="relative">
             {/* Title - wraps to avoid box art on the right */}
-            <div className="pr-40">
-              <h1 className="text-2xl font-bold text-white onyx-text-glow tracking-wide break-words">{game.title}</h1>
+            <div 
+              className="pr-40"
+              onContextMenu={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('Title right-click:', e.clientX, e.clientY);
+                setSimpleContextMenu({ x: e.clientX, y: e.clientY, type: 'title' });
+              }}
+            >
+              <h1 
+                className="font-bold text-white onyx-text-glow tracking-wide break-words cursor-pointer"
+                style={{ 
+                  fontSize: `${titleFontSize}px`,
+                  fontFamily: titleFontFamily,
+                }}
+              >
+                {game.title}
+              </h1>
             </div>
           </div>
           
@@ -230,9 +311,24 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game }) => {
             >
               {/* Game Description */}
               {game.description && (
-                <div>
+                <div
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('Description right-click:', e.clientX, e.clientY);
+                    setSimpleContextMenu({ x: e.clientX, y: e.clientY, type: 'description' });
+                  }}
+                >
                   <h3 className="text-lg font-semibold text-white mb-3">Description</h3>
-                  <p className="text-gray-200 leading-relaxed text-sm">{game.description}</p>
+                  <p 
+                    className="text-gray-200 leading-relaxed cursor-pointer"
+                    style={{
+                      fontSize: `${descriptionFontSize}px`,
+                      fontFamily: descriptionFontFamily,
+                    }}
+                  >
+                    {game.description}
+                  </p>
                 </div>
               )}
 
@@ -262,22 +358,34 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game }) => {
           </div>
 
           {/* Details Section - Full Width */}
-          <div className="border-t border-gray-700 pt-6">
+          <div 
+            className="border-t border-gray-700 pt-6"
+            onContextMenu={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              console.log('Details right-click:', e.clientX, e.clientY);
+              setSimpleContextMenu({ x: e.clientX, y: e.clientY, type: 'details' });
+            }}
+            style={{
+              fontSize: `${detailsFontSize}px`,
+              fontFamily: detailsFontFamily,
+            }}
+          >
             <h3 className="text-lg font-semibold text-white mb-4">Details</h3>
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              {game.releaseDate && (
+            <div className="grid grid-cols-2 gap-4">
+              {visibleDetails.releaseDate && game.releaseDate && (
                 <div>
                   <p className="text-gray-400 mb-1">Release Date</p>
                   <p className="text-gray-200">{formatDate(game.releaseDate)}</p>
                 </div>
               )}
-              {platformDisplay && (
+              {visibleDetails.platform && platformDisplay && (
                 <div>
                   <p className="text-gray-400 mb-1">Platform</p>
                   <p className="text-gray-200">{platformDisplay}</p>
                 </div>
               )}
-              {game.ageRating && (
+              {visibleDetails.ageRating && game.ageRating && (
                 <div>
                   <p className="text-gray-400 mb-1">Age Rating</p>
                   <p className="text-gray-200">
@@ -287,43 +395,43 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game }) => {
                   </p>
                 </div>
               )}
-              {game.genres && game.genres.length > 0 && (
+              {visibleDetails.genres && game.genres && game.genres.length > 0 && (
                 <div>
                   <p className="text-gray-400 mb-1">Genres</p>
                   <p className="text-gray-200">{game.genres.join(', ')}</p>
                 </div>
               )}
-              {game.developers && game.developers.length > 0 && (
+              {visibleDetails.developers && game.developers && game.developers.length > 0 && (
                 <div>
                   <p className="text-gray-400 mb-1">Developer</p>
                   <p className="text-gray-200">{game.developers.join(', ')}</p>
                 </div>
               )}
-              {game.publishers && game.publishers.length > 0 && (
+              {visibleDetails.publishers && game.publishers && game.publishers.length > 0 && (
                 <div>
                   <p className="text-gray-400 mb-1">Publisher</p>
                   <p className="text-gray-200">{game.publishers.join(', ')}</p>
                 </div>
               )}
-              {game.communityScore !== undefined && (
+              {visibleDetails.communityScore && game.communityScore !== undefined && (
                 <div>
                   <p className="text-gray-400 mb-1">Community Score</p>
                   <p className="text-gray-200">{game.communityScore}/100</p>
                 </div>
               )}
-              {game.userScore !== undefined && (
+              {visibleDetails.userScore && game.userScore !== undefined && (
                 <div>
                   <p className="text-gray-400 mb-1">User Score</p>
                   <p className="text-gray-200">{game.userScore}/100</p>
                 </div>
               )}
-              {game.criticScore !== undefined && (
+              {visibleDetails.criticScore && game.criticScore !== undefined && (
                 <div>
                   <p className="text-gray-400 mb-1">Critic Score</p>
                   <p className="text-gray-200">{game.criticScore}/100</p>
                 </div>
               )}
-              {game.installationDirectory && (
+              {visibleDetails.installationDirectory && game.installationDirectory && (
                 <div>
                   <p className="text-gray-400 mb-1">Installation Folder</p>
                   <p className="text-gray-200 text-xs break-all">{game.installationDirectory}</p>
@@ -338,6 +446,147 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game }) => {
           </div>
         </div>
       </div>
+
+      {/* Simple Context Menu (appears at right-click location) */}
+      {simpleContextMenu && (() => {
+        console.log('Rendering simple context menu:', simpleContextMenu);
+        return (
+          <GameDetailsSimpleContextMenu
+            x={simpleContextMenu.x}
+            y={simpleContextMenu.y}
+            onClose={() => {
+              console.log('Closing simple context menu');
+              setSimpleContextMenu(null);
+            }}
+            type={simpleContextMenu.type}
+            onEdit={() => {
+              console.log('Edit clicked for type:', simpleContextMenu.type);
+              switch (simpleContextMenu.type) {
+                case 'artwork':
+                  setShowArtworkMenu(true);
+                  break;
+                case 'boxart':
+                  setShowBoxartMenu(true);
+                  break;
+                case 'title':
+                  setShowTitleMenu(true);
+                  break;
+                case 'description':
+                  setShowDescriptionMenu(true);
+                  break;
+                case 'details':
+                  setShowDetailsMenu(true);
+                  break;
+              }
+            }}
+          />
+        );
+      })()}
+
+      {/* Full Settings Menus (appear over game list section) */}
+      {showArtworkMenu && game && (
+        <ImageContextMenu
+          onClose={() => setShowArtworkMenu(false)}
+          positionOverGameList={true}
+          imageType="artwork"
+          onSelectFromFile={async () => {
+            try {
+              const imagePath = await window.electronAPI.showImageDialog();
+              if (imagePath && onSaveGame && game) {
+                // Convert file path to file:// URL for display
+                const fileUrl = imagePath.startsWith('file://') ? imagePath : `file:///${imagePath.replace(/\\/g, '/')}`;
+                const updatedGame = { ...game, bannerUrl: fileUrl };
+                await onSaveGame(updatedGame);
+              }
+            } catch (error) {
+              console.error('Error selecting image:', error);
+            }
+          }}
+          onSearchImages={() => {
+            setImageSearchModal({ type: 'artwork' });
+          }}
+        />
+      )}
+
+      {showBoxartMenu && game && (
+        <ImageContextMenu
+          onClose={() => setShowBoxartMenu(false)}
+          positionOverGameList={true}
+          imageType="boxart"
+          onSelectFromFile={async () => {
+            try {
+              const imagePath = await window.electronAPI.showImageDialog();
+              if (imagePath && onSaveGame && game) {
+                // Convert file path to file:// URL for display
+                const fileUrl = imagePath.startsWith('file://') ? imagePath : `file:///${imagePath.replace(/\\/g, '/')}`;
+                const updatedGame = { ...game, boxArtUrl: fileUrl };
+                await onSaveGame(updatedGame);
+              }
+            } catch (error) {
+              console.error('Error selecting image:', error);
+            }
+          }}
+          onSearchImages={() => {
+            setImageSearchModal({ type: 'boxart' });
+          }}
+        />
+      )}
+
+      {showTitleMenu && (
+        <TextStyleContextMenu
+          onClose={() => setShowTitleMenu(false)}
+          positionOverGameList={true}
+          fontSize={titleFontSize}
+          onFontSizeChange={setTitleFontSize}
+          fontFamily={titleFontFamily}
+          onFontFamilyChange={setTitleFontFamily}
+          label="Title"
+        />
+      )}
+
+      {showDescriptionMenu && (
+        <TextStyleContextMenu
+          onClose={() => setShowDescriptionMenu(false)}
+          positionOverGameList={true}
+          fontSize={descriptionFontSize}
+          onFontSizeChange={setDescriptionFontSize}
+          fontFamily={descriptionFontFamily}
+          onFontFamilyChange={setDescriptionFontFamily}
+          label="Description"
+        />
+      )}
+
+      {showDetailsMenu && game && (
+        <DetailsContextMenu
+          onClose={() => setShowDetailsMenu(false)}
+          positionOverGameList={true}
+          fontSize={detailsFontSize}
+          onFontSizeChange={setDetailsFontSize}
+          fontFamily={detailsFontFamily}
+          onFontFamilyChange={setDetailsFontFamily}
+          visibleDetails={visibleDetails}
+          onVisibleDetailsChange={setVisibleDetails}
+          game={game}
+        />
+      )}
+
+      {/* Image Search Modal */}
+      {imageSearchModal && game && (
+        <ImageSearchModal
+          isOpen={!!imageSearchModal}
+          onClose={() => setImageSearchModal(null)}
+          gameTitle={game.title}
+          imageType={imageSearchModal.type}
+          onSelectImage={async (imageUrl) => {
+            if (onSaveGame) {
+              const updatedGame = imageSearchModal.type === 'artwork'
+                ? { ...game, bannerUrl: imageUrl }
+                : { ...game, boxArtUrl: imageUrl };
+              await onSaveGame(updatedGame);
+            }
+          }}
+        />
+      )}
     </div>
   );
 };

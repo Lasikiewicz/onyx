@@ -13,6 +13,37 @@ export interface UserPreferences {
   hideVRTitles?: boolean;
   hideGameTitles?: boolean;
   gameTilePadding?: number;
+  backgroundBlur?: number;
+  backgroundMode?: 'image' | 'color';
+  backgroundColor?: string;
+  viewMode?: 'grid' | 'list';
+  listViewOptions?: {
+    showDescription: boolean;
+    showCategories: boolean;
+    showPlaytime: boolean;
+    showReleaseDate: boolean;
+    showGenres: boolean;
+    showPlatform: boolean;
+  };
+  listViewSize?: number;
+  titleFontSize?: number;
+  titleFontFamily?: string;
+  descriptionFontSize?: number;
+  descriptionFontFamily?: string;
+  detailsFontSize?: number;
+  detailsFontFamily?: string;
+  visibleDetails?: {
+    releaseDate: boolean;
+    platform: boolean;
+    ageRating: boolean;
+    genres: boolean;
+    developers: boolean;
+    publishers: boolean;
+    communityScore: boolean;
+    userScore: boolean;
+    criticScore: boolean;
+    installationDirectory: boolean;
+  };
   ignoredGames?: string[]; // Array of game IDs to always ignore
   windowState?: {
     x?: number;
@@ -54,6 +85,37 @@ export class UserPreferencesService {
             hideVRTitles: true,
             hideGameTitles: false,
             gameTilePadding: 16,
+            backgroundBlur: 40,
+            backgroundMode: 'image',
+            backgroundColor: '#000000',
+            viewMode: 'grid',
+            listViewOptions: {
+              showDescription: true,
+              showCategories: false,
+              showPlaytime: true,
+              showReleaseDate: true,
+              showGenres: true,
+              showPlatform: false,
+            },
+            listViewSize: 128,
+            titleFontSize: 24,
+            titleFontFamily: 'system-ui',
+            descriptionFontSize: 14,
+            descriptionFontFamily: 'system-ui',
+            detailsFontSize: 14,
+            detailsFontFamily: 'system-ui',
+            visibleDetails: {
+              releaseDate: true,
+              platform: true,
+              ageRating: true,
+              genres: true,
+              developers: true,
+              publishers: true,
+              communityScore: true,
+              userScore: true,
+              criticScore: true,
+              installationDirectory: true,
+            },
             ignoredGames: [],
             windowState: undefined,
           },
@@ -90,6 +152,37 @@ export class UserPreferencesService {
       hideVRTitles: true,
       hideGameTitles: false,
       gameTilePadding: 16,
+      backgroundBlur: 40,
+      backgroundMode: 'image',
+      backgroundColor: '#000000',
+      viewMode: 'grid',
+      listViewOptions: {
+        showDescription: true,
+        showCategories: false,
+        showPlaytime: true,
+        showReleaseDate: true,
+        showGenres: true,
+        showPlatform: false,
+      },
+      listViewSize: 128,
+      titleFontSize: 24,
+      titleFontFamily: 'system-ui',
+      descriptionFontSize: 14,
+      descriptionFontFamily: 'system-ui',
+      detailsFontSize: 14,
+      detailsFontFamily: 'system-ui',
+      visibleDetails: {
+        releaseDate: true,
+        platform: true,
+        ageRating: true,
+        genres: true,
+        developers: true,
+        publishers: true,
+        communityScore: true,
+        userScore: true,
+        criticScore: true,
+        installationDirectory: true,
+      },
       ignoredGames: [],
       windowState: undefined,
     });
@@ -115,6 +208,37 @@ export class UserPreferencesService {
       hideVRTitles: true,
       hideGameTitles: false,
       gameTilePadding: 16,
+      backgroundBlur: 40,
+      backgroundMode: 'image',
+      backgroundColor: '#000000',
+      viewMode: 'grid',
+      listViewOptions: {
+        showDescription: true,
+        showCategories: false,
+        showPlaytime: true,
+        showReleaseDate: true,
+        showGenres: true,
+        showPlatform: false,
+      },
+      listViewSize: 128,
+      titleFontSize: 24,
+      titleFontFamily: 'system-ui',
+      descriptionFontSize: 14,
+      descriptionFontFamily: 'system-ui',
+      detailsFontSize: 14,
+      detailsFontFamily: 'system-ui',
+      visibleDetails: {
+        releaseDate: true,
+        platform: true,
+        ageRating: true,
+        genres: true,
+        developers: true,
+        publishers: true,
+        communityScore: true,
+        userScore: true,
+        criticScore: true,
+        installationDirectory: true,
+      },
       ignoredGames: [],
       windowState: undefined,
     });
@@ -141,6 +265,37 @@ export class UserPreferencesService {
       hideVRTitles: true,
       hideGameTitles: false,
       gameTilePadding: 16,
+      backgroundBlur: 40,
+      backgroundMode: 'image',
+      backgroundColor: '#000000',
+      viewMode: 'grid',
+      listViewOptions: {
+        showDescription: true,
+        showCategories: false,
+        showPlaytime: true,
+        showReleaseDate: true,
+        showGenres: true,
+        showPlatform: false,
+      },
+      listViewSize: 128,
+      titleFontSize: 24,
+      titleFontFamily: 'system-ui',
+      descriptionFontSize: 14,
+      descriptionFontFamily: 'system-ui',
+      detailsFontSize: 14,
+      detailsFontFamily: 'system-ui',
+      visibleDetails: {
+        releaseDate: true,
+        platform: true,
+        ageRating: true,
+        genres: true,
+        developers: true,
+        publishers: true,
+        communityScore: true,
+        userScore: true,
+        criticScore: true,
+        installationDirectory: true,
+      },
       ignoredGames: [],
       windowState: undefined,
     });

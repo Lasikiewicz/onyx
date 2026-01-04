@@ -1,6 +1,9 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useGameLibrary } from './hooks/useGameLibrary';
 import { LibraryGrid } from './components/LibraryGrid';
+import { LibraryListView } from './components/LibraryListView';
+import { LibraryContextMenu } from './components/LibraryContextMenu';
+import { SimpleContextMenu } from './components/SimpleContextMenu';
 import { AddGameModal } from './components/AddGameModal';
 import { GameDetailsPanel } from './components/GameDetailsPanel';
 import { FileSelectionModal } from './components/FileSelectionModal';
@@ -65,6 +68,21 @@ function App() {
   const [hideVRTitles, setHideVRTitles] = useState(true);
   const [hideGameTitles, setHideGameTitles] = useState(false);
   const [gameTilePadding, setGameTilePadding] = useState(16);
+  const [backgroundBlur, setBackgroundBlur] = useState(40);
+  const [backgroundMode, setBackgroundMode] = useState<'image' | 'color'>('image');
+  const [backgroundColor, setBackgroundColor] = useState('#000000');
+  const [listViewOptions, setListViewOptions] = useState({
+    showDescription: true,
+    showCategories: false,
+    showPlaytime: true,
+    showReleaseDate: true,
+    showGenres: true,
+    showPlatform: false,
+  });
+  const [listViewSize, setListViewSize] = useState(128);
+  const [panelWidth, setPanelWidth] = useState(800);
+  const [simpleContextMenu, setSimpleContextMenu] = useState<{ x: number; y: number } | null>(null);
+  const [showAppearanceMenu, setShowAppearanceMenu] = useState(false);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
 
   // Load preferences on mount
@@ -77,6 +95,13 @@ function App() {
         if (prefs.hideVRTitles !== undefined) setHideVRTitles(prefs.hideVRTitles);
         if (prefs.hideGameTitles !== undefined) setHideGameTitles(prefs.hideGameTitles);
         if (prefs.gameTilePadding !== undefined) setGameTilePadding(prefs.gameTilePadding);
+        if (prefs.backgroundBlur !== undefined) setBackgroundBlur(prefs.backgroundBlur);
+        if (prefs.viewMode) setViewMode(prefs.viewMode as 'grid' | 'list');
+        if (prefs.backgroundMode) setBackgroundMode(prefs.backgroundMode as 'image' | 'color');
+        if (prefs.backgroundColor) setBackgroundColor(prefs.backgroundColor);
+        if (prefs.listViewOptions) setListViewOptions(prefs.listViewOptions);
+        if (prefs.listViewSize) setListViewSize(prefs.listViewSize);
+        if (prefs.panelWidth) setPanelWidth(prefs.panelWidth);
         // Restore active game selection if it exists
         if (prefs.activeGameId) {
           setActiveGameId(prefs.activeGameId);
@@ -140,7 +165,13 @@ function App() {
       try {
         await window.electronAPI.savePreferences({ 
           hideGameTitles,
-          gameTilePadding 
+          gameTilePadding,
+          backgroundBlur,
+          viewMode,
+          backgroundMode,
+          backgroundColor,
+          listViewOptions,
+          listViewSize
         });
       } catch (error) {
         console.error('Error saving appearance preferences:', error);
@@ -149,7 +180,7 @@ function App() {
     // Debounce saves
     const timeoutId = setTimeout(saveAppearancePrefs, 500);
     return () => clearTimeout(timeoutId);
-  }, [hideGameTitles, gameTilePadding, isInitialLoad]);
+  }, [hideGameTitles, gameTilePadding, backgroundBlur, viewMode, isInitialLoad]);
 
   // Save activeGameId when it changes
   useEffect(() => {
@@ -688,16 +719,24 @@ function App() {
 
   return (
     <div className="h-screen bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-900 via-[#0f172a] to-black text-white flex flex-col overflow-hidden relative">
-      {/* Blurred background image from selected game */}
-      {backgroundImageUrl && (
+      {/* Background - Image or Color */}
+      {backgroundMode === 'image' && backgroundImageUrl ? (
         <div 
           className="fixed inset-0 pointer-events-none"
           style={{
             backgroundImage: `url(${backgroundImageUrl})`,
             backgroundSize: 'cover',
             backgroundPosition: 'center',
-            filter: 'blur(40px) brightness(0.3)',
+            filter: `blur(${backgroundBlur}px) brightness(0.3)`,
             transform: 'scale(1.1)', // Slight scale to avoid edges
+            zIndex: 0,
+          }}
+        />
+      ) : (
+        <div 
+          className="fixed inset-0 pointer-events-none"
+          style={{
+            backgroundColor: backgroundColor,
             zIndex: 0,
           }}
         />
@@ -761,7 +800,13 @@ function App() {
         {/* Left Panel - Game Library (flexible width) */}
         <div className="flex-1 flex flex-col overflow-hidden">
           {/* Game Grid */}
-          <div className="flex-1 overflow-y-auto p-4 relative z-10">
+          <div 
+            className="flex-1 overflow-y-auto p-4 relative z-10"
+            onContextMenu={(e) => {
+              e.preventDefault();
+              setSimpleContextMenu({ x: e.clientX, y: e.clientY });
+            }}
+          >
             {loading && (
               <div className="text-center py-8">
                 <p className="text-gray-100">Loading game library...</p>
@@ -778,18 +823,32 @@ function App() {
               <div className="h-full flex flex-col">
                 {filteredGames.length > 0 ? (
                   <div className="flex-1 overflow-y-auto">
-                    <LibraryGrid
-                      games={filteredGames}
-                      onReorder={handleReorder}
-                      onPlay={handlePlay}
-                      onGameClick={handleGameClick}
-                      onEdit={handleEditGame}
-                      onEditImages={handleEditImages}
-                      onFavorite={handleToggleFavorite}
-                      gridSize={gridSize}
-                      gameTilePadding={gameTilePadding}
-                      hideGameTitles={hideGameTitles}
-                    />
+                    {viewMode === 'grid' ? (
+                      <LibraryGrid
+                        games={filteredGames}
+                        onReorder={handleReorder}
+                        onPlay={handlePlay}
+                        onGameClick={handleGameClick}
+                        onEdit={handleEditGame}
+                        onEditImages={handleEditImages}
+                        onFavorite={handleToggleFavorite}
+                        gridSize={gridSize}
+                        gameTilePadding={gameTilePadding}
+                        hideGameTitles={hideGameTitles}
+                      />
+                    ) : (
+                      <LibraryListView
+                        games={filteredGames}
+                        onPlay={handlePlay}
+                        onGameClick={handleGameClick}
+                        onEdit={handleEditGame}
+                        onEditImages={handleEditImages}
+                        onFavorite={handleToggleFavorite}
+                        hideGameTitles={hideGameTitles}
+                        listViewOptions={listViewOptions}
+                        listViewSize={listViewSize}
+                      />
+                    )}
                   </div>
                 ) : (
                   <div className="text-center py-12 px-4">
@@ -886,7 +945,7 @@ function App() {
         </div>
 
         {/* Right Panel - Game Details (~2/3 width, resizable) */}
-        <GameDetailsPanel game={activeGame} onPlay={handlePlay} />
+        <GameDetailsPanel game={activeGame} onPlay={handlePlay} onSaveGame={handleSaveGame} />
       </div>
 
         {/* Bottom Bar */}
@@ -1030,6 +1089,41 @@ function App() {
           setImportAppType(appType);
         }}
       />
+
+      {/* Simple Context Menu */}
+      {simpleContextMenu && (
+        <SimpleContextMenu
+          x={simpleContextMenu.x}
+          y={simpleContextMenu.y}
+          onClose={() => setSimpleContextMenu(null)}
+          onEditAppearance={() => setShowAppearanceMenu(true)}
+        />
+      )}
+
+      {/* Appearance Settings Menu */}
+      {showAppearanceMenu && (
+        <LibraryContextMenu
+          onClose={() => setShowAppearanceMenu(false)}
+          positionOverRightPanel={true}
+          rightPanelWidth={panelWidth}
+          viewMode={viewMode}
+          onViewModeChange={setViewMode}
+          backgroundBlur={backgroundBlur}
+          onBackgroundBlurChange={setBackgroundBlur}
+          gameTilePadding={gameTilePadding}
+          onGameTilePaddingChange={setGameTilePadding}
+          hideGameTitles={hideGameTitles}
+          onHideGameTitlesChange={setHideGameTitles}
+          backgroundMode={backgroundMode}
+          onBackgroundModeChange={setBackgroundMode}
+          backgroundColor={backgroundColor}
+          onBackgroundColorChange={setBackgroundColor}
+          listViewOptions={listViewOptions}
+          onListViewOptionsChange={setListViewOptions}
+          listViewSize={listViewSize}
+          onListViewSizeChange={setListViewSize}
+        />
+      )}
 
       {/* Toast Notification */}
       {toast && (
