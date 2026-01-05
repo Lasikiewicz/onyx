@@ -407,7 +407,6 @@ function App() {
     // And ALL games fit within availableWidth and availableHeight
     
     let bestSize = 0;
-    let bestColumns = 0;
     
     // Try different column counts
     for (let columns = 1; columns <= 20; columns++) {
@@ -431,7 +430,6 @@ function App() {
         // This configuration fits! Prefer larger tiles
         if (bestSize === 0 || tileWidth > bestSize) {
           bestSize = Math.round(tileWidth);
-          bestColumns = columns;
         }
       }
     }
@@ -492,7 +490,7 @@ function App() {
     const container = gridContainerRef.current;
     let resizeTimeout: NodeJS.Timeout;
 
-    const resizeObserver = new ResizeObserver((entries) => {
+    const resizeObserver = new ResizeObserver(() => {
       // Debounce resize calculations
       clearTimeout(resizeTimeout);
       resizeTimeout = setTimeout(() => {
