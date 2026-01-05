@@ -9,6 +9,7 @@ export interface UserPreferences {
   startWithComputer?: boolean;
   startClosedToTray?: boolean;
   updateLibrariesOnStartup?: boolean;
+  minimizeOnGameLaunch?: boolean;
   activeGameId?: string | null;
   hideVRTitles?: boolean;
   hideGameTitles?: boolean;
@@ -84,6 +85,7 @@ export class UserPreferencesService {
             startWithComputer: false,
             startClosedToTray: false,
             updateLibrariesOnStartup: false,
+            minimizeOnGameLaunch: false,
             activeGameId: null,
             hideVRTitles: true,
             hideGameTitles: false,

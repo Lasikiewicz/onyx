@@ -24,6 +24,9 @@ interface MenuBarProps {
   hasVRCategory?: boolean;
   hideVRTitles?: boolean;
   onToggleHideVRTitles?: () => void;
+  launchers?: string[];
+  selectedLauncher?: string | null;
+  onLauncherChange?: (launcher: string | null) => void;
 }
 
 export const MenuBar: React.FC<MenuBarProps> = ({
@@ -40,6 +43,9 @@ export const MenuBar: React.FC<MenuBarProps> = ({
   hasVRCategory = false,
   hideVRTitles = true,
   onToggleHideVRTitles,
+  launchers = [],
+  selectedLauncher,
+  onLauncherChange,
   onScanFolder,
   onUpdateLibrary,
   onOnyxSettings,
@@ -49,9 +55,11 @@ export const MenuBar: React.FC<MenuBarProps> = ({
 }) => {
   const [isFilterDropdownOpen, setIsFilterDropdownOpen] = useState(false);
   const [isSortDropdownOpen, setIsSortDropdownOpen] = useState(false);
+  const [isLauncherDropdownOpen, setIsLauncherDropdownOpen] = useState(false);
   const [isOnyxSettingsMenuOpen, setIsOnyxSettingsMenuOpen] = useState(false);
   const filterDropdownRef = useRef<HTMLDivElement>(null);
   const sortDropdownRef = useRef<HTMLDivElement>(null);
+  const launcherDropdownRef = useRef<HTMLDivElement>(null);
   const onyxSettingsMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -61,6 +69,9 @@ export const MenuBar: React.FC<MenuBarProps> = ({
       }
       if (sortDropdownRef.current && !sortDropdownRef.current.contains(event.target as Node)) {
         setIsSortDropdownOpen(false);
+      }
+      if (launcherDropdownRef.current && !launcherDropdownRef.current.contains(event.target as Node)) {
+        setIsLauncherDropdownOpen(false);
       }
       if (onyxSettingsMenuRef.current && !onyxSettingsMenuRef.current.contains(event.target as Node)) {
         setIsOnyxSettingsMenuOpen(false);
@@ -270,6 +281,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
             onClick={() => {
               setIsSortDropdownOpen(!isSortDropdownOpen);
               setIsFilterDropdownOpen(false);
+              setIsLauncherDropdownOpen(false);
             }}
             className="px-3 py-1.5 bg-gray-700/20 hover:bg-gray-700/40 border border-gray-600/30 rounded text-sm text-gray-300 hover:text-white transition-colors"
             title="Sort by"
@@ -303,12 +315,95 @@ export const MenuBar: React.FC<MenuBarProps> = ({
           )}
         </div>
 
+        {/* Launcher Dropdown */}
+        {launchers.length > 0 && (
+          <div className="relative" ref={launcherDropdownRef}>
+            <button
+              onClick={() => {
+                setIsLauncherDropdownOpen(!isLauncherDropdownOpen);
+                setIsFilterDropdownOpen(false);
+                setIsSortDropdownOpen(false);
+              }}
+              className={`px-3 py-1.5 bg-gray-700/20 hover:bg-gray-700/40 border border-gray-600/30 rounded text-sm transition-colors ${
+                selectedLauncher
+                  ? 'bg-blue-600/30 text-blue-300 border-blue-500/30'
+                  : 'text-gray-300 hover:text-white'
+              }`}
+              title="Launcher"
+            >
+              {selectedLauncher 
+                ? (selectedLauncher === 'steam' ? 'Steam' :
+                   selectedLauncher === 'epic' ? 'Epic Games' :
+                   selectedLauncher === 'gog' ? 'GOG Galaxy' :
+                   selectedLauncher === 'xbox' ? 'Xbox Game Pass' :
+                   selectedLauncher === 'ea' ? 'EA App' :
+                   selectedLauncher === 'ubisoft' ? 'Ubisoft Connect' :
+                   selectedLauncher === 'battle' ? 'Battle.net' :
+                   selectedLauncher === 'humble' ? 'Humble' :
+                   selectedLauncher === 'itch' ? 'itch.io' :
+                   selectedLauncher === 'rockstar' ? 'Rockstar Games' :
+                   selectedLauncher === 'other' ? 'Other' : selectedLauncher)
+                : 'Launcher'}
+            </button>
+            {isLauncherDropdownOpen && (
+              <div className="absolute left-0 mt-1 w-48 bg-gray-800 border border-gray-700 rounded-lg shadow-xl z-50">
+                <div className="p-2">
+                  <button
+                    onClick={() => {
+                      onLauncherChange?.(null);
+                      setIsLauncherDropdownOpen(false);
+                    }}
+                    className={`w-full text-left px-3 py-2 rounded text-sm transition-colors ${
+                      selectedLauncher === null
+                        ? 'bg-blue-600 text-white'
+                        : 'text-gray-300 hover:bg-gray-700'
+                    }`}
+                  >
+                    All Launchers
+                  </button>
+                  {launchers.map((launcher) => {
+                    const displayName = launcher === 'steam' ? 'Steam' :
+                                      launcher === 'epic' ? 'Epic Games' :
+                                      launcher === 'gog' ? 'GOG Galaxy' :
+                                      launcher === 'xbox' ? 'Xbox Game Pass' :
+                                      launcher === 'ea' ? 'EA App' :
+                                      launcher === 'ubisoft' ? 'Ubisoft Connect' :
+                                      launcher === 'battle' ? 'Battle.net' :
+                                      launcher === 'humble' ? 'Humble' :
+                                      launcher === 'itch' ? 'itch.io' :
+                                      launcher === 'rockstar' ? 'Rockstar Games' :
+                                      launcher === 'other' ? 'Other' : launcher;
+                    const isSelected = selectedLauncher === launcher;
+                    return (
+                      <button
+                        key={launcher}
+                        onClick={() => {
+                          onLauncherChange?.(isSelected ? null : launcher);
+                          setIsLauncherDropdownOpen(false);
+                        }}
+                        className={`w-full text-left px-3 py-2 rounded text-sm transition-colors ${
+                          isSelected
+                            ? 'bg-blue-600 text-white'
+                            : 'text-gray-300 hover:bg-gray-700'
+                        }`}
+                      >
+                        {displayName}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Categories Dropdown */}
         <div className="relative" ref={filterDropdownRef}>
           <button
             onClick={() => {
               setIsFilterDropdownOpen(!isFilterDropdownOpen);
               setIsSortDropdownOpen(false);
+              setIsLauncherDropdownOpen(false);
             }}
             className={`px-3 py-1.5 bg-gray-700/20 hover:bg-gray-700/40 border border-gray-600/30 rounded text-sm transition-colors ${
               selectedCategory && selectedCategory !== 'favorites'

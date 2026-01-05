@@ -1,6 +1,6 @@
 {
   "name": "onyx-launcher",
-  "version": "1.0.0",
+  "version": "0.0.1",
   "description": "The premium unified game library.",
   "main": "dist-electron/main.js",
   "scripts": {
@@ -14,7 +14,8 @@
     "generate-icons": "node scripts/generate-icons.js",
     "prebuild": "npm run validate-icons",
     "predist": "npm run generate-icons && npm run validate-icons",
-    "dist": "npm run predist && tsc && vite build && tsc -p main/tsconfig.json && tsc -p main/tsconfig.preload.json && electron-builder"
+    "increment-build": "node scripts/increment-build.js",
+    "dist": "npm run increment-build && npm run predist && tsc && vite build && tsc -p main/tsconfig.json && tsc -p main/tsconfig.preload.json && electron-builder"
   },
   "keywords": [],
   "author": "",

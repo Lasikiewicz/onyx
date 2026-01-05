@@ -16,6 +16,7 @@ interface OnyxSettings {
   startWithComputer: boolean;
   startClosedToTray: boolean;
   updateLibrariesOnStartup: boolean;
+  minimizeOnGameLaunch: boolean;
   hideGameTitles: boolean;
   gameTilePadding: number;
 }
@@ -133,6 +134,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
     startWithComputer: false,
     startClosedToTray: false,
     updateLibrariesOnStartup: false,
+    minimizeOnGameLaunch: false,
     hideGameTitles: false,
     gameTilePadding: 16,
   });
@@ -151,6 +153,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
             startWithComputer: prefs.startWithComputer ?? false,
             startClosedToTray: prefs.startClosedToTray ?? false,
             updateLibrariesOnStartup: prefs.updateLibrariesOnStartup ?? false,
+            minimizeOnGameLaunch: prefs.minimizeOnGameLaunch ?? false,
             hideGameTitles: prefs.hideGameTitles ?? false,
             gameTilePadding: prefs.gameTilePadding ?? 16,
           });
@@ -445,6 +448,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
         startWithComputer: settings.startWithComputer,
         startClosedToTray: settings.startClosedToTray,
         updateLibrariesOnStartup: settings.updateLibrariesOnStartup,
+        minimizeOnGameLaunch: settings.minimizeOnGameLaunch,
         hideGameTitles: settings.hideGameTitles,
         gameTilePadding: settings.gameTilePadding,
         showLogoOverBoxart: showLogoOverBoxart,
@@ -746,6 +750,30 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                       <span
                         className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
                           settings.updateLibrariesOnStartup ? 'translate-x-6' : 'translate-x-1'
+                        }`}
+                      />
+                    </button>
+                  </div>
+
+                  {/* Minimize on game launch */}
+                  <div className="flex items-start justify-between p-4 rounded-lg bg-gray-700/30 hover:bg-gray-700/50 transition-colors">
+                    <div className="flex-1 pr-4">
+                      <label className="text-gray-200 font-medium block mb-1">
+                        Minimize When Game Opens
+                      </label>
+                      <p className="text-gray-400 text-sm">
+                        Automatically minimize Onyx to the system tray when a game is launched
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => handleToggle('minimizeOnGameLaunch')}
+                      className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors flex-shrink-0 ${
+                        settings.minimizeOnGameLaunch ? 'bg-blue-600' : 'bg-gray-600'
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
+                          settings.minimizeOnGameLaunch ? 'translate-x-6' : 'translate-x-1'
                         }`}
                       />
                     </button>

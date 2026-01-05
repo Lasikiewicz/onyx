@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Game } from '../types/game';
 
 interface BottomBarProps {
@@ -11,6 +11,52 @@ interface BottomBarProps {
 }
 
 export const BottomBar: React.FC<BottomBarProps> = ({ game, onPlay, onFavorite, onEdit, gridSize = 120, onGridSizeChange }) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [inputValue, setInputValue] = useState(gridSize.toString());
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Update input value when gridSize changes externally
+  useEffect(() => {
+    if (!isEditing) {
+      setInputValue(gridSize.toString());
+    }
+  }, [gridSize, isEditing]);
+
+  // Focus input when entering edit mode
+  useEffect(() => {
+    if (isEditing && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [isEditing]);
+
+  const handleInputClick = () => {
+    setIsEditing(true);
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setInputValue(e.target.value);
+  };
+
+  const handleInputBlur = () => {
+    setIsEditing(false);
+    const numValue = Number(inputValue);
+    if (!isNaN(numValue) && numValue >= 80 && numValue <= 500) {
+      onGridSizeChange?.(numValue);
+    } else {
+      setInputValue(gridSize.toString());
+    }
+  };
+
+  const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.currentTarget.blur();
+    } else if (e.key === 'Escape') {
+      setInputValue(gridSize.toString());
+      setIsEditing(false);
+    }
+  };
+
   return (
     <div className="onyx-glass-panel h-16 flex items-center justify-between px-6 flex-shrink-0">
       {/* Left side - Grid Size */}
@@ -26,11 +72,30 @@ export const BottomBar: React.FC<BottomBarProps> = ({ game, onPlay, onFavorite, 
               type="range"
               min="80"
               max="500"
+              step="1"
               value={gridSize}
               onChange={(e) => onGridSizeChange(Number(e.target.value))}
               className="w-32 h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-blue-600"
             />
-            <span className="text-gray-300 text-sm w-12">{gridSize}px</span>
+            {isEditing ? (
+              <input
+                ref={inputRef}
+                type="text"
+                value={inputValue}
+                onChange={handleInputChange}
+                onBlur={handleInputBlur}
+                onKeyDown={handleInputKeyDown}
+                className="text-gray-300 text-sm w-12 bg-gray-600 border border-blue-500 rounded px-1 text-center focus:outline-none"
+              />
+            ) : (
+              <span 
+                className="text-gray-300 text-sm w-12 cursor-text hover:text-blue-400 transition-colors"
+                onClick={handleInputClick}
+                title="Click to edit"
+              >
+                {gridSize}px
+              </span>
+            )}
           </div>
         )}
       </div>

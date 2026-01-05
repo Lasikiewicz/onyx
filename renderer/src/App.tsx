@@ -237,6 +237,7 @@ function App() {
   
   // Filter and sort state
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [selectedLauncher, setSelectedLauncher] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<'title' | 'releaseDate' | 'playtime' | 'lastPlayed'>('title');
 
 
@@ -289,6 +290,108 @@ function App() {
     return allCategories.includes('VR');
   }, [allCategories]);
 
+  // Get launcher from game (check ID format, then source, then platform, then installation directory)
+  const getGameLauncher = useCallback((game: Game): string => {
+    // Check ID format first (most reliable)
+    if (game.id.startsWith('steam-')) {
+      return 'steam';
+    }
+    if (game.id.startsWith('epic-')) {
+      return 'epic';
+    }
+    if (game.id.startsWith('gog-')) {
+      return 'gog';
+    }
+    if (game.id.startsWith('xbox-')) {
+      return 'xbox';
+    }
+    if (game.id.startsWith('ubisoft-')) {
+      return 'ubisoft';
+    }
+    if (game.id.startsWith('rockstar-')) {
+      return 'rockstar';
+    }
+    if (game.id.startsWith('ea-') || game.id.startsWith('origin-')) {
+      return 'ea';
+    }
+    if (game.id.startsWith('battle-') || game.id.startsWith('battlenet-')) {
+      return 'battle';
+    }
+    
+    // Check source field
+    if (game.source) {
+      const source = game.source.toLowerCase();
+      const validSources = ['steam', 'epic', 'gog', 'xbox', 'ea', 'origin', 'ubisoft', 'battle', 'battlenet', 'humble', 'itch', 'rockstar'];
+      if (validSources.includes(source)) {
+        // Normalize some source names
+        if (source === 'origin') return 'ea';
+        if (source === 'battlenet') return 'battle';
+        return source;
+      }
+    }
+    
+    // Check platform field (fallback)
+    const platform = game.platform?.toLowerCase();
+    if (platform === 'steam') {
+      return 'steam';
+    }
+    if (platform === 'epic' || platform === 'epic games') {
+      return 'epic';
+    }
+    if (platform === 'gog' || platform === 'gog galaxy') {
+      return 'gog';
+    }
+    if (platform === 'xbox' || platform === 'xbox game pass') {
+      return 'xbox';
+    }
+    if (platform === 'ea' || platform === 'ea app' || platform === 'origin') {
+      return 'ea';
+    }
+    if (platform === 'ubisoft' || platform === 'ubisoft connect') {
+      return 'ubisoft';
+    }
+    if (platform === 'battle.net' || platform === 'battlenet' || platform === 'battle') {
+      return 'battle';
+    }
+    if (platform === 'rockstar' || platform === 'rockstar games') {
+      return 'rockstar';
+    }
+    
+    // Check installation directory as last resort
+    if (game.installationDirectory) {
+      const installPath = game.installationDirectory.toLowerCase();
+      if (installPath.includes('steam')) return 'steam';
+      if (installPath.includes('epic games') || installPath.includes('epicgames')) return 'epic';
+      if (installPath.includes('gog galaxy') || installPath.includes('gog\\games')) return 'gog';
+      if (installPath.includes('xboxgames') || installPath.includes('windowsapps')) return 'xbox';
+      if (installPath.includes('electronic arts') || installPath.includes('ea games') || installPath.includes('origin')) return 'ea';
+      if (installPath.includes('ubisoft')) return 'ubisoft';
+      if (installPath.includes('battle.net') || installPath.includes('battlenet')) return 'battle';
+      if (installPath.includes('rockstar games')) return 'rockstar';
+      if (installPath.includes('humble')) return 'humble';
+      if (installPath.includes('itch')) return 'itch';
+    }
+    
+    return 'other';
+  }, []);
+
+  // Get all unique launchers from games
+  const allLaunchers = useMemo(() => {
+    const launchers = new Set<string>();
+    games.forEach(game => {
+      const launcher = getGameLauncher(game);
+      if (launcher) {
+        launchers.add(launcher);
+      }
+    });
+    return Array.from(launchers).sort((a, b) => {
+      // Sort with 'other' at the end
+      if (a === 'other') return 1;
+      if (b === 'other') return -1;
+      return a.localeCompare(b);
+    });
+  }, [games, getGameLauncher]);
+
   // Filter games based on search, section, and category
   const filteredGames = useMemo(() => {
     let filtered = games;
@@ -307,6 +410,14 @@ function App() {
       filtered = filtered.filter(g => 
         g.categories?.includes(selectedCategory)
       );
+    }
+    
+    // Filter by launcher
+    if (selectedLauncher) {
+      filtered = filtered.filter(g => {
+        const gameLauncher = getGameLauncher(g);
+        return gameLauncher === selectedLauncher;
+      });
     }
     
     // Filter out VR titles if hideVRTitles is enabled, but not if VR category is selected
@@ -357,7 +468,7 @@ function App() {
     });
     
     return filtered;
-  }, [games, searchQuery, activeSection, selectedCategory, sortBy, hideVRTitles]);
+  }, [games, searchQuery, activeSection, selectedCategory, selectedLauncher, sortBy, hideVRTitles]);
 
   const activeGame = activeGameId ? games.find(g => g.id === activeGameId) || null : null;
 
@@ -990,6 +1101,9 @@ function App() {
         hasVRCategory={hasVRCategory}
         hideVRTitles={hideVRTitles}
         onToggleHideVRTitles={() => setHideVRTitles(prev => !prev)}
+        launchers={allLaunchers}
+        selectedLauncher={selectedLauncher}
+        onLauncherChange={setSelectedLauncher}
       />
 
       {/* Top Bar - Hidden by default, shown when menu is open */}

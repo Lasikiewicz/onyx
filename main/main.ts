@@ -1140,6 +1140,20 @@ ipcMain.handle('gameStore:addCustomGame', async (_event, gameData: { title: stri
 ipcMain.handle('launcher:launchGame', async (_event, gameId: string) => {
   try {
     const result = await launcherService.launchGame(gameId);
+    
+    // If game launch was successful, check if we should minimize the window
+    if (result.success) {
+      try {
+        const prefs = await userPreferencesService.getPreferences();
+        if (prefs.minimizeOnGameLaunch && win) {
+          win.minimize();
+        }
+      } catch (error) {
+        console.error('Error checking minimize preference:', error);
+        // Don't fail the game launch if preference check fails
+      }
+    }
+    
     return result;
   } catch (error) {
     console.error('Error in launcher:launchGame handler:', error);
