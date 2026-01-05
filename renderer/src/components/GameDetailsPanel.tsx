@@ -198,21 +198,84 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game, onSave
         style={{ height: backgroundImageUrl ? `${fanartHeight}px` : 'auto', minHeight: backgroundImageUrl ? `${fanartHeight}px` : '120px' }}
       >
         {backgroundImageUrl && (
-          <img
-            src={backgroundImageUrl}
-            alt={game.title}
-            className="w-full h-full object-cover cursor-pointer"
-            style={{ height: `${fanartHeight}px` }}
-            onError={(e) => {
-              (e.target as HTMLImageElement).style.display = 'none';
+          <>
+            <img
+              src={backgroundImageUrl}
+              alt={game.title}
+              className="w-full h-full object-cover cursor-pointer"
+              style={{ height: `${fanartHeight}px` }}
+              onError={(e) => {
+                (e.target as HTMLImageElement).style.display = 'none';
+              }}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('Artwork right-click:', e.clientX, e.clientY);
+                setSimpleContextMenu({ x: e.clientX, y: e.clientY, type: 'artwork' });
+              }}
+            />
+            {/* Blurred background for logo area */}
+            {game.logoUrl && (
+              <div 
+                className="absolute left-6 bottom-0 z-10"
+                style={{ 
+                  width: 'calc(100% - 11rem)', // Space to the left of boxart (right-6 = 1.5rem, boxart w-32 = 8rem, plus some spacing)
+                  height: '60%',
+                  transform: 'translateY(50%)',
+                  pointerEvents: 'none'
+                }}
+              >
+                <div 
+                  className="w-full h-full"
+                  style={{
+                    backgroundImage: `url(${backgroundImageUrl})`,
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center',
+                    filter: 'blur(20px)',
+                    opacity: 0.6,
+                    position: 'absolute',
+                    inset: 0
+                  }}
+                ></div>
+              </div>
+            )}
+          </>
+        )}
+        
+        {/* Logo - Centered to the left of boxart, overlapping banner, same row as boxart */}
+        {game.logoUrl && (
+          <div 
+            className="absolute left-6 bottom-0 z-20 flex items-center justify-center"
+            style={{ 
+              width: 'calc(100% - 11rem)', // Space to the left of boxart
+              transform: 'translateY(50%)',
+              maxHeight: '60%'
             }}
             onContextMenu={(e) => {
               e.preventDefault();
               e.stopPropagation();
-              console.log('Artwork right-click:', e.clientX, e.clientY);
-              setSimpleContextMenu({ x: e.clientX, y: e.clientY, type: 'artwork' });
+              console.log('Title right-click:', e.clientX, e.clientY);
+              setSimpleContextMenu({ x: e.clientX, y: e.clientY, type: 'title' });
             }}
-          />
+          >
+            <img
+              src={game.logoUrl}
+              alt={game.title}
+              className="max-w-full max-h-full object-contain cursor-pointer drop-shadow-2xl"
+              style={{ 
+                maxHeight: `${titleFontSize * 2}px`,
+                ...(game.removeLogoTransparency ? {
+                  backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                  padding: '8px',
+                  borderRadius: '4px'
+                } : {})
+              }}
+              onError={(e) => {
+                const target = e.target as HTMLImageElement;
+                target.style.display = 'none';
+              }}
+            />
+          </div>
         )}
         
         {/* Box Art - Half overlapping the top image */}
@@ -273,130 +336,113 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game, onSave
 
       {/* Content */}
       <div className="flex-1" style={{ overflowY: 'auto', overflowX: 'hidden', minHeight: 0 }}>
-        <div className="p-6 space-y-6">
-          {/* Upper Section: Title/Logo - positioned to avoid overlapping box art */}
-          <div className="relative">
-            {/* Logo or Title - wraps to avoid box art on the right */}
+        <div 
+          className="p-6 space-y-6"
+          style={{
+            paddingTop: (game.logoUrl || game.boxArtUrl) ? '7rem' : '1.5rem' // Add extra padding when logo/boxart overlap
+          }}
+        >
+          {/* Upper Section: Title - only shown when no logo */}
+          {!game.logoUrl && (
+            <div className="relative">
+              <div 
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  console.log('Title right-click:', e.clientX, e.clientY);
+                  setSimpleContextMenu({ x: e.clientX, y: e.clientY, type: 'title' });
+                }}
+              >
+                <h1 
+                  className="title-fallback font-bold text-white onyx-text-glow tracking-wide break-words cursor-pointer"
+                  style={{ 
+                    fontSize: `${titleFontSize}px`,
+                    fontFamily: titleFontFamily,
+                  }}
+                >
+                  {game.title}
+                </h1>
+              </div>
+            </div>
+          )}
+          
+          {/* Description and Details in a row */}
+          <div className="flex gap-6 relative">
+            {/* Description Content - Left side */}
+            <div className="relative flex-1">
+              <div 
+                ref={descriptionRef}
+                className="space-y-6 relative"
+                style={{ 
+                  height: `${descriptionHeight}px`,
+                  overflowY: 'auto',
+                  overflowX: 'hidden'
+                }}
+              >
+                {/* Game Description */}
+                {game.description && (
+                  <div
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      console.log('Description right-click:', e.clientX, e.clientY);
+                      setSimpleContextMenu({ x: e.clientX, y: e.clientY, type: 'description' });
+                    }}
+                  >
+                    <h3 className="text-lg font-semibold text-white mb-3">Description</h3>
+                    <p 
+                      className="text-gray-200 leading-relaxed cursor-pointer"
+                      style={{
+                        fontSize: `${descriptionFontSize}px`,
+                        fontFamily: descriptionFontFamily,
+                      }}
+                    >
+                      {game.description}
+                    </p>
+                  </div>
+                )}
+
+                {/* Features */}
+                {game.features && game.features.length > 0 && (
+                  <div>
+                    <h3 className="text-lg font-semibold text-white mb-3">Features</h3>
+                    <ul className="space-y-2 text-gray-200 text-sm">
+                      {game.features.map((feature, index) => (
+                        <li key={index} className="flex items-start gap-2">
+                          <span className="text-blue-400 mt-1">•</span>
+                          <span>{feature}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+              {/* Resize handle for description */}
+              <div
+                className="absolute bottom-0 left-0 right-0 h-1 cursor-row-resize hover:bg-blue-500 transition-colors z-10"
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  setIsResizingDescription(true);
+                }}
+              />
+            </div>
+
+            {/* Details Section - Right side */}
             <div 
-              className="pr-40"
+              className="flex-1 border-l border-gray-700 pl-6"
               onContextMenu={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                console.log('Title right-click:', e.clientX, e.clientY);
-                setSimpleContextMenu({ x: e.clientX, y: e.clientY, type: 'title' });
+                console.log('Details right-click:', e.clientX, e.clientY);
+                setSimpleContextMenu({ x: e.clientX, y: e.clientY, type: 'details' });
+              }}
+              style={{
+                fontSize: `${detailsFontSize}px`,
+                fontFamily: detailsFontFamily,
               }}
             >
-              {game.logoUrl ? (
-                <img
-                  src={game.logoUrl}
-                  alt={game.title}
-                  className="max-w-full h-auto object-contain cursor-pointer"
-                  style={{ 
-                    maxHeight: `${titleFontSize * 2}px`,
-                    ...(game.removeLogoTransparency ? {
-                      backgroundColor: 'rgba(0, 0, 0, 0.5)',
-                      padding: '8px',
-                      borderRadius: '4px'
-                    } : {})
-                  }}
-                  onError={(e) => {
-                    // Fallback to text title if logo fails to load
-                    const target = e.target as HTMLImageElement;
-                    target.style.display = 'none';
-                    const fallback = target.parentElement?.querySelector('.title-fallback') as HTMLElement;
-                    if (fallback) {
-                      fallback.style.display = 'block';
-                    }
-                  }}
-                />
-              ) : null}
-              <h1 
-                className={`title-fallback font-bold text-white onyx-text-glow tracking-wide break-words cursor-pointer ${game.logoUrl ? 'hidden' : ''}`}
-                style={{ 
-                  fontSize: `${titleFontSize}px`,
-                  fontFamily: titleFontFamily,
-                }}
-              >
-                {game.title}
-              </h1>
-            </div>
-          </div>
-          
-          {/* Description Content - Always below upper section */}
-          <div className="relative">
-            <div 
-              ref={descriptionRef}
-              className="space-y-6 relative"
-              style={{ 
-                height: `${descriptionHeight}px`,
-                overflowY: 'auto',
-                overflowX: 'hidden'
-              }}
-            >
-              {/* Game Description */}
-              {game.description && (
-                <div
-                  onContextMenu={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    console.log('Description right-click:', e.clientX, e.clientY);
-                    setSimpleContextMenu({ x: e.clientX, y: e.clientY, type: 'description' });
-                  }}
-                >
-                  <h3 className="text-lg font-semibold text-white mb-3">Description</h3>
-                  <p 
-                    className="text-gray-200 leading-relaxed cursor-pointer"
-                    style={{
-                      fontSize: `${descriptionFontSize}px`,
-                      fontFamily: descriptionFontFamily,
-                    }}
-                  >
-                    {game.description}
-                  </p>
-                </div>
-              )}
-
-              {/* Features */}
-              {game.features && game.features.length > 0 && (
-                <div>
-                  <h3 className="text-lg font-semibold text-white mb-3">Features</h3>
-                  <ul className="space-y-2 text-gray-200 text-sm">
-                    {game.features.map((feature, index) => (
-                      <li key={index} className="flex items-start gap-2">
-                        <span className="text-blue-400 mt-1">•</span>
-                        <span>{feature}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </div>
-            {/* Resize handle for description */}
-            <div
-              className="absolute bottom-0 left-0 right-0 h-1 cursor-row-resize hover:bg-blue-500 transition-colors z-10"
-              onMouseDown={(e) => {
-                e.preventDefault();
-                setIsResizingDescription(true);
-              }}
-            />
-          </div>
-
-          {/* Details Section - Full Width */}
-          <div 
-            className="border-t border-gray-700 pt-6"
-            onContextMenu={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              console.log('Details right-click:', e.clientX, e.clientY);
-              setSimpleContextMenu({ x: e.clientX, y: e.clientY, type: 'details' });
-            }}
-            style={{
-              fontSize: `${detailsFontSize}px`,
-              fontFamily: detailsFontFamily,
-            }}
-          >
-            <h3 className="text-lg font-semibold text-white mb-4">Details</h3>
-            <div className="grid grid-cols-2 gap-4">
+              <h3 className="text-lg font-semibold text-white mb-4">Details</h3>
+              <div className="grid grid-cols-1 gap-4">
               {visibleDetails.releaseDate && game.releaseDate && (
                 <div>
                   <p className="text-gray-400 mb-1">Release Date</p>
@@ -468,6 +514,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game, onSave
               )}
             </div>
           </div>
+        </div>
         </div>
       </div>
 

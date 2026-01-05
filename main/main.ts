@@ -308,11 +308,7 @@ function createTray() {
     updateTrayMenu();
   });
   
-  // Also update on context-menu event (alternative for some platforms)
-  tray.on('context-menu', () => {
-    console.log('[Tray Menu] Context-menu event detected, refreshing menu...');
-    updateTrayMenu();
-  });
+  // Note: 'context-menu' event is not available on Tray, only 'right-click' is used
   
   tray.on('click', () => {
     if (win) {

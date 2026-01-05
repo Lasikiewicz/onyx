@@ -160,8 +160,8 @@ export class GameStore {
       gamesMap.set(game.id, game);
     });
     
-    // Convert SteamGame to Game and merge
-    steamGames.forEach(steamGame => {
+    // Convert SteamGame to Game and merge (using for...of for async operations)
+    for (const steamGame of steamGames) {
       const gameId = `steam-${steamGame.appId}`;
       const existingGame = gamesMap.get(gameId);
       
@@ -213,7 +213,7 @@ export class GameStore {
         gamesMap.set(gameId, game);
       }
       // If existing game is not a Steam game, don't overwrite it
-    });
+    }
     
     const finalGames = Array.from(gamesMap.values());
     (store as any).set('games', finalGames);
