@@ -28,6 +28,7 @@ export interface UserPreferences {
     showPlatform: boolean;
   };
   listViewSize?: number;
+  autoSizeToFit?: boolean;
   titleFontSize?: number;
   titleFontFamily?: string;
   descriptionFontSize?: number;

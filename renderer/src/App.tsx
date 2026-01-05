@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useGameLibrary } from './hooks/useGameLibrary';
 import { LibraryGrid } from './components/LibraryGrid';
 import { LibraryListView } from './components/LibraryListView';
@@ -93,6 +93,8 @@ function App() {
   const [simpleContextMenu, setSimpleContextMenu] = useState<{ x: number; y: number } | null>(null);
   const [showAppearanceMenu, setShowAppearanceMenu] = useState(false);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [autoSizeToFit, setAutoSizeToFit] = useState(false);
+  const gridContainerRef = useRef<HTMLDivElement>(null);
 
   // Load preferences on mount
   useEffect(() => {
@@ -113,6 +115,7 @@ function App() {
         if (prefs.listViewOptions) setListViewOptions(prefs.listViewOptions);
         if (prefs.listViewSize) setListViewSize(prefs.listViewSize);
         if (prefs.panelWidth) setPanelWidth(prefs.panelWidth);
+        if (prefs.autoSizeToFit !== undefined) setAutoSizeToFit(prefs.autoSizeToFit);
         // Restore active game selection if it exists
         if (prefs.activeGameId) {
           setActiveGameId(prefs.activeGameId);
@@ -126,8 +129,10 @@ function App() {
     loadPreferences();
   }, []);
 
-  // Save grid size when it changes
+  // Save grid size when it changes (but not when auto-size is enabled)
   useEffect(() => {
+    if (autoSizeToFit) return; // Don't save when auto-size is calculating
+    
     const saveGridSize = async () => {
       try {
         await window.electronAPI.savePreferences({ gridSize });
@@ -138,7 +143,7 @@ function App() {
     // Debounce saves
     const timeoutId = setTimeout(saveGridSize, 500);
     return () => clearTimeout(timeoutId);
-  }, [gridSize]);
+  }, [gridSize, autoSizeToFit]);
 
   // Save pinned categories when they change
   useEffect(() => {
@@ -372,6 +377,161 @@ function App() {
 
   const handleReorder = async (reorderedGames: Game[]) => {
     await reorderGames(reorderedGames);
+  };
+
+  const calculateAutoSize = useCallback(() => {
+    if (!gridContainerRef.current || viewMode !== 'grid' || filteredGames.length === 0) {
+      return;
+    }
+
+    const container = gridContainerRef.current;
+    const containerWidth = container.clientWidth;
+    // Use the visible viewport height, not the scrollable container height
+    const containerHeight = container.clientHeight; // This is the visible height
+    
+    // Account for padding (p-4 = 16px on each side = 32px total)
+    const horizontalPadding = 32;
+    const verticalPadding = 32; // Top and bottom padding
+    const availableWidth = containerWidth - horizontalPadding;
+    const availableHeight = containerHeight - verticalPadding;
+    
+    if (availableWidth <= 0 || availableHeight <= 0) {
+      return;
+    }
+    
+    const totalGames = filteredGames.length;
+    const gap = gameTilePadding;
+    
+    // GameCard uses aspect-[2/3], so height = width * 1.5
+    // We need to find columns and rows such that columns * rows >= totalGames
+    // And ALL games fit within availableWidth and availableHeight
+    
+    let bestSize = 0;
+    let bestColumns = 0;
+    
+    // Try different column counts
+    for (let columns = 1; columns <= 20; columns++) {
+      // Calculate tile width based on available width
+      const totalGapWidth = gap * (columns - 1);
+      const tileWidth = (availableWidth - totalGapWidth) / columns;
+      
+      if (tileWidth < 50) continue; // Too small, skip
+      
+      // Calculate tile height (2:3 aspect ratio)
+      const tileHeight = tileWidth * 1.5;
+      
+      // Calculate how many rows we need to fit all games
+      const rowsNeeded = Math.ceil(totalGames / columns);
+      
+      // Calculate total height needed for all rows
+      const totalHeightNeeded = (tileHeight * rowsNeeded) + (gap * (rowsNeeded - 1));
+      
+      // Check if this configuration fits ALL games in the visible height
+      if (totalHeightNeeded <= availableHeight) {
+        // This configuration fits! Prefer larger tiles
+        if (bestSize === 0 || tileWidth > bestSize) {
+          bestSize = Math.round(tileWidth);
+          bestColumns = columns;
+        }
+      }
+    }
+    
+    // If we found a solution, use it
+    if (bestSize > 0) {
+      setGridSize(bestSize);
+    } else {
+      // No solution found - try to fit as many as possible
+      // Start with a reasonable tile size and work backwards
+      for (let testSize = 200; testSize >= 50; testSize -= 10) {
+        const tileHeight = testSize * 1.5;
+        
+        for (let columns = 1; columns <= 20; columns++) {
+          const totalGapWidth = gap * (columns - 1);
+          const tileWidth = (availableWidth - totalGapWidth) / columns;
+          
+          if (Math.abs(tileWidth - testSize) < 10) { // Close match
+            const rowsNeeded = Math.ceil(totalGames / columns);
+            const totalHeightNeeded = (tileHeight * rowsNeeded) + (gap * (rowsNeeded - 1));
+            
+            if (totalHeightNeeded <= availableHeight) {
+              setGridSize(Math.round(tileWidth));
+              return;
+            }
+          }
+        }
+      }
+      
+      // Last resort: use a small size that should fit
+      const minColumns = Math.ceil(Math.sqrt(totalGames));
+      const totalGapWidth = gap * (minColumns - 1);
+      const fallbackSize = Math.round((availableWidth - totalGapWidth) / minColumns);
+      setGridSize(Math.max(50, Math.min(500, fallbackSize)));
+    }
+  }, [viewMode, filteredGames.length, gameTilePadding, hideGameTitles]);
+
+  // Auto-recalculate when auto-size is enabled and dependencies change
+  useEffect(() => {
+    if (!autoSizeToFit || viewMode !== 'grid' || filteredGames.length === 0) {
+      return;
+    }
+
+    // Recalculate after a short delay to ensure DOM is updated
+    const timeoutId = setTimeout(() => {
+      calculateAutoSize();
+    }, 100);
+
+    return () => clearTimeout(timeoutId);
+  }, [autoSizeToFit, filteredGames.length, gameTilePadding, hideGameTitles, viewMode, calculateAutoSize, panelWidth]);
+
+  // Watch for container size changes using ResizeObserver (handles window resize and panel resize)
+  useEffect(() => {
+    if (!autoSizeToFit || viewMode !== 'grid' || !gridContainerRef.current) {
+      return;
+    }
+
+    const container = gridContainerRef.current;
+    let resizeTimeout: NodeJS.Timeout;
+
+    const resizeObserver = new ResizeObserver((entries) => {
+      // Debounce resize calculations
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(() => {
+        if (filteredGames.length > 0) {
+          calculateAutoSize();
+        }
+      }, 150);
+    });
+
+    resizeObserver.observe(container);
+
+    // Also listen to window resize as a fallback
+    const handleWindowResize = () => {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(() => {
+        if (filteredGames.length > 0) {
+          calculateAutoSize();
+        }
+      }, 150);
+    };
+
+    window.addEventListener('resize', handleWindowResize);
+
+    return () => {
+      resizeObserver.disconnect();
+      window.removeEventListener('resize', handleWindowResize);
+      clearTimeout(resizeTimeout);
+    };
+  }, [autoSizeToFit, viewMode, filteredGames.length, calculateAutoSize]);
+
+  const handleAutoSizeToFit = () => {
+    const newValue = !autoSizeToFit;
+    setAutoSizeToFit(newValue);
+    window.electronAPI.savePreferences({ autoSizeToFit: newValue });
+    
+    if (newValue) {
+      // Calculate immediately when enabled
+      calculateAutoSize();
+    }
   };
 
   const handleGameClick = (game: Game) => {
@@ -853,6 +1013,7 @@ function App() {
         <div className="flex-1 flex flex-col overflow-hidden">
           {/* Game Grid */}
           <div 
+            ref={gridContainerRef}
             className="flex-1 overflow-y-auto p-4 relative z-10"
             onContextMenu={(e) => {
               e.preventDefault();
@@ -1223,6 +1384,8 @@ function App() {
           onListViewOptionsChange={setListViewOptions}
           listViewSize={listViewSize}
           onListViewSizeChange={setListViewSize}
+          autoSizeToFit={autoSizeToFit}
+          onAutoSizeToFit={handleAutoSizeToFit}
         />
       )}
 
