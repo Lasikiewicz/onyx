@@ -51,15 +51,40 @@ export const FileSelectionModal: React.FC<FileSelectionModalProps> = ({
   // Helper to get a better search name from path
   const getSearchNameFromPath = (file: ExecutableFile): string => {
     const path = file.fullPath;
+    if (path && folderPath) {
+      // Normalize paths for comparison
+      const normalizePath = (p: string) => p.replace(/\\/g, '/').toLowerCase().replace(/\/$/, '');
+      const normalizedFolderPath = normalizePath(folderPath);
+      const normalizedFilePath = normalizePath(path);
+      
+      // Check if the file path starts with the folder path
+      if (normalizedFilePath.startsWith(normalizedFolderPath)) {
+        // Get the relative path from the scanned folder
+        const relativePath = path.substring(folderPath.length).replace(/^[/\\]+/, '');
+        const relativeParts = relativePath.split(/[/\\]/);
+        
+        // The first part after the scanned folder is likely the game name
+        if (relativeParts.length > 0 && relativeParts[0]) {
+          const gameFolderName = relativeParts[0];
+          // Skip if it's a common non-game directory
+          if (!gameFolderName.match(/^(Program Files|Program Files \(x86\)|Steam|Epic|EA|GOG|Ubisoft|Battle\.net|__Installer|_Installer|Installer)$/i)) {
+            // Clean up the name (remove version numbers, etc.)
+            const cleaned = gameFolderName.replace(/[_\s]*(trial|demo|beta|alpha|test|v?\d+\.\d+)[_\s]*$/i, '').trim();
+            return cleaned || gameFolderName;
+          }
+        }
+      }
+    }
+    
+    // Fallback: Extract from full path
     if (path) {
-      // Extract parent directory name (often the game name)
       const pathParts = path.split(/[/\\]/);
       // Look for common game directory patterns, starting from the executable's parent
       for (let i = pathParts.length - 2; i >= 0; i--) {
         const part = pathParts[i];
         // Skip common non-game directories
         if (part && 
-            !part.match(/^(Program Files|Program Files \(x86\)|Games|Steam|Epic|EA|GOG|Ubisoft|Battle\.net|__Installer|_Installer|Installer|SP|MP|Bin|Binaries|Win64|Win32|Common|Redist|Redistributables)$/i) &&
+            !part.match(/^(Program Files|Program Files \(x86\)|Games|Steam|Epic|EA|GOG|Ubisoft|Battle\.net|__Installer|_Installer|Installer|SP|MP|Bin|Binaries|Win64|Win32|Common|Redist|Redistributables|work|ph_ft|game)$/i) &&
             !part.match(/^(setup|install|uninstall|cleanup|touchup|repair|config|launcher|updater)$/i) &&
             part.length > 2) {
           // Clean up the name
@@ -68,7 +93,8 @@ export const FileSelectionModal: React.FC<FileSelectionModalProps> = ({
         }
       }
     }
-    // Fallback to the executable name without extension
+    
+    // Final fallback: executable name without extension
     const name = file.fileName.replace(/[_\s]*(trial|demo|beta|alpha|test|\.exe)[_\s]*$/i, '').trim();
     return name || file.fileName;
   };
@@ -114,11 +140,53 @@ export const FileSelectionModal: React.FC<FileSelectionModalProps> = ({
 
   const filteredExecutables = getFilesForTab();
 
+  // Helper to check if a search result is a good match
+  const isGoodMatch = (searchName: string, resultName: string): boolean => {
+    const normalize = (str: string): string => {
+      return str.toLowerCase()
+        .replace(/[^\w\s]/g, '') // Remove special characters
+        .replace(/\s+/g, ' ') // Normalize whitespace
+        .trim();
+    };
+    
+    const normalizedSearch = normalize(searchName);
+    const normalizedResult = normalize(resultName);
+    
+    // Exact match
+    if (normalizedSearch === normalizedResult) {
+      return true;
+    }
+    
+    // Check if search name is contained in result name (for cases like "Dying Light" matching "Dying Light: The Following")
+    if (normalizedResult.includes(normalizedSearch) && normalizedSearch.length >= 5) {
+      return true;
+    }
+    
+    // Check if result name is contained in search name
+    if (normalizedSearch.includes(normalizedResult) && normalizedResult.length >= 5) {
+      return true;
+    }
+    
+    // Check similarity using word matching
+    const searchWords = normalizedSearch.split(' ').filter(w => w.length > 2);
+    const resultWords = normalizedResult.split(' ').filter(w => w.length > 2);
+    
+    if (searchWords.length === 0 || resultWords.length === 0) {
+      return false;
+    }
+    
+    // If most words match, consider it a good match
+    const matchingWords = searchWords.filter(word => resultWords.includes(word));
+    const matchRatio = matchingWords.length / Math.max(searchWords.length, resultWords.length);
+    
+    return matchRatio >= 0.7; // 70% word match
+  };
+
   // Fetch metadata for a file
-  const fetchMetadataForFile = async (file: ExecutableFile) => {
+  const fetchMetadataForFile = async (file: ExecutableFile, autoApply: boolean = false) => {
     const fileId = getFileId(file);
     
-    // Skip if we already have metadata
+    // Skip if we already have metadata with images
     const currentMetadata = gameMetadata.get(fileId);
     if (currentMetadata && (currentMetadata.boxArtUrl || currentMetadata.bannerUrl)) {
       return; // Already has metadata
@@ -133,6 +201,9 @@ export const FileSelectionModal: React.FC<FileSelectionModalProps> = ({
       const response = await window.electronAPI.searchMetadata(searchName);
       if (response.success && response.results && response.results.length > 0) {
         const topResult = response.results[0];
+        
+        // Check if it's a good match
+        const goodMatch = isGoodMatch(searchName, topResult.name);
         
         // Format release date from timestamp if available
         const formatReleaseDate = (timestamp?: number): string | undefined => {
@@ -159,17 +230,17 @@ export const FileSelectionModal: React.FC<FileSelectionModalProps> = ({
           platform: topResult.platform,
         };
         
-        const hasNoImage = !currentMetadata?.boxArtUrl && !currentMetadata?.bannerUrl;
-        
-        if (hasNoImage && metadata.boxArtUrl) {
-          // Auto-apply the top result if no image exists
+        // Auto-apply if it's a good match and we have images, or if autoApply is true
+        if ((goodMatch && metadata.boxArtUrl) || (autoApply && metadata.boxArtUrl)) {
+          console.log(`[Metadata] Auto-applying metadata for "${searchName}" - matched with "${topResult.name}"`);
           setGameMetadata(prev => {
             const newMap = new Map(prev);
             newMap.set(fileId, metadata);
             return newMap;
           });
         } else if (!currentMetadata) {
-          // Store metadata but don't auto-apply if user previously selected something
+          // Store metadata but don't auto-apply - user can search manually
+          console.log(`[Metadata] Found results for "${searchName}" but not auto-applying (match quality: ${goodMatch ? 'good' : 'uncertain'})`);
           setGameMetadata(prev => {
             const newMap = new Map(prev);
             if (!newMap.has(fileId)) {
@@ -190,8 +261,28 @@ export const FileSelectionModal: React.FC<FileSelectionModalProps> = ({
     }
   };
 
-  // Don't fetch metadata automatically - only fetch when files are checked
-  // Removed auto-fetch logic
+  // Auto-fetch metadata for all new files when modal opens
+  useEffect(() => {
+    if (isOpen && newFiles.length > 0) {
+      // Check if APIs are configured
+      areAPIsConfigured().then(configured => {
+        if (configured) {
+          // Fetch metadata for all new files that don't already have metadata
+          newFiles.forEach(file => {
+            const fileId = getFileId(file);
+            const existingMetadata = gameMetadata.get(fileId);
+            // Only fetch if we don't already have metadata with images
+            if (!existingMetadata || (!existingMetadata.boxArtUrl && !existingMetadata.bannerUrl)) {
+              fetchMetadataForFile(file, true);
+            }
+          });
+        }
+      }).catch(err => {
+        console.error('Error checking API configuration:', err);
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, executables.length]); // Only depend on executables length to avoid re-fetching
 
   const toggleFileSelection = (file: ExecutableFile) => {
     // Find the index in the original executables array
@@ -531,30 +622,44 @@ export const FileSelectionModal: React.FC<FileSelectionModalProps> = ({
                           </div>
                         )}
                         
-                        {/* Always Ignore button - positioned at bottom right */}
-                        {activeTab === 'ignored' ? (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleRemoveIgnore(file);
-                            }}
-                            className="absolute bottom-0 right-0 px-3 py-1.5 text-xs bg-green-600/20 hover:bg-green-600/30 text-green-400 border border-green-500/50 rounded transition-colors"
-                            title="Remove ignore tag"
-                          >
-                            Remove Ignore
-                          </button>
-                        ) : activeTab === 'new' ? (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleAlwaysIgnore(file);
-                            }}
-                            className="absolute bottom-0 right-0 px-3 py-1.5 text-xs bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/50 rounded transition-colors"
-                            title="Always ignore this executable in future scans"
-                          >
-                            Always Ignore
-                          </button>
-                        ) : null}
+                        {/* Action buttons - positioned at bottom right */}
+                        <div className="absolute bottom-0 right-0 flex gap-2">
+                          {!boxArtUrl && !bannerUrl && !isFetching && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                fetchMetadataForFile(file, false);
+                              }}
+                              className="px-3 py-1.5 text-xs bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/50 rounded transition-colors"
+                              title="Search for game metadata"
+                            >
+                              Search
+                            </button>
+                          )}
+                          {activeTab === 'ignored' ? (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleRemoveIgnore(file);
+                              }}
+                              className="px-3 py-1.5 text-xs bg-green-600/20 hover:bg-green-600/30 text-green-400 border border-green-500/50 rounded transition-colors"
+                              title="Remove ignore tag"
+                            >
+                              Remove Ignore
+                            </button>
+                          ) : activeTab === 'new' ? (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleAlwaysIgnore(file);
+                              }}
+                              className="px-3 py-1.5 text-xs bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/50 rounded transition-colors"
+                              title="Always ignore this executable in future scans"
+                            >
+                              Always Ignore
+                            </button>
+                          ) : null}
+                        </div>
                       </div>
                     </div>
                   );

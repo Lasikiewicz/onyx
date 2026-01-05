@@ -25,12 +25,13 @@ interface LibraryGridProps {
   onEdit?: (game: Game) => void;
   onEditImages?: (game: Game) => void;
   onFavorite?: (game: Game) => void;
+  onPin?: (game: Game) => void;
   gridSize?: number;
   gameTilePadding?: number;
   hideGameTitles?: boolean;
 }
 
-export const LibraryGrid: React.FC<LibraryGridProps> = ({ games, onReorder, onPlay, onGameClick, onEdit, onEditImages, onFavorite, gridSize = 120, gameTilePadding = 16, hideGameTitles = false }) => {
+export const LibraryGrid: React.FC<LibraryGridProps> = ({ games, onReorder, onPlay, onGameClick, onEdit, onEditImages, onFavorite, onPin, gridSize = 120, gameTilePadding = 16, hideGameTitles = false }) => {
   const [items, setItems] = useState<Game[]>(games);
 
   // Update items when games prop changes
@@ -90,6 +91,7 @@ export const LibraryGrid: React.FC<LibraryGridProps> = ({ games, onReorder, onPl
                   onEdit={onEdit}
                   onEditImages={onEditImages}
                   onFavorite={onFavorite}
+                  onPin={onPin}
                   hideTitle={hideGameTitles}
                 />
               ))}

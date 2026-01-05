@@ -110,21 +110,6 @@ export const MenuBar: React.FC<MenuBarProps> = ({
             {isOnyxSettingsMenuOpen && (
               <div className="absolute left-0 top-full mt-1 bg-gray-800 border border-gray-700 rounded-lg shadow-xl z-50 min-w-[240px]">
                 <div className="p-1">
-                  {onAddGame && (
-                    <button
-                      onClick={() => {
-                        onAddGame();
-                        setIsOnyxSettingsMenuOpen(false);
-                      }}
-                      className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-gray-200 hover:bg-gray-700 rounded transition-colors whitespace-nowrap"
-                    >
-                      <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                      </svg>
-                      <span className="flex-1">Add Game Manually</span>
-                    </button>
-                  )}
-
                   {onScanFolder && (
                     <button
                       onClick={() => {

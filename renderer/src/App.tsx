@@ -310,8 +310,16 @@ function App() {
       );
     }
     
-    // Sort games
+    // Sort games - pinned games always appear first
     filtered = [...filtered].sort((a, b) => {
+      // First, sort by pinned status (pinned games first)
+      const aPinned = a.pinned === true ? 1 : 0;
+      const bPinned = b.pinned === true ? 1 : 0;
+      if (aPinned !== bPinned) {
+        return bPinned - aPinned; // Pinned games first
+      }
+      
+      // Then sort by the selected criteria
       switch (sortBy) {
         case 'title':
           return (a.sortingName || a.title).localeCompare(b.sortingName || b.title);
@@ -680,6 +688,12 @@ function App() {
     await handleSaveGame(updatedGame);
   };
 
+  const handleTogglePin = async (game: Game) => {
+    const newPinnedValue = game.pinned !== true; // Explicitly set to true or false
+    const updatedGame = { ...game, pinned: newPinnedValue };
+    await handleSaveGame(updatedGame);
+  };
+
   // Handle exit with confirmation
   const handleExit = async () => {
     try {
@@ -832,6 +846,7 @@ function App() {
                         onEdit={handleEditGame}
                         onEditImages={handleEditImages}
                         onFavorite={handleToggleFavorite}
+                        onPin={handleTogglePin}
                         gridSize={gridSize}
                         gameTilePadding={gameTilePadding}
                         hideGameTitles={hideGameTitles}
@@ -844,6 +859,7 @@ function App() {
                         onEdit={handleEditGame}
                         onEditImages={handleEditImages}
                         onFavorite={handleToggleFavorite}
+                        onPin={handleTogglePin}
                         hideGameTitles={hideGameTitles}
                         listViewOptions={listViewOptions}
                         listViewSize={listViewSize}

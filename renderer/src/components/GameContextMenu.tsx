@@ -10,6 +10,7 @@ interface GameContextMenuProps {
   onEdit?: (game: Game) => void;
   onEditImages?: (game: Game) => void;
   onFavorite?: (game: Game) => void;
+  onPin?: (game: Game) => void;
 }
 
 export const GameContextMenu: React.FC<GameContextMenuProps> = ({
@@ -21,6 +22,7 @@ export const GameContextMenu: React.FC<GameContextMenuProps> = ({
   onEdit,
   onEditImages,
   onFavorite,
+  onPin,
 }) => {
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -82,6 +84,11 @@ export const GameContextMenu: React.FC<GameContextMenuProps> = ({
     onClose();
   };
 
+  const handlePin = () => {
+    onPin?.(game);
+    onClose();
+  };
+
   const handleModManager = async () => {
     if (game.modManagerUrl) {
       try {
@@ -139,6 +146,17 @@ export const GameContextMenu: React.FC<GameContextMenuProps> = ({
           Mod Manager
         </button>
       )}
+      <button
+        onClick={handlePin}
+        className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-700 transition-colors flex items-center gap-2 ${
+          game.pinned ? 'text-blue-400' : 'text-gray-300'
+        }`}
+      >
+        <svg className="w-4 h-4" fill={game.pinned ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+        </svg>
+        {game.pinned ? 'Unpin' : 'Pin'}
+      </button>
       <button
         onClick={handleFavorite}
         className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-700 transition-colors flex items-center gap-2 ${

@@ -890,32 +890,40 @@ ipcMain.handle('import:scanFolderForExecutables', async (_event, folderPath: str
       return excludePatterns.some(pattern => pattern.test(lowerName));
     };
     
-    const scanDirectory = (dirPath: string, depth: number, maxDepth: number = 3): void => {
-      if (depth > maxDepth) return;
-      
+    const scanDirectory = (dirPath: string): void => {
       try {
-        const entries = readdirSync(dirPath);
+        const entries = readdirSync(dirPath, { withFileTypes: true });
         
         for (const entry of entries) {
-          const fullPath = path.join(dirPath, entry);
+          const fullPath = path.join(dirPath, entry.name);
           
           try {
-            const stats = statSync(fullPath);
-            
-            if (stats.isFile() && entry.toLowerCase().endsWith('.exe')) {
+            if (entry.isFile() && entry.name.toLowerCase().endsWith('.exe')) {
               // Exclude common non-game executables
-              if (!shouldExclude(entry)) {
+              if (!shouldExclude(entry.name)) {
                 executables.push({
-                  fileName: entry,
+                  fileName: entry.name,
                   fullPath: fullPath,
                 });
+                console.log(`Found executable: ${fullPath}`);
+              } else {
+                console.log(`Excluded executable: ${fullPath}`);
               }
-            } else if (stats.isDirectory() && depth < maxDepth) {
-              // Recursively scan subdirectories
-              scanDirectory(fullPath, depth + 1, maxDepth);
+            } else if (entry.isDirectory()) {
+              // Recursively scan all subdirectories (no depth limit)
+              // Skip common system directories that are unlikely to contain games
+              const dirName = entry.name.toLowerCase();
+              if (dirName !== 'node_modules' && 
+                  dirName !== '.git' && 
+                  !dirName.startsWith('$') &&
+                  dirName !== 'system volume information' &&
+                  dirName !== 'recycle.bin') {
+                scanDirectory(fullPath);
+              }
             }
           } catch (err) {
-            // Skip files/directories we can't access
+            // Log but continue - some files/directories may not be accessible
+            console.warn(`Skipping ${fullPath}:`, err instanceof Error ? err.message : err);
             continue;
           }
         }
@@ -924,7 +932,7 @@ ipcMain.handle('import:scanFolderForExecutables', async (_event, folderPath: str
       }
     };
     
-    scanDirectory(folderPath, 0);
+    scanDirectory(folderPath);
     
     // Deduplicate executables: if same filename exists in root and subdirectory, prefer root
     const executableMap = new Map<string, { fileName: string; fullPath: string; depth: number }>();

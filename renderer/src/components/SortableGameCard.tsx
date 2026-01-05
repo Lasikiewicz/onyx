@@ -12,10 +12,11 @@ interface SortableGameCardProps {
   onEdit?: (game: Game) => void;
   onEditImages?: (game: Game) => void;
   onFavorite?: (game: Game) => void;
+  onPin?: (game: Game) => void;
   hideTitle?: boolean;
 }
 
-export const SortableGameCard: React.FC<SortableGameCardProps> = ({ game, onPlay, onClick, onEdit, onEditImages, onFavorite, hideTitle = false }) => {
+export const SortableGameCard: React.FC<SortableGameCardProps> = ({ game, onPlay, onClick, onEdit, onEditImages, onFavorite, onPin, hideTitle = false }) => {
   const {
     attributes,
     listeners,
@@ -82,6 +83,7 @@ export const SortableGameCard: React.FC<SortableGameCardProps> = ({ game, onPlay
           onEdit={onEdit}
           onEditImages={onEditImages}
           onFavorite={onFavorite}
+          onPin={onPin}
         />
       )}
     </>

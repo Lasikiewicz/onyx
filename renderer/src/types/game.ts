@@ -28,6 +28,7 @@ export interface Game {
   lastPlayed?: string;
   playCount?: number;
   favorite?: boolean;
+  pinned?: boolean;
   hidden?: boolean;
   broken?: boolean;
   notes?: string;

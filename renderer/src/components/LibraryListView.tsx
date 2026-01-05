@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Game } from '../types/game';
 import { GameCard } from './GameCard';
+import { GameContextMenu } from './GameContextMenu';
 
 export interface ListViewOptions {
   showDescription: boolean;
@@ -18,6 +19,7 @@ interface LibraryListViewProps {
   onEdit?: (game: Game) => void;
   onEditImages?: (game: Game) => void;
   onFavorite?: (game: Game) => void;
+  onPin?: (game: Game) => void;
   hideGameTitles?: boolean;
   listViewOptions?: ListViewOptions;
   listViewSize?: number;
@@ -30,6 +32,7 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
   onEdit,
   onEditImages,
   onFavorite,
+  onPin,
   hideGameTitles = false,
   listViewOptions = {
     showDescription: true,
@@ -59,6 +62,15 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
     }
   };
 
+  const [contextMenu, setContextMenu] = useState<{ game: Game; x: number; y: number } | null>(null);
+
+  // Handle right-click to show context menu
+  const handleContextMenu = (e: React.MouseEvent, game: Game) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setContextMenu({ game, x: e.clientX, y: e.clientY });
+  };
+
   return (
     <div className="w-full h-full flex flex-col">
       <div className="flex-1 overflow-y-auto">
@@ -67,6 +79,7 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
             <div
               key={game.id}
               onClick={() => onGameClick?.(game)}
+              onContextMenu={(e) => handleContextMenu(e, game)}
               className="flex items-center gap-4 p-3 bg-gray-800/40 backdrop-blur-md border border-white/5 rounded-xl transition-all duration-300 hover:bg-gray-700/60 hover:border-cyan-400/30 cursor-pointer group"
             >
               {/* Game Image */}
@@ -201,6 +214,19 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
           ))}
         </div>
       </div>
+      {contextMenu && (
+        <GameContextMenu
+          game={contextMenu.game}
+          x={contextMenu.x}
+          y={contextMenu.y}
+          onClose={() => setContextMenu(null)}
+          onPlay={onPlay}
+          onEdit={onEdit}
+          onEditImages={onEditImages}
+          onFavorite={onFavorite}
+          onPin={onPin}
+        />
+      )}
     </div>
   );
 };
