@@ -35,7 +35,6 @@ export const UpdateLibraryModal: React.FC<UpdateLibraryModalProps> = ({
 }) => {
   const [mode, setMode] = useState<ModalMode>('wizard');
   const [apps, setApps] = useState<AppConfig[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
   const [scanProgress, setScanProgress] = useState({ current: 0, total: 0, currentApp: '' });
   const [newGames, setNewGames] = useState<ScannedGame[]>([]);
@@ -67,7 +66,6 @@ export const UpdateLibraryModal: React.FC<UpdateLibraryModalProps> = ({
   };
 
   const loadAppConfigs = async () => {
-    setIsLoading(true);
     try {
       const savedConfigs = await window.electronAPI.getAppConfigs();
       const defaultApps = getDefaultApps();
@@ -84,8 +82,6 @@ export const UpdateLibraryModal: React.FC<UpdateLibraryModalProps> = ({
       setApps(initializedApps);
     } catch (err) {
       console.error('Error loading app configs:', err);
-    } finally {
-      setIsLoading(false);
     }
   };
 

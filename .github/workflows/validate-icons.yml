@@ -1,0 +1,41 @@
+name: Validate Icons
+
+on:
+  pull_request:
+    paths:
+      - 'resources/icon.*'
+      - 'build/icon.*'
+      - 'scripts/validate-icons.js'
+      - 'package.json'
+  push:
+    branches:
+      - master
+      - main
+    paths:
+      - 'resources/icon.*'
+      - 'build/icon.*'
+      - 'scripts/validate-icons.js'
+      - 'package.json'
+
+jobs:
+  validate-icons:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Generate icons
+        run: npm run generate-icons
+      
+      - name: Validate icons
+        run: npm run validate-icons

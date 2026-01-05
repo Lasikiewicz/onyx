@@ -476,7 +476,7 @@ function App() {
     setTimeout(() => setToast(null), 5000);
   };
 
-  // Update Library handler - opens import workbench
+  // Update Library handler - opens game importer
   const handleUpdateSteamLibrary = async () => {
     // Check if APIs are configured
     const apisConfigured = await areAPIsConfigured();
@@ -802,7 +802,6 @@ function App() {
       <div className="relative z-10 flex flex-col h-full">
       {/* Menu Bar - Fixed at top */}
       <MenuBar
-        onAddGame={() => setIsModalOpen(true)}
         onScanFolder={handleScanFolder}
         onUpdateSteamLibrary={handleUpdateSteamLibrary}
         onUpdateLibrary={handleUpdateSteamLibrary}
@@ -1161,7 +1160,7 @@ function App() {
         }}
       />
 
-      {/* Import Workbench */}
+      {/* Game Importer */}
       <ImportWorkbench
         isOpen={isImportWorkbenchOpen}
         onClose={() => setIsImportWorkbenchOpen(false)}

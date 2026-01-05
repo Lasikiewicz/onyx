@@ -61,6 +61,8 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
       epic: [],
       gog: [],
       xbox: [],
+      ubisoft: [],
+      rockstar: [],
       manual_file: [],
       manual_folder: [],
     };
@@ -180,9 +182,53 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
         return;
       }
 
+      // Pre-filter games that already exist in library to avoid fetching metadata
+      const existingGameIds = new Set(existingLibrary.map(g => g.id));
+      const existingExePaths = new Set(
+        existingLibrary
+          .map(g => g.exePath)
+          .filter((path): path is string => !!path)
+          .map(path => path.toLowerCase().replace(/\\/g, '/'))
+      );
+      const existingInstallPaths = new Set(
+        existingLibrary
+          .map(g => g.installationDirectory)
+          .filter((path): path is string => !!path)
+          .map(path => path.toLowerCase().replace(/\\/g, '/'))
+      );
+
+      // Filter out games that already exist before processing
+      const gamesToProcess = result.games.filter(scanned => {
+        // Check by game ID first
+        const gameId = scanned.source === 'steam' && scanned.appId
+          ? `steam-${scanned.appId}`
+          : scanned.uuid;
+        if (existingGameIds.has(gameId)) {
+          return false;
+        }
+        
+        // Check by exePath
+        if (scanned.exePath) {
+          const normalizedExePath = scanned.exePath.toLowerCase().replace(/\\/g, '/');
+          if (existingExePaths.has(normalizedExePath)) {
+            return false;
+          }
+        }
+        
+        // Check by installPath
+        if (scanned.installPath) {
+          const normalizedInstallPath = scanned.installPath.toLowerCase().replace(/\\/g, '/');
+          if (existingInstallPaths.has(normalizedInstallPath)) {
+            return false;
+          }
+        }
+        
+        return true;
+      });
+
       // Convert scanned results to StagedGame objects
       const stagedGames: StagedGame[] = await Promise.all(
-        result.games.map(async (scanned): Promise<StagedGame> => {
+        gamesToProcess.map(async (scanned): Promise<StagedGame> => {
           // Check if game is ignored
           const gameId = scanned.source === 'steam' && scanned.appId
             ? `steam-${scanned.appId}`
@@ -241,32 +287,28 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
                   logoUrl: metadata?.logoUrl || '',
                   heroUrl: metadata?.heroUrl || '',
                   // Text from IGDB (prioritize) or artwork
-                  description: (igdbResult?.summary || metadata?.description || metadata?.summary || '').trim(),
+                  description: (igdbResult?.summary || metadata?.description || '').trim(),
                   releaseDate: (igdbResult?.releaseDate ? formatReleaseDate(igdbResult.releaseDate) : metadata?.releaseDate || '').trim(),
                   genres: (igdbResult?.genres && igdbResult.genres.length > 0) ? igdbResult.genres : (metadata?.genres || []),
-                  developers: metadata?.developers || [],
-                  publishers: metadata?.publishers || [],
                   categories: (igdbResult?.categories && igdbResult.categories.length > 0) ? igdbResult.categories : (metadata?.categories || []),
                   ageRating: (igdbResult?.ageRating || metadata?.ageRating || '').trim(),
                   rating: igdbResult?.rating || metadata?.rating || 0,
                   platform: metadata?.platform || igdbResult?.platform || 'steam',
                 };
 
-                boxArtUrl = metadata.boxArtUrl || '';
-                bannerUrl = metadata.bannerUrl || '';
-                logoUrl = metadata.logoUrl || '';
-                heroUrl = metadata.heroUrl || '';
-                description = metadata.description || '';
-                releaseDate = metadata.releaseDate || '';
-                genres = metadata.genres || [];
-                developers = metadata.developers || [];
-                publishers = metadata.publishers || [];
-                categories = metadata.categories || [];
-                ageRating = metadata.ageRating || '';
-                rating = metadata.rating || 0;
-                platform = Array.isArray(metadata.platforms) 
-                  ? metadata.platforms.join(', ') 
-                  : (metadata.platform || 'steam');
+                boxArtUrl = metadata?.boxArtUrl || '';
+                bannerUrl = metadata?.bannerUrl || '';
+                logoUrl = metadata?.logoUrl || '';
+                heroUrl = metadata?.heroUrl || '';
+                description = metadata?.description || '';
+                releaseDate = metadata?.releaseDate || '';
+                genres = metadata?.genres || [];
+                developers = []; // GameMetadata doesn't have developers, extract from igdbResult if needed
+                publishers = []; // GameMetadata doesn't have publishers, extract from igdbResult if needed
+                categories = metadata?.categories || [];
+                ageRating = metadata?.ageRating || '';
+                rating = metadata?.rating || 0;
+                platform = metadata?.platform || 'steam';
                 status = 'ready';
               } else {
                 status = 'ambiguous';
@@ -309,19 +351,11 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
         })
       );
 
-      // Filter out games that already exist in library
-      const existingGameIds = new Set(existingLibrary.map(g => g.id));
-      const filteredStagedGames = stagedGames.filter(staged => {
-        const gameId = staged.source === 'steam' && staged.appId
-          ? `steam-${staged.appId}`
-          : staged.uuid;
-        return !existingGameIds.has(gameId);
-      });
-
-      setQueue(filteredStagedGames);
+      // Games are already filtered before processing, so no need to filter again
+      setQueue(stagedGames);
       
       // Auto-select the first non-ignored game if available
-      const firstVisible = filteredStagedGames.find(g => !g.isIgnored);
+      const firstVisible = stagedGames.find(g => !g.isIgnored);
       if (firstVisible && !selectedId) {
         setSelectedId(firstVisible.uuid);
       }
@@ -716,9 +750,17 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-[5vh]">
       <div className="w-[90vw] h-[90vh] bg-gray-900 border border-gray-700 rounded-xl shadow-2xl flex flex-col overflow-hidden">
+        {/* Scanning Indicator */}
+        {isScanning && (
+          <div className="bg-blue-600 text-white px-6 py-3 flex items-center gap-3 border-b border-blue-700">
+            <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
+            <span className="font-medium">Scanning for games in all enabled locations...</span>
+          </div>
+        )}
+        
         {/* Header */}
         <div className="h-[60px] flex items-center justify-between px-6 border-b border-gray-800 bg-gray-900/50">
-          <h2 className="text-xl font-semibold text-white">Import Workbench</h2>
+          <h2 className="text-xl font-semibold text-white">Game Importer</h2>
           <div className="flex items-center gap-3">
             <button
               onClick={() => setShowIgnored(!showIgnored)}

@@ -73,13 +73,36 @@ This compiles both the main process and the renderer, then you can run:
 npm run electron:build
 ```
 
+### Icon Management
+
+The project includes automatic icon validation to ensure icons always work correctly:
+
+- **Icons are automatically validated** before builds
+- **Icons are automatically generated** before distribution builds
+- **Icons are validated in CI/CD** to prevent broken builds
+
+To manually validate icons:
+```bash
+npm run validate-icons
+```
+
+To regenerate icons from the source SVG:
+```bash
+npm run generate-icons
+```
+
+See [docs/ICON_REQUIREMENTS.md](docs/ICON_REQUIREMENTS.md) for detailed icon requirements and troubleshooting.
+
 ## Scripts
 
 - `npm run dev` - Start Vite dev server only
-- `npm run build` - Build both main and renderer
+- `npm run build` - Build both main and renderer (validates icons automatically)
 - `npm run electron:dev` - Run in development mode
 - `npm run electron:build` - Run built application
 - `npm run electron` - Run Electron (requires built files)
+- `npm run generate-icons` - Generate all icon formats from `resources/icon.svg`
+- `npm run validate-icons` - Validate that all required icon files exist and are valid
+- `npm run dist` - Build distribution package (generates and validates icons automatically)
 
 ## IPC Communication
 

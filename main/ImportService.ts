@@ -3,11 +3,11 @@ import { XboxService, XboxGame } from './XboxService.js';
 import { AppConfigService } from './AppConfigService.js';
 import { MetadataFetcherService } from './MetadataFetcherService.js';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, sep } from 'node:path';
 
 export interface ScannedGameResult {
   uuid: string;
-  source: 'steam' | 'epic' | 'gog' | 'xbox' | 'manual_file' | 'manual_folder';
+  source: 'steam' | 'epic' | 'gog' | 'xbox' | 'ubisoft' | 'rockstar' | 'manual_file' | 'manual_folder';
   originalName: string;
   installPath: string;
   exePath?: string;
@@ -41,13 +41,14 @@ export class ImportService {
 
   /**
    * Scan all configured sources in parallel
+   * Scans all enabled app locations from Onyx Settings > Apps
    * Returns a simplified structure that the frontend can convert to StagedGame
    */
   async scanAllSources(): Promise<ScannedGameResult[]> {
     const results: ScannedGameResult[] = [];
 
     try {
-      // Get all enabled app configs
+      // Get all enabled app configs from Onyx Settings > Apps
       const configs = await this.appConfigService.getAppConfigs();
       const enabledConfigs = Object.values(configs).filter(
         (config: any) => config.enabled && config.path && existsSync(config.path)
@@ -64,6 +65,10 @@ export class ImportService {
             return this.scanEpic(config.path);
           } else if (config.id === 'gog') {
             return this.scanGOG(config.path);
+          } else if (config.id === 'ubisoft') {
+            return this.scanUbisoft(config.path);
+          } else if (config.id === 'rockstar') {
+            return this.scanRockstar(config.path);
           }
           return [];
         } catch (error) {
@@ -116,16 +121,25 @@ export class ImportService {
     try {
       const xboxGames = this.xboxService.scanGames(xboxPath);
       
-      return xboxGames.map((game: XboxGame) => ({
-        uuid: `${game.id}-${Date.now()}`,
-        source: 'xbox' as const,
-        originalName: game.name,
-        installPath: game.installPath,
-        exePath: game.installPath, // Xbox games have direct exe paths
-        appId: undefined,
-        title: game.name,
-        status: 'ambiguous' as const, // Xbox games need metadata matching
-      }));
+      return xboxGames.map((game: XboxGame) => {
+        // XboxService returns installPath as the full exe path for both UWP and PC games
+        // Extract the folder path for installPath, keep exe path separate
+        const exePath = game.installPath;
+        const pathParts = game.installPath.split(/[/\\]/);
+        pathParts.pop(); // Remove the exe filename
+        const installPath = pathParts.join(sep);
+        
+        return {
+          uuid: `${game.id}-${Date.now()}`,
+          source: 'xbox' as const,
+          originalName: game.name,
+          installPath: installPath,
+          exePath: exePath,
+          appId: undefined,
+          title: game.name,
+          status: 'ambiguous' as const, // Xbox games need metadata matching
+        };
+      });
     } catch (error) {
       console.error('Error scanning Xbox:', error);
       return [];
@@ -134,6 +148,7 @@ export class ImportService {
 
   /**
    * Scan Epic Games Launcher for installed games
+   * First tries to read from manifests, then falls back to scanning game folders directly
    */
   private async scanEpic(epicPath: string): Promise<ScannedGameResult[]> {
     try {
@@ -142,71 +157,136 @@ export class ImportService {
       // Epic Games stores manifests in: {EpicPath}\Epic Games Launcher\Data\Manifests
       const manifestsPath = join(epicPath, 'Epic Games Launcher', 'Data', 'Manifests');
       
-      if (!existsSync(manifestsPath)) {
-        console.warn(`Epic Games manifests folder not found: ${manifestsPath}`);
-        return results;
-      }
-
-      const manifestFiles = readdirSync(manifestsPath).filter(f => f.endsWith('.item'));
-      
-      for (const manifestFile of manifestFiles) {
-        try {
-          const manifestPath = join(manifestsPath, manifestFile);
-          const manifestContent = readFileSync(manifestPath, 'utf-8');
-          const manifest = JSON.parse(manifestContent);
-          
-          // Epic manifest structure
-          const appName = manifest.DisplayName || manifest.LaunchExecutable || 'Unknown';
-          const installLocation = manifest.InstallLocation;
-          const launchExecutable = manifest.LaunchExecutable;
-          const catalogNamespace = manifest.CatalogNamespace;
-          const catalogItemId = manifest.CatalogItemId;
-          
-          if (installLocation && existsSync(installLocation)) {
-            // Find the executable
-            let exePath: string | undefined;
+      if (existsSync(manifestsPath)) {
+        // Try to read from manifests first (preferred method)
+        const manifestFiles = readdirSync(manifestsPath).filter(f => f.endsWith('.item'));
+        
+        for (const manifestFile of manifestFiles) {
+          try {
+            const manifestPath = join(manifestsPath, manifestFile);
+            const manifestContent = readFileSync(manifestPath, 'utf-8');
+            const manifest = JSON.parse(manifestContent);
             
-            if (launchExecutable) {
-              const fullExePath = join(installLocation, launchExecutable);
-              if (existsSync(fullExePath)) {
-                exePath = fullExePath;
-              }
-            }
+            // Epic manifest structure
+            const appName = manifest.DisplayName || manifest.LaunchExecutable || 'Unknown';
+            const installLocation = manifest.InstallLocation;
+            const launchExecutable = manifest.LaunchExecutable;
+            const catalogNamespace = manifest.CatalogNamespace;
+            const catalogItemId = manifest.CatalogItemId;
             
-            // If no launch executable specified, search for common exe names
-            if (!exePath) {
-              const commonExes = [
-                join(installLocation, `${appName}.exe`),
-                join(installLocation, 'Binaries', 'Win64', `${appName}.exe`),
-                join(installLocation, 'Binaries', 'Win32', `${appName}.exe`),
-              ];
+            if (installLocation && existsSync(installLocation)) {
+              // Find the executable
+              let exePath: string | undefined;
               
-              for (const exe of commonExes) {
-                if (existsSync(exe)) {
-                  exePath = exe;
-                  break;
+              if (launchExecutable) {
+                const fullExePath = join(installLocation, launchExecutable);
+                if (existsSync(fullExePath)) {
+                  exePath = fullExePath;
                 }
               }
+              
+              // If no launch executable specified, search for common exe names
+              if (!exePath) {
+                const commonExes = [
+                  join(installLocation, `${appName}.exe`),
+                  join(installLocation, 'Binaries', 'Win64', `${appName}.exe`),
+                  join(installLocation, 'Binaries', 'Win32', `${appName}.exe`),
+                ];
+                
+                for (const exe of commonExes) {
+                  if (existsSync(exe)) {
+                    exePath = exe;
+                    break;
+                  }
+                }
+              }
+              
+              // Create a unique ID from catalog info or use manifest filename
+              const appId = catalogItemId || manifestFile.replace('.item', '');
+              
+              results.push({
+                uuid: `epic-${appId}-${Date.now()}`,
+                source: 'epic' as const,
+                originalName: appName,
+                installPath: installLocation,
+                exePath: exePath,
+                appId: appId,
+                title: appName,
+                status: 'ambiguous' as const, // Epic games need metadata matching
+              });
+            }
+          } catch (err) {
+            console.error(`Error parsing Epic manifest ${manifestFile}:`, err);
+            continue;
+          }
+        }
+      }
+      
+      // Fallback: Scan Epic Games directory directly for game folders
+      // This handles cases where manifests aren't available or games are installed directly
+      if (!existsSync(epicPath)) {
+        return results;
+      }
+      
+      try {
+        const entries = readdirSync(epicPath);
+        
+        for (const entry of entries) {
+          // Skip the Epic Games Launcher folder and other non-game folders
+          if (entry === 'Epic Games Launcher' || entry === 'UnrealEngine') {
+            continue;
+          }
+          
+          const gamePath = join(epicPath, entry);
+          
+          try {
+            const stats = statSync(gamePath);
+            if (!stats.isDirectory()) {
+              continue;
             }
             
-            // Create a unique ID from catalog info or use manifest filename
-            const appId = catalogItemId || manifestFile.replace('.item', '');
+            // Check if we already found this game from manifests
+            const alreadyFound = results.some(r => r.installPath === gamePath);
+            if (alreadyFound) {
+              continue;
+            }
             
-            results.push({
-              uuid: `epic-${appId}-${Date.now()}`,
-              source: 'epic' as const,
-              originalName: appName,
-              installPath: installLocation,
-              exePath: exePath,
-              appId: appId,
-              title: appName,
-              status: 'ambiguous' as const, // Epic games need metadata matching
+            // Look for executables in this game folder
+            const exeFiles = this.findExecutables(gamePath);
+            
+            // Filter out helper executables
+            const gameExes = exeFiles.filter(exe => {
+              const fileName = exe.toLowerCase();
+              return !fileName.includes('gamelaunchhelper') &&
+                     !fileName.includes('bootstrapper') &&
+                     !fileName.includes('uninstall') &&
+                     !fileName.includes('setup') &&
+                     !fileName.includes('installer') &&
+                     !fileName.includes('launcher');
             });
+            
+            if (gameExes.length > 0) {
+              // Use the first executable found
+              const mainExe = gameExes[0];
+              
+              results.push({
+                uuid: `epic-${entry}-${Date.now()}`,
+                source: 'epic' as const,
+                originalName: entry,
+                installPath: gamePath,
+                exePath: mainExe,
+                appId: undefined,
+                title: entry,
+                status: 'ambiguous' as const, // Epic games need metadata matching
+              });
+            }
+          } catch (err) {
+            // Skip folders we can't access
+            continue;
           }
-        } catch (err) {
-          console.error(`Error parsing Epic manifest ${manifestFile}:`, err);
-          continue;
         }
+      } catch (err) {
+        console.error('Error scanning Epic Games directory:', err);
       }
       
       return results;
@@ -218,15 +298,21 @@ export class ImportService {
 
   /**
    * Scan GOG Galaxy for installed games
+   * Games are located in: {GOGPath}\Games
+   * Example: C:\Program Files (x86)\GOG Galaxy\Games
    */
   private async scanGOG(gogPath: string): Promise<ScannedGameResult[]> {
     try {
       const results: ScannedGameResult[] = [];
       
-      // GOG Galaxy stores game info in: {GOGPath}\Galaxy\storage\galaxy-2.0.db
-      // For simplicity, we'll scan the games folder if it exists
-      // GOG games are typically in: {GOGPath}\Games
-      const gamesPath = join(gogPath, 'Games');
+      // GOG games are in: {GOGPath}\Games
+      // If path is already the Games folder, use it directly
+      let gamesPath: string;
+      if (gogPath.toLowerCase().endsWith('games')) {
+        gamesPath = gogPath;
+      } else {
+        gamesPath = join(gogPath, 'Games');
+      }
       
       if (!existsSync(gamesPath)) {
         // Try alternative location
@@ -359,6 +445,173 @@ export class ImportService {
     }
     
     return executables;
+  }
+
+  /**
+   * Scan Ubisoft Connect for installed games
+   * Games are located in: {UbisoftPath}\games
+   * Example: C:\Program Files (x86)\Ubisoft\Ubisoft Game Launcher\games
+   */
+  private async scanUbisoft(ubisoftPath: string): Promise<ScannedGameResult[]> {
+    try {
+      const results: ScannedGameResult[] = [];
+      
+      // Ubisoft games are in: {UbisoftPath}\games (lowercase)
+      // If path is already the games folder, use it directly
+      let gamesPath: string;
+      if (ubisoftPath.toLowerCase().endsWith('games')) {
+        gamesPath = ubisoftPath;
+      } else {
+        gamesPath = join(ubisoftPath, 'games');
+      }
+      
+      if (!existsSync(gamesPath)) {
+        console.warn(`Ubisoft games folder not found: ${gamesPath}`);
+        return results;
+      }
+
+      return this.scanUbisoftGamesFolder(gamesPath);
+    } catch (error) {
+      console.error('Error scanning Ubisoft:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Scan Ubisoft games folder for executables
+   */
+  private scanUbisoftGamesFolder(gamesPath: string): ScannedGameResult[] {
+    const results: ScannedGameResult[] = [];
+    
+    try {
+      const gameFolders = readdirSync(gamesPath);
+      
+      for (const gameFolder of gameFolders) {
+        const gamePath = join(gamesPath, gameFolder);
+        
+        try {
+          const stats = statSync(gamePath);
+          if (!stats.isDirectory()) continue;
+          
+          // Look for .exe files in the game folder
+          const exeFiles = this.findExecutables(gamePath);
+          
+          // Filter out helper executables
+          const gameExes = exeFiles.filter(exe => {
+            const fileName = exe.toLowerCase();
+            return !fileName.includes('gamelaunchhelper') &&
+                   !fileName.includes('bootstrapper') &&
+                   !fileName.includes('uninstall') &&
+                   !fileName.includes('setup') &&
+                   !fileName.includes('installer') &&
+                   !fileName.includes('uplay') &&
+                   !fileName.includes('ubisoft');
+          });
+          
+          if (gameExes.length > 0) {
+            // Use the first executable found
+            const mainExe = gameExes[0];
+            
+            results.push({
+              uuid: `ubisoft-${gameFolder}-${Date.now()}`,
+              source: 'ubisoft' as const,
+              originalName: gameFolder,
+              installPath: gamePath,
+              exePath: mainExe,
+              appId: undefined,
+              title: gameFolder,
+              status: 'ambiguous' as const, // Ubisoft games need metadata matching
+            });
+          }
+        } catch (err) {
+          // Skip folders we can't access
+          continue;
+        }
+      }
+    } catch (err) {
+      console.error('Error scanning Ubisoft games folder:', err);
+    }
+    
+    return results;
+  }
+
+  /**
+   * Scan Rockstar Games Launcher for installed games
+   * Games are typically in: {RockstarPath}\{GameName}
+   * Example: C:\Program Files\Rockstar Games\Grand Theft Auto V
+   */
+  private async scanRockstar(rockstarPath: string): Promise<ScannedGameResult[]> {
+    try {
+      const results: ScannedGameResult[] = [];
+      
+      if (!existsSync(rockstarPath)) {
+        console.warn(`Rockstar Games folder not found: ${rockstarPath}`);
+        return results;
+      }
+
+      // Rockstar games are typically in subdirectories of the Rockstar Games folder
+      // Each game has its own folder (e.g., Grand Theft Auto V, Red Dead Redemption 2)
+      try {
+        const entries = readdirSync(rockstarPath);
+        
+        for (const entry of entries) {
+          // Skip known non-game folders
+          if (entry.toLowerCase() === 'launcher' || 
+              entry.toLowerCase() === 'social club' ||
+              entry.toLowerCase() === 'redistributables') {
+            continue;
+          }
+          
+          const gamePath = join(rockstarPath, entry);
+          
+          try {
+            const stats = statSync(gamePath);
+            if (!stats.isDirectory()) continue;
+            
+            // Look for .exe files in the game folder
+            const exeFiles = this.findExecutables(gamePath);
+            
+            // Filter out helper executables and launchers
+            const gameExes = exeFiles.filter(exe => {
+              const fileName = exe.toLowerCase();
+              return !fileName.includes('launcher') &&
+                     !fileName.includes('uninstall') &&
+                     !fileName.includes('setup') &&
+                     !fileName.includes('installer') &&
+                     !fileName.includes('socialclub') &&
+                     !fileName.includes('redistributables') &&
+                     !fileName.includes('updater');
+            });
+            
+            if (gameExes.length > 0) {
+              // Use the first executable found
+              const mainExe = gameExes[0];
+              
+              results.push({
+                uuid: `rockstar-${entry}-${Date.now()}`,
+                source: 'rockstar' as const,
+                originalName: entry,
+                installPath: gamePath,
+                exePath: mainExe,
+                appId: undefined,
+                title: entry,
+                status: 'ambiguous' as const, // Rockstar games need metadata matching
+              });
+            }
+          } catch (err) {
+            // Skip folders we can't access
+            continue;
+          }
+        }
+      } catch (err) {
+        console.error('Error scanning Rockstar Games directory:', err);
+      }
+      
+      return results;
+    } catch (error) {
+      console.error('Error scanning Rockstar Games:', error);
+      return [];
+    }
   }
 
   /**

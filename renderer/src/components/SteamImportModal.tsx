@@ -60,33 +60,6 @@ const getGameName = (game: ScannedGame): string => {
   return game.name;
 };
 
-// Helper to get a better search name for "other" games by extracting from path
-const getSearchNameForOtherGame = (game: OtherGame): string => {
-  // Try to extract a better name from the path
-  const path = game.exePath || game.installPath || '';
-  if (path) {
-    // Extract parent directory name (often the game name)
-    const pathParts = path.split(/[/\\]/);
-    // Look for common game directory patterns, starting from the executable's parent
-    // Skip the executable itself and look at parent directories
-    for (let i = pathParts.length - 2; i >= 0; i--) {
-      const part = pathParts[i];
-      // Skip common non-game directories and installer/utility folders
-      if (part && 
-          !part.match(/^(Program Files|Program Files \(x86\)|Games|Steam|Epic|EA|GOG|Ubisoft|Battle\.net|__Installer|_Installer|Installer|SP|MP|Bin|Binaries|Win64|Win32|Common|Redist|Redistributables)$/i) &&
-          !part.match(/^(setup|install|uninstall|cleanup|touchup|repair|config|launcher|updater)$/i) &&
-          part.length > 2) {
-        // Clean up the name - remove common suffixes
-        const cleaned = part.replace(/[_\s]*(trial|demo|beta|alpha|test)[_\s]*$/i, '').trim();
-        return cleaned || part;
-      }
-    }
-  }
-  // Fallback to the executable name without extension, but clean it up
-  const name = game.name.replace(/[_\s]*(trial|demo|beta|alpha|test|\.exe)[_\s]*$/i, '').trim();
-  return name || game.name;
-};
-
 export const SteamImportModal: React.FC<SteamImportModalProps> = ({ isOpen, onClose, onImport, preScannedGames, appType = 'steam', existingLibrary }) => {
   const [scannedGames, setScannedGames] = useState<ScannedGame[]>([]);
   const [allScannedGames, setAllScannedGames] = useState<ScannedGame[]>([]); // All games including ignored
@@ -94,7 +67,6 @@ export const SteamImportModal: React.FC<SteamImportModalProps> = ({ isOpen, onCl
   const [gameMetadata, setGameMetadata] = useState<Map<string, GameMetadata>>(new Map());
   const [isScanning, setIsScanning] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
-  const [isFetchingMetadata, setIsFetchingMetadata] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const [editingGame, setEditingGame] = useState<ScannedGame | null>(null);
   // Persist selection state across modal opens
@@ -328,177 +300,6 @@ export const SteamImportModal: React.FC<SteamImportModalProps> = ({ isOpen, onCl
     }
   };
 
-  const fetchMetadataForAll = async (games: SteamGame[], existingMetadata?: Map<string, GameMetadata>) => {
-    for (const game of games) {
-      await fetchMetadataForGame(game, existingMetadata);
-    }
-  };
-
-  const fetchMetadataForGame = async (game: SteamGame, existingMetadata?: Map<string, GameMetadata>) => {
-    const gameId = getGameId(game);
-    
-    // Skip if we already have metadata from the library
-    if (existingMetadata && existingMetadata.has(gameId)) {
-      const existing = existingMetadata.get(gameId)!;
-      // Only auto-fetch if there's no image and it hasn't been selected before
-      if (existing.boxArtUrl || existing.bannerUrl) {
-        return; // Already has artwork, don't overwrite
-      }
-    }
-    
-    // Also check current metadata state to avoid duplicate fetches
-    const currentMetadataCheck = gameMetadata.get(gameId);
-    if (currentMetadataCheck && (currentMetadataCheck.boxArtUrl || currentMetadataCheck.bannerUrl)) {
-      return; // Already has metadata, don't fetch again
-    }
-    
-    setIsFetchingMetadata(prev => new Set(prev).add(gameId));
-    
-    try {
-      const metadata = await window.electronAPI.searchArtwork(game.name, game.appId);
-      if (metadata) {
-        // Check if we should auto-apply the top result
-        const currentMetadata = existingMetadata?.get(gameId) || gameMetadata.get(gameId);
-        const hasNoImage = !currentMetadata?.boxArtUrl && !currentMetadata?.bannerUrl;
-        
-        if (hasNoImage && metadata.boxArtUrl) {
-          // Auto-apply the top result if no image exists
-          setGameMetadata(prev => {
-            const newMap = new Map(prev);
-            newMap.set(gameId, metadata);
-            return newMap;
-          });
-        } else if (!existingMetadata?.has(gameId)) {
-          // Store metadata but don't auto-apply if user previously selected something
-          setGameMetadata(prev => {
-            const newMap = new Map(prev);
-            // Only update if we don't already have metadata
-            if (!newMap.has(gameId)) {
-              newMap.set(gameId, metadata);
-            }
-            return newMap;
-          });
-        }
-      }
-    } catch (err) {
-      console.error(`Error fetching metadata for ${game.name}:`, err);
-    } finally {
-      setIsFetchingMetadata(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(gameId);
-        return newSet;
-      });
-    }
-  };
-
-  const fetchMetadataForXboxGames = async (games: XboxGame[], existingMetadata?: Map<string, GameMetadata>) => {
-    for (const game of games) {
-      await fetchMetadataForXboxGame(game, existingMetadata);
-    }
-  };
-
-  const fetchMetadataForXboxGame = async (game: XboxGame | OtherGame, existingMetadata?: Map<string, GameMetadata>) => {
-    const gameId = getGameId(game);
-    
-    // Skip if we already have metadata from the library
-    if (existingMetadata && existingMetadata.has(gameId)) {
-      const existing = existingMetadata.get(gameId)!;
-      // Only auto-fetch if there's no image and it hasn't been selected before
-      if (existing.boxArtUrl || existing.bannerUrl) {
-        return; // Already has artwork, don't overwrite
-      }
-    }
-    
-    // Also check current metadata state to avoid duplicate fetches
-    const currentMetadata = gameMetadata.get(gameId);
-    if (currentMetadata && (currentMetadata.boxArtUrl || currentMetadata.bannerUrl)) {
-      return; // Already has metadata, don't fetch again
-    }
-    
-    setIsFetchingMetadata(prev => new Set(prev).add(gameId));
-    
-    try {
-      // For "other" games, use a better search name extracted from path
-      const searchName = ('type' in game && (game.type === 'uwp' || game.type === 'pc')) 
-        ? game.name 
-        : getSearchNameForOtherGame(game as OtherGame);
-      
-      const gamePath = (game as OtherGame).exePath || (game as OtherGame).installPath || 'N/A';
-      console.log(`[Metadata] Fetching for gameId: ${gameId}, searchName: "${searchName}", gameName: "${game.name}", path: ${gamePath}`);
-      
-      // Search for metadata using game name
-      const response = await window.electronAPI.searchMetadata(searchName);
-      if (response.success && response.results && response.results.length > 0) {
-        const topResult = response.results[0];
-        
-        // Format release date from timestamp if available
-        const formatReleaseDate = (timestamp?: number): string | undefined => {
-          if (!timestamp) return undefined;
-          const date = new Date(timestamp * 1000);
-          return date.toISOString().split('T')[0];
-        };
-        
-        // Store all metadata fields from IGDB result
-        const metadata: GameMetadata = {
-          boxArtUrl: topResult.coverUrl || '',
-          bannerUrl: topResult.screenshotUrls && topResult.screenshotUrls.length > 0 
-            ? topResult.screenshotUrls[0] 
-            : topResult.coverUrl || '',
-          screenshots: topResult.screenshotUrls,
-          // Import all metadata fields
-          title: topResult.name,
-          description: topResult.summary,
-          releaseDate: formatReleaseDate(topResult.releaseDate),
-          genres: topResult.genres,
-          ageRating: topResult.ageRating,
-          categories: topResult.categories,
-          rating: topResult.rating,
-          platform: topResult.platform,
-        };
-        
-        // Check if we should auto-apply the top result
-        const currentMetadata = existingMetadata?.get(gameId) || gameMetadata.get(gameId);
-        const hasNoImage = !currentMetadata?.boxArtUrl && !currentMetadata?.bannerUrl;
-        
-        if (hasNoImage && metadata.boxArtUrl) {
-          // Auto-apply the top result if no image exists
-          console.log(`[Metadata] Setting metadata for gameId: ${gameId}, found game: "${topResult.name || searchName}"`);
-          setGameMetadata(prev => {
-            const newMap = new Map(prev);
-            // Ensure we're setting it with the correct gameId - this is critical!
-            newMap.set(gameId, metadata);
-            console.log(`[Metadata] Updated map. gameId: ${gameId}, has metadata: ${newMap.has(gameId)}`);
-            return newMap;
-          });
-        } else if (!existingMetadata?.has(gameId)) {
-          // Store metadata but don't auto-apply if user previously selected something
-          console.log(`[Metadata] Storing (not auto-applying) metadata for gameId: ${gameId}`);
-          setGameMetadata(prev => {
-            const newMap = new Map(prev);
-            // Only update if we don't already have metadata for THIS specific gameId
-            if (!newMap.has(gameId)) {
-              newMap.set(gameId, metadata);
-              console.log(`[Metadata] Stored metadata for gameId: ${gameId}`);
-            } else {
-              console.log(`[Metadata] Skipped storing - already exists for gameId: ${gameId}`);
-            }
-            return newMap;
-          });
-        }
-      } else {
-        console.log(`[Metadata] No results found for gameId: ${gameId}, searchName: "${searchName}"`);
-      }
-    } catch (err) {
-      console.error(`Error fetching metadata for ${game.name} (gameId: ${gameId}):`, err);
-    } finally {
-      setIsFetchingMetadata(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(gameId);
-        return newSet;
-      });
-    }
-  };
-
   const toggleGameSelection = (gameId: string) => {
     console.log(`[Selection] Toggling gameId: ${gameId}`);
     setSelectedGames(prev => {
@@ -628,9 +429,6 @@ export const SteamImportModal: React.FC<SteamImportModalProps> = ({ isOpen, onCl
             // Preserve existing metadata if available, otherwise use new metadata or defaults
             let boxArtUrl = existingGame?.boxArtUrl || metadata?.boxArtUrl || '';
             let bannerUrl = existingGame?.bannerUrl || metadata?.bannerUrl || '';
-            
-            // Use metadata from manually selected result if available (has full metadata)
-            const hasManualMetadata = metadata && (metadata.description || metadata.releaseDate || metadata.genres || metadata.ageRating || metadata.categories);
             
             // Build the game object, preserving existing fields and using manually selected metadata
             // Priority: existing game > manually selected metadata > defaults
@@ -841,7 +639,7 @@ export const SteamImportModal: React.FC<SteamImportModalProps> = ({ isOpen, onCl
                             const existingGame = existingLibrary?.find(g => g.id === libraryId);
                             const metadata = gameMetadata.get(gameId);
                             const isSelected = selectedGames.has(gameId);
-                            const isFetching = isFetchingMetadata.has(gameId);
+                            const isFetching = false; // Metadata fetching removed
                             
                             // Determine if this is an Xbox game or other game
                             const isXboxGame = 'installPath' in game && 'type' in game && (game.type === 'uwp' || game.type === 'pc');

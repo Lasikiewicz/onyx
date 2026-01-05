@@ -1,6 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState } from 'react';
 import { Game } from '../types/game';
-import { GameCard } from './GameCard';
 import { GameContextMenu } from './GameContextMenu';
 
 export interface ListViewOptions {
@@ -35,7 +34,6 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
   onFavorite,
   onPin,
   onFixMatch,
-  hideGameTitles = false,
   listViewOptions = {
     showDescription: true,
     showCategories: false,

@@ -174,6 +174,7 @@ function createTray() {
     }
     
     console.log('Loading tray icon from:', iconPath);
+    console.log('Icon file exists:', existsSync(iconPath));
     
     // Load the icon
     icon = nativeImage.createFromPath(iconPath);
@@ -181,8 +182,12 @@ function createTray() {
     // Check if icon is empty (common issue with SVG on Windows)
     if (icon.isEmpty()) {
       console.error('Icon loaded but is empty, trying fallback...');
+      console.error('Icon path:', iconPath);
+      console.error('File size:', existsSync(iconPath) ? statSync(iconPath).size : 'N/A');
       throw new Error('Icon loaded but is empty');
     }
+    
+    console.log('Icon loaded successfully, size:', icon.getSize());
     
     // For Windows, use appropriate size (16x16 is standard, but 32x32 works better for high DPI)
     // On Windows, system tray icons are typically 16x16, but we can use a larger size for better quality
@@ -1779,9 +1784,35 @@ ipcMain.handle('app:closeWindow', async () => {
 });
 
 app.whenReady().then(async () => {
-  // Note: On Windows, the taskbar icon comes from the executable's icon resource (set via electron-builder)
-  // The window icon is set in createWindow() via BrowserWindow's icon property
-  // app.setIcon() is only available on macOS/Linux, so we don't use it here
+  // On Windows, set the app user model ID for proper taskbar icon display
+  if (process.platform === 'win32') {
+    app.setAppUserModelId('com.onyx.launcher');
+    
+    // Try to set the app icon explicitly (though this is mainly for macOS/Linux)
+    // On Windows, the taskbar icon comes from the executable's embedded icon resource
+    try {
+      let appIconPath: string;
+      if (app.isPackaged) {
+        const icoPath = path.join(process.resourcesPath, 'icon.ico');
+        const pngPath = path.join(process.resourcesPath, 'icon.png');
+        appIconPath = existsSync(icoPath) ? icoPath : pngPath;
+      } else {
+        const icoPath = path.join(__dirname, '../../build/icon.ico');
+        const pngPath = path.join(__dirname, '../../resources/icon.png');
+        appIconPath = existsSync(icoPath) ? icoPath : pngPath;
+      }
+      
+      if (existsSync(appIconPath)) {
+        const appIcon = nativeImage.createFromPath(appIconPath);
+        if (!appIcon.isEmpty()) {
+          // On Windows, this doesn't directly affect taskbar, but helps with window icons
+          app.dock?.setIcon(appIcon); // Only works on macOS, but safe to call
+        }
+      }
+    } catch (error) {
+      console.error('Error setting app icon:', error);
+    }
+  }
 
   // Register a custom protocol to serve local files
   protocol.registerFileProtocol('onyx-local', (request, callback) => {

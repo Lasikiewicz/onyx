@@ -3,7 +3,6 @@ import iconPng from '../../../resources/icon.png';
 import iconSvg from '../../../resources/icon.svg';
 
 interface MenuBarProps {
-  onAddGame?: () => void;
   onScanFolder?: () => void;
   onUpdateSteamLibrary?: () => void;
   onUpdateLibrary?: () => void;
@@ -41,7 +40,6 @@ export const MenuBar: React.FC<MenuBarProps> = ({
   hasVRCategory = false,
   hideVRTitles = true,
   onToggleHideVRTitles,
-  onAddGame,
   onScanFolder,
   onUpdateLibrary,
   onOnyxSettings,

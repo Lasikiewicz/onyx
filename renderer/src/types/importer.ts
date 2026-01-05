@@ -1,5 +1,5 @@
 export type ImportStatus = 'pending' | 'scanning' | 'matched' | 'ambiguous' | 'ready' | 'error';
-export type ImportSource = 'steam' | 'epic' | 'gog' | 'xbox' | 'manual_file' | 'manual_folder';
+export type ImportSource = 'steam' | 'epic' | 'gog' | 'xbox' | 'ubisoft' | 'rockstar' | 'manual_file' | 'manual_folder';
 
 export interface StagedGame {
   uuid: string; // Temporary unique ID for the UI list
