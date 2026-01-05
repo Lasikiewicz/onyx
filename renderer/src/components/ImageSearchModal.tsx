@@ -6,6 +6,7 @@ interface IGDBGameResult {
   summary?: string;
   coverUrl?: string;
   screenshotUrls?: string[];
+  logoUrl?: string;
   rating?: number;
   releaseDate?: number;
   genres?: string[];
@@ -89,7 +90,7 @@ export const ImageSearchModal: React.FC<ImageSearchModalProps> = ({
         <div className="p-6 border-b border-gray-700 flex-shrink-0">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-bold text-white">
-              Search for {imageType === 'artwork' ? 'Artwork/Screenshots' : 'Boxart'}
+              Search for {imageType === 'artwork' ? 'Artwork/Screenshots/Logos' : 'Boxart/Logos'}
             </h2>
             <button
               onClick={onClose}
@@ -226,6 +227,30 @@ export const ImageSearchModal: React.FC<ImageSearchModalProps> = ({
 
                 {imageType === 'artwork' && !selectedResult.screenshotUrls?.length && !selectedResult.coverUrl && (
                   <p className="text-gray-400">No artwork available for this game</p>
+                )}
+
+                {/* Logo section - shown for both boxart and artwork types */}
+                {selectedResult.logoUrl && (
+                  <div className="mb-6">
+                    <h4 className="text-sm font-medium text-gray-400 mb-3">Logo</h4>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div
+                        onClick={() => handleSelectImage(selectedResult.logoUrl!)}
+                        className="cursor-pointer group"
+                      >
+                        <div className="w-full aspect-video bg-gray-700 rounded border-2 border-transparent group-hover:border-blue-500 transition-colors flex items-center justify-center p-4">
+                          <img
+                            src={selectedResult.logoUrl}
+                            alt="Logo"
+                            className="max-w-full max-h-full object-contain"
+                            onError={(e) => {
+                              console.error('Failed to load logo:', selectedResult.logoUrl, e);
+                            }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 )}
               </div>
             )}

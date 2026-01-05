@@ -1,6 +1,7 @@
 export interface APICredentials {
   igdbClientId?: string;
   igdbClientSecret?: string;
+  steamGridDBApiKey?: string;
 }
 
 interface APICredentialsSchema {
@@ -22,6 +23,7 @@ export class APICredentialsService {
           credentials: {
             igdbClientId: undefined,
             igdbClientSecret: undefined,
+            steamGridDBApiKey: undefined,
           },
         },
       });
@@ -44,6 +46,7 @@ export class APICredentialsService {
     return store.get('credentials', {
       igdbClientId: undefined,
       igdbClientSecret: undefined,
+      steamGridDBApiKey: undefined,
     });
   }
 
@@ -55,6 +58,7 @@ export class APICredentialsService {
     const current = store.get('credentials', {
       igdbClientId: undefined,
       igdbClientSecret: undefined,
+      steamGridDBApiKey: undefined,
     });
     store.set('credentials', { ...current, ...credentials });
   }
@@ -67,6 +71,7 @@ export class APICredentialsService {
     store.set('credentials', {
       igdbClientId: undefined,
       igdbClientSecret: undefined,
+      steamGridDBApiKey: undefined,
     });
   }
 }

@@ -13,10 +13,13 @@ interface SortableGameCardProps {
   onEditImages?: (game: Game) => void;
   onFavorite?: (game: Game) => void;
   onPin?: (game: Game) => void;
+  onFixMatch?: (game: Game) => void;
   hideTitle?: boolean;
+  showLogoOverBoxart?: boolean;
+  logoPosition?: 'top' | 'middle' | 'bottom' | 'underneath';
 }
 
-export const SortableGameCard: React.FC<SortableGameCardProps> = ({ game, onPlay, onClick, onEdit, onEditImages, onFavorite, onPin, hideTitle = false }) => {
+export const SortableGameCard: React.FC<SortableGameCardProps> = ({ game, onPlay, onClick, onEdit, onEditImages, onFavorite, onPin, onFixMatch, hideTitle = false, showLogoOverBoxart = true, logoPosition = 'middle' }) => {
   const {
     attributes,
     listeners,
@@ -71,7 +74,7 @@ export const SortableGameCard: React.FC<SortableGameCardProps> = ({ game, onPlay
         onContextMenu={handleContextMenu}
         className="cursor-pointer"
       >
-        <GameCard game={game} onPlay={onPlay} onEdit={onEdit} hideTitle={hideTitle} />
+        <GameCard game={game} onPlay={onPlay} onEdit={onEdit} hideTitle={hideTitle} showLogoOverBoxart={showLogoOverBoxart} logoPosition={logoPosition} />
       </div>
       {contextMenu && (
         <GameContextMenu
@@ -84,6 +87,7 @@ export const SortableGameCard: React.FC<SortableGameCardProps> = ({ game, onPlay
           onEditImages={onEditImages}
           onFavorite={onFavorite}
           onPin={onPin}
+          onFixMatch={onFixMatch}
         />
       )}
     </>

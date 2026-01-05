@@ -6,6 +6,8 @@ export interface Game {
   exePath: string;
   boxArtUrl: string;
   bannerUrl: string;
+  logoUrl?: string;
+  heroUrl?: string;
   description?: string;
   genres?: string[];
   developers?: string[];
@@ -33,6 +35,7 @@ export interface Game {
   broken?: boolean;
   notes?: string;
   modManagerUrl?: string;
+  removeLogoTransparency?: boolean;
   links?: Array<{ name: string; url: string }>;
   actions?: Array<{ name: string; path: string; arguments?: string; workingDir?: string }>;
   scripts?: Array<{ name: string; script: string }>;
@@ -48,6 +51,8 @@ export interface Game {
 export interface GameMetadata {
   boxArtUrl: string;
   bannerUrl: string;
+  logoUrl?: string;
+  heroUrl?: string;
   screenshots?: string[];
   // Full IGDB metadata
   title?: string;
@@ -85,7 +90,9 @@ declare global {
       fetchAndUpdateMetadata: (gameId: string, title: string) => Promise<{ success: boolean; metadata: GameMetadata | null }>;
       setIGDBConfig: (config: { clientId: string; accessToken: string }) => Promise<boolean>;
       setMockMode: (enabled: boolean) => Promise<boolean>;
-      searchMetadata: (gameTitle: string) => Promise<{ success: boolean; error?: string; results: Array<{ id: number; name: string; summary?: string; coverUrl?: string; screenshotUrls?: string[]; rating?: number; releaseDate?: number; genres?: string[]; platform?: string; ageRating?: string; categories?: string[] }> }>;
+      searchMetadata: (gameTitle: string) => Promise<{ success: boolean; error?: string; results: Array<{ id: number; name: string; summary?: string; coverUrl?: string; screenshotUrls?: string[]; logoUrl?: string; rating?: number; releaseDate?: number; genres?: string[]; platform?: string; ageRating?: string; categories?: string[] }> }>;
+      searchGames: (gameTitle: string) => Promise<{ success: boolean; error?: string; results: Array<{ id: string; title: string; source: string; externalId?: string | number; steamAppId?: string; year?: number; platform?: string }> }>;
+      fetchAndUpdateByProviderId: (gameId: string, providerId: string, providerSource: string) => Promise<{ success: boolean; error?: string; metadata: GameMetadata | null }>;
       launchGame: (gameId: string) => Promise<{ success: boolean; error?: string }>;
       getAppConfigs: () => Promise<Record<string, { id: string; name: string; enabled: boolean; path: string }>>;
       getAppConfig: (appId: string) => Promise<{ id: string; name: string; enabled: boolean; path: string } | null>;
@@ -93,17 +100,28 @@ declare global {
       saveAppConfigs: (configs: Array<{ id: string; name: string; enabled: boolean; path: string }>) => Promise<{ success: boolean; error?: string }>;
       scanXboxGames: (path: string, autoMerge?: boolean) => Promise<{ success: boolean; error?: string; games: Array<{ id: string; name: string; installPath: string; type: string }> }>;
       onMenuEvent: (channel: string, callback: () => void) => () => void;
-      getPreferences: () => Promise<{ gridSize?: number; panelWidth?: number; fanartHeight?: number; descriptionHeight?: number; pinnedCategories?: string[]; minimizeToTray?: boolean; showSystemTrayIcon?: boolean; startWithComputer?: boolean; startClosedToTray?: boolean; updateLibrariesOnStartup?: boolean; hideVRTitles?: boolean; hideGameTitles?: boolean; gameTilePadding?: number; backgroundBlur?: number; backgroundMode?: 'image' | 'color'; backgroundColor?: string; viewMode?: 'grid' | 'list'; listViewOptions?: { showDescription: boolean; showCategories: boolean; showPlaytime: boolean; showReleaseDate: boolean; showGenres: boolean; showPlatform: boolean; }; listViewSize?: number; titleFontSize?: number; titleFontFamily?: string; descriptionFontSize?: number; descriptionFontFamily?: string; detailsFontSize?: number; detailsFontFamily?: string; visibleDetails?: { releaseDate: boolean; platform: boolean; ageRating: boolean; genres: boolean; developers: boolean; publishers: boolean; communityScore: boolean; userScore: boolean; criticScore: boolean; installationDirectory: boolean; }; activeGameId?: string | null; ignoredGames?: string[] }>;
-      savePreferences: (preferences: { gridSize?: number; panelWidth?: number; fanartHeight?: number; descriptionHeight?: number; pinnedCategories?: string[]; minimizeToTray?: boolean; showSystemTrayIcon?: boolean; startWithComputer?: boolean; startClosedToTray?: boolean; updateLibrariesOnStartup?: boolean; hideVRTitles?: boolean; hideGameTitles?: boolean; gameTilePadding?: number; backgroundBlur?: number; backgroundMode?: 'image' | 'color'; backgroundColor?: string; viewMode?: 'grid' | 'list'; listViewOptions?: { showDescription: boolean; showCategories: boolean; showPlaytime: boolean; showReleaseDate: boolean; showGenres: boolean; showPlatform: boolean; }; listViewSize?: number; titleFontSize?: number; titleFontFamily?: string; descriptionFontSize?: number; descriptionFontFamily?: string; detailsFontSize?: number; detailsFontFamily?: string; visibleDetails?: { releaseDate: boolean; platform: boolean; ageRating: boolean; genres: boolean; developers: boolean; publishers: boolean; communityScore: boolean; userScore: boolean; criticScore: boolean; installationDirectory: boolean; }; activeGameId?: string | null; ignoredGames?: string[] }) => Promise<{ success: boolean; error?: string }>;
+      getPreferences: () => Promise<{ gridSize?: number; panelWidth?: number; fanartHeight?: number; descriptionHeight?: number; pinnedCategories?: string[]; minimizeToTray?: boolean; showSystemTrayIcon?: boolean; startWithComputer?: boolean; startClosedToTray?: boolean; updateLibrariesOnStartup?: boolean; hideVRTitles?: boolean; hideGameTitles?: boolean; gameTilePadding?: number; showLogoOverBoxart?: boolean; logoPosition?: 'top' | 'middle' | 'bottom' | 'underneath'; backgroundBlur?: number; backgroundMode?: 'image' | 'color'; backgroundColor?: string; viewMode?: 'grid' | 'list'; listViewOptions?: { showDescription: boolean; showCategories: boolean; showPlaytime: boolean; showReleaseDate: boolean; showGenres: boolean; showPlatform: boolean; }; listViewSize?: number; titleFontSize?: number; titleFontFamily?: string; descriptionFontSize?: number; descriptionFontFamily?: string; detailsFontSize?: number; detailsFontFamily?: string; visibleDetails?: { releaseDate: boolean; platform: boolean; ageRating: boolean; genres: boolean; developers: boolean; publishers: boolean; communityScore: boolean; userScore: boolean; criticScore: boolean; installationDirectory: boolean; }; activeGameId?: string | null; ignoredGames?: string[] }>;
+      savePreferences: (preferences: { gridSize?: number; panelWidth?: number; fanartHeight?: number; descriptionHeight?: number; pinnedCategories?: string[]; minimizeToTray?: boolean; showSystemTrayIcon?: boolean; startWithComputer?: boolean; startClosedToTray?: boolean; updateLibrariesOnStartup?: boolean; hideVRTitles?: boolean; hideGameTitles?: boolean; gameTilePadding?: number; showLogoOverBoxart?: boolean; logoPosition?: 'top' | 'middle' | 'bottom' | 'underneath'; backgroundBlur?: number; backgroundMode?: 'image' | 'color'; backgroundColor?: string; viewMode?: 'grid' | 'list'; listViewOptions?: { showDescription: boolean; showCategories: boolean; showPlaytime: boolean; showReleaseDate: boolean; showGenres: boolean; showPlatform: boolean; }; listViewSize?: number; titleFontSize?: number; titleFontFamily?: string; descriptionFontSize?: number; descriptionFontFamily?: string; detailsFontSize?: number; detailsFontFamily?: string; visibleDetails?: { releaseDate: boolean; platform: boolean; ageRating: boolean; genres: boolean; developers: boolean; publishers: boolean; communityScore: boolean; userScore: boolean; criticScore: boolean; installationDirectory: boolean; }; activeGameId?: string | null; ignoredGames?: string[] }) => Promise<{ success: boolean; error?: string }>;
       requestExit: () => Promise<{ shouldMinimizeToTray: boolean; canMinimizeToTray: boolean }>;
       exit: () => Promise<void>;
       minimizeToTray: () => Promise<void>;
       applySystemTraySettings: (settings: { showSystemTrayIcon: boolean; minimizeToTray: boolean }) => Promise<{ success: boolean; error?: string }>;
       applyStartupSettings: (settings: { startWithComputer: boolean; startClosedToTray: boolean }) => Promise<{ success: boolean; error?: string }>;
       openExternal: (url: string) => Promise<{ success: boolean; error?: string }>;
-      getAPICredentials: () => Promise<{ igdbClientId?: string; igdbClientSecret?: string }>;
-      saveAPICredentials: (credentials: { igdbClientId?: string; igdbClientSecret?: string }) => Promise<{ success: boolean; error?: string }>;
+      getAPICredentials: () => Promise<{ igdbClientId?: string; igdbClientSecret?: string; steamGridDBApiKey?: string }>;
+      saveAPICredentials: (credentials: { igdbClientId?: string; igdbClientSecret?: string; steamGridDBApiKey?: string }) => Promise<{ success: boolean; error?: string }>;
+      detectLaunchers: () => Promise<Array<{ id: string; name: string; path: string; detected: boolean; detectionMethod: 'registry' | 'path' | 'none' }>>;
+      detectLauncher: (launcherId: string) => Promise<{ id: string; name: string; path: string; detected: boolean; detectionMethod: 'registry' | 'path' | 'none' } | null>;
+      getBackgroundScanEnabled: () => Promise<boolean>;
+      setBackgroundScanEnabled: (enabled: boolean) => Promise<{ success: boolean; error?: string }>;
+      getLastBackgroundScan: () => Promise<number | undefined>;
+      toggleDevTools: () => Promise<{ success: boolean; error?: string }>;
+      minimizeWindow: () => Promise<{ success: boolean; error?: string }>;
+      maximizeWindow: () => Promise<{ success: boolean; error?: string }>;
+      closeWindow: () => Promise<{ success: boolean; error?: string }>;
       resetApp: () => Promise<{ success: boolean; error?: string }>;
+      scanAllSources: () => Promise<{ success: boolean; error?: string; games: Array<{ uuid: string; source: 'steam' | 'epic' | 'gog' | 'xbox' | 'manual_file' | 'manual_folder'; originalName: string; installPath: string; exePath?: string; appId?: string; title: string; status: 'pending' | 'scanning' | 'matched' | 'ambiguous' | 'ready' | 'error'; error?: string }> }>;
+      searchImages: (query: string, imageType: 'boxart' | 'banner' | 'logo', steamAppId?: string) => Promise<{ success: boolean; error?: string; images: Array<{ gameId: number; gameName: string; images: Array<{ url: string; score: number; width: number; height: number }> }> }>;
     };
   }
 }

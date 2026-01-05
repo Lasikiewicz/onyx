@@ -26,12 +26,15 @@ interface LibraryGridProps {
   onEditImages?: (game: Game) => void;
   onFavorite?: (game: Game) => void;
   onPin?: (game: Game) => void;
+  onFixMatch?: (game: Game) => void;
   gridSize?: number;
   gameTilePadding?: number;
   hideGameTitles?: boolean;
+  showLogoOverBoxart?: boolean;
+  logoPosition?: 'top' | 'middle' | 'bottom' | 'underneath';
 }
 
-export const LibraryGrid: React.FC<LibraryGridProps> = ({ games, onReorder, onPlay, onGameClick, onEdit, onEditImages, onFavorite, onPin, gridSize = 120, gameTilePadding = 16, hideGameTitles = false }) => {
+export const LibraryGrid: React.FC<LibraryGridProps> = ({ games, onReorder, onPlay, onGameClick, onEdit, onEditImages, onFavorite, onPin, onFixMatch, gridSize = 120, gameTilePadding = 16, hideGameTitles = false, showLogoOverBoxart = true, logoPosition = 'middle' }) => {
   const [items, setItems] = useState<Game[]>(games);
 
   // Update items when games prop changes
@@ -92,7 +95,10 @@ export const LibraryGrid: React.FC<LibraryGridProps> = ({ games, onReorder, onPl
                   onEditImages={onEditImages}
                   onFavorite={onFavorite}
                   onPin={onPin}
+                  onFixMatch={onFixMatch}
                   hideTitle={hideGameTitles}
+                  showLogoOverBoxart={showLogoOverBoxart}
+                  logoPosition={logoPosition}
                 />
               ))}
             </div>

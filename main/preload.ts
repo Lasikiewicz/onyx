@@ -49,6 +49,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   setIGDBConfig: (config: { clientId: string; accessToken: string }) => ipcRenderer.invoke('metadata:setIGDBConfig', config),
   setMockMode: (enabled: boolean) => ipcRenderer.invoke('metadata:setMockMode', enabled),
   searchMetadata: (gameTitle: string) => ipcRenderer.invoke('metadata:searchMetadata', gameTitle),
+  searchGames: (gameTitle: string) => ipcRenderer.invoke('metadata:searchGames', gameTitle),
+  fetchAndUpdateByProviderId: (gameId: string, providerId: string, providerSource: string) => ipcRenderer.invoke('metadata:fetchAndUpdateByProviderId', gameId, providerId, providerSource),
   // Launcher methods
   launchGame: (gameId: string) => ipcRenderer.invoke('launcher:launchGame', gameId),
   // App config methods
@@ -78,9 +80,26 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openExternal: (url: string) => ipcRenderer.invoke('app:openExternal', url),
   // API credentials methods
   getAPICredentials: () => ipcRenderer.invoke('api:getCredentials'),
-  saveAPICredentials: (credentials: { igdbClientId?: string; igdbClientSecret?: string }) => ipcRenderer.invoke('api:saveCredentials', credentials),
+  saveAPICredentials: (credentials: { igdbClientId?: string; igdbClientSecret?: string; steamGridDBApiKey?: string }) => ipcRenderer.invoke('api:saveCredentials', credentials),
+  // Launcher detection methods
+  detectLaunchers: () => ipcRenderer.invoke('launcher:detectAll'),
+  detectLauncher: (launcherId: string) => ipcRenderer.invoke('launcher:detect', launcherId),
+  // Background scan methods
+  getBackgroundScanEnabled: () => ipcRenderer.invoke('appConfig:getBackgroundScanEnabled'),
+  setBackgroundScanEnabled: (enabled: boolean) => ipcRenderer.invoke('appConfig:setBackgroundScanEnabled', enabled),
+  getLastBackgroundScan: () => ipcRenderer.invoke('appConfig:getLastBackgroundScan'),
+  // DevTools toggle (development only)
+  toggleDevTools: () => ipcRenderer.invoke('app:toggleDevTools'),
+  // Window control methods
+  minimizeWindow: () => ipcRenderer.invoke('app:minimizeWindow'),
+  maximizeWindow: () => ipcRenderer.invoke('app:maximizeWindow'),
+  closeWindow: () => ipcRenderer.invoke('app:closeWindow'),
   // App reset method
   resetApp: () => ipcRenderer.invoke('app:reset'),
+  // Import service methods
+  scanAllSources: () => ipcRenderer.invoke('import:scanAllSources'),
+  // Image search methods
+  searchImages: (query: string, imageType: 'boxart' | 'banner' | 'logo', steamAppId?: string) => ipcRenderer.invoke('metadata:searchImages', query, imageType, steamAppId),
 });
 
 // Debug: Log that electronAPI was exposed

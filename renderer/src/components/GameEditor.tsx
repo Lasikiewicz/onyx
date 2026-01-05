@@ -17,6 +17,7 @@ interface IGDBGameResult {
   summary?: string;
   coverUrl?: string;
   screenshotUrls?: string[];
+  logoUrl?: string;
   rating?: number;
   releaseDate?: number;
   genres?: string[];
@@ -154,13 +155,15 @@ export const GameEditor: React.FC<GameEditorProps> = ({ isOpen, onClose, onSave,
     }
   };
 
-  const handleSelectImage = (imageUrl: string, type: 'cover' | 'banner') => {
+  const handleSelectImage = (imageUrl: string, type: 'cover' | 'banner' | 'logo') => {
     if (!editedGame) return;
     
     if (type === 'cover') {
       setEditedGame({ ...editedGame, boxArtUrl: imageUrl });
-    } else {
+    } else if (type === 'banner') {
       setEditedGame({ ...editedGame, bannerUrl: imageUrl });
+    } else if (type === 'logo') {
+      setEditedGame({ ...editedGame, logoUrl: imageUrl });
     }
     
     setShowImageSelector(null);
@@ -197,13 +200,15 @@ export const GameEditor: React.FC<GameEditorProps> = ({ isOpen, onClose, onSave,
     }
   };
 
-  const handleSelectImageFromSearch = (imageUrl: string, type: 'cover' | 'banner') => {
+  const handleSelectImageFromSearch = (imageUrl: string, type: 'cover' | 'banner' | 'logo') => {
     if (!editedGame) return;
     
     if (type === 'cover') {
       setEditedGame({ ...editedGame, boxArtUrl: imageUrl });
-    } else {
+    } else if (type === 'banner') {
       setEditedGame({ ...editedGame, bannerUrl: imageUrl });
+    } else if (type === 'logo') {
+      setEditedGame({ ...editedGame, logoUrl: imageUrl });
     }
     
     setSuccess('Image applied successfully');
@@ -656,6 +661,52 @@ export const GameEditor: React.FC<GameEditorProps> = ({ isOpen, onClose, onSave,
                   )}
                 </div>
 
+                {/* Logo URL */}
+                <div>
+                  <label htmlFor="logo-url" className="block text-sm font-medium text-gray-300 mb-2">
+                    Logo URL
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      id="logo-url"
+                      type="text"
+                      value={editedGame.logoUrl || ''}
+                      onChange={(e) => handleFieldChange('logoUrl', e.target.value)}
+                      disabled={isSaving || isDeleting}
+                      className="flex-1 px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                      placeholder="Enter logo image URL"
+                    />
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const path = await window.electronAPI.showImageDialog();
+                        if (path) {
+                          handleFieldChange('logoUrl', path);
+                        }
+                      }}
+                      disabled={isSaving || isDeleting}
+                      className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white font-medium rounded-lg transition-colors disabled:opacity-50"
+                      title="Browse for local image"
+                    >
+                      Browse
+                    </button>
+                  </div>
+                  {editedGame.logoUrl && (
+                    <div className="mt-3">
+                      <div className="max-w-xs max-h-32 bg-gray-700 rounded border border-gray-600 flex items-center justify-center p-4">
+                        <img
+                          src={editedGame.logoUrl}
+                          alt="Logo"
+                          className="max-w-full max-h-full object-contain"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display = 'none';
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 {/* Image Selector from IGDB */}
                 {showImageSelector && selectedGameResult && (
                   <div className="border border-gray-600 rounded-lg p-4 bg-gray-700/30">
@@ -1021,6 +1072,41 @@ export const GameEditor: React.FC<GameEditorProps> = ({ isOpen, onClose, onSave,
                                 </div>
                               </div>
                             ))}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Logo */}
+                      {result.logoUrl && (
+                        <div>
+                          <p className="text-xs text-gray-400 mb-2">Logo</p>
+                          <div className="relative group flex justify-center">
+                            <div className="relative max-w-[300px] bg-gray-800 rounded border border-gray-600 p-4">
+                              <img
+                                src={result.logoUrl}
+                                alt="Logo"
+                                className="w-full max-h-32 object-contain cursor-pointer hover:opacity-80 transition-opacity"
+                                onClick={() => {
+                                  setSelectedImageResult(result);
+                                  handleSelectImageFromSearch(result.logoUrl!, 'logo');
+                                }}
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).style.display = 'none';
+                                }}
+                              />
+                              <div className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedImageResult(result);
+                                    handleSelectImageFromSearch(result.logoUrl!, 'logo');
+                                  }}
+                                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded"
+                                >
+                                  Use as Logo
+                                </button>
+                              </div>
+                            </div>
                           </div>
                         </div>
                       )}

@@ -34,7 +34,10 @@ interface AppConfig {
 interface APICredentials {
   igdbClientId: string;
   igdbClientSecret: string;
+  steamGridDBApiKey: string;
 }
+
+type APITabType = 'igdb' | 'steamgriddb';
 
 // Default game install locations for Windows
 const getDefaultPaths = (appId: string): string[] => {
@@ -115,7 +118,9 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
   const [apiCredentials, setApiCredentials] = useState<APICredentials>({
     igdbClientId: '',
     igdbClientSecret: '',
+    steamGridDBApiKey: '',
   });
+  const [activeAPITab, setActiveAPITab] = useState<APITabType>('igdb');
   const [isLoadingAPI, setIsLoadingAPI] = useState(false);
   const [apiSaveStatus, setApiSaveStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
   const [apps, setApps] = useState<AppConfig[]>([]);
@@ -131,6 +136,8 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
     hideGameTitles: false,
     gameTilePadding: 16,
   });
+  const [showLogoOverBoxart, setShowLogoOverBoxart] = useState(true);
+  const [logoPosition, setLogoPosition] = useState<'top' | 'middle' | 'bottom' | 'underneath'>('middle');
 
   // Load settings on mount
   useEffect(() => {
@@ -147,6 +154,8 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
             hideGameTitles: prefs.hideGameTitles ?? false,
             gameTilePadding: prefs.gameTilePadding ?? 16,
           });
+          setShowLogoOverBoxart(prefs.showLogoOverBoxart ?? true);
+          setLogoPosition(prefs.logoPosition ?? 'middle');
         } catch (error) {
           console.error('Error loading Onyx settings:', error);
         }
@@ -164,6 +173,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
           setApiCredentials({
             igdbClientId: creds.igdbClientId || '',
             igdbClientSecret: creds.igdbClientSecret || '',
+            steamGridDBApiKey: creds.steamGridDBApiKey || '',
           });
         } catch (error) {
           console.error('Error loading API credentials:', error);
@@ -273,6 +283,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
       await window.electronAPI.saveAPICredentials({
         igdbClientId: apiCredentials.igdbClientId.trim(),
         igdbClientSecret: apiCredentials.igdbClientSecret.trim(),
+        steamGridDBApiKey: apiCredentials.steamGridDBApiKey.trim(),
       });
       setApiSaveStatus('success');
       setTimeout(() => {
@@ -283,6 +294,14 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
       setApiSaveStatus('error');
     } finally {
       setIsLoadingAPI(false);
+    }
+  };
+
+  const handleOpenSteamGridDB = async () => {
+    try {
+      await window.electronAPI.openExternal('https://www.steamgriddb.com/profile/preferences/api');
+    } catch (error) {
+      console.error('Error opening SteamGridDB API page:', error);
     }
   };
 
@@ -428,6 +447,8 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
         updateLibrariesOnStartup: settings.updateLibrariesOnStartup,
         hideGameTitles: settings.hideGameTitles,
         gameTilePadding: settings.gameTilePadding,
+        showLogoOverBoxart: showLogoOverBoxart,
+        logoPosition: logoPosition,
       });
       
       if (!result.success) {
@@ -810,12 +831,71 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                       <span>Spacious</span>
                     </div>
                   </div>
+
+                  {/* Show Logo Over Boxart */}
+                  <div className="flex items-start justify-between p-4 rounded-lg bg-gray-700/30 hover:bg-gray-700/50 transition-colors">
+                    <div className="flex-1 pr-4">
+                      <label className="text-gray-200 font-medium block mb-1">
+                        Show Logo Over Boxart
+                      </label>
+                      <p className="text-gray-400 text-sm">
+                        Display game logos overlaid on boxart images in the grid view
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setShowLogoOverBoxart(!showLogoOverBoxart)}
+                      className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors flex-shrink-0 ${
+                        showLogoOverBoxart ? 'bg-blue-600' : 'bg-gray-600'
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
+                          showLogoOverBoxart ? 'translate-x-6' : 'translate-x-1'
+                        }`}
+                      />
+                    </button>
+                  </div>
+
+                  {/* Logo Position */}
+                  {showLogoOverBoxart && (
+                    <div className="lg:col-span-2 p-4 rounded-lg bg-gray-700/30 hover:bg-gray-700/50 transition-colors">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex-1 pr-4">
+                          <label className="text-gray-200 font-medium block mb-1">
+                            Logo Position
+                          </label>
+                          <p className="text-gray-400 text-sm">
+                            Choose where logos appear on game tiles
+                          </p>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        {(['top', 'middle', 'bottom', 'underneath'] as const).map((position) => (
+                          <button
+                            key={position}
+                            onClick={() => setLogoPosition(position)}
+                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                              logoPosition === position
+                                ? 'bg-blue-600 text-white'
+                                : 'bg-gray-600 text-gray-300 hover:bg-gray-500'
+                            }`}
+                          >
+                            {position.charAt(0).toUpperCase() + position.slice(1)}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   </div>
 
                   {/* Restore Defaults Button */}
                   <div className="pt-4 border-t border-gray-700/50">
                     <button
-                      onClick={handleRestoreDefaults}
+                      onClick={() => {
+                        handleRestoreDefaults();
+                        setShowLogoOverBoxart(true);
+                        setLogoPosition('middle');
+                      }}
                       className="flex items-center gap-2 px-4 py-2 text-sm text-gray-400 hover:text-gray-200 hover:bg-gray-700/50 rounded-lg transition-colors"
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -833,104 +913,204 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                 <div className="space-y-1">
                   <h3 className="text-lg font-semibold text-white mb-4">API Credentials</h3>
                   <p className="text-gray-400 text-sm mb-6">
-                    Configure API credentials for enhanced game metadata
+                    Configure API credentials for enhanced game metadata and artwork
                   </p>
                   
-                  {/* IGDB Section - 2 Column Layout */}
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    {/* Left Column - Instructions */}
-                    <div className="space-y-4">
-                      <div>
-                        <h4 className="text-base font-medium text-white mb-2">IGDB API</h4>
-                        <p className="text-sm text-gray-400 mb-4">
-                          IGDB (Internet Game Database) provides comprehensive game metadata including covers, screenshots, descriptions, and more.
-                        </p>
-                        
-                        {/* Instructions */}
-                        <div className="bg-gray-900/50 rounded-lg p-4 border border-gray-700">
-                          <h5 className="text-sm font-medium text-white mb-2">How to obtain IGDB API credentials:</h5>
-                          <ol className="list-decimal list-inside space-y-2 text-sm text-gray-300">
-                            <li>
-                              Visit the{' '}
-                              <button
-                                onClick={handleOpenIGDB}
-                                className="text-blue-400 hover:text-blue-300 underline"
-                              >
-                                Twitch Developer Console
-                              </button>
-                              {' '}at https://dev.twitch.tv/console/apps/create
-                            </li>
-                            <li>Sign in with your Twitch account (create one if needed)</li>
-                            <li>Click "Register Your Application" to create a new application</li>
-                            <li>Fill in the form:
-                              <ul className="list-disc list-inside ml-4 mt-1 space-y-1">
-                                <li><strong>Name:</strong> Enter your application name (e.g., "Onyx")</li>
-                                <li><strong>OAuth Redirect URLs:</strong> Enter <code className="bg-gray-800 px-1 rounded">http://localhost</code> and click "Add"</li>
-                                <li><strong>Category:</strong> Select "Game Integration" from the dropdown</li>
-                                <li><strong>Client Type:</strong> Select "Confidential" (recommended for desktop applications)</li>
-                              </ul>
-                            </li>
-                            <li>Click the "Create" button</li>
-                            <li>On the next page, you'll see your <strong>Client ID</strong> and can click "New Secret" to generate a <strong>Client Secret</strong></li>
-                            <li>Copy both values and paste them into the fields below</li>
-                          </ol>
+                  {/* API Tabs */}
+                  <div className="border-b border-gray-700 mb-6">
+                    <nav className="flex space-x-8" aria-label="API Tabs">
+                      <button
+                        onClick={() => setActiveAPITab('igdb')}
+                        className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+                          activeAPITab === 'igdb'
+                            ? 'border-blue-500 text-blue-400'
+                            : 'border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-300'
+                        }`}
+                      >
+                        IGDB
+                      </button>
+                      <button
+                        onClick={() => setActiveAPITab('steamgriddb')}
+                        className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+                          activeAPITab === 'steamgriddb'
+                            ? 'border-blue-500 text-blue-400'
+                            : 'border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-300'
+                        }`}
+                      >
+                        SteamGridDB
+                      </button>
+                    </nav>
+                  </div>
+
+                  {/* IGDB Tab Content */}
+                  {activeAPITab === 'igdb' && (
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      {/* Left Column - Instructions */}
+                      <div className="space-y-4">
+                        <div>
+                          <h4 className="text-base font-medium text-white mb-2">IGDB API</h4>
+                          <p className="text-sm text-gray-400 mb-4">
+                            IGDB (Internet Game Database) provides comprehensive game metadata including covers, screenshots, descriptions, genres, and more.
+                          </p>
+                          
+                          {/* Instructions */}
+                          <div className="bg-gray-900/50 rounded-lg p-4 border border-gray-700">
+                            <h5 className="text-sm font-medium text-white mb-2">How to obtain IGDB API credentials:</h5>
+                            <ol className="list-decimal list-inside space-y-2 text-sm text-gray-300">
+                              <li>
+                                Visit the{' '}
+                                <button
+                                  onClick={handleOpenIGDB}
+                                  className="text-blue-400 hover:text-blue-300 underline"
+                                >
+                                  Twitch Developer Console
+                                </button>
+                                {' '}at https://dev.twitch.tv/console/apps/create
+                              </li>
+                              <li>Sign in with your Twitch account (create one if needed)</li>
+                              <li>Click "Register Your Application" to create a new application</li>
+                              <li>Fill in the form:
+                                <ul className="list-disc list-inside ml-4 mt-1 space-y-1">
+                                  <li><strong>Name:</strong> Enter your application name (e.g., "Onyx")</li>
+                                  <li><strong>OAuth Redirect URLs:</strong> Enter <code className="bg-gray-800 px-1 rounded">http://localhost</code> and click "Add"</li>
+                                  <li><strong>Category:</strong> Select "Game Integration" from the dropdown</li>
+                                  <li><strong>Client Type:</strong> Select "Confidential" (recommended for desktop applications)</li>
+                                </ul>
+                              </li>
+                              <li>Click the "Create" button</li>
+                              <li>On the next page, you'll see your <strong>Client ID</strong> and can click "New Secret" to generate a <strong>Client Secret</strong></li>
+                              <li>Copy both values and paste them into the fields on the right</li>
+                            </ol>
+                          </div>
                         </div>
+                      </div>
+
+                      {/* Right Column - Input Fields */}
+                      <div className="space-y-4">
+                        {/* Client ID Input */}
+                        <div className="space-y-2">
+                          <label className="block text-sm font-medium text-gray-200">
+                            Client ID
+                          </label>
+                          <input
+                            type="text"
+                            value={apiCredentials.igdbClientId}
+                            onChange={(e) => handleAPIInputChange('igdbClientId', e.target.value)}
+                            placeholder="Enter your IGDB Client ID"
+                            className="w-full px-4 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          />
+                        </div>
+
+                        {/* Client Secret Input */}
+                        <div className="space-y-2">
+                          <label className="block text-sm font-medium text-gray-200">
+                            Client Secret
+                          </label>
+                          <input
+                            type="password"
+                            value={apiCredentials.igdbClientSecret}
+                            onChange={(e) => handleAPIInputChange('igdbClientSecret', e.target.value)}
+                            placeholder="Enter your IGDB Client Secret"
+                            className="w-full px-4 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          />
+                        </div>
+
+                        {/* Status Message */}
+                        {apiSaveStatus === 'success' && activeAPITab === 'igdb' && (
+                          <div className="bg-green-900/30 border border-green-700 text-green-300 px-4 py-2 rounded-lg text-sm">
+                            IGDB credentials saved successfully! Service will be restarted.
+                          </div>
+                        )}
+                        {apiSaveStatus === 'error' && activeAPITab === 'igdb' && (
+                          <div className="bg-red-900/30 border border-red-700 text-red-300 px-4 py-2 rounded-lg text-sm">
+                            Failed to save credentials. Please try again.
+                          </div>
+                        )}
                       </div>
                     </div>
+                  )}
 
-                    {/* Right Column - Input Fields */}
-                    <div className="space-y-4">
-                      {/* Client ID Input */}
-                      <div className="space-y-2">
-                        <label className="block text-sm font-medium text-gray-200">
-                          Client ID
-                        </label>
-                        <input
-                          type="text"
-                          value={apiCredentials.igdbClientId}
-                          onChange={(e) => handleAPIInputChange('igdbClientId', e.target.value)}
-                          placeholder="Enter your IGDB Client ID"
-                          className="w-full px-4 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        />
+                  {/* SteamGridDB Tab Content */}
+                  {activeAPITab === 'steamgriddb' && (
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      {/* Left Column - Instructions */}
+                      <div className="space-y-4">
+                        <div>
+                          <h4 className="text-base font-medium text-white mb-2">SteamGridDB API</h4>
+                          <p className="text-sm text-gray-400 mb-4">
+                            SteamGridDB provides high-quality game artwork including box art, banners, logos, and hero images. Perfect for customizing your game library's appearance.
+                          </p>
+                          
+                          {/* Instructions */}
+                          <div className="bg-gray-900/50 rounded-lg p-4 border border-gray-700">
+                            <h5 className="text-sm font-medium text-white mb-2">How to obtain SteamGridDB API key:</h5>
+                            <ol className="list-decimal list-inside space-y-2 text-sm text-gray-300">
+                              <li>
+                                Visit{' '}
+                                <button
+                                  onClick={handleOpenSteamGridDB}
+                                  className="text-blue-400 hover:text-blue-300 underline"
+                                >
+                                  SteamGridDB Profile Preferences
+                                </button>
+                                {' '}at https://www.steamgriddb.com/profile/preferences/api
+                              </li>
+                              <li>Sign in with your SteamGridDB account (create one if needed)</li>
+                              <li>Navigate to the "API" section in your profile preferences</li>
+                              <li>Click "Generate API Key" to create a new API key</li>
+                              <li>Copy the generated API key</li>
+                              <li>Paste it into the field on the right</li>
+                            </ol>
+                            <div className="mt-4 p-3 bg-blue-900/20 border border-blue-700/50 rounded text-xs text-blue-300">
+                              <strong>Note:</strong> SteamGridDB API keys are free and help support the community-driven artwork database.
+                            </div>
+                          </div>
+                        </div>
                       </div>
 
-                      {/* Client Secret Input */}
-                      <div className="space-y-2">
-                        <label className="block text-sm font-medium text-gray-200">
-                          Client Secret
-                        </label>
-                        <input
-                          type="password"
-                          value={apiCredentials.igdbClientSecret}
-                          onChange={(e) => handleAPIInputChange('igdbClientSecret', e.target.value)}
-                          placeholder="Enter your IGDB Client Secret"
-                          className="w-full px-4 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        />
-                      </div>
-
-                      {/* Status Message */}
-                      {apiSaveStatus === 'success' && (
-                        <div className="bg-green-900/30 border border-green-700 text-green-300 px-4 py-2 rounded-lg text-sm">
-                          Credentials saved successfully! IGDB service will be restarted.
+                      {/* Right Column - Input Fields */}
+                      <div className="space-y-4">
+                        {/* API Key Input */}
+                        <div className="space-y-2">
+                          <label className="block text-sm font-medium text-gray-200">
+                            API Key
+                          </label>
+                          <input
+                            type="password"
+                            value={apiCredentials.steamGridDBApiKey}
+                            onChange={(e) => handleAPIInputChange('steamGridDBApiKey', e.target.value)}
+                            placeholder="Enter your SteamGridDB API Key"
+                            className="w-full px-4 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          />
+                          <p className="text-xs text-gray-500">
+                            Your API key is stored securely and used to fetch game artwork
+                          </p>
                         </div>
-                      )}
-                      {apiSaveStatus === 'error' && (
-                        <div className="bg-red-900/30 border border-red-700 text-red-300 px-4 py-2 rounded-lg text-sm">
-                          Failed to save credentials. Please try again.
-                        </div>
-                      )}
 
-                      {/* Save API Button */}
-                      <div className="flex justify-end pt-2">
-                        <button
-                          onClick={handleAPISave}
-                          disabled={isLoadingAPI || !apiCredentials.igdbClientId.trim() || !apiCredentials.igdbClientSecret.trim()}
-                          className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          {isLoadingAPI ? 'Saving...' : 'Save API Credentials'}
-                        </button>
+                        {/* Status Message */}
+                        {apiSaveStatus === 'success' && activeAPITab === 'steamgriddb' && (
+                          <div className="bg-green-900/30 border border-green-700 text-green-300 px-4 py-2 rounded-lg text-sm">
+                            SteamGridDB API key saved successfully! Service will be restarted.
+                          </div>
+                        )}
+                        {apiSaveStatus === 'error' && activeAPITab === 'steamgriddb' && (
+                          <div className="bg-red-900/30 border border-red-700 text-red-300 px-4 py-2 rounded-lg text-sm">
+                            Failed to save API key. Please try again.
+                          </div>
+                        )}
                       </div>
                     </div>
+                  )}
+
+                  {/* Save All API Credentials Button */}
+                  <div className="flex justify-end pt-6 border-t border-gray-700">
+                    <button
+                      onClick={handleAPISave}
+                      disabled={isLoadingAPI}
+                      className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isLoadingAPI ? 'Saving...' : 'Save All API Credentials'}
+                    </button>
                   </div>
                 </div>
               </div>

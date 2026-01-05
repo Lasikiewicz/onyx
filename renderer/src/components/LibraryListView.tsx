@@ -20,6 +20,7 @@ interface LibraryListViewProps {
   onEditImages?: (game: Game) => void;
   onFavorite?: (game: Game) => void;
   onPin?: (game: Game) => void;
+  onFixMatch?: (game: Game) => void;
   hideGameTitles?: boolean;
   listViewOptions?: ListViewOptions;
   listViewSize?: number;
@@ -33,6 +34,7 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
   onEditImages,
   onFavorite,
   onPin,
+  onFixMatch,
   hideGameTitles = false,
   listViewOptions = {
     showDescription: true,
@@ -225,6 +227,7 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
           onEditImages={onEditImages}
           onFavorite={onFavorite}
           onPin={onPin}
+          onFixMatch={onFixMatch}
         />
       )}
     </div>

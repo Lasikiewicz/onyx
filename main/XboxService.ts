@@ -99,9 +99,22 @@ export class XboxService {
             // Look for .exe files in the game folder
             const exeFiles = this.findExecutables(fullPath);
             
-            if (exeFiles.length > 0) {
+            // Filter out helper executables
+            const gameExes = exeFiles.filter(exe => {
+              const fileName = exe.toLowerCase();
+              return !fileName.includes('gamelaunchhelper') &&
+                     !fileName.includes('bootstrapper') &&
+                     !fileName.endsWith('gamelaunchhelper.exe') &&
+                     !fileName.endsWith('bootstrapper.exe');
+            });
+            
+            if (gameExes.length > 0) {
               // Use the first executable found (usually the main game exe)
-              const mainExe = exeFiles[0];
+              // Prefer executables in the root or Content folder, not in subfolders
+              const mainExe = gameExes.find(exe => {
+                const relativePath = exe.replace(fullPath, '').toLowerCase();
+                return !relativePath.includes('content') || relativePath.includes('content\\') && !relativePath.includes('gamelaunchhelper');
+              }) || gameExes[0];
               
               games.push({
                 id: `xbox-pc-${entry}`,
@@ -109,7 +122,7 @@ export class XboxService {
                 installPath: mainExe,
                 type: 'pc',
               });
-              console.log(`✓ Found Xbox PC game: ${entry}`);
+              console.log(`✓ Found Xbox PC game: ${entry} (${mainExe})`);
             }
           }
         } catch (err) {
@@ -132,6 +145,14 @@ export class XboxService {
     
     if (depth > maxDepth) return executables;
     
+    // Common non-game executables to exclude
+    const excludeNames = [
+      'gamelaunchhelper.exe',
+      'bootstrapper.exe',
+      'gamelaunchhelper',
+      'bootstrapper',
+    ];
+    
     try {
       const entries = readdirSync(dirPath);
       
@@ -144,11 +165,21 @@ export class XboxService {
           if (stats.isFile() && entry.toLowerCase().endsWith('.exe')) {
             // Exclude common non-game executables
             const lowerName = entry.toLowerCase();
+            const baseName = lowerName.replace('.exe', '');
+            
+            // Check exact matches first
+            if (excludeNames.includes(lowerName) || excludeNames.includes(baseName)) {
+              continue;
+            }
+            
+            // Check patterns
             if (!lowerName.includes('installer') &&
                 !lowerName.includes('setup') &&
                 !lowerName.includes('uninstall') &&
                 !lowerName.includes('launcher') &&
-                !lowerName.includes('updater')) {
+                !lowerName.includes('updater') &&
+                !lowerName.includes('gamelaunchhelper') &&
+                !lowerName.includes('bootstrapper')) {
               executables.push(fullPath);
             }
           } else if (stats.isDirectory() && depth < maxDepth) {

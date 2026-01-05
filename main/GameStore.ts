@@ -9,6 +9,8 @@ export interface Game {
   exePath: string;
   boxArtUrl: string;
   bannerUrl: string;
+  logoUrl?: string;
+  heroUrl?: string;
   description?: string;
   genres?: string[];
   developers?: string[];
@@ -212,9 +214,15 @@ export class GameStore {
   }
 
   /**
-   * Update metadata (boxArtUrl, bannerUrl) for a game by ID
+   * Update metadata (boxArtUrl, bannerUrl, logoUrl, heroUrl) for a game by ID
    */
-  async updateGameMetadata(gameId: string, boxArtUrl: string, bannerUrl: string): Promise<boolean> {
+  async updateGameMetadata(
+    gameId: string, 
+    boxArtUrl: string, 
+    bannerUrl: string, 
+    logoUrl?: string, 
+    heroUrl?: string
+  ): Promise<boolean> {
     const store = await this.ensureStore();
     const games = await this.getLibrary();
     const gameIndex = games.findIndex(g => g.id === gameId);
@@ -222,6 +230,12 @@ export class GameStore {
     if (gameIndex >= 0) {
       games[gameIndex].boxArtUrl = boxArtUrl;
       games[gameIndex].bannerUrl = bannerUrl;
+      if (logoUrl !== undefined) {
+        games[gameIndex].logoUrl = logoUrl;
+      }
+      if (heroUrl !== undefined) {
+        games[gameIndex].heroUrl = heroUrl;
+      }
       (store as any).set('games', games);
       return true;
     }

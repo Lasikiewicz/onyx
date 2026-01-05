@@ -17,6 +17,8 @@ import { MenuBar } from './components/MenuBar';
 import { UpdateLibraryModal } from './components/UpdateLibraryModal';
 import { OnyxSettingsModal } from './components/OnyxSettingsModal';
 import { APISettingsModal } from './components/APISettingsModal';
+import { MetadataSearchModal } from './components/MetadataSearchModal';
+import { ImportWorkbench } from './components/importer/ImportWorkbench';
 import { Game, ExecutableFile, GameMetadata } from './types/game';
 import { areAPIsConfigured } from './utils/apiValidation';
 
@@ -51,6 +53,10 @@ function App() {
   const [editingGame, setEditingGame] = useState<Game | null>(null);
   const [initialEditorTab, setInitialEditorTab] = useState<'details' | 'images'>('details');
   
+  // Metadata search modal state
+  const [isMetadataSearchOpen, setIsMetadataSearchOpen] = useState(false);
+  const [fixingGame, setFixingGame] = useState<Game | null>(null);
+  
   // Toast notification state
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   
@@ -61,6 +67,7 @@ function App() {
   const [showTopBar] = useState(false);
   const [isUpdateLibraryOpen, setIsUpdateLibraryOpen] = useState(false);
   const [isOnyxSettingsOpen, setIsOnyxSettingsOpen] = useState(false);
+  const [isImportWorkbenchOpen, setIsImportWorkbenchOpen] = useState(false);
   const [onyxSettingsInitialTab, setOnyxSettingsInitialTab] = useState<'general' | 'appearance' | 'apis' | 'apps' | 'about'>('general');
   const [isAPISettingsOpen, setIsAPISettingsOpen] = useState(false);
   const [gridSize, setGridSize] = useState(120);
@@ -68,6 +75,8 @@ function App() {
   const [hideVRTitles, setHideVRTitles] = useState(true);
   const [hideGameTitles, setHideGameTitles] = useState(false);
   const [gameTilePadding, setGameTilePadding] = useState(16);
+  const [showLogoOverBoxart, setShowLogoOverBoxart] = useState(true);
+  const [logoPosition, setLogoPosition] = useState<'top' | 'middle' | 'bottom' | 'underneath'>('middle');
   const [backgroundBlur, setBackgroundBlur] = useState(40);
   const [backgroundMode, setBackgroundMode] = useState<'image' | 'color'>('image');
   const [backgroundColor, setBackgroundColor] = useState('#000000');
@@ -95,6 +104,8 @@ function App() {
         if (prefs.hideVRTitles !== undefined) setHideVRTitles(prefs.hideVRTitles);
         if (prefs.hideGameTitles !== undefined) setHideGameTitles(prefs.hideGameTitles);
         if (prefs.gameTilePadding !== undefined) setGameTilePadding(prefs.gameTilePadding);
+        if (prefs.showLogoOverBoxart !== undefined) setShowLogoOverBoxart(prefs.showLogoOverBoxart);
+        if (prefs.logoPosition !== undefined) setLogoPosition(prefs.logoPosition);
         if (prefs.backgroundBlur !== undefined) setBackgroundBlur(prefs.backgroundBlur);
         if (prefs.viewMode) setViewMode(prefs.viewMode as 'grid' | 'list');
         if (prefs.backgroundMode) setBackgroundMode(prefs.backgroundMode as 'image' | 'color');
@@ -379,6 +390,34 @@ function App() {
     setIsGameEditorOpen(true);
   };
 
+  const handleFixMatch = (game: Game) => {
+    setFixingGame(game);
+    setIsMetadataSearchOpen(true);
+  };
+
+  const handleSelectMetadataMatch = async (result: { id: string; source: string }) => {
+    if (!fixingGame) return;
+
+    try {
+      const response = await window.electronAPI.fetchAndUpdateByProviderId(
+        fixingGame.id,
+        result.id,
+        result.source
+      );
+
+      if (response.success) {
+        showToast('Metadata updated successfully!', 'success');
+        // Reload library to show updated metadata
+        await loadLibrary();
+      } else {
+        showToast(response.error || 'Failed to update metadata', 'error');
+      }
+    } catch (error) {
+      console.error('Error updating metadata:', error);
+      showToast('An error occurred while updating metadata', 'error');
+    }
+  };
+
   const handleSaveGame = async (game: Game) => {
     try {
       console.log('Saving game from App:', game.title, 'favorite:', game.favorite);
@@ -437,7 +476,7 @@ function App() {
     setTimeout(() => setToast(null), 5000);
   };
 
-  // Update Library handler - opens update library modal
+  // Update Library handler - opens import workbench
   const handleUpdateSteamLibrary = async () => {
     // Check if APIs are configured
     const apisConfigured = await areAPIsConfigured();
@@ -447,7 +486,7 @@ function App() {
       setOnyxSettingsInitialTab('apis');
       return;
     }
-    setIsUpdateLibraryOpen(true);
+    setIsImportWorkbenchOpen(true);
   };
 
   // Handle Steam games import
@@ -847,9 +886,12 @@ function App() {
                         onEditImages={handleEditImages}
                         onFavorite={handleToggleFavorite}
                         onPin={handleTogglePin}
+                        onFixMatch={handleFixMatch}
                         gridSize={gridSize}
                         gameTilePadding={gameTilePadding}
                         hideGameTitles={hideGameTitles}
+                        showLogoOverBoxart={showLogoOverBoxart}
+                        logoPosition={logoPosition}
                       />
                     ) : (
                       <LibraryListView
@@ -860,6 +902,7 @@ function App() {
                         onEditImages={handleEditImages}
                         onFavorite={handleToggleFavorite}
                         onPin={handleTogglePin}
+                        onFixMatch={handleFixMatch}
                         hideGameTitles={hideGameTitles}
                         listViewOptions={listViewOptions}
                         listViewSize={listViewSize}
@@ -1072,6 +1115,18 @@ function App() {
             if (prefs.gameTilePadding !== undefined) {
               setGameTilePadding(prefs.gameTilePadding);
             }
+            if (prefs.showLogoOverBoxart !== undefined) {
+              setShowLogoOverBoxart(prefs.showLogoOverBoxart);
+            }
+            if (prefs.logoPosition !== undefined) {
+              setLogoPosition(prefs.logoPosition);
+            }
+            if (prefs.showLogoOverBoxart !== undefined) {
+              setShowLogoOverBoxart(prefs.showLogoOverBoxart);
+            }
+            if (prefs.logoPosition !== undefined) {
+              setLogoPosition(prefs.logoPosition);
+            }
             // Also update other settings that might have changed
             if (prefs.minimizeToTray !== undefined) {
               // These are handled by the modal, but we can reload them too if needed
@@ -1106,6 +1161,27 @@ function App() {
         }}
       />
 
+      {/* Import Workbench */}
+      <ImportWorkbench
+        isOpen={isImportWorkbenchOpen}
+        onClose={() => setIsImportWorkbenchOpen(false)}
+        existingLibrary={games}
+        onImport={async (games) => {
+          try {
+            // Save all games
+            for (const game of games) {
+              await window.electronAPI.saveGame(game);
+            }
+            await loadLibrary();
+            showToast(`Successfully imported ${games.length} ${games.length === 1 ? 'game' : 'games'}`, 'success');
+            setIsImportWorkbenchOpen(false);
+          } catch (err) {
+            console.error('Error importing games:', err);
+            showToast('Failed to import games', 'error');
+          }
+        }}
+      />
+
       {/* Simple Context Menu */}
       {simpleContextMenu && (
         <SimpleContextMenu
@@ -1130,6 +1206,16 @@ function App() {
           onGameTilePaddingChange={setGameTilePadding}
           hideGameTitles={hideGameTitles}
           onHideGameTitlesChange={setHideGameTitles}
+          showLogoOverBoxart={showLogoOverBoxart}
+          onShowLogoOverBoxartChange={(show) => {
+            setShowLogoOverBoxart(show);
+            window.electronAPI.savePreferences({ showLogoOverBoxart: show });
+          }}
+          logoPosition={logoPosition}
+          onLogoPositionChange={(position) => {
+            setLogoPosition(position);
+            window.electronAPI.savePreferences({ logoPosition: position });
+          }}
           backgroundMode={backgroundMode}
           onBackgroundModeChange={setBackgroundMode}
           backgroundColor={backgroundColor}
@@ -1138,6 +1224,19 @@ function App() {
           onListViewOptionsChange={setListViewOptions}
           listViewSize={listViewSize}
           onListViewSizeChange={setListViewSize}
+        />
+      )}
+
+      {/* Metadata Search Modal */}
+      {fixingGame && (
+        <MetadataSearchModal
+          isOpen={isMetadataSearchOpen}
+          onClose={() => {
+            setIsMetadataSearchOpen(false);
+            setFixingGame(null);
+          }}
+          game={fixingGame}
+          onSelect={handleSelectMetadataMatch}
         />
       )}
 

@@ -31,6 +31,7 @@ export interface IGDBGameResult {
   summary?: string;
   coverUrl?: string;
   screenshotUrls?: string[];
+  logoUrl?: string;
   rating?: number;
   releaseDate?: number;
   genres?: string[];

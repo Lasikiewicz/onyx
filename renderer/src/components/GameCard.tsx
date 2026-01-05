@@ -6,9 +6,11 @@ interface GameCardProps {
   onPlay?: (game: Game) => void;
   onEdit?: (game: Game) => void;
   hideTitle?: boolean;
+  showLogoOverBoxart?: boolean;
+  logoPosition?: 'top' | 'middle' | 'bottom' | 'underneath';
 }
 
-export const GameCard: React.FC<GameCardProps> = ({ game, hideTitle = false }) => {
+export const GameCard: React.FC<GameCardProps> = ({ game, hideTitle = false, showLogoOverBoxart = true, logoPosition = 'middle' }) => {
   const formatPlaytime = (minutes?: number) => {
     if (!minutes) return 'Not Played';
     if (minutes < 60) return `${minutes} minutes`;
@@ -17,31 +19,101 @@ export const GameCard: React.FC<GameCardProps> = ({ game, hideTitle = false }) =
     return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
   };
 
+  const isLogoUnderneath = game.logoUrl && showLogoOverBoxart && logoPosition === 'underneath';
+
   return (
     <div className="relative group overflow-hidden onyx-card aspect-[2/3] flex flex-col">
-      {game.boxArtUrl ? (
-        <img
-          src={game.boxArtUrl}
-          alt={game.title}
-          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
-          onError={(e) => {
-            const target = e.target as HTMLImageElement;
-            console.error('Failed to load image:', game.boxArtUrl, target.src);
-            target.style.display = 'none';
-          }}
-          onLoad={() => {
-            console.log('Successfully loaded image:', game.boxArtUrl);
-          }}
-        />
-      ) : (
-        <div className="w-full h-full bg-gray-700/50 flex items-center justify-center">
-          <span className="text-gray-300 text-sm">No Image</span>
+      {/* Box art image container - takes flex-1 when logo is underneath, full height otherwise */}
+      <div className={`relative ${isLogoUnderneath ? 'flex-1 min-h-0' : 'w-full h-full'}`}>
+        {(game.boxArtUrl || game.bannerUrl) ? (
+          <img
+            src={game.boxArtUrl || game.bannerUrl}
+            alt={game.title}
+            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+            onError={(e) => {
+              const target = e.target as HTMLImageElement;
+              // Fallback to bannerUrl if boxArtUrl fails
+              if (game.boxArtUrl && game.bannerUrl && target.src !== game.bannerUrl) {
+                target.src = game.bannerUrl;
+              } else {
+                console.error('Failed to load image:', game.boxArtUrl || game.bannerUrl, target.src);
+                target.style.display = 'none';
+              }
+            }}
+            onLoad={() => {
+              console.log('Successfully loaded image:', game.boxArtUrl || game.bannerUrl);
+            }}
+          />
+        ) : (
+          <div className="w-full h-full bg-gray-700/50 flex items-center justify-center">
+            <span className="text-gray-300 text-sm">No Image</span>
+          </div>
+        )}
+        
+        {/* Logo - position based on settings (overlaid on boxart) */}
+        {game.logoUrl && showLogoOverBoxart && logoPosition !== 'underneath' && (
+          <div className={`absolute inset-0 flex p-4 pointer-events-none ${
+            logoPosition === 'top' ? 'items-start' :
+            logoPosition === 'bottom' ? 'items-end' :
+            'items-center'
+          } justify-center`}>
+            <img
+              src={game.logoUrl}
+              alt={`${game.title} Logo`}
+              className="max-w-full max-h-full object-contain drop-shadow-2xl"
+              style={game.removeLogoTransparency ? { 
+                backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                padding: '8px',
+                borderRadius: '4px'
+              } : {}}
+              onError={(e) => {
+                const target = e.target as HTMLImageElement;
+                console.error('Failed to load logo:', game.logoUrl, target.src);
+                target.style.display = 'none';
+              }}
+            />
+          </div>
+        )}
+        
+        {/* Game Title and Status Overlay (only when logo is not underneath) */}
+        {!hideTitle && !isLogoUnderneath && (
+          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/70 to-transparent p-2 z-10">
+            <h3 className="text-sm font-semibold text-white line-clamp-1">
+              {game.title}
+            </h3>
+            {game.playtime && (
+              <p className="text-xs text-gray-300 mt-1">
+                {formatPlaytime(game.playtime)}
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+      
+      {/* Logo underneath boxart - separate flex item below the boxart */}
+      {isLogoUnderneath && (
+        <div className="bg-black/80 p-2 flex items-center justify-center flex-shrink-0 border-t border-gray-800/50">
+          <img
+            src={game.logoUrl}
+            alt={`${game.title} Logo`}
+            className="max-w-full max-h-12 object-contain"
+            style={game.removeLogoTransparency ? { 
+              backgroundColor: 'rgba(0, 0, 0, 0.5)',
+              padding: '4px',
+              borderRadius: '4px'
+            } : {}}
+            onError={(e) => {
+              const target = e.target as HTMLImageElement;
+              console.error('Failed to load logo:', game.logoUrl, target.src);
+              target.style.display = 'none';
+            }}
+          />
         </div>
       )}
       
-      {/* Game Title and Status Overlay (conditionally visible) */}
-      {!hideTitle && (
-        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/70 to-transparent p-2">
+      {/* Game Title below logo when logo is underneath */}
+      {!hideTitle && isLogoUnderneath && (
+        <div className="bg-gradient-to-t from-black/90 via-black/70 to-transparent p-2 flex-shrink-0">
           <h3 className="text-sm font-semibold text-white line-clamp-1">
             {game.title}
           </h3>

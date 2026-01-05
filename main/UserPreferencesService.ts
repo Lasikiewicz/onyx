@@ -13,6 +13,8 @@ export interface UserPreferences {
   hideVRTitles?: boolean;
   hideGameTitles?: boolean;
   gameTilePadding?: number;
+  showLogoOverBoxart?: boolean;
+  logoPosition?: 'top' | 'middle' | 'bottom' | 'underneath';
   backgroundBlur?: number;
   backgroundMode?: 'image' | 'color';
   backgroundColor?: string;
@@ -85,6 +87,8 @@ export class UserPreferencesService {
             hideVRTitles: true,
             hideGameTitles: false,
             gameTilePadding: 16,
+            showLogoOverBoxart: true,
+            logoPosition: 'middle',
             backgroundBlur: 40,
             backgroundMode: 'image',
             backgroundColor: '#000000',
@@ -149,11 +153,13 @@ export class UserPreferencesService {
       startClosedToTray: false,
       updateLibrariesOnStartup: false,
       activeGameId: null,
-      hideVRTitles: true,
-      hideGameTitles: false,
-      gameTilePadding: 16,
-      backgroundBlur: 40,
-      backgroundMode: 'image',
+            hideVRTitles: true,
+            hideGameTitles: false,
+            gameTilePadding: 16,
+            showLogoOverBoxart: true,
+            logoPosition: 'middle',
+            backgroundBlur: 40,
+            backgroundMode: 'image',
       backgroundColor: '#000000',
       viewMode: 'grid',
       listViewOptions: {
@@ -205,11 +211,13 @@ export class UserPreferencesService {
       startClosedToTray: false,
       updateLibrariesOnStartup: false,
       activeGameId: null,
-      hideVRTitles: true,
-      hideGameTitles: false,
-      gameTilePadding: 16,
-      backgroundBlur: 40,
-      backgroundMode: 'image',
+            hideVRTitles: true,
+            hideGameTitles: false,
+            gameTilePadding: 16,
+            showLogoOverBoxart: true,
+            logoPosition: 'middle',
+            backgroundBlur: 40,
+            backgroundMode: 'image',
       backgroundColor: '#000000',
       viewMode: 'grid',
       listViewOptions: {
@@ -262,11 +270,13 @@ export class UserPreferencesService {
       startClosedToTray: false,
       updateLibrariesOnStartup: false,
       activeGameId: null,
-      hideVRTitles: true,
-      hideGameTitles: false,
-      gameTilePadding: 16,
-      backgroundBlur: 40,
-      backgroundMode: 'image',
+            hideVRTitles: true,
+            hideGameTitles: false,
+            gameTilePadding: 16,
+            showLogoOverBoxart: true,
+            logoPosition: 'middle',
+            backgroundBlur: 40,
+            backgroundMode: 'image',
       backgroundColor: '#000000',
       viewMode: 'grid',
       listViewOptions: {

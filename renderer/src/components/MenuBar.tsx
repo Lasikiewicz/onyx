@@ -82,6 +82,24 @@ export const MenuBar: React.FC<MenuBarProps> = ({
     >
       {/* Left section - Search, Sort by, Categories, Favorites, Pinned Categories */}
       <div className="flex items-center gap-2" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+        {/* Console toggle (development mode only) */}
+        {import.meta.env.DEV && (
+          <button
+            onClick={async () => {
+              try {
+                await window.electronAPI.toggleDevTools();
+              } catch (error) {
+                console.error('Error toggling DevTools:', error);
+              }
+            }}
+            className="p-1.5 hover:bg-gray-700/40 rounded transition-colors flex items-center justify-center"
+            title="Toggle Console"
+          >
+            <svg className="w-4 h-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+          </button>
+        )}
         {/* Onyx Settings Button with Dropdown */}
         {onOnyxSettings && (
           <div className="relative" ref={onyxSettingsMenuRef}>
@@ -457,6 +475,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
           </div>
         )}
       </div>
+
     </div>
   );
 };

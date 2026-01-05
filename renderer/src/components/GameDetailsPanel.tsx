@@ -274,9 +274,9 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game, onSave
       {/* Content */}
       <div className="flex-1" style={{ overflowY: 'auto', overflowX: 'hidden', minHeight: 0 }}>
         <div className="p-6 space-y-6">
-          {/* Upper Section: Title - positioned to avoid overlapping box art */}
+          {/* Upper Section: Title/Logo - positioned to avoid overlapping box art */}
           <div className="relative">
-            {/* Title - wraps to avoid box art on the right */}
+            {/* Logo or Title - wraps to avoid box art on the right */}
             <div 
               className="pr-40"
               onContextMenu={(e) => {
@@ -286,8 +286,32 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game, onSave
                 setSimpleContextMenu({ x: e.clientX, y: e.clientY, type: 'title' });
               }}
             >
+              {game.logoUrl ? (
+                <img
+                  src={game.logoUrl}
+                  alt={game.title}
+                  className="max-w-full h-auto object-contain cursor-pointer"
+                  style={{ 
+                    maxHeight: `${titleFontSize * 2}px`,
+                    ...(game.removeLogoTransparency ? {
+                      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                      padding: '8px',
+                      borderRadius: '4px'
+                    } : {})
+                  }}
+                  onError={(e) => {
+                    // Fallback to text title if logo fails to load
+                    const target = e.target as HTMLImageElement;
+                    target.style.display = 'none';
+                    const fallback = target.parentElement?.querySelector('.title-fallback') as HTMLElement;
+                    if (fallback) {
+                      fallback.style.display = 'block';
+                    }
+                  }}
+                />
+              ) : null}
               <h1 
-                className="font-bold text-white onyx-text-glow tracking-wide break-words cursor-pointer"
+                className={`title-fallback font-bold text-white onyx-text-glow tracking-wide break-words cursor-pointer ${game.logoUrl ? 'hidden' : ''}`}
                 style={{ 
                   fontSize: `${titleFontSize}px`,
                   fontFamily: titleFontFamily,
@@ -459,6 +483,14 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game, onSave
               setSimpleContextMenu(null);
             }}
             type={simpleContextMenu.type}
+            hasLogo={simpleContextMenu.type === 'title' && !!game?.logoUrl}
+            removeLogoTransparency={game?.removeLogoTransparency ?? false}
+            onRemoveLogoTransparency={async () => {
+              if (game && onSaveGame) {
+                const updatedGame = { ...game, removeLogoTransparency: !game.removeLogoTransparency };
+                await onSaveGame(updatedGame);
+              }
+            }}
             onEdit={() => {
               console.log('Edit clicked for type:', simpleContextMenu.type);
               switch (simpleContextMenu.type) {

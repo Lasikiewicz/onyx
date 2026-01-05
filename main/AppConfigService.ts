@@ -9,6 +9,8 @@ export interface AppConfig {
 
 interface AppConfigsSchema {
   apps: Record<string, AppConfig>;
+  backgroundScanEnabled: boolean;
+  lastBackgroundScan?: number;
 }
 
 export class AppConfigService {
@@ -24,6 +26,8 @@ export class AppConfigService {
         name: 'app-configs',
         defaults: {
           apps: {},
+          backgroundScanEnabled: false,
+          lastBackgroundScan: undefined,
         },
       });
       return this.store;
@@ -94,5 +98,37 @@ export class AppConfigService {
   async clearAppConfigs(): Promise<void> {
     const store = await this.ensureStore();
     store.set('apps', {});
+  }
+
+  /**
+   * Get background scan enabled status
+   */
+  async getBackgroundScanEnabled(): Promise<boolean> {
+    const store = await this.ensureStore();
+    return store.get('backgroundScanEnabled', false);
+  }
+
+  /**
+   * Set background scan enabled status
+   */
+  async setBackgroundScanEnabled(enabled: boolean): Promise<void> {
+    const store = await this.ensureStore();
+    store.set('backgroundScanEnabled', enabled);
+  }
+
+  /**
+   * Get last background scan timestamp
+   */
+  async getLastBackgroundScan(): Promise<number | undefined> {
+    const store = await this.ensureStore();
+    return store.get('lastBackgroundScan', undefined);
+  }
+
+  /**
+   * Set last background scan timestamp
+   */
+  async setLastBackgroundScan(timestamp: number): Promise<void> {
+    const store = await this.ensureStore();
+    store.set('lastBackgroundScan', timestamp);
   }
 }

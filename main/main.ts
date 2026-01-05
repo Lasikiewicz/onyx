@@ -12,6 +12,8 @@ import { AppConfigService } from './AppConfigService.js';
 import { XboxService } from './XboxService.js';
 import { UserPreferencesService } from './UserPreferencesService.js';
 import { APICredentialsService } from './APICredentialsService.js';
+import { LauncherDetectionService } from './LauncherDetectionService.js';
+import { ImportService } from './ImportService.js';
 
 // Load environment variables
 dotenv.config();
@@ -488,7 +490,8 @@ async function createWindow() {
   if (VITE_DEV_SERVER_URL) {
     // Load from Vite dev server
     win.loadURL(VITE_DEV_SERVER_URL);
-    // DevTools can be opened manually with Ctrl+Shift+I or F12
+    // Open DevTools automatically in development mode
+    win.webContents.openDevTools();
   } else {
     // Load from built files
     win.loadFile(path.join(process.env.DIST || '', 'index.html'));
@@ -535,11 +538,11 @@ const appConfigService = new AppConfigService();
 const xboxService = new XboxService();
 const userPreferencesService = new UserPreferencesService();
 const apiCredentialsService = new APICredentialsService();
-const metadataFetcher = new MetadataFetcherService(true); // Start with mock mode enabled
-const launcherService = new LauncherService(gameStore);
+const launcherDetectionService = new LauncherDetectionService();
 
 // Initialize IGDB service if credentials are available
 let igdbService: IGDBService | null = null;
+let steamGridDBService: import('./SteamGridDBService.js').SteamGridDBService | null = null;
 
 // Function to initialize IGDB service with credentials
 const initializeIGDBService = async () => {
@@ -571,9 +574,51 @@ const initializeIGDBService = async () => {
   }
 };
 
+// Function to initialize SteamGridDB service with API key
+const initializeSteamGridDBService = async () => {
+  try {
+    const storedCreds = await apiCredentialsService.getCredentials();
+    const steamGridDBApiKey = storedCreds.steamGridDBApiKey || process.env.STEAMGRIDDB_API_KEY;
+    
+    if (steamGridDBApiKey) {
+      const { SteamGridDBService } = await import('./SteamGridDBService.js');
+      steamGridDBService = new SteamGridDBService(steamGridDBApiKey);
+      console.log('SteamGridDB service initialized');
+      return true;
+    } else {
+      console.warn('SteamGridDB API key not found. SteamGridDB features will be unavailable.');
+      steamGridDBService = null;
+      return false;
+    }
+  } catch (error) {
+    console.error('Error initializing SteamGridDB service:', error);
+    steamGridDBService = null;
+    return false;
+  }
+};
+
+// Initialize metadata fetcher with providers
+const metadataFetcher = new MetadataFetcherService(
+  null, // IGDB service (will be set after initialization)
+  null, // SteamGridDB service (will be set after initialization)
+  steamService // Steam service (always available)
+);
+
+// Function to update metadata fetcher with initialized services
+const updateMetadataFetcher = () => {
+  metadataFetcher.setIGDBService(igdbService);
+  metadataFetcher.setSteamGridDBService(steamGridDBService);
+  metadataFetcher.setSteamService(steamService);
+};
+
+const launcherService = new LauncherService(gameStore);
+const importService = new ImportService(steamService, xboxService, appConfigService, metadataFetcher);
+
 // Initialize on startup (wrapped in IIFE to handle async)
 (async () => {
   await initializeIGDBService();
+  await initializeSteamGridDBService();
+  updateMetadataFetcher();
 })();
 
 // Try to set default Steam path if it exists
@@ -705,7 +750,13 @@ ipcMain.handle('metadata:fetchAndUpdate', async (_event, gameId: string, title: 
     // Extract Steam App ID if it's a Steam game
     const steamAppId = gameId.startsWith('steam-') ? gameId.replace('steam-', '') : undefined;
     const metadata = await metadataFetcher.searchArtwork(title, steamAppId);
-    const success = await gameStore.updateGameMetadata(gameId, metadata.boxArtUrl, metadata.bannerUrl);
+    const success = await gameStore.updateGameMetadata(
+      gameId, 
+      metadata.boxArtUrl, 
+      metadata.bannerUrl,
+      metadata.logoUrl,
+      metadata.heroUrl
+    );
     return { success, metadata };
   } catch (error) {
     console.error('Error in metadata:fetchAndUpdate handler:', error);
@@ -715,7 +766,9 @@ ipcMain.handle('metadata:fetchAndUpdate', async (_event, gameId: string, title: 
 
 ipcMain.handle('metadata:setIGDBConfig', async (_event, config: IGDBConfig) => {
   try {
-    metadataFetcher.setIGDBConfig(config);
+    // Create IGDB service with new config
+    igdbService = new IGDBService(config.clientId, config.accessToken);
+    updateMetadataFetcher();
     return true;
   } catch (error) {
     console.error('Error in metadata:setIGDBConfig handler:', error);
@@ -724,13 +777,9 @@ ipcMain.handle('metadata:setIGDBConfig', async (_event, config: IGDBConfig) => {
 });
 
 ipcMain.handle('metadata:setMockMode', async (_event, enabled: boolean) => {
-  try {
-    metadataFetcher.setMockMode(enabled);
-    return true;
-  } catch (error) {
-    console.error('Error in metadata:setMockMode handler:', error);
-    return false;
-  }
+  // This is now handled automatically by provider availability
+  // Keep for backward compatibility but don't do anything
+  return true;
 });
 
 // IGDB search metadata handler
@@ -741,6 +790,86 @@ ipcMain.handle('metadata:searchMetadata', async (_event, gameTitle: string) => {
     }
     
     const results = await igdbService.searchGame(gameTitle);
+    
+    // Fetch logos from SteamGridDB for each result if available
+    const sgdbService = steamGridDBService;
+    if (sgdbService && results.length > 0) {
+      console.log(`[Logo Search] Searching SteamGridDB for logos for ${results.length} games`);
+      const resultsWithLogos = await Promise.all(
+        results.map(async (result) => {
+          try {
+            // Try multiple search strategies to find matching game
+            let sgdbGames: any[] = [];
+            
+            // Strategy 1: Search by exact IGDB game name
+            try {
+              sgdbGames = await sgdbService.searchGame(result.name);
+            } catch (err) {
+              console.debug(`[Logo Search] Strategy 1 failed for "${result.name}":`, err);
+            }
+            
+            // Strategy 2: If no results, try the original search query
+            if (sgdbGames.length === 0 && gameTitle !== result.name) {
+              try {
+                sgdbGames = await sgdbService.searchGame(gameTitle);
+              } catch (err) {
+                console.debug(`[Logo Search] Strategy 2 failed for "${gameTitle}":`, err);
+              }
+            }
+            
+            // Strategy 3: Try without special characters/common words
+            if (sgdbGames.length === 0) {
+              const simplifiedName = result.name
+                .replace(/[™®©]/g, '')
+                .replace(/\s*:\s*/g, ' ')
+                .trim();
+              if (simplifiedName !== result.name) {
+                try {
+                  sgdbGames = await sgdbService.searchGame(simplifiedName);
+                } catch (err) {
+                  console.debug(`[Logo Search] Strategy 3 failed for "${simplifiedName}":`, err);
+                }
+              }
+            }
+            
+            if (sgdbGames.length > 0) {
+              // Try to find the best matching game (prefer verified games)
+              let selectedGame = sgdbGames.find(g => g.verified) || sgdbGames[0];
+              const gameId = selectedGame.id;
+              console.log(`[Logo Search] Found SteamGridDB game ${gameId} ("${selectedGame.name}") for "${result.name}", fetching logos...`);
+              
+              const logos = await sgdbService.getLogos(gameId);
+              
+              if (logos.length > 0) {
+                // Filter out NSFW/humor/epilepsy content and get highest scored logo
+                const suitableLogos = logos.filter(img => !img.nsfw && !img.humor && !img.epilepsy);
+                if (suitableLogos.length > 0) {
+                  const bestLogo = suitableLogos.sort((a, b) => b.score - a.score)[0];
+                  console.log(`[Logo Search] ✓ Found logo for "${result.name}": ${bestLogo.url} (score: ${bestLogo.score})`);
+                  result.logoUrl = bestLogo.url;
+                } else {
+                  console.log(`[Logo Search] No suitable logo found for "${result.name}" (${logos.length} logos, all filtered out)`);
+                }
+              } else {
+                console.log(`[Logo Search] No logos available for SteamGridDB game ${gameId} ("${selectedGame.name}")`);
+              }
+            } else {
+              console.log(`[Logo Search] No SteamGridDB match found for "${result.name}" (tried: "${result.name}", "${gameTitle}")`);
+            }
+          } catch (err) {
+            // Log errors more prominently for debugging
+            console.error(`[Logo Search] Error fetching logo for "${result.name}":`, err);
+          }
+          return result;
+        })
+      );
+      const logosFound = resultsWithLogos.filter(r => r.logoUrl).length;
+      console.log(`[Logo Search] Completed: ${logosFound}/${results.length} games have logos`);
+      return { success: true, results: resultsWithLogos };
+    } else if (!sgdbService) {
+      console.warn('[Logo Search] SteamGridDB service not available - skipping logo search. Please configure SteamGridDB API key in Settings > APIs.');
+    }
+    
     return { success: true, results };
   } catch (error) {
     console.error('Error in metadata:searchMetadata handler:', error);
@@ -748,6 +877,184 @@ ipcMain.handle('metadata:searchMetadata', async (_event, gameTitle: string) => {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error occurred',
       results: [],
+    };
+  }
+});
+
+// Search games across all providers (IGDB and SteamGridDB)
+ipcMain.handle('metadata:searchGames', async (_event, gameTitle: string) => {
+  try {
+    const results = await metadataFetcher.searchGames(gameTitle);
+    
+    // Transform results to include additional info for display
+    const transformedResults = await Promise.all(
+      results.map(async (result) => {
+        const transformed: any = { ...result };
+        
+        // Try to get more details if it's an IGDB result
+        if (result.source === 'igdb' && result.externalId && igdbService) {
+          try {
+            // Search IGDB to get the full game details
+            const igdbResults = await igdbService.searchGame(String(result.externalId));
+            const igdbResult = igdbResults.find(r => r.id === result.externalId) || igdbResults[0];
+            
+            if (igdbResult) {
+              // Extract year from release date
+              if (igdbResult.releaseDate) {
+                const date = new Date(igdbResult.releaseDate * 1000);
+                transformed.year = date.getFullYear();
+              }
+              // Extract platform
+              if (igdbResult.platform) {
+                transformed.platform = igdbResult.platform;
+              }
+            }
+          } catch (err) {
+            console.warn('Error fetching additional details for IGDB result:', err);
+          }
+        }
+        
+        // For SteamGridDB, the search results don't include year/platform in the basic search
+        // We could fetch game details, but that would be slow. For now, just return basic info.
+        
+        return transformed;
+      })
+    );
+    
+    return { success: true, results: transformedResults };
+  } catch (error) {
+    console.error('Error in metadata:searchGames handler:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error occurred',
+      results: [],
+    };
+  }
+});
+
+// Fetch and update metadata by provider ID
+ipcMain.handle('metadata:fetchAndUpdateByProviderId', async (_event, gameId: string, providerId: string, providerSource: string) => {
+  try {
+    // Get the game to know its title
+    const games = await gameStore.getLibrary();
+    const game = games.find(g => g.id === gameId);
+    if (!game) {
+      return { success: false, error: 'Game not found' };
+    }
+    
+    // Extract Steam App ID if it's a Steam game
+    const steamAppId = gameId.startsWith('steam-') ? gameId.replace('steam-', '') : undefined;
+    
+    // Fetch metadata using the specific provider ID
+    let metadata;
+    
+    if (providerSource === 'igdb') {
+      // Extract IGDB game ID from provider ID (format: "igdb-123")
+      const igdbGameId = parseInt(providerId.replace('igdb-', ''), 10);
+      
+      if (isNaN(igdbGameId) || !igdbService) {
+        return { success: false, error: 'Invalid IGDB ID or service not available' };
+      }
+      
+      // Search IGDB for the specific game by ID
+      const igdbResults = await igdbService.searchGame(String(igdbGameId));
+      const igdbResult = igdbResults.find(r => r.id === igdbGameId) || igdbResults[0];
+      
+      if (igdbResult) {
+        // Use the game title from IGDB result to fetch complete metadata
+        metadata = await metadataFetcher.searchArtwork(igdbResult.name, steamAppId);
+      } else {
+        return { success: false, error: 'Game not found in IGDB' };
+      }
+    } else if (providerSource === 'steamgriddb') {
+      // Extract SteamGridDB game ID from provider ID (format: "steamgriddb-123")
+      const sgdbGameId = parseInt(providerId.replace('steamgriddb-', ''), 10);
+      
+      if (isNaN(sgdbGameId) || !steamGridDBService) {
+        return { success: false, error: 'Invalid SteamGridDB ID or service not available' };
+      }
+      
+      // Get metadata directly from SteamGridDB
+      const sgdbMetadata = await steamGridDBService.getGameMetadata(sgdbGameId);
+      
+      // Also try to get IGDB description if available
+      let igdbDescription = null;
+      if (igdbService) {
+        const igdbResults = await igdbService.searchGame(game.title);
+        if (igdbResults.length > 0) {
+          // Use the first result's name to get description
+          const descriptionResult = await metadataFetcher.searchArtwork(igdbResults[0].name, steamAppId);
+          igdbDescription = {
+            description: descriptionResult.description,
+            summary: descriptionResult.summary,
+            releaseDate: descriptionResult.releaseDate,
+            genres: descriptionResult.genres,
+            developers: descriptionResult.developers,
+            publishers: descriptionResult.publishers,
+            ageRating: descriptionResult.ageRating,
+            rating: descriptionResult.rating,
+            platforms: descriptionResult.platforms,
+            categories: descriptionResult.categories,
+          };
+        }
+      }
+      
+      metadata = {
+        boxArtUrl: sgdbMetadata.boxArtUrl,
+        bannerUrl: sgdbMetadata.bannerUrl,
+        logoUrl: sgdbMetadata.logoUrl,
+        heroUrl: sgdbMetadata.heroUrl,
+        description: igdbDescription?.description,
+        summary: igdbDescription?.summary,
+        releaseDate: igdbDescription?.releaseDate,
+        genres: igdbDescription?.genres,
+        developers: igdbDescription?.developers,
+        publishers: igdbDescription?.publishers,
+        ageRating: igdbDescription?.ageRating,
+        rating: igdbDescription?.rating,
+        platforms: igdbDescription?.platforms,
+        categories: igdbDescription?.categories,
+      };
+    } else {
+      return { success: false, error: `Unknown provider source: ${providerSource}` };
+    }
+    
+    if (!metadata) {
+      return { success: false, error: 'Failed to fetch metadata' };
+    }
+    
+    // Update game metadata in store
+    const success = await gameStore.updateGameMetadata(
+      gameId,
+      metadata.boxArtUrl,
+      metadata.bannerUrl,
+      metadata.logoUrl,
+      metadata.heroUrl
+    );
+    
+    // Also update other metadata fields if available
+    if (success) {
+      const updatedGame: Game = {
+        ...game,
+        description: metadata.description || metadata.summary || game.description,
+        genres: metadata.genres || game.genres,
+        releaseDate: metadata.releaseDate || game.releaseDate,
+        developers: metadata.developers || game.developers,
+        publishers: metadata.publishers || game.publishers,
+        ageRating: metadata.ageRating || game.ageRating,
+        userScore: metadata.rating ? Math.round(metadata.rating) : game.userScore,
+        platform: metadata.platforms?.join(', ') || game.platform,
+      };
+      await gameStore.saveGame(updatedGame);
+    }
+    
+    return { success, metadata };
+  } catch (error) {
+    console.error('Error in metadata:fetchAndUpdateByProviderId handler:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error occurred',
+      metadata: null,
     };
   }
 });
@@ -883,10 +1190,19 @@ ipcMain.handle('import:scanFolderForExecutables', async (_event, folderPath: str
       /patch/i,
       /repair/i,
       /config/i,
+      /gamelaunchhelper\.exe$/i,
+      /bootstrapper\.exe$/i,
     ];
     
     const shouldExclude = (fileName: string): boolean => {
       const lowerName = fileName.toLowerCase();
+      // Check exact matches first for common helper executables
+      if (lowerName === 'gamelaunchhelper.exe' || 
+          lowerName === 'bootstrapper.exe' ||
+          lowerName === 'gamelaunchhelper' ||
+          lowerName === 'bootstrapper') {
+        return true;
+      }
       return excludePatterns.some(pattern => pattern.test(lowerName));
     };
     
@@ -1062,6 +1378,96 @@ ipcMain.handle('appConfig:saveAll', async (_event, configs: Array<{ id: string; 
   }
 });
 
+// Launcher detection IPC handlers
+ipcMain.handle('launcher:detectAll', async () => {
+  try {
+    const detected = await launcherDetectionService.detectAllLaunchers();
+    return detected;
+  } catch (error) {
+    console.error('Error detecting launchers:', error);
+    return [];
+  }
+});
+
+ipcMain.handle('launcher:detect', async (_event, launcherId: string) => {
+  try {
+    const detected = await launcherDetectionService.detectLauncher(launcherId);
+    return detected;
+  } catch (error) {
+    console.error('Error detecting launcher:', error);
+    return null;
+  }
+});
+
+// Background scan IPC handlers
+ipcMain.handle('appConfig:getBackgroundScanEnabled', async () => {
+  try {
+    return await appConfigService.getBackgroundScanEnabled();
+  } catch (error) {
+    console.error('Error getting background scan status:', error);
+    return false;
+  }
+});
+
+ipcMain.handle('appConfig:setBackgroundScanEnabled', async (_event, enabled: boolean) => {
+  try {
+    await appConfigService.setBackgroundScanEnabled(enabled);
+    return { success: true };
+  } catch (error) {
+    console.error('Error setting background scan status:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+});
+
+ipcMain.handle('appConfig:getLastBackgroundScan', async () => {
+  try {
+    return await appConfigService.getLastBackgroundScan();
+  } catch (error) {
+    console.error('Error getting last background scan:', error);
+    return undefined;
+  }
+});
+
+// Background scan function
+const performBackgroundScan = async () => {
+  try {
+    const enabled = await appConfigService.getBackgroundScanEnabled();
+    if (!enabled) {
+      return;
+    }
+
+    console.log('Starting background scan...');
+    const configs = await appConfigService.getAppConfigs();
+    const enabledConfigs = Object.values(configs).filter((config: any) => config.enabled && config.path);
+
+    for (const config of enabledConfigs) {
+      try {
+        if (config.id === 'steam') {
+          await steamService.setSteamPath(config.path);
+          const games = steamService.scanSteamGames();
+          if (games.length > 0) {
+            // Check for new games and notify user (could send IPC message to renderer)
+            console.log(`Background scan found ${games.length} Steam games`);
+          }
+        } else if (config.id === 'xbox') {
+          const games = xboxService.scanGames(config.path);
+          if (games.length > 0) {
+            console.log(`Background scan found ${games.length} Xbox games`);
+          }
+        }
+        // Add other launchers as needed
+      } catch (err) {
+        console.error(`Error scanning ${config.id} in background:`, err);
+      }
+    }
+
+    await appConfigService.setLastBackgroundScan(Date.now());
+    console.log('Background scan completed');
+  } catch (error) {
+    console.error('Error in background scan:', error);
+  }
+};
+
 // Xbox Game Pass scanning IPC handler
 ipcMain.handle('xbox:scanGames', async (_event, xboxPath: string, autoMerge: boolean = false) => {
   try {
@@ -1094,6 +1500,89 @@ ipcMain.handle('xbox:scanGames', async (_event, xboxPath: string, autoMerge: boo
   } catch (error) {
     console.error('Error in xbox:scanGames handler:', error);
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error', games: [] };
+  }
+});
+
+// Import service IPC handlers
+ipcMain.handle('import:scanAllSources', async () => {
+  try {
+    const results = await importService.scanAllSources();
+    return { success: true, games: results };
+  } catch (error) {
+    console.error('Error in import:scanAllSources handler:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error', games: [] };
+  }
+});
+
+// Search for specific image types from SteamGridDB
+ipcMain.handle('metadata:searchImages', async (_event, query: string, imageType: 'boxart' | 'banner' | 'logo', steamAppId?: string) => {
+  try {
+    if (!steamGridDBService) {
+      return { success: false, error: 'SteamGridDB service not available', images: [] };
+    }
+
+    // Search for games on SteamGridDB
+    const games = await steamGridDBService.searchGame(query);
+    
+    if (games.length === 0) {
+      return { success: true, images: [] };
+    }
+
+    // Fetch images for each game (limit to 10 games)
+    const imageResults: Array<{ gameId: number; gameName: string; images: Array<{ url: string; score: number; width: number; height: number }> }> = [];
+    
+    for (const game of games.slice(0, 10)) {
+      try {
+        let images: Array<{ url: string; score: number; width: number; height: number }> = [];
+        
+        if (imageType === 'boxart') {
+          const verticalGrids = await steamGridDBService.getVerticalGrids(game.id);
+          images = verticalGrids
+            .filter(img => !img.nsfw && !img.humor && !img.epilepsy)
+            .map(img => ({
+              url: img.url,
+              score: img.score,
+              width: img.width,
+              height: img.height,
+            }));
+        } else if (imageType === 'banner') {
+          const heroes = await steamGridDBService.getHeroes(game.id);
+          images = heroes
+            .filter(img => !img.nsfw && !img.humor && !img.epilepsy)
+            .map(img => ({
+              url: img.url,
+              score: img.score,
+              width: img.width,
+              height: img.height,
+            }));
+        } else if (imageType === 'logo') {
+          const logos = await steamGridDBService.getLogos(game.id);
+          images = logos
+            .filter(img => !img.nsfw && !img.humor && !img.epilepsy)
+            .map(img => ({
+              url: img.url,
+              score: img.score,
+              width: img.width,
+              height: img.height,
+            }));
+        }
+
+        if (images.length > 0) {
+          imageResults.push({
+            gameId: game.id,
+            gameName: game.name,
+            images: images.sort((a, b) => b.score - a.score), // Sort by score descending
+          });
+        }
+      } catch (err) {
+        console.error(`Error fetching ${imageType} for game ${game.id}:`, err);
+      }
+    }
+
+    return { success: true, images: imageResults };
+  } catch (error) {
+    console.error('Error in metadata:searchImages handler:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error', images: [] };
   }
 });
 
@@ -1136,11 +1625,15 @@ ipcMain.handle('api:getCredentials', async () => {
   }
 });
 
-ipcMain.handle('api:saveCredentials', async (_event, credentials: { igdbClientId?: string; igdbClientSecret?: string }) => {
+ipcMain.handle('api:saveCredentials', async (_event, credentials: { igdbClientId?: string; igdbClientSecret?: string; steamGridDBApiKey?: string }) => {
   try {
     await apiCredentialsService.saveCredentials(credentials);
     // Reinitialize IGDB service with new credentials
     await initializeIGDBService();
+    // Reinitialize SteamGridDB service with new API key
+    await initializeSteamGridDBService();
+    // Update metadata fetcher with new services
+    updateMetadataFetcher();
     return { success: true };
   } catch (error) {
     console.error('Error saving API credentials:', error);
@@ -1219,6 +1712,68 @@ ipcMain.handle('app:openExternal', async (_event, url: string) => {
     return { success: true };
   } catch (error) {
     console.error('Error opening external URL:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+});
+
+// Toggle DevTools handler (development only)
+ipcMain.handle('app:toggleDevTools', async () => {
+  try {
+    if (win) {
+      if (win.webContents.isDevToolsOpened()) {
+        win.webContents.closeDevTools();
+      } else {
+        win.webContents.openDevTools();
+      }
+      return { success: true };
+    }
+    return { success: false, error: 'Window not available' };
+  } catch (error) {
+    console.error('Error toggling DevTools:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+});
+
+// Window control handlers
+ipcMain.handle('app:minimizeWindow', async () => {
+  try {
+    if (win) {
+      win.minimize();
+      return { success: true };
+    }
+    return { success: false, error: 'Window not available' };
+  } catch (error) {
+    console.error('Error minimizing window:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+});
+
+ipcMain.handle('app:maximizeWindow', async () => {
+  try {
+    if (win) {
+      if (win.isMaximized()) {
+        win.unmaximize();
+      } else {
+        win.maximize();
+      }
+      return { success: true };
+    }
+    return { success: false, error: 'Window not available' };
+  } catch (error) {
+    console.error('Error maximizing window:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+});
+
+ipcMain.handle('app:closeWindow', async () => {
+  try {
+    if (win) {
+      win.close();
+      return { success: true };
+    }
+    return { success: false, error: 'Window not available' };
+  } catch (error) {
+    console.error('Error closing window:', error);
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
 });
