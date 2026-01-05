@@ -142,8 +142,15 @@ export class GameStore {
    * Merge Steam games into the store
    * Creates Game objects from SteamGame objects, avoiding duplicates
    * Preserves existing game data including lockedFields
+   * @param steamGames - Array of Steam games to merge
+   * @param imageCacheService - Optional image cache service for local storage
+   * @param shouldCacheImages - Whether to cache images locally (default: false)
    */
-  async mergeSteamGames(steamGames: SteamGame[]): Promise<void> {
+  async mergeSteamGames(
+    steamGames: SteamGame[], 
+    imageCacheService?: { cacheImages: (urls: { boxArtUrl?: string; bannerUrl?: string; logoUrl?: string; heroUrl?: string }, gameId: string) => Promise<{ boxArtUrl?: string; bannerUrl?: string; logoUrl?: string; heroUrl?: string }> },
+    shouldCacheImages: boolean = false
+  ): Promise<void> {
     const store = await this.ensureStore();
     const existingGames = await this.getLibrary();
     const gamesMap = new Map<string, Game>();
@@ -161,29 +168,47 @@ export class GameStore {
       // If game exists, preserve lockedFields and only update unlocked fields
       if (existingGame && existingGame.platform === 'steam') {
         const lockedFields = existingGame.lockedFields || {};
+        let boxArtUrl = lockedFields.boxArtUrl 
+          ? existingGame.boxArtUrl 
+          : `https://cdn.cloudflare.steamstatic.com/steam/apps/${steamGame.appId}/header.jpg`;
+        let bannerUrl = lockedFields.bannerUrl 
+          ? existingGame.bannerUrl 
+          : `https://cdn.cloudflare.steamstatic.com/steam/apps/${steamGame.appId}/library_600x900.jpg`;
+        
+        // Cache images if enabled and not locked
+        if (shouldCacheImages && imageCacheService && !lockedFields.boxArtUrl && !lockedFields.bannerUrl) {
+          const cached = await imageCacheService.cacheImages({ boxArtUrl, bannerUrl }, gameId);
+          boxArtUrl = cached.boxArtUrl || boxArtUrl;
+          bannerUrl = cached.bannerUrl || bannerUrl;
+        }
+        
         const updatedGame: Game = {
           ...existingGame, // Preserve all existing fields
           // Only update title if not locked
           title: lockedFields.title ? existingGame.title : steamGame.name,
-          // Only update boxArtUrl if not locked
-          boxArtUrl: lockedFields.boxArtUrl 
-            ? existingGame.boxArtUrl 
-            : `https://cdn.cloudflare.steamstatic.com/steam/apps/${steamGame.appId}/header.jpg`,
-          // Only update bannerUrl if not locked
-          bannerUrl: lockedFields.bannerUrl 
-            ? existingGame.bannerUrl 
-            : `https://cdn.cloudflare.steamstatic.com/steam/apps/${steamGame.appId}/library_600x900.jpg`,
+          boxArtUrl,
+          bannerUrl,
         };
         gamesMap.set(gameId, updatedGame);
       } else if (!existingGame) {
         // New game - create fresh
+        let boxArtUrl = `https://cdn.cloudflare.steamstatic.com/steam/apps/${steamGame.appId}/header.jpg`;
+        let bannerUrl = `https://cdn.cloudflare.steamstatic.com/steam/apps/${steamGame.appId}/library_600x900.jpg`;
+        
+        // Cache images if enabled
+        if (shouldCacheImages && imageCacheService) {
+          const cached = await imageCacheService.cacheImages({ boxArtUrl, bannerUrl }, gameId);
+          boxArtUrl = cached.boxArtUrl || boxArtUrl;
+          bannerUrl = cached.bannerUrl || bannerUrl;
+        }
+        
         const game: Game = {
           id: gameId,
           title: steamGame.name,
           platform: 'steam',
           exePath: '', // Steam games don't have direct exe paths, would need to construct from installDir
-          boxArtUrl: `https://cdn.cloudflare.steamstatic.com/steam/apps/${steamGame.appId}/header.jpg`,
-          bannerUrl: `https://cdn.cloudflare.steamstatic.com/steam/apps/${steamGame.appId}/library_600x900.jpg`,
+          boxArtUrl,
+          bannerUrl,
         };
         gamesMap.set(gameId, game);
       }

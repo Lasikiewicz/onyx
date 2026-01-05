@@ -140,8 +140,9 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
   });
   const [showLogoOverBoxart, setShowLogoOverBoxart] = useState(true);
   const [logoPosition, setLogoPosition] = useState<'top' | 'middle' | 'bottom' | 'underneath'>('middle');
+  const [appVersion, setAppVersion] = useState<string>('0.0.0');
 
-  // Load settings on mount
+  // Load settings and version on mount
   useEffect(() => {
     if (isOpen) {
       const loadSettings = async () => {
@@ -159,6 +160,14 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
           });
           setShowLogoOverBoxart(prefs.showLogoOverBoxart ?? true);
           setLogoPosition(prefs.logoPosition ?? 'middle');
+          
+          // Load app version
+          try {
+            const version = await window.electronAPI.getVersion();
+            setAppVersion(version);
+          } catch (error) {
+            console.error('Error loading app version:', error);
+          }
         } catch (error) {
           console.error('Error loading Onyx settings:', error);
         }
@@ -1376,7 +1385,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                     }}
                   />
                   <h2 className="text-3xl font-bold text-white tracking-wide">Onyx</h2>
-                  <span className="text-sm font-medium text-slate-500 mt-1">v1.0.0</span>
+                  <span className="text-sm font-medium text-slate-500 mt-1">v{appVersion}</span>
                 </div>
 
                 {/* Bio / Story */}

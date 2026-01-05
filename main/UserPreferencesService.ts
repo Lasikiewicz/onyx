@@ -56,6 +56,7 @@ export interface UserPreferences {
     height?: number;
     isMaximized?: boolean;
   };
+  storeMetadataLocally?: boolean; // Store metadata and images locally by default
 }
 
 interface UserPreferencesSchema {
@@ -125,6 +126,7 @@ export class UserPreferencesService {
             },
             ignoredGames: [],
             windowState: undefined,
+            storeMetadataLocally: true, // Default to local storage
           },
         },
       });
@@ -194,6 +196,7 @@ export class UserPreferencesService {
       },
       ignoredGames: [],
       windowState: undefined,
+      storeMetadataLocally: true, // Default to local storage
     });
   }
 
@@ -252,6 +255,7 @@ export class UserPreferencesService {
       },
       ignoredGames: [],
       windowState: undefined,
+      storeMetadataLocally: true, // Default to local storage
     });
     store.set('preferences', { ...current, ...preferences });
   }
@@ -311,6 +315,7 @@ export class UserPreferencesService {
       },
       ignoredGames: [],
       windowState: undefined,
+      storeMetadataLocally: true, // Default to local storage
     });
   }
 }

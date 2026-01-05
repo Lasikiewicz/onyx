@@ -100,6 +100,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   scanAllSources: () => ipcRenderer.invoke('import:scanAllSources'),
   // Image search methods
   searchImages: (query: string, imageType: 'boxart' | 'banner' | 'logo', steamAppId?: string) => ipcRenderer.invoke('metadata:searchImages', query, imageType, steamAppId),
+  // App version
+  getVersion: () => ipcRenderer.invoke('app:getVersion'),
 });
 
 // Debug: Log that electronAPI was exposed

@@ -1,6 +1,6 @@
 import { app, BrowserWindow, ipcMain, dialog, Menu, protocol, Tray, nativeImage, shell } from 'electron';
 import path from 'node:path';
-import { readdirSync, statSync, existsSync } from 'node:fs';
+import { readdirSync, statSync, existsSync, readFileSync } from 'node:fs';
 import { platform } from 'node:os';
 import dotenv from 'dotenv';
 import { SteamService } from './SteamService.js';
@@ -14,6 +14,7 @@ import { UserPreferencesService } from './UserPreferencesService.js';
 import { APICredentialsService } from './APICredentialsService.js';
 import { LauncherDetectionService } from './LauncherDetectionService.js';
 import { ImportService } from './ImportService.js';
+import { ImageCacheService } from './ImageCacheService.js';
 
 // Load environment variables
 dotenv.config();
@@ -261,28 +262,57 @@ function createTray() {
     }
   }
 
-  const contextMenu = Menu.buildFromTemplate([
-    {
-      label: 'Show Onyx',
-      click: () => {
-        if (win) {
-          win.show();
-          win.focus();
-        } else {
-          createWindow();
-        }
-      },
-    },
-    {
-      label: 'Exit',
-      click: () => {
-        app.quit();
-      },
-    },
-  ]);
-
   tray.setToolTip('Onyx');
-  tray.setContextMenu(contextMenu);
+  
+  // Function to update the tray menu
+  const updateTrayMenu = async () => {
+    try {
+      const contextMenu = await buildTrayContextMenu();
+      if (tray) {
+        tray.setContextMenu(contextMenu);
+        console.log('[Tray Menu] Context menu updated');
+      }
+    } catch (error) {
+      console.error('[Tray Menu] Error updating context menu:', error);
+      // Set a fallback menu
+      const fallbackMenu = Menu.buildFromTemplate([
+        {
+          label: 'Show Onyx',
+          click: () => {
+            if (win) {
+              win.show();
+              win.focus();
+            } else {
+              createWindow();
+            }
+          },
+        },
+        {
+          label: 'Exit',
+          click: () => {
+            app.quit();
+          },
+        },
+      ]);
+      tray?.setContextMenu(fallbackMenu);
+    }
+  };
+  
+  // Build initial context menu
+  updateTrayMenu();
+  
+  // Update context menu on right-click to refresh recent games
+  // On Windows, we need to update before the menu is shown
+  tray.on('right-click', () => {
+    console.log('[Tray Menu] Right-click detected, refreshing menu...');
+    updateTrayMenu();
+  });
+  
+  // Also update on context-menu event (alternative for some platforms)
+  tray.on('context-menu', () => {
+    console.log('[Tray Menu] Context-menu event detected, refreshing menu...');
+    updateTrayMenu();
+  });
   
   tray.on('click', () => {
     if (win) {
@@ -618,6 +648,94 @@ const updateMetadataFetcher = () => {
 
 const launcherService = new LauncherService(gameStore);
 const importService = new ImportService(steamService, xboxService, appConfigService, metadataFetcher);
+const imageCacheService = new ImageCacheService();
+
+// Build dynamic tray context menu with recently played games
+async function buildTrayContextMenu(): Promise<Electron.Menu> {
+  const menuItems: Electron.MenuItemConstructorOptions[] = [];
+
+  // Get the 5 most recently played games
+  try {
+    const games = await gameStore.getLibrary();
+    console.log(`[Tray Menu] Total games in library: ${games.length}`);
+    
+    const visibleGames = games.filter(game => !game.hidden);
+    console.log(`[Tray Menu] Visible games: ${visibleGames.length}`);
+    
+    const gamesWithLastPlayed = visibleGames.filter(game => game.lastPlayed);
+    console.log(`[Tray Menu] Games with lastPlayed: ${gamesWithLastPlayed.length}`);
+    
+    let gamesToShow: Game[] = [];
+    
+    if (gamesWithLastPlayed.length > 0) {
+      // Sort by lastPlayed date, most recent first
+      gamesToShow = gamesWithLastPlayed
+        .sort((a, b) => {
+          const dateA = new Date(a.lastPlayed || 0).getTime();
+          const dateB = new Date(b.lastPlayed || 0).getTime();
+          return dateB - dateA; // Most recent first
+        })
+        .slice(0, 5);
+    } else if (visibleGames.length > 0) {
+      // Fallback: if no games have lastPlayed, show first 5 visible games
+      gamesToShow = visibleGames.slice(0, 5);
+      console.log(`[Tray Menu] No games with lastPlayed, showing first ${gamesToShow.length} visible games`);
+    }
+
+    console.log(`[Tray Menu] Games to show in menu: ${gamesToShow.length}`);
+    if (gamesToShow.length > 0) {
+      gamesToShow.forEach((game, index) => {
+        const label = game.title.length > 50 ? game.title.substring(0, 47) + '...' : game.title;
+        console.log(`[Tray Menu] Adding game ${index + 1}: ${label}${game.lastPlayed ? ` (lastPlayed: ${game.lastPlayed})` : ''}`);
+        menuItems.push({
+          label: label,
+          click: async () => {
+            try {
+              await launcherService.launchGame(game.id);
+              // Minimize window if preference is set
+              try {
+                const prefs = await userPreferencesService.getPreferences();
+                if (prefs.minimizeOnGameLaunch && win) {
+                  win.minimize();
+                }
+              } catch (error) {
+                console.error('Error checking minimize preference:', error);
+              }
+            } catch (error) {
+              console.error('Error launching game from tray:', error);
+            }
+          },
+        });
+      });
+      menuItems.push({ type: 'separator' });
+    }
+  } catch (error) {
+    console.error('[Tray Menu] Error building tray menu with recent games:', error);
+  }
+
+  // Add standard menu items
+  menuItems.push(
+    {
+      label: 'Show Onyx',
+      click: () => {
+        if (win) {
+          win.show();
+          win.focus();
+        } else {
+          createWindow();
+        }
+      },
+    },
+    {
+      label: 'Exit',
+      click: () => {
+        app.quit();
+      },
+    }
+  );
+
+  return Menu.buildFromTemplate(menuItems);
+}
 
 // Initialize on startup (wrapped in IIFE to handle async)
 (async () => {
@@ -755,14 +873,34 @@ ipcMain.handle('metadata:fetchAndUpdate', async (_event, gameId: string, title: 
     // Extract Steam App ID if it's a Steam game
     const steamAppId = gameId.startsWith('steam-') ? gameId.replace('steam-', '') : undefined;
     const metadata = await metadataFetcher.searchArtwork(title, steamAppId);
+    
+    // Check if local storage is enabled
+    const prefs = await userPreferencesService.getPreferences();
+    let finalMetadata = metadata;
+    
+    if (prefs.storeMetadataLocally !== false) { // Default to true
+      // Cache images locally
+      const cachedImages = await imageCacheService.cacheImages({
+        boxArtUrl: metadata.boxArtUrl,
+        bannerUrl: metadata.bannerUrl,
+        logoUrl: metadata.logoUrl,
+        heroUrl: metadata.heroUrl,
+      }, gameId);
+      
+      finalMetadata = {
+        ...metadata,
+        ...cachedImages,
+      };
+    }
+    
     const success = await gameStore.updateGameMetadata(
       gameId, 
-      metadata.boxArtUrl, 
-      metadata.bannerUrl,
-      metadata.logoUrl,
-      metadata.heroUrl
+      finalMetadata.boxArtUrl, 
+      finalMetadata.bannerUrl,
+      finalMetadata.logoUrl,
+      finalMetadata.heroUrl
     );
-    return { success, metadata };
+    return { success, metadata: finalMetadata };
   } catch (error) {
     console.error('Error in metadata:fetchAndUpdate handler:', error);
     return { success: false, metadata: null };
@@ -1028,6 +1166,25 @@ ipcMain.handle('metadata:fetchAndUpdateByProviderId', async (_event, gameId: str
       return { success: false, error: 'Failed to fetch metadata' };
     }
     
+    // Check if local storage is enabled
+    const prefs = await userPreferencesService.getPreferences();
+    let finalMetadata = metadata;
+    
+    if (prefs.storeMetadataLocally !== false) { // Default to true
+      // Cache images locally
+      const cachedImages = await imageCacheService.cacheImages({
+        boxArtUrl: metadata.boxArtUrl,
+        bannerUrl: metadata.bannerUrl,
+        logoUrl: metadata.logoUrl,
+        heroUrl: metadata.heroUrl,
+      }, gameId);
+      
+      finalMetadata = {
+        ...metadata,
+        ...cachedImages,
+      };
+    }
+    
     // Update game metadata in store
     const success = await gameStore.updateGameMetadata(
       gameId,
@@ -1141,16 +1298,30 @@ ipcMain.handle('launcher:launchGame', async (_event, gameId: string) => {
   try {
     const result = await launcherService.launchGame(gameId);
     
-    // If game launch was successful, check if we should minimize the window
+    // If game launch was successful, update lastPlayed and refresh tray menu
     if (result.success) {
       try {
+        // Update lastPlayed timestamp for the game
+        const games = await gameStore.getLibrary();
+        const game = games.find(g => g.id === gameId);
+        if (game) {
+          game.lastPlayed = new Date().toISOString();
+          await gameStore.saveGame(game);
+        }
+        
+        // Refresh tray menu to show updated recent games
+        if (tray) {
+          const contextMenu = await buildTrayContextMenu();
+          tray.setContextMenu(contextMenu);
+        }
+        
         const prefs = await userPreferencesService.getPreferences();
         if (prefs.minimizeOnGameLaunch && win) {
           win.minimize();
         }
       } catch (error) {
-        console.error('Error checking minimize preference:', error);
-        // Don't fail the game launch if preference check fails
+        console.error('Error updating game or tray menu:', error);
+        // Don't fail the game launch if update fails
       }
     }
     
@@ -1347,7 +1518,10 @@ ipcMain.handle('steam:scanGamesWithPath', async (_event, steamPath?: string, aut
     
     // Only merge if autoMerge is true (for backward compatibility)
     if (autoMerge && steamGames.length > 0) {
-      await gameStore.mergeSteamGames(steamGames);
+      // Check if local storage is enabled
+      const prefs = await userPreferencesService.getPreferences();
+      const shouldCache = prefs.storeMetadataLocally !== false; // Default to true
+      await gameStore.mergeSteamGames(steamGames, imageCacheService, shouldCache);
       console.log('Steam games merged into store');
     }
     
@@ -1677,6 +1851,24 @@ ipcMain.handle('app:requestExit', async () => {
 // Exit handler
 ipcMain.handle('app:exit', async () => {
   app.quit();
+});
+
+// Get app version handler
+ipcMain.handle('app:getVersion', async () => {
+  try {
+    // Read version from package.json
+    const packageJsonPath = path.join(__dirname, '../package.json');
+    if (existsSync(packageJsonPath)) {
+      const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf8'));
+      return packageJson.version || '0.0.0';
+    }
+    // Fallback to app.getVersion() if package.json not found
+    return app.getVersion();
+  } catch (error) {
+    console.error('Error getting app version:', error);
+    // Fallback to app.getVersion()
+    return app.getVersion();
+  }
 });
 
 // Minimize to tray handler
