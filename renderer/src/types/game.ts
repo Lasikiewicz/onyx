@@ -7,6 +7,7 @@ export interface Game {
   boxArtUrl: string;
   bannerUrl: string;
   logoUrl?: string;
+  logoSize?: number;
   heroUrl?: string;
   description?: string;
   genres?: string[];

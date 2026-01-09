@@ -8,9 +8,10 @@ interface GameCardProps {
   hideTitle?: boolean;
   showLogoOverBoxart?: boolean;
   logoPosition?: 'top' | 'middle' | 'bottom' | 'underneath';
+  useLogoInsteadOfBoxart?: boolean;
 }
 
-export const GameCard: React.FC<GameCardProps> = ({ game, hideTitle = false, showLogoOverBoxart = true, logoPosition = 'middle' }) => {
+export const GameCard: React.FC<GameCardProps> = ({ game, hideTitle = false, showLogoOverBoxart = true, logoPosition = 'middle', useLogoInsteadOfBoxart = false }) => {
   const formatPlaytime = (minutes?: number) => {
     if (!minutes) return 'Not Played';
     if (minutes < 60) return `${minutes} minutes`;
@@ -20,16 +21,27 @@ export const GameCard: React.FC<GameCardProps> = ({ game, hideTitle = false, sho
   };
 
   const isLogoUnderneath = game.logoUrl && showLogoOverBoxart && logoPosition === 'underneath';
+  
+  // Determine which image to show
+  const imageToShow = useLogoInsteadOfBoxart && game.logoUrl ? game.logoUrl : (game.boxArtUrl || game.bannerUrl);
+  const imageAlt = useLogoInsteadOfBoxart && game.logoUrl ? `${game.title} Logo` : game.title;
+  const imageClass = useLogoInsteadOfBoxart && game.logoUrl 
+    ? "w-full h-full object-contain transition-transform duration-300 group-hover:scale-110 p-4"
+    : "w-full h-full object-cover transition-transform duration-300 group-hover:scale-110";
+  
+  // Use rectangular aspect ratio for logo view
+  const aspectRatio = useLogoInsteadOfBoxart ? 'aspect-[16/9]' : 'aspect-[2/3]';
 
   return (
-    <div className="relative group overflow-hidden onyx-card aspect-[2/3] flex flex-col">
+    <div className={`relative group overflow-hidden onyx-card ${aspectRatio} flex flex-col`}>
       {/* Box art image container - takes flex-1 when logo is underneath, full height otherwise */}
       <div className={`relative ${isLogoUnderneath ? 'flex-1 min-h-0' : 'w-full h-full'}`}>
-        {(game.boxArtUrl || game.bannerUrl) ? (
+        {imageToShow ? (
           <img
-            src={game.boxArtUrl || game.bannerUrl}
-            alt={game.title}
-            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+            key={imageToShow}
+            src={imageToShow}
+            alt={imageAlt}
+            className={imageClass}
             onError={(e) => {
               const target = e.target as HTMLImageElement;
               // Prevent infinite retry loops - mark as handled immediately
@@ -62,7 +74,7 @@ export const GameCard: React.FC<GameCardProps> = ({ game, hideTitle = false, sho
               }
             }}
             onLoad={() => {
-              console.log('Successfully loaded image:', game.boxArtUrl || game.bannerUrl);
+              console.log('Successfully loaded image:', imageToShow);
             }}
           />
         ) : (
@@ -79,6 +91,7 @@ export const GameCard: React.FC<GameCardProps> = ({ game, hideTitle = false, sho
             'items-center'
           } justify-center`}>
             <img
+              key={game.logoUrl}
               src={game.logoUrl}
               alt={`${game.title} Logo`}
               className="max-w-full max-h-full object-contain drop-shadow-2xl"
@@ -115,6 +128,7 @@ export const GameCard: React.FC<GameCardProps> = ({ game, hideTitle = false, sho
       {isLogoUnderneath && (
         <div className="bg-black/80 p-2 flex items-center justify-center flex-shrink-0 border-t border-gray-800/50">
           <img
+            key={game.logoUrl}
             src={game.logoUrl}
             alt={`${game.title} Logo`}
             className="max-w-full max-h-12 object-contain"

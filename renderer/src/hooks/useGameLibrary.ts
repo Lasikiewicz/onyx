@@ -1,6 +1,17 @@
 import { useEffect, useState } from 'react';
 import { Game } from '../types/game';
 
+// Helper function to add cache buster to URLs
+function addCacheBuster(url: string, timestamp?: number): string {
+  if (!url) return url;
+  // Add timestamp as cache buster (only for local/http URLs, not for data URLs)
+  if (url.startsWith('onyx-local://') || url.startsWith('http://') || url.startsWith('https://')) {
+    const separator = url.includes('?') ? '&' : '?';
+    return `${url}${separator}t=${timestamp || Date.now()}`;
+  }
+  return url;
+}
+
 // Helper function to convert file:// URLs to onyx-local:// protocol
 function convertFileUrlToLocalProtocol(url: string): string {
   if (!url) return url;
@@ -60,12 +71,14 @@ export function useGameLibrary() {
       setError(null);
       const library = await window.electronAPI.getLibrary();
       // Convert file:// URLs to onyx-local:// when loading (for backward compatibility)
+      // Add cache-busting timestamp to force fresh image loads
+      const timestamp = Date.now();
       const convertedGames = library.map(game => ({
         ...game,
-        boxArtUrl: convertFileUrlToLocalProtocol(game.boxArtUrl),
-        bannerUrl: convertFileUrlToLocalProtocol(game.bannerUrl),
-        logoUrl: game.logoUrl ? convertFileUrlToLocalProtocol(game.logoUrl) : game.logoUrl,
-        heroUrl: game.heroUrl ? convertFileUrlToLocalProtocol(game.heroUrl) : game.heroUrl,
+        boxArtUrl: addCacheBuster(convertFileUrlToLocalProtocol(game.boxArtUrl), timestamp),
+        bannerUrl: addCacheBuster(convertFileUrlToLocalProtocol(game.bannerUrl), timestamp),
+        logoUrl: game.logoUrl ? addCacheBuster(convertFileUrlToLocalProtocol(game.logoUrl), timestamp) : game.logoUrl,
+        heroUrl: game.heroUrl ? addCacheBuster(convertFileUrlToLocalProtocol(game.heroUrl), timestamp) : game.heroUrl,
       }));
       setGames(convertedGames);
     } catch (err) {

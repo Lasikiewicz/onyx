@@ -12,7 +12,6 @@ import { SteamConfigModal } from './components/SteamConfigModal';
 import { SteamImportModal } from './components/SteamImportModal';
 import { GameEditor } from './components/GameEditor';
 import { TopBar } from './components/TopBar';
-import { BottomBar } from './components/BottomBar';
 import { MenuBar } from './components/MenuBar';
 import { UpdateLibraryModal } from './components/UpdateLibraryModal';
 import { OnyxSettingsModal } from './components/OnyxSettingsModal';
@@ -64,7 +63,7 @@ function App() {
   
   // Search and view state
   const [searchQuery, setSearchQuery] = useState('');
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [viewMode, setViewMode] = useState<'grid' | 'list' | 'logo'>('grid');
   const [activeSection] = useState('library');
   const [showTopBar] = useState(false);
   const [isUpdateLibraryOpen, setIsUpdateLibraryOpen] = useState(false);
@@ -115,7 +114,7 @@ function App() {
         if (prefs.showLogoOverBoxart !== undefined) setShowLogoOverBoxart(prefs.showLogoOverBoxart);
         if (prefs.logoPosition !== undefined) setLogoPosition(prefs.logoPosition);
         if (prefs.backgroundBlur !== undefined) setBackgroundBlur(prefs.backgroundBlur);
-        if (prefs.viewMode) setViewMode(prefs.viewMode as 'grid' | 'list');
+        if (prefs.viewMode) setViewMode(prefs.viewMode as 'grid' | 'list' | 'logo');
         if (prefs.backgroundMode) setBackgroundMode(prefs.backgroundMode as 'image' | 'color');
         if (prefs.backgroundColor) setBackgroundColor(prefs.backgroundColor);
         if (prefs.listViewOptions) setListViewOptions(prefs.listViewOptions);
@@ -1208,7 +1207,7 @@ function App() {
               <div className="h-full flex flex-col">
                 {filteredGames.length > 0 ? (
                   <div className="flex-1 overflow-y-auto">
-                    {viewMode === 'grid' ? (
+                    {viewMode === 'grid' || viewMode === 'logo' ? (
                       <LibraryGrid
                         games={filteredGames}
                         onReorder={handleReorder}
@@ -1228,6 +1227,7 @@ function App() {
                         hideGameTitles={hideGameTitles}
                         showLogoOverBoxart={showLogoOverBoxart}
                         logoPosition={logoPosition}
+                        useLogosInsteadOfBoxart={viewMode === 'logo'}
                       />
                     ) : (
                       <LibraryListView
@@ -1352,16 +1352,10 @@ function App() {
             setGameManagerInitialTab(tab);
             setIsGameManagerOpen(true);
           }}
-        />
-      </div>
-
-        {/* Bottom Bar */}
-        <BottomBar
-          game={activeGame}
-          onPlay={handlePlay}
           onFavorite={handleToggleFavorite}
           onEdit={handleEditGame}
         />
+      </div>
       </div>
 
       {/* Add Game Modal */}
@@ -1557,6 +1551,8 @@ function App() {
           y={simpleContextMenu.y}
           onClose={() => setSimpleContextMenu(null)}
           onEditAppearance={() => setShowAppearanceMenu(true)}
+          gridSize={gridSize}
+          onGridSizeChange={setGridSize}
         />
       )}
 
@@ -1594,6 +1590,8 @@ function App() {
           onListViewSizeChange={setListViewSize}
           autoSizeToFit={autoSizeToFit}
           onAutoSizeToFit={handleAutoSizeToFit}
+          gridSize={gridSize}
+          onGridSizeChange={setGridSize}
         />
       )}
 

@@ -11,18 +11,23 @@ interface GameDetailsPanelProps {
   onPlay?: (game: Game) => void;
   onSaveGame?: (game: Game) => Promise<void>;
   onOpenInGameManager?: (game: Game, tab: 'images' | 'metadata') => void;
+  onFavorite?: (game: Game) => void;
+  onEdit?: (game: Game) => void;
 }
 
-export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game, onSaveGame, onOpenInGameManager }) => {
+export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game, onPlay, onSaveGame, onOpenInGameManager, onFavorite, onEdit }) => {
   const [width, setWidth] = useState(800);
   const [fanartHeight, setFanartHeight] = useState(320);
   const [descriptionHeight, setDescriptionHeight] = useState(400);
   const [isResizing, setIsResizing] = useState(false);
   const [isResizingFanart, setIsResizingFanart] = useState(false);
   const [isResizingDescription, setIsResizingDescription] = useState(false);
+  const [isResizingDescriptionWidth, setIsResizingDescriptionWidth] = useState(false);
+  const [descriptionWidth, setDescriptionWidth] = useState(50); // Percentage
   const panelRef = useRef<HTMLDivElement>(null);
   const fanartRef = useRef<HTMLDivElement>(null);
   const descriptionRef = useRef<HTMLDivElement>(null);
+  const descriptionContainerRef = useRef<HTMLDivElement>(null);
 
   // Simple context menu states (appears at right-click location)
   const [simpleContextMenu, setSimpleContextMenu] = useState<{ x: number; y: number; type: 'artwork' | 'boxart' | 'title' | 'description' | 'details' } | null>(null);
@@ -36,6 +41,8 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game, onSave
 
   // Image search modal
   const [imageSearchModal, setImageSearchModal] = useState<{ type: 'artwork' | 'boxart' } | null>(null);
+  const [showLogoResizeDialog, setShowLogoResizeDialog] = useState(false);
+  const [showBoxartResizeDialog, setShowBoxartResizeDialog] = useState(false);
 
   // Font and style preferences
   const [titleFontSize, setTitleFontSize] = useState(24);
@@ -44,6 +51,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game, onSave
   const [descriptionFontFamily, setDescriptionFontFamily] = useState('system-ui');
   const [detailsFontSize, setDetailsFontSize] = useState(14);
   const [detailsFontFamily, setDetailsFontFamily] = useState('system-ui');
+  const [boxartWidth, setBoxartWidth] = useState(128);
   const [visibleDetails, setVisibleDetails] = useState({
     releaseDate: true,
     platform: true,
@@ -72,6 +80,8 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game, onSave
         if (prefs.detailsFontSize) setDetailsFontSize(prefs.detailsFontSize);
         if (prefs.detailsFontFamily) setDetailsFontFamily(prefs.detailsFontFamily);
         if (prefs.visibleDetails) setVisibleDetails(prefs.visibleDetails);
+        if (prefs.boxartWidth) setBoxartWidth(prefs.boxartWidth);
+        if (prefs.descriptionWidth !== undefined) setDescriptionWidth(prefs.descriptionWidth);
       } catch (error) {
         console.error('Error loading preferences:', error);
       }
@@ -94,6 +104,8 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game, onSave
           detailsFontSize,
           detailsFontFamily,
           visibleDetails,
+          boxartWidth,
+          descriptionWidth,
         });
       } catch (error) {
         console.error('Error saving preferences:', error);
@@ -102,7 +114,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game, onSave
     // Debounce saves
     const timeoutId = setTimeout(savePreferences, 500);
     return () => clearTimeout(timeoutId);
-  }, [width, fanartHeight, descriptionHeight, titleFontSize, titleFontFamily, descriptionFontSize, descriptionFontFamily, detailsFontSize, detailsFontFamily, visibleDetails]);
+  }, [width, fanartHeight, descriptionHeight, titleFontSize, titleFontFamily, descriptionFontSize, descriptionFontFamily, detailsFontSize, detailsFontFamily, visibleDetails, boxartWidth, descriptionWidth]);
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -124,6 +136,12 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game, onSave
         const minHeight = 200;
         const maxHeight = 800;
         setDescriptionHeight(Math.max(minHeight, Math.min(maxHeight, newHeight)));
+      } else if (isResizingDescriptionWidth && descriptionContainerRef.current) {
+        const rect = descriptionContainerRef.current.getBoundingClientRect();
+        const newWidth = ((e.clientX - rect.left) / rect.width) * 100;
+        const minWidth = 30;
+        const maxWidth = 70;
+        setDescriptionWidth(Math.max(minWidth, Math.min(maxWidth, newWidth)));
       }
     };
 
@@ -131,9 +149,10 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game, onSave
       setIsResizing(false);
       setIsResizingFanart(false);
       setIsResizingDescription(false);
+      setIsResizingDescriptionWidth(false);
     };
 
-    if (isResizing || isResizingFanart || isResizingDescription) {
+    if (isResizing || isResizingFanart || isResizingDescription || isResizingDescriptionWidth) {
       document.addEventListener('mousemove', handleMouseMove);
       document.addEventListener('mouseup', handleMouseUp);
       return () => {
@@ -141,7 +160,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game, onSave
         document.removeEventListener('mouseup', handleMouseUp);
       };
     }
-  }, [isResizing, isResizingFanart, isResizingDescription]);
+  }, [isResizing, isResizingFanart, isResizingDescription, isResizingDescriptionWidth]);
 
   if (!game) {
     return (
@@ -202,6 +221,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game, onSave
         {backgroundImageUrl && (
           <>
             <img
+              key={backgroundImageUrl}
               src={backgroundImageUrl}
               alt={game.title}
               className="w-full h-full object-cover cursor-pointer"
@@ -238,7 +258,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game, onSave
                     backgroundImage: `url(${backgroundImageUrl})`,
                     backgroundSize: 'cover',
                     backgroundPosition: 'center',
-                    filter: 'blur(20px)',
+                    filter: 'blur(40px)',
                     opacity: 0.6,
                     position: 'absolute',
                     inset: 0
@@ -266,11 +286,12 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game, onSave
         >
           {game.logoUrl ? (
             <img
+              key={game.logoUrl}
               src={game.logoUrl}
               alt={game.title}
               className="max-w-full max-h-full object-contain cursor-pointer drop-shadow-2xl"
               style={{ 
-                maxHeight: `${titleFontSize * 2}px`,
+                maxHeight: `${game.logoSize || 100}px`,
                 ...(game.removeLogoTransparency ? {
                   backgroundColor: 'rgba(0, 0, 0, 0.5)',
                   padding: '8px',
@@ -300,9 +321,11 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game, onSave
         <div className="absolute right-6 bottom-0 z-20" style={{ transform: 'translateY(50%)' }}>
           {game.boxArtUrl ? (
             <img
+              key={game.boxArtUrl}
               src={game.boxArtUrl}
               alt={game.title}
-              className="w-32 aspect-[2/3] object-cover rounded border border-gray-600 shadow-lg cursor-pointer"
+              className="aspect-[2/3] object-cover rounded border border-gray-600 shadow-lg cursor-pointer"
+              style={{ width: `${boxartWidth}px` }}
               onError={(e) => {
                 const target = e.target as HTMLImageElement;
                 // Prevent infinite retry loop
@@ -327,7 +350,8 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game, onSave
             />
           ) : (
             <div 
-              className="w-32 aspect-[2/3] bg-gray-800 rounded border border-gray-600 flex items-center justify-center text-gray-400 text-xs text-center px-2 cursor-pointer hover:bg-gray-700 transition-colors"
+              className="aspect-[2/3] bg-gray-800 rounded border border-gray-600 flex items-center justify-center text-gray-400 text-xs text-center px-2 cursor-pointer hover:bg-gray-700 transition-colors"
+              style={{ width: `${boxartWidth}px` }}
               onClick={() => setImageSearchModal({ type: 'boxart' })}
               onContextMenu={(e) => {
                 e.preventDefault();
@@ -403,12 +427,12 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game, onSave
           )}
           
           {/* Description and Details in a row */}
-          <div className="flex gap-6 relative">
+          <div ref={descriptionContainerRef} className="flex gap-0 relative">
             {/* Description Content - Left side */}
-            <div className="relative flex-1">
+            <div className="relative" style={{ width: `${descriptionWidth}%` }}>
               <div 
                 ref={descriptionRef}
-                className="space-y-6 relative"
+                className="space-y-6 relative pr-3"
                 style={{ 
                   height: `${descriptionHeight}px`,
                   overflowY: 'auto',
@@ -463,9 +487,19 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game, onSave
               />
             </div>
 
+            {/* Vertical divider */}
+            <div
+              className="w-1 cursor-col-resize hover:bg-blue-500 transition-colors bg-gray-700 flex-shrink-0"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                setIsResizingDescriptionWidth(true);
+              }}
+            />
+
             {/* Details Section - Right side */}
             <div 
-              className="flex-1 border-l border-gray-700 pl-6"
+              className="pl-6"
+              style={{ width: `${100 - descriptionWidth}%` }}
               onContextMenu={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -594,6 +628,14 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game, onSave
                   break;
               }
             }}
+            onResize={() => {
+              console.log('Resize clicked for type:', simpleContextMenu.type);
+              if (simpleContextMenu.type === 'title') {
+                setShowLogoResizeDialog(true);
+              } else if (simpleContextMenu.type === 'boxart') {
+                setShowBoxartResizeDialog(true);
+              }
+            }}
             onOpenInGameManager={game && onOpenInGameManager ? () => {
               const tab = (simpleContextMenu.type === 'artwork' || simpleContextMenu.type === 'boxart' || simpleContextMenu.type === 'title') 
                 ? 'images' 
@@ -712,6 +754,133 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game, onSave
             }
           }}
         />
+      )}
+
+      {/* Logo Resize Dialog */}
+      {showLogoResizeDialog && game && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[10000]">
+          <div className="bg-gray-800 border border-gray-700 rounded-lg p-6 w-96">
+            <h3 className="text-lg font-semibold text-white mb-4">Resize Logo</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm text-gray-400 mb-2 block">Logo Height: {game.logoSize || 48}px</label>
+                <input
+                  type="range"
+                  min="24"
+                  max="200"
+                  value={game.logoSize || 48}
+                  onChange={async (e) => {
+                    const newSize = Number(e.target.value);
+                    if (onSaveGame) {
+                      const updatedGame = { ...game, logoSize: newSize };
+                      await onSaveGame(updatedGame);
+                    }
+                  }}
+                  className="w-full"
+                />
+              </div>
+              <div className="flex gap-2 justify-end">
+                <button
+                  onClick={() => setShowLogoResizeDialog(false)}
+                  className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded transition-colors"
+                >
+                  Done
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Boxart Resize Dialog */}
+      {showBoxartResizeDialog && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[10000]">
+          <div className="bg-gray-800 border border-gray-700 rounded-lg p-6 w-96">
+            <h3 className="text-lg font-semibold text-white mb-4">Resize Boxart</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm text-gray-400 mb-2 block">Boxart Width: {boxartWidth}px</label>
+                <input
+                  type="range"
+                  min="64"
+                  max="256"
+                  value={boxartWidth}
+                  onChange={(e) => setBoxartWidth(Number(e.target.value))}
+                  className="w-full"
+                />
+              </div>
+              <div className="flex gap-2 justify-end">
+                <button
+                  onClick={() => setShowBoxartResizeDialog(false)}
+                  className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded transition-colors"
+                >
+                  Done
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Action Buttons at Bottom */}
+      {game && (
+        <div className="border-t border-gray-700 p-4 flex items-center justify-end gap-3 flex-shrink-0">
+          <button
+            onClick={() => onFavorite?.(game)}
+            className={`p-2 rounded transition-colors ${
+              game.favorite ? 'text-yellow-400' : 'text-gray-300 hover:bg-gray-700'
+            }`}
+            title="Favorite"
+          >
+            <svg className="w-5 h-5" fill={game.favorite ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+            </svg>
+          </button>
+
+          {onEdit && (
+            <button
+              onClick={() => onEdit(game)}
+              className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white font-medium rounded-lg transition-colors flex items-center gap-2"
+              title="Edit Game"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+              Edit
+            </button>
+          )}
+
+          {game.modManagerUrl && (
+            <button
+              onClick={async () => {
+                if (game.modManagerUrl) {
+                  try {
+                    await window.electronAPI.openExternal(game.modManagerUrl);
+                  } catch (err) {
+                    console.error('Error opening mod manager:', err);
+                  }
+                }
+              }}
+              className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-medium rounded-lg transition-colors flex items-center gap-2"
+              title="Open Mod Manager"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+              </svg>
+              Mod Manager
+            </button>
+          )}
+
+          <button
+            onClick={() => onPlay?.(game)}
+            className="onyx-btn-primary px-6 py-2 rounded-lg flex items-center gap-2"
+          >
+            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M8 5v14l11-7z" />
+            </svg>
+            Play
+          </button>
+        </div>
       )}
     </div>
   );

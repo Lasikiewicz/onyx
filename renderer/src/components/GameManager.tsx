@@ -160,6 +160,21 @@ export const GameManager: React.FC<GameManagerProps> = ({
     return games.find(g => g.id === expandedGameId) || null;
   }, [games, expandedGameId]);
 
+  // Update editedGame when selectedGame changes (e.g., after library reload)
+  useEffect(() => {
+    if (selectedGame && editedGame && selectedGame.id === editedGame.id) {
+      // Only update if the image URLs have actually changed
+      const hasChanges = 
+        selectedGame.boxArtUrl !== editedGame.boxArtUrl ||
+        selectedGame.bannerUrl !== editedGame.bannerUrl ||
+        selectedGame.logoUrl !== editedGame.logoUrl;
+      
+      if (hasChanges) {
+        setEditedGame({ ...selectedGame });
+      }
+    }
+  }, [selectedGame?.boxArtUrl, selectedGame?.bannerUrl, selectedGame?.logoUrl, selectedGame?.id]);
+
   // Listen for refresh progress updates
   useEffect(() => {
     const handleProgress = (_event: any, progress: { current: number; total: number; message: string; gameTitle?: string }) => {
@@ -519,7 +534,9 @@ export const GameManager: React.FC<GameManagerProps> = ({
       <div className="w-[90vw] h-[90vh] bg-gray-900 border border-gray-700 rounded-xl shadow-2xl flex flex-col overflow-hidden">
         {/* Header */}
         <div className="h-[60px] flex items-center justify-between px-6 border-b border-gray-800 bg-gray-900/50">
-          <h2 className="text-xl font-semibold text-white">Game Manager</h2>
+          <h2 className="text-xl font-semibold text-white">
+            Game Manager{selectedGame ? ` - ${selectedGame.title}` : ''}
+          </h2>
           <div className="flex items-center gap-2">
             <button
               onClick={() => setShowRefreshDialog(true)}
@@ -639,14 +656,17 @@ export const GameManager: React.FC<GameManagerProps> = ({
                           <div>
                             <label className="block text-sm font-medium text-gray-300 mb-2">Boxart</label>
                             <div
-                              onClick={() => {
+                              onClick={async () => {
                                 setShowImageSearch({ type: 'boxart', gameId: selectedGame.id });
                                 setImageSearchQuery(selectedGame.title);
+                                // Auto-search
+                                await handleSearchImages('boxart');
                               }}
                               className="w-full h-32 bg-gray-800 rounded-lg overflow-hidden cursor-pointer hover:opacity-80 transition-opacity border border-gray-700 flex items-center justify-center"
                             >
                               {selectedGame.boxArtUrl ? (
                                 <img
+                                  key={selectedGame.boxArtUrl}
                                   src={selectedGame.boxArtUrl}
                                   alt="Boxart"
                                   className="max-w-full max-h-full object-contain"
@@ -670,14 +690,17 @@ export const GameManager: React.FC<GameManagerProps> = ({
                           <div>
                             <label className="block text-sm font-medium text-gray-300 mb-2">Banner</label>
                             <div
-                              onClick={() => {
+                              onClick={async () => {
                                 setShowImageSearch({ type: 'banner', gameId: selectedGame.id });
                                 setImageSearchQuery(selectedGame.title);
+                                // Auto-search
+                                await handleSearchImages('banner');
                               }}
                               className="w-full h-32 bg-gray-800 rounded-lg overflow-hidden cursor-pointer hover:opacity-80 transition-opacity border border-gray-700"
                             >
                               {selectedGame.bannerUrl ? (
                                 <img
+                                  key={selectedGame.bannerUrl}
                                   src={selectedGame.bannerUrl}
                                   alt="Banner"
                                   className="w-full h-full object-cover"
@@ -701,14 +724,17 @@ export const GameManager: React.FC<GameManagerProps> = ({
                           <div>
                             <label className="block text-sm font-medium text-gray-300 mb-2">Logo</label>
                             <div
-                              onClick={() => {
+                              onClick={async () => {
                                 setShowImageSearch({ type: 'logo', gameId: selectedGame.id });
                                 setImageSearchQuery(selectedGame.title);
+                                // Auto-search
+                                await handleSearchImages('logo');
                               }}
                               className="w-full h-32 bg-gray-800 rounded-lg overflow-hidden cursor-pointer hover:opacity-80 transition-opacity border border-gray-700 flex items-center justify-center"
                             >
                               {selectedGame.logoUrl ? (
                                 <img
+                                  key={selectedGame.logoUrl}
                                   src={selectedGame.logoUrl}
                                   alt="Logo"
                                   className="max-w-full max-h-full object-contain"
@@ -885,10 +911,27 @@ export const GameManager: React.FC<GameManagerProps> = ({
                               className="flex-1 px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
                             />
                             <button
-                              onClick={() => {
+                              onClick={async () => {
+                                const wasHidden = !showFixMatch;
                                 setShowFixMatch(!showFixMatch);
-                                if (!showFixMatch) {
+                                if (wasHidden) {
                                   setMetadataSearchQuery(selectedGame.title);
+                                  // Auto-search when opening
+                                  const query = selectedGame.title;
+                                  if (query) {
+                                    setIsSearchingMetadata(true);
+                                    setMetadataSearchResults([]);
+                                    try {
+                                      const response = await window.electronAPI.searchMetadata(query);
+                                      if (response.success && response.results) {
+                                        setMetadataSearchResults(response.results);
+                                      }
+                                    } catch (err) {
+                                      console.error('Error searching metadata:', err);
+                                    } finally {
+                                      setIsSearchingMetadata(false);
+                                    }
+                                  }
                                 }
                               }}
                               className="px-3 py-1.5 text-sm bg-purple-600 hover:bg-purple-700 text-white rounded transition-colors flex items-center gap-1.5"
@@ -942,8 +985,8 @@ export const GameManager: React.FC<GameManagerProps> = ({
                                           <span className={`text-xs ${result.source === 'steam' ? 'text-blue-400' : 'text-gray-400'}`}>
                                             {result.source === 'steam' ? 'Steam' : result.source === 'igdb' ? 'IGDB' : result.source === 'steamgriddb' ? 'SteamGridDB' : result.source}
                                           </span>
-                                          {result.year && (
-                                            <span className="text-xs text-gray-400">{result.year}</span>
+                                          {(result.year || result.releaseDate) && (
+                                            <span className="text-xs text-gray-400">({result.year || new Date(result.releaseDate).getFullYear()})</span>
                                           )}
                                         </div>
                                       </div>

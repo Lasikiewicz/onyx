@@ -109,7 +109,7 @@ export const MatchFixDialog: React.FC<MatchFixDialogProps> = ({
   const handleFix = async () => {
     setIsFixing(true);
     try {
-      await onFix(selectedMatches);
+      await onFix(selectedMatches, ignoredGames);
     } finally {
       setIsFixing(false);
     }

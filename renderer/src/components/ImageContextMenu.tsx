@@ -7,7 +7,8 @@ interface ImageContextMenuProps {
   onSelectFromFile: () => void;
   onSearchImages: () => void;
   onOpenInGameManager?: () => void;
-  imageType: 'artwork' | 'boxart';
+  onResizeImage?: () => void;
+  imageType: 'artwork' | 'boxart' | 'logo';
   positionOverGameList?: boolean;
 }
 
@@ -18,6 +19,7 @@ export const ImageContextMenu: React.FC<ImageContextMenuProps> = ({
   onSelectFromFile,
   onSearchImages,
   onOpenInGameManager,
+  onResizeImage,
   imageType,
   positionOverGameList = false,
 }) => {
@@ -89,6 +91,13 @@ export const ImageContextMenu: React.FC<ImageContextMenuProps> = ({
     onClose();
   };
 
+  const handleResizeImage = () => {
+    onResizeImage?.();
+    onClose();
+  };
+
+  const imageTypeLabel = imageType === 'artwork' ? 'Artwork/Screenshots' : imageType === 'logo' ? 'Logo' : 'Boxart';
+
   return (
     <div
       ref={menuRef}
@@ -111,8 +120,19 @@ export const ImageContextMenu: React.FC<ImageContextMenuProps> = ({
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
         </svg>
-        Search for {imageType === 'artwork' ? 'Artwork/Screenshots' : 'Boxart'}
+        Search for {imageTypeLabel}
       </button>
+      {onResizeImage && (
+        <button
+          onClick={handleResizeImage}
+          className="w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 transition-colors flex items-center gap-2"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+          </svg>
+          Resize Image
+        </button>
+      )}
       {onOpenInGameManager && (
         <>
           <div className="border-t border-gray-700 my-1" />
