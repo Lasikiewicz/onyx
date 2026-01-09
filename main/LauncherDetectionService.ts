@@ -305,6 +305,50 @@ export class LauncherDetectionService {
   }
 
   /**
+   * Detect Ubisoft Connect
+   */
+  private detectUbisoft(): DetectedLauncher | null {
+    // Try registry first
+    const registryPath = this.readRegistryValue(
+      'HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\Ubisoft\\Launcher',
+      'InstallDir'
+    ) || this.readRegistryValue(
+      'HKEY_LOCAL_MACHINE\\SOFTWARE\\Ubisoft\\Launcher',
+      'InstallDir'
+    );
+
+    if (registryPath && this.checkPath(registryPath)) {
+      return {
+        id: 'ubisoft',
+        name: 'Ubisoft Connect',
+        path: registryPath,
+        detected: true,
+        detectionMethod: 'registry',
+      };
+    }
+
+    // Try default paths
+    const defaultPaths = [
+      'C:\\Program Files (x86)\\Ubisoft\\Ubisoft Game Launcher',
+      'C:\\Program Files\\Ubisoft\\Ubisoft Game Launcher',
+    ];
+
+    for (const path of defaultPaths) {
+      if (this.checkPath(path)) {
+        return {
+          id: 'ubisoft',
+          name: 'Ubisoft Connect',
+          path: path,
+          detected: true,
+          detectionMethod: 'path',
+        };
+      }
+    }
+
+    return null;
+  }
+
+  /**
    * Detect all installed launchers
    */
   async detectAllLaunchers(): Promise<DetectedLauncher[]> {
@@ -320,6 +364,7 @@ export class LauncherDetectionService {
       () => this.detectGOG(),
       () => this.detectEA(),
       () => this.detectXbox(),
+      () => this.detectUbisoft(),
     ];
 
     for (const detector of detectors) {
@@ -355,6 +400,8 @@ export class LauncherDetectionService {
         return this.detectEA();
       case 'xbox':
         return this.detectXbox();
+      case 'ubisoft':
+        return this.detectUbisoft();
       default:
         return null;
     }

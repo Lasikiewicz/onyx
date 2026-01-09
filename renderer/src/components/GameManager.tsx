@@ -152,13 +152,16 @@ export const GameManager: React.FC<GameManagerProps> = ({
     }
   };
 
+  // Maintain local games state to prevent refresh issues
+  const [localGames, setLocalGames] = useState<Game[]>(games);
+
   const selectedGame = useMemo(() => {
-    return games.find(g => g.id === selectedGameId) || null;
-  }, [games, selectedGameId]);
+    return localGames.find(g => g.id === selectedGameId) || null;
+  }, [localGames, selectedGameId]);
 
   const expandedGame = useMemo(() => {
-    return games.find(g => g.id === expandedGameId) || null;
-  }, [games, expandedGameId]);
+    return localGames.find(g => g.id === expandedGameId) || null;
+  }, [localGames, expandedGameId]);
 
   // Update editedGame when selectedGame changes (e.g., after library reload)
   useEffect(() => {
@@ -190,22 +193,49 @@ export const GameManager: React.FC<GameManagerProps> = ({
     }
   }, []);
 
-  // Load games when modal opens
+  // Sync local games with prop when modal opens or games change significantly
   useEffect(() => {
-    if (isOpen && games.length > 0) {
-      if (initialGameId && games.find(g => g.id === initialGameId)) {
+    if (isOpen) {
+      setLocalGames(games);
+      // Set initial game and tab when modal first opens
+      if (initialGameId && !selectedGameId) {
         setSelectedGameId(initialGameId);
         const game = games.find(g => g.id === initialGameId);
         if (game) {
           setEditedGame({ ...game });
           setExpandedGameId(initialGameId);
         }
-      } else if (!selectedGameId) {
-        setSelectedGameId(games[0].id);
       }
-      setActiveTab(initialTab);
+      if (initialTab) {
+        setActiveTab(initialTab);
+      }
     }
-  }, [isOpen, games, initialGameId, initialTab]);
+  }, [isOpen, initialGameId, initialTab]);
+
+  // Update local games when prop changes, but preserve selected game and tab
+  useEffect(() => {
+    if (isOpen) {
+      // Only update if the selected game's data has changed
+      const currentSelectedGame = localGames.find(g => g.id === selectedGameId);
+      const newSelectedGame = games.find(g => g.id === selectedGameId);
+      
+      if (currentSelectedGame && newSelectedGame) {
+        // Update the specific game in localGames without replacing the whole array
+        setLocalGames(prevGames => 
+          prevGames.map(g => g.id === selectedGameId ? newSelectedGame : g)
+        );
+        // Update editedGame if it's the selected game
+        if (editedGame && editedGame.id === selectedGameId) {
+          setEditedGame({ ...newSelectedGame });
+        }
+      } else {
+        // Full sync only if selected game is not found (game was deleted)
+        setLocalGames(games);
+      }
+    }
+  }, [games, selectedGameId, isOpen]);
+
+  // Load games when modal opens - now handled by the localGames sync effect above
 
   // Reset state when modal closes
   useEffect(() => {
@@ -252,7 +282,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
     }
   };
 
-  // Handle image search
+  // Handle image search with progressive loading
   const handleSearchImages = async (imageType: 'boxart' | 'banner' | 'logo') => {
     if (!selectedGame) return;
 
@@ -268,100 +298,170 @@ export const GameManager: React.FC<GameManagerProps> = ({
     setSteamGridDBResults({ boxart: [], banner: [], logo: [] });
 
     try {
+      const appIdMatch = selectedGame.id.match(/^steam-(.+)$/);
+      const steamAppId = appIdMatch ? appIdMatch[1] : undefined;
+
+      // Start both searches in parallel but update results as they come in
+      const searchPromises: Promise<any>[] = [];
+
       // Search IGDB for metadata (only if searching for boxart or banner)
-      let igdbResponse = null;
       if (imageType === 'boxart' || imageType === 'banner') {
-        igdbResponse = await window.electronAPI.searchMetadata(query);
+        searchPromises.push(
+          window.electronAPI.searchMetadata(query).then((igdbResponse: any) => {
+            if (igdbResponse && igdbResponse.success && igdbResponse.results && igdbResponse.results.length > 0) {
+              const filteredIGDBResults: IGDBGameResult[] = igdbResponse.results.filter((result: any) => {
+                if (imageType === 'boxart') {
+                  return result.coverUrl;
+                } else if (imageType === 'banner') {
+                  return result.screenshotUrls && result.screenshotUrls.length > 0;
+                }
+                return false;
+              });
+
+              // Sort IGDB results: exact matches first, then by release date (newest first)
+              if (filteredIGDBResults.length > 0) {
+                const normalizedQuery = query.toLowerCase().trim();
+                filteredIGDBResults.sort((a, b) => {
+                  const aName = (a.name || '').toLowerCase().trim();
+                  const bName = (b.name || '').toLowerCase().trim();
+                  
+                  const aExact = aName === normalizedQuery;
+                  const bExact = bName === normalizedQuery;
+                  
+                  if (aExact && !bExact) return -1;
+                  if (!aExact && bExact) return 1;
+                  
+                  // If both or neither are exact, sort by release date (newest first)
+                  if (aExact === bExact) {
+                    const aDate = a.releaseDate ? (typeof a.releaseDate === 'number' ? a.releaseDate : new Date(a.releaseDate).getTime()) : 0;
+                    const bDate = b.releaseDate ? (typeof b.releaseDate === 'number' ? b.releaseDate : new Date(b.releaseDate).getTime()) : 0;
+                    if (aDate !== bDate && aDate > 0 && bDate > 0) {
+                      return bDate - aDate; // Newest first
+                    }
+                  }
+                  
+                  return 0; // Keep original order for non-exact matches
+                });
+                // Update results immediately as they come in
+                setImageSearchResults(filteredIGDBResults);
+              }
+            }
+            return igdbResponse;
+          }).catch((err: any) => {
+            console.error('Error searching IGDB:', err);
+            return null;
+          })
+        );
       }
       
       // Search SteamGridDB for the specific image type
-      const appIdMatch = selectedGame.id.match(/^steam-(.+)$/);
-      const steamAppId = appIdMatch ? appIdMatch[1] : undefined;
-      const sgdbResponse = await window.electronAPI.searchImages(query, imageType, steamAppId);
-
-      // Process IGDB results
-      let filteredIGDBResults: IGDBGameResult[] = [];
-      if (igdbResponse && igdbResponse.success && igdbResponse.results && igdbResponse.results.length > 0) {
-        filteredIGDBResults = igdbResponse.results.filter(result => {
-          if (imageType === 'boxart') {
-            return result.coverUrl;
-          } else if (imageType === 'banner') {
-            return result.screenshotUrls && result.screenshotUrls.length > 0;
-          }
-          return false;
-        });
-        setImageSearchResults(filteredIGDBResults);
-      }
-
-      // Process SteamGridDB results
-      if (sgdbResponse.success && sgdbResponse.images) {
-        const flattenedResults: any[] = [];
-        sgdbResponse.images.forEach(gameResult => {
-          gameResult.images.forEach(img => {
-            flattenedResults.push({
-              id: gameResult.gameId,
-              name: gameResult.gameName,
-              title: gameResult.gameName,
-              boxArtUrl: imageType === 'boxart' ? img.url : undefined,
-              bannerUrl: imageType === 'banner' ? img.url : undefined,
-              logoUrl: imageType === 'logo' ? img.url : undefined,
-              coverUrl: imageType === 'boxart' ? img.url : undefined,
-              source: 'steamgriddb',
-              score: img.score,
-              width: img.width,
-              height: img.height,
+      searchPromises.push(
+        window.electronAPI.searchImages(query, imageType, steamAppId).then((sgdbResponse: any) => {
+          if (sgdbResponse.success && sgdbResponse.images) {
+            const flattenedResults: any[] = [];
+            sgdbResponse.images.forEach((gameResult: any) => {
+              gameResult.images.forEach((img: any) => {
+                // Check if this is an official Steam image (high score and specific naming)
+                const isOfficialSteam = img.score >= 1000 || gameResult.gameName?.includes('Official Steam');
+                
+                flattenedResults.push({
+                  id: gameResult.gameId,
+                  name: gameResult.gameName,
+                  title: gameResult.gameName,
+                  boxArtUrl: imageType === 'boxart' ? img.url : undefined,
+                  bannerUrl: imageType === 'banner' ? img.url : undefined,
+                  logoUrl: imageType === 'logo' ? img.url : undefined,
+                  coverUrl: imageType === 'boxart' ? img.url : undefined,
+                  source: isOfficialSteam ? 'steam' : 'steamgriddb',
+                  score: img.score,
+                  width: img.width,
+                  height: img.height,
+                });
+              });
             });
-          });
-        });
 
-        // Sort results: exact matches first, then by score
-        const normalizedQuery = query.toLowerCase().trim();
-        flattenedResults.sort((a, b) => {
-          const aName = a.name?.toLowerCase().trim() || '';
-          const bName = b.name?.toLowerCase().trim() || '';
-          
-          // Check for exact match
-          const aExact = aName === normalizedQuery;
-          const bExact = bName === normalizedQuery;
-          
-          if (aExact && !bExact) return -1;
-          if (!aExact && bExact) return 1;
-          
-          // If both or neither are exact, sort by score
-          return (b.score || 0) - (a.score || 0);
-        });
+            // Sort results: official Steam images first, then exact matches, then by score
+            const normalizedQuery = query.toLowerCase().trim();
+            flattenedResults.sort((a, b) => {
+              // Prioritize official Steam images (source === 'steam')
+              const aIsSteam = a.source === 'steam';
+              const bIsSteam = b.source === 'steam';
+              if (aIsSteam && !bIsSteam) return -1;
+              if (!aIsSteam && bIsSteam) return 1;
+              
+              // Then check for exact match
+              const aName = a.name?.toLowerCase().trim() || '';
+              const bName = b.name?.toLowerCase().trim() || '';
+              const aExact = aName === normalizedQuery;
+              const bExact = bName === normalizedQuery;
+              
+              if (aExact && !bExact) return -1;
+              if (!aExact && bExact) return 1;
+              
+              // If both or neither are exact, sort by release date (newest first) if available
+              if (aExact === bExact) {
+                const aDate = a.releaseDate ? new Date(a.releaseDate).getTime() : 0;
+                const bDate = b.releaseDate ? new Date(b.releaseDate).getTime() : 0;
+                if (aDate !== bDate && aDate > 0 && bDate > 0) {
+                  return bDate - aDate; // Newest first
+                }
+                // If dates are equal or missing, sort by score
+                return (b.score || 0) - (a.score || 0);
+              }
+              
+              // If both or neither are exact, sort by score
+              return (b.score || 0) - (a.score || 0);
+            });
+            
+            // Update results immediately as they come in
+            if (imageType === 'boxart') {
+              setSteamGridDBResults(prev => ({ ...prev, boxart: flattenedResults }));
+            } else if (imageType === 'banner') {
+              setSteamGridDBResults(prev => ({ ...prev, banner: flattenedResults }));
+            } else if (imageType === 'logo') {
+              setSteamGridDBResults(prev => ({ ...prev, logo: flattenedResults }));
+            }
+          }
+          return sgdbResponse;
+        }).catch((err: any) => {
+          console.error('Error searching SteamGridDB:', err);
+          return null;
+        })
+      );
+
+      // Wait for all searches to complete
+      const searchResults = await Promise.all(searchPromises);
+      
+      // Check if we got any results
+      // Note: State updates are async, so we check the actual results returned
+      let hasResults = false;
+      
+      // Check IGDB results (only for boxart and banner)
+      if (imageType === 'boxart' || imageType === 'banner') {
+        const igdbResponse = searchResults[0];
+        if (igdbResponse && igdbResponse.success && igdbResponse.results) {
+          const hasIGDBResults = igdbResponse.results.some((result: any) => {
+            if (imageType === 'boxart') return result.coverUrl;
+            if (imageType === 'banner') return result.screenshotUrls && result.screenshotUrls.length > 0;
+            return false;
+          });
+          if (hasIGDBResults) hasResults = true;
+        }
         
-        if (imageType === 'boxart') {
-          setSteamGridDBResults(prev => ({ ...prev, boxart: flattenedResults }));
-        } else if (imageType === 'banner') {
-          setSteamGridDBResults(prev => ({ ...prev, banner: flattenedResults }));
-        } else if (imageType === 'logo') {
-          setSteamGridDBResults(prev => ({ ...prev, logo: flattenedResults }));
+        // Check SteamGridDB results (index 1 when IGDB is included)
+        const sgdbResponse = searchResults[1];
+        if (sgdbResponse && sgdbResponse.success && sgdbResponse.images && sgdbResponse.images.length > 0) {
+          hasResults = true;
+        }
+      } else {
+        // For logo, only SteamGridDB is searched (index 0)
+        const sgdbResponse = searchResults[0];
+        if (sgdbResponse && sgdbResponse.success && sgdbResponse.images && sgdbResponse.images.length > 0) {
+          hasResults = true;
         }
       }
 
-      // Sort IGDB results: exact matches first
-      if (filteredIGDBResults.length > 0) {
-        const normalizedQuery = query.toLowerCase().trim();
-        filteredIGDBResults.sort((a, b) => {
-          const aName = (a.name || '').toLowerCase().trim();
-          const bName = (b.name || '').toLowerCase().trim();
-          
-          const aExact = aName === normalizedQuery;
-          const bExact = bName === normalizedQuery;
-          
-          if (aExact && !bExact) return -1;
-          if (!aExact && bExact) return 1;
-          
-          return 0; // Keep original order for non-exact matches
-        });
-        setImageSearchResults(filteredIGDBResults);
-      }
-
-      const hasIGDBResults = filteredIGDBResults.length > 0;
-      const hasSGDBResults = sgdbResponse.success && sgdbResponse.images && sgdbResponse.images.length > 0;
-
-      if (!hasIGDBResults && !hasSGDBResults) {
+      if (!hasResults) {
         setError(`No ${imageType} results found`);
       }
     } catch (err) {
@@ -372,30 +472,97 @@ export const GameManager: React.FC<GameManagerProps> = ({
     }
   };
 
-  // Handle image selection
+  // Handle image selection - update immediately and save
   const handleSelectImage = async (imageUrl: string, type: 'boxart' | 'banner' | 'logo') => {
     if (!selectedGame || !editedGame) return;
 
+    // Get old image URL before updating
+    const oldImageUrl = type === 'boxart' 
+      ? (editedGame.boxArtUrl || selectedGame.boxArtUrl)
+      : type === 'banner'
+      ? (editedGame.bannerUrl || selectedGame.bannerUrl)
+      : (editedGame.logoUrl || selectedGame.logoUrl);
+
+    // Delete old image from disk if it's a cached image
+    if (oldImageUrl && oldImageUrl.startsWith('onyx-local://')) {
+      try {
+        await window.electronAPI.deleteCachedImage(selectedGame.id, type);
+      } catch (err) {
+        console.warn('Error deleting old image:', err);
+        // Continue even if deletion fails
+      }
+    }
+
+    // Update immediately for instant visual feedback
     const updatedGame = { ...editedGame };
     if (type === 'boxart') {
       updatedGame.boxArtUrl = imageUrl;
+      // Preserve other image types
+      updatedGame.bannerUrl = editedGame.bannerUrl || selectedGame.bannerUrl || updatedGame.bannerUrl;
+      updatedGame.logoUrl = editedGame.logoUrl || selectedGame.logoUrl || updatedGame.logoUrl;
     } else if (type === 'banner') {
       updatedGame.bannerUrl = imageUrl;
+      // Preserve other image types
+      updatedGame.boxArtUrl = editedGame.boxArtUrl || selectedGame.boxArtUrl || updatedGame.boxArtUrl;
+      updatedGame.logoUrl = editedGame.logoUrl || selectedGame.logoUrl || updatedGame.logoUrl;
     } else if (type === 'logo') {
       updatedGame.logoUrl = imageUrl;
+      // Preserve other image types
+      updatedGame.boxArtUrl = editedGame.boxArtUrl || selectedGame.boxArtUrl || updatedGame.boxArtUrl;
+      updatedGame.bannerUrl = editedGame.bannerUrl || selectedGame.bannerUrl || updatedGame.bannerUrl;
+      // Ensure we stay on images tab when selecting logo
+      setActiveTab('images');
     }
 
+    // Update state immediately so user sees the change
     setEditedGame(updatedGame);
-    await onSaveGame(updatedGame);
-    setShowImageSearch(null);
-    setSuccess('Image updated successfully');
-    setTimeout(() => setSuccess(null), 2000);
+    
+    // Update local games state immediately
+    setLocalGames(prevGames => 
+      prevGames.map(g => g.id === updatedGame.id ? updatedGame : g)
+    );
+    
+    // Save in background - pass old game to delete old images
+    // Don't reload library - just update local state
+    try {
+      await onSaveGame(updatedGame, selectedGame);
+      setSuccess('Image updated successfully');
+      setTimeout(() => setSuccess(null), 2000);
+    } catch (err) {
+      setError('Failed to save image');
+      console.error('Error saving image:', err);
+      // Revert local state on error
+      setLocalGames(prevGames => 
+        prevGames.map(g => g.id === selectedGame.id ? selectedGame : g)
+      );
+      setEditedGame({ ...selectedGame });
+    }
+    
+    // Keep search panel open so user can select more images if needed
+    // setShowImageSearch(null);
+  };
+
+  // Handle browse for local image file
+  const handleBrowseImage = async (type: 'boxart' | 'banner' | 'logo') => {
+    if (!selectedGame || !editedGame) return;
+
+    try {
+      const imagePath = await window.electronAPI.showImageDialog();
+      if (imagePath) {
+        // Convert file path to file:// URL
+        const fileUrl = imagePath.startsWith('file://') ? imagePath : `file:///${imagePath.replace(/\\/g, '/')}`;
+        await handleSelectImage(fileUrl, type);
+      }
+    } catch (err) {
+      console.error('Error browsing for image:', err);
+      setError('Failed to select image file');
+    }
   };
 
   // Handle game selection
   const handleGameSelect = (gameId: string) => {
     setSelectedGameId(gameId);
-    const game = games.find(g => g.id === gameId);
+    const game = localGames.find(g => g.id === gameId);
     if (game) {
       setEditedGame({ ...game });
       setExpandedGameId(gameId);
@@ -449,18 +616,38 @@ export const GameManager: React.FC<GameManagerProps> = ({
     try {
       const response = await window.electronAPI.searchGames(query);
       if (response.success && response.results) {
-        // Sort results: Steam first, then exact matches, then others
+        // Sort results: newest release first, then Steam, then exact matches
         const normalizedQuery = query.toLowerCase().trim();
         const sortedResults = response.results.sort((a, b) => {
-          // Prioritize Steam results
+          // First, sort by release date (newest first)
+          const getDate = (result: any): number => {
+            if (result.releaseDate) {
+              if (typeof result.releaseDate === 'number') {
+                return result.releaseDate * 1000; // Convert Unix timestamp (seconds) to milliseconds
+              }
+              return new Date(result.releaseDate).getTime();
+            }
+            if (result.year) {
+              return new Date(result.year, 0, 1).getTime();
+            }
+            return 0;
+          };
+          
+          const aDate = getDate(a);
+          const bDate = getDate(b);
+          if (aDate !== bDate && aDate > 0 && bDate > 0) {
+            return bDate - aDate; // Newest first
+          }
+          
+          // If dates are equal or missing, prioritize Steam results
           const aIsSteam = a.source === 'steam';
           const bIsSteam = b.source === 'steam';
           if (aIsSteam && !bIsSteam) return -1;
           if (!aIsSteam && bIsSteam) return 1;
           
           // Then prioritize exact matches
-          const aName = (a.title || '').toLowerCase().trim();
-          const bName = (b.title || '').toLowerCase().trim();
+          const aName = (a.title || a.name || '').toLowerCase().trim();
+          const bName = (b.title || b.name || '').toLowerCase().trim();
           const aExact = aName === normalizedQuery;
           const bExact = bName === normalizedQuery;
           if (aExact && !bExact) return -1;
@@ -576,9 +763,9 @@ export const GameManager: React.FC<GameManagerProps> = ({
           {/* Left Panel - Game List */}
           <div className="w-80 border-r border-gray-800 overflow-y-auto">
             <div className="p-4">
-              <h3 className="text-sm font-semibold text-gray-300 mb-3">Imported Games ({games.length})</h3>
+              <h3 className="text-sm font-semibold text-gray-300 mb-3">Imported Games ({localGames.length})</h3>
               <div className="space-y-2">
-                {games.map((game) => (
+                {localGames.map((game) => (
                   <button
                     key={game.id}
                     onClick={() => handleGameSelect(game.id)}
@@ -657,6 +844,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
                             <label className="block text-sm font-medium text-gray-300 mb-2">Boxart</label>
                             <div
                               onClick={async () => {
+                                setActiveTab('images'); // Ensure we're on images tab
                                 setShowImageSearch({ type: 'boxart', gameId: selectedGame.id });
                                 setImageSearchQuery(selectedGame.title);
                                 // Auto-search
@@ -664,10 +852,10 @@ export const GameManager: React.FC<GameManagerProps> = ({
                               }}
                               className="w-full h-32 bg-gray-800 rounded-lg overflow-hidden cursor-pointer hover:opacity-80 transition-opacity border border-gray-700 flex items-center justify-center"
                             >
-                              {selectedGame.boxArtUrl ? (
+                              {(editedGame.boxArtUrl || selectedGame.boxArtUrl) ? (
                                 <img
-                                  key={selectedGame.boxArtUrl}
-                                  src={selectedGame.boxArtUrl}
+                                  key={editedGame.boxArtUrl || selectedGame.boxArtUrl}
+                                  src={editedGame.boxArtUrl || selectedGame.boxArtUrl}
                                   alt="Boxart"
                                   className="max-w-full max-h-full object-contain"
                                   onError={(e) => {
@@ -691,6 +879,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
                             <label className="block text-sm font-medium text-gray-300 mb-2">Banner</label>
                             <div
                               onClick={async () => {
+                                setActiveTab('images'); // Ensure we're on images tab
                                 setShowImageSearch({ type: 'banner', gameId: selectedGame.id });
                                 setImageSearchQuery(selectedGame.title);
                                 // Auto-search
@@ -698,10 +887,10 @@ export const GameManager: React.FC<GameManagerProps> = ({
                               }}
                               className="w-full h-32 bg-gray-800 rounded-lg overflow-hidden cursor-pointer hover:opacity-80 transition-opacity border border-gray-700"
                             >
-                              {selectedGame.bannerUrl ? (
+                              {(editedGame.bannerUrl || selectedGame.bannerUrl) ? (
                                 <img
-                                  key={selectedGame.bannerUrl}
-                                  src={selectedGame.bannerUrl}
+                                  key={editedGame.bannerUrl || selectedGame.bannerUrl}
+                                  src={editedGame.bannerUrl || selectedGame.bannerUrl}
                                   alt="Banner"
                                   className="w-full h-full object-cover"
                                   onError={(e) => {
@@ -725,6 +914,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
                             <label className="block text-sm font-medium text-gray-300 mb-2">Logo</label>
                             <div
                               onClick={async () => {
+                                setActiveTab('images'); // Ensure we're on images tab
                                 setShowImageSearch({ type: 'logo', gameId: selectedGame.id });
                                 setImageSearchQuery(selectedGame.title);
                                 // Auto-search
@@ -732,10 +922,10 @@ export const GameManager: React.FC<GameManagerProps> = ({
                               }}
                               className="w-full h-32 bg-gray-800 rounded-lg overflow-hidden cursor-pointer hover:opacity-80 transition-opacity border border-gray-700 flex items-center justify-center"
                             >
-                              {selectedGame.logoUrl ? (
+                              {(editedGame.logoUrl || selectedGame.logoUrl) ? (
                                 <img
-                                  key={selectedGame.logoUrl}
-                                  src={selectedGame.logoUrl}
+                                  key={editedGame.logoUrl || selectedGame.logoUrl}
+                                  src={editedGame.logoUrl || selectedGame.logoUrl}
                                   alt="Logo"
                                   className="max-w-full max-h-full object-contain"
                                   onError={(e) => {
@@ -773,13 +963,35 @@ export const GameManager: React.FC<GameManagerProps> = ({
                           }}
                           placeholder="Enter game title..."
                           className="flex-1 px-4 py-2 bg-gray-800 border border-gray-600 rounded text-white placeholder-gray-500"
+                          disabled={isSearchingImages}
                         />
                         <button
                           onClick={() => handleSearchImages(showImageSearch.type)}
                           disabled={isSearchingImages}
-                          className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors disabled:opacity-50"
+                          className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors disabled:opacity-50 flex items-center gap-2"
                         >
-                          {isSearchingImages ? 'Searching...' : 'Search'}
+                          {isSearchingImages ? (
+                            <>
+                              <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                              </svg>
+                              Searching...
+                            </>
+                          ) : (
+                            'Search'
+                          )}
+                        </button>
+                        <button
+                          onClick={() => handleBrowseImage(showImageSearch.type)}
+                          disabled={isSearchingImages}
+                          className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded transition-colors disabled:opacity-50 flex items-center gap-2"
+                          title="Browse for image file (supports animated images)"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                          </svg>
+                          Browse
                         </button>
                         <button
                           onClick={() => {
@@ -788,10 +1000,20 @@ export const GameManager: React.FC<GameManagerProps> = ({
                             setSteamGridDBResults({ boxart: [], banner: [], logo: [] });
                           }}
                           className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded transition-colors"
+                          disabled={isSearchingImages}
                         >
                           Close
                         </button>
                       </div>
+                      {isSearchingImages && (
+                        <div className="mt-3 flex items-center gap-2 text-sm text-gray-400">
+                          <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                          </svg>
+                          Searching for {showImageSearch.type}...
+                        </div>
+                      )}
                     </div>
 
                           {/* Search Results */}
@@ -834,10 +1056,16 @@ export const GameManager: React.FC<GameManagerProps> = ({
                                   const imageUrl = result.boxArtUrl || result.coverUrl;
                                   if (!imageUrl) return null;
 
+                                  // Use imageUrl in key to ensure uniqueness since multiple images can have same gameId
+                                  const uniqueKey = `sgdb-boxart-${imageUrl}-${idx}`;
+
                                   return (
                                     <div
-                                      key={`sgdb-${result.id}-${idx}`}
-                                      onClick={() => handleSelectImage(imageUrl, 'boxart')}
+                                      key={uniqueKey}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleSelectImage(imageUrl, 'boxart');
+                                      }}
                                       className="cursor-pointer hover:opacity-80 transition-opacity"
                                     >
                                       <img
@@ -854,10 +1082,16 @@ export const GameManager: React.FC<GameManagerProps> = ({
                                   const imageUrl = result.bannerUrl;
                                   if (!imageUrl) return null;
 
+                                  // Use imageUrl in key to ensure uniqueness since multiple images can have same gameId
+                                  const uniqueKey = `sgdb-banner-${imageUrl}-${idx}`;
+
                                   return (
                                     <div
-                                      key={`sgdb-${result.id}-${idx}`}
-                                      onClick={() => handleSelectImage(imageUrl, 'banner')}
+                                      key={uniqueKey}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleSelectImage(imageUrl, 'banner');
+                                      }}
                                       className="cursor-pointer hover:opacity-80 transition-opacity"
                                     >
                                       <img
@@ -874,10 +1108,16 @@ export const GameManager: React.FC<GameManagerProps> = ({
                                   const imageUrl = result.logoUrl;
                                   if (!imageUrl) return null;
 
+                                  // Use imageUrl in key to ensure uniqueness since multiple logos can have same gameId
+                                  const uniqueKey = `sgdb-logo-${imageUrl}-${idx}`;
+
                                   return (
                                     <div
-                                      key={`sgdb-${result.id}-${idx}`}
-                                      onClick={() => handleSelectImage(imageUrl, 'logo')}
+                                      key={uniqueKey}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleSelectImage(imageUrl, 'logo');
+                                      }}
                                       className="cursor-pointer hover:opacity-80 transition-opacity"
                                     >
                                       <img
@@ -906,25 +1146,96 @@ export const GameManager: React.FC<GameManagerProps> = ({
                           <div className="flex gap-2">
                             <input
                               type="text"
-                              value={editedGame.title}
-                              onChange={(e) => setEditedGame({ ...editedGame, title: e.target.value })}
+                              value={showFixMatch ? metadataSearchQuery : editedGame.title}
+                              onChange={(e) => {
+                                if (showFixMatch) {
+                                  setMetadataSearchQuery(e.target.value);
+                                } else {
+                                  setEditedGame({ ...editedGame, title: e.target.value });
+                                }
+                              }}
+                              onKeyDown={(e) => {
+                                if (showFixMatch && e.key === 'Enter') {
+                                  handleFixMatchSearch();
+                                }
+                              }}
+                              placeholder={showFixMatch ? "Enter game title to search..." : ""}
                               className="flex-1 px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                              disabled={showFixMatch && isSearchingMetadata}
                             />
+                            {showFixMatch && (
+                              <button
+                                onClick={handleFixMatchSearch}
+                                disabled={isSearchingMetadata}
+                                className="px-4 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors disabled:opacity-50 flex items-center gap-2"
+                              >
+                                {isSearchingMetadata ? (
+                                  <>
+                                    <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                    </svg>
+                                    Searching...
+                                  </>
+                                ) : (
+                                  'Search'
+                                )}
+                              </button>
+                            )}
                             <button
                               onClick={async () => {
                                 const wasHidden = !showFixMatch;
                                 setShowFixMatch(!showFixMatch);
                                 if (wasHidden) {
-                                  setMetadataSearchQuery(selectedGame.title);
-                                  // Auto-search when opening
-                                  const query = selectedGame.title;
+                                  // When opening, set search query to current title and auto-search
+                                  setMetadataSearchQuery(editedGame.title || selectedGame.title);
+                                  const query = editedGame.title || selectedGame.title;
                                   if (query) {
                                     setIsSearchingMetadata(true);
                                     setMetadataSearchResults([]);
                                     try {
-                                      const response = await window.electronAPI.searchMetadata(query);
+                                      const response = await window.electronAPI.searchGames(query);
                                       if (response.success && response.results) {
-                                        setMetadataSearchResults(response.results);
+                                        // Sort results: newest release first, then Steam, then exact matches
+                                        const normalizedQuery = query.toLowerCase().trim();
+                                        const sortedResults = response.results.sort((a: any, b: any) => {
+                                          // First, sort by release date (newest first)
+                                          const getDate = (result: any): number => {
+                                            if (result.releaseDate) {
+                                              if (typeof result.releaseDate === 'number') {
+                                                return result.releaseDate * 1000; // Convert Unix timestamp (seconds) to milliseconds
+                                              }
+                                              return new Date(result.releaseDate).getTime();
+                                            }
+                                            if (result.year) {
+                                              return new Date(result.year, 0, 1).getTime();
+                                            }
+                                            return 0;
+                                          };
+                                          
+                                          const aDate = getDate(a);
+                                          const bDate = getDate(b);
+                                          if (aDate !== bDate && aDate > 0 && bDate > 0) {
+                                            return bDate - aDate; // Newest first
+                                          }
+                                          
+                                          // If dates are equal or missing, prioritize Steam results
+                                          const aIsSteam = a.source === 'steam';
+                                          const bIsSteam = b.source === 'steam';
+                                          if (aIsSteam && !bIsSteam) return -1;
+                                          if (!aIsSteam && bIsSteam) return 1;
+                                          
+                                          // Then prioritize exact matches
+                                          const aName = (a.title || a.name || '').toLowerCase().trim();
+                                          const bName = (b.title || b.name || '').toLowerCase().trim();
+                                          const aExact = aName === normalizedQuery;
+                                          const bExact = bName === normalizedQuery;
+                                          if (aExact && !bExact) return -1;
+                                          if (!aExact && bExact) return 1;
+                                          
+                                          return 0;
+                                        });
+                                        setMetadataSearchResults(sortedResults);
                                       }
                                     } catch (err) {
                                       console.error('Error searching metadata:', err);
@@ -932,6 +1243,10 @@ export const GameManager: React.FC<GameManagerProps> = ({
                                       setIsSearchingMetadata(false);
                                     }
                                   }
+                                } else {
+                                  // When hiding, clear search results
+                                  setMetadataSearchResults([]);
+                                  setMetadataSearchQuery('');
                                 }
                               }}
                               className="px-3 py-1.5 text-sm bg-purple-600 hover:bg-purple-700 text-white rounded transition-colors flex items-center gap-1.5"
@@ -944,80 +1259,97 @@ export const GameManager: React.FC<GameManagerProps> = ({
                           </div>
                         </div>
 
-                        {/* Fix Match Search */}
+                        {/* Fix Match Results */}
                         {showFixMatch && (
                           <div className="space-y-2">
-                            <div className="flex gap-2">
-                              <input
-                                type="text"
-                                value={metadataSearchQuery}
-                                onChange={(e) => setMetadataSearchQuery(e.target.value)}
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') {
-                                    handleFixMatchSearch();
-                                  }
-                                }}
-                                placeholder="Enter game title to search..."
-                                className="flex-1 px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                              />
-                              <button
-                                onClick={handleFixMatchSearch}
-                                disabled={isSearchingMetadata}
-                                className="px-4 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors disabled:opacity-50"
-                              >
-                                {isSearchingMetadata ? 'Searching...' : 'Search'}
-                              </button>
-                            </div>
+                            {isSearchingMetadata && (
+                              <div className="flex items-center gap-2 text-sm text-gray-400">
+                                <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                </svg>
+                                Searching for metadata matches...
+                              </div>
+                            )}
 
                             {metadataSearchResults.length > 0 && (
-                              <div className="max-h-48 overflow-y-auto space-y-1.5">
-                                {metadataSearchResults.map((result) => (
-                                  <button
-                                    key={result.id}
-                                    onClick={() => handleSelectMetadataMatch({ id: result.id, source: result.source })}
-                                    disabled={isApplyingMetadata}
-                                    className="w-full text-left p-2 text-sm bg-gray-800 hover:bg-gray-700 rounded border border-gray-600 disabled:opacity-50 transition-colors"
-                                  >
-                                    <div className="flex items-center justify-between">
-                                      <div>
-                                        <p className="text-white font-medium text-xs">{result.title || result.name}</p>
-                                        <div className="flex items-center gap-2 mt-0.5">
-                                          <span className={`text-xs ${result.source === 'steam' ? 'text-blue-400' : 'text-gray-400'}`}>
-                                            {result.source === 'steam' ? 'Steam' : result.source === 'igdb' ? 'IGDB' : result.source === 'steamgriddb' ? 'SteamGridDB' : result.source}
-                                          </span>
-                                          {(result.year || result.releaseDate) && (
-                                            <span className="text-xs text-gray-400">({result.year || new Date(result.releaseDate).getFullYear()})</span>
-                                          )}
+                              <div className="max-h-96 overflow-y-auto">
+                                <div className="grid grid-cols-10 gap-3">
+                                  {metadataSearchResults.map((result) => {
+                                    // Extract release date properly - show full date, not just year
+                                    let displayDate: string | undefined;
+                                    if (result.releaseDate) {
+                                      // Handle both Unix timestamp (seconds) and Date objects
+                                      if (typeof result.releaseDate === 'number') {
+                                        const date = new Date(result.releaseDate * 1000);
+                                        displayDate = date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+                                      } else if (typeof result.releaseDate === 'string') {
+                                        const date = new Date(result.releaseDate);
+                                        if (!isNaN(date.getTime())) {
+                                          displayDate = date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+                                        }
+                                      }
+                                    } else if (result.year) {
+                                      // Fallback to year only if no full date available
+                                      displayDate = result.year.toString();
+                                    }
+                                    
+                                    return (
+                                      <button
+                                        key={result.id}
+                                        onClick={() => handleSelectMetadataMatch({ id: result.id, source: result.source })}
+                                        disabled={isApplyingMetadata}
+                                        className="relative text-left p-2 text-sm bg-gray-800 hover:bg-gray-700 rounded border border-gray-600 disabled:opacity-50 transition-colors flex flex-col items-center gap-2"
+                                      >
+                                        {/* Boxart Image */}
+                                        {(result.boxArtUrl || result.coverUrl) ? (
+                                          <img
+                                            src={result.boxArtUrl || result.coverUrl}
+                                            alt={result.title || result.name}
+                                            className="w-full aspect-[2/3] object-cover rounded border border-gray-700"
+                                            onError={(e) => {
+                                              const target = e.target as HTMLImageElement;
+                                              target.style.display = 'none';
+                                            }}
+                                          />
+                                        ) : (
+                                          <div className="w-full aspect-[2/3] bg-gray-700 rounded border border-gray-700 flex items-center justify-center">
+                                            <span className="text-xs text-gray-500">No image</span>
+                                          </div>
+                                        )}
+                                        <div className="w-full min-w-0 text-center">
+                                          <p className="text-white font-medium text-xs truncate" title={result.title || result.name}>
+                                            {result.title || result.name}
+                                          </p>
+                                          <div className="flex flex-col items-center gap-0.5 mt-0.5">
+                                            <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                                              <span className={`text-xs ${result.source === 'steam' ? 'text-blue-400' : 'text-gray-400'}`}>
+                                                {result.source === 'steam' ? 'Steam' : result.source === 'igdb' ? 'IGDB' : result.source === 'steamgriddb' ? 'SGDB' : result.source}
+                                              </span>
+                                            </div>
+                                            {displayDate && (
+                                              <span className="text-xs text-gray-400">{displayDate}</span>
+                                            )}
+                                          </div>
                                         </div>
-                                      </div>
-                                      {isApplyingMetadata && (
-                                        <svg className="animate-spin h-3 w-3 text-blue-500" fill="none" viewBox="0 0 24 24">
-                                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                                        </svg>
-                                      )}
-                                    </div>
-                                  </button>
-                                ))}
+                                        {isApplyingMetadata && (
+                                          <div className="absolute inset-0 bg-black/50 rounded flex items-center justify-center">
+                                            <svg className="animate-spin h-5 w-5 text-blue-500" fill="none" viewBox="0 0 24 24">
+                                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                            </svg>
+                                          </div>
+                                        )}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
                               </div>
                             )}
                           </div>
                         )}
 
-                        {/* Description - only if filled */}
-                        {editedGame.description && (
-                          <div>
-                            <label className="block text-xs font-medium text-gray-400 mb-1">Description</label>
-                            <textarea
-                              value={editedGame.description}
-                              onChange={(e) => setEditedGame({ ...editedGame, description: e.target.value })}
-                              className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                              rows={3}
-                            />
-                          </div>
-                        )}
-
-                        {/* Description */}
+                        {/* Description - moved below Fix Match results */}
                         <div>
                           <label className="block text-xs font-medium text-gray-400 mb-1">Description</label>
                           <textarea
@@ -1597,7 +1929,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
             let fixedCount = 0;
             
             for (const [gameId, boxartUrl] of fixes.entries()) {
-              const game = games.find(g => g.id === gameId);
+              const game = localGames.find(g => g.id === gameId);
               if (game) {
                 setRefreshProgress({ 
                   current: fixedCount + 1, 

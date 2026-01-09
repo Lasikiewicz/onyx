@@ -39,7 +39,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   importAllSteamGames: (path?: string) => ipcRenderer.invoke('steam:importAllGames', path),
   // GameStore methods
   getLibrary: () => ipcRenderer.invoke('gameStore:getLibrary'),
-  saveGame: (game: any) => ipcRenderer.invoke('gameStore:saveGame', game),
+  saveGame: (game: any, oldGame?: any) => ipcRenderer.invoke('gameStore:saveGame', game, oldGame),
+  deleteCachedImage: (gameId: string, imageType: 'boxart' | 'banner' | 'logo' | 'hero') => ipcRenderer.invoke('imageCache:deleteImage', gameId, imageType),
   reorderGames: (games: any[]) => ipcRenderer.invoke('gameStore:reorderGames', games),
   addCustomGame: (gameData: { title: string; exePath: string }) => ipcRenderer.invoke('gameStore:addCustomGame', gameData),
   deleteGame: (gameId: string) => ipcRenderer.invoke('gameStore:deleteGame', gameId),
@@ -106,6 +107,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   resetApp: () => ipcRenderer.invoke('app:reset'),
   // Import service methods
   scanAllSources: () => ipcRenderer.invoke('import:scanAllSources'),
+  scanFolder: (folderPath: string) => ipcRenderer.invoke('import:scanFolder', folderPath),
   // Image search methods
   searchImages: (query: string, imageType: 'boxart' | 'banner' | 'logo', steamAppId?: string) => ipcRenderer.invoke('metadata:searchImages', query, imageType, steamAppId),
   // App version

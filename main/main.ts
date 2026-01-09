@@ -889,8 +889,31 @@ ipcMain.handle('gameStore:getLibrary', async () => {
   }
 });
 
-ipcMain.handle('gameStore:saveGame', async (_event, game: Game) => {
+ipcMain.handle('gameStore:saveGame', async (_event, game: Game, oldGame?: Game) => {
   try {
+    // Get old game from database if not provided
+    if (!oldGame) {
+      const games = await gameStore.getLibrary();
+      oldGame = games.find(g => g.id === game.id);
+    }
+
+    // Delete old images from disk if they're being replaced
+    if (oldGame) {
+      // Check each image type and delete old cached image if it's being replaced
+      if (game.boxArtUrl && oldGame.boxArtUrl && game.boxArtUrl !== oldGame.boxArtUrl && oldGame.boxArtUrl.startsWith('onyx-local://')) {
+        await imageCacheService.deleteCachedImage(game.id, 'boxart');
+      }
+      if (game.bannerUrl && oldGame.bannerUrl && game.bannerUrl !== oldGame.bannerUrl && oldGame.bannerUrl.startsWith('onyx-local://')) {
+        await imageCacheService.deleteCachedImage(game.id, 'banner');
+      }
+      if (game.logoUrl && oldGame.logoUrl && game.logoUrl !== oldGame.logoUrl && oldGame.logoUrl.startsWith('onyx-local://')) {
+        await imageCacheService.deleteCachedImage(game.id, 'logo');
+      }
+      if (game.heroUrl && oldGame.heroUrl && game.heroUrl !== oldGame.heroUrl && oldGame.heroUrl.startsWith('onyx-local://')) {
+        await imageCacheService.deleteCachedImage(game.id, 'hero');
+      }
+    }
+
     // Cache images before saving
     const cachedImages = await imageCacheService.cacheImages({
       boxArtUrl: game.boxArtUrl,
@@ -939,15 +962,32 @@ ipcMain.handle('gameStore:deleteGame', async (_event, gameId: string) => {
 // Reset app handler - clears all data
 ipcMain.handle('app:reset', async () => {
   try {
+    console.log('[Reset] Starting complete app reset...');
+    
     // Clear all stores
+    console.log('[Reset] Clearing game library...');
     await gameStore.clearLibrary();
+    
+    console.log('[Reset] Resetting user preferences...');
     await userPreferencesService.resetPreferences();
+    
+    console.log('[Reset] Clearing app configurations...');
     await appConfigService.clearAppConfigs();
+    
+    console.log('[Reset] Clearing API credentials...');
     await apiCredentialsService.clearCredentials();
     
+    console.log('[Reset] Clearing Steam authentication...');
+    await steamAuthService.clearAuth();
+    
+    console.log('[Reset] Clearing image cache...');
+    await imageCacheService.clearCache();
+    
     // Reinitialize IGDB service (will be null since credentials are cleared)
+    console.log('[Reset] Reinitializing IGDB service...');
     await initializeIGDBService();
     
+    console.log('[Reset] Complete app reset successful');
     return { success: true };
   } catch (error) {
     console.error('Error in app:reset handler:', error);
@@ -1127,12 +1167,12 @@ ipcMain.handle('metadata:searchGames', async (_event, gameTitle: string) => {
   try {
     const results = await metadataFetcher.searchGames(gameTitle);
     
-    // Transform results to include additional info for display
+    // Transform results to include additional info for display (year, platform, boxart)
     const transformedResults = await Promise.all(
       results.map(async (result) => {
         const transformed: any = { ...result };
         
-        // Try to get more details if it's an IGDB result
+        // Try to get more details including year, platform, and boxart
         if (result.source === 'igdb' && result.externalId && igdbService) {
           try {
             // Search IGDB to get the full game details
@@ -1142,21 +1182,78 @@ ipcMain.handle('metadata:searchGames', async (_event, gameTitle: string) => {
             if (igdbResult) {
               // Extract year from release date
               if (igdbResult.releaseDate) {
+                // releaseDate is a Unix timestamp in seconds
                 const date = new Date(igdbResult.releaseDate * 1000);
                 transformed.year = date.getFullYear();
+                transformed.releaseDate = igdbResult.releaseDate;
               }
               // Extract platform
               if (igdbResult.platform) {
                 transformed.platform = igdbResult.platform;
               }
+              // Get boxart URL
+              if (igdbResult.coverUrl) {
+                transformed.boxArtUrl = igdbResult.coverUrl;
+                transformed.coverUrl = igdbResult.coverUrl;
+              }
             }
           } catch (err) {
             console.warn('Error fetching additional details for IGDB result:', err);
           }
+        } else if (result.source === 'steamgriddb' && result.externalId && metadataFetcher) {
+          try {
+            // For SteamGridDB, try to get artwork to extract boxart
+            const artwork = await metadataFetcher.searchArtwork(result.title, result.steamAppId);
+            if (artwork && artwork.boxArtUrl) {
+              transformed.boxArtUrl = artwork.boxArtUrl;
+              transformed.coverUrl = artwork.boxArtUrl;
+            }
+            // Try to get description to extract year
+            if (metadataFetcher.getIGDBProvider() && igdbService) {
+              // Try searching IGDB for this game to get year
+              const igdbResults = await igdbService.searchGame(result.title);
+              if (igdbResults.length > 0) {
+                const igdbResult = igdbResults[0];
+                if (igdbResult.releaseDate) {
+                  const date = new Date(igdbResult.releaseDate * 1000);
+                  transformed.year = date.getFullYear();
+                  transformed.releaseDate = igdbResult.releaseDate;
+                }
+                if (igdbResult.platform) {
+                  transformed.platform = igdbResult.platform;
+                }
+              }
+            }
+          } catch (err) {
+            console.warn('Error fetching additional details for SteamGridDB result:', err);
+          }
+        } else if (result.source === 'steam' && result.steamAppId) {
+          try {
+            // For Steam results, try to get artwork
+            const artwork = await metadataFetcher.searchArtwork(result.title, result.steamAppId);
+            if (artwork && artwork.boxArtUrl) {
+              transformed.boxArtUrl = artwork.boxArtUrl;
+              transformed.coverUrl = artwork.boxArtUrl;
+            }
+            // Try to get year from IGDB
+            if (igdbService) {
+              const igdbResults = await igdbService.searchGame(result.title);
+              if (igdbResults.length > 0) {
+                const igdbResult = igdbResults[0];
+                if (igdbResult.releaseDate) {
+                  const date = new Date(igdbResult.releaseDate * 1000);
+                  transformed.year = date.getFullYear();
+                  transformed.releaseDate = igdbResult.releaseDate;
+                }
+                if (igdbResult.platform) {
+                  transformed.platform = igdbResult.platform;
+                }
+              }
+            }
+          } catch (err) {
+            console.warn('Error fetching additional details for Steam result:', err);
+          }
         }
-        
-        // For SteamGridDB, the search results don't include year/platform in the basic search
-        // We could fetch game details, but that would be slow. For now, just return basic info.
         
         return transformed;
       })
@@ -1293,8 +1390,38 @@ ipcMain.handle('metadata:refreshAll', async (event, options?: { allGames?: boole
         // This finds boxart even when exact game match isn't found
         let metadata: { boxArtUrl?: string; bannerUrl?: string; logoUrl?: string; heroUrl?: string } = {};
         
-        // First, try direct SteamGridDB search (same as manual search)
-        if (steamGridDBService) {
+        // PRIORITY 1: If we have a Steam App ID, fetch official Steam CDN images FIRST
+        if (steamAppId) {
+          sendProgress({ 
+            current, 
+            total: totalGames, 
+            message: `Fetching official Steam images for ${game.title}...`,
+            gameTitle: game.title
+          });
+          
+          try {
+            // Use metadataFetcher which will prioritize Steam CDN when steamAppId is provided
+            const steamMetadata = await metadataFetcher.searchArtwork(game.title, steamAppId);
+            
+            if (steamMetadata.boxArtUrl) {
+              metadata.boxArtUrl = steamMetadata.boxArtUrl;
+              console.log(`[RefreshAll] Found official Steam boxart for ${game.title}: ${steamMetadata.boxArtUrl.substring(0, 80)}...`);
+            }
+            if (steamMetadata.bannerUrl) {
+              metadata.bannerUrl = steamMetadata.bannerUrl;
+              console.log(`[RefreshAll] Found official Steam banner for ${game.title}: ${steamMetadata.bannerUrl.substring(0, 80)}...`);
+            }
+            if (steamMetadata.logoUrl) {
+              metadata.logoUrl = steamMetadata.logoUrl;
+              console.log(`[RefreshAll] Found official Steam logo for ${game.title}: ${steamMetadata.logoUrl.substring(0, 80)}...`);
+            }
+          } catch (error) {
+            console.warn(`[RefreshAll] Failed to fetch official Steam images for ${game.title}:`, error instanceof Error ? error.message : error);
+          }
+        }
+        
+        // PRIORITY 2: If we still don't have all images, try SteamGridDB search
+        if (steamGridDBService && (!metadata.boxArtUrl || !metadata.bannerUrl || !metadata.logoUrl)) {
           try {
             sendProgress({ 
               current, 
@@ -1471,8 +1598,9 @@ ipcMain.handle('metadata:refreshAll', async (event, options?: { allGames?: boole
           }
         }
         
-        // If we still don't have all three, try all sources for all game types
-        if (!metadata.boxArtUrl || !metadata.bannerUrl || !metadata.logoUrl) {
+        // If we still don't have all three and we don't have a Steam App ID, try Steam CDN as fallback
+        // (If we have steamAppId, we already checked Steam CDN first, so skip to avoid duplicate requests)
+        if ((!metadata.boxArtUrl || !metadata.bannerUrl || !metadata.logoUrl) && !steamAppId) {
           sendProgress({ 
             current, 
             total: totalGames, 
@@ -1481,7 +1609,7 @@ ipcMain.handle('metadata:refreshAll', async (event, options?: { allGames?: boole
           });
           
           try {
-            const steamMetadata = await metadataFetcher.searchArtwork(game.title, steamAppId);
+            const steamMetadata = await metadataFetcher.searchArtwork(game.title, undefined);
             if (steamMetadata.boxArtUrl && !metadata.boxArtUrl) {
               metadata.boxArtUrl = steamMetadata.boxArtUrl;
               console.log(`[RefreshAll] Found Steam CDN boxart for ${game.title}: ${steamMetadata.boxArtUrl.substring(0, 80)}...`);
@@ -1830,15 +1958,33 @@ ipcMain.handle('metadata:fetchAndUpdateByProviderId', async (_event, gameId: str
         return { success: false, error: 'Invalid IGDB ID or service not available' };
       }
       
-      // Search IGDB for the specific game by ID
-      const igdbResults = await igdbService.searchGame(String(igdbGameId));
-      const igdbResult = igdbResults.find(r => r.id === igdbGameId) || igdbResults[0];
-      
-      if (igdbResult) {
-        // Use the game title from IGDB result to fetch complete metadata
-        metadata = await metadataFetcher.searchArtwork(igdbResult.name, steamAppId);
-      } else {
-        return { success: false, error: 'Game not found in IGDB' };
+      try {
+        // Search IGDB for the specific game by ID
+        const igdbResults = await igdbService.searchGame(String(igdbGameId));
+        const igdbResult = igdbResults.find(r => r.id === igdbGameId) || igdbResults[0];
+        
+        if (igdbResult) {
+          // Use the game title from IGDB result to fetch complete metadata
+          metadata = await metadataFetcher.searchArtwork(igdbResult.name, steamAppId);
+        } else {
+          // If IGDB search by ID fails, try searching by game title as fallback
+          console.log(`[fetchAndUpdateByProviderId] IGDB ID ${igdbGameId} not found, trying search by title: ${game.title}`);
+          metadata = await metadataFetcher.searchArtwork(game.title, steamAppId);
+          if (!metadata || (!metadata.boxArtUrl && !metadata.bannerUrl)) {
+            return { success: false, error: 'Game not found in IGDB and no metadata available' };
+          }
+        }
+      } catch (err) {
+        // If IGDB search fails, try searching by game title as fallback
+        console.log(`[fetchAndUpdateByProviderId] IGDB search failed, trying search by title: ${game.title}`, err);
+        try {
+          metadata = await metadataFetcher.searchArtwork(game.title, steamAppId);
+          if (!metadata || (!metadata.boxArtUrl && !metadata.bannerUrl)) {
+            return { success: false, error: 'Game not found in IGDB and no metadata available' };
+          }
+        } catch (fallbackErr) {
+          return { success: false, error: 'Game not found in IGDB' };
+        }
       }
     } else if (providerSource === 'steamgriddb') {
       // Extract SteamGridDB game ID from provider ID (format: "steamgriddb-123")
@@ -1980,6 +2126,16 @@ ipcMain.handle('dialog:showOpenDialog', async () => {
 });
 
 // Image file dialog handler for selecting custom assets
+ipcMain.handle('imageCache:deleteImage', async (_event, gameId: string, imageType: 'boxart' | 'banner' | 'logo' | 'hero') => {
+  try {
+    await imageCacheService.deleteCachedImage(gameId, imageType);
+    return { success: true };
+  } catch (error) {
+    console.error('Error deleting cached image:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+});
+
 ipcMain.handle('dialog:showImageDialog', async () => {
   try {
     const targetWindow = BrowserWindow.getFocusedWindow() || win;
@@ -1988,7 +2144,8 @@ ipcMain.handle('dialog:showImageDialog', async () => {
     const result = await dialog.showOpenDialog(targetWindow || undefined, {
       properties: ['openFile'],
       filters: [
-        { name: 'Images', extensions: ['jpg', 'jpeg', 'png', 'gif', 'webp'] },
+        { name: 'Images', extensions: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'apng', 'webm'] },
+        { name: 'Animated Images', extensions: ['gif', 'webp', 'apng', 'webm'] },
         { name: 'All Files', extensions: ['*'] },
       ],
     });
@@ -2544,23 +2701,85 @@ ipcMain.handle('import:scanAllSources', async () => {
   }
 });
 
+ipcMain.handle('import:scanFolder', async (_event, folderPath: string) => {
+  try {
+    const results = await importService.scanFolderForExecutables(folderPath);
+    return { success: true, games: results };
+  } catch (error) {
+    console.error('Error in import:scanFolder handler:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error', games: [] };
+  }
+});
+
 // Search for specific image types from SteamGridDB
 ipcMain.handle('metadata:searchImages', async (_event, query: string, imageType: 'boxart' | 'banner' | 'logo', steamAppId?: string) => {
   try {
+    const imageResults: Array<{ gameId: number; gameName: string; images: Array<{ url: string; score: number; width: number; height: number; mime?: string; isAnimated?: boolean }> }> = [];
+    
+    // If we have a Steam App ID, fetch official Steam CDN images first (highest priority)
+    if (steamAppId) {
+      try {
+        // Use metadataFetcher to get Steam artwork (it will use Steam provider internally)
+        const steamArtwork = await metadataFetcher.searchArtwork(query, steamAppId);
+        
+        if (steamArtwork) {
+          const steamImages: Array<{ url: string; score: number; width: number; height: number; mime?: string; isAnimated?: boolean }> = [];
+          
+          if (imageType === 'boxart' && steamArtwork.boxArtUrl) {
+            steamImages.push({
+              url: steamArtwork.boxArtUrl,
+              score: 1000, // High score for official Steam images
+              width: 600,
+              height: 900,
+              mime: 'image/jpeg',
+              isAnimated: false,
+            });
+          } else if (imageType === 'banner' && steamArtwork.bannerUrl) {
+            steamImages.push({
+              url: steamArtwork.bannerUrl,
+              score: 1000, // High score for official Steam images
+              width: 1920,
+              height: 620,
+              mime: 'image/jpeg',
+              isAnimated: false,
+            });
+          } else if (imageType === 'logo' && steamArtwork.logoUrl) {
+            steamImages.push({
+              url: steamArtwork.logoUrl,
+              score: 1000, // High score for official Steam images
+              width: 467,
+              height: 87,
+              mime: 'image/png',
+              isAnimated: false,
+            });
+          }
+          
+          if (steamImages.length > 0) {
+            imageResults.push({
+              gameId: parseInt(steamAppId, 10),
+              gameName: `Official Steam Images (App ID: ${steamAppId})`,
+              images: steamImages,
+            });
+          }
+        }
+      } catch (err) {
+        console.warn(`Error fetching Steam CDN images for App ID ${steamAppId}:`, err);
+      }
+    }
+    
+    // Also search SteamGridDB for community images
     if (!steamGridDBService) {
-      return { success: false, error: 'SteamGridDB service not available', images: [] };
+      return { success: true, images: imageResults };
     }
 
     // Search for games on SteamGridDB
     const games = await steamGridDBService.searchGame(query);
     
     if (games.length === 0) {
-      return { success: true, images: [] };
+      return { success: true, images: imageResults };
     }
 
     // Fetch images for each game (limit to 10 games)
-    const imageResults: Array<{ gameId: number; gameName: string; images: Array<{ url: string; score: number; width: number; height: number; mime?: string; isAnimated?: boolean }> }> = [];
-    
     for (const game of games.slice(0, 10)) {
       try {
         let images: Array<{ url: string; score: number; width: number; height: number; mime?: string; isAnimated?: boolean }> = [];
@@ -2653,7 +2872,7 @@ ipcMain.handle('preferences:get', async () => {
   }
 });
 
-ipcMain.handle('preferences:save', async (_event, preferences: { gridSize?: number; panelWidth?: number; fanartHeight?: number; descriptionHeight?: number; pinnedCategories?: string[]; minimizeToTray?: boolean; showSystemTrayIcon?: boolean; startWithComputer?: boolean; startClosedToTray?: boolean; updateLibrariesOnStartup?: boolean; activeGameId?: string | null; hideVRTitles?: boolean; hideGameTitles?: boolean; gameTilePadding?: number; ignoredGames?: string[]; windowState?: { x?: number; y?: number; width?: number; height?: number; isMaximized?: boolean } }) => {
+ipcMain.handle('preferences:save', async (_event, preferences: { gridSize?: number; panelWidth?: number; fanartHeight?: number; descriptionHeight?: number; pinnedCategories?: string[]; minimizeToTray?: boolean; showSystemTrayIcon?: boolean; startWithComputer?: boolean; startClosedToTray?: boolean; updateLibrariesOnStartup?: boolean; activeGameId?: string | null; hideVRTitles?: boolean; hideAppsTitles?: boolean; hideGameTitles?: boolean; gameTilePadding?: number; ignoredGames?: string[]; windowState?: { x?: number; y?: number; width?: number; height?: number; isMaximized?: boolean } }) => {
   try {
     await userPreferencesService.savePreferences(preferences);
     return { success: true };

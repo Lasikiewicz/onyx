@@ -89,6 +89,22 @@ export function useGameLibrary() {
     }
   };
 
+  const updateGameInState = (updatedGame: Game) => {
+    // Update the game in local state without reloading
+    // Add cache buster to image URLs to force refresh
+    const timestamp = Date.now();
+    const gameWithCacheBuster = {
+      ...updatedGame,
+      boxArtUrl: updatedGame.boxArtUrl ? addCacheBuster(convertFileUrlToLocalProtocol(updatedGame.boxArtUrl), timestamp) : updatedGame.boxArtUrl,
+      bannerUrl: updatedGame.bannerUrl ? addCacheBuster(convertFileUrlToLocalProtocol(updatedGame.bannerUrl), timestamp) : updatedGame.bannerUrl,
+      logoUrl: updatedGame.logoUrl ? addCacheBuster(convertFileUrlToLocalProtocol(updatedGame.logoUrl), timestamp) : updatedGame.logoUrl,
+      heroUrl: updatedGame.heroUrl ? addCacheBuster(convertFileUrlToLocalProtocol(updatedGame.heroUrl), timestamp) : updatedGame.heroUrl,
+    };
+    setGames(prevGames => 
+      prevGames.map(g => g.id === updatedGame.id ? gameWithCacheBuster : g)
+    );
+  };
+
   const saveGame = async (game: Game) => {
     try {
       const success = await window.electronAPI.saveGame(game);
@@ -156,6 +172,7 @@ export function useGameLibrary() {
     error,
     loadLibrary,
     saveGame,
+    updateGameInState,
     reorderGames,
     addCustomGame,
     deleteGame,

@@ -8,6 +8,7 @@ interface ImportWorkbenchProps {
   onClose: () => void;
   onImport: (games: Game[]) => Promise<void>;
   existingLibrary?: Game[];
+  initialFolderPath?: string; // Optional: folder path to scan on open
 }
 
 export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
@@ -15,6 +16,7 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
   onClose,
   onImport,
   existingLibrary = [],
+  initialFolderPath,
 }) => {
   const [queue, setQueue] = useState<StagedGame[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -125,8 +127,7 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
     // Mark as ignored in queue
     updateGame(game.uuid, { isIgnored: true });
     
-    // Remove from selection
-    updateGame(game.uuid, { isSelected: false });
+    // Games are auto-selected, so we don't need to manage selection state
     
     // Save to preferences
     try {
@@ -159,6 +160,300 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
       });
     } catch (err) {
       console.error('Error removing ignore:', err);
+    }
+  };
+
+  // Scan a specific folder
+  const handleScanFolder = async (folderPath: string) => {
+    const apisConfigured = await areAPIsConfigured();
+    if (!apisConfigured) {
+      setError('API credentials must be configured before scanning. Please configure them in Settings.');
+      return;
+    }
+
+    setIsScanning(true);
+    setError(null);
+    setQueue([]); // Clear existing queue
+
+    try {
+      const result = await window.electronAPI.scanFolder(folderPath);
+      
+      if (!result.success) {
+        setError(result.error || 'Failed to scan folder');
+        setIsScanning(false);
+        return;
+      }
+
+      if (result.games.length === 0) {
+        setError('No games found in selected folder');
+        setIsScanning(false);
+        return;
+      }
+
+      // Pre-filter games that already exist in library to avoid fetching metadata
+      const existingGameIds = new Set(existingLibrary.map(g => g.id));
+      const existingExePaths = new Set(
+        existingLibrary
+          .map(g => g.exePath)
+          .filter((path): path is string => !!path)
+          .map(path => path.toLowerCase().replace(/\\/g, '/'))
+      );
+      const existingInstallPaths = new Set(
+        existingLibrary
+          .map(g => g.installationDirectory)
+          .filter((path): path is string => !!path)
+          .map(path => path.toLowerCase().replace(/\\/g, '/'))
+      );
+
+      // Filter out games that already exist before processing
+      const gamesToProcess = result.games.filter(scanned => {
+        // Check by game ID first
+        const gameId = scanned.source === 'steam' && scanned.appId
+          ? `steam-${scanned.appId}`
+          : scanned.uuid;
+        if (existingGameIds.has(gameId)) {
+          return false;
+        }
+        
+        // Check by exePath
+        if (scanned.exePath) {
+          const normalizedExePath = scanned.exePath.toLowerCase().replace(/\\/g, '/');
+          if (existingExePaths.has(normalizedExePath)) {
+            return false;
+          }
+        }
+        
+        // Check by installPath
+        if (scanned.installPath) {
+          const normalizedInstallPath = scanned.installPath.toLowerCase().replace(/\\/g, '/');
+          if (existingInstallPaths.has(normalizedInstallPath)) {
+            return false;
+          }
+        }
+        
+        return true;
+      });
+
+      // Convert scanned results to StagedGame objects - process progressively
+      const stagedGames: StagedGame[] = [];
+      
+      // Process games one by one and add them to queue as they're found
+      for (const scanned of gamesToProcess) {
+        const stagedGame = await (async (): Promise<StagedGame> => {
+          // Check if game is ignored
+          const gameId = scanned.source === 'steam' && scanned.appId
+            ? `steam-${scanned.appId}`
+            : scanned.uuid;
+          const isIgnored = ignoredGames.has(gameId);
+
+          // For folder scans, games need metadata matching
+          let metadata: GameMetadata | null = null;
+          let status: ImportStatus = scanned.status as ImportStatus;
+          let boxArtUrl = '';
+          let bannerUrl = '';
+          let logoUrl = '';
+          let heroUrl = '';
+          let description = '';
+          let releaseDate = '';
+          let genres: string[] = [];
+          let developers: string[] = [];
+          let publishers: string[] = [];
+          let categories: string[] = [];
+          let ageRating = '';
+          let rating = 0;
+          let platform = '';
+
+          // Try to find match for games
+          let steamAppId = scanned.appId;
+          let matchedTitle = scanned.title;
+          let matchedResult: any = null;
+          
+          try {
+            // Step 1: Search with the provided name
+            const searchResponse = await window.electronAPI.searchGames(scanned.title);
+            
+            if (searchResponse && (searchResponse.success !== false) && searchResponse.results && searchResponse.results.length > 0) {
+              // Step 2: Find first Steam result with an App ID (preferred)
+              const steamResult = searchResponse.results.find((r: any) => r.steamAppId);
+              
+              if (steamResult && steamResult.steamAppId) {
+                steamAppId = steamResult.steamAppId.toString();
+                matchedTitle = steamResult.title || steamResult.name || scanned.title;
+                matchedResult = steamResult;
+              } else {
+                // Step 2b: If no Steam result, use first IGDB result
+                const igdbResult = searchResponse.results.find((r: any) => r.source === 'igdb');
+                if (igdbResult) {
+                  matchedTitle = igdbResult.title || igdbResult.name || scanned.title;
+                  matchedResult = igdbResult;
+                } else {
+                  // Step 2c: Use first result of any type
+                  const firstResult = searchResponse.results[0];
+                  if (firstResult) {
+                    matchedTitle = firstResult.title || firstResult.name || scanned.title;
+                    matchedResult = firstResult;
+                  }
+                }
+              }
+            }
+          } catch (err) {
+            console.warn(`[ImportWorkbench] Error searching for match for "${scanned.title}":`, err);
+          }
+
+          if (steamAppId || matchedResult) {
+            // Game has a found match
+            try {
+              const [artworkResult, metadataResult] = await Promise.allSettled([
+                window.electronAPI.searchArtwork(matchedTitle, steamAppId),
+                window.electronAPI.searchMetadata(matchedTitle),
+              ]);
+
+              if (artworkResult.status === 'fulfilled') {
+                metadata = artworkResult.value;
+              }
+
+              let igdbResult: any = null;
+              if (metadataResult.status === 'fulfilled' && metadataResult.value.success && metadataResult.value.results?.length > 0) {
+                igdbResult = metadataResult.value.results[0];
+              }
+
+              if (metadata || igdbResult) {
+                const formatReleaseDate = (timestamp?: number): string => {
+                  if (!timestamp) return '';
+                  const date = new Date(timestamp * 1000);
+                  return date.toISOString().split('T')[0];
+                };
+
+                boxArtUrl = metadata?.boxArtUrl || '';
+                bannerUrl = metadata?.bannerUrl || '';
+                logoUrl = metadata?.logoUrl || '';
+                heroUrl = metadata?.heroUrl || '';
+                description = (metadata?.description || metadata?.summary || igdbResult?.summary || '').trim();
+                
+                if (metadata?.releaseDate) {
+                  releaseDate = metadata.releaseDate;
+                } else if (igdbResult?.releaseDate) {
+                  releaseDate = formatReleaseDate(igdbResult.releaseDate);
+                }
+                releaseDate = releaseDate.trim();
+                
+                genres = (metadata?.genres && metadata.genres.length > 0) ? metadata.genres : (igdbResult?.genres && igdbResult.genres.length > 0 ? igdbResult.genres : []);
+                categories = (metadata?.categories && metadata.categories.length > 0) ? metadata.categories : (igdbResult?.categories && igdbResult.categories.length > 0 ? igdbResult.categories : []);
+                ageRating = (metadata?.ageRating || igdbResult?.ageRating || '').trim();
+                rating = metadata?.rating || igdbResult?.rating || 0;
+                platform = metadata?.platforms?.join(', ') || metadata?.platform || igdbResult?.platform || scanned.source;
+                developers = metadata?.developers || [];
+                publishers = metadata?.publishers || [];
+
+                metadata = {
+                  ...metadata,
+                  boxArtUrl,
+                  bannerUrl,
+                  logoUrl,
+                  heroUrl,
+                  description,
+                  releaseDate,
+                  genres,
+                  categories,
+                  ageRating,
+                  rating,
+                  platform: platform,
+                };
+                
+                status = 'ready';
+              } else {
+                status = 'ambiguous';
+              }
+            } catch (err) {
+              console.error(`Error fetching metadata for game with match:`, err);
+              status = 'ambiguous';
+            }
+          } else {
+            // No match found - try one more time with just the title
+            try {
+              const [artworkResult, metadataResult] = await Promise.allSettled([
+                window.electronAPI.searchArtwork(scanned.title),
+                window.electronAPI.searchMetadata(scanned.title),
+              ]);
+
+              if (artworkResult.status === 'fulfilled' && artworkResult.value) {
+                metadata = artworkResult.value;
+                boxArtUrl = metadata.boxArtUrl || '';
+                bannerUrl = metadata.bannerUrl || '';
+                logoUrl = metadata.logoUrl || '';
+                heroUrl = metadata.heroUrl || '';
+                description = metadata.description || metadata.summary || '';
+                releaseDate = metadata.releaseDate || '';
+                genres = metadata.genres || [];
+                categories = metadata.categories || [];
+                ageRating = metadata.ageRating || '';
+                rating = metadata.rating || 0;
+                platform = metadata.platforms?.join(', ') || metadata.platform || scanned.source;
+                developers = metadata.developers || [];
+                publishers = metadata.publishers || [];
+                
+                if (metadata.boxArtUrl || metadata.bannerUrl || description) {
+                  status = 'ready';
+                } else {
+                  status = 'ambiguous';
+                }
+              } else {
+                status = 'ambiguous';
+              }
+            } catch (err) {
+              console.error(`Error fetching metadata for game "${scanned.title}":`, err);
+              status = 'ambiguous';
+            }
+          }
+
+          return {
+            uuid: scanned.uuid,
+            source: scanned.source,
+            originalName: scanned.originalName,
+            installPath: scanned.installPath,
+            exePath: scanned.exePath,
+            appId: scanned.appId || steamAppId,
+            title: matchedTitle,
+            description,
+            releaseDate,
+            genres,
+            developers,
+            publishers,
+            categories,
+            ageRating,
+            rating,
+            platform,
+            scrapedMetadata: metadata,
+            boxArtUrl,
+            bannerUrl,
+            logoUrl,
+            heroUrl,
+            screenshots: metadata?.screenshots,
+            status,
+            isSelected: !isIgnored,
+            isIgnored,
+          };
+        })();
+        
+        stagedGames.push(stagedGame);
+        setQueue([...stagedGames]);
+        
+        if (stagedGames.length === 1 && !selectedId) {
+          setSelectedId(stagedGame.uuid);
+        }
+      }
+
+      setQueue(stagedGames);
+      
+      const firstVisible = stagedGames.find(g => !g.isIgnored);
+      if (firstVisible && !selectedId) {
+        setSelectedId(firstVisible.uuid);
+      }
+    } catch (err) {
+      console.error('Error scanning folder:', err);
+      setError(err instanceof Error ? err.message : 'Failed to scan folder');
+    } finally {
+      setIsScanning(false);
     }
   };
 
@@ -226,9 +521,12 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
         return true;
       });
 
-      // Convert scanned results to StagedGame objects
-      const stagedGames: StagedGame[] = await Promise.all(
-        gamesToProcess.map(async (scanned): Promise<StagedGame> => {
+      // Convert scanned results to StagedGame objects - process progressively
+      const stagedGames: StagedGame[] = [];
+      
+      // Process games one by one and add them to queue as they're found
+      for (const scanned of gamesToProcess) {
+        const stagedGame = await (async (): Promise<StagedGame> => {
           // Check if game is ignored
           const gameId = scanned.source === 'steam' && scanned.appId
             ? `steam-${scanned.appId}`
@@ -252,6 +550,50 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
           let rating = 0;
           let platform = '';
 
+          // Try to find match for games without Steam App ID - SIMPLE APPROACH
+          let steamAppId = scanned.appId;
+          let matchedTitle = scanned.title; // Use matched title for better metadata fetching
+          let matchedResult: any = null;
+          
+          if (!steamAppId && scanned.source !== 'steam') {
+            try {
+              // Step 1: Search with the provided name
+              const searchResponse = await window.electronAPI.searchGames(scanned.title);
+              
+              if (searchResponse && (searchResponse.success !== false) && searchResponse.results && searchResponse.results.length > 0) {
+                // Step 2: Find first Steam result with an App ID (preferred)
+                const steamResult = searchResponse.results.find((r: any) => r.steamAppId);
+                
+                if (steamResult && steamResult.steamAppId) {
+                  steamAppId = steamResult.steamAppId.toString();
+                  matchedTitle = steamResult.title || steamResult.name || scanned.title;
+                  matchedResult = steamResult;
+                  console.log(`[ImportWorkbench] Found Steam App ID ${steamAppId} for "${scanned.title}" (matched with "${matchedTitle}")`);
+                } else {
+                  // Step 2b: If no Steam result, use first IGDB result (for non-Steam games)
+                  const igdbResult = searchResponse.results.find((r: any) => r.source === 'igdb');
+                  if (igdbResult) {
+                    matchedTitle = igdbResult.title || igdbResult.name || scanned.title;
+                    matchedResult = igdbResult;
+                    console.log(`[ImportWorkbench] Found IGDB match for "${scanned.title}" (matched with "${matchedTitle}")`);
+                  } else {
+                    // Step 2c: Use first result of any type
+                    const firstResult = searchResponse.results[0];
+                    if (firstResult) {
+                      matchedTitle = firstResult.title || firstResult.name || scanned.title;
+                      matchedResult = firstResult;
+                      console.log(`[ImportWorkbench] Found match for "${scanned.title}" (matched with "${matchedTitle}")`);
+                    } else {
+                      console.log(`[ImportWorkbench] No match found for "${scanned.title}"`);
+                    }
+                  }
+                }
+              }
+            } catch (err) {
+              console.warn(`[ImportWorkbench] Error searching for match for "${scanned.title}":`, err);
+            }
+          }
+
           if (scanned.source === 'steam' && scanned.appId) {
             try {
               // Always fetch metadata - try both searchArtwork and searchMetadata
@@ -260,18 +602,18 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
                 window.electronAPI.searchMetadata(scanned.title),
               ]);
 
-              // Get artwork metadata
+              // Get artwork metadata (this includes full metadata: images + text)
               if (artworkResult.status === 'fulfilled') {
                 metadata = artworkResult.value;
               }
 
-              // Get IGDB metadata for text fields
+              // Get IGDB metadata for text fields (as fallback if searchArtwork didn't return text)
               let igdbResult: any = null;
               if (metadataResult.status === 'fulfilled' && metadataResult.value.success && metadataResult.value.results?.length > 0) {
                 igdbResult = metadataResult.value.results[0];
               }
 
-              // Merge results - prioritize IGDB for text, artwork for images
+              // Merge results - searchArtwork provides complete metadata, use IGDB search as fallback
               if (metadata || igdbResult) {
                 const formatReleaseDate = (timestamp?: number): string => {
                   if (!timestamp) return '';
@@ -279,36 +621,52 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
                   return date.toISOString().split('T')[0];
                 };
 
-                metadata = {
-                  ...metadata,
-                  // Images from artwork
-                  boxArtUrl: metadata?.boxArtUrl || '',
-                  bannerUrl: metadata?.bannerUrl || '',
-                  logoUrl: metadata?.logoUrl || '',
-                  heroUrl: metadata?.heroUrl || '',
-                  // Text from IGDB (prioritize) or artwork
-                  description: (igdbResult?.summary || metadata?.description || '').trim(),
-                  releaseDate: (igdbResult?.releaseDate ? formatReleaseDate(igdbResult.releaseDate) : metadata?.releaseDate || '').trim(),
-                  genres: (igdbResult?.genres && igdbResult.genres.length > 0) ? igdbResult.genres : (metadata?.genres || []),
-                  categories: (igdbResult?.categories && igdbResult.categories.length > 0) ? igdbResult.categories : (metadata?.categories || []),
-                  ageRating: (igdbResult?.ageRating || metadata?.ageRating || '').trim(),
-                  rating: igdbResult?.rating || metadata?.rating || 0,
-                  platform: metadata?.platform || igdbResult?.platform || 'steam',
-                };
-
+                // Extract images from artwork result (searchArtwork)
                 boxArtUrl = metadata?.boxArtUrl || '';
                 bannerUrl = metadata?.bannerUrl || '';
                 logoUrl = metadata?.logoUrl || '';
                 heroUrl = metadata?.heroUrl || '';
-                description = metadata?.description || '';
-                releaseDate = metadata?.releaseDate || '';
-                genres = metadata?.genres || [];
-                developers = []; // GameMetadata doesn't have developers, extract from igdbResult if needed
-                publishers = []; // GameMetadata doesn't have publishers, extract from igdbResult if needed
-                categories = metadata?.categories || [];
-                ageRating = metadata?.ageRating || '';
-                rating = metadata?.rating || 0;
-                platform = metadata?.platform || 'steam';
+                
+                // Extract text metadata - prioritize searchArtwork (which includes developers/publishers), fallback to IGDB search
+                // searchArtwork returns complete GameMetadata including developers and publishers
+                description = (metadata?.description || metadata?.summary || igdbResult?.summary || '').trim();
+                
+                // Handle releaseDate - searchArtwork returns ISO string, IGDB search returns timestamp
+                if (metadata?.releaseDate) {
+                  releaseDate = metadata.releaseDate;
+                } else if (igdbResult?.releaseDate) {
+                  releaseDate = formatReleaseDate(igdbResult.releaseDate);
+                } else {
+                  releaseDate = '';
+                }
+                releaseDate = releaseDate.trim();
+                
+                genres = (metadata?.genres && metadata.genres.length > 0) ? metadata.genres : (igdbResult?.genres && igdbResult.genres.length > 0 ? igdbResult.genres : []);
+                categories = (metadata?.categories && metadata.categories.length > 0) ? metadata.categories : (igdbResult?.categories && igdbResult.categories.length > 0 ? igdbResult.categories : []);
+                ageRating = (metadata?.ageRating || igdbResult?.ageRating || '').trim();
+                rating = metadata?.rating || igdbResult?.rating || 0;
+                platform = metadata?.platforms?.join(', ') || metadata?.platform || igdbResult?.platform || 'steam';
+                
+                // Developers and publishers come from searchArtwork (via IGDB getDescription)
+                developers = metadata?.developers || [];
+                publishers = metadata?.publishers || [];
+
+                // Update metadata object with all extracted values
+                metadata = {
+                  ...metadata,
+                  boxArtUrl,
+                  bannerUrl,
+                  logoUrl,
+                  heroUrl,
+                  description,
+                  releaseDate,
+                  genres,
+                  categories,
+                  ageRating,
+                  rating,
+                  platform: platform,
+                };
+                
                 status = 'ready';
               } else {
                 status = 'ambiguous';
@@ -317,8 +675,123 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
               console.error('Error fetching metadata for Steam game:', err);
               status = 'ambiguous';
             }
+          } else if (steamAppId || matchedResult) {
+            // Game has a found match (Steam App ID or IGDB result)
+            try {
+              // Step 3: Fetch all metadata/images using the match
+              const [artworkResult, metadataResult] = await Promise.allSettled([
+                window.electronAPI.searchArtwork(matchedTitle, steamAppId),
+                window.electronAPI.searchMetadata(matchedTitle),
+              ]);
+
+              // Get artwork metadata (this includes full metadata: images + text)
+              if (artworkResult.status === 'fulfilled') {
+                metadata = artworkResult.value;
+              }
+
+              // Get IGDB metadata for text fields (as fallback if searchArtwork didn't return text)
+              let igdbResult: any = null;
+              if (metadataResult.status === 'fulfilled' && metadataResult.value.success && metadataResult.value.results?.length > 0) {
+                igdbResult = metadataResult.value.results[0];
+              }
+
+              // Merge results - searchArtwork provides complete metadata, use IGDB search as fallback
+              if (metadata || igdbResult) {
+                const formatReleaseDate = (timestamp?: number): string => {
+                  if (!timestamp) return '';
+                  const date = new Date(timestamp * 1000);
+                  return date.toISOString().split('T')[0];
+                };
+
+                // Extract images from artwork result (searchArtwork)
+                boxArtUrl = metadata?.boxArtUrl || '';
+                bannerUrl = metadata?.bannerUrl || '';
+                logoUrl = metadata?.logoUrl || '';
+                heroUrl = metadata?.heroUrl || '';
+                
+                // Extract text metadata - prioritize searchArtwork (which includes developers/publishers), fallback to IGDB search
+                description = (metadata?.description || metadata?.summary || igdbResult?.summary || '').trim();
+                
+                // Handle releaseDate - searchArtwork returns ISO string, IGDB search returns timestamp
+                if (metadata?.releaseDate) {
+                  releaseDate = metadata.releaseDate;
+                } else if (igdbResult?.releaseDate) {
+                  releaseDate = formatReleaseDate(igdbResult.releaseDate);
+                } else {
+                  releaseDate = '';
+                }
+                releaseDate = releaseDate.trim();
+                
+                genres = (metadata?.genres && metadata.genres.length > 0) ? metadata.genres : (igdbResult?.genres && igdbResult.genres.length > 0 ? igdbResult.genres : []);
+                categories = (metadata?.categories && metadata.categories.length > 0) ? metadata.categories : (igdbResult?.categories && igdbResult.categories.length > 0 ? igdbResult.categories : []);
+                ageRating = (metadata?.ageRating || igdbResult?.ageRating || '').trim();
+                rating = metadata?.rating || igdbResult?.rating || 0;
+                platform = metadata?.platforms?.join(', ') || metadata?.platform || igdbResult?.platform || scanned.source;
+                
+                // Developers and publishers come from searchArtwork (via IGDB getDescription)
+                developers = metadata?.developers || [];
+                publishers = metadata?.publishers || [];
+
+                // Update metadata object with all extracted values
+                metadata = {
+                  ...metadata,
+                  boxArtUrl,
+                  bannerUrl,
+                  logoUrl,
+                  heroUrl,
+                  description,
+                  releaseDate,
+                  genres,
+                  categories,
+                  ageRating,
+                  rating,
+                  platform: platform,
+                };
+                
+                status = 'ready';
+              } else {
+                status = 'ambiguous';
+              }
+            } catch (err) {
+              console.error(`Error fetching metadata for game with match:`, err);
+              status = 'ambiguous';
+            }
           } else {
-            status = 'ambiguous';
+            // No match found - try one more time with just the title
+            try {
+              const [artworkResult, metadataResult] = await Promise.allSettled([
+                window.electronAPI.searchArtwork(scanned.title),
+                window.electronAPI.searchMetadata(scanned.title),
+              ]);
+
+              if (artworkResult.status === 'fulfilled' && artworkResult.value) {
+                metadata = artworkResult.value;
+                boxArtUrl = metadata.boxArtUrl || '';
+                bannerUrl = metadata.bannerUrl || '';
+                logoUrl = metadata.logoUrl || '';
+                heroUrl = metadata.heroUrl || '';
+                description = metadata.description || metadata.summary || '';
+                releaseDate = metadata.releaseDate || '';
+                genres = metadata.genres || [];
+                categories = metadata.categories || [];
+                ageRating = metadata.ageRating || '';
+                rating = metadata.rating || 0;
+                platform = metadata.platforms?.join(', ') || metadata.platform || scanned.source;
+                developers = metadata.developers || [];
+                publishers = metadata.publishers || [];
+                
+                if (metadata.boxArtUrl || metadata.bannerUrl || description) {
+                  status = 'ready';
+                } else {
+                  status = 'ambiguous';
+                }
+              } else {
+                status = 'ambiguous';
+              }
+            } catch (err) {
+              console.error(`Error fetching metadata for game "${scanned.title}":`, err);
+              status = 'ambiguous';
+            }
           }
 
           return {
@@ -327,8 +800,8 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
             originalName: scanned.originalName,
             installPath: scanned.installPath,
             exePath: scanned.exePath,
-            appId: scanned.appId,
-            title: scanned.title,
+            appId: scanned.appId || steamAppId,
+            title: matchedTitle, // Use matched title if we found a Steam match
             description,
             releaseDate,
             genres,
@@ -345,13 +818,22 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
             heroUrl,
             screenshots: metadata?.screenshots,
             status,
-            isSelected: false,
+            isSelected: !isIgnored, // Auto-select all non-ignored games
             isIgnored,
           };
-        })
-      );
+        })();
+        
+        // Add game to queue as soon as it's processed
+        stagedGames.push(stagedGame);
+        setQueue([...stagedGames]);
+        
+        // Auto-select first game if none selected
+        if (stagedGames.length === 1 && !selectedId) {
+          setSelectedId(stagedGame.uuid);
+        }
+      }
 
-      // Games are already filtered before processing, so no need to filter again
+      // Final update to ensure all games are in queue
       setQueue(stagedGames);
       
       // Auto-select the first non-ignored game if available
@@ -366,6 +848,14 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
       setIsScanning(false);
     }
   };
+
+  // Scan folder when initialFolderPath is provided
+  useEffect(() => {
+    if (isOpen && initialFolderPath) {
+      handleScanFolder(initialFolderPath);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, initialFolderPath]);
 
   // Handle adding a file manually
   const handleAddFile = async () => {
@@ -384,7 +874,7 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
         boxArtUrl: '',
         bannerUrl: '',
         status: 'ambiguous',
-        isSelected: false,
+        isSelected: true, // Auto-select manually added games
         isIgnored: false,
       };
 
@@ -418,10 +908,10 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
   };
 
   // Search for better metadata match
-  const handleSearchMetadata = async () => {
+  const handleSearchMetadata = async (searchQuery?: string) => {
     if (!selectedGame) return;
 
-    const query = metadataSearchQuery.trim() || selectedGame.title.trim();
+    const query = (searchQuery || metadataSearchQuery.trim() || selectedGame.title.trim()).trim();
     if (!query) {
       setError('Please enter a game title to search');
       return;
@@ -689,12 +1179,12 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
     }
   };
 
-  // Import selected games
+  // Import all visible games (no need to check selection since all are auto-selected)
   const handleImport = async () => {
-    const selectedGames = visibleGames.filter(g => g.isSelected);
+    const selectedGames = visibleGames; // Import all visible games
     
     if (selectedGames.length === 0) {
-      setError('Please select at least one game to import');
+      setError('No games to import');
       return;
     }
 
@@ -740,9 +1230,9 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
     }
   };
 
-  // Get ready count
+  // Get ready count (all visible games are ready to import)
   const readyCount = useMemo(() => {
-    return visibleGames.filter(g => g.isSelected && g.status === 'ready').length;
+    return visibleGames.filter(g => g.status === 'ready').length;
   }, [visibleGames]);
 
   if (!isOpen) return null;
@@ -819,13 +1309,6 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
                       }`}
                     >
                       <div className="flex items-center gap-2 mb-1">
-                        <input
-                          type="checkbox"
-                          checked={game.isSelected}
-                          onChange={() => toggleGameSelection(game.uuid)}
-                          onClick={(e) => e.stopPropagation()}
-                          className="w-4 h-4 text-blue-600 rounded"
-                        />
                         <span className={`text-xs font-medium ${getStatusColor(game.status)}`}>
                           {getStatusIcon(game.status)}
                         </span>
@@ -881,74 +1364,205 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
           <div className="flex-1 flex flex-col overflow-y-auto bg-gray-800/30">
             {selectedGame ? (
               <>
-                {/* Hero Banner */}
-                <div className="h-[300px] relative bg-gray-900 overflow-hidden">
-                  {selectedGame.bannerUrl || selectedGame.heroUrl ? (
-                    <img
-                      src={selectedGame.bannerUrl || selectedGame.heroUrl}
-                      alt={selectedGame.title}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center">
-                      <span className="text-4xl font-bold text-gray-600">
-                        {selectedGame.title}
-                      </span>
-                    </div>
-                  )}
-                  {/* Logo Overlay */}
-                  {selectedGame.logoUrl && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/20">
-                      <img
-                        src={selectedGame.logoUrl}
-                        alt={`${selectedGame.title} logo`}
-                        className="max-w-[60%] max-h-[60%] object-contain"
-                      />
-                    </div>
-                  )}
-                </div>
-
-                {/* Metadata Form */}
-                <div className="p-6 space-y-4">
-                  {/* Basic Info */}
-                  <div className="grid grid-cols-2 gap-4">
+                {/* Images Section - Moved to top */}
+                <div className="p-6 space-y-4 border-b border-gray-700">
+                  <h3 className="text-lg font-semibold text-white">Images</h3>
+                  
+                  {/* All Images in One Row */}
+                  <div className="grid grid-cols-3 gap-4">
+                    {/* Box Art */}
                     <div>
                       <div className="flex items-center justify-between mb-2">
                         <label className="block text-sm font-medium text-gray-300">
-                          Title
+                          Box Art
                         </label>
-                        <div className="flex gap-2">
+                        <div className="flex gap-1">
                           <button
-                            onClick={() => setShowMetadataSearch(true)}
-                            className="text-xs px-2 py-1 bg-green-600 hover:bg-green-700 text-white rounded"
+                            onClick={() => handleSelectLocalImage('boxart')}
+                            className="text-xs px-2 py-1 bg-gray-700 hover:bg-gray-600 text-white rounded"
+                            title="Select local file"
+                          >
+                            📁
+                          </button>
+                          <button
+                            onClick={() => toggleFieldLock(selectedGame.uuid, 'boxArtUrl')}
+                            className={`text-xs px-2 py-1 rounded ${
+                              selectedGame.lockedFields?.boxArtUrl
+                                ? 'bg-yellow-600 text-white'
+                                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                            }`}
+                            title={selectedGame.lockedFields?.boxArtUrl ? 'Unlock' : 'Lock'}
+                          >
+                            {selectedGame.lockedFields?.boxArtUrl ? '🔒' : '🔓'}
+                          </button>
+                        </div>
+                      </div>
+                      <div
+                        onClick={() => setShowImageSearch({ type: 'boxart', gameId: selectedGame.uuid })}
+                        className="cursor-pointer"
+                      >
+                        {selectedGame.boxArtUrl ? (
+                          <div className="w-full h-48 bg-gray-800 rounded border-2 border-blue-500 hover:border-blue-400 transition-colors flex items-center justify-center p-2">
+                            <img
+                              src={selectedGame.boxArtUrl}
+                              alt="Box Art"
+                              className="max-w-full max-h-full object-contain"
+                            />
+                          </div>
+                        ) : (
+                          <div className="w-full h-48 bg-gray-700 rounded flex flex-col items-center justify-center text-gray-400 text-xs border-2 border-dashed border-gray-600 hover:border-gray-500 transition-colors">
+                            <span>Click to search</span>
+                            <span className="text-[10px] mt-1">Box Art</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Hero/Banner */}
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <label className="block text-sm font-medium text-gray-300">
+                          Hero
+                        </label>
+                        <div className="flex gap-1">
+                          <button
+                            onClick={() => handleSelectLocalImage('banner')}
+                            className="text-xs px-2 py-1 bg-gray-700 hover:bg-gray-600 text-white rounded"
+                            title="Select local file"
+                          >
+                            📁
+                          </button>
+                          <button
+                            onClick={() => toggleFieldLock(selectedGame.uuid, 'bannerUrl')}
+                            className={`text-xs px-2 py-1 rounded ${
+                              selectedGame.lockedFields?.bannerUrl
+                                ? 'bg-yellow-600 text-white'
+                                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                            }`}
+                            title={selectedGame.lockedFields?.bannerUrl ? 'Unlock' : 'Lock'}
+                          >
+                            {selectedGame.lockedFields?.bannerUrl ? '🔒' : '🔓'}
+                          </button>
+                        </div>
+                      </div>
+                      <div
+                        onClick={() => setShowImageSearch({ type: 'banner', gameId: selectedGame.uuid })}
+                        className="cursor-pointer"
+                      >
+                        {selectedGame.bannerUrl || selectedGame.heroUrl ? (
+                          <img
+                            src={selectedGame.bannerUrl || selectedGame.heroUrl}
+                            alt="Hero"
+                            className="w-full h-48 object-cover rounded border-2 border-blue-500 hover:border-blue-400 transition-colors"
+                          />
+                        ) : (
+                          <div className="w-full h-48 bg-gray-700 rounded flex flex-col items-center justify-center text-gray-400 text-xs border-2 border-dashed border-gray-600 hover:border-gray-500 transition-colors">
+                            <span>Click to search</span>
+                            <span className="text-[10px] mt-1">Hero/Banner</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Logo */}
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <label className="block text-sm font-medium text-gray-300">
+                          Logo
+                        </label>
+                        <div className="flex gap-1">
+                          <button
+                            onClick={() => handleSelectLocalImage('logo')}
+                            className="text-xs px-2 py-1 bg-gray-700 hover:bg-gray-600 text-white rounded"
+                            title="Select local file"
+                          >
+                            📁
+                          </button>
+                          <button
+                            onClick={() => toggleFieldLock(selectedGame.uuid, 'logoUrl')}
+                            className={`text-xs px-2 py-1 rounded ${
+                              selectedGame.lockedFields?.logoUrl
+                                ? 'bg-yellow-600 text-white'
+                                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                            }`}
+                            title={selectedGame.lockedFields?.logoUrl ? 'Unlock' : 'Lock'}
+                          >
+                            {selectedGame.lockedFields?.logoUrl ? '🔒' : '🔓'}
+                          </button>
+                        </div>
+                      </div>
+                      <div
+                        onClick={() => setShowImageSearch({ type: 'logo', gameId: selectedGame.uuid })}
+                        className="cursor-pointer"
+                      >
+                        {selectedGame.logoUrl ? (
+                          <div className="w-full h-24 bg-gray-800 rounded border-2 border-blue-500 hover:border-blue-400 transition-colors flex items-center justify-center p-2">
+                            <img
+                              src={selectedGame.logoUrl}
+                              alt="Logo"
+                              className="max-w-full max-h-full object-contain"
+                            />
+                          </div>
+                        ) : (
+                          <div className="w-full h-24 bg-gray-700 rounded flex flex-col items-center justify-center text-gray-400 text-xs border-2 border-dashed border-gray-600 hover:border-gray-500 transition-colors">
+                            <span>Click to search</span>
+                            <span className="text-[10px] mt-1">Logo</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Metadata Form */}
+                <div className="p-4 space-y-3">
+                  {/* Basic Info */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-400 mb-1">
+                        Title
+                      </label>
+                      <div className="relative flex items-center">
+                        <input
+                          type="text"
+                          value={selectedGame.title}
+                          onChange={(e) => updateGame(selectedGame.uuid, { title: e.target.value })}
+                          disabled={selectedGame.lockedFields?.title}
+                          className="w-full px-2 py-1.5 pr-20 text-sm bg-gray-700 border border-gray-600 rounded text-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                        />
+                        <div className="absolute right-1 flex items-center gap-1">
+                          <button
+                            onClick={() => {
+                              if (selectedGame) {
+                                setMetadataSearchQuery(selectedGame.title);
+                                setShowMetadataSearch(true);
+                                // Trigger search immediately with the game title
+                                handleSearchMetadata(selectedGame.title);
+                              }
+                            }}
+                            className="text-xs px-1.5 py-0.5 bg-green-600 hover:bg-green-700 text-white rounded"
                             title="Search for better metadata match"
                           >
                             Fix Match
                           </button>
                           <button
                             onClick={() => toggleFieldLock(selectedGame.uuid, 'title')}
-                            className={`text-xs px-2 py-1 rounded ${
+                            className={`text-xs px-1.5 py-0.5 rounded ${
                               selectedGame.lockedFields?.title
                                 ? 'bg-yellow-600 text-white'
                                 : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
                             }`}
+                            title={selectedGame.lockedFields?.title ? 'Unlock' : 'Lock'}
                           >
-                            {selectedGame.lockedFields?.title ? '🔒 Locked' : '🔓 Unlocked'}
+                            {selectedGame.lockedFields?.title ? '🔒' : '🔓'}
                           </button>
                         </div>
                       </div>
-                      <input
-                        type="text"
-                        value={selectedGame.title}
-                        onChange={(e) => updateGame(selectedGame.uuid, { title: e.target.value })}
-                        disabled={selectedGame.lockedFields?.title}
-                        className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                      />
                     </div>
 
                     <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <label className="block text-sm font-medium text-gray-300">
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-xs font-medium text-gray-400">
                           Platform
                         </label>
                       </div>
@@ -956,289 +1570,141 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
                         type="text"
                         value={selectedGame.platform || selectedGame.source}
                         onChange={(e) => updateGame(selectedGame.uuid, { platform: e.target.value })}
-                        className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-2 py-1.5 text-sm bg-gray-700 border border-gray-600 rounded text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <label className="block text-sm font-medium text-gray-300">
-                        Executable Path
-                      </label>
+                    <label className="block text-xs font-medium text-gray-400 mb-1">
+                      Executable Path
+                    </label>
+                    <div className="relative flex items-center">
+                      <input
+                        type="text"
+                        value={selectedGame.exePath || selectedGame.installPath}
+                        onChange={(e) => updateGame(selectedGame.uuid, { exePath: e.target.value })}
+                        disabled={selectedGame.lockedFields?.exePath}
+                        className="w-full px-2 py-1.5 pr-10 text-sm bg-gray-700 border border-gray-600 rounded text-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                      />
                       <button
                         onClick={() => toggleFieldLock(selectedGame.uuid, 'exePath')}
-                        className={`text-xs px-2 py-1 rounded ${
+                        className={`absolute right-1 text-xs px-1.5 py-0.5 rounded ${
                           selectedGame.lockedFields?.exePath
                             ? 'bg-yellow-600 text-white'
                             : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
                         }`}
+                        title={selectedGame.lockedFields?.exePath ? 'Unlock' : 'Lock'}
                       >
-                        {selectedGame.lockedFields?.exePath ? '🔒 Locked' : '🔓 Unlocked'}
+                        {selectedGame.lockedFields?.exePath ? '🔒' : '🔓'}
                       </button>
                     </div>
-                    <input
-                      type="text"
-                      value={selectedGame.exePath || selectedGame.installPath}
-                      onChange={(e) => updateGame(selectedGame.uuid, { exePath: e.target.value })}
-                      disabled={selectedGame.lockedFields?.exePath}
-                      className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                    />
                   </div>
 
                   {/* Description */}
                   <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <label className="block text-sm font-medium text-gray-300">
-                        Description
-                      </label>
+                    <label className="block text-xs font-medium text-gray-400 mb-1">
+                      Description
+                    </label>
+                    <div className="relative">
+                      <textarea
+                        value={selectedGame.description || ''}
+                        onChange={(e) => updateGame(selectedGame.uuid, { description: e.target.value })}
+                        disabled={selectedGame.lockedFields?.description}
+                        rows={3}
+                        className="w-full px-2 py-1.5 pr-10 text-sm bg-gray-700 border border-gray-600 rounded text-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed resize-none"
+                      />
                       <button
                         onClick={() => toggleFieldLock(selectedGame.uuid, 'description')}
-                        className={`text-xs px-2 py-1 rounded ${
+                        className={`absolute top-1 right-1 text-xs px-1.5 py-0.5 rounded ${
                           selectedGame.lockedFields?.description
                             ? 'bg-yellow-600 text-white'
                             : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
                         }`}
+                        title={selectedGame.lockedFields?.description ? 'Unlock' : 'Lock'}
                       >
-                        {selectedGame.lockedFields?.description ? '🔒 Locked' : '🔓 Unlocked'}
+                        {selectedGame.lockedFields?.description ? '🔒' : '🔓'}
                       </button>
                     </div>
-                    <textarea
-                      value={selectedGame.description || ''}
-                      onChange={(e) => updateGame(selectedGame.uuid, { description: e.target.value })}
-                      disabled={selectedGame.lockedFields?.description}
-                      rows={4}
-                      className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed resize-none"
-                    />
                   </div>
 
-                  {/* Metadata Grid */}
-                  <div className="grid grid-cols-2 gap-4">
+                  {/* Metadata Grid - 4 columns for compact layout */}
+                  <div className="grid grid-cols-4 gap-3">
                     <div>
-                      <label className="block text-sm font-medium text-gray-300 mb-2">
+                      <label className="block text-xs font-medium text-gray-400 mb-1">
                         Release Date
                       </label>
                       <input
                         type="text"
                         value={selectedGame.releaseDate || ''}
                         onChange={(e) => updateGame(selectedGame.uuid, { releaseDate: e.target.value })}
-                        className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-2 py-1.5 text-sm bg-gray-700 border border-gray-600 rounded text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-300 mb-2">
+                      <label className="block text-xs font-medium text-gray-400 mb-1">
                         Age Rating
                       </label>
                       <input
                         type="text"
                         value={selectedGame.ageRating || ''}
                         onChange={(e) => updateGame(selectedGame.uuid, { ageRating: e.target.value })}
-                        className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-2 py-1.5 text-sm bg-gray-700 border border-gray-600 rounded text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-300 mb-2">
+                      <label className="block text-xs font-medium text-gray-400 mb-1">
                         Genres
                       </label>
                       <input
                         type="text"
                         value={selectedGame.genres?.join(', ') || ''}
                         onChange={(e) => updateGame(selectedGame.uuid, { genres: e.target.value.split(',').map(g => g.trim()).filter(Boolean) })}
-                        className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-2 py-1.5 text-sm bg-gray-700 border border-gray-600 rounded text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                         placeholder="Action, Adventure, RPG"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-300 mb-2">
+                      <label className="block text-xs font-medium text-gray-400 mb-1">
                         Rating
                       </label>
                       <input
                         type="number"
                         value={selectedGame.rating || 0}
                         onChange={(e) => updateGame(selectedGame.uuid, { rating: parseFloat(e.target.value) || 0 })}
-                        className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-2 py-1.5 text-sm bg-gray-700 border border-gray-600 rounded text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                         min="0"
                         max="100"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-300 mb-2">
+                      <label className="block text-xs font-medium text-gray-400 mb-1">
                         Developers
                       </label>
                       <input
                         type="text"
                         value={selectedGame.developers?.join(', ') || ''}
                         onChange={(e) => updateGame(selectedGame.uuid, { developers: e.target.value.split(',').map(d => d.trim()).filter(Boolean) })}
-                        className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-2 py-1.5 text-sm bg-gray-700 border border-gray-600 rounded text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                         placeholder="Developer 1, Developer 2"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-300 mb-2">
+                      <label className="block text-xs font-medium text-gray-400 mb-1">
                         Publishers
                       </label>
                       <input
                         type="text"
                         value={selectedGame.publishers?.join(', ') || ''}
                         onChange={(e) => updateGame(selectedGame.uuid, { publishers: e.target.value.split(',').map(p => p.trim()).filter(Boolean) })}
-                        className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-2 py-1.5 text-sm bg-gray-700 border border-gray-600 rounded text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                         placeholder="Publisher 1, Publisher 2"
                       />
-                    </div>
-                  </div>
-
-                  {/* Images Section */}
-                  <div className="space-y-4 pt-4 border-t border-gray-700">
-                    <h3 className="text-lg font-semibold text-white">Images</h3>
-                    
-                    {/* All Images in One Row */}
-                    <div className="grid grid-cols-3 gap-4">
-                      {/* Box Art */}
-                      <div>
-                        <div className="flex items-center justify-between mb-2">
-                          <label className="block text-sm font-medium text-gray-300">
-                            Box Art
-                          </label>
-                          <div className="flex gap-1">
-                            <button
-                              onClick={() => handleSelectLocalImage('boxart')}
-                              className="text-xs px-2 py-1 bg-gray-700 hover:bg-gray-600 text-white rounded"
-                              title="Select local file"
-                            >
-                              📁
-                            </button>
-                            <button
-                              onClick={() => toggleFieldLock(selectedGame.uuid, 'boxArtUrl')}
-                              className={`text-xs px-2 py-1 rounded ${
-                                selectedGame.lockedFields?.boxArtUrl
-                                  ? 'bg-yellow-600 text-white'
-                                  : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                              }`}
-                              title={selectedGame.lockedFields?.boxArtUrl ? 'Unlock' : 'Lock'}
-                            >
-                              {selectedGame.lockedFields?.boxArtUrl ? '🔒' : '🔓'}
-                            </button>
-                          </div>
-                        </div>
-                        <div
-                          onClick={() => setShowImageSearch({ type: 'boxart', gameId: selectedGame.uuid })}
-                          className="cursor-pointer"
-                        >
-                          {selectedGame.boxArtUrl ? (
-                            <div className="w-full h-48 bg-gray-800 rounded border-2 border-blue-500 hover:border-blue-400 transition-colors flex items-center justify-center p-2">
-                              <img
-                                src={selectedGame.boxArtUrl}
-                                alt="Box Art"
-                                className="max-w-full max-h-full object-contain"
-                              />
-                            </div>
-                          ) : (
-                            <div className="w-full h-48 bg-gray-700 rounded flex flex-col items-center justify-center text-gray-400 text-xs border-2 border-dashed border-gray-600 hover:border-gray-500 transition-colors">
-                              <span>Click to search</span>
-                              <span className="text-[10px] mt-1">Box Art</span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Hero/Banner */}
-                      <div>
-                        <div className="flex items-center justify-between mb-2">
-                          <label className="block text-sm font-medium text-gray-300">
-                            Hero
-                          </label>
-                          <div className="flex gap-1">
-                            <button
-                              onClick={() => handleSelectLocalImage('banner')}
-                              className="text-xs px-2 py-1 bg-gray-700 hover:bg-gray-600 text-white rounded"
-                              title="Select local file"
-                            >
-                              📁
-                            </button>
-                            <button
-                              onClick={() => toggleFieldLock(selectedGame.uuid, 'bannerUrl')}
-                              className={`text-xs px-2 py-1 rounded ${
-                                selectedGame.lockedFields?.bannerUrl
-                                  ? 'bg-yellow-600 text-white'
-                                  : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                              }`}
-                              title={selectedGame.lockedFields?.bannerUrl ? 'Unlock' : 'Lock'}
-                            >
-                              {selectedGame.lockedFields?.bannerUrl ? '🔒' : '🔓'}
-                            </button>
-                          </div>
-                        </div>
-                        <div
-                          onClick={() => setShowImageSearch({ type: 'banner', gameId: selectedGame.uuid })}
-                          className="cursor-pointer"
-                        >
-                          {selectedGame.bannerUrl || selectedGame.heroUrl ? (
-                            <img
-                              src={selectedGame.bannerUrl || selectedGame.heroUrl}
-                              alt="Hero"
-                              className="w-full h-48 object-cover rounded border-2 border-blue-500 hover:border-blue-400 transition-colors"
-                            />
-                          ) : (
-                            <div className="w-full h-48 bg-gray-700 rounded flex flex-col items-center justify-center text-gray-400 text-xs border-2 border-dashed border-gray-600 hover:border-gray-500 transition-colors">
-                              <span>Click to search</span>
-                              <span className="text-[10px] mt-1">Hero/Banner</span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Logo */}
-                      <div>
-                        <div className="flex items-center justify-between mb-2">
-                          <label className="block text-sm font-medium text-gray-300">
-                            Logo
-                          </label>
-                          <div className="flex gap-1">
-                            <button
-                              onClick={() => handleSelectLocalImage('logo')}
-                              className="text-xs px-2 py-1 bg-gray-700 hover:bg-gray-600 text-white rounded"
-                              title="Select local file"
-                            >
-                              📁
-                            </button>
-                            <button
-                              onClick={() => toggleFieldLock(selectedGame.uuid, 'logoUrl')}
-                              className={`text-xs px-2 py-1 rounded ${
-                                selectedGame.lockedFields?.logoUrl
-                                  ? 'bg-yellow-600 text-white'
-                                  : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                              }`}
-                              title={selectedGame.lockedFields?.logoUrl ? 'Unlock' : 'Lock'}
-                            >
-                              {selectedGame.lockedFields?.logoUrl ? '🔒' : '🔓'}
-                            </button>
-                          </div>
-                        </div>
-                        <div
-                          onClick={() => setShowImageSearch({ type: 'logo', gameId: selectedGame.uuid })}
-                          className="cursor-pointer"
-                        >
-                          {selectedGame.logoUrl ? (
-                            <div className="w-full h-48 bg-gray-800 rounded flex items-center justify-center border-2 border-blue-500 hover:border-blue-400 transition-colors p-4">
-                              <img
-                                src={selectedGame.logoUrl}
-                                alt="Logo"
-                                className="max-w-full max-h-full object-contain"
-                              />
-                            </div>
-                          ) : (
-                            <div className="w-full h-48 bg-gray-700 rounded flex flex-col items-center justify-center text-gray-400 text-xs border-2 border-dashed border-gray-600 hover:border-gray-500 transition-colors">
-                              <span>Click to search</span>
-                              <span className="text-[10px] mt-1">Logo</span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
                     </div>
                   </div>
                 </div>

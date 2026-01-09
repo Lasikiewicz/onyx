@@ -92,6 +92,7 @@ export const UpdateLibraryModal: React.FC<UpdateLibraryModalProps> = ({
       { id: 'gog', name: 'GOG Galaxy', defaultPaths: ['C:\\Program Files (x86)\\GOG Galaxy', 'C:\\Program Files\\GOG Galaxy'], placeholder: 'C:\\Program Files (x86)\\GOG Galaxy' },
       { id: 'xbox', name: 'Xbox Game Pass', defaultPaths: ['C:\\XboxGames', 'C:\\Program Files\\WindowsApps'], placeholder: 'C:\\XboxGames' },
       { id: 'ea', name: 'EA App', defaultPaths: ['C:\\Program Files\\EA Games', 'C:\\Program Files (x86)\\EA Games'], placeholder: 'C:\\Program Files\\EA Games' },
+      { id: 'ubisoft', name: 'Ubisoft Connect', defaultPaths: ['C:\\Program Files (x86)\\Ubisoft\\Ubisoft Game Launcher', 'C:\\Program Files\\Ubisoft\\Ubisoft Game Launcher'], placeholder: 'C:\\Program Files (x86)\\Ubisoft\\Ubisoft Game Launcher' },
     ];
   };
 

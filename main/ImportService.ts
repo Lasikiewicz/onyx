@@ -50,13 +50,24 @@ export class ImportService {
     try {
       // Get all enabled app configs from Onyx Settings > Apps
       const configs = await this.appConfigService.getAppConfigs();
+      console.log(`[ImportService] Found ${Object.keys(configs).length} app configs`);
+      
       const enabledConfigs = Object.values(configs).filter(
-        (config: any) => config.enabled && config.path && existsSync(config.path)
+        (config: any) => {
+          const isEnabled = config.enabled && config.path && existsSync(config.path);
+          if (!isEnabled) {
+            console.log(`[ImportService] Skipping ${config.id}: enabled=${config.enabled}, path=${config.path}, exists=${config.path ? existsSync(config.path) : false}`);
+          }
+          return isEnabled;
+        }
       );
+      
+      console.log(`[ImportService] Scanning ${enabledConfigs.length} enabled app configs`);
 
       // Scan all sources in parallel
       const scanPromises = enabledConfigs.map(async (config: any) => {
         try {
+          console.log(`[ImportService] Scanning ${config.id} at path: ${config.path}`);
           if (config.id === 'steam') {
             return this.scanSteam(config.path);
           } else if (config.id === 'xbox') {
@@ -72,7 +83,7 @@ export class ImportService {
           }
           return [];
         } catch (error) {
-          console.error(`Error scanning ${config.id}:`, error);
+          console.error(`[ImportService] Error scanning ${config.id}:`, error);
           return [];
         }
       });
@@ -454,6 +465,7 @@ export class ImportService {
    */
   private async scanUbisoft(ubisoftPath: string): Promise<ScannedGameResult[]> {
     try {
+      console.log(`[Ubisoft] Starting scan with path: ${ubisoftPath}`);
       const results: ScannedGameResult[] = [];
       
       // Ubisoft games are in: {UbisoftPath}\games (lowercase)
@@ -465,14 +477,26 @@ export class ImportService {
         gamesPath = join(ubisoftPath, 'games');
       }
       
+      console.log(`[Ubisoft] Checking games folder: ${gamesPath}`);
+      
       if (!existsSync(gamesPath)) {
-        console.warn(`Ubisoft games folder not found: ${gamesPath}`);
-        return results;
+        console.warn(`[Ubisoft] Games folder not found: ${gamesPath}`);
+        // Try alternative path structure (some installations might be different)
+        const altPath = join(ubisoftPath, 'Games');
+        if (existsSync(altPath)) {
+          console.log(`[Ubisoft] Found games in alternative path: ${altPath}`);
+          gamesPath = altPath;
+        } else {
+          return results;
+        }
       }
 
-      return this.scanUbisoftGamesFolder(gamesPath);
+      console.log(`[Ubisoft] Scanning games folder: ${gamesPath}`);
+      const scannedGames = this.scanUbisoftGamesFolder(gamesPath);
+      console.log(`[Ubisoft] Found ${scannedGames.length} games`);
+      return scannedGames;
     } catch (error) {
-      console.error('Error scanning Ubisoft:', error);
+      console.error('[Ubisoft] Error scanning Ubisoft:', error);
       return [];
     }
   }
@@ -485,32 +509,44 @@ export class ImportService {
     
     try {
       const gameFolders = readdirSync(gamesPath);
+      console.log(`[Ubisoft] Found ${gameFolders.length} items in games folder`);
       
       for (const gameFolder of gameFolders) {
         const gamePath = join(gamesPath, gameFolder);
         
         try {
           const stats = statSync(gamePath);
-          if (!stats.isDirectory()) continue;
+          if (!stats.isDirectory()) {
+            console.log(`[Ubisoft] Skipping non-directory: ${gameFolder}`);
+            continue;
+          }
+          
+          console.log(`[Ubisoft] Scanning game folder: ${gameFolder}`);
           
           // Look for .exe files in the game folder
           const exeFiles = this.findExecutables(gamePath);
+          console.log(`[Ubisoft] Found ${exeFiles.length} executables in ${gameFolder}`);
           
           // Filter out helper executables
           const gameExes = exeFiles.filter(exe => {
             const fileName = exe.toLowerCase();
-            return !fileName.includes('gamelaunchhelper') &&
-                   !fileName.includes('bootstrapper') &&
-                   !fileName.includes('uninstall') &&
-                   !fileName.includes('setup') &&
-                   !fileName.includes('installer') &&
-                   !fileName.includes('uplay') &&
-                   !fileName.includes('ubisoft');
+            const fileNameOnly = fileName.split(/[/\\]/).pop() || '';
+            return !fileNameOnly.includes('gamelaunchhelper') &&
+                   !fileNameOnly.includes('bootstrapper') &&
+                   !fileNameOnly.includes('uninstall') &&
+                   !fileNameOnly.includes('setup') &&
+                   !fileNameOnly.includes('installer') &&
+                   !fileNameOnly.includes('uplay') &&
+                   !fileNameOnly.includes('ubisoft');
           });
+          
+          console.log(`[Ubisoft] Filtered to ${gameExes.length} game executables in ${gameFolder}`);
           
           if (gameExes.length > 0) {
             // Use the first executable found
             const mainExe = gameExes[0];
+            
+            console.log(`[Ubisoft] Adding game: ${gameFolder} with exe: ${mainExe}`);
             
             results.push({
               uuid: `ubisoft-${gameFolder}-${Date.now()}`,
@@ -522,14 +558,17 @@ export class ImportService {
               title: gameFolder,
               status: 'ambiguous' as const, // Ubisoft games need metadata matching
             });
+          } else {
+            console.log(`[Ubisoft] No valid game executables found in ${gameFolder}`);
           }
         } catch (err) {
+          console.error(`[Ubisoft] Error processing folder ${gameFolder}:`, err);
           // Skip folders we can't access
           continue;
         }
       }
     } catch (err) {
-      console.error('Error scanning Ubisoft games folder:', err);
+      console.error('[Ubisoft] Error scanning Ubisoft games folder:', err);
     }
     
     return results;
@@ -616,10 +655,133 @@ export class ImportService {
 
   /**
    * Scan a folder for manual executables
+   * Returns ScannedGameResult[] format for use with the importer
+   * Each top-level subdirectory becomes a game, using the folder name as the game title
    */
   async scanFolderForExecutables(folderPath: string): Promise<ScannedGameResult[]> {
-    // This will be handled by the existing IPC handler
-    // We'll just return an empty array here as the frontend will call the existing handler
-    return [];
+    const results: ScannedGameResult[] = [];
+    
+    try {
+      if (!existsSync(folderPath)) {
+        console.error(`[ImportService] Folder does not exist: ${folderPath}`);
+        return [];
+      }
+
+      // Get all top-level subdirectories
+      const entries = readdirSync(folderPath, { withFileTypes: true });
+      const subdirectories = entries.filter(entry => entry.isDirectory());
+      
+      if (subdirectories.length === 0) {
+        // If no subdirectories, scan the folder itself for executables
+        const exeFiles = this.findExecutables(folderPath, 0, 3);
+        const gameExes = exeFiles.filter(exe => {
+          const fileName = exe.toLowerCase();
+          return !fileName.includes('gamelaunchhelper') &&
+                 !fileName.includes('bootstrapper') &&
+                 !fileName.includes('uninstall') &&
+                 !fileName.includes('unins') &&
+                 !fileName.includes('setup') &&
+                 !fileName.includes('installer') &&
+                 !fileName.includes('install') &&
+                 !fileName.includes('cleanup') &&
+                 !fileName.includes('crashhandler') &&
+                 !fileName.includes('redist') &&
+                 !fileName.includes('directx') &&
+                 !fileName.includes('updater') &&
+                 !fileName.includes('launcher');
+        });
+        
+        if (gameExes.length > 0) {
+          // Use folder name as game title
+          const folderName = folderPath.split(sep).pop() || 'Unknown';
+          const mainExe = gameExes[0];
+          
+          // Try to find an exe with the same name as the folder
+          const matchingExe = gameExes.find(exe => {
+            const exeName = exe.split(sep).pop()?.toLowerCase().replace('.exe', '') || '';
+            return exeName === folderName.toLowerCase();
+          });
+          
+          results.push({
+            uuid: `manual_folder-${folderPath}-${Date.now()}`,
+            source: 'manual_folder' as const,
+            originalName: folderName,
+            installPath: folderPath,
+            exePath: matchingExe || mainExe,
+            appId: undefined,
+            title: folderName,
+            status: 'ambiguous' as const,
+          });
+        }
+        
+        console.log(`[ImportService] Scanned folder "${folderPath}" (no subdirectories) and found ${results.length} games`);
+        return results;
+      }
+      
+      // For each top-level subdirectory, scan for executables and create a game
+      for (const subdir of subdirectories) {
+        const subdirPath = join(folderPath, subdir.name);
+        const gameTitle = subdir.name; // Use the folder name as the game title
+        
+        try {
+          // Find executables in this subdirectory (scan up to 3 levels deep)
+          const exeFiles = this.findExecutables(subdirPath, 0, 3);
+          
+          // Filter out helper executables
+          const gameExes = exeFiles.filter(exe => {
+            const fileName = exe.toLowerCase();
+            return !fileName.includes('gamelaunchhelper') &&
+                   !fileName.includes('bootstrapper') &&
+                   !fileName.includes('uninstall') &&
+                   !fileName.includes('unins') &&
+                   !fileName.includes('setup') &&
+                   !fileName.includes('installer') &&
+                   !fileName.includes('install') &&
+                   !fileName.includes('cleanup') &&
+                   !fileName.includes('crashhandler') &&
+                   !fileName.includes('redist') &&
+                   !fileName.includes('directx') &&
+                   !fileName.includes('updater') &&
+                   !fileName.includes('launcher');
+          });
+          
+          if (gameExes.length > 0) {
+            // Prefer executables with the same name as the directory
+            let mainExe = gameExes[0];
+            
+            // Try to find an exe with the same name as the directory
+            const matchingExe = gameExes.find(exe => {
+              const exeName = exe.split(sep).pop()?.toLowerCase().replace('.exe', '') || '';
+              return exeName === gameTitle.toLowerCase();
+            });
+            
+            if (matchingExe) {
+              mainExe = matchingExe;
+            }
+            
+            results.push({
+              uuid: `manual_folder-${subdirPath}-${Date.now()}`,
+              source: 'manual_folder' as const,
+              originalName: gameTitle,
+              installPath: subdirPath,
+              exePath: mainExe,
+              appId: undefined,
+              title: gameTitle,
+              status: 'ambiguous' as const, // Manual folder scans need metadata matching
+            });
+          }
+        } catch (err) {
+          // Skip directories we can't access
+          console.warn(`[ImportService] Could not scan subdirectory "${subdirPath}":`, err);
+          continue;
+        }
+      }
+      
+      console.log(`[ImportService] Scanned folder "${folderPath}" and found ${results.length} games`);
+      return results;
+    } catch (error) {
+      console.error(`[ImportService] Error scanning folder "${folderPath}":`, error);
+      return [];
+    }
   }
 }

@@ -17,6 +17,7 @@ interface LibraryListViewProps {
   onGameClick?: (game: Game) => void;
   onEdit?: (game: Game) => void;
   onEditImages?: (game: Game) => void;
+  onEditCategories?: (game: Game) => void;
   onFavorite?: (game: Game) => void;
   onPin?: (game: Game) => void;
   onFixMatch?: (game: Game) => void;
@@ -34,6 +35,7 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
   onGameClick,
   onEdit,
   onEditImages,
+  onEditCategories,
   onFavorite,
   onPin,
   onFixMatch,
@@ -229,6 +231,7 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
           onPlay={onPlay}
           onEdit={onEdit}
           onEditImages={onEditImages}
+          onEditCategories={onEditCategories}
           onFavorite={onFavorite}
           onPin={onPin}
           onFixMatch={onFixMatch}

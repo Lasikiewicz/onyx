@@ -358,36 +358,51 @@ export class MetadataFetcherService {
     const installInfoPromises: Promise<GameInstallInfo | null>[] = [];
 
     // Fetch artwork: Try multiple providers in parallel to ensure we get boxart
-    // Priority: SteamGridDB > IGDB > Steam, but try all available to fill gaps
+    // When steamAppId is available, prioritize Steam CDN first (official images)
+    // Otherwise: SteamGridDB > IGDB > Steam
+    const artworkPromisesOrdered: Array<{ promise: Promise<GameArtwork | null>; source: string }> = [];
+    
+    // PRIORITY 1: If we have a Steam App ID, fetch Steam CDN FIRST (official images)
+    if (steamAppId && this.steamProvider?.isAvailable()) {
+      // Construct a Steam game ID from the App ID
+      const steamGameId = `steam-${steamAppId}`;
+      console.log(`[MetadataFetcher] Trying Steam CDN provider FIRST for: ${title} (AppID: ${steamAppId})`);
+      artworkPromisesOrdered.push({
+        promise: this.steamProvider.getArtwork(steamGameId, steamAppId),
+        source: 'steam',
+      });
+    }
+    
+    // PRIORITY 2: Try SteamGridDB (community images)
     if (steamGridDBResult && this.steamGridDBProvider?.isAvailable()) {
       console.log(`[MetadataFetcher] Trying SteamGridDB provider for: ${title} (ID: ${steamGridDBResult.id})`);
-      artworkPromises.push({
+      artworkPromisesOrdered.push({
         promise: this.steamGridDBProvider.getArtwork(steamGridDBResult.id, steamAppId),
         source: 'steamgriddb',
       });
     }
     
-    // Always try IGDB as fallback for boxart (especially if SteamGridDB has no boxart)
+    // PRIORITY 3: Always try IGDB as fallback for boxart (especially if SteamGridDB has no boxart)
     if (igdbResult && this.igdbProvider?.isAvailable()) {
       console.log(`[MetadataFetcher] Trying IGDB provider for: ${title} (ID: ${igdbResult.id})`);
-      artworkPromises.push({
+      artworkPromisesOrdered.push({
         promise: this.igdbProvider.getArtwork(igdbResult.id, steamAppId),
         source: 'igdb',
       });
     }
     
-    // For Steam games, also try Steam CDN as last resort
+    // For Steam games without steamAppId in search results, also try Steam CDN as fallback
     // Steam CDN works for ALL Steam games (by App ID), not just installed ones
-    // So try it if we have a steamAppId, even if steamResult wasn't found in search
-    if (steamAppId && this.steamProvider?.isAvailable()) {
-      // Construct a Steam game ID from the App ID
-      const steamGameId = `steam-${steamAppId}`;
-      console.log(`[MetadataFetcher] Trying Steam CDN provider for: ${title} (AppID: ${steamAppId})`);
-      artworkPromises.push({
-        promise: this.steamProvider.getArtwork(steamGameId, steamAppId),
+    if (!steamAppId && steamResult && this.steamProvider?.isAvailable()) {
+      console.log(`[MetadataFetcher] Trying Steam CDN provider (from search result) for: ${title}`);
+      artworkPromisesOrdered.push({
+        promise: this.steamProvider.getArtwork(steamResult.id, steamResult.steamAppId),
         source: 'steam',
       });
     }
+    
+    // Use the ordered promises
+    artworkPromises.push(...artworkPromisesOrdered);
     
     if (artworkPromises.length === 0) {
       console.warn(`[MetadataFetcher] Cannot fetch images for: ${title}`);

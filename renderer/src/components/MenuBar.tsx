@@ -23,9 +23,12 @@ interface MenuBarProps {
   onSortChange?: (sort: 'title' | 'releaseDate' | 'playtime' | 'lastPlayed') => void;
   hasFavoriteGames?: boolean;
   hasVRCategory?: boolean;
+  hasAppsCategory?: boolean;
   hasHiddenGames?: boolean;
   hideVRTitles?: boolean;
+  hideAppsTitles?: boolean;
   onToggleHideVRTitles?: () => void;
+  onToggleHideAppsTitles?: () => void;
   launchers?: string[];
   selectedLauncher?: string | null;
   onLauncherChange?: (launcher: string | null) => void;
@@ -43,9 +46,12 @@ export const MenuBar: React.FC<MenuBarProps> = ({
   onSortChange,
   hasFavoriteGames = false,
   hasVRCategory = false,
+  hasAppsCategory = false,
   hasHiddenGames = false,
   hideVRTitles = true,
+  hideAppsTitles = true,
   onToggleHideVRTitles,
+  onToggleHideAppsTitles,
   launchers = [],
   selectedLauncher,
   onLauncherChange,
@@ -499,6 +505,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
                     {allCategories.map((category) => {
                   const isPinned = pinnedCategories?.includes(category);
                   const isVR = category === 'VR';
+                  const isApps = category === 'Apps';
                   return (
                     <React.Fragment key={category}>
                       <div
@@ -552,6 +559,24 @@ export const MenuBar: React.FC<MenuBarProps> = ({
                             }}
                           />
                           <span>Hide VR Titles</span>
+                        </label>
+                      )}
+                      {isApps && hasAppsCategory && (
+                        <label
+                          className="w-full px-3 py-2 rounded text-sm transition-colors flex items-center gap-2 text-gray-300 hover:bg-gray-700 cursor-pointer ml-0"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={hideAppsTitles}
+                            onChange={() => {
+                              onToggleHideAppsTitles?.();
+                            }}
+                            className="w-4 h-4 rounded border-gray-600 bg-gray-700 text-blue-600 focus:ring-blue-500 focus:ring-2 cursor-pointer"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                            }}
+                          />
+                          <span>Hide Apps Titles</span>
                         </label>
                       )}
                     </React.Fragment>

@@ -336,6 +336,30 @@ export class ImageCacheService {
   }
 
   /**
+   * Delete cached image for a specific game and image type
+   */
+  async deleteCachedImage(gameId: string, imageType: 'boxart' | 'banner' | 'logo' | 'hero'): Promise<void> {
+    try {
+      this.ensureInitialized();
+      const safeGameId = gameId.replace(/[<>:"/\\|?*]/g, '_');
+      const extensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
+      
+      for (const ext of extensions) {
+        const filename = `${safeGameId}-${imageType}${ext}`;
+        const filePath = path.join(this.cacheDir, filename);
+        if (existsSync(filePath)) {
+          const { unlinkSync } = require('node:fs');
+          unlinkSync(filePath);
+          console.log(`[ImageCache] Deleted cached image: ${filename}`);
+        }
+      }
+    } catch (error) {
+      console.error(`Error deleting cached image for ${gameId}-${imageType}:`, error);
+      // Don't throw - deletion is best effort
+    }
+  }
+
+  /**
    * Clear all cached images
    */
   async clearCache(): Promise<void> {

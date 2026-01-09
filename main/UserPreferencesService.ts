@@ -12,6 +12,7 @@ export interface UserPreferences {
   minimizeOnGameLaunch?: boolean;
   activeGameId?: string | null;
   hideVRTitles?: boolean;
+  hideAppsTitles?: boolean;
   hideGameTitles?: boolean;
   gameTilePadding?: number;
   showLogoOverBoxart?: boolean;
@@ -29,6 +30,8 @@ export interface UserPreferences {
     showPlatform: boolean;
   };
   listViewSize?: number;
+  logoViewSize?: number;
+  logoHeight?: number;
   autoSizeToFit?: boolean;
   titleFontSize?: number;
   titleFontFamily?: string;
@@ -76,7 +79,7 @@ export class UserPreferencesService {
         name: 'user-preferences',
         defaults: {
           preferences: {
-            gridSize: 120,
+            gridSize: 140,
             panelWidth: 800,
             fanartHeight: 320,
             descriptionHeight: 400,
@@ -89,11 +92,12 @@ export class UserPreferencesService {
             minimizeOnGameLaunch: false,
             activeGameId: null,
             hideVRTitles: true,
-            hideGameTitles: false,
+            hideAppsTitles: true,
+            hideGameTitles: true,
             gameTilePadding: 16,
-            showLogoOverBoxart: true,
+            showLogoOverBoxart: false,
             logoPosition: 'middle',
-            backgroundBlur: 40,
+            backgroundBlur: 3,
             backgroundMode: 'image',
             backgroundColor: '#000000',
             viewMode: 'grid',
@@ -105,7 +109,9 @@ export class UserPreferencesService {
               showGenres: true,
               showPlatform: false,
             },
-            listViewSize: 128,
+            listViewSize: 80,
+            logoViewSize: 200,
+            logoHeight: 100,
             titleFontSize: 24,
             titleFontFamily: 'system-ui',
             descriptionFontSize: 14,
@@ -147,7 +153,7 @@ export class UserPreferencesService {
   async getPreferences(): Promise<UserPreferences> {
     const store = await this.ensureStore();
     return store.get('preferences', {
-      gridSize: 120,
+      gridSize: 140,
       panelWidth: 800,
       fanartHeight: 320,
       descriptionHeight: 400,
@@ -159,11 +165,11 @@ export class UserPreferencesService {
       updateLibrariesOnStartup: false,
       activeGameId: null,
             hideVRTitles: true,
-            hideGameTitles: false,
+            hideGameTitles: true,
             gameTilePadding: 16,
-            showLogoOverBoxart: true,
+            showLogoOverBoxart: false,
             logoPosition: 'middle',
-            backgroundBlur: 40,
+            backgroundBlur: 3,
             backgroundMode: 'image',
       backgroundColor: '#000000',
       viewMode: 'grid',
@@ -175,7 +181,9 @@ export class UserPreferencesService {
         showGenres: true,
         showPlatform: false,
       },
-      listViewSize: 128,
+      listViewSize: 80,
+      logoViewSize: 200,
+      logoHeight: 100,
       titleFontSize: 24,
       titleFontFamily: 'system-ui',
       descriptionFontSize: 14,
@@ -206,7 +214,7 @@ export class UserPreferencesService {
   async savePreferences(preferences: Partial<UserPreferences>): Promise<void> {
     const store = await this.ensureStore();
     const current = store.get('preferences', {
-      gridSize: 120,
+      gridSize: 140,
       panelWidth: 800,
       fanartHeight: 320,
       descriptionHeight: 400,
@@ -218,11 +226,11 @@ export class UserPreferencesService {
       updateLibrariesOnStartup: false,
       activeGameId: null,
             hideVRTitles: true,
-            hideGameTitles: false,
+            hideGameTitles: true,
             gameTilePadding: 16,
-            showLogoOverBoxart: true,
+            showLogoOverBoxart: false,
             logoPosition: 'middle',
-            backgroundBlur: 40,
+            backgroundBlur: 3,
             backgroundMode: 'image',
       backgroundColor: '#000000',
       viewMode: 'grid',
@@ -234,7 +242,9 @@ export class UserPreferencesService {
         showGenres: true,
         showPlatform: false,
       },
-      listViewSize: 128,
+      listViewSize: 80,
+      logoViewSize: 200,
+      logoHeight: 100,
       titleFontSize: 24,
       titleFontFamily: 'system-ui',
       descriptionFontSize: 14,
@@ -266,7 +276,7 @@ export class UserPreferencesService {
   async resetPreferences(): Promise<void> {
     const store = await this.ensureStore();
     store.set('preferences', {
-      gridSize: 120,
+      gridSize: 140,
       panelWidth: 800,
       fanartHeight: 320,
       descriptionHeight: 400,
@@ -278,11 +288,11 @@ export class UserPreferencesService {
       updateLibrariesOnStartup: false,
       activeGameId: null,
             hideVRTitles: true,
-            hideGameTitles: false,
+            hideGameTitles: true,
             gameTilePadding: 16,
-            showLogoOverBoxart: true,
+            showLogoOverBoxart: false,
             logoPosition: 'middle',
-            backgroundBlur: 40,
+            backgroundBlur: 3,
             backgroundMode: 'image',
       backgroundColor: '#000000',
       viewMode: 'grid',
@@ -294,7 +304,9 @@ export class UserPreferencesService {
         showGenres: true,
         showPlatform: false,
       },
-      listViewSize: 128,
+      listViewSize: 80,
+      logoViewSize: 200,
+      logoHeight: 100,
       titleFontSize: 24,
       titleFontFamily: 'system-ui',
       descriptionFontSize: 14,

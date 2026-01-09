@@ -1342,32 +1342,6 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                                     </button>
                                   )}
                                   
-                                  {/* Import installed games button - only show when authenticated */}
-                                  {steamAuthState.authenticated && (
-                                    <button
-                                      onClick={() => handleScanApp(app.id)}
-                                      disabled={scanningAppId === app.id || !app.path}
-                                      className="w-full px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                                    >
-                                      {scanningAppId === app.id ? (
-                                        <>
-                                          <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                                          </svg>
-                                          Scanning...
-                                        </>
-                                      ) : (
-                                        <>
-                                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                                          </svg>
-                                          Import installed games
-                                        </>
-                                      )}
-                                    </button>
-                                  )}
-                                  
                                   {/* Auto add toggle - only show when authenticated */}
                                   {steamAuthState.authenticated && (
                                     <div className="flex items-center justify-between p-2 bg-gray-800/30 rounded">
