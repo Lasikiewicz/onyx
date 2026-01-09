@@ -269,6 +269,111 @@ export class GameStore {
   }
 
   /**
+   * Clear broken onyx-local:// URLs from all games
+   * This is used to clean up URLs that point to files that don't exist in the cache
+   * Only clears URLs if the corresponding file doesn't exist
+   */
+  async clearBrokenOnyxLocalUrls(cacheDir?: string): Promise<number> {
+    const store = await this.ensureStore();
+    const games = await this.getLibrary();
+    let clearedCount = 0;
+
+    // If no cache dir provided, we can't check if files exist, so don't clear anything
+    if (!cacheDir) {
+      console.log('[GameStore] No cache directory provided - skipping URL cleanup');
+      return 0;
+    }
+
+    const { existsSync } = require('node:fs');
+
+    games.forEach(game => {
+      // Check if boxart file exists before clearing
+      if (game.boxArtUrl?.startsWith('onyx-local://')) {
+        const boxartPath = this.extractFilePathFromOnyxUrl(game.boxArtUrl, cacheDir);
+        if (!existsSync(boxartPath)) {
+          console.log(`[GameStore] Clearing broken boxart URL for ${game.title}: ${game.boxArtUrl}`);
+          game.boxArtUrl = '';
+          clearedCount++;
+        }
+      }
+
+      // Check if banner file exists before clearing
+      if (game.bannerUrl?.startsWith('onyx-local://')) {
+        const bannerPath = this.extractFilePathFromOnyxUrl(game.bannerUrl, cacheDir);
+        if (!existsSync(bannerPath)) {
+          console.log(`[GameStore] Clearing broken banner URL for ${game.title}: ${game.bannerUrl}`);
+          game.bannerUrl = '';
+          clearedCount++;
+        }
+      }
+
+      // Check if logo file exists before clearing
+      if (game.logoUrl?.startsWith('onyx-local://')) {
+        const logoPath = this.extractFilePathFromOnyxUrl(game.logoUrl, cacheDir);
+        if (!existsSync(logoPath)) {
+          console.log(`[GameStore] Clearing broken logo URL for ${game.title}: ${game.logoUrl}`);
+          game.logoUrl = '';
+          clearedCount++;
+        }
+      }
+
+      // Check if hero file exists before clearing
+      if (game.heroUrl?.startsWith('onyx-local://')) {
+        const heroPath = this.extractFilePathFromOnyxUrl(game.heroUrl, cacheDir);
+        if (!existsSync(heroPath)) {
+          console.log(`[GameStore] Clearing broken hero URL for ${game.title}: ${game.heroUrl}`);
+          game.heroUrl = '';
+          clearedCount++;
+        }
+      }
+    });
+
+    if (clearedCount > 0) {
+      console.log(`[GameStore] Cleared ${clearedCount} broken onyx-local:// URLs`);
+      (store as any).set('games', games);
+    }
+
+    return clearedCount;
+  }
+
+  /**
+   * Extract file path from onyx-local URL
+   * Handles both simple format (onyx-local://gameId-type) and encoded format
+   */
+  private extractFilePathFromOnyxUrl(url: string, cacheDir: string): string {
+    const path = require('node:path');
+    
+    // Extract the part after onyx-local://
+    let urlPart = url.replace('onyx-local://', '').replace(/\/+$/, '');
+    
+    // If it looks like a full path (encoded), decode it
+    if (urlPart.includes('%') || urlPart.includes('/')) {
+      try {
+        urlPart = decodeURIComponent(urlPart);
+        // If it's already an absolute path, return as-is
+        if (path.isAbsolute(urlPart)) {
+          return urlPart;
+        }
+      } catch (e) {
+        // If decode fails, treat as simple format
+      }
+    }
+    
+    // Simple format: onyx-local://gameId-type
+    // The protocol handler looks for files like: {gameId}-{type}.{ext}
+    const extensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
+    for (const ext of extensions) {
+      const filePath = path.join(cacheDir, `${urlPart}${ext}`);
+      if (require('node:fs').existsSync(filePath)) {
+        return filePath;
+      }
+    }
+    
+    // Return path with first extension as fallback (will be checked with existsSync)
+    return path.join(cacheDir, `${urlPart}.jpg`);
+  }
+
+  /**
    * Reorder games in the store according to the provided order
    */
   async reorderGames(reorderedGames: Game[]): Promise<void> {

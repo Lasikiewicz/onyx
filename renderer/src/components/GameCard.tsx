@@ -32,12 +32,33 @@ export const GameCard: React.FC<GameCardProps> = ({ game, hideTitle = false, sho
             className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
             onError={(e) => {
               const target = e.target as HTMLImageElement;
-              // Fallback to bannerUrl if boxArtUrl fails
-              if (game.boxArtUrl && game.bannerUrl && target.src !== game.bannerUrl) {
+              // Prevent infinite retry loops - mark as handled immediately
+              if (target.dataset.errorHandled === 'true') {
+                // Already handled, stop all further processing
+                e.stopPropagation();
+                e.preventDefault();
+                return;
+              }
+              
+              // Mark as handled immediately to prevent retries
+              target.dataset.errorHandled = 'true';
+              
+              // Stop the error from propagating
+              e.stopPropagation();
+              
+              // Fallback to bannerUrl if boxArtUrl fails (only once)
+              if (game.boxArtUrl && game.bannerUrl && target.src !== game.bannerUrl && !target.src.includes(game.bannerUrl) && !target.dataset.fallbackAttempted) {
+                target.dataset.fallbackAttempted = 'true';
                 target.src = game.bannerUrl;
               } else {
-                console.error('Failed to load image:', game.boxArtUrl || game.bannerUrl, target.src);
+                // Hide the image and stop all retries
                 target.style.display = 'none';
+                target.src = ''; // Clear src to prevent any retries
+                // Only log error once per image
+                if (!target.dataset.errorLogged) {
+                  target.dataset.errorLogged = 'true';
+                  // Don't log to console to reduce spam - the protocol handler will log it
+                }
               }
             }}
             onLoad={() => {

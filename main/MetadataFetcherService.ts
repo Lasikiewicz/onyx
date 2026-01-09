@@ -43,12 +43,14 @@ export class MetadataFetcherService {
   private igdbProvider?: IGDBMetadataProvider;
   private steamGridDBProvider?: SteamGridDBMetadataProvider;
   private steamProvider?: SteamMetadataProvider;
+  private steamGridDBService?: SteamGridDBService | null;
 
   constructor(
     igdbService?: IGDBService | null,
     steamGridDBService?: SteamGridDBService | null,
     steamService?: SteamService | null
   ) {
+    this.steamGridDBService = steamGridDBService;
     // Initialize providers
     if (igdbService) {
       this.igdbProvider = new IGDBMetadataProvider(igdbService);
@@ -87,6 +89,7 @@ export class MetadataFetcherService {
    * Set SteamGridDB service
    */
   setSteamGridDBService(steamGridDBService: SteamGridDBService | null): void {
+    this.steamGridDBService = steamGridDBService;
     if (steamGridDBService) {
       this.steamGridDBProvider = new SteamGridDBMetadataProvider(steamGridDBService);
       if (!this.providers.includes(this.steamGridDBProvider)) {
@@ -118,6 +121,13 @@ export class MetadataFetcherService {
   }
 
   /**
+   * Get IGDB provider for external searches
+   */
+  getIGDBProvider(): IGDBMetadataProvider | undefined {
+    return this.igdbProvider;
+  }
+
+  /**
    * Calculate resolution score (width * height) for comparison
    */
   private getResolutionScore(resolution?: { width: number; height: number }): number {
@@ -132,15 +142,15 @@ export class MetadataFetcherService {
   private mergeArtwork(artworkArray: Array<{ artwork: GameArtwork | null; source: string }>): GameArtwork {
     const merged: GameArtwork = {};
 
-    // Helper to get priority score (SteamGridDB = highest priority)
+    // Helper to get priority score (Steam CDN = highest priority, then SteamGridDB, then IGDB)
     const getSourcePriority = (source: string): number => {
-      if (source === 'steamgriddb') return 3;
-      if (source === 'steam') return 2;
-      if (source === 'igdb') return 1;
+      if (source === 'steam') return 3;      // Steam CDN - highest priority
+      if (source === 'steamgriddb') return 2; // SteamGridDB - second priority
+      if (source === 'igdb') return 1;       // IGDB - lowest priority
       return 0;
     };
 
-    // Merge box art - prioritize SteamGridDB, then highest resolution
+    // Merge box art - prioritize Steam CDN, then SteamGridDB, then IGDB, then highest resolution
     const boxArts = artworkArray
       .filter(item => item.artwork?.boxArtUrl)
       .map(item => ({
@@ -160,7 +170,7 @@ export class MetadataFetcherService {
       merged.boxArtResolution = boxArts[0].resolution;
     }
 
-    // Merge banner - prioritize SteamGridDB, then highest resolution
+    // Merge banner - prioritize Steam CDN, then SteamGridDB, then IGDB, then highest resolution
     const banners = artworkArray
       .filter(item => item.artwork?.bannerUrl)
       .map(item => ({
@@ -287,43 +297,106 @@ export class MetadataFetcherService {
    */
   async searchArtwork(title: string, steamAppId?: string): Promise<GameMetadata> {
     // Step 1: Search across all providers in parallel
-    const searchResults = await this.searchGames(title, steamAppId);
+    let searchResults = await this.searchGames(title, steamAppId);
 
-    if (searchResults.length === 0) {
-      return this.getEmptyMetadata();
+    // For non-Steam games, if no results found, try searching IGDB directly
+    if (!steamAppId && searchResults.length === 0 && this.igdbProvider?.isAvailable()) {
+      console.log(`[MetadataFetcher] No results from initial search, trying IGDB directly for: ${title}`);
+      try {
+        const igdbResults = await this.igdbProvider.search(title, undefined);
+        if (igdbResults.length > 0) {
+          searchResults = igdbResults;
+          console.log(`[MetadataFetcher] Found ${igdbResults.length} IGDB result(s) for: ${title}`);
+        }
+      } catch (error) {
+        console.error(`[MetadataFetcher] Error searching IGDB directly:`, error);
+      }
     }
 
     // Step 2: Find best matching game ID for each provider
-    // Prioritize SteamGridDB for artwork, IGDB for descriptions, Steam for install info
-    const steamGridDBResult = searchResults.find(r => r.source === 'steamgriddb');
-    const igdbResult = searchResults.find(r => r.source === 'igdb');
+    // Priority: SteamGridDB > IGDB > Steam
+    let steamGridDBResult = searchResults.find(r => r.source === 'steamgriddb');
+    let igdbResult = searchResults.find(r => r.source === 'igdb');
     const steamResult = searchResults.find(r => r.source === 'steam' && r.steamAppId === steamAppId) 
       || searchResults.find(r => r.source === 'steam');
+    
+    // FALLBACK: If no SteamGridDB result found but we have SteamGridDB service, try direct search
+    // This handles cases where the game title doesn't match exactly in searchGames but exists in SteamGridDB
+    if (!steamGridDBResult && this.steamGridDBProvider?.isAvailable() && this.steamGridDBService) {
+      try {
+        console.log(`[MetadataFetcher] No SteamGridDB match in search results, trying direct search for: ${title}`);
+        const directSearchResults = await this.steamGridDBService.searchGame(title);
+        if (directSearchResults.length > 0) {
+          // Use the first/best match (usually sorted by relevance)
+          const bestMatch = directSearchResults[0];
+          steamGridDBResult = {
+            id: `steamgriddb-${bestMatch.id}`,
+            title: bestMatch.name,
+            source: 'steamgriddb',
+            externalId: bestMatch.id,
+          };
+          console.log(`[MetadataFetcher] Found SteamGridDB game via direct search: ${bestMatch.name} (ID: ${bestMatch.id})`);
+        }
+      } catch (error) {
+        console.warn(`[MetadataFetcher] Direct SteamGridDB search failed for ${title}:`, error);
+      }
+    }
+    
+    // If still no results from any provider, return empty
+    if (!steamGridDBResult && !igdbResult && !steamResult) {
+      console.warn(`[MetadataFetcher] No search results found for: ${title}`);
+      return this.getEmptyMetadata();
+    }
+
+    // Log what we found
+    console.log(`[MetadataFetcher] Searching for: ${title}${steamAppId ? ` (Steam AppID: ${steamAppId})` : ''}`);
+    console.log(`[MetadataFetcher] Results - SteamGridDB: ${steamGridDBResult ? `found (${steamGridDBResult.id})` : 'not found'}, IGDB: ${igdbResult ? `found (${igdbResult.id})` : 'not found'}, Steam: ${steamResult ? 'found' : 'not found'}`);
 
     // Step 3: Fetch data from providers in parallel
     const artworkPromises: Array<{ promise: Promise<GameArtwork | null>; source: string }> = [];
     const descriptionPromises: Promise<GameDescription | null>[] = [];
     const installInfoPromises: Promise<GameInstallInfo | null>[] = [];
 
-    // Fetch artwork from all available providers
-    // Prioritize SteamGridDB first (default for images)
+    // Fetch artwork: Try multiple providers in parallel to ensure we get boxart
+    // Priority: SteamGridDB > IGDB > Steam, but try all available to fill gaps
     if (steamGridDBResult && this.steamGridDBProvider?.isAvailable()) {
+      console.log(`[MetadataFetcher] Trying SteamGridDB provider for: ${title} (ID: ${steamGridDBResult.id})`);
       artworkPromises.push({
         promise: this.steamGridDBProvider.getArtwork(steamGridDBResult.id, steamAppId),
         source: 'steamgriddb',
       });
     }
-    if (steamResult && this.steamProvider?.isAvailable()) {
-      artworkPromises.push({
-        promise: this.steamProvider.getArtwork(steamResult.id, steamAppId),
-        source: 'steam',
-      });
-    }
+    
+    // Always try IGDB as fallback for boxart (especially if SteamGridDB has no boxart)
     if (igdbResult && this.igdbProvider?.isAvailable()) {
+      console.log(`[MetadataFetcher] Trying IGDB provider for: ${title} (ID: ${igdbResult.id})`);
       artworkPromises.push({
         promise: this.igdbProvider.getArtwork(igdbResult.id, steamAppId),
         source: 'igdb',
       });
+    }
+    
+    // For Steam games, also try Steam CDN as last resort
+    // Steam CDN works for ALL Steam games (by App ID), not just installed ones
+    // So try it if we have a steamAppId, even if steamResult wasn't found in search
+    if (steamAppId && this.steamProvider?.isAvailable()) {
+      // Construct a Steam game ID from the App ID
+      const steamGameId = `steam-${steamAppId}`;
+      console.log(`[MetadataFetcher] Trying Steam CDN provider for: ${title} (AppID: ${steamAppId})`);
+      artworkPromises.push({
+        promise: this.steamProvider.getArtwork(steamGameId, steamAppId),
+        source: 'steam',
+      });
+    }
+    
+    if (artworkPromises.length === 0) {
+      console.warn(`[MetadataFetcher] Cannot fetch images for: ${title}`);
+      if (!steamGridDBResult && !igdbResult) {
+        console.warn(`[MetadataFetcher] - No search results found in SteamGridDB or IGDB`);
+      }
+      if (!this.steamGridDBProvider?.isAvailable() && !this.igdbProvider?.isAvailable()) {
+        console.warn(`[MetadataFetcher] - No image providers available. Please configure SteamGridDB or IGDB credentials.`);
+      }
     }
 
     // Fetch descriptions from IGDB (primary source)
@@ -352,16 +425,51 @@ export class MetadataFetcherService {
       artwork,
       source: artworkPromises[index]?.source || 'unknown',
     }));
-    const mergedArtwork = this.mergeArtwork(artworkWithSources);
+    
+    // For single source (Steam or IGDB), use directly without merging
+    let mergedArtwork: GameArtwork;
+    if (artworkWithSources.length === 1 && artworkWithSources[0].artwork) {
+      mergedArtwork = artworkWithSources[0].artwork;
+      console.log(`[MetadataFetcher] Single source artwork for ${title}:`, {
+        boxArtUrl: mergedArtwork.boxArtUrl ? 'present' : 'missing',
+        bannerUrl: mergedArtwork.bannerUrl ? 'present' : 'missing',
+        source: artworkWithSources[0].source,
+      });
+    } else if (artworkWithSources.length > 0) {
+      mergedArtwork = this.mergeArtwork(artworkWithSources);
+      console.log(`[MetadataFetcher] Merged artwork for ${title}:`, {
+        boxArtUrl: mergedArtwork.boxArtUrl ? 'present' : 'missing',
+        bannerUrl: mergedArtwork.bannerUrl ? 'present' : 'missing',
+        sources: artworkWithSources.map(a => a.source),
+      });
+    } else {
+      mergedArtwork = {};
+      console.warn(`[MetadataFetcher] No artwork sources for ${title}`);
+    }
+    
     const mergedDescription = this.mergeDescriptions(descriptionResults);
     const mergedInstallInfo = this.mergeInstallInfo(installInfoResults);
 
     // Step 5: Combine into final metadata
+    // Only include URLs if they're actually present (not empty strings)
+    // Log the actual URLs for debugging
+    if (mergedArtwork.boxArtUrl) {
+      console.log(`[MetadataFetcher] boxArtUrl for ${title}: ${mergedArtwork.boxArtUrl.substring(0, 100)}...`);
+    } else {
+      console.warn(`[MetadataFetcher] No boxArtUrl for ${title}`);
+    }
+    
     return {
-      boxArtUrl: mergedArtwork.boxArtUrl || '',
-      bannerUrl: mergedArtwork.bannerUrl || mergedArtwork.heroUrl || mergedArtwork.boxArtUrl || '',
-      logoUrl: mergedArtwork.logoUrl,
-      heroUrl: mergedArtwork.heroUrl || mergedArtwork.bannerUrl,
+      boxArtUrl: mergedArtwork.boxArtUrl && mergedArtwork.boxArtUrl.trim() !== '' ? mergedArtwork.boxArtUrl : '',
+      bannerUrl: (mergedArtwork.bannerUrl && mergedArtwork.bannerUrl.trim() !== '') 
+        ? mergedArtwork.bannerUrl 
+        : (mergedArtwork.heroUrl && mergedArtwork.heroUrl.trim() !== '')
+          ? mergedArtwork.heroUrl
+          : (mergedArtwork.boxArtUrl && mergedArtwork.boxArtUrl.trim() !== '')
+            ? mergedArtwork.boxArtUrl
+            : '',
+      logoUrl: mergedArtwork.logoUrl && mergedArtwork.logoUrl.trim() !== '' ? mergedArtwork.logoUrl : undefined,
+      heroUrl: mergedArtwork.heroUrl && mergedArtwork.heroUrl.trim() !== '' ? mergedArtwork.heroUrl : undefined,
       screenshots: mergedArtwork.screenshots,
       // Text metadata from IGDB
       description: mergedDescription.description,

@@ -98,6 +98,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   toggleDevTools: () => ipcRenderer.invoke('app:toggleDevTools'),
   // Window control methods
   minimizeWindow: () => ipcRenderer.invoke('app:minimizeWindow'),
+  // Refresh all metadata
+  refreshAllMetadata: (options?: { allGames?: boolean; gameIds?: string[] }) => ipcRenderer.invoke('metadata:refreshAll', options),
   maximizeWindow: () => ipcRenderer.invoke('app:maximizeWindow'),
   closeWindow: () => ipcRenderer.invoke('app:closeWindow'),
   // App reset method

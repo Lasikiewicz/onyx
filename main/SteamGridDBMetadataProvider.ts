@@ -56,16 +56,22 @@ export class SteamGridDBMetadataProvider implements MetadataProvider {
       }
 
       // Fetch all artwork types in parallel
-      const [verticalGrids, heroes, logos] = await Promise.all([
-        this.steamGridDBService.getVerticalGrids(gameId),
+      const [capsules, heroes, logos] = await Promise.all([
+        this.steamGridDBService.getCapsules(gameId),
         this.steamGridDBService.getHeroes(gameId),
         this.steamGridDBService.getLogos(gameId),
       ]);
 
+      console.log(`[SteamGridDB] Fetched artwork for game ${gameId}:`, {
+        capsules: capsules.length,
+        heroes: heroes.length,
+        logos: logos.length,
+      });
+
       // Filter and sort images by score (highest first), excluding NSFW/humor/epilepsy
       const filterImage = (img: SteamGridDBImage) => !img.nsfw && !img.humor && !img.epilepsy;
       
-      const bestVertical = verticalGrids
+      const bestCapsule = capsules
         .filter(filterImage)
         .sort((a, b) => b.score - a.score)[0];
       
@@ -77,19 +83,34 @@ export class SteamGridDBMetadataProvider implements MetadataProvider {
         .filter(filterImage)
         .sort((a, b) => b.score - a.score)[0];
 
-      return {
-        boxArtUrl: bestVertical?.url,
+      const result = {
+        boxArtUrl: bestCapsule?.url,
         bannerUrl: bestHero?.url,
         logoUrl: bestLogo?.url,
         heroUrl: bestHero?.url,
-        boxArtResolution: bestVertical ? { width: bestVertical.width, height: bestVertical.height } : undefined,
+        boxArtResolution: bestCapsule ? { width: bestCapsule.width, height: bestCapsule.height } : undefined,
         bannerResolution: bestHero ? { width: bestHero.width, height: bestHero.height } : undefined,
         logoResolution: bestLogo ? { width: bestLogo.width, height: bestLogo.height } : undefined,
         heroResolution: bestHero ? { width: bestHero.width, height: bestHero.height } : undefined,
       };
+
+      console.log(`[SteamGridDB] Returning artwork for game ${gameId}:`, {
+        boxArtUrl: result.boxArtUrl ? 'present' : 'missing',
+        bannerUrl: result.bannerUrl ? 'present' : 'missing',
+        logoUrl: result.logoUrl ? 'present' : 'missing',
+      });
+
+      return result;
     } catch (error) {
-      console.error('SteamGridDB getArtwork error:', error);
-      return null;
+      // Don't log as error - 404s are expected for games without artwork
+      // Return empty artwork object instead of null so other providers can still be tried
+      console.warn(`[SteamGridDB] getArtwork error for game ${id}:`, error instanceof Error ? error.message : error);
+      return {
+        boxArtUrl: undefined,
+        bannerUrl: undefined,
+        logoUrl: undefined,
+        heroUrl: undefined,
+      };
     }
   }
 }

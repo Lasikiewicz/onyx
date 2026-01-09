@@ -4,18 +4,45 @@ import { Game } from '../types/game';
 // Helper function to convert file:// URLs to onyx-local:// protocol
 function convertFileUrlToLocalProtocol(url: string): string {
   if (!url) return url;
-  // If it's already using onyx-local://, return as is
-  if (url.startsWith('onyx-local://')) return url;
-  // If it's a file:// URL, convert it
+  // If it's already using onyx-local://, check if it needs conversion
+  if (url.startsWith('onyx-local://')) {
+    // If it's the old URL-encoded format (contains %), convert to new base64 format
+    // This handles old URLs in the database
+    if (url.includes('%')) {
+      try {
+        // Extract the encoded path
+        let encodedPath = url.replace('onyx-local://', '').replace('onyx-local:///', '');
+        // Remove trailing slash
+        if (encodedPath.endsWith('/')) {
+          encodedPath = encodedPath.substring(0, encodedPath.length - 1);
+        }
+        // Already URL-encoded, return as-is (no conversion needed)
+        return url;
+      } catch (e) {
+        // If conversion fails, return as-is
+        console.warn('Failed to convert old onyx-local URL format:', url);
+        return url;
+      }
+    }
+    // Already in new format, return as-is
+    return url;
+  }
+  // If it's a file:// URL, convert it to URL-encoded onyx-local:// URL
   if (url.startsWith('file:///')) {
     const filePath = url.replace('file:///', '');
+    // Use URL encoding (case-insensitive, works even if Electron lowercases)
     const encodedPath = encodeURIComponent(filePath);
     return `onyx-local://${encodedPath}`;
   }
   // If it's a file:// URL without the third slash (Unix style)
   if (url.startsWith('file://')) {
     const filePath = url.replace('file://', '');
-    const encodedPath = encodeURIComponent(filePath);
+    // Remove leading slash on Windows
+    const normalizedPath = process.platform === 'win32' && filePath.startsWith('/') 
+      ? filePath.substring(1) 
+      : filePath;
+    // Use URL encoding (case-insensitive, works even if Electron lowercases)
+    const encodedPath = encodeURIComponent(normalizedPath);
     return `onyx-local://${encodedPath}`;
   }
   // Otherwise, return as is (https, data, etc.)

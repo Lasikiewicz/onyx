@@ -80,8 +80,9 @@ export class SteamGridDBService {
 
   /**
    * Get vertical grids (600x900) for a game
+   * Includes both static and animated grids
    */
-  async getVerticalGrids(gameId: number): Promise<SteamGridDBImage[]> {
+  async getVerticalGrids(gameId: number, includeAnimated: boolean = true): Promise<SteamGridDBImage[]> {
     try {
       const response = await fetch(`${this.baseUrl}/grids/vertical/game/${gameId}`, {
         headers: {
@@ -90,13 +91,62 @@ export class SteamGridDBService {
       });
 
       if (!response.ok) {
-        throw new Error(`SteamGridDB API error: ${response.status} ${response.statusText}`);
+        // 404 is expected for games without vertical grids - don't log as error
+        if (response.status === 404) {
+          return [];
+        }
+        // Other errors should be logged but not thrown
+        console.warn(`[SteamGridDB] API error ${response.status} for vertical grids (game ${gameId}): ${response.statusText}`);
+        return [];
       }
 
       const data = await response.json() as { data?: SteamGridDBImage[] };
-      return data.data || [];
+      const grids = data.data || [];
+      
+      // Filter by mime type if needed (animated grids are typically webp or gif)
+      // But by default, include all grids (both static and animated)
+      if (!includeAnimated) {
+        return grids.filter(img => !img.mime || (img.mime !== 'image/webp' && img.mime !== 'image/gif'));
+      }
+      
+      return grids;
     } catch (error) {
-      console.error('Error fetching vertical grids:', error);
+      // Network errors or other issues - return empty array instead of throwing
+      console.warn(`[SteamGridDB] Error fetching vertical grids for game ${gameId}:`, error instanceof Error ? error.message : error);
+      return [];
+    }
+  }
+
+  /**
+   * Get capsule images (boxart) for a game
+   * Capsules are vertical game cover images
+   */
+  async getCapsules(gameId: number, includeAnimated: boolean = true): Promise<SteamGridDBImage[]> {
+    try {
+      const response = await fetch(`${this.baseUrl}/grids/game/${gameId}`, {
+        headers: {
+          'Authorization': `Bearer ${this.apiKey}`,
+        },
+      });
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          return [];
+        }
+        console.warn(`[SteamGridDB] API error ${response.status} for capsules (game ${gameId}): ${response.statusText}`);
+        return [];
+      }
+
+      const data = await response.json() as { data?: SteamGridDBImage[] };
+      const grids = data.data || [];
+      
+      if (!includeAnimated) {
+        return grids.filter(img => !img.mime || (img.mime !== 'image/webp' && img.mime !== 'image/gif'));
+      }
+      
+      return grids;
+    } catch (error) {
+      console.warn(`[SteamGridDB] Error fetching capsules for game ${gameId}:`, error instanceof Error ? error.message : error);
       return [];
     }
   }
@@ -113,13 +163,17 @@ export class SteamGridDBService {
       });
 
       if (!response.ok) {
-        throw new Error(`SteamGridDB API error: ${response.status} ${response.statusText}`);
+        if (response.status === 404) {
+          return [];
+        }
+        console.warn(`[SteamGridDB] API error ${response.status} for heroes (game ${gameId}): ${response.statusText}`);
+        return [];
       }
 
       const data = await response.json() as { data?: SteamGridDBImage[] };
       return data.data || [];
     } catch (error) {
-      console.error('Error fetching heroes:', error);
+      console.warn(`[SteamGridDB] Error fetching heroes for game ${gameId}:`, error instanceof Error ? error.message : error);
       return [];
     }
   }
@@ -136,13 +190,17 @@ export class SteamGridDBService {
       });
 
       if (!response.ok) {
-        throw new Error(`SteamGridDB API error: ${response.status} ${response.statusText}`);
+        if (response.status === 404) {
+          return [];
+        }
+        console.warn(`[SteamGridDB] API error ${response.status} for logos (game ${gameId}): ${response.statusText}`);
+        return [];
       }
 
       const data = await response.json() as { data?: SteamGridDBImage[] };
       return data.data || [];
     } catch (error) {
-      console.error('Error fetching logos:', error);
+      console.warn(`[SteamGridDB] Error fetching logos for game ${gameId}:`, error instanceof Error ? error.message : error);
       return [];
     }
   }
@@ -153,8 +211,8 @@ export class SteamGridDBService {
    */
   async getGameMetadata(gameId: number): Promise<SteamGridDBMetadata> {
     try {
-      const [verticalGrids, heroes, logos] = await Promise.all([
-        this.getVerticalGrids(gameId),
+      const [capsules, heroes, logos] = await Promise.all([
+        this.getCapsules(gameId),
         this.getHeroes(gameId),
         this.getLogos(gameId),
       ]);
@@ -162,7 +220,7 @@ export class SteamGridDBService {
       // Sort by score (highest first) and filter out NSFW/humor/epilepsy content
       const filterImage = (img: SteamGridDBImage) => !img.nsfw && !img.humor && !img.epilepsy;
       
-      const bestVertical = verticalGrids
+      const bestCapsule = capsules
         .filter(filterImage)
         .sort((a, b) => b.score - a.score)[0];
       
@@ -175,7 +233,7 @@ export class SteamGridDBService {
         .sort((a, b) => b.score - a.score)[0];
 
       return {
-        boxArtUrl: bestVertical?.url || '',
+        boxArtUrl: bestCapsule?.url || '',
         bannerUrl: bestHero?.url || '',
         logoUrl: bestLogo?.url || '',
         heroUrl: bestHero?.url || '',

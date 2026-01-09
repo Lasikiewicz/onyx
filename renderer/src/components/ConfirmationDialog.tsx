@@ -10,6 +10,11 @@ interface ConfirmationDialogProps {
   onConfirm: () => void;
   onCancel: () => void;
   variant?: 'default' | 'danger';
+  // For two-option dialogs
+  primaryActionText?: string;
+  secondaryActionText?: string;
+  onPrimaryAction?: () => void;
+  onSecondaryAction?: () => void;
 }
 
 export const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
@@ -22,12 +27,18 @@ export const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
   onConfirm,
   onCancel,
   variant = 'default',
+  primaryActionText,
+  secondaryActionText,
+  onPrimaryAction,
+  onSecondaryAction,
 }) => {
   if (!isOpen) return null;
 
   const confirmButtonClass = variant === 'danger'
     ? 'bg-red-600 hover:bg-red-700 text-white'
     : 'bg-blue-600 hover:bg-blue-700 text-white';
+  
+  const hasTwoOptions = !!primaryActionText && !!secondaryActionText && !!onPrimaryAction && !!onSecondaryAction;
 
   return (
     <>
@@ -76,18 +87,43 @@ export const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
           
           {/* Actions */}
           <div className="px-6 py-4 border-t border-gray-700 flex gap-3 justify-end">
-            <button
-              onClick={onCancel}
-              className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white font-medium rounded-lg transition-colors"
-            >
-              {cancelText}
-            </button>
-            <button
-              onClick={onConfirm}
-              className={`px-4 py-2 ${confirmButtonClass} font-medium rounded-lg transition-colors`}
-            >
-              {confirmText}
-            </button>
+            {hasTwoOptions ? (
+              <>
+                <button
+                  onClick={onCancel}
+                  className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white font-medium rounded-lg transition-colors"
+                >
+                  {cancelText}
+                </button>
+                <button
+                  onClick={onSecondaryAction}
+                  className="px-4 py-2 bg-gray-600 hover:bg-gray-500 text-white font-medium rounded-lg transition-colors"
+                >
+                  {secondaryActionText}
+                </button>
+                <button
+                  onClick={onPrimaryAction}
+                  className={`px-4 py-2 ${confirmButtonClass} font-medium rounded-lg transition-colors`}
+                >
+                  {primaryActionText}
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={onCancel}
+                  className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white font-medium rounded-lg transition-colors"
+                >
+                  {cancelText}
+                </button>
+                <button
+                  onClick={onConfirm}
+                  className={`px-4 py-2 ${confirmButtonClass} font-medium rounded-lg transition-colors`}
+                >
+                  {confirmText}
+                </button>
+              </>
+            )}
           </div>
         </div>
       </div>

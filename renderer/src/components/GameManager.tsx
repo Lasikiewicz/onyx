@@ -1,5 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Game } from '../types/game';
+import { ConfirmationDialog } from './ConfirmationDialog';
+import { MatchFixDialog } from './MatchFixDialog';
+import { RefreshMetadataDialog } from './RefreshMetadataDialog';
+import { BoxartFixDialog } from './BoxartFixDialog';
 
 interface GameManagerProps {
   isOpen: boolean;
@@ -56,6 +60,97 @@ export const GameManager: React.FC<GameManagerProps> = ({
   const [isSearchingMetadata, setIsSearchingMetadata] = useState(false);
   const [isApplyingMetadata, setIsApplyingMetadata] = useState(false);
   const [activeTab, setActiveTab] = useState<'images' | 'metadata' | 'modManager'>(initialTab);
+  const [showRefreshDialog, setShowRefreshDialog] = useState(false);
+  const [showRefreshConfirm, setShowRefreshConfirm] = useState(false);
+  const [refreshMode, setRefreshMode] = useState<'all' | 'missing' | null>(null);
+  const [refreshProgress, setRefreshProgress] = useState<{ current: number; total: number; message: string; gameTitle?: string } | null>(null);
+  const [showMatchFix, setShowMatchFix] = useState(false);
+  const [unmatchedGames, setUnmatchedGames] = useState<Array<{ gameId: string; title: string; searchResults: any[] }>>([]);
+  const [showBoxartFix, setShowBoxartFix] = useState(false);
+  const [missingBoxartGames, setMissingBoxartGames] = useState<Array<{ gameId: string; title: string; steamAppId?: string }>>([]);
+  const [refreshState, setRefreshState] = useState<{ mode: 'all' | 'missing' | null; continueFromIndex?: number } | null>(null);
+  
+  // Helper function to handle refresh with continuation support
+  const handleRefreshMetadata = async (mode: 'all' | 'missing', continueFromIndex: number = 0) => {
+    try {
+      const result = await window.electronAPI.refreshAllMetadata({ 
+        allGames: mode === 'all',
+        continueFromIndex: continueFromIndex
+      });
+      
+      if (result.success) {
+        // Check if there are unmatched games
+        if (result.unmatchedGames && result.unmatchedGames.length > 0) {
+          setUnmatchedGames(result.unmatchedGames);
+          setShowMatchFix(true);
+          setRefreshProgress(null);
+          // Also check for missing boxart games (will show after match fix)
+          if (result.missingBoxartGames && result.missingBoxartGames.length > 0) {
+            setMissingBoxartGames(result.missingBoxartGames);
+          }
+        } else {
+          // If boxart is missing, show the boxart fix dialog
+          if (result.missingBoxartGames && result.missingBoxartGames.length > 0) {
+            console.log(`[GameManager] ${result.missingBoxartGames.length} game(s) still missing boxart after auto-search`);
+            setMissingBoxartGames(result.missingBoxartGames);
+            setShowBoxartFix(true);
+            setRefreshProgress(null);
+            // Don't show success message if boxart is missing
+            setError(`Refresh completed but ${result.missingBoxartGames.length} game(s) are missing boxart. Please select boxart for these games.`);
+            return; // Stop here to show the boxart fix dialog
+          }
+          
+          if (result.count === 0) {
+            setSuccess(mode === 'all' 
+              ? 'No games were refreshed.' 
+              : 'No games found with missing images. All games already have metadata.');
+            setTimeout(() => {
+              setRefreshProgress(null);
+            }, 2000);
+          } else {
+            // Only show success if refresh was actually successful (all games have boxart)
+            if (result.success) {
+              setSuccess(`Successfully refreshed metadata for ${result.count} games`);
+            } else {
+              // Refresh completed but some games are missing boxart
+              setError(`Refresh completed but ${result.missingBoxartGames?.length || 0} game(s) are missing boxart. Please select boxart for these games.`);
+            }
+            
+            if (onReloadLibrary) {
+              setRefreshProgress({
+                current: result.count,
+                total: result.count,
+                message: 'Refresh completed! Reloading library...',
+              });
+              await new Promise(resolve => setTimeout(resolve, 800));
+              try {
+                await onReloadLibrary();
+                setRefreshProgress(null);
+              } catch (reloadError) {
+                console.error('Error reloading library:', reloadError);
+                setError('Failed to reload library after refresh');
+                setRefreshProgress(null);
+              }
+            } else {
+              setTimeout(() => {
+                setRefreshProgress(null);
+              }, 2000);
+            }
+          }
+        }
+      } else {
+        setError(result.error || 'Failed to refresh metadata');
+        setTimeout(() => {
+          setRefreshProgress(null);
+        }, 2000);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to refresh metadata');
+      setTimeout(() => {
+        setRefreshProgress(null);
+      }, 2000);
+    }
+  };
 
   const selectedGame = useMemo(() => {
     return games.find(g => g.id === selectedGameId) || null;
@@ -64,6 +159,21 @@ export const GameManager: React.FC<GameManagerProps> = ({
   const expandedGame = useMemo(() => {
     return games.find(g => g.id === expandedGameId) || null;
   }, [games, expandedGameId]);
+
+  // Listen for refresh progress updates
+  useEffect(() => {
+    const handleProgress = (_event: any, progress: { current: number; total: number; message: string; gameTitle?: string }) => {
+      setRefreshProgress(progress);
+    };
+
+    if (window.ipcRenderer) {
+      window.ipcRenderer.on('metadata:refreshProgress', handleProgress);
+      
+      return () => {
+        window.ipcRenderer?.off('metadata:refreshProgress', handleProgress);
+      };
+    }
+  }, []);
 
   // Load games when modal opens
   useEffect(() => {
@@ -410,14 +520,26 @@ export const GameManager: React.FC<GameManagerProps> = ({
         {/* Header */}
         <div className="h-[60px] flex items-center justify-between px-6 border-b border-gray-800 bg-gray-900/50">
           <h2 className="text-xl font-semibold text-white">Game Manager</h2>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-gray-700 rounded transition-colors"
-          >
-            <svg className="w-5 h-5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowRefreshDialog(true)}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors flex items-center gap-2"
+              title="Refresh all metadata and images"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              Refresh Metadata
+            </button>
+            <button
+              onClick={onClose}
+              className="p-2 hover:bg-gray-700 rounded transition-colors"
+            >
+              <svg className="w-5 h-5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
         </div>
 
         {/* Error/Success Messages */}
@@ -530,7 +652,10 @@ export const GameManager: React.FC<GameManagerProps> = ({
                                   className="max-w-full max-h-full object-contain"
                                   onError={(e) => {
                                     const target = e.target as HTMLImageElement;
-                                    target.src = '/placeholder.png';
+                                    // Prevent infinite error loop
+                                    if (target.dataset.errorHandled === 'true') return;
+                                    target.dataset.errorHandled = 'true';
+                                    target.style.display = 'none';
                                   }}
                                 />
                               ) : (
@@ -558,7 +683,10 @@ export const GameManager: React.FC<GameManagerProps> = ({
                                   className="w-full h-full object-cover"
                                   onError={(e) => {
                                     const target = e.target as HTMLImageElement;
-                                    target.src = '/placeholder.png';
+                                    // Prevent infinite error loop
+                                    if (target.dataset.errorHandled === 'true') return;
+                                    target.dataset.errorHandled = 'true';
+                                    target.style.display = 'none';
                                   }}
                                 />
                               ) : (
@@ -586,7 +714,10 @@ export const GameManager: React.FC<GameManagerProps> = ({
                                   className="max-w-full max-h-full object-contain"
                                   onError={(e) => {
                                     const target = e.target as HTMLImageElement;
-                                    target.src = '/placeholder.png';
+                                    // Prevent infinite error loop
+                                    if (target.dataset.errorHandled === 'true') return;
+                                    target.dataset.errorHandled = 'true';
+                                    target.style.display = 'none';
                                   }}
                                 />
                               ) : (
@@ -1235,6 +1366,247 @@ export const GameManager: React.FC<GameManagerProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Refresh Metadata Selection Dialog */}
+      <RefreshMetadataDialog
+        isOpen={showRefreshDialog}
+        onSelectAll={() => {
+          setShowRefreshDialog(false);
+          setRefreshMode('all');
+          setShowRefreshConfirm(true);
+        }}
+        onSelectMissing={() => {
+          setShowRefreshDialog(false);
+          setRefreshMode('missing');
+          setShowRefreshConfirm(true);
+        }}
+        onCancel={() => {
+          setShowRefreshDialog(false);
+        }}
+      />
+
+      {/* Refresh Metadata Confirmation Dialog */}
+      <ConfirmationDialog
+        isOpen={showRefreshConfirm}
+        title={refreshMode === 'all' ? 'Refresh All Games' : 'Refresh Missing Images Only'}
+        message={refreshMode === 'all' 
+          ? 'This will remove all existing metadata and images for every game in your library and fetch fresh data from online sources.'
+          : 'This will refresh metadata and images only for games that are missing box art or banner images. Games with existing images will be left unchanged.'}
+        note="This action cannot be undone. All cached images for selected games will be deleted and metadata will be re-fetched from online sources."
+        confirmText="Continue"
+        cancelText="Cancel"
+        variant="danger"
+        onConfirm={async () => {
+          setShowRefreshConfirm(false);
+          setRefreshProgress({ current: 0, total: 0, message: 'Starting...' });
+          setRefreshState({ mode: refreshMode || 'all' });
+          try {
+            setError(null);
+            setSuccess(null);
+            await handleRefreshMetadata(refreshMode || 'all', 0);
+          } catch (err) {
+            setError(err instanceof Error ? err.message : 'Failed to refresh metadata');
+            setTimeout(() => {
+              setRefreshProgress(null);
+            }, 2000);
+          } finally {
+            setRefreshMode(null);
+          }
+        }}
+        onCancel={() => {
+          setShowRefreshConfirm(false);
+          setRefreshMode(null);
+        }}
+      />
+
+      {/* Refresh Progress Dialog */}
+      {refreshProgress && (
+        <div 
+          className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center"
+          style={{ 
+            pointerEvents: refreshProgress.message?.includes('Reloading') ? 'none' : 'auto',
+            transition: 'opacity 0.3s ease-out'
+          }}
+        >
+          <div className="bg-gray-800 rounded-lg shadow-xl border border-gray-700 w-full max-w-md p-6">
+            <h3 className="text-xl font-semibold text-white mb-4">Refreshing Metadata</h3>
+            
+            {/* Progress Bar */}
+            <div className="w-full bg-gray-700 rounded-full h-3 mb-4 overflow-hidden">
+              <div
+                className="bg-blue-600 h-full transition-all duration-300 ease-out rounded-full"
+                style={{
+                  width: refreshProgress.total > 0 
+                    ? `${(refreshProgress.current / refreshProgress.total) * 100}%` 
+                    : '0%'
+                }}
+              />
+            </div>
+            
+            {/* Progress Text */}
+            <div className="text-sm text-gray-300 mb-2">
+              {refreshProgress.total > 0 ? (
+                <span>
+                  {refreshProgress.current} of {refreshProgress.total} games
+                </span>
+              ) : (
+                <span>Preparing...</span>
+              )}
+            </div>
+            
+            {/* Current Status Message */}
+            <div className="text-sm text-gray-400 min-h-[40px]">
+              {refreshProgress.message}
+            </div>
+            
+            {/* Current Game Title */}
+            {refreshProgress.gameTitle && (
+              <div className="text-xs text-gray-500 mt-2 italic">
+                {refreshProgress.gameTitle}
+              </div>
+            )}
+            
+            {/* Show completion message if done */}
+            {refreshProgress.total > 0 && refreshProgress.current >= refreshProgress.total && (
+              <div className="mt-4 pt-4 border-t border-gray-700">
+                <div className="text-sm text-green-400 font-medium">
+                  ✓ Refresh completed!
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Match Fix Dialog */}
+      <MatchFixDialog
+        isOpen={showMatchFix}
+        unmatchedGames={unmatchedGames}
+        onFix={async (fixes, ignoredGames) => {
+          setShowMatchFix(false);
+          setRefreshProgress({ current: 0, total: fixes.size, message: 'Applying fixes...' });
+          
+          try {
+            // Apply fixes by fetching metadata for each game with the selected provider
+            const gameIdsToRefresh = Array.from(fixes.keys());
+            let fixedCount = 0;
+            
+            for (const [gameId, fix] of fixes.entries()) {
+              const game = games.find(g => g.id === gameId);
+              if (game) {
+                setRefreshProgress({ 
+                  current: fixedCount + 1, 
+                  total: gameIdsToRefresh.length, 
+                  message: `Fetching metadata for ${game.title}...`,
+                  gameTitle: game.title
+                });
+                await window.electronAPI.fetchAndUpdateByProviderId(gameId, fix.providerId, fix.providerSource);
+                fixedCount++;
+              }
+            }
+            
+            setSuccess(`Successfully fixed ${fixedCount} game${fixedCount !== 1 ? 's' : ''}${ignoredGames.size > 0 ? `, ${ignoredGames.size} ignored` : ''}`);
+            if (onReloadLibrary) {
+              await onReloadLibrary();
+            }
+            
+            // Check if there are missing boxart games to show after fixing matches
+            if (missingBoxartGames.length > 0) {
+              setShowBoxartFix(true);
+              setRefreshProgress(null);
+            }
+          } catch (err) {
+            setError(err instanceof Error ? err.message : 'Failed to apply fixes');
+            setTimeout(() => {
+              setRefreshProgress(null);
+            }, 2000);
+          } finally {
+            // Only clear progress if we're not showing boxart fix dialog
+            if (missingBoxartGames.length === 0) {
+              setTimeout(() => {
+                setRefreshProgress(null);
+              }, 2000);
+            }
+          }
+        }}
+        onCancel={async () => {
+          setShowMatchFix(false);
+          setUnmatchedGames([]);
+          // Check if there are missing boxart games to show
+          if (missingBoxartGames.length > 0) {
+            setShowBoxartFix(true);
+            setRefreshProgress(null);
+          } else {
+            setRefreshProgress(null);
+          }
+        }}
+      />
+
+      {/* Boxart Fix Dialog */}
+      <BoxartFixDialog
+        isOpen={showBoxartFix}
+        missingBoxartGames={missingBoxartGames}
+        onFix={async (fixes) => {
+          setShowBoxartFix(false);
+          setRefreshProgress({ current: 0, total: fixes.size, message: 'Applying boxart...' });
+          
+          try {
+            let fixedCount = 0;
+            
+            for (const [gameId, boxartUrl] of fixes.entries()) {
+              const game = games.find(g => g.id === gameId);
+              if (game) {
+                setRefreshProgress({ 
+                  current: fixedCount + 1, 
+                  total: fixes.size, 
+                  message: `Caching and applying boxart for ${game.title}...`,
+                  gameTitle: game.title
+                });
+                
+                // Update the game with the selected boxart URL
+                // The game store update handler will automatically cache HTTPS URLs
+                const updatedGame = { ...game, boxArtUrl: boxartUrl };
+                await onSaveGame(updatedGame);
+                fixedCount++;
+              }
+            }
+            
+            setSuccess(`Successfully applied boxart for ${fixedCount} game${fixedCount !== 1 ? 's' : ''}`);
+            
+            // If we were in the middle of a refresh, continue from where we left off
+            if (refreshState && refreshState.continueFromIndex !== undefined) {
+              setRefreshProgress({ 
+                current: refreshState.continueFromIndex, 
+                total: games.length, 
+                message: 'Continuing refresh...' 
+              });
+              // Reload library first to get updated games
+              if (onReloadLibrary) {
+                await onReloadLibrary();
+              }
+              // Continue refresh from the next game
+              await handleRefreshMetadata(refreshState.mode || 'all', refreshState.continueFromIndex + 1);
+            } else {
+              // Normal completion - reload library
+              if (onReloadLibrary) {
+                await onReloadLibrary();
+              }
+              setTimeout(() => {
+                setRefreshProgress(null);
+              }, 2000);
+            }
+          } catch (err) {
+            setError(err instanceof Error ? err.message : 'Failed to apply boxart');
+            setTimeout(() => {
+              setRefreshProgress(null);
+            }, 2000);
+          }
+        }}
+        onCancel={() => {
+          setShowBoxartFix(false);
+          setRefreshProgress(null);
+        }}
+      />
     </div>
   );
 };

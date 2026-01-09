@@ -129,7 +129,9 @@ declare global {
       closeWindow: () => Promise<{ success: boolean; error?: string }>;
       resetApp: () => Promise<{ success: boolean; error?: string }>;
       scanAllSources: () => Promise<{ success: boolean; error?: string; games: Array<{ uuid: string; source: 'steam' | 'epic' | 'gog' | 'xbox' | 'manual_file' | 'manual_folder'; originalName: string; installPath: string; exePath?: string; appId?: string; title: string; status: 'pending' | 'scanning' | 'matched' | 'ambiguous' | 'ready' | 'error'; error?: string }> }>;
-      searchImages: (query: string, imageType: 'boxart' | 'banner' | 'logo', steamAppId?: string) => Promise<{ success: boolean; error?: string; images: Array<{ gameId: number; gameName: string; images: Array<{ url: string; score: number; width: number; height: number }> }> }>;
+      searchImages: (query: string, imageType: 'boxart' | 'banner' | 'logo', steamAppId?: string) => Promise<{ success: boolean; error?: string; images: Array<{ gameId: number; gameName: string; images: Array<{ url: string; score: number; width: number; height: number; mime?: string; isAnimated?: boolean }> }> }>;
+      refreshAllMetadata: (options?: { allGames?: boolean; gameIds?: string[]; continueFromIndex?: number }) => Promise<{ success: boolean; error?: string; count: number; errors: number; unmatchedGames: Array<{ gameId: string; title: string; searchResults: any[] }>; missingBoxartGames: Array<{ gameId: string; title: string; steamAppId?: string }>; requiresBoxart?: boolean; currentGameIndex?: number; remainingGames?: number }>;
+      fetchAndUpdate: (gameId: string, boxartUrl: string) => Promise<{ success: boolean; error?: string }>;
       getVersion: () => Promise<string>;
     };
   }

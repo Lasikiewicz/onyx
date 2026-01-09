@@ -5,6 +5,7 @@ import { promisify } from 'node:util';
 import https from 'node:https';
 import http from 'node:http';
 import { URL } from 'node:url';
+import { homedir } from 'node:os';
 
 export interface CachedImage {
   localPath: string;
@@ -19,8 +20,22 @@ export class ImageCacheService {
   private initialized: boolean = false;
 
   constructor() {
-    // Store images in userData/cache/images
-    this.cacheDir = path.join(app.getPath('userData'), 'cache', 'images');
+    // Store images in a more accessible location with better permissions
+    // On Windows, use AppData\Local instead of AppData\Roaming for better permissions
+    // On Linux/Mac, use a cache directory in the home folder
+    if (process.platform === 'win32') {
+      // Windows: Use AppData\Local\onyx-launcher\images
+      // This is typically C:\Users\<user>\AppData\Local\onyx-launcher\images
+      const localAppData = process.env.LOCALAPPDATA || path.join(homedir(), 'AppData', 'Local');
+      this.cacheDir = path.join(localAppData, 'onyx-launcher', 'images');
+    } else if (process.platform === 'darwin') {
+      // macOS: Use ~/Library/Caches/onyx-launcher/images
+      this.cacheDir = path.join(homedir(), 'Library', 'Caches', 'onyx-launcher', 'images');
+    } else {
+      // Linux: Use ~/.cache/onyx-launcher/images
+      this.cacheDir = path.join(homedir(), '.cache', 'onyx-launcher', 'images');
+    }
+    console.log(`[ImageCache] Cache directory set to: ${this.cacheDir}`);
   }
 
   /**
@@ -32,37 +47,51 @@ export class ImageCacheService {
     try {
       if (!existsSync(this.cacheDir)) {
         mkdirSync(this.cacheDir, { recursive: true });
+        console.log(`[ImageCache] Created cache directory: ${this.cacheDir}`);
+      } else {
+        console.log(`[ImageCache] Using existing cache directory: ${this.cacheDir}`);
       }
+      
+      // Verify we can write to the directory
+      const testFile = path.join(this.cacheDir, '.test-write');
+      try {
+        writeFileSync(testFile, 'test');
+        const { unlinkSync } = require('node:fs');
+        unlinkSync(testFile);
+        console.log(`[ImageCache] Cache directory is writable: ${this.cacheDir}`);
+      } catch (writeError) {
+        console.error(`[ImageCache] Cache directory is not writable: ${this.cacheDir}`, writeError);
+        // Try fallback location
+        const fallbackDir = path.join(app.getPath('userData'), 'cache', 'images');
+        if (fallbackDir !== this.cacheDir) {
+          console.log(`[ImageCache] Attempting to use fallback directory: ${fallbackDir}`);
+          if (!existsSync(fallbackDir)) {
+            mkdirSync(fallbackDir, { recursive: true });
+          }
+          this.cacheDir = fallbackDir;
+        } else {
+          throw new Error('Image cache directory is not writable and no fallback available');
+        }
+      }
+      
       this.initialized = true;
     } catch (error) {
-      console.error('Error initializing image cache directory:', error);
+      console.error('[ImageCache] Error initializing image cache directory:', error);
       throw error;
     }
   }
 
   /**
-   * Get a safe filename from a URL
+   * Get a simple, predictable filename: {gameId}-{imageType}.{ext}
+   * This method is no longer used - we generate filenames inline now
    */
   private getFilenameFromUrl(url: string, gameId: string, imageType: string): string {
-    try {
-      const urlObj = new URL(url);
-      const pathname = urlObj.pathname;
-      const ext = path.extname(pathname) || '.jpg';
-      
-      // Create a hash-like filename from the URL
-      const urlHash = Buffer.from(url).toString('base64')
-        .replace(/[^a-zA-Z0-9]/g, '')
-        .substring(0, 16);
-      
-      // Format: gameId-imageType-hash.ext
-      return `${gameId}-${imageType}-${urlHash}${ext}`;
-    } catch (error) {
-      // Fallback if URL parsing fails
-      const urlHash = Buffer.from(url).toString('base64')
-        .replace(/[^a-zA-Z0-9]/g, '')
-        .substring(0, 16);
-      return `${gameId}-${imageType}-${urlHash}.jpg`;
-    }
+    // Use simple, predictable filename: {gameId}-{imageType}.{ext}
+    // This makes it easy to find files in the protocol handler
+    const ext = path.extname(new URL(url).pathname) || '.jpg';
+    // Sanitize gameId to be filesystem-safe
+    const safeGameId = gameId.replace(/[<>:"/\\|?*]/g, '_');
+    return `${safeGameId}-${imageType}${ext}`;
   }
 
   /**
@@ -107,9 +136,44 @@ export class ImageCacheService {
       return url;
     }
 
-    // Skip if already using onyx-local protocol
-    if (url.startsWith('onyx-local:')) {
-      return url;
+    // Handle onyx-local:// URLs - new simple format: onyx-local://{gameId}-{imageType}
+    // Just verify the file exists in cache, if not return empty string to trigger re-download
+    if (url.startsWith('onyx-local://')) {
+      try {
+        // Extract gameId and imageType from URL: onyx-local://{gameId}-{imageType}
+        const urlPath = url.replace('onyx-local://', '').replace('onyx-local:///', '');
+        const match = urlPath.match(/^([^-]+(?:-[^-]+)*?)-(boxart|banner|logo|hero)$/);
+        
+        if (match) {
+          const gameIdFromUrl = match[1];
+          const imageTypeFromUrl = match[2];
+          
+          // Check if file exists in cache
+          this.ensureInitialized();
+          const safeGameId = gameIdFromUrl.replace(/[<>:"/\\|?*]/g, '_');
+          const extensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
+          
+          for (const ext of extensions) {
+            const filename = `${safeGameId}-${imageTypeFromUrl}${ext}`;
+            const filePath = path.join(this.cacheDir, filename);
+            if (existsSync(filePath)) {
+              // File exists, return URL as-is
+              return url;
+            }
+          }
+          
+          // File doesn't exist - return empty string to trigger re-download
+          console.warn(`[ImageCache] onyx-local file not found: ${safeGameId}-${imageTypeFromUrl}`);
+          return '';
+        } else {
+          // Old format URL - try to decode and find file
+          console.warn(`[ImageCache] Old format URL detected: ${url.substring(0, 50)}...`);
+          return ''; // Return empty to trigger re-download with new format
+        }
+      } catch (e) {
+        console.error(`[ImageCache] Error processing onyx-local URL: ${url}`, e);
+        return '';
+      }
     }
 
     try {
@@ -142,7 +206,10 @@ export class ImageCacheService {
 
         // Check if already cached
         if (existsSync(localPath)) {
-          return `onyx-local://${encodeURIComponent(localPath)}`;
+          // Use URL encoding instead of base64 to avoid Electron's URL lowercasing issues
+          // Base64 is case-sensitive, but Electron lowercases URLs, breaking decoding
+          const encodedPath = encodeURIComponent(localPath);
+          return `onyx-local://${encodedPath}`;
         }
 
         // Copy file to cache
@@ -151,33 +218,40 @@ export class ImageCacheService {
         writeFileSync(localPath, imageData);
         console.log(`Cached local image: ${localPath}`);
 
-        return `onyx-local://${encodeURIComponent(localPath)}`;
+        // Use URL encoding instead of base64 to avoid Electron's URL lowercasing issues
+        const encodedPath = encodeURIComponent(localPath);
+        return `onyx-local://${encodedPath}`;
       }
 
       // Handle HTTP/HTTPS URLs by downloading
-      const filename = this.getFilenameFromUrl(url, gameId, imageType);
+      // Use simple, predictable filename: {gameId}-{imageType}.{ext}
+      const ext = path.extname(new URL(url).pathname) || '.jpg';
+      const safeGameId = gameId.replace(/[<>:"/\\|?*]/g, '_');
+      const filename = `${safeGameId}-${imageType}${ext}`;
       const localPath = path.join(this.cacheDir, filename);
 
       // Check if already cached
       if (existsSync(localPath)) {
-        // Return local file URL (encode the path for the protocol handler)
-        return `onyx-local://${encodeURIComponent(localPath)}`;
+        // Return simple URL format: onyx-local://{gameId}-{imageType}
+        // Protocol handler will construct the path from this
+        return `onyx-local://${safeGameId}-${imageType}`;
       }
 
       // Download the image
-      console.log(`Downloading image: ${url} -> ${localPath}`);
+      console.log(`[ImageCache] Downloading: ${url} -> ${filename}`);
       const imageData = await this.downloadImage(url);
 
       // Save to disk
       writeFileSync(localPath, imageData);
-      console.log(`Cached image: ${localPath}`);
+      console.log(`[ImageCache] Cached: ${filename}`);
 
-      // Return local file URL (encode the path for the protocol handler)
-      return `onyx-local://${encodeURIComponent(localPath)}`;
+      // Return simple URL format: onyx-local://{gameId}-{imageType}
+      return `onyx-local://${safeGameId}-${imageType}`;
     } catch (error) {
       console.error(`Error caching image ${url}:`, error);
-      // Return original URL if caching fails
-      return url;
+      // Return empty string if caching fails - don't return original URL
+      // This prevents broken onyx-local URLs from being saved
+      return '';
     }
   }
 
@@ -229,6 +303,32 @@ export class ImageCacheService {
   }
 
   /**
+   * Find a cached image file for a game and image type
+   * Returns the onyx-local URL if found, null otherwise
+   */
+  async findCachedImage(gameId: string, imageType: 'boxart' | 'banner' | 'logo' | 'hero'): Promise<string | null> {
+    try {
+      this.ensureInitialized();
+      const safeGameId = gameId.replace(/[<>:"/\\|?*]/g, '_');
+      const extensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
+      
+      for (const ext of extensions) {
+        const filename = `${safeGameId}-${imageType}${ext}`;
+        const filePath = path.join(this.cacheDir, filename);
+        if (existsSync(filePath)) {
+          // Return the onyx-local URL format
+          return `onyx-local://${safeGameId}-${imageType}`;
+        }
+      }
+      
+      return null;
+    } catch (error) {
+      console.error(`Error finding cached image for ${gameId}-${imageType}:`, error);
+      return null;
+    }
+  }
+
+  /**
    * Get the cache directory path
    */
   getCacheDir(): string {
@@ -241,12 +341,14 @@ export class ImageCacheService {
   async clearCache(): Promise<void> {
     try {
       if (existsSync(this.cacheDir)) {
-        const { readdirSync, unlinkSync, rmdirSync } = await import('node:fs');
+        const { readdirSync, unlinkSync } = require('node:fs');
         const files = readdirSync(this.cacheDir);
         for (const file of files) {
-          unlinkSync(path.join(this.cacheDir, file));
+          const ext = path.extname(file).toLowerCase();
+          if (['.jpg', '.jpeg', '.png', '.gif', '.webp'].includes(ext)) {
+            unlinkSync(path.join(this.cacheDir, file));
+          }
         }
-        rmdirSync(this.cacheDir);
         this.initialized = false;
       }
     } catch (error) {

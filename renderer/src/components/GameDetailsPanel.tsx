@@ -165,6 +165,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game, onSave
     );
   }
 
+  // Banner should be the background, box art goes on the right side
   const backgroundImageUrl = game.bannerUrl || game.boxArtUrl || '';
   const formatDate = (dateString?: string) => {
     if (!dateString) return '';
@@ -206,7 +207,12 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game, onSave
               className="w-full h-full object-cover cursor-pointer"
               style={{ height: `${fanartHeight}px` }}
               onError={(e) => {
-                (e.target as HTMLImageElement).style.display = 'none';
+                const target = e.target as HTMLImageElement;
+                // Prevent infinite retry loop
+                if (target.dataset.errorHandled === 'true') return;
+                target.dataset.errorHandled = 'true';
+                target.style.display = 'none';
+                target.src = ''; // Clear src to prevent retries
               }}
               onContextMenu={(e) => {
                 e.preventDefault();
@@ -244,21 +250,21 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game, onSave
         )}
         
         {/* Logo - Centered to the left of boxart, overlapping banner, same row as boxart */}
-        {game.logoUrl && (
-          <div 
-            className="absolute left-6 bottom-0 z-20 flex items-center justify-center"
-            style={{ 
-              width: 'calc(100% - 11rem)', // Space to the left of boxart
-              transform: 'translateY(50%)',
-              maxHeight: '60%'
-            }}
-            onContextMenu={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              console.log('Title right-click:', e.clientX, e.clientY);
-              setSimpleContextMenu({ x: e.clientX, y: e.clientY, type: 'title' });
-            }}
-          >
+        <div 
+          className="absolute left-6 bottom-0 z-20 flex items-center justify-center"
+          style={{ 
+            width: 'calc(100% - 11rem)', // Space to the left of boxart
+            transform: 'translateY(50%)',
+            maxHeight: '60%'
+          }}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('Title right-click:', e.clientX, e.clientY);
+            setSimpleContextMenu({ x: e.clientX, y: e.clientY, type: 'title' });
+          }}
+        >
+          {game.logoUrl ? (
             <img
               src={game.logoUrl}
               alt={game.title}
@@ -273,26 +279,43 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game, onSave
               }}
               onError={(e) => {
                 const target = e.target as HTMLImageElement;
+                // Prevent infinite retry loop
+                if (target.dataset.errorHandled === 'true') return;
+                target.dataset.errorHandled = 'true';
                 target.style.display = 'none';
+                target.src = ''; // Clear src to prevent retries
               }}
             />
-          </div>
-        )}
+          ) : (
+            <div 
+              className="px-4 py-2 bg-gray-800/80 rounded border border-gray-600 text-gray-400 text-xs cursor-pointer hover:bg-gray-700/80 transition-colors"
+              onClick={() => setImageSearchModal({ type: 'artwork' })}
+            >
+              Click to add logo
+            </div>
+          )}
+        </div>
         
         {/* Box Art - Half overlapping the top image */}
-        {game.boxArtUrl && (
-          <div className="absolute right-6 bottom-0 z-20" style={{ transform: 'translateY(50%)' }}>
+        <div className="absolute right-6 bottom-0 z-20" style={{ transform: 'translateY(50%)' }}>
+          {game.boxArtUrl ? (
             <img
               src={game.boxArtUrl}
               alt={game.title}
               className="w-32 aspect-[2/3] object-cover rounded border border-gray-600 shadow-lg cursor-pointer"
               onError={(e) => {
                 const target = e.target as HTMLImageElement;
-                // Try banner URL as fallback
-                if (game.bannerUrl && target.src !== game.bannerUrl) {
+                // Prevent infinite retry loop
+                if (target.dataset.errorHandled === 'true') return;
+                
+                // Try banner URL as fallback (only once)
+                if (game.bannerUrl && target.src !== game.bannerUrl && !target.dataset.fallbackAttempted) {
+                  target.dataset.fallbackAttempted = 'true';
                   target.src = game.bannerUrl;
                 } else {
+                  target.dataset.errorHandled = 'true';
                   target.style.display = 'none';
+                  target.src = ''; // Clear src to prevent retries
                 }
               }}
               onContextMenu={(e) => {
@@ -302,8 +325,20 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game, onSave
                 setSimpleContextMenu({ x: e.clientX, y: e.clientY, type: 'boxart' });
               }}
             />
-          </div>
-        )}
+          ) : (
+            <div 
+              className="w-32 aspect-[2/3] bg-gray-800 rounded border border-gray-600 flex items-center justify-center text-gray-400 text-xs text-center px-2 cursor-pointer hover:bg-gray-700 transition-colors"
+              onClick={() => setImageSearchModal({ type: 'boxart' })}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setSimpleContextMenu({ x: e.clientX, y: e.clientY, type: 'boxart' });
+              }}
+            >
+              Click to add boxart
+            </div>
+          )}
+        </div>
         
         {/* Resize handle */}
         {backgroundImageUrl && (
