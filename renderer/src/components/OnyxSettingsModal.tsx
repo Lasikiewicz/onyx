@@ -403,32 +403,32 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
   };
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any
-  const handleSteamImportAll = async (): Promise<any> => {
-    const steamApp = apps.find(a => a.id === 'steam');
-    if (!steamApp || !steamApp.path) {
-      alert('Please configure Steam path first');
-      return;
-    }
-
-    // setIsImporting(true);
-    try {
-      if (!window.electronAPI.importAllSteamGames) return;
-      const result = await window.electronAPI.importAllSteamGames(steamApp.path);
-      if (result.success) {
-        alert(`Successfully imported ${result.importedCount} Steam games!`);
-        if (onSave) {
-          await onSave();
-        }
-      } else {
-        alert(result.error || 'Failed to import Steam games');
-      }
-    } catch (err) {
-      console.error('Error importing Steam games:', err);
-      alert('Failed to import Steam games');
-    } finally {
-      // setIsImporting(false);
-    }
-  };
+  // const _handleSteamImportAll = async (): Promise<any> => {
+  //   const steamApp = apps.find(a => a.id === 'steam');
+  //   if (!steamApp || !steamApp.path) {
+  //     alert('Please configure Steam path first');
+  //     return;
+  //   }
+  //
+  //   // setIsImporting(true);
+  //   try {
+  //     if (!window.electronAPI.importAllSteamGames) return;
+  //     const result = await window.electronAPI.importAllSteamGames(steamApp.path);
+  //     if (result.success) {
+  //       alert(`Successfully imported ${result.importedCount} Steam games!`);
+  //       if (onSave) {
+  //         await onSave();
+  //       }
+  //     } else {
+  //       alert(result.error || 'Failed to import Steam games');
+  //     }
+  //   } catch (err) {
+  //     console.error('Error importing Steam games:', err);
+  //     alert('Failed to import Steam games');
+  //   } finally {
+  //     // setIsImporting(false);
+  //   }
+  // };
 
   const handleBrowseApp = async (appId: string) => {
     try {

@@ -20,9 +20,6 @@ export const GameDetailsSimpleContextMenu: React.FC<GameDetailsSimpleContextMenu
   type,
   onEdit,
   onOpenInGameManager,
-  onRemoveLogoTransparency,
-  hasLogo = false,
-  removeLogoTransparency = false,
 }) => {
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -107,12 +104,6 @@ export const GameDetailsSimpleContextMenu: React.FC<GameDetailsSimpleContextMenu
   const handleEdit = (e: React.MouseEvent) => {
     e.stopPropagation();
     onEdit();
-    onClose();
-  };
-
-  const handleRemoveTransparency = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    onRemoveLogoTransparency?.();
     onClose();
   };
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Game, GameMetadata } from '../types/game';
+import { Game } from '../types/game';
 
 interface GameManagerProps {
   isOpen: boolean;
@@ -34,7 +34,6 @@ export const GameManager: React.FC<GameManagerProps> = ({
   onClose,
   games,
   onSaveGame,
-  onDeleteGame,
   onReloadLibrary,
   initialGameId = null,
   initialTab = 'images',
@@ -46,7 +45,6 @@ export const GameManager: React.FC<GameManagerProps> = ({
   const [imageSearchResults, setImageSearchResults] = useState<any[]>([]);
   const [steamGridDBResults, setSteamGridDBResults] = useState<{ boxart: any[]; banner: any[]; logo: any[] }>({ boxart: [], banner: [], logo: [] });
   const [isSearchingImages, setIsSearchingImages] = useState(false);
-  const [searchingImageType, setSearchingImageType] = useState<'boxart' | 'banner' | 'logo' | null>(null);
   const [editedGame, setEditedGame] = useState<Game | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -140,7 +138,6 @@ export const GameManager: React.FC<GameManagerProps> = ({
     }
 
     setIsSearchingImages(true);
-    setSearchingImageType(imageType);
     setError(null);
     setImageSearchResults([]);
     setSteamGridDBResults({ boxart: [], banner: [], logo: [] });
@@ -247,7 +244,6 @@ export const GameManager: React.FC<GameManagerProps> = ({
       console.error(`Error searching ${imageType}:`, err);
     } finally {
       setIsSearchingImages(false);
-      setSearchingImageType(null);
     }
   };
 

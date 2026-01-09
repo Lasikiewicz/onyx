@@ -1361,8 +1361,6 @@ function App() {
           onPlay={handlePlay}
           onFavorite={handleToggleFavorite}
           onEdit={handleEditGame}
-          gridSize={gridSize}
-          onGridSizeChange={setGridSize}
         />
       </div>
 
