@@ -19,6 +19,7 @@ import { OnyxSettingsModal } from './components/OnyxSettingsModal';
 import { APISettingsModal } from './components/APISettingsModal';
 import { MetadataSearchModal } from './components/MetadataSearchModal';
 import { ImportWorkbench } from './components/importer/ImportWorkbench';
+import { ConfirmationDialog } from './components/ConfirmationDialog';
 import { Game, ExecutableFile, GameMetadata } from './types/game';
 import { areAPIsConfigured } from './utils/apiValidation';
 
@@ -72,6 +73,7 @@ function App() {
   const [isAPISettingsOpen, setIsAPISettingsOpen] = useState(false);
   const [gridSize, setGridSize] = useState(120);
   const [pinnedCategories, setPinnedCategories] = useState<string[]>([]);
+  const [newGamesNotification, setNewGamesNotification] = useState<{ count: number; games: Array<any> } | null>(null);
   const [hideVRTitles, setHideVRTitles] = useState(true);
   const [hideGameTitles, setHideGameTitles] = useState(false);
   const [gameTilePadding, setGameTilePadding] = useState(16);
@@ -263,11 +265,18 @@ function App() {
       setIsSteamConfigOpen(true);
     });
 
+    // Listen for new Steam games found notification
+    const newGamesHandler = (_event: any, data: { count: number; games: Array<any> }) => {
+      setNewGamesNotification({ count: data.count, games: data.games });
+    };
+    window.ipcRenderer.on('steam:newGamesFound', newGamesHandler);
+
     return () => {
       cleanup1();
       cleanup2();
       cleanup3();
       cleanup4();
+      window.ipcRenderer.off('steam:newGamesFound', newGamesHandler);
     };
   }, []);
 
@@ -289,6 +298,11 @@ function App() {
   const hasVRCategory = useMemo(() => {
     return allCategories.includes('VR');
   }, [allCategories]);
+
+  // Check if there are any hidden games
+  const hasHiddenGames = useMemo(() => {
+    return games.some(g => g.hidden === true);
+  }, [games]);
 
   // Get launcher from game (check ID format, then source, then platform, then installation directory)
   const getGameLauncher = useCallback((game: Game): string => {
@@ -406,10 +420,18 @@ function App() {
     // Filter by category or favorites
     if (selectedCategory === 'favorites') {
       filtered = filtered.filter(g => g.favorite === true);
+    } else if (selectedCategory === 'hidden') {
+      // Show only hidden games when "Hidden" category is selected
+      filtered = filtered.filter(g => g.hidden === true);
     } else if (selectedCategory) {
       filtered = filtered.filter(g => 
         g.categories?.includes(selectedCategory)
       );
+    }
+    
+    // Filter out hidden games by default (unless "Hidden" category is selected)
+    if (selectedCategory !== 'hidden') {
+      filtered = filtered.filter(g => g.hidden !== true);
     }
     
     // Filter by launcher
@@ -745,6 +767,9 @@ function App() {
     setTimeout(() => setToast(null), 5000);
   };
 
+  // Hide confirmation dialog state
+  const [hideConfirmation, setHideConfirmation] = useState<{ game: Game } | null>(null);
+
   // Update Library handler - opens game importer
   const handleUpdateSteamLibrary = async () => {
     // Check if APIs are configured
@@ -1002,6 +1027,30 @@ function App() {
     await handleSaveGame(updatedGame);
   };
 
+  const handleHideGame = (game: Game) => {
+    setHideConfirmation({ game });
+  };
+
+  const handleConfirmHide = async () => {
+    if (hideConfirmation) {
+      const { game } = hideConfirmation;
+      const updatedGame = { ...game, hidden: true };
+      await handleSaveGame(updatedGame);
+      showToast(`"${game.title}" has been hidden`, 'success');
+      setHideConfirmation(null);
+    }
+  };
+
+  const handleCancelHide = () => {
+    setHideConfirmation(null);
+  };
+
+  const handleUnhideGame = async (game: Game) => {
+    const updatedGame = { ...game, hidden: false };
+    await handleSaveGame(updatedGame);
+    showToast(`"${game.title}" has been unhidden`, 'success');
+  };
+
   // Handle exit with confirmation
   const handleExit = async () => {
     try {
@@ -1099,6 +1148,7 @@ function App() {
         onSortChange={setSortBy}
         hasFavoriteGames={hasFavoriteGames}
         hasVRCategory={hasVRCategory}
+        hasHiddenGames={hasHiddenGames}
         hideVRTitles={hideVRTitles}
         onToggleHideVRTitles={() => setHideVRTitles(prev => !prev)}
         launchers={allLaunchers}
@@ -1159,6 +1209,9 @@ function App() {
                         onFavorite={handleToggleFavorite}
                         onPin={handleTogglePin}
                         onFixMatch={handleFixMatch}
+                        onHide={handleHideGame}
+                        onUnhide={handleUnhideGame}
+                        isHiddenView={selectedCategory === 'hidden'}
                         gridSize={gridSize}
                         gameTilePadding={gameTilePadding}
                         hideGameTitles={hideGameTitles}
@@ -1175,6 +1228,9 @@ function App() {
                         onFavorite={handleToggleFavorite}
                         onPin={handleTogglePin}
                         onFixMatch={handleFixMatch}
+                        onHide={handleHideGame}
+                        onUnhide={handleUnhideGame}
+                        isHiddenView={selectedCategory === 'hidden'}
                         hideGameTitles={hideGameTitles}
                         listViewOptions={listViewOptions}
                         listViewSize={listViewSize}
@@ -1514,6 +1570,20 @@ function App() {
         />
       )}
 
+      {/* Hide Game Confirmation Dialog */}
+      {hideConfirmation && (
+        <ConfirmationDialog
+          isOpen={true}
+          title={`Hide "${hideConfirmation.game.title}"?`}
+          message="This game will be hidden from your library view."
+          note="You can find hidden games by selecting the 'Hidden' category from the Categories dropdown."
+          confirmText="Hide"
+          cancelText="Cancel"
+          onConfirm={handleConfirmHide}
+          onCancel={handleCancelHide}
+        />
+      )}
+
       {/* Toast Notification */}
       {toast && (
         <div className="fixed bottom-20 left-1/2 transform -translate-x-1/2 z-50 animate-in slide-in-from-bottom-5">
@@ -1533,6 +1603,52 @@ function App() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* New Games Notification Dialog */}
+      {newGamesNotification && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm">
+          <div className="bg-gray-800 rounded-lg shadow-xl border border-gray-700 p-6 max-w-md w-full mx-4">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center">
+                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-white">New Games Found</h3>
+                <p className="text-sm text-gray-400">
+                  {newGamesNotification.count} new {newGamesNotification.count === 1 ? 'game' : 'games'} found in your Steam library
+                </p>
+              </div>
+            </div>
+            <p className="text-gray-300 mb-6">
+              Would you like to import {newGamesNotification.count === 1 ? 'this game' : 'these games'}?
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setNewGamesNotification(null);
+                }}
+                className="flex-1 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
+              >
+                Not Now
+              </button>
+              <button
+                onClick={() => {
+                  // Open importer with the new games
+                  setScannedSteamGames(newGamesNotification.games);
+                  setImportAppType('steam');
+                  setIsSteamImportOpen(true);
+                  setNewGamesNotification(null);
+                }}
+                className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+              >
+                Yes, Import
+              </button>
+            </div>
           </div>
         </div>
       )}

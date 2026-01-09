@@ -5,6 +5,7 @@ export interface AppConfig {
   name: string;
   enabled: boolean;
   path: string;
+  autoAdd?: boolean; // Automatically add new games when found
 }
 
 interface AppConfigsSchema {

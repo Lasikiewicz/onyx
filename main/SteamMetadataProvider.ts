@@ -56,10 +56,13 @@ export class SteamMetadataProvider implements MetadataProvider {
     }
 
     try {
-      // Steam CDN URLs
-      const boxArtUrl = `https://cdn.cloudflare.steamstatic.com/steam/apps/${steamAppId}/header.jpg`;
-      const bannerUrl = `https://cdn.cloudflare.steamstatic.com/steam/apps/${steamAppId}/library_600x900.jpg`;
-      const heroUrl = `https://cdn.cloudflare.steamstatic.com/steam/apps/${steamAppId}/library_hero.jpg`;
+      // Steam CDN URLs - Correct mapping:
+      // Box Art: library_600x900.jpg (vertical cover art)
+      // Banner: library_hero.jpg or header.jpg (horizontal banner)
+      // Logo: logo.png
+      const boxArtUrl = `https://cdn.cloudflare.steamstatic.com/steam/apps/${steamAppId}/library_600x900.jpg`;
+      const bannerUrl = `https://cdn.cloudflare.steamstatic.com/steam/apps/${steamAppId}/library_hero.jpg`;
+      const headerUrl = `https://cdn.cloudflare.steamstatic.com/steam/apps/${steamAppId}/header.jpg`;
       const logoUrl = `https://cdn.cloudflare.steamstatic.com/steam/apps/${steamAppId}/logo.png`;
 
       // Verify images exist with timeout
@@ -79,30 +82,34 @@ export class SteamMetadataProvider implements MetadataProvider {
       };
 
       // Check which images are available
-      const [boxArtResponse, bannerResponse, heroResponse, logoResponse] = await Promise.all([
+      const [boxArtResponse, bannerResponse, headerResponse, logoResponse] = await Promise.all([
         fetchWithTimeout(boxArtUrl),
         fetchWithTimeout(bannerUrl),
-        fetchWithTimeout(heroUrl),
+        fetchWithTimeout(headerUrl),
         fetchWithTimeout(logoUrl),
       ]);
 
       const artwork: GameArtwork = {};
 
+      // Box Art: library_600x900.jpg (vertical cover art)
       if (boxArtResponse?.ok) {
         artwork.boxArtUrl = boxArtUrl;
-        artwork.boxArtResolution = { width: 460, height: 215 }; // Standard Steam header size
+        artwork.boxArtResolution = { width: 600, height: 900 }; // Standard Steam library cover size
       }
 
+      // Banner: library_hero.jpg (preferred) or header.jpg (fallback)
       if (bannerResponse?.ok) {
         artwork.bannerUrl = bannerUrl;
-        artwork.bannerResolution = { width: 600, height: 900 }; // Standard Steam library size
+        artwork.heroUrl = bannerUrl;
+        artwork.bannerResolution = { width: 1920, height: 620 }; // Standard Steam hero size
+        artwork.heroResolution = { width: 1920, height: 620 };
+      } else if (headerResponse?.ok) {
+        // Fallback to header if hero is not available
+        artwork.bannerUrl = headerUrl;
+        artwork.bannerResolution = { width: 460, height: 215 }; // Standard Steam header size
       }
 
-      if (heroResponse?.ok) {
-        artwork.heroUrl = heroUrl;
-        artwork.heroResolution = { width: 1920, height: 620 }; // Standard Steam hero size
-      }
-
+      // Logo: logo.png
       if (logoResponse?.ok) {
         artwork.logoUrl = logoUrl;
         // Steam logos vary in size, but typically around 231x87

@@ -32,11 +32,13 @@ export function useGameLibrary() {
       setLoading(true);
       setError(null);
       const library = await window.electronAPI.getLibrary();
-      // Convert file:// URLs to onyx-local:// when loading
+      // Convert file:// URLs to onyx-local:// when loading (for backward compatibility)
       const convertedGames = library.map(game => ({
         ...game,
         boxArtUrl: convertFileUrlToLocalProtocol(game.boxArtUrl),
         bannerUrl: convertFileUrlToLocalProtocol(game.bannerUrl),
+        logoUrl: game.logoUrl ? convertFileUrlToLocalProtocol(game.logoUrl) : game.logoUrl,
+        heroUrl: game.heroUrl ? convertFileUrlToLocalProtocol(game.heroUrl) : game.heroUrl,
       }));
       setGames(convertedGames);
     } catch (err) {

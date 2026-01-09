@@ -30,6 +30,7 @@ interface AppConfig {
   path: string;
   defaultPaths: string[];
   placeholder: string;
+  autoAdd?: boolean;
 }
 
 interface APICredentials {
@@ -128,6 +129,9 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
   const [isLoadingApps, setIsLoadingApps] = useState(false);
   const [scanningAppId, setScanningAppId] = useState<string | null>(null);
   const [newlyEnabledApps, setNewlyEnabledApps] = useState<Set<string>>(new Set());
+  const [steamAuthState, setSteamAuthState] = useState<{ authenticated: boolean; steamId?: string; username?: string }>({ authenticated: false });
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
   const [settings, setSettings] = useState<OnyxSettings>({
     minimizeToTray: false,
     showSystemTrayIcon: true,
@@ -227,6 +231,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                   ...app,
                   enabled: savedConfig.enabled,
                   path: savedConfig.path || app.defaultPaths[0] || '',
+                  autoAdd: savedConfig.autoAdd || false,
                 };
               }
 
@@ -263,6 +268,17 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
         }
       };
       loadAppConfigs();
+      
+      // Load Steam auth state
+      const loadSteamAuth = async () => {
+        try {
+          const authState = await window.electronAPI.getSteamAuthState();
+          setSteamAuthState(authState);
+        } catch (err) {
+          console.error('Error loading Steam auth state:', err);
+        }
+      };
+      loadSteamAuth();
     }
   }, [isOpen]);
 
@@ -354,6 +370,59 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
     setApps((prev) =>
       prev.map((app) => (app.id === appId ? { ...app, path } : app))
     );
+  };
+
+  const handleToggleAutoAdd = (appId: string) => {
+    setApps((prev) =>
+      prev.map((app) => (app.id === appId ? { ...app, autoAdd: !app.autoAdd } : app))
+    );
+  };
+
+  const handleSteamAuthenticate = async () => {
+    setIsAuthenticating(true);
+    try {
+      const result = await window.electronAPI.authenticateSteam();
+      if (result.success) {
+        setSteamAuthState({
+          authenticated: true,
+          steamId: result.steamId,
+          username: result.username,
+        });
+      } else {
+        alert(result.error || 'Failed to authenticate with Steam');
+      }
+    } catch (err) {
+      console.error('Error authenticating with Steam:', err);
+      alert('Failed to authenticate with Steam');
+    } finally {
+      setIsAuthenticating(false);
+    }
+  };
+
+  const handleSteamImportAll = async () => {
+    const steamApp = apps.find(a => a.id === 'steam');
+    if (!steamApp || !steamApp.path) {
+      alert('Please configure Steam path first');
+      return;
+    }
+
+    setIsImporting(true);
+    try {
+      const result = await window.electronAPI.importAllSteamGames(steamApp.path);
+      if (result.success) {
+        alert(`Successfully imported ${result.importedCount} Steam games!`);
+        if (onSave) {
+          await onSave();
+        }
+      } else {
+        alert(result.error || 'Failed to import Steam games');
+      }
+    } catch (err) {
+      console.error('Error importing Steam games:', err);
+      alert('Failed to import Steam games');
+    } finally {
+      setIsImporting(false);
+    }
   };
 
   const handleBrowseApp = async (appId: string) => {
@@ -475,6 +544,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
           name: app.name,
           enabled: app.enabled,
           path: app.path,
+          autoAdd: app.autoAdd || false,
         }));
 
         const appResult = await window.electronAPI.saveAppConfigs(configsToSave);
@@ -1211,8 +1281,109 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                                 </p>
                               </div>
                               
-                              {/* Scan Now button for newly enabled apps */}
-                              {newlyEnabledApps.has(app.id) && app.path && (
+                              {/* Steam-specific options */}
+                              {app.id === 'steam' && (
+                                <div className="space-y-3 pt-2 border-t border-gray-600">
+                                  {/* Steam Authentication Status */}
+                                  <div className="flex items-center justify-between p-2 bg-gray-800/50 rounded">
+                                    <div className="flex items-center gap-2">
+                                      <div className={`w-2 h-2 rounded-full ${steamAuthState.authenticated ? 'bg-green-500' : 'bg-gray-500'}`}></div>
+                                      <span className="text-xs text-gray-300">
+                                        {steamAuthState.authenticated 
+                                          ? steamAuthState.username || `Steam ID: ${steamAuthState.steamId?.substring(0, 8)}...`
+                                          : 'Not signed in'}
+                                      </span>
+                                    </div>
+                                    {steamAuthState.authenticated && (
+                                      <button
+                                        onClick={async () => {
+                                          if (confirm('Sign out of Steam?')) {
+                                            await window.electronAPI.clearSteamAuth();
+                                            setSteamAuthState({ authenticated: false });
+                                          }
+                                        }}
+                                        className="text-xs text-gray-400 hover:text-gray-200"
+                                      >
+                                        Sign out
+                                      </button>
+                                    )}
+                                  </div>
+                                  
+                                  {/* Sign into Steam button - only show when not authenticated */}
+                                  {!steamAuthState.authenticated && (
+                                    <button
+                                      onClick={handleSteamAuthenticate}
+                                      disabled={isAuthenticating}
+                                      className="w-full px-3 py-2 bg-gray-700 hover:bg-gray-600 text-white text-sm rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                                    >
+                                      {isAuthenticating ? (
+                                        <>
+                                          <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                          </svg>
+                                          Authenticating...
+                                        </>
+                                      ) : (
+                                        <>
+                                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+                                          </svg>
+                                          Sign into Steam
+                                        </>
+                                      )}
+                                    </button>
+                                  )}
+                                  
+                                  {/* Import installed games button - only show when authenticated */}
+                                  {steamAuthState.authenticated && (
+                                    <button
+                                      onClick={() => handleScanApp(app.id)}
+                                      disabled={scanningAppId === app.id || !app.path}
+                                      className="w-full px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                                    >
+                                      {scanningAppId === app.id ? (
+                                        <>
+                                          <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                          </svg>
+                                          Scanning...
+                                        </>
+                                      ) : (
+                                        <>
+                                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                                          </svg>
+                                          Import installed games
+                                        </>
+                                      )}
+                                    </button>
+                                  )}
+                                  
+                                  {/* Auto add toggle - only show when authenticated */}
+                                  {steamAuthState.authenticated && (
+                                    <div className="flex items-center justify-between p-2 bg-gray-800/30 rounded">
+                                      <div className="flex-1">
+                                        <label className="text-xs font-medium text-gray-300 block">Auto add</label>
+                                        <p className="text-xs text-gray-500">Show notification when new games are found</p>
+                                      </div>
+                                      <label className="relative inline-flex items-center cursor-pointer">
+                                        <input
+                                          type="checkbox"
+                                          checked={app.autoAdd || false}
+                                          onChange={() => handleToggleAutoAdd(app.id)}
+                                          className="sr-only peer"
+                                        />
+                                        <div className="w-11 h-6 bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                                      </label>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                              
+                              {/* Scan Now button for newly enabled apps (non-Steam) */}
+                              {app.id !== 'steam' && newlyEnabledApps.has(app.id) && app.path && (
                                 <div className="flex items-center gap-2 pt-2">
                                   <button
                                     onClick={() => handleScanApp(app.id)}

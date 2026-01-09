@@ -107,14 +107,54 @@ export class ImageCacheService {
       return url;
     }
 
-    // Skip if already a local file path
-    if (url.startsWith('file://') || url.startsWith('onyx-local:')) {
+    // Skip if already using onyx-local protocol
+    if (url.startsWith('onyx-local:')) {
       return url;
     }
 
     try {
       this.ensureInitialized();
 
+      // Handle file:// URLs by copying the file to cache
+      if (url.startsWith('file://')) {
+        // Extract the file path from file:// URL
+        let filePath = url.replace('file://', '');
+        // Remove leading slash on Windows (file:///C:/path -> C:/path)
+        if (process.platform === 'win32' && filePath.startsWith('/')) {
+          filePath = filePath.substring(1);
+        }
+        // Decode URL encoding
+        filePath = decodeURIComponent(filePath);
+        
+        // Check if source file exists
+        if (!existsSync(filePath)) {
+          console.warn(`Source file does not exist: ${filePath}`);
+          return url;
+        }
+
+        // Generate cache filename
+        const ext = path.extname(filePath) || '.jpg';
+        const urlHash = Buffer.from(filePath).toString('base64')
+          .replace(/[^a-zA-Z0-9]/g, '')
+          .substring(0, 16);
+        const filename = `${gameId}-${imageType}-${urlHash}${ext}`;
+        const localPath = path.join(this.cacheDir, filename);
+
+        // Check if already cached
+        if (existsSync(localPath)) {
+          return `onyx-local://${encodeURIComponent(localPath)}`;
+        }
+
+        // Copy file to cache
+        console.log(`Copying local image: ${filePath} -> ${localPath}`);
+        const imageData = readFileSync(filePath);
+        writeFileSync(localPath, imageData);
+        console.log(`Cached local image: ${localPath}`);
+
+        return `onyx-local://${encodeURIComponent(localPath)}`;
+      }
+
+      // Handle HTTP/HTTPS URLs by downloading
       const filename = this.getFilenameFromUrl(url, gameId, imageType);
       const localPath = path.join(this.cacheDir, filename);
 

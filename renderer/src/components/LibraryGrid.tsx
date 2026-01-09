@@ -27,6 +27,9 @@ interface LibraryGridProps {
   onFavorite?: (game: Game) => void;
   onPin?: (game: Game) => void;
   onFixMatch?: (game: Game) => void;
+  onHide?: (game: Game) => void;
+  onUnhide?: (game: Game) => void;
+  isHiddenView?: boolean;
   gridSize?: number;
   gameTilePadding?: number;
   hideGameTitles?: boolean;
@@ -34,7 +37,7 @@ interface LibraryGridProps {
   logoPosition?: 'top' | 'middle' | 'bottom' | 'underneath';
 }
 
-export const LibraryGrid: React.FC<LibraryGridProps> = ({ games, onReorder, onPlay, onGameClick, onEdit, onEditImages, onFavorite, onPin, onFixMatch, gridSize = 120, gameTilePadding = 16, hideGameTitles = false, showLogoOverBoxart = true, logoPosition = 'middle' }) => {
+export const LibraryGrid: React.FC<LibraryGridProps> = ({ games, onReorder, onPlay, onGameClick, onEdit, onEditImages, onFavorite, onPin, onFixMatch, onHide, onUnhide, isHiddenView = false, gridSize = 120, gameTilePadding = 16, hideGameTitles = false, showLogoOverBoxart = true, logoPosition = 'middle' }) => {
   const [items, setItems] = useState<Game[]>(games);
 
   // Update items when games prop changes
@@ -96,6 +99,9 @@ export const LibraryGrid: React.FC<LibraryGridProps> = ({ games, onReorder, onPl
                   onFavorite={onFavorite}
                   onPin={onPin}
                   onFixMatch={onFixMatch}
+                  onHide={onHide}
+                  onUnhide={onUnhide}
+                  isHiddenView={isHiddenView}
                   hideTitle={hideGameTitles}
                   showLogoOverBoxart={showLogoOverBoxart}
                   logoPosition={logoPosition}

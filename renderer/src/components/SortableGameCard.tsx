@@ -14,12 +14,15 @@ interface SortableGameCardProps {
   onFavorite?: (game: Game) => void;
   onPin?: (game: Game) => void;
   onFixMatch?: (game: Game) => void;
+  onHide?: (game: Game) => void;
+  onUnhide?: (game: Game) => void;
+  isHiddenView?: boolean;
   hideTitle?: boolean;
   showLogoOverBoxart?: boolean;
   logoPosition?: 'top' | 'middle' | 'bottom' | 'underneath';
 }
 
-export const SortableGameCard: React.FC<SortableGameCardProps> = ({ game, onPlay, onClick, onEdit, onEditImages, onFavorite, onPin, onFixMatch, hideTitle = false, showLogoOverBoxart = true, logoPosition = 'middle' }) => {
+export const SortableGameCard: React.FC<SortableGameCardProps> = ({ game, onPlay, onClick, onEdit, onEditImages, onFavorite, onPin, onFixMatch, onHide, onUnhide, isHiddenView = false, hideTitle = false, showLogoOverBoxart = true, logoPosition = 'middle' }) => {
   const {
     attributes,
     listeners,
@@ -88,6 +91,9 @@ export const SortableGameCard: React.FC<SortableGameCardProps> = ({ game, onPlay
           onFavorite={onFavorite}
           onPin={onPin}
           onFixMatch={onFixMatch}
+          onHide={onHide}
+          onUnhide={onUnhide}
+          isHiddenView={isHiddenView}
         />
       )}
     </>

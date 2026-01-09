@@ -22,6 +22,7 @@ interface MenuBarProps {
   onSortChange?: (sort: 'title' | 'releaseDate' | 'playtime' | 'lastPlayed') => void;
   hasFavoriteGames?: boolean;
   hasVRCategory?: boolean;
+  hasHiddenGames?: boolean;
   hideVRTitles?: boolean;
   onToggleHideVRTitles?: () => void;
   launchers?: string[];
@@ -41,6 +42,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
   onSortChange,
   hasFavoriteGames = false,
   hasVRCategory = false,
+  hasHiddenGames = false,
   hideVRTitles = true,
   onToggleHideVRTitles,
   launchers = [],
@@ -449,6 +451,28 @@ export const MenuBar: React.FC<MenuBarProps> = ({
                         <path d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
                       </svg>
                       Favorites
+                    </button>
+                  </>
+                )}
+                {hasHiddenGames && (
+                  <>
+                    <div className="border-t border-gray-700 my-1" />
+                    <button
+                      onClick={() => {
+                        const isSelected = selectedCategory === 'hidden';
+                        onCategoryChange?.(isSelected ? null : 'hidden');
+                        setIsFilterDropdownOpen(false);
+                      }}
+                      className={`w-full text-left px-3 py-2 rounded text-sm transition-colors flex items-center gap-2 ${
+                        selectedCategory === 'hidden'
+                          ? 'bg-blue-600 text-white'
+                          : 'text-gray-300 hover:bg-gray-700'
+                      }`}
+                    >
+                      <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.736m0 0L21 21" />
+                      </svg>
+                      Hidden
                     </button>
                   </>
                 )}

@@ -441,8 +441,9 @@ export const SteamImportModal: React.FC<SteamImportModalProps> = ({ isOpen, onCl
               platform: baseGame?.platform || (isSteamGame(game) ? 'steam' as const : ('installPath' in game && 'type' in game && (game.type === 'uwp' || game.type === 'pc')) ? 'xbox' as const : (game as OtherGame).type || metadata?.platform || 'other'),
               exePath: baseGame?.exePath || (isSteamGame(game) ? '' : ('installPath' in game && game.installPath ? game.installPath : ((game as OtherGame).exePath || ''))),
               // Images: use existing if available, otherwise use manually selected metadata, then defaults
-              boxArtUrl: baseGame?.boxArtUrl || boxArtUrl || (isSteamGame(game) ? `https://cdn.cloudflare.steamstatic.com/steam/apps/${game.appId}/header.jpg` : ''),
-              bannerUrl: baseGame?.bannerUrl || bannerUrl || (isSteamGame(game) ? `https://cdn.cloudflare.steamstatic.com/steam/apps/${game.appId}/library_600x900.jpg` : ''),
+              // Correct Steam image URLs: boxArt = library_600x900.jpg, banner = library_hero.jpg
+              boxArtUrl: baseGame?.boxArtUrl || boxArtUrl || (isSteamGame(game) ? `https://cdn.cloudflare.steamstatic.com/steam/apps/${game.appId}/library_600x900.jpg` : ''),
+              bannerUrl: baseGame?.bannerUrl || bannerUrl || (isSteamGame(game) ? `https://cdn.cloudflare.steamstatic.com/steam/apps/${game.appId}/library_hero.jpg` : ''),
               // Description: use existing if available, otherwise use manually selected metadata
               description: baseGame?.description || metadata?.description || undefined,
               // Release date: use existing if available, otherwise use manually selected metadata

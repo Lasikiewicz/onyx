@@ -15,6 +15,7 @@ import { APICredentialsService } from './APICredentialsService.js';
 import { LauncherDetectionService } from './LauncherDetectionService.js';
 import { ImportService } from './ImportService.js';
 import { ImageCacheService } from './ImageCacheService.js';
+import { SteamAuthService } from './SteamAuthService.js';
 
 // Load environment variables
 dotenv.config();
@@ -570,6 +571,7 @@ const xboxService = new XboxService();
 const userPreferencesService = new UserPreferencesService();
 const apiCredentialsService = new APICredentialsService();
 const launcherDetectionService = new LauncherDetectionService();
+const steamAuthService = new SteamAuthService();
 
 // Initialize IGDB service if credentials are available
 let igdbService: IGDBService | null = null;
@@ -806,7 +808,24 @@ ipcMain.handle('gameStore:getLibrary', async () => {
 
 ipcMain.handle('gameStore:saveGame', async (_event, game: Game) => {
   try {
-    await gameStore.saveGame(game);
+    // Cache images before saving
+    const cachedImages = await imageCacheService.cacheImages({
+      boxArtUrl: game.boxArtUrl,
+      bannerUrl: game.bannerUrl,
+      logoUrl: game.logoUrl,
+      heroUrl: game.heroUrl,
+    }, game.id);
+
+    // Update game with cached image URLs
+    const gameWithCachedImages: Game = {
+      ...game,
+      boxArtUrl: cachedImages.boxArtUrl || game.boxArtUrl,
+      bannerUrl: cachedImages.bannerUrl || game.bannerUrl,
+      logoUrl: cachedImages.logoUrl || game.logoUrl,
+      heroUrl: cachedImages.heroUrl || game.heroUrl,
+    };
+
+    await gameStore.saveGame(gameWithCachedImages);
     return true;
   } catch (error) {
     console.error('Error in gameStore:saveGame handler:', error);
@@ -1528,6 +1547,70 @@ ipcMain.handle('steam:scanGamesWithPath', async (_event, steamPath?: string, aut
   }
 });
 
+// Steam authentication IPC handlers
+ipcMain.handle('steam:authenticate', async () => {
+  try {
+    const result = await steamAuthService.authenticate();
+    return result;
+  } catch (error) {
+    console.error('Error in steam:authenticate handler:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+});
+
+ipcMain.handle('steam:getAuthState', async () => {
+  try {
+    return await steamAuthService.getAuthState();
+  } catch (error) {
+    console.error('Error in steam:getAuthState handler:', error);
+    return { authenticated: false };
+  }
+});
+
+ipcMain.handle('steam:clearAuth', async () => {
+  try {
+    await steamAuthService.clearAuth();
+    return { success: true };
+  } catch (error) {
+    console.error('Error in steam:clearAuth handler:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+});
+
+// Steam auto-import all games IPC handler
+ipcMain.handle('steam:importAllGames', async (_event, steamPath?: string) => {
+  try {
+    if (steamPath) {
+      if (!existsSync(steamPath)) {
+        return { success: false, error: 'Path does not exist', importedCount: 0 };
+      }
+      steamService.setSteamPath(steamPath);
+    } else {
+      try {
+        steamService.getSteamPath();
+      } catch (pathError) {
+        return { success: false, error: 'Steam path not configured. Please set a Steam path.', importedCount: 0 };
+      }
+    }
+    
+    const steamGames = steamService.scanSteamGames();
+    console.log(`Found ${steamGames.length} Steam games to import`);
+    
+    if (steamGames.length > 0) {
+      // Check if local storage is enabled
+      const prefs = await userPreferencesService.getPreferences();
+      const shouldCache = prefs.storeMetadataLocally !== false; // Default to true
+      await gameStore.mergeSteamGames(steamGames, imageCacheService, shouldCache);
+      console.log(`Imported ${steamGames.length} Steam games`);
+    }
+    
+    return { success: true, importedCount: steamGames.length };
+  } catch (error) {
+    console.error('Error in steam:importAllGames handler:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error', importedCount: 0 };
+  }
+});
+
 // App configuration IPC handlers
 ipcMain.handle('appConfig:getAll', async () => {
   try {
@@ -1547,7 +1630,7 @@ ipcMain.handle('appConfig:get', async (_event, appId: string) => {
   }
 });
 
-ipcMain.handle('appConfig:save', async (_event, config: { id: string; name: string; enabled: boolean; path: string }) => {
+ipcMain.handle('appConfig:save', async (_event, config: { id: string; name: string; enabled: boolean; path: string; autoAdd?: boolean }) => {
   try {
     await appConfigService.saveAppConfig(config);
     return { success: true };
@@ -1557,7 +1640,7 @@ ipcMain.handle('appConfig:save', async (_event, config: { id: string; name: stri
   }
 });
 
-ipcMain.handle('appConfig:saveAll', async (_event, configs: Array<{ id: string; name: string; enabled: boolean; path: string }>) => {
+ipcMain.handle('appConfig:saveAll', async (_event, configs: Array<{ id: string; name: string; enabled: boolean; path: string; autoAdd?: boolean }>) => {
   try {
     await appConfigService.saveAppConfigs(configs);
     return { success: true };
@@ -1632,16 +1715,58 @@ const performBackgroundScan = async () => {
     for (const config of enabledConfigs) {
       try {
         if (config.id === 'steam') {
+          // Check if user is authenticated and auto-add is enabled
+          const authState = await steamAuthService.getAuthState();
+          if (!authState.authenticated || !config.autoAdd) {
+            continue; // Skip if not authenticated or auto-add disabled
+          }
+
           await steamService.setSteamPath(config.path);
-          const games = steamService.scanSteamGames();
-          if (games.length > 0) {
-            // Check for new games and notify user (could send IPC message to renderer)
-            console.log(`Background scan found ${games.length} Steam games`);
+          const scannedGames = steamService.scanSteamGames();
+          if (scannedGames.length > 0) {
+            // Get existing library to find new games
+            const existingLibrary = await gameStore.getLibrary();
+            const existingSteamIds = new Set(
+              existingLibrary
+                .filter(g => g.id.startsWith('steam-'))
+                .map(g => g.id.replace('steam-', ''))
+            );
+            
+            // Find new games (not in existing library)
+            const newGames = scannedGames.filter(g => !existingSteamIds.has(g.appId));
+            
+            if (newGames.length > 0) {
+              // Send notification to renderer about new games
+              if (win && !win.isDestroyed()) {
+                win.webContents.send('steam:newGamesFound', {
+                  count: newGames.length,
+                  games: newGames,
+                });
+              }
+              console.log(`Background scan found ${newGames.length} new Steam games, notification sent`);
+            }
           }
         } else if (config.id === 'xbox') {
           const games = xboxService.scanGames(config.path);
           if (games.length > 0) {
-            console.log(`Background scan found ${games.length} Xbox games`);
+            // If auto-add is enabled, automatically import new games
+            if (config.autoAdd) {
+              const xboxGames: Game[] = games.map(xboxGame => ({
+                id: xboxGame.id,
+                title: xboxGame.name,
+                platform: 'xbox' as const,
+                exePath: xboxGame.installPath,
+                boxArtUrl: '',
+                bannerUrl: '',
+              }));
+              
+              for (const game of xboxGames) {
+                await gameStore.saveGame(game);
+              }
+              console.log(`Background scan auto-added ${games.length} Xbox games`);
+            } else {
+              console.log(`Background scan found ${games.length} Xbox games (auto-add disabled)`);
+            }
           }
         }
         // Add other launchers as needed
@@ -2018,14 +2143,43 @@ app.whenReady().then(async () => {
 
   // Register a custom protocol to serve local files
   protocol.registerFileProtocol('onyx-local', (request, callback) => {
-    const filePath = request.url.replace('onyx-local://', '');
-    // Decode the path (it's URL encoded)
-    const decodedPath = decodeURIComponent(filePath);
-    // Remove leading slash if present
-    const cleanPath = decodedPath.startsWith('/') ? decodedPath.slice(1) : decodedPath;
-    // On Windows, ensure drive letter is preserved
-    const finalPath = cleanPath.replace(/\//g, path.sep);
-    callback({ path: finalPath });
+    try {
+      const filePath = request.url.replace('onyx-local://', '');
+      // Decode the path (it's URL encoded)
+      let decodedPath = decodeURIComponent(filePath);
+      
+      // Remove leading slash if present (but preserve Windows drive letter)
+      if (decodedPath.startsWith('/')) {
+        decodedPath = decodedPath.slice(1);
+      }
+      
+      // On Windows, handle path separators properly
+      let finalPath: string;
+      if (process.platform === 'win32') {
+        // Replace forward slashes with backslashes
+        finalPath = decodedPath.replace(/\//g, '\\');
+        // Ensure drive letter format is correct (C:\ not C:/ or C:\)
+        if (finalPath.match(/^[A-Za-z]:/)) {
+          // Already has drive letter, ensure backslash after colon
+          finalPath = finalPath.replace(/^([A-Za-z]):/, '$1:');
+        }
+      } else {
+        // On Unix-like systems, just replace forward slashes
+        finalPath = decodedPath.replace(/\//g, path.sep);
+      }
+      
+      // Verify file exists
+      if (!existsSync(finalPath)) {
+        console.error(`Image file not found: ${finalPath} (decoded from: ${filePath})`);
+        callback({ error: -6 }); // FILE_NOT_FOUND
+        return;
+      }
+      
+      callback({ path: finalPath });
+    } catch (error) {
+      console.error('Error in onyx-local protocol handler:', error);
+      callback({ error: -2 }); // FAILED
+    }
   });
 
   // Check preferences and create tray if needed

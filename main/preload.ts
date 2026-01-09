@@ -31,6 +31,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getSteamPath: () => ipcRenderer.invoke('steam:getSteamPath'),
   setSteamPath: (path: string) => ipcRenderer.invoke('steam:setSteamPath', path),
   scanGamesWithPath: (path?: string, autoMerge?: boolean) => ipcRenderer.invoke('steam:scanGamesWithPath', path, autoMerge),
+  // Steam authentication methods
+  authenticateSteam: () => ipcRenderer.invoke('steam:authenticate'),
+  getSteamAuthState: () => ipcRenderer.invoke('steam:getAuthState'),
+  clearSteamAuth: () => ipcRenderer.invoke('steam:clearAuth'),
+  // Steam import methods
+  importAllSteamGames: (path?: string) => ipcRenderer.invoke('steam:importAllGames', path),
   // GameStore methods
   getLibrary: () => ipcRenderer.invoke('gameStore:getLibrary'),
   saveGame: (game: any) => ipcRenderer.invoke('gameStore:saveGame', game),
@@ -56,8 +62,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // App config methods
   getAppConfigs: () => ipcRenderer.invoke('appConfig:getAll'),
   getAppConfig: (appId: string) => ipcRenderer.invoke('appConfig:get', appId),
-  saveAppConfig: (config: { id: string; name: string; enabled: boolean; path: string }) => ipcRenderer.invoke('appConfig:save', config),
-  saveAppConfigs: (configs: Array<{ id: string; name: string; enabled: boolean; path: string }>) => ipcRenderer.invoke('appConfig:saveAll', configs),
+  saveAppConfig: (config: { id: string; name: string; enabled: boolean; path: string; autoAdd?: boolean }) => ipcRenderer.invoke('appConfig:save', config),
+  saveAppConfigs: (configs: Array<{ id: string; name: string; enabled: boolean; path: string; autoAdd?: boolean }>) => ipcRenderer.invoke('appConfig:saveAll', configs),
   // Xbox service methods
   scanXboxGames: (path: string, autoMerge?: boolean) => ipcRenderer.invoke('xbox:scanGames', path, autoMerge),
   // Menu event listeners
