@@ -1343,7 +1343,16 @@ function App() {
         </div>
 
         {/* Right Panel - Game Details (~2/3 width, resizable) */}
-        <GameDetailsPanel game={activeGame} onPlay={handlePlay} onSaveGame={handleSaveGame} />
+        <GameDetailsPanel 
+          game={activeGame} 
+          onPlay={handlePlay} 
+          onSaveGame={handleSaveGame}
+          onOpenInGameManager={(game, tab) => {
+            setGameManagerInitialGameId(game.id);
+            setGameManagerInitialTab(tab);
+            setIsGameManagerOpen(true);
+          }}
+        />
       </div>
 
         {/* Bottom Bar */}

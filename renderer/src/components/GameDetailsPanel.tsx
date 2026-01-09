@@ -10,9 +10,10 @@ interface GameDetailsPanelProps {
   game: Game | null;
   onPlay?: (game: Game) => void;
   onSaveGame?: (game: Game) => Promise<void>;
+  onOpenInGameManager?: (game: Game, tab: 'images' | 'metadata') => void;
 }
 
-export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game, onSaveGame }) => {
+export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game, onSaveGame, onOpenInGameManager }) => {
   const [width, setWidth] = useState(800);
   const [fanartHeight, setFanartHeight] = useState(320);
   const [descriptionHeight, setDescriptionHeight] = useState(400);
@@ -558,6 +559,12 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game, onSave
                   break;
               }
             }}
+            onOpenInGameManager={game && onOpenInGameManager ? () => {
+              const tab = (simpleContextMenu.type === 'artwork' || simpleContextMenu.type === 'boxart' || simpleContextMenu.type === 'title') 
+                ? 'images' 
+                : 'metadata';
+              onOpenInGameManager(game, tab);
+            } : undefined}
           />
         );
       })()}
@@ -584,6 +591,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game, onSave
           onSearchImages={() => {
             setImageSearchModal({ type: 'artwork' });
           }}
+          onOpenInGameManager={onOpenInGameManager ? () => onOpenInGameManager(game, 'images') : undefined}
         />
       )}
 
@@ -608,6 +616,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game, onSave
           onSearchImages={() => {
             setImageSearchModal({ type: 'boxart' });
           }}
+          onOpenInGameManager={onOpenInGameManager ? () => onOpenInGameManager(game, 'images') : undefined}
         />
       )}
 
@@ -620,6 +629,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game, onSave
           fontFamily={titleFontFamily}
           onFontFamilyChange={setTitleFontFamily}
           label="Title"
+          onOpenInGameManager={game && onOpenInGameManager ? () => onOpenInGameManager(game, 'images') : undefined}
         />
       )}
 
@@ -632,6 +642,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game, onSave
           fontFamily={descriptionFontFamily}
           onFontFamilyChange={setDescriptionFontFamily}
           label="Description"
+          onOpenInGameManager={game && onOpenInGameManager ? () => onOpenInGameManager(game, 'metadata') : undefined}
         />
       )}
 
@@ -645,6 +656,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game, onSave
           onFontFamilyChange={setDetailsFontFamily}
           visibleDetails={visibleDetails}
           onVisibleDetailsChange={setVisibleDetails}
+          onOpenInGameManager={onOpenInGameManager ? () => onOpenInGameManager(game, 'metadata') : undefined}
           game={game}
         />
       )}
