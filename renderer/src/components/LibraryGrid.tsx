@@ -39,7 +39,7 @@ interface LibraryGridProps {
   useLogosInsteadOfBoxart?: boolean;
 }
 
-export const LibraryGrid: React.FC<LibraryGridProps> = ({ games, onReorder, onPlay, onGameClick, onEdit, onEditImages, onFavorite, onPin, onFixMatch, onHide, onUnhide, isHiddenView = false, gridSize = 120, onGridSizeChange, gameTilePadding = 16, hideGameTitles = false, showLogoOverBoxart = true, logoPosition = 'middle', useLogosInsteadOfBoxart = false }) => {
+export const LibraryGrid: React.FC<LibraryGridProps> = ({ games, onReorder, onPlay, onGameClick, onEdit, onEditImages, onFavorite, onPin, onFixMatch, onHide, onUnhide, isHiddenView = false, gridSize = 120, gameTilePadding = 16, hideGameTitles = false, showLogoOverBoxart = true, logoPosition = 'middle', useLogosInsteadOfBoxart = false }) => {
   const [items, setItems] = useState<Game[]>(games);
 
   // Update items when games prop changes

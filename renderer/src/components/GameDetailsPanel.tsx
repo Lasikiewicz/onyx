@@ -499,16 +499,16 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game, onPlay
             {/* Details Section - Right side */}
             <div 
               className="pl-6"
-              style={{ width: `${100 - descriptionWidth}%` }}
+              style={{ 
+                width: `${100 - descriptionWidth}%`,
+                fontSize: `${detailsFontSize}px`,
+                fontFamily: detailsFontFamily,
+              }}
               onContextMenu={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
                 console.log('Details right-click:', e.clientX, e.clientY);
                 setSimpleContextMenu({ x: e.clientX, y: e.clientY, type: 'details' });
-              }}
-              style={{
-                fontSize: `${detailsFontSize}px`,
-                fontFamily: detailsFontFamily,
               }}
             >
               <h3 className="text-lg font-semibold text-white mb-4">Details</h3>
