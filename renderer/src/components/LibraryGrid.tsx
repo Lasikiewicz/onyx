@@ -31,13 +31,14 @@ interface LibraryGridProps {
   onUnhide?: (game: Game) => void;
   isHiddenView?: boolean;
   gridSize?: number;
+  onGridSizeChange?: (size: number) => void;
   gameTilePadding?: number;
   hideGameTitles?: boolean;
   showLogoOverBoxart?: boolean;
   logoPosition?: 'top' | 'middle' | 'bottom' | 'underneath';
 }
 
-export const LibraryGrid: React.FC<LibraryGridProps> = ({ games, onReorder, onPlay, onGameClick, onEdit, onEditImages, onFavorite, onPin, onFixMatch, onHide, onUnhide, isHiddenView = false, gridSize = 120, gameTilePadding = 16, hideGameTitles = false, showLogoOverBoxart = true, logoPosition = 'middle' }) => {
+export const LibraryGrid: React.FC<LibraryGridProps> = ({ games, onReorder, onPlay, onGameClick, onEdit, onEditImages, onFavorite, onPin, onFixMatch, onHide, onUnhide, isHiddenView = false, gridSize = 120, onGridSizeChange, gameTilePadding = 16, hideGameTitles = false, showLogoOverBoxart = true, logoPosition = 'middle' }) => {
   const [items, setItems] = useState<Game[]>(games);
 
   // Update items when games prop changes
@@ -68,6 +69,18 @@ export const LibraryGrid: React.FC<LibraryGridProps> = ({ games, onReorder, onPl
       
       // Save the new order to the backend
       await onReorder(newItems);
+    }
+  };
+
+  const handleDecreaseSize = () => {
+    if (onGridSizeChange && gridSize > 80) {
+      onGridSizeChange(gridSize - 1);
+    }
+  };
+
+  const handleIncreaseSize = () => {
+    if (onGridSizeChange && gridSize < 500) {
+      onGridSizeChange(gridSize + 1);
     }
   };
 
@@ -112,6 +125,43 @@ export const LibraryGrid: React.FC<LibraryGridProps> = ({ games, onReorder, onPl
         </DndContext>
       </div>
 
+      {/* Grid Size Control - Centered at bottom */}
+      {onGridSizeChange && (
+        <div className="flex items-center justify-center py-4">
+          <div className="flex items-center gap-3 px-4 py-2 bg-gray-800/50 backdrop-blur-sm rounded-lg border border-gray-700/50">
+            <button
+              onClick={handleDecreaseSize}
+              disabled={gridSize <= 80}
+              className="p-1.5 hover:bg-gray-700 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Decrease grid size"
+            >
+              <svg className="w-4 h-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            <input
+              type="range"
+              min="80"
+              max="500"
+              step="1"
+              value={gridSize}
+              onChange={(e) => onGridSizeChange(Number(e.target.value))}
+              className="w-32 h-2 bg-gray-600/50 rounded-lg appearance-none cursor-pointer accent-blue-600"
+            />
+            <span className="text-gray-300 text-sm w-12 text-center">{gridSize}px</span>
+            <button
+              onClick={handleIncreaseSize}
+              disabled={gridSize >= 500}
+              className="p-1.5 hover:bg-gray-700 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Increase grid size"
+            >
+              <svg className="w-4 h-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

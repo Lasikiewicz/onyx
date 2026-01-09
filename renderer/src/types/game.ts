@@ -72,6 +72,10 @@ export interface ExecutableFile {
 
 declare global {
   interface Window {
+    ipcRenderer?: {
+      on: (channel: string, callback: (event: any, ...args: any[]) => void) => void;
+      off: (channel: string, callback: (event: any, ...args: any[]) => void) => void;
+    };
     electronAPI: {
       scanSteamGames: () => Promise<import('./steam').SteamGame[]>;
       getSteamPath: () => Promise<string | null>;
@@ -94,10 +98,14 @@ declare global {
       searchGames: (gameTitle: string) => Promise<{ success: boolean; error?: string; results: Array<{ id: string; title: string; source: string; externalId?: string | number; steamAppId?: string; year?: number; platform?: string }> }>;
       fetchAndUpdateByProviderId: (gameId: string, providerId: string, providerSource: string) => Promise<{ success: boolean; error?: string; metadata: GameMetadata | null }>;
       launchGame: (gameId: string) => Promise<{ success: boolean; error?: string }>;
-      getAppConfigs: () => Promise<Record<string, { id: string; name: string; enabled: boolean; path: string }>>;
-      getAppConfig: (appId: string) => Promise<{ id: string; name: string; enabled: boolean; path: string } | null>;
-      saveAppConfig: (config: { id: string; name: string; enabled: boolean; path: string }) => Promise<{ success: boolean; error?: string }>;
-      saveAppConfigs: (configs: Array<{ id: string; name: string; enabled: boolean; path: string }>) => Promise<{ success: boolean; error?: string }>;
+      getAppConfigs: () => Promise<Record<string, { id: string; name: string; enabled: boolean; path: string; autoAdd?: boolean }>>;
+      getAppConfig: (appId: string) => Promise<{ id: string; name: string; enabled: boolean; path: string; autoAdd?: boolean } | null>;
+      saveAppConfig: (config: { id: string; name: string; enabled: boolean; path: string; autoAdd?: boolean }) => Promise<{ success: boolean; error?: string }>;
+      saveAppConfigs: (configs: Array<{ id: string; name: string; enabled: boolean; path: string; autoAdd?: boolean }>) => Promise<{ success: boolean; error?: string }>;
+      getSteamAuthState?: () => Promise<{ authenticated: boolean; steamId?: string; username?: string }>;
+      authenticateSteam?: () => Promise<{ success: boolean; steamId?: string; username?: string; error?: string }>;
+      importAllSteamGames?: (path: string) => Promise<{ success: boolean; importedCount?: number; error?: string }>;
+      clearSteamAuth?: () => Promise<{ success: boolean; error?: string }>;
       scanXboxGames: (path: string, autoMerge?: boolean) => Promise<{ success: boolean; error?: string; games: Array<{ id: string; name: string; installPath: string; type: string }> }>;
       onMenuEvent: (channel: string, callback: () => void) => () => void;
       getPreferences: () => Promise<{ gridSize?: number; panelWidth?: number; fanartHeight?: number; descriptionHeight?: number; pinnedCategories?: string[]; minimizeToTray?: boolean; showSystemTrayIcon?: boolean; startWithComputer?: boolean; startClosedToTray?: boolean; updateLibrariesOnStartup?: boolean; minimizeOnGameLaunch?: boolean; hideVRTitles?: boolean; hideGameTitles?: boolean; gameTilePadding?: number; showLogoOverBoxart?: boolean; logoPosition?: 'top' | 'middle' | 'bottom' | 'underneath'; backgroundBlur?: number; backgroundMode?: 'image' | 'color'; backgroundColor?: string; viewMode?: 'grid' | 'list'; listViewOptions?: { showDescription: boolean; showCategories: boolean; showPlaytime: boolean; showReleaseDate: boolean; showGenres: boolean; showPlatform: boolean; }; listViewSize?: number; autoSizeToFit?: boolean; titleFontSize?: number; titleFontFamily?: string; descriptionFontSize?: number; descriptionFontFamily?: string; detailsFontSize?: number; detailsFontFamily?: string; visibleDetails?: { releaseDate: boolean; platform: boolean; ageRating: boolean; genres: boolean; developers: boolean; publishers: boolean; communityScore: boolean; userScore: boolean; criticScore: boolean; installationDirectory: boolean; }; activeGameId?: string | null; ignoredGames?: string[] }>;

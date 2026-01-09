@@ -131,7 +131,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
   const [newlyEnabledApps, setNewlyEnabledApps] = useState<Set<string>>(new Set());
   const [steamAuthState, setSteamAuthState] = useState<{ authenticated: boolean; steamId?: string; username?: string }>({ authenticated: false });
   const [isAuthenticating, setIsAuthenticating] = useState(false);
-  const [isImporting, setIsImporting] = useState(false);
+  // const [isImporting, setIsImporting] = useState(false);
   const [settings, setSettings] = useState<OnyxSettings>({
     minimizeToTray: false,
     showSystemTrayIcon: true,
@@ -272,8 +272,10 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
       // Load Steam auth state
       const loadSteamAuth = async () => {
         try {
-          const authState = await window.electronAPI.getSteamAuthState();
-          setSteamAuthState(authState);
+          if (window.electronAPI.getSteamAuthState) {
+            const authState = await window.electronAPI.getSteamAuthState();
+            setSteamAuthState(authState);
+          }
         } catch (err) {
           console.error('Error loading Steam auth state:', err);
         }
@@ -381,6 +383,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
   const handleSteamAuthenticate = async () => {
     setIsAuthenticating(true);
     try {
+      if (!window.electronAPI.authenticateSteam) return;
       const result = await window.electronAPI.authenticateSteam();
       if (result.success) {
         setSteamAuthState({
@@ -399,15 +402,17 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
     }
   };
 
-  const handleSteamImportAll = async () => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any
+  const handleSteamImportAll = async (): Promise<any> => {
     const steamApp = apps.find(a => a.id === 'steam');
     if (!steamApp || !steamApp.path) {
       alert('Please configure Steam path first');
       return;
     }
 
-    setIsImporting(true);
+    // setIsImporting(true);
     try {
+      if (!window.electronAPI.importAllSteamGames) return;
       const result = await window.electronAPI.importAllSteamGames(steamApp.path);
       if (result.success) {
         alert(`Successfully imported ${result.importedCount} Steam games!`);
@@ -421,7 +426,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
       console.error('Error importing Steam games:', err);
       alert('Failed to import Steam games');
     } finally {
-      setIsImporting(false);
+      // setIsImporting(false);
     }
   };
 
@@ -1298,7 +1303,9 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                                       <button
                                         onClick={async () => {
                                           if (confirm('Sign out of Steam?')) {
-                                            await window.electronAPI.clearSteamAuth();
+                                            if (window.electronAPI.clearSteamAuth) {
+                                              await window.electronAPI.clearSteamAuth();
+                                            }
                                             setSteamAuthState({ authenticated: false });
                                           }
                                         }}

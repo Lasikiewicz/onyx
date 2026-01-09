@@ -19,6 +19,7 @@ import { OnyxSettingsModal } from './components/OnyxSettingsModal';
 import { APISettingsModal } from './components/APISettingsModal';
 import { MetadataSearchModal } from './components/MetadataSearchModal';
 import { ImportWorkbench } from './components/importer/ImportWorkbench';
+import { GameManager } from './components/GameManager';
 import { ConfirmationDialog } from './components/ConfirmationDialog';
 import { Game, ExecutableFile, GameMetadata } from './types/game';
 import { areAPIsConfigured } from './utils/apiValidation';
@@ -69,6 +70,9 @@ function App() {
   const [isUpdateLibraryOpen, setIsUpdateLibraryOpen] = useState(false);
   const [isOnyxSettingsOpen, setIsOnyxSettingsOpen] = useState(false);
   const [isImportWorkbenchOpen, setIsImportWorkbenchOpen] = useState(false);
+  const [isGameManagerOpen, setIsGameManagerOpen] = useState(false);
+  const [gameManagerInitialGameId, setGameManagerInitialGameId] = useState<string | null>(null);
+  const [gameManagerInitialTab, setGameManagerInitialTab] = useState<'images' | 'metadata' | 'modManager'>('images');
   const [onyxSettingsInitialTab, setOnyxSettingsInitialTab] = useState<'general' | 'appearance' | 'apis' | 'apps' | 'about'>('general');
   const [isAPISettingsOpen, setIsAPISettingsOpen] = useState(false);
   const [gridSize, setGridSize] = useState(120);
@@ -269,14 +273,18 @@ function App() {
     const newGamesHandler = (_event: any, data: { count: number; games: Array<any> }) => {
       setNewGamesNotification({ count: data.count, games: data.games });
     };
-    window.ipcRenderer.on('steam:newGamesFound', newGamesHandler);
+    if (window.ipcRenderer) {
+      window.ipcRenderer.on('steam:newGamesFound', newGamesHandler);
+    }
 
     return () => {
       cleanup1();
       cleanup2();
       cleanup3();
       cleanup4();
-      window.ipcRenderer.off('steam:newGamesFound', newGamesHandler);
+      if (window.ipcRenderer) {
+        window.ipcRenderer.off('steam:newGamesFound', newGamesHandler);
+      }
     };
   }, []);
 
@@ -670,20 +678,21 @@ function App() {
   };
 
   const handleEditGame = (game: Game) => {
-    setEditingGame(game);
-    setInitialEditorTab('details');
-    setIsGameEditorOpen(true);
+    setGameManagerInitialGameId(game.id);
+    setGameManagerInitialTab('metadata');
+    setIsGameManagerOpen(true);
   };
 
   const handleEditImages = (game: Game) => {
-    setEditingGame(game);
-    setInitialEditorTab('images');
-    setIsGameEditorOpen(true);
+    setGameManagerInitialGameId(game.id);
+    setGameManagerInitialTab('images');
+    setIsGameManagerOpen(true);
   };
 
   const handleFixMatch = (game: Game) => {
-    setFixingGame(game);
-    setIsMetadataSearchOpen(true);
+    setGameManagerInitialGameId(game.id);
+    setGameManagerInitialTab('metadata');
+    setIsGameManagerOpen(true);
   };
 
   const handleSelectMetadataMatch = async (result: { id: string; source: string }) => {
@@ -1123,6 +1132,7 @@ function App() {
         onScanFolder={handleScanFolder}
         onUpdateSteamLibrary={handleUpdateSteamLibrary}
         onUpdateLibrary={handleUpdateSteamLibrary}
+        onGameManager={() => setIsGameManagerOpen(true)}
         onConfigureSteam={() => setIsSteamConfigOpen(true)}
         onOnyxSettings={() => {
           setOnyxSettingsInitialTab('general');
@@ -1213,6 +1223,7 @@ function App() {
                         onUnhide={handleUnhideGame}
                         isHiddenView={selectedCategory === 'hidden'}
                         gridSize={gridSize}
+                        onGridSizeChange={setGridSize}
                         gameTilePadding={gameTilePadding}
                         hideGameTitles={hideGameTitles}
                         showLogoOverBoxart={showLogoOverBoxart}
@@ -1508,6 +1519,28 @@ function App() {
             showToast('Failed to import games', 'error');
           }
         }}
+      />
+
+      {/* Game Manager */}
+      <GameManager
+        isOpen={isGameManagerOpen}
+        onClose={() => {
+          setIsGameManagerOpen(false);
+          setGameManagerInitialGameId(null);
+          setGameManagerInitialTab('images');
+        }}
+        games={games}
+        initialGameId={gameManagerInitialGameId}
+        initialTab={gameManagerInitialTab}
+        onSaveGame={async (game) => {
+          await saveGame(game);
+          await loadLibrary();
+        }}
+        onDeleteGame={async (gameId) => {
+          await deleteGame(gameId);
+          await loadLibrary();
+        }}
+        onReloadLibrary={loadLibrary}
       />
 
       {/* Simple Context Menu */}

@@ -59,45 +59,8 @@ export const BottomBar: React.FC<BottomBarProps> = ({ game, onPlay, onFavorite, 
 
   return (
     <div className="onyx-glass-panel h-16 flex items-center justify-between px-6 flex-shrink-0">
-      {/* Left side - Grid Size */}
+      {/* Left side - Empty (grid size moved to grid view) */}
       <div className="flex items-center gap-4">
-        {/* Grid Size Slider */}
-        {onGridSizeChange && (
-          <div className="flex items-center gap-3 px-3 py-2 bg-gray-700/50 rounded-lg">
-            <label htmlFor="grid-size-slider" className="text-gray-300 text-sm whitespace-nowrap">
-              Grid Size:
-            </label>
-            <input
-              id="grid-size-slider"
-              type="range"
-              min="80"
-              max="500"
-              step="1"
-              value={gridSize}
-              onChange={(e) => onGridSizeChange(Number(e.target.value))}
-              className="w-32 h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-blue-600"
-            />
-            {isEditing ? (
-              <input
-                ref={inputRef}
-                type="text"
-                value={inputValue}
-                onChange={handleInputChange}
-                onBlur={handleInputBlur}
-                onKeyDown={handleInputKeyDown}
-                className="text-gray-300 text-sm w-12 bg-gray-600 border border-blue-500 rounded px-1 text-center focus:outline-none"
-              />
-            ) : (
-              <span 
-                className="text-gray-300 text-sm w-12 cursor-text hover:text-blue-400 transition-colors"
-                onClick={handleInputClick}
-                title="Click to edit"
-              >
-                {gridSize}px
-              </span>
-            )}
-          </div>
-        )}
       </div>
 
       {/* Right side - Actions and Play */}
