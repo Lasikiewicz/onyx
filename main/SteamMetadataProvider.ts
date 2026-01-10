@@ -40,9 +40,110 @@ export class SteamMetadataProvider implements MetadataProvider {
   }
 
   async getDescription(id: string): Promise<import('./MetadataProvider.js').GameDescription | null> {
-    // Steam CDN doesn't provide descriptions via API
-    // Return null to indicate this provider doesn't support descriptions
-    return null;
+    // Extract Steam App ID
+    const match = id.match(/^steam-(.+)$/);
+    if (!match) {
+      return null;
+    }
+    const steamAppId = match[1];
+
+    try {
+      // Use Steam Store API to get game details
+      const storeApiUrl = `https://store.steampowered.com/api/appdetails?appids=${steamAppId}&l=english`;
+      const response = await fetch(storeApiUrl);
+      
+      if (!response.ok) {
+        console.warn(`[Steam] Store API request failed for app ${steamAppId}: ${response.status}`);
+        return null;
+      }
+
+      const data = await response.json() as Record<string, any>;
+      const appData = data[steamAppId];
+      
+      if (!appData || !appData.success || !appData.data) {
+        console.warn(`[Steam] No data returned from Store API for app ${steamAppId}`);
+        return null;
+      }
+
+      const gameData = appData.data;
+      
+      // Extract text metadata from Steam Store API
+      const description: import('./MetadataProvider.js').GameDescription = {};
+      
+      // Description/Summary
+      if (gameData.short_description) {
+        description.description = gameData.short_description;
+      }
+      if (gameData.detailed_description) {
+        description.summary = gameData.detailed_description;
+      }
+      
+      // Release date
+      if (gameData.release_date) {
+        if (gameData.release_date.date) {
+          // Parse date string (format: "DD MMM, YYYY" or "Coming soon")
+          try {
+            const dateStr = gameData.release_date.date;
+            if (dateStr !== 'Coming soon' && dateStr !== 'TBA') {
+              const date = new Date(dateStr);
+              if (!isNaN(date.getTime())) {
+                description.releaseDate = date.toISOString().split('T')[0];
+              }
+            }
+          } catch (err) {
+            console.warn(`[Steam] Could not parse release date: ${gameData.release_date.date}`);
+          }
+        }
+      }
+      
+      // Genres
+      if (gameData.genres && Array.isArray(gameData.genres)) {
+        description.genres = gameData.genres.map((g: any) => g.description).filter(Boolean);
+      }
+      
+      // Developers
+      if (gameData.developers && Array.isArray(gameData.developers)) {
+        description.developers = gameData.developers.filter(Boolean);
+      }
+      
+      // Publishers
+      if (gameData.publishers && Array.isArray(gameData.publishers)) {
+        description.publishers = gameData.publishers.filter(Boolean);
+      }
+      
+      // Categories (tags)
+      if (gameData.categories && Array.isArray(gameData.categories)) {
+        description.categories = gameData.categories.map((c: any) => c.description).filter(Boolean);
+      }
+      
+      // Age rating (content descriptors)
+      if (gameData.content_descriptors && gameData.content_descriptors.notes) {
+        description.ageRating = gameData.content_descriptors.notes;
+      } else if (gameData.required_age) {
+        description.ageRating = `PEGI ${gameData.required_age}`;
+      }
+      
+      // Rating (metacritic score if available)
+      if (gameData.metacritic && gameData.metacritic.score) {
+        description.rating = gameData.metacritic.score;
+      }
+      
+      // Platforms
+      if (gameData.platforms) {
+        const platforms: string[] = [];
+        if (gameData.platforms.windows) platforms.push('Windows');
+        if (gameData.platforms.mac) platforms.push('macOS');
+        if (gameData.platforms.linux) platforms.push('Linux');
+        if (platforms.length > 0) {
+          description.platforms = platforms;
+        }
+      }
+
+      return Object.keys(description).length > 0 ? description : null;
+    } catch (error) {
+      console.error(`[Steam] Error fetching description for app ${steamAppId}:`, error);
+      return null;
+    }
   }
 
   async getArtwork(id: string, steamAppId?: string): Promise<GameArtwork | null> {

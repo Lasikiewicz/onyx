@@ -12,6 +12,7 @@ interface AppConfigsSchema {
   apps: Record<string, AppConfig>;
   backgroundScanEnabled: boolean;
   lastBackgroundScan?: number;
+  manualFolders?: string[];
 }
 
 export class AppConfigService {
@@ -29,6 +30,7 @@ export class AppConfigService {
           apps: {},
           backgroundScanEnabled: false,
           lastBackgroundScan: undefined,
+          manualFolders: [],
         },
       });
       return this.store;
@@ -131,5 +133,21 @@ export class AppConfigService {
   async setLastBackgroundScan(timestamp: number): Promise<void> {
     const store = await this.ensureStore();
     store.set('lastBackgroundScan', timestamp);
+  }
+
+  /**
+   * Get manual folders to monitor
+   */
+  async getManualFolders(): Promise<string[]> {
+    const store = await this.ensureStore();
+    return store.get('manualFolders', []);
+  }
+
+  /**
+   * Save manual folders to monitor
+   */
+  async saveManualFolders(folders: string[]): Promise<void> {
+    const store = await this.ensureStore();
+    store.set('manualFolders', folders);
   }
 }

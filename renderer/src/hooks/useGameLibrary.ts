@@ -166,6 +166,22 @@ export function useGameLibrary() {
     loadLibrary();
   }, []);
 
+  // Listen for library updates from main process (e.g., when games are removed)
+  useEffect(() => {
+    if (window.ipcRenderer) {
+      const handleLibraryUpdate = () => {
+        console.log('[useGameLibrary] Library updated, reloading...');
+        loadLibrary();
+      };
+
+      window.ipcRenderer.on('gameStore:libraryUpdated', handleLibraryUpdate);
+
+      return () => {
+        window.ipcRenderer?.off('gameStore:libraryUpdated', handleLibraryUpdate);
+      };
+    }
+  }, []);
+
   return {
     games,
     loading,

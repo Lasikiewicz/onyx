@@ -47,35 +47,88 @@ export interface SteamGridDBMetadata {
 export class SteamGridDBService {
   private apiKey: string;
   private baseUrl = 'https://www.steamgriddb.com/api/v2';
+  
+  // Request queue for rate limiting
+  private requestQueue: Array<() => Promise<any>> = [];
+  private isProcessingQueue = false;
+  private lastRequestTime = 0;
+  private readonly MIN_REQUEST_INTERVAL = 250; // 250ms between requests (4 requests/sec max)
 
   constructor(apiKey: string) {
     this.apiKey = apiKey;
   }
 
   /**
+   * Queue a request to prevent rate limiting
+   */
+  private async queueRequest<T>(execute: () => Promise<T>): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
+      this.requestQueue.push(async () => {
+        try {
+          const result = await execute();
+          resolve(result);
+        } catch (error) {
+          reject(error);
+        }
+      });
+      this.processQueue();
+    });
+  }
+
+  /**
+   * Process the request queue with rate limiting
+   */
+  private async processQueue(): Promise<void> {
+    if (this.isProcessingQueue || this.requestQueue.length === 0) {
+      return;
+    }
+
+    this.isProcessingQueue = true;
+    try {
+      while (this.requestQueue.length > 0) {
+        const request = this.requestQueue.shift();
+        if (!request) break;
+
+        // Rate limiting: ensure minimum interval between requests
+        const timeSinceLastRequest = Date.now() - this.lastRequestTime;
+        if (timeSinceLastRequest < this.MIN_REQUEST_INTERVAL) {
+          await new Promise(resolve => setTimeout(resolve, this.MIN_REQUEST_INTERVAL - timeSinceLastRequest));
+        }
+
+        this.lastRequestTime = Date.now();
+        await request();
+      }
+    } finally {
+      this.isProcessingQueue = false;
+    }
+  }
+
+  /**
    * Search for games by name
    */
   async searchGame(query: string): Promise<SteamGridDBGame[]> {
-    try {
-      const response = await fetch(`${this.baseUrl}/search/autocomplete/${encodeURIComponent(query)}`, {
-        headers: {
-          'Authorization': `Bearer ${this.apiKey}`,
-        },
-      });
+    return this.queueRequest(async () => {
+      try {
+        const response = await fetch(`${this.baseUrl}/search/autocomplete/${encodeURIComponent(query)}`, {
+          headers: {
+            'Authorization': `Bearer ${this.apiKey}`,
+          },
+        });
 
-      if (!response.ok) {
-        if (response.status === 401) {
-          throw new Error('Invalid SteamGridDB API key');
+        if (!response.ok) {
+          if (response.status === 401) {
+            throw new Error('Invalid SteamGridDB API key');
+          }
+          throw new Error(`SteamGridDB API error: ${response.status} ${response.statusText}`);
         }
-        throw new Error(`SteamGridDB API error: ${response.status} ${response.statusText}`);
-      }
 
-      const data = await response.json() as { data?: SteamGridDBGame[] };
-      return data.data || [];
-    } catch (error) {
-      console.error('Error searching SteamGridDB:', error);
-      throw error;
-    }
+        const data = await response.json() as { data?: SteamGridDBGame[] };
+        return data.data || [];
+      } catch (error) {
+        console.error('Error searching SteamGridDB:', error);
+        throw error;
+      }
+    });
   }
 
   /**

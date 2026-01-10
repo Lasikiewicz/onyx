@@ -78,69 +78,141 @@ export class XboxService {
 
   /**
    * Scan XboxGames folder for PC Game Pass games
+   * Games can be in various structures:
+   * - C:\XboxGames\GameName\Content\Game.exe
+   * - C:\XboxGames\GameName\Game.exe
+   * - C:\XboxGames\GameName\SubFolder\Game.exe
    */
   private scanXboxGames(xboxGamesPath: string): XboxGame[] {
     const games: XboxGame[] = [];
     
     if (!existsSync(xboxGamesPath)) {
-      console.warn(`XboxGames folder not found: ${xboxGamesPath}`);
+      console.warn(`[XboxService] XboxGames folder not found: ${xboxGamesPath}`);
       return games;
     }
 
+    console.log(`[XboxService] Scanning XboxGames folder: ${xboxGamesPath}`);
+
     try {
       const entries = readdirSync(xboxGamesPath);
+      console.log(`[XboxService] Found ${entries.length} entries in XboxGames folder`);
       
       for (const entry of entries) {
         const fullPath = join(xboxGamesPath, entry);
         
         try {
           const stats = statSync(fullPath);
-          if (stats.isDirectory()) {
-            // Look for .exe files in the game folder
-            const exeFiles = this.findExecutables(fullPath);
+          if (!stats.isDirectory()) {
+            continue;
+          }
+
+          // Skip known non-game folders
+          const dirName = entry.toLowerCase();
+          if (dirName === 'content' || dirName === 'metadata' || dirName.startsWith('$')) {
+            continue;
+          }
+
+          console.log(`[XboxService] Scanning game folder: ${entry}`);
+          
+          // Deep scan for executables (up to 20 levels deep)
+          const exeFiles = this.findExecutables(fullPath, 0, 20);
+          console.log(`[XboxService] Found ${exeFiles.length} executables in ${entry}`);
+          
+          // Filter out helper executables
+          const gameExes = exeFiles.filter(exe => {
+            const fileName = exe.toLowerCase();
+            const fileNameOnly = fileName.split(/[/\\]/).pop() || '';
+            return !fileNameOnly.includes('gamelaunchhelper') &&
+                   !fileNameOnly.includes('bootstrapper') &&
+                   !fileNameOnly.includes('installer') &&
+                   !fileNameOnly.includes('setup') &&
+                   !fileNameOnly.includes('uninstall') &&
+                   !fileNameOnly.includes('updater') &&
+                   !fileNameOnly.includes('launcher') &&
+                   !fileNameOnly.endsWith('gamelaunchhelper.exe') &&
+                   !fileNameOnly.endsWith('bootstrapper.exe') &&
+                   fileNameOnly !== 'crashreportclient.exe' &&
+                   fileNameOnly !== 'battlenet.overlay.runtime.exe' &&
+                   fileNameOnly !== 'crashpad_handler.exe' &&
+                   fileNameOnly !== 'embark-crash-helper.exe' &&
+                   fileNameOnly !== 'blizzardbrowser.exe' &&
+                   fileNameOnly !== 'blizzarderror.exe';
+          });
+          
+          console.log(`[XboxService] Filtered to ${gameExes.length} game executables in ${entry}`);
+          
+          if (gameExes.length > 0) {
+            // Prefer executables in Content folder or root, avoid helper folders
+            let mainExe = gameExes[0];
             
-            // Filter out helper executables
-            const gameExes = exeFiles.filter(exe => {
-              const fileName = exe.toLowerCase();
-              return !fileName.includes('gamelaunchhelper') &&
-                     !fileName.includes('bootstrapper') &&
-                     !fileName.endsWith('gamelaunchhelper.exe') &&
-                     !fileName.endsWith('bootstrapper.exe');
+            // Try to find executable in Content folder first (common Xbox Game Pass structure)
+            const contentExe = gameExes.find(exe => {
+              const relativePath = exe.replace(fullPath, '').toLowerCase();
+              return relativePath.includes('content') && 
+                     !relativePath.includes('gamelaunchhelper') &&
+                     !relativePath.includes('bootstrapper');
             });
             
-            if (gameExes.length > 0) {
-              // Use the first executable found (usually the main game exe)
-              // Prefer executables in the root or Content folder, not in subfolders
-              const mainExe = gameExes.find(exe => {
-                const relativePath = exe.replace(fullPath, '').toLowerCase();
-                return !relativePath.includes('content') || relativePath.includes('content\\') && !relativePath.includes('gamelaunchhelper');
-              }) || gameExes[0];
+            if (contentExe) {
+              mainExe = contentExe;
+            } else {
+              // Prefer executables closer to root (fewer directory separators)
+              const exeWithDepth = gameExes.map(exe => ({
+                exe,
+                depth: (exe.match(/[/\\]/g) || []).length
+              }));
+              exeWithDepth.sort((a, b) => a.depth - b.depth);
+              mainExe = exeWithDepth[0].exe;
+            }
+            
+            games.push({
+              id: `xbox-pc-${entry}`,
+              name: entry, // Use folder name as game name
+              installPath: mainExe,
+              type: 'pc',
+            });
+            console.log(`[XboxService] ✓ Found Xbox PC game: ${entry} (${mainExe})`);
+          } else {
+            // Log detailed information about the folder structure for debugging
+            console.log(`[XboxService] No valid game executables found in ${entry}`);
+            
+            // Check if folder has specific structures that might indicate issues
+            try {
+              const folderContents = readdirSync(fullPath);
+              const hasContentFolder = folderContents.some(f => f.toLowerCase() === 'content');
+              const hasBinariesFolder = folderContents.some(f => f.toLowerCase().includes('binaries'));
+              const hasBuildFolder = folderContents.some(f => f.toLowerCase() === 'build');
               
-              games.push({
-                id: `xbox-pc-${entry}`,
-                name: entry, // Use folder name as game name
-                installPath: mainExe,
-                type: 'pc',
-              });
-              console.log(`✓ Found Xbox PC game: ${entry} (${mainExe})`);
+              if (hasContentFolder || hasBinariesFolder || hasBuildFolder) {
+                console.log(`[XboxService]   └─ Folder has expected structure (Content: ${hasContentFolder}, Binaries: ${hasBinariesFolder}, Build: ${hasBuildFolder})`);
+                console.log(`[XboxService]   └─ Sub-folders: ${folderContents.filter(f => {
+                  const stat = statSync(join(fullPath, f));
+                  return stat.isDirectory();
+                }).slice(0, 5).join(', ')}${folderContents.length > 5 ? '...' : ''}`);
+              } else {
+                console.log(`[XboxService]   └─ Root contents: ${folderContents.slice(0, 5).join(', ')}${folderContents.length > 5 ? '...' : ''}`);
+              }
+            } catch (err) {
+              console.log(`[XboxService]   └─ Could not inspect folder structure: ${err instanceof Error ? err.message : 'Unknown error'}`);
             }
           }
         } catch (err) {
-          // Skip entries we can't access
+          console.warn(`[XboxService] Could not scan entry "${entry}":`, err);
           continue;
         }
       }
     } catch (error) {
-      console.error(`Error scanning XboxGames: ${error}`);
+      console.error(`[XboxService] Error scanning XboxGames: ${error}`);
     }
 
+    console.log(`[XboxService] Total Xbox PC games found: ${games.length}`);
     return games;
   }
 
   /**
-   * Find executable files in a directory (recursive, max depth 3)
+   * Find executable files in a directory (recursive, deep scan with high max depth)
    */
-  private findExecutables(dirPath: string, depth: number = 0, maxDepth: number = 3): string[] {
+  private findExecutables(dirPath: string, depth: number = 0, maxDepth: number = 20): string[] {
     const executables: string[] = [];
     
     if (depth > maxDepth) return executables;
@@ -172,7 +244,8 @@ export class XboxService {
               continue;
             }
             
-            // Check patterns
+            // Check patterns - but be less aggressive about filtering
+            // The main goal is to find ANY exe, then let the caller decide
             if (!lowerName.includes('installer') &&
                 !lowerName.includes('setup') &&
                 !lowerName.includes('uninstall') &&
@@ -183,17 +256,36 @@ export class XboxService {
               executables.push(fullPath);
             }
           } else if (stats.isDirectory() && depth < maxDepth) {
+            // Skip known system/cache folders to speed up search
+            const dirName = entry.toLowerCase();
+            if (dirName === '$recycle.bin' || 
+                dirName === 'system volume information' ||
+                dirName === '.git' ||
+                dirName === '__pycache__' ||
+                dirName === 'node_modules') {
+              continue;
+            }
+            
             // Recursively search subdirectories
             const subExes = this.findExecutables(fullPath, depth + 1, maxDepth);
             executables.push(...subExes);
           }
         } catch (err) {
-          // Skip entries we can't access
+          // Skip entries we can't access (permission denied, etc.)
+          const errorMsg = err instanceof Error ? err.message : String(err);
+          if (depth === 0) {
+            // Only log permission errors at root level to avoid spam
+            console.debug(`[XboxService] Could not access "${fullPath}": ${errorMsg.substring(0, 50)}`);
+          }
           continue;
         }
       }
     } catch (err) {
-      // Skip directories we can't access
+      // Skip directories we can't read
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      if (depth === 0) {
+        console.debug(`[XboxService] Could not read directory "${dirPath}": ${errorMsg.substring(0, 50)}`);
+      }
     }
     
     return executables;
@@ -230,13 +322,16 @@ export class XboxService {
       throw new Error('Xbox Game Pass scanning is currently only supported on Windows');
     }
 
+    console.log(`[XboxService] Scanning Xbox games from path: ${xboxPath}`);
     const games: XboxGame[] = [];
     
     // Check if path is WindowsApps or XboxGames
     if (xboxPath.includes('WindowsApps')) {
+      console.log(`[XboxService] Detected WindowsApps path, scanning UWP games`);
       const winAppsGames = this.scanWindowsApps(xboxPath);
       games.push(...winAppsGames);
     } else if (xboxPath.includes('XboxGames')) {
+      console.log(`[XboxService] Detected XboxGames path, scanning PC games`);
       const xboxGames = this.scanXboxGames(xboxPath);
       games.push(...xboxGames);
     } else {
@@ -245,16 +340,25 @@ export class XboxService {
       const xboxGamesPath = join(xboxPath, 'XboxGames');
       
       if (existsSync(winAppsPath)) {
+        console.log(`[XboxService] Found WindowsApps subfolder, scanning UWP games`);
         const winAppsGames = this.scanWindowsApps(winAppsPath);
         games.push(...winAppsGames);
       }
       
       if (existsSync(xboxGamesPath)) {
+        console.log(`[XboxService] Found XboxGames subfolder, scanning PC games`);
         const xboxGames = this.scanXboxGames(xboxGamesPath);
         games.push(...xboxGames);
+      } else {
+        // Fallback: If the path itself might be a game folder or contains games directly
+        // This handles cases where C:\XboxGames is the path but structure is different
+        console.log(`[XboxService] No WindowsApps or XboxGames subfolder found, scanning path directly`);
+        const directGames = this.scanXboxGames(xboxPath);
+        games.push(...directGames);
       }
     }
 
+    console.log(`[XboxService] Total Xbox games found: ${games.length}`);
     return games;
   }
 }

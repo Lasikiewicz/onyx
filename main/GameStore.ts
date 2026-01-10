@@ -380,4 +380,97 @@ export class GameStore {
     const store = await this.ensureStore();
     (store as any).set('games', reorderedGames);
   }
+
+  /**
+   * Check for missing games and remove them from the store
+   * @param steamService - Optional SteamService to check if Steam games are still installed
+   * @returns Number of games removed
+   */
+  async removeMissingGames(steamService?: { scanSteamGames: () => Array<{ appId: string }> }): Promise<number> {
+    const store = await this.ensureStore();
+    const games = await this.getLibrary();
+    const { existsSync } = require('node:fs');
+    
+    let removedCount = 0;
+    const gamesToKeep: Game[] = [];
+
+    // Get list of installed Steam games if SteamService is provided
+    let installedSteamAppIds: Set<string> | null = null;
+    if (steamService) {
+      try {
+        const steamGames = steamService.scanSteamGames();
+        installedSteamAppIds = new Set(steamGames.map(g => g.appId));
+        console.log(`[GameStore] Found ${installedSteamAppIds.size} installed Steam games`);
+      } catch (error) {
+        console.warn('[GameStore] Could not scan Steam games:', error);
+        // Continue without Steam checking if scan fails
+      }
+    }
+
+    for (const game of games) {
+      let isMissing = false;
+
+      // Check Steam games
+      if (game.id.startsWith('steam-')) {
+        if (installedSteamAppIds) {
+          const appIdMatch = game.id.match(/^steam-(.+)$/);
+          if (appIdMatch && appIdMatch[1]) {
+            const appId = appIdMatch[1];
+            if (!installedSteamAppIds.has(appId)) {
+              console.log(`[GameStore] Steam game no longer installed: ${game.title} (AppID: ${appId})`);
+              isMissing = true;
+            }
+          }
+        } else {
+          // If we can't check Steam, skip this game (don't remove it)
+          gamesToKeep.push(game);
+          continue;
+        }
+      } else {
+        // For non-Steam games, check if exePath or installationDirectory exists
+        const pathsToCheck: string[] = [];
+        
+        if (game.exePath && !game.exePath.startsWith('steam://') && !game.exePath.startsWith('http://') && !game.exePath.startsWith('https://')) {
+          pathsToCheck.push(game.exePath);
+        }
+        
+        if (game.installationDirectory) {
+          pathsToCheck.push(game.installationDirectory);
+        }
+
+        // If we have paths to check, verify at least one exists
+        if (pathsToCheck.length > 0) {
+          const anyPathExists = pathsToCheck.some(path => {
+            try {
+              return existsSync(path);
+            } catch (error) {
+              return false;
+            }
+          });
+
+          if (!anyPathExists) {
+            console.log(`[GameStore] Game files no longer exist: ${game.title} (exePath: ${game.exePath}, installDir: ${game.installationDirectory})`);
+            isMissing = true;
+          }
+        } else {
+          // If no paths to check (e.g., custom game with no exePath), keep it
+          gamesToKeep.push(game);
+          continue;
+        }
+      }
+
+      if (isMissing) {
+        removedCount++;
+      } else {
+        gamesToKeep.push(game);
+      }
+    }
+
+    if (removedCount > 0) {
+      console.log(`[GameStore] Removing ${removedCount} missing game(s) from library`);
+      (store as any).set('games', gamesToKeep);
+    }
+
+    return removedCount;
+  }
 }

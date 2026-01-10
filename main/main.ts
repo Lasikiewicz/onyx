@@ -591,6 +591,23 @@ const steamAuthService = new SteamAuthService();
 let igdbService: IGDBService | null = null;
 let steamGridDBService: import('./SteamGridDBService.js').SteamGridDBService | null = null;
 
+/**
+ * Utility function to add a timeout to any promise
+ * Rejects with a timeout error if the promise doesn't resolve within the specified time
+ */
+const withTimeout = <T,>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  errorMessage: string = `Request timeout after ${timeoutMs}ms`
+): Promise<T> => {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(errorMessage)), timeoutMs)
+    ),
+  ]);
+};
+
 // Function to initialize IGDB service with credentials
 const initializeIGDBService = async () => {
   try {
@@ -601,9 +618,20 @@ const initializeIGDBService = async () => {
     
     if (igdbClientId && igdbClientSecret) {
       try {
-        igdbService = new IGDBService(igdbClientId, igdbClientSecret);
-        console.log('IGDB service initialized');
-        return true;
+        // Create service instance
+        const service = new IGDBService(igdbClientId, igdbClientSecret);
+        
+        // Validate credentials before using the service
+        const isValid = await service.validateCredentials();
+        if (isValid) {
+          igdbService = service;
+          console.log('IGDB service initialized with valid credentials');
+          return true;
+        } else {
+          console.warn('IGDB credentials are invalid. IGDB features will be unavailable.');
+          igdbService = null;
+          return false;
+        }
       } catch (error) {
         console.error('Failed to initialize IGDB service:', error);
         igdbService = null;
@@ -889,31 +917,8 @@ ipcMain.handle('gameStore:getLibrary', async () => {
   }
 });
 
-ipcMain.handle('gameStore:saveGame', async (_event, game: Game, oldGame?: Game) => {
+ipcMain.handle('gameStore:saveGame', async (_event, game: Game) => {
   try {
-    // Get old game from database if not provided
-    if (!oldGame) {
-      const games = await gameStore.getLibrary();
-      oldGame = games.find(g => g.id === game.id);
-    }
-
-    // Delete old images from disk if they're being replaced
-    if (oldGame) {
-      // Check each image type and delete old cached image if it's being replaced
-      if (game.boxArtUrl && oldGame.boxArtUrl && game.boxArtUrl !== oldGame.boxArtUrl && oldGame.boxArtUrl.startsWith('onyx-local://')) {
-        await imageCacheService.deleteCachedImage(game.id, 'boxart');
-      }
-      if (game.bannerUrl && oldGame.bannerUrl && game.bannerUrl !== oldGame.bannerUrl && oldGame.bannerUrl.startsWith('onyx-local://')) {
-        await imageCacheService.deleteCachedImage(game.id, 'banner');
-      }
-      if (game.logoUrl && oldGame.logoUrl && game.logoUrl !== oldGame.logoUrl && oldGame.logoUrl.startsWith('onyx-local://')) {
-        await imageCacheService.deleteCachedImage(game.id, 'logo');
-      }
-      if (game.heroUrl && oldGame.heroUrl && game.heroUrl !== oldGame.heroUrl && oldGame.heroUrl.startsWith('onyx-local://')) {
-        await imageCacheService.deleteCachedImage(game.id, 'hero');
-      }
-    }
-
     // Cache images before saving
     const cachedImages = await imageCacheService.cacheImages({
       boxArtUrl: game.boxArtUrl,
@@ -962,32 +967,18 @@ ipcMain.handle('gameStore:deleteGame', async (_event, gameId: string) => {
 // Reset app handler - clears all data
 ipcMain.handle('app:reset', async () => {
   try {
-    console.log('[Reset] Starting complete app reset...');
-    
     // Clear all stores
-    console.log('[Reset] Clearing game library...');
     await gameStore.clearLibrary();
-    
-    console.log('[Reset] Resetting user preferences...');
     await userPreferencesService.resetPreferences();
-    
-    console.log('[Reset] Clearing app configurations...');
     await appConfigService.clearAppConfigs();
-    
-    console.log('[Reset] Clearing API credentials...');
     await apiCredentialsService.clearCredentials();
     
-    console.log('[Reset] Clearing Steam authentication...');
-    await steamAuthService.clearAuth();
-    
-    console.log('[Reset] Clearing image cache...');
-    await imageCacheService.clearCache();
-    
-    // Reinitialize IGDB service (will be null since credentials are cleared)
-    console.log('[Reset] Reinitializing IGDB service...');
+    // Reinitialize services (will be null since credentials are cleared)
     await initializeIGDBService();
+    await initializeSteamGridDBService();
+    // Update metadata fetcher to remove providers that are no longer available
+    updateMetadataFetcher();
     
-    console.log('[Reset] Complete app reset successful');
     return { success: true };
   } catch (error) {
     console.error('Error in app:reset handler:', error);
@@ -998,11 +989,21 @@ ipcMain.handle('app:reset', async () => {
 // Metadata fetcher IPC handlers
 ipcMain.handle('metadata:searchArtwork', async (_event, title: string, steamAppId?: string) => {
   try {
-    const metadata = await metadataFetcher.searchArtwork(title, steamAppId);
+    const metadata = await withTimeout(
+      metadataFetcher.searchArtwork(title, steamAppId),
+      15000, // 15 seconds - artwork fetching should be faster
+      `Artwork fetch timeout for "${title}"`
+    );
     return metadata;
   } catch (error) {
     console.error('Error in metadata:searchArtwork handler:', error);
-    return null;
+    // Return partial metadata instead of null to allow fallback
+    return {
+      boxArtUrl: undefined,
+      bannerUrl: undefined,
+      logoUrl: undefined,
+      heroUrl: undefined,
+    };
   }
 });
 
@@ -1010,25 +1011,38 @@ ipcMain.handle('metadata:fetchAndUpdate', async (_event, gameId: string, title: 
   try {
     // Extract Steam App ID if it's a Steam game
     const steamAppId = gameId.startsWith('steam-') ? gameId.replace('steam-', '') : undefined;
-    const metadata = await metadataFetcher.searchArtwork(title, steamAppId);
+    const metadata = await withTimeout(
+      metadataFetcher.searchArtwork(title, steamAppId),
+      20000, // 20 seconds for full metadata fetch
+      `Metadata fetch timeout for "${title}"`
+    );
     
     // Check if local storage is enabled
     const prefs = await userPreferencesService.getPreferences();
     let finalMetadata = metadata;
     
     if (prefs.storeMetadataLocally !== false) { // Default to true
-      // Cache images locally
-      const cachedImages = await imageCacheService.cacheImages({
-        boxArtUrl: metadata.boxArtUrl,
-        bannerUrl: metadata.bannerUrl,
-        logoUrl: metadata.logoUrl,
-        heroUrl: metadata.heroUrl,
-      }, gameId);
-      
-      finalMetadata = {
-        ...metadata,
-        ...cachedImages,
-      };
+      // Cache images locally with timeout
+      try {
+        const cachedImages = await withTimeout(
+          imageCacheService.cacheImages({
+            boxArtUrl: metadata.boxArtUrl,
+            bannerUrl: metadata.bannerUrl,
+            logoUrl: metadata.logoUrl,
+            heroUrl: metadata.heroUrl,
+          }, gameId),
+          10000, // 10 seconds for image caching
+          `Image cache timeout for "${title}"`
+        );
+        
+        finalMetadata = {
+          ...metadata,
+          ...cachedImages,
+        };
+      } catch (cacheError) {
+        console.warn(`[ImageCache] Failed to cache images for ${title}:`, cacheError);
+        // Continue with uncached metadata
+      }
     }
     
     const success = await gameStore.updateGameMetadata(
@@ -1047,12 +1061,27 @@ ipcMain.handle('metadata:fetchAndUpdate', async (_event, gameId: string, title: 
 
 ipcMain.handle('metadata:setIGDBConfig', async (_event, config: IGDBConfig) => {
   try {
-    // Create IGDB service with new config
-    igdbService = new IGDBService(config.clientId, config.accessToken);
-    updateMetadataFetcher();
-    return true;
+    // This handler is deprecated - use api:saveCredentials instead
+    // But for backward compatibility, we'll still handle it
+    // Note: IGDBConfig uses accessToken but IGDBService needs clientSecret
+    // This is a legacy issue - prefer using api:saveCredentials
+    console.warn('metadata:setIGDBConfig is deprecated. Use api:saveCredentials instead.');
+    
+    // Only create service if both clientId and accessToken (used as clientSecret) are provided
+    if (config.clientId && config.accessToken) {
+      igdbService = new IGDBService(config.clientId, config.accessToken);
+      updateMetadataFetcher();
+      return true;
+    } else {
+      // Clear IGDB service if credentials are not provided
+      igdbService = null;
+      updateMetadataFetcher();
+      return true;
+    }
   } catch (error) {
     console.error('Error in metadata:setIGDBConfig handler:', error);
+    igdbService = null;
+    updateMetadataFetcher();
     return false;
   }
 });
@@ -1070,7 +1099,27 @@ ipcMain.handle('metadata:searchMetadata', async (_event, gameTitle: string) => {
       return { success: false, error: 'IGDB service not configured. Please configure your API credentials in Settings > APIs.', results: [] };
     }
     
-    const results = await igdbService.searchGame(gameTitle);
+    let results;
+    try {
+      results = await withTimeout(
+        igdbService.searchGame(gameTitle),
+        20000, // 20 seconds for metadata search
+        `Metadata search timeout for "${gameTitle}"`
+      );
+    } catch (error: any) {
+      // If authentication fails, disable IGDB service
+      if (error?.message?.includes('authenticate') || error?.message?.includes('invalid')) {
+        console.error('IGDB authentication failed. Disabling IGDB service:', error.message);
+        igdbService = null;
+        updateMetadataFetcher();
+        return {
+          success: false,
+          error: 'IGDB credentials are invalid. Please check your API credentials in Settings > APIs.',
+          results: [],
+        };
+      }
+      throw error;
+    }
     
     // Fetch logos from SteamGridDB for each result if available
     const sgdbService = steamGridDBService;
@@ -1084,7 +1133,11 @@ ipcMain.handle('metadata:searchMetadata', async (_event, gameTitle: string) => {
             
             // Strategy 1: Search by exact IGDB game name
             try {
-              sgdbGames = await sgdbService.searchGame(result.name);
+              sgdbGames = await withTimeout(
+                sgdbService.searchGame(result.name),
+                8000, // Shorter timeout for individual searches
+                `SteamGridDB search timeout for "${result.name}"`
+              );
             } catch (err) {
               console.debug(`[Logo Search] Strategy 1 failed for "${result.name}":`, err);
             }
@@ -1092,7 +1145,11 @@ ipcMain.handle('metadata:searchMetadata', async (_event, gameTitle: string) => {
             // Strategy 2: If no results, try the original search query
             if (sgdbGames.length === 0 && gameTitle !== result.name) {
               try {
-                sgdbGames = await sgdbService.searchGame(gameTitle);
+                sgdbGames = await withTimeout(
+                  sgdbService.searchGame(gameTitle),
+                  8000,
+                  `SteamGridDB search timeout for "${gameTitle}"`
+                );
               } catch (err) {
                 console.debug(`[Logo Search] Strategy 2 failed for "${gameTitle}":`, err);
               }
@@ -1106,7 +1163,11 @@ ipcMain.handle('metadata:searchMetadata', async (_event, gameTitle: string) => {
                 .trim();
               if (simplifiedName !== result.name) {
                 try {
-                  sgdbGames = await sgdbService.searchGame(simplifiedName);
+                  sgdbGames = await withTimeout(
+                    sgdbService.searchGame(simplifiedName),
+                    8000,
+                    `SteamGridDB search timeout for "${simplifiedName}"`
+                  );
                 } catch (err) {
                   console.debug(`[Logo Search] Strategy 3 failed for "${simplifiedName}":`, err);
                 }
@@ -1119,7 +1180,11 @@ ipcMain.handle('metadata:searchMetadata', async (_event, gameTitle: string) => {
               const gameId = selectedGame.id;
               console.log(`[Logo Search] Found SteamGridDB game ${gameId} ("${selectedGame.name}") for "${result.name}", fetching logos...`);
               
-              const logos = await sgdbService.getLogos(gameId);
+              const logos = await withTimeout(
+                sgdbService.getLogos(gameId),
+                8000,
+                `SteamGridDB logo fetch timeout for game ${gameId}`
+              );
               
               if (logos.length > 0) {
                 // Filter out NSFW/humor/epilepsy content and get highest scored logo
@@ -1167,12 +1232,12 @@ ipcMain.handle('metadata:searchGames', async (_event, gameTitle: string) => {
   try {
     const results = await metadataFetcher.searchGames(gameTitle);
     
-    // Transform results to include additional info for display (year, platform, boxart)
+    // Transform results to include additional info for display
     const transformedResults = await Promise.all(
       results.map(async (result) => {
         const transformed: any = { ...result };
         
-        // Try to get more details including year, platform, and boxart
+        // Try to get more details if it's an IGDB result
         if (result.source === 'igdb' && result.externalId && igdbService) {
           try {
             // Search IGDB to get the full game details
@@ -1182,78 +1247,21 @@ ipcMain.handle('metadata:searchGames', async (_event, gameTitle: string) => {
             if (igdbResult) {
               // Extract year from release date
               if (igdbResult.releaseDate) {
-                // releaseDate is a Unix timestamp in seconds
                 const date = new Date(igdbResult.releaseDate * 1000);
                 transformed.year = date.getFullYear();
-                transformed.releaseDate = igdbResult.releaseDate;
               }
               // Extract platform
               if (igdbResult.platform) {
                 transformed.platform = igdbResult.platform;
               }
-              // Get boxart URL
-              if (igdbResult.coverUrl) {
-                transformed.boxArtUrl = igdbResult.coverUrl;
-                transformed.coverUrl = igdbResult.coverUrl;
-              }
             }
           } catch (err) {
             console.warn('Error fetching additional details for IGDB result:', err);
           }
-        } else if (result.source === 'steamgriddb' && result.externalId && metadataFetcher) {
-          try {
-            // For SteamGridDB, try to get artwork to extract boxart
-            const artwork = await metadataFetcher.searchArtwork(result.title, result.steamAppId);
-            if (artwork && artwork.boxArtUrl) {
-              transformed.boxArtUrl = artwork.boxArtUrl;
-              transformed.coverUrl = artwork.boxArtUrl;
-            }
-            // Try to get description to extract year
-            if (metadataFetcher.getIGDBProvider() && igdbService) {
-              // Try searching IGDB for this game to get year
-              const igdbResults = await igdbService.searchGame(result.title);
-              if (igdbResults.length > 0) {
-                const igdbResult = igdbResults[0];
-                if (igdbResult.releaseDate) {
-                  const date = new Date(igdbResult.releaseDate * 1000);
-                  transformed.year = date.getFullYear();
-                  transformed.releaseDate = igdbResult.releaseDate;
-                }
-                if (igdbResult.platform) {
-                  transformed.platform = igdbResult.platform;
-                }
-              }
-            }
-          } catch (err) {
-            console.warn('Error fetching additional details for SteamGridDB result:', err);
-          }
-        } else if (result.source === 'steam' && result.steamAppId) {
-          try {
-            // For Steam results, try to get artwork
-            const artwork = await metadataFetcher.searchArtwork(result.title, result.steamAppId);
-            if (artwork && artwork.boxArtUrl) {
-              transformed.boxArtUrl = artwork.boxArtUrl;
-              transformed.coverUrl = artwork.boxArtUrl;
-            }
-            // Try to get year from IGDB
-            if (igdbService) {
-              const igdbResults = await igdbService.searchGame(result.title);
-              if (igdbResults.length > 0) {
-                const igdbResult = igdbResults[0];
-                if (igdbResult.releaseDate) {
-                  const date = new Date(igdbResult.releaseDate * 1000);
-                  transformed.year = date.getFullYear();
-                  transformed.releaseDate = igdbResult.releaseDate;
-                }
-                if (igdbResult.platform) {
-                  transformed.platform = igdbResult.platform;
-                }
-              }
-            }
-          } catch (err) {
-            console.warn('Error fetching additional details for Steam result:', err);
-          }
         }
+        
+        // For SteamGridDB, the search results don't include year/platform in the basic search
+        // We could fetch game details, but that would be slow. For now, just return basic info.
         
         return transformed;
       })
@@ -1390,38 +1398,8 @@ ipcMain.handle('metadata:refreshAll', async (event, options?: { allGames?: boole
         // This finds boxart even when exact game match isn't found
         let metadata: { boxArtUrl?: string; bannerUrl?: string; logoUrl?: string; heroUrl?: string } = {};
         
-        // PRIORITY 1: If we have a Steam App ID, fetch official Steam CDN images FIRST
-        if (steamAppId) {
-          sendProgress({ 
-            current, 
-            total: totalGames, 
-            message: `Fetching official Steam images for ${game.title}...`,
-            gameTitle: game.title
-          });
-          
-          try {
-            // Use metadataFetcher which will prioritize Steam CDN when steamAppId is provided
-            const steamMetadata = await metadataFetcher.searchArtwork(game.title, steamAppId);
-            
-            if (steamMetadata.boxArtUrl) {
-              metadata.boxArtUrl = steamMetadata.boxArtUrl;
-              console.log(`[RefreshAll] Found official Steam boxart for ${game.title}: ${steamMetadata.boxArtUrl.substring(0, 80)}...`);
-            }
-            if (steamMetadata.bannerUrl) {
-              metadata.bannerUrl = steamMetadata.bannerUrl;
-              console.log(`[RefreshAll] Found official Steam banner for ${game.title}: ${steamMetadata.bannerUrl.substring(0, 80)}...`);
-            }
-            if (steamMetadata.logoUrl) {
-              metadata.logoUrl = steamMetadata.logoUrl;
-              console.log(`[RefreshAll] Found official Steam logo for ${game.title}: ${steamMetadata.logoUrl.substring(0, 80)}...`);
-            }
-          } catch (error) {
-            console.warn(`[RefreshAll] Failed to fetch official Steam images for ${game.title}:`, error instanceof Error ? error.message : error);
-          }
-        }
-        
-        // PRIORITY 2: If we still don't have all images, try SteamGridDB search
-        if (steamGridDBService && (!metadata.boxArtUrl || !metadata.bannerUrl || !metadata.logoUrl)) {
+        // First, try direct SteamGridDB search (same as manual search)
+        if (steamGridDBService) {
           try {
             sendProgress({ 
               current, 
@@ -1598,9 +1576,8 @@ ipcMain.handle('metadata:refreshAll', async (event, options?: { allGames?: boole
           }
         }
         
-        // If we still don't have all three and we don't have a Steam App ID, try Steam CDN as fallback
-        // (If we have steamAppId, we already checked Steam CDN first, so skip to avoid duplicate requests)
-        if ((!metadata.boxArtUrl || !metadata.bannerUrl || !metadata.logoUrl) && !steamAppId) {
+        // If we still don't have all three, try all sources for all game types
+        if (!metadata.boxArtUrl || !metadata.bannerUrl || !metadata.logoUrl) {
           sendProgress({ 
             current, 
             total: totalGames, 
@@ -1609,7 +1586,7 @@ ipcMain.handle('metadata:refreshAll', async (event, options?: { allGames?: boole
           });
           
           try {
-            const steamMetadata = await metadataFetcher.searchArtwork(game.title, undefined);
+            const steamMetadata = await metadataFetcher.searchArtwork(game.title, steamAppId);
             if (steamMetadata.boxArtUrl && !metadata.boxArtUrl) {
               metadata.boxArtUrl = steamMetadata.boxArtUrl;
               console.log(`[RefreshAll] Found Steam CDN boxart for ${game.title}: ${steamMetadata.boxArtUrl.substring(0, 80)}...`);
@@ -1958,33 +1935,15 @@ ipcMain.handle('metadata:fetchAndUpdateByProviderId', async (_event, gameId: str
         return { success: false, error: 'Invalid IGDB ID or service not available' };
       }
       
-      try {
-        // Search IGDB for the specific game by ID
-        const igdbResults = await igdbService.searchGame(String(igdbGameId));
-        const igdbResult = igdbResults.find(r => r.id === igdbGameId) || igdbResults[0];
-        
-        if (igdbResult) {
-          // Use the game title from IGDB result to fetch complete metadata
-          metadata = await metadataFetcher.searchArtwork(igdbResult.name, steamAppId);
-        } else {
-          // If IGDB search by ID fails, try searching by game title as fallback
-          console.log(`[fetchAndUpdateByProviderId] IGDB ID ${igdbGameId} not found, trying search by title: ${game.title}`);
-          metadata = await metadataFetcher.searchArtwork(game.title, steamAppId);
-          if (!metadata || (!metadata.boxArtUrl && !metadata.bannerUrl)) {
-            return { success: false, error: 'Game not found in IGDB and no metadata available' };
-          }
-        }
-      } catch (err) {
-        // If IGDB search fails, try searching by game title as fallback
-        console.log(`[fetchAndUpdateByProviderId] IGDB search failed, trying search by title: ${game.title}`, err);
-        try {
-          metadata = await metadataFetcher.searchArtwork(game.title, steamAppId);
-          if (!metadata || (!metadata.boxArtUrl && !metadata.bannerUrl)) {
-            return { success: false, error: 'Game not found in IGDB and no metadata available' };
-          }
-        } catch (fallbackErr) {
-          return { success: false, error: 'Game not found in IGDB' };
-        }
+      // Search IGDB for the specific game by ID
+      const igdbResults = await igdbService.searchGame(String(igdbGameId));
+      const igdbResult = igdbResults.find(r => r.id === igdbGameId) || igdbResults[0];
+      
+      if (igdbResult) {
+        // Use the game title from IGDB result to fetch complete metadata
+        metadata = await metadataFetcher.searchArtwork(igdbResult.name, steamAppId);
+      } else {
+        return { success: false, error: 'Game not found in IGDB' };
       }
     } else if (providerSource === 'steamgriddb') {
       // Extract SteamGridDB game ID from provider ID (format: "steamgriddb-123")
@@ -2126,16 +2085,6 @@ ipcMain.handle('dialog:showOpenDialog', async () => {
 });
 
 // Image file dialog handler for selecting custom assets
-ipcMain.handle('imageCache:deleteImage', async (_event, gameId: string, imageType: 'boxart' | 'banner' | 'logo' | 'hero') => {
-  try {
-    await imageCacheService.deleteCachedImage(gameId, imageType);
-    return { success: true };
-  } catch (error) {
-    console.error('Error deleting cached image:', error);
-    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
-  }
-});
-
 ipcMain.handle('dialog:showImageDialog', async () => {
   try {
     const targetWindow = BrowserWindow.getFocusedWindow() || win;
@@ -2144,8 +2093,7 @@ ipcMain.handle('dialog:showImageDialog', async () => {
     const result = await dialog.showOpenDialog(targetWindow || undefined, {
       properties: ['openFile'],
       filters: [
-        { name: 'Images', extensions: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'apng', 'webm'] },
-        { name: 'Animated Images', extensions: ['gif', 'webp', 'apng', 'webm'] },
+        { name: 'Images', extensions: ['jpg', 'jpeg', 'png', 'gif', 'webp'] },
         { name: 'All Files', extensions: ['*'] },
       ],
     });
@@ -2277,8 +2225,20 @@ ipcMain.handle('import:scanFolderForExecutables', async (_event, folderPath: str
       // Check exact matches first for common helper executables
       if (lowerName === 'gamelaunchhelper.exe' || 
           lowerName === 'bootstrapper.exe' ||
+          lowerName === 'crashreportclient.exe' ||
+          lowerName === 'battlenet.overlay.runtime.exe' ||
+          lowerName === 'crashpad_handler.exe' ||
+          lowerName === 'embark-crash-helper.exe' ||
+          lowerName === 'blizzardbrowser.exe' ||
+          lowerName === 'blizzarderror.exe' ||
           lowerName === 'gamelaunchhelper' ||
-          lowerName === 'bootstrapper') {
+          lowerName === 'bootstrapper' ||
+          lowerName === 'crashreportclient' ||
+          lowerName === 'battlenet.overlay.runtime' ||
+          lowerName === 'crashpad_handler' ||
+          lowerName === 'embark-crash-helper' ||
+          lowerName === 'blizzardbrowser' ||
+          lowerName === 'blizzarderror') {
         return true;
       }
       return excludePatterns.some(pattern => pattern.test(lowerName));
@@ -2701,85 +2661,23 @@ ipcMain.handle('import:scanAllSources', async () => {
   }
 });
 
-ipcMain.handle('import:scanFolder', async (_event, folderPath: string) => {
-  try {
-    const results = await importService.scanFolderForExecutables(folderPath);
-    return { success: true, games: results };
-  } catch (error) {
-    console.error('Error in import:scanFolder handler:', error);
-    return { success: false, error: error instanceof Error ? error.message : 'Unknown error', games: [] };
-  }
-});
-
 // Search for specific image types from SteamGridDB
 ipcMain.handle('metadata:searchImages', async (_event, query: string, imageType: 'boxart' | 'banner' | 'logo', steamAppId?: string) => {
   try {
-    const imageResults: Array<{ gameId: number; gameName: string; images: Array<{ url: string; score: number; width: number; height: number; mime?: string; isAnimated?: boolean }> }> = [];
-    
-    // If we have a Steam App ID, fetch official Steam CDN images first (highest priority)
-    if (steamAppId) {
-      try {
-        // Use metadataFetcher to get Steam artwork (it will use Steam provider internally)
-        const steamArtwork = await metadataFetcher.searchArtwork(query, steamAppId);
-        
-        if (steamArtwork) {
-          const steamImages: Array<{ url: string; score: number; width: number; height: number; mime?: string; isAnimated?: boolean }> = [];
-          
-          if (imageType === 'boxart' && steamArtwork.boxArtUrl) {
-            steamImages.push({
-              url: steamArtwork.boxArtUrl,
-              score: 1000, // High score for official Steam images
-              width: 600,
-              height: 900,
-              mime: 'image/jpeg',
-              isAnimated: false,
-            });
-          } else if (imageType === 'banner' && steamArtwork.bannerUrl) {
-            steamImages.push({
-              url: steamArtwork.bannerUrl,
-              score: 1000, // High score for official Steam images
-              width: 1920,
-              height: 620,
-              mime: 'image/jpeg',
-              isAnimated: false,
-            });
-          } else if (imageType === 'logo' && steamArtwork.logoUrl) {
-            steamImages.push({
-              url: steamArtwork.logoUrl,
-              score: 1000, // High score for official Steam images
-              width: 467,
-              height: 87,
-              mime: 'image/png',
-              isAnimated: false,
-            });
-          }
-          
-          if (steamImages.length > 0) {
-            imageResults.push({
-              gameId: parseInt(steamAppId, 10),
-              gameName: `Official Steam Images (App ID: ${steamAppId})`,
-              images: steamImages,
-            });
-          }
-        }
-      } catch (err) {
-        console.warn(`Error fetching Steam CDN images for App ID ${steamAppId}:`, err);
-      }
-    }
-    
-    // Also search SteamGridDB for community images
     if (!steamGridDBService) {
-      return { success: true, images: imageResults };
+      return { success: false, error: 'SteamGridDB service not available', images: [] };
     }
 
     // Search for games on SteamGridDB
     const games = await steamGridDBService.searchGame(query);
     
     if (games.length === 0) {
-      return { success: true, images: imageResults };
+      return { success: true, images: [] };
     }
 
     // Fetch images for each game (limit to 10 games)
+    const imageResults: Array<{ gameId: number; gameName: string; images: Array<{ url: string; score: number; width: number; height: number; mime?: string; isAnimated?: boolean }> }> = [];
+    
     for (const game of games.slice(0, 10)) {
       try {
         let images: Array<{ url: string; score: number; width: number; height: number; mime?: string; isAnimated?: boolean }> = [];
@@ -2872,7 +2770,7 @@ ipcMain.handle('preferences:get', async () => {
   }
 });
 
-ipcMain.handle('preferences:save', async (_event, preferences: { gridSize?: number; panelWidth?: number; fanartHeight?: number; descriptionHeight?: number; pinnedCategories?: string[]; minimizeToTray?: boolean; showSystemTrayIcon?: boolean; startWithComputer?: boolean; startClosedToTray?: boolean; updateLibrariesOnStartup?: boolean; activeGameId?: string | null; hideVRTitles?: boolean; hideAppsTitles?: boolean; hideGameTitles?: boolean; gameTilePadding?: number; ignoredGames?: string[]; windowState?: { x?: number; y?: number; width?: number; height?: number; isMaximized?: boolean } }) => {
+ipcMain.handle('preferences:save', async (_event, preferences: { gridSize?: number; panelWidth?: number; fanartHeight?: number; descriptionHeight?: number; pinnedCategories?: string[]; minimizeToTray?: boolean; showSystemTrayIcon?: boolean; startWithComputer?: boolean; startClosedToTray?: boolean; updateLibrariesOnStartup?: boolean; activeGameId?: string | null; hideVRTitles?: boolean; hideGameTitles?: boolean; gameTilePadding?: number; ignoredGames?: string[]; windowState?: { x?: number; y?: number; width?: number; height?: number; isMaximized?: boolean } }) => {
   try {
     await userPreferencesService.savePreferences(preferences);
     return { success: true };

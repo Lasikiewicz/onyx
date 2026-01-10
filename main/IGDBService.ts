@@ -45,11 +45,23 @@ interface AccessTokenCache {
   expiresAt: number;
 }
 
+interface QueuedRequest<T> {
+  execute: () => Promise<T>;
+  resolve: (value: T) => void;
+  reject: (error: any) => void;
+}
+
 export class IGDBService {
   private clientId: string;
   private clientSecret: string;
   private accessTokenCache: AccessTokenCache | null = null;
   private axiosInstance: AxiosInstance;
+  private requestQueue: QueuedRequest<any>[] = [];
+  private processingQueue = false;
+  private lastRequestTime = 0;
+  private readonly MIN_REQUEST_INTERVAL = 250; // 250ms between requests (4 requests/second max)
+  private readonly MAX_CONCURRENT_REQUESTS = 2; // Max 2 concurrent requests
+  private activeRequests = 0;
 
   constructor(clientId: string, clientSecret: string) {
     this.clientId = clientId;
@@ -57,6 +69,129 @@ export class IGDBService {
     this.axiosInstance = axios.create({
       baseURL: 'https://api.igdb.com/v4',
     });
+  }
+
+  /**
+   * Queue a request to prevent rate limiting
+   */
+  private async queueRequest<T>(execute: () => Promise<T>): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
+      this.requestQueue.push({ execute, resolve, reject });
+      this.processQueue();
+    });
+  }
+
+  /**
+   * Process the request queue with rate limiting
+   */
+  private async processQueue(): Promise<void> {
+    if (this.processingQueue || this.requestQueue.length === 0) {
+      return;
+    }
+
+    this.processingQueue = true;
+
+    while (this.requestQueue.length > 0) {
+      // Wait if we have too many concurrent requests
+      while (this.activeRequests >= this.MAX_CONCURRENT_REQUESTS) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+
+      // Ensure minimum interval between requests
+      const timeSinceLastRequest = Date.now() - this.lastRequestTime;
+      if (timeSinceLastRequest < this.MIN_REQUEST_INTERVAL) {
+        await new Promise(resolve => setTimeout(resolve, this.MIN_REQUEST_INTERVAL - timeSinceLastRequest));
+      }
+
+      const request = this.requestQueue.shift();
+      if (!request) break;
+
+      this.activeRequests++;
+      this.lastRequestTime = Date.now();
+
+      request.execute()
+        .then(request.resolve)
+        .catch(request.reject)
+        .finally(() => {
+          this.activeRequests--;
+          // Continue processing queue
+          setImmediate(() => this.processQueue());
+        });
+    }
+
+    this.processingQueue = false;
+  }
+
+  /**
+   * Retry a request with exponential backoff on 429 errors
+   */
+  private async retryRequest<T>(
+    execute: () => Promise<T>,
+    maxRetries = 3,
+    baseDelay = 1000
+  ): Promise<T> {
+    let lastError: any;
+    
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        return await execute();
+      } catch (error: any) {
+        lastError = error;
+        
+        // Only retry on 429 (Too Many Requests) errors
+        const isRateLimit = axios.isAxiosError(error) && error.response?.status === 429;
+        
+        if (!isRateLimit || attempt === maxRetries) {
+          throw error;
+        }
+
+        // Exponential backoff: 1s, 2s, 4s
+        const delay = baseDelay * Math.pow(2, attempt);
+        console.warn(`[IGDB] Rate limited (429), retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+
+    throw lastError;
+  }
+
+  /**
+   * Validate credentials by attempting to get an access token
+   * Returns true if credentials are valid, false otherwise
+   */
+  async validateCredentials(): Promise<boolean> {
+    try {
+      const response = await axios.post('https://id.twitch.tv/oauth2/token', null, {
+        params: {
+          client_id: this.clientId,
+          client_secret: this.clientSecret,
+          grant_type: 'client_credentials',
+        },
+      });
+
+      if (response.data && response.data.access_token) {
+        // Cache the token if validation succeeds
+        const { access_token, expires_in } = response.data;
+        this.accessTokenCache = {
+          token: access_token,
+          expiresAt: Date.now() + (expires_in - 60) * 1000,
+        };
+        return true;
+      }
+      return false;
+    } catch (error: any) {
+      // Check if it's an authentication error (403, 401, or invalid client secret)
+      if (axios.isAxiosError(error)) {
+        const status = error.response?.status;
+        const message = error.response?.data?.message || '';
+        if (status === 403 || status === 401 || message.includes('invalid client')) {
+          console.error('IGDB credentials are invalid:', message || error.message);
+          return false;
+        }
+      }
+      console.error('Error validating IGDB credentials:', error);
+      return false;
+    }
   }
 
   /**
@@ -88,8 +223,16 @@ export class IGDBService {
       };
 
       return access_token;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching IGDB access token:', error);
+      // Check if it's an authentication error
+      if (axios.isAxiosError(error)) {
+        const status = error.response?.status;
+        const message = error.response?.data?.message || '';
+        if (status === 403 || status === 401 || message.includes('invalid client')) {
+          throw new Error('IGDB credentials are invalid. Please check your API credentials in Settings > APIs.');
+        }
+      }
       throw new Error('Failed to authenticate with IGDB API');
     }
   }
@@ -116,25 +259,27 @@ export class IGDBService {
   }
 
   /**
-   * Search for games using IGDB API
+   * Search for games using IGDB API with rate limiting and retry logic
    */
   async searchGame(query: string): Promise<IGDBGameResult[]> {
-    try {
-      const accessToken = await this.getAccessToken();
+    return this.queueRequest(async () => {
+      return this.retryRequest(async () => {
+        try {
+          const accessToken = await this.getAccessToken();
 
-      // Build the query string with all required fields
-      // Note: age_ratings returns IDs, we'll fetch details separately
-      const queryBody = `fields name, summary, cover.url, screenshots.url, rating, first_release_date, genres.name, platforms.name, age_ratings, category;
+          // Build the query string with all required fields
+          // Note: age_ratings returns IDs, we'll fetch details separately
+          const queryBody = `fields name, summary, cover.url, screenshots.url, rating, first_release_date, genres.name, platforms.name, age_ratings, category;
 search "${query}";
 limit 10;`;
 
-      const response = await this.axiosInstance.post<IGDBGame[]>('/games', queryBody, {
-        headers: {
-          'Client-ID': this.clientId,
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'text/plain',
-        },
-      });
+          const response = await this.axiosInstance.post<IGDBGame[]>('/games', queryBody, {
+            headers: {
+              'Client-ID': this.clientId,
+              'Authorization': `Bearer ${accessToken}`,
+              'Content-Type': 'text/plain',
+            },
+          });
 
       // Collect all age rating IDs to fetch in one batch
       const ageRatingIds: number[] = [];
@@ -159,17 +304,21 @@ limit 10;`;
 where id = (${uniqueIds.join(',')});
 limit 50;`;
 
-          const ageRatingResponse = await this.axiosInstance.post<Array<{ id: number; rating: number; category: number }>>(
-            '/age_ratings',
-            ageRatingQuery,
-            {
-              headers: {
-                'Client-ID': this.clientId,
-                'Authorization': `Bearer ${accessToken}`,
-                'Content-Type': 'text/plain',
-              },
-            }
-          );
+          const ageRatingResponse = await this.queueRequest(async () => {
+            return this.retryRequest(async () => {
+              return await this.axiosInstance.post<Array<{ id: number; rating: number; category: number }>>(
+                '/age_ratings',
+                ageRatingQuery,
+                {
+                  headers: {
+                    'Client-ID': this.clientId,
+                    'Authorization': `Bearer ${accessToken}`,
+                    'Content-Type': 'text/plain',
+                  },
+                }
+              );
+            });
+          });
 
           ageRatingResponse.data.forEach((ar) => {
             ageRatingMap.set(ar.id, { rating: ar.rating, category: ar.category });
@@ -304,15 +453,23 @@ limit 50;`;
         return result;
       });
 
-      return results;
-    } catch (error) {
-      console.error('Error searching IGDB:', error);
-      if (axios.isAxiosError(error)) {
-        throw new Error(
-          `IGDB API error: ${error.response?.status} ${error.response?.statusText || error.message}`
-        );
-      }
-      throw error;
-    }
+          return results;
+        } catch (error) {
+          console.error('Error searching IGDB:', error);
+          if (axios.isAxiosError(error)) {
+            const status = error.response?.status;
+            const statusText = error.response?.statusText || error.message;
+            
+            // For 429 errors, let retry logic handle it
+            if (status === 429) {
+              throw error; // Will be caught by retryRequest
+            }
+            
+            throw new Error(`IGDB API error: ${status} ${statusText}`);
+          }
+          throw error;
+        }
+      });
+    });
   }
 }

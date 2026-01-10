@@ -24,6 +24,7 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
   const [isImporting, setIsImporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [ignoredGames, setIgnoredGames] = useState<Set<string>>(new Set());
+  const [scanProgressMessage, setScanProgressMessage] = useState<string>('');
   const [showIgnored, setShowIgnored] = useState(false);
   const [showImageSearch, setShowImageSearch] = useState<{ type: 'boxart' | 'banner' | 'logo'; gameId: string } | null>(null);
   const [imageSearchQuery, setImageSearchQuery] = useState('');
@@ -65,12 +66,21 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
       xbox: [],
       ubisoft: [],
       rockstar: [],
+      ea: [],
+      battle: [],
       manual_file: [],
       manual_folder: [],
     };
 
     visibleGames.forEach(game => {
-      groups[game.source].push(game);
+      // Safety check: ensure the source exists in groups before pushing
+      if (groups[game.source]) {
+        groups[game.source].push(game);
+      } else {
+        // Fallback: if source is unknown, add to manual_folder group
+        console.warn(`Unknown game source: ${game.source}, defaulting to manual_folder`);
+        groups.manual_folder.push(game);
+      }
     });
 
     return groups;
@@ -240,10 +250,35 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
       // Process games one by one and add them to queue as they're found
       for (const scanned of gamesToProcess) {
         const stagedGame = await (async (): Promise<StagedGame> => {
+          // Try to find match for games to get Steam App ID
+          let steamAppId = scanned.appId;
+          let matchedTitle = scanned.title;
+          let matchedResult: any = null;
+          
+          try {
+            // Step 1: Search with the provided name
+            const searchResponse = await window.electronAPI.searchGames(scanned.title);
+            
+            if (searchResponse && (searchResponse.success !== false) && searchResponse.results && searchResponse.results.length > 0) {
+              // Step 2: Find first Steam result with an App ID (preferred)
+              const steamResult = searchResponse.results.find((r: any) => r.steamAppId);
+              
+              if (steamResult && steamResult.steamAppId) {
+                steamAppId = steamResult.steamAppId.toString();
+                matchedTitle = steamResult.title || steamResult.name || scanned.title;
+                matchedResult = steamResult;
+              }
+            }
+          } catch (err) {
+            // Ignore search errors during staging - will search again later
+          }
+          
           // Check if game is ignored
-          const gameId = scanned.source === 'steam' && scanned.appId
+          // If we found a Steam App ID, use it for the game ID (even if source isn't 'steam')
+          const hasSteamAppId = steamAppId && steamAppId.match(/^\d+$/);
+          const gameId = (scanned.source === 'steam' && scanned.appId)
             ? `steam-${scanned.appId}`
-            : scanned.uuid;
+            : (hasSteamAppId ? `steam-${steamAppId}` : scanned.uuid);
           const isIgnored = ignoredGames.has(gameId);
 
           // For folder scans, games need metadata matching
@@ -263,87 +298,31 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
           let rating = 0;
           let platform = '';
 
-          // Try to find match for games
-          let steamAppId = scanned.appId;
-          let matchedTitle = scanned.title;
-          let matchedResult: any = null;
-          
-          try {
-            // Step 1: Search with the provided name
-            const searchResponse = await window.electronAPI.searchGames(scanned.title);
-            
-            if (searchResponse && (searchResponse.success !== false) && searchResponse.results && searchResponse.results.length > 0) {
-              // Step 2: Find first Steam result with an App ID (preferred)
-              const steamResult = searchResponse.results.find((r: any) => r.steamAppId);
-              
-              if (steamResult && steamResult.steamAppId) {
-                steamAppId = steamResult.steamAppId.toString();
-                matchedTitle = steamResult.title || steamResult.name || scanned.title;
-                matchedResult = steamResult;
-              } else {
-                // Step 2b: If no Steam result, use first IGDB result
-                const igdbResult = searchResponse.results.find((r: any) => r.source === 'igdb');
-                if (igdbResult) {
-                  matchedTitle = igdbResult.title || igdbResult.name || scanned.title;
-                  matchedResult = igdbResult;
-                } else {
-                  // Step 2c: Use first result of any type
-                  const firstResult = searchResponse.results[0];
-                  if (firstResult) {
-                    matchedTitle = firstResult.title || firstResult.name || scanned.title;
-                    matchedResult = firstResult;
-                  }
-                }
-              }
-            }
-          } catch (err) {
-            console.warn(`[ImportWorkbench] Error searching for match for "${scanned.title}":`, err);
-          }
+          // steamAppId and matchedTitle are already set above if found
 
           if (steamAppId || matchedResult) {
-            // Game has a found match
+            // Game has a found match - fetch complete metadata from searchArtwork
+            // searchArtwork now returns full metadata (images + text) from Steam Store API when Steam App ID is available
             try {
-              const [artworkResult, metadataResult] = await Promise.allSettled([
-                window.electronAPI.searchArtwork(matchedTitle, steamAppId),
-                window.electronAPI.searchMetadata(matchedTitle),
-              ]);
+              const artworkResult = await window.electronAPI.searchArtwork(matchedTitle, steamAppId);
 
-              if (artworkResult.status === 'fulfilled') {
-                metadata = artworkResult.value;
-              }
-
-              let igdbResult: any = null;
-              if (metadataResult.status === 'fulfilled' && metadataResult.value.success && metadataResult.value.results?.length > 0) {
-                igdbResult = metadataResult.value.results[0];
-              }
-
-              if (metadata || igdbResult) {
-                const formatReleaseDate = (timestamp?: number): string => {
-                  if (!timestamp) return '';
-                  const date = new Date(timestamp * 1000);
-                  return date.toISOString().split('T')[0];
-                };
-
-                boxArtUrl = metadata?.boxArtUrl || '';
-                bannerUrl = metadata?.bannerUrl || '';
-                logoUrl = metadata?.logoUrl || '';
-                heroUrl = metadata?.heroUrl || '';
-                description = (metadata?.description || metadata?.summary || igdbResult?.summary || '').trim();
+              if (artworkResult) {
+                metadata = artworkResult;
                 
-                if (metadata?.releaseDate) {
-                  releaseDate = metadata.releaseDate;
-                } else if (igdbResult?.releaseDate) {
-                  releaseDate = formatReleaseDate(igdbResult.releaseDate);
-                }
-                releaseDate = releaseDate.trim();
-                
-                genres = (metadata?.genres && metadata.genres.length > 0) ? metadata.genres : (igdbResult?.genres && igdbResult.genres.length > 0 ? igdbResult.genres : []);
-                categories = (metadata?.categories && metadata.categories.length > 0) ? metadata.categories : (igdbResult?.categories && igdbResult.categories.length > 0 ? igdbResult.categories : []);
-                ageRating = (metadata?.ageRating || igdbResult?.ageRating || '').trim();
-                rating = metadata?.rating || igdbResult?.rating || 0;
-                platform = metadata?.platforms?.join(', ') || metadata?.platform || igdbResult?.platform || scanned.source;
-                developers = metadata?.developers || [];
-                publishers = metadata?.publishers || [];
+                // Extract all fields from the metadata
+                boxArtUrl = metadata.boxArtUrl || '';
+                bannerUrl = metadata.bannerUrl || '';
+                logoUrl = metadata.logoUrl || '';
+                heroUrl = metadata.heroUrl || '';
+                description = (metadata.description || metadata.summary || '').trim();
+                releaseDate = (metadata.releaseDate || '').trim();
+                genres = metadata.genres || [];
+                categories = metadata.categories || [];
+                ageRating = (metadata.ageRating || '').trim();
+                rating = metadata.rating || 0;
+                platform = metadata.platforms?.join(', ') || metadata.platform || scanned.source;
+                developers = metadata.developers || [];
+                publishers = metadata.publishers || [];
 
                 metadata = {
                   ...metadata,
@@ -371,22 +350,19 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
           } else {
             // No match found - try one more time with just the title
             try {
-              const [artworkResult, metadataResult] = await Promise.allSettled([
-                window.electronAPI.searchArtwork(scanned.title),
-                window.electronAPI.searchMetadata(scanned.title),
-              ]);
+              const artworkResult = await window.electronAPI.searchArtwork(scanned.title);
 
-              if (artworkResult.status === 'fulfilled' && artworkResult.value) {
-                metadata = artworkResult.value;
+              if (artworkResult) {
+                metadata = artworkResult;
                 boxArtUrl = metadata.boxArtUrl || '';
                 bannerUrl = metadata.bannerUrl || '';
                 logoUrl = metadata.logoUrl || '';
                 heroUrl = metadata.heroUrl || '';
-                description = metadata.description || metadata.summary || '';
-                releaseDate = metadata.releaseDate || '';
+                description = (metadata.description || metadata.summary || '').trim();
+                releaseDate = (metadata.releaseDate || '').trim();
                 genres = metadata.genres || [];
                 categories = metadata.categories || [];
-                ageRating = metadata.ageRating || '';
+                ageRating = (metadata.ageRating || '').trim();
                 rating = metadata.rating || 0;
                 platform = metadata.platforms?.join(', ') || metadata.platform || scanned.source;
                 developers = metadata.developers || [];
@@ -467,9 +443,15 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
 
     setIsScanning(true);
     setError(null);
+    setScanProgressMessage('Preparing scan...');
+    
+    // Small delay to ensure UI updates and listener is ready
+    await new Promise(resolve => setTimeout(resolve, 100));
 
     try {
+      console.log('[ImportWorkbench] Calling scanAllSources...');
       const result = await window.electronAPI.scanAllSources();
+      console.log('[ImportWorkbench] scanAllSources returned:', result);
       
       if (!result.success) {
         setError(result.error || 'Failed to scan sources');
@@ -523,14 +505,60 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
 
       // Convert scanned results to StagedGame objects - process progressively
       const stagedGames: StagedGame[] = [];
+      const totalGames = gamesToProcess.length;
+      let processedCount = 0;
+      let skippedCount = 0;
+      
+      if (totalGames > 0) {
+        setScanProgressMessage(`Processing ${totalGames} game${totalGames !== 1 ? 's' : ''} and fetching metadata...`);
+      }
       
       // Process games one by one and add them to queue as they're found
-      for (const scanned of gamesToProcess) {
-        const stagedGame = await (async (): Promise<StagedGame> => {
-          // Check if game is ignored
+      for (let i = 0; i < gamesToProcess.length; i++) {
+        let stagedGame: StagedGame;
+        
+        try {
+          const scanned = gamesToProcess[i];
+          const currentIndex = i + 1;
+          
+          // Double-check if game already exists in library (skip if it does to avoid unnecessary API calls)
           const gameId = scanned.source === 'steam' && scanned.appId
             ? `steam-${scanned.appId}`
             : scanned.uuid;
+          
+          if (existingGameIds.has(gameId)) {
+            console.log(`[ImportWorkbench] Skipping ${scanned.title} - already in library (by gameId)`);
+            skippedCount++;
+            continue;
+          }
+          
+          // Check by exePath
+          if (scanned.exePath) {
+            const normalizedExePath = scanned.exePath.toLowerCase().replace(/\\/g, '/');
+            if (existingExePaths.has(normalizedExePath)) {
+              console.log(`[ImportWorkbench] Skipping ${scanned.title} - already in library (by exePath)`);
+              skippedCount++;
+              continue;
+            }
+          }
+          
+          // Check by installPath
+          if (scanned.installPath) {
+            const normalizedInstallPath = scanned.installPath.toLowerCase().replace(/\\/g, '/');
+            if (existingInstallPaths.has(normalizedInstallPath)) {
+              console.log(`[ImportWorkbench] Skipping ${scanned.title} - already in library (by installPath)`);
+              skippedCount++;
+              continue;
+            }
+          }
+          
+          processedCount++;
+          const newGamesCount = totalGames - skippedCount;
+          setScanProgressMessage(`Fetching metadata for ${scanned.title} (${processedCount}/${newGamesCount} new games)...`);
+          
+          stagedGame = await (async (): Promise<StagedGame> => {
+            try {
+          // Check if game is ignored
           const isIgnored = ignoredGames.has(gameId);
 
           // For Steam games with AppID, fetch full metadata immediately
@@ -557,8 +585,18 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
           
           if (!steamAppId && scanned.source !== 'steam') {
             try {
-              // Step 1: Search with the provided name
-              const searchResponse = await window.electronAPI.searchGames(scanned.title);
+              // Helper function to add timeout to promises
+              const withTimeout = <T,>(promise: Promise<T>, timeoutMs: number = 30000): Promise<T> => {
+                return Promise.race([
+                  promise,
+                  new Promise<T>((_, reject) => 
+                    setTimeout(() => reject(new Error(`Request timeout after ${timeoutMs}ms`)), timeoutMs)
+                  ),
+                ]);
+              };
+
+              // Step 1: Search with the provided name (with timeout)
+              const searchResponse = await withTimeout(window.electronAPI.searchGames(scanned.title), 30000);
               
               if (searchResponse && (searchResponse.success !== false) && searchResponse.results && searchResponse.results.length > 0) {
                 // Step 2: Find first Steam result with an App ID (preferred)
@@ -596,60 +634,40 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
 
           if (scanned.source === 'steam' && scanned.appId) {
             try {
-              // Always fetch metadata - try both searchArtwork and searchMetadata
-              const [artworkResult, metadataResult] = await Promise.allSettled([
-                window.electronAPI.searchArtwork(scanned.title, scanned.appId),
-                window.electronAPI.searchMetadata(scanned.title),
-              ]);
+              // Helper function to add timeout to promises
+              const withTimeout = <T,>(promise: Promise<T>, timeoutMs: number = 30000): Promise<T> => {
+                return Promise.race([
+                  promise,
+                  new Promise<T>((_, reject) => 
+                    setTimeout(() => reject(new Error(`Request timeout after ${timeoutMs}ms`)), timeoutMs)
+                  ),
+                ]);
+              };
 
-              // Get artwork metadata (this includes full metadata: images + text)
-              if (artworkResult.status === 'fulfilled') {
-                metadata = artworkResult.value;
-              }
+              // Always fetch metadata - searchArtwork now returns complete metadata (images + text)
+              const artworkResult = await withTimeout(window.electronAPI.searchArtwork(scanned.title, scanned.appId), 30000).catch(err => {
+                console.warn(`[ImportWorkbench] searchArtwork timeout/error for "${scanned.title}":`, err);
+                return null;
+              });
 
-              // Get IGDB metadata for text fields (as fallback if searchArtwork didn't return text)
-              let igdbResult: any = null;
-              if (metadataResult.status === 'fulfilled' && metadataResult.value.success && metadataResult.value.results?.length > 0) {
-                igdbResult = metadataResult.value.results[0];
-              }
-
-              // Merge results - searchArtwork provides complete metadata, use IGDB search as fallback
-              if (metadata || igdbResult) {
-                const formatReleaseDate = (timestamp?: number): string => {
-                  if (!timestamp) return '';
-                  const date = new Date(timestamp * 1000);
-                  return date.toISOString().split('T')[0];
-                };
-
-                // Extract images from artwork result (searchArtwork)
-                boxArtUrl = metadata?.boxArtUrl || '';
-                bannerUrl = metadata?.bannerUrl || '';
-                logoUrl = metadata?.logoUrl || '';
-                heroUrl = metadata?.heroUrl || '';
+              // Get artwork metadata (this includes full metadata: images + text from Steam Store API)
+              if (artworkResult) {
+                metadata = artworkResult;
                 
-                // Extract text metadata - prioritize searchArtwork (which includes developers/publishers), fallback to IGDB search
-                // searchArtwork returns complete GameMetadata including developers and publishers
-                description = (metadata?.description || metadata?.summary || igdbResult?.summary || '').trim();
-                
-                // Handle releaseDate - searchArtwork returns ISO string, IGDB search returns timestamp
-                if (metadata?.releaseDate) {
-                  releaseDate = metadata.releaseDate;
-                } else if (igdbResult?.releaseDate) {
-                  releaseDate = formatReleaseDate(igdbResult.releaseDate);
-                } else {
-                  releaseDate = '';
-                }
-                releaseDate = releaseDate.trim();
-                
-                genres = (metadata?.genres && metadata.genres.length > 0) ? metadata.genres : (igdbResult?.genres && igdbResult.genres.length > 0 ? igdbResult.genres : []);
-                categories = (metadata?.categories && metadata.categories.length > 0) ? metadata.categories : (igdbResult?.categories && igdbResult.categories.length > 0 ? igdbResult.categories : []);
-                ageRating = (metadata?.ageRating || igdbResult?.ageRating || '').trim();
-                rating = metadata?.rating || igdbResult?.rating || 0;
-                platform = metadata?.platforms?.join(', ') || metadata?.platform || igdbResult?.platform || 'steam';
-                
-                // Developers and publishers come from searchArtwork (via IGDB getDescription)
-                developers = metadata?.developers || [];
-                publishers = metadata?.publishers || [];
+                // Extract all fields from the metadata
+                boxArtUrl = metadata.boxArtUrl || '';
+                bannerUrl = metadata.bannerUrl || '';
+                logoUrl = metadata.logoUrl || '';
+                heroUrl = metadata.heroUrl || '';
+                description = (metadata.description || metadata.summary || '').trim();
+                releaseDate = (metadata.releaseDate || '').trim();
+                genres = metadata.genres || [];
+                categories = metadata.categories || [];
+                ageRating = (metadata.ageRating || '').trim();
+                rating = metadata.rating || 0;
+                platform = metadata.platforms?.join(', ') || metadata.platform || 'steam';
+                developers = metadata.developers || [];
+                publishers = metadata.publishers || [];
 
                 // Update metadata object with all extracted values
                 metadata = {
@@ -678,59 +696,41 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
           } else if (steamAppId || matchedResult) {
             // Game has a found match (Steam App ID or IGDB result)
             try {
-              // Step 3: Fetch all metadata/images using the match
-              const [artworkResult, metadataResult] = await Promise.allSettled([
-                window.electronAPI.searchArtwork(matchedTitle, steamAppId),
-                window.electronAPI.searchMetadata(matchedTitle),
-              ]);
+              // Helper function to add timeout to promises
+              const withTimeout = <T,>(promise: Promise<T>, timeoutMs: number = 30000): Promise<T> => {
+                return Promise.race([
+                  promise,
+                  new Promise<T>((_, reject) => 
+                    setTimeout(() => reject(new Error(`Request timeout after ${timeoutMs}ms`)), timeoutMs)
+                  ),
+                ]);
+              };
 
-              // Get artwork metadata (this includes full metadata: images + text)
-              if (artworkResult.status === 'fulfilled') {
-                metadata = artworkResult.value;
-              }
+              // Step 3: Fetch all metadata/images using the match with timeout
+              // searchArtwork now returns complete metadata (images + text) from Steam Store API
+              const artworkResult = await withTimeout(window.electronAPI.searchArtwork(matchedTitle, steamAppId), 30000).catch(err => {
+                console.warn(`[ImportWorkbench] searchArtwork timeout/error for "${matchedTitle}":`, err);
+                return null;
+              });
 
-              // Get IGDB metadata for text fields (as fallback if searchArtwork didn't return text)
-              let igdbResult: any = null;
-              if (metadataResult.status === 'fulfilled' && metadataResult.value.success && metadataResult.value.results?.length > 0) {
-                igdbResult = metadataResult.value.results[0];
-              }
-
-              // Merge results - searchArtwork provides complete metadata, use IGDB search as fallback
-              if (metadata || igdbResult) {
-                const formatReleaseDate = (timestamp?: number): string => {
-                  if (!timestamp) return '';
-                  const date = new Date(timestamp * 1000);
-                  return date.toISOString().split('T')[0];
-                };
-
-                // Extract images from artwork result (searchArtwork)
-                boxArtUrl = metadata?.boxArtUrl || '';
-                bannerUrl = metadata?.bannerUrl || '';
-                logoUrl = metadata?.logoUrl || '';
-                heroUrl = metadata?.heroUrl || '';
+              // Get artwork metadata (this includes full metadata: images + text from Steam Store API)
+              if (artworkResult) {
+                metadata = artworkResult;
                 
-                // Extract text metadata - prioritize searchArtwork (which includes developers/publishers), fallback to IGDB search
-                description = (metadata?.description || metadata?.summary || igdbResult?.summary || '').trim();
-                
-                // Handle releaseDate - searchArtwork returns ISO string, IGDB search returns timestamp
-                if (metadata?.releaseDate) {
-                  releaseDate = metadata.releaseDate;
-                } else if (igdbResult?.releaseDate) {
-                  releaseDate = formatReleaseDate(igdbResult.releaseDate);
-                } else {
-                  releaseDate = '';
-                }
-                releaseDate = releaseDate.trim();
-                
-                genres = (metadata?.genres && metadata.genres.length > 0) ? metadata.genres : (igdbResult?.genres && igdbResult.genres.length > 0 ? igdbResult.genres : []);
-                categories = (metadata?.categories && metadata.categories.length > 0) ? metadata.categories : (igdbResult?.categories && igdbResult.categories.length > 0 ? igdbResult.categories : []);
-                ageRating = (metadata?.ageRating || igdbResult?.ageRating || '').trim();
-                rating = metadata?.rating || igdbResult?.rating || 0;
-                platform = metadata?.platforms?.join(', ') || metadata?.platform || igdbResult?.platform || scanned.source;
-                
-                // Developers and publishers come from searchArtwork (via IGDB getDescription)
-                developers = metadata?.developers || [];
-                publishers = metadata?.publishers || [];
+                // Extract all fields from the metadata
+                boxArtUrl = metadata.boxArtUrl || '';
+                bannerUrl = metadata.bannerUrl || '';
+                logoUrl = metadata.logoUrl || '';
+                heroUrl = metadata.heroUrl || '';
+                description = (metadata.description || metadata.summary || '').trim();
+                releaseDate = (metadata.releaseDate || '').trim();
+                genres = metadata.genres || [];
+                categories = metadata.categories || [];
+                ageRating = (metadata.ageRating || '').trim();
+                rating = metadata.rating || 0;
+                platform = metadata.platforms?.join(', ') || metadata.platform || scanned.source;
+                developers = metadata.developers || [];
+                publishers = metadata.publishers || [];
 
                 // Update metadata object with all extracted values
                 metadata = {
@@ -759,13 +759,10 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
           } else {
             // No match found - try one more time with just the title
             try {
-              const [artworkResult, metadataResult] = await Promise.allSettled([
-                window.electronAPI.searchArtwork(scanned.title),
-                window.electronAPI.searchMetadata(scanned.title),
-              ]);
+              const artworkResult = await window.electronAPI.searchArtwork(scanned.title);
 
-              if (artworkResult.status === 'fulfilled' && artworkResult.value) {
-                metadata = artworkResult.value;
+              if (artworkResult) {
+                metadata = artworkResult;
                 boxArtUrl = metadata.boxArtUrl || '';
                 bannerUrl = metadata.bannerUrl || '';
                 logoUrl = metadata.logoUrl || '';
@@ -821,6 +818,37 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
             isSelected: !isIgnored, // Auto-select all non-ignored games
             isIgnored,
           };
+          } catch (err) {
+            // If anything goes wrong, return a basic game object so the import can continue
+            console.error(`[ImportWorkbench] Error processing game "${scanned.title}":`, err);
+            return {
+              uuid: scanned.uuid,
+              source: scanned.source,
+              originalName: scanned.originalName,
+              installPath: scanned.installPath,
+              exePath: scanned.exePath,
+              appId: scanned.appId,
+              title: scanned.title,
+              description: '',
+              releaseDate: '',
+              genres: [],
+              developers: [],
+              publishers: [],
+              categories: [],
+              ageRating: '',
+              rating: 0,
+              platform: scanned.source,
+              scrapedMetadata: null,
+              boxArtUrl: '',
+              bannerUrl: '',
+              logoUrl: '',
+              heroUrl: '',
+              screenshots: [],
+              status: 'ambiguous' as ImportStatus,
+              isSelected: !ignoredGames.has(gameId),
+              isIgnored: ignoredGames.has(gameId),
+            };
+          }
         })();
         
         // Add game to queue as soon as it's processed
@@ -830,6 +858,47 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
         // Auto-select first game if none selected
         if (stagedGames.length === 1 && !selectedId) {
           setSelectedId(stagedGame.uuid);
+        }
+        } catch (gameError) {
+          // If processing a single game fails, log it and continue with the next game
+          console.error(`[ImportWorkbench] Failed to process game at index ${i}:`, gameError);
+          const scanned = gamesToProcess[i];
+          if (scanned) {
+            // Create a basic game object so we don't lose the game entirely
+            const gameId = scanned.source === 'steam' && scanned.appId
+              ? `steam-${scanned.appId}`
+              : scanned.uuid;
+            const fallbackGame: StagedGame = {
+              uuid: scanned.uuid,
+              source: scanned.source,
+              originalName: scanned.originalName,
+              installPath: scanned.installPath,
+              exePath: scanned.exePath,
+              appId: scanned.appId,
+              title: scanned.title,
+              description: '',
+              releaseDate: '',
+              genres: [],
+              developers: [],
+              publishers: [],
+              categories: [],
+              ageRating: '',
+              rating: 0,
+              platform: scanned.source,
+              scrapedMetadata: null,
+              boxArtUrl: '',
+              bannerUrl: '',
+              logoUrl: '',
+              heroUrl: '',
+              screenshots: [],
+              status: 'ambiguous' as ImportStatus,
+              isSelected: !ignoredGames.has(gameId),
+              isIgnored: ignoredGames.has(gameId),
+            };
+            stagedGames.push(fallbackGame);
+            setQueue([...stagedGames]);
+            processedCount++;
+          }
         }
       }
 
@@ -841,13 +910,34 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
       if (firstVisible && !selectedId) {
         setSelectedId(firstVisible.uuid);
       }
+      
+      setScanProgressMessage(`Complete! Found ${stagedGames.length} game${stagedGames.length !== 1 ? 's' : ''} ready to import.`);
     } catch (err) {
       console.error('Error scanning sources:', err);
       setError(err instanceof Error ? err.message : 'Failed to scan sources');
+      setScanProgressMessage('Error occurred during scan.');
     } finally {
       setIsScanning(false);
     }
   };
+
+  // Listen for scan progress updates
+  useEffect(() => {
+    const handleScanProgress = (_event: any, message: string) => {
+      setScanProgressMessage(message);
+      console.log('[ImportWorkbench] Progress:', message);
+    };
+    
+    if (window.ipcRenderer) {
+      window.ipcRenderer.on('import:scanProgress', handleScanProgress);
+    }
+    
+    return () => {
+      if (window.ipcRenderer) {
+        window.ipcRenderer.off('import:scanProgress', handleScanProgress);
+      }
+    };
+  }, []);
 
   // Scan folder when initialFolderPath is provided
   useEffect(() => {
@@ -911,7 +1001,7 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
   const handleSearchMetadata = async (searchQuery?: string) => {
     if (!selectedGame) return;
 
-    const query = (searchQuery || metadataSearchQuery.trim() || selectedGame.title.trim()).trim();
+    const query = (searchQuery || (typeof metadataSearchQuery === 'string' ? metadataSearchQuery.trim() : '') || (selectedGame.title ? selectedGame.title.trim() : '')).trim();
     if (!query) {
       setError('Please enter a game title to search');
       return;
@@ -922,22 +1012,63 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
     setMetadataSearchResults([]);
 
     try {
-      const response = await window.electronAPI.searchMetadata(query);
+      // Use searchGames instead of searchMetadata - it searches all providers including Steam
+      // and doesn't require IGDB to be configured
+      const response = await window.electronAPI.searchGames(query);
       if (response.success && response.results && response.results.length > 0) {
-        setMetadataSearchResults(response.results);
+        // Sort results: prioritize Steam results first, then by release date (newest first), then exact matches
+        const normalizedQuery = query.toLowerCase().trim();
+        const sortedResults = response.results.sort((a: any, b: any) => {
+          // First, prioritize Steam results
+          const aIsSteam = a.source === 'steam' || a.steamAppId;
+          const bIsSteam = b.source === 'steam' || b.steamAppId;
+          if (aIsSteam && !bIsSteam) return -1;
+          if (!aIsSteam && bIsSteam) return 1;
+          
+          // Then, sort by release date (newest first)
+          const getDate = (result: any): number => {
+            if (result.releaseDate) {
+              if (typeof result.releaseDate === 'number') {
+                return result.releaseDate * 1000; // Convert Unix timestamp (seconds) to milliseconds
+              }
+              return new Date(result.releaseDate).getTime();
+            }
+            if (result.year) {
+              return new Date(result.year, 0, 1).getTime();
+            }
+            return 0;
+          };
+          
+          const aDate = getDate(a);
+          const bDate = getDate(b);
+          if (aDate !== bDate && aDate > 0 && bDate > 0) {
+            return bDate - aDate; // Newest first
+          }
+          
+          // Finally, prioritize exact matches
+          const aName = (a.title || a.name || '').toLowerCase().trim();
+          const bName = (b.title || b.name || '').toLowerCase().trim();
+          const aExact = aName === normalizedQuery;
+          const bExact = bName === normalizedQuery;
+          if (aExact && !bExact) return -1;
+          if (!aExact && bExact) return 1;
+          
+          return 0;
+        });
+        setMetadataSearchResults(sortedResults);
       } else {
         setError(response.error || 'No results found');
       }
     } catch (err) {
-      setError('Failed to search for metadata');
-      console.error('Error searching metadata:', err);
+      setError('Failed to search for games');
+      console.error('Error searching games:', err);
     } finally {
       setIsSearchingMetadata(false);
     }
   };
 
   // Apply selected metadata result
-  const handleApplyMetadata = (result: any) => {
+  const handleApplyMetadata = async (result: any) => {
     if (!selectedGame) return;
 
     const formatReleaseDate = (timestamp?: number): string => {
@@ -946,37 +1077,52 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
       return date.toISOString().split('T')[0];
     };
 
-    // Fetch artwork for the selected result
-    window.electronAPI.searchArtwork(result.name, selectedGame.appId).then(artwork => {
+    // Extract Steam App ID from result if available
+    const steamAppId = result.steamAppId || result.externalId || selectedGame.appId;
+    
+    try {
+      // Fetch full metadata (artwork + text) for the selected result
+      // Use searchArtwork which now returns complete metadata including description, release date, etc.
+      const artwork = await window.electronAPI.searchArtwork(result.name || result.title, steamAppId);
+      
+      // searchArtwork now returns complete metadata including text fields from Steam Store API
+      // No need for additional metadata fetching
+      const fullMetadata = artwork;
+      
       updateGame(selectedGame.uuid, {
-        title: result.name,
+        title: result.name || result.title || selectedGame.title,
+        description: fullMetadata?.description || result.summary || '',
+        releaseDate: fullMetadata?.releaseDate || formatReleaseDate(result.releaseDate) || '',
+        genres: fullMetadata?.genres || result.genres || [],
+        developers: fullMetadata?.developers || result.developers || [],
+        publishers: fullMetadata?.publishers || result.publishers || [],
+        categories: fullMetadata?.categories || result.categories || [],
+        ageRating: fullMetadata?.ageRating || result.ageRating || '',
+        rating: fullMetadata?.rating || result.rating || 0,
+        platform: result.platform || selectedGame.platform || 'steam',
+        boxArtUrl: fullMetadata?.boxArtUrl || artwork?.boxArtUrl || selectedGame.boxArtUrl,
+        bannerUrl: fullMetadata?.bannerUrl || artwork?.bannerUrl || artwork?.heroUrl || selectedGame.bannerUrl,
+        logoUrl: fullMetadata?.logoUrl || artwork?.logoUrl || selectedGame.logoUrl,
+        heroUrl: fullMetadata?.heroUrl || artwork?.heroUrl || selectedGame.heroUrl,
+        appId: steamAppId || selectedGame.appId,
+        status: 'ready',
+      });
+    } catch (err) {
+      console.error('Error fetching metadata:', err);
+      // If metadata fetch fails, still update with basic info from result
+      updateGame(selectedGame.uuid, {
+        title: result.name || result.title || selectedGame.title,
         description: result.summary || '',
-        releaseDate: formatReleaseDate(result.releaseDate),
+        releaseDate: formatReleaseDate(result.releaseDate) || '',
         genres: result.genres || [],
         categories: result.categories || [],
         ageRating: result.ageRating || '',
         rating: result.rating || 0,
         platform: result.platform || selectedGame.platform || 'steam',
-        boxArtUrl: artwork?.boxArtUrl || selectedGame.boxArtUrl,
-        bannerUrl: artwork?.bannerUrl || artwork?.heroUrl || selectedGame.bannerUrl,
-        logoUrl: artwork?.logoUrl || selectedGame.logoUrl,
-        heroUrl: artwork?.heroUrl || selectedGame.heroUrl,
+        appId: steamAppId || selectedGame.appId,
         status: 'ready',
       });
-    }).catch(() => {
-      // If artwork fetch fails, still update metadata
-      updateGame(selectedGame.uuid, {
-        title: result.name,
-        description: result.summary || '',
-        releaseDate: formatReleaseDate(result.releaseDate),
-        genres: result.genres || [],
-        categories: result.categories || [],
-        ageRating: result.ageRating || '',
-        rating: result.rating || 0,
-        platform: result.platform || selectedGame.platform || 'steam',
-        status: 'ready',
-      });
-    });
+    }
 
     setShowMetadataSearch(false);
     setMetadataSearchResults([]);
@@ -1194,14 +1340,16 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
     try {
       // Convert StagedGame to Game
       const gamesToImport: Game[] = selectedGames.map(staged => {
-        const gameId = staged.source === 'steam' && staged.appId
+        // If game has a Steam App ID (from SteamGridDB search or direct Steam scan), treat it as a Steam game
+        const hasSteamAppId = staged.appId && (staged.source === 'steam' || staged.appId.match(/^\d+$/));
+        const gameId = hasSteamAppId
           ? `steam-${staged.appId}`
           : `custom-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
         return {
           id: gameId,
           title: staged.title,
-          platform: staged.platform || (staged.source === 'steam' ? 'steam' : 'other'),
+          platform: staged.platform || (hasSteamAppId ? 'steam' : 'other'),
           exePath: staged.exePath || staged.installPath,
           boxArtUrl: staged.boxArtUrl,
           bannerUrl: staged.bannerUrl,
@@ -1244,7 +1392,12 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
         {isScanning && (
           <div className="bg-blue-600 text-white px-6 py-3 flex items-center gap-3 border-b border-blue-700">
             <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
-            <span className="font-medium">Scanning for games in all enabled locations...</span>
+            <div className="flex-1">
+              <div className="font-medium">Scanning for games in all enabled locations...</div>
+              {scanProgressMessage && (
+                <div className="text-sm text-blue-100 mt-1">{scanProgressMessage}</div>
+              )}
+            </div>
           </div>
         )}
         

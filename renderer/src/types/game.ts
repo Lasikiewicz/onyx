@@ -103,6 +103,8 @@ declare global {
       getAppConfig: (appId: string) => Promise<{ id: string; name: string; enabled: boolean; path: string; autoAdd?: boolean } | null>;
       saveAppConfig: (config: { id: string; name: string; enabled: boolean; path: string; autoAdd?: boolean }) => Promise<{ success: boolean; error?: string }>;
       saveAppConfigs: (configs: Array<{ id: string; name: string; enabled: boolean; path: string; autoAdd?: boolean }>) => Promise<{ success: boolean; error?: string }>;
+      getManualFolders: () => Promise<string[]>;
+      saveManualFolders: (folders: string[]) => Promise<{ success: boolean; error?: string }>;
       getSteamAuthState?: () => Promise<{ authenticated: boolean; steamId?: string; username?: string }>;
       authenticateSteam?: () => Promise<{ success: boolean; steamId?: string; username?: string; error?: string }>;
       importAllSteamGames?: (path: string) => Promise<{ success: boolean; importedCount?: number; error?: string }>;

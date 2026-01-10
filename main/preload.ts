@@ -65,6 +65,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getAppConfig: (appId: string) => ipcRenderer.invoke('appConfig:get', appId),
   saveAppConfig: (config: { id: string; name: string; enabled: boolean; path: string; autoAdd?: boolean }) => ipcRenderer.invoke('appConfig:save', config),
   saveAppConfigs: (configs: Array<{ id: string; name: string; enabled: boolean; path: string; autoAdd?: boolean }>) => ipcRenderer.invoke('appConfig:saveAll', configs),
+  // Manual folders methods
+  getManualFolders: () => ipcRenderer.invoke('manualFolders:get'),
+  saveManualFolders: (folders: string[]) => ipcRenderer.invoke('manualFolders:save', folders),
   // Xbox service methods
   scanXboxGames: (path: string, autoMerge?: boolean) => ipcRenderer.invoke('xbox:scanGames', path, autoMerge),
   // Menu event listeners

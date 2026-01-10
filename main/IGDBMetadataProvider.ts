@@ -30,8 +30,14 @@ export class IGDBMetadataProvider implements MetadataProvider {
         source: this.name,
         externalId: result.id,
       }));
-    } catch (error) {
-      console.error('IGDB search error:', error);
+    } catch (error: any) {
+      // If authentication fails, disable IGDB service
+      if (error?.message?.includes('authenticate') || error?.message?.includes('invalid')) {
+        console.error('IGDB authentication failed. Disabling IGDB provider:', error.message);
+        this.igdbService = null;
+      } else {
+        console.error('IGDB search error:', error);
+      }
       return [];
     }
   }
@@ -79,8 +85,14 @@ export class IGDBMetadataProvider implements MetadataProvider {
         platforms: result.platform ? [result.platform] : undefined,
         categories: result.categories,
       };
-    } catch (error) {
-      console.error('IGDB getDescription error:', error);
+    } catch (error: any) {
+      // If authentication fails, disable IGDB service
+      if (error?.message?.includes('authenticate') || error?.message?.includes('invalid')) {
+        console.error('IGDB authentication failed. Disabling IGDB provider:', error.message);
+        this.igdbService = null;
+      } else {
+        console.error('IGDB getDescription error:', error);
+      }
       return null;
     }
   }
@@ -117,8 +129,14 @@ export class IGDBMetadataProvider implements MetadataProvider {
         // IGDB cover_big is typically 264x374
         boxArtResolution: result.coverUrl ? { width: 264, height: 374 } : undefined,
       };
-    } catch (error) {
-      console.error('IGDB getArtwork error:', error);
+    } catch (error: any) {
+      // If authentication fails, disable IGDB service
+      if (error?.message?.includes('authenticate') || error?.message?.includes('invalid')) {
+        console.error('IGDB authentication failed. Disabling IGDB provider:', error.message);
+        this.igdbService = null;
+      } else {
+        console.error('IGDB getArtwork error:', error);
+      }
       return null;
     }
   }

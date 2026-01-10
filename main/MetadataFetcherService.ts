@@ -70,6 +70,7 @@ export class MetadataFetcherService {
 
   /**
    * Set IGDB service
+   * If null is passed, IGDB provider will be completely removed and won't be used at all
    */
   setIGDBService(igdbService: IGDBService | null): void {
     if (igdbService) {
@@ -78,6 +79,7 @@ export class MetadataFetcherService {
         this.providers.push(this.igdbProvider);
       }
     } else {
+      // Completely remove IGDB provider when service is not available
       if (this.igdbProvider) {
         this.providers = this.providers.filter(p => p !== this.igdbProvider);
         this.igdbProvider = undefined;
@@ -251,15 +253,17 @@ export class MetadataFetcherService {
   }
 
   /**
-   * Merge descriptions from multiple sources (IGDB takes priority)
+   * Merge descriptions from multiple sources (Steam takes priority when available, then IGDB)
    */
-  private mergeDescriptions(descriptions: (GameDescription | null)[]): GameDescription {
+  private mergeDescriptions(descriptions: (GameDescription | null)[], steamAppId?: string): GameDescription {
     const merged: GameDescription = {};
 
-    // Find first non-null description (prioritize IGDB)
-    const igdbDesc = descriptions.find(d => d !== null);
-    if (igdbDesc) {
-      Object.assign(merged, igdbDesc);
+    // When we have a Steam App ID, prioritize Steam Store API description
+    // Steam descriptions are usually more accurate and up-to-date for Steam games
+    // Otherwise, use the first available description (typically IGDB)
+    const firstDesc = descriptions.find(d => d !== null);
+    if (firstDesc) {
+      Object.assign(merged, firstDesc);
     }
 
     return merged;
@@ -320,6 +324,13 @@ export class MetadataFetcherService {
     const steamResult = searchResults.find(r => r.source === 'steam' && r.steamAppId === steamAppId) 
       || searchResults.find(r => r.source === 'steam');
     
+    // IMPORTANT: If SteamGridDB result has a steamAppId, extract and use it
+    // This allows games found via SteamGridDB to be treated as Steam games
+    if (steamGridDBResult && steamGridDBResult.steamAppId && !steamAppId) {
+      steamAppId = steamGridDBResult.steamAppId;
+      console.log(`[MetadataFetcher] Extracted Steam App ID ${steamAppId} from SteamGridDB result for: ${title}`);
+    }
+    
     // FALLBACK: If no SteamGridDB result found but we have SteamGridDB service, try direct search
     // This handles cases where the game title doesn't match exactly in searchGames but exists in SteamGridDB
     if (!steamGridDBResult && this.steamGridDBProvider?.isAvailable() && this.steamGridDBService) {
@@ -334,7 +345,13 @@ export class MetadataFetcherService {
             title: bestMatch.name,
             source: 'steamgriddb',
             externalId: bestMatch.id,
+            steamAppId: bestMatch.steam_app_id?.toString(),
           };
+          // Extract Steam App ID if available
+          if (bestMatch.steam_app_id && !steamAppId) {
+            steamAppId = bestMatch.steam_app_id.toString();
+            console.log(`[MetadataFetcher] Extracted Steam App ID ${steamAppId} from SteamGridDB direct search for: ${title}`);
+          }
           console.log(`[MetadataFetcher] Found SteamGridDB game via direct search: ${bestMatch.name} (ID: ${bestMatch.id})`);
         }
       } catch (error) {
@@ -414,7 +431,16 @@ export class MetadataFetcherService {
       }
     }
 
-    // Fetch descriptions from IGDB (primary source)
+    // Fetch descriptions: Prioritize Steam Store API when we have a Steam App ID, then IGDB
+    // Add Steam first (using unshift) so it's prioritized during merge
+    if (steamAppId && this.steamProvider?.isAvailable()) {
+      const steamGameId = `steam-${steamAppId}`;
+      descriptionPromises.unshift(
+        this.steamProvider.getDescription(steamGameId)
+      );
+    }
+    
+    // Also try IGDB as fallback or for non-Steam games
     if (igdbResult && this.igdbProvider?.isAvailable()) {
       descriptionPromises.push(
         this.igdbProvider.getDescription(igdbResult.id)
@@ -462,7 +488,7 @@ export class MetadataFetcherService {
       console.warn(`[MetadataFetcher] No artwork sources for ${title}`);
     }
     
-    const mergedDescription = this.mergeDescriptions(descriptionResults);
+    const mergedDescription = this.mergeDescriptions(descriptionResults, steamAppId);
     const mergedInstallInfo = this.mergeInstallInfo(installInfoResults);
 
     // Step 5: Combine into final metadata

@@ -6,7 +6,7 @@ interface OnyxSettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave?: () => void;
-  initialTab?: 'general' | 'appearance' | 'apis' | 'apps' | 'reset' | 'about';
+  initialTab?: 'general' | 'apis' | 'apps' | 'reset' | 'about';
   onShowImportModal?: (games: Array<any>, appType?: 'steam' | 'xbox' | 'other') => void;
 }
 
@@ -21,7 +21,7 @@ interface OnyxSettings {
   gameTilePadding: number;
 }
 
-type TabType = 'general' | 'appearance' | 'apis' | 'apps' | 'reset' | 'about';
+type TabType = 'general' | 'apis' | 'apps' | 'reset' | 'about';
 
 interface AppConfig {
   id: string;
@@ -131,6 +131,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
   const [newlyEnabledApps, setNewlyEnabledApps] = useState<Set<string>>(new Set());
   const [steamAuthState, setSteamAuthState] = useState<{ authenticated: boolean; steamId?: string; username?: string }>({ authenticated: false });
   const [isAuthenticating, setIsAuthenticating] = useState(false);
+  const [manualFolders, setManualFolders] = useState<string[]>([]);
   // const [isImporting, setIsImporting] = useState(false);
   const [settings, setSettings] = useState<OnyxSettings>({
     minimizeToTray: false,
@@ -206,13 +207,22 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
     }
   }, [isOpen, initialTab]);
 
-  // Load app configs on mount
+  // Load app configs and manual folders on mount
   useEffect(() => {
     if (isOpen) {
       const loadAppConfigs = async () => {
         setIsLoadingApps(true);
         try {
           const savedConfigs = await window.electronAPI.getAppConfigs();
+          
+          // Load manual folders
+          try {
+            const folders = await window.electronAPI.getManualFolders();
+            setManualFolders(folders || []);
+          } catch (err) {
+            console.error('Error loading manual folders:', err);
+            setManualFolders([]);
+          }
           
           let steamPath = '';
           try {
@@ -236,7 +246,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
               }
 
               let path = '';
-              let enabled = false;
+              let enabled = true; // Enable all apps by default
 
               if (app.id === 'steam' && steamPath) {
                 path = steamPath;
@@ -245,9 +255,10 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                 const existingPath = await findExistingPath(app.defaultPaths);
                 if (existingPath) {
                   path = existingPath;
-                  enabled = false;
+                  enabled = true; // Enable by default
                 } else {
                   path = app.defaultPaths[0] || '';
+                  enabled = true; // Enable by default
                 }
               }
 
@@ -441,6 +452,38 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
     }
   };
 
+  const handleAddManualFolder = async () => {
+    try {
+      const path = await window.electronAPI.showFolderDialog();
+      if (path && !manualFolders.includes(path)) {
+        const updated = [...manualFolders, path];
+        setManualFolders(updated);
+        const result = await window.electronAPI.saveManualFolders(updated);
+        if (!result || !result.success) {
+          console.error('Error saving manual folder:', result?.error || 'Unknown error');
+          alert('Failed to save manual folder. Please try again.');
+          // Revert the state if save failed
+          setManualFolders(manualFolders);
+        }
+      } else if (path && manualFolders.includes(path)) {
+        alert('This folder is already in the list.');
+      }
+    } catch (err) {
+      console.error('Error adding manual folder:', err);
+      alert('Failed to add manual folder: ' + (err instanceof Error ? err.message : 'Unknown error'));
+    }
+  };
+
+  const handleRemoveManualFolder = async (folderPath: string) => {
+    const updated = manualFolders.filter(f => f !== folderPath);
+    setManualFolders(updated);
+    try {
+      await window.electronAPI.saveManualFolders(updated);
+    } catch (err) {
+      console.error('Error removing manual folder:', err);
+    }
+  };
+
   const handleScanApp = async (appId: string) => {
     const app = apps.find(a => a.id === appId);
     if (!app || !app.enabled || !app.path) {
@@ -565,6 +608,16 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
         }
       }
       
+      // Save manual folders
+      try {
+        const manualFoldersResult = await window.electronAPI.saveManualFolders(manualFolders);
+        if (!manualFoldersResult || !manualFoldersResult.success) {
+          console.error('Error saving manual folders:', manualFoldersResult?.error || 'Unknown error');
+        }
+      } catch (err) {
+        console.error('Error saving manual folders:', err);
+      }
+      
       // Apply system tray settings
       await window.electronAPI.applySystemTraySettings({
         showSystemTrayIcon: settings.showSystemTrayIcon,
@@ -613,15 +666,6 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
       ),
     },
     {
-      id: 'appearance',
-      label: 'Appearance',
-      icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
-        </svg>
-      ),
-    },
-    {
       id: 'apis',
       label: "API's",
       icon: (
@@ -658,10 +702,10 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
         onClick={onClose}
       />
       
-      {/* Modal - Centered */}
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      {/* Modal - Full Screen with 5% padding */}
+      <div className="fixed inset-0 z-50" style={{ padding: '5%' }}>
         <div 
-          className="bg-gray-800 rounded-xl shadow-2xl border border-gray-700/50 w-full max-w-[1400px] max-h-[90vh] flex flex-col overflow-hidden"
+          className="bg-gray-800 rounded-xl shadow-2xl border border-gray-700/50 w-full h-full flex flex-col overflow-hidden"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
@@ -867,158 +911,6 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
               </div>
             )}
 
-            {activeTab === 'appearance' && (
-              <div className="space-y-6">
-                <div className="space-y-1">
-                  <h3 className="text-lg font-semibold text-white mb-4">Library Display</h3>
-                  
-                  {/* Settings Grid - 2 columns */}
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                  {/* Hide game titles */}
-                  <div className="flex items-start justify-between p-4 rounded-lg bg-gray-700/30 hover:bg-gray-700/50 transition-colors">
-                    <div className="flex-1 pr-4">
-                      <label className="text-gray-200 font-medium block mb-1">
-                        Hide Game Titles
-                      </label>
-                      <p className="text-gray-400 text-sm">
-                        Hide game titles on game tiles for a cleaner, image-focused view
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => handleToggle('hideGameTitles')}
-                      className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors flex-shrink-0 ${
-                        settings.hideGameTitles ? 'bg-blue-600' : 'bg-gray-600'
-                      }`}
-                    >
-                      <span
-                        className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
-                          settings.hideGameTitles ? 'translate-x-6' : 'translate-x-1'
-                        }`}
-                      />
-                    </button>
-                  </div>
-
-                  {/* Game tile padding - Full width */}
-                  <div className="lg:col-span-2 p-4 rounded-lg bg-gray-700/30 hover:bg-gray-700/50 transition-colors">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex-1 pr-4">
-                        <label className="text-gray-200 font-medium block mb-1">
-                          Game Tile Padding
-                        </label>
-                        <p className="text-gray-400 text-sm">
-                          Adjust the spacing between game tiles (in pixels)
-                        </p>
-                      </div>
-                      <div className="text-blue-400 font-semibold min-w-[3rem] text-right">
-                        {settings.gameTilePadding}px
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <input
-                        type="range"
-                        min="4"
-                        max="32"
-                        step="2"
-                        value={settings.gameTilePadding}
-                        onChange={(e) => handlePaddingChange(Number(e.target.value))}
-                        className="flex-1 h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-blue-600"
-                      />
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => handlePaddingChange(Math.max(4, settings.gameTilePadding - 2))}
-                          className="px-3 py-1.5 text-sm bg-gray-600 hover:bg-gray-500 text-gray-200 rounded-lg transition-colors"
-                        >
-                          -
-                        </button>
-                        <button
-                          onClick={() => handlePaddingChange(Math.min(32, settings.gameTilePadding + 2))}
-                          className="px-3 py-1.5 text-sm bg-gray-600 hover:bg-gray-500 text-gray-200 rounded-lg transition-colors"
-                        >
-                          +
-                        </button>
-                      </div>
-                    </div>
-                    <div className="flex justify-between text-xs text-gray-500 mt-2">
-                      <span>Compact</span>
-                      <span>Spacious</span>
-                    </div>
-                  </div>
-
-                  {/* Show Logo Over Boxart */}
-                  <div className="flex items-start justify-between p-4 rounded-lg bg-gray-700/30 hover:bg-gray-700/50 transition-colors">
-                    <div className="flex-1 pr-4">
-                      <label className="text-gray-200 font-medium block mb-1">
-                        Show Logo Over Boxart
-                      </label>
-                      <p className="text-gray-400 text-sm">
-                        Display game logos overlaid on boxart images in the grid view
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => setShowLogoOverBoxart(!showLogoOverBoxart)}
-                      className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors flex-shrink-0 ${
-                        showLogoOverBoxart ? 'bg-blue-600' : 'bg-gray-600'
-                      }`}
-                    >
-                      <span
-                        className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
-                          showLogoOverBoxart ? 'translate-x-6' : 'translate-x-1'
-                        }`}
-                      />
-                    </button>
-                  </div>
-
-                  {/* Logo Position */}
-                  {showLogoOverBoxart && (
-                    <div className="lg:col-span-2 p-4 rounded-lg bg-gray-700/30 hover:bg-gray-700/50 transition-colors">
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex-1 pr-4">
-                          <label className="text-gray-200 font-medium block mb-1">
-                            Logo Position
-                          </label>
-                          <p className="text-gray-400 text-sm">
-                            Choose where logos appear on game tiles
-                          </p>
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                        {(['top', 'middle', 'bottom', 'underneath'] as const).map((position) => (
-                          <button
-                            key={position}
-                            onClick={() => setLogoPosition(position)}
-                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                              logoPosition === position
-                                ? 'bg-blue-600 text-white'
-                                : 'bg-gray-600 text-gray-300 hover:bg-gray-500'
-                            }`}
-                          >
-                            {position.charAt(0).toUpperCase() + position.slice(1)}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  </div>
-
-                  {/* Restore Defaults Button */}
-                  <div className="pt-4 border-t border-gray-700/50">
-                    <button
-                      onClick={() => {
-                        handleRestoreDefaults();
-                        setShowLogoOverBoxart(true);
-                        setLogoPosition('middle');
-                      }}
-                      className="flex items-center gap-2 px-4 py-2 text-sm text-gray-400 hover:text-gray-200 hover:bg-gray-700/50 rounded-lg transition-colors"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                      </svg>
-                      Restore Defaults
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
 
             {activeTab === 'apis' && (
               <div className="space-y-6">
@@ -1241,11 +1133,11 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                       <p className="text-gray-300">Loading app configurations...</p>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-5 gap-3">
                       {apps.map((app) => (
-                        <div key={app.id} className="border border-gray-700 rounded-lg p-4 bg-gray-700/30 hover:bg-gray-700/50 transition-colors">
-                          <div className="flex items-center justify-between mb-3">
-                            <h4 className="text-sm font-semibold text-gray-300 uppercase tracking-wide">
+                        <div key={app.id} className="border border-gray-700 rounded-lg p-2.5 bg-gray-700/30 hover:bg-gray-700/50 transition-colors">
+                          <div className="flex items-center justify-between mb-2">
+                            <h4 className="text-xs font-semibold text-gray-300 uppercase tracking-wide">
                               {app.name}
                             </h4>
                             {/* Enable/Disable Toggle */}
@@ -1256,44 +1148,41 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                                 onChange={() => handleToggleAppEnabled(app.id)}
                                 className="sr-only peer"
                               />
-                              <div className="w-11 h-6 bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                              <div className="w-9 h-5 bg-gray-600 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
                             </label>
                           </div>
                           
                           {app.enabled && (
-                            <div className="space-y-3">
+                            <div className="space-y-1.5">
                               <div>
-                                <label className="block text-sm text-gray-400 mb-2">
+                                <label className="block text-xs text-gray-400 mb-0.5">
                                   Installation Path
                                 </label>
-                                <div className="flex gap-2">
+                                <div className="flex gap-1.5">
                                   <input
                                     type="text"
                                     value={app.path}
                                     onChange={(e) => handleAppPathChange(app.id, e.target.value)}
                                     placeholder={app.placeholder}
-                                    className="flex-1 px-3 py-2 bg-gray-900 border border-gray-600 rounded text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    className="flex-1 px-1.5 py-1 bg-gray-900 border border-gray-600 rounded text-xs text-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                                   />
                                   <button
                                     onClick={() => handleBrowseApp(app.id)}
-                                    className="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-white text-sm rounded transition-colors"
+                                    className="px-1.5 py-1 bg-gray-700 hover:bg-gray-600 text-white text-xs rounded transition-colors"
                                   >
                                     Browse
                                   </button>
                                 </div>
-                                <p className="text-xs text-gray-500 mt-1">
-                                  Path to your {app.name} installation directory
-                                </p>
                               </div>
                               
                               {/* Steam-specific options */}
                               {app.id === 'steam' && (
-                                <div className="space-y-3 pt-2 border-t border-gray-600">
+                                <div className="space-y-2 pt-1.5 border-t border-gray-600">
                                   {/* Steam Authentication Status */}
-                                  <div className="flex items-center justify-between p-2 bg-gray-800/50 rounded">
-                                    <div className="flex items-center gap-2">
-                                      <div className={`w-2 h-2 rounded-full ${steamAuthState.authenticated ? 'bg-green-500' : 'bg-gray-500'}`}></div>
-                                      <span className="text-xs text-gray-300">
+                                  <div className="flex items-center justify-between p-1.5 bg-gray-800/50 rounded">
+                                    <div className="flex items-center gap-1.5">
+                                      <div className={`w-1.5 h-1.5 rounded-full ${steamAuthState.authenticated ? 'bg-green-500' : 'bg-gray-500'}`}></div>
+                                      <span className="text-xs text-gray-300 truncate">
                                         {steamAuthState.authenticated 
                                           ? steamAuthState.username || `Steam ID: ${steamAuthState.steamId?.substring(0, 8)}...`
                                           : 'Not signed in'}
@@ -1321,22 +1210,22 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                                     <button
                                       onClick={handleSteamAuthenticate}
                                       disabled={isAuthenticating}
-                                      className="w-full px-3 py-2 bg-gray-700 hover:bg-gray-600 text-white text-sm rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                                      className="w-full px-2 py-1.5 bg-gray-700 hover:bg-gray-600 text-white text-xs rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
                                     >
                                       {isAuthenticating ? (
                                         <>
-                                          <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                                          <svg className="animate-spin h-3 w-3" fill="none" viewBox="0 0 24 24">
                                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                                             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                                           </svg>
-                                          Authenticating...
+                                          <span className="text-xs">Authenticating...</span>
                                         </>
                                       ) : (
                                         <>
-                                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
                                           </svg>
-                                          Sign into Steam
+                                          <span className="text-xs">Sign into Steam</span>
                                         </>
                                       )}
                                     </button>
@@ -1344,7 +1233,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                                   
                                   {/* Auto add toggle - only show when authenticated */}
                                   {steamAuthState.authenticated && (
-                                    <div className="flex items-center justify-between p-2 bg-gray-800/30 rounded">
+                                    <div className="flex items-center justify-between p-1.5 bg-gray-800/30 rounded">
                                       <div className="flex-1">
                                         <label className="text-xs font-medium text-gray-300 block">Auto add</label>
                                         <p className="text-xs text-gray-500">Show notification when new games are found</p>
@@ -1356,7 +1245,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                                           onChange={() => handleToggleAutoAdd(app.id)}
                                           className="sr-only peer"
                                         />
-                                        <div className="w-11 h-6 bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                                        <div className="w-9 h-5 bg-gray-600 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
                                       </label>
                                     </div>
                                   )}
@@ -1365,26 +1254,26 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                               
                               {/* Scan Now button for newly enabled apps (non-Steam) */}
                               {app.id !== 'steam' && newlyEnabledApps.has(app.id) && app.path && (
-                                <div className="flex items-center gap-2 pt-2">
+                                <div className="flex items-center gap-1.5 pt-1.5">
                                   <button
                                     onClick={() => handleScanApp(app.id)}
                                     disabled={scanningAppId === app.id}
-                                    className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                                    className="px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
                                   >
                                     {scanningAppId === app.id ? (
                                       <>
-                                        <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                                        <svg className="animate-spin h-3 w-3" fill="none" viewBox="0 0 24 24">
                                           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                                           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                                         </svg>
-                                        Scanning...
+                                        <span className="text-xs">Scanning...</span>
                                       </>
                                     ) : (
                                       <>
-                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                                         </svg>
-                                        Scan Now
+                                        <span className="text-xs">Scan Now</span>
                                       </>
                                     )}
                                   </button>
@@ -1396,6 +1285,54 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                       ))}
                     </div>
                   )}
+                  
+                  {/* Manual Folders Section */}
+                  <div className="mt-8 pt-8 border-t border-gray-700">
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <h3 className="text-lg font-semibold text-white mb-1">Manual Folders</h3>
+                        <p className="text-gray-400 text-sm">
+                          Add custom folders to monitor for games. All locations are deep scanned recursively.
+                        </p>
+                      </div>
+                      <button
+                        onClick={handleAddManualFolder}
+                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg transition-colors flex items-center gap-2"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                        </svg>
+                        Add Folder
+                      </button>
+                    </div>
+                    
+                    {manualFolders.length === 0 ? (
+                      <div className="text-center py-8 text-gray-500 text-sm">
+                        No manual folders added. Click "Add Folder" to monitor a custom location.
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {manualFolders.map((folder) => (
+                          <div key={folder} className="flex items-center gap-2 p-3 bg-gray-700/30 rounded-lg border border-gray-600">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm text-gray-300 truncate" title={folder}>
+                                {folder}
+                              </p>
+                            </div>
+                            <button
+                              onClick={() => handleRemoveManualFolder(folder)}
+                              className="px-3 py-1.5 bg-red-600/20 hover:bg-red-600/30 text-red-400 text-xs rounded transition-colors flex items-center gap-1"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                              Remove
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             )}
