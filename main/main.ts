@@ -964,6 +964,37 @@ ipcMain.handle('gameStore:deleteGame', async (_event, gameId: string) => {
   }
 });
 
+// Remove games that use WinGDK executables
+ipcMain.handle('gameStore:removeWinGDKGames', async () => {
+  try {
+    const games = await gameStore.getLibrary();
+    const wingdkGames = games.filter(game => {
+      const exePath = game.exePath?.toLowerCase() || '';
+      return exePath.includes('wingdk');
+    });
+    
+    if (wingdkGames.length === 0) {
+      return { success: true, removedCount: 0, message: 'No games with WinGDK executables found' };
+    }
+    
+    console.log(`[gameStore] Removing ${wingdkGames.length} games with WinGDK executables`);
+    
+    for (const game of wingdkGames) {
+      await gameStore.deleteGame(game.id);
+      console.log(`[gameStore] Removed game: ${game.title} (${game.id}) - WinGDK path: ${game.exePath}`);
+    }
+    
+    return { 
+      success: true, 
+      removedCount: wingdkGames.length,
+      removedGames: wingdkGames.map(g => ({ id: g.id, title: g.title, exePath: g.exePath }))
+    };
+  } catch (error) {
+    console.error('Error removing WinGDK games:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+});
+
 // Reset app handler - clears all data
 ipcMain.handle('app:reset', async () => {
   try {
@@ -2265,13 +2296,14 @@ ipcMain.handle('import:scanFolderForExecutables', async (_event, folderPath: str
               }
             } else if (entry.isDirectory()) {
               // Recursively scan all subdirectories (no depth limit)
-              // Skip common system directories that are unlikely to contain games
+              // Skip common system directories and WinGDK folders that are unlikely to contain games
               const dirName = entry.name.toLowerCase();
               if (dirName !== 'node_modules' && 
                   dirName !== '.git' && 
                   !dirName.startsWith('$') &&
                   dirName !== 'system volume information' &&
-                  dirName !== 'recycle.bin') {
+                  dirName !== 'recycle.bin' &&
+                  !dirName.includes('wingdk')) {
                 scanDirectory(fullPath);
               }
             }
@@ -2971,6 +3003,25 @@ app.whenReady().then(async () => {
   const clearedCount = await gameStore.clearBrokenOnyxLocalUrls(cacheDir);
   if (clearedCount > 0) {
     console.log(`[App] Cleaned up ${clearedCount} broken image URLs on startup`);
+  }
+
+  // Remove games that use WinGDK executables (WinGDK folders don't contain actual games)
+  try {
+    const games = await gameStore.getLibrary();
+    const wingdkGames = games.filter(game => {
+      const exePath = game.exePath?.toLowerCase() || '';
+      return exePath.includes('wingdk');
+    });
+    
+    if (wingdkGames.length > 0) {
+      console.log(`[App] Removing ${wingdkGames.length} games with WinGDK executables on startup`);
+      for (const game of wingdkGames) {
+        await gameStore.deleteGame(game.id);
+        console.log(`[App] Removed game: ${game.title} (${game.id}) - WinGDK path: ${game.exePath}`);
+      }
+    }
+  } catch (error) {
+    console.error('[App] Error removing WinGDK games on startup:', error);
   }
 
   // IMPORTANT: Register protocol handler FIRST, before any windows are created

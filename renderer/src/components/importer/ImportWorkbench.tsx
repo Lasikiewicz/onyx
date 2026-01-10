@@ -265,7 +265,7 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
               
               if (steamResult && steamResult.steamAppId) {
                 steamAppId = steamResult.steamAppId.toString();
-                matchedTitle = steamResult.title || steamResult.name || scanned.title;
+                matchedTitle = steamResult.title || scanned.title;
                 matchedResult = steamResult;
               }
             }
@@ -519,7 +519,7 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
         
         try {
           const scanned = gamesToProcess[i];
-          const currentIndex = i + 1;
+          // const currentIndex = i + 1; // Unused
           
           // Double-check if game already exists in library (skip if it does to avoid unnecessary API calls)
           const gameId = scanned.source === 'steam' && scanned.appId
@@ -604,21 +604,21 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
                 
                 if (steamResult && steamResult.steamAppId) {
                   steamAppId = steamResult.steamAppId.toString();
-                  matchedTitle = steamResult.title || steamResult.name || scanned.title;
+                  matchedTitle = steamResult.title || scanned.title;
                   matchedResult = steamResult;
                   console.log(`[ImportWorkbench] Found Steam App ID ${steamAppId} for "${scanned.title}" (matched with "${matchedTitle}")`);
                 } else {
                   // Step 2b: If no Steam result, use first IGDB result (for non-Steam games)
                   const igdbResult = searchResponse.results.find((r: any) => r.source === 'igdb');
                   if (igdbResult) {
-                    matchedTitle = igdbResult.title || igdbResult.name || scanned.title;
+                    matchedTitle = igdbResult.title || scanned.title;
                     matchedResult = igdbResult;
                     console.log(`[ImportWorkbench] Found IGDB match for "${scanned.title}" (matched with "${matchedTitle}")`);
                   } else {
                     // Step 2c: Use first result of any type
                     const firstResult = searchResponse.results[0];
                     if (firstResult) {
-                      matchedTitle = firstResult.title || firstResult.name || scanned.title;
+                      matchedTitle = firstResult.title || scanned.title;
                       matchedResult = firstResult;
                       console.log(`[ImportWorkbench] Found match for "${scanned.title}" (matched with "${matchedTitle}")`);
                     } else {
@@ -1083,14 +1083,14 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
     try {
       // Fetch full metadata (artwork + text) for the selected result
       // Use searchArtwork which now returns complete metadata including description, release date, etc.
-      const artwork = await window.electronAPI.searchArtwork(result.name || result.title, steamAppId);
+      const artwork = await window.electronAPI.searchArtwork(result.title || result.name || '', steamAppId);
       
       // searchArtwork now returns complete metadata including text fields from Steam Store API
       // No need for additional metadata fetching
       const fullMetadata = artwork;
       
       updateGame(selectedGame.uuid, {
-        title: result.name || result.title || selectedGame.title,
+        title: result.title || result.name || selectedGame.title,
         description: fullMetadata?.description || result.summary || '',
         releaseDate: fullMetadata?.releaseDate || formatReleaseDate(result.releaseDate) || '',
         genres: fullMetadata?.genres || result.genres || [],
@@ -1111,7 +1111,7 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
       console.error('Error fetching metadata:', err);
       // If metadata fetch fails, still update with basic info from result
       updateGame(selectedGame.uuid, {
-        title: result.name || result.title || selectedGame.title,
+        title: result.title || result.name || selectedGame.title,
         description: result.summary || '',
         releaseDate: formatReleaseDate(result.releaseDate) || '',
         genres: result.genres || [],
@@ -1129,13 +1129,14 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
     setMetadataSearchQuery('');
   };
 
-  // Toggle game selection
-  const toggleGameSelection = (uuid: string) => {
-    setQueue(prev =>
-      prev.map(game =>
-        game.uuid === uuid ? { ...game, isSelected: !game.isSelected } : game
-      )
-    );
+  // Toggle game selection (unused but kept for potential future use)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const toggleGameSelection = (_uuid: string) => {
+    // setQueue(prev =>
+    //   prev.map(game =>
+    //     game.uuid === uuid ? { ...game, isSelected: !game.isSelected } : game
+    //   )
+    // );
   };
 
   // Search for images
@@ -1892,7 +1893,7 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
                             className="flex-1 px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                           />
                           <button
-                            onClick={handleSearchMetadata}
+                            onClick={() => handleSearchMetadata()}
                             disabled={isSearchingMetadata}
                             className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 text-white rounded-lg"
                           >

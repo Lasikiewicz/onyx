@@ -55,15 +55,23 @@ export interface GameMetadata {
   logoUrl?: string;
   heroUrl?: string;
   screenshots?: string[];
-  // Full IGDB metadata
+  // Text metadata
   title?: string;
   description?: string;
+  summary?: string;
   releaseDate?: string;
   genres?: string[];
+  developers?: string[];
+  publishers?: string[];
   ageRating?: string;
-  categories?: string[];
   rating?: number;
+  platforms?: string[];
   platform?: string;
+  categories?: string[];
+  // Install info
+  installPath?: string;
+  installSize?: number;
+  executablePath?: string;
 }
 
 export interface ExecutableFile {
@@ -137,6 +145,7 @@ declare global {
       refreshAllMetadata: (options?: { allGames?: boolean; gameIds?: string[]; continueFromIndex?: number }) => Promise<{ success: boolean; error?: string; count: number; errors: number; unmatchedGames: Array<{ gameId: string; title: string; searchResults: any[] }>; missingBoxartGames: Array<{ gameId: string; title: string; steamAppId?: string }>; requiresBoxart?: boolean; currentGameIndex?: number; remainingGames?: number }>;
       fetchAndUpdate: (gameId: string, boxartUrl: string) => Promise<{ success: boolean; error?: string }>;
       getVersion: () => Promise<string>;
+      removeWinGDKGames: () => Promise<{ success: boolean; removedCount?: number; removedGames?: Array<{ id: string; title: string; exePath?: string }>; error?: string }>;
     };
   }
 }

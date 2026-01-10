@@ -44,6 +44,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   reorderGames: (games: any[]) => ipcRenderer.invoke('gameStore:reorderGames', games),
   addCustomGame: (gameData: { title: string; exePath: string }) => ipcRenderer.invoke('gameStore:addCustomGame', gameData),
   deleteGame: (gameId: string) => ipcRenderer.invoke('gameStore:deleteGame', gameId),
+  removeWinGDKGames: () => ipcRenderer.invoke('gameStore:removeWinGDKGames'),
   // Dialog methods
       showOpenDialog: () => ipcRenderer.invoke('dialog:showOpenDialog'),
       showFolderDialog: () => ipcRenderer.invoke('dialog:showFolderDialog'),

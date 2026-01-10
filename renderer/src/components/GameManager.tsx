@@ -646,8 +646,8 @@ export const GameManager: React.FC<GameManagerProps> = ({
           if (!aIsSteam && bIsSteam) return 1;
           
           // Then prioritize exact matches
-          const aName = (a.title || a.name || '').toLowerCase().trim();
-          const bName = (b.title || b.name || '').toLowerCase().trim();
+          const aName = (a.title || '').toLowerCase().trim();
+          const bName = (b.title || '').toLowerCase().trim();
           const aExact = aName === normalizedQuery;
           const bExact = bName === normalizedQuery;
           if (aExact && !bExact) return -1;

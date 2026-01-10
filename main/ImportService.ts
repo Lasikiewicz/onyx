@@ -533,6 +533,11 @@ export class ImportService {
               executables.push(fullPath);
             }
           } else if (stats.isDirectory() && depth < maxDepth) {
+            // Skip WinGDK folders - they don't contain actual games
+            const dirName = entry.toLowerCase();
+            if (dirName.includes('wingdk')) {
+              continue;
+            }
             // Recursively search subdirectories
             const subExes = this.findExecutables(fullPath, depth + 1, maxDepth);
             executables.push(...subExes);

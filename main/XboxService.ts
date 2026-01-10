@@ -256,13 +256,14 @@ export class XboxService {
               executables.push(fullPath);
             }
           } else if (stats.isDirectory() && depth < maxDepth) {
-            // Skip known system/cache folders to speed up search
+            // Skip known system/cache folders and WinGDK folders to speed up search
             const dirName = entry.toLowerCase();
             if (dirName === '$recycle.bin' || 
                 dirName === 'system volume information' ||
                 dirName === '.git' ||
                 dirName === '__pycache__' ||
-                dirName === 'node_modules') {
+                dirName === 'node_modules' ||
+                dirName.includes('wingdk')) {
               continue;
             }
             
