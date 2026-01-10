@@ -114,6 +114,9 @@ declare global {
       saveAppConfigs: (configs: Array<{ id: string; name: string; enabled: boolean; path: string; autoAdd?: boolean }>) => Promise<{ success: boolean; error?: string }>;
       getManualFolders: () => Promise<string[]>;
       saveManualFolders: (folders: string[]) => Promise<{ success: boolean; error?: string }>;
+      getManualFolderConfigs: () => Promise<Record<string, { id: string; name: string; path: string; enabled: boolean }>>;
+      saveManualFolderConfig: (config: { id: string; name: string; path: string; enabled: boolean }) => Promise<{ success: boolean; error?: string }>;
+      deleteManualFolderConfig: (folderId: string) => Promise<{ success: boolean; error?: string }>;
       getSteamAuthState?: () => Promise<{ authenticated: boolean; steamId?: string; username?: string }>;
       authenticateSteam?: () => Promise<{ success: boolean; steamId?: string; username?: string; error?: string }>;
       importAllSteamGames?: (path: string) => Promise<{ success: boolean; importedCount?: number; error?: string }>;
@@ -147,6 +150,7 @@ declare global {
       fetchAndUpdate: (gameId: string, boxartUrl: string) => Promise<{ success: boolean; error?: string }>;
       getVersion: () => Promise<string>;
       removeWinGDKGames: () => Promise<{ success: boolean; removedCount?: number; removedGames?: Array<{ id: string; title: string; exePath?: string }>; error?: string }>;
+      openPath: (pathOrType: string) => Promise<{ success: boolean; error?: string }>;
     };
   }
 }

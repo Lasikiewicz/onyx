@@ -476,13 +476,6 @@ export const GameManager: React.FC<GameManagerProps> = ({
   const handleSelectImage = async (imageUrl: string, type: 'boxart' | 'banner' | 'logo') => {
     if (!selectedGame || !editedGame) return;
 
-    // Get old image URL before updating
-    const oldImageUrl = type === 'boxart' 
-      ? (editedGame.boxArtUrl || selectedGame.boxArtUrl)
-      : type === 'banner'
-      ? (editedGame.bannerUrl || selectedGame.bannerUrl)
-      : (editedGame.logoUrl || selectedGame.logoUrl);
-
     // Always try to delete old cached image from disk
     // The image might be cached even if the URL format is different
     // This ensures we don't leave orphaned files
