@@ -91,7 +91,8 @@ declare global {
       setSteamPath: (path: string) => Promise<{ success: boolean; error?: string }>;
       scanGamesWithPath: (path?: string, autoMerge?: boolean) => Promise<{ success: boolean; error?: string; games: import('./steam').SteamGame[] }>;
       getLibrary: () => Promise<Game[]>;
-      saveGame: (game: Game) => Promise<boolean>;
+      saveGame: (game: Game, oldGame?: Game) => Promise<boolean>;
+      deleteCachedImage: (gameId: string, imageType: 'boxart' | 'banner' | 'logo' | 'hero') => Promise<{ success: boolean; error?: string }>;
       reorderGames: (games: Game[]) => Promise<boolean>;
       addCustomGame: (gameData: { title: string; exePath: string }) => Promise<Game | null>;
       deleteGame: (gameId: string) => Promise<boolean>;

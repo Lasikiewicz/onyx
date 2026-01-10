@@ -9,7 +9,7 @@ interface GameManagerProps {
   isOpen: boolean;
   onClose: () => void;
   games: Game[];
-  onSaveGame: (game: Game) => Promise<void>;
+  onSaveGame: (game: Game, oldGame?: Game) => Promise<void>;
   onDeleteGame?: (gameId: string) => Promise<void>;
   onReloadLibrary?: () => Promise<void>;
   initialGameId?: string | null;
@@ -483,14 +483,14 @@ export const GameManager: React.FC<GameManagerProps> = ({
       ? (editedGame.bannerUrl || selectedGame.bannerUrl)
       : (editedGame.logoUrl || selectedGame.logoUrl);
 
-    // Delete old image from disk if it's a cached image
-    if (oldImageUrl && oldImageUrl.startsWith('onyx-local://')) {
-      try {
-        await window.electronAPI.deleteCachedImage(selectedGame.id, type);
-      } catch (err) {
-        console.warn('Error deleting old image:', err);
-        // Continue even if deletion fails
-      }
+    // Always try to delete old cached image from disk
+    // The image might be cached even if the URL format is different
+    // This ensures we don't leave orphaned files
+    try {
+      await window.electronAPI.deleteCachedImage(selectedGame.id, type);
+    } catch (err) {
+      console.warn('Error deleting old image:', err);
+      // Continue even if deletion fails - the cacheImage method will also try to clean up
     }
 
     // Update immediately for instant visual feedback

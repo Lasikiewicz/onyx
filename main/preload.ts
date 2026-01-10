@@ -69,6 +69,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Manual folders methods
   getManualFolders: () => ipcRenderer.invoke('manualFolders:get'),
   saveManualFolders: (folders: string[]) => ipcRenderer.invoke('manualFolders:save', folders),
+  getManualFolderConfigs: () => ipcRenderer.invoke('manualFolders:getConfigs'),
+  saveManualFolderConfig: (config: { id: string; name: string; path: string; enabled: boolean }) => ipcRenderer.invoke('manualFolders:saveConfig', config),
+  deleteManualFolderConfig: (folderId: string) => ipcRenderer.invoke('manualFolders:deleteConfig', folderId),
   // Xbox service methods
   scanXboxGames: (path: string, autoMerge?: boolean) => ipcRenderer.invoke('xbox:scanGames', path, autoMerge),
   // Menu event listeners
@@ -116,6 +119,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   searchImages: (query: string, imageType: 'boxart' | 'banner' | 'logo', steamAppId?: string) => ipcRenderer.invoke('metadata:searchImages', query, imageType, steamAppId),
   // App version
   getVersion: () => ipcRenderer.invoke('app:getVersion'),
+  // Open path/folder
+  openPath: (pathOrType: string) => ipcRenderer.invoke('app:openPath', pathOrType),
 });
 
 // Debug: Log that electronAPI was exposed

@@ -1130,14 +1130,13 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
   };
 
   // Toggle game selection (unused but kept for potential future use)
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const toggleGameSelection = (_uuid: string) => {
-    // setQueue(prev =>
-    //   prev.map(game =>
-    //     game.uuid === uuid ? { ...game, isSelected: !game.isSelected } : game
-    //   )
-    // );
-  };
+  // const toggleGameSelection = (uuid: string) => {
+  //   setQueue(prev =>
+  //     prev.map(game =>
+  //       game.uuid === uuid ? { ...game, isSelected: !game.isSelected } : game
+  //     )
+  //   );
+  // };
 
   // Search for images
   const handleSearchImages = async () => {

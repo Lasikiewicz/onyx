@@ -2556,6 +2556,55 @@ ipcMain.handle('appConfig:setBackgroundScanEnabled', async (_event, enabled: boo
   }
 });
 
+// Manual folders IPC handlers
+ipcMain.handle('manualFolders:get', async () => {
+  try {
+    return await appConfigService.getManualFolders();
+  } catch (error) {
+    console.error('Error getting manual folders:', error);
+    return [];
+  }
+});
+
+ipcMain.handle('manualFolders:save', async (_event, folders: string[]) => {
+  try {
+    await appConfigService.saveManualFolders(folders);
+    return { success: true };
+  } catch (error) {
+    console.error('Error saving manual folders:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+});
+
+ipcMain.handle('manualFolders:getConfigs', async () => {
+  try {
+    return await appConfigService.getManualFolderConfigs();
+  } catch (error) {
+    console.error('Error getting manual folder configs:', error);
+    return {};
+  }
+});
+
+ipcMain.handle('manualFolders:saveConfig', async (_event, config: { id: string; name: string; path: string; enabled: boolean }) => {
+  try {
+    await appConfigService.saveManualFolderConfig(config);
+    return { success: true };
+  } catch (error) {
+    console.error('Error saving manual folder config:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+});
+
+ipcMain.handle('manualFolders:deleteConfig', async (_event, folderId: string) => {
+  try {
+    await appConfigService.deleteManualFolderConfig(folderId);
+    return { success: true };
+  } catch (error) {
+    console.error('Error deleting manual folder config:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+});
+
 ipcMain.handle('appConfig:getLastBackgroundScan', async () => {
   try {
     return await appConfigService.getLastBackgroundScan();
@@ -2908,13 +2957,42 @@ ipcMain.handle('app:applySystemTraySettings', async (_event, settings: { showSys
 // Apply startup settings
 ipcMain.handle('app:applyStartupSettings', async (_event, settings: { startWithComputer: boolean; startClosedToTray: boolean }) => {
   try {
-    // On Windows, we can use the registry or startup folder
-    // For now, we'll just store the preference
-    // Actual auto-start implementation would require additional setup
     if (process.platform === 'win32') {
-      // TODO: Implement Windows registry-based auto-start
-      // This would require additional packages or native modules
-      console.log('Auto-start settings saved (implementation pending)');
+      const { execSync } = require('child_process');
+      const appPath = app.getPath('exe');
+      const appName = app.getName();
+      const regKey = `HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run`;
+      
+      if (settings.startWithComputer) {
+        try {
+          // Add to Windows startup registry
+          const command = `reg add "${regKey}" /v "${appName}" /t REG_SZ /d "${appPath}" /f`;
+          execSync(command, { stdio: 'ignore' });
+          console.log(`[AutoStart] Added ${appName} to Windows startup`);
+        } catch (regError) {
+          console.error('[AutoStart] Failed to add to registry:', regError);
+          // Fallback: try using startup folder
+          try {
+            const { homedir } = require('os');
+            const startupFolder = path.join(homedir(), 'AppData', 'Roaming', 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'Startup');
+            const shortcutPath = path.join(startupFolder, `${appName}.lnk`);
+            // Note: Creating .lnk files requires additional packages, so we'll just log for now
+            console.log(`[AutoStart] Would create shortcut at: ${shortcutPath}`);
+          } catch (shortcutError) {
+            console.error('[AutoStart] Failed to create startup shortcut:', shortcutError);
+          }
+        }
+      } else {
+        try {
+          // Remove from Windows startup registry
+          const command = `reg delete "${regKey}" /v "${appName}" /f`;
+          execSync(command, { stdio: 'ignore' });
+          console.log(`[AutoStart] Removed ${appName} from Windows startup`);
+        } catch (regError) {
+          // Ignore error if key doesn't exist
+          console.log(`[AutoStart] Registry key not found or already removed`);
+        }
+      }
     }
     return { success: true };
   } catch (error) {
@@ -2930,6 +3008,28 @@ ipcMain.handle('app:openExternal', async (_event, url: string) => {
     return { success: true };
   } catch (error) {
     console.error('Error opening external URL:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+});
+
+// Open folder/path handler
+ipcMain.handle('app:openPath', async (_event, pathOrType: string) => {
+  try {
+    let pathToOpen: string;
+    
+    if (pathOrType === 'cache') {
+      pathToOpen = imageCacheService.getCacheDir();
+    } else if (pathOrType === 'appData') {
+      pathToOpen = app.getPath('userData');
+    } else {
+      // Assume it's a direct path
+      pathToOpen = pathOrType;
+    }
+    
+    await shell.openPath(pathToOpen);
+    return { success: true };
+  } catch (error) {
+    console.error('Error opening path:', error);
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
 });
@@ -2992,6 +3092,17 @@ ipcMain.handle('app:closeWindow', async () => {
     return { success: false, error: 'Window not available' };
   } catch (error) {
     console.error('Error closing window:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+});
+
+// Image cache IPC handlers
+ipcMain.handle('imageCache:deleteImage', async (_event, gameId: string, imageType: 'boxart' | 'banner' | 'logo' | 'hero') => {
+  try {
+    await imageCacheService.deleteCachedImage(gameId, imageType);
+    return { success: true };
+  } catch (error) {
+    console.error('Error deleting cached image:', error);
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
 });

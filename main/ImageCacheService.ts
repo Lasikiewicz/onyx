@@ -196,31 +196,45 @@ export class ImageCacheService {
           return url;
         }
 
-        // Generate cache filename
+        // Use simple, predictable filename format: {gameId}-{imageType}.{ext}
+        // Same format as HTTP/HTTPS URLs for consistency
         const ext = path.extname(filePath) || '.jpg';
-        const urlHash = Buffer.from(filePath).toString('base64')
-          .replace(/[^a-zA-Z0-9]/g, '')
-          .substring(0, 16);
-        const filename = `${gameId}-${imageType}-${urlHash}${ext}`;
+        const safeGameId = gameId.replace(/[<>:"/\\|?*]/g, '_');
+        const filename = `${safeGameId}-${imageType}${ext}`;
         const localPath = path.join(this.cacheDir, filename);
 
-        // Check if already cached
+        // Delete old images for this game and image type before caching new one
+        // This ensures we don't have stale images with different extensions
+        const { unlinkSync } = require('node:fs');
+        const extensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
+        for (const oldExt of extensions) {
+          const oldFilename = `${safeGameId}-${imageType}${oldExt}`;
+          const oldPath = path.join(this.cacheDir, oldFilename);
+          if (existsSync(oldPath) && oldPath !== localPath) {
+            try {
+              unlinkSync(oldPath);
+              console.log(`[ImageCache] Deleted old image: ${oldFilename}`);
+            } catch (deleteError) {
+              console.warn(`[ImageCache] Failed to delete old image ${oldFilename}:`, deleteError);
+            }
+          }
+        }
+
+        // Check if already cached (after cleanup)
         if (existsSync(localPath)) {
-          // Use URL encoding instead of base64 to avoid Electron's URL lowercasing issues
-          // Base64 is case-sensitive, but Electron lowercases URLs, breaking decoding
-          const encodedPath = encodeURIComponent(localPath);
-          return `onyx-local://${encodedPath}`;
+          // Return simple URL format: onyx-local://{gameId}-{imageType}
+          // Protocol handler will construct the path from this
+          return `onyx-local://${safeGameId}-${imageType}`;
         }
 
         // Copy file to cache
-        console.log(`Copying local image: ${filePath} -> ${localPath}`);
+        console.log(`[ImageCache] Copying local image: ${filePath} -> ${filename}`);
         const imageData = readFileSync(filePath);
         writeFileSync(localPath, imageData);
-        console.log(`Cached local image: ${localPath}`);
+        console.log(`[ImageCache] Cached local image: ${filename}`);
 
-        // Use URL encoding instead of base64 to avoid Electron's URL lowercasing issues
-        const encodedPath = encodeURIComponent(localPath);
-        return `onyx-local://${encodedPath}`;
+        // Return simple URL format: onyx-local://{gameId}-{imageType}
+        return `onyx-local://${safeGameId}-${imageType}`;
       }
 
       // Handle HTTP/HTTPS URLs by downloading
@@ -230,7 +244,24 @@ export class ImageCacheService {
       const filename = `${safeGameId}-${imageType}${ext}`;
       const localPath = path.join(this.cacheDir, filename);
 
-      // Check if already cached
+      // Delete old images for this game and image type before caching new one
+      // This ensures we don't have stale images with different extensions
+      const { unlinkSync } = require('node:fs');
+      const extensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
+      for (const oldExt of extensions) {
+        const oldFilename = `${safeGameId}-${imageType}${oldExt}`;
+        const oldPath = path.join(this.cacheDir, oldFilename);
+        if (existsSync(oldPath) && oldPath !== localPath) {
+          try {
+            unlinkSync(oldPath);
+            console.log(`[ImageCache] Deleted old image: ${oldFilename}`);
+          } catch (deleteError) {
+            console.warn(`[ImageCache] Failed to delete old image ${oldFilename}:`, deleteError);
+          }
+        }
+      }
+
+      // Check if already cached (after cleanup)
       if (existsSync(localPath)) {
         // Return simple URL format: onyx-local://{gameId}-{imageType}
         // Protocol handler will construct the path from this

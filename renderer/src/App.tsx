@@ -24,7 +24,7 @@ import { Game, ExecutableFile, GameMetadata } from './types/game';
 import { areAPIsConfigured } from './utils/apiValidation';
 
 function App() {
-  const { games, loading, error, reorderGames, addCustomGame, loadLibrary, saveGame, deleteGame, updateGameInState } = useGameLibrary();
+  const { games, loading, error, reorderGames, addCustomGame, loadLibrary, deleteGame, updateGameInState } = useGameLibrary();
   const [activeGameId, setActiveGameId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   

@@ -55,11 +55,11 @@ export const MenuBar: React.FC<MenuBarProps> = ({
   launchers = [],
   selectedLauncher,
   onLauncherChange,
-  onScanFolder,
+  // onScanFolder, // Unused
   onUpdateLibrary,
   onGameManager,
   onOnyxSettings,
-  onAPISettings,
+  // onAPISettings, // Unused
   onAbout,
   onExit,
 }) => {

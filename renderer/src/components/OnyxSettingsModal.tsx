@@ -6,7 +6,7 @@ interface OnyxSettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave?: () => void;
-  initialTab?: 'general' | 'apis' | 'apps' | 'reset' | 'about';
+  initialTab?: 'general' | 'apis' | 'apps' | 'reset' | 'about' | 'appearance';
   onShowImportModal?: (games: Array<any>, appType?: 'steam' | 'xbox' | 'other') => void;
 }
 
@@ -21,7 +21,7 @@ interface OnyxSettings {
   gameTilePadding: number;
 }
 
-type TabType = 'general' | 'apis' | 'apps' | 'reset' | 'about';
+type TabType = 'general' | 'apis' | 'apps' | 'reset' | 'about' | 'appearance' | 'folders';
 
 interface AppConfig {
   id: string;
@@ -132,6 +132,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
   const [steamAuthState, setSteamAuthState] = useState<{ authenticated: boolean; steamId?: string; username?: string }>({ authenticated: false });
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [manualFolders, setManualFolders] = useState<string[]>([]);
+  const [manualFolderConfigs, setManualFolderConfigs] = useState<Record<string, { id: string; name: string; path: string; enabled: boolean }>>({});
   // const [isImporting, setIsImporting] = useState(false);
   const [settings, setSettings] = useState<OnyxSettings>({
     minimizeToTray: false,
@@ -219,9 +220,15 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
           try {
             const folders = await window.electronAPI.getManualFolders();
             setManualFolders(folders || []);
+            // Load manual folder configs with custom names
+            if (window.electronAPI.getManualFolderConfigs) {
+              const configs = await window.electronAPI.getManualFolderConfigs();
+              setManualFolderConfigs(configs || {});
+            }
           } catch (err) {
             console.error('Error loading manual folders:', err);
             setManualFolders([]);
+            setManualFolderConfigs({});
           }
           
           let steamPath = '';
@@ -300,17 +307,17 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
     setSettings(newSettings);
   };
 
-  const handlePaddingChange = (value: number) => {
-    setSettings({ ...settings, gameTilePadding: value });
-  };
+  // const handlePaddingChange = (value: number) => {
+  //   setSettings({ ...settings, gameTilePadding: value });
+  // };
 
-  const handleRestoreDefaults = () => {
-    setSettings({
-      ...settings,
-      hideGameTitles: false,
-      gameTilePadding: 16,
-    });
-  };
+  // const handleRestoreDefaults = () => {
+  //   setSettings({
+  //     ...settings,
+  //     hideGameTitles: false,
+  //     gameTilePadding: 16,
+  //   });
+  // };
 
   const handleAPIInputChange = (key: keyof APICredentials, value: string) => {
     setApiCredentials((prev) => ({ ...prev, [key]: value }));
@@ -455,18 +462,47 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
   const handleAddManualFolder = async () => {
     try {
       const path = await window.electronAPI.showFolderDialog();
-      if (path && !manualFolders.includes(path)) {
-        const updated = [...manualFolders, path];
-        setManualFolders(updated);
-        const result = await window.electronAPI.saveManualFolders(updated);
-        if (!result || !result.success) {
-          console.error('Error saving manual folder:', result?.error || 'Unknown error');
-          alert('Failed to save manual folder. Please try again.');
-          // Revert the state if save failed
-          setManualFolders(manualFolders);
+      if (path) {
+        // Check if folder already exists
+        const existingConfig = Object.values(manualFolderConfigs).find(c => c.path === path);
+        if (existingConfig) {
+          alert('This folder is already in the list.');
+          return;
         }
-      } else if (path && manualFolders.includes(path)) {
-        alert('This folder is already in the list.');
+        
+        // Create config with default name (folder basename)
+        const folderName = path.split(/[/\\]/).pop() || 'Manual Folder';
+        // Generate a simple ID from the path
+        const pathHash = btoa(path).replace(/[^a-zA-Z0-9]/g, '').substring(0, 16);
+        const folderId = `manual-${pathHash}`;
+        
+        const newConfig = {
+          id: folderId,
+          name: folderName,
+          path: path,
+          enabled: true,
+        };
+        
+        // Save config
+        if (window.electronAPI.saveManualFolderConfig) {
+          const result = await window.electronAPI.saveManualFolderConfig(newConfig);
+          if (result && result.success) {
+            setManualFolderConfigs({ ...manualFolderConfigs, [folderId]: newConfig });
+            const updated = [...manualFolders, path];
+            setManualFolders(updated);
+          } else {
+            alert('Failed to save manual folder. Please try again.');
+          }
+        } else {
+          // Fallback to old method
+          const updated = [...manualFolders, path];
+          setManualFolders(updated);
+          const result = await window.electronAPI.saveManualFolders(updated);
+          if (!result || !result.success) {
+            alert('Failed to save manual folder. Please try again.');
+            setManualFolders(manualFolders);
+          }
+        }
       }
     } catch (err) {
       console.error('Error adding manual folder:', err);
@@ -475,12 +511,37 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
   };
 
   const handleRemoveManualFolder = async (folderPath: string) => {
-    const updated = manualFolders.filter(f => f !== folderPath);
-    setManualFolders(updated);
-    try {
-      await window.electronAPI.saveManualFolders(updated);
-    } catch (err) {
-      console.error('Error removing manual folder:', err);
+    // Find config by path
+    const config = Object.values(manualFolderConfigs).find(c => c.path === folderPath);
+    if (config && window.electronAPI.deleteManualFolderConfig) {
+      const result = await window.electronAPI.deleteManualFolderConfig(config.id);
+      if (result && result.success) {
+        const updatedConfigs = { ...manualFolderConfigs };
+        delete updatedConfigs[config.id];
+        setManualFolderConfigs(updatedConfigs);
+        const updated = manualFolders.filter(f => f !== folderPath);
+        setManualFolders(updated);
+      }
+    } else {
+      // Fallback to old method
+      const updated = manualFolders.filter(f => f !== folderPath);
+      setManualFolders(updated);
+      try {
+        await window.electronAPI.saveManualFolders(updated);
+      } catch (err) {
+        console.error('Error removing manual folder:', err);
+      }
+    }
+  };
+
+  const handleUpdateManualFolderName = async (folderId: string, newName: string) => {
+    const config = manualFolderConfigs[folderId];
+    if (config && window.electronAPI.saveManualFolderConfig) {
+      const updatedConfig = { ...config, name: newName };
+      const result = await window.electronAPI.saveManualFolderConfig(updatedConfig);
+      if (result && result.success) {
+        setManualFolderConfigs({ ...manualFolderConfigs, [folderId]: updatedConfig });
+      }
     }
   };
 
@@ -662,6 +723,15 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+        </svg>
+      ),
+    },
+    {
+      id: 'folders',
+      label: 'Folders',
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
         </svg>
       ),
     },
@@ -1286,7 +1356,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                     </div>
                   )}
                   
-                  {/* Manual Folders Section */}
+                  {/* Manual Folders Section - Display like apps */}
                   <div className="mt-8 pt-8 border-t border-gray-700">
                     <div className="flex items-center justify-between mb-4">
                       <div>
@@ -1306,28 +1376,73 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                       </button>
                     </div>
                     
-                    {manualFolders.length === 0 ? (
+                    {Object.keys(manualFolderConfigs).length === 0 ? (
                       <div className="text-center py-8 text-gray-500 text-sm">
                         No manual folders added. Click "Add Folder" to monitor a custom location.
                       </div>
                     ) : (
-                      <div className="space-y-2">
-                        {manualFolders.map((folder) => (
-                          <div key={folder} className="flex items-center gap-2 p-3 bg-gray-700/30 rounded-lg border border-gray-600">
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm text-gray-300 truncate" title={folder}>
-                                {folder}
-                              </p>
+                      <div className="grid grid-cols-5 gap-3">
+                        {Object.values(manualFolderConfigs).map((folderConfig) => (
+                          <div key={folderConfig.id} className="border border-gray-700 rounded-lg p-2.5 bg-gray-700/30 hover:bg-gray-700/50 transition-colors">
+                            <div className="flex items-center justify-between mb-2">
+                              <input
+                                type="text"
+                                value={folderConfig.name}
+                                onChange={(e) => handleUpdateManualFolderName(folderConfig.id, e.target.value)}
+                                onBlur={() => {
+                                  // Save on blur
+                                  const config = manualFolderConfigs[folderConfig.id];
+                                  if (config && window.electronAPI.saveManualFolderConfig) {
+                                    window.electronAPI.saveManualFolderConfig(config);
+                                  }
+                                }}
+                                className="text-xs font-semibold text-gray-300 uppercase tracking-wide bg-transparent border-none p-0 w-full focus:outline-none focus:ring-1 focus:ring-blue-500 rounded px-1"
+                                style={{ textTransform: 'uppercase' }}
+                              />
+                              {/* Enable/Disable Toggle */}
+                              <label className="relative inline-flex items-center cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={folderConfig.enabled}
+                                  onChange={async () => {
+                                    const updated = { ...folderConfig, enabled: !folderConfig.enabled };
+                                    if (window.electronAPI.saveManualFolderConfig) {
+                                      await window.electronAPI.saveManualFolderConfig(updated);
+                                      setManualFolderConfigs({ ...manualFolderConfigs, [folderConfig.id]: updated });
+                                    }
+                                  }}
+                                  className="sr-only peer"
+                                />
+                                <div className="w-9 h-5 bg-gray-600 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+                              </label>
                             </div>
-                            <button
-                              onClick={() => handleRemoveManualFolder(folder)}
-                              className="px-3 py-1.5 bg-red-600/20 hover:bg-red-600/30 text-red-400 text-xs rounded transition-colors flex items-center gap-1"
-                            >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                              </svg>
-                              Remove
-                            </button>
+                            
+                            {folderConfig.enabled && (
+                              <div className="space-y-1.5">
+                                <div>
+                                  <label className="block text-xs text-gray-400 mb-0.5">
+                                    Folder Path
+                                  </label>
+                                  <div className="flex gap-1.5">
+                                    <input
+                                      type="text"
+                                      value={folderConfig.path}
+                                      readOnly
+                                      className="flex-1 px-1.5 py-1 bg-gray-900 border border-gray-600 rounded text-xs text-gray-400 cursor-not-allowed"
+                                    />
+                                    <button
+                                      onClick={() => handleRemoveManualFolder(folderConfig.path)}
+                                      className="px-1.5 py-1 bg-red-600/20 hover:bg-red-600/30 text-red-400 text-xs rounded transition-colors"
+                                      title="Remove folder"
+                                    >
+                                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                      </svg>
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
                           </div>
                         ))}
                       </div>
@@ -1539,6 +1654,163 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                   <p className="text-xs text-slate-700">
                     © 2026 Onyx. All rights reserved.
                   </p>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'folders' && (
+              <div className="space-y-4">
+                <div className="space-y-1">
+                  <h3 className="text-lg font-semibold text-white mb-2">Application Folders</h3>
+                  <p className="text-gray-400 text-xs mb-4">
+                    View and open all folders used by Onyx
+                  </p>
+                  
+                  <div className="grid grid-cols-3 gap-3">
+                    {/* Image Cache Folder */}
+                    <div className="flex items-center justify-between p-3 bg-gray-700/30 rounded-lg border border-gray-600 hover:bg-gray-700/50 transition-colors">
+                      <div className="flex-1 min-w-0 pr-3">
+                        <h4 className="text-xs font-medium text-white mb-0.5">Image Cache</h4>
+                        <p className="text-xs text-gray-500 font-mono truncate" title={(() => {
+                          const isWindows = navigator.platform.toLowerCase().includes('win');
+                          if (isWindows) {
+                            return '%LOCALAPPDATA%\\onyx-launcher\\images';
+                          }
+                          return '~/.cache/onyx-launcher/images';
+                        })()}>
+                          {(() => {
+                            const isWindows = navigator.platform.toLowerCase().includes('win');
+                            if (isWindows) {
+                              return '%LOCALAPPDATA%\\onyx-launcher\\images';
+                            }
+                            return '~/.cache/onyx-launcher/images';
+                          })()}
+                        </p>
+                      </div>
+                      <button
+                        onClick={async () => {
+                          try {
+                            if (window.electronAPI.openPath) {
+                              await window.electronAPI.openPath('cache');
+                            } else {
+                              alert('Open folder functionality not available');
+                            }
+                          } catch (err) {
+                            console.error('Error opening folder:', err);
+                          }
+                        }}
+                        className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded transition-colors flex items-center gap-1.5 flex-shrink-0"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                        </svg>
+                        Open
+                      </button>
+                    </div>
+
+                    {/* App Data Folder */}
+                    <div className="flex items-center justify-between p-3 bg-gray-700/30 rounded-lg border border-gray-600 hover:bg-gray-700/50 transition-colors">
+                      <div className="flex-1 min-w-0 pr-3">
+                        <h4 className="text-xs font-medium text-white mb-0.5">Application Data</h4>
+                        <p className="text-xs text-gray-500 font-mono truncate" title={(() => {
+                          const isWindows = navigator.platform.toLowerCase().includes('win');
+                          if (isWindows) {
+                            return '%APPDATA%\\onyx-launcher';
+                          }
+                          return '~/.config/onyx-launcher';
+                        })()}>
+                          {(() => {
+                            const isWindows = navigator.platform.toLowerCase().includes('win');
+                            if (isWindows) {
+                              return '%APPDATA%\\onyx-launcher';
+                            }
+                            return '~/.config/onyx-launcher';
+                          })()}
+                        </p>
+                      </div>
+                      <button
+                        onClick={async () => {
+                          try {
+                            if (window.electronAPI.openPath) {
+                              await window.electronAPI.openPath('appData');
+                            } else {
+                              alert('Open folder functionality not available');
+                            }
+                          } catch (err) {
+                            console.error('Error opening folder:', err);
+                          }
+                        }}
+                        className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded transition-colors flex items-center gap-1.5 flex-shrink-0"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                        </svg>
+                        Open
+                      </button>
+                    </div>
+
+                    {/* Install Locations - Show all configured app paths */}
+                    {apps.filter(app => app.enabled && app.path).map((app) => (
+                      <div key={app.id} className="flex items-center justify-between p-3 bg-gray-700/30 rounded-lg border border-gray-600 hover:bg-gray-700/50 transition-colors">
+                        <div className="flex-1 min-w-0 pr-3">
+                          <h4 className="text-xs font-medium text-white mb-0.5">{app.name}</h4>
+                          <p className="text-xs text-gray-500 font-mono truncate" title={app.path}>
+                            {app.path}
+                          </p>
+                        </div>
+                        <button
+                          onClick={async () => {
+                            try {
+                              if (window.electronAPI.openPath) {
+                                await window.electronAPI.openPath(app.path);
+                              } else {
+                                alert('Open folder functionality not available');
+                              }
+                            } catch (err) {
+                              console.error('Error opening folder:', err);
+                            }
+                          }}
+                          className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded transition-colors flex items-center gap-1.5 flex-shrink-0"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                          </svg>
+                          Open
+                        </button>
+                      </div>
+                    ))}
+
+                    {/* Manual Folders */}
+                    {Object.values(manualFolderConfigs).filter(f => f.enabled).map((folderConfig) => (
+                      <div key={folderConfig.id} className="flex items-center justify-between p-3 bg-gray-700/30 rounded-lg border border-gray-600 hover:bg-gray-700/50 transition-colors">
+                        <div className="flex-1 min-w-0 pr-3">
+                          <h4 className="text-xs font-medium text-white mb-0.5">{folderConfig.name}</h4>
+                          <p className="text-xs text-gray-500 font-mono truncate" title={folderConfig.path}>
+                            {folderConfig.path}
+                          </p>
+                        </div>
+                        <button
+                          onClick={async () => {
+                            try {
+                              if (window.electronAPI.openPath) {
+                                await window.electronAPI.openPath(folderConfig.path);
+                              } else {
+                                alert('Open folder functionality not available');
+                              }
+                            } catch (err) {
+                              console.error('Error opening folder:', err);
+                            }
+                          }}
+                          className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded transition-colors flex items-center gap-1.5 flex-shrink-0"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                          </svg>
+                          Open
+                        </button>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             )}
