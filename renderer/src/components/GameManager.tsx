@@ -751,8 +751,8 @@ export const GameManager: React.FC<GameManagerProps> = ({
             ageRating: metadata.ageRating || editedGame?.ageRating,
             userScore: metadata.rating ? Math.round(metadata.rating) : editedGame?.userScore,
             platform: metadata.platforms?.join(', ') || metadata.platform || 'steam',
-            boxArtUrl: metadata.boxArtUrl || editedGame?.boxArtUrl,
-            bannerUrl: metadata.bannerUrl || editedGame?.bannerUrl,
+            boxArtUrl: metadata.boxArtUrl || editedGame?.boxArtUrl || '',
+            bannerUrl: metadata.bannerUrl || editedGame?.bannerUrl || '',
             logoUrl: metadata.logoUrl || editedGame?.logoUrl,
             heroUrl: metadata.heroUrl || editedGame?.heroUrl,
           });
@@ -877,9 +877,9 @@ export const GameManager: React.FC<GameManagerProps> = ({
         // Fetch complete metadata from Steam (including images)
         const metadata = await window.electronAPI.searchArtwork(gameTitle, steamAppId);
         
-        if (metadata) {
+        if (metadata && editedGame) {
           // Update the edited game with all metadata and images from Steam
-          const updatedGame = {
+          const updatedGame: Game = {
             ...editedGame,
             id: newGameId,
             platform: metadata.platforms?.join(', ') || metadata.platform || 'steam',
@@ -891,8 +891,8 @@ export const GameManager: React.FC<GameManagerProps> = ({
             publishers: metadata.publishers || editedGame.publishers,
             ageRating: metadata.ageRating || editedGame.ageRating,
             userScore: metadata.rating ? Math.round(metadata.rating) : editedGame.userScore,
-            boxArtUrl: metadata.boxArtUrl || editedGame.boxArtUrl,
-            bannerUrl: metadata.bannerUrl || editedGame.bannerUrl,
+            boxArtUrl: metadata.boxArtUrl || editedGame.boxArtUrl || '',
+            bannerUrl: metadata.bannerUrl || editedGame.bannerUrl || '',
             logoUrl: metadata.logoUrl || editedGame.logoUrl,
             heroUrl: metadata.heroUrl || editedGame.heroUrl,
           };
@@ -930,8 +930,10 @@ export const GameManager: React.FC<GameManagerProps> = ({
           newPlatform = metadata.platforms?.join(', ') || metadata.platform || expandedGame.platform;
         }
         
+        if (!editedGame) return;
+        
         // Update the edited game with all metadata and images
-        const updatedGame = {
+        const updatedGame: Game = {
           ...editedGame,
           id: newGameId,
           platform: newPlatform,
@@ -943,8 +945,8 @@ export const GameManager: React.FC<GameManagerProps> = ({
           publishers: metadata.publishers || editedGame.publishers,
           ageRating: metadata.ageRating || editedGame.ageRating,
           userScore: metadata.rating ? Math.round(metadata.rating) : editedGame.userScore,
-          boxArtUrl: metadata.boxArtUrl || editedGame.boxArtUrl,
-          bannerUrl: metadata.bannerUrl || editedGame.bannerUrl,
+          boxArtUrl: metadata.boxArtUrl || editedGame.boxArtUrl || '',
+          bannerUrl: metadata.bannerUrl || editedGame.bannerUrl || '',
           logoUrl: metadata.logoUrl || editedGame.logoUrl,
           heroUrl: metadata.heroUrl || editedGame.heroUrl,
         };
@@ -972,7 +974,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
         result.source
       );
 
-      if (response.success && response.metadata) {
+      if (response.success && response.metadata && editedGame) {
         // Update the edited game with the new metadata (no images)
         setEditedGame({
           ...editedGame,
@@ -1576,7 +1578,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
                                         // Debug: Log first result to check for boxArtUrl
                                         if (steamResults.length > 0) {
                                           console.log('First Steam result (Fix Match button):', steamResults[0]);
-                                          console.log('Has boxArtUrl:', !!steamResults[0].boxArtUrl);
+                                          console.log('Has boxArtUrl:', !!(steamResults[0] as any).boxArtUrl);
                                         }
                                         
                                         // Sort results: newest release first, then exact matches
