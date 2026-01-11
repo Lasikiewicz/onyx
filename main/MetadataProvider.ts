@@ -27,12 +27,14 @@ export interface GameArtwork {
   bannerUrl?: string;
   logoUrl?: string;
   heroUrl?: string;
+  iconUrl?: string; // Game icon (typically 32x32 or 64x64)
   screenshots?: string[];
   // Resolution info for selecting highest quality
   boxArtResolution?: { width: number; height: number };
   bannerResolution?: { width: number; height: number };
   logoResolution?: { width: number; height: number };
   heroResolution?: { width: number; height: number };
+  iconResolution?: { width: number; height: number };
 }
 
 export interface GameInstallInfo {

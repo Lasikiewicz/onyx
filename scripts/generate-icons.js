@@ -11,7 +11,6 @@ const sourceIconPath = 'resources/icon.svg';
 const pngIconPath = 'resources/icon.png';
 const buildDir = 'build';
 const icoOutputPath = `${buildDir}/icon.ico`;
-const icnsOutputPath = `${buildDir}/icon.icns`;
 
 /**
  * Converts SVG to PNG if needed
@@ -57,27 +56,6 @@ async function generateIco() {
 }
 
 /**
- * Converts PNG to ICNS format for macOS
- */
-async function generateIcns() {
-  try {
-    const pngBuffer = await sharp(pngIconPath).png().toBuffer();
-    const icnsBuffer = png2icons.createICNS(pngBuffer, png2icons.BILINEAR);
-    
-    // Ensure build directory exists
-    await mkdir(buildDir, { recursive: true });
-    
-    // Write ICNS file
-    const fs = await import('fs/promises');
-    await fs.writeFile(icnsOutputPath, icnsBuffer);
-    console.log(`✓ Generated ${icnsOutputPath}`);
-  } catch (error) {
-    console.error(`Error generating ICNS: ${error.message}`);
-    throw error;
-  }
-}
-
-/**
  * Main function to generate all icon formats
  */
 async function generateIcons() {
@@ -89,9 +67,6 @@ async function generateIcons() {
     
     // Generate ICO for Windows
     await generateIco();
-    
-    // Generate ICNS for macOS
-    await generateIcns();
     
     console.log('\n✓ All icons generated successfully!');
   } catch (error) {

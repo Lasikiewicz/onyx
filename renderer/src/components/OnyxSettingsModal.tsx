@@ -31,6 +31,7 @@ interface AppConfig {
   defaultPaths: string[];
   placeholder: string;
   autoAdd?: boolean;
+  syncPlaytime?: boolean;
 }
 
 interface APICredentials {
@@ -155,6 +156,8 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
   const [isLoadingGames, setIsLoadingGames] = useState(false);
   const [suspendShortcut, setSuspendShortcut] = useState<string>('Ctrl+Shift+S');
   const [isRecordingShortcut, setIsRecordingShortcut] = useState(false);
+  const [backgroundScanEnabled, setBackgroundScanEnabled] = useState(false);
+  const [backgroundScanIntervalMinutes, setBackgroundScanIntervalMinutes] = useState(30);
 
   // Load settings and version on mount
   useEffect(() => {
@@ -181,6 +184,16 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
             setAppVersion(version);
           } catch (error) {
             console.error('Error loading app version:', error);
+          }
+
+          // Load background scan settings
+          try {
+            const enabled = await window.electronAPI.getBackgroundScanEnabled();
+            setBackgroundScanEnabled(enabled);
+            const interval = await window.electronAPI.getBackgroundScanIntervalMinutes();
+            setBackgroundScanIntervalMinutes(interval);
+          } catch (error) {
+            console.error('Error loading background scan settings:', error);
           }
         } catch (error) {
           console.error('Error loading Onyx settings:', error);
@@ -283,16 +296,16 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
     }
   }, [suspendFeatureEnabled]);
 
-  // Auto-refresh running games when suspend tab is active
-  useEffect(() => {
-    if (activeTab === 'suspend' && suspendFeatureEnabled) {
-      loadRunningGames();
-      const interval = setInterval(() => {
-        loadRunningGames();
-      }, 5000); // Refresh every 5 seconds
-      return () => clearInterval(interval);
-    }
-  }, [activeTab, suspendFeatureEnabled, loadRunningGames]);
+  // DISABLED: Auto-refresh running games when suspend tab is active (Future Feature)
+  // useEffect(() => {
+  //   if (activeTab === 'suspend' && suspendFeatureEnabled) {
+  //     loadRunningGames();
+  //     const interval = setInterval(() => {
+  //       loadRunningGames();
+  //     }, 5000); // Refresh every 5 seconds
+  //     return () => clearInterval(interval);
+  //   }
+  // }, [activeTab, suspendFeatureEnabled, loadRunningGames]);
 
   // Load app configs and manual folders on mount
   useEffect(() => {
@@ -335,6 +348,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                   enabled: savedConfig.enabled,
                   path: savedConfig.path || app.defaultPaths[0] || '',
                   autoAdd: savedConfig.autoAdd || false,
+                  syncPlaytime: savedConfig.syncPlaytime || false,
                 };
               }
 
@@ -511,6 +525,12 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
   const handleToggleAutoAdd = (appId: string) => {
     setApps((prev) =>
       prev.map((app) => (app.id === appId ? { ...app, autoAdd: !app.autoAdd } : app))
+    );
+  };
+
+  const handleToggleSyncPlaytime = (appId: string) => {
+    setApps((prev) =>
+      prev.map((app) => (app.id === appId ? { ...app, syncPlaytime: !app.syncPlaytime } : app))
     );
   };
 
@@ -770,6 +790,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
           enabled: app.enabled,
           path: app.path,
           autoAdd: app.autoAdd || false,
+          syncPlaytime: app.syncPlaytime || false,
         }));
 
         const appResult = await window.electronAPI.saveAppConfigs(configsToSave);
@@ -869,15 +890,16 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
         </svg>
       ),
     },
-    {
-      id: 'suspend',
-      label: 'Suspend',
-      icon: (
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-        </svg>
-      ),
-    },
+    // DISABLED: Suspend feature (Future Feature)
+    // {
+    //   id: 'suspend',
+    //   label: 'Suspend',
+    //   icon: (
+    //     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    //       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+    //     </svg>
+    //   ),
+    // },
     {
       id: 'about',
       label: 'About',
@@ -1076,6 +1098,81 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                         }`}
                       />
                     </button>
+                  </div>
+
+                  {/* Background scanning */}
+                  <div className="space-y-4 p-4 rounded-lg bg-gray-700/30 hover:bg-gray-700/50 transition-colors">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1 pr-4">
+                        <label className="text-gray-200 font-medium block mb-1">
+                          Background Scanning
+                        </label>
+                        <p className="text-gray-400 text-sm">
+                          Automatically scan for new games at regular intervals while Onyx is running. New games will be detected and you'll be notified.
+                        </p>
+                      </div>
+                      <button
+                        onClick={async () => {
+                          const newValue = !backgroundScanEnabled;
+                          setBackgroundScanEnabled(newValue);
+                          try {
+                            await window.electronAPI.setBackgroundScanEnabled(newValue);
+                          } catch (error) {
+                            console.error('Error toggling background scan:', error);
+                            setBackgroundScanEnabled(!newValue); // Revert on error
+                          }
+                        }}
+                        className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors flex-shrink-0 ${
+                          backgroundScanEnabled ? 'bg-blue-600' : 'bg-gray-600'
+                        }`}
+                      >
+                        <span
+                          className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
+                            backgroundScanEnabled ? 'translate-x-6' : 'translate-x-1'
+                          }`}
+                        />
+                      </button>
+                    </div>
+                    
+                    {/* Scan interval setting */}
+                    {backgroundScanEnabled && (
+                      <div className="pt-2 border-t border-gray-600/50">
+                        <label className="text-gray-200 font-medium block mb-2">
+                          Scan Interval
+                        </label>
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="number"
+                            min="1"
+                            max="1440"
+                            value={backgroundScanIntervalMinutes}
+                            onChange={(e) => {
+                              const value = parseInt(e.target.value, 10);
+                              if (!isNaN(value) && value >= 1 && value <= 1440) {
+                                setBackgroundScanIntervalMinutes(value);
+                              }
+                            }}
+                            onBlur={async () => {
+                              try {
+                                await window.electronAPI.setBackgroundScanIntervalMinutes(backgroundScanIntervalMinutes);
+                              } catch (error) {
+                                console.error('Error setting background scan interval:', error);
+                                // Reload the value on error
+                                const interval = await window.electronAPI.getBackgroundScanIntervalMinutes();
+                                setBackgroundScanIntervalMinutes(interval);
+                              }
+                            }}
+                            className="w-24 px-3 py-2 bg-gray-600 text-white rounded border border-gray-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          />
+                          <span className="text-gray-400 text-sm">
+                            {backgroundScanIntervalMinutes === 1 ? 'minute' : 'minutes'}
+                          </span>
+                          <span className="text-gray-500 text-xs">
+                            (1-1440 minutes, 24 hours max)
+                          </span>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Minimize on game launch */}
@@ -1540,21 +1637,40 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                                   
                                   {/* Auto add toggle - only show when authenticated */}
                                   {steamAuthState.authenticated && (
-                                    <div className="flex items-center justify-between p-1.5 bg-gray-800/30 rounded">
-                                      <div className="flex-1">
-                                        <label className="text-xs font-medium text-gray-300 block">Auto add</label>
-                                        <p className="text-xs text-gray-500">Show notification when new games are found</p>
+                                    <>
+                                      <div className="flex items-center justify-between p-1.5 bg-gray-800/30 rounded">
+                                        <div className="flex-1">
+                                          <label className="text-xs font-medium text-gray-300 block">Auto add</label>
+                                          <p className="text-xs text-gray-500">Show notification when new games are found</p>
+                                        </div>
+                                        <label className="relative inline-flex items-center cursor-pointer">
+                                          <input
+                                            type="checkbox"
+                                            checked={app.autoAdd || false}
+                                            onChange={() => handleToggleAutoAdd(app.id)}
+                                            className="sr-only peer"
+                                          />
+                                          <div className="w-9 h-5 bg-gray-600 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+                                        </label>
                                       </div>
-                                      <label className="relative inline-flex items-center cursor-pointer">
-                                        <input
-                                          type="checkbox"
-                                          checked={app.autoAdd || false}
-                                          onChange={() => handleToggleAutoAdd(app.id)}
-                                          className="sr-only peer"
-                                        />
-                                        <div className="w-9 h-5 bg-gray-600 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
-                                      </label>
-                                    </div>
+                                      
+                                      {/* Sync Playtime toggle - only show when authenticated */}
+                                      <div className="flex items-center justify-between p-1.5 bg-gray-800/30 rounded mt-1.5">
+                                        <div className="flex-1">
+                                          <label className="text-xs font-medium text-gray-300 block">Sync Playtime</label>
+                                          <p className="text-xs text-gray-500">Automatically sync playtime from Steam</p>
+                                        </div>
+                                        <label className="relative inline-flex items-center cursor-pointer">
+                                          <input
+                                            type="checkbox"
+                                            checked={app.syncPlaytime || false}
+                                            onChange={() => handleToggleSyncPlaytime(app.id)}
+                                            className="sr-only peer"
+                                          />
+                                          <div className="w-9 h-5 bg-gray-600 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+                                        </label>
+                                      </div>
+                                    </>
                                   )}
                                 </div>
                               )}
@@ -1893,7 +2009,8 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
               </div>
             )}
 
-            {activeTab === 'suspend' && (
+            {/* DISABLED: Suspend feature (Future Feature) */}
+            {false && activeTab === 'suspend' && (
               <div className="space-y-6">
                 <div className="space-y-1">
                   <h3 className="text-lg font-semibold text-white mb-4">Suspend/Resume Feature</h3>

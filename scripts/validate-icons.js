@@ -43,12 +43,6 @@ const requiredIcons = {
     name: 'build/icon.png',
     required: false,
     description: 'Build PNG icon (optional)'
-  },
-  buildIcns: {
-    path: join(projectRoot, 'build', 'icon.icns'),
-    name: 'build/icon.icns',
-    required: false,
-    description: 'macOS ICNS file (optional, only needed for macOS builds)'
   }
 };
 
@@ -56,8 +50,7 @@ const requiredIcons = {
 const minFileSizes = {
   '.svg': 100,   // SVG should be at least 100 bytes
   '.png': 1000,  // PNG should be at least 1KB
-  '.ico': 2000,  // ICO should be at least 2KB (contains multiple sizes)
-  '.icns': 5000  // ICNS should be at least 5KB (contains multiple sizes)
+  '.ico': 2000   // ICO should be at least 2KB (contains multiple sizes)
 };
 
 function getFileExtension(filePath) {

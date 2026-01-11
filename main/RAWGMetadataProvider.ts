@@ -98,10 +98,8 @@ export class RAWGMetadataProvider implements MetadataProvider {
         description.publishers = game.publishers.map((p) => p.name).filter(Boolean);
       }
 
-      // Age rating (ESRB)
-      if (game.esrb_rating) {
-        description.ageRating = game.esrb_rating.name;
-      }
+      // Age rating - skip ESRB ratings, only use PEGI
+      // RAWG only provides ESRB ratings, so we skip them
 
       // Rating (Metacritic or RAWG rating)
       if (game.metacritic !== undefined && game.metacritic !== null) {

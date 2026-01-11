@@ -54,6 +54,7 @@ export interface GameMetadata {
   bannerUrl: string;
   logoUrl?: string;
   heroUrl?: string;
+  iconUrl?: string; // Game icon (typically 32x32 or 64x64)
   screenshots?: string[];
   // Text metadata
   title?: string;
@@ -112,8 +113,8 @@ declare global {
       fetchAndUpdateByProviderId: (gameId: string, providerId: string, providerSource: string) => Promise<{ success: boolean; error?: string; metadata: GameMetadata | null }>;
       fetchMetadataOnlyByProviderId: (gameId: string, providerId: string, providerSource: string) => Promise<{ success: boolean; error?: string; metadata: Partial<GameMetadata> | null }>;
       launchGame: (gameId: string) => Promise<{ success: boolean; error?: string }>;
-      getAppConfigs: () => Promise<Record<string, { id: string; name: string; enabled: boolean; path: string; autoAdd?: boolean }>>;
-      getAppConfig: (appId: string) => Promise<{ id: string; name: string; enabled: boolean; path: string; autoAdd?: boolean } | null>;
+      getAppConfigs: () => Promise<Record<string, { id: string; name: string; enabled: boolean; path: string; autoAdd?: boolean; syncPlaytime?: boolean }>>;
+      getAppConfig: (appId: string) => Promise<{ id: string; name: string; enabled: boolean; path: string; autoAdd?: boolean; syncPlaytime?: boolean } | null>;
       saveAppConfig: (config: { id: string; name: string; enabled: boolean; path: string; autoAdd?: boolean }) => Promise<{ success: boolean; error?: string }>;
       saveAppConfigs: (configs: Array<{ id: string; name: string; enabled: boolean; path: string; autoAdd?: boolean }>) => Promise<{ success: boolean; error?: string }>;
       getManualFolders: () => Promise<string[]>;
@@ -125,6 +126,7 @@ declare global {
       authenticateSteam?: () => Promise<{ success: boolean; steamId?: string; username?: string; error?: string }>;
       importAllSteamGames?: (path: string) => Promise<{ success: boolean; importedCount?: number; error?: string }>;
       clearSteamAuth?: () => Promise<{ success: boolean; error?: string }>;
+      syncSteamPlaytime?: () => Promise<{ success: boolean; updatedCount?: number; totalGames?: number; error?: string }>;
       scanXboxGames: (path: string, autoMerge?: boolean) => Promise<{ success: boolean; error?: string; games: Array<{ id: string; name: string; installPath: string; type: string }> }>;
       onMenuEvent: (channel: string, callback: () => void) => () => void;
       getPreferences: () => Promise<{ gridSize?: number; panelWidth?: number; fanartHeight?: number; descriptionHeight?: number; boxartWidth?: number; descriptionWidth?: number; pinnedCategories?: string[]; minimizeToTray?: boolean; showSystemTrayIcon?: boolean; startWithComputer?: boolean; startClosedToTray?: boolean; updateLibrariesOnStartup?: boolean; minimizeOnGameLaunch?: boolean; hideVRTitles?: boolean; hideAppsTitles?: boolean; hideGameTitles?: boolean; gameTilePadding?: number; showLogoOverBoxart?: boolean; logoPosition?: 'top' | 'middle' | 'bottom' | 'underneath'; backgroundBlur?: number; backgroundMode?: 'image' | 'color'; backgroundColor?: string; viewMode?: 'grid' | 'list' | 'logo'; listViewOptions?: { showDescription: boolean; showCategories: boolean; showPlaytime: boolean; showReleaseDate: boolean; showGenres: boolean; showPlatform: boolean; }; listViewSize?: number; autoSizeToFit?: boolean; titleFontSize?: number; titleFontFamily?: string; descriptionFontSize?: number; descriptionFontFamily?: string; detailsFontSize?: number; detailsFontFamily?: string; visibleDetails?: { releaseDate: boolean; platform: boolean; ageRating: boolean; genres: boolean; developers: boolean; publishers: boolean; communityScore: boolean; userScore: boolean; criticScore: boolean; installationDirectory: boolean; }; activeGameId?: string | null; ignoredGames?: string[] }>;
@@ -141,6 +143,10 @@ declare global {
       detectLauncher: (launcherId: string) => Promise<{ id: string; name: string; path: string; detected: boolean; detectionMethod: 'registry' | 'path' | 'none' } | null>;
       getBackgroundScanEnabled: () => Promise<boolean>;
       setBackgroundScanEnabled: (enabled: boolean) => Promise<{ success: boolean; error?: string }>;
+      getBackgroundScanIntervalMinutes: () => Promise<number>;
+      setBackgroundScanIntervalMinutes: (minutes: number) => Promise<{ success: boolean; error?: string }>;
+      pauseBackgroundScan: () => Promise<{ success: boolean; error?: string }>;
+      resumeBackgroundScan: () => Promise<{ success: boolean; error?: string }>;
       getLastBackgroundScan: () => Promise<number | undefined>;
       toggleDevTools: () => Promise<{ success: boolean; error?: string }>;
       minimizeWindow: () => Promise<{ success: boolean; error?: string }>;
@@ -165,6 +171,8 @@ declare global {
         getShortcut: () => Promise<string>;
         setShortcut: (shortcut: string) => Promise<{ success: boolean; error?: string }>;
       };
+      generateBugReport: (userDescription: string) => Promise<{ success: boolean; filePath?: string; error?: string }>;
+      getBugReportLogsDirectory: () => Promise<{ success: boolean; path?: string; error?: string }>;
     };
   }
 }

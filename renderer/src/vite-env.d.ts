@@ -1,5 +1,7 @@
 /// <reference types="vite/client" />
 
+declare const __BUILD_PROFILE__: 'alpha' | 'production' | string;
+
 declare module '*.png' {
   const src: string;
   export default src;

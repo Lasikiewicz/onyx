@@ -123,36 +123,27 @@ export class IGDBService {
   }
 
   /**
-   * Retry a request with exponential backoff on 429 errors
+   * Execute a request without retries on rate limits - just throw immediately
+   * This allows the caller to move to the next source
    */
   private async retryRequest<T>(
     execute: () => Promise<T>,
     maxRetries = 3,
     baseDelay = 1000
   ): Promise<T> {
-    let lastError: any;
-    
-    for (let attempt = 0; attempt <= maxRetries; attempt++) {
-      try {
-        return await execute();
-      } catch (error: any) {
-        lastError = error;
-        
-        // Only retry on 429 (Too Many Requests) errors
-        const isRateLimit = axios.isAxiosError(error) && error.response?.status === 429;
-        
-        if (!isRateLimit || attempt === maxRetries) {
-          throw error;
-        }
-
-        // Exponential backoff: 1s, 2s, 4s
-        const delay = baseDelay * Math.pow(2, attempt);
-        console.warn(`[IGDB] Rate limited (429), retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})`);
-        await new Promise(resolve => setTimeout(resolve, delay));
+    try {
+      return await execute();
+    } catch (error: any) {
+      // Don't retry on rate limits (429) - just throw immediately so caller can try next source
+      const isRateLimit = axios.isAxiosError(error) && error.response?.status === 429;
+      if (isRateLimit) {
+        console.warn(`[IGDB] Rate limited (429), moving to next source`);
+        throw error;
       }
+      
+      // For other errors, throw immediately (no retries)
+      throw error;
     }
-
-    throw lastError;
   }
 
   /**
@@ -356,9 +347,9 @@ limit 50;`;
           }
         }
 
-        // Extract age rating from the map we fetched
+        // Extract age rating from the map we fetched - only use PEGI ratings
         if (game.age_ratings && game.age_ratings.length > 0) {
-          // Try to find the first valid age rating
+          // Try to find the first valid PEGI rating
           for (const ar of game.age_ratings) {
             let ageRatingId: number | undefined;
             if (typeof ar === 'number') {
@@ -373,19 +364,8 @@ limit 50;`;
               const rating = ageRatingData.rating;
 
               // IGDB age ratings: category 1 = ESRB, category 2 = PEGI
-              if (category === 1) {
-                // ESRB ratings
-                const esrbRatings: { [key: number]: string } = {
-                  1: 'EC (Early Childhood)',
-                  2: 'E (Everyone)',
-                  3: 'E10+ (Everyone 10+)',
-                  4: 'T (Teen)',
-                  5: 'M (Mature)',
-                  6: 'AO (Adults Only)',
-                };
-                result.ageRating = esrbRatings[rating] || `ESRB ${rating}`;
-                break; // Use the first valid rating found
-              } else if (category === 2) {
+              // Only use PEGI ratings (category 2)
+              if (category === 2) {
                 // PEGI ratings
                 const pegiRatings: { [key: number]: string } = {
                   1: 'PEGI 3',
@@ -395,7 +375,7 @@ limit 50;`;
                   5: 'PEGI 18',
                 };
                 result.ageRating = pegiRatings[rating] || `PEGI ${rating}`;
-                break; // Use the first valid rating found
+                break; // Use the first valid PEGI rating found
               }
             }
           }

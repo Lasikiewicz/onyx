@@ -188,6 +188,8 @@ export class GameStore {
           title: lockedFields.title ? existingGame.title : steamGame.name,
           boxArtUrl,
           bannerUrl,
+          // Preserve playtime if it exists (don't overwrite with undefined)
+          playtime: existingGame.playtime !== undefined ? existingGame.playtime : undefined,
         };
         gamesMap.set(gameId, updatedGame);
       } else if (!existingGame) {

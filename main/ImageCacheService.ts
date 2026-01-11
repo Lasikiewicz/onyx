@@ -166,9 +166,30 @@ export class ImageCacheService {
           console.warn(`[ImageCache] onyx-local file not found: ${safeGameId}-${imageTypeFromUrl}`);
           return '';
         } else {
-          // Old format URL - try to decode and find file
+          // Old format URL - try to find the file and convert to new format
           console.warn(`[ImageCache] Old format URL detected: ${url.substring(0, 50)}...`);
-          return ''; // Return empty to trigger re-download with new format
+          
+          // Try to extract gameId from the URL or use the provided gameId
+          // Old format might be encoded or have different structure
+          this.ensureInitialized();
+          const safeGameId = gameId.replace(/[<>:"/\\|?*]/g, '_');
+          const extensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.webm'];
+          
+          // Try to find the file with the provided gameId
+          for (const ext of extensions) {
+            const filename = `${safeGameId}-${imageType}${ext}`;
+            const filePath = path.join(this.cacheDir, filename);
+            if (existsSync(filePath)) {
+              // File exists! Convert to new format URL
+              const newUrl = `onyx-local://${gameId}-${imageType}`;
+              console.log(`[ImageCache] Converted old format URL to new format: ${newUrl}`);
+              return newUrl;
+            }
+          }
+          
+          // File not found - return empty to trigger re-download
+          console.warn(`[ImageCache] Old format URL file not found for ${safeGameId}-${imageType}`);
+          return '';
         }
       } catch (e) {
         console.error(`[ImageCache] Error processing onyx-local URL: ${url}`, e);

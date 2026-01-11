@@ -83,35 +83,26 @@ export class SteamMetadataProvider implements MetadataProvider {
   }
 
   /**
-   * Retry a request with exponential backoff on 403 errors
+   * Execute a request without retries on rate limits - just throw immediately
+   * This allows the caller to move to the next source
    */
   private async retryRequest<T>(
     execute: () => Promise<T>,
     maxRetries = 3,
     baseDelay = 2000
   ): Promise<T> {
-    let lastError: any;
-    
-    for (let attempt = 0; attempt <= maxRetries; attempt++) {
-      try {
-        return await execute();
-      } catch (error: any) {
-        lastError = error;
-        
-        // If it's a 403 and we have retries left, wait and retry
-        if (error?.status === 403 && attempt < maxRetries) {
-          const delay = baseDelay * Math.pow(2, attempt); // Exponential backoff: 2s, 4s, 8s
-          console.warn(`[Steam] Rate limited (403), retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries + 1})`);
-          await new Promise(resolve => setTimeout(resolve, delay));
-          continue;
-        }
-        
-        // If it's not a 403 or we're out of retries, throw
+    try {
+      return await execute();
+    } catch (error: any) {
+      // Don't retry on rate limits (403) - just throw immediately so caller can try next source
+      if (error?.status === 403) {
+        console.warn(`[Steam] Rate limited (403), moving to next source`);
         throw error;
       }
+      
+      // For other errors, still throw immediately (no retries)
+      throw error;
     }
-    
-    throw lastError;
   }
 
   async search(title: string, steamAppId?: string): Promise<GameSearchResult[]> {
@@ -223,9 +214,16 @@ export class SteamMetadataProvider implements MetadataProvider {
           description.categories = gameData.categories.map((c: any) => c.description).filter(Boolean);
         }
         
-        // Age rating (content descriptors)
+        // Age rating - only use PEGI ratings
+        // Check if content_descriptors.notes contains PEGI, otherwise use required_age
         if (gameData.content_descriptors && gameData.content_descriptors.notes) {
-          description.ageRating = gameData.content_descriptors.notes;
+          const notes = gameData.content_descriptors.notes.toLowerCase();
+          // Only use if it's a PEGI rating
+          if (notes.includes('pegi')) {
+            description.ageRating = gameData.content_descriptors.notes;
+          } else if (gameData.required_age) {
+            description.ageRating = `PEGI ${gameData.required_age}`;
+          }
         } else if (gameData.required_age) {
           description.ageRating = `PEGI ${gameData.required_age}`;
         }
@@ -265,14 +263,16 @@ export class SteamMetadataProvider implements MetadataProvider {
     }
 
     try {
-      // Steam CDN URLs - Correct mapping:
-      // Box Art: library_600x900.jpg (vertical cover art)
+      // Steam CDN URLs - Official images (highest priority):
+      // Box Art: Library_600x900.jpg (vertical cover art)
       // Banner: library_hero.jpg or header.jpg (horizontal banner)
       // Logo: logo.png
+      // Icon: {appId}_icon.jpg (game icon, typically 32x32 or 64x64)
       const boxArtUrl = `https://cdn.cloudflare.steamstatic.com/steam/apps/${steamAppId}/Library_600x900.jpg`;
       const bannerUrl = `https://cdn.cloudflare.steamstatic.com/steam/apps/${steamAppId}/library_hero.jpg`;
       const headerUrl = `https://cdn.cloudflare.steamstatic.com/steam/apps/${steamAppId}/header.jpg`;
       const logoUrl = `https://cdn.cloudflare.steamstatic.com/steam/apps/${steamAppId}/logo.png`;
+      const iconUrl = `https://cdn.cloudflare.steamstatic.com/steam/apps/${steamAppId}/${steamAppId}_icon.jpg`;
 
       // Verify images exist with timeout
       const timeoutMs = 5000;
@@ -290,23 +290,24 @@ export class SteamMetadataProvider implements MetadataProvider {
         }
       };
 
-      // Check which images are available
-      const [boxArtResponse, bannerResponse, headerResponse, logoResponse] = await Promise.all([
+      // Check which images are available (prioritize official Steam CDN images)
+      const [boxArtResponse, bannerResponse, headerResponse, logoResponse, iconResponse] = await Promise.all([
         fetchWithTimeout(boxArtUrl),
         fetchWithTimeout(bannerUrl),
         fetchWithTimeout(headerUrl),
         fetchWithTimeout(logoUrl),
+        fetchWithTimeout(iconUrl),
       ]);
 
       const artwork: GameArtwork = {};
 
-      // Box Art: library_600x900.jpg (vertical cover art)
+      // Box Art: Library_600x900.jpg (official Steam box art)
       if (boxArtResponse?.ok) {
         artwork.boxArtUrl = boxArtUrl;
         artwork.boxArtResolution = { width: 600, height: 900 }; // Standard Steam library cover size
       }
 
-      // Banner: library_hero.jpg (preferred) or header.jpg (fallback)
+      // Banner: library_hero.jpg (preferred) or header.jpg (fallback) - official Steam banners
       if (bannerResponse?.ok) {
         artwork.bannerUrl = bannerUrl;
         artwork.heroUrl = bannerUrl;
@@ -318,15 +319,22 @@ export class SteamMetadataProvider implements MetadataProvider {
         artwork.bannerResolution = { width: 460, height: 215 }; // Standard Steam header size
       }
 
-      // Logo: logo.png
+      // Logo: logo.png (official Steam logo)
       if (logoResponse?.ok) {
         artwork.logoUrl = logoUrl;
         // Steam logos vary in size, but typically around 231x87
         artwork.logoResolution = { width: 231, height: 87 };
       }
 
+      // Icon: {appId}_icon.jpg (official Steam game icon)
+      if (iconResponse?.ok) {
+        artwork.iconUrl = iconUrl;
+        // Steam icons are typically 32x32 or 64x64
+        artwork.iconResolution = { width: 64, height: 64 };
+      }
+
       // Return artwork if we have at least one image
-      if (artwork.boxArtUrl || artwork.bannerUrl || artwork.logoUrl || artwork.heroUrl) {
+      if (artwork.boxArtUrl || artwork.bannerUrl || artwork.logoUrl || artwork.heroUrl || artwork.iconUrl) {
         return artwork;
       }
 

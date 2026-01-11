@@ -315,26 +315,44 @@ export const GameManager: React.FC<GameManagerProps> = ({
   }, [isOpen, initialTab]);
 
   // Fetch launcher data for a game
-  const fetchLauncherData = async (game: Game) => {
+  const handleFetchLauncherData = async (game?: Game) => {
+    const targetGame = game || selectedGame;
+    if (!targetGame || !targetGame.id.startsWith('steam-')) return;
     if (!game.id.startsWith('steam-')) return;
 
-    setIsFetchingLauncherData(game.id);
+    setIsFetchingLauncherData(targetGame.id);
     try {
       // Extract Steam App ID
-      const appIdMatch = game.id.match(/^steam-(.+)$/);
+      const appIdMatch = targetGame.id.match(/^steam-(.+)$/);
       if (!appIdMatch) return;
 
-      // Try to fetch Steam playtime and other data
-      // This would need to be implemented in the main process
-      // For now, we'll just show that we're fetching
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // TODO: Implement actual Steam API call to get playtime
-      // const steamData = await window.electronAPI.getSteamGameData(appId);
-      
+      // Sync playtime from Steam
+      setIsSyncingPlaytime(true);
+      try {
+        const result = await window.electronAPI.syncSteamPlaytime?.();
+        if (result?.success) {
+          setSuccess(`Synced playtime for ${result.updatedCount || 0} game(s)`);
+          // Reload the game to get updated playtime
+          const library = await window.electronAPI.getLibrary();
+          const updatedGame = library.find(g => g.id === targetGame.id);
+          if (updatedGame) {
+            setEditedGame({ ...updatedGame });
+            // Also update the games list if we have it
+            const updatedGames = games.map(g => g.id === targetGame.id ? updatedGame : g);
+            // Note: We can't directly update games prop, but editedGame will reflect the change
+          }
+        } else {
+          setError(result?.error || 'Failed to sync playtime');
+        }
+      } catch (err) {
+        console.error('Error syncing playtime:', err);
+        setError(err instanceof Error ? err.message : 'Failed to sync playtime');
+      } finally {
+        setIsSyncingPlaytime(false);
+        setIsFetchingLauncherData(null);
+      }
     } catch (err) {
       console.error('Error fetching launcher data:', err);
-    } finally {
       setIsFetchingLauncherData(null);
     }
   };
@@ -688,7 +706,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
       }
       // Fetch launcher data if connected
       if (game.id.startsWith('steam-')) {
-        fetchLauncherData(game);
+        handleFetchLauncherData(game);
       }
     }
   };
@@ -814,7 +832,8 @@ export const GameManager: React.FC<GameManagerProps> = ({
         // Get the current game's Steam App ID if available
         const currentSteamAppId = steamAppIdInput || (expandedGame?.id.startsWith('steam-') ? expandedGame.id.replace('steam-', '') : undefined);
         
-        // Separate Steam results and other results
+        // Show all results from all sources - let user choose
+        // Prioritize Steam results, but show all available options
         const steamResults = response.results.filter((result: any) => result.source === 'steam');
         const otherResults = response.results.filter((result: any) => result.source !== 'steam');
         
@@ -860,20 +879,41 @@ export const GameManager: React.FC<GameManagerProps> = ({
           return 0;
         });
         
-        // Filter other results to only show those with the same name (case-insensitive)
-        const sameNameResults = otherResults.filter((result: any) => {
-          const resultName = (result.title || result.name || '').toLowerCase().trim();
-          return resultName === normalizedQuery;
+        // Sort other results: exact name matches first, then by source priority (IGDB > RAWG > SteamGridDB)
+        const sortedOtherResults = otherResults.sort((a, b) => {
+          // First priority: exact name matches
+          const aName = (a.title || a.name || '').toLowerCase().trim();
+          const bName = (b.title || b.name || '').toLowerCase().trim();
+          const aExact = aName === normalizedQuery;
+          const bExact = bName === normalizedQuery;
+          if (aExact && !bExact) return -1;
+          if (!aExact && bExact) return 1;
+          
+          // Second priority: source priority (IGDB > RAWG > SteamGridDB)
+          const sourcePriority: Record<string, number> = {
+            'igdb': 3,
+            'rawg': 2,
+            'steamgriddb': 1,
+          };
+          const aPriority = sourcePriority[a.source] || 0;
+          const bPriority = sourcePriority[b.source] || 0;
+          if (aPriority !== bPriority) {
+            return bPriority - aPriority;
+          }
+          
+          return 0;
         });
         
-        // Combine: Steam results first, then other results with same name
-        const allResults = [...sortedSteamResults, ...sameNameResults];
+        // Combine: Steam results first, then other results (show all options)
+        const allResults = [...sortedSteamResults, ...sortedOtherResults];
         
         if (allResults.length === 0) {
-          setError('No matching results found. Make sure the game is available on Steam.');
+          setError('No matching results found. Try a different search term or check if the game is available in the metadata databases.');
           setMetadataSearchResults([]);
           return;
         }
+        
+        console.log(`[GameManager] Found ${allResults.length} search result(s) for "${query}" (${steamResults.length} Steam, ${sortedOtherResults.length} other)`);
         
         setMetadataSearchResults(allResults);
       } else {
@@ -888,6 +928,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
   };
 
   // Handle select metadata match
+  // Uses the same robust metadata fetching as the importer: tries all sources, moves to next on rate limits
   const handleSelectMetadataMatch = async (result: { id: string; source: string; steamAppId?: string; title?: string }) => {
     if (!expandedGame) return;
 
@@ -897,138 +938,102 @@ export const GameManager: React.FC<GameManagerProps> = ({
     try {
       const gameTitle = result.title || expandedGame.title;
       
-      // If result has a Steam App ID, use it to fetch all metadata and images from Steam
+      // Extract Steam App ID from result (from any source that might have it)
       const steamAppId = result.steamAppId || (result.id.startsWith('steam-') ? result.id.replace('steam-', '') : undefined);
       
+      // Determine new game ID - use Steam App ID if available, otherwise use result ID
+      let newGameId = expandedGame.id;
       if (steamAppId) {
-        // Update game ID to steam-{appId} format
-        const newGameId = `steam-${steamAppId}`;
-        
-        // Fetch complete metadata from Steam (including images)
-        const metadata = await window.electronAPI.searchArtwork(gameTitle, steamAppId);
-        
-        if (metadata && editedGame) {
-          // Update the edited game with all metadata and images from Steam
-          const updatedGame: Game = {
-            ...editedGame,
-            id: newGameId,
-            platform: metadata.platforms?.join(', ') || metadata.platform || 'steam',
-            title: gameTitle,
-            description: metadata.description || metadata.summary || editedGame.description,
-            genres: metadata.genres || editedGame.genres,
-            releaseDate: metadata.releaseDate || editedGame.releaseDate,
-            developers: metadata.developers || editedGame.developers,
-            publishers: metadata.publishers || editedGame.publishers,
-            ageRating: metadata.ageRating || editedGame.ageRating,
-            userScore: metadata.rating ? Math.round(metadata.rating) : editedGame.userScore,
-            boxArtUrl: metadata.boxArtUrl || editedGame.boxArtUrl || '',
-            bannerUrl: metadata.bannerUrl || editedGame.bannerUrl || '',
-            logoUrl: metadata.logoUrl || editedGame.logoUrl,
-            heroUrl: metadata.heroUrl || editedGame.heroUrl,
-          };
-          
-          setEditedGame(updatedGame);
-          // Update the Steam App ID input to show the App ID
-          setSteamAppIdInput(steamAppId);
-          
-          // Save the game immediately
-          await onSaveGame(updatedGame);
-          
-          setSuccess('Metadata and images updated from Steam Store API');
-          setShowFixMatch(false);
-          setMetadataSearchResults([]);
-          setMetadataSearchQuery('');
-          // Reload the game data
-          if (onReloadLibrary) {
-            await onReloadLibrary();
-          }
-          return;
-        }
+        newGameId = `steam-${steamAppId}`;
+      } else if (result.source === 'igdb' && result.id.startsWith('igdb-')) {
+        newGameId = result.id;
+      } else if (result.source === 'rawg' && result.id.startsWith('rawg-')) {
+        newGameId = result.id;
       }
-
-      // For non-Steam results, fetch all metadata and images using searchArtwork
-      // This will search across all providers (IGDB, SteamGridDB, etc.)
-      const metadata = await window.electronAPI.searchArtwork(gameTitle);
       
-      if (metadata) {
-        // Determine new game ID based on result source
-        let newGameId = expandedGame.id;
-        let newPlatform = expandedGame.platform;
+      // Fetch complete metadata using searchArtwork - this now tries ALL sources for descriptions
+      // searchArtwork will:
+      // 1. Extract Steam App ID from search results if not provided
+      // 2. Try Steam Store API, RAWG, and IGDB for descriptions
+      // 3. Move to next source on rate limits (no retries)
+      console.log(`[GameManager] Fetching metadata for "${gameTitle}" with Steam App ID: ${steamAppId || 'none'}`);
+      const metadata = await window.electronAPI.searchArtwork(gameTitle, steamAppId);
+      
+      if (metadata && editedGame) {
+        // If description is still empty, try fetching from alternative sources
+        let finalDescription = (metadata.description || metadata.summary || '').trim();
+        let finalReleaseDate = metadata.releaseDate || '';
+        let finalGenres = metadata.genres || [];
+        let finalDevelopers = metadata.developers || [];
+        let finalPublishers = metadata.publishers || [];
+        let finalAgeRating = metadata.ageRating || '';
+        let finalRating = metadata.rating || 0;
+        let finalPlatform = metadata.platforms?.join(', ') || metadata.platform || expandedGame.platform;
         
-        if (result.source === 'igdb' && result.id.startsWith('igdb-')) {
-          newGameId = result.id;
-          newPlatform = metadata.platforms?.join(', ') || metadata.platform || expandedGame.platform;
+        // If description is still empty, try fetching description separately
+        if (!finalDescription && steamAppId) {
+          try {
+            console.log(`[GameManager] Description empty, fetching from Steam Store API for App ID: ${steamAppId}`);
+            const steamGameId = `steam-${steamAppId}`;
+            const descriptionResult = await window.electronAPI.fetchGameDescription(steamGameId);
+            if (descriptionResult && descriptionResult.success) {
+              finalDescription = (descriptionResult.description || descriptionResult.summary || '').trim();
+              finalReleaseDate = descriptionResult.releaseDate || finalReleaseDate;
+              finalGenres = descriptionResult.genres || finalGenres;
+              finalDevelopers = descriptionResult.developers || finalDevelopers;
+              finalPublishers = descriptionResult.publishers || finalPublishers;
+              finalAgeRating = descriptionResult.ageRating || finalAgeRating;
+              finalRating = descriptionResult.rating || finalRating;
+              finalPlatform = descriptionResult.platforms?.join(', ') || finalPlatform;
+              console.log(`[GameManager] Successfully fetched description from Steam Store API, length: ${finalDescription.length}`);
+            }
+          } catch (descErr) {
+            console.warn(`[GameManager] Error fetching description from Steam Store API:`, descErr);
+          }
         }
-        
-        if (!editedGame) return;
         
         // Update the edited game with all metadata and images
         const updatedGame: Game = {
           ...editedGame,
           id: newGameId,
-          platform: newPlatform,
+          platform: finalPlatform,
           title: gameTitle,
-          description: metadata.description || metadata.summary || editedGame.description,
-          genres: metadata.genres || editedGame.genres,
-          releaseDate: metadata.releaseDate || editedGame.releaseDate,
-          developers: metadata.developers || editedGame.developers,
-          publishers: metadata.publishers || editedGame.publishers,
-          ageRating: metadata.ageRating || editedGame.ageRating,
-          userScore: metadata.rating ? Math.round(metadata.rating) : editedGame.userScore,
+          description: finalDescription || editedGame.description,
+          genres: finalGenres.length > 0 ? finalGenres : editedGame.genres,
+          releaseDate: finalReleaseDate || editedGame.releaseDate,
+          developers: finalDevelopers.length > 0 ? finalDevelopers : editedGame.developers,
+          publishers: finalPublishers.length > 0 ? finalPublishers : editedGame.publishers,
+          ageRating: finalAgeRating || editedGame.ageRating,
+          userScore: finalRating ? Math.round(finalRating) : editedGame.userScore,
           boxArtUrl: metadata.boxArtUrl || editedGame.boxArtUrl || '',
           bannerUrl: metadata.bannerUrl || editedGame.bannerUrl || '',
           logoUrl: metadata.logoUrl || editedGame.logoUrl,
           heroUrl: metadata.heroUrl || editedGame.heroUrl,
+          // Note: iconUrl is not in Game interface yet, but we can store it if needed
         };
         
         setEditedGame(updatedGame);
         
+        // Update the Steam App ID input to show the App ID if we have one
+        if (steamAppId) {
+          setSteamAppIdInput(steamAppId);
+        }
+        
         // Save the game immediately
         await onSaveGame(updatedGame);
         
-        setSuccess(`Metadata and images updated from ${result.source === 'igdb' ? 'IGDB' : result.source}`);
+        const sourceName = steamAppId ? 'Steam Store API' : (result.source === 'igdb' ? 'IGDB' : result.source === 'rawg' ? 'RAWG' : result.source);
+        setSuccess(`Metadata and images updated from ${sourceName}`);
         setShowFixMatch(false);
         setMetadataSearchResults([]);
         setMetadataSearchQuery('');
-        // Reload the game data
-        if (onReloadLibrary) {
-          await onReloadLibrary();
-        }
-        return;
-      }
-
-      // Fallback: Use metadata-only method if searchArtwork fails
-      const response = await window.electronAPI.fetchMetadataOnlyByProviderId(
-        expandedGame.id,
-        result.id,
-        result.source
-      );
-
-      if (response.success && response.metadata && editedGame) {
-        // Update the edited game with the new metadata (no images)
-        setEditedGame({
-          ...editedGame,
-          title: gameTitle,
-          description: response.metadata.description || response.metadata.summary || editedGame.description,
-          genres: response.metadata.genres || editedGame.genres,
-          releaseDate: response.metadata.releaseDate || editedGame.releaseDate,
-          developers: response.metadata.developers || editedGame.developers,
-          publishers: response.metadata.publishers || editedGame.publishers,
-          ageRating: response.metadata.ageRating || editedGame.ageRating,
-          userScore: response.metadata.rating ? Math.round(response.metadata.rating) : editedGame.userScore,
-          platform: response.metadata.platforms?.join(', ') || editedGame.platform,
-        });
         
-        setSuccess('Metadata updated successfully! (Images not updated)');
-        setShowFixMatch(false);
-        setMetadataSearchResults([]);
-        setMetadataSearchQuery('');
         // Reload the game data
         if (onReloadLibrary) {
           await onReloadLibrary();
         }
       } else {
-        setError(response.error || 'Failed to update metadata');
+        setError('Failed to fetch metadata. Please try again.');
       }
     } catch (err) {
       setError('Failed to update metadata');
@@ -1709,7 +1714,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
                                     return (
                                       <button
                                         key={result.id}
-                                        onClick={() => handleSelectMetadataMatch({ id: result.id, source: result.source, steamAppId: result.steamAppId })}
+                                        onClick={() => handleSelectMetadataMatch({ id: result.id, source: result.source, steamAppId: result.steamAppId, title: result.title || result.name })}
                                         disabled={isApplyingMetadata}
                                         className="relative w-full text-left p-3 text-sm bg-gray-800 hover:bg-gray-700 rounded border border-gray-600 disabled:opacity-50 transition-colors flex items-center gap-3"
                                       >
@@ -1965,20 +1970,9 @@ export const GameManager: React.FC<GameManagerProps> = ({
                           </div>
                         )}
 
-                        {/* Playtime and Stats - only if filled */}
-                        {((selectedGame.id.startsWith('steam-') && selectedGame.playtime) || editedGame.lastPlayed || (editedGame.playCount !== undefined && editedGame.playCount !== null)) && (
-                          <div className="grid grid-cols-3 gap-3">
-                            {selectedGame.id.startsWith('steam-') && selectedGame.playtime && (
-                              <div>
-                                <label className="block text-xs font-medium text-gray-400 mb-1">Playtime</label>
-                                <div className="px-3 py-1.5 text-sm bg-gray-800/50 border border-gray-600 rounded text-gray-300">
-                                  {`${Math.floor(selectedGame.playtime / 60)} hours`}
-                                  {isFetchingLauncherData === selectedGame.id && (
-                                    <span className="ml-2 text-blue-400 text-xs">Fetching...</span>
-                                  )}
-                                </div>
-                              </div>
-                            )}
+                        {/* Last Played and Play Count - only if filled */}
+                        {(editedGame.lastPlayed || (editedGame.playCount !== undefined && editedGame.playCount !== null)) && (
+                          <div className="grid grid-cols-2 gap-3">
                             {editedGame.lastPlayed && (
                               <div>
                                 <label className="block text-xs font-medium text-gray-400 mb-1">Last Played</label>

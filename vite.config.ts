@@ -19,4 +19,7 @@ export default defineConfig({
   server: {
     port: 5173,
   },
+  define: {
+    '__BUILD_PROFILE__': JSON.stringify(process.env.BUILD_PROFILE || 'production'),
+  },
 });

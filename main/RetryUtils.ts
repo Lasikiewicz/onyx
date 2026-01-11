@@ -24,16 +24,19 @@ export async function withRetry<T>(
     } catch (error: any) {
       lastError = error;
 
-      // Don't retry on authentication errors
-      if (error.response?.status === 401 || error.response?.status === 403) {
+      // Don't retry on authentication errors or rate limits - just throw immediately
+      // This allows the caller to move to the next source
+      if (error.response?.status === 401 || error.response?.status === 403 || error.response?.status === 429) {
+        if (error.response?.status === 429) {
+          console.warn(`[Retry] Rate limited (429), moving to next source`);
+        }
         throw error;
       }
 
-      // Retry on rate limit (429) or network errors
-      const isRateLimit = error.response?.status === 429;
+      // Retry on network errors only (not rate limits)
       const isNetworkError = error.code === 'ECONNRESET' || error.code === 'ETIMEDOUT';
 
-      if ((isRateLimit || isNetworkError) && attempt < maxRetries) {
+      if (isNetworkError && attempt < maxRetries) {
         const delay = baseDelay * Math.pow(2, attempt); // Exponential backoff
         if (options.onRetry) {
           options.onRetry(attempt + 1, error);

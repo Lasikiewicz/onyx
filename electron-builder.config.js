@@ -10,25 +10,26 @@ const config = {
   appId: isAlpha ? 'com.lasikiewicz.onyx.alpha' : 'com.lasikiewicz.onyx',
   productName: isAlpha ? 'Onyx Alpha' : 'Onyx',
   directories: {
-    output: 'dist'
+    output: 'release'
   },
+  // Windows-only build - no macOS/Linux targets
   win: {
     target: [
       {
         target: 'nsis',
         arch: ['x64']
-      },
-      {
-        target: 'portable',
-        arch: ['x64']
       }
     ],
+    requestedExecutionLevel: 'asInvoker',
     icon: 'build/icon.ico',
     signAndEditExecutable: false,
-    signingHashAlgorithms: null,
-    certificateFile: null,
-    certificatePassword: null
+    verifyUpdateCodeSignature: false
   },
+  // Explicitly disable macOS and Linux builds
+  mac: null,
+  linux: null,
+  // Disable code signing completely
+  forceCodeSigning: false,
   files: [
     'dist/**/*',
     'dist-electron/**/*.js',
@@ -56,9 +57,14 @@ const config = {
   nsis: {
     oneClick: false,
     allowToChangeInstallationDirectory: true,
+    allowElevation: false,
     createDesktopShortcut: true,
     createStartMenuShortcut: true,
-    include: 'build/installer.nsh'
+    installerIcon: 'build/icon.ico',
+    uninstallerIcon: 'build/icon.ico',
+    perMachine: false,
+    deleteAppDataOnUninstall: false,
+    runAfterFinish: false
   },
   publish: {
     provider: 'github',

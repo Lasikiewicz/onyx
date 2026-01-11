@@ -1,6 +1,7 @@
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { platform } from 'node:os';
+import axios from 'axios';
 
 export interface SteamGame {
   appId: string;
@@ -319,5 +320,95 @@ export class SteamService {
       console.error('Error scanning Steam games:', error);
       throw error; // Re-throw to let caller handle it
     }
+  }
+
+  /**
+   * Fetch playtime data for Steam games from Steam Web API or Community API
+   * @param steamId - Steam ID of the user
+   * @param apiKey - Optional Steam Web API key (if not provided, uses Community API)
+   * @returns Map of appId to playtime in minutes
+   */
+  async fetchPlaytimeData(steamId: string, apiKey?: string): Promise<Map<string, number>> {
+    const playtimeMap = new Map<string, number>();
+
+    try {
+      // Try Steam Web API first if API key is provided
+      if (apiKey) {
+        try {
+          const apiUrl = `http://api.steampowered.com/IPlayerService/GetOwnedGames/v0001/?key=${apiKey}&steamid=${steamId}&format=json&include_appinfo=true`;
+          const response = await axios.get(apiUrl, {
+            timeout: 10000,
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            }
+          });
+
+          if (response.data?.response?.games) {
+            for (const game of response.data.response.games) {
+              const appId = String(game.appid);
+              const playtimeMinutes = game.playtime_forever || 0;
+              playtimeMap.set(appId, playtimeMinutes);
+            }
+            console.log(`[SteamService] Fetched playtime for ${playtimeMap.size} games via Steam Web API`);
+            return playtimeMap;
+          }
+        } catch (apiError) {
+          console.warn('[SteamService] Steam Web API failed, falling back to Community API:', apiError);
+        }
+      }
+
+      // Fallback to Steam Community API (no key required, but less reliable)
+      try {
+        const communityUrl = `https://steamcommunity.com/profiles/${steamId}/games/?tab=all&xml=1`;
+        const response = await axios.get(communityUrl, {
+          timeout: 10000,
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+          }
+        });
+
+        // Parse XML response
+        const xmlData = response.data;
+        
+        // Extract game data from XML
+        // Format: <game><appID>123456</appID><name>Game Name</name><hoursOnRecord>12.5</hoursOnRecord>...</game>
+        // Also handle cases where hoursOnRecord might be missing (game not played)
+        const gameMatches = Array.from(xmlData.matchAll(/<game>[\s\S]*?<\/game>/g)) as RegExpMatchArray[];
+        
+        for (const gameMatch of gameMatches) {
+          const gameXml = gameMatch[0] as string;
+          const appIdMatch = gameXml.match(/<appID>(\d+)<\/appID>/);
+          
+          if (appIdMatch) {
+            const appId = appIdMatch[1];
+            // Try to find hoursOnRecord (may not exist if game hasn't been played)
+            const hoursMatch = gameXml.match(/<hoursOnRecord>([\d.]+)<\/hoursOnRecord>/);
+            
+            if (hoursMatch) {
+              const hours = parseFloat(hoursMatch[1]);
+              const minutes = Math.round(hours * 60);
+              playtimeMap.set(appId, minutes);
+            } else {
+              // Game exists but has no playtime (0 minutes)
+              playtimeMap.set(appId, 0);
+            }
+          }
+        }
+
+        console.log(`[SteamService] Fetched playtime for ${playtimeMap.size} games via Steam Community API`);
+      } catch (communityError) {
+        console.error('[SteamService] Failed to fetch playtime from Steam Community API:', communityError);
+        // Check if it's a profile privacy issue
+        if (axios.isAxiosError(communityError) && communityError.response?.status === 403) {
+          throw new Error('Steam profile is private. Please set your Steam profile to public to sync playtime.');
+        }
+        throw new Error('Failed to fetch playtime data from Steam');
+      }
+    } catch (error) {
+      console.error('[SteamService] Error fetching playtime data:', error);
+      throw error;
+    }
+
+    return playtimeMap;
   }
 }

@@ -59,6 +59,8 @@ export const GameEditor: React.FC<GameEditorProps> = ({ isOpen, onClose, onSave,
   }>({ boxart: [], banner: [], logo: [] });
   const [searchingImageType, setSearchingImageType] = useState<'boxart' | 'banner' | 'logo' | null>(null);
   const [lastSearchedImageType, setLastSearchedImageType] = useState<'boxart' | 'banner' | 'logo' | null>(null);
+  const [showPlaytime, setShowPlaytime] = useState(false);
+  const [isSyncingPlaytime, setIsSyncingPlaytime] = useState(false);
 
   useEffect(() => {
     if (game && isOpen) {
@@ -75,6 +77,8 @@ export const GameEditor: React.FC<GameEditorProps> = ({ isOpen, onClose, onSave,
       setSearchingImageType(null);
       setLastSearchedImageType(null);
       setIsApplyingMetadata(false);
+      setShowPlaytime(false);
+      setIsSyncingPlaytime(false);
       // Reset loading states when opening a new game
       setIsSaving(false);
       setIsDeleting(false);
@@ -98,6 +102,8 @@ export const GameEditor: React.FC<GameEditorProps> = ({ isOpen, onClose, onSave,
       setSearchingImageType(null);
       setLastSearchedImageType(null);
       setIsApplyingMetadata(false);
+      setShowPlaytime(false);
+      setIsSyncingPlaytime(false);
       setShowImageSelector(null);
     }
   }, [game, isOpen, initialTab]);
@@ -639,6 +645,76 @@ export const GameEditor: React.FC<GameEditorProps> = ({ isOpen, onClose, onSave,
                 placeholder="Comma-separated genres (e.g., Action, Adventure, RPG)"
               />
             </div>
+
+            {/* Playtime Section - Only for Steam games */}
+            {editedGame.id.startsWith('steam-') && (
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-sm font-medium text-gray-300">
+                    Game Time
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        setIsSyncingPlaytime(true);
+                        try {
+                          const result = await window.electronAPI.syncSteamPlaytime?.();
+                          if (result?.success) {
+                            setSuccess(`Synced playtime for ${result.updatedCount || 0} game(s)`);
+                            // Reload the game to get updated playtime
+                            if (game) {
+                              const library = await window.electronAPI.getLibrary();
+                              const updatedGame = library.find(g => g.id === game.id);
+                              if (updatedGame) {
+                                setEditedGame({ ...updatedGame });
+                              }
+                            }
+                          } else {
+                            setError(result?.error || 'Failed to sync playtime');
+                          }
+                        } catch (err) {
+                          setError(err instanceof Error ? err.message : 'Failed to sync playtime');
+                        } finally {
+                          setIsSyncingPlaytime(false);
+                        }
+                      }}
+                      disabled={isSyncingPlaytime || isSaving || isDeleting}
+                      className="px-3 py-1 text-xs bg-blue-600 hover:bg-blue-700 text-white font-medium rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      title="Sync playtime from Steam"
+                    >
+                      {isSyncingPlaytime ? 'Syncing...' : 'Sync'}
+                    </button>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={showPlaytime}
+                        onChange={(e) => setShowPlaytime(e.target.checked)}
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-gray-600 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-500 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                    </label>
+                  </div>
+                </div>
+                {showPlaytime && editedGame.playtime !== undefined && editedGame.playtime > 0 && (
+                  <div className="px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg">
+                    <div className="text-white text-sm">
+                      <span className="font-medium">{Math.floor(editedGame.playtime / 60)}</span> hours{' '}
+                      <span className="text-gray-400">
+                        ({editedGame.playtime} minutes)
+                      </span>
+                    </div>
+                  </div>
+                )}
+                {showPlaytime && (!editedGame.playtime || editedGame.playtime === 0) && (
+                  <div className="px-4 py-2 bg-gray-700/50 border border-gray-600 rounded-lg">
+                    <div className="text-gray-400 text-sm">
+                      No playtime data available. Click "Sync" to fetch from Steam.
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             </div>
 

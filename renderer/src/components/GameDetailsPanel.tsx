@@ -67,6 +67,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game, onPlay
     criticScore: true,
     installationDirectory: true,
   });
+  const [steamSyncPlaytimeEnabled, setSteamSyncPlaytimeEnabled] = useState(false);
 
   // Load preferences on mount
   useEffect(() => {
@@ -91,6 +92,26 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game, onPlay
     };
     loadPreferences();
   }, []);
+
+  // Load Steam syncPlaytime setting
+  useEffect(() => {
+    const loadSteamConfig = async () => {
+      try {
+        if (window.electronAPI.getAppConfig) {
+          const steamConfig = await window.electronAPI.getAppConfig('steam');
+          if (steamConfig && 'syncPlaytime' in steamConfig) {
+            setSteamSyncPlaytimeEnabled(steamConfig.syncPlaytime || false);
+          } else {
+            setSteamSyncPlaytimeEnabled(false);
+          }
+        }
+      } catch (error) {
+        console.error('Error loading Steam config:', error);
+        setSteamSyncPlaytimeEnabled(false);
+      }
+    };
+    loadSteamConfig();
+  }, [game]); // Reload when game changes
 
   // Initialize local logo size when dialog opens, reset when it closes
   useEffect(() => {
@@ -463,15 +484,14 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game, onPlay
                     }}
                   >
                     <h3 className="text-lg font-semibold text-white mb-3">Description</h3>
-                    <p 
+                    <div 
                       className="text-gray-200 leading-relaxed cursor-pointer"
                       style={{
                         fontSize: `${descriptionFontSize}px`,
                         fontFamily: descriptionFontFamily,
                       }}
-                    >
-                      {game.description}
-                    </p>
+                      dangerouslySetInnerHTML={{ __html: game.description }}
+                    />
                   </div>
                 )}
 
@@ -541,11 +561,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game, onPlay
               {visibleDetails.ageRating && game.ageRating && (
                 <div>
                   <p className="text-gray-400 mb-1">Age Rating</p>
-                  <p className="text-gray-200">
-                    <span className="px-2 py-1 bg-yellow-600/30 border border-yellow-500/50 rounded text-yellow-300 text-xs font-semibold">
-                      {game.ageRating}
-                    </span>
-                  </p>
+                  <p className="text-gray-200">{game.ageRating}</p>
                 </div>
               )}
               {visibleDetails.genres && game.genres && game.genres.length > 0 && (
@@ -869,6 +885,15 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game, onPlay
       {/* Action Buttons at Bottom */}
       {game && (
         <div className="border-t border-gray-700 p-4 flex items-center justify-end gap-3 flex-shrink-0">
+          {/* Playtime display - DISABLED (Future Feature) */}
+          {/* {steamSyncPlaytimeEnabled && game.id.startsWith('steam-') && game.playtime !== undefined && game.playtime > 0 && (
+            <div className="absolute left-4 bottom-4 text-sm text-gray-400">
+              <span className="font-medium text-gray-300">
+                {Math.floor(game.playtime / 60)}h {game.playtime % 60}m
+              </span>
+            </div>
+          )} */}
+          
           <button
             onClick={() => onFavorite?.(game)}
             className={`p-2 rounded transition-colors ${

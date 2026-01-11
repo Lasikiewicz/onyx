@@ -9,6 +9,269 @@ interface ImportWorkbenchProps {
   onImport: (games: Game[]) => Promise<void>;
   existingLibrary?: Game[];
   initialFolderPath?: string; // Optional: folder path to scan on open
+  preScannedGames?: Array<{
+    uuid?: string;
+    source?: 'steam' | 'epic' | 'gog' | 'xbox' | 'ubisoft' | 'rockstar' | 'ea' | 'battle' | 'humble' | 'itch' | 'manual_file' | 'manual_folder';
+    originalName?: string;
+    installPath?: string;
+    exePath?: string;
+    appId?: string;
+    title?: string;
+    name?: string;
+    installDir?: string;
+    libraryPath?: string;
+    id?: string;
+    type?: string;
+  }>; // Optional: games already scanned (can be ScannedGameResult or SteamGame/XboxGame format)
+  appType?: 'steam' | 'xbox' | 'other'; // Type of app being imported
+}
+
+/**
+ * Normalize title for comparison
+ */
+function normalizeTitle(title: string): string {
+  return title
+    .toLowerCase()
+    .trim()
+    .replace(/[^\w\s]/g, '') // Remove special characters
+    .replace(/\s+/g, ' '); // Normalize whitespace
+}
+
+/**
+ * Calculate Levenshtein distance between two strings
+ */
+function levenshteinDistance(str1: string, str2: string): number {
+  const matrix: number[][] = [];
+  const len1 = str1.length;
+  const len2 = str2.length;
+
+  for (let i = 0; i <= len2; i++) {
+    matrix[i] = [i];
+  }
+
+  for (let j = 0; j <= len1; j++) {
+    matrix[0][j] = j;
+  }
+
+  for (let i = 1; i <= len2; i++) {
+    for (let j = 1; j <= len1; j++) {
+      if (str2.charAt(i - 1) === str1.charAt(j - 1)) {
+        matrix[i][j] = matrix[i - 1][j - 1];
+      } else {
+        matrix[i][j] = Math.min(
+          matrix[i - 1][j - 1] + 1, // substitution
+          matrix[i][j - 1] + 1, // insertion
+          matrix[i - 1][j] + 1 // deletion
+        );
+      }
+    }
+  }
+
+  return matrix[len2][len1];
+}
+
+/**
+ * Calculate similarity between two strings using Levenshtein distance
+ */
+function calculateSimilarity(str1: string, str2: string): number {
+  const longer = str1.length > str2.length ? str1 : str2;
+  const shorter = str1.length > str2.length ? str2 : str1;
+
+  if (longer.length === 0) {
+    return 1.0;
+  }
+
+  const editDistance = levenshteinDistance(longer, shorter);
+  return 1 - editDistance / longer.length;
+}
+
+/**
+ * Calculate word overlap between two strings
+ */
+function calculateWordOverlap(str1: string, str2: string): number {
+  const words1 = new Set(str1.split(/\s+/).filter(w => w.length > 0));
+  const words2 = new Set(str2.split(/\s+/).filter(w => w.length > 0));
+
+  if (words1.size === 0 || words2.size === 0) {
+    return 0;
+  }
+
+  let overlap = 0;
+  words1.forEach(word => {
+    if (words2.has(word)) {
+      overlap++;
+    }
+  });
+
+  return overlap / Math.max(words1.size, words2.size);
+}
+
+/**
+ * Score a search result match against a scanned game
+ */
+interface MatchScore {
+  confidence: number;
+  reasons: string[];
+}
+
+function scoreMatch(scannedTitle: string, candidate: any, scannedAppId?: string): MatchScore {
+  let confidence = 0;
+  const reasons: string[] = [];
+
+  const scannedNormalized = normalizeTitle(scannedTitle);
+  const candidateNormalized = normalizeTitle(candidate.title || '');
+  
+  // Debug logging for matching
+  if (candidate.steamAppId || candidate.source === 'steam') {
+    console.log(`[Match] Scoring "${scannedTitle}" vs "${candidate.title}" (Steam App ID: ${candidate.steamAppId || 'none'}, source: ${candidate.source})`);
+  }
+
+  // 1. Exact Title Match (50% weight)
+  if (scannedNormalized === candidateNormalized) {
+    confidence += 0.5;
+    reasons.push('exact title match');
+  } else {
+    // Fuzzy match
+    const similarity = calculateSimilarity(scannedNormalized, candidateNormalized);
+    if (similarity > 0.9) {
+      confidence += 0.4;
+      reasons.push(`very similar title (${(similarity * 100).toFixed(0)}%)`);
+    } else if (similarity > 0.7) {
+      confidence += 0.2;
+      reasons.push(`similar title (${(similarity * 100).toFixed(0)}%)`);
+    } else if (similarity > 0.5) {
+      confidence += 0.1;
+      reasons.push(`somewhat similar title (${(similarity * 100).toFixed(0)}%)`);
+    } else {
+      reasons.push(`low title similarity (${(similarity * 100).toFixed(0)}%)`);
+    }
+  }
+
+  // 2. Steam App ID Match (40% weight) - Highest confidence
+  if (scannedAppId && candidate.steamAppId) {
+    if (scannedAppId === candidate.steamAppId.toString()) {
+      confidence += 0.4;
+      reasons.push('steam app id match');
+    } else {
+      // Wrong App ID - reduce confidence
+      confidence -= 0.2;
+      reasons.push('steam app id mismatch');
+    }
+  } else if (candidate.steamAppId && candidate.source === 'steam') {
+    // Even if scanned game doesn't have App ID, if candidate is a Steam game with App ID,
+    // give it significant bonus (30%) because Steam games are verified and reliable
+    // This helps match manual folder games to their Steam equivalents
+    confidence += 0.3;
+    reasons.push('steam game with app id (verified match)');
+  }
+
+  // 3. Source Match (10% weight)
+  // Note: We don't have scanned.source in this context, so skip this
+
+  // 4. Provider Priority Bonus
+  // Steam results are more reliable
+  if (candidate.source === 'steam' && candidate.steamAppId) {
+    confidence += 0.1;
+    reasons.push('steam provider match');
+  }
+
+  // 5. Penalties
+  // If candidate has very different title, penalize
+  if (scannedNormalized !== candidateNormalized) {
+    const wordOverlap = calculateWordOverlap(scannedNormalized, candidateNormalized);
+    if (wordOverlap < 0.3) {
+      confidence -= 0.2;
+      reasons.push('low word overlap');
+    }
+  }
+
+  // Clamp confidence to 0-1
+  confidence = Math.max(0, Math.min(1, confidence));
+
+  return { confidence, reasons };
+}
+
+/**
+ * Find the best match from search results
+ */
+function findBestMatch(scannedTitle: string, searchResults: any[], scannedAppId?: string): any | null {
+  if (!searchResults || searchResults.length === 0) {
+    return null;
+  }
+
+  // Score all results
+  const scoredResults = searchResults.map(result => ({
+    result,
+    score: scoreMatch(scannedTitle, result, scannedAppId),
+  }));
+
+  // Sort by confidence (highest first)
+  scoredResults.sort((a, b) => b.score.confidence - a.score.confidence);
+
+  const bestMatch = scoredResults[0];
+
+  // Only return if confidence is above threshold (0.3 minimum, but prefer 0.5+)
+  // This prevents matches like "Grand Theft Auto San Andreas" -> "Grand Theft Auto V Enhanced"
+  if (bestMatch.score.confidence >= 0.3) {
+    console.log(`[Match] Best match for "${scannedTitle}": "${bestMatch.result.title}" (confidence: ${(bestMatch.score.confidence * 100).toFixed(0)}%, reasons: ${bestMatch.score.reasons.join(', ')})`);
+    return bestMatch.result;
+  }
+
+  console.log(`[Match] No good match found for "${scannedTitle}" (best confidence: ${(bestMatch.score.confidence * 100).toFixed(0)}%)`);
+  return null;
+}
+
+/**
+ * Fetch text metadata from alternative sources when description is empty
+ */
+async function fetchTextMetadataFromAlternativeSource(
+  gameTitle: string,
+  _matchedResult: any | null,
+  steamAppId?: string
+): Promise<{
+  description: string;
+  releaseDate: string;
+  genres: string[];
+  developers: string[];
+  publishers: string[];
+  ageRating: string;
+  rating: number;
+  platform: string;
+}> {
+  const emptyResult = {
+    description: '',
+    releaseDate: '',
+    genres: [],
+    developers: [],
+    publishers: [],
+    ageRating: '',
+    rating: 0,
+    platform: '',
+  };
+
+  try {
+    // Try fetching from searchArtwork which queries multiple providers (IGDB, RAWG, etc.)
+    // This will get text metadata from alternative sources
+    console.log(`[ImportWorkbench] Fetching text metadata from alternative sources for "${gameTitle}"`);
+    const altMetadata = await window.electronAPI.searchArtwork(gameTitle, steamAppId);
+    
+    if (altMetadata) {
+      return {
+        description: (altMetadata.description || altMetadata.summary || '').trim(),
+        releaseDate: (altMetadata.releaseDate || '').trim(),
+        genres: altMetadata.genres || [],
+        developers: altMetadata.developers || [],
+        publishers: altMetadata.publishers || [],
+        ageRating: (altMetadata.ageRating || '').trim(),
+        rating: altMetadata.rating || 0,
+        platform: altMetadata.platforms?.join(', ') || altMetadata.platform || '',
+      };
+    }
+  } catch (err) {
+    console.warn(`[ImportWorkbench] Error fetching text metadata from alternative sources for "${gameTitle}":`, err);
+  }
+
+  return emptyResult;
 }
 
 export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
@@ -17,6 +280,8 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
   onImport,
   existingLibrary = [],
   initialFolderPath,
+  preScannedGames,
+  appType = 'steam',
 }) => {
   const [queue, setQueue] = useState<StagedGame[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -37,9 +302,25 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
   const [categoryInput, setCategoryInput] = useState<string>('');
   const [folderConfigs, setFolderConfigs] = useState<Record<string, { id: string; name: string; path: string; enabled: boolean; autoCategory?: string[] }>>({});
   const titleInputRef = useRef<HTMLInputElement>(null);
+  const hasAutoScannedRef = useRef<boolean>(false); // Track if we've already auto-scanned
 
   // Default categories for quick selection
   const DEFAULT_CATEGORIES = ['Apps', 'Games', 'VR'];
+
+  // Pause/resume background scan when ImportWorkbench opens/closes
+  useEffect(() => {
+    if (isOpen) {
+      // Pause background scan when ImportWorkbench opens
+      window.electronAPI.pauseBackgroundScan?.().catch(err => {
+        console.error('Error pausing background scan:', err);
+      });
+    } else {
+      // Resume background scan when ImportWorkbench closes
+      window.electronAPI.resumeBackgroundScan?.().catch(err => {
+        console.error('Error resuming background scan:', err);
+      });
+    }
+  }, [isOpen]);
 
   // Load ignored games and folder configs on mount
   useEffect(() => {
@@ -285,13 +566,15 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
             const searchResponse = await window.electronAPI.searchGames(scanned.title);
             
             if (searchResponse && (searchResponse.success !== false) && searchResponse.results && searchResponse.results.length > 0) {
-              // Step 2: Find first Steam result with an App ID (preferred)
-              const steamResult = searchResponse.results.find((r: any) => r.steamAppId);
+              // Step 2: Find best match using scoring algorithm
+              const bestMatch = findBestMatch(scanned.title, searchResponse.results, scanned.appId);
               
-              if (steamResult && steamResult.steamAppId) {
-                steamAppId = steamResult.steamAppId.toString();
-                matchedTitle = steamResult.title || scanned.title;
-                matchedResult = steamResult;
+              if (bestMatch) {
+                if (bestMatch.steamAppId) {
+                  steamAppId = bestMatch.steamAppId.toString();
+                }
+                matchedTitle = bestMatch.title || scanned.title;
+                matchedResult = bestMatch;
               }
             }
           } catch (err) {
@@ -325,20 +608,41 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
 
           // Check if this game is from a manual folder with autoCategory configured
           if (scanned.source === 'manual_folder' && scanned.installPath) {
+            console.log(`[ImportWorkbench] Checking autoCategory for ${scanned.title} from path: ${scanned.installPath}`);
+            console.log(`[ImportWorkbench] Available folder configs:`, Object.keys(folderConfigs).length);
+            
             // Find folder config that matches this game's install path or parent folder
             const matchingConfig = Object.values(folderConfigs).find(config => {
-              if (!config.enabled || !config.autoCategory || config.autoCategory.length === 0) {
+              if (!config.enabled) {
+                console.log(`[ImportWorkbench] Config ${config.path} is disabled, skipping`);
                 return false;
               }
-              // Check if the game's install path is within the folder config path
-              const configPath = config.path.toLowerCase().replace(/\\/g, '/');
-              const installPath = scanned.installPath.toLowerCase().replace(/\\/g, '/');
-              // Match if install path starts with config path, or if they're the same
-              return installPath.startsWith(configPath) || installPath === configPath;
+              if (!config.autoCategory || config.autoCategory.length === 0) {
+                console.log(`[ImportWorkbench] Config ${config.path} has no autoCategory, skipping`);
+                return false;
+              }
+              // Normalize paths: lowercase, forward slashes, remove trailing slashes
+              const normalizePath = (path: string) => {
+                return path.toLowerCase().replace(/\\/g, '/').replace(/\/+$/, '');
+              };
+              const configPath = normalizePath(config.path);
+              const installPath = normalizePath(scanned.installPath);
+              console.log(`[ImportWorkbench] Comparing config path "${configPath}" with install path "${installPath}"`);
+              
+              // Match if install path starts with config path (with trailing slash to ensure it's a subdirectory)
+              // Or if they're exactly the same
+              const matches = installPath === configPath || installPath.startsWith(configPath + '/');
+              if (matches) {
+                console.log(`[ImportWorkbench] ✓ Found matching folder config for ${scanned.title}: ${config.path} -> ${scanned.installPath}`);
+              }
+              return matches;
             });
             
             if (matchingConfig && matchingConfig.autoCategory) {
               categories = [...matchingConfig.autoCategory];
+              console.log(`[ImportWorkbench] ✓ Applied autoCategory "${matchingConfig.autoCategory.join(', ')}" to ${scanned.title} from folder ${matchingConfig.path}`);
+            } else {
+              console.log(`[ImportWorkbench] ✗ No matching folder config found for ${scanned.title}`);
             }
           }
 
@@ -419,6 +723,23 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
                   ageRating = (metadata.ageRating || '').trim();
                   rating = metadata.rating || 0;
                   platform = metadata.platforms?.join(', ') || metadata.platform || scanned.source;
+                }
+                
+                // If description is still empty, try alternative sources
+                if (!description || description.trim().length === 0) {
+                  console.log(`[ImportWorkbench] Description still empty for ${matchedTitle}, trying alternative sources...`);
+                  const altMetadata = await fetchTextMetadataFromAlternativeSource(matchedTitle, matchedResult, finalSteamAppId);
+                  if (altMetadata.description) {
+                    description = altMetadata.description;
+                    releaseDate = altMetadata.releaseDate || releaseDate;
+                    genres = altMetadata.genres.length > 0 ? altMetadata.genres : genres;
+                    developers = altMetadata.developers.length > 0 ? altMetadata.developers : developers;
+                    publishers = altMetadata.publishers.length > 0 ? altMetadata.publishers : publishers;
+                    ageRating = altMetadata.ageRating || ageRating;
+                    rating = altMetadata.rating || rating;
+                    platform = altMetadata.platform || platform;
+                    console.log(`[ImportWorkbench] Successfully fetched text metadata from alternative source for ${matchedTitle}`);
+                  }
                 }
                 
                 // Keep autoCategory if already set from folder config, otherwise don't preselect
@@ -505,7 +826,8 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
             originalName: scanned.originalName,
             installPath: scanned.installPath,
             exePath: scanned.exePath,
-            appId: scanned.appId || steamAppId,
+            // Always use found Steam App ID if available, otherwise use scanned appId
+            appId: steamAppId || scanned.appId,
             title: matchedTitle,
             description,
             releaseDate,
@@ -754,20 +1076,41 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
 
           // Check if this game is from a manual folder with autoCategory configured
           if (scanned.source === 'manual_folder' && scanned.installPath) {
+            console.log(`[ImportWorkbench] Checking autoCategory for ${scanned.title} from path: ${scanned.installPath}`);
+            console.log(`[ImportWorkbench] Available folder configs:`, Object.keys(folderConfigs).length);
+            
             // Find folder config that matches this game's install path or parent folder
             const matchingConfig = Object.values(folderConfigs).find(config => {
-              if (!config.enabled || !config.autoCategory || config.autoCategory.length === 0) {
+              if (!config.enabled) {
+                console.log(`[ImportWorkbench] Config ${config.path} is disabled, skipping`);
                 return false;
               }
-              // Check if the game's install path is within the folder config path
-              const configPath = config.path.toLowerCase().replace(/\\/g, '/');
-              const installPath = scanned.installPath.toLowerCase().replace(/\\/g, '/');
-              // Match if install path starts with config path, or if they're the same
-              return installPath.startsWith(configPath) || installPath === configPath;
+              if (!config.autoCategory || config.autoCategory.length === 0) {
+                console.log(`[ImportWorkbench] Config ${config.path} has no autoCategory, skipping`);
+                return false;
+              }
+              // Normalize paths: lowercase, forward slashes, remove trailing slashes
+              const normalizePath = (path: string) => {
+                return path.toLowerCase().replace(/\\/g, '/').replace(/\/+$/, '');
+              };
+              const configPath = normalizePath(config.path);
+              const installPath = normalizePath(scanned.installPath);
+              console.log(`[ImportWorkbench] Comparing config path "${configPath}" with install path "${installPath}"`);
+              
+              // Match if install path starts with config path (with trailing slash to ensure it's a subdirectory)
+              // Or if they're exactly the same
+              const matches = installPath === configPath || installPath.startsWith(configPath + '/');
+              if (matches) {
+                console.log(`[ImportWorkbench] ✓ Found matching folder config for ${scanned.title}: ${config.path} -> ${scanned.installPath}`);
+              }
+              return matches;
             });
             
             if (matchingConfig && matchingConfig.autoCategory) {
               categories = [...matchingConfig.autoCategory];
+              console.log(`[ImportWorkbench] ✓ Applied autoCategory "${matchingConfig.autoCategory.join(', ')}" to ${scanned.title} from folder ${matchingConfig.path}`);
+            } else {
+              console.log(`[ImportWorkbench] ✗ No matching folder config found for ${scanned.title}`);
             }
           }
 
@@ -792,32 +1135,20 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
               const searchResponse = await withTimeout(window.electronAPI.searchGames(scanned.title), 30000);
               
               if (searchResponse && (searchResponse.success !== false) && searchResponse.results && searchResponse.results.length > 0) {
-                // Step 2: Find first Steam result with an App ID (preferred)
-                const steamResult = searchResponse.results.find((r: any) => r.steamAppId);
+                // Step 2: Find best match using scoring algorithm
+                const bestMatch = findBestMatch(scanned.title, searchResponse.results, scanned.appId);
                 
-                if (steamResult && steamResult.steamAppId) {
-                  steamAppId = steamResult.steamAppId.toString();
-                  matchedTitle = steamResult.title || scanned.title;
-                  matchedResult = steamResult;
-                  console.log(`[ImportWorkbench] Found Steam App ID ${steamAppId} for "${scanned.title}" (matched with "${matchedTitle}")`);
-                } else {
-                  // Step 2b: If no Steam result, use first IGDB result (for non-Steam games)
-                  const igdbResult = searchResponse.results.find((r: any) => r.source === 'igdb');
-                  if (igdbResult) {
-                    matchedTitle = igdbResult.title || scanned.title;
-                    matchedResult = igdbResult;
-                    console.log(`[ImportWorkbench] Found IGDB match for "${scanned.title}" (matched with "${matchedTitle}")`);
+                if (bestMatch) {
+                  if (bestMatch.steamAppId) {
+                    steamAppId = bestMatch.steamAppId.toString();
+                    console.log(`[ImportWorkbench] Found Steam App ID ${steamAppId} for "${scanned.title}" (matched with "${bestMatch.title}")`);
                   } else {
-                    // Step 2c: Use first result of any type
-                    const firstResult = searchResponse.results[0];
-                    if (firstResult) {
-                      matchedTitle = firstResult.title || scanned.title;
-                      matchedResult = firstResult;
-                      console.log(`[ImportWorkbench] Found match for "${scanned.title}" (matched with "${matchedTitle}")`);
-                    } else {
-                      console.log(`[ImportWorkbench] No match found for "${scanned.title}"`);
-                    }
+                    console.log(`[ImportWorkbench] Found match for "${scanned.title}" (matched with "${bestMatch.title}")`);
                   }
+                  matchedTitle = bestMatch.title || scanned.title;
+                  matchedResult = bestMatch;
+                } else {
+                  console.log(`[ImportWorkbench] No good match found for "${scanned.title}" (confidence too low)`);
                 }
               }
             } catch (err) {
@@ -909,6 +1240,23 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
                   ageRating = (metadata.ageRating || '').trim();
                   rating = metadata.rating || 0;
                   platform = metadata.platforms?.join(', ') || metadata.platform || 'steam';
+                }
+                
+                // If description is still empty, try alternative sources
+                if (!description || description.trim().length === 0) {
+                  console.log(`[ImportWorkbench] Description still empty for ${scanned.title}, trying alternative sources...`);
+                  const altMetadata = await fetchTextMetadataFromAlternativeSource(scanned.title, matchedResult, scanned.appId);
+                  if (altMetadata.description) {
+                    description = altMetadata.description;
+                    releaseDate = altMetadata.releaseDate || releaseDate;
+                    genres = altMetadata.genres.length > 0 ? altMetadata.genres : genres;
+                    developers = altMetadata.developers.length > 0 ? altMetadata.developers : developers;
+                    publishers = altMetadata.publishers.length > 0 ? altMetadata.publishers : publishers;
+                    ageRating = altMetadata.ageRating || ageRating;
+                    rating = altMetadata.rating || rating;
+                    platform = altMetadata.platform || platform;
+                    console.log(`[ImportWorkbench] Successfully fetched text metadata from alternative source for ${scanned.title}`);
+                  }
                 }
                 
                 // Keep autoCategory if already set from folder config, otherwise don't preselect
@@ -1030,6 +1378,23 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
                   rating = metadata.rating || 0;
                   platform = metadata.platforms?.join(', ') || metadata.platform || scanned.source;
                 }
+
+                // If description is still empty, try alternative sources
+                if (!description || description.trim().length === 0) {
+                  console.log(`[ImportWorkbench] Description still empty for "${matchedTitle}", trying alternative sources...`);
+                  const altMetadata = await fetchTextMetadataFromAlternativeSource(matchedTitle, matchedResult, steamAppId);
+                  if (altMetadata.description) {
+                    description = altMetadata.description;
+                    releaseDate = altMetadata.releaseDate || releaseDate;
+                    genres = altMetadata.genres.length > 0 ? altMetadata.genres : genres;
+                    developers = altMetadata.developers.length > 0 ? altMetadata.developers : developers;
+                    publishers = altMetadata.publishers.length > 0 ? altMetadata.publishers : publishers;
+                    ageRating = altMetadata.ageRating || ageRating;
+                    rating = altMetadata.rating || rating;
+                    platform = altMetadata.platform || platform;
+                    console.log(`[ImportWorkbench] Successfully fetched text metadata from alternative source for "${matchedTitle}"`);
+                  }
+                }
                 
                 // Keep autoCategory if already set from folder config, otherwise don't preselect
                 if (categories.length === 0) {
@@ -1079,18 +1444,40 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
                 bannerUrl = metadata.bannerUrl || '';
                 logoUrl = metadata.logoUrl || '';
                 heroUrl = metadata.heroUrl || '';
-                description = metadata.description || metadata.summary || '';
-                releaseDate = metadata.releaseDate || '';
+                description = (metadata.description || metadata.summary || '').trim();
+                releaseDate = (metadata.releaseDate || '').trim();
                 genres = metadata.genres || [];
-                // Keep autoCategory if already set from folder config, otherwise don't preselect
+                // Preserve autoCategory if already set from folder config
+                // Don't overwrite categories that were set earlier
                 if (categories.length === 0) {
                   categories = [];
                 }
-                ageRating = metadata.ageRating || '';
+                ageRating = (metadata.ageRating || '').trim();
                 rating = metadata.rating || 0;
                 platform = metadata.platforms?.join(', ') || metadata.platform || scanned.source;
                 developers = metadata.developers || [];
                 publishers = metadata.publishers || [];
+                
+                // If description is still empty, try to fetch from alternative sources
+                if (!description || description.trim().length === 0) {
+                  console.log(`[ImportWorkbench] Description still empty for ${scanned.title}, trying alternative sources...`);
+                  try {
+                    const altMetadata = await fetchTextMetadataFromAlternativeSource(scanned.title, null, steamAppId);
+                    if (altMetadata.description) {
+                      description = altMetadata.description;
+                      releaseDate = altMetadata.releaseDate || releaseDate;
+                      genres = altMetadata.genres.length > 0 ? altMetadata.genres : genres;
+                      developers = altMetadata.developers.length > 0 ? altMetadata.developers : developers;
+                      publishers = altMetadata.publishers.length > 0 ? altMetadata.publishers : publishers;
+                      ageRating = altMetadata.ageRating || ageRating;
+                      rating = altMetadata.rating || rating;
+                      platform = altMetadata.platform || platform;
+                      console.log(`[ImportWorkbench] Successfully fetched text metadata from alternative source for ${scanned.title}`);
+                    }
+                  } catch (altErr) {
+                    console.warn(`[ImportWorkbench] Error fetching alternative metadata for ${scanned.title}:`, altErr);
+                  }
+                }
                 
                 // Only set to ready if all required metadata is present
                 const tempGame: Partial<StagedGame> = {
@@ -1116,7 +1503,8 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
             originalName: scanned.originalName,
             installPath: scanned.installPath,
             exePath: scanned.exePath,
-            appId: scanned.appId || steamAppId,
+            // Always use found Steam App ID if available, otherwise use scanned appId
+            appId: steamAppId || scanned.appId,
             title: matchedTitle, // Use matched title if we found a Steam match
             description,
             releaseDate,
@@ -1339,13 +1727,216 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
     };
   }, []);
 
+  // Convert pre-scanned games to ScannedGameResult format and add to queue
+  const convertPreScannedGames = useMemo(() => {
+    try {
+      if (!preScannedGames || !Array.isArray(preScannedGames) || preScannedGames.length === 0) {
+        return [];
+      }
+
+      return preScannedGames
+        .filter(game => game != null && typeof game === 'object')
+        .map((game, index) => {
+          // Check if it's already in ScannedGameResult format
+          if ('uuid' in game && 'source' in game && 'title' in game) {
+            return game as any; // Already in correct format
+          }
+
+          // Convert from SteamGame/XboxGame/OtherGame format
+          const source: ImportSource = appType === 'steam' ? 'steam' : appType === 'xbox' ? 'xbox' : 'manual_folder';
+          const uuid = (game?.appId || game?.id || `pre-scanned-${index}`) as string;
+          const title = (game?.title || game?.name || 'Unknown Game') as string;
+          const installPath = (game?.installPath || game?.installDir || game?.libraryPath || '') as string;
+          const exePath = (game?.exePath || '') as string;
+
+          return {
+            uuid,
+            source,
+            originalName: title,
+            installPath,
+            exePath,
+            appId: game?.appId,
+            title,
+            status: 'pending' as ImportStatus,
+          };
+        });
+    } catch (err) {
+      console.error('[ImportWorkbench] Error converting pre-scanned games:', err);
+      return [];
+    }
+  }, [preScannedGames, appType]);
+
+  // Track if we've already processed pre-scanned games to avoid re-processing
+  const processedPreScannedGamesRef = useRef<string>('');
+
+  // Load pre-scanned games when modal opens
+  useEffect(() => {
+    // Only process if modal is open and we have pre-scanned games
+    if (!isOpen) {
+      // Reset when modal closes
+      if (processedPreScannedGamesRef.current) {
+        processedPreScannedGamesRef.current = '';
+      }
+      return;
+    }
+
+    // Safety check - ensure we have valid data before processing
+    if (!preScannedGames || !Array.isArray(preScannedGames) || preScannedGames.length === 0) {
+      return;
+    }
+
+    if (!convertPreScannedGames || convertPreScannedGames.length === 0) {
+      return;
+    }
+    
+    // Create a key from the pre-scanned games to track if we've already processed them
+    // Safely handle undefined/null games
+    const gamesKey = JSON.stringify(
+      preScannedGames
+        .filter(g => g != null)
+        .map(g => g?.appId || g?.id || g?.name || '')
+    ).slice(0, 100);
+    if (processedPreScannedGamesRef.current === gamesKey) {
+      return; // Already processed these games
+    }
+    
+    // Process pre-scanned games similar to scanAllSources
+    const processPreScannedGames = async () => {
+        setIsScanning(true);
+        setError(null);
+        setScanProgressMessage('Processing games...');
+
+        try {
+          // Pre-filter games that already exist in library
+          const existingGameIds = new Set(existingLibrary.map(g => g.id));
+          const existingExePaths = new Set(
+            existingLibrary
+              .map(g => g.exePath)
+              .filter((path): path is string => !!path)
+              .map(path => path.toLowerCase().replace(/\\/g, '/'))
+          );
+          const existingInstallPaths = new Set(
+            existingLibrary
+              .map(g => g.installationDirectory)
+              .filter((path): path is string => !!path)
+              .map(path => path.toLowerCase().replace(/\\/g, '/'))
+          );
+
+          const gamesToProcess = convertPreScannedGames.filter(scanned => {
+            if (!scanned || !scanned.uuid) {
+              return false; // Skip invalid games
+            }
+            
+            const gameId = scanned.source === 'steam' && scanned.appId
+              ? `steam-${scanned.appId}`
+              : scanned.uuid;
+            if (existingGameIds.has(gameId)) {
+              return false;
+            }
+            
+            if (scanned.exePath) {
+              const normalizedExePath = scanned.exePath.toLowerCase().replace(/\\/g, '/');
+              if (existingExePaths.has(normalizedExePath)) {
+                return false;
+              }
+            }
+            
+            if (scanned.installPath) {
+              const normalizedInstallPath = scanned.installPath.toLowerCase().replace(/\\/g, '/');
+              if (existingInstallPaths.has(normalizedInstallPath)) {
+                return false;
+              }
+            }
+            
+            return true;
+          });
+
+          if (gamesToProcess.length === 0) {
+            setScanProgressMessage('No new games to import');
+            setIsScanning(false);
+            return;
+          }
+
+          // Process games and convert to StagedGame (similar to handleScanAllSources)
+          const stagedGames: StagedGame[] = [];
+          setScanProgressMessage(`Processing ${gamesToProcess.length} game${gamesToProcess.length !== 1 ? 's' : ''}...`);
+
+          for (let i = 0; i < gamesToProcess.length; i++) {
+            const scanned = gamesToProcess[i];
+            if (!scanned || !scanned.uuid) {
+              continue; // Skip invalid games
+            }
+            
+            const gameId = scanned.source === 'steam' && scanned.appId
+              ? `steam-${scanned.appId}`
+              : scanned.uuid;
+            
+            if (existingGameIds.has(gameId)) {
+              continue;
+            }
+
+            const isIgnored = ignoredGames.has(gameId);
+
+            const stagedGame: StagedGame = {
+              uuid: scanned.uuid,
+              source: (scanned.source || 'manual_folder') as ImportSource,
+              originalName: scanned.originalName || scanned.title || 'Unknown',
+              installPath: scanned.installPath || '',
+              exePath: scanned.exePath,
+              appId: scanned.appId,
+              title: scanned.title || 'Unknown',
+              boxArtUrl: '',
+              bannerUrl: '',
+              status: 'pending' as ImportStatus,
+              isSelected: !isIgnored,
+              isIgnored,
+            };
+
+            stagedGames.push(stagedGame);
+          }
+
+          setQueue(stagedGames);
+          setScanProgressMessage('');
+          setIsScanning(false);
+          processedPreScannedGamesRef.current = gamesKey; // Mark as processed
+        } catch (err) {
+          console.error('[ImportWorkbench] Error processing pre-scanned games:', err);
+          setError(err instanceof Error ? err.message : 'Failed to process games');
+          setIsScanning(false);
+        }
+      };
+
+    processPreScannedGames();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
+
+  // Auto-trigger scanAll when opened with pre-scanned games (from notification)
+  // This ensures all games are scanned, not just the pre-scanned ones
+  useEffect(() => {
+    if (!isOpen) {
+      // Reset flag when modal closes
+      hasAutoScannedRef.current = false;
+      return;
+    }
+
+    if (preScannedGames && preScannedGames.length > 0 && !hasAutoScannedRef.current) {
+      // Small delay to ensure component is fully mounted and pre-scanned games are processed
+      const timer = setTimeout(() => {
+        hasAutoScannedRef.current = true; // Mark as scanned to prevent re-triggering
+        handleScanAll();
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, preScannedGames?.length]);
+
   // Scan folder when initialFolderPath is provided
   useEffect(() => {
-    if (isOpen && initialFolderPath) {
+    if (isOpen && initialFolderPath && !preScannedGames) {
       handleScanFolder(initialFolderPath);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, initialFolderPath]);
+  }, [isOpen, initialFolderPath, preScannedGames]);
 
   // Handle adding a file manually
   const handleAddFile = async () => {

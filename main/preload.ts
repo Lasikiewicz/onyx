@@ -37,6 +37,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   clearSteamAuth: () => ipcRenderer.invoke('steam:clearAuth'),
   // Steam import methods
   importAllSteamGames: (path?: string) => ipcRenderer.invoke('steam:importAllGames', path),
+  // Steam playtime sync
+  syncSteamPlaytime: () => ipcRenderer.invoke('steam:syncPlaytime'),
   // GameStore methods
   getLibrary: () => ipcRenderer.invoke('gameStore:getLibrary'),
   saveGame: (game: any, oldGame?: any) => ipcRenderer.invoke('gameStore:saveGame', game, oldGame),
@@ -105,6 +107,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Background scan methods
   getBackgroundScanEnabled: () => ipcRenderer.invoke('appConfig:getBackgroundScanEnabled'),
   setBackgroundScanEnabled: (enabled: boolean) => ipcRenderer.invoke('appConfig:setBackgroundScanEnabled', enabled),
+  getBackgroundScanIntervalMinutes: () => ipcRenderer.invoke('appConfig:getBackgroundScanIntervalMinutes'),
+  setBackgroundScanIntervalMinutes: (minutes: number) => ipcRenderer.invoke('appConfig:setBackgroundScanIntervalMinutes', minutes),
+  pauseBackgroundScan: () => ipcRenderer.invoke('appConfig:pauseBackgroundScan'),
+  resumeBackgroundScan: () => ipcRenderer.invoke('appConfig:resumeBackgroundScan'),
   getLastBackgroundScan: () => ipcRenderer.invoke('appConfig:getLastBackgroundScan'),
   // DevTools toggle (development only)
   toggleDevTools: () => ipcRenderer.invoke('app:toggleDevTools'),
@@ -137,6 +143,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getShortcut: () => ipcRenderer.invoke('suspend:getShortcut'),
     setShortcut: (shortcut: string) => ipcRenderer.invoke('suspend:setShortcut', shortcut),
   },
+  // Bug report methods
+  generateBugReport: (userDescription: string) => ipcRenderer.invoke('bugReport:generate', userDescription),
+  getBugReportLogsDirectory: () => ipcRenderer.invoke('bugReport:getLogsDirectory'),
 });
 
 // Debug: Log that electronAPI was exposed
