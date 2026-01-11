@@ -53,6 +53,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   scanFolderForExecutables: (folderPath: string) => ipcRenderer.invoke('import:scanFolderForExecutables', folderPath),
   // Metadata fetcher methods
       searchArtwork: (title: string, steamAppId?: string) => ipcRenderer.invoke('metadata:searchArtwork', title, steamAppId),
+  fetchGameDescription: (steamGameId: string) => ipcRenderer.invoke('metadata:fetchGameDescription', steamGameId),
   fetchAndUpdateMetadata: (gameId: string, title: string) => ipcRenderer.invoke('metadata:fetchAndUpdate', gameId, title),
   setIGDBConfig: (config: { clientId: string; accessToken: string }) => ipcRenderer.invoke('metadata:setIGDBConfig', config),
   setMockMode: (enabled: boolean) => ipcRenderer.invoke('metadata:setMockMode', enabled),

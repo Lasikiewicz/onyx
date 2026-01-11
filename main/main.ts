@@ -2603,6 +2603,51 @@ ipcMain.handle('metadata:fetchAndUpdateByProviderId', async (_event, gameId: str
   }
 });
 
+// Fetch game description directly from Steam Store API using Steam App ID
+// Uses the provider's rate-limited getDescription method to avoid 403 errors
+ipcMain.handle('metadata:fetchGameDescription', async (_event, steamGameId: string) => {
+  try {
+    // Extract Steam App ID from game ID (format: "steam-123")
+    const match = steamGameId.match(/^steam-(.+)$/);
+    if (!match) {
+      return { success: false, error: 'Invalid Steam game ID format' };
+    }
+    
+    // Use the provider's getDescription method which has rate limiting built in
+    // This ensures all Steam Store API calls go through the same rate limiter
+    // Access the steamProvider through the MetadataFetcherService (using type assertion to access private property)
+    const steamProvider = (metadataFetcher as any).steamProvider;
+    
+    if (!steamProvider || !steamProvider.isAvailable()) {
+      return { success: false, error: 'Steam provider not available' };
+    }
+    
+    const description = await steamProvider.getDescription(steamGameId);
+    
+    if (!description) {
+      return { success: false, error: 'No description data returned from Steam Store API' };
+    }
+    
+    // Convert to the format expected by the frontend
+    return { 
+      success: true, 
+      description: description.description,
+      summary: description.summary,
+      releaseDate: description.releaseDate,
+      genres: description.genres,
+      developers: description.developers,
+      publishers: description.publishers,
+      ageRating: description.ageRating,
+      rating: description.rating,
+      platforms: description.platforms,
+      categories: description.categories,
+    };
+  } catch (error) {
+    console.error('Error in metadata:fetchGameDescription handler:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+});
+
 // Fetch metadata only (descriptions, genres, etc.) without images
 // This is useful for updating text metadata without downloading artwork
 ipcMain.handle('metadata:fetchMetadataOnlyByProviderId', async (_event, gameId: string, providerId: string, providerSource: string) => {

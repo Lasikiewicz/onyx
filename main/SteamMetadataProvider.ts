@@ -10,6 +10,14 @@ import { join } from 'node:path';
 export class SteamMetadataProvider implements MetadataProvider {
   readonly name = 'steam';
   private steamService: SteamService | null = null;
+  
+  // Rate limiting for Steam Store API
+  private requestQueue: Array<{ execute: () => Promise<any>; resolve: (value: any) => void; reject: (error: any) => void }> = [];
+  private processingQueue = false;
+  private lastRequestTime = 0;
+  private activeRequests = 0;
+  private readonly MIN_REQUEST_INTERVAL = 2000; // 2 seconds between requests to avoid rate limiting
+  private readonly MAX_CONCURRENT_REQUESTS = 1; // Only one request at a time for Steam Store API
 
   constructor(steamService: SteamService | null) {
     this.steamService = steamService;
@@ -17,6 +25,93 @@ export class SteamMetadataProvider implements MetadataProvider {
 
   isAvailable(): boolean {
     return this.steamService !== null;
+  }
+
+  /**
+   * Queue a request with rate limiting
+   */
+  private async queueRequest<T>(execute: () => Promise<T>): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
+      this.requestQueue.push({ execute, resolve, reject });
+      this.processQueue();
+    });
+  }
+
+  /**
+   * Process the request queue with rate limiting
+   */
+  private async processQueue(): Promise<void> {
+    if (this.processingQueue || this.requestQueue.length === 0) {
+      return;
+    }
+
+    this.processingQueue = true;
+
+    while (this.requestQueue.length > 0) {
+      // Wait if we have too many concurrent requests
+      while (this.activeRequests >= this.MAX_CONCURRENT_REQUESTS) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+
+      // Ensure minimum interval between requests (2 seconds to avoid rate limiting)
+      const timeSinceLastRequest = Date.now() - this.lastRequestTime;
+      if (timeSinceLastRequest < this.MIN_REQUEST_INTERVAL) {
+        await new Promise(resolve => setTimeout(resolve, this.MIN_REQUEST_INTERVAL - timeSinceLastRequest));
+      }
+
+      const request = this.requestQueue.shift();
+      if (!request) break;
+
+      this.lastRequestTime = Date.now();
+      this.activeRequests++;
+
+      request
+        .execute()
+        .then(result => {
+          this.activeRequests--;
+          request.resolve(result);
+          this.processQueue();
+        })
+        .catch(error => {
+          this.activeRequests--;
+          request.reject(error);
+          this.processQueue();
+        });
+    }
+
+    this.processingQueue = false;
+  }
+
+  /**
+   * Retry a request with exponential backoff on 403 errors
+   */
+  private async retryRequest<T>(
+    execute: () => Promise<T>,
+    maxRetries = 3,
+    baseDelay = 2000
+  ): Promise<T> {
+    let lastError: any;
+    
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        return await execute();
+      } catch (error: any) {
+        lastError = error;
+        
+        // If it's a 403 and we have retries left, wait and retry
+        if (error?.status === 403 && attempt < maxRetries) {
+          const delay = baseDelay * Math.pow(2, attempt); // Exponential backoff: 2s, 4s, 8s
+          console.warn(`[Steam] Rate limited (403), retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries + 1})`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
+        }
+        
+        // If it's not a 403 or we're out of retries, throw
+        throw error;
+      }
+    }
+    
+    throw lastError;
   }
 
   async search(title: string, steamAppId?: string): Promise<GameSearchResult[]> {
@@ -47,103 +142,116 @@ export class SteamMetadataProvider implements MetadataProvider {
     }
     const steamAppId = match[1];
 
-    try {
-      // Use Steam Store API to get game details
-      const storeApiUrl = `https://store.steampowered.com/api/appdetails?appids=${steamAppId}&l=english`;
-      const response = await fetch(storeApiUrl);
-      
-      if (!response.ok) {
-        console.warn(`[Steam] Store API request failed for app ${steamAppId}: ${response.status}`);
-        return null;
-      }
+    // Use rate-limited queue with retry logic
+    return this.queueRequest(async () => {
+      return this.retryRequest(async () => {
+        // Use Steam Store API to get game details
+        // Add proper headers to avoid 403 errors (Steam requires User-Agent)
+        const storeApiUrl = `https://store.steampowered.com/api/appdetails?appids=${steamAppId}&l=english`;
+        const response = await fetch(storeApiUrl, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'application/json, text/plain, */*',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Referer': 'https://store.steampowered.com/',
+          },
+        });
+        
+        if (!response.ok) {
+          // Create an error object that includes status for retry logic
+          const error: any = new Error(`Steam Store API returned ${response.status}`);
+          error.status = response.status;
+          throw error;
+        }
 
-      const data = await response.json() as Record<string, any>;
-      const appData = data[steamAppId];
-      
-      if (!appData || !appData.success || !appData.data) {
-        console.warn(`[Steam] No data returned from Store API for app ${steamAppId}`);
-        return null;
-      }
+        const data = await response.json() as Record<string, any>;
+        const appData = data[steamAppId];
+        
+        if (!appData || !appData.success || !appData.data) {
+          console.warn(`[Steam] No data returned from Store API for app ${steamAppId}`);
+          return null;
+        }
 
-      const gameData = appData.data;
-      
-      // Extract text metadata from Steam Store API
-      const description: import('./MetadataProvider.js').GameDescription = {};
-      
-      // Description/Summary
-      if (gameData.short_description) {
-        description.description = gameData.short_description;
-      }
-      if (gameData.detailed_description) {
-        description.summary = gameData.detailed_description;
-      }
-      
-      // Release date
-      if (gameData.release_date) {
-        if (gameData.release_date.date) {
-          // Parse date string (format: "DD MMM, YYYY" or "Coming soon")
-          try {
-            const dateStr = gameData.release_date.date;
-            if (dateStr !== 'Coming soon' && dateStr !== 'TBA') {
-              const date = new Date(dateStr);
-              if (!isNaN(date.getTime())) {
-                description.releaseDate = date.toISOString().split('T')[0];
+        const gameData = appData.data;
+        
+        // Extract text metadata from Steam Store API
+        const description: import('./MetadataProvider.js').GameDescription = {};
+
+        // Description/Summary
+        if (gameData.short_description) {
+          description.description = gameData.short_description;
+        }
+        if (gameData.detailed_description) {
+          description.summary = gameData.detailed_description;
+        }
+        
+        // Release date
+        if (gameData.release_date) {
+          if (gameData.release_date.date) {
+            // Parse date string (format: "DD MMM, YYYY" or "Coming soon")
+            try {
+              const dateStr = gameData.release_date.date;
+              if (dateStr !== 'Coming soon' && dateStr !== 'TBA') {
+                const date = new Date(dateStr);
+                if (!isNaN(date.getTime())) {
+                  description.releaseDate = date.toISOString().split('T')[0];
+                }
               }
+            } catch (err) {
+              console.warn(`[Steam] Could not parse release date: ${gameData.release_date.date}`);
             }
-          } catch (err) {
-            console.warn(`[Steam] Could not parse release date: ${gameData.release_date.date}`);
           }
         }
-      }
-      
-      // Genres
-      if (gameData.genres && Array.isArray(gameData.genres)) {
-        description.genres = gameData.genres.map((g: any) => g.description).filter(Boolean);
-      }
-      
-      // Developers
-      if (gameData.developers && Array.isArray(gameData.developers)) {
-        description.developers = gameData.developers.filter(Boolean);
-      }
-      
-      // Publishers
-      if (gameData.publishers && Array.isArray(gameData.publishers)) {
-        description.publishers = gameData.publishers.filter(Boolean);
-      }
-      
-      // Categories (tags)
-      if (gameData.categories && Array.isArray(gameData.categories)) {
-        description.categories = gameData.categories.map((c: any) => c.description).filter(Boolean);
-      }
-      
-      // Age rating (content descriptors)
-      if (gameData.content_descriptors && gameData.content_descriptors.notes) {
-        description.ageRating = gameData.content_descriptors.notes;
-      } else if (gameData.required_age) {
-        description.ageRating = `PEGI ${gameData.required_age}`;
-      }
-      
-      // Rating (metacritic score if available)
-      if (gameData.metacritic && gameData.metacritic.score) {
-        description.rating = gameData.metacritic.score;
-      }
-      
-      // Platforms
-      if (gameData.platforms) {
-        const platforms: string[] = [];
-        if (gameData.platforms.windows) platforms.push('Windows');
-        if (gameData.platforms.mac) platforms.push('macOS');
-        if (gameData.platforms.linux) platforms.push('Linux');
-        if (platforms.length > 0) {
-          description.platforms = platforms;
+        
+        // Genres
+        if (gameData.genres && Array.isArray(gameData.genres)) {
+          description.genres = gameData.genres.map((g: any) => g.description).filter(Boolean);
         }
-      }
+        
+        // Developers
+        if (gameData.developers && Array.isArray(gameData.developers)) {
+          description.developers = gameData.developers.filter(Boolean);
+        }
+        
+        // Publishers
+        if (gameData.publishers && Array.isArray(gameData.publishers)) {
+          description.publishers = gameData.publishers.filter(Boolean);
+        }
+        
+        // Categories (tags)
+        if (gameData.categories && Array.isArray(gameData.categories)) {
+          description.categories = gameData.categories.map((c: any) => c.description).filter(Boolean);
+        }
+        
+        // Age rating (content descriptors)
+        if (gameData.content_descriptors && gameData.content_descriptors.notes) {
+          description.ageRating = gameData.content_descriptors.notes;
+        } else if (gameData.required_age) {
+          description.ageRating = `PEGI ${gameData.required_age}`;
+        }
+        
+        // Rating (metacritic score if available)
+        if (gameData.metacritic && gameData.metacritic.score) {
+          description.rating = gameData.metacritic.score;
+        }
+        
+        // Platforms
+        if (gameData.platforms) {
+          const platforms: string[] = [];
+          if (gameData.platforms.windows) platforms.push('Windows');
+          if (gameData.platforms.mac) platforms.push('macOS');
+          if (gameData.platforms.linux) platforms.push('Linux');
+          if (platforms.length > 0) {
+            description.platforms = platforms;
+          }
+        }
 
-      return Object.keys(description).length > 0 ? description : null;
-    } catch (error) {
+        return Object.keys(description).length > 0 ? description : null;
+      }, 3, 2000); // 3 retries with 2s base delay
+    }).catch((error) => {
       console.error(`[Steam] Error fetching description for app ${steamAppId}:`, error);
       return null;
-    }
+    });
   }
 
   async getArtwork(id: string, steamAppId?: string): Promise<GameArtwork | null> {
