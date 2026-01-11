@@ -9,6 +9,7 @@ export interface Game {
   logoUrl?: string;
   logoSize?: number;
   heroUrl?: string;
+  iconUrl?: string; // Game icon (typically 32x32 or 64x64)
   description?: string;
   genres?: string[];
   developers?: string[];

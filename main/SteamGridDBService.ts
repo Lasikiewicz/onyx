@@ -42,6 +42,7 @@ export interface SteamGridDBMetadata {
   bannerUrl: string;
   logoUrl?: string;
   heroUrl?: string;
+  iconUrl?: string;
 }
 
 export class SteamGridDBService {

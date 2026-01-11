@@ -19,6 +19,7 @@ export interface GameMetadata {
   bannerUrl: string;
   logoUrl?: string;
   heroUrl?: string;
+  iconUrl?: string; // Game icon (typically 32x32 or 64x64)
   screenshots?: string[];
   // Text metadata
   description?: string;

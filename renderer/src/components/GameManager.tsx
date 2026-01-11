@@ -45,10 +45,10 @@ export const GameManager: React.FC<GameManagerProps> = ({
 }) => {
   const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
   const [expandedGameId, setExpandedGameId] = useState<string | null>(null);
-  const [showImageSearch, setShowImageSearch] = useState<{ type: 'boxart' | 'banner' | 'logo'; gameId: string } | null>(null);
+  const [showImageSearch, setShowImageSearch] = useState<{ type: 'boxart' | 'banner' | 'logo' | 'icon'; gameId: string } | null>(null);
   const [imageSearchQuery, setImageSearchQuery] = useState('');
   const [imageSearchResults, setImageSearchResults] = useState<any[]>([]);
-  const [steamGridDBResults, setSteamGridDBResults] = useState<{ boxart: any[]; banner: any[]; logo: any[] }>({ boxart: [], banner: [], logo: [] });
+  const [steamGridDBResults, setSteamGridDBResults] = useState<{ boxart: any[]; banner: any[]; logo: any[]; icon: any[] }>({ boxart: [], banner: [], logo: [], icon: [] });
   const [isSearchingImages, setIsSearchingImages] = useState(false);
   const [editedGame, setEditedGame] = useState<Game | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -302,7 +302,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
       setShowImageSearch(null);
       setImageSearchQuery('');
       setImageSearchResults([]);
-      setSteamGridDBResults({ boxart: [], banner: [], logo: [] });
+      setSteamGridDBResults({ boxart: [], banner: [], logo: [], icon: [] });
       setEditedGame(null);
       setError(null);
       setSuccess(null);
@@ -358,7 +358,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
   };
 
   // Handle image search with progressive loading
-  const handleSearchImages = async (imageType: 'boxart' | 'banner' | 'logo') => {
+  const handleSearchImages = async (imageType: 'boxart' | 'banner' | 'logo' | 'icon') => {
     if (!selectedGame) return;
 
     // Get Steam App ID from edited game (which may have been manually set)
@@ -379,7 +379,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
       setIsSearchingImages(true);
       setError(null);
       setImageSearchResults([]);
-      setSteamGridDBResults({ boxart: [], banner: [], logo: [] });
+      setSteamGridDBResults({ boxart: [], banner: [], logo: [], icon: [] });
 
       try {
         // Fetch official Steam artwork first
@@ -418,6 +418,16 @@ export const GameManager: React.FC<GameManagerProps> = ({
               score: 10000,
             });
             setSteamGridDBResults(prev => ({ ...prev, logo: [...steamResults, ...prev.logo] }));
+          } else if (imageType === 'icon' && steamMetadata.iconUrl) {
+            steamResults.push({
+              id: `steam-${steamAppId}`,
+              name: selectedGame.title,
+              title: selectedGame.title,
+              iconUrl: steamMetadata.iconUrl,
+              source: 'steam',
+              score: 10000,
+            });
+            setSteamGridDBResults(prev => ({ ...prev, icon: [...steamResults, ...prev.icon] }));
           }
         }
       } catch (err) {
@@ -436,7 +446,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
     if (!steamAppId) {
       // Only clear results if we didn't already fetch Steam images
       setImageSearchResults([]);
-      setSteamGridDBResults({ boxart: [], banner: [], logo: [] });
+      setSteamGridDBResults({ boxart: [], banner: [], logo: [], icon: [] });
     }
 
     try {
@@ -613,7 +623,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
   };
 
   // Handle image selection - update immediately and save
-  const handleSelectImage = async (imageUrl: string, type: 'boxart' | 'banner' | 'logo') => {
+  const handleSelectImage = async (imageUrl: string, type: 'boxart' | 'banner' | 'logo' | 'icon') => {
     if (!selectedGame || !editedGame) return;
 
     // Always try to delete old cached image from disk
@@ -643,7 +653,16 @@ export const GameManager: React.FC<GameManagerProps> = ({
       // Preserve other image types
       updatedGame.boxArtUrl = editedGame.boxArtUrl || selectedGame.boxArtUrl || updatedGame.boxArtUrl;
       updatedGame.bannerUrl = editedGame.bannerUrl || selectedGame.bannerUrl || updatedGame.bannerUrl;
+      updatedGame.iconUrl = editedGame.iconUrl || selectedGame.iconUrl || updatedGame.iconUrl;
       // Ensure we stay on images tab when selecting logo
+      setActiveTab('images');
+    } else if (type === 'icon') {
+      updatedGame.iconUrl = imageUrl;
+      // Preserve other image types
+      updatedGame.boxArtUrl = editedGame.boxArtUrl || selectedGame.boxArtUrl || updatedGame.boxArtUrl;
+      updatedGame.bannerUrl = editedGame.bannerUrl || selectedGame.bannerUrl || updatedGame.bannerUrl;
+      updatedGame.logoUrl = editedGame.logoUrl || selectedGame.logoUrl || updatedGame.logoUrl;
+      // Ensure we stay on images tab when selecting icon
       setActiveTab('images');
     }
 
@@ -676,7 +695,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
   };
 
   // Handle browse for local image file
-  const handleBrowseImage = async (type: 'boxart' | 'banner' | 'logo') => {
+  const handleBrowseImage = async (type: 'boxart' | 'banner' | 'logo' | 'icon') => {
     if (!selectedGame || !editedGame) return;
 
     try {
@@ -1178,9 +1197,9 @@ export const GameManager: React.FC<GameManagerProps> = ({
                 <div className="flex-1 overflow-y-auto">
                   {activeTab === 'images' && (
                     <div className="p-6 space-y-6">
-                      {/* Images Row - Boxart, Banner, Logo */}
+                      {/* Images Row - Boxart, Banner, Logo, Icon */}
                       <div>
-                        <div className="grid grid-cols-3 gap-4">
+                        <div className="grid grid-cols-4 gap-4">
                           {/* Boxart */}
                           <div>
                             <label className="block text-sm font-medium text-gray-300 mb-2">Boxart</label>
@@ -1283,6 +1302,39 @@ export const GameManager: React.FC<GameManagerProps> = ({
                               )}
                             </div>
                           </div>
+
+                          {/* Icon */}
+                          <div>
+                            <label className="block text-sm font-medium text-gray-300 mb-2">Icon</label>
+                            <div
+                              onClick={async () => {
+                                setActiveTab('images'); // Ensure we're on images tab
+                                setShowImageSearch({ type: 'icon', gameId: selectedGame.id });
+                                setImageSearchQuery(selectedGame.title);
+                                // Auto-search
+                                await handleSearchImages('icon');
+                              }}
+                              className="w-full h-32 bg-gray-800 rounded-lg overflow-hidden cursor-pointer hover:opacity-80 transition-opacity border border-gray-700 flex items-center justify-center"
+                            >
+                              {(editedGame.iconUrl || selectedGame.iconUrl) ? (
+                                <img
+                                  key={editedGame.iconUrl || selectedGame.iconUrl}
+                                  src={editedGame.iconUrl || selectedGame.iconUrl}
+                                  alt="Icon"
+                                  className="max-w-full max-h-full object-contain"
+                                  onError={(e) => {
+                                    const target = e.target as HTMLImageElement;
+                                    // Prevent infinite error loop
+                                    if (target.dataset.errorHandled === 'true') return;
+                                    target.dataset.errorHandled = 'true';
+                                    target.style.display = 'none';
+                                  }}
+                                />
+                              ) : (
+                                <div className="text-gray-500 text-xs text-center px-2">Click to search for icon</div>
+                              )}
+                            </div>
+                          </div>
                         </div>
                       </div>
 
@@ -1339,7 +1391,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
                           onClick={() => {
                             setShowImageSearch(null);
                             setImageSearchResults([]);
-                            setSteamGridDBResults({ boxart: [], banner: [], logo: [] });
+                            setSteamGridDBResults({ boxart: [], banner: [], logo: [], icon: [] });
                           }}
                           className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded transition-colors"
                           disabled={isSearchingImages}
@@ -1362,7 +1414,8 @@ export const GameManager: React.FC<GameManagerProps> = ({
                           {(imageSearchResults.length > 0 || 
                             (showImageSearch.type === 'boxart' && steamGridDBResults.boxart.length > 0) ||
                             (showImageSearch.type === 'banner' && steamGridDBResults.banner.length > 0) ||
-                            (showImageSearch.type === 'logo' && steamGridDBResults.logo.length > 0)) && (
+                            (showImageSearch.type === 'logo' && steamGridDBResults.logo.length > 0) ||
+                            (showImageSearch.type === 'icon' && steamGridDBResults.icon.length > 0)) && (
                             <div>
                               <h4 className="text-sm font-medium text-gray-300 mb-3">Results</h4>
                               <div className={`grid gap-3 ${showImageSearch.type === 'boxart' ? 'grid-cols-10' : 'grid-cols-4'}`}>
@@ -1459,6 +1512,32 @@ export const GameManager: React.FC<GameManagerProps> = ({
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         handleSelectImage(imageUrl, 'logo');
+                                      }}
+                                      className="cursor-pointer hover:opacity-80 transition-opacity"
+                                    >
+                                      <img
+                                        src={imageUrl}
+                                        alt={result.name}
+                                        className="w-full h-16 object-contain rounded border border-gray-700 bg-gray-800"
+                                      />
+                                      <p className="text-xs text-gray-400 mt-1 truncate">{result.name}</p>
+                                    </div>
+                                  );
+                                })}
+
+                                {showImageSearch.type === 'icon' && steamGridDBResults.icon.map((result: any, idx: number) => {
+                                  const imageUrl = result.iconUrl;
+                                  if (!imageUrl) return null;
+
+                                  // Use imageUrl in key to ensure uniqueness since multiple icons can have same gameId
+                                  const uniqueKey = `sgdb-icon-${imageUrl}-${idx}`;
+
+                                  return (
+                                    <div
+                                      key={uniqueKey}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleSelectImage(imageUrl, 'icon');
                                       }}
                                       className="cursor-pointer hover:opacity-80 transition-opacity"
                                     >

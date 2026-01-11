@@ -1,4 +1,4 @@
-import type Store from 'electron-store';
+﻿import type Store from 'electron-store';
 import { SteamGame } from './SteamService.js';
 
 export interface Game {
@@ -11,6 +11,7 @@ export interface Game {
   bannerUrl: string;
   logoUrl?: string;
   heroUrl?: string;
+  iconUrl?: string;
   description?: string;
   genres?: string[];
   developers?: string[];
