@@ -13,8 +13,9 @@ export class LauncherService {
    * Launch a game by its ID
    * For Steam games: opens steam://rungameid/<AppID>
    * For non-Steam games: executes the .exe file using child_process.spawn
+   * Returns PID for non-Steam games for process tracking
    */
-  async launchGame(gameId: string): Promise<{ success: boolean; error?: string }> {
+  async launchGame(gameId: string): Promise<{ success: boolean; error?: string; pid?: number }> {
     try {
       const games = await this.gameStore.getLibrary();
       const game = games.find(g => g.id === gameId);
@@ -69,7 +70,8 @@ export class LauncherService {
           console.error(`Failed to launch game: ${error.message}`);
         });
 
-        return { success: true };
+        // Return PID for process tracking (if available)
+        return { success: true, pid: child.pid };
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';

@@ -384,7 +384,7 @@ export const FileSelectionModal: React.FC<FileSelectionModalProps> = ({
       if (onAPIConfigRequired) {
         onAPIConfigRequired();
       } else {
-        alert('API credentials must be configured before adding games. Please configure them in Settings.');
+        alert('Both IGDB (Client ID + Secret) and SteamGridDB (API Key) are required before adding games. Please configure them in Settings > APIs.');
       }
       return;
     }

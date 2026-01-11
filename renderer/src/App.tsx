@@ -268,7 +268,7 @@ function App() {
     const cleanup1 = window.electronAPI.onMenuEvent('menu:addGame', async () => {
       const apisConfigured = await areAPIsConfigured();
       if (!apisConfigured) {
-        showToast('API credentials must be configured before adding games. Please configure them in Settings.', 'error');
+        showToast('Both IGDB (Client ID + Secret) and SteamGridDB (API Key) are required before adding games. Please configure them in Settings > APIs.', 'error');
         setIsOnyxSettingsOpen(true);
         setOnyxSettingsInitialTab('apis');
         return;
@@ -1108,8 +1108,39 @@ function App() {
   // Get background image from active game
   const backgroundImageUrl = activeGame?.bannerUrl || activeGame?.boxArtUrl || '';
 
+  // Check if this is an Alpha build
+  const [isAlphaBuild, setIsAlphaBuild] = useState(false);
+
+  useEffect(() => {
+    const checkAlpha = async () => {
+      try {
+        // Check document title first (fastest)
+        if (document.title.includes('Alpha')) {
+          setIsAlphaBuild(true);
+          return;
+        }
+        // Check app name via electronAPI (more reliable)
+        if (window.electronAPI?.getName) {
+          const appName = await window.electronAPI.getName();
+          setIsAlphaBuild(appName.includes('Alpha'));
+        }
+      } catch (error) {
+        console.error('Error checking Alpha build:', error);
+      }
+    };
+    checkAlpha();
+  }, []);
+
   return (
     <div className="h-screen bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-900 via-[#0f172a] to-black text-white flex flex-col overflow-hidden relative">
+      {/* Alpha Banner */}
+      {isAlphaBuild && (
+        <div className="fixed top-0 right-0 z-50 m-4 pointer-events-none">
+          <div className="bg-yellow-500 text-black px-4 py-2 rounded-lg shadow-lg font-bold text-sm uppercase tracking-wider">
+            ALPHA
+          </div>
+        </div>
+      )}
       {/* Background - Image or Color */}
       {backgroundMode === 'image' && backgroundImageUrl ? (
         <div 

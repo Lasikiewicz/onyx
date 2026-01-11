@@ -397,7 +397,7 @@ export const SteamImportModal: React.FC<SteamImportModalProps> = ({ isOpen, onCl
     // Check if APIs are configured
     const apisConfigured = await areAPIsConfigured();
     if (!apisConfigured) {
-      setError('API credentials must be configured before adding games. Please configure them in Settings.');
+      setError('Both IGDB (Client ID + Secret) and SteamGridDB (API Key) are required before adding games. Please configure them in Settings > APIs.');
       setIsImporting(false);
       return;
     }

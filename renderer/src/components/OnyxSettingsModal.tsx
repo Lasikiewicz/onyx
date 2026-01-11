@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import iconPng from '../../../resources/icon.png';
 import iconSvg from '../../../resources/icon.svg';
 
@@ -21,7 +21,7 @@ interface OnyxSettings {
   gameTilePadding: number;
 }
 
-type TabType = 'general' | 'apis' | 'apps' | 'reset' | 'about' | 'appearance' | 'folders';
+type TabType = 'general' | 'apis' | 'apps' | 'reset' | 'about' | 'appearance' | 'folders' | 'suspend';
 
 interface AppConfig {
   id: string;
@@ -37,9 +37,10 @@ interface APICredentials {
   igdbClientId: string;
   igdbClientSecret: string;
   steamGridDBApiKey: string;
+  rawgApiKey: string;
 }
 
-type APITabType = 'igdb' | 'steamgriddb';
+type APITabType = 'igdb' | 'steamgriddb' | 'rawg';
 
 // Default game install locations for Windows
 const getDefaultPaths = (appId: string): string[] => {
@@ -121,6 +122,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
     igdbClientId: '',
     igdbClientSecret: '',
     steamGridDBApiKey: '',
+    rawgApiKey: '',
   });
   const [activeAPITab, setActiveAPITab] = useState<APITabType>('igdb');
   const [isLoadingAPI, setIsLoadingAPI] = useState(false);
@@ -147,6 +149,12 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
   const [showLogoOverBoxart, setShowLogoOverBoxart] = useState(true);
   const [logoPosition, setLogoPosition] = useState<'top' | 'middle' | 'bottom' | 'underneath'>('middle');
   const [appVersion, setAppVersion] = useState<string>('0.0.0');
+  // Suspend feature state
+  const [suspendFeatureEnabled, setSuspendFeatureEnabled] = useState(false);
+  const [runningGames, setRunningGames] = useState<Array<{ gameId: string; title: string; pid: number; status: 'running' | 'suspended'; exePath?: string }>>([]);
+  const [isLoadingGames, setIsLoadingGames] = useState(false);
+  const [suspendShortcut, setSuspendShortcut] = useState<string>('Ctrl+Shift+S');
+  const [isRecordingShortcut, setIsRecordingShortcut] = useState(false);
 
   // Load settings and version on mount
   useEffect(() => {
@@ -182,6 +190,18 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
     }
   }, [isOpen]);
 
+  const [apiStatus, setApiStatus] = useState<{
+    igdbConfigured: boolean;
+    steamGridDBConfigured: boolean;
+    rawgConfigured: boolean;
+    allRequiredConfigured: boolean;
+  }>({
+    igdbConfigured: false,
+    steamGridDBConfigured: false,
+    rawgConfigured: false,
+    allRequiredConfigured: false,
+  });
+
   // Load API credentials on mount
   useEffect(() => {
     if (isOpen) {
@@ -192,6 +212,20 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
             igdbClientId: creds.igdbClientId || '',
             igdbClientSecret: creds.igdbClientSecret || '',
             steamGridDBApiKey: creds.steamGridDBApiKey || '',
+            rawgApiKey: creds.rawgApiKey || '',
+          });
+          
+          // Check API status
+          const igdbConfigured = !!(creds.igdbClientId && creds.igdbClientSecret && 
+            creds.igdbClientId.trim() !== '' && creds.igdbClientSecret.trim() !== '');
+          const steamGridDBConfigured = !!(creds.steamGridDBApiKey && creds.steamGridDBApiKey.trim() !== '');
+          const rawgConfigured = !!(creds.rawgApiKey && creds.rawgApiKey.trim() !== '');
+          
+          setApiStatus({
+            igdbConfigured,
+            steamGridDBConfigured,
+            rawgConfigured,
+            allRequiredConfigured: igdbConfigured && steamGridDBConfigured,
           });
         } catch (error) {
           console.error('Error loading API credentials:', error);
@@ -207,6 +241,58 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
       setActiveTab(initialTab);
     }
   }, [isOpen, initialTab]);
+
+  // Load suspend feature state
+  useEffect(() => {
+    if (isOpen) {
+      const loadSuspendFeature = async () => {
+        try {
+          if (window.electronAPI.suspend?.getFeatureEnabled) {
+            const enabled = await window.electronAPI.suspend.getFeatureEnabled();
+            setSuspendFeatureEnabled(enabled);
+            if (enabled) {
+              loadRunningGames();
+            }
+          }
+          if (window.electronAPI.suspend?.getShortcut) {
+            const shortcut = await window.electronAPI.suspend.getShortcut();
+            setSuspendShortcut(shortcut || 'Ctrl+Shift+S');
+          }
+        } catch (error) {
+          console.error('Error loading suspend feature state:', error);
+        }
+      };
+      loadSuspendFeature();
+    }
+  }, [isOpen]);
+
+  // Load running games function
+  const loadRunningGames = useCallback(async () => {
+    if (!suspendFeatureEnabled) return;
+    setIsLoadingGames(true);
+    try {
+      if (window.electronAPI.suspend?.getRunningGames) {
+        const games = await window.electronAPI.suspend.getRunningGames();
+        setRunningGames(games || []);
+      }
+    } catch (error) {
+      console.error('Error loading running games:', error);
+      setRunningGames([]);
+    } finally {
+      setIsLoadingGames(false);
+    }
+  }, [suspendFeatureEnabled]);
+
+  // Auto-refresh running games when suspend tab is active
+  useEffect(() => {
+    if (activeTab === 'suspend' && suspendFeatureEnabled) {
+      loadRunningGames();
+      const interval = setInterval(() => {
+        loadRunningGames();
+      }, 5000); // Refresh every 5 seconds
+      return () => clearInterval(interval);
+    }
+  }, [activeTab, suspendFeatureEnabled, loadRunningGames]);
 
   // Load app configs and manual folders on mount
   useEffect(() => {
@@ -320,7 +406,23 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
   // };
 
   const handleAPIInputChange = (key: keyof APICredentials, value: string) => {
-    setApiCredentials((prev) => ({ ...prev, [key]: value }));
+    setApiCredentials((prev) => {
+      const updated = { ...prev, [key]: value };
+      
+      // Update API status in real-time
+      const igdbConfigured = !!(updated.igdbClientId.trim() && updated.igdbClientSecret.trim());
+      const steamGridDBConfigured = !!updated.steamGridDBApiKey.trim();
+      const rawgConfigured = !!updated.rawgApiKey.trim();
+      
+      setApiStatus({
+        igdbConfigured,
+        steamGridDBConfigured,
+        rawgConfigured,
+        allRequiredConfigured: igdbConfigured && steamGridDBConfigured,
+      });
+      
+      return updated;
+    });
     setApiSaveStatus('idle');
   };
 
@@ -332,8 +434,22 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
         igdbClientId: apiCredentials.igdbClientId.trim(),
         igdbClientSecret: apiCredentials.igdbClientSecret.trim(),
         steamGridDBApiKey: apiCredentials.steamGridDBApiKey.trim(),
+        rawgApiKey: apiCredentials.rawgApiKey.trim(),
       });
       setApiSaveStatus('success');
+      
+      // Update API status after save
+      const igdbConfigured = !!(apiCredentials.igdbClientId.trim() && apiCredentials.igdbClientSecret.trim());
+      const steamGridDBConfigured = !!apiCredentials.steamGridDBApiKey.trim();
+      const rawgConfigured = !!apiCredentials.rawgApiKey.trim();
+      
+      setApiStatus({
+        igdbConfigured,
+        steamGridDBConfigured,
+        rawgConfigured,
+        allRequiredConfigured: igdbConfigured && steamGridDBConfigured,
+      });
+      
       setTimeout(() => {
         setApiSaveStatus('idle');
       }, 2000);
@@ -754,6 +870,15 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
       ),
     },
     {
+      id: 'suspend',
+      label: 'Suspend',
+      icon: (
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      ),
+    },
+    {
       id: 'about',
       label: 'About',
       icon: (
@@ -986,32 +1111,53 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
               <div className="space-y-6">
                 <div className="space-y-1">
                   <h3 className="text-lg font-semibold text-white mb-4">API Credentials</h3>
-                  <p className="text-gray-400 text-sm mb-6">
-                    Configure API credentials for enhanced game metadata and artwork
-                  </p>
                   
                   {/* API Tabs */}
                   <div className="border-b border-gray-700 mb-6">
                     <nav className="flex space-x-8" aria-label="API Tabs">
                       <button
                         onClick={() => setActiveAPITab('igdb')}
-                        className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+                        className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors flex items-center gap-2 ${
                           activeAPITab === 'igdb'
                             ? 'border-blue-500 text-blue-400'
                             : 'border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-300'
                         }`}
                       >
                         IGDB
+                        {apiStatus.igdbConfigured ? (
+                          <span className="text-green-400" title="Configured">✓</span>
+                        ) : (
+                          <span className="text-red-400" title="Not configured">✗</span>
+                        )}
                       </button>
                       <button
                         onClick={() => setActiveAPITab('steamgriddb')}
-                        className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+                        className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors flex items-center gap-2 ${
                           activeAPITab === 'steamgriddb'
                             ? 'border-blue-500 text-blue-400'
                             : 'border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-300'
                         }`}
                       >
                         SteamGridDB
+                        {apiStatus.steamGridDBConfigured ? (
+                          <span className="text-green-400" title="Configured">✓</span>
+                        ) : (
+                          <span className="text-red-400" title="Not configured">✗</span>
+                        )}
+                      </button>
+                      <button
+                        onClick={() => setActiveAPITab('rawg')}
+                        className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors flex items-center gap-2 ${
+                          activeAPITab === 'rawg'
+                            ? 'border-blue-500 text-blue-400'
+                            : 'border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-300'
+                        }`}
+                      >
+                        RAWG
+                        {apiStatus.rawgConfigured && (
+                          <span className="text-green-400" title="Configured">✓</span>
+                        )}
+                        <span className="text-gray-500 text-xs ml-1">(Optional)</span>
                       </button>
                     </nav>
                   </div>
@@ -1022,9 +1168,9 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                       {/* Left Column - Instructions */}
                       <div className="space-y-4">
                         <div>
-                          <h4 className="text-base font-medium text-white mb-2">IGDB API</h4>
+                          <h4 className="text-base font-medium text-white mb-2">IGDB API <span className="text-red-400 text-sm">(Required)</span></h4>
                           <p className="text-sm text-gray-400 mb-4">
-                            IGDB (Internet Game Database) provides comprehensive game metadata including covers, screenshots, descriptions, genres, and more.
+                            IGDB (Internet Game Database) provides comprehensive game metadata including covers, screenshots, descriptions, genres, and more. <strong className="text-yellow-300">This API is required.</strong>
                           </p>
                           
                           {/* Instructions */}
@@ -1110,9 +1256,9 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                       {/* Left Column - Instructions */}
                       <div className="space-y-4">
                         <div>
-                          <h4 className="text-base font-medium text-white mb-2">SteamGridDB API</h4>
+                          <h4 className="text-base font-medium text-white mb-2">SteamGridDB API <span className="text-red-400 text-sm">(Required)</span></h4>
                           <p className="text-sm text-gray-400 mb-4">
-                            SteamGridDB provides high-quality game artwork including box art, banners, logos, and hero images. Perfect for customizing your game library's appearance.
+                            SteamGridDB provides high-quality game artwork including box art, banners, logos, and hero images. Perfect for customizing your game library's appearance. <strong className="text-yellow-300">This API is required.</strong>
                           </p>
                           
                           {/* Instructions */}
@@ -1168,6 +1314,97 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                           </div>
                         )}
                         {apiSaveStatus === 'error' && activeAPITab === 'steamgriddb' && (
+                          <div className="bg-red-900/30 border border-red-700 text-red-300 px-4 py-2 rounded-lg text-sm">
+                            Failed to save API key. Please try again.
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* RAWG Tab Content */}
+                  {activeAPITab === 'rawg' && (
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      {/* Left Column - Instructions */}
+                      <div className="space-y-4">
+                        <div>
+                          <h4 className="text-base font-medium text-white mb-2">RAWG API (Optional)</h4>
+                          <p className="text-sm text-gray-400 mb-4">
+                            RAWG (Rapid API for Video Games) provides comprehensive game metadata including descriptions, genres, ratings, and release dates. This is an optional API that can enhance metadata quality when IGDB results are incomplete.
+                          </p>
+                          
+                          {/* Why use RAWG */}
+                          <div className="bg-blue-900/20 rounded-lg p-4 border border-blue-700/50 mb-4">
+                            <h5 className="text-sm font-medium text-blue-300 mb-2">Why use RAWG API?</h5>
+                            <ul className="list-disc list-inside space-y-1 text-sm text-blue-200">
+                              <li>Fallback metadata source when IGDB doesn't have complete information</li>
+                              <li>Comprehensive game database with detailed descriptions</li>
+                              <li>User ratings and reviews data</li>
+                              <li>Better coverage for indie and lesser-known games</li>
+                              <li>Free tier available with generous rate limits</li>
+                            </ul>
+                          </div>
+                          
+                          {/* Instructions */}
+                          <div className="bg-gray-900/50 rounded-lg p-4 border border-gray-700">
+                            <h5 className="text-sm font-medium text-white mb-2">How to obtain RAWG API key:</h5>
+                            <ol className="list-decimal list-inside space-y-2 text-sm text-gray-300">
+                              <li>
+                                Visit{' '}
+                                <button
+                                  onClick={async () => {
+                                    try {
+                                      await window.electronAPI.openExternal('https://rawg.io/apidocs');
+                                    } catch (error) {
+                                      console.error('Error opening RAWG API docs:', error);
+                                    }
+                                  }}
+                                  className="text-blue-400 hover:text-blue-300 underline"
+                                >
+                                  RAWG API Documentation
+                                </button>
+                                {' '}at https://rawg.io/apidocs
+                              </li>
+                              <li>Click "Get API Key" or "Sign Up" to create a free account</li>
+                              <li>Sign in with your account (or create one if needed)</li>
+                              <li>Navigate to your API dashboard or profile settings</li>
+                              <li>Generate a new API key (free tier is sufficient for most users)</li>
+                              <li>Copy the generated API key</li>
+                              <li>Paste it into the field on the right</li>
+                            </ol>
+                            <div className="mt-4 p-3 bg-yellow-900/20 border border-yellow-700/50 rounded text-xs text-yellow-300">
+                              <strong>Note:</strong> RAWG API is optional. The app will work with just IGDB and SteamGridDB, but adding RAWG can improve metadata quality for some games.
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Right Column - Input Fields */}
+                      <div className="space-y-4">
+                        {/* API Key Input */}
+                        <div className="space-y-2">
+                          <label className="block text-sm font-medium text-gray-200">
+                            API Key <span className="text-gray-500 text-xs">(Optional)</span>
+                          </label>
+                          <input
+                            type="password"
+                            value={apiCredentials.rawgApiKey}
+                            onChange={(e) => handleAPIInputChange('rawgApiKey', e.target.value)}
+                            placeholder="Enter your RAWG API Key"
+                            className="w-full px-4 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          />
+                          <p className="text-xs text-gray-500">
+                            Your API key is stored securely and used as a fallback for game metadata
+                          </p>
+                        </div>
+
+                        {/* Status Message */}
+                        {apiSaveStatus === 'success' && activeAPITab === 'rawg' && (
+                          <div className="bg-green-900/30 border border-green-700 text-green-300 px-4 py-2 rounded-lg text-sm">
+                            RAWG API key saved successfully! Service will be restarted.
+                          </div>
+                        )}
+                        {apiSaveStatus === 'error' && activeAPITab === 'rawg' && (
                           <div className="bg-red-900/30 border border-red-700 text-red-300 px-4 py-2 rounded-lg text-sm">
                             Failed to save API key. Please try again.
                           </div>
@@ -1652,6 +1889,281 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                       </div>
                     )}
                   </div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'suspend' && (
+              <div className="space-y-6">
+                <div className="space-y-1">
+                  <h3 className="text-lg font-semibold text-white mb-4">Suspend/Resume Feature</h3>
+                  
+                  {/* Feature Toggle */}
+                  <div className="flex items-start justify-between p-4 rounded-lg bg-gray-700/30 hover:bg-gray-700/50 transition-colors">
+                    <div className="flex-1 pr-4">
+                      <label className="text-gray-200 font-medium block mb-1">
+                        Enable Suspend/Resume Feature
+                      </label>
+                      <p className="text-gray-400 text-sm mb-2">
+                        Allow suspending and resuming running games to free up system resources.
+                        Similar to console suspend functionality (like Nintendo Switch or PlayStation).
+                      </p>
+                      <p className="text-yellow-400 text-xs">
+                        ⚠️ May require administrator privileges. Some games may crash when suspended.
+                      </p>
+                    </div>
+                    <button
+                      onClick={async () => {
+                        const newValue = !suspendFeatureEnabled;
+                        setSuspendFeatureEnabled(newValue);
+                        try {
+                          if (window.electronAPI.suspend?.setFeatureEnabled) {
+                            await window.electronAPI.suspend.setFeatureEnabled(newValue);
+                            // Reload running games if enabled
+                            if (newValue) {
+                              loadRunningGames();
+                            } else {
+                              setRunningGames([]);
+                            }
+                          }
+                        } catch (error) {
+                          console.error('Error toggling suspend feature:', error);
+                          setSuspendFeatureEnabled(!newValue); // Revert on error
+                        }
+                      }}
+                      className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors flex-shrink-0 ${
+                        suspendFeatureEnabled ? 'bg-blue-600' : 'bg-gray-600'
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
+                          suspendFeatureEnabled ? 'translate-x-6' : 'translate-x-1'
+                        }`}
+                      />
+                    </button>
+                  </div>
+
+                  {/* Keyboard Shortcut Configuration */}
+                  {suspendFeatureEnabled && (
+                    <div className="p-4 rounded-lg bg-gray-700/30">
+                      <label className="text-gray-200 font-medium block mb-2">
+                        Keyboard Shortcut
+                      </label>
+                      <p className="text-gray-400 text-sm mb-3">
+                        Press a key combination to suspend/resume the active game. Works globally even when Onyx is in the background.
+                      </p>
+                      <div className="flex items-center gap-3">
+                        <div className="flex-1">
+                          {isRecordingShortcut ? (
+                            <div className="px-4 py-2 bg-yellow-600/20 border-2 border-yellow-500 rounded text-yellow-300 text-sm font-mono">
+                              Press keys...
+                            </div>
+                          ) : (
+                            <div className="px-4 py-2 bg-gray-600/50 border border-gray-500 rounded text-white text-sm font-mono">
+                              {suspendShortcut || 'Not set'}
+                            </div>
+                          )}
+                        </div>
+                        <button
+                          onClick={() => {
+                            if (isRecordingShortcut) {
+                              setIsRecordingShortcut(false);
+                            } else {
+                              setIsRecordingShortcut(true);
+                              const handleKeyDown = async (e: KeyboardEvent) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                
+                                const parts: string[] = [];
+                                if (e.ctrlKey) parts.push('Ctrl');
+                                if (e.altKey) parts.push('Alt');
+                                if (e.shiftKey) parts.push('Shift');
+                                if (e.metaKey) parts.push('Meta');
+                                
+                                // Get the key, excluding modifiers
+                                let key = e.key;
+                                
+                                // Handle special keys - map to Electron's expected format
+                                const keyMap: Record<string, string> = {
+                                  ' ': 'Space',
+                                  'ArrowUp': 'Up',
+                                  'ArrowDown': 'Down',
+                                  'ArrowLeft': 'Left',
+                                  'ArrowRight': 'Right',
+                                  'End': 'End',
+                                  'Home': 'Home',
+                                  'PageUp': 'PageUp',
+                                  'PageDown': 'PageDown',
+                                  'Insert': 'Insert',
+                                  'Delete': 'Delete',
+                                  'Backspace': 'Backspace',
+                                  'Enter': 'Enter',
+                                  'Escape': 'Escape',
+                                  'Tab': 'Tab',
+                                  'CapsLock': 'CapsLock',
+                                  'NumLock': 'NumLock',
+                                  'ScrollLock': 'ScrollLock',
+                                  'Pause': 'Pause',
+                                  'PrintScreen': 'PrintScreen',
+                                };
+                                
+                                // Map special keys
+                                if (keyMap[key]) {
+                                  key = keyMap[key];
+                                } else if (key.startsWith('F') && (key.length === 2 || key.length === 3)) {
+                                  // Function keys F1-F12 (F1, F2, ..., F12)
+                                  key = key.toUpperCase();
+                                } else if (key.length === 1 && /[a-zA-Z0-9]/.test(key)) {
+                                  // Regular character keys (letters and numbers)
+                                  key = key.toUpperCase();
+                                } else {
+                                  // Other special keys - use as-is (End, Home, etc. should already be correct)
+                                  key = key;
+                                }
+                                
+                                // Don't add if it's just a modifier
+                                if (!['Control', 'Alt', 'Shift', 'Meta', 'Tab', 'Escape'].includes(key)) {
+                                  parts.push(key);
+                                }
+                                
+                                // Allow single keys OR key combinations
+                                if (parts.length >= 1) {
+                                  const shortcut = parts.join('+');
+                                  setSuspendShortcut(shortcut);
+                                  setIsRecordingShortcut(false);
+                                  
+                                  try {
+                                    if (window.electronAPI.suspend?.setShortcut) {
+                                      await window.electronAPI.suspend.setShortcut(shortcut);
+                                    }
+                                  } catch (error) {
+                                    console.error('Error setting shortcut:', error);
+                                  }
+                                  
+                                  window.removeEventListener('keydown', handleKeyDown);
+                                }
+                              };
+                              
+                              window.addEventListener('keydown', handleKeyDown, true);
+                              
+                              // Cancel after 5 seconds
+                              setTimeout(() => {
+                                setIsRecordingShortcut(false);
+                                window.removeEventListener('keydown', handleKeyDown);
+                              }, 5000);
+                            }
+                          }}
+                          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded transition-colors"
+                        >
+                          {isRecordingShortcut ? 'Cancel' : 'Change Shortcut'}
+                        </button>
+                        {suspendShortcut && (
+                          <button
+                            onClick={async () => {
+                              setSuspendShortcut('');
+                              try {
+                                if (window.electronAPI.suspend?.setShortcut) {
+                                  await window.electronAPI.suspend.setShortcut('');
+                                }
+                              } catch (error) {
+                                console.error('Error clearing shortcut:', error);
+                              }
+                            }}
+                            className="px-3 py-2 bg-gray-600 hover:bg-gray-700 text-white text-sm rounded transition-colors"
+                          >
+                            Clear
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Running Games List */}
+                  {suspendFeatureEnabled && (
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-lg font-semibold text-white">Running Games</h3>
+                        <button
+                          onClick={loadRunningGames}
+                          disabled={isLoadingGames}
+                          className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-white text-sm rounded transition-colors disabled:opacity-50 flex items-center gap-2"
+                        >
+                          <svg className={`w-4 h-4 ${isLoadingGames ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                          </svg>
+                          Refresh
+                        </button>
+                      </div>
+                      {isLoadingGames ? (
+                        <div className="text-gray-400 p-4 rounded-lg bg-gray-700/30 text-center">Loading...</div>
+                      ) : runningGames.length === 0 ? (
+                        <div className="text-gray-400 p-4 rounded-lg bg-gray-700/30 text-center">
+                          No games currently running
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          {runningGames.map((game) => (
+                            <div
+                              key={game.gameId}
+                              className="flex items-center justify-between p-4 rounded-lg bg-gray-700/30 hover:bg-gray-700/50 transition-colors"
+                            >
+                              <div className="flex-1 min-w-0 pr-4">
+                                <div className="text-white font-medium truncate">{game.title}</div>
+                                <div className="text-gray-400 text-sm">
+                                  PID: {game.pid} • {game.status === 'suspended' ? 'Suspended' : 'Running'}
+                                </div>
+                              </div>
+                              <div className="flex gap-2 flex-shrink-0">
+                                {game.status === 'running' ? (
+                                  <button
+                                    onClick={async () => {
+                                      try {
+                                        if (window.electronAPI.suspend?.suspendGame) {
+                                          const result = await window.electronAPI.suspend.suspendGame(game.gameId);
+                                          if (result.success) {
+                                            loadRunningGames();
+                                          } else {
+                                            alert(`Failed to suspend game: ${result.error || 'Unknown error'}`);
+                                          }
+                                        }
+                                      } catch (error) {
+                                        console.error('Error suspending game:', error);
+                                        alert('Failed to suspend game');
+                                      }
+                                    }}
+                                    className="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 rounded text-white text-sm transition-colors"
+                                  >
+                                    Suspend
+                                  </button>
+                                ) : (
+                                  <button
+                                    onClick={async () => {
+                                      try {
+                                        if (window.electronAPI.suspend?.resumeGame) {
+                                          const result = await window.electronAPI.suspend.resumeGame(game.gameId);
+                                          if (result.success) {
+                                            loadRunningGames();
+                                          } else {
+                                            alert(`Failed to resume game: ${result.error || 'Unknown error'}`);
+                                          }
+                                        }
+                                      } catch (error) {
+                                        console.error('Error resuming game:', error);
+                                        alert('Failed to resume game');
+                                      }
+                                    }}
+                                    className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded text-white text-sm transition-colors"
+                                  >
+                                    Resume
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             )}

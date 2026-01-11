@@ -59,6 +59,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   setMockMode: (enabled: boolean) => ipcRenderer.invoke('metadata:setMockMode', enabled),
   searchMetadata: (gameTitle: string) => ipcRenderer.invoke('metadata:searchMetadata', gameTitle),
   searchGames: (gameTitle: string) => ipcRenderer.invoke('metadata:searchGames', gameTitle),
+  searchAndMatch: (scannedGame: any, searchQuery?: string) => ipcRenderer.invoke('metadata:searchAndMatch', scannedGame, searchQuery),
+  fixMatch: (query: string, scannedGame?: any) => ipcRenderer.invoke('metadata:fixMatch', query, scannedGame),
   fetchAndUpdateByProviderId: (gameId: string, providerId: string, providerSource: string) => ipcRenderer.invoke('metadata:fetchAndUpdateByProviderId', gameId, providerId, providerSource),
   fetchMetadataOnlyByProviderId: (gameId: string, providerId: string, providerSource: string) => ipcRenderer.invoke('metadata:fetchMetadataOnlyByProviderId', gameId, providerId, providerSource),
   // Launcher methods
@@ -121,8 +123,20 @@ contextBridge.exposeInMainWorld('electronAPI', {
   searchImages: (query: string, imageType: 'boxart' | 'banner' | 'logo', steamAppId?: string) => ipcRenderer.invoke('metadata:searchImages', query, imageType, steamAppId),
   // App version
   getVersion: () => ipcRenderer.invoke('app:getVersion'),
+  // App name (for detecting Alpha builds)
+  getName: () => ipcRenderer.invoke('app:getName'),
   // Open path/folder
   openPath: (pathOrType: string) => ipcRenderer.invoke('app:openPath', pathOrType),
+  // Suspend service methods
+  suspend: {
+    getRunningGames: () => ipcRenderer.invoke('suspend:getRunningGames'),
+    suspendGame: (gameId: string) => ipcRenderer.invoke('suspend:suspendGame', gameId),
+    resumeGame: (gameId: string) => ipcRenderer.invoke('suspend:resumeGame', gameId),
+    getFeatureEnabled: () => ipcRenderer.invoke('suspend:getFeatureEnabled'),
+    setFeatureEnabled: (enabled: boolean) => ipcRenderer.invoke('suspend:setFeatureEnabled', enabled),
+    getShortcut: () => ipcRenderer.invoke('suspend:getShortcut'),
+    setShortcut: (shortcut: string) => ipcRenderer.invoke('suspend:setShortcut', shortcut),
+  },
 });
 
 // Debug: Log that electronAPI was exposed

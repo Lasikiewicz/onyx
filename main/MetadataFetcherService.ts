@@ -7,6 +7,12 @@ import { IGDBService } from './IGDBService.js';
 import { SteamGridDBService } from './SteamGridDBService.js';
 import { SteamService } from './SteamService.js';
 import { RAWGService } from './RAWGService.js';
+import { getRateLimitCoordinator } from './RateLimitCoordinator.js';
+import { getMetadataCache } from './MetadataCache.js';
+import { getMetadataValidator } from './MetadataValidator.js';
+import { withRetry } from './RetryUtils.js';
+import { ScannedGameResult } from './ImportService.js';
+import { getGameMatcher } from './GameMatcher.js';
 
 export interface GameMetadata {
   boxArtUrl: string;
@@ -307,18 +313,255 @@ export class MetadataFetcherService {
   }
 
   /**
-   * Search for games across all providers in parallel
+   * Search for games across all providers in parallel (rate limited)
    */
   async searchGames(title: string, steamAppId?: string): Promise<GameSearchResult[]> {
+    const rateLimiter = getRateLimitCoordinator();
+    
     const searchPromises = this.providers
       .filter(p => p.isAvailable())
-      .map(provider => provider.search(title, steamAppId).catch(error => {
-        console.error(`Error searching ${provider.name}:`, error);
-        return [];
-      }));
+      .map(provider => 
+        rateLimiter.queueRequest(provider.name, () =>
+          withRetry(
+            () => provider.search(title, steamAppId),
+            { maxRetries: 3, delay: 1000 }
+          ).catch(error => {
+            console.error(`Error searching ${provider.name}:`, error);
+            return [];
+          })
+        )
+      );
 
     const results = await Promise.all(searchPromises);
     return results.flat();
+  }
+
+  /**
+   * Enhanced search with matching and caching
+   * Returns match result with confidence score
+   */
+  async searchAndMatchGame(
+    scannedGame: ScannedGameResult,
+    searchQuery?: string
+  ): Promise<{
+    match: GameSearchResult | null;
+    confidence: number;
+    reasons: string[];
+    allResults: GameSearchResult[];
+  }> {
+    const cache = getMetadataCache();
+    const matcher = getGameMatcher();
+    const query = searchQuery || scannedGame.title;
+
+    // Search for games
+    const searchResults = await this.searchGames(query, scannedGame.appId);
+
+    if (searchResults.length === 0) {
+      return {
+        match: null,
+        confidence: 0,
+        reasons: ['no search results found'],
+        allResults: [],
+      };
+    }
+
+    // Match with confidence scoring
+    const matchResult = matcher.matchGame(scannedGame, searchResults);
+
+    if (!matchResult) {
+      return {
+        match: null,
+        confidence: 0,
+        reasons: ['no match found'],
+        allResults: searchResults,
+      };
+    }
+
+    return {
+      match: matchResult.game,
+      confidence: matchResult.confidence,
+      reasons: matchResult.reasons,
+      allResults: searchResults,
+    };
+  }
+
+  /**
+   * Fetch complete metadata with caching and validation
+   */
+  async fetchCompleteMetadata(
+    gameTitle: string,
+    matchedGame: GameSearchResult,
+    steamAppId?: string
+  ): Promise<GameMetadata> {
+    const cache = getMetadataCache();
+    const validator = getMetadataValidator();
+    const rateLimiter = getRateLimitCoordinator();
+
+    // Check cache first
+    const cacheKey = cache.generateKey(gameTitle, steamAppId || matchedGame.steamAppId);
+    const cachedMetadata = cache.get(cacheKey);
+    
+    if (cachedMetadata) {
+      // Validate cached metadata
+      if (validator.validateMetadata(cachedMetadata, matchedGame)) {
+        console.log(`[MetadataFetcher] Using cached metadata for ${gameTitle}`);
+        return cachedMetadata;
+      } else {
+        console.log(`[MetadataFetcher] Cached metadata invalid, fetching fresh`);
+      }
+    }
+
+    // Fetch artwork (rate limited)
+    const artworkMetadata = await rateLimiter.queueRequest('artwork', async () => {
+      return withRetry(
+        () => this.fetchArtworkForGame(matchedGame, steamAppId),
+        { maxRetries: 3, delay: 1000 }
+      );
+    });
+
+    // Delay between artwork and description
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    // Fetch description (rate limited)
+    const textMetadata = await rateLimiter.queueRequest('description', async () => {
+      return withRetry(
+        () => this.fetchDescriptionForGame(matchedGame, steamAppId),
+        { maxRetries: 3, delay: 1000 }
+      );
+    });
+
+    // Merge metadata
+    const mergedMetadata: GameMetadata = {
+      ...artworkMetadata,
+      ...textMetadata,
+    };
+
+    // Validate
+    if (!validator.validateMetadata(mergedMetadata, matchedGame)) {
+      console.warn(`[MetadataFetcher] Metadata validation failed for ${gameTitle}`);
+    }
+
+    // Cache the result
+    cache.set(cacheKey, mergedMetadata);
+
+    return mergedMetadata;
+  }
+
+  /**
+   * Fetch artwork for a matched game
+   */
+  private async fetchArtworkForGame(
+    matchedGame: GameSearchResult,
+    steamAppId?: string
+  ): Promise<GameMetadata> {
+    const steamAppIdToUse = steamAppId || matchedGame.steamAppId;
+    
+    const artworkPromises: Array<{ promise: Promise<GameArtwork | null>; source: string }> = [];
+
+    // Priority 1: Steam CDN
+    if (steamAppIdToUse && this.steamProvider?.isAvailable()) {
+      artworkPromises.push({
+        promise: this.steamProvider.getArtwork(`steam-${steamAppIdToUse}`, steamAppIdToUse),
+        source: 'steam',
+      });
+    }
+
+    // Priority 2: SteamGridDB
+    if (matchedGame.source === 'steamgriddb' && this.steamGridDBProvider?.isAvailable()) {
+      artworkPromises.push({
+        promise: this.steamGridDBProvider.getArtwork(matchedGame.id, steamAppIdToUse),
+        source: 'steamgriddb',
+      });
+    }
+
+    // Priority 3: IGDB
+    if (matchedGame.source === 'igdb' && this.igdbProvider?.isAvailable()) {
+      artworkPromises.push({
+        promise: this.igdbProvider.getArtwork(matchedGame.id, steamAppIdToUse),
+        source: 'igdb',
+      });
+    }
+
+    const artworkResults = await Promise.allSettled(
+      artworkPromises.map(item => item.promise)
+    );
+
+    const artworkWithSources = artworkResults
+      .map((result, index) => {
+        if (result.status === 'fulfilled' && result.value) {
+          return {
+            artwork: result.value,
+            source: artworkPromises[index]?.source || 'unknown',
+          };
+        }
+        return null;
+      })
+      .filter((item): item is { artwork: GameArtwork; source: string } => item !== null);
+
+    const mergedArtwork = artworkWithSources.length > 0
+      ? this.mergeArtwork(artworkWithSources)
+      : {};
+
+    return {
+      boxArtUrl: mergedArtwork.boxArtUrl || '',
+      bannerUrl: mergedArtwork.bannerUrl || mergedArtwork.heroUrl || mergedArtwork.boxArtUrl || '',
+      logoUrl: mergedArtwork.logoUrl,
+      heroUrl: mergedArtwork.heroUrl,
+      screenshots: mergedArtwork.screenshots,
+    };
+  }
+
+  /**
+   * Fetch description for a matched game
+   */
+  private async fetchDescriptionForGame(
+    matchedGame: GameSearchResult,
+    steamAppId?: string
+  ): Promise<Partial<GameMetadata>> {
+    const steamAppIdToUse = steamAppId || matchedGame.steamAppId;
+    const descriptionPromises: Promise<GameDescription | null>[] = [];
+
+    // Priority 1: Steam Store API
+    if (steamAppIdToUse && this.steamProvider?.isAvailable()) {
+      descriptionPromises.push(
+        this.steamProvider.getDescription(`steam-${steamAppIdToUse}`)
+      );
+    }
+
+    // Priority 2: RAWG
+    if (matchedGame.source === 'rawg' && this.rawgProvider?.isAvailable()) {
+      descriptionPromises.push(
+        this.rawgProvider.getDescription(matchedGame.id)
+      );
+    }
+
+    // Priority 3: IGDB
+    if (matchedGame.source === 'igdb' && this.igdbProvider?.isAvailable()) {
+      descriptionPromises.push(
+        this.igdbProvider.getDescription(matchedGame.id)
+      );
+    }
+
+    const descriptionResults = await Promise.allSettled(descriptionPromises);
+    const descriptions = descriptionResults
+      .filter((r): r is PromiseFulfilledResult<GameDescription | null> => r.status === 'fulfilled')
+      .map(r => r.value)
+      .filter((d): d is GameDescription => d !== null);
+
+    const mergedDescription = this.mergeDescriptions(descriptions, steamAppIdToUse);
+
+    return {
+      description: mergedDescription.description,
+      summary: mergedDescription.summary,
+      releaseDate: mergedDescription.releaseDate,
+      genres: mergedDescription.genres,
+      developers: mergedDescription.developers,
+      publishers: mergedDescription.publishers,
+      ageRating: mergedDescription.ageRating,
+      rating: mergedDescription.rating,
+      platforms: mergedDescription.platforms,
+      categories: mergedDescription.categories,
+    };
   }
 
   /**

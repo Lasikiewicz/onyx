@@ -107,6 +107,8 @@ declare global {
       setMockMode: (enabled: boolean) => Promise<boolean>;
       searchMetadata: (gameTitle: string) => Promise<{ success: boolean; error?: string; results: Array<{ id: number; name: string; summary?: string; coverUrl?: string; screenshotUrls?: string[]; logoUrl?: string; rating?: number; releaseDate?: number; genres?: string[]; platform?: string; ageRating?: string; categories?: string[] }> }>;
       searchGames: (gameTitle: string) => Promise<{ success: boolean; error?: string; results: Array<{ id: string; title: string; source: string; externalId?: string | number; steamAppId?: string; year?: number; platform?: string }> }>;
+      searchAndMatch: (scannedGame: any, searchQuery?: string) => Promise<{ success: boolean; error?: string; match?: any; results?: any[] }>;
+      fixMatch: (query: string, scannedGame?: any) => Promise<{ success: boolean; error?: string; matchedGame?: any; metadata?: any }>;
       fetchAndUpdateByProviderId: (gameId: string, providerId: string, providerSource: string) => Promise<{ success: boolean; error?: string; metadata: GameMetadata | null }>;
       fetchMetadataOnlyByProviderId: (gameId: string, providerId: string, providerSource: string) => Promise<{ success: boolean; error?: string; metadata: Partial<GameMetadata> | null }>;
       launchGame: (gameId: string) => Promise<{ success: boolean; error?: string }>;
@@ -133,8 +135,8 @@ declare global {
       applySystemTraySettings: (settings: { showSystemTrayIcon: boolean; minimizeToTray: boolean }) => Promise<{ success: boolean; error?: string }>;
       applyStartupSettings: (settings: { startWithComputer: boolean; startClosedToTray: boolean }) => Promise<{ success: boolean; error?: string }>;
       openExternal: (url: string) => Promise<{ success: boolean; error?: string }>;
-      getAPICredentials: () => Promise<{ igdbClientId?: string; igdbClientSecret?: string; steamGridDBApiKey?: string }>;
-      saveAPICredentials: (credentials: { igdbClientId?: string; igdbClientSecret?: string; steamGridDBApiKey?: string }) => Promise<{ success: boolean; error?: string }>;
+      getAPICredentials: () => Promise<{ igdbClientId?: string; igdbClientSecret?: string; steamGridDBApiKey?: string; rawgApiKey?: string }>;
+      saveAPICredentials: (credentials: { igdbClientId?: string; igdbClientSecret?: string; steamGridDBApiKey?: string; rawgApiKey?: string }) => Promise<{ success: boolean; error?: string }>;
       detectLaunchers: () => Promise<Array<{ id: string; name: string; path: string; detected: boolean; detectionMethod: 'registry' | 'path' | 'none' }>>;
       detectLauncher: (launcherId: string) => Promise<{ id: string; name: string; path: string; detected: boolean; detectionMethod: 'registry' | 'path' | 'none' } | null>;
       getBackgroundScanEnabled: () => Promise<boolean>;
@@ -151,8 +153,18 @@ declare global {
       refreshAllMetadata: (options?: { allGames?: boolean; gameIds?: string[]; continueFromIndex?: number }) => Promise<{ success: boolean; error?: string; count: number; errors: number; unmatchedGames: Array<{ gameId: string; title: string; searchResults: any[] }>; missingBoxartGames: Array<{ gameId: string; title: string; steamAppId?: string }>; requiresBoxart?: boolean; currentGameIndex?: number; remainingGames?: number }>;
       fetchAndUpdate: (gameId: string, boxartUrl: string) => Promise<{ success: boolean; error?: string }>;
       getVersion: () => Promise<string>;
+      getName: () => Promise<string>;
       removeWinGDKGames: () => Promise<{ success: boolean; removedCount?: number; removedGames?: Array<{ id: string; title: string; exePath?: string }>; error?: string }>;
       openPath: (pathOrType: string) => Promise<{ success: boolean; error?: string }>;
+      suspend: {
+        getRunningGames: () => Promise<Array<{ gameId: string; title: string; pid: number; status: 'running' | 'suspended'; exePath?: string }>>;
+        suspendGame: (gameId: string) => Promise<{ success: boolean; error?: string }>;
+        resumeGame: (gameId: string) => Promise<{ success: boolean; error?: string }>;
+        getFeatureEnabled: () => Promise<boolean>;
+        setFeatureEnabled: (enabled: boolean) => Promise<{ success: boolean; error?: string }>;
+        getShortcut: () => Promise<string>;
+        setShortcut: (shortcut: string) => Promise<{ success: boolean; error?: string }>;
+      };
     };
   }
 }

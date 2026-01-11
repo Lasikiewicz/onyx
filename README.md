@@ -1,6 +1,16 @@
-# Electron React Vite TypeScript App
+# Onyx - Premium Unified Game Library
 
-A modern Electron application built with React, TypeScript, Vite, and Tailwind CSS.
+A modern Electron application built with React, TypeScript, Vite, and Tailwind CSS. Onyx provides a unified interface for managing games from multiple launchers (Steam, Epic, GOG, Xbox, and more).
+
+## Build Channels
+
+Onyx supports three separate build channels that can coexist on the same computer:
+
+- **Development**: Local development builds (localhost)
+- **Alpha**: Testing builds from the `develop` branch (installs as "Onyx Alpha" with yellow icon)
+- **Production**: Stable builds from the `main` branch (installs as "Onyx")
+
+Alpha and Production builds use different App IDs, allowing them to be installed side-by-side without conflicts. Alpha builds display a yellow "ALPHA" banner in the top-right corner for easy identification.
 
 ## Project Structure
 
@@ -61,7 +71,9 @@ A modern Electron application built with React, TypeScript, Vite, and Tailwind C
 
 ## Building
 
-To build the application:
+### Development Build
+
+To build for local development:
 
 ```bash
 npm run build
@@ -72,6 +84,50 @@ This compiles both the main process and the renderer, then you can run:
 ```bash
 npm run electron:build
 ```
+
+### Production Builds
+
+The project supports multiple build channels:
+
+**Alpha Build** (for testing):
+```bash
+npm run build:alpha
+```
+- Creates "Onyx Alpha" with App ID: `com.lasikiewicz.onyx.alpha`
+- Includes yellow "ALPHA" banner in the UI
+- Outputs to `dist/` directory
+
+**Production Build**:
+```bash
+npm run build:prod
+```
+- Creates "Onyx" with App ID: `com.lasikiewicz.onyx`
+- Standard production build
+- Outputs to `dist/` directory
+
+**Standard Distribution Build**:
+```bash
+npm run dist
+```
+- Uses default production settings
+- Automatically increments build version
+- Generates and validates icons
+
+### Automated Builds via GitHub Actions
+
+The project includes automated builds via GitHub Actions:
+
+- **Pushing to `develop` branch**: Automatically builds Alpha version and creates a pre-release on GitHub
+- **Pushing to `main` branch**: Automatically builds Production version and creates a stable release on GitHub
+
+Releases are tagged as:
+- Alpha: `alpha-v{version}` (marked as pre-release)
+- Production: `v{version}` (stable release)
+
+To use automated builds:
+1. Push to `develop` for Alpha builds
+2. Merge `develop` into `main` for Production builds
+3. Download releases from the GitHub Releases page
 
 ### Icon Management
 
@@ -95,14 +151,21 @@ See [docs/ICON_REQUIREMENTS.md](docs/ICON_REQUIREMENTS.md) for detailed icon req
 
 ## Scripts
 
+### Development
 - `npm run dev` - Start Vite dev server only
 - `npm run build` - Build both main and renderer (validates icons automatically)
 - `npm run electron:dev` - Run in development mode
 - `npm run electron:build` - Run built application
 - `npm run electron` - Run Electron (requires built files)
+
+### Production Builds
+- `npm run build:alpha` - Build Alpha version (Onyx Alpha)
+- `npm run build:prod` - Build Production version (Onyx)
+- `npm run dist` - Build distribution package (generates and validates icons automatically)
+
+### Icons
 - `npm run generate-icons` - Generate all icon formats from `resources/icon.svg`
 - `npm run validate-icons` - Validate that all required icon files exist and are valid
-- `npm run dist` - Build distribution package (generates and validates icons automatically)
 
 ## IPC Communication
 
@@ -110,7 +173,21 @@ The app uses ContextBridge for secure IPC communication. The preload script expo
 
 ## Window Configuration
 
-- Size: 1200x800 pixels
+- Default Size: 1920x1080 pixels
 - Resizable: Yes
-- Minimum size: 800x600 pixels
-- Theme: Dark background (#1a1a1a)
+- Minimum size: 1280x720 pixels
+- Theme: Dark background with gradient
+- Title: Dynamically set based on build channel ("Onyx" or "Onyx Alpha")
+
+## Build Configuration
+
+The build configuration is managed in `electron-builder.config.js`, which supports dynamic configuration based on the `BUILD_PROFILE` environment variable:
+
+- `BUILD_PROFILE=alpha` - Configures for Alpha builds
+- `BUILD_PROFILE=production` - Configures for Production builds (default)
+
+The configuration automatically adjusts:
+- App ID (for side-by-side installation)
+- Product Name (window title and installer name)
+- Icon paths
+- GitHub release settings

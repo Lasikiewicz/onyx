@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog, Menu, protocol, Tray, nativeImage, shell, session, net } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, Menu, protocol, Tray, nativeImage, shell, session, net, globalShortcut } from 'electron';
 import path from 'node:path';
 import { readdirSync, statSync, existsSync, readFileSync } from 'node:fs';
 import { platform } from 'node:os';
@@ -14,9 +14,11 @@ import { XboxService } from './XboxService.js';
 import { UserPreferencesService } from './UserPreferencesService.js';
 import { APICredentialsService } from './APICredentialsService.js';
 import { LauncherDetectionService } from './LauncherDetectionService.js';
-import { ImportService } from './ImportService.js';
+import { ImportService, type ScannedGameResult } from './ImportService.js';
 import { ImageCacheService } from './ImageCacheService.js';
 import { SteamAuthService } from './SteamAuthService.js';
+import { ProcessSuspendService } from './ProcessSuspendService.js';
+import { InstallerPreferenceService } from './InstallerPreferenceService.js';
 
 // Load environment variables
 dotenv.config();
@@ -423,7 +425,7 @@ async function createWindow() {
     minWidth: 1280,
     minHeight: 720,
     backgroundColor: '#1a1a1a',
-    title: 'Onyx',
+    title: app.getName(), // Use app name (will be "Onyx Alpha" for alpha builds)
     icon: appIcon, // Set the app icon
     webPreferences: {
       preload,
@@ -715,6 +717,259 @@ const updateMetadataFetcher = () => {
 const launcherService = new LauncherService(gameStore);
 const importService = new ImportService(steamService, xboxService, appConfigService, metadataFetcher);
 const imageCacheService = new ImageCacheService();
+
+// Process suspend service (initialized conditionally)
+let processSuspendService: ProcessSuspendService | null = null;
+
+/**
+ * Initialize the suspend service if enabled in preferences
+ */
+async function initializeSuspendService(): Promise<void> {
+  try {
+    const prefs = await userPreferencesService.getPreferences();
+    
+    // Check installer preference on first launch (if preference not set)
+    if (prefs.enableSuspendFeature === undefined) {
+      const installerPref = await InstallerPreferenceService.readSuspendFeaturePreference();
+      if (installerPref !== null) {
+        prefs.enableSuspendFeature = installerPref;
+        await userPreferencesService.savePreferences({ enableSuspendFeature: installerPref });
+        console.log(`[Suspend] Initialized from installer preference: ${installerPref}`);
+      }
+    }
+    
+    if (prefs.enableSuspendFeature) {
+      processSuspendService = new ProcessSuspendService();
+      if (processSuspendService.isEnabled()) {
+        processSuspendService.startProcessMonitoring(5000); // Monitor every 5 seconds
+        console.log('[Suspend] Service initialized and monitoring started');
+      } else {
+        console.warn('[Suspend] Service not available on this platform');
+        processSuspendService = null;
+      }
+    }
+  } catch (error) {
+    console.error('[Suspend] Failed to initialize service:', error);
+    processSuspendService = null;
+  }
+}
+
+/**
+ * Register IPC handlers for suspend operations
+ * Handlers are always registered, but check if service is available
+ */
+function registerSuspendIPCHandlers(): void {
+  // Remove existing handlers if any (to avoid duplicates)
+  ipcMain.removeHandler('suspend:getRunningGames');
+  ipcMain.removeHandler('suspend:suspendGame');
+  ipcMain.removeHandler('suspend:resumeGame');
+  ipcMain.removeHandler('suspend:getFeatureEnabled');
+  ipcMain.removeHandler('suspend:setFeatureEnabled');
+  
+  ipcMain.handle('suspend:getRunningGames', async () => {
+    try {
+      if (!processSuspendService) {
+        return [];
+      }
+      return await processSuspendService.getRunningGames();
+    } catch (error) {
+      console.error('[Suspend] Error getting running games:', error);
+      return [];
+    }
+  });
+  
+  ipcMain.handle('suspend:suspendGame', async (_event, gameId: string) => {
+    try {
+      if (!processSuspendService) {
+        return { success: false, error: 'Suspend service is not enabled' };
+      }
+      return await processSuspendService.suspendGame(gameId);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error('[Suspend] Error suspending game:', errorMessage);
+      return { success: false, error: errorMessage };
+    }
+  });
+  
+  ipcMain.handle('suspend:resumeGame', async (_event, gameId: string) => {
+    try {
+      if (!processSuspendService) {
+        return { success: false, error: 'Suspend service is not enabled' };
+      }
+      return await processSuspendService.resumeGame(gameId);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error('[Suspend] Error resuming game:', errorMessage);
+      return { success: false, error: errorMessage };
+    }
+  });
+  
+  ipcMain.handle('suspend:getFeatureEnabled', async () => {
+    try {
+      const prefs = await userPreferencesService.getPreferences();
+      return prefs.enableSuspendFeature || false;
+    } catch (error) {
+      console.error('[Suspend] Error getting feature enabled state:', error);
+      return false;
+    }
+  });
+  
+  ipcMain.handle('suspend:setFeatureEnabled', async (_event, enabled: boolean) => {
+    try {
+      await userPreferencesService.savePreferences({ enableSuspendFeature: enabled });
+      
+      if (enabled && !processSuspendService) {
+        // Initialize service
+        processSuspendService = new ProcessSuspendService();
+        if (processSuspendService.isEnabled()) {
+          processSuspendService.startProcessMonitoring(5000);
+          registerSuspendIPCHandlers();
+          await registerSuspendShortcut();
+          console.log('[Suspend] Service enabled and initialized');
+        } else {
+          processSuspendService = null;
+          return { success: false, error: 'Suspend service is not available on this platform' };
+        }
+      } else if (!enabled && processSuspendService) {
+        // Cleanup service
+        unregisterSuspendShortcut();
+        processSuspendService.cleanup();
+        processSuspendService = null;
+        console.log('[Suspend] Service disabled and cleaned up');
+      }
+      
+      return { success: true };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error('[Suspend] Error setting feature enabled:', errorMessage);
+      return { success: false, error: errorMessage };
+    }
+  });
+  
+  ipcMain.handle('suspend:getShortcut', async () => {
+    try {
+      const prefs = await userPreferencesService.getPreferences();
+      return prefs.suspendShortcut || 'Ctrl+Shift+S';
+    } catch (error) {
+      console.error('[Suspend] Error getting shortcut:', error);
+      return 'Ctrl+Shift+S';
+    }
+  });
+  
+  ipcMain.handle('suspend:setShortcut', async (_event, shortcut: string) => {
+    try {
+      await userPreferencesService.savePreferences({ suspendShortcut: shortcut });
+      await registerSuspendShortcut();
+      return { success: true };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error('[Suspend] Error setting shortcut:', errorMessage);
+      return { success: false, error: errorMessage };
+    }
+  });
+  
+  ipcMain.handle('suspend:toggleActiveGame', async () => {
+    try {
+      if (!processSuspendService) {
+        return { success: false, error: 'Suspend service is not enabled' };
+      }
+      
+      const runningGames = await processSuspendService.getRunningGames();
+      if (runningGames.length === 0) {
+        return { success: false, error: 'No games are currently running' };
+      }
+      
+      // Get the first running game (or most recently active)
+      const game = runningGames[0];
+      
+      if (game.status === 'running') {
+        return await processSuspendService.suspendGame(game.gameId);
+      } else {
+        return await processSuspendService.resumeGame(game.gameId);
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error('[Suspend] Error toggling active game:', errorMessage);
+      return { success: false, error: errorMessage };
+    }
+  });
+}
+
+/**
+ * Register global keyboard shortcut for suspend/resume
+ */
+async function registerSuspendShortcut(): Promise<void> {
+  try {
+    // Unregister existing shortcut first
+    unregisterSuspendShortcut();
+    
+    if (!processSuspendService || !processSuspendService.isEnabled()) {
+      return;
+    }
+    
+    const prefs = await userPreferencesService.getPreferences();
+    const shortcut = prefs.suspendShortcut || 'Ctrl+Shift+S';
+    
+    if (!shortcut) {
+      return; // No shortcut configured
+    }
+    
+    // Electron's globalShortcut supports both single keys (like "End", "F1") 
+    // and key combinations (like "Ctrl+Shift+S")
+    // We'll use the shortcut as-is
+    const registered = globalShortcut.register(shortcut, async () => {
+      console.log(`[Suspend] Shortcut ${shortcut} pressed`);
+      try {
+        if (!processSuspendService) {
+          return;
+        }
+        
+        const games = await processSuspendService.getRunningGames();
+        if (games.length === 0) {
+          console.log('[Suspend] No games running');
+          return;
+        }
+        
+        // Get first running game (most recently active)
+        const game = games[0];
+        if (game.status === 'running') {
+          const result = await processSuspendService.suspendGame(game.gameId);
+          if (result.success) {
+            console.log(`[Suspend] Suspended ${game.title} via shortcut`);
+          }
+        } else {
+          const result = await processSuspendService.resumeGame(game.gameId);
+          if (result.success) {
+            console.log(`[Suspend] Resumed ${game.title} via shortcut`);
+          }
+        }
+      } catch (error) {
+        console.error('[Suspend] Error in shortcut handler:', error);
+      }
+    });
+    
+    if (registered) {
+      console.log(`[Suspend] Global shortcut registered: ${shortcut}`);
+    } else {
+      console.error(`[Suspend] Failed to register global shortcut: ${shortcut}`);
+    }
+  } catch (error) {
+    console.error('[Suspend] Error registering shortcut:', error);
+  }
+}
+
+/**
+ * Unregister global keyboard shortcut
+ */
+function unregisterSuspendShortcut(): void {
+  try {
+    globalShortcut.unregisterAll();
+    console.log('[Suspend] All global shortcuts unregistered');
+  } catch (error) {
+    console.error('[Suspend] Error unregistering shortcut:', error);
+  }
+}
+
 
 // Build dynamic tray context menu with recently played games
 async function buildTrayContextMenu(): Promise<Electron.Menu> {
@@ -1085,6 +1340,113 @@ ipcMain.handle('metadata:searchArtwork', async (_event, title: string, steamAppI
       bannerUrl: undefined,
       logoUrl: undefined,
       heroUrl: undefined,
+    };
+  }
+});
+
+// Enhanced search and match with confidence scoring
+ipcMain.handle('metadata:searchAndMatch', async (_event, scannedGame: any, searchQuery?: string) => {
+  try {
+    const game: ScannedGameResult = scannedGame;
+    
+    const matchResult = await metadataFetcher.searchAndMatchGame(game, searchQuery);
+    
+    return {
+      success: true,
+      match: matchResult.match,
+      confidence: matchResult.confidence,
+      reasons: matchResult.reasons,
+      allResults: matchResult.allResults,
+    };
+  } catch (error) {
+    console.error('Error in metadata:searchAndMatch handler:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error occurred',
+      match: null,
+      confidence: 0,
+      reasons: [],
+      allResults: [],
+    };
+  }
+});
+
+// Fix match: Search by name or Steam App ID and fetch complete metadata
+ipcMain.handle('metadata:fixMatch', async (_event, query: string, scannedGame?: any) => {
+  try {
+    // Check if query is a Steam App ID (numeric)
+    const isSteamAppId = /^\d+$/.test(query.trim());
+    
+    let searchResults: any[] = [];
+    let matchedGame: any = null;
+    
+    if (isSteamAppId) {
+      // Search by Steam App ID
+      const steamAppId = query.trim();
+      try {
+        // Fetch directly from Steam Store API
+        const storeApiUrl = `https://store.steampowered.com/api/appdetails?appids=${steamAppId}&l=english`;
+        const response = await fetch(storeApiUrl);
+        
+        if (response.ok) {
+          const data = await response.json() as Record<string, any>;
+          const appData = data[steamAppId];
+          
+          if (appData && appData.success && appData.data) {
+            matchedGame = {
+              id: `steam-${steamAppId}`,
+              title: appData.data.name,
+              source: 'steam',
+              externalId: steamAppId,
+              steamAppId: steamAppId,
+            };
+          }
+        }
+      } catch (err) {
+        console.warn(`[Fix Match] Error fetching Steam App ID ${steamAppId}:`, err);
+      }
+    } else {
+      // Search by name
+      const searchResponse = await metadataFetcher.searchGames(query);
+      searchResults = searchResponse;
+      
+      if (scannedGame) {
+        // Use matcher to find best match
+        const game: ScannedGameResult = scannedGame;
+        const matchResult = await metadataFetcher.searchAndMatchGame(game, query);
+        matchedGame = matchResult.match;
+      } else {
+        // No scanned game, use first result
+        matchedGame = searchResults[0] || null;
+      }
+    }
+    
+    if (!matchedGame) {
+      return {
+        success: false,
+        error: 'No game found matching the query',
+        metadata: null,
+      };
+    }
+    
+    // Fetch complete metadata for the matched game
+    const metadata = await metadataFetcher.fetchCompleteMetadata(
+      matchedGame.title,
+      matchedGame,
+      matchedGame.steamAppId
+    );
+    
+    return {
+      success: true,
+      matchedGame,
+      metadata,
+    };
+  } catch (error) {
+    console.error('Error in metadata:fixMatch handler:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error occurred',
+      metadata: null,
     };
   }
 });
@@ -2823,6 +3185,26 @@ ipcMain.handle('launcher:launchGame', async (_event, gameId: string) => {
         if (game) {
           game.lastPlayed = new Date().toISOString();
           await gameStore.saveGame(game);
+          
+          // Track process for suspend service (if enabled)
+          if (processSuspendService && processSuspendService.isEnabled()) {
+            // For non-Steam games, we have the PID directly
+            if (result.pid) {
+              processSuspendService.trackLaunchedGame(gameId, result.pid, game.title, game.exePath);
+              console.log(`[Suspend] Tracking launched game: ${game.title} (PID: ${result.pid})`);
+            } else if (game.exePath) {
+              // For Steam games or if PID not available, try to discover the process
+              // Wait a bit for the process to start, then discover it
+              setTimeout(async () => {
+                if (processSuspendService) {
+                  const pid = await processSuspendService.discoverGameProcess(gameId, game.exePath, game.title);
+                  if (pid) {
+                    console.log(`[Suspend] Discovered game process: ${game.title} (PID: ${pid})`);
+                  }
+                }
+              }, 2000); // Wait 2 seconds for process to start
+            }
+          }
         }
         
         // Refresh tray menu to show updated recent games
@@ -3576,6 +3958,11 @@ ipcMain.handle('app:getVersion', async () => {
     // Fallback to app.getVersion()
     return app.getVersion();
   }
+});
+
+// Get app name handler (for detecting Alpha builds)
+ipcMain.handle('app:getName', async () => {
+  return app.getName();
 });
 
 // Minimize to tray handler
@@ -4418,6 +4805,22 @@ app.whenReady().then(async () => {
     createTray();
   }
 
+  // Always register IPC handlers (they check if service is available)
+  registerSuspendIPCHandlers();
+  
+  // Initialize suspend service if enabled
+  await initializeSuspendService();
+  
+  // Register shortcut if service is enabled
+  if (processSuspendService) {
+    await registerSuspendShortcut();
+  }
+
   createMenu();
   createWindow();
+});
+
+// Cleanup global shortcuts on app quit
+app.on('will-quit', () => {
+  unregisterSuspendShortcut();
 });

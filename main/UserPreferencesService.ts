@@ -60,6 +60,8 @@ export interface UserPreferences {
     isMaximized?: boolean;
   };
   storeMetadataLocally?: boolean; // Store metadata and images locally by default
+  enableSuspendFeature?: boolean; // Enable suspend/resume functionality
+  suspendShortcut?: string; // Keyboard shortcut for suspend/resume (e.g., "Ctrl+Shift+S")
 }
 
 interface UserPreferencesSchema {
@@ -133,6 +135,8 @@ export class UserPreferencesService {
             ignoredGames: [],
             windowState: undefined,
             storeMetadataLocally: true, // Default to local storage
+            enableSuspendFeature: false, // Opt-in by default
+            suspendShortcut: 'Ctrl+Shift+S', // Default shortcut
           },
         },
       });
@@ -205,6 +209,7 @@ export class UserPreferencesService {
       ignoredGames: [],
       windowState: undefined,
       storeMetadataLocally: true, // Default to local storage
+      enableSuspendFeature: false, // Opt-in by default
     });
   }
 
@@ -328,6 +333,7 @@ export class UserPreferencesService {
       ignoredGames: [],
       windowState: undefined,
       storeMetadataLocally: true, // Default to local storage
+      enableSuspendFeature: false, // Opt-in by default
     });
   }
 }

@@ -36,6 +36,7 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
   const [isSearchingMetadata, setIsSearchingMetadata] = useState(false);
   const [categoryInput, setCategoryInput] = useState<string>('');
   const [folderConfigs, setFolderConfigs] = useState<Record<string, { id: string; name: string; path: string; enabled: boolean; autoCategory?: string[] }>>({});
+  const titleInputRef = useRef<HTMLInputElement>(null);
 
   // Default categories for quick selection
   const DEFAULT_CATEGORIES = ['Apps', 'Games', 'VR'];
@@ -201,7 +202,7 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
   const handleScanFolder = async (folderPath: string) => {
     const apisConfigured = await areAPIsConfigured();
     if (!apisConfigured) {
-      setError('API credentials must be configured before scanning. Please configure them in Settings.');
+      setError('Both IGDB (Client ID + Secret) and SteamGridDB (API Key) are required before scanning. Please configure them in Settings > APIs.');
       return;
     }
 
@@ -610,7 +611,7 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
   const handleScanAll = async () => {
     const apisConfigured = await areAPIsConfigured();
     if (!apisConfigured) {
-      setError('API credentials must be configured before scanning. Please configure them in Settings.');
+      setError('Both IGDB (Client ID + Secret) and SteamGridDB (API Key) are required before scanning. Please configure them in Settings > APIs.');
       return;
     }
 
@@ -1464,7 +1465,43 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
     let query = (searchQuery || (typeof metadataSearchQuery === 'string' ? metadataSearchQuery.trim() : '') || (selectedGame.title ? selectedGame.title.trim() : '')).trim();
     
     if (!query) {
-      setError('Please enter a game title to search');
+      setError('Please enter a game title or Steam App ID to search');
+      return;
+    }
+
+    // Check if query is a Steam App ID (numeric only)
+    const isSteamAppId = /^\d+$/.test(query);
+    
+    if (isSteamAppId) {
+      // Direct Steam App ID search - use fixMatch to get metadata directly
+      setIsSearchingMetadata(true);
+      setError(null);
+      setMetadataSearchResults([]);
+      
+      try {
+        const fixMatchResult = await window.electronAPI.fixMatch(query, {
+          uuid: selectedGame.uuid,
+          source: selectedGame.source,
+          originalName: selectedGame.originalName,
+          installPath: selectedGame.installPath,
+          exePath: selectedGame.exePath,
+          appId: selectedGame.appId,
+          title: selectedGame.title,
+          status: selectedGame.status,
+        });
+
+        if (fixMatchResult.success && fixMatchResult.matchedGame) {
+          // Show the matched game as a result
+          setMetadataSearchResults([fixMatchResult.matchedGame]);
+        } else {
+          setError(fixMatchResult.error || 'No game found with that Steam App ID');
+        }
+      } catch (err) {
+        setError('Failed to search by Steam App ID');
+        console.error('Error searching by Steam App ID:', err);
+      } finally {
+        setIsSearchingMetadata(false);
+      }
       return;
     }
 
@@ -1705,11 +1742,7 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
     }
   };
 
-  // Apply selected metadata result (Fix Match)
-  // Follows the EXACT same process as main game scanning:
-  // Step 1: Find game app ID (from result, or search if needed)
-  // Step 2: Pull all images from Steam Store
-  // Step 3: Pull all text metadata separately
+  // Apply selected metadata result (Fix Match) - using new enhanced fixMatch method
   const handleApplyMetadata = async (result: { id: string; source: string; steamAppId?: string; title?: string }) => {
     if (!selectedGame) return;
 
@@ -1718,157 +1751,62 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
 
     try {
       const gameTitle = result.title || selectedGame.title;
+      const query = result.steamAppId || gameTitle;
       
-      // Step 1: Find game app ID from the selected result
-      // Extract Steam App ID from result (can be from SGDB, Steam, or other sources)
-      let steamAppId = result.steamAppId;
-      
-      // If result is from Steam, extract App ID from the ID field
-      if (!steamAppId && result.source === 'steam') {
-        const match = result.id.match(/^steam-(.+)$/);
-        if (match) {
-          steamAppId = match[1];
-        }
-      }
-      
-      // If we still don't have a Steam App ID, try to search for it using the result title
-      // This ensures we can get a Steam App ID even if the selected result doesn't have one
-      if (!steamAppId || !steamAppId.toString().match(/^\d+$/)) {
-        console.log(`[Fix Match] Step 1: No Steam App ID in result, searching for "${gameTitle}" to find App ID...`);
-        try {
-          const searchResponse = await window.electronAPI.searchGames(gameTitle);
-          if (searchResponse && (searchResponse.success !== false) && searchResponse.results && searchResponse.results.length > 0) {
-            // Find first Steam result with an App ID (same as main importer)
-            const steamResult = searchResponse.results.find((r: any) => r.steamAppId);
-            if (steamResult && steamResult.steamAppId) {
-              steamAppId = steamResult.steamAppId.toString();
-              console.log(`[Fix Match] Step 1: Found Steam App ID ${steamAppId} for "${gameTitle}"`);
-            }
-          }
-        } catch (searchErr) {
-          console.warn(`[Fix Match] Error searching for Steam App ID:`, searchErr);
-        }
-      } else {
-        console.log(`[Fix Match] Step 1: Using Steam App ID ${steamAppId} from selected result`);
-      }
-      
-      // Step 2: Pull all images from Steam Store (same as main importer)
-      console.log(`[Fix Match] Step 2: Fetching images for ${gameTitle} with App ID: ${steamAppId || 'none'}`);
-      const artwork = await window.electronAPI.searchArtwork(gameTitle, steamAppId);
-      
-      if (!artwork) {
-        setError('Could not fetch artwork. Please try another result.');
+      // Use the new fixMatch IPC method which handles everything
+      const fixMatchResult = await window.electronAPI.fixMatch(query, {
+        uuid: selectedGame.uuid,
+        source: selectedGame.source,
+        originalName: selectedGame.originalName,
+        installPath: selectedGame.installPath,
+        exePath: selectedGame.exePath,
+        appId: selectedGame.appId,
+        title: selectedGame.title,
+        status: selectedGame.status,
+      });
+
+      if (!fixMatchResult.success) {
+        setError(fixMatchResult.error || 'Failed to update metadata');
         setIsSearchingMetadata(false);
         return;
       }
-      
-      // Extract image fields from the metadata
-      const boxArtUrl = artwork.boxArtUrl || '';
-      const bannerUrl = artwork.bannerUrl || '';
-      const logoUrl = artwork.logoUrl || '';
-      const heroUrl = artwork.heroUrl || '';
-      
-      // Step 3: Pull all text metadata separately when we have a Steam App ID (same as main importer)
-      let description = artwork.description || artwork.summary || '';
-      let releaseDate = artwork.releaseDate || '';
-      let genres = artwork.genres || [];
-      let developers = artwork.developers || [];
-      let publishers = artwork.publishers || [];
-      let ageRating = artwork.ageRating || '';
-      let rating = artwork.rating ? Math.round(artwork.rating) : 0;
-      let platform = artwork.platforms?.join(', ') || artwork.platform || '';
-      
-      const finalSteamAppId = steamAppId;
-      if (finalSteamAppId && finalSteamAppId.toString().match(/^\d+$/)) {
-        try {
-          // Add a small delay to avoid rate limiting (same as main importer)
-          await new Promise(resolve => setTimeout(resolve, 500)); // 500ms delay
-          console.log(`[Fix Match] Step 3: Fetching description for ${gameTitle} with App ID: ${finalSteamAppId}`);
-          // Fetch description directly from Steam Store API (separate call, same as main importer)
-          const steamGameId = `steam-${finalSteamAppId}`;
-          const descriptionResult = await window.electronAPI.fetchGameDescription(steamGameId);
-          console.log(`[Fix Match] Description result for ${gameTitle}:`, descriptionResult);
-          if (descriptionResult && descriptionResult.success) {
-            // Use description from direct Steam Store API call (same as main importer)
-            description = (descriptionResult.description || descriptionResult.summary || '').trim();
-            releaseDate = (descriptionResult.releaseDate || '').trim();
-            genres = descriptionResult.genres || [];
-            developers = descriptionResult.developers || [];
-            publishers = (descriptionResult.publishers || []).filter(Boolean);
-            ageRating = (descriptionResult.ageRating || '').trim();
-            rating = descriptionResult.rating || 0;
-            platform = descriptionResult.platforms?.join(', ') || artwork.platform || '';
-            console.log(`[Fix Match] Successfully fetched description for ${gameTitle}, length: ${description.length}`);
-          } else {
-            console.warn(`[Fix Match] Description fetch failed for ${gameTitle}:`, descriptionResult?.error);
-            // Fallback to what we got from searchArtwork (same as main importer)
-            description = (artwork.description || artwork.summary || '').trim();
-            releaseDate = (artwork.releaseDate || '').trim();
-            genres = artwork.genres || [];
-            developers = artwork.developers || [];
-            publishers = artwork.publishers || [];
-            ageRating = (artwork.ageRating || '').trim();
-            rating = artwork.rating || 0;
-            platform = artwork.platforms?.join(', ') || artwork.platform || '';
-          }
-        } catch (descErr) {
-          console.error(`[Fix Match] Error fetching description for ${gameTitle}:`, descErr);
-          // Use what we got from searchArtwork (same as main importer)
-          description = (artwork.description || artwork.summary || '').trim();
-          releaseDate = (artwork.releaseDate || '').trim();
-          genres = artwork.genres || [];
-          developers = artwork.developers || [];
-          publishers = artwork.publishers || [];
-          ageRating = (artwork.ageRating || '').trim();
-          rating = artwork.rating || 0;
-          platform = artwork.platforms?.join(', ') || artwork.platform || '';
-        }
-      } else {
-        console.log(`[Fix Match] No valid Steam App ID for ${gameTitle}, using searchArtwork metadata`);
-        // No Steam App ID - use metadata from searchArtwork (same as main importer)
-        description = (artwork.description || artwork.summary || '').trim();
-        releaseDate = (artwork.releaseDate || '').trim();
-        genres = artwork.genres || [];
-        developers = artwork.developers || [];
-        publishers = artwork.publishers || [];
-        ageRating = (artwork.ageRating || '').trim();
-        rating = artwork.rating || 0;
-        platform = artwork.platforms?.join(', ') || artwork.platform || '';
-      }
-      
-      // Update the staged game with the new metadata - refresh everything (same as main importer)
+
+      const { matchedGame, metadata } = fixMatchResult;
+
+      // When user selects a result from Fix Match, update title to the matched game's title
+      // This is the expected behavior when explicitly selecting a match
+      const newTitle = matchedGame.title || result.title || gameTitle;
+
+      // Update the staged game with the new metadata
       updateGame(selectedGame.uuid, {
-        title: gameTitle,
-        description,
-        genres,
-        releaseDate,
-        developers,
-        publishers,
-        ageRating,
-        rating,
-        platform,
-        // Refresh all images - use new values or empty string to clear old ones
-        boxArtUrl,
-        bannerUrl,
-        logoUrl,
-        heroUrl,
-        screenshots: artwork.screenshots || [],
-        appId: finalSteamAppId || selectedGame.appId,
-        // Don't set status here - updateGame will validate and set it correctly
+        title: newTitle,
+        description: metadata.description || '',
+        genres: metadata.genres || [],
+        releaseDate: metadata.releaseDate || '',
+        developers: metadata.developers || [],
+        publishers: metadata.publishers || [],
+        ageRating: metadata.ageRating || '',
+        rating: metadata.rating || 0,
+        platform: metadata.platforms?.join(', ') || selectedGame.platform || '',
+        // Refresh all images
+        boxArtUrl: metadata.boxArtUrl || '',
+        bannerUrl: metadata.bannerUrl || '',
+        logoUrl: metadata.logoUrl || '',
+        heroUrl: metadata.heroUrl || '',
+        screenshots: metadata.screenshots || [],
+        appId: matchedGame.steamAppId || selectedGame.appId,
         // Preserve categories and other user edits
         categories: selectedGame.categories || [],
       });
       
-      // Close the modal and return to game importer
+      // Close the inline search and return to game view
       setShowMetadataSearch(false);
       setMetadataSearchResults([]);
       setMetadataSearchQuery('');
       setIsSearchingMetadata(false);
-      return;
     } catch (err) {
       setError('Failed to update metadata');
       console.error('Error updating metadata:', err);
-    } finally {
       setIsSearchingMetadata(false);
     }
   };
@@ -2489,6 +2427,7 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
                       </label>
                       <div className="relative flex items-center">
                         <input
+                          ref={titleInputRef}
                           type="text"
                           value={selectedGame.title}
                           onChange={(e) => updateGame(selectedGame.uuid, { title: e.target.value })}
@@ -2497,12 +2436,26 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
                         />
                         <div className="absolute right-1 flex items-center gap-1">
                           <button
-                            onClick={() => {
+                            onClick={async () => {
                               if (selectedGame) {
-                                setMetadataSearchQuery(selectedGame.title);
+                                // Use current input value if available, otherwise fall back to selectedGame.title
+                                // Read directly from the input element to get the most up-to-date value
+                                const currentTitle = titleInputRef.current?.value?.trim() || selectedGame.title?.trim() || '';
+                                
+                                if (!currentTitle) {
+                                  setError('Please enter a game title first');
+                                  return;
+                                }
+                                
+                                // Update the game title in state if it's different (in case state is stale)
+                                if (currentTitle !== selectedGame.title) {
+                                  updateGame(selectedGame.uuid, { title: currentTitle });
+                                }
+                                
+                                setMetadataSearchQuery(currentTitle);
                                 setShowMetadataSearch(true);
-                                // Trigger search immediately with the game title
-                                handleSearchMetadata(selectedGame.title);
+                                // Trigger search immediately with the current title
+                                await handleSearchMetadata(currentTitle);
                               }
                             }}
                             className="text-xs px-1.5 py-0.5 bg-green-600 hover:bg-green-700 text-white rounded"
@@ -2524,6 +2477,128 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
                         </div>
                       </div>
                     </div>
+
+                    {/* Inline Fix Match Section - appears directly below Title field */}
+                    {showMetadataSearch && selectedGame && (
+                      <div className="p-4 border-t border-gray-700 bg-gray-800/50 mt-2">
+                        <div className="flex items-center justify-between mb-4">
+                          <h3 className="text-base font-semibold text-white">
+                            Fix Match - Search for Correct Game
+                          </h3>
+                          <button
+                            onClick={() => {
+                              setShowMetadataSearch(false);
+                              setMetadataSearchResults([]);
+                              setMetadataSearchQuery('');
+                            }}
+                            className="text-gray-400 hover:text-white text-lg font-bold"
+                          >
+                            ×
+                          </button>
+                        </div>
+                        <div className="mb-4">
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              value={metadataSearchQuery}
+                              onChange={(e) => setMetadataSearchQuery(e.target.value)}
+                              onKeyPress={(e) => e.key === 'Enter' && handleSearchMetadata()}
+                              placeholder="Enter game name or Steam App ID (e.g., 782330)"
+                              className="flex-1 px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                            <button
+                              onClick={() => handleSearchMetadata()}
+                              disabled={isSearchingMetadata}
+                              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 disabled:cursor-not-allowed text-white rounded-lg transition-colors"
+                            >
+                              {isSearchingMetadata ? 'Searching...' : 'Search'}
+                            </button>
+                          </div>
+                          <p className="text-xs text-gray-400 mt-2">
+                            You can search by game name or enter a Steam App ID directly (numbers only)
+                          </p>
+                        </div>
+                        <div className="max-h-96 overflow-y-auto">
+                          {isSearchingMetadata && metadataSearchResults.length === 0 && (
+                            <div className="flex items-center gap-2 text-sm text-gray-400 py-8">
+                              <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                              </svg>
+                              Searching for metadata matches...
+                            </div>
+                          )}
+                          {metadataSearchResults.length > 0 ? (
+                            <div className="space-y-2">
+                              {metadataSearchResults.map((result, idx) => {
+                                // Extract release date properly
+                                let displayDate: string | undefined;
+                                if (result.releaseDate) {
+                                  if (typeof result.releaseDate === 'number') {
+                                    const date = new Date(result.releaseDate * 1000);
+                                    displayDate = date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+                                  } else if (typeof result.releaseDate === 'string') {
+                                    const date = new Date(result.releaseDate);
+                                    if (!isNaN(date.getTime())) {
+                                      displayDate = date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+                                    } else {
+                                      displayDate = result.releaseDate;
+                                    }
+                                  }
+                                } else if (result.year) {
+                                  displayDate = result.year.toString();
+                                }
+                                
+                                return (
+                                  <button
+                                    key={result.id || result.externalId || idx}
+                                    onClick={async () => {
+                                      await handleApplyMetadata({ 
+                                        id: String(result.id || result.externalId || ''), 
+                                        source: result.source, 
+                                        steamAppId: result.steamAppId, 
+                                        title: result.title || result.name 
+                                      });
+                                    }}
+                                    disabled={isSearchingMetadata}
+                                    className="relative w-full text-left p-3 text-sm bg-gray-700 hover:bg-gray-600 rounded border border-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-3 cursor-pointer"
+                                  >
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-white font-medium text-sm truncate" title={result.title || result.name}>
+                                        {result.title || result.name}
+                                      </p>
+                                      <div className="flex items-center gap-2 mt-1">
+                                        <span className={`text-xs ${result.source === 'steam' ? 'text-blue-400' : 'text-gray-400'}`}>
+                                          {result.source === 'steam' ? 'Steam' : result.source === 'igdb' ? 'IGDB' : result.source === 'steamgriddb' ? 'SGDB' : result.source}
+                                        </span>
+                                        {result.steamAppId && (
+                                          <span className="text-xs text-gray-500">App ID: {result.steamAppId}</span>
+                                        )}
+                                        {displayDate && (
+                                          <span className="text-xs text-gray-400">• {displayDate}</span>
+                                        )}
+                                      </div>
+                                    </div>
+                                    {isSearchingMetadata && (
+                                      <div className="absolute inset-0 bg-black/50 rounded flex items-center justify-center">
+                                        <svg className="animate-spin h-5 w-5 text-blue-500" fill="none" viewBox="0 0 24 24">
+                                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                        </svg>
+                                      </div>
+                                    )}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          ) : !isSearchingMetadata && (
+                            <div className="text-center text-gray-400 py-8">
+                              No results. Try searching for a game title or Steam App ID.
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
 
                     <div>
                       <div className="flex items-center justify-between mb-1">
@@ -2680,132 +2755,6 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
                     </div>
                   </div>
                 </div>
-
-                {/* Metadata Search Modal */}
-                {showMetadataSearch && selectedGame && (
-                  <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-8">
-                    <div className="bg-gray-900 border border-gray-700 rounded-xl shadow-2xl w-full max-w-4xl max-h-[80vh] flex flex-col">
-                      <div className="p-4 border-b border-gray-800 flex items-center justify-between">
-                        <h3 className="text-lg font-semibold text-white">
-                          Search for Better Metadata Match
-                        </h3>
-                        <button
-                          onClick={() => {
-                            setShowMetadataSearch(false);
-                            setMetadataSearchResults([]);
-                            setMetadataSearchQuery('');
-                          }}
-                          className="text-gray-400 hover:text-white"
-                        >
-                          ×
-                        </button>
-                      </div>
-                      <div className="p-4 border-b border-gray-800">
-                        <div className="flex gap-2">
-                          <input
-                            type="text"
-                            value={metadataSearchQuery}
-                            onChange={(e) => setMetadataSearchQuery(e.target.value)}
-                            onKeyPress={(e) => e.key === 'Enter' && handleSearchMetadata()}
-                            placeholder="Search for game title..."
-                            className="flex-1 px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          />
-                          <button
-                            onClick={() => handleSearchMetadata()}
-                            disabled={isSearchingMetadata}
-                            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 text-white rounded-lg"
-                          >
-                            {isSearchingMetadata ? 'Searching...' : 'Search'}
-                          </button>
-                        </div>
-                      </div>
-                      <div className="flex-1 overflow-y-auto p-4">
-                        {isSearchingMetadata && metadataSearchResults.length === 0 && (
-                          <div className="flex items-center gap-2 text-sm text-gray-400">
-                            <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                            </svg>
-                            Searching for metadata matches...
-                          </div>
-                        )}
-                        {metadataSearchResults.length > 0 ? (
-                          <div className="max-h-96 overflow-y-auto">
-                            <div className="space-y-2">
-                              {metadataSearchResults.map((result, idx) => {
-                                // Extract release date properly - show full date, not just year
-                                let displayDate: string | undefined;
-                                if (result.releaseDate) {
-                                  // Handle both Unix timestamp (seconds) and Date objects
-                                  if (typeof result.releaseDate === 'number') {
-                                    const date = new Date(result.releaseDate * 1000);
-                                    displayDate = date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-                                  } else if (typeof result.releaseDate === 'string') {
-                                    const date = new Date(result.releaseDate);
-                                    if (!isNaN(date.getTime())) {
-                                      displayDate = date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-                                    } else {
-                                      // Try parsing as ISO date string
-                                      displayDate = result.releaseDate;
-                                    }
-                                  }
-                                } else if (result.year) {
-                                  // Fallback to year only if no full date available
-                                  displayDate = result.year.toString();
-                                }
-                                
-                                return (
-                                  <button
-                                    key={result.id || result.externalId || idx}
-                                    onClick={async () => {
-                                      await handleApplyMetadata({ 
-                                        id: String(result.id || result.externalId || ''), 
-                                        source: result.source, 
-                                        steamAppId: result.steamAppId, 
-                                        title: result.title || result.name 
-                                      });
-                                    }}
-                                    disabled={isSearchingMetadata}
-                                    className="relative w-full text-left p-3 text-sm bg-gray-800 hover:bg-gray-700 rounded border border-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-3 cursor-pointer"
-                                  >
-                                    <div className="flex-1 min-w-0">
-                                      <p className="text-white font-medium text-sm truncate" title={result.title || result.name}>
-                                        {result.title || result.name}
-                                      </p>
-                                      <div className="flex items-center gap-2 mt-1">
-                                        <span className={`text-xs ${result.source === 'steam' ? 'text-blue-400' : 'text-gray-400'}`}>
-                                          {result.source === 'steam' ? 'Steam' : result.source === 'igdb' ? 'IGDB' : result.source === 'steamgriddb' ? 'SGDB' : result.source}
-                                        </span>
-                                        {result.steamAppId && (
-                                          <span className="text-xs text-gray-500">App ID: {result.steamAppId}</span>
-                                        )}
-                                        {displayDate && (
-                                          <span className="text-xs text-gray-400">• {displayDate}</span>
-                                        )}
-                                      </div>
-                                    </div>
-                                    {isSearchingMetadata && (
-                                      <div className="absolute inset-0 bg-black/50 rounded flex items-center justify-center">
-                                        <svg className="animate-spin h-5 w-5 text-blue-500" fill="none" viewBox="0 0 24 24">
-                                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                                        </svg>
-                                      </div>
-                                    )}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        ) : !isSearchingMetadata && (
-                          <div className="text-center text-gray-400 py-8">
-                            No results. Try searching for a game title.
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                )}
 
                 {/* Image Search Modal */}
                 {showImageSearch && showImageSearch.gameId === selectedGame.uuid && (

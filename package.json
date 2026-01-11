@@ -1,6 +1,6 @@
 {
   "name": "onyx-launcher",
-  "version": "0.0.32",
+  "version": "0.0.42",
   "description": "The premium unified game library.",
   "main": "dist-electron/main.js",
   "scripts": {
@@ -15,7 +15,9 @@
     "prebuild": "npm run validate-icons",
     "predist": "npm run generate-icons && npm run validate-icons",
     "increment-build": "node scripts/increment-build.js",
-    "dist": "npm run increment-build && npm run predist && tsc && vite build && tsc -p main/tsconfig.json && tsc -p main/tsconfig.preload.json && electron-builder"
+    "dist": "npm run increment-build && npm run predist && tsc && vite build && tsc -p main/tsconfig.json && tsc -p main/tsconfig.preload.json && electron-builder",
+    "build:alpha": "cross-env BUILD_PROFILE=alpha npm run increment-build && npm run predist && tsc && vite build && tsc -p main/tsconfig.json && tsc -p main/tsconfig.preload.json && cross-env BUILD_PROFILE=alpha electron-builder build --publish never",
+    "build:prod": "cross-env BUILD_PROFILE=production npm run increment-build && npm run predist && tsc && vite build && tsc -p main/tsconfig.json && tsc -p main/tsconfig.preload.json && cross-env BUILD_PROFILE=production electron-builder build --publish never"
   },
   "keywords": [],
   "author": "",
@@ -47,60 +49,5 @@
     "electron-store": "^11.0.2",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
-  },
-  "build": {
-    "appId": "com.onyx.launcher",
-    "productName": "Onyx",
-    "directories": {
-      "output": "dist"
-    },
-    "win": {
-      "target": [
-        {
-          "target": "nsis",
-          "arch": [
-            "x64"
-          ]
-        },
-        {
-          "target": "portable",
-          "arch": [
-            "x64"
-          ]
-        }
-      ],
-      "icon": "build/icon.ico",
-      "signAndEditExecutable": false
-    },
-    "files": [
-      "dist/**/*",
-      "dist-electron/**/*.js",
-      "!dist-electron/**/*.d.ts",
-      "!dist-electron/**/*.tsbuildinfo",
-      "package.json"
-    ],
-    "extraResources": [
-      {
-        "from": "build/icon.ico",
-        "to": "icon.ico"
-      },
-      {
-        "from": "resources/icon.png",
-        "to": "icon.png"
-      },
-      {
-        "from": "resources/icon.svg",
-        "to": "icon.svg"
-      }
-    ],
-    "asar": true,
-    "asarUnpack": [],
-    "compression": "maximum",
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true
-    }
   }
 }
