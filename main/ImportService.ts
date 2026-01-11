@@ -342,7 +342,8 @@ export class ImportService {
                      fileNameOnly !== 'crashpad_handler.exe' &&
                      fileNameOnly !== 'embark-crash-helper.exe' &&
                      fileNameOnly !== 'blizzardbrowser.exe' &&
-                     fileNameOnly !== 'blizzarderror.exe';
+                     fileNameOnly !== 'blizzarderror.exe' &&
+                     fileNameOnly !== 'gamesessionmonitor.exe';
             });
             
             if (gameExes.length > 0) {
@@ -441,7 +442,8 @@ export class ImportService {
                    !fileNameOnly.includes('installer') &&
                    fileNameOnly !== 'crashreportclient.exe' &&
                    fileNameOnly !== 'battlenet.overlay.runtime.exe' &&
-                   fileNameOnly !== 'crashpad_handler.exe';
+                   fileNameOnly !== 'crashpad_handler.exe' &&
+                   fileNameOnly !== 'gamesessionmonitor.exe';
           });
           
           if (gameExes.length > 0) {
@@ -488,6 +490,7 @@ export class ImportService {
       'embark-crash-helper.exe',
       'blizzardbrowser.exe',
       'blizzarderror.exe',
+      'gamesessionmonitor.exe',
       'gamelaunchhelper',
       'bootstrapper',
       'crashreportclient',
@@ -496,6 +499,7 @@ export class ImportService {
       'embark-crash-helper',
       'blizzardbrowser',
       'blizzarderror',
+      'gamesessionmonitor',
     ];
     
     try {
@@ -529,7 +533,8 @@ export class ImportService {
                 !lowerName.includes('crashpad_handler') &&
                 !lowerName.includes('embark-crash-helper') &&
                 !lowerName.includes('blizzardbrowser') &&
-                !lowerName.includes('blizzarderror')) {
+                !lowerName.includes('blizzarderror') &&
+                !lowerName.includes('gamesessionmonitor')) {
               executables.push(fullPath);
             }
           } else if (stats.isDirectory() && depth < maxDepth) {
@@ -636,7 +641,8 @@ export class ImportService {
                    !fileNameOnly.includes('ubisoft') &&
                    fileNameOnly !== 'crashreportclient.exe' &&
                    fileNameOnly !== 'battlenet.overlay.runtime.exe' &&
-                   fileNameOnly !== 'crashpad_handler.exe';
+                   fileNameOnly !== 'crashpad_handler.exe' &&
+                   fileNameOnly !== 'gamesessionmonitor.exe';
           });
           
           console.log(`[Ubisoft] Filtered to ${gameExes.length} game executables in ${gameFolder}`);
@@ -841,7 +847,8 @@ export class ImportService {
                  !fileNameOnly.includes('launcher') &&
                  fileNameOnly !== 'crashreportclient.exe' &&
                  fileNameOnly !== 'battlenet.overlay.runtime.exe' &&
-                 fileNameOnly !== 'crashpad_handler.exe';
+                 fileNameOnly !== 'crashpad_handler.exe' &&
+                 fileNameOnly !== 'gamesessionmonitor.exe';
         });
         
         if (gameExes.length > 0) {
@@ -899,7 +906,8 @@ export class ImportService {
                    !fileNameOnly.includes('launcher') &&
                    fileNameOnly !== 'crashreportclient.exe' &&
                    fileNameOnly !== 'battlenet.overlay.runtime.exe' &&
-                   fileNameOnly !== 'crashpad_handler.exe';
+                   fileNameOnly !== 'crashpad_handler.exe' &&
+                   fileNameOnly !== 'gamesessionmonitor.exe';
           });
           
           if (gameExes.length > 0) {
@@ -1132,7 +1140,8 @@ export class ImportService {
                    !fileNameOnly.includes('directx') &&
                    fileNameOnly !== 'crashreportclient.exe' &&
                    fileNameOnly !== 'battlenet.overlay.runtime.exe' &&
-                   fileNameOnly !== 'crashpad_handler.exe';
+                   fileNameOnly !== 'crashpad_handler.exe' &&
+                   fileNameOnly !== 'gamesessionmonitor.exe';
           });
           
           if (gameExes.length > 0) {

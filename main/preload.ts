@@ -59,6 +59,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   searchMetadata: (gameTitle: string) => ipcRenderer.invoke('metadata:searchMetadata', gameTitle),
   searchGames: (gameTitle: string) => ipcRenderer.invoke('metadata:searchGames', gameTitle),
   fetchAndUpdateByProviderId: (gameId: string, providerId: string, providerSource: string) => ipcRenderer.invoke('metadata:fetchAndUpdateByProviderId', gameId, providerId, providerSource),
+  fetchMetadataOnlyByProviderId: (gameId: string, providerId: string, providerSource: string) => ipcRenderer.invoke('metadata:fetchMetadataOnlyByProviderId', gameId, providerId, providerSource),
   // Launcher methods
   launchGame: (gameId: string) => ipcRenderer.invoke('launcher:launchGame', gameId),
   // App config methods
@@ -70,7 +71,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getManualFolders: () => ipcRenderer.invoke('manualFolders:get'),
   saveManualFolders: (folders: string[]) => ipcRenderer.invoke('manualFolders:save', folders),
   getManualFolderConfigs: () => ipcRenderer.invoke('manualFolders:getConfigs'),
-  saveManualFolderConfig: (config: { id: string; name: string; path: string; enabled: boolean }) => ipcRenderer.invoke('manualFolders:saveConfig', config),
+  saveManualFolderConfig: (config: { id: string; name: string; path: string; enabled: boolean; autoCategory?: string[] }) => ipcRenderer.invoke('manualFolders:saveConfig', config),
   deleteManualFolderConfig: (folderId: string) => ipcRenderer.invoke('manualFolders:deleteConfig', folderId),
   // Xbox service methods
   scanXboxGames: (path: string, autoMerge?: boolean) => ipcRenderer.invoke('xbox:scanGames', path, autoMerge),

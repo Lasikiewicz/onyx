@@ -151,7 +151,7 @@ export class ImageCacheService {
           // Check if file exists in cache
           this.ensureInitialized();
           const safeGameId = gameIdFromUrl.replace(/[<>:"/\\|?*]/g, '_');
-          const extensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
+          const extensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.webm'];
           
           for (const ext of extensions) {
             const filename = `${safeGameId}-${imageTypeFromUrl}${ext}`;
@@ -206,7 +206,7 @@ export class ImageCacheService {
         // Delete old images for this game and image type before caching new one
         // This ensures we don't have stale images with different extensions
         const { unlinkSync } = require('node:fs');
-        const extensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
+        const extensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.webm'];
         for (const oldExt of extensions) {
           const oldFilename = `${safeGameId}-${imageType}${oldExt}`;
           const oldPath = path.join(this.cacheDir, oldFilename);
@@ -247,7 +247,7 @@ export class ImageCacheService {
       // Delete old images for this game and image type before caching new one
       // This ensures we don't have stale images with different extensions
       const { unlinkSync } = require('node:fs');
-      const extensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
+      const extensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.webm'];
       for (const oldExt of extensions) {
         const oldFilename = `${safeGameId}-${imageType}${oldExt}`;
         const oldPath = path.join(this.cacheDir, oldFilename);
@@ -341,7 +341,7 @@ export class ImageCacheService {
     try {
       this.ensureInitialized();
       const safeGameId = gameId.replace(/[<>:"/\\|?*]/g, '_');
-      const extensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
+      const extensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.webm'];
       
       for (const ext of extensions) {
         const filename = `${safeGameId}-${imageType}${ext}`;
@@ -373,7 +373,7 @@ export class ImageCacheService {
     try {
       this.ensureInitialized();
       const safeGameId = gameId.replace(/[<>:"/\\|?*]/g, '_');
-      const extensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
+      const extensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.webm'];
       
       for (const ext of extensions) {
         const filename = `${safeGameId}-${imageType}${ext}`;
@@ -400,7 +400,7 @@ export class ImageCacheService {
         const files = readdirSync(this.cacheDir);
         for (const file of files) {
           const ext = path.extname(file).toLowerCase();
-          if (['.jpg', '.jpeg', '.png', '.gif', '.webp'].includes(ext)) {
+          if (['.jpg', '.jpeg', '.png', '.gif', '.webp', '.webm'].includes(ext)) {
             unlinkSync(path.join(this.cacheDir, file));
           }
         }

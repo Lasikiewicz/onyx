@@ -161,7 +161,7 @@ export class SteamMetadataProvider implements MetadataProvider {
       // Box Art: library_600x900.jpg (vertical cover art)
       // Banner: library_hero.jpg or header.jpg (horizontal banner)
       // Logo: logo.png
-      const boxArtUrl = `https://cdn.cloudflare.steamstatic.com/steam/apps/${steamAppId}/library_600x900.jpg`;
+      const boxArtUrl = `https://cdn.cloudflare.steamstatic.com/steam/apps/${steamAppId}/Library_600x900.jpg`;
       const bannerUrl = `https://cdn.cloudflare.steamstatic.com/steam/apps/${steamAppId}/library_hero.jpg`;
       const headerUrl = `https://cdn.cloudflare.steamstatic.com/steam/apps/${steamAppId}/header.jpg`;
       const logoUrl = `https://cdn.cloudflare.steamstatic.com/steam/apps/${steamAppId}/logo.png`;

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { StagedGame, ImportStatus, ImportSource } from '../../types/importer';
 import { Game, GameMetadata } from '../../types/game';
 import { areAPIsConfigured } from '../../utils/apiValidation';
@@ -34,20 +34,44 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
   const [metadataSearchQuery, setMetadataSearchQuery] = useState('');
   const [metadataSearchResults, setMetadataSearchResults] = useState<any[]>([]);
   const [isSearchingMetadata, setIsSearchingMetadata] = useState(false);
+  const [categoryInput, setCategoryInput] = useState<string>('');
+  const [folderConfigs, setFolderConfigs] = useState<Record<string, { id: string; name: string; path: string; enabled: boolean; autoCategory?: string[] }>>({});
 
-  // Load ignored games on mount
+  // Default categories for quick selection
+  const DEFAULT_CATEGORIES = ['Apps', 'Games', 'VR'];
+
+  // Load ignored games and folder configs on mount
   useEffect(() => {
     if (isOpen) {
       window.electronAPI.getPreferences().then(prefs => {
         const ignored = prefs.ignoredGames ? new Set(prefs.ignoredGames) : new Set<string>();
         setIgnoredGames(ignored);
       });
+      
+      // Load folder configs to check for autoCategory
+      if (window.electronAPI.getManualFolderConfigs) {
+        window.electronAPI.getManualFolderConfigs().then(configs => {
+          setFolderConfigs(configs || {});
+        }).catch(err => {
+          console.error('Error loading folder configs:', err);
+        });
+      }
     }
   }, [isOpen]);
 
   const selectedGame = useMemo(() => {
     return queue.find(g => g.uuid === selectedId) || null;
   }, [queue, selectedId]);
+
+  // Clear category input only when selected game actually changes (not on every render)
+  const prevSelectedIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (prevSelectedIdRef.current !== selectedId && prevSelectedIdRef.current !== null) {
+      // Only clear if the selected game actually changed (not on initial mount)
+      setCategoryInput('');
+    }
+    prevSelectedIdRef.current = selectedId;
+  }, [selectedId]);
 
   // Filter games based on showIgnored state
   const visibleGames = useMemo(() => {
@@ -298,6 +322,25 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
           let rating = 0;
           let platform = '';
 
+          // Check if this game is from a manual folder with autoCategory configured
+          if (scanned.source === 'manual_folder' && scanned.installPath) {
+            // Find folder config that matches this game's install path or parent folder
+            const matchingConfig = Object.values(folderConfigs).find(config => {
+              if (!config.enabled || !config.autoCategory || config.autoCategory.length === 0) {
+                return false;
+              }
+              // Check if the game's install path is within the folder config path
+              const configPath = config.path.toLowerCase().replace(/\\/g, '/');
+              const installPath = scanned.installPath.toLowerCase().replace(/\\/g, '/');
+              // Match if install path starts with config path, or if they're the same
+              return installPath.startsWith(configPath) || installPath === configPath;
+            });
+            
+            if (matchingConfig && matchingConfig.autoCategory) {
+              categories = [...matchingConfig.autoCategory];
+            }
+          }
+
           // steamAppId and matchedTitle are already set above if found
 
           if (steamAppId || matchedResult) {
@@ -317,7 +360,10 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
                 description = (metadata.description || metadata.summary || '').trim();
                 releaseDate = (metadata.releaseDate || '').trim();
                 genres = metadata.genres || [];
-                categories = metadata.categories || [];
+                // Keep autoCategory if already set from folder config, otherwise don't preselect
+                if (categories.length === 0) {
+                  categories = [];
+                }
                 ageRating = (metadata.ageRating || '').trim();
                 rating = metadata.rating || 0;
                 platform = metadata.platforms?.join(', ') || metadata.platform || scanned.source;
@@ -361,7 +407,10 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
                 description = (metadata.description || metadata.summary || '').trim();
                 releaseDate = (metadata.releaseDate || '').trim();
                 genres = metadata.genres || [];
-                categories = metadata.categories || [];
+                // Keep autoCategory if already set from folder config, otherwise don't preselect
+                if (categories.length === 0) {
+                  categories = [];
+                }
                 ageRating = (metadata.ageRating || '').trim();
                 rating = metadata.rating || 0;
                 platform = metadata.platforms?.join(', ') || metadata.platform || scanned.source;
@@ -412,14 +461,71 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
         })();
         
         stagedGames.push(stagedGame);
-        setQueue([...stagedGames]);
+        // Merge with existing queue to preserve manual edits
+        setQueue(prevQueue => {
+          const existingMap = new Map(prevQueue.map(g => [g.uuid, g]));
+          const merged = stagedGames.map(newGame => {
+            const existing = existingMap.get(newGame.uuid);
+            if (existing) {
+              // Preserve manual edits - only update fields that haven't been manually changed
+              // For categories, always preserve existing if they exist (user may have added them)
+              return {
+                ...newGame,
+                categories: existing.categories && existing.categories.length > 0 
+                  ? existing.categories 
+                  : newGame.categories,
+                // Preserve other manually edited fields if they differ from initial values
+                title: existing.title !== newGame.originalName ? existing.title : newGame.title,
+                description: existing.description || newGame.description,
+                releaseDate: existing.releaseDate || newGame.releaseDate,
+                genres: existing.genres && existing.genres.length > 0 ? existing.genres : newGame.genres,
+                developers: existing.developers && existing.developers.length > 0 ? existing.developers : newGame.developers,
+                publishers: existing.publishers && existing.publishers.length > 0 ? existing.publishers : newGame.publishers,
+                boxArtUrl: existing.boxArtUrl || newGame.boxArtUrl,
+                bannerUrl: existing.bannerUrl || newGame.bannerUrl,
+                logoUrl: existing.logoUrl || newGame.logoUrl,
+                heroUrl: existing.heroUrl || newGame.heroUrl,
+                lockedFields: existing.lockedFields || newGame.lockedFields,
+              };
+            }
+            return newGame;
+          });
+          return merged;
+        });
         
         if (stagedGames.length === 1 && !selectedId) {
           setSelectedId(stagedGame.uuid);
         }
       }
 
-      setQueue(stagedGames);
+      // Final merge to preserve any remaining manual edits
+      setQueue(prevQueue => {
+        const existingMap = new Map(prevQueue.map(g => [g.uuid, g]));
+        const merged = stagedGames.map(newGame => {
+          const existing = existingMap.get(newGame.uuid);
+          if (existing) {
+            return {
+              ...newGame,
+              categories: existing.categories && existing.categories.length > 0 
+                ? existing.categories 
+                : newGame.categories,
+              title: existing.title !== newGame.originalName ? existing.title : newGame.title,
+              description: existing.description || newGame.description,
+              releaseDate: existing.releaseDate || newGame.releaseDate,
+              genres: existing.genres && existing.genres.length > 0 ? existing.genres : newGame.genres,
+              developers: existing.developers && existing.developers.length > 0 ? existing.developers : newGame.developers,
+              publishers: existing.publishers && existing.publishers.length > 0 ? existing.publishers : newGame.publishers,
+              boxArtUrl: existing.boxArtUrl || newGame.boxArtUrl,
+              bannerUrl: existing.bannerUrl || newGame.bannerUrl,
+              logoUrl: existing.logoUrl || newGame.logoUrl,
+              heroUrl: existing.heroUrl || newGame.heroUrl,
+              lockedFields: existing.lockedFields || newGame.lockedFields,
+            };
+          }
+          return newGame;
+        });
+        return merged;
+      });
       
       const firstVisible = stagedGames.find(g => !g.isIgnored);
       if (firstVisible && !selectedId) {
@@ -578,6 +684,25 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
           let rating = 0;
           let platform = '';
 
+          // Check if this game is from a manual folder with autoCategory configured
+          if (scanned.source === 'manual_folder' && scanned.installPath) {
+            // Find folder config that matches this game's install path or parent folder
+            const matchingConfig = Object.values(folderConfigs).find(config => {
+              if (!config.enabled || !config.autoCategory || config.autoCategory.length === 0) {
+                return false;
+              }
+              // Check if the game's install path is within the folder config path
+              const configPath = config.path.toLowerCase().replace(/\\/g, '/');
+              const installPath = scanned.installPath.toLowerCase().replace(/\\/g, '/');
+              // Match if install path starts with config path, or if they're the same
+              return installPath.startsWith(configPath) || installPath === configPath;
+            });
+            
+            if (matchingConfig && matchingConfig.autoCategory) {
+              categories = [...matchingConfig.autoCategory];
+            }
+          }
+
           // Try to find match for games without Steam App ID - SIMPLE APPROACH
           let steamAppId = scanned.appId;
           let matchedTitle = scanned.title; // Use matched title for better metadata fetching
@@ -662,7 +787,10 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
                 description = (metadata.description || metadata.summary || '').trim();
                 releaseDate = (metadata.releaseDate || '').trim();
                 genres = metadata.genres || [];
-                categories = metadata.categories || [];
+                // Keep autoCategory if already set from folder config, otherwise don't preselect
+                if (categories.length === 0) {
+                  categories = [];
+                }
                 ageRating = (metadata.ageRating || '').trim();
                 rating = metadata.rating || 0;
                 platform = metadata.platforms?.join(', ') || metadata.platform || 'steam';
@@ -725,7 +853,10 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
                 description = (metadata.description || metadata.summary || '').trim();
                 releaseDate = (metadata.releaseDate || '').trim();
                 genres = metadata.genres || [];
-                categories = metadata.categories || [];
+                // Keep autoCategory if already set from folder config, otherwise don't preselect
+                if (categories.length === 0) {
+                  categories = [];
+                }
                 ageRating = (metadata.ageRating || '').trim();
                 rating = metadata.rating || 0;
                 platform = metadata.platforms?.join(', ') || metadata.platform || scanned.source;
@@ -770,7 +901,10 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
                 description = metadata.description || metadata.summary || '';
                 releaseDate = metadata.releaseDate || '';
                 genres = metadata.genres || [];
-                categories = metadata.categories || [];
+                // Keep autoCategory if already set from folder config, otherwise don't preselect
+                if (categories.length === 0) {
+                  categories = [];
+                }
                 ageRating = metadata.ageRating || '';
                 rating = metadata.rating || 0;
                 platform = metadata.platforms?.join(', ') || metadata.platform || scanned.source;
@@ -853,7 +987,35 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
         
         // Add game to queue as soon as it's processed
         stagedGames.push(stagedGame);
-        setQueue([...stagedGames]);
+        // Merge with existing queue to preserve manual edits
+        setQueue(prevQueue => {
+          const existingMap = new Map(prevQueue.map(g => [g.uuid, g]));
+          const merged = stagedGames.map(newGame => {
+            const existing = existingMap.get(newGame.uuid);
+            if (existing) {
+              // Preserve manual edits - only update fields that haven't been manually changed
+              return {
+                ...newGame,
+                categories: existing.categories && existing.categories.length > 0 
+                  ? existing.categories 
+                  : newGame.categories,
+                title: existing.title !== newGame.originalName ? existing.title : newGame.title,
+                description: existing.description || newGame.description,
+                releaseDate: existing.releaseDate || newGame.releaseDate,
+                genres: existing.genres && existing.genres.length > 0 ? existing.genres : newGame.genres,
+                developers: existing.developers && existing.developers.length > 0 ? existing.developers : newGame.developers,
+                publishers: existing.publishers && existing.publishers.length > 0 ? existing.publishers : newGame.publishers,
+                boxArtUrl: existing.boxArtUrl || newGame.boxArtUrl,
+                bannerUrl: existing.bannerUrl || newGame.bannerUrl,
+                logoUrl: existing.logoUrl || newGame.logoUrl,
+                heroUrl: existing.heroUrl || newGame.heroUrl,
+                lockedFields: existing.lockedFields || newGame.lockedFields,
+              };
+            }
+            return newGame;
+          });
+          return merged;
+        });
         
         // Auto-select first game if none selected
         if (stagedGames.length === 1 && !selectedId) {
@@ -896,14 +1058,67 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
               isIgnored: ignoredGames.has(gameId),
             };
             stagedGames.push(fallbackGame);
-            setQueue([...stagedGames]);
+            // Merge with existing queue to preserve manual edits
+            setQueue(prevQueue => {
+              const existingMap = new Map(prevQueue.map(g => [g.uuid, g]));
+              const merged = stagedGames.map(newGame => {
+                const existing = existingMap.get(newGame.uuid);
+                if (existing) {
+                  return {
+                    ...newGame,
+                    categories: existing.categories && existing.categories.length > 0 
+                      ? existing.categories 
+                      : newGame.categories,
+                    title: existing.title !== newGame.originalName ? existing.title : newGame.title,
+                    description: existing.description || newGame.description,
+                    releaseDate: existing.releaseDate || newGame.releaseDate,
+                    genres: existing.genres && existing.genres.length > 0 ? existing.genres : newGame.genres,
+                    developers: existing.developers && existing.developers.length > 0 ? existing.developers : newGame.developers,
+                    publishers: existing.publishers && existing.publishers.length > 0 ? existing.publishers : newGame.publishers,
+                    boxArtUrl: existing.boxArtUrl || newGame.boxArtUrl,
+                    bannerUrl: existing.bannerUrl || newGame.bannerUrl,
+                    logoUrl: existing.logoUrl || newGame.logoUrl,
+                    heroUrl: existing.heroUrl || newGame.heroUrl,
+                    lockedFields: existing.lockedFields || newGame.lockedFields,
+                  };
+                }
+                return newGame;
+              });
+              return merged;
+            });
             processedCount++;
           }
         }
       }
 
-      // Final update to ensure all games are in queue
-      setQueue(stagedGames);
+      // Final update to ensure all games are in queue, preserving manual edits
+      setQueue(prevQueue => {
+        const existingMap = new Map(prevQueue.map(g => [g.uuid, g]));
+        const merged = stagedGames.map(newGame => {
+          const existing = existingMap.get(newGame.uuid);
+          if (existing) {
+            return {
+              ...newGame,
+              categories: existing.categories && existing.categories.length > 0 
+                ? existing.categories 
+                : newGame.categories,
+              title: existing.title !== newGame.originalName ? existing.title : newGame.title,
+              description: existing.description || newGame.description,
+              releaseDate: existing.releaseDate || newGame.releaseDate,
+              genres: existing.genres && existing.genres.length > 0 ? existing.genres : newGame.genres,
+              developers: existing.developers && existing.developers.length > 0 ? existing.developers : newGame.developers,
+              publishers: existing.publishers && existing.publishers.length > 0 ? existing.publishers : newGame.publishers,
+              boxArtUrl: existing.boxArtUrl || newGame.boxArtUrl,
+              bannerUrl: existing.bannerUrl || newGame.bannerUrl,
+              logoUrl: existing.logoUrl || newGame.logoUrl,
+              heroUrl: existing.heroUrl || newGame.heroUrl,
+              lockedFields: existing.lockedFields || newGame.lockedFields,
+            };
+          }
+          return newGame;
+        });
+        return merged;
+      });
       
       // Auto-select the first non-ignored game if available
       const firstVisible = stagedGames.find(g => !g.isIgnored);
@@ -983,6 +1198,27 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
     );
   };
 
+  // Add category to selected game
+  const addCategory = (category: string) => {
+    if (!selectedGame || !category.trim()) return;
+    const current = selectedGame.categories || [];
+    if (!current.includes(category.trim())) {
+      updateGame(selectedGame.uuid, {
+        categories: [...current, category.trim()],
+      });
+    }
+    setCategoryInput('');
+  };
+
+  // Remove category from selected game
+  const removeCategory = (category: string) => {
+    if (!selectedGame) return;
+    const current = selectedGame.categories || [];
+    updateGame(selectedGame.uuid, {
+      categories: current.filter(item => item !== category),
+    });
+  };
+
   // Toggle field lock
   const toggleFieldLock = (uuid: string, field: string) => {
     const game = queue.find(g => g.uuid === uuid);
@@ -997,67 +1233,257 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
     });
   };
 
-  // Search for better metadata match
+  // Search for better metadata match (same as GameManager)
   const handleSearchMetadata = async (searchQuery?: string) => {
     if (!selectedGame) return;
 
-    const query = (searchQuery || (typeof metadataSearchQuery === 'string' ? metadataSearchQuery.trim() : '') || (selectedGame.title ? selectedGame.title.trim() : '')).trim();
+    // Get Steam App ID from game
+    const getSteamAppId = (): string | undefined => {
+      if (selectedGame.appId && /^\d+$/.test(selectedGame.appId.toString())) {
+        return selectedGame.appId.toString();
+      }
+      return undefined;
+    };
+
+    const steamAppId = getSteamAppId();
+    let query = (searchQuery || (typeof metadataSearchQuery === 'string' ? metadataSearchQuery.trim() : '') || (selectedGame.title ? selectedGame.title.trim() : '')).trim();
+    
     if (!query) {
       setError('Please enter a game title to search');
       return;
     }
+
+    // Create a simplified query for better results (remove special chars, common suffixes)
+    // This helps find more games when searching for series like "Call of Duty"
+    const createSearchVariations = (originalQuery: string): string[] => {
+      const variations: string[] = [originalQuery];
+      
+      // Remove special characters (®, :, etc.)
+      const noSpecialChars = originalQuery.replace(/[^\w\s]/g, '').trim();
+      if (noSpecialChars && noSpecialChars !== originalQuery) {
+        variations.push(noSpecialChars);
+      }
+      
+      // Remove common suffixes/prefixes that might limit results
+      const noSuffixes = originalQuery
+        .replace(/\s*(?:edition|pack|dlc|remastered|remaster|definitive|ultimate|gold|platinum|deluxe|collector|special|limited|anniversary|game of the year|goty)\s*/gi, '')
+        .trim();
+      if (noSuffixes && noSuffixes !== originalQuery && noSuffixes.length >= 3) {
+        variations.push(noSuffixes);
+      }
+      
+      // Remove everything after colon (for "Call of Duty: Black Ops 7" -> "Call of Duty")
+      const beforeColon = originalQuery.split(':')[0].trim();
+      if (beforeColon && beforeColon !== originalQuery && beforeColon.length >= 3) {
+        variations.push(beforeColon);
+      }
+      
+      // Remove everything after dash
+      const beforeDash = originalQuery.split(' - ')[0].trim();
+      if (beforeDash && beforeDash !== originalQuery && beforeDash.length >= 3) {
+        variations.push(beforeDash);
+      }
+      
+      return [...new Set(variations)]; // Remove duplicates
+    };
+
+    const searchVariations = createSearchVariations(query);
 
     setIsSearchingMetadata(true);
     setError(null);
     setMetadataSearchResults([]);
 
     try {
-      // Use searchGames instead of searchMetadata - it searches all providers including Steam
-      // and doesn't require IGDB to be configured
-      const response = await window.electronAPI.searchGames(query);
-      if (response.success && response.results && response.results.length > 0) {
-        // Sort results: prioritize Steam results first, then by release date (newest first), then exact matches
-        const normalizedQuery = query.toLowerCase().trim();
-        const sortedResults = response.results.sort((a: any, b: any) => {
-          // First, prioritize Steam results
-          const aIsSteam = a.source === 'steam' || a.steamAppId;
-          const bIsSteam = b.source === 'steam' || b.steamAppId;
-          if (aIsSteam && !bIsSteam) return -1;
-          if (!aIsSteam && bIsSteam) return 1;
-          
-          // Then, sort by release date (newest first)
-          const getDate = (result: any): number => {
-            if (result.releaseDate) {
-              if (typeof result.releaseDate === 'number') {
-                return result.releaseDate * 1000; // Convert Unix timestamp (seconds) to milliseconds
+      // Try multiple search variations to get more results
+      // Prioritize simplified queries first to avoid early exact-match returns
+      const allResults: any[] = [];
+      const searchedQueries = new Set<string>();
+      
+      // Reorder variations: put simplified queries first (without special chars, before colon, etc.)
+      // This helps get more results instead of early exact-match returns
+      const prioritizedVariations = [...searchVariations].sort((a, b) => {
+        // Prefer queries without special characters
+        const aHasSpecial = /[^\w\s]/.test(a);
+        const bHasSpecial = /[^\w\s]/.test(b);
+        if (aHasSpecial && !bHasSpecial) return 1;
+        if (!aHasSpecial && bHasSpecial) return -1;
+        // Prefer shorter queries (base names)
+        return a.length - b.length;
+      });
+      
+      // Search with each variation (prioritized order)
+      for (const searchVar of prioritizedVariations.slice(0, 3)) { // Limit to first 3 variations to avoid too many API calls
+        if (searchedQueries.has(searchVar.toLowerCase())) continue;
+        searchedQueries.add(searchVar.toLowerCase());
+        
+        try {
+          const response = await window.electronAPI.searchGames(searchVar);
+          if (response.success && response.results && response.results.length > 0) {
+            // Add results that we haven't seen yet (by Steam App ID or external ID)
+            for (const result of response.results) {
+              const resultId = result.steamAppId || result.externalId || result.id;
+              if (!allResults.find(r => (r.steamAppId || r.externalId || r.id) === resultId)) {
+                allResults.push(result);
               }
-              return new Date(result.releaseDate).getTime();
             }
-            if (result.year) {
-              return new Date(result.year, 0, 1).getTime();
+            // If we got multiple results, we can stop searching (we have enough)
+            // But continue if we only got 1 result (might be an early exact match)
+            if (response.results.length > 1) {
+              console.log(`[Fix Match] Found ${response.results.length} results with "${searchVar}", continuing to get more...`);
             }
-            return 0;
-          };
+          } else if (response.success && (!response.results || response.results.length === 0)) {
+            console.log(`[Fix Match] No results for variation "${searchVar}"`);
+          }
+        } catch (err) {
+          console.warn(`[Fix Match] Error searching with variation "${searchVar}":`, err);
+        }
+      }
+      
+      console.log(`[Fix Match] Total unique results found: ${allResults.length} from ${searchedQueries.size} search variations`);
+      
+      if (allResults.length > 0) {
+        const response = { success: true, results: allResults };
+        // Get the current game's Steam App ID if available
+        const currentSteamAppId = steamAppId;
+        
+        // Separate Steam results and other results
+        const steamResults = response.results.filter((result: any) => result.source === 'steam');
+        const otherResults = response.results.filter((result: any) => result.source !== 'steam');
+        
+        // Normalize query for matching
+        const normalizedQuery = query.toLowerCase().trim();
+        
+        // Helper function to normalize strings for fuzzy matching (remove special chars, normalize whitespace)
+        const normalizeForFuzzy = (str: string): string => {
+          return str.toLowerCase()
+            .replace(/[^\w\s]/g, '') // Remove special characters like ®, :, etc.
+            .replace(/\s+/g, ' ') // Normalize whitespace
+            .trim();
+        };
+        
+        // Helper function to calculate fuzzy match score (0-1, higher is better)
+        const calculateFuzzyScore = (query: string, resultTitle: string): number => {
+          const normalizedQuery = normalizeForFuzzy(query);
+          const normalizedResult = normalizeForFuzzy(resultTitle);
           
+          // Exact match after normalization
+          if (normalizedQuery === normalizedResult) {
+            return 1.0;
+          }
+          
+          // Query is contained in result (e.g., "call of duty" in "call of duty black ops 7")
+          if (normalizedResult.includes(normalizedQuery) && normalizedQuery.length >= 5) {
+            // Bonus if it starts with the query
+            if (normalizedResult.startsWith(normalizedQuery)) {
+              return 0.9;
+            }
+            return 0.8;
+          }
+          
+          // Result is contained in query (less common but still relevant)
+          if (normalizedQuery.includes(normalizedResult) && normalizedResult.length >= 5) {
+            return 0.7;
+          }
+          
+          // Word-based similarity
+          const queryWords = normalizedQuery.split(' ').filter(w => w.length > 2);
+          const resultWords = normalizedResult.split(' ').filter(w => w.length > 2);
+          
+          if (queryWords.length === 0 || resultWords.length === 0) {
+            return 0;
+          }
+          
+          // Calculate word match ratio
+          const matchingWords = queryWords.filter(word => resultWords.includes(word));
+          const matchRatio = matchingWords.length / Math.max(queryWords.length, resultWords.length);
+          
+          // If most words match, it's a good match
+          if (matchRatio >= 0.7) {
+            return 0.6 + (matchRatio - 0.7) * 0.3; // Scale 0.7-1.0 match ratio to 0.6-0.9 score
+          }
+          
+          // Partial word matches
+          const partialMatches = queryWords.filter(qWord => 
+            resultWords.some(rWord => rWord.includes(qWord) || qWord.includes(rWord))
+          );
+          if (partialMatches.length > 0) {
+            return 0.3 + (partialMatches.length / queryWords.length) * 0.3;
+          }
+          
+          return 0;
+        };
+        
+        // Helper function to get release date for sorting
+        const getDate = (result: any): number => {
+          if (result.releaseDate) {
+            if (typeof result.releaseDate === 'number') {
+              return result.releaseDate * 1000;
+            }
+            return new Date(result.releaseDate).getTime();
+          }
+          if (result.year) {
+            return new Date(result.year, 0, 1).getTime();
+          }
+          return 0;
+        };
+        
+        // Add fuzzy scores to all results (use original query for scoring, not searchQuery)
+        const resultsWithScores = [...steamResults, ...otherResults].map(result => ({
+          ...result,
+          fuzzyScore: calculateFuzzyScore(query, result.title || result.name || ''),
+        }));
+        
+        // Lower threshold to show more results - filter out only very poor matches (below 0.1)
+        // If we have few results, be even more lenient
+        const totalResultsCount = resultsWithScores.length;
+        const minScore = totalResultsCount < 5 ? 0.1 : 0.2;
+        const relevantResults = resultsWithScores.filter(r => r.fuzzyScore >= minScore);
+        
+        // If filtering removed all results, show all results regardless of score
+        const resultsToSort = relevantResults.length > 0 ? relevantResults : resultsWithScores;
+        
+        // Sort results: matching Steam App ID first, then by fuzzy score (best matches first), then by release date (newest first)
+        const sortedResults = resultsToSort.sort((a: any, b: any) => {
+          // First priority: matching Steam App ID
+          const aMatchesAppId = currentSteamAppId && a.steamAppId === currentSteamAppId;
+          const bMatchesAppId = currentSteamAppId && b.steamAppId === currentSteamAppId;
+          if (aMatchesAppId && !bMatchesAppId) return -1;
+          if (!aMatchesAppId && bMatchesAppId) return 1;
+          
+          // Second priority: fuzzy match score (higher is better)
+          if (Math.abs(a.fuzzyScore - b.fuzzyScore) > 0.05) { // Only if difference is significant
+            return b.fuzzyScore - a.fuzzyScore;
+          }
+          
+          // Third priority: release date (newest first)
           const aDate = getDate(a);
           const bDate = getDate(b);
           if (aDate !== bDate && aDate > 0 && bDate > 0) {
-            return bDate - aDate; // Newest first
+            return bDate - aDate;
           }
           
-          // Finally, prioritize exact matches
-          const aName = (a.title || a.name || '').toLowerCase().trim();
-          const bName = (b.title || b.name || '').toLowerCase().trim();
-          const aExact = aName === normalizedQuery;
-          const bExact = bName === normalizedQuery;
-          if (aExact && !bExact) return -1;
-          if (!aExact && bExact) return 1;
+          // Fourth priority: Steam results before others
+          const aIsSteam = a.source === 'steam';
+          const bIsSteam = b.source === 'steam';
+          if (aIsSteam && !bIsSteam) return -1;
+          if (!aIsSteam && bIsSteam) return 1;
           
           return 0;
         });
-        setMetadataSearchResults(sortedResults);
+        
+        const finalSortedResults = sortedResults;
+        
+        if (finalSortedResults.length === 0) {
+          setError('No matching results found. Try searching with a different game title or check your API configuration.');
+          setMetadataSearchResults([]);
+          return;
+        }
+        
+        setMetadataSearchResults(finalSortedResults);
       } else {
-        setError(response.error || 'No results found');
+        // No results found from any search variation
+        setError('No matching results found. Try searching with a different game title.');
+        setMetadataSearchResults([]);
       }
     } catch (err) {
       setError('Failed to search for games');
@@ -1068,65 +1494,62 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
   };
 
   // Apply selected metadata result
-  const handleApplyMetadata = async (result: any) => {
+  const handleApplyMetadata = async (result: { id: string; source: string; steamAppId?: string; title?: string }) => {
     if (!selectedGame) return;
 
-    const formatReleaseDate = (timestamp?: number): string => {
-      if (!timestamp) return '';
-      const date = new Date(timestamp * 1000);
-      return date.toISOString().split('T')[0];
-    };
+    setIsSearchingMetadata(true);
+    setError(null);
 
-    // Extract Steam App ID from result if available
-    const steamAppId = result.steamAppId || result.externalId || selectedGame.appId;
-    
     try {
-      // Fetch full metadata (artwork + text) for the selected result
-      // Use searchArtwork which now returns complete metadata including description, release date, etc.
-      const artwork = await window.electronAPI.searchArtwork(result.title || result.name || '', steamAppId);
+      const gameTitle = result.title || selectedGame.title;
+      const steamAppId = result.steamAppId || (result.source === 'steam' ? result.id.replace('steam-', '') : undefined);
       
-      // searchArtwork now returns complete metadata including text fields from Steam Store API
-      // No need for additional metadata fetching
-      const fullMetadata = artwork;
+      // Fetch full metadata using searchArtwork (works for staged games)
+      // This will refresh ALL metadata including images
+      const artwork = await window.electronAPI.searchArtwork(gameTitle, steamAppId);
       
-      updateGame(selectedGame.uuid, {
-        title: result.title || result.name || selectedGame.title,
-        description: fullMetadata?.description || result.summary || '',
-        releaseDate: fullMetadata?.releaseDate || formatReleaseDate(result.releaseDate) || '',
-        genres: fullMetadata?.genres || result.genres || [],
-        developers: fullMetadata?.developers || result.developers || [],
-        publishers: fullMetadata?.publishers || result.publishers || [],
-        categories: fullMetadata?.categories || result.categories || [],
-        ageRating: fullMetadata?.ageRating || result.ageRating || '',
-        rating: fullMetadata?.rating || result.rating || 0,
-        platform: result.platform || selectedGame.platform || 'steam',
-        boxArtUrl: fullMetadata?.boxArtUrl || artwork?.boxArtUrl || selectedGame.boxArtUrl,
-        bannerUrl: fullMetadata?.bannerUrl || artwork?.bannerUrl || artwork?.heroUrl || selectedGame.bannerUrl,
-        logoUrl: fullMetadata?.logoUrl || artwork?.logoUrl || selectedGame.logoUrl,
-        heroUrl: fullMetadata?.heroUrl || artwork?.heroUrl || selectedGame.heroUrl,
-        appId: steamAppId || selectedGame.appId,
-        status: 'ready',
-      });
-    } catch (err) {
-      console.error('Error fetching metadata:', err);
-      // If metadata fetch fails, still update with basic info from result
-      updateGame(selectedGame.uuid, {
-        title: result.title || result.name || selectedGame.title,
-        description: result.summary || '',
-        releaseDate: formatReleaseDate(result.releaseDate) || '',
-        genres: result.genres || [],
-        categories: result.categories || [],
-        ageRating: result.ageRating || '',
-        rating: result.rating || 0,
-        platform: result.platform || selectedGame.platform || 'steam',
-        appId: steamAppId || selectedGame.appId,
-        status: 'ready',
-      });
-    }
+      if (artwork) {
+        // Update the staged game with the new metadata - refresh everything
+        updateGame(selectedGame.uuid, {
+          title: gameTitle,
+          description: artwork.description || artwork.summary || '',
+          genres: artwork.genres || [],
+          releaseDate: artwork.releaseDate || '',
+          developers: artwork.developers || [],
+          publishers: artwork.publishers || [],
+          ageRating: artwork.ageRating || '',
+          rating: artwork.rating ? Math.round(artwork.rating) : 0,
+          platform: artwork.platforms?.join(', ') || artwork.platform || '',
+          // Refresh all images - use new values or empty string to clear old ones
+          boxArtUrl: artwork.boxArtUrl || '',
+          bannerUrl: artwork.bannerUrl || '',
+          logoUrl: artwork.logoUrl || '',
+          heroUrl: artwork.heroUrl || '',
+          screenshots: artwork.screenshots || [],
+          appId: steamAppId || selectedGame.appId,
+          status: 'ready',
+          // Preserve categories and other user edits
+          categories: selectedGame.categories || [],
+        });
+        
+        // Close the modal and return to game importer
+        setShowMetadataSearch(false);
+        setMetadataSearchResults([]);
+        setMetadataSearchQuery('');
+        setIsSearchingMetadata(false);
+        return;
+      }
 
-    setShowMetadataSearch(false);
-    setMetadataSearchResults([]);
-    setMetadataSearchQuery('');
+      // Fallback: Try to get metadata from the search result directly
+      // For IGDB or other sources, we might need to use fetchMetadataOnlyByProviderId
+      // But since we don't have a real game ID yet, we'll use searchArtwork as fallback
+      setError('Could not fetch metadata. Please try another result.');
+    } catch (err) {
+      setError('Failed to update metadata');
+      console.error('Error updating metadata:', err);
+    } finally {
+      setIsSearchingMetadata(false);
+    }
   };
 
   // Toggle game selection (unused but kept for potential future use)
@@ -1341,7 +1764,8 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
       // Convert StagedGame to Game
       const gamesToImport: Game[] = selectedGames.map(staged => {
         // If game has a Steam App ID (from SteamGridDB search or direct Steam scan), treat it as a Steam game
-        const hasSteamAppId = staged.appId && (staged.source === 'steam' || staged.appId.match(/^\d+$/));
+        // Check if appId is a numeric Steam App ID (all Steam App IDs are numeric)
+        const hasSteamAppId = staged.appId && (staged.source === 'steam' || /^\d+$/.test(staged.appId.toString()));
         const gameId = hasSteamAppId
           ? `steam-${staged.appId}`
           : `custom-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -1518,15 +1942,15 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
             {selectedGame ? (
               <>
                 {/* Images Section - Moved to top */}
-                <div className="p-6 space-y-4 border-b border-gray-700">
-                  <h3 className="text-lg font-semibold text-white">Images</h3>
+                <div className="p-4 space-y-3 border-b border-gray-700">
+                  <h3 className="text-base font-semibold text-white">Images</h3>
                   
                   {/* All Images in One Row */}
-                  <div className="grid grid-cols-3 gap-4">
+                  <div className="grid grid-cols-3 gap-3">
                     {/* Box Art */}
                     <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <label className="block text-sm font-medium text-gray-300">
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-xs font-medium text-gray-300">
                           Box Art
                         </label>
                         <div className="flex gap-1">
@@ -1555,7 +1979,7 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
                         className="cursor-pointer"
                       >
                         {selectedGame.boxArtUrl ? (
-                          <div className="w-full h-48 bg-gray-800 rounded border-2 border-blue-500 hover:border-blue-400 transition-colors flex items-center justify-center p-2">
+                          <div className="w-full h-32 bg-gray-800 rounded border-2 border-blue-500 hover:border-blue-400 transition-colors flex items-center justify-center p-1">
                             <img
                               src={selectedGame.boxArtUrl}
                               alt="Box Art"
@@ -1563,7 +1987,7 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
                             />
                           </div>
                         ) : (
-                          <div className="w-full h-48 bg-gray-700 rounded flex flex-col items-center justify-center text-gray-400 text-xs border-2 border-dashed border-gray-600 hover:border-gray-500 transition-colors">
+                          <div className="w-full h-32 bg-gray-700 rounded flex flex-col items-center justify-center text-gray-400 text-xs border-2 border-dashed border-gray-600 hover:border-gray-500 transition-colors">
                             <span>Click to search</span>
                             <span className="text-[10px] mt-1">Box Art</span>
                           </div>
@@ -1573,8 +1997,8 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
 
                     {/* Hero/Banner */}
                     <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <label className="block text-sm font-medium text-gray-300">
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-xs font-medium text-gray-300">
                           Hero
                         </label>
                         <div className="flex gap-1">
@@ -1606,10 +2030,10 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
                           <img
                             src={selectedGame.bannerUrl || selectedGame.heroUrl}
                             alt="Hero"
-                            className="w-full h-48 object-cover rounded border-2 border-blue-500 hover:border-blue-400 transition-colors"
+                            className="w-full h-32 object-cover rounded border-2 border-blue-500 hover:border-blue-400 transition-colors"
                           />
                         ) : (
-                          <div className="w-full h-48 bg-gray-700 rounded flex flex-col items-center justify-center text-gray-400 text-xs border-2 border-dashed border-gray-600 hover:border-gray-500 transition-colors">
+                          <div className="w-full h-32 bg-gray-700 rounded flex flex-col items-center justify-center text-gray-400 text-xs border-2 border-dashed border-gray-600 hover:border-gray-500 transition-colors">
                             <span>Click to search</span>
                             <span className="text-[10px] mt-1">Hero/Banner</span>
                           </div>
@@ -1619,8 +2043,8 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
 
                     {/* Logo */}
                     <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <label className="block text-sm font-medium text-gray-300">
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-xs font-medium text-gray-300">
                           Logo
                         </label>
                         <div className="flex gap-1">
@@ -1649,7 +2073,7 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
                         className="cursor-pointer"
                       >
                         {selectedGame.logoUrl ? (
-                          <div className="w-full h-24 bg-gray-800 rounded border-2 border-blue-500 hover:border-blue-400 transition-colors flex items-center justify-center p-2">
+                          <div className="w-full h-16 bg-gray-800 rounded border-2 border-blue-500 hover:border-blue-400 transition-colors flex items-center justify-center p-1">
                             <img
                               src={selectedGame.logoUrl}
                               alt="Logo"
@@ -1657,7 +2081,7 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
                             />
                           </div>
                         ) : (
-                          <div className="w-full h-24 bg-gray-700 rounded flex flex-col items-center justify-center text-gray-400 text-xs border-2 border-dashed border-gray-600 hover:border-gray-500 transition-colors">
+                          <div className="w-full h-16 bg-gray-700 rounded flex flex-col items-center justify-center text-gray-400 text-xs border-2 border-dashed border-gray-600 hover:border-gray-500 transition-colors">
                             <span>Click to search</span>
                             <span className="text-[10px] mt-1">Logo</span>
                           </div>
@@ -1665,10 +2089,80 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
                       </div>
                     </div>
                   </div>
+
+                  {/* Categories Section */}
+                  <div className="mt-3">
+                    <label className="block text-xs font-medium text-gray-400 mb-2">
+                      Categories
+                    </label>
+                    <div className="flex gap-2 mb-2">
+                      <input
+                        type="text"
+                        value={categoryInput}
+                        onChange={(e) => setCategoryInput(e.target.value)}
+                        onKeyPress={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            addCategory(categoryInput);
+                          }
+                        }}
+                        className="flex-1 px-2 py-1.5 text-sm bg-gray-700 border border-gray-600 rounded text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Add category"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => addCategory(categoryInput)}
+                        disabled={!categoryInput.trim()}
+                        className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-white font-medium rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                      >
+                        +
+                      </button>
+                    </div>
+                    
+                    {/* Existing Categories for Quick Selection */}
+                    <div className="mb-3">
+                      <p className="text-xs text-gray-500 mb-2">Quick select existing categories:</p>
+                      <div className="flex flex-wrap gap-2">
+                        {DEFAULT_CATEGORIES
+                          .filter(cat => !selectedGame.categories?.includes(cat))
+                          .map((category) => (
+                            <button
+                              key={category}
+                              type="button"
+                              onClick={() => addCategory(category)}
+                              className="px-2 py-1 bg-gray-700/50 hover:bg-gray-700 border border-gray-600 hover:border-gray-500 rounded text-xs text-gray-300 transition-colors"
+                            >
+                              + {category}
+                            </button>
+                          ))}
+                      </div>
+                    </div>
+                    
+                    {/* Selected Categories */}
+                    {selectedGame.categories && selectedGame.categories.length > 0 && (
+                      <div className="flex flex-wrap gap-2">
+                        {selectedGame.categories.map((category, idx) => (
+                          <span
+                            key={idx}
+                            className="inline-flex items-center gap-1 px-2 py-1 bg-blue-600/20 border border-blue-500/50 rounded text-xs text-blue-300"
+                          >
+                            {category}
+                            <button
+                              type="button"
+                              onClick={() => removeCategory(category)}
+                              className="text-blue-300 hover:text-blue-100"
+                            >
+                              ×
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {/* Metadata Form */}
-                <div className="p-4 space-y-3">
+                <div className="p-3 space-y-2">
                   {/* Basic Info */}
                   <div className="grid grid-cols-2 gap-3">
                     <div>
@@ -1782,7 +2276,7 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
                   </div>
 
                   {/* Metadata Grid - 4 columns for compact layout */}
-                  <div className="grid grid-cols-4 gap-3">
+                  <div className="grid grid-cols-4 gap-2">
                     <div>
                       <label className="block text-xs font-medium text-gray-400 mb-1">
                         Release Date
@@ -1901,52 +2395,86 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
                         </div>
                       </div>
                       <div className="flex-1 overflow-y-auto p-4">
-                        {metadataSearchResults.length > 0 ? (
-                          <div className="space-y-3">
-                            {metadataSearchResults.map((result, idx) => (
-                              <div
-                                key={idx}
-                                onClick={() => handleApplyMetadata(result)}
-                                className="cursor-pointer p-4 bg-gray-800 hover:bg-gray-700 rounded-lg border-2 border-gray-700 hover:border-blue-500 transition-colors"
-                              >
-                                <div className="flex gap-4">
-                                  {result.coverUrl && (
-                                    <img
-                                      src={result.coverUrl}
-                                      alt={result.name}
-                                      className="w-24 h-32 object-cover rounded"
-                                    />
-                                  )}
-                                  <div className="flex-1">
-                                    <h4 className="text-lg font-semibold text-white mb-2">
-                                      {result.name}
-                                    </h4>
-                                    {result.summary && (
-                                      <p className="text-sm text-gray-300 line-clamp-3 mb-2">
-                                        {result.summary}
-                                      </p>
-                                    )}
-                                    <div className="flex flex-wrap gap-2 text-xs text-gray-400">
-                                      {result.releaseDate && (
-                                        <span>
-                                          Release: {new Date(result.releaseDate * 1000).getFullYear()}
-                                        </span>
-                                      )}
-                                      {result.genres && result.genres.length > 0 && (
-                                        <span>Genres: {result.genres.join(', ')}</span>
-                                      )}
-                                      {result.rating && (
-                                        <span>Rating: {result.rating.toFixed(1)}</span>
-                                      )}
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            ))}
+                        {isSearchingMetadata && metadataSearchResults.length === 0 && (
+                          <div className="flex items-center gap-2 text-sm text-gray-400">
+                            <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                            </svg>
+                            Searching for metadata matches...
                           </div>
-                        ) : (
+                        )}
+                        {metadataSearchResults.length > 0 ? (
+                          <div className="max-h-96 overflow-y-auto">
+                            <div className="space-y-2">
+                              {metadataSearchResults.map((result, idx) => {
+                                // Extract release date properly - show full date, not just year
+                                let displayDate: string | undefined;
+                                if (result.releaseDate) {
+                                  // Handle both Unix timestamp (seconds) and Date objects
+                                  if (typeof result.releaseDate === 'number') {
+                                    const date = new Date(result.releaseDate * 1000);
+                                    displayDate = date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+                                  } else if (typeof result.releaseDate === 'string') {
+                                    const date = new Date(result.releaseDate);
+                                    if (!isNaN(date.getTime())) {
+                                      displayDate = date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+                                    } else {
+                                      // Try parsing as ISO date string
+                                      displayDate = result.releaseDate;
+                                    }
+                                  }
+                                } else if (result.year) {
+                                  // Fallback to year only if no full date available
+                                  displayDate = result.year.toString();
+                                }
+                                
+                                return (
+                                  <button
+                                    key={result.id || result.externalId || idx}
+                                    onClick={async () => {
+                                      await handleApplyMetadata({ 
+                                        id: String(result.id || result.externalId || ''), 
+                                        source: result.source, 
+                                        steamAppId: result.steamAppId, 
+                                        title: result.title || result.name 
+                                      });
+                                    }}
+                                    disabled={isSearchingMetadata}
+                                    className="relative w-full text-left p-3 text-sm bg-gray-800 hover:bg-gray-700 rounded border border-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-3 cursor-pointer"
+                                  >
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-white font-medium text-sm truncate" title={result.title || result.name}>
+                                        {result.title || result.name}
+                                      </p>
+                                      <div className="flex items-center gap-2 mt-1">
+                                        <span className={`text-xs ${result.source === 'steam' ? 'text-blue-400' : 'text-gray-400'}`}>
+                                          {result.source === 'steam' ? 'Steam' : result.source === 'igdb' ? 'IGDB' : result.source === 'steamgriddb' ? 'SGDB' : result.source}
+                                        </span>
+                                        {result.steamAppId && (
+                                          <span className="text-xs text-gray-500">App ID: {result.steamAppId}</span>
+                                        )}
+                                        {displayDate && (
+                                          <span className="text-xs text-gray-400">• {displayDate}</span>
+                                        )}
+                                      </div>
+                                    </div>
+                                    {isSearchingMetadata && (
+                                      <div className="absolute inset-0 bg-black/50 rounded flex items-center justify-center">
+                                        <svg className="animate-spin h-5 w-5 text-blue-500" fill="none" viewBox="0 0 24 24">
+                                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                        </svg>
+                                      </div>
+                                    )}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ) : !isSearchingMetadata && (
                           <div className="text-center text-gray-400 py-8">
-                            {isSearchingMetadata ? 'Searching...' : 'No results. Try searching for a game title.'}
+                            No results. Try searching for a game title.
                           </div>
                         )}
                       </div>

@@ -1350,6 +1350,7 @@ function App() {
           game={activeGame} 
           onPlay={handlePlay} 
           onSaveGame={handleSaveGame}
+          onUpdateGameInState={updateGameInState}
           onOpenInGameManager={(game, tab) => {
             setGameManagerInitialGameId(game.id);
             setGameManagerInitialTab(tab);

@@ -13,9 +13,10 @@ interface GameDetailsPanelProps {
   onOpenInGameManager?: (game: Game, tab: 'images' | 'metadata') => void;
   onFavorite?: (game: Game) => void;
   onEdit?: (game: Game) => void;
+  onUpdateGameInState?: (game: Game) => void;
 }
 
-export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game, onPlay, onSaveGame, onOpenInGameManager, onFavorite, onEdit }) => {
+export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game, onPlay, onSaveGame, onOpenInGameManager, onFavorite, onEdit, onUpdateGameInState }) => {
   const [width, setWidth] = useState(800);
   const [fanartHeight, setFanartHeight] = useState(320);
   const [descriptionHeight, setDescriptionHeight] = useState(400);
@@ -43,6 +44,8 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game, onPlay
   const [imageSearchModal, setImageSearchModal] = useState<{ type: 'artwork' | 'boxart' } | null>(null);
   const [showLogoResizeDialog, setShowLogoResizeDialog] = useState(false);
   const [showBoxartResizeDialog, setShowBoxartResizeDialog] = useState(false);
+  const [localLogoSize, setLocalLogoSize] = useState<number | undefined>(undefined);
+  const [isSavingLogoSize, setIsSavingLogoSize] = useState(false);
 
   // Font and style preferences
   const [titleFontSize, setTitleFontSize] = useState(24);
@@ -88,6 +91,16 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game, onPlay
     };
     loadPreferences();
   }, []);
+
+  // Initialize local logo size when dialog opens, reset when it closes
+  useEffect(() => {
+    if (showLogoResizeDialog && game) {
+      setLocalLogoSize(game.logoSize);
+    } else if (!showLogoResizeDialog) {
+      setLocalLogoSize(undefined);
+      setIsSavingLogoSize(false);
+    }
+  }, [showLogoResizeDialog, game?.logoSize]);
 
   // Save preferences when they change
   useEffect(() => {
@@ -291,7 +304,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game, onPlay
               alt={game.title}
               className="max-w-full max-h-full object-contain cursor-pointer drop-shadow-2xl"
               style={{ 
-                maxHeight: `${game.logoSize || 100}px`,
+                maxHeight: `${showLogoResizeDialog && localLogoSize !== undefined ? localLogoSize : (game.logoSize || 100)}px`,
                 ...(game.removeLogoTransparency ? {
                   backgroundColor: 'rgba(0, 0, 0, 0.5)',
                   padding: '8px',
@@ -310,7 +323,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game, onPlay
           ) : (
             <div 
               className="px-4 py-2 bg-gray-800/80 rounded border border-gray-600 text-gray-400 text-xs cursor-pointer hover:bg-gray-700/80 transition-colors"
-              onClick={() => setImageSearchModal({ type: 'artwork' })}
+              onClick={() => onOpenInGameManager?.(game, 'images')}
             >
               Click to add logo
             </div>
@@ -352,7 +365,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game, onPlay
             <div 
               className="aspect-[2/3] bg-gray-800 rounded border border-gray-600 flex items-center justify-center text-gray-400 text-xs text-center px-2 cursor-pointer hover:bg-gray-700 transition-colors"
               style={{ width: `${boxartWidth}px` }}
-              onClick={() => setImageSearchModal({ type: 'boxart' })}
+              onClick={() => onOpenInGameManager?.(game, 'images')}
               onContextMenu={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -763,28 +776,59 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game, onPlay
             <h3 className="text-lg font-semibold text-white mb-4">Resize Logo</h3>
             <div className="space-y-4">
               <div>
-                <label className="text-sm text-gray-400 mb-2 block">Logo Height: {game.logoSize || 48}px</label>
+                <label className="text-sm text-gray-400 mb-2 block">Logo Height: {localLogoSize !== undefined ? localLogoSize : (game.logoSize || 48)}px</label>
                 <input
                   type="range"
                   min="24"
                   max="200"
-                  value={game.logoSize || 48}
-                  onChange={async (e) => {
+                  value={localLogoSize !== undefined ? localLogoSize : (game.logoSize || 48)}
+                  onChange={(e) => {
                     const newSize = Number(e.target.value);
-                    if (onSaveGame) {
-                      const updatedGame = { ...game, logoSize: newSize };
-                      await onSaveGame(updatedGame);
-                    }
+                    setLocalLogoSize(newSize);
                   }}
                   className="w-full"
                 />
               </div>
               <div className="flex gap-2 justify-end">
                 <button
-                  onClick={() => setShowLogoResizeDialog(false)}
-                  className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded transition-colors"
+                  onClick={async () => {
+                    if (isSavingLogoSize || !game || localLogoSize === undefined) {
+                      return;
+                    }
+                    
+                    setIsSavingLogoSize(true);
+                    try {
+                      // Ensure we have the latest game data with all properties preserved
+                      const updatedGame = { 
+                        ...game, 
+                        logoSize: localLogoSize,
+                        // Explicitly preserve all image URLs to prevent them from being lost
+                        bannerUrl: game.bannerUrl,
+                        boxArtUrl: game.boxArtUrl,
+                        logoUrl: game.logoUrl,
+                        heroUrl: game.heroUrl
+                      };
+                      
+                      // Update UI immediately without full reload to prevent banner from disappearing
+                      if (onUpdateGameInState) {
+                        onUpdateGameInState(updatedGame);
+                      }
+                      
+                      // Save to disk in the background
+                      if (onSaveGame) {
+                        await onSaveGame(updatedGame);
+                      }
+                    } catch (error) {
+                      console.error('Error saving logo size:', error);
+                    } finally {
+                      setIsSavingLogoSize(false);
+                      setShowLogoResizeDialog(false);
+                    }
+                  }}
+                  disabled={isSavingLogoSize || localLogoSize === undefined}
+                  className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Done
+                  {isSavingLogoSize ? 'Saving...' : 'Done'}
                 </button>
               </div>
             </div>

@@ -173,7 +173,7 @@ export class GameStore {
           : `https://cdn.cloudflare.steamstatic.com/steam/apps/${steamGame.appId}/header.jpg`;
         let bannerUrl = lockedFields.bannerUrl 
           ? existingGame.bannerUrl 
-          : `https://cdn.cloudflare.steamstatic.com/steam/apps/${steamGame.appId}/library_600x900.jpg`;
+          : `https://cdn.cloudflare.steamstatic.com/steam/apps/${steamGame.appId}/Library_600x900.jpg`;
         
         // Cache images if enabled and not locked
         if (shouldCacheImages && imageCacheService && !lockedFields.boxArtUrl && !lockedFields.bannerUrl) {
@@ -193,7 +193,7 @@ export class GameStore {
       } else if (!existingGame) {
         // New game - create fresh
         let boxArtUrl = `https://cdn.cloudflare.steamstatic.com/steam/apps/${steamGame.appId}/header.jpg`;
-        let bannerUrl = `https://cdn.cloudflare.steamstatic.com/steam/apps/${steamGame.appId}/library_600x900.jpg`;
+        let bannerUrl = `https://cdn.cloudflare.steamstatic.com/steam/apps/${steamGame.appId}/Library_600x900.jpg`;
         
         // Cache images if enabled
         if (shouldCacheImages && imageCacheService) {
@@ -361,7 +361,7 @@ export class GameStore {
     
     // Simple format: onyx-local://gameId-type
     // The protocol handler looks for files like: {gameId}-{type}.{ext}
-    const extensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
+    const extensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.webm'];
     for (const ext of extensions) {
       const filePath = path.join(cacheDir, `${urlPart}${ext}`);
       if (require('node:fs').existsSync(filePath)) {

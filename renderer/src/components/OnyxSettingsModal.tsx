@@ -132,7 +132,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
   const [steamAuthState, setSteamAuthState] = useState<{ authenticated: boolean; steamId?: string; username?: string }>({ authenticated: false });
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [manualFolders, setManualFolders] = useState<string[]>([]);
-  const [manualFolderConfigs, setManualFolderConfigs] = useState<Record<string, { id: string; name: string; path: string; enabled: boolean }>>({});
+  const [manualFolderConfigs, setManualFolderConfigs] = useState<Record<string, { id: string; name: string; path: string; enabled: boolean; autoCategory?: string[] }>>({});
   // const [isImporting, setIsImporting] = useState(false);
   const [settings, setSettings] = useState<OnyxSettings>({
     minimizeToTray: false,
@@ -710,7 +710,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
       id: 'general',
       label: 'General',
       icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
         </svg>
@@ -720,7 +720,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
       id: 'apps',
       label: 'Apps',
       icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
         </svg>
@@ -730,7 +730,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
       id: 'folders',
       label: 'Folders',
       icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
         </svg>
       ),
@@ -739,7 +739,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
       id: 'apis',
       label: "API's",
       icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
         </svg>
       ),
@@ -748,7 +748,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
       id: 'reset',
       label: 'Reset',
       icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
         </svg>
       ),
@@ -757,7 +757,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
       id: 'about',
       label: 'About',
       icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
       ),
@@ -772,20 +772,20 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
         onClick={onClose}
       />
       
-      {/* Modal - Full Screen with 5% padding */}
-      <div className="fixed inset-0 z-50" style={{ padding: '5%' }}>
+      {/* Modal - Full Screen with 3% padding */}
+      <div className="fixed inset-0 z-50" style={{ padding: '3%' }}>
         <div 
           className="bg-gray-800 rounded-xl shadow-2xl border border-gray-700/50 w-full h-full flex flex-col overflow-hidden"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="px-6 py-5 border-b border-gray-700/50 bg-gray-800/95 backdrop-blur-sm">
+          <div className="px-4 py-2 border-b border-gray-700/50 bg-gray-800/95 backdrop-blur-sm">
             <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-bold text-white flex items-center gap-3">
+              <h2 className="text-lg font-bold text-white flex items-center gap-2">
                 <img 
                   src={iconPng} 
                   alt="Onyx" 
-                  className="w-7 h-7"
+                  className="w-5 h-5"
                   onError={(e) => {
                     const target = e.target as HTMLImageElement;
                     target.src = iconSvg;
@@ -797,7 +797,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                 onClick={onClose}
                 className="text-gray-400 hover:text-white transition-colors p-1 rounded-lg hover:bg-gray-700"
               >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
@@ -805,13 +805,13 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
           </div>
 
           {/* Tabs */}
-          <div className="px-6 pt-4 border-b border-gray-700/50 bg-gray-800/50">
+          <div className="px-4 pt-2 pb-1 border-b border-gray-700/50 bg-gray-800/50">
             <div className="flex flex-wrap gap-1">
               {tabs.map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center gap-2 px-4 py-2.5 rounded-t-lg font-medium transition-all ${
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-t-lg text-sm font-medium transition-all ${
                     activeTab === tab.id
                       ? 'bg-gray-800 text-blue-400 border-b-2 border-blue-500'
                       : 'text-gray-400 hover:text-gray-300 hover:bg-gray-700/50'
@@ -1440,6 +1440,87 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                                       </svg>
                                     </button>
                                   </div>
+                                </div>
+                                
+                                {/* Auto Category Selection */}
+                                <div>
+                                  <label className="block text-xs text-gray-400 mb-0.5">
+                                    Auto Category (optional)
+                                  </label>
+                                  <div className="flex gap-1.5 mb-1.5">
+                                    <input
+                                      type="text"
+                                      value={folderConfig.autoCategory?.join(', ') || ''}
+                                      onChange={(e) => {
+                                        const categories = e.target.value.split(',').map(c => c.trim()).filter(c => c);
+                                        const updated = { ...folderConfig, autoCategory: categories };
+                                        setManualFolderConfigs({ ...manualFolderConfigs, [folderConfig.id]: updated });
+                                      }}
+                                      onBlur={async () => {
+                                        const config = manualFolderConfigs[folderConfig.id];
+                                        if (config && window.electronAPI.saveManualFolderConfig) {
+                                          await window.electronAPI.saveManualFolderConfig(config);
+                                        }
+                                      }}
+                                      className="flex-1 px-1.5 py-1 bg-gray-800 border border-gray-600 rounded text-xs text-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                      placeholder="Games, Apps, VR (comma-separated)"
+                                    />
+                                  </div>
+                                  <div className="flex flex-wrap gap-1">
+                                    {(['Games', 'Apps', 'VR'] as const).map((cat) => {
+                                      const isSelected = folderConfig.autoCategory?.includes(cat);
+                                      return (
+                                        <button
+                                          key={cat}
+                                          type="button"
+                                          onClick={async () => {
+                                            const current = folderConfig.autoCategory || [];
+                                            const updated = isSelected
+                                              ? current.filter(c => c !== cat)
+                                              : [...current, cat];
+                                            const updatedConfig = { ...folderConfig, autoCategory: updated };
+                                            setManualFolderConfigs({ ...manualFolderConfigs, [folderConfig.id]: updatedConfig });
+                                            if (window.electronAPI.saveManualFolderConfig) {
+                                              await window.electronAPI.saveManualFolderConfig(updatedConfig);
+                                            }
+                                          }}
+                                          className={`px-2 py-0.5 text-xs rounded transition-colors ${
+                                            isSelected
+                                              ? 'bg-blue-600 text-white'
+                                              : 'bg-gray-700/50 text-gray-300 hover:bg-gray-700'
+                                          }`}
+                                        >
+                                          {isSelected ? '✓' : '+'} {cat}
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                  {folderConfig.autoCategory && folderConfig.autoCategory.length > 0 && (
+                                    <div className="mt-1.5 flex flex-wrap gap-1">
+                                      {folderConfig.autoCategory.map((cat, idx) => (
+                                        <span
+                                          key={idx}
+                                          className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-blue-600/20 border border-blue-500/50 rounded text-xs text-blue-300"
+                                        >
+                                          {cat}
+                                          <button
+                                            type="button"
+                                            onClick={async () => {
+                                              const updated = folderConfig.autoCategory?.filter(c => c !== cat) || [];
+                                              const updatedConfig = { ...folderConfig, autoCategory: updated.length > 0 ? updated : undefined };
+                                              setManualFolderConfigs({ ...manualFolderConfigs, [folderConfig.id]: updatedConfig });
+                                              if (window.electronAPI.saveManualFolderConfig) {
+                                                await window.electronAPI.saveManualFolderConfig(updatedConfig);
+                                              }
+                                            }}
+                                            className="text-blue-300 hover:text-blue-100"
+                                          >
+                                            ×
+                                          </button>
+                                        </span>
+                                      ))}
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             )}

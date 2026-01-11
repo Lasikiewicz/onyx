@@ -2,6 +2,7 @@ export interface APICredentials {
   igdbClientId?: string;
   igdbClientSecret?: string;
   steamGridDBApiKey?: string;
+  rawgApiKey?: string;
 }
 
 interface APICredentialsSchema {
@@ -24,6 +25,7 @@ export class APICredentialsService {
             igdbClientId: undefined,
             igdbClientSecret: undefined,
             steamGridDBApiKey: undefined,
+            rawgApiKey: undefined,
           },
         },
       });
@@ -47,6 +49,7 @@ export class APICredentialsService {
       igdbClientId: undefined,
       igdbClientSecret: undefined,
       steamGridDBApiKey: undefined,
+      rawgApiKey: undefined,
     });
   }
 
@@ -59,6 +62,7 @@ export class APICredentialsService {
       igdbClientId: undefined,
       igdbClientSecret: undefined,
       steamGridDBApiKey: undefined,
+      rawgApiKey: undefined,
     });
     store.set('credentials', { ...current, ...credentials });
   }
@@ -68,10 +72,7 @@ export class APICredentialsService {
    */
   async clearCredentials(): Promise<void> {
     const store = await this.ensureStore();
-    store.set('credentials', {
-      igdbClientId: undefined,
-      igdbClientSecret: undefined,
-      steamGridDBApiKey: undefined,
-    });
+    // Use delete() to properly remove the credentials key
+    store.delete('credentials');
   }
 }

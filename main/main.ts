@@ -8,6 +8,7 @@ import { GameStore, type Game } from './GameStore.js';
 import { MetadataFetcherService, IGDBConfig } from './MetadataFetcherService.js';
 import { LauncherService } from './LauncherService.js';
 import { IGDBService } from './IGDBService.js';
+import { RAWGService } from './RAWGService.js';
 import { AppConfigService } from './AppConfigService.js';
 import { XboxService } from './XboxService.js';
 import { UserPreferencesService } from './UserPreferencesService.js';
@@ -590,6 +591,7 @@ const steamAuthService = new SteamAuthService();
 // Initialize IGDB service if credentials are available
 let igdbService: IGDBService | null = null;
 let steamGridDBService: import('./SteamGridDBService.js').SteamGridDBService | null = null;
+let rawgService: RAWGService | null = null;
 
 /**
  * Utility function to add a timeout to any promise
@@ -672,11 +674,34 @@ const initializeSteamGridDBService = async () => {
   }
 };
 
+// Function to initialize RAWG service with API key
+const initializeRAWGService = async () => {
+  try {
+    const storedCreds = await apiCredentialsService.getCredentials();
+    const rawgApiKey = storedCreds.rawgApiKey || process.env.RAWG_API_KEY;
+    
+    if (rawgApiKey) {
+      rawgService = new RAWGService(rawgApiKey);
+      console.log('RAWG service initialized');
+      return true;
+    } else {
+      console.warn('RAWG API key not found. RAWG features will be unavailable.');
+      rawgService = null;
+      return false;
+    }
+  } catch (error) {
+    console.error('Error initializing RAWG service:', error);
+    rawgService = null;
+    return false;
+  }
+};
+
 // Initialize metadata fetcher with providers
 const metadataFetcher = new MetadataFetcherService(
   null, // IGDB service (will be set after initialization)
   null, // SteamGridDB service (will be set after initialization)
-  steamService // Steam service (always available)
+  steamService, // Steam service (always available)
+  null // RAWG service (will be set after initialization)
 );
 
 // Function to update metadata fetcher with initialized services
@@ -684,6 +709,7 @@ const updateMetadataFetcher = () => {
   metadataFetcher.setIGDBService(igdbService);
   metadataFetcher.setSteamGridDBService(steamGridDBService);
   metadataFetcher.setSteamService(steamService);
+  metadataFetcher.setRAWGService(rawgService);
 };
 
 const launcherService = new LauncherService(gameStore);
@@ -781,6 +807,7 @@ async function buildTrayContextMenu(): Promise<Electron.Menu> {
 (async () => {
   await initializeIGDBService();
   await initializeSteamGridDBService();
+  await initializeRAWGService();
   updateMetadataFetcher();
 })();
 
@@ -1003,10 +1030,34 @@ ipcMain.handle('app:reset', async () => {
     await userPreferencesService.resetPreferences();
     await appConfigService.clearAppConfigs();
     await apiCredentialsService.clearCredentials();
+    await steamAuthService.clearAuth();
+    
+    // Clear cached images (both current and old cache directories)
+    await imageCacheService.clearCache();
+    
+    // Also clear old cache directory if it exists (fallback location)
+    try {
+      const { readdirSync, unlinkSync } = require('node:fs');
+      const oldCacheDir = path.join(app.getPath('userData'), 'cache', 'images');
+      if (existsSync(oldCacheDir)) {
+        const files = readdirSync(oldCacheDir);
+        for (const file of files) {
+          const ext = path.extname(file).toLowerCase();
+          if (['.jpg', '.jpeg', '.png', '.gif', '.webp', '.webm'].includes(ext)) {
+            unlinkSync(path.join(oldCacheDir, file));
+          }
+        }
+        console.log('[Reset] Cleared old cache directory:', oldCacheDir);
+      }
+    } catch (oldCacheError) {
+      // Non-fatal - old cache directory might not exist
+      console.warn('[Reset] Could not clear old cache directory:', oldCacheError);
+    }
     
     // Reinitialize services (will be null since credentials are cleared)
     await initializeIGDBService();
     await initializeSteamGridDBService();
+    await initializeRAWGService();
     // Update metadata fetcher to remove providers that are no longer available
     updateMetadataFetcher();
     
@@ -1258,15 +1309,325 @@ ipcMain.handle('metadata:searchMetadata', async (_event, gameTitle: string) => {
   }
 });
 
+// Helper function to search Steam Store for App ID (using Steam Store search page)
+// Based on SteamDB.info's approach: parse Steam Store pages to get App IDs
+async function searchSteamDBForAllAppIds(gameName: string, normalizedTitle: string): Promise<string[]> {
+  try {
+    // Use Steam Store search page - SteamDB.info parses store pages for data
+    const searchUrl = `https://store.steampowered.com/search/?term=${encodeURIComponent(gameName)}&category1=998`;
+    const response = await fetch(searchUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+      }
+    });
+    
+    if (!response.ok) {
+      console.warn(`[SteamDB Search] Steam Store search returned status ${response.status}`);
+      return [];
+    }
+    
+    const html = await response.text();
+    
+    // Extract App IDs using multiple methods (Steam uses various formats):
+    const appIds: string[] = [];
+    
+    // Method 1: Look for href="/app/123456/" or href='/app/123456/' (most common)
+    const hrefMatches = html.match(/href=["']\/app\/(\d+)\//g);
+    if (hrefMatches) {
+      console.log(`[SteamDB Search] Found ${hrefMatches.length} href matches`);
+      for (const match of hrefMatches) {
+        const appIdMatch = match.match(/\/app\/(\d+)\//);
+        if (appIdMatch && appIdMatch[1]) {
+          appIds.push(appIdMatch[1]);
+        }
+      }
+    }
+    
+    // Method 2: Look for data-ds-appid="123456" (Steam uses this attribute)
+    const dataAppIdMatches = html.match(/data-ds-appid=["'](\d+)["']/g);
+    if (dataAppIdMatches) {
+      console.log(`[SteamDB Search] Found ${dataAppIdMatches.length} data-ds-appid matches`);
+      for (const match of dataAppIdMatches) {
+        const appIdMatch = match.match(/data-ds-appid=["'](\d+)["']/);
+        if (appIdMatch && appIdMatch[1]) {
+          appIds.push(appIdMatch[1]);
+        }
+      }
+    }
+    
+    // Method 3: Look for data-ds-bundleid (bundles also contain app IDs sometimes)
+    const bundleMatches = html.match(/data-ds-bundleid=["'](\d+)["']/g);
+    if (bundleMatches) {
+      console.log(`[SteamDB Search] Found ${bundleMatches.length} bundle matches`);
+    }
+    
+    // Method 4: Look for JSON data embedded in script tags (Steam sometimes embeds search results as JSON)
+    const scriptMatches = html.match(/<script[^>]*>[\s\S]*?<\/script>/gi);
+    if (scriptMatches) {
+      console.log(`[SteamDB Search] Found ${scriptMatches.length} script tags, searching for JSON data...`);
+      for (const script of scriptMatches) {
+        // Look for JSON objects with app IDs
+        const jsonMatches = script.match(/"appid"\s*:\s*(\d+)/g);
+        if (jsonMatches) {
+          console.log(`[SteamDB Search] Found ${jsonMatches.length} appid entries in JSON`);
+          for (const match of jsonMatches) {
+            const appIdMatch = match.match(/"appid"\s*:\s*(\d+)/);
+            if (appIdMatch && appIdMatch[1]) {
+              appIds.push(appIdMatch[1]);
+            }
+          }
+        }
+        // Also look for app IDs in other JSON formats
+        const altJsonMatches = script.match(/appid["']?\s*[:=]\s*["']?(\d+)/gi);
+        if (altJsonMatches) {
+          for (const match of altJsonMatches) {
+            const appIdMatch = match.match(/appid["']?\s*[:=]\s*["']?(\d+)/i);
+            if (appIdMatch && appIdMatch[1]) {
+              appIds.push(appIdMatch[1]);
+            }
+          }
+        }
+      }
+    }
+    
+    // Get unique App IDs
+    const uniqueAppIds = [...new Set(appIds)];
+    
+    if (uniqueAppIds.length === 0) {
+      console.log(`[SteamDB Search] No App IDs found in Steam Store search results for "${gameName}"`);
+      console.log(`[SteamDB Search] HTML length: ${html.length}, checking if page loaded correctly...`);
+      // Debug: check if we got HTML at all
+      if (html.length < 1000) {
+        console.warn(`[SteamDB Search] HTML response seems too short (${html.length} chars), might be an error page`);
+      }
+      return [];
+    }
+    
+    console.log(`[SteamDB Search] Found ${uniqueAppIds.length} unique App IDs in Steam Store search for "${gameName}"`);
+    console.log(`[SteamDB Search] First 5 App IDs: ${uniqueAppIds.slice(0, 5).join(', ')}`);
+    
+    // Return all App IDs found (we'll filter and sort them later)
+    // Limit to first 50 to avoid too many API calls
+    return uniqueAppIds.slice(0, 50);
+  } catch (err) {
+    console.warn(`[SteamDB Search] Error searching Steam Store for "${gameName}":`, err);
+    return [];
+  }
+}
+
 // Search games across all providers (IGDB and SteamGridDB)
 ipcMain.handle('metadata:searchGames', async (_event, gameTitle: string) => {
   try {
+    // First, try to find exact match on Steam Store API
+    // Priority: 1) Check user's Steam library, 2) Search SteamDB.info to find App ID, then verify with Steam Store API
+    const exactSteamMatch: any = await (async () => {
+      const normalizedTitle = gameTitle.trim().toLowerCase();
+      
+      // Method 1: Check user's Steam library first (if available)
+      if (steamService) {
+        try {
+          const steamGames = steamService.scanSteamGames();
+          const matchingGame = steamGames.find(g => 
+            g.name.trim().toLowerCase() === normalizedTitle
+          );
+          
+          if (matchingGame) {
+            // Found in user's library - verify with Steam Store API
+            try {
+              const steamAppId = matchingGame.appId;
+              const storeApiUrl = `https://store.steampowered.com/api/appdetails?appids=${steamAppId}&l=english`;
+              const response = await fetch(storeApiUrl);
+              
+              if (response.ok) {
+                const data = await response.json() as Record<string, any>;
+                const appData = data[steamAppId];
+                
+                if (appData && appData.success && appData.data) {
+                  const steamName = appData.data.name?.trim().toLowerCase();
+                  
+                  // Verify exact match with Steam Store API name
+                  if (steamName === normalizedTitle) {
+                    console.log(`[Steam Search] Found exact match in library: "${appData.data.name}" (App ID: ${steamAppId})`);
+                    // Parse release date from Steam format
+                    let releaseDate: string | undefined;
+                    if (appData.data.release_date && appData.data.release_date.date) {
+                      const dateStr = appData.data.release_date.date;
+                      if (dateStr !== 'Coming soon' && dateStr !== 'TBA') {
+                        try {
+                          const date = new Date(dateStr);
+                          if (!isNaN(date.getTime())) {
+                            releaseDate = date.toISOString().split('T')[0];
+                          }
+                        } catch (err) {
+                          // Ignore date parsing errors
+                        }
+                      }
+                    }
+                    
+                    return {
+                      id: `steam-${steamAppId}`,
+                      title: appData.data.name,
+                      source: 'steam',
+                      externalId: steamAppId,
+                      steamAppId: steamAppId,
+                      releaseDate: releaseDate,
+                    };
+                  }
+                }
+              }
+            } catch (err) {
+              console.warn(`[Steam Search] Error verifying Steam App ID ${matchingGame.appId}:`, err);
+            }
+          }
+        } catch (err) {
+          console.warn('[Steam Search] Error checking Steam library:', err);
+        }
+      }
+      
+      return null;
+    })();
+
+    // Search Steam Store for all matching App IDs
+    const normalizedTitle = gameTitle.trim().toLowerCase();
+    let steamResults: any[] = [];
+    
+    try {
+      console.log(`[Steam Search] Searching Steam Store for all matches of "${gameTitle}"`);
+      const allAppIds = await searchSteamDBForAllAppIds(gameTitle, normalizedTitle);
+      
+      if (allAppIds.length > 0) {
+        console.log(`[Steam Search] Found ${allAppIds.length} App IDs, fetching game details...`);
+        
+        // Fetch details for all App IDs (limit to first 30 to avoid too many API calls)
+        const appIdsToFetch = allAppIds.slice(0, 30);
+        const fetchPromises = appIdsToFetch.map(async (appId) => {
+          try {
+            const storeApiUrl = `https://store.steampowered.com/api/appdetails?appids=${appId}&l=english`;
+            const response = await fetch(storeApiUrl);
+            
+            if (response.ok) {
+              const data = await response.json() as Record<string, any>;
+              const appData = data[appId];
+              
+              if (appData && appData.success && appData.data) {
+                const steamName = appData.data.name?.trim().toLowerCase();
+                
+                // Parse release date from Steam format
+                let releaseDate: string | undefined;
+                let releaseTimestamp: number | undefined;
+                if (appData.data.release_date && appData.data.release_date.date) {
+                  const dateStr = appData.data.release_date.date;
+                  if (dateStr !== 'Coming soon' && dateStr !== 'TBA') {
+                    try {
+                      const date = new Date(dateStr);
+                      if (!isNaN(date.getTime())) {
+                        releaseDate = date.toISOString().split('T')[0];
+                        releaseTimestamp = date.getTime();
+                      }
+                    } catch (err) {
+                      // Ignore date parsing errors
+                    }
+                  }
+                }
+                
+                return {
+                  id: `steam-${appId}`,
+                  title: appData.data.name,
+                  source: 'steam',
+                  externalId: appId,
+                  steamAppId: appId,
+                  releaseDate: releaseDate,
+                  releaseTimestamp: releaseTimestamp || 0, // For sorting
+                  isExactMatch: steamName === normalizedTitle,
+                };
+              }
+            }
+          } catch (err) {
+            console.warn(`[Steam Search] Error fetching App ID ${appId}:`, err);
+          }
+          return null;
+        });
+        
+        const fetchedGames = await Promise.all(fetchPromises);
+        steamResults = fetchedGames.filter((game): game is any => game !== null);
+        
+        // Sort: exact match first, then by release date (newest first)
+        steamResults.sort((a, b) => {
+          // Exact match first
+          if (a.isExactMatch && !b.isExactMatch) return -1;
+          if (!a.isExactMatch && b.isExactMatch) return 1;
+          
+          // Then by release date (newest first)
+          if (a.releaseTimestamp !== b.releaseTimestamp) {
+            return b.releaseTimestamp - a.releaseTimestamp;
+          }
+          
+          return 0;
+        });
+        
+        console.log(`[Steam Search] Found ${steamResults.length} Steam games`);
+      }
+    } catch (err) {
+      console.warn('[Steam Search] Error searching Steam Store:', err);
+    }
+    
+    // If we found Steam results, return them (exact match first, then by date)
+    if (steamResults.length > 0) {
+      // Remove the temporary fields used for sorting
+      const cleanedResults = steamResults.map(({ releaseTimestamp, isExactMatch, ...rest }) => rest);
+      return { success: true, results: cleanedResults };
+    }
+
+    // Otherwise, do the normal search across all providers
     const results = await metadataFetcher.searchGames(gameTitle);
     
     // Transform results to include additional info for display
     const transformedResults = await Promise.all(
       results.map(async (result) => {
         const transformed: any = { ...result };
+        
+        // For Steam results, fetch release date from Steam Store API
+        if (result.source === 'steam') {
+          try {
+            // Extract Steam App ID from result
+            const steamAppId = result.steamAppId || (result.id.startsWith('steam-') ? result.id.replace('steam-', '') : undefined);
+            if (steamAppId) {
+              transformed.steamAppId = steamAppId; // Ensure steamAppId is set
+              
+              // Fetch release date from Steam Store API if not already present
+              if (!transformed.releaseDate) {
+                try {
+                  const storeApiUrl = `https://store.steampowered.com/api/appdetails?appids=${steamAppId}&l=english`;
+                  const storeResponse = await fetch(storeApiUrl);
+                  
+                  if (storeResponse.ok) {
+                    const data = await storeResponse.json() as Record<string, any>;
+                    const appData = data[steamAppId];
+                    
+                    if (appData && appData.success && appData.data && appData.data.release_date) {
+                      const dateStr = appData.data.release_date.date;
+                      if (dateStr && dateStr !== 'Coming soon' && dateStr !== 'TBA') {
+                        try {
+                          const date = new Date(dateStr);
+                          if (!isNaN(date.getTime())) {
+                            transformed.releaseDate = date.toISOString().split('T')[0];
+                          }
+                        } catch (err) {
+                          // Ignore date parsing errors
+                        }
+                      }
+                    }
+                  }
+                } catch (err) {
+                  // Ignore errors fetching release date
+                }
+              }
+            }
+          } catch (err) {
+            console.warn('Error processing Steam result:', err);
+          }
+        }
         
         // Try to get more details if it's an IGDB result
         if (result.source === 'igdb' && result.externalId && igdbService) {
@@ -1291,14 +1652,16 @@ ipcMain.handle('metadata:searchGames', async (_event, gameTitle: string) => {
           }
         }
         
-        // For SteamGridDB, the search results don't include year/platform in the basic search
-        // We could fetch game details, but that would be slow. For now, just return basic info.
+        // Note: We no longer create Steam results from SteamGridDB - only use SteamDB.info for App ID matching
         
         return transformed;
       })
     );
     
-    return { success: true, results: transformedResults };
+    // Filter to show only Steam results (as requested for Fix Match)
+    const steamOnlyResults = transformedResults.filter((r: any) => r.source === 'steam');
+    
+    return { success: true, results: steamOnlyResults.length > 0 ? steamOnlyResults : transformedResults };
   } catch (error) {
     console.error('Error in metadata:searchGames handler:', error);
     return {
@@ -1382,7 +1745,7 @@ ipcMain.handle('metadata:refreshAll', async (event, options?: { allGames?: boole
       
       for (const file of files) {
         const ext = path.extname(file).toLowerCase();
-        if (['.jpg', '.jpeg', '.png', '.gif', '.webp'].includes(ext)) {
+        if (['.jpg', '.jpeg', '.png', '.gif', '.webp', '.webm'].includes(ext)) {
           // Check if this file belongs to one of the games being refreshed
           // File format: {gameId}-{imageType}.{ext}
           const fileNameWithoutExt = path.basename(file, ext);
@@ -1423,10 +1786,109 @@ ipcMain.handle('metadata:refreshAll', async (event, options?: { allGames?: boole
         });
       
       try {
-        const steamAppId = game.id.startsWith('steam-') ? game.id.replace('steam-', '') : undefined;
+        let steamAppId = game.id.startsWith('steam-') ? game.id.replace('steam-', '') : undefined;
+        let foundSteamAppId = steamAppId; // Track if we found a new Steam app ID
+        let shouldUpdateGameId = false; // Track if we should update the game ID to steam-{appId} format
+        
+        // Search for Steam app ID for all games (not just Steam games)
+        // This allows us to use official Steam artwork even for non-Steam games
+        if (!steamAppId) {
+          sendProgress({ 
+            current, 
+            total: totalGames, 
+            message: `Searching for Steam App ID for ${game.title}...`,
+            gameTitle: game.title
+          });
+          
+          try {
+            const normalizedTitle = game.title.trim().toLowerCase();
+            
+            // Method 1: Check user's Steam library first (if available)
+            if (steamService) {
+              try {
+                const steamGames = steamService.scanSteamGames();
+                const matchingGame = steamGames.find(g => 
+                  g.name.trim().toLowerCase() === normalizedTitle
+                );
+                
+                if (matchingGame) {
+                  // Found in user's library - verify with Steam Store API
+                  try {
+                    const candidateAppId = matchingGame.appId;
+                    const storeApiUrl = `https://store.steampowered.com/api/appdetails?appids=${candidateAppId}&l=english`;
+                    const response = await fetch(storeApiUrl);
+                    
+                    if (response.ok) {
+                      const data = await response.json() as Record<string, any>;
+                      const appData = data[candidateAppId];
+                      
+                      if (appData && appData.success && appData.data) {
+                        const steamName = appData.data.name?.trim().toLowerCase();
+                        
+                        // Verify exact match with Steam Store API name
+                        if (steamName === normalizedTitle) {
+                          console.log(`[RefreshAll] Found Steam App ID in library: "${appData.data.name}" (App ID: ${candidateAppId})`);
+                          steamAppId = candidateAppId;
+                          foundSteamAppId = candidateAppId;
+                          shouldUpdateGameId = true;
+                        }
+                      }
+                    }
+                  } catch (err) {
+                    console.warn(`[RefreshAll] Error verifying Steam App ID ${matchingGame.appId}:`, err);
+                  }
+                }
+              } catch (err) {
+                console.warn('[RefreshAll] Error checking Steam library:', err);
+              }
+            }
+            
+            // Method 2: Search SteamDB.info to find App ID, then verify with Steam Store API
+            if (!steamAppId) {
+              try {
+                console.log(`[RefreshAll] Searching SteamDB.info for "${game.title}"`);
+                const steamDbAppIds = await searchSteamDBForAllAppIds(game.title, normalizedTitle);
+                const steamDbAppId = steamDbAppIds.length > 0 ? steamDbAppIds[0] : null;
+                
+                if (steamDbAppId) {
+                  console.log(`[RefreshAll] Found App ID ${steamDbAppId} via SteamDB.info for "${game.title}"`);
+                  // Verify with Steam Store API
+                  const storeApiUrl = `https://store.steampowered.com/api/appdetails?appids=${steamDbAppId}&l=english`;
+                  const response = await fetch(storeApiUrl);
+                  
+                  if (response.ok) {
+                    const data = await response.json() as Record<string, any>;
+                    const appData = data[steamDbAppId];
+                    
+                    if (appData && appData.success && appData.data) {
+                      const steamName = appData.data.name?.trim().toLowerCase();
+                      const steamMatches = steamName === normalizedTitle || 
+                                          steamName.includes(normalizedTitle) || 
+                                          normalizedTitle.includes(steamName);
+                      
+                      if (steamMatches) {
+                        console.log(`[RefreshAll] Verified App ID ${steamDbAppId} via SteamDB.info: "${appData.data.name}"`);
+                        steamAppId = steamDbAppId;
+                        foundSteamAppId = steamDbAppId;
+                        shouldUpdateGameId = true;
+                      }
+                    }
+                  }
+                } else {
+                  console.log(`[RefreshAll] No SteamDB.info results found for "${game.title}"`);
+                }
+              } catch (err) {
+                console.warn(`[RefreshAll] Error searching SteamDB.info for "${game.title}":`, err);
+              }
+            }
+          } catch (error) {
+            console.warn(`[RefreshAll] Error searching for Steam App ID for ${game.title}:`, error);
+          }
+        }
         
         // NEW APPROACH: Use the same direct search method as manual search
         // This finds boxart even when exact game match isn't found
+        // Now with Steam App ID, it will prioritize official Steam CDN artwork
         let metadata: { boxArtUrl?: string; bannerUrl?: string; logoUrl?: string; heroUrl?: string } = {};
         
         // First, try direct SteamGridDB search (same as manual search)
@@ -1489,6 +1951,9 @@ ipcMain.handle('metadata:refreshAll', async (event, options?: { allGames?: boole
               // Use the first/best match (usually sorted by relevance)
               const bestMatch = sgdbGames[0];
               console.log(`[RefreshAll] Found SteamGridDB game: ${bestMatch.name} (ID: ${bestMatch.id}) for "${game.title}"`);
+              
+              // Note: We don't extract Steam App ID from SteamGridDB anymore - only use SteamDB.info for App ID matching
+              // SteamGridDB is only used for artwork/images here, not for metadata matching
               
               sendProgress({ 
                 current, 
@@ -1714,6 +2179,30 @@ ipcMain.handle('metadata:refreshAll', async (event, options?: { allGames?: boole
                 const firstGame = sgdbGames[0];
                 console.log(`[RefreshAll] Auto-selected game: ${firstGame.name} (ID: ${firstGame.id}) for "${game.title}"`);
                 
+                // Extract Steam App ID from result if we haven't found one yet
+                if (!steamAppId && firstGame.steam_app_id) {
+                  const candidateAppId = firstGame.steam_app_id.toString();
+                  // Verify with Steam Store API
+                  try {
+                    const storeApiUrl = `https://store.steampowered.com/api/appdetails?appids=${candidateAppId}&l=english`;
+                    const response = await fetch(storeApiUrl);
+                    
+                    if (response.ok) {
+                      const data = await response.json() as Record<string, any>;
+                      const appData = data[candidateAppId];
+                      
+                      if (appData && appData.success && appData.data) {
+                        console.log(`[RefreshAll] Extracted Steam App ID from auto-search result: "${appData.data.name}" (App ID: ${candidateAppId})`);
+                        steamAppId = candidateAppId;
+                        foundSteamAppId = candidateAppId;
+                        shouldUpdateGameId = true;
+                      }
+                    }
+                  } catch (err) {
+                    console.warn(`[RefreshAll] Error verifying Steam App ID ${firstGame.steam_app_id}:`, err);
+                  }
+                }
+                
                 // Get capsules (boxart) from first result
                 const capsules = await steamGridDBService.getCapsules(firstGame.id, true);
                 
@@ -1851,8 +2340,34 @@ ipcMain.handle('metadata:refreshAll', async (event, options?: { allGames?: boole
           // Continue processing - don't stop for missing images
         }
         
+        // If we found a Steam app ID and the game isn't already a Steam game, update the game ID
+        // This stores the Steam app ID and allows the game to use Steam artwork
+        let gameIdToUpdate = game.id;
+        if (shouldUpdateGameId && foundSteamAppId && !game.id.startsWith('steam-')) {
+          const newGameId = `steam-${foundSteamAppId}`;
+          console.log(`[RefreshAll] Updating game ID from "${game.id}" to "${newGameId}" for ${game.title} (Steam App ID: ${foundSteamAppId})`);
+          
+          // Get the full game object and update it
+          const games = await gameStore.getLibrary();
+          const gameToUpdate = games.find(g => g.id === game.id);
+          if (gameToUpdate) {
+            // Check if a game with the new ID already exists
+            const existingGameWithNewId = games.find(g => g.id === newGameId);
+            if (existingGameWithNewId) {
+              console.warn(`[RefreshAll] Game with ID "${newGameId}" already exists, skipping ID update for ${game.title}`);
+            } else {
+              // Update the game ID and platform
+              gameToUpdate.id = newGameId;
+              gameToUpdate.platform = 'steam';
+              await gameStore.saveGame(gameToUpdate);
+              gameIdToUpdate = newGameId;
+              console.log(`[RefreshAll] Successfully updated game ID to "${newGameId}" for ${game.title}`);
+            }
+          }
+        }
+        
         await gameStore.updateGameMetadata(
-          game.id,
+          gameIdToUpdate,
           finalBoxArtUrl,
           finalBannerUrl,
           cachedImages.logoUrl || metadata.logoUrl,
@@ -2080,6 +2595,95 @@ ipcMain.handle('metadata:fetchAndUpdateByProviderId', async (_event, gameId: str
     return { success, metadata };
   } catch (error) {
     console.error('Error in metadata:fetchAndUpdateByProviderId handler:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error occurred',
+      metadata: null,
+    };
+  }
+});
+
+// Fetch metadata only (descriptions, genres, etc.) without images
+// This is useful for updating text metadata without downloading artwork
+ipcMain.handle('metadata:fetchMetadataOnlyByProviderId', async (_event, gameId: string, providerId: string, providerSource: string) => {
+  try {
+    // Get the game to know its title
+    const games = await gameStore.getLibrary();
+    const game = games.find(g => g.id === gameId);
+    if (!game) {
+      return { success: false, error: 'Game not found' };
+    }
+    
+    // Extract Steam App ID if it's a Steam game
+    const steamAppId = gameId.startsWith('steam-') ? gameId.replace('steam-', '') : undefined;
+    
+    // Fetch metadata only (no images) using the specific provider ID
+    // Pass the game title to help with searching when provider doesn't have descriptions
+    const metadata = await metadataFetcher.searchMetadataOnly(providerId, providerSource, steamAppId, game.title);
+    
+    // Check if we actually got any useful metadata
+    const hasMetadata = metadata && (
+      metadata.description || 
+      metadata.summary || 
+      metadata.genres?.length || 
+      metadata.releaseDate || 
+      metadata.developers?.length || 
+      metadata.publishers?.length || 
+      metadata.ageRating || 
+      metadata.rating || 
+      metadata.platforms?.length || 
+      metadata.categories?.length
+    );
+    
+    if (!hasMetadata) {
+      // Provide helpful error message based on the provider source
+      let errorMessage = `No metadata found for ${providerSource}. `;
+      if (providerSource === 'steamgriddb') {
+        errorMessage += 'SteamGridDB only provides images, not text metadata. ';
+        if (steamAppId) {
+          errorMessage += 'For Steam games, Steam Store API should be used first. ';
+        }
+        if (!rawgService && !igdbService) {
+          errorMessage += 'Please configure RAWG API key in settings, or select a Steam/RAWG result instead.';
+        } else if (!rawgService) {
+          errorMessage += 'Try selecting a Steam result (first priority) or RAWG result (second choice), or ensure the game has a Steam App ID.';
+        } else {
+          errorMessage += 'Try selecting a Steam result (first priority) or RAWG result (second choice) for metadata.';
+        }
+      } else if (providerSource === 'igdb') {
+        errorMessage += 'IGDB is not preferred. Try selecting a Steam result (first priority) or RAWG result (second choice) instead.';
+      } else if (providerSource === 'rawg') {
+        errorMessage += 'RAWG may not have metadata for this game, or RAWG API key may not be configured. For Steam games, try selecting a Steam result first.';
+      } else if (providerSource === 'steam') {
+        errorMessage += 'Steam Store API may not have metadata for this game. Try selecting a RAWG result as second choice.';
+      } else {
+        errorMessage += 'For Steam games, try selecting a Steam result first (priority), then RAWG result (second choice).';
+      }
+      return { 
+        success: false, 
+        error: errorMessage
+      };
+    }
+    
+    // Update game metadata fields (no image URLs)
+    const updatedGame: Game = {
+      ...game,
+      description: metadata.description || metadata.summary || game.description,
+      genres: metadata.genres || game.genres,
+      releaseDate: metadata.releaseDate || game.releaseDate,
+      developers: metadata.developers || game.developers,
+      publishers: metadata.publishers || game.publishers,
+      ageRating: metadata.ageRating || game.ageRating,
+      userScore: metadata.rating ? Math.round(metadata.rating) : game.userScore,
+      platform: metadata.platforms?.join(', ') || game.platform,
+    };
+    
+    // Save the game (saveGame returns void, so if it throws, the catch block will handle it)
+    await gameStore.saveGame(updatedGame);
+    
+    return { success: true, metadata };
+  } catch (error) {
+    console.error('Error in metadata:fetchMetadataOnlyByProviderId handler:', error);
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error occurred',
@@ -2792,7 +3396,7 @@ ipcMain.handle('metadata:searchImages', async (_event, query: string, imageType:
               width: img.width,
               height: img.height,
               mime: img.mime, // Include mime type to identify animated grids
-              isAnimated: img.mime === 'image/webp' || img.mime === 'image/gif' || img.url.includes('.webp') || img.url.includes('.gif'),
+              isAnimated: img.mime === 'image/webp' || img.mime === 'image/gif' || img.mime === 'video/webm' || img.url.includes('.webp') || img.url.includes('.gif') || img.url.includes('.webm'),
             }));
         } else if (imageType === 'banner') {
           const heroes = await steamGridDBService.getHeroes(game.id);
@@ -2874,13 +3478,15 @@ ipcMain.handle('api:getCredentials', async () => {
   }
 });
 
-ipcMain.handle('api:saveCredentials', async (_event, credentials: { igdbClientId?: string; igdbClientSecret?: string; steamGridDBApiKey?: string }) => {
+ipcMain.handle('api:saveCredentials', async (_event, credentials: { igdbClientId?: string; igdbClientSecret?: string; steamGridDBApiKey?: string; rawgApiKey?: string }) => {
   try {
     await apiCredentialsService.saveCredentials(credentials);
     // Reinitialize IGDB service with new credentials
     await initializeIGDBService();
     // Reinitialize SteamGridDB service with new API key
     await initializeSteamGridDBService();
+    // Reinitialize RAWG service with new API key
+    await initializeRAWGService();
     // Update metadata fetcher with new services
     updateMetadataFetcher();
     return { success: true };
@@ -3263,22 +3869,49 @@ app.whenReady().then(async () => {
       if (gameId && imageType && existsSync(cacheDir)) {
         // Try to find file: {gameId}-{imageType}.{ext}
         const safeGameId = gameId.replace(/[<>:"/\\|?*]/g, '_');
-        const extensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
+        const extensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.webm'];
         
         for (const ext of extensions) {
           const filename = `${safeGameId}-${imageType}${ext}`;
           const filePath = path.join(cacheDir, filename);
           if (existsSync(filePath)) {
             if (count === 1) console.log(`[onyx-local] ✓ Found: ${filename}`);
-            const fileData = readFileSync(filePath);
-            let mimeType = 'image/jpeg';
+            
+            // Clear from failed set if it was there (file now exists)
+            if (failedUrls.has(requestUrl)) {
+              failedUrls.delete(requestUrl);
+              failedUrlCounts.delete(requestUrl);
+            }
+            
+            try {
+              const fileData = readFileSync(filePath);
+              let mimeType = 'image/jpeg';
             if (ext === '.png') mimeType = 'image/png';
             else if (ext === '.gif') mimeType = 'image/gif';
             else if (ext === '.webp') mimeType = 'image/webp';
-            return new Response(fileData, { headers: { 'Content-Type': mimeType } });
+            else if (ext === '.webm') mimeType = 'video/webm';
+              
+              // Only log successful loads occasionally to avoid spam
+              const successCount = failedUrlCounts.get(requestUrl + '_success') || 0;
+              failedUrlCounts.set(requestUrl + '_success', successCount + 1);
+              if (successCount === 0 || successCount % 50 === 0) {
+                console.log(`[onyx-local] Successfully serving file: ${filename}`);
+              }
+              
+              return new Response(fileData, { headers: { 'Content-Type': mimeType } });
+            } catch (readError) {
+              // If reading the file fails, log but don't block other requests
+              if (count === 1) {
+                console.error(`[onyx-local] Error reading file ${filename}:`, readError);
+              }
+              // Continue to return 404 below
+              break;
+            }
           }
         }
         
+        // File not found - return 404 but don't mark as failed until we've tried a few times
+        // This allows other images for the same game to still load
         if (count === 1) {
           console.log(`[onyx-local] File not found: ${safeGameId}-${imageType}.{jpg|png|gif|webp}`);
           console.log(`[onyx-local] Cache dir: ${cacheDir}`);
@@ -3300,11 +3933,30 @@ app.whenReady().then(async () => {
             // Ignore errors listing directory
           }
         }
+        
+        // Return 404 for this specific image - don't block other images
+        // Only mark as failed after multiple attempts to prevent retry loops
+        if (count > 2) {
+          failedUrls.add(requestUrl);
+        }
+        return new Response(null, { 
+          status: 404,
+          statusText: 'Not Found',
+          headers: {
+            'Cache-Control': 'no-store, no-cache, must-revalidate',
+            'X-Content-Type-Options': 'nosniff',
+          }
+        });
       } else {
         if (count === 1) {
           console.log(`[onyx-local] Could not parse URL: ${urlPath}`);
           console.log(`[onyx-local] Parsed: gameId="${gameId}", imageType="${imageType}"`);
         }
+        // Return 404 for unparseable URLs
+        return new Response(null, { 
+          status: 404,
+          headers: { 'Cache-Control': 'no-store' }
+        });
       }
       
       // Fallback: try old format decoding
@@ -3481,11 +4133,15 @@ app.whenReady().then(async () => {
                   
                   if (matching.length > 0) {
                     // Use the first match (or prefer .png/.jpg if available)
-                    let selectedFile = matching[0];
+                    let selectedFile: string = matching[0];
                     const pngMatch = matching.find(f => f.endsWith('.png'));
                     const jpgMatch = matching.find(f => f.endsWith('.jpg') || f.endsWith('.jpeg'));
-                    if (pngMatch) selectedFile = pngMatch;
-                    else if (jpgMatch) selectedFile = jpgMatch;
+                    // Prefer PNG, then JPG, otherwise use first match
+                    if (pngMatch) {
+                      selectedFile = pngMatch as string;
+                    } else if (jpgMatch) {
+                      selectedFile = jpgMatch as string;
+                    }
                     
                     const correctPath = path.join(imageCacheDir, selectedFile);
                     console.error(`  ✓ Found matching file: ${selectedFile}`);
@@ -3496,9 +4152,10 @@ app.whenReady().then(async () => {
                       const ext = path.extname(correctPath).toLowerCase();
                       let mimeType = 'application/octet-stream';
                       if (ext === '.jpg' || ext === '.jpeg') mimeType = 'image/jpeg';
-                      else if (ext === '.png') mimeType = 'image/png';
-                      else if (ext === '.gif') mimeType = 'image/gif';
-                      else if (ext === '.webp') mimeType = 'image/webp';
+                      else             if (ext === '.png') mimeType = 'image/png';
+            else if (ext === '.gif') mimeType = 'image/gif';
+            else if (ext === '.webp') mimeType = 'image/webp';
+            else if (ext === '.webm') mimeType = 'video/webm';
                       
                       // Clear from failed set since we found it
                       if (failedUrls.has(requestUrl)) {
@@ -3571,24 +4228,37 @@ app.whenReady().then(async () => {
       const ext = path.extname(finalPath).toLowerCase();
       let mimeType = 'application/octet-stream';
       if (ext === '.jpg' || ext === '.jpeg') mimeType = 'image/jpeg';
-      else if (ext === '.png') mimeType = 'image/png';
-      else if (ext === '.gif') mimeType = 'image/gif';
-      else if (ext === '.webp') mimeType = 'image/webp';
+      else             if (ext === '.png') mimeType = 'image/png';
+            else if (ext === '.gif') mimeType = 'image/gif';
+            else if (ext === '.webp') mimeType = 'image/webp';
+            else if (ext === '.webm') mimeType = 'video/webm';
       
       return new Response(fileData, {
         headers: { 'Content-Type': mimeType },
       });
     } catch (error) {
       // Only log errors once per unique URL to avoid spam
+      // IMPORTANT: Errors for one image should NOT affect other images
+      // Each request is independent, so we return 500 for this specific URL only
       if (!failedUrls.has(requestUrl + '_error')) {
         failedUrls.add(requestUrl + '_error');
-        console.error('[onyx-local] Error in protocol handler:', error);
-        console.error('[onyx-local] Request URL:', requestUrl.substring(0, 100));
+        console.error('[onyx-local] Error in protocol handler for URL:', requestUrl.substring(0, 100));
         if (error instanceof Error) {
           console.error('[onyx-local] Error message:', error.message);
+          console.error('[onyx-local] Error stack:', error.stack?.substring(0, 200));
+        } else {
+          console.error('[onyx-local] Error object:', error);
         }
       }
-      return new Response(null, { status: 500 });
+      // Return 500 for this specific request only - don't block other images
+      return new Response(null, { 
+        status: 500,
+        statusText: 'Internal Server Error',
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate',
+          'X-Content-Type-Options': 'nosniff',
+        }
+      });
     }
   };
   

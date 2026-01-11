@@ -14,6 +14,7 @@ interface ManualFolderConfig {
   name: string;
   path: string;
   enabled: boolean;
+  autoCategory?: string[]; // Auto-assign categories to games found in this folder
 }
 
 interface AppConfigsSchema {
@@ -110,7 +111,11 @@ export class AppConfigService {
    */
   async clearAppConfigs(): Promise<void> {
     const store = await this.ensureStore();
-    store.set('apps', {});
+    store.delete('apps');
+    store.delete('backgroundScanEnabled');
+    store.delete('lastBackgroundScan');
+    store.delete('manualFolders');
+    store.delete('manualFolderConfigs');
   }
 
   /**

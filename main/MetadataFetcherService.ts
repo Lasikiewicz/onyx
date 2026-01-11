@@ -2,9 +2,11 @@ import { MetadataProvider, GameSearchResult, GameDescription, GameArtwork, GameI
 import { IGDBMetadataProvider } from './IGDBMetadataProvider.js';
 import { SteamGridDBMetadataProvider } from './SteamGridDBMetadataProvider.js';
 import { SteamMetadataProvider } from './SteamMetadataProvider.js';
+import { RAWGMetadataProvider } from './RAWGMetadataProvider.js';
 import { IGDBService } from './IGDBService.js';
 import { SteamGridDBService } from './SteamGridDBService.js';
 import { SteamService } from './SteamService.js';
+import { RAWGService } from './RAWGService.js';
 
 export interface GameMetadata {
   boxArtUrl: string;
@@ -43,12 +45,14 @@ export class MetadataFetcherService {
   private igdbProvider?: IGDBMetadataProvider;
   private steamGridDBProvider?: SteamGridDBMetadataProvider;
   private steamProvider?: SteamMetadataProvider;
+  private rawgProvider?: RAWGMetadataProvider;
   private steamGridDBService?: SteamGridDBService | null;
 
   constructor(
     igdbService?: IGDBService | null,
     steamGridDBService?: SteamGridDBService | null,
-    steamService?: SteamService | null
+    steamService?: SteamService | null,
+    rawgService?: RAWGService | null
   ) {
     this.steamGridDBService = steamGridDBService;
     // Initialize providers
@@ -65,6 +69,11 @@ export class MetadataFetcherService {
     if (steamService) {
       this.steamProvider = new SteamMetadataProvider(steamService);
       this.providers.push(this.steamProvider);
+    }
+
+    if (rawgService) {
+      this.rawgProvider = new RAWGMetadataProvider(rawgService);
+      this.providers.push(this.rawgProvider);
     }
   }
 
@@ -118,6 +127,23 @@ export class MetadataFetcherService {
       if (this.steamProvider) {
         this.providers = this.providers.filter(p => p !== this.steamProvider);
         this.steamProvider = undefined;
+      }
+    }
+  }
+
+  /**
+   * Set RAWG service
+   */
+  setRAWGService(rawgService: RAWGService | null): void {
+    if (rawgService) {
+      this.rawgProvider = new RAWGMetadataProvider(rawgService);
+      if (!this.providers.includes(this.rawgProvider)) {
+        this.providers.push(this.rawgProvider);
+      }
+    } else {
+      if (this.rawgProvider) {
+        this.providers = this.providers.filter(p => p !== this.rawgProvider);
+        this.rawgProvider = undefined;
       }
     }
   }
@@ -253,14 +279,17 @@ export class MetadataFetcherService {
   }
 
   /**
-   * Merge descriptions from multiple sources (Steam takes priority when available, then IGDB)
+   * Merge descriptions from multiple sources
+   * Priority: Steam Store API (first) > RAWG (second) > IGDB (fallback)
+   * When we have a Steam App ID, Steam Store API is prioritized
+   * Otherwise, use the first available description in priority order
    */
   private mergeDescriptions(descriptions: (GameDescription | null)[], steamAppId?: string): GameDescription {
     const merged: GameDescription = {};
 
-    // When we have a Steam App ID, prioritize Steam Store API description
-    // Steam descriptions are usually more accurate and up-to-date for Steam games
-    // Otherwise, use the first available description (typically IGDB)
+    // Priority order: Steam (first) > RAWG (second) > IGDB (fallback)
+    // When we have a Steam App ID, Steam Store API descriptions are prioritized
+    // The descriptions array is ordered by priority (Steam first via unshift, then RAWG, then IGDB)
     const firstDesc = descriptions.find(d => d !== null);
     if (firstDesc) {
       Object.assign(merged, firstDesc);
@@ -318,49 +347,20 @@ export class MetadataFetcherService {
     }
 
     // Step 2: Find best matching game ID for each provider
-    // Priority: SteamGridDB > IGDB > Steam
-    let steamGridDBResult = searchResults.find(r => r.source === 'steamgriddb');
+    // Priority: Steam > IGDB (SteamGridDB is only used for artwork, not metadata matching)
     let igdbResult = searchResults.find(r => r.source === 'igdb');
     const steamResult = searchResults.find(r => r.source === 'steam' && r.steamAppId === steamAppId) 
       || searchResults.find(r => r.source === 'steam');
+    // Keep SteamGridDB result for artwork only (not for metadata matching or App ID extraction)
+    const steamGridDBResult = searchResults.find(r => r.source === 'steamgriddb');
     
-    // IMPORTANT: If SteamGridDB result has a steamAppId, extract and use it
-    // This allows games found via SteamGridDB to be treated as Steam games
-    if (steamGridDBResult && steamGridDBResult.steamAppId && !steamAppId) {
-      steamAppId = steamGridDBResult.steamAppId;
-      console.log(`[MetadataFetcher] Extracted Steam App ID ${steamAppId} from SteamGridDB result for: ${title}`);
-    }
+    // Note: We no longer extract Steam App ID from SteamGridDB - only use SteamDB.info for App ID matching
     
-    // FALLBACK: If no SteamGridDB result found but we have SteamGridDB service, try direct search
-    // This handles cases where the game title doesn't match exactly in searchGames but exists in SteamGridDB
-    if (!steamGridDBResult && this.steamGridDBProvider?.isAvailable() && this.steamGridDBService) {
-      try {
-        console.log(`[MetadataFetcher] No SteamGridDB match in search results, trying direct search for: ${title}`);
-        const directSearchResults = await this.steamGridDBService.searchGame(title);
-        if (directSearchResults.length > 0) {
-          // Use the first/best match (usually sorted by relevance)
-          const bestMatch = directSearchResults[0];
-          steamGridDBResult = {
-            id: `steamgriddb-${bestMatch.id}`,
-            title: bestMatch.name,
-            source: 'steamgriddb',
-            externalId: bestMatch.id,
-            steamAppId: bestMatch.steam_app_id?.toString(),
-          };
-          // Extract Steam App ID if available
-          if (bestMatch.steam_app_id && !steamAppId) {
-            steamAppId = bestMatch.steam_app_id.toString();
-            console.log(`[MetadataFetcher] Extracted Steam App ID ${steamAppId} from SteamGridDB direct search for: ${title}`);
-          }
-          console.log(`[MetadataFetcher] Found SteamGridDB game via direct search: ${bestMatch.name} (ID: ${bestMatch.id})`);
-        }
-      } catch (error) {
-        console.warn(`[MetadataFetcher] Direct SteamGridDB search failed for ${title}:`, error);
-      }
-    }
+    // Note: SteamGridDB is no longer used for metadata matching - only for artwork/images
+    // We only use SteamDB.info for finding Steam App IDs
     
     // If still no results from any provider, return empty
-    if (!steamGridDBResult && !igdbResult && !steamResult) {
+    if (!igdbResult && !steamResult) {
       console.warn(`[MetadataFetcher] No search results found for: ${title}`);
       return this.getEmptyMetadata();
     }
@@ -527,6 +527,106 @@ export class MetadataFetcherService {
       installPath: mergedInstallInfo?.installPath,
       installSize: mergedInstallInfo?.installSize,
       executablePath: mergedInstallInfo?.executablePath,
+    };
+  }
+
+  /**
+   * Get metadata only (descriptions, genres, etc.) without fetching artwork/images
+   * This is useful when you only want to update text metadata without downloading images
+   * Priority: Steam Store API (for Steam games) > RAWG (API key auth) > IGDB (fallback, not preferred)
+   * @param providerId The provider-specific game ID (e.g., "rawg-123", "igdb-123", "steamgriddb-456")
+   * @param providerSource The provider source ("rawg", "igdb", "steamgriddb", "steam")
+   * @param steamAppId Optional Steam App ID for better matching
+   * @param gameTitle Optional game title to help with searching when provider doesn't have descriptions
+   */
+  async searchMetadataOnly(providerId: string, providerSource: string, steamAppId?: string, gameTitle?: string): Promise<Partial<GameMetadata>> {
+    const descriptionPromises: Promise<GameDescription | null>[] = [];
+    
+    if (providerSource === 'steam') {
+      // Steam Store API is the first priority for Steam games
+      if (this.steamProvider?.isAvailable()) {
+        descriptionPromises.push(
+          this.steamProvider.getDescription(providerId)
+        );
+      }
+    } else if (providerSource === 'rawg') {
+      // RAWG is the second choice for metadata-only updates - simple API key auth, comprehensive data
+      if (this.rawgProvider?.isAvailable()) {
+        descriptionPromises.push(
+          this.rawgProvider.getDescription(providerId)
+        );
+      }
+    } else if (providerSource === 'steamgriddb') {
+      // SteamGridDB doesn't provide descriptions, so we need to find the game in Steam, RAWG, or IGDB
+      // Priority: Steam Store API (if Steam App ID available) > RAWG > IGDB (not preferred)
+      
+      // First priority: Steam Store API if we have a Steam App ID (most reliable for Steam games)
+      if (steamAppId && this.steamProvider?.isAvailable()) {
+        const steamGameId = `steam-${steamAppId}`;
+        descriptionPromises.unshift(
+          this.steamProvider.getDescription(steamGameId)
+        );
+      }
+      
+      // Second priority: RAWG search using the game title
+      if (gameTitle && this.rawgProvider?.isAvailable()) {
+        try {
+          const rawgResults = await this.rawgProvider.search(gameTitle, steamAppId);
+          if (rawgResults.length > 0) {
+            // Use the first RAWG result to get description
+            descriptionPromises.push(
+              this.rawgProvider.getDescription(rawgResults[0].id)
+            );
+          }
+        } catch (error) {
+          console.warn(`[MetadataFetcher] Error searching RAWG for metadata:`, error);
+        }
+      }
+      
+      // Third priority: IGDB search (not preferred, but available as fallback)
+      if (gameTitle && this.igdbProvider?.isAvailable()) {
+        try {
+          const igdbResults = await this.igdbProvider.search(gameTitle, steamAppId);
+          if (igdbResults.length > 0) {
+            // Use the first IGDB result to get description
+            descriptionPromises.push(
+              this.igdbProvider.getDescription(igdbResults[0].id)
+            );
+          }
+        } catch (error) {
+          console.warn(`[MetadataFetcher] Error searching IGDB for metadata:`, error);
+        }
+      }
+      
+      // If no providers are available, log a warning
+      if (descriptionPromises.length === 0) {
+        console.warn(`[MetadataFetcher] Cannot fetch metadata for SteamGridDB result: No Steam, RAWG, or IGDB providers available`);
+      }
+    } else if (providerSource === 'igdb') {
+      // IGDB is available as fallback, but not preferred
+      if (this.igdbProvider?.isAvailable()) {
+        descriptionPromises.push(
+          this.igdbProvider.getDescription(providerId)
+        );
+      }
+    }
+    
+    // Execute description queries
+    const descriptionResults = await Promise.all(descriptionPromises);
+    const mergedDescription = this.mergeDescriptions(descriptionResults, steamAppId);
+    
+    // Return only metadata fields (no artwork URLs)
+    return {
+      description: mergedDescription.description,
+      summary: mergedDescription.summary,
+      releaseDate: mergedDescription.releaseDate,
+      genres: mergedDescription.genres,
+      developers: mergedDescription.developers,
+      publishers: mergedDescription.publishers,
+      ageRating: mergedDescription.ageRating,
+      rating: mergedDescription.rating,
+      platforms: mergedDescription.platforms,
+      categories: mergedDescription.categories,
     };
   }
 

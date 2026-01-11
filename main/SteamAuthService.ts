@@ -71,9 +71,8 @@ export class SteamAuthService {
    */
   async clearAuth(): Promise<void> {
     const store = await this.ensureStore();
-    store.set('auth', {
-      authenticated: false,
-    });
+    // Use delete() to properly remove the auth key
+    store.delete('auth');
   }
 
   /**
