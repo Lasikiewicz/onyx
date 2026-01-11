@@ -7,6 +7,7 @@ export interface AppConfig {
   enabled: boolean;
   path: string;
   autoAdd?: boolean; // Automatically add new games when found
+  syncPlaytime?: boolean; // Automatically sync playtime from Steam
 }
 
 interface ManualFolderConfig {
@@ -20,6 +21,7 @@ interface ManualFolderConfig {
 interface AppConfigsSchema {
   apps: Record<string, AppConfig>;
   backgroundScanEnabled: boolean;
+  backgroundScanIntervalMinutes?: number; // Interval in minutes (default: 30)
   lastBackgroundScan?: number;
   manualFolders?: string[]; // Legacy format - kept for migration
   manualFolderConfigs?: Record<string, ManualFolderConfig>; // New format with custom names
@@ -39,6 +41,7 @@ export class AppConfigService {
         defaults: {
           apps: {},
           backgroundScanEnabled: false,
+          backgroundScanIntervalMinutes: 30, // Default: 30 minutes
           lastBackgroundScan: undefined,
           manualFolders: [],
           manualFolderConfigs: {},
@@ -135,6 +138,24 @@ export class AppConfigService {
   }
 
   /**
+   * Get background scan interval in minutes
+   */
+  async getBackgroundScanIntervalMinutes(): Promise<number> {
+    const store = await this.ensureStore();
+    return store.get('backgroundScanIntervalMinutes', 30);
+  }
+
+  /**
+   * Set background scan interval in minutes
+   */
+  async setBackgroundScanIntervalMinutes(minutes: number): Promise<void> {
+    const store = await this.ensureStore();
+    // Enforce minimum of 1 minute and maximum of 1440 minutes (24 hours)
+    const clampedMinutes = Math.max(1, Math.min(1440, minutes));
+    store.set('backgroundScanIntervalMinutes', clampedMinutes);
+  }
+
+  /**
    * Get last background scan timestamp
    */
   async getLastBackgroundScan(): Promise<number | undefined> {
@@ -152,12 +173,15 @@ export class AppConfigService {
 
   /**
    * Get manual folders to monitor (legacy - returns paths only)
+   * Only returns enabled folders
    */
   async getManualFolders(): Promise<string[]> {
     const store = await this.ensureStore();
     const configs = await this.getManualFolderConfigs();
-    // Return paths from configs for backward compatibility
-    return Object.values(configs).map(c => c.path);
+    // Return paths from enabled configs only
+    return Object.values(configs)
+      .filter(c => c.enabled !== false) // Only include enabled folders (default to enabled if not set)
+      .map(c => c.path);
   }
 
   /**

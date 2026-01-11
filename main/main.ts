@@ -19,6 +19,7 @@ import { ImageCacheService } from './ImageCacheService.js';
 import { SteamAuthService } from './SteamAuthService.js';
 import { ProcessSuspendService } from './ProcessSuspendService.js';
 import { InstallerPreferenceService } from './InstallerPreferenceService.js';
+import { BugReportService } from './BugReportService.js';
 
 // Load environment variables
 dotenv.config();
@@ -50,7 +51,18 @@ protocol.registerSchemesAsPrivileged([
 // │ │ ├── main.js
 // │ │ └── preload.js
 // │
-process.env.DIST = path.join(__dirname, '../dist');
+// In packaged app, __dirname is in app.asar/dist-electron/main.js
+// In dev, __dirname is in dist-electron/main.js
+// For loadFile(), we can use relative paths from __dirname
+// Electron's loadFile() automatically handles ASAR archives
+if (app.isPackaged) {
+  // In packaged app, use relative path from __dirname
+  // __dirname = app.asar/dist-electron/main.js
+  // So ../dist/index.html = app.asar/dist/index.html
+  process.env.DIST = path.join(__dirname, '../dist');
+} else {
+  process.env.DIST = path.join(__dirname, '../dist');
+}
 process.env.VITE_PUBLIC = app.isPackaged
   ? process.env.DIST
   : path.join(process.env.DIST, '../');
@@ -431,6 +443,7 @@ async function createWindow() {
       preload,
       nodeIntegration: false,
       contextIsolation: true,
+      webSecurity: true, // Keep security enabled, but ensure paths work
     },
     titleBarStyle: 'hidden',
     titleBarOverlay: {
@@ -531,10 +544,39 @@ async function createWindow() {
     }
   });
 
+  // Add error handlers for debugging
+  win.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
+    console.error('Failed to load:', errorCode, errorDescription, validatedURL);
+    // Open DevTools on error so user can see what went wrong
+    if (win && !win.webContents.isDevToolsOpened()) {
+      win.webContents.openDevTools();
+    }
+  });
+
+  win.webContents.on('crashed', (event, killed) => {
+    console.error('Renderer process crashed:', killed);
+  });
+
   // Debug: Check for preload errors
   win.webContents.on('preload-error', (event, preloadPath, error) => {
     console.error('Preload error:', preloadPath, error);
+    // Open DevTools on preload error
+    if (win && !win.webContents.isDevToolsOpened()) {
+      win.webContents.openDevTools();
+    }
   });
+
+  // Enable DevTools in production for debugging (can be disabled later)
+  // User can press F12 or Ctrl+Shift+I to open DevTools
+  if (win) {
+    win.webContents.on('before-input-event', (event, input) => {
+      if (input.key === 'F12' || (input.control && input.shift && input.key === 'I')) {
+        if (win) {
+          win.webContents.toggleDevTools();
+        }
+      }
+    });
+  }
 
   if (VITE_DEV_SERVER_URL) {
     // Load from Vite dev server
@@ -543,8 +585,78 @@ async function createWindow() {
     win.webContents.openDevTools();
   } else {
     // Load from built files
-    win.loadFile(path.join(process.env.DIST || '', 'index.html'));
-    // DevTools can be opened manually with Ctrl+Shift+I or F12
+    let indexPath: string;
+    
+    // Use relative path from __dirname - loadFile() handles ASAR automatically
+    // In packaged: __dirname = app.asar/dist-electron/main.js, so ../dist/index.html = app.asar/dist/index.html
+    // In dev: __dirname = dist-electron/main.js, so ../dist/index.html = dist/index.html
+    indexPath = path.join(__dirname, '../dist/index.html');
+    console.log('Loading index.html from:', indexPath);
+    console.log('__dirname:', __dirname);
+    console.log('app.isPackaged:', app.isPackaged);
+    if (app.isPackaged) {
+      console.log('app.getAppPath():', app.getAppPath());
+    }
+    console.log('__dirname:', __dirname);
+    console.log('app.isPackaged:', app.isPackaged);
+    
+    // Try to load the file
+    if (!win) {
+      console.error('Window is null, cannot load file');
+      return;
+    }
+    
+    // Use loadFile which handles ASAR paths correctly
+    // loadFile() automatically handles ASAR archives when given a path inside app.asar
+    try {
+      console.log('Attempting to load with loadFile():', indexPath);
+      // loadFile() automatically handles ASAR archives - just use the relative path
+      // It will resolve app.asar/dist/index.html correctly
+      win.loadFile(indexPath).catch((error) => {
+        console.error('Error loading file with loadFile():', error);
+        if (!win) return;
+        
+        // Try alternative paths
+        const altPaths = app.isPackaged ? [
+          path.join(__dirname, '../dist/index.html'), // Same as indexPath, but explicit
+          path.join(app.getAppPath(), 'dist', 'index.html'), // Using getAppPath
+          path.join(process.resourcesPath, 'app.asar', 'dist', 'index.html') // Using resourcesPath
+        ] : [
+          path.join(__dirname, '../dist/index.html'),
+          path.join(process.env.DIST || '', 'index.html')
+        ];
+        
+        let pathIndex = 0;
+        const tryNextPath = () => {
+          if (pathIndex >= altPaths.length) {
+            console.error('All paths failed. Opening DevTools for debugging.');
+            if (win) {
+              win.webContents.openDevTools();
+            }
+            return;
+          }
+          
+          const nextPath = altPaths[pathIndex++];
+          console.log(`Trying alternative path ${pathIndex}:`, nextPath);
+          if (!win) return;
+          
+          win.loadFile(nextPath).catch((nextError) => {
+            console.error(`Path ${pathIndex} failed:`, nextError);
+            tryNextPath();
+          });
+        };
+        
+        tryNextPath();
+      });
+    } catch (error) {
+      console.error('Exception while loading:', error);
+      if (win) {
+        win.webContents.openDevTools();
+      }
+    }
+    
+    // Enable DevTools access - user can press F12 or Ctrl+Shift+I
+    // Also open automatically if there's an error (handled in error handlers above)
   }
 }
 
@@ -589,6 +701,7 @@ const userPreferencesService = new UserPreferencesService();
 const apiCredentialsService = new APICredentialsService();
 const launcherDetectionService = new LauncherDetectionService();
 const steamAuthService = new SteamAuthService();
+const bugReportService = new BugReportService();
 
 // Initialize IGDB service if credentials are available
 let igdbService: IGDBService | null = null;
@@ -720,6 +833,9 @@ const imageCacheService = new ImageCacheService();
 
 // Process suspend service (initialized conditionally)
 let processSuspendService: ProcessSuspendService | null = null;
+
+// Background scan interval
+let backgroundScanInterval: NodeJS.Timeout | null = null;
 
 /**
  * Initialize the suspend service if enabled in preferences
@@ -1174,18 +1290,27 @@ ipcMain.handle('gameStore:getLibrary', async () => {
       if (validatedGame.logoUrl?.startsWith('onyx-local://')) {
         const fixed = await imageCacheService.cacheImage(validatedGame.logoUrl, game.id, 'logo');
         if (fixed && fixed !== validatedGame.logoUrl) {
-          validatedGame.logoUrl = fixed || validatedGame.logoUrl;
-        } else if (!fixed || fixed === '') {
-          validatedGame.logoUrl = undefined;
+          // URL format was converted (old to new format) - update it
+          validatedGame.logoUrl = fixed;
+          needsUpdate = true;
+        } else if (fixed === '') {
+          // File doesn't exist - only clear if we're sure it's broken
+          // Don't clear if it's just a format conversion issue
+          console.warn(`[getLibrary] Logo file not found for ${game.title}, but preserving URL: ${validatedGame.logoUrl}`);
+          // Keep the URL - it might be valid but in old format that will be converted on next save
         }
       }
       
       if (validatedGame.heroUrl?.startsWith('onyx-local://')) {
         const fixed = await imageCacheService.cacheImage(validatedGame.heroUrl, game.id, 'hero');
         if (fixed && fixed !== validatedGame.heroUrl) {
-          validatedGame.heroUrl = fixed || validatedGame.heroUrl;
-        } else if (!fixed || fixed === '') {
-          validatedGame.heroUrl = undefined;
+          // URL format was converted (old to new format) - update it
+          validatedGame.heroUrl = fixed;
+          needsUpdate = true;
+        } else if (fixed === '') {
+          // File doesn't exist - only clear if we're sure it's broken
+          console.warn(`[getLibrary] Hero file not found for ${game.title}, but preserving URL: ${validatedGame.heroUrl}`);
+          // Keep the URL - it might be valid but in old format that will be converted on next save
         }
       }
       
@@ -1201,6 +1326,8 @@ ipcMain.handle('gameStore:getLibrary', async () => {
 
 ipcMain.handle('gameStore:saveGame', async (_event, game: Game) => {
   try {
+    console.log(`[saveGame] Saving game: ${game.title} (${game.id})`);
+    
     // Cache images before saving
     const cachedImages = await imageCacheService.cacheImages({
       boxArtUrl: game.boxArtUrl,
@@ -1210,13 +1337,23 @@ ipcMain.handle('gameStore:saveGame', async (_event, game: Game) => {
     }, game.id);
 
     // Update game with cached image URLs
+    // IMPORTANT: Preserve original URLs if caching returns empty (might be old format that needs conversion)
     const gameWithCachedImages: Game = {
       ...game,
       boxArtUrl: cachedImages.boxArtUrl || game.boxArtUrl,
       bannerUrl: cachedImages.bannerUrl || game.bannerUrl,
-      logoUrl: cachedImages.logoUrl || game.logoUrl,
+      // For logo: if cachedImages.logoUrl is empty but game.logoUrl exists and is onyx-local, preserve it
+      // The URL format will be converted on next load
+      logoUrl: cachedImages.logoUrl || (game.logoUrl?.startsWith('onyx-local://') ? game.logoUrl : undefined),
       heroUrl: cachedImages.heroUrl || game.heroUrl,
     };
+
+    // Log logo URL changes for debugging
+    if (game.logoUrl && game.logoUrl !== gameWithCachedImages.logoUrl) {
+      console.log(`[saveGame] Logo URL changed for ${game.title}: ${game.logoUrl.substring(0, 60)}... -> ${gameWithCachedImages.logoUrl?.substring(0, 60) || 'undefined'}...`);
+    } else if (game.logoUrl && gameWithCachedImages.logoUrl) {
+      console.log(`[saveGame] Logo URL preserved for ${game.title}: ${game.logoUrl.substring(0, 60)}...`);
+    }
 
     await gameStore.saveGame(gameWithCachedImages);
     return true;
@@ -3507,6 +3644,61 @@ ipcMain.handle('steam:importAllGames', async (_event, steamPath?: string) => {
   }
 });
 
+// Steam playtime sync IPC handler
+ipcMain.handle('steam:syncPlaytime', async () => {
+  try {
+    // Check if user is authenticated
+    const authState = await steamAuthService.getAuthState();
+    if (!authState.authenticated || !authState.steamId) {
+      return { success: false, error: 'Steam account not linked. Please link your Steam account in Settings.' };
+    }
+
+    // Get Steam Web API key if available (optional)
+    // Note: Steam Web API key can be added to APICredentials in the future for better reliability
+    const apiCredentials = await apiCredentialsService.getCredentials();
+    const steamApiKey = undefined; // Not implemented yet - would be apiCredentials.steamApiKey
+
+    // Fetch playtime data from Steam
+    const playtimeMap = await steamService.fetchPlaytimeData(authState.steamId, steamApiKey);
+    
+    if (playtimeMap.size === 0) {
+      return { success: false, error: 'No playtime data found. Make sure your Steam profile is set to public.' };
+    }
+
+    // Get all games from library
+    const library = await gameStore.getLibrary();
+    
+    // Update playtime for Steam games that match
+    let updatedCount = 0;
+    for (const game of library) {
+      // Check if this is a Steam game
+      if (game.id.startsWith('steam-')) {
+        const appIdMatch = game.id.match(/^steam-(.+)$/);
+        if (appIdMatch && appIdMatch[1]) {
+          const appId = appIdMatch[1];
+          const playtime = playtimeMap.get(appId);
+          
+          if (playtime !== undefined && playtime > 0) {
+            // Only update if playtime is not locked or if it's different
+            const lockedFields = game.lockedFields || {};
+            if (!lockedFields.playtime) {
+              game.playtime = playtime;
+              await gameStore.saveGame(game);
+              updatedCount++;
+            }
+          }
+        }
+      }
+    }
+
+    console.log(`[Steam] Synced playtime for ${updatedCount} games`);
+    return { success: true, updatedCount, totalGames: playtimeMap.size };
+  } catch (error) {
+    console.error('Error in steam:syncPlaytime handler:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error', updatedCount: 0 };
+  }
+});
+
 // App configuration IPC handlers
 ipcMain.handle('appConfig:getAll', async () => {
   try {
@@ -3580,9 +3772,65 @@ ipcMain.handle('appConfig:getBackgroundScanEnabled', async () => {
 ipcMain.handle('appConfig:setBackgroundScanEnabled', async (_event, enabled: boolean) => {
   try {
     await appConfigService.setBackgroundScanEnabled(enabled);
+    
+    // Start or stop background scan based on setting
+    if (enabled) {
+      await startBackgroundScan();
+    } else {
+      stopBackgroundScan();
+    }
+    
     return { success: true };
   } catch (error) {
     console.error('Error setting background scan status:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+});
+
+// Background scan interval IPC handlers
+ipcMain.handle('appConfig:getBackgroundScanIntervalMinutes', async () => {
+  try {
+    return await appConfigService.getBackgroundScanIntervalMinutes();
+  } catch (error) {
+    console.error('Error getting background scan interval:', error);
+    return 30; // Default fallback
+  }
+});
+
+ipcMain.handle('appConfig:setBackgroundScanIntervalMinutes', async (_event, minutes: number) => {
+  try {
+    await appConfigService.setBackgroundScanIntervalMinutes(minutes);
+    
+    // Restart background scan with new interval if it's currently enabled
+    const enabled = await appConfigService.getBackgroundScanEnabled();
+    if (enabled) {
+      await startBackgroundScan();
+    }
+    
+    return { success: true };
+  } catch (error) {
+    console.error('Error setting background scan interval:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+});
+
+// Pause/resume background scan (for when ImportWorkbench is open)
+ipcMain.handle('appConfig:pauseBackgroundScan', async () => {
+  try {
+    pauseBackgroundScan();
+    return { success: true };
+  } catch (error) {
+    console.error('Error pausing background scan:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+});
+
+ipcMain.handle('appConfig:resumeBackgroundScan', async () => {
+  try {
+    await resumeBackgroundScan();
+    return { success: true };
+  } catch (error) {
+    console.error('Error resuming background scan:', error);
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
 });
@@ -3645,85 +3893,202 @@ ipcMain.handle('appConfig:getLastBackgroundScan', async () => {
   }
 });
 
+/**
+ * Start background scan interval
+ */
+async function startBackgroundScan(): Promise<void> {
+  // Clear existing interval if any
+  if (backgroundScanInterval) {
+    clearInterval(backgroundScanInterval);
+    backgroundScanInterval = null;
+  }
+
+  // Get interval from config
+  const intervalMinutes = await appConfigService.getBackgroundScanIntervalMinutes();
+  const intervalMs = intervalMinutes * 60 * 1000;
+
+  // Don't perform initial scan here - it's already done on startup
+  // Just set up the interval for periodic scans
+  backgroundScanInterval = setInterval(() => {
+    performBackgroundScan();
+  }, intervalMs);
+
+  console.log(`[BackgroundScan] Started background scanning (interval: ${intervalMinutes} minutes)`);
+}
+
+/**
+ * Stop background scan interval
+ */
+function stopBackgroundScan(): void {
+  if (backgroundScanInterval) {
+    clearInterval(backgroundScanInterval);
+    backgroundScanInterval = null;
+    console.log('[BackgroundScan] Stopped background scanning');
+  }
+}
+
+/**
+ * Pause background scan (temporarily stop, but keep the setting enabled)
+ */
+function pauseBackgroundScan(): void {
+  if (backgroundScanInterval) {
+    clearInterval(backgroundScanInterval);
+    backgroundScanInterval = null;
+    console.log('[BackgroundScan] Paused background scanning');
+  }
+}
+
+/**
+ * Resume background scan (restart if it was paused)
+ */
+async function resumeBackgroundScan(): Promise<void> {
+  const enabled = await appConfigService.getBackgroundScanEnabled();
+  if (enabled && !backgroundScanInterval) {
+    await startBackgroundScan();
+    console.log('[BackgroundScan] Resumed background scanning');
+  }
+}
+
 // Background scan function
-const performBackgroundScan = async () => {
+// skipEnabledCheck: if true, skips the enabled check (for startup scan)
+const performBackgroundScan = async (skipEnabledCheck: boolean = false) => {
   try {
-    const enabled = await appConfigService.getBackgroundScanEnabled();
-    if (!enabled) {
-      return;
-    }
-
-    console.log('Starting background scan...');
-    const configs = await appConfigService.getAppConfigs();
-    const enabledConfigs = Object.values(configs).filter((config: any) => config.enabled && config.path);
-
-    for (const config of enabledConfigs) {
-      try {
-        if (config.id === 'steam') {
-          // Check if user is authenticated and auto-add is enabled
-          const authState = await steamAuthService.getAuthState();
-          if (!authState.authenticated || !config.autoAdd) {
-            continue; // Skip if not authenticated or auto-add disabled
-          }
-
-          await steamService.setSteamPath(config.path);
-          const scannedGames = steamService.scanSteamGames();
-          if (scannedGames.length > 0) {
-            // Get existing library to find new games
-            const existingLibrary = await gameStore.getLibrary();
-            const existingSteamIds = new Set(
-              existingLibrary
-                .filter(g => g.id.startsWith('steam-'))
-                .map(g => g.id.replace('steam-', ''))
-            );
-            
-            // Find new games (not in existing library)
-            const newGames = scannedGames.filter(g => !existingSteamIds.has(g.appId));
-            
-            if (newGames.length > 0) {
-              // Send notification to renderer about new games
-              if (win && !win.isDestroyed()) {
-                win.webContents.send('steam:newGamesFound', {
-                  count: newGames.length,
-                  games: newGames,
-                });
-              }
-              console.log(`Background scan found ${newGames.length} new Steam games, notification sent`);
-            }
-          }
-        } else if (config.id === 'xbox') {
-          const games = xboxService.scanGames(config.path);
-          if (games.length > 0) {
-            // If auto-add is enabled, automatically import new games
-            if (config.autoAdd) {
-              const xboxGames: Game[] = games.map(xboxGame => ({
-                id: xboxGame.id,
-                title: xboxGame.name,
-                platform: 'xbox' as const,
-                exePath: xboxGame.installPath,
-                boxArtUrl: '',
-                bannerUrl: '',
-              }));
-              
-              for (const game of xboxGames) {
-                await gameStore.saveGame(game);
-              }
-              console.log(`Background scan auto-added ${games.length} Xbox games`);
-            } else {
-              console.log(`Background scan found ${games.length} Xbox games (auto-add disabled)`);
-            }
-          }
-        }
-        // Add other launchers as needed
-      } catch (err) {
-        console.error(`Error scanning ${config.id} in background:`, err);
+    if (!skipEnabledCheck) {
+      const enabled = await appConfigService.getBackgroundScanEnabled();
+      if (!enabled) {
+        return;
       }
     }
 
+    console.log('[BackgroundScan] Starting background scan...');
+    const configs = await appConfigService.getAppConfigs();
+    const enabledConfigs = Object.values(configs).filter((config: any) => config.enabled && config.path);
+
+    // Scan all configured launchers using ImportService
+    // This will scan Steam, Xbox, Epic, GOG, Ubisoft, EA, Battle.net, Rockstar, Humble, itch.io, etc.
+    try {
+      const scannedResults = await importService.scanAllSources();
+      console.log(`[BackgroundScan] Scanned ${scannedResults.length} total games`);
+      
+      if (scannedResults.length > 0) {
+        // Get existing library to find new games
+        const existingLibrary = await gameStore.getLibrary();
+        console.log(`[BackgroundScan] Comparing against ${existingLibrary.length} existing games in library`);
+        
+        const existingGameIds = new Set(existingLibrary.map(g => g.id));
+        const existingExePaths = new Set(
+          existingLibrary
+            .map(g => g.exePath)
+            .filter((path): path is string => !!path)
+            .map(path => path.toLowerCase().replace(/\\/g, '/').trim())
+        );
+        const existingInstallPaths = new Set(
+          existingLibrary
+            .map(g => g.installationDirectory)
+            .filter((path): path is string => !!path)
+            .map(path => path.toLowerCase().replace(/\\/g, '/').trim())
+        );
+        
+        // Debug: Log some existing paths for comparison
+        if (existingExePaths.size > 0 || existingInstallPaths.size > 0) {
+          console.log(`[BackgroundScan] Sample existing paths: ${Array.from(existingExePaths).slice(0, 3).join(', ') || 'none'} (exe), ${Array.from(existingInstallPaths).slice(0, 3).join(', ') || 'none'} (install)`);
+        }
+        
+        // Find new games (not in existing library)
+        const newGames = scannedResults.filter(g => {
+          const gameTitle = g.title;
+          const isJohnWick = gameTitle.toLowerCase().includes('john wick');
+          
+          if (isJohnWick) {
+            console.log(`[BackgroundScan] Checking John Wick Hex: title="${gameTitle}", exe="${g.exePath}", install="${g.installPath}"`);
+          }
+          
+          // Check by game ID (for Steam games)
+          if (g.source === 'steam' && g.appId) {
+            const gameId = `steam-${g.appId}`;
+            if (existingGameIds.has(gameId)) {
+              if (isJohnWick) console.log(`[BackgroundScan] John Wick Hex already exists (by ID): ${gameId}`);
+              return false;
+            }
+          }
+          
+          // Check by exePath
+          if (g.exePath) {
+            const normalizedExePath = g.exePath.toLowerCase().replace(/\\/g, '/').trim();
+            if (existingExePaths.has(normalizedExePath)) {
+              if (isJohnWick) console.log(`[BackgroundScan] John Wick Hex already exists (by exePath): ${g.exePath} -> ${normalizedExePath}`);
+              return false;
+            }
+            if (isJohnWick) {
+              console.log(`[BackgroundScan] John Wick Hex exePath not found in existing: ${normalizedExePath}`);
+              console.log(`[BackgroundScan] Existing exePaths contains similar? ${Array.from(existingExePaths).some(p => p.includes('john') || p.includes('wick'))}`);
+            }
+          }
+          
+          // Check by installPath
+          if (g.installPath) {
+            const normalizedInstallPath = g.installPath.toLowerCase().replace(/\\/g, '/').trim();
+            if (existingInstallPaths.has(normalizedInstallPath)) {
+              if (isJohnWick) console.log(`[BackgroundScan] John Wick Hex already exists (by installPath): ${g.installPath} -> ${normalizedInstallPath}`);
+              return false;
+            }
+            
+            // Also check if this installPath is a subfolder of any existing game's installationDirectory
+            // This prevents detecting Battlefield 6\SP when Battlefield 6 already exists
+            for (const existingInstallPath of existingInstallPaths) {
+              if (normalizedInstallPath.startsWith(existingInstallPath + '/') || 
+                  normalizedInstallPath.startsWith(existingInstallPath + '\\')) {
+                console.log(`[BackgroundScan] Skipping subfolder game: ${g.title} (${g.installPath}) - parent folder already exists in library: ${existingInstallPath}`);
+                return false;
+              }
+            }
+            
+            if (isJohnWick) {
+              console.log(`[BackgroundScan] John Wick Hex installPath not found in existing: ${normalizedInstallPath}`);
+              console.log(`[BackgroundScan] Existing installPaths contains similar? ${Array.from(existingInstallPaths).some(p => p.includes('john') || p.includes('wick'))}`);
+            }
+          }
+          
+          if (isJohnWick) {
+            console.log(`[BackgroundScan] ✓ John Wick Hex is NEW - will be included in new games list`);
+          }
+          return true;
+        });
+        
+        if (newGames.length > 0) {
+          // Group new games by source for better notifications
+          const gamesBySource = new Map<string, ScannedGameResult[]>();
+          for (const game of newGames) {
+            if (!gamesBySource.has(game.source)) {
+              gamesBySource.set(game.source, []);
+            }
+            gamesBySource.get(game.source)!.push(game);
+          }
+          
+          // Send notification to renderer about new games
+          if (win && !win.isDestroyed()) {
+            win.webContents.send('background:newGamesFound', {
+              count: newGames.length,
+              games: newGames,
+              bySource: Object.fromEntries(gamesBySource),
+            });
+          }
+          console.log(`[BackgroundScan] Found ${newGames.length} new games across ${gamesBySource.size} source(s)`);
+          for (const [source, games] of gamesBySource.entries()) {
+            console.log(`[BackgroundScan]   - ${source}: ${games.length} new game(s)`);
+          }
+        } else {
+          console.log(`[BackgroundScan] No new games found (${scannedResults.length} total games scanned)`);
+        }
+      }
+    } catch (err) {
+      console.error('[BackgroundScan] Error scanning all sources:', err);
+    }
+
     await appConfigService.setLastBackgroundScan(Date.now());
-    console.log('Background scan completed');
+    console.log('[BackgroundScan] Background scan completed');
   } catch (error) {
-    console.error('Error in background scan:', error);
+    console.error('[BackgroundScan] Error in background scan:', error);
   }
 };
 
@@ -4141,6 +4506,26 @@ ipcMain.handle('imageCache:deleteImage', async (_event, gameId: string, imageTyp
     return { success: true };
   } catch (error) {
     console.error('Error deleting cached image:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+});
+
+// Bug report IPC handlers
+ipcMain.handle('bugReport:generate', async (_event, userDescription: string) => {
+  try {
+    const result = await bugReportService.generateBugReport(userDescription);
+    return result;
+  } catch (error) {
+    console.error('Error generating bug report:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+});
+
+ipcMain.handle('bugReport:getLogsDirectory', async () => {
+  try {
+    return { success: true, path: bugReportService.getLogsDirectory() };
+  } catch (error) {
+    console.error('Error getting logs directory:', error);
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
 });
@@ -4805,22 +5190,47 @@ app.whenReady().then(async () => {
     createTray();
   }
 
+  // DISABLED: Suspend feature (Future Feature)
   // Always register IPC handlers (they check if service is available)
-  registerSuspendIPCHandlers();
+  // registerSuspendIPCHandlers();
   
   // Initialize suspend service if enabled
-  await initializeSuspendService();
+  // await initializeSuspendService();
   
   // Register shortcut if service is enabled
-  if (processSuspendService) {
-    await registerSuspendShortcut();
-  }
+  // if (processSuspendService) {
+  //   await registerSuspendShortcut();
+  // }
 
   createMenu();
   createWindow();
+
+  // Perform startup scan (runs once on app launch, regardless of background scan setting)
+  // This checks for new games immediately when the app starts
+  // Run this asynchronously so it doesn't block window creation
+  (async () => {
+    try {
+      // Small delay to ensure window is ready to receive notifications
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      console.log('[StartupScan] Performing startup scan for new games...');
+      // Pass true to skip the enabled check - startup scan always runs
+      await performBackgroundScan(true);
+      console.log('[StartupScan] Startup scan completed');
+    } catch (error) {
+      console.error('[StartupScan] Error during startup scan:', error);
+      // Don't block app startup if scan fails
+    }
+  })();
+
+  // Initialize background scan interval if enabled
+  const backgroundScanEnabled = await appConfigService.getBackgroundScanEnabled();
+  if (backgroundScanEnabled) {
+    await startBackgroundScan();
+  }
 });
 
-// Cleanup global shortcuts on app quit
+// Cleanup global shortcuts and background scan on app quit
 app.on('will-quit', () => {
   unregisterSuspendShortcut();
+  stopBackgroundScan();
 });

@@ -8,8 +8,8 @@ import { AddGameModal } from './components/AddGameModal';
 import { GameDetailsPanel } from './components/GameDetailsPanel';
 import { GameMetadataEditor } from './components/GameMetadataEditor';
 import { SteamConfigModal } from './components/SteamConfigModal';
-import { SteamImportModal } from './components/SteamImportModal';
-import { GameEditor } from './components/GameEditor';
+// REMOVED: SteamImportModal - All imports now use ImportWorkbench
+// import { SteamImportModal } from './components/SteamImportModal';
 import { CategoriesEditor } from './components/CategoriesEditor';
 import { TopBar } from './components/TopBar';
 import { MenuBar } from './components/MenuBar';
@@ -20,6 +20,7 @@ import { MetadataSearchModal } from './components/MetadataSearchModal';
 import { ImportWorkbench } from './components/importer/ImportWorkbench';
 import { GameManager } from './components/GameManager';
 import { ConfirmationDialog } from './components/ConfirmationDialog';
+import { BugReportModal } from './components/BugReportModal';
 import { Game, ExecutableFile, GameMetadata } from './types/game';
 import { areAPIsConfigured } from './utils/apiValidation';
 
@@ -41,15 +42,11 @@ function App() {
   // Steam config modal state
   const [isSteamConfigOpen, setIsSteamConfigOpen] = useState(false);
   
-  // Steam import modal state
-  const [isSteamImportOpen, setIsSteamImportOpen] = useState(false);
+  // REMOVED: Steam import modal state - All imports now use ImportWorkbench
+  // const [isSteamImportOpen, setIsSteamImportOpen] = useState(false);
   const [scannedSteamGames, setScannedSteamGames] = useState<Array<any>>([]);
   const [importAppType, setImportAppType] = useState<'steam' | 'xbox' | 'other'>('steam');
   
-  // Game editor state
-  const [isGameEditorOpen, setIsGameEditorOpen] = useState(false);
-  const [editingGame, setEditingGame] = useState<Game | null>(null);
-  const [initialEditorTab, setInitialEditorTab] = useState<'details' | 'images'>('details');
   
   // Categories editor state
   const [isCategoriesEditorOpen, setIsCategoriesEditorOpen] = useState(false);
@@ -75,6 +72,7 @@ function App() {
   const [gameManagerInitialTab, setGameManagerInitialTab] = useState<'images' | 'metadata' | 'modManager'>('images');
   const [onyxSettingsInitialTab, setOnyxSettingsInitialTab] = useState<'general' | 'appearance' | 'apis' | 'apps' | 'about'>('general');
   const [isAPISettingsOpen, setIsAPISettingsOpen] = useState(false);
+  const [isBugReportOpen, setIsBugReportOpen] = useState(false);
   const [gridSize, setGridSize] = useState(120);
   const [pinnedCategories, setPinnedCategories] = useState<string[]>([]);
   const [newGamesNotification, setNewGamesNotification] = useState<{ count: number; games: Array<any> } | null>(null);
@@ -289,8 +287,16 @@ function App() {
     const newGamesHandler = (_event: any, data: { count: number; games: Array<any> }) => {
       setNewGamesNotification({ count: data.count, games: data.games });
     };
+    
+    // Listen for new games found from background scan (all sources)
+    const backgroundNewGamesHandler = (_event: any, data: { count: number; games: Array<any>; bySource?: Record<string, Array<any>> }) => {
+      console.log('[App] Background scan found new games:', data);
+      setNewGamesNotification({ count: data.count, games: data.games });
+    };
+    
     if (window.ipcRenderer) {
       window.ipcRenderer.on('steam:newGamesFound', newGamesHandler);
+      window.ipcRenderer.on('background:newGamesFound', backgroundNewGamesHandler);
     }
 
     return () => {
@@ -300,6 +306,7 @@ function App() {
       cleanup4();
       if (window.ipcRenderer) {
         window.ipcRenderer.off('steam:newGamesFound', newGamesHandler);
+        window.ipcRenderer.off('background:newGamesFound', backgroundNewGamesHandler);
       }
     };
   }, []);
@@ -572,6 +579,7 @@ function App() {
     }
 
     const container = gridContainerRef.current;
+    // Use the actual container width (left panel) to ensure we fill it properly
     const containerWidth = container.clientWidth;
     // Use the visible viewport height, not the scrollable container height
     const containerHeight = container.clientHeight; // This is the visible height
@@ -590,12 +598,14 @@ function App() {
     const gap = gameTilePadding;
     
     // GameCard uses aspect-[2/3], so height = width * 1.5
-    // We need to find columns and rows such that columns * rows >= totalGames
-    // And ALL games fit within availableWidth and availableHeight
+    // We need to find the grid size that maximizes tile size while ensuring
+    // the rightmost boxart gets as close as possible to the divider
     
     let bestSize = 0;
+    let bestColumns = 0;
+    let bestRemainingWidth = Infinity;
     
-    // Try different column counts
+    // Try different column counts to find the one that fills the width best
     for (let columns = 1; columns <= 20; columns++) {
       // Calculate tile width based on available width
       const totalGapWidth = gap * (columns - 1);
@@ -614,16 +624,25 @@ function App() {
       
       // Check if this configuration fits ALL games in the visible height
       if (totalHeightNeeded <= availableHeight) {
-        // This configuration fits! Prefer larger tiles
-        if (bestSize === 0 || tileWidth > bestSize) {
-          bestSize = Math.round(tileWidth);
+        // Calculate how much space this configuration uses
+        const usedWidth = (tileWidth * columns) + (gap * (columns - 1));
+        const remainingWidth = availableWidth - usedWidth;
+        
+        // Prioritize configurations that minimize remaining width (fill more space)
+        // Among those, prefer larger tile sizes
+        if (bestSize === 0 || 
+            remainingWidth < bestRemainingWidth ||
+            (Math.abs(remainingWidth - bestRemainingWidth) < 5 && tileWidth > bestSize)) {
+          bestSize = tileWidth;
+          bestColumns = columns;
+          bestRemainingWidth = remainingWidth;
         }
       }
     }
     
     // If we found a solution, use it
     if (bestSize > 0) {
-      setGridSize(bestSize);
+      setGridSize(Math.round(bestSize));
     } else {
       // No solution found - try to fit as many as possible
       // Start with a reasonable tile size and work backwards
@@ -853,7 +872,7 @@ function App() {
     const apisConfigured = await areAPIsConfigured();
     if (!apisConfigured) {
       showToast('API credentials must be configured before adding games. Please configure them in Settings.', 'error');
-      setIsSteamImportOpen(false);
+      // setIsSteamImportOpen(false); // REMOVED: No longer using SteamImportModal
       setIsOnyxSettingsOpen(true);
       setOnyxSettingsInitialTab('apis');
       return;
@@ -1189,6 +1208,7 @@ function App() {
           setIsOnyxSettingsOpen(true);
         }}
         onExit={handleExit}
+        onBugReport={() => setIsBugReportOpen(true)}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         selectedCategory={selectedCategory}
@@ -1275,6 +1295,7 @@ function App() {
                         showLogoOverBoxart={showLogoOverBoxart}
                         logoPosition={logoPosition}
                         useLogosInsteadOfBoxart={viewMode === 'logo'}
+                        autoSizeToFit={autoSizeToFit}
                       />
                     ) : (
                       <LibraryListView
@@ -1421,8 +1442,8 @@ function App() {
         onScan={handleSteamConfigScan}
       />
 
-      {/* Steam Import Modal */}
-      <SteamImportModal
+      {/* REMOVED: Steam Import Modal - All imports now use ImportWorkbench */}
+      {/* <SteamImportModal
         isOpen={isSteamImportOpen}
         onClose={() => {
           setIsSteamImportOpen(false);
@@ -1433,22 +1454,8 @@ function App() {
         preScannedGames={scannedSteamGames}
         appType={importAppType}
         existingLibrary={games}
-      />
+      /> */}
 
-      {/* Game Editor Modal */}
-      <GameEditor
-        isOpen={isGameEditorOpen}
-        game={editingGame}
-        onClose={() => {
-          setIsGameEditorOpen(false);
-          setEditingGame(null);
-          setInitialEditorTab('details');
-        }}
-        onSave={handleSaveGame}
-        onDelete={handleDeleteGame}
-        allCategories={allCategories}
-        initialTab={initialEditorTab}
-      />
 
       {/* Categories Editor Modal */}
       <CategoriesEditor
@@ -1471,9 +1478,10 @@ function App() {
         onClose={() => setIsOnyxSettingsOpen(false)}
         initialTab={onyxSettingsInitialTab}
         onShowImportModal={(games, appType) => {
-          setIsSteamImportOpen(true);
+          // Use ImportWorkbench instead of SteamImportModal
           setScannedSteamGames(games);
           setImportAppType(appType || 'steam');
+          setIsImportWorkbenchOpen(true);
         }}
         onSave={async () => {
           // Reload preferences after saving to update UI immediately
@@ -1524,10 +1532,10 @@ function App() {
           loadLibrary();
         }}
         onShowImportModal={(games, appType = 'steam') => {
-          setIsSteamImportOpen(true);
-          // Store games to pass to modal
+          // Use ImportWorkbench instead of SteamImportModal
           setScannedSteamGames(games);
           setImportAppType(appType);
+          setIsImportWorkbenchOpen(true);
         }}
       />
 
@@ -1537,9 +1545,13 @@ function App() {
         onClose={() => {
           setIsImportWorkbenchOpen(false);
           setImportWorkbenchFolderPath(undefined); // Clear folder path on close
+          setScannedSteamGames([]); // Clear pre-scanned games
+          setImportAppType('steam');
         }}
         existingLibrary={games}
         initialFolderPath={importWorkbenchFolderPath}
+        preScannedGames={scannedSteamGames && scannedSteamGames.length > 0 ? scannedSteamGames : undefined}
+        appType={importAppType}
         onImport={async (games) => {
           try {
             // Save all games
@@ -1550,6 +1562,8 @@ function App() {
             showToast(`Successfully imported ${games.length} ${games.length === 1 ? 'game' : 'games'}`, 'success');
             setIsImportWorkbenchOpen(false);
             setImportWorkbenchFolderPath(undefined);
+            setScannedSteamGames([]);
+            setImportAppType('steam');
           } catch (err) {
             console.error('Error importing games:', err);
             showToast('Failed to import games', 'error');
@@ -1661,6 +1675,12 @@ function App() {
         />
       )}
 
+      {/* Bug Report Modal */}
+      <BugReportModal
+        isOpen={isBugReportOpen}
+        onClose={() => setIsBugReportOpen(false)}
+      />
+
       {/* Hide Game Confirmation Dialog */}
       {hideConfirmation && (
         <ConfirmationDialog
@@ -1711,7 +1731,7 @@ function App() {
               <div>
                 <h3 className="text-lg font-semibold text-white">New Games Found</h3>
                 <p className="text-sm text-gray-400">
-                  {newGamesNotification.count} new {newGamesNotification.count === 1 ? 'game' : 'games'} found in your Steam library
+                  {newGamesNotification.count} new {newGamesNotification.count === 1 ? 'game' : 'games'} found
                 </p>
               </div>
             </div>
@@ -1729,10 +1749,14 @@ function App() {
               </button>
               <button
                 onClick={() => {
-                  // Open importer with the new games
+                  // Open ImportWorkbench with the new games
+                  // Determine app type from the games (use 'other' for mixed sources)
+                  const sources = new Set(newGamesNotification.games.map((g: any) => g.source));
+                  const appType = sources.size === 1 && sources.has('steam') ? 'steam' : 
+                                 sources.size === 1 && sources.has('xbox') ? 'xbox' : 'other';
                   setScannedSteamGames(newGamesNotification.games);
-                  setImportAppType('steam');
-                  setIsSteamImportOpen(true);
+                  setImportAppType(appType);
+                  setIsImportWorkbenchOpen(true);
                   setNewGamesNotification(null);
                 }}
                 className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"

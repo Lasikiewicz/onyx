@@ -3,7 +3,7 @@ import { XboxService, XboxGame } from './XboxService.js';
 import { AppConfigService } from './AppConfigService.js';
 import { MetadataFetcherService } from './MetadataFetcherService.js';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
-import { join, sep } from 'node:path';
+import { join, sep, dirname } from 'node:path';
 
 export interface ScannedGameResult {
   uuid: string;
@@ -339,6 +339,8 @@ export class ImportService {
                      !fileNameOnly.includes('launcher') &&
                      fileNameOnly !== 'crashreportclient.exe' &&
                      fileNameOnly !== 'battlenet.overlay.runtime.exe' &&
+               fileNameOnly !== 'battlenet.exe' &&
+               fileNameOnly !== 'battle.net.exe' &&
                      fileNameOnly !== 'crashpad_handler.exe' &&
                      fileNameOnly !== 'embark-crash-helper.exe' &&
                      fileNameOnly !== 'blizzardbrowser.exe' &&
@@ -414,60 +416,109 @@ export class ImportService {
 
   /**
    * Scan GOG games folder for executables
+   * Recursively scans all subdirectories and creates a game entry for each folder containing a valid executable
    */
   private scanGOGGamesFolder(gamesPath: string): ScannedGameResult[] {
     const results: ScannedGameResult[] = [];
     
     try {
-      const gameFolders = readdirSync(gamesPath);
+      console.log(`[GOG] Scanning games folder: ${gamesPath}`);
       
-      for (const gameFolder of gameFolders) {
-        const gamePath = join(gamesPath, gameFolder);
+      // Find all executables recursively in the folder
+      const allExeFiles = this.findExecutables(gamesPath, 0, 20);
+      console.log(`[GOG] Found ${allExeFiles.length} total executables`);
+      
+      // Filter out helper executables
+      const gameExes = allExeFiles.filter(exe => {
+        const fileName = exe.toLowerCase();
+        const fileNameOnly = fileName.split(/[/\\]/).pop() || '';
+        return !fileNameOnly.includes('gamelaunchhelper') &&
+               !fileNameOnly.includes('bootstrapper') &&
+               !fileNameOnly.includes('uninstall') &&
+               !fileNameOnly.includes('setup') &&
+               !fileNameOnly.includes('installer') &&
+               fileNameOnly !== 'crashreportclient.exe' &&
+               fileNameOnly !== 'battlenet.overlay.runtime.exe' &&
+               fileNameOnly !== 'battlenet.exe' &&
+               fileNameOnly !== 'battle.net.exe' &&
+               fileNameOnly !== 'cleanup.exe' &&
+               fileNameOnly !== 'crashpad_handler.exe' &&
+               fileNameOnly !== 'gamesessionmonitor.exe';
+      });
+      
+      console.log(`[GOG] Filtered to ${gameExes.length} valid game executables`);
+      
+      if (gameExes.length === 0) {
+        return results;
+      }
+      
+      // Group executables by their containing directory
+      const gamesByFolder = new Map<string, string[]>();
+      
+      for (const exePath of gameExes) {
+        const exeDir = dirname(exePath);
+        const normalizedDir = exeDir.replace(/\\/g, sep).replace(/\/\//g, '/');
         
+        if (!gamesByFolder.has(normalizedDir)) {
+          gamesByFolder.set(normalizedDir, []);
+        }
+        gamesByFolder.get(normalizedDir)!.push(exePath);
+      }
+      
+      console.log(`[GOG] Found ${gamesByFolder.size} unique game folders`);
+      
+      // Create a game entry for each folder
+      for (const [gameDir, exePaths] of gamesByFolder.entries()) {
         try {
-          const stats = statSync(gamePath);
-          if (!stats.isDirectory()) continue;
+          // Only process directories within the games path
+          const normalizedGamesPath = gamesPath.replace(/\\/g, sep).replace(/\/\//g, '/');
+          if (!gameDir.startsWith(normalizedGamesPath) && gameDir !== normalizedGamesPath) {
+            continue;
+          }
           
-          // Look for .exe files in the game folder (deep scan)
-          const exeFiles = this.findExecutables(gamePath, 0, 20);
+          // Use the folder name as the game title
+          const folderName = gameDir.split(sep).pop() || 'Unknown';
           
-          // Filter out helper executables
-          const gameExes = exeFiles.filter(exe => {
-            const fileName = exe.toLowerCase();
-            const fileNameOnly = fileName.split(/[/\\]/).pop() || '';
-            return !fileNameOnly.includes('gamelaunchhelper') &&
-                   !fileNameOnly.includes('bootstrapper') &&
-                   !fileNameOnly.includes('uninstall') &&
-                   !fileNameOnly.includes('setup') &&
-                   !fileNameOnly.includes('installer') &&
-                   fileNameOnly !== 'crashreportclient.exe' &&
-                   fileNameOnly !== 'battlenet.overlay.runtime.exe' &&
-                   fileNameOnly !== 'crashpad_handler.exe' &&
-                   fileNameOnly !== 'gamesessionmonitor.exe';
+          // Select the best executable from this folder
+          let mainExe = exePaths[0];
+          
+          // Prefer executables with the same name as the directory
+          const matchingExe = exePaths.find(exe => {
+            const exeName = exe.split(sep).pop()?.toLowerCase().replace('.exe', '') || '';
+            return exeName === folderName.toLowerCase();
           });
           
-          if (gameExes.length > 0) {
-            // Use the first executable found
-            const mainExe = gameExes[0];
-            
-            results.push({
-              uuid: `gog-${gameFolder}-${Date.now()}`,
-              source: 'gog' as const,
-              originalName: gameFolder,
-              installPath: gamePath,
-              exePath: mainExe,
-              appId: undefined,
-              title: gameFolder,
-              status: 'ambiguous' as const, // GOG games need metadata matching
+          if (matchingExe) {
+            mainExe = matchingExe;
+          } else {
+            // Prefer executables closer to the folder root
+            const sortedByDepth = exePaths.sort((a, b) => {
+              const depthA = a.substring(gameDir.length).split(sep).length;
+              const depthB = b.substring(gameDir.length).split(sep).length;
+              return depthA - depthB;
             });
+            mainExe = sortedByDepth[0];
           }
+          
+          results.push({
+            uuid: `gog-${gameDir}-${Date.now()}`,
+            source: 'gog' as const,
+            originalName: folderName,
+            installPath: gameDir,
+            exePath: mainExe,
+            appId: undefined,
+            title: folderName,
+            status: 'ambiguous' as const, // GOG games need metadata matching
+          });
         } catch (err) {
-          // Skip folders we can't access
+          console.warn(`[GOG] Could not process game folder "${gameDir}":`, err);
           continue;
         }
       }
+      
+      console.log(`[GOG] Found ${results.length} games total`);
     } catch (err) {
-      console.error('Error scanning GOG games folder:', err);
+      console.error('[GOG] Error scanning GOG games folder:', err);
     }
     
     return results;
@@ -486,6 +537,8 @@ export class ImportService {
       'bootstrapper.exe',
       'crashreportclient.exe',
       'battlenet.overlay.runtime.exe',
+      'battlenet.exe',
+      'battle.net.exe',
       'crashpad_handler.exe',
       'embark-crash-helper.exe',
       'blizzardbrowser.exe',
@@ -604,74 +657,111 @@ export class ImportService {
 
   /**
    * Scan Ubisoft games folder for executables
+   * Recursively scans all subdirectories and creates a game entry for each folder containing a valid executable
    */
   private scanUbisoftGamesFolder(gamesPath: string): ScannedGameResult[] {
     const results: ScannedGameResult[] = [];
     
     try {
-      const gameFolders = readdirSync(gamesPath);
-      console.log(`[Ubisoft] Found ${gameFolders.length} items in games folder`);
+      console.log(`[Ubisoft] Scanning games folder: ${gamesPath}`);
       
-      for (const gameFolder of gameFolders) {
-        const gamePath = join(gamesPath, gameFolder);
+      // Find all executables recursively in the folder
+      const allExeFiles = this.findExecutables(gamesPath, 0, 20);
+      console.log(`[Ubisoft] Found ${allExeFiles.length} total executables`);
+      
+      // Filter out helper executables
+      const gameExes = allExeFiles.filter(exe => {
+        const fileName = exe.toLowerCase();
+        const fileNameOnly = fileName.split(/[/\\]/).pop() || '';
+        return !fileNameOnly.includes('gamelaunchhelper') &&
+               !fileNameOnly.includes('bootstrapper') &&
+               !fileNameOnly.includes('uninstall') &&
+               !fileNameOnly.includes('setup') &&
+               !fileNameOnly.includes('installer') &&
+               !fileNameOnly.includes('uplay') &&
+               !fileNameOnly.includes('ubisoft') &&
+               fileNameOnly !== 'crashreportclient.exe' &&
+               fileNameOnly !== 'battlenet.overlay.runtime.exe' &&
+               fileNameOnly !== 'battlenet.exe' &&
+               fileNameOnly !== 'battle.net.exe' &&
+               fileNameOnly !== 'cleanup.exe' &&
+               fileNameOnly !== 'crashpad_handler.exe' &&
+               fileNameOnly !== 'gamesessionmonitor.exe';
+      });
+      
+      console.log(`[Ubisoft] Filtered to ${gameExes.length} valid game executables`);
+      
+      if (gameExes.length === 0) {
+        return results;
+      }
+      
+      // Group executables by their containing directory
+      const gamesByFolder = new Map<string, string[]>();
+      
+      for (const exePath of gameExes) {
+        const exeDir = dirname(exePath);
+        const normalizedDir = exeDir.replace(/\\/g, sep).replace(/\/\//g, '/');
         
+        if (!gamesByFolder.has(normalizedDir)) {
+          gamesByFolder.set(normalizedDir, []);
+        }
+        gamesByFolder.get(normalizedDir)!.push(exePath);
+      }
+      
+      console.log(`[Ubisoft] Found ${gamesByFolder.size} unique game folders`);
+      
+      // Create a game entry for each folder
+      for (const [gameDir, exePaths] of gamesByFolder.entries()) {
         try {
-          const stats = statSync(gamePath);
-          if (!stats.isDirectory()) {
-            console.log(`[Ubisoft] Skipping non-directory: ${gameFolder}`);
+          // Only process directories within the games path
+          const normalizedGamesPath = gamesPath.replace(/\\/g, sep).replace(/\/\//g, '/');
+          if (!gameDir.startsWith(normalizedGamesPath) && gameDir !== normalizedGamesPath) {
             continue;
           }
           
-          console.log(`[Ubisoft] Scanning game folder: ${gameFolder}`);
+          // Use the folder name as the game title
+          const folderName = gameDir.split(sep).pop() || 'Unknown';
           
-          // Look for .exe files in the game folder (deep scan)
-          const exeFiles = this.findExecutables(gamePath, 0, 20);
-          console.log(`[Ubisoft] Found ${exeFiles.length} executables in ${gameFolder}`);
+          // Select the best executable from this folder
+          let mainExe = exePaths[0];
           
-          // Filter out helper executables
-          const gameExes = exeFiles.filter(exe => {
-            const fileName = exe.toLowerCase();
-            const fileNameOnly = fileName.split(/[/\\]/).pop() || '';
-            return !fileNameOnly.includes('gamelaunchhelper') &&
-                   !fileNameOnly.includes('bootstrapper') &&
-                   !fileNameOnly.includes('uninstall') &&
-                   !fileNameOnly.includes('setup') &&
-                   !fileNameOnly.includes('installer') &&
-                   !fileNameOnly.includes('uplay') &&
-                   !fileNameOnly.includes('ubisoft') &&
-                   fileNameOnly !== 'crashreportclient.exe' &&
-                   fileNameOnly !== 'battlenet.overlay.runtime.exe' &&
-                   fileNameOnly !== 'crashpad_handler.exe' &&
-                   fileNameOnly !== 'gamesessionmonitor.exe';
+          // Prefer executables with the same name as the directory
+          const matchingExe = exePaths.find(exe => {
+            const exeName = exe.split(sep).pop()?.toLowerCase().replace('.exe', '') || '';
+            return exeName === folderName.toLowerCase();
           });
           
-          console.log(`[Ubisoft] Filtered to ${gameExes.length} game executables in ${gameFolder}`);
-          
-          if (gameExes.length > 0) {
-            // Use the first executable found
-            const mainExe = gameExes[0];
-            
-            console.log(`[Ubisoft] Adding game: ${gameFolder} with exe: ${mainExe}`);
-            
-            results.push({
-              uuid: `ubisoft-${gameFolder}-${Date.now()}`,
-              source: 'ubisoft' as const,
-              originalName: gameFolder,
-              installPath: gamePath,
-              exePath: mainExe,
-              appId: undefined,
-              title: gameFolder,
-              status: 'ambiguous' as const, // Ubisoft games need metadata matching
-            });
+          if (matchingExe) {
+            mainExe = matchingExe;
           } else {
-            console.log(`[Ubisoft] No valid game executables found in ${gameFolder}`);
+            // Prefer executables closer to the folder root
+            const sortedByDepth = exePaths.sort((a, b) => {
+              const depthA = a.substring(gameDir.length).split(sep).length;
+              const depthB = b.substring(gameDir.length).split(sep).length;
+              return depthA - depthB;
+            });
+            mainExe = sortedByDepth[0];
           }
+          
+          console.log(`[Ubisoft] Adding game: ${folderName} with exe: ${mainExe}`);
+          
+          results.push({
+            uuid: `ubisoft-${gameDir}-${Date.now()}`,
+            source: 'ubisoft' as const,
+            originalName: folderName,
+            installPath: gameDir,
+            exePath: mainExe,
+            appId: undefined,
+            title: folderName,
+            status: 'ambiguous' as const, // Ubisoft games need metadata matching
+          });
         } catch (err) {
-          console.error(`[Ubisoft] Error processing folder ${gameFolder}:`, err);
-          // Skip folders we can't access
+          console.warn(`[Ubisoft] Could not process game folder "${gameDir}":`, err);
           continue;
         }
       }
+      
+      console.log(`[Ubisoft] Found ${results.length} games total`);
     } catch (err) {
       console.error('[Ubisoft] Error scanning Ubisoft games folder:', err);
     }
@@ -743,6 +833,8 @@ export class ImportService {
                      !fileNameOnly.includes('bootstrapper') &&
                      fileNameOnly !== 'crashreportclient.exe' &&
                      fileNameOnly !== 'battlenet.overlay.runtime.exe' &&
+               fileNameOnly !== 'battlenet.exe' &&
+               fileNameOnly !== 'battle.net.exe' &&
                      fileNameOnly !== 'crashpad_handler.exe' &&
                      fileNameOnly !== 'embark-crash-helper.exe' &&
                      fileNameOnly !== 'blizzardbrowser.exe' &&
@@ -811,7 +903,7 @@ export class ImportService {
   /**
    * Scan a folder for manual executables
    * Returns ScannedGameResult[] format for use with the importer
-   * Each top-level subdirectory becomes a game, using the folder name as the game title
+   * Recursively scans all subdirectories and creates a game entry for each folder containing a valid executable
    */
   async scanFolderForExecutables(folderPath: string): Promise<ScannedGameResult[]> {
     const results: ScannedGameResult[] = [];
@@ -822,132 +914,162 @@ export class ImportService {
         return [];
       }
 
-      // Get all top-level subdirectories
-      const entries = readdirSync(folderPath, { withFileTypes: true });
-      const subdirectories = entries.filter(entry => entry.isDirectory());
+      console.log(`[ImportService] Scanning folder "${folderPath}" recursively for games...`);
       
-      if (subdirectories.length === 0) {
-        // If no subdirectories, scan the folder itself for executables (deep scan)
-        const exeFiles = this.findExecutables(folderPath, 0, 20);
-        const gameExes = exeFiles.filter(exe => {
-          const fileName = exe.toLowerCase();
-          const fileNameOnly = fileName.split(/[/\\]/).pop() || '';
-          return !fileNameOnly.includes('gamelaunchhelper') &&
-                 !fileNameOnly.includes('bootstrapper') &&
-                 !fileNameOnly.includes('uninstall') &&
-                 !fileNameOnly.includes('unins') &&
-                 !fileNameOnly.includes('setup') &&
-                 !fileNameOnly.includes('installer') &&
-                 !fileNameOnly.includes('install') &&
-                 !fileNameOnly.includes('cleanup') &&
-                 !fileNameOnly.includes('crashhandler') &&
-                 !fileNameOnly.includes('redist') &&
-                 !fileNameOnly.includes('directx') &&
-                 !fileNameOnly.includes('updater') &&
-                 !fileNameOnly.includes('launcher') &&
-                 fileNameOnly !== 'crashreportclient.exe' &&
-                 fileNameOnly !== 'battlenet.overlay.runtime.exe' &&
-                 fileNameOnly !== 'crashpad_handler.exe' &&
-                 fileNameOnly !== 'gamesessionmonitor.exe';
-        });
+      // Find all executables recursively in the folder
+      const allExeFiles = this.findExecutables(folderPath, 0, 20);
+      console.log(`[ImportService] Found ${allExeFiles.length} total executables in "${folderPath}"`);
+      
+      // Filter out helper executables
+      const gameExes = allExeFiles.filter(exe => {
+        const fileName = exe.toLowerCase();
+        const fileNameOnly = fileName.split(/[/\\]/).pop() || '';
+        return !fileNameOnly.includes('gamelaunchhelper') &&
+               !fileNameOnly.includes('bootstrapper') &&
+               !fileNameOnly.includes('uninstall') &&
+               !fileNameOnly.includes('unins') &&
+               !fileNameOnly.includes('setup') &&
+               !fileNameOnly.includes('installer') &&
+               !fileNameOnly.includes('install') &&
+               !fileNameOnly.includes('cleanup') &&
+               !fileNameOnly.includes('crashhandler') &&
+               !fileNameOnly.includes('redist') &&
+               !fileNameOnly.includes('directx') &&
+               !fileNameOnly.includes('updater') &&
+               !fileNameOnly.includes('launcher') &&
+               fileNameOnly !== 'crashreportclient.exe' &&
+               fileNameOnly !== 'battlenet.overlay.runtime.exe' &&
+               fileNameOnly !== 'battlenet.exe' &&
+               fileNameOnly !== 'battle.net.exe' &&
+               fileNameOnly !== 'cleanup.exe' &&
+               fileNameOnly !== 'crashpad_handler.exe' &&
+               fileNameOnly !== 'gamesessionmonitor.exe';
+      });
+      
+      console.log(`[ImportService] Filtered to ${gameExes.length} valid game executables`);
+      
+      if (gameExes.length === 0) {
+        console.log(`[ImportService] No valid game executables found in "${folderPath}"`);
+        return results;
+      }
+      
+      // Group executables by their containing directory
+      // This way, if a folder has multiple executables, we create one game entry
+      // But if there are multiple folders each with their own executable, we create multiple games
+      const gamesByFolder = new Map<string, string[]>();
+      
+      // Normalize the base folder path for comparison (use forward slashes consistently)
+      const normalizedBasePath = folderPath.replace(/\\/g, '/').toLowerCase();
+      
+      for (const exePath of gameExes) {
+        const exeDir = dirname(exePath);
+        // Normalize the directory path (use forward slashes for consistency)
+        const normalizedDir = exeDir.replace(/\\/g, '/');
         
-        if (gameExes.length > 0) {
-          // Use folder name as game title
-          const folderName = folderPath.split(sep).pop() || 'Unknown';
-          const mainExe = gameExes[0];
+        // Only include directories that are within the scanned folder
+        const normalizedExeDir = normalizedDir.toLowerCase();
+        if (!normalizedExeDir.startsWith(normalizedBasePath) && normalizedExeDir !== normalizedBasePath) {
+          console.log(`[ImportService] Skipping executable outside scanned folder: ${exePath} (dir: ${exeDir})`);
+          continue;
+        }
+        
+        if (!gamesByFolder.has(normalizedDir)) {
+          gamesByFolder.set(normalizedDir, []);
+        }
+        gamesByFolder.get(normalizedDir)!.push(exePath);
+      }
+      
+      console.log(`[ImportService] Found ${gamesByFolder.size} unique game folders`);
+      
+      // Sort folders by depth (shallowest first) to detect parent/child relationships
+      const sortedFolders = Array.from(gamesByFolder.entries()).sort((a, b) => {
+        const depthA = a[0].split('/').length;
+        const depthB = b[0].split('/').length;
+        return depthA - depthB; // Shallowest first
+      });
+      
+      // Track which folders we've added to avoid duplicates
+      const addedFolders = new Set<string>();
+      
+      // Create a game entry for each folder
+      for (const [gameDir, exePaths] of sortedFolders) {
+        try {
+          // Check if this folder is a subfolder of an already added folder
+          // If so, skip it to avoid duplicates (e.g., Battlefield 6\SP when Battlefield 6 already exists)
+          const normalizedGameDir = gameDir.toLowerCase();
+          let isSubfolder = false;
+          for (const addedFolder of addedFolders) {
+            const normalizedAddedFolder = addedFolder.toLowerCase();
+            // Check if gameDir is a subfolder of addedFolder
+            if (normalizedGameDir.startsWith(normalizedAddedFolder + '/') || 
+                normalizedGameDir.startsWith(normalizedAddedFolder + '\\')) {
+              console.log(`[ImportService] Skipping subfolder game: ${gameDir} (parent folder already added: ${addedFolder})`);
+              isSubfolder = true;
+              break;
+            }
+          }
           
-          // Try to find an exe with the same name as the folder
-          const matchingExe = gameExes.find(exe => {
+          if (isSubfolder) {
+            continue;
+          }
+          
+          // Use the folder name as the game title
+          const folderName = gameDir.split(/[/\\]/).pop() || 'Unknown';
+          
+          console.log(`[ImportService] Processing game folder: ${folderName} (${gameDir}) with ${exePaths.length} executable(s)`);
+          
+          // Select the best executable from this folder
+          let mainExe = exePaths[0];
+          
+          // Prefer executables with the same name as the directory
+          const matchingExe = exePaths.find(exe => {
             const exeName = exe.split(sep).pop()?.toLowerCase().replace('.exe', '') || '';
             return exeName === folderName.toLowerCase();
           });
           
-          results.push({
-            uuid: `manual_folder-${folderPath}-${Date.now()}`,
-            source: 'manual_folder' as const,
-            originalName: folderName,
-            installPath: folderPath,
-            exePath: matchingExe || mainExe,
-            appId: undefined,
-            title: folderName,
-            status: 'ambiguous' as const,
-          });
-        }
-        
-        console.log(`[ImportService] Scanned folder "${folderPath}" (no subdirectories) and found ${results.length} games`);
-        return results;
-      }
-      
-      // For each top-level subdirectory, scan for executables and create a game
-      for (const subdir of subdirectories) {
-        const subdirPath = join(folderPath, subdir.name);
-        const gameTitle = subdir.name; // Use the folder name as the game title
-        
-        try {
-          // Find executables in this subdirectory (deep scan)
-          const exeFiles = this.findExecutables(subdirPath, 0, 20);
-          
-          // Filter out helper executables
-          const gameExes = exeFiles.filter(exe => {
-            const fileName = exe.toLowerCase();
-            const fileNameOnly = fileName.split(/[/\\]/).pop() || '';
-            return !fileNameOnly.includes('gamelaunchhelper') &&
-                   !fileNameOnly.includes('bootstrapper') &&
-                   !fileNameOnly.includes('uninstall') &&
-                   !fileNameOnly.includes('unins') &&
-                   !fileNameOnly.includes('setup') &&
-                   !fileNameOnly.includes('installer') &&
-                   !fileNameOnly.includes('install') &&
-                   !fileNameOnly.includes('cleanup') &&
-                   !fileNameOnly.includes('crashhandler') &&
-                   !fileNameOnly.includes('redist') &&
-                   !fileNameOnly.includes('directx') &&
-                   !fileNameOnly.includes('updater') &&
-                   !fileNameOnly.includes('launcher') &&
-                   fileNameOnly !== 'crashreportclient.exe' &&
-                   fileNameOnly !== 'battlenet.overlay.runtime.exe' &&
-                   fileNameOnly !== 'crashpad_handler.exe' &&
-                   fileNameOnly !== 'gamesessionmonitor.exe';
-          });
-          
-          if (gameExes.length > 0) {
-            // Prefer executables with the same name as the directory
-            // Also prefer executables closer to the root (fewer path separators)
-            let mainExe = gameExes[0];
-            
-            // Try to find an exe with the same name as the directory
-            const matchingExe = gameExes.find(exe => {
-              const exeName = exe.split(sep).pop()?.toLowerCase().replace('.exe', '') || '';
-              return exeName === gameTitle.toLowerCase();
+          if (matchingExe) {
+            mainExe = matchingExe;
+          } else {
+            // If no exact match, prefer executables closer to the folder root (fewer path separators)
+            const sortedByDepth = exePaths.sort((a, b) => {
+              // Count separators relative to the game directory
+              const depthA = a.substring(gameDir.length).split(sep).length;
+              const depthB = b.substring(gameDir.length).split(sep).length;
+              return depthA - depthB; // Prefer shallower (closer to folder root)
             });
-            
-            if (matchingExe) {
-              mainExe = matchingExe;
-            } else {
-              // If no exact match, prefer executables closer to root (fewer path separators)
-              // This helps with games like Dying Light where the exe is deep in nested folders
-              const sortedByDepth = gameExes.sort((a, b) => {
-                const depthA = a.split(sep).length;
-                const depthB = b.split(sep).length;
-                return depthA - depthB; // Prefer shallower (closer to root)
-              });
-              mainExe = sortedByDepth[0];
-            }
-            
-            results.push({
-              uuid: `manual_folder-${subdirPath}-${Date.now()}`,
+            mainExe = sortedByDepth[0];
+            console.log(`[ImportService] Selected executable (closest to root): ${mainExe}`);
+          }
+          
+          // Only create game if the directory is within or equal to the scanned folder
+          // This prevents creating games for parent directories
+          const normalizedFolderPath = folderPath.replace(/\\/g, '/');
+          const normalizedGameDirForCheck = gameDir.replace(/\\/g, '/');
+          if (normalizedGameDirForCheck.startsWith(normalizedFolderPath) || normalizedGameDirForCheck === normalizedFolderPath) {
+            const gameResult = {
+              uuid: `manual_folder-${gameDir}-${Date.now()}`,
               source: 'manual_folder' as const,
-              originalName: gameTitle,
-              installPath: subdirPath,
+              originalName: folderName,
+              installPath: gameDir,
               exePath: mainExe,
               appId: undefined,
-              title: gameTitle,
+              title: folderName,
               status: 'ambiguous' as const, // Manual folder scans need metadata matching
-            });
+            };
+            
+            // Special logging for John Wick Hex
+            if (folderName.toLowerCase().includes('john wick')) {
+              console.log(`[ImportService] ✓ Added John Wick Hex: installPath="${gameDir}", exePath="${mainExe}"`);
+            }
+            
+            results.push(gameResult);
+            addedFolders.add(gameDir);
+            console.log(`[ImportService] ✓ Added game: ${folderName} from ${gameDir}`);
+          } else {
+            console.log(`[ImportService] Skipping game folder outside scanned path: ${gameDir} (scanned: ${folderPath})`);
           }
         } catch (err) {
-          // Skip directories we can't access
-          console.warn(`[ImportService] Could not scan subdirectory "${subdirPath}":`, err);
+          console.warn(`[ImportService] Could not process game folder "${gameDir}":`, err);
           continue;
         }
       }
@@ -1097,80 +1219,154 @@ export class ImportService {
 
   /**
    * Generic method to scan a games folder for any launcher
-   * Scans all subdirectories recursively for game executables
+   * Recursively scans all subdirectories and creates a game entry for each folder containing a valid executable
    */
   private async scanGenericGamesFolder(gamesPath: string, source: 'ea' | 'battle' | 'humble' | 'itch'): Promise<ScannedGameResult[]> {
     const results: ScannedGameResult[] = [];
     
     try {
-      const entries = readdirSync(gamesPath, { withFileTypes: true });
+      console.log(`[${source}] Scanning games folder: ${gamesPath}`);
       
-      for (const entry of entries) {
-        if (!entry.isDirectory()) continue;
+      // Find all executables recursively in the folder
+      const allExeFiles = this.findExecutables(gamesPath, 0, 20);
+      console.log(`[${source}] Found ${allExeFiles.length} total executables`);
+      
+      // Filter out helper executables
+      const gameExes = allExeFiles.filter(exe => {
+        const fileName = exe.toLowerCase();
+        const fileNameOnly = fileName.split(/[/\\]/).pop() || '';
+        return !fileNameOnly.includes('gamelaunchhelper') &&
+               !fileNameOnly.includes('bootstrapper') &&
+               !fileNameOnly.includes('uninstall') &&
+               !fileNameOnly.includes('unins') &&
+               !fileNameOnly.includes('setup') &&
+               !fileNameOnly.includes('installer') &&
+               !fileNameOnly.includes('launcher') &&
+               !fileNameOnly.includes('updater') &&
+               !fileNameOnly.includes('redist') &&
+               !fileNameOnly.includes('directx') &&
+               fileNameOnly !== 'crashreportclient.exe' &&
+               fileNameOnly !== 'battlenet.overlay.runtime.exe' &&
+               fileNameOnly !== 'battlenet.exe' &&
+               fileNameOnly !== 'battle.net.exe' &&
+               fileNameOnly !== 'cleanup.exe' &&
+               fileNameOnly !== 'crashpad_handler.exe' &&
+               fileNameOnly !== 'gamesessionmonitor.exe';
+      });
+      
+      console.log(`[${source}] Filtered to ${gameExes.length} valid game executables`);
+      
+      if (gameExes.length === 0) {
+        return results;
+      }
+      
+      // Group executables by their containing directory
+      const gamesByFolder = new Map<string, string[]>();
+      
+      for (const exePath of gameExes) {
+        const exeDir = dirname(exePath);
+        const normalizedDir = exeDir.replace(/\\/g, sep).replace(/\/\//g, '/');
         
-        const gamePath = join(gamesPath, entry.name);
+        // Skip known non-game directories
+        const dirName = normalizedDir.split(sep).pop()?.toLowerCase() || '';
+        if (dirName === 'launcher' || 
+            dirName === 'redistributables' ||
+            dirName === 'support' ||
+            dirName === 'tools' ||
+            dirName.startsWith('$')) {
+          continue;
+        }
         
+        if (!gamesByFolder.has(normalizedDir)) {
+          gamesByFolder.set(normalizedDir, []);
+        }
+        gamesByFolder.get(normalizedDir)!.push(exePath);
+      }
+      
+      console.log(`[${source}] Found ${gamesByFolder.size} unique game folders`);
+      
+      // Sort folders by depth (shallowest first) to detect parent/child relationships
+      const sortedFolders = Array.from(gamesByFolder.entries()).sort((a, b) => {
+        const depthA = a[0].split('/').length;
+        const depthB = b[0].split('/').length;
+        return depthA - depthB; // Shallowest first
+      });
+      
+      // Track which folders we've added to avoid duplicates
+      const addedFolders = new Set<string>();
+      
+      // Create a game entry for each folder
+      for (const [gameDir, exePaths] of sortedFolders) {
         try {
-          // Skip known non-game directories
-          const dirName = entry.name.toLowerCase();
-          if (dirName === 'launcher' || 
-              dirName === 'redistributables' ||
-              dirName === 'support' ||
-              dirName === 'tools' ||
-              dirName.startsWith('$')) {
+          // Only process directories within the games path
+          const normalizedGamesPath = gamesPath.replace(/\\/g, '/');
+          const normalizedGameDir = gameDir.replace(/\\/g, '/');
+          if (!normalizedGameDir.startsWith(normalizedGamesPath) && normalizedGameDir !== normalizedGamesPath) {
             continue;
           }
           
-          // Deep scan for executables
-          const exeFiles = this.findExecutables(gamePath, 0, 20);
+          // Check if this folder is a subfolder of an already added folder
+          // If so, skip it to avoid duplicates (e.g., Battlefield 6\SP when Battlefield 6 already exists)
+          const normalizedGameDirLower = normalizedGameDir.toLowerCase();
+          let isSubfolder = false;
+          for (const addedFolder of addedFolders) {
+            const normalizedAddedFolder = addedFolder.toLowerCase();
+            // Check if gameDir is a subfolder of addedFolder
+            if (normalizedGameDirLower.startsWith(normalizedAddedFolder + '/') || 
+                normalizedGameDirLower.startsWith(normalizedAddedFolder + '\\')) {
+              console.log(`[${source}] Skipping subfolder game: ${gameDir} (parent folder already added: ${addedFolder})`);
+              isSubfolder = true;
+              break;
+            }
+          }
           
-          // Filter out helper executables
-          const gameExes = exeFiles.filter(exe => {
-            const fileName = exe.toLowerCase();
-            const fileNameOnly = fileName.split(/[/\\]/).pop() || '';
-            return !fileNameOnly.includes('gamelaunchhelper') &&
-                   !fileNameOnly.includes('bootstrapper') &&
-                   !fileNameOnly.includes('uninstall') &&
-                   !fileNameOnly.includes('unins') &&
-                   !fileNameOnly.includes('setup') &&
-                   !fileNameOnly.includes('installer') &&
-                   !fileNameOnly.includes('launcher') &&
-                   !fileNameOnly.includes('updater') &&
-                   !fileNameOnly.includes('redist') &&
-                   !fileNameOnly.includes('directx') &&
-                   fileNameOnly !== 'crashreportclient.exe' &&
-                   fileNameOnly !== 'battlenet.overlay.runtime.exe' &&
-                   fileNameOnly !== 'crashpad_handler.exe' &&
-                   fileNameOnly !== 'gamesessionmonitor.exe';
+          if (isSubfolder) {
+            continue;
+          }
+          
+          // Use the folder name as the game title
+          const folderName = gameDir.split(/[/\\]/).pop() || 'Unknown';
+          
+          // Select the best executable from this folder
+          let mainExe = exePaths[0];
+          
+          // Prefer executables with the same name as the directory
+          const matchingExe = exePaths.find(exe => {
+            const exeName = exe.split(sep).pop()?.toLowerCase().replace('.exe', '') || '';
+            return exeName === folderName.toLowerCase();
           });
           
-          if (gameExes.length > 0) {
-            // Prefer executables with the same name as the directory
-            let mainExe = gameExes[0];
-            const matchingExe = gameExes.find(exe => {
-              const exeName = exe.split(sep).pop()?.toLowerCase().replace('.exe', '') || '';
-              return exeName === entry.name.toLowerCase();
+          if (matchingExe) {
+            mainExe = matchingExe;
+          } else {
+            // Prefer executables closer to the folder root
+            const sortedByDepth = exePaths.sort((a, b) => {
+              const depthA = a.substring(gameDir.length).split(sep).length;
+              const depthB = b.substring(gameDir.length).split(sep).length;
+              return depthA - depthB;
             });
-            if (matchingExe) {
-              mainExe = matchingExe;
-            }
-            
-            results.push({
-              uuid: `${source}-${entry.name}-${Date.now()}`,
-              source: source,
-              originalName: entry.name,
-              installPath: gamePath,
-              exePath: mainExe,
-              appId: undefined,
-              title: entry.name,
-              status: 'ambiguous' as const,
-            });
+            mainExe = sortedByDepth[0];
           }
+          
+          results.push({
+            uuid: `${source}-${gameDir}-${Date.now()}`,
+            source: source,
+            originalName: folderName,
+            installPath: gameDir,
+            exePath: mainExe,
+            appId: undefined,
+            title: folderName,
+            status: 'ambiguous' as const,
+          });
+          addedFolders.add(normalizedGameDir);
+          console.log(`[${source}] ✓ Added game: ${folderName} from ${gameDir}`);
         } catch (err) {
-          console.warn(`[${source}] Could not scan directory "${gamePath}":`, err);
+          console.warn(`[${source}] Could not process game folder "${gameDir}":`, err);
           continue;
         }
       }
+      
+      console.log(`[${source}] Found ${results.length} games total`);
     } catch (err) {
       console.error(`[${source}] Error scanning games folder:`, err);
     }
