@@ -101,6 +101,7 @@ declare global {
       showImageDialog: () => Promise<string | null>;
       scanFolderForExecutables: (folderPath: string) => Promise<ExecutableFile[]>;
       searchArtwork: (title: string, steamAppId?: string) => Promise<GameMetadata | null>;
+      fetchGameDescription: (steamGameId: string) => Promise<{ success: boolean; description?: string; summary?: string; releaseDate?: string; genres?: string[]; developers?: string[]; publishers?: string[]; ageRating?: string; rating?: number; platforms?: string[]; categories?: string[]; error?: string }>;
       fetchAndUpdateMetadata: (gameId: string, title: string) => Promise<{ success: boolean; metadata: GameMetadata | null }>;
       setIGDBConfig: (config: { clientId: string; accessToken: string }) => Promise<boolean>;
       setMockMode: (enabled: boolean) => Promise<boolean>;

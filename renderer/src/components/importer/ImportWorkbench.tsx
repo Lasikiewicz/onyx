@@ -1565,9 +1565,6 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
         const steamResults = response.results.filter((result: any) => result.source === 'steam');
         const otherResults = response.results.filter((result: any) => result.source !== 'steam');
         
-        // Normalize query for matching
-        const normalizedQuery = query.toLowerCase().trim();
-        
         // Helper function to normalize strings for fuzzy matching (remove special chars, normalize whitespace)
         const normalizeForFuzzy = (str: string): string => {
           return str.toLowerCase()
@@ -2855,7 +2852,7 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
                               let imageUrl: string | undefined;
                               
                               if (showImageSearch.type === 'boxart') {
-                                imageUrl = result.boxArtUrl || result.coverUrl;
+                                imageUrl = (result as any).boxArtUrl || (result as any).coverUrl;
                               } else if (showImageSearch.type === 'logo') {
                                 imageUrl = result.logoUrl;
                               } else if (showImageSearch.type === 'banner') {
