@@ -94,7 +94,7 @@ declare global {
       scanGamesWithPath: (path?: string, autoMerge?: boolean) => Promise<{ success: boolean; error?: string; games: import('./steam').SteamGame[] }>;
       getLibrary: () => Promise<Game[]>;
       saveGame: (game: Game, oldGame?: Game) => Promise<boolean>;
-      deleteCachedImage: (gameId: string, imageType: 'boxart' | 'banner' | 'logo' | 'hero') => Promise<{ success: boolean; error?: string }>;
+      deleteCachedImage: (gameId: string, imageType: 'boxart' | 'banner' | 'logo' | 'hero' | 'icon') => Promise<{ success: boolean; error?: string }>;
       reorderGames: (games: Game[]) => Promise<boolean>;
       addCustomGame: (gameData: { title: string; exePath: string }) => Promise<Game | null>;
       deleteGame: (gameId: string) => Promise<boolean>;
@@ -156,7 +156,7 @@ declare global {
       resetApp: () => Promise<{ success: boolean; error?: string }>;
       scanAllSources: () => Promise<{ success: boolean; error?: string; games: Array<{ uuid: string; source: 'steam' | 'epic' | 'gog' | 'xbox' | 'manual_file' | 'manual_folder'; originalName: string; installPath: string; exePath?: string; appId?: string; title: string; status: 'pending' | 'scanning' | 'matched' | 'ambiguous' | 'ready' | 'error'; error?: string }> }>;
       scanFolder: (folderPath: string) => Promise<{ success: boolean; error?: string; games: Array<{ uuid: string; source: 'steam' | 'epic' | 'gog' | 'xbox' | 'ubisoft' | 'rockstar' | 'manual_file' | 'manual_folder'; originalName: string; installPath: string; exePath?: string; appId?: string; title: string; status: 'pending' | 'scanning' | 'matched' | 'ambiguous' | 'ready' | 'error'; error?: string }> }>;
-      searchImages: (query: string, imageType: 'boxart' | 'banner' | 'logo', steamAppId?: string) => Promise<{ success: boolean; error?: string; images: Array<{ gameId: number; gameName: string; images: Array<{ url: string; score: number; width: number; height: number; mime?: string; isAnimated?: boolean }> }> }>;
+      searchImages: (query: string, imageType: 'boxart' | 'banner' | 'logo' | 'icon', steamAppId?: string) => Promise<{ success: boolean; error?: string; images: Array<{ gameId: number; gameName: string; images: Array<{ url: string; score: number; width: number; height: number; mime?: string; isAnimated?: boolean }> }> }>;
       refreshAllMetadata: (options?: { allGames?: boolean; gameIds?: string[]; continueFromIndex?: number }) => Promise<{ success: boolean; error?: string; count: number; errors: number; unmatchedGames: Array<{ gameId: string; title: string; searchResults: any[] }>; missingBoxartGames: Array<{ gameId: string; title: string; steamAppId?: string }>; requiresBoxart?: boolean; currentGameIndex?: number; remainingGames?: number }>;
       fetchAndUpdate: (gameId: string, boxartUrl: string) => Promise<{ success: boolean; error?: string }>;
       getVersion: () => Promise<string>;

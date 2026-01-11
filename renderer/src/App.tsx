@@ -602,7 +602,7 @@ function App() {
     // the rightmost boxart gets as close as possible to the divider
     
     let bestSize = 0;
-    let bestColumns = 0;
+
     let bestRemainingWidth = Infinity;
     
     // Try different column counts to find the one that fills the width best
@@ -634,7 +634,7 @@ function App() {
             remainingWidth < bestRemainingWidth ||
             (Math.abs(remainingWidth - bestRemainingWidth) < 5 && tileWidth > bestSize)) {
           bestSize = tileWidth;
-          bestColumns = columns;
+
           bestRemainingWidth = remainingWidth;
         }
       }
@@ -812,24 +812,6 @@ function App() {
     }
   };
 
-  const handleDeleteGame = async (gameId: string) => {
-    try {
-      const game = games.find(g => g.id === gameId);
-      const success = await deleteGame(gameId);
-      if (success) {
-        await loadLibrary();
-        showToast(`Game "${game?.title || 'Unknown'}" deleted successfully`, 'success');
-        if (activeGameId === gameId) {
-          setActiveGameId(null);
-        }
-      } else {
-        showToast('Failed to delete game', 'error');
-      }
-    } catch (err) {
-      console.error('Error in handleDeleteGame:', err);
-      showToast('Failed to delete game', 'error');
-    }
-  };
 
   const handleAddGame = async (game: Game) => {
     // Check if APIs are configured
@@ -867,97 +849,6 @@ function App() {
   };
 
   // Handle Steam games import
-  const handleSteamGamesImport = async (gamesToImport: Game[], scannedGames: Array<{ appId?: string; id?: string; name: string; installDir?: string; libraryPath?: string; installPath?: string; type?: string }>, selectedGameIds: Set<string>) => {
-    // Check if APIs are configured
-    const apisConfigured = await areAPIsConfigured();
-    if (!apisConfigured) {
-      showToast('API credentials must be configured before adding games. Please configure them in Settings.', 'error');
-      // setIsSteamImportOpen(false); // REMOVED: No longer using SteamImportModal
-      setIsOnyxSettingsOpen(true);
-      setOnyxSettingsInitialTab('apis');
-      return;
-    }
-
-    try {
-      // Get current library to find games that should be removed
-      const currentLibrary = await window.electronAPI.getLibrary();
-      
-      // Create a map of scanned game IDs to their library IDs
-      // For Steam: library ID is `steam-${appId}`, scanned ID is `appId`
-      // For Xbox: library ID is the same as scanned ID
-      const scannedGameIdToLibraryId = new Map<string, string>();
-      
-      scannedGames.forEach(scannedGame => {
-        let libraryId: string;
-        if ('appId' in scannedGame) {
-          // Steam game
-          const appId = scannedGame.appId;
-          if (appId) {
-            libraryId = `steam-${appId}`;
-            scannedGameIdToLibraryId.set(appId, libraryId);
-          }
-        } else if ('installPath' in scannedGame && 'type' in scannedGame && (scannedGame.type === 'uwp' || scannedGame.type === 'pc')) {
-          // Xbox game
-          const xboxId = scannedGame.id;
-          if (xboxId) {
-            libraryId = xboxId;
-            scannedGameIdToLibraryId.set(xboxId, libraryId);
-          }
-        } else {
-          // Other game (Epic, EA, GOG, Ubisoft, Battle.net)
-          const otherId = scannedGame.id;
-          if (otherId) {
-            libraryId = otherId;
-            scannedGameIdToLibraryId.set(otherId, libraryId);
-          }
-        }
-      });
-      
-      // Find games in library that match scanned games but are not selected
-      const gamesToRemove: string[] = [];
-      currentLibrary.forEach(libraryGame => {
-        // Check if this library game matches any scanned game
-        for (const [scannedId, libraryId] of scannedGameIdToLibraryId.entries()) {
-          if (libraryGame.id === libraryId && !selectedGameIds.has(scannedId)) {
-            gamesToRemove.push(libraryGame.id);
-            break;
-          }
-        }
-      });
-      
-      // Remove unchecked games from library
-      for (const gameId of gamesToRemove) {
-        await window.electronAPI.deleteGame(gameId);
-      }
-      
-      // Save/update selected games
-      for (const game of gamesToImport) {
-        await window.electronAPI.saveGame(game);
-      }
-      
-      // Reload library
-      await loadLibrary();
-      
-      const addedCount = gamesToImport.length;
-      const removedCount = gamesToRemove.length;
-      let message = '';
-      if (addedCount > 0 && removedCount > 0) {
-        message = `Imported ${addedCount} ${addedCount === 1 ? 'game' : 'games'} and removed ${removedCount} ${removedCount === 1 ? 'game' : 'games'}`;
-      } else if (addedCount > 0) {
-        message = `Successfully imported ${addedCount} ${addedCount === 1 ? 'game' : 'games'}`;
-      } else if (removedCount > 0) {
-        message = `Removed ${removedCount} ${removedCount === 1 ? 'game' : 'games'}`;
-      }
-      
-      if (message) {
-        showToast(message, 'success');
-      }
-    } catch (err) {
-      console.error('Error importing games:', err);
-      showToast('Failed to import games', 'error');
-      throw err;
-    }
-  };
 
   // Handle Steam configuration scan
   const handleSteamConfigScan = async (steamPath?: string) => {
@@ -1772,3 +1663,5 @@ function App() {
 }
 
 export default App;
+
+

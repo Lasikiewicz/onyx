@@ -67,7 +67,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game, onPlay
     criticScore: true,
     installationDirectory: true,
   });
-  const [steamSyncPlaytimeEnabled, setSteamSyncPlaytimeEnabled] = useState(false);
+
 
   // Load preferences on mount
   useEffect(() => {
@@ -92,26 +92,6 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game, onPlay
     };
     loadPreferences();
   }, []);
-
-  // Load Steam syncPlaytime setting
-  useEffect(() => {
-    const loadSteamConfig = async () => {
-      try {
-        if (window.electronAPI.getAppConfig) {
-          const steamConfig = await window.electronAPI.getAppConfig('steam');
-          if (steamConfig && 'syncPlaytime' in steamConfig) {
-            setSteamSyncPlaytimeEnabled(steamConfig.syncPlaytime || false);
-          } else {
-            setSteamSyncPlaytimeEnabled(false);
-          }
-        }
-      } catch (error) {
-        console.error('Error loading Steam config:', error);
-        setSteamSyncPlaytimeEnabled(false);
-      }
-    };
-    loadSteamConfig();
-  }, [game]); // Reload when game changes
 
   // Initialize local logo size when dialog opens, reset when it closes
   useEffect(() => {

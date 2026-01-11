@@ -54,7 +54,6 @@ export const GameManager: React.FC<GameManagerProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [isFetchingLauncherData, setIsFetchingLauncherData] = useState<string | null>(null);
   const [showFixMatch, setShowFixMatch] = useState(false);
   const [metadataSearchQuery, setMetadataSearchQuery] = useState('');
   const [metadataSearchResults, setMetadataSearchResults] = useState<any[]>([]);
@@ -318,16 +317,14 @@ export const GameManager: React.FC<GameManagerProps> = ({
   const handleFetchLauncherData = async (game?: Game) => {
     const targetGame = game || selectedGame;
     if (!targetGame || !targetGame.id.startsWith('steam-')) return;
-    if (!game.id.startsWith('steam-')) return;
 
-    setIsFetchingLauncherData(targetGame.id);
+
     try {
       // Extract Steam App ID
       const appIdMatch = targetGame.id.match(/^steam-(.+)$/);
       if (!appIdMatch) return;
 
       // Sync playtime from Steam
-      setIsSyncingPlaytime(true);
       try {
         const result = await window.electronAPI.syncSteamPlaytime?.();
         if (result?.success) {
@@ -338,7 +335,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
           if (updatedGame) {
             setEditedGame({ ...updatedGame });
             // Also update the games list if we have it
-            const updatedGames = games.map(g => g.id === targetGame.id ? updatedGame : g);
+
             // Note: We can't directly update games prop, but editedGame will reflect the change
           }
         } else {
@@ -348,12 +345,9 @@ export const GameManager: React.FC<GameManagerProps> = ({
         console.error('Error syncing playtime:', err);
         setError(err instanceof Error ? err.message : 'Failed to sync playtime');
       } finally {
-        setIsSyncingPlaytime(false);
-        setIsFetchingLauncherData(null);
       }
     } catch (err) {
       console.error('Error fetching launcher data:', err);
-      setIsFetchingLauncherData(null);
     }
   };
 
@@ -901,8 +895,8 @@ export const GameManager: React.FC<GameManagerProps> = ({
         // Sort other results: exact name matches first, then by source priority (IGDB > RAWG > SteamGridDB)
         const sortedOtherResults = otherResults.sort((a, b) => {
           // First priority: exact name matches
-          const aName = (a.title || a.name || '').toLowerCase().trim();
-          const bName = (b.title || b.name || '').toLowerCase().trim();
+          const aName = (a.title || (("name" in a ? (a as any).name : "") as string)).toLowerCase().trim();
+          const bName = (b.title || (("name" in b ? (b as any).name : "") as string)).toLowerCase().trim();
           const aExact = aName === normalizedQuery;
           const bExact = bName === normalizedQuery;
           if (aExact && !bExact) return -1;
@@ -1719,8 +1713,8 @@ export const GameManager: React.FC<GameManagerProps> = ({
                                           }
                                           
                                           // Then prioritize exact matches
-                                          const aName = (a.title || a.name || '').toLowerCase().trim();
-                                          const bName = (b.title || b.name || '').toLowerCase().trim();
+                                          const aName = (a.title || (("name" in a ? (a as any).name : "") as string)).toLowerCase().trim();
+                                          const bName = (b.title || (("name" in b ? (b as any).name : "") as string)).toLowerCase().trim();
                                           const aExact = aName === normalizedQuery;
                                           const bExact = bName === normalizedQuery;
                                           if (aExact && !bExact) return -1;
@@ -1809,7 +1803,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
                                               <span className="text-xs text-gray-500">App ID: {result.steamAppId}</span>
                                             )}
                                             {displayDate && (
-                                              <span className="text-xs text-gray-400">â€¢ {displayDate}</span>
+                                              <span className="text-xs text-gray-400">ÔÇó {displayDate}</span>
                                             )}
                                           </div>
                                         </div>
@@ -2327,7 +2321,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
             {refreshProgress.total > 0 && refreshProgress.current >= refreshProgress.total && (
               <div className="mt-4 pt-4 border-t border-gray-700">
                 <div className="text-sm text-green-400 font-medium">
-                  âœ“ Refresh completed!
+                  Ô£ô Refresh completed!
                 </div>
               </div>
             )}
@@ -2479,3 +2473,5 @@ export const GameManager: React.FC<GameManagerProps> = ({
     </div>
   );
 };
+
+
