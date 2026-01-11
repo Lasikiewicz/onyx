@@ -39,6 +39,8 @@ interface LibraryContextMenuProps {
   onAutoSizeToFit?: () => void;
   gridSize?: number;
   onGridSizeChange?: (size: number) => void;
+  logoSize?: number;
+  onLogoSizeChange?: (size: number) => void;
 }
 
 export const LibraryContextMenu: React.FC<LibraryContextMenuProps> = ({
@@ -71,9 +73,11 @@ export const LibraryContextMenu: React.FC<LibraryContextMenuProps> = ({
   onAutoSizeToFit,
   gridSize = 120,
   onGridSizeChange,
+  logoSize = 120,
+  onLogoSizeChange,
 }) => {
   const menuRef = useRef<HTMLDivElement>(null);
-  const [activeTab, setActiveTab] = useState<'grid' | 'list' | 'logo'>(viewMode);
+  const [activeTab, setActiveTab] = useState<'grid' | 'list' | 'logo' | 'carousel'>(viewMode === 'grid' || viewMode === 'list' || viewMode === 'logo' ? viewMode : 'grid');
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -186,20 +190,7 @@ export const LibraryContextMenu: React.FC<LibraryContextMenuProps> = ({
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
           </svg>
-          Grid View
-        </button>
-        <button
-          onClick={() => handleTabChange('logo')}
-          className={`flex-1 px-4 py-3 text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
-            activeTab === 'logo'
-              ? 'bg-gray-700 text-white border-b-2 border-blue-500'
-              : 'text-gray-400 hover:text-gray-300 hover:bg-gray-700/50'
-          }`}
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
-          </svg>
-          Logo View
+          <span className="hidden sm:inline">Grid</span>
         </button>
         <button
           onClick={() => handleTabChange('list')}
@@ -212,7 +203,31 @@ export const LibraryContextMenu: React.FC<LibraryContextMenuProps> = ({
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
           </svg>
-          List View
+          <span className="hidden sm:inline">List</span>
+        </button>
+        <button
+          onClick={() => handleTabChange('logo')}
+          className={`flex-1 px-4 py-3 text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
+            activeTab === 'logo'
+              ? 'bg-gray-700 text-white border-b-2 border-blue-500'
+              : 'text-gray-400 hover:text-gray-300 hover:bg-gray-700/50'
+          }`}
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
+          </svg>
+          <span className="hidden sm:inline">Logo</span>
+        </button>
+        <button
+          onClick={() => {}}
+          disabled
+          className="flex-1 px-4 py-3 text-sm font-medium transition-colors flex items-center justify-center gap-2 text-gray-500 cursor-not-allowed"
+          title="Coming soon"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
+          </svg>
+          <span className="hidden sm:inline">Carousel</span>
         </button>
       </div>
 
@@ -222,7 +237,7 @@ export const LibraryContextMenu: React.FC<LibraryContextMenuProps> = ({
         {/* Grid View Tab Content */}
         {activeTab === 'grid' && (
           <>
-            {/* Fit to Divider */}
+            {/* Auto Size to Fit */}
             {onAutoSizeToFit && (
               <div className="px-5 py-2">
                 <button
@@ -233,7 +248,7 @@ export const LibraryContextMenu: React.FC<LibraryContextMenuProps> = ({
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
                     </svg>
-                    Fit to Divider
+                    Auto Size to Fit
                   </span>
                   {autoSizeToFit && (
                     <svg className="w-4 h-4 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
@@ -245,28 +260,6 @@ export const LibraryContextMenu: React.FC<LibraryContextMenuProps> = ({
             )}
 
             {onAutoSizeToFit && <div className="border-t border-gray-700 my-2" />}
-
-            {/* Game Tile Padding */}
-            <div className="px-5 py-2">
-              <label className="block text-xs text-gray-400 mb-2 px-3">Game Tile Padding</label>
-              <div className="px-3">
-                <input
-                  type="range"
-                  min="0"
-                  max="32"
-                  value={gameTilePadding}
-                  onChange={handlePaddingChange}
-                  className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider"
-                />
-                <div className="flex justify-between text-xs text-gray-500 mt-1">
-                  <span>0px</span>
-                  <span className="font-medium text-gray-300">{gameTilePadding}px</span>
-                  <span>32px</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="border-t border-gray-700 my-2" />
 
             {/* Hide Game Titles */}
             <div className="px-5 py-2">
@@ -341,61 +334,35 @@ export const LibraryContextMenu: React.FC<LibraryContextMenuProps> = ({
                 </div>
               </>
             )}
-          </>
-        )}
 
-        {/* Logo View Tab Content */}
-        {activeTab === 'logo' && (
-          <>
+            {/* View-specific settings at the bottom */}
+            <div className="border-t border-gray-700 my-2" />
+            <div className="px-5 py-1">
+              <div className="text-xs text-gray-500 mb-2 px-3 font-semibold uppercase tracking-wide">Grid View Settings</div>
+            </div>
+
             {/* Grid Size Resizer */}
             {onGridSizeChange && (
-              <>
-                <div className="px-5 py-2">
-                  <label className="block text-xs text-gray-400 mb-2 px-3">Logo Size</label>
-                  <div className="px-3">
-                    <input
-                      type="range"
-                      min="80"
-                      max="500"
-                      step="1"
-                      value={gridSize}
-                      onChange={(e) => onGridSizeChange(Number(e.target.value))}
-                      className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider"
-                    />
-                    <div className="flex justify-between text-xs text-gray-500 mt-1">
-                      <span>80px</span>
-                      <span className="font-medium text-gray-300">{gridSize}px</span>
-                      <span>500px</span>
-                    </div>
+              <div className="px-5 py-2">
+                <label className="block text-xs text-gray-400 mb-2 px-3">Grid Size</label>
+                <div className="px-3">
+                  <input
+                    type="range"
+                    min="80"
+                    max="500"
+                    step="1"
+                    value={gridSize}
+                    onChange={(e) => onGridSizeChange(Number(e.target.value))}
+                    className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider"
+                  />
+                  <div className="flex justify-between text-xs text-gray-500 mt-1">
+                    <span>80px</span>
+                    <span className="font-medium text-gray-300">{gridSize}px</span>
+                    <span>500px</span>
                   </div>
                 </div>
-                <div className="border-t border-gray-700 my-2" />
-              </>
-            )}
-
-            {/* Fit to Divider */}
-            {onAutoSizeToFit && (
-              <div className="px-5 py-2">
-                <button
-                  onClick={onAutoSizeToFit}
-                  className="w-full text-left px-3 py-2.5 text-sm text-gray-300 hover:bg-gray-700 rounded transition-colors flex items-center justify-between"
-                >
-                  <span className="flex items-center gap-2">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
-                    </svg>
-                    Fit to Divider
-                  </span>
-                  {autoSizeToFit && (
-                    <svg className="w-4 h-4 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                    </svg>
-                  )}
-                </button>
               </div>
             )}
-
-            {onAutoSizeToFit && <div className="border-t border-gray-700 my-2" />}
 
             {/* Game Tile Padding */}
             <div className="px-5 py-2">
@@ -417,7 +384,54 @@ export const LibraryContextMenu: React.FC<LibraryContextMenuProps> = ({
               </div>
             </div>
 
-            <div className="border-t border-gray-700 my-2" />
+            {/* Background Blur */}
+            <div className="px-5 py-2">
+              <label className="block text-xs text-gray-400 mb-2 px-3">Background Blur Amount</label>
+              <div className="px-3">
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  value={backgroundBlur}
+                  onChange={handleBlurChange}
+                  className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider"
+                />
+                <div className="flex justify-between text-xs text-gray-500 mt-1">
+                  <span>0px</span>
+                  <span className="font-medium text-gray-300">{backgroundBlur}px</span>
+                  <span>100px</span>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* Logo View Tab Content */}
+        {activeTab === 'logo' && (
+          <>
+            {/* Auto Size to Fit */}
+            {onAutoSizeToFit && (
+              <div className="px-5 py-2">
+                <button
+                  onClick={onAutoSizeToFit}
+                  className="w-full text-left px-3 py-2.5 text-sm text-gray-300 hover:bg-gray-700 rounded transition-colors flex items-center justify-between"
+                >
+                  <span className="flex items-center gap-2">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                    </svg>
+                    Auto Size to Fit
+                  </span>
+                  {autoSizeToFit && (
+                    <svg className="w-4 h-4 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                  )}
+                </button>
+              </div>
+            )}
+
+            {onAutoSizeToFit && <div className="border-t border-gray-700 my-2" />}
 
             {/* Hide Game Titles */}
             <div className="px-5 py-2">
@@ -438,34 +452,81 @@ export const LibraryContextMenu: React.FC<LibraryContextMenuProps> = ({
                 )}
               </button>
             </div>
+
+            {/* View-specific settings at the bottom */}
+            <div className="border-t border-gray-700 my-2" />
+            <div className="px-5 py-1">
+              <div className="text-xs text-gray-500 mb-2 px-3 font-semibold uppercase tracking-wide">Logo View Settings</div>
+            </div>
+
+            {/* Logo Size (using Grid Size Resizer) */}
+            {onLogoSizeChange && (
+              <div className="px-5 py-2">
+                <label className="block text-xs text-gray-400 mb-2 px-3">Logo Size</label>
+                <div className="px-3">
+                  <input
+                    type="range"
+                    min="80"
+                    max="500"
+                    step="1"
+                    value={logoSize}
+                    onChange={(e) => onLogoSizeChange(Number(e.target.value))}
+                    className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider"
+                  />
+                  <div className="flex justify-between text-xs text-gray-500 mt-1">
+                    <span>80px</span>
+                    <span className="font-medium text-gray-300">{logoSize}px</span>
+                    <span>500px</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Game Tile Padding */}
+            <div className="px-5 py-2">
+              <label className="block text-xs text-gray-400 mb-2 px-3">Game Tile Padding</label>
+              <div className="px-3">
+                <input
+                  type="range"
+                  min="0"
+                  max="32"
+                  value={gameTilePadding}
+                  onChange={handlePaddingChange}
+                  className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider"
+                />
+                <div className="flex justify-between text-xs text-gray-500 mt-1">
+                  <span>0px</span>
+                  <span className="font-medium text-gray-300">{gameTilePadding}px</span>
+                  <span>32px</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Background Blur */}
+            <div className="px-5 py-2">
+              <label className="block text-xs text-gray-400 mb-2 px-3">Background Blur Amount</label>
+              <div className="px-3">
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  value={backgroundBlur}
+                  onChange={handleBlurChange}
+                  className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider"
+                />
+                <div className="flex justify-between text-xs text-gray-500 mt-1">
+                  <span>0px</span>
+                  <span className="font-medium text-gray-300">{backgroundBlur}px</span>
+                  <span>100px</span>
+                </div>
+              </div>
+            </div>
           </>
         )}
 
         {/* List View Tab Content */}
         {activeTab === 'list' && (
           <>
-            {/* List View Size */}
-            <div className="px-5 py-2">
-              <label className="block text-xs text-gray-400 mb-2 px-3">List View Size</label>
-              <div className="px-3">
-                <input
-                  type="range"
-                  min="80"
-                  max="200"
-                  value={listViewSize}
-                  onChange={(e) => onListViewSizeChange(Number(e.target.value))}
-                  className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider"
-                />
-                <div className="flex justify-between text-xs text-gray-500 mt-1">
-                  <span>80px</span>
-                  <span className="font-medium text-gray-300">{listViewSize}px</span>
-                  <span>200px</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="border-t border-gray-700 my-2" />
-
             {/* List View Options */}
             <div className="px-5 py-2">
               <div className="text-xs text-gray-400 mb-3 px-3 font-semibold uppercase tracking-wide">List View Options</div>
@@ -556,6 +617,52 @@ export const LibraryContextMenu: React.FC<LibraryContextMenuProps> = ({
                 </button>
               </div>
             </div>
+
+            {/* View-specific settings at the bottom */}
+            <div className="border-t border-gray-700 my-2" />
+            <div className="px-5 py-1">
+              <div className="text-xs text-gray-500 mb-2 px-3 font-semibold uppercase tracking-wide">List View Settings</div>
+            </div>
+
+            {/* List View Size */}
+            <div className="px-5 py-2">
+              <label className="block text-xs text-gray-400 mb-2 px-3">List View Size</label>
+              <div className="px-3">
+                <input
+                  type="range"
+                  min="80"
+                  max="200"
+                  value={listViewSize}
+                  onChange={(e) => onListViewSizeChange(Number(e.target.value))}
+                  className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider"
+                />
+                <div className="flex justify-between text-xs text-gray-500 mt-1">
+                  <span>80px</span>
+                  <span className="font-medium text-gray-300">{listViewSize}px</span>
+                  <span>200px</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Background Blur */}
+            <div className="px-5 py-2">
+              <label className="block text-xs text-gray-400 mb-2 px-3">Background Blur Amount</label>
+              <div className="px-3">
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  value={backgroundBlur}
+                  onChange={handleBlurChange}
+                  className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider"
+                />
+                <div className="flex justify-between text-xs text-gray-500 mt-1">
+                  <span>0px</span>
+                  <span className="font-medium text-gray-300">{backgroundBlur}px</span>
+                  <span>100px</span>
+                </div>
+              </div>
+            </div>
           </>
         )}
 
@@ -629,31 +736,6 @@ export const LibraryContextMenu: React.FC<LibraryContextMenuProps> = ({
                   className="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded text-gray-300 text-sm"
                   placeholder="#000000"
                 />
-              </div>
-            </div>
-          </>
-        )}
-
-        {/* Background image blur amount - Only show when image mode is active */}
-        {backgroundMode === 'image' && (
-          <>
-            <div className="border-t border-gray-700 my-2" />
-            <div className="px-5 py-2">
-              <label className="block text-xs text-gray-400 mb-2 px-3">Background Image Blur Amount</label>
-              <div className="px-3">
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  value={backgroundBlur}
-                  onChange={handleBlurChange}
-                  className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider"
-                />
-                <div className="flex justify-between text-xs text-gray-500 mt-1">
-                  <span>0px</span>
-                  <span className="font-medium text-gray-300">{backgroundBlur}px</span>
-                  <span>100px</span>
-                </div>
               </div>
             </div>
           </>

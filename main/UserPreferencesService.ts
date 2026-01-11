@@ -20,7 +20,7 @@ export interface UserPreferences {
   backgroundBlur?: number;
   backgroundMode?: 'image' | 'color';
   backgroundColor?: string;
-  viewMode?: 'grid' | 'list';
+  viewMode?: 'grid' | 'list' | 'logo';
   listViewOptions?: {
     showDescription: boolean;
     showCategories: boolean;
@@ -33,6 +33,21 @@ export interface UserPreferences {
   logoViewSize?: number;
   logoHeight?: number;
   autoSizeToFit?: boolean;
+  // View-specific settings
+  gridView?: {
+    gridSize?: number;
+    gameTilePadding?: number;
+    backgroundBlur?: number;
+  };
+  logoView?: {
+    logoSize?: number;
+    gameTilePadding?: number;
+    backgroundBlur?: number;
+  };
+  listView?: {
+    listSize?: number;
+    backgroundBlur?: number;
+  };
   titleFontSize?: number;
   titleFontFamily?: string;
   descriptionFontSize?: number;

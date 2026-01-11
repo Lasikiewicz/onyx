@@ -74,6 +74,7 @@ function App() {
   const [isAPISettingsOpen, setIsAPISettingsOpen] = useState(false);
   const [isBugReportOpen, setIsBugReportOpen] = useState(false);
   const [gridSize, setGridSize] = useState(120);
+  const [logoSize, setLogoSize] = useState(120);
   const [pinnedCategories, setPinnedCategories] = useState<string[]>([]);
   const [newGamesNotification, setNewGamesNotification] = useState<{ count: number; games: Array<any> } | null>(null);
   const [hideVRTitles, setHideVRTitles] = useState(true);
@@ -107,6 +108,7 @@ function App() {
       try {
         const prefs = await window.electronAPI.getPreferences();
         if (prefs.gridSize) setGridSize(prefs.gridSize);
+        if (prefs.logoSize) setLogoSize(prefs.logoSize);
         if (prefs.pinnedCategories) setPinnedCategories(prefs.pinnedCategories);
         if (prefs.hideVRTitles !== undefined) setHideVRTitles(prefs.hideVRTitles);
         if (prefs.hideAppsTitles !== undefined) setHideAppsTitles(prefs.hideAppsTitles);
@@ -150,6 +152,20 @@ function App() {
     const timeoutId = setTimeout(saveGridSize, 500);
     return () => clearTimeout(timeoutId);
   }, [gridSize, autoSizeToFit]);
+
+  // Save logo size when it changes
+  useEffect(() => {
+    const saveLogoSize = async () => {
+      try {
+        await window.electronAPI.savePreferences({ logoSize });
+      } catch (error) {
+        console.error('Error saving logo size:', error);
+      }
+    };
+    // Debounce saves
+    const timeoutId = setTimeout(saveLogoSize, 500);
+    return () => clearTimeout(timeoutId);
+  }, [logoSize]);
 
   // Save pinned categories when they change
   useEffect(() => {
@@ -1180,6 +1196,7 @@ function App() {
                         onUnhide={handleUnhideGame}
                         isHiddenView={selectedCategory === 'hidden'}
                         gridSize={gridSize}
+                        logoSize={logoSize}
                         onGridSizeChange={setGridSize}
                         gameTilePadding={gameTilePadding}
                         hideGameTitles={hideGameTitles}
@@ -1374,6 +1391,19 @@ function App() {
           setImportAppType(appType || 'steam');
           setIsImportWorkbenchOpen(true);
         }}
+        // Appearance props
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
+        gridSize={gridSize}
+        onGridSizeChange={setGridSize}
+        logoSize={logoSize}
+        onLogoSizeChange={setLogoSize}
+        listViewSize={listViewSize}
+        onListViewSizeChange={setListViewSize}
+        gameTilePadding={gameTilePadding}
+        onGameTilePaddingChange={setGameTilePadding}
+        backgroundBlur={backgroundBlur}
+        onBackgroundBlurChange={setBackgroundBlur}
         onSave={async () => {
           // Reload preferences after saving to update UI immediately
           try {
@@ -1508,9 +1538,22 @@ function App() {
           x={simpleContextMenu.x}
           y={simpleContextMenu.y}
           onClose={() => setSimpleContextMenu(null)}
-          onEditAppearance={() => setShowAppearanceMenu(true)}
+          onEditAppearance={() => {
+            setSimpleContextMenu(null);
+            setShowAppearanceMenu(true);
+          }}
+          viewMode={viewMode}
+          onViewModeChange={setViewMode}
           gridSize={gridSize}
           onGridSizeChange={setGridSize}
+          logoSize={logoSize}
+          onLogoSizeChange={setLogoSize}
+          listSize={listViewSize}
+          onListSizeChange={setListViewSize}
+          gameTilePadding={gameTilePadding}
+          onGameTilePaddingChange={setGameTilePadding}
+          backgroundBlur={backgroundBlur}
+          onBackgroundBlurChange={setBackgroundBlur}
         />
       )}
 
@@ -1550,6 +1593,8 @@ function App() {
           onAutoSizeToFit={handleAutoSizeToFit}
           gridSize={gridSize}
           onGridSizeChange={setGridSize}
+          logoSize={logoSize}
+          onLogoSizeChange={setLogoSize}
         />
       )}
 

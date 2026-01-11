@@ -1,4 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron';
+import type { UserPreferences } from './UserPreferencesService';
 
 // Debug: Log that preload is loading
 console.log('Preload script loading...');
@@ -90,7 +91,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   // User preferences methods
   getPreferences: () => ipcRenderer.invoke('preferences:get'),
-  savePreferences: (preferences: any) => ipcRenderer.invoke('preferences:save', preferences),
+  savePreferences: (preferences: Partial<UserPreferences>) => ipcRenderer.invoke('preferences:save', preferences),
   // App control methods
   requestExit: () => ipcRenderer.invoke('app:requestExit'),
   exit: () => ipcRenderer.invoke('app:exit'),

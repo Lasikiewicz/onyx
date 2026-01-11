@@ -32,6 +32,7 @@ interface LibraryGridProps {
   onUnhide?: (game: Game) => void;
   isHiddenView?: boolean;
   gridSize?: number;
+  logoSize?: number;
   onGridSizeChange?: (size: number) => void;
   gameTilePadding?: number;
   hideGameTitles?: boolean;
@@ -41,7 +42,7 @@ interface LibraryGridProps {
   autoSizeToFit?: boolean;
 }
 
-export const LibraryGrid: React.FC<LibraryGridProps> = ({ games, onReorder, onPlay, onGameClick, onEdit, onEditImages, onEditCategories, onFavorite, onPin, onFixMatch, onHide, onUnhide, isHiddenView = false, gridSize = 120, gameTilePadding = 16, hideGameTitles = false, showLogoOverBoxart = true, logoPosition = 'middle', useLogosInsteadOfBoxart = false, autoSizeToFit = false }) => {
+export const LibraryGrid: React.FC<LibraryGridProps> = ({ games, onReorder, onPlay, onGameClick, onEdit, onEditImages, onEditCategories, onFavorite, onPin, onFixMatch, onHide, onUnhide, isHiddenView = false, gridSize = 120, logoSize = 120, gameTilePadding = 16, hideGameTitles = false, showLogoOverBoxart = true, logoPosition = 'middle', useLogosInsteadOfBoxart = false, autoSizeToFit = false }) => {
   const [items, setItems] = useState<Game[]>(games);
 
   // Update items when games prop changes
@@ -89,8 +90,8 @@ export const LibraryGrid: React.FC<LibraryGridProps> = ({ games, onReorder, onPl
               className="grid"
               style={{
                 gridTemplateColumns: autoSizeToFit 
-                  ? `repeat(auto-fill, ${gridSize}px)`
-                  : `repeat(auto-fit, ${gridSize}px)`,
+                  ? `repeat(auto-fill, ${useLogosInsteadOfBoxart ? logoSize : gridSize}px)`
+                  : `repeat(auto-fit, ${useLogosInsteadOfBoxart ? logoSize : gridSize}px)`,
                 gap: `${gameTilePadding}px`,
                 justifyContent: 'start',
               }}
