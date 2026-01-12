@@ -15,8 +15,8 @@ interface LibraryContextMenuProps {
   onClose: () => void;
   positionOverRightPanel?: boolean;
   rightPanelWidth?: number;
-  viewMode: 'grid' | 'list' | 'logo';
-  onViewModeChange: (mode: 'grid' | 'list' | 'logo') => void;
+  viewMode: 'grid' | 'list' | 'logo' | 'carousel';
+  onViewModeChange: (mode: 'grid' | 'list' | 'logo' | 'carousel') => void;
   backgroundBlur: number;
   onBackgroundBlurChange: (blur: number) => void;
   gameTilePadding: number;
@@ -41,6 +41,8 @@ interface LibraryContextMenuProps {
   onGridSizeChange?: (size: number) => void;
   logoSize?: number;
   onLogoSizeChange?: (size: number) => void;
+  selectedBoxArtSize?: number;
+  onSelectedBoxArtSizeChange?: (size: number) => void;
 }
 
 export const LibraryContextMenu: React.FC<LibraryContextMenuProps> = ({
@@ -75,9 +77,11 @@ export const LibraryContextMenu: React.FC<LibraryContextMenuProps> = ({
   onGridSizeChange,
   logoSize = 120,
   onLogoSizeChange,
+  selectedBoxArtSize = 12.5,
+  onSelectedBoxArtSizeChange,
 }) => {
   const menuRef = useRef<HTMLDivElement>(null);
-  const [activeTab, setActiveTab] = useState<'grid' | 'list' | 'logo' | 'carousel'>(viewMode === 'grid' || viewMode === 'list' || viewMode === 'logo' ? viewMode : 'grid');
+  const [activeTab, setActiveTab] = useState<'grid' | 'list' | 'logo' | 'carousel'>(viewMode === 'grid' || viewMode === 'list' || viewMode === 'logo' || viewMode === 'carousel' ? viewMode : 'grid');
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -135,7 +139,7 @@ export const LibraryContextMenu: React.FC<LibraryContextMenuProps> = ({
     setActiveTab(viewMode);
   }, [viewMode]);
 
-  const handleTabChange = (tab: 'grid' | 'list' | 'logo') => {
+  const handleTabChange = (tab: 'grid' | 'list' | 'logo' | 'carousel') => {
     setActiveTab(tab);
     onViewModeChange(tab);
   };
@@ -169,6 +173,10 @@ export const LibraryContextMenu: React.FC<LibraryContextMenuProps> = ({
       ...listViewOptions,
       [key]: !listViewOptions[key],
     });
+  };
+
+  const handleSelectedBoxArtSizeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    onSelectedBoxArtSizeChange?.(Number(e.target.value));
   };
 
   return (
@@ -219,10 +227,12 @@ export const LibraryContextMenu: React.FC<LibraryContextMenuProps> = ({
           <span className="hidden sm:inline">Logo</span>
         </button>
         <button
-          onClick={() => {}}
-          disabled
-          className="flex-1 px-4 py-3 text-sm font-medium transition-colors flex items-center justify-center gap-2 text-gray-500 cursor-not-allowed"
-          title="Coming soon"
+          onClick={() => handleTabChange('carousel')}
+          className={`flex-1 px-4 py-3 text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
+            activeTab === 'carousel'
+              ? 'bg-gray-700 text-white border-b-2 border-blue-500'
+              : 'text-gray-400 hover:text-gray-300 hover:bg-gray-700/50'
+          }`}
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
@@ -645,6 +655,100 @@ export const LibraryContextMenu: React.FC<LibraryContextMenuProps> = ({
             </div>
 
             {/* Background Blur */}
+            <div className="px-5 py-2">
+              <label className="block text-xs text-gray-400 mb-2 px-3">Background Blur Amount</label>
+              <div className="px-3">
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  value={backgroundBlur}
+                  onChange={handleBlurChange}
+                  className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider"
+                />
+                <div className="flex justify-between text-xs text-gray-500 mt-1">
+                  <span>0px</span>
+                  <span className="font-medium text-gray-300">{backgroundBlur}px</span>
+                  <span>100px</span>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* Carousel View Tab Content */}
+        {activeTab === 'carousel' && (
+          <>
+            <div className="px-5 py-4 text-center">
+              <div className="mb-4">
+                <svg className="w-16 h-16 mx-auto text-blue-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
+                </svg>
+                <h3 className="text-lg font-semibold text-white mb-2">Carousel View</h3>
+                <p className="text-gray-400 text-sm leading-relaxed">
+                  Experience your games in a cinematic carousel view with full-screen banners and an interactive thumbnail strip at the bottom.
+                </p>
+              </div>
+              
+              <div className="bg-gray-700/30 rounded-lg p-4 text-left">
+                <h4 className="text-sm font-semibold text-gray-300 mb-2">Navigation Controls:</h4>
+                <ul className="text-xs text-gray-400 space-y-1">
+                  <li>• Use ← → arrow keys to navigate</li>
+                  <li>• Click thumbnails to select games</li>
+                  <li>• Press Enter to select a game</li>
+                  <li>• Press Space to play the selected game</li>
+                </ul>
+              </div>
+            </div>
+
+            {/* Carousel-specific settings */}
+            <div className="border-t border-gray-700 my-2" />
+            <div className="px-5 py-1">
+              <div className="text-xs text-gray-500 mb-2 px-3 font-semibold uppercase tracking-wide">Carousel Settings</div>
+            </div>
+
+            {/* Selected Box Art Size */}
+            <div className="px-5 py-2">
+              <label className="block text-xs text-gray-400 mb-2 px-3">Selected Box Art Size</label>
+              <div className="px-3">
+                <input
+                  type="range"
+                  min="5"
+                  max="30"
+                  step="0.5"
+                  value={selectedBoxArtSize}
+                  onChange={handleSelectedBoxArtSizeChange}
+                  className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider"
+                />
+                <div className="flex justify-between text-xs text-gray-500 mt-1">
+                  <span>5vw</span>
+                  <span className="font-medium text-gray-300">{selectedBoxArtSize}vw</span>
+                  <span>30vw</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Game Tile Padding */}
+            <div className="px-5 py-2">
+              <label className="block text-xs text-gray-400 mb-2 px-3">Game Tile Padding</label>
+              <div className="px-3">
+                <input
+                  type="range"
+                  min="0"
+                  max="32"
+                  value={gameTilePadding}
+                  onChange={handlePaddingChange}
+                  className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider"
+                />
+                <div className="flex justify-between text-xs text-gray-500 mt-1">
+                  <span>0px</span>
+                  <span className="font-medium text-gray-300">{gameTilePadding}px</span>
+                  <span>32px</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Background Blur - Default to 0 for carousel mode */}
             <div className="px-5 py-2">
               <label className="block text-xs text-gray-400 mb-2 px-3">Background Blur Amount</label>
               <div className="px-3">

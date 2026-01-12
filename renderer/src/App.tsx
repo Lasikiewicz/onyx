@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useGameLibrary } from './hooks/useGameLibrary';
 import { LibraryGrid } from './components/LibraryGrid';
 import { LibraryListView } from './components/LibraryListView';
+import { LibraryCarousel } from './components/LibraryCarousel';
 import { LibraryContextMenu } from './components/LibraryContextMenu';
 import { SimpleContextMenu } from './components/SimpleContextMenu';
 import { AddGameModal } from './components/AddGameModal';
@@ -61,7 +62,7 @@ function App() {
   
   // Search and view state
   const [searchQuery, setSearchQuery] = useState('');
-  const [viewMode, setViewMode] = useState<'grid' | 'list' | 'logo'>('grid');
+  const [viewMode, setViewMode] = useState<'grid' | 'list' | 'logo' | 'carousel'>('grid');
   const [activeSection] = useState('library');
   const [showTopBar] = useState(false);
   const [isUpdateLibraryOpen, setIsUpdateLibraryOpen] = useState(false);
@@ -81,9 +82,17 @@ function App() {
   const [hideAppsTitles, setHideAppsTitles] = useState(true);
   const [hideGameTitles, setHideGameTitles] = useState(false);
   const [gameTilePadding, setGameTilePadding] = useState(16);
+  const [selectedBoxArtSize, setSelectedBoxArtSize] = useState(12.5);
   const [showLogoOverBoxart, setShowLogoOverBoxart] = useState(true);
   const [logoPosition, setLogoPosition] = useState<'top' | 'middle' | 'bottom' | 'underneath'>('middle');
   const [backgroundBlur, setBackgroundBlur] = useState(40);
+
+  // Set background blur to 0 when switching to carousel mode
+  useEffect(() => {
+    if (viewMode === 'carousel' && backgroundBlur !== 0) {
+      setBackgroundBlur(0);
+    }
+  }, [viewMode]);
   const [backgroundMode, setBackgroundMode] = useState<'image' | 'color'>('image');
   const [backgroundColor, setBackgroundColor] = useState('#000000');
   const [listViewOptions, setListViewOptions] = useState({
@@ -1153,12 +1162,12 @@ function App() {
 
       {/* Main Content Area */}
       <div className="flex-1 flex overflow-hidden relative pt-10">
-        {/* Left Panel - Game Library (flexible width) */}
-        <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Left Panel - Game Library (flexible width, full width in carousel mode) */}
+        <div className={`flex flex-col overflow-hidden ${viewMode === 'carousel' ? 'w-full' : 'flex-1'}`}>
           {/* Game Grid */}
           <div 
             ref={gridContainerRef}
-            className="flex-1 overflow-y-auto p-4 relative z-10"
+            className={`flex-1 overflow-y-auto relative z-10 ${viewMode === 'carousel' ? '' : 'p-4'}`}
             onContextMenu={(e) => {
               e.preventDefault();
               setSimpleContextMenu({ x: e.clientX, y: e.clientY });
@@ -1204,6 +1213,24 @@ function App() {
                         logoPosition={logoPosition}
                         useLogosInsteadOfBoxart={viewMode === 'logo'}
                         autoSizeToFit={autoSizeToFit}
+                      />
+                    ) : viewMode === 'carousel' ? (
+                      <LibraryCarousel
+                        games={filteredGames}
+                        onPlay={handlePlay}
+                        onGameClick={handleGameClick}
+                        onEdit={handleEditGame}
+                        onEditImages={handleEditImages}
+                        onEditCategories={handleEditCategories}
+                        onFavorite={handleToggleFavorite}
+                        onPin={handleTogglePin}
+                        onFixMatch={handleFixMatch}
+                        onHide={handleHideGame}
+                        onUnhide={handleUnhideGame}
+                        isHiddenView={selectedCategory === 'hidden'}
+                        activeGameId={activeGameId}
+                        selectedBoxArtSize={selectedBoxArtSize}
+                        gameTilePadding={gameTilePadding}
                       />
                     ) : (
                       <LibraryListView
@@ -1305,20 +1332,22 @@ function App() {
           </div>
         </div>
 
-        {/* Right Panel - Game Details (~2/3 width, resizable) */}
-        <GameDetailsPanel 
-          game={activeGame} 
-          onPlay={handlePlay} 
-          onSaveGame={handleSaveGame}
-          onUpdateGameInState={updateGameInState}
-          onOpenInGameManager={(game, tab) => {
-            setGameManagerInitialGameId(game.id);
-            setGameManagerInitialTab(tab);
-            setIsGameManagerOpen(true);
-          }}
-          onFavorite={handleToggleFavorite}
-          onEdit={handleEditGame}
-        />
+        {/* Right Panel - Game Details (hidden in carousel mode) */}
+        {viewMode !== 'carousel' && (
+          <GameDetailsPanel 
+            game={activeGame} 
+            onPlay={handlePlay} 
+            onSaveGame={handleSaveGame}
+            onUpdateGameInState={updateGameInState}
+            onOpenInGameManager={(game, tab) => {
+              setGameManagerInitialGameId(game.id);
+              setGameManagerInitialTab(tab);
+              setIsGameManagerOpen(true);
+            }}
+            onFavorite={handleToggleFavorite}
+            onEdit={handleEditGame}
+          />
+        )}
       </div>
       </div>
 
@@ -1391,19 +1420,6 @@ function App() {
           setImportAppType(appType || 'steam');
           setIsImportWorkbenchOpen(true);
         }}
-        // Appearance props
-        viewMode={viewMode}
-        onViewModeChange={setViewMode}
-        gridSize={gridSize}
-        onGridSizeChange={setGridSize}
-        logoSize={logoSize}
-        onLogoSizeChange={setLogoSize}
-        listViewSize={listViewSize}
-        onListViewSizeChange={setListViewSize}
-        gameTilePadding={gameTilePadding}
-        onGameTilePaddingChange={setGameTilePadding}
-        backgroundBlur={backgroundBlur}
-        onBackgroundBlurChange={setBackgroundBlur}
         onSave={async () => {
           // Reload preferences after saving to update UI immediately
           try {
@@ -1554,6 +1570,8 @@ function App() {
           onGameTilePaddingChange={setGameTilePadding}
           backgroundBlur={backgroundBlur}
           onBackgroundBlurChange={setBackgroundBlur}
+          selectedBoxArtSize={selectedBoxArtSize}
+          onSelectedBoxArtSizeChange={setSelectedBoxArtSize}
         />
       )}
 
@@ -1595,6 +1613,8 @@ function App() {
           onGridSizeChange={setGridSize}
           logoSize={logoSize}
           onLogoSizeChange={setLogoSize}
+          selectedBoxArtSize={selectedBoxArtSize}
+          onSelectedBoxArtSizeChange={setSelectedBoxArtSize}
         />
       )}
 

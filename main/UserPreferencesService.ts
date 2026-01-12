@@ -1,5 +1,6 @@
 export interface UserPreferences {
   gridSize: number;
+  logoSize?: number;
   panelWidth: number;
   fanartHeight: number;
   descriptionHeight: number;
@@ -20,7 +21,7 @@ export interface UserPreferences {
   backgroundBlur?: number;
   backgroundMode?: 'image' | 'color';
   backgroundColor?: string;
-  viewMode?: 'grid' | 'list' | 'logo';
+  viewMode?: 'grid' | 'list' | 'logo' | 'carousel';
   listViewOptions?: {
     showDescription: boolean;
     showCategories: boolean;

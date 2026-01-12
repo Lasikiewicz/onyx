@@ -1,12 +1,12 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 
 interface SimpleContextMenuProps {
   x: number;
   y: number;
   onClose: () => void;
   onEditAppearance: () => void;
-  viewMode: 'grid' | 'list' | 'logo';
-  onViewModeChange?: (mode: 'grid' | 'list' | 'logo') => void;
+  viewMode: 'grid' | 'list' | 'logo' | 'carousel';
+  onViewModeChange?: (mode: 'grid' | 'list' | 'logo' | 'carousel') => void;
   gridSize?: number;
   onGridSizeChange?: (size: number) => void;
   logoSize?: number;
@@ -17,6 +17,8 @@ interface SimpleContextMenuProps {
   onGameTilePaddingChange?: (padding: number) => void;
   backgroundBlur?: number;
   onBackgroundBlurChange?: (blur: number) => void;
+  selectedBoxArtSize?: number;
+  onSelectedBoxArtSizeChange?: (size: number) => void;
 }
 
 export const SimpleContextMenu: React.FC<SimpleContextMenuProps> = ({
@@ -36,9 +38,10 @@ export const SimpleContextMenu: React.FC<SimpleContextMenuProps> = ({
   onGameTilePaddingChange,
   backgroundBlur = 40,
   onBackgroundBlurChange,
+  selectedBoxArtSize = 12.5,
+  onSelectedBoxArtSizeChange,
 }) => {
   const menuRef = useRef<HTMLDivElement>(null);
-  const [showEditAppearance, setShowEditAppearance] = useState(false);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -83,7 +86,7 @@ export const SimpleContextMenu: React.FC<SimpleContextMenuProps> = ({
     onClose();
   };
 
-  const handleViewModeChange = (mode: 'grid' | 'list' | 'logo') => {
+  const handleViewModeChange = (mode: 'grid' | 'list' | 'logo' | 'carousel') => {
     if (onViewModeChange) {
       onViewModeChange(mode);
     }
@@ -171,9 +174,13 @@ export const SimpleContextMenu: React.FC<SimpleContextMenuProps> = ({
           Logo
         </button>
         <button
-          disabled
-          className="px-3 py-2 text-sm rounded transition-colors flex flex-col items-center gap-1 font-medium bg-gray-700/40 text-gray-500 cursor-not-allowed border border-gray-700"
-          title="Coming soon"
+          onClick={() => handleViewModeChange('carousel')}
+          className={`px-3 py-2 text-sm rounded transition-colors flex flex-col items-center gap-1 font-medium ${
+            viewMode === 'carousel'
+              ? 'bg-blue-600/40 text-white border border-blue-500'
+              : 'bg-gray-700 text-gray-300 hover:bg-gray-600 border border-gray-600'
+          }`}
+          title="Carousel View"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
@@ -207,8 +214,8 @@ export const SimpleContextMenu: React.FC<SimpleContextMenuProps> = ({
         </div>
       )}
 
-      {/* Game Tile Padding - for Grid and Logo views */}
-      {(viewMode === 'grid' || viewMode === 'logo') && onGameTilePaddingChange && (
+      {/* Game Tile Padding - for Grid, Logo, and Carousel views */}
+      {(viewMode === 'grid' || viewMode === 'logo' || viewMode === 'carousel') && onGameTilePaddingChange && (
         <div className="px-4 py-3">
           <label className="block text-xs text-gray-400 mb-2 font-semibold">Game Tile Padding</label>
           <input
@@ -224,6 +231,27 @@ export const SimpleContextMenu: React.FC<SimpleContextMenuProps> = ({
             <span>0px</span>
             <span className="font-medium text-gray-300">{gameTilePadding}px</span>
             <span>32px</span>
+          </div>
+        </div>
+      )}
+
+      {/* Selected Box Art Size - for Carousel view only */}
+      {viewMode === 'carousel' && onSelectedBoxArtSizeChange && (
+        <div className="px-4 py-3">
+          <label className="block text-xs text-gray-400 mb-2 font-semibold">Selected Box Art Size</label>
+          <input
+            type="range"
+            min="5"
+            max="30"
+            step="0.5"
+            value={selectedBoxArtSize}
+            onChange={(e) => onSelectedBoxArtSizeChange(Number(e.target.value))}
+            className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider accent-blue-600"
+          />
+          <div className="flex justify-between text-xs text-gray-500 mt-1">
+            <span>5vw</span>
+            <span className="font-medium text-gray-300">{selectedBoxArtSize}vw</span>
+            <span>30vw</span>
           </div>
         </div>
       )}
