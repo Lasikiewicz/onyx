@@ -1,0 +1,317 @@
+﻿2026-01-12T19:28:33.7345494Z Current runner version: '2.330.0'
+2026-01-12T19:28:33.7383536Z ##[group]Runner Image Provisioner
+2026-01-12T19:28:33.7384643Z Hosted Compute Agent
+2026-01-12T19:28:33.7385474Z Version: 20251211.462
+2026-01-12T19:28:33.7386298Z Commit: 6cbad8c2bb55d58165063d031ccabf57e2d2db61
+2026-01-12T19:28:33.7387685Z Build Date: 2025-12-11T16:28:49Z
+2026-01-12T19:28:33.7388699Z Worker ID: {e1f93335-b2b7-4e5d-9493-efc9fbd1d644}
+2026-01-12T19:28:33.7389748Z ##[endgroup]
+2026-01-12T19:28:33.7391006Z ##[group]Operating System
+2026-01-12T19:28:33.7392049Z Microsoft Windows Server 2025
+2026-01-12T19:28:33.7393359Z 10.0.26100
+2026-01-12T19:28:33.7394027Z Datacenter
+2026-01-12T19:28:33.7394971Z ##[endgroup]
+2026-01-12T19:28:33.7395732Z ##[group]Runner Image
+2026-01-12T19:28:33.7396541Z Image: windows-2025
+2026-01-12T19:28:33.7397238Z Version: 20260105.172.1
+2026-01-12T19:28:33.7399876Z Included Software: https://github.com/actions/runner-images/blob/win25/20260105.172/images/windows/Windows2025-Readme.md
+2026-01-12T19:28:33.7402861Z Image Release: https://github.com/actions/runner-images/releases/tag/win25%2F20260105.172
+2026-01-12T19:28:33.7404345Z ##[endgroup]
+2026-01-12T19:28:33.7406146Z ##[group]GITHUB_TOKEN Permissions
+2026-01-12T19:28:33.7408961Z Contents: read
+2026-01-12T19:28:33.7409757Z Metadata: read
+2026-01-12T19:28:33.7410543Z Packages: read
+2026-01-12T19:28:33.7411262Z ##[endgroup]
+2026-01-12T19:28:33.7414723Z Secret source: Actions
+2026-01-12T19:28:33.7415774Z Prepare workflow directory
+2026-01-12T19:28:33.7943837Z Prepare all required actions
+2026-01-12T19:28:33.7999281Z Getting action download info
+2026-01-12T19:28:34.0526275Z Download action repository 'actions/checkout@v4' (SHA:34e114876b0b11c390a56381ad16ebd13914f8d5)
+2026-01-12T19:28:34.2293622Z Download action repository 'actions/setup-node@v4' (SHA:49933ea5288caeca8642d1e84afbd3f7d6820020)
+2026-01-12T19:28:34.4278205Z Download action repository 'softprops/action-gh-release@v1' (SHA:de2c0eb89ae2a093876385947365aca7b0e5f844)
+2026-01-12T19:28:34.8444765Z Complete job name: build
+2026-01-12T19:28:34.9882598Z ##[group]Run actions/checkout@v4
+2026-01-12T19:28:34.9883627Z with:
+2026-01-12T19:28:34.9883997Z   repository: Lasikiewicz/oynx
+2026-01-12T19:28:34.9884701Z   token: ***
+2026-01-12T19:28:34.9885082Z   ssh-strict: true
+2026-01-12T19:28:34.9885460Z   ssh-user: git
+2026-01-12T19:28:34.9885833Z   persist-credentials: true
+2026-01-12T19:28:34.9886271Z   clean: true
+2026-01-12T19:28:34.9886635Z   sparse-checkout-cone-mode: true
+2026-01-12T19:28:34.9887118Z   fetch-depth: 1
+2026-01-12T19:28:34.9887482Z   fetch-tags: false
+2026-01-12T19:28:34.9887873Z   show-progress: true
+2026-01-12T19:28:34.9888274Z   lfs: false
+2026-01-12T19:28:34.9888627Z   submodules: false
+2026-01-12T19:28:34.9889016Z   set-safe-directory: true
+2026-01-12T19:28:34.9889656Z ##[endgroup]
+2026-01-12T19:28:35.1810546Z Syncing repository: Lasikiewicz/oynx
+2026-01-12T19:28:35.1814996Z ##[group]Getting Git version info
+2026-01-12T19:28:35.1876589Z Working directory is 'D:\a\oynx\oynx'
+2026-01-12T19:28:35.3111699Z [command]"C:\Program Files\Git\bin\git.exe" version
+2026-01-12T19:28:36.0798020Z git version 2.52.0.windows.1
+2026-01-12T19:28:36.0819493Z ##[endgroup]
+2026-01-12T19:28:36.0837614Z Temporarily overriding HOME='D:\a\_temp\93130069-691a-4ea7-bd55-379586b619ba' before making global git config changes
+2026-01-12T19:28:36.0852844Z Adding repository directory to the temporary git global config as a safe directory
+2026-01-12T19:28:36.0913725Z [command]"C:\Program Files\Git\bin\git.exe" config --global --add safe.directory D:\a\oynx\oynx
+2026-01-12T19:28:36.3395624Z Deleting the contents of 'D:\a\oynx\oynx'
+2026-01-12T19:28:36.3402767Z ##[group]Initializing the repository
+2026-01-12T19:28:36.3414547Z [command]"C:\Program Files\Git\bin\git.exe" init D:\a\oynx\oynx
+2026-01-12T19:28:36.4747605Z Initialized empty Git repository in D:/a/oynx/oynx/.git/
+2026-01-12T19:28:36.5227290Z [command]"C:\Program Files\Git\bin\git.exe" remote add origin https://github.com/Lasikiewicz/oynx
+2026-01-12T19:28:36.6178285Z ##[endgroup]
+2026-01-12T19:28:36.6196948Z ##[group]Disabling automatic garbage collection
+2026-01-12T19:28:36.6351828Z [command]"C:\Program Files\Git\bin\git.exe" config --local gc.auto 0
+2026-01-12T19:28:36.7319153Z ##[endgroup]
+2026-01-12T19:28:36.7321395Z ##[group]Setting up auth
+2026-01-12T19:28:36.7325315Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp core\.sshCommand
+2026-01-12T19:28:36.8567827Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\""
+2026-01-12T19:28:39.7182844Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-01-12T19:28:40.0496577Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\""
+2026-01-12T19:28:40.8548113Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-01-12T19:28:40.8924426Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "git config --local --show-origin --name-only --get-regexp remote.origin.url"
+2026-01-12T19:28:41.6689918Z [command]"C:\Program Files\Git\bin\git.exe" config --local http.https://github.com/.extraheader "AUTHORIZATION: basic ***"
+2026-01-12T19:28:41.7070259Z ##[endgroup]
+2026-01-12T19:28:41.7071143Z ##[group]Fetching the repository
+2026-01-12T19:28:41.7088664Z [command]"C:\Program Files\Git\bin\git.exe" -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +2aa56c6a71905128003686c9107992f2d619c4c0:refs/remotes/origin/develop
+2026-01-12T19:28:42.7241631Z From https://github.com/Lasikiewicz/oynx
+2026-01-12T19:28:42.7262940Z  * [new ref]         2aa56c6a71905128003686c9107992f2d619c4c0 -> origin/develop
+2026-01-12T19:28:42.7609386Z ##[endgroup]
+2026-01-12T19:28:42.7610611Z ##[group]Determining the checkout info
+2026-01-12T19:28:42.7629288Z ##[endgroup]
+2026-01-12T19:28:42.7635649Z [command]"C:\Program Files\Git\bin\git.exe" sparse-checkout disable
+2026-01-12T19:28:42.8236599Z [command]"C:\Program Files\Git\bin\git.exe" config --local --unset-all extensions.worktreeConfig
+2026-01-12T19:28:42.8697626Z ##[group]Checking out the ref
+2026-01-12T19:28:42.8698976Z [command]"C:\Program Files\Git\bin\git.exe" checkout --progress --force -B develop refs/remotes/origin/develop
+2026-01-12T19:28:42.9846282Z branch 'develop' set up to track 'origin/develop'.
+2026-01-12T19:28:42.9863025Z Switched to a new branch 'develop'
+2026-01-12T19:28:42.9932265Z ##[endgroup]
+2026-01-12T19:28:43.0428337Z [command]"C:\Program Files\Git\bin\git.exe" log -1 --format=%H
+2026-01-12T19:28:43.0794184Z 2aa56c6a71905128003686c9107992f2d619c4c0
+2026-01-12T19:28:43.1328850Z ##[group]Run actions/setup-node@v4
+2026-01-12T19:28:43.1329178Z with:
+2026-01-12T19:28:43.1329357Z   node-version: 20
+2026-01-12T19:28:43.1329520Z   cache: npm
+2026-01-12T19:28:43.1329676Z   always-auth: false
+2026-01-12T19:28:43.1329845Z   check-latest: false
+2026-01-12T19:28:43.1330181Z   token: ***
+2026-01-12T19:28:43.1330361Z ##[endgroup]
+2026-01-12T19:28:43.4727753Z Found in cache @ C:\hostedtoolcache\windows\node\20.19.6\x64
+2026-01-12T19:28:43.4729413Z ##[group]Environment details
+2026-01-12T19:28:48.3011786Z node: v20.19.6
+2026-01-12T19:28:48.3012511Z npm: 10.8.2
+2026-01-12T19:28:48.3013089Z yarn: 1.22.22
+2026-01-12T19:28:48.3014422Z ##[endgroup]
+2026-01-12T19:28:48.4189971Z [command]C:\Windows\system32\cmd.exe /D /S /C "C:\hostedtoolcache\windows\node\20.19.6\x64\npm.cmd config get cache"
+2026-01-12T19:28:49.0479304Z C:\npm\cache
+2026-01-12T19:28:49.4170755Z npm cache is not found
+2026-01-12T19:28:49.4528776Z ##[group]Run npm ci
+2026-01-12T19:28:49.4529809Z [36;1mnpm ci[0m
+2026-01-12T19:28:49.5290832Z shell: C:\Program Files\PowerShell\7\pwsh.EXE -command ". '{0}'"
+2026-01-12T19:28:49.5291312Z ##[endgroup]
+2026-01-12T19:28:58.5419606Z npm warn skipping integrity check for git dependency ssh://git@github.com/electron/node-gyp.git
+2026-01-12T19:29:02.2032773Z npm warn deprecated rimraf@3.0.2: Rimraf versions prior to v4 are no longer supported
+2026-01-12T19:29:03.5376369Z npm warn deprecated inflight@1.0.6: This module is not supported, and leaks memory. Do not use it. Check out lru-cache if you want a good and tested way to coalesce async requests by a key value, which is much more comprehensive and powerful.
+2026-01-12T19:29:05.2223260Z npm warn deprecated glob@7.2.3: Glob versions prior to v9 are no longer supported
+2026-01-12T19:29:06.3544152Z npm warn deprecated @npmcli/move-file@2.0.1: This functionality has been moved to @npmcli/fs
+2026-01-12T19:29:07.1738010Z npm warn deprecated rimraf@2.6.3: Rimraf versions prior to v4 are no longer supported
+2026-01-12T19:29:07.5263321Z npm warn deprecated glob@8.1.0: Glob versions prior to v9 are no longer supported
+2026-01-12T19:29:07.6339623Z npm warn deprecated glob@8.1.0: Glob versions prior to v9 are no longer supported
+2026-01-12T19:29:08.4172097Z npm warn deprecated boolean@3.2.0: Package no longer supported. Contact Support at https://www.npmjs.com/support for more info.
+2026-01-12T19:29:34.9838918Z 
+2026-01-12T19:29:34.9864945Z added 555 packages, and audited 556 packages in 39s
+2026-01-12T19:29:34.9865949Z 
+2026-01-12T19:29:34.9880965Z 106 packages are looking for funding
+2026-01-12T19:29:34.9887011Z   run `npm fund` for details
+2026-01-12T19:29:35.0049815Z 
+2026-01-12T19:29:35.0051083Z 3 moderate severity vulnerabilities
+2026-01-12T19:29:35.0051683Z 
+2026-01-12T19:29:35.0062824Z To address all issues (including breaking changes), run:
+2026-01-12T19:29:35.0063631Z   npm audit fix --force
+2026-01-12T19:29:35.0064070Z 
+2026-01-12T19:29:35.0064403Z Run `npm audit` for details.
+2026-01-12T19:29:35.6734408Z ##[group]Run $ref = "refs/heads/develop"
+2026-01-12T19:29:35.6734837Z [36;1m$ref = "refs/heads/develop"[0m
+2026-01-12T19:29:35.6735119Z [36;1mif ($ref -eq "refs/heads/develop") {[0m
+2026-01-12T19:29:35.6735421Z [36;1m  echo "profile=alpha" >> $env:GITHUB_OUTPUT[0m
+2026-01-12T19:29:35.6735746Z [36;1m  echo "tag_prefix=alpha-v" >> $env:GITHUB_OUTPUT[0m
+2026-01-12T19:29:35.6736063Z [36;1m  echo "is_prerelease=true" >> $env:GITHUB_OUTPUT[0m
+2026-01-12T19:29:35.6736321Z [36;1m} else {[0m
+2026-01-12T19:29:35.6736540Z [36;1m  echo "profile=production" >> $env:GITHUB_OUTPUT[0m
+2026-01-12T19:29:35.6736836Z [36;1m  echo "tag_prefix=v" >> $env:GITHUB_OUTPUT[0m
+2026-01-12T19:29:35.6737144Z [36;1m  echo "is_prerelease=false" >> $env:GITHUB_OUTPUT[0m
+2026-01-12T19:29:35.6737403Z [36;1m}[0m
+2026-01-12T19:29:35.6820901Z shell: C:\Program Files\PowerShell\7\pwsh.EXE -command ". '{0}'"
+2026-01-12T19:29:35.6821249Z ##[endgroup]
+2026-01-12T19:29:36.4894122Z ##[group]Run if ("alpha" -eq "alpha") {
+2026-01-12T19:29:36.4894531Z [36;1mif ("alpha" -eq "alpha") {[0m
+2026-01-12T19:29:36.4894796Z [36;1m  npm run build:alpha[0m
+2026-01-12T19:29:36.4895294Z [36;1m} else {[0m
+2026-01-12T19:29:36.4895492Z [36;1m  npm run build:prod[0m
+2026-01-12T19:29:36.4895699Z [36;1m}[0m
+2026-01-12T19:29:36.4969960Z shell: C:\Program Files\PowerShell\7\pwsh.EXE -command ". '{0}'"
+2026-01-12T19:29:36.4970294Z env:
+2026-01-12T19:29:36.4970717Z   GH_TOKEN: ***
+2026-01-12T19:29:36.4970883Z ##[endgroup]
+2026-01-12T19:29:37.2707148Z 
+2026-01-12T19:29:37.2708074Z > onyx-launcher@0.0.92 build:alpha
+2026-01-12T19:29:37.2717132Z > cross-env BUILD_PROFILE=alpha npm run increment-build && npm run predist && tsc && vite build && tsc -p main/tsconfig.json && tsc -p main/tsconfig.preload.json && cross-env BUILD_PROFILE=alpha electron-builder build --config electron-builder.config.js --publish never --config.nsis.oneClick=false
+2026-01-12T19:29:37.2719509Z 
+2026-01-12T19:29:37.7246770Z 
+2026-01-12T19:29:37.7248241Z > onyx-launcher@0.0.92 increment-build
+2026-01-12T19:29:37.7249170Z > node scripts/increment-build.js
+2026-01-12T19:29:37.7249696Z 
+2026-01-12T19:29:37.8231196Z ✓ Version incremented: 0.0.92 → 0.0.93
+2026-01-12T19:29:37.8240447Z (node:5672) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///D:/a/oynx/oynx/scripts/increment-build.js is not specified and it doesn't parse as CommonJS.
+2026-01-12T19:29:37.8242226Z Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+2026-01-12T19:29:37.8248594Z To eliminate this warning, add "type": "module" to D:\a\oynx\oynx\package.json.
+2026-01-12T19:29:37.8249725Z (Use `node --trace-warnings ...` to show where the warning was created)
+2026-01-12T19:29:38.1983805Z 
+2026-01-12T19:29:38.1984821Z > onyx-launcher@0.0.93 predist
+2026-01-12T19:29:38.1986210Z > npm run generate-icons && npm run validate-icons
+2026-01-12T19:29:38.2008076Z 
+2026-01-12T19:29:38.5797328Z 
+2026-01-12T19:29:38.5798656Z > onyx-launcher@0.0.93 generate-icons
+2026-01-12T19:29:38.5799636Z > node scripts/generate-icons.js
+2026-01-12T19:29:38.5800098Z 
+2026-01-12T19:29:38.6728630Z (node:5704) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///D:/a/oynx/oynx/scripts/generate-icons.js is not specified and it doesn't parse as CommonJS.
+2026-01-12T19:29:38.6730993Z Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+2026-01-12T19:29:38.6744899Z To eliminate this warning, add "type": "module" to D:\a\oynx\oynx\package.json.
+2026-01-12T19:29:38.6747708Z (Use `node --trace-warnings ...` to show where the warning was created)
+2026-01-12T19:29:38.7820198Z Generating icons...
+2026-01-12T19:29:38.7821503Z 
+2026-01-12T19:29:38.7825319Z Source SVG icon found at resources/icon.svg
+2026-01-12T19:29:38.9141310Z ✓ Converted SVG to PNG at resources/icon.png
+2026-01-12T19:29:39.1514049Z ✓ Generated build/icon.ico
+2026-01-12T19:29:39.1514786Z 
+2026-01-12T19:29:39.1515349Z ✓ All icons generated successfully!
+2026-01-12T19:29:39.5267170Z 
+2026-01-12T19:29:39.5268215Z > onyx-launcher@0.0.93 validate-icons
+2026-01-12T19:29:39.5269102Z > node scripts/validate-icons.js
+2026-01-12T19:29:39.5269587Z 
+2026-01-12T19:29:39.6166640Z 🔍 Validating icon files...
+2026-01-12T19:29:39.6167292Z 
+2026-01-12T19:29:39.6177295Z ✓ resources/icon.svg exists (2.04 KB)
+2026-01-12T19:29:39.6186004Z ✓ resources/icon.png exists (103.39 KB)
+2026-01-12T19:29:39.6187434Z ✓ build/icon.ico exists (422.12 KB)
+2026-01-12T19:29:39.6188907Z ✓ build/icon.png exists (12.38 KB)
+2026-01-12T19:29:39.6189689Z 
+2026-01-12T19:29:39.6190187Z ✅ All required icon files are valid!
+2026-01-12T19:29:39.6190684Z 
+2026-01-12T19:29:39.6197697Z (node:7132) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///D:/a/oynx/oynx/scripts/validate-icons.js is not specified and it doesn't parse as CommonJS.
+2026-01-12T19:29:39.6202506Z Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+2026-01-12T19:29:39.6203815Z To eliminate this warning, add "type": "module" to D:\a\oynx\oynx\package.json.
+2026-01-12T19:29:39.6204860Z (Use `node --trace-warnings ...` to show where the warning was created)
+2026-01-12T19:29:50.1217286Z ##[error]renderer/src/App.tsx(145,19): error TS2551: Property 'logoBackgroundColor' does not exist on type '{ gridSize?: number | undefined; logoSize?: number | undefined; panelWidth?: number | undefined; fanartHeight?: number | undefined; descriptionHeight?: number | undefined; boxartWidth?: number | undefined; ... 29 more ...; ignoredGames?: string[] | undefined; }'. Did you mean 'backgroundColor'?
+2026-01-12T19:29:50.1234451Z ##[error]renderer/src/App.tsx(145,83): error TS2551: Property 'logoBackgroundColor' does not exist on type '{ gridSize?: number | undefined; logoSize?: number | undefined; panelWidth?: number | undefined; fanartHeight?: number | undefined; descriptionHeight?: number | undefined; boxartWidth?: number | undefined; ... 29 more ...; ignoredGames?: string[] | undefined; }'. Did you mean 'backgroundColor'?
+2026-01-12T19:29:50.1244186Z ##[error]renderer/src/App.tsx(146,19): error TS2339: Property 'logoBackgroundOpacity' does not exist on type '{ gridSize?: number | undefined; logoSize?: number | undefined; panelWidth?: number | undefined; fanartHeight?: number | undefined; descriptionHeight?: number | undefined; boxartWidth?: number | undefined; ... 29 more ...; ignoredGames?: string[] | undefined; }'.
+2026-01-12T19:29:50.1254303Z ##[error]renderer/src/App.tsx(146,87): error TS2339: Property 'logoBackgroundOpacity' does not exist on type '{ gridSize?: number | undefined; logoSize?: number | undefined; panelWidth?: number | undefined; fanartHeight?: number | undefined; descriptionHeight?: number | undefined; boxartWidth?: number | undefined; ... 29 more ...; ignoredGames?: string[] | undefined; }'.
+2026-01-12T19:29:50.1261949Z ##[error]renderer/src/App.tsx(148,19): error TS2339: Property 'showCarouselDetails' does not exist on type '{ gridSize?: number | undefined; logoSize?: number | undefined; panelWidth?: number | undefined; fanartHeight?: number | undefined; descriptionHeight?: number | undefined; boxartWidth?: number | undefined; ... 29 more ...; ignoredGames?: string[] | undefined; }'.
+2026-01-12T19:29:50.1268935Z ##[error]renderer/src/App.tsx(148,83): error TS2339: Property 'showCarouselDetails' does not exist on type '{ gridSize?: number | undefined; logoSize?: number | undefined; panelWidth?: number | undefined; fanartHeight?: number | undefined; descriptionHeight?: number | undefined; boxartWidth?: number | undefined; ... 29 more ...; ignoredGames?: string[] | undefined; }'.
+2026-01-12T19:29:50.1276583Z ##[error]renderer/src/App.tsx(149,19): error TS2339: Property 'showCarouselLogos' does not exist on type '{ gridSize?: number | undefined; logoSize?: number | undefined; panelWidth?: number | undefined; fanartHeight?: number | undefined; descriptionHeight?: number | undefined; boxartWidth?: number | undefined; ... 29 more ...; ignoredGames?: string[] | undefined; }'.
+2026-01-12T19:29:50.1283536Z ##[error]renderer/src/App.tsx(149,79): error TS2339: Property 'showCarouselLogos' does not exist on type '{ gridSize?: number | undefined; logoSize?: number | undefined; panelWidth?: number | undefined; fanartHeight?: number | undefined; descriptionHeight?: number | undefined; boxartWidth?: number | undefined; ... 29 more ...; ignoredGames?: string[] | undefined; }'.
+2026-01-12T19:29:50.1290260Z ##[error]renderer/src/App.tsx(150,19): error TS2339: Property 'detailsBarSize' does not exist on type '{ gridSize?: number | undefined; logoSize?: number | undefined; panelWidth?: number | undefined; fanartHeight?: number | undefined; descriptionHeight?: number | undefined; boxartWidth?: number | undefined; ... 29 more ...; ignoredGames?: string[] | undefined; }'.
+2026-01-12T19:29:50.1299127Z ##[error]renderer/src/App.tsx(150,73): error TS2339: Property 'detailsBarSize' does not exist on type '{ gridSize?: number | undefined; logoSize?: number | undefined; panelWidth?: number | undefined; fanartHeight?: number | undefined; descriptionHeight?: number | undefined; boxartWidth?: number | undefined; ... 29 more ...; ignoredGames?: string[] | undefined; }'.
+2026-01-12T19:29:50.1306099Z ##[error]renderer/src/App.tsx(151,19): error TS2339: Property 'carouselLogoSize' does not exist on type '{ gridSize?: number | undefined; logoSize?: number | undefined; panelWidth?: number | undefined; fanartHeight?: number | undefined; descriptionHeight?: number | undefined; boxartWidth?: number | undefined; ... 29 more ...; ignoredGames?: string[] | undefined; }'.
+2026-01-12T19:29:50.1313146Z ##[error]renderer/src/App.tsx(151,77): error TS2339: Property 'carouselLogoSize' does not exist on type '{ gridSize?: number | undefined; logoSize?: number | undefined; panelWidth?: number | undefined; fanartHeight?: number | undefined; descriptionHeight?: number | undefined; boxartWidth?: number | undefined; ... 29 more ...; ignoredGames?: string[] | undefined; }'.
+2026-01-12T19:29:50.1320340Z ##[error]renderer/src/App.tsx(152,19): error TS2339: Property 'carouselButtonSize' does not exist on type '{ gridSize?: number | undefined; logoSize?: number | undefined; panelWidth?: number | undefined; fanartHeight?: number | undefined; descriptionHeight?: number | undefined; boxartWidth?: number | undefined; ... 29 more ...; ignoredGames?: string[] | undefined; }'.
+2026-01-12T19:29:50.1328321Z ##[error]renderer/src/App.tsx(152,81): error TS2339: Property 'carouselButtonSize' does not exist on type '{ gridSize?: number | undefined; logoSize?: number | undefined; panelWidth?: number | undefined; fanartHeight?: number | undefined; descriptionHeight?: number | undefined; boxartWidth?: number | undefined; ... 29 more ...; ignoredGames?: string[] | undefined; }'.
+2026-01-12T19:29:50.1335586Z ##[error]renderer/src/App.tsx(153,19): error TS2339: Property 'carouselDescriptionSize' does not exist on type '{ gridSize?: number | undefined; logoSize?: number | undefined; panelWidth?: number | undefined; fanartHeight?: number | undefined; descriptionHeight?: number | undefined; boxartWidth?: number | undefined; ... 29 more ...; ignoredGames?: string[] | undefined; }'.
+2026-01-12T19:29:50.1342503Z ##[error]renderer/src/App.tsx(153,91): error TS2339: Property 'carouselDescriptionSize' does not exist on type '{ gridSize?: number | undefined; logoSize?: number | undefined; panelWidth?: number | undefined; fanartHeight?: number | undefined; descriptionHeight?: number | undefined; boxartWidth?: number | undefined; ... 29 more ...; ignoredGames?: string[] | undefined; }'.
+2026-01-12T19:29:50.1349247Z ##[error]renderer/src/App.tsx(155,19): error TS2339: Property 'rightPanelLogoSize' does not exist on type '{ gridSize?: number | undefined; logoSize?: number | undefined; panelWidth?: number | undefined; fanartHeight?: number | undefined; descriptionHeight?: number | undefined; boxartWidth?: number | undefined; ... 29 more ...; ignoredGames?: string[] | undefined; }'.
+2026-01-12T19:29:50.1356261Z ##[error]renderer/src/App.tsx(155,81): error TS2339: Property 'rightPanelLogoSize' does not exist on type '{ gridSize?: number | undefined; logoSize?: number | undefined; panelWidth?: number | undefined; fanartHeight?: number | undefined; descriptionHeight?: number | undefined; boxartWidth?: number | undefined; ... 29 more ...; ignoredGames?: string[] | undefined; }'.
+2026-01-12T19:29:50.1363145Z ##[error]renderer/src/App.tsx(156,19): error TS2339: Property 'rightPanelBoxartPosition' does not exist on type '{ gridSize?: number | undefined; logoSize?: number | undefined; panelWidth?: number | undefined; fanartHeight?: number | undefined; descriptionHeight?: number | undefined; boxartWidth?: number | undefined; ... 29 more ...; ignoredGames?: string[] | undefined; }'.
+2026-01-12T19:29:50.1370594Z ##[error]renderer/src/App.tsx(156,93): error TS2339: Property 'rightPanelBoxartPosition' does not exist on type '{ gridSize?: number | undefined; logoSize?: number | undefined; panelWidth?: number | undefined; fanartHeight?: number | undefined; descriptionHeight?: number | undefined; boxartWidth?: number | undefined; ... 29 more ...; ignoredGames?: string[] | undefined; }'.
+2026-01-12T19:29:50.1377868Z ##[error]renderer/src/App.tsx(157,19): error TS2339: Property 'rightPanelBoxartSize' does not exist on type '{ gridSize?: number | undefined; logoSize?: number | undefined; panelWidth?: number | undefined; fanartHeight?: number | undefined; descriptionHeight?: number | undefined; boxartWidth?: number | undefined; ... 29 more ...; ignoredGames?: string[] | undefined; }'.
+2026-01-12T19:29:50.1384570Z ##[error]renderer/src/App.tsx(157,85): error TS2339: Property 'rightPanelBoxartSize' does not exist on type '{ gridSize?: number | undefined; logoSize?: number | undefined; panelWidth?: number | undefined; fanartHeight?: number | undefined; descriptionHeight?: number | undefined; boxartWidth?: number | undefined; ... 29 more ...; ignoredGames?: string[] | undefined; }'.
+2026-01-12T19:29:50.1391475Z ##[error]renderer/src/App.tsx(158,19): error TS2339: Property 'rightPanelTextSize' does not exist on type '{ gridSize?: number | undefined; logoSize?: number | undefined; panelWidth?: number | undefined; fanartHeight?: number | undefined; descriptionHeight?: number | undefined; boxartWidth?: number | undefined; ... 29 more ...; ignoredGames?: string[] | undefined; }'.
+2026-01-12T19:29:50.1399018Z ##[error]renderer/src/App.tsx(158,81): error TS2339: Property 'rightPanelTextSize' does not exist on type '{ gridSize?: number | undefined; logoSize?: number | undefined; panelWidth?: number | undefined; fanartHeight?: number | undefined; descriptionHeight?: number | undefined; boxartWidth?: number | undefined; ... 29 more ...; ignoredGames?: string[] | undefined; }'.
+2026-01-12T19:29:50.1405873Z ##[error]renderer/src/App.tsx(159,19): error TS2339: Property 'rightPanelButtonSize' does not exist on type '{ gridSize?: number | undefined; logoSize?: number | undefined; panelWidth?: number | undefined; fanartHeight?: number | undefined; descriptionHeight?: number | undefined; boxartWidth?: number | undefined; ... 29 more ...; ignoredGames?: string[] | undefined; }'.
+2026-01-12T19:29:50.1412629Z ##[error]renderer/src/App.tsx(159,85): error TS2339: Property 'rightPanelButtonSize' does not exist on type '{ gridSize?: number | undefined; logoSize?: number | undefined; panelWidth?: number | undefined; fanartHeight?: number | undefined; descriptionHeight?: number | undefined; boxartWidth?: number | undefined; ... 29 more ...; ignoredGames?: string[] | undefined; }'.
+2026-01-12T19:29:50.1419766Z ##[error]renderer/src/App.tsx(160,19): error TS2339: Property 'rightPanelButtonLocation' does not exist on type '{ gridSize?: number | undefined; logoSize?: number | undefined; panelWidth?: number | undefined; fanartHeight?: number | undefined; descriptionHeight?: number | undefined; boxartWidth?: number | undefined; ... 29 more ...; ignoredGames?: string[] | undefined; }'.
+2026-01-12T19:29:50.1426732Z ##[error]renderer/src/App.tsx(160,93): error TS2339: Property 'rightPanelButtonLocation' does not exist on type '{ gridSize?: number | undefined; logoSize?: number | undefined; panelWidth?: number | undefined; fanartHeight?: number | undefined; descriptionHeight?: number | undefined; boxartWidth?: number | undefined; ... 29 more ...; ignoredGames?: string[] | undefined; }'.
+2026-01-12T19:29:50.1432965Z ##[error]renderer/src/App.tsx(1259,25): error TS2322: Type '{ games: Game[]; onReorder: (reorderedGames: Game[]) => Promise<void>; onPlay: (game: Game) => Promise<void>; onGameClick: (game: Game) => void; ... 21 more ...; onEmptySpaceClick: (x: any, y: any) => void; }' is not assignable to type 'IntrinsicAttributes & LibraryGridProps'.
+2026-01-12T19:29:50.1437224Z   Property 'logoBackgroundColor' does not exist on type 'IntrinsicAttributes & LibraryGridProps'.
+2026-01-12T19:29:50.1438902Z ##[error]renderer/src/App.tsx(1261,45): error TS7006: Parameter 'game' implicitly has an 'any' type.
+2026-01-12T19:29:50.1441334Z ##[error]renderer/src/App.tsx(1261,51): error TS7006: Parameter 'x' implicitly has an 'any' type.
+2026-01-12T19:29:50.1443455Z ##[error]renderer/src/App.tsx(1261,54): error TS7006: Parameter 'y' implicitly has an 'any' type.
+2026-01-12T19:29:50.1445621Z ##[error]renderer/src/App.tsx(1265,45): error TS7006: Parameter 'x' implicitly has an 'any' type.
+2026-01-12T19:29:50.1447701Z ##[error]renderer/src/App.tsx(1265,48): error TS7006: Parameter 'y' implicitly has an 'any' type.
+2026-01-12T19:29:50.1452424Z ##[error]renderer/src/App.tsx(1287,25): error TS2322: Type '{ games: Game[]; onPlay: (game: Game) => Promise<void>; onGameClick: (game: Game) => void; onEdit: (game: Game) => void; onEditImages: (game: Game) => void; ... 20 more ...; onEmptySpaceClick: (x: any, y: any) => void; }' is not assignable to type 'IntrinsicAttributes & LibraryCarouselProps'.
+2026-01-12T19:29:50.1455775Z   Property 'showCarouselDetails' does not exist on type 'IntrinsicAttributes & LibraryCarouselProps'.
+2026-01-12T19:29:50.1457349Z ##[error]renderer/src/App.tsx(1290,50): error TS7006: Parameter 'size' implicitly has an 'any' type.
+2026-01-12T19:29:50.1463500Z ##[error]renderer/src/App.tsx(1292,64): error TS2353: Object literal may only specify known properties, and 'detailsBarSize' does not exist in type '{ gridSize?: number | undefined; logoSize?: number | undefined; panelWidth?: number | undefined; fanartHeight?: number | undefined; descriptionHeight?: number | undefined; boxartWidth?: number | undefined; ... 29 more ...; ignoredGames?: string[] | undefined; }'.
+2026-01-12T19:29:50.1467207Z ##[error]renderer/src/App.tsx(1295,52): error TS7006: Parameter 'size' implicitly has an 'any' type.
+2026-01-12T19:29:50.1472982Z ##[error]renderer/src/App.tsx(1297,64): error TS2353: Object literal may only specify known properties, and 'carouselLogoSize' does not exist in type '{ gridSize?: number | undefined; logoSize?: number | undefined; panelWidth?: number | undefined; fanartHeight?: number | undefined; descriptionHeight?: number | undefined; boxartWidth?: number | undefined; ... 29 more ...; ignoredGames?: string[] | undefined; }'.
+2026-01-12T19:29:50.1477223Z ##[error]renderer/src/App.tsx(1300,54): error TS7006: Parameter 'size' implicitly has an 'any' type.
+2026-01-12T19:29:50.1482994Z ##[error]renderer/src/App.tsx(1302,64): error TS2353: Object literal may only specify known properties, and 'carouselButtonSize' does not exist in type '{ gridSize?: number | undefined; logoSize?: number | undefined; panelWidth?: number | undefined; fanartHeight?: number | undefined; descriptionHeight?: number | undefined; boxartWidth?: number | undefined; ... 29 more ...; ignoredGames?: string[] | undefined; }'.
+2026-01-12T19:29:50.1486905Z ##[error]renderer/src/App.tsx(1305,59): error TS7006: Parameter 'size' implicitly has an 'any' type.
+2026-01-12T19:29:50.1492800Z ##[error]renderer/src/App.tsx(1307,64): error TS2353: Object literal may only specify known properties, and 'carouselDescriptionSize' does not exist in type '{ gridSize?: number | undefined; logoSize?: number | undefined; panelWidth?: number | undefined; fanartHeight?: number | undefined; descriptionHeight?: number | undefined; boxartWidth?: number | undefined; ... 29 more ...; ignoredGames?: string[] | undefined; }'.
+2026-01-12T19:29:50.1498261Z ##[error]renderer/src/App.tsx(1309,45): error TS7006: Parameter 'x' implicitly has an 'any' type.
+2026-01-12T19:29:50.1500263Z ##[error]renderer/src/App.tsx(1309,48): error TS7006: Parameter 'y' implicitly has an 'any' type.
+2026-01-12T19:29:50.1505536Z ##[error]renderer/src/App.tsx(1671,11): error TS2322: Type '{ x: number; y: number; onClose: () => void; viewMode: "logo" | "grid" | "list" | "carousel"; onViewModeChange: Dispatch<SetStateAction<"logo" | "grid" | "list" | "carousel">>; ... 43 more ...; onRightPanelButtonLocationChange: (location: any) => void; }' is not assignable to type 'IntrinsicAttributes & SimpleContextMenuProps'.
+2026-01-12T19:29:50.1508741Z   Property 'carouselLogoSize' does not exist on type 'IntrinsicAttributes & SimpleContextMenuProps'.
+2026-01-12T19:29:50.1511761Z ##[error]renderer/src/App.tsx(1672,38): error TS7006: Parameter 'size' implicitly has an 'any' type.
+2026-01-12T19:29:50.1518175Z ##[error]renderer/src/App.tsx(1674,50): error TS2353: Object literal may only specify known properties, and 'carouselLogoSize' does not exist in type '{ gridSize?: number | undefined; logoSize?: number | undefined; panelWidth?: number | undefined; fanartHeight?: number | undefined; descriptionHeight?: number | undefined; boxartWidth?: number | undefined; ... 29 more ...; ignoredGames?: string[] | undefined; }'.
+2026-01-12T19:29:50.1522022Z ##[error]renderer/src/App.tsx(1677,36): error TS7006: Parameter 'size' implicitly has an 'any' type.
+2026-01-12T19:29:50.1527781Z ##[error]renderer/src/App.tsx(1679,50): error TS2353: Object literal may only specify known properties, and 'detailsBarSize' does not exist in type '{ gridSize?: number | undefined; logoSize?: number | undefined; panelWidth?: number | undefined; fanartHeight?: number | undefined; descriptionHeight?: number | undefined; boxartWidth?: number | undefined; ... 29 more ...; ignoredGames?: string[] | undefined; }'.
+2026-01-12T19:29:50.1531820Z ##[error]renderer/src/App.tsx(1682,41): error TS7006: Parameter 'show' implicitly has an 'any' type.
+2026-01-12T19:29:50.1538057Z ##[error]renderer/src/App.tsx(1684,50): error TS2353: Object literal may only specify known properties, and 'showCarouselDetails' does not exist in type '{ gridSize?: number | undefined; logoSize?: number | undefined; panelWidth?: number | undefined; fanartHeight?: number | undefined; descriptionHeight?: number | undefined; boxartWidth?: number | undefined; ... 29 more ...; ignoredGames?: string[] | undefined; }'.
+2026-01-12T19:29:50.1542224Z ##[error]renderer/src/App.tsx(1687,39): error TS7006: Parameter 'show' implicitly has an 'any' type.
+2026-01-12T19:29:50.1548016Z ##[error]renderer/src/App.tsx(1689,50): error TS2353: Object literal may only specify known properties, and 'showCarouselLogos' does not exist in type '{ gridSize?: number | undefined; logoSize?: number | undefined; panelWidth?: number | undefined; fanartHeight?: number | undefined; descriptionHeight?: number | undefined; boxartWidth?: number | undefined; ... 29 more ...; ignoredGames?: string[] | undefined; }'.
+2026-01-12T19:29:50.1551746Z ##[error]renderer/src/App.tsx(1692,40): error TS7006: Parameter 'size' implicitly has an 'any' type.
+2026-01-12T19:29:50.1557871Z ##[error]renderer/src/App.tsx(1694,50): error TS2353: Object literal may only specify known properties, and 'carouselButtonSize' does not exist in type '{ gridSize?: number | undefined; logoSize?: number | undefined; panelWidth?: number | undefined; fanartHeight?: number | undefined; descriptionHeight?: number | undefined; boxartWidth?: number | undefined; ... 29 more ...; ignoredGames?: string[] | undefined; }'.
+2026-01-12T19:29:50.1562282Z ##[error]renderer/src/App.tsx(1697,45): error TS7006: Parameter 'size' implicitly has an 'any' type.
+2026-01-12T19:29:50.1568139Z ##[error]renderer/src/App.tsx(1699,50): error TS2353: Object literal may only specify known properties, and 'carouselDescriptionSize' does not exist in type '{ gridSize?: number | undefined; logoSize?: number | undefined; panelWidth?: number | undefined; fanartHeight?: number | undefined; descriptionHeight?: number | undefined; boxartWidth?: number | undefined; ... 29 more ...; ignoredGames?: string[] | undefined; }'.
+2026-01-12T19:29:50.1571985Z ##[error]renderer/src/App.tsx(1702,40): error TS7006: Parameter 'show' implicitly has an 'any' type.
+2026-01-12T19:29:50.1574075Z ##[error]renderer/src/App.tsx(1707,34): error TS7006: Parameter 'position' implicitly has an 'any' type.
+2026-01-12T19:29:50.1576643Z ##[error]renderer/src/App.tsx(1712,41): error TS7006: Parameter 'color' implicitly has an 'any' type.
+2026-01-12T19:29:50.1583268Z ##[error]renderer/src/App.tsx(1714,50): error TS2561: Object literal may only specify known properties, but 'logoBackgroundColor' does not exist in type '{ gridSize?: number | undefined; logoSize?: number | undefined; panelWidth?: number | undefined; fanartHeight?: number | undefined; descriptionHeight?: number | undefined; boxartWidth?: number | undefined; ... 29 more ...; ignoredGames?: string[] | undefined; }'. Did you mean to write 'backgroundColor'?
+2026-01-12T19:29:50.1587421Z ##[error]renderer/src/App.tsx(1717,43): error TS7006: Parameter 'opacity' implicitly has an 'any' type.
+2026-01-12T19:29:50.1595557Z ##[error]renderer/src/App.tsx(1719,50): error TS2353: Object literal may only specify known properties, and 'logoBackgroundOpacity' does not exist in type '{ gridSize?: number | undefined; logoSize?: number | undefined; panelWidth?: number | undefined; fanartHeight?: number | undefined; descriptionHeight?: number | undefined; boxartWidth?: number | undefined; ... 29 more ...; ignoredGames?: string[] | undefined; }'.
+2026-01-12T19:29:50.1599673Z ##[error]renderer/src/App.tsx(1722,40): error TS7006: Parameter 'size' implicitly has an 'any' type.
+2026-01-12T19:29:50.1605358Z ##[error]renderer/src/App.tsx(1724,50): error TS2353: Object literal may only specify known properties, and 'rightPanelLogoSize' does not exist in type '{ gridSize?: number | undefined; logoSize?: number | undefined; panelWidth?: number | undefined; fanartHeight?: number | undefined; descriptionHeight?: number | undefined; boxartWidth?: number | undefined; ... 29 more ...; ignoredGames?: string[] | undefined; }'.
+2026-01-12T19:29:50.1610598Z ##[error]renderer/src/App.tsx(1727,46): error TS7006: Parameter 'position' implicitly has an 'any' type.
+2026-01-12T19:29:50.1616572Z ##[error]renderer/src/App.tsx(1729,50): error TS2353: Object literal may only specify known properties, and 'rightPanelBoxartPosition' does not exist in type '{ gridSize?: number | undefined; logoSize?: number | undefined; panelWidth?: number | undefined; fanartHeight?: number | undefined; descriptionHeight?: number | undefined; boxartWidth?: number | undefined; ... 29 more ...; ignoredGames?: string[] | undefined; }'.
+2026-01-12T19:29:50.1620234Z ##[error]renderer/src/App.tsx(1732,42): error TS7006: Parameter 'size' implicitly has an 'any' type.
+2026-01-12T19:29:50.1625806Z ##[error]renderer/src/App.tsx(1734,50): error TS2353: Object literal may only specify known properties, and 'rightPanelBoxartSize' does not exist in type '{ gridSize?: number | undefined; logoSize?: number | undefined; panelWidth?: number | undefined; fanartHeight?: number | undefined; descriptionHeight?: number | undefined; boxartWidth?: number | undefined; ... 29 more ...; ignoredGames?: string[] | undefined; }'.
+2026-01-12T19:29:50.1629593Z ##[error]renderer/src/App.tsx(1737,40): error TS7006: Parameter 'size' implicitly has an 'any' type.
+2026-01-12T19:29:50.1635711Z ##[error]renderer/src/App.tsx(1739,50): error TS2353: Object literal may only specify known properties, and 'rightPanelTextSize' does not exist in type '{ gridSize?: number | undefined; logoSize?: number | undefined; panelWidth?: number | undefined; fanartHeight?: number | undefined; descriptionHeight?: number | undefined; boxartWidth?: number | undefined; ... 29 more ...; ignoredGames?: string[] | undefined; }'.
+2026-01-12T19:29:50.1639463Z ##[error]renderer/src/App.tsx(1742,42): error TS7006: Parameter 'size' implicitly has an 'any' type.
+2026-01-12T19:29:50.1645254Z ##[error]renderer/src/App.tsx(1744,50): error TS2353: Object literal may only specify known properties, and 'rightPanelButtonSize' does not exist in type '{ gridSize?: number | undefined; logoSize?: number | undefined; panelWidth?: number | undefined; fanartHeight?: number | undefined; descriptionHeight?: number | undefined; boxartWidth?: number | undefined; ... 29 more ...; ignoredGames?: string[] | undefined; }'.
+2026-01-12T19:29:50.1649335Z ##[error]renderer/src/App.tsx(1747,46): error TS7006: Parameter 'location' implicitly has an 'any' type.
+2026-01-12T19:29:50.1656022Z ##[error]renderer/src/App.tsx(1749,50): error TS2353: Object literal may only specify known properties, and 'rightPanelButtonLocation' does not exist in type '{ gridSize?: number | undefined; logoSize?: number | undefined; panelWidth?: number | undefined; fanartHeight?: number | undefined; descriptionHeight?: number | undefined; boxartWidth?: number | undefined; ... 29 more ...; ignoredGames?: string[] | undefined; }'.
+2026-01-12T19:29:50.1663886Z ##[error]renderer/src/App.tsx(1814,11): error TS2322: Type '{ onClose: () => void; positionOverRightPanel: true; rightPanelWidth: number; viewMode: "logo" | "grid" | "list" | "carousel"; onViewModeChange: Dispatch<SetStateAction<"logo" | "grid" | "list" | "carousel">>; ... 31 more ...; onDetailsBarSizeChange: (size: any) => void; }' is not assignable to type 'IntrinsicAttributes & LibraryContextMenuProps'.
+2026-01-12T19:29:50.1667946Z   Property 'showCarouselDetails' does not exist on type 'IntrinsicAttributes & LibraryContextMenuProps'.
+2026-01-12T19:29:50.1670707Z ##[error]renderer/src/App.tsx(1815,41): error TS7006: Parameter 'show' implicitly has an 'any' type.
+2026-01-12T19:29:50.1677221Z ##[error]renderer/src/App.tsx(1817,50): error TS2353: Object literal may only specify known properties, and 'showCarouselDetails' does not exist in type '{ gridSize?: number | undefined; logoSize?: number | undefined; panelWidth?: number | undefined; fanartHeight?: number | undefined; descriptionHeight?: number | undefined; boxartWidth?: number | undefined; ... 29 more ...; ignoredGames?: string[] | undefined; }'.
+2026-01-12T19:29:50.1681570Z ##[error]renderer/src/App.tsx(1820,39): error TS7006: Parameter 'show' implicitly has an 'any' type.
+2026-01-12T19:29:50.1687372Z ##[error]renderer/src/App.tsx(1822,50): error TS2353: Object literal may only specify known properties, and 'showCarouselLogos' does not exist in type '{ gridSize?: number | undefined; logoSize?: number | undefined; panelWidth?: number | undefined; fanartHeight?: number | undefined; descriptionHeight?: number | undefined; boxartWidth?: number | undefined; ... 29 more ...; ignoredGames?: string[] | undefined; }'.
+2026-01-12T19:29:50.1691416Z ##[error]renderer/src/App.tsx(1825,36): error TS7006: Parameter 'size' implicitly has an 'any' type.
+2026-01-12T19:29:50.1698265Z ##[error]renderer/src/App.tsx(1827,50): error TS2353: Object literal may only specify known properties, and 'detailsBarSize' does not exist in type '{ gridSize?: number | undefined; logoSize?: number | undefined; panelWidth?: number | undefined; fanartHeight?: number | undefined; descriptionHeight?: number | undefined; boxartWidth?: number | undefined; ... 29 more ...; ignoredGames?: string[] | undefined; }'.
+2026-01-12T19:29:50.1706233Z ##[error]renderer/src/components/GameDetailsPanel.tsx(632,11): error TS2322: Type '{ game: Game; x: number; y: number; onClose: () => void; onPlay: ((game: Game) => void) | undefined; onEdit: ((game: Game) => void) | undefined; onEditImages: ((game: Game) => void) | undefined; ... 7 more ...; onResizeLogo: () => void; }' is not assignable to type 'IntrinsicAttributes & GameContextMenuProps'.
+2026-01-12T19:29:50.1710589Z   Property 'onResizeLogo' does not exist on type 'IntrinsicAttributes & GameContextMenuProps'.
+2026-01-12T19:29:50.1713466Z ##[error]renderer/src/components/LibraryCarousel.tsx(1,27): error TS6133: 'useEffect' is declared but its value is never read.
+2026-01-12T19:29:50.1717381Z ##[error]renderer/src/components/LibraryCarousel.tsx(28,3): error TS6133: 'onFavorite' is declared but its value is never read.
+2026-01-12T19:29:50.1720319Z ##[error]renderer/src/components/LibraryCarousel.tsx(32,3): error TS6133: 'onLogoResize' is declared but its value is never read.
+2026-01-12T19:29:50.1723322Z ##[error]renderer/src/components/LibraryCarousel.tsx(35,10): error TS6133: 'showLogoResizer' is declared but its value is never read.
+2026-01-12T19:29:50.1726419Z ##[error]renderer/src/components/LibraryCarousel.tsx(35,27): error TS6133: 'setShowLogoResizer' is declared but its value is never read.
+2026-01-12T19:29:50.1729420Z ##[error]renderer/src/components/LibraryCarousel.tsx(36,10): error TS6133: 'logoSize' is declared but its value is never read.
+2026-01-12T19:29:50.1732897Z ##[error]renderer/src/components/LibraryCarousel.tsx(36,20): error TS6133: 'setLogoSize' is declared but its value is never read.
+2026-01-12T19:29:50.2973629Z ##[error]Process completed with exit code 1.
+2026-01-12T19:29:50.3245141Z Post job cleanup.
+2026-01-12T19:29:50.6396262Z [command]"C:\Program Files\Git\bin\git.exe" version
+2026-01-12T19:29:50.6876931Z git version 2.52.0.windows.1
+2026-01-12T19:29:50.7142470Z Temporarily overriding HOME='D:\a\_temp\9383f236-4f07-4dff-a9da-200b466edaea' before making global git config changes
+2026-01-12T19:29:50.7186081Z Adding repository directory to the temporary git global config as a safe directory
+2026-01-12T19:29:50.7206247Z [command]"C:\Program Files\Git\bin\git.exe" config --global --add safe.directory D:\a\oynx\oynx
+2026-01-12T19:29:50.7690992Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp core\.sshCommand
+2026-01-12T19:29:50.8253425Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\""
+2026-01-12T19:29:51.5459881Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-01-12T19:29:51.5768877Z http.https://github.com/.extraheader
+2026-01-12T19:29:51.5826973Z [command]"C:\Program Files\Git\bin\git.exe" config --local --unset-all http.https://github.com/.extraheader
+2026-01-12T19:29:51.6218460Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\""
+2026-01-12T19:29:52.2872839Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-01-12T19:29:52.3269118Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "git config --local --show-origin --name-only --get-regexp remote.origin.url"
+2026-01-12T19:29:52.9972989Z Cleaning up orphan processes

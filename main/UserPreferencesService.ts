@@ -78,6 +78,23 @@ export interface UserPreferences {
   storeMetadataLocally?: boolean; // Store metadata and images locally by default
   enableSuspendFeature?: boolean; // Enable suspend/resume functionality
   suspendShortcut?: string; // Keyboard shortcut for suspend/resume (e.g., "Ctrl+Shift+S")
+  // Logo view specific
+  logoBackgroundColor?: string;
+  logoBackgroundOpacity?: number;
+  // Carousel view specific
+  showCarouselDetails?: boolean;
+  showCarouselLogos?: boolean;
+  detailsBarSize?: number;
+  carouselLogoSize?: number;
+  carouselButtonSize?: number;
+  carouselDescriptionSize?: number;
+  // Right panel (GameDetailsPanel) specific
+  rightPanelLogoSize?: number;
+  rightPanelBoxartPosition?: 'left' | 'right' | 'none';
+  rightPanelBoxartSize?: number;
+  rightPanelTextSize?: number;
+  rightPanelButtonSize?: number;
+  rightPanelButtonLocation?: 'left' | 'middle' | 'right';
 }
 
 interface UserPreferencesSchema {

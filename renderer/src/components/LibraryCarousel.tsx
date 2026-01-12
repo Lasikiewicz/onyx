@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Game } from '../types/game';
 
 interface LibraryCarouselProps {
@@ -8,7 +8,6 @@ interface LibraryCarouselProps {
   onEdit?: (game: Game) => void;
   onEditImages?: (game: Game) => void;
   onEditCategories?: (game: Game) => void;
-  onFavorite?: (game: Game) => void;
   onPin?: (game: Game) => void;
   onFixMatch?: (game: Game) => void;
   onHide?: (game: Game) => void;
@@ -17,7 +16,6 @@ interface LibraryCarouselProps {
   activeGameId?: string | null;
   selectedBoxArtSize?: number;
   gameTilePadding?: number;
-  onLogoResize?: (game: Game) => void;
 }
 
 export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
@@ -25,15 +23,11 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
   onPlay,
   onGameClick,
   onEdit,
-  onFavorite,
   activeGameId,
   selectedBoxArtSize = 25,
   gameTilePadding = 1,
-  onLogoResize,
 }) => {
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const [showLogoResizer, setShowLogoResizer] = useState(false);
-  const [logoSize, setLogoSize] = useState(100);
   const [carouselOffset, setCarouselOffset] = useState(0);
   
   // Ensure selectedIndex is valid
