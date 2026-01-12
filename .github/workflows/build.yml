@@ -6,6 +6,9 @@ on:
       - main
       - develop
 
+permissions:
+  contents: write
+  
 jobs:
   build:
     runs-on: windows-latest
@@ -62,10 +65,10 @@ jobs:
           name: ${{ steps.build_profile.outputs.profile == 'alpha' && 'Onyx Alpha' || 'Onyx' }} ${{ steps.version.outputs.version }}
           prerelease: ${{ steps.build_profile.outputs.is_prerelease }}
           files: |
-            dist/*Setup*.exe
-            dist/*.exe
-            dist/*.blockmap
-            dist/latest.yml
+            release/*Setup*.exe
+            release/*.exe
+            release/*.blockmap
+            release/latest.yml
           draft: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
