@@ -37,23 +37,9 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
   onPlay,
   onGameClick,
   onEdit,
-  onFavorite,
   activeGameId,
   selectedBoxArtSize = 25,
   gameTilePadding = 1,
-  showCarouselDetails,
-  onShowCarouselDetailsChange,
-  showCarouselLogos,
-  onShowCarouselLogosChange,
-  detailsBarSize,
-  onDetailsBarSizeChange,
-  carouselLogoSize,
-  onCarouselLogoSizeChange,
-  carouselButtonSize,
-  onCarouselButtonSizeChange,
-  carouselDescriptionSize,
-  onCarouselDescriptionSizeChange,
-  onEmptySpaceClick,
 }) => {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [carouselOffset, setCarouselOffset] = useState(0);

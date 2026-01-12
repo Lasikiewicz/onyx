@@ -47,7 +47,29 @@ interface LibraryGridProps {
   onEmptySpaceClick?: (x: number, y: number) => void;
 }
 
-export const LibraryGrid: React.FC<LibraryGridProps> = ({ games, onReorder, onPlay, onGameClick, onEdit, onEditImages, onEditCategories, onFavorite, onPin, onFixMatch, onHide, onUnhide, isHiddenView = false, gridSize = 120, logoSize = 120, gameTilePadding = 16, hideGameTitles = false, showLogoOverBoxart = true, logoPosition = 'middle', useLogosInsteadOfBoxart = false, autoSizeToFit = false, descriptionSize = 14, logoBackgroundColor = '#374151', logoBackgroundOpacity = 100, onGameContextMenu, onEmptySpaceClick }) => {
+export const LibraryGrid: React.FC<LibraryGridProps> = ({ 
+  games, 
+  onReorder, 
+  onPlay, 
+  onGameClick, 
+  onEdit, 
+  onEditImages, 
+  onEditCategories, 
+  onFavorite, 
+  onPin, 
+  onFixMatch, 
+  onHide, 
+  onUnhide, 
+  isHiddenView = false, 
+  gridSize = 120, 
+  logoSize = 120, 
+  gameTilePadding = 16, 
+  hideGameTitles = false, 
+  showLogoOverBoxart = true, 
+  logoPosition = 'middle', 
+  useLogosInsteadOfBoxart = false, 
+  autoSizeToFit = false 
+}) => {
   const [items, setItems] = useState<Game[]>(games);
 
   // Update items when games prop changes

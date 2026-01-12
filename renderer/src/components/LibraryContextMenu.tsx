@@ -85,12 +85,6 @@ export const LibraryContextMenu: React.FC<LibraryContextMenuProps> = ({
   onLogoSizeChange,
   selectedBoxArtSize = 12.5,
   onSelectedBoxArtSizeChange,
-  showCarouselDetails = true,
-  onShowCarouselDetailsChange,
-  showCarouselLogos = true,
-  onShowCarouselLogosChange,
-  detailsBarSize = 14,
-  onDetailsBarSizeChange,
 }) => {
   const menuRef = useRef<HTMLDivElement>(null);
   const [activeTab, setActiveTab] = useState<'grid' | 'list' | 'logo' | 'carousel'>(viewMode === 'grid' || viewMode === 'list' || viewMode === 'logo' || viewMode === 'carousel' ? viewMode : 'grid');

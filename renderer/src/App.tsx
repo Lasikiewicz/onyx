@@ -1258,11 +1258,11 @@ function App() {
                         autoSizeToFit={autoSizeToFit}
                         logoBackgroundColor={logoBackgroundColor}
                         logoBackgroundOpacity={logoBackgroundOpacity}
-                        onGameContextMenu={(game, x, y) => {
+                        onGameContextMenu={(game: Game, x: number, y: number) => {
                           setSimpleContextMenu(null);
                           setGameContextMenu({ game, x, y });
                         }}
-                        onEmptySpaceClick={(x, y) => {
+                        onEmptySpaceClick={(x: number, y: number) => {
                           setGameContextMenu(null);
                           setSimpleContextMenu({ x, y });
                         }}
@@ -1287,26 +1287,26 @@ function App() {
                         showCarouselDetails={showCarouselDetails}
                         showCarouselLogos={showCarouselLogos}
                         detailsBarSize={detailsBarSize}
-                        onDetailsBarSizeChange={(size) => {
+                        onDetailsBarSizeChange={(size: number) => {
                           setDetailsBarSize(size);
                           window.electronAPI.savePreferences({ detailsBarSize: size });
                         }}
                         carouselLogoSize={carouselLogoSize}
-                        onCarouselLogoSizeChange={(size) => {
+                        onCarouselLogoSizeChange={(size: number) => {
                           setCarouselLogoSize(size);
                           window.electronAPI.savePreferences({ carouselLogoSize: size });
                         }}
                         carouselButtonSize={carouselButtonSize}
-                        onCarouselButtonSizeChange={(size) => {
+                        onCarouselButtonSizeChange={(size: number) => {
                           setCarouselButtonSize(size);
                           window.electronAPI.savePreferences({ carouselButtonSize: size });
                         }}
                         carouselDescriptionSize={carouselDescriptionSize}
-                        onCarouselDescriptionSizeChange={(size) => {
+                        onCarouselDescriptionSizeChange={(size: number) => {
                           setCarouselDescriptionSize(size);
                           window.electronAPI.savePreferences({ carouselDescriptionSize: size });
                         }}
-                        onEmptySpaceClick={(x, y) => {
+                        onEmptySpaceClick={(x: number, y: number) => {
                           setGameContextMenu(null);
                           setSimpleContextMenu({ x, y });
                         }}
@@ -1328,7 +1328,7 @@ function App() {
                         hideGameTitles={hideGameTitles}
                         listViewOptions={listViewOptions}
                         listViewSize={listViewSize}
-                        onEmptySpaceClick={(x, y) => {
+                        onEmptySpaceClick={(x: number, y: number) => {
                           setGameContextMenu(null);
                           setSimpleContextMenu({ x, y });
                         }}
@@ -1654,6 +1654,7 @@ function App() {
           x={simpleContextMenu.x}
           y={simpleContextMenu.y}
           onClose={() => setSimpleContextMenu(null)}
+          onEditAppearance={() => setShowAppearanceMenu(true)}
           viewMode={viewMode}
           onViewModeChange={setViewMode}
           gridSize={gridSize}
@@ -1669,82 +1670,82 @@ function App() {
           selectedBoxArtSize={selectedBoxArtSize}
           onSelectedBoxArtSizeChange={setSelectedBoxArtSize}
           carouselLogoSize={carouselLogoSize}
-          onCarouselLogoSizeChange={(size) => {
+          onCarouselLogoSizeChange={(size: number) => {
             setCarouselLogoSize(size);
             window.electronAPI.savePreferences({ carouselLogoSize: size });
           }}
           detailsBarSize={detailsBarSize}
-          onDetailsBarSizeChange={(size) => {
+          onDetailsBarSizeChange={(size: number) => {
             setDetailsBarSize(size);
             window.electronAPI.savePreferences({ detailsBarSize: size });
           }}
           showCarouselDetails={showCarouselDetails}
-          onShowCarouselDetailsChange={(show) => {
+          onShowCarouselDetailsChange={(show: boolean) => {
             setShowCarouselDetails(show);
             window.electronAPI.savePreferences({ showCarouselDetails: show });
           }}
           showCarouselLogos={showCarouselLogos}
-          onShowCarouselLogosChange={(show) => {
+          onShowCarouselLogosChange={(show: boolean) => {
             setShowCarouselLogos(show);
             window.electronAPI.savePreferences({ showCarouselLogos: show });
           }}
           carouselButtonSize={carouselButtonSize}
-          onCarouselButtonSizeChange={(size) => {
+          onCarouselButtonSizeChange={(size: number) => {
             setCarouselButtonSize(size);
             window.electronAPI.savePreferences({ carouselButtonSize: size });
           }}
           carouselDescriptionSize={carouselDescriptionSize}
-          onCarouselDescriptionSizeChange={(size) => {
+          onCarouselDescriptionSizeChange={(size: number) => {
             setCarouselDescriptionSize(size);
             window.electronAPI.savePreferences({ carouselDescriptionSize: size });
           }}
           showLogoOverBoxart={showLogoOverBoxart}
-          onShowLogoOverBoxartChange={(show) => {
+          onShowLogoOverBoxartChange={(show: boolean) => {
             setShowLogoOverBoxart(show);
             window.electronAPI.savePreferences({ showLogoOverBoxart: show });
           }}
           logoPosition={logoPosition}
-          onLogoPositionChange={(position) => {
+          onLogoPositionChange={(position: 'top' | 'middle' | 'bottom' | 'underneath') => {
             setLogoPosition(position);
             window.electronAPI.savePreferences({ logoPosition: position });
           }}
           logoBackgroundColor={logoBackgroundColor}
-          onLogoBackgroundColorChange={(color) => {
+          onLogoBackgroundColorChange={(color: string) => {
             setLogoBackgroundColor(color);
             window.electronAPI.savePreferences({ logoBackgroundColor: color });
           }}
           logoBackgroundOpacity={logoBackgroundOpacity}
-          onLogoBackgroundOpacityChange={(opacity) => {
+          onLogoBackgroundOpacityChange={(opacity: number) => {
             setLogoBackgroundOpacity(opacity);
             window.electronAPI.savePreferences({ logoBackgroundOpacity: opacity });
           }}
           rightPanelLogoSize={rightPanelLogoSize}
-          onRightPanelLogoSizeChange={(size) => {
+          onRightPanelLogoSizeChange={(size: number) => {
             setRightPanelLogoSize(size);
             window.electronAPI.savePreferences({ rightPanelLogoSize: size });
           }}
           rightPanelBoxartPosition={rightPanelBoxartPosition}
-          onRightPanelBoxartPositionChange={(position) => {
+          onRightPanelBoxartPositionChange={(position: 'left' | 'right' | 'none') => {
             setRightPanelBoxartPosition(position);
             window.electronAPI.savePreferences({ rightPanelBoxartPosition: position });
           }}
           rightPanelBoxartSize={rightPanelBoxartSize}
-          onRightPanelBoxartSizeChange={(size) => {
+          onRightPanelBoxartSizeChange={(size: number) => {
             setRightPanelBoxartSize(size);
             window.electronAPI.savePreferences({ rightPanelBoxartSize: size });
           }}
           rightPanelTextSize={rightPanelTextSize}
-          onRightPanelTextSizeChange={(size) => {
+          onRightPanelTextSizeChange={(size: number) => {
             setRightPanelTextSize(size);
             window.electronAPI.savePreferences({ rightPanelTextSize: size });
           }}
           rightPanelButtonSize={rightPanelButtonSize}
-          onRightPanelButtonSizeChange={(size) => {
+          onRightPanelButtonSizeChange={(size: number) => {
             setRightPanelButtonSize(size);
             window.electronAPI.savePreferences({ rightPanelButtonSize: size });
           }}
           rightPanelButtonLocation={rightPanelButtonLocation}
-          onRightPanelButtonLocationChange={(location) => {
+          onRightPanelButtonLocationChange={(location: 'left' | 'middle' | 'right') => {
             setRightPanelButtonLocation(location);
             window.electronAPI.savePreferences({ rightPanelButtonLocation: location });
           }}
@@ -1812,17 +1813,17 @@ function App() {
           selectedBoxArtSize={selectedBoxArtSize}
           onSelectedBoxArtSizeChange={setSelectedBoxArtSize}
           showCarouselDetails={showCarouselDetails}
-          onShowCarouselDetailsChange={(show) => {
+          onShowCarouselDetailsChange={(show: boolean) => {
             setShowCarouselDetails(show);
             window.electronAPI.savePreferences({ showCarouselDetails: show });
           }}
           showCarouselLogos={showCarouselLogos}
-          onShowCarouselLogosChange={(show) => {
+          onShowCarouselLogosChange={(show: boolean) => {
             setShowCarouselLogos(show);
             window.electronAPI.savePreferences({ showCarouselLogos: show });
           }}
           detailsBarSize={detailsBarSize}
-          onDetailsBarSizeChange={(size) => {
+          onDetailsBarSizeChange={(size: number) => {
             setDetailsBarSize(size);
             window.electronAPI.savePreferences({ detailsBarSize: size });
           }}
