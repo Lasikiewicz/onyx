@@ -19,6 +19,41 @@ interface SimpleContextMenuProps {
   onBackgroundBlurChange?: (blur: number) => void;
   selectedBoxArtSize?: number;
   onSelectedBoxArtSizeChange?: (size: number) => void;
+  carouselLogoSize?: number;
+  onCarouselLogoSizeChange?: (size: number) => void;
+  detailsBarSize?: number;
+  onDetailsBarSizeChange?: (size: number) => void;
+  showCarouselDetails?: boolean;
+  onShowCarouselDetailsChange?: (show: boolean) => void;
+  showCarouselLogos?: boolean;
+  onShowCarouselLogosChange?: (show: boolean) => void;
+  carouselButtonSize?: number;
+  onCarouselButtonSizeChange?: (size: number) => void;
+  carouselDescriptionSize?: number;
+  onCarouselDescriptionSizeChange?: (size: number) => void;
+  // Grid view specific props
+  showLogoOverBoxart?: boolean;
+  onShowLogoOverBoxartChange?: (show: boolean) => void;
+  logoPosition?: 'top' | 'middle' | 'bottom' | 'underneath';
+  onLogoPositionChange?: (position: 'top' | 'middle' | 'bottom' | 'underneath') => void;
+  // Logo view specific props
+  logoBackgroundColor?: string;
+  onLogoBackgroundColorChange?: (color: string) => void;
+  logoBackgroundOpacity?: number;
+  onLogoBackgroundOpacityChange?: (opacity: number) => void;
+  // Right panel (GameDetailsPanel) specific props
+  rightPanelLogoSize?: number;
+  onRightPanelLogoSizeChange?: (size: number) => void;
+  rightPanelBoxartPosition?: 'left' | 'right' | 'none';
+  onRightPanelBoxartPositionChange?: (position: 'left' | 'right' | 'none') => void;
+  rightPanelBoxartSize?: number;
+  onRightPanelBoxartSizeChange?: (size: number) => void;
+  rightPanelTextSize?: number;
+  onRightPanelTextSizeChange?: (size: number) => void;
+  rightPanelButtonSize?: number;
+  onRightPanelButtonSizeChange?: (size: number) => void;
+  rightPanelButtonLocation?: 'left' | 'middle' | 'right';
+  onRightPanelButtonLocationChange?: (location: 'left' | 'middle' | 'right') => void;
 }
 
 export const SimpleContextMenu: React.FC<SimpleContextMenuProps> = ({
@@ -40,6 +75,41 @@ export const SimpleContextMenu: React.FC<SimpleContextMenuProps> = ({
   onBackgroundBlurChange,
   selectedBoxArtSize = 12.5,
   onSelectedBoxArtSizeChange,
+  carouselLogoSize = 100,
+  onCarouselLogoSizeChange,
+  detailsBarSize = 14,
+  onDetailsBarSizeChange,
+  showCarouselDetails = true,
+  onShowCarouselDetailsChange,
+  showCarouselLogos = true,
+  onShowCarouselLogosChange,
+  carouselButtonSize = 14,
+  onCarouselButtonSizeChange,
+  carouselDescriptionSize = 18,
+  onCarouselDescriptionSizeChange,
+  // Grid view specific props
+  showLogoOverBoxart = true,
+  onShowLogoOverBoxartChange,
+  logoPosition = 'middle',
+  onLogoPositionChange,
+  // Logo view specific props
+  logoBackgroundColor = '#374151',
+  onLogoBackgroundColorChange,
+  logoBackgroundOpacity = 100,
+  onLogoBackgroundOpacityChange,
+  // Right panel (GameDetailsPanel) specific props
+  rightPanelLogoSize = 100,
+  onRightPanelLogoSizeChange,
+  rightPanelBoxartPosition = 'right',
+  onRightPanelBoxartPositionChange,
+  rightPanelBoxartSize = 300,
+  onRightPanelBoxartSizeChange,
+  rightPanelTextSize = 14,
+  onRightPanelTextSizeChange,
+  rightPanelButtonSize = 14,
+  onRightPanelButtonSizeChange,
+  rightPanelButtonLocation = 'right',
+  onRightPanelButtonLocationChange,
 }) => {
   const menuRef = useRef<HTMLDivElement>(null);
 

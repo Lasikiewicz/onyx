@@ -8,6 +8,7 @@ interface LibraryCarouselProps {
   onEdit?: (game: Game) => void;
   onEditImages?: (game: Game) => void;
   onEditCategories?: (game: Game) => void;
+  onFavorite?: (game: Game) => void;
   onPin?: (game: Game) => void;
   onFixMatch?: (game: Game) => void;
   onHide?: (game: Game) => void;
@@ -16,6 +17,19 @@ interface LibraryCarouselProps {
   activeGameId?: string | null;
   selectedBoxArtSize?: number;
   gameTilePadding?: number;
+  showCarouselDetails?: boolean;
+  onShowCarouselDetailsChange?: (show: boolean) => void;
+  showCarouselLogos?: boolean;
+  onShowCarouselLogosChange?: (show: boolean) => void;
+  detailsBarSize?: number;
+  onDetailsBarSizeChange?: (size: number) => void;
+  carouselLogoSize?: number;
+  onCarouselLogoSizeChange?: (size: number) => void;
+  carouselButtonSize?: number;
+  onCarouselButtonSizeChange?: (size: number) => void;
+  carouselDescriptionSize?: number;
+  onCarouselDescriptionSizeChange?: (size: number) => void;
+  onEmptySpaceClick?: (x: number, y: number) => void;
 }
 
 export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
@@ -23,9 +37,23 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
   onPlay,
   onGameClick,
   onEdit,
+  onFavorite,
   activeGameId,
   selectedBoxArtSize = 25,
   gameTilePadding = 1,
+  showCarouselDetails,
+  onShowCarouselDetailsChange,
+  showCarouselLogos,
+  onShowCarouselLogosChange,
+  detailsBarSize,
+  onDetailsBarSizeChange,
+  carouselLogoSize,
+  onCarouselLogoSizeChange,
+  carouselButtonSize,
+  onCarouselButtonSizeChange,
+  carouselDescriptionSize,
+  onCarouselDescriptionSizeChange,
+  onEmptySpaceClick,
 }) => {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [carouselOffset, setCarouselOffset] = useState(0);
