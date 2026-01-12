@@ -1,10 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Game } from '../types/game';
-import { ImageContextMenu } from './ImageContextMenu';
-import { TextStyleContextMenu } from './TextStyleContextMenu';
-import { DetailsContextMenu } from './DetailsContextMenu';
+import { GameContextMenu } from './GameContextMenu';
 import { ImageSearchModal } from './ImageSearchModal';
-import { GameDetailsSimpleContextMenu } from './GameDetailsSimpleContextMenu';
 
 interface GameDetailsPanelProps {
   game: Game | null;
@@ -13,10 +10,47 @@ interface GameDetailsPanelProps {
   onOpenInGameManager?: (game: Game, tab: 'images' | 'metadata') => void;
   onFavorite?: (game: Game) => void;
   onEdit?: (game: Game) => void;
+  onEditImages?: (game: Game) => void;
+  onEditCategories?: (game: Game) => void;
+  onPin?: (game: Game) => void;
+  onFixMatch?: (game: Game) => void;
+  onHide?: (game: Game) => void;
+  onUnhide?: (game: Game) => void;
+  isHiddenView?: boolean;
   onUpdateGameInState?: (game: Game) => void;
+  onRightClick?: (x: number, y: number) => void;
+  // Right panel styling props
+  rightPanelLogoSize?: number;
+  rightPanelBoxartPosition?: 'left' | 'right' | 'none';
+  rightPanelBoxartSize?: number;
+  rightPanelTextSize?: number;
+  rightPanelButtonSize?: number;
+  rightPanelButtonLocation?: 'left' | 'middle' | 'right';
 }
 
-export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game, onPlay, onSaveGame, onOpenInGameManager, onFavorite, onEdit, onUpdateGameInState }) => {
+export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ 
+  game, 
+  onPlay, 
+  onSaveGame, 
+  onOpenInGameManager, 
+  onFavorite, 
+  onEdit,
+  onEditImages,
+  onEditCategories,
+  onPin,
+  onFixMatch,
+  onHide,
+  onUnhide,
+  isHiddenView = false,
+  onUpdateGameInState,
+  onRightClick,
+  rightPanelLogoSize = 200,
+  rightPanelBoxartPosition = 'right',
+  rightPanelBoxartSize = 300,
+  rightPanelTextSize = 14,
+  rightPanelButtonSize = 14,
+  rightPanelButtonLocation = 'right'
+}) => {
   const [width, setWidth] = useState(800);
   const [fanartHeight, setFanartHeight] = useState(320);
   const [descriptionHeight, setDescriptionHeight] = useState(400);
@@ -30,15 +64,8 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game, onPlay
   const descriptionRef = useRef<HTMLDivElement>(null);
   const descriptionContainerRef = useRef<HTMLDivElement>(null);
 
-  // Simple context menu states (appears at right-click location)
-  const [simpleContextMenu, setSimpleContextMenu] = useState<{ x: number; y: number; type: 'artwork' | 'boxart' | 'title' | 'description' | 'details' } | null>(null);
-
-  // Full settings menu states (appears over game list)
-  const [showArtworkMenu, setShowArtworkMenu] = useState(false);
-  const [showBoxartMenu, setShowBoxartMenu] = useState(false);
-  const [showTitleMenu, setShowTitleMenu] = useState(false);
-  const [showDescriptionMenu, setShowDescriptionMenu] = useState(false);
-  const [showDetailsMenu, setShowDetailsMenu] = useState(false);
+  // Context menu state
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
 
   // Image search modal
   const [imageSearchModal, setImageSearchModal] = useState<{ type: 'artwork' | 'boxart' } | null>(null);
@@ -176,6 +203,21 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game, onPlay
     }
   }, [isResizing, isResizingFanart, isResizingDescription, isResizingDescriptionWidth]);
 
+  // Handle right-click anywhere in the right section (opens library context menu)
+  const handleRightClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    // Call the library context menu (same as empty space click)
+    onRightClick?.(e.clientX, e.clientY);
+  };
+
+  // Handle right-click on game elements (boxart/logo) - opens game context menu
+  const handleGameElementRightClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setContextMenu({ x: e.clientX, y: e.clientY });
+  };
+
   if (!game) {
     return (
       <div 
@@ -217,6 +259,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game, onPlay
       ref={panelRef}
       className="onyx-glass-panel rounded-l-3xl flex flex-col h-full overflow-hidden relative ml-auto"
       style={{ width: `${width}px`, minWidth: '400px' }}
+      onContextMenu={handleRightClick}
     >
       <div
         className="absolute left-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-blue-500 transition-colors z-10"
@@ -248,21 +291,19 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game, onPlay
                 target.style.display = 'none';
                 target.src = ''; // Clear src to prevent retries
               }}
-              onContextMenu={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                console.log('Artwork right-click:', e.clientX, e.clientY);
-                setSimpleContextMenu({ x: e.clientX, y: e.clientY, type: 'artwork' });
-              }}
             />
             {/* Blurred background for logo area */}
             {game.logoUrl && (
               <div 
-                className="absolute left-6 bottom-0 z-10"
+                className={`absolute bottom-0 z-10 ${
+                  rightPanelBoxartPosition === 'left' ? 'right-6' : 
+                  rightPanelBoxartPosition === 'right' ? 'left-6' : 
+                  'left-1/2 transform -translate-x-1/2'
+                }`}
                 style={{ 
-                  width: 'calc(100% - 11rem)', // Space to the left of boxart (right-6 = 1.5rem, boxart w-32 = 8rem, plus some spacing)
+                  width: rightPanelBoxartPosition === 'none' ? 'calc(100% - 3rem)' : 'calc(100% - 11rem)', // Full width when no boxart, space for boxart otherwise
                   height: '60%',
-                  transform: 'translateY(50%)',
+                  transform: rightPanelBoxartPosition === 'none' ? 'translateY(50%) translateX(-50%)' : 'translateY(50%)',
                   pointerEvents: 'none'
                 }}
               >
@@ -283,19 +324,17 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game, onPlay
           </>
         )}
         
-        {/* Logo - Centered to the left of boxart, overlapping banner, same row as boxart */}
+        {/* Logo - Position based on rightPanelBoxartPosition */}
         <div 
-          className="absolute left-6 bottom-0 z-20 flex items-center justify-center"
+          className={`absolute bottom-0 z-20 flex items-center justify-center ${
+            rightPanelBoxartPosition === 'left' ? 'right-6' : 
+            rightPanelBoxartPosition === 'right' ? 'left-6' : 
+            'left-1/2 transform -translate-x-1/2'
+          }`}
           style={{ 
-            width: 'calc(100% - 11rem)', // Space to the left of boxart
-            transform: 'translateY(50%)',
+            width: rightPanelBoxartPosition === 'none' ? 'calc(100% - 3rem)' : 'calc(100% - 11rem)', // Full width when no boxart, space for boxart otherwise
+            transform: rightPanelBoxartPosition === 'none' ? 'translateY(50%) translateX(-50%)' : 'translateY(50%)',
             maxHeight: '60%'
-          }}
-          onContextMenu={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            console.log('Title right-click:', e.clientX, e.clientY);
-            setSimpleContextMenu({ x: e.clientX, y: e.clientY, type: 'title' });
           }}
         >
           {game.logoUrl ? (
@@ -305,7 +344,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game, onPlay
               alt={game.title}
               className="max-w-full max-h-full object-contain cursor-pointer drop-shadow-2xl"
               style={{ 
-                maxHeight: `${showLogoResizeDialog && localLogoSize !== undefined ? localLogoSize : (game.logoSize || 100)}px`,
+                maxHeight: `${showLogoResizeDialog && localLogoSize !== undefined ? localLogoSize : rightPanelLogoSize}px`,
                 ...(game.removeLogoTransparency ? {
                   backgroundColor: 'rgba(0, 0, 0, 0.5)',
                   padding: '8px',
@@ -320,6 +359,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game, onPlay
                 target.style.display = 'none';
                 target.src = ''; // Clear src to prevent retries
               }}
+              onContextMenu={handleGameElementRightClick}
             />
           ) : (
             <div 
@@ -331,52 +371,47 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game, onPlay
           )}
         </div>
         
-        {/* Box Art - Half overlapping the top image */}
-        <div className="absolute right-6 bottom-0 z-20" style={{ transform: 'translateY(50%)' }}>
-          {game.boxArtUrl ? (
-            <img
-              key={game.boxArtUrl}
-              src={game.boxArtUrl}
-              alt={game.title}
-              className="aspect-[2/3] object-cover rounded border border-gray-600 shadow-lg cursor-pointer"
-              style={{ width: `${boxartWidth}px` }}
-              onError={(e) => {
-                const target = e.target as HTMLImageElement;
-                // Prevent infinite retry loop
-                if (target.dataset.errorHandled === 'true') return;
-                
-                // Try banner URL as fallback (only once)
-                if (game.bannerUrl && target.src !== game.bannerUrl && !target.dataset.fallbackAttempted) {
-                  target.dataset.fallbackAttempted = 'true';
-                  target.src = game.bannerUrl;
-                } else {
-                  target.dataset.errorHandled = 'true';
-                  target.style.display = 'none';
-                  target.src = ''; // Clear src to prevent retries
-                }
-              }}
-              onContextMenu={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                console.log('Boxart right-click:', e.clientX, e.clientY);
-                setSimpleContextMenu({ x: e.clientX, y: e.clientY, type: 'boxart' });
-              }}
-            />
-          ) : (
-            <div 
-              className="aspect-[2/3] bg-gray-800 rounded border border-gray-600 flex items-center justify-center text-gray-400 text-xs text-center px-2 cursor-pointer hover:bg-gray-700 transition-colors"
-              style={{ width: `${boxartWidth}px` }}
-              onClick={() => onOpenInGameManager?.(game, 'images')}
-              onContextMenu={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                setSimpleContextMenu({ x: e.clientX, y: e.clientY, type: 'boxart' });
-              }}
-            >
-              Click to add boxart
-            </div>
-          )}
-        </div>
+        {/* Box Art - Position based on rightPanelBoxartPosition */}
+        {rightPanelBoxartPosition !== 'none' && (
+          <div 
+            className={`absolute ${rightPanelBoxartPosition === 'left' ? 'left-6' : 'right-6'} bottom-0 z-20`} 
+            style={{ transform: 'translateY(50%)' }}
+          >
+            {game.boxArtUrl ? (
+              <img
+                key={game.boxArtUrl}
+                src={game.boxArtUrl}
+                alt={game.title}
+                className="aspect-[2/3] object-cover rounded border border-gray-600 shadow-lg cursor-pointer"
+                style={{ width: `${rightPanelBoxartSize}px` }}
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  // Prevent infinite retry loop
+                  if (target.dataset.errorHandled === 'true') return;
+                  
+                  // Try banner URL as fallback (only once)
+                  if (game.bannerUrl && target.src !== game.bannerUrl && !target.dataset.fallbackAttempted) {
+                    target.dataset.fallbackAttempted = 'true';
+                    target.src = game.bannerUrl;
+                  } else {
+                    target.dataset.errorHandled = 'true';
+                    target.style.display = 'none';
+                    target.src = ''; // Clear src to prevent retries
+                  }
+                }}
+                onContextMenu={handleGameElementRightClick}
+              />
+            ) : (
+              <div 
+                className="aspect-[2/3] bg-gray-800 rounded border border-gray-600 flex items-center justify-center text-gray-400 text-xs text-center px-2 cursor-pointer hover:bg-gray-700 transition-colors"
+                style={{ width: `${rightPanelBoxartSize}px` }}
+                onClick={() => onOpenInGameManager?.(game, 'images')}
+              >
+                Click to add boxart
+              </div>
+            )}
+          </div>
+        )}
         
         {/* Resize handle */}
         {backgroundImageUrl && (
@@ -419,14 +454,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game, onPlay
           {/* Upper Section: Title - only shown when no logo */}
           {!game.logoUrl && (
             <div className="relative">
-              <div 
-                onContextMenu={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  console.log('Title right-click:', e.clientX, e.clientY);
-                  setSimpleContextMenu({ x: e.clientX, y: e.clientY, type: 'title' });
-                }}
-              >
+              <div>
                 <h1 
                   className="title-fallback font-bold text-white onyx-text-glow tracking-wide break-words cursor-pointer"
                   style={{ 
@@ -455,19 +483,12 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game, onPlay
               >
                 {/* Game Description */}
                 {game.description && (
-                  <div
-                    onContextMenu={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      console.log('Description right-click:', e.clientX, e.clientY);
-                      setSimpleContextMenu({ x: e.clientX, y: e.clientY, type: 'description' });
-                    }}
-                  >
+                  <div>
                     <h3 className="text-lg font-semibold text-white mb-3">Description</h3>
                     <div 
                       className="text-gray-200 leading-relaxed cursor-pointer"
                       style={{
-                        fontSize: `${descriptionFontSize}px`,
+                        fontSize: `${rightPanelTextSize}px`,
                         fontFamily: descriptionFontFamily,
                       }}
                       dangerouslySetInnerHTML={{ __html: game.description }}
@@ -517,25 +538,19 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game, onPlay
                 fontSize: `${detailsFontSize}px`,
                 fontFamily: detailsFontFamily,
               }}
-              onContextMenu={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                console.log('Details right-click:', e.clientX, e.clientY);
-                setSimpleContextMenu({ x: e.clientX, y: e.clientY, type: 'details' });
-              }}
             >
               <h3 className="text-lg font-semibold text-white mb-4">Details</h3>
               <div className="grid grid-cols-1 gap-4">
               {visibleDetails.releaseDate && game.releaseDate && (
                 <div>
-                  <p className="text-gray-400 mb-1">Release Date</p>
-                  <p className="text-gray-200">{formatDate(game.releaseDate)}</p>
+                  <p className="text-gray-400 mb-1" style={{ fontSize: `${rightPanelTextSize - 2}px` }}>Release Date</p>
+                  <p className="text-gray-200" style={{ fontSize: `${rightPanelTextSize}px` }}>{formatDate(game.releaseDate)}</p>
                 </div>
               )}
               {visibleDetails.platform && platformDisplay && (
                 <div>
-                  <p className="text-gray-400 mb-1">Platform</p>
-                  <p className="text-gray-200">{platformDisplay}</p>
+                  <p className="text-gray-400 mb-1" style={{ fontSize: `${rightPanelTextSize - 2}px` }}>Platform</p>
+                  <p className="text-gray-200" style={{ fontSize: `${rightPanelTextSize}px` }}>{platformDisplay}</p>
                 </div>
               )}
               {visibleDetails.ageRating && game.ageRating && (
@@ -597,153 +612,24 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game, onPlay
         </div>
       </div>
 
-      {/* Simple Context Menu (appears at right-click location) */}
-      {simpleContextMenu && (() => {
-        console.log('Rendering simple context menu:', simpleContextMenu);
-        return (
-          <GameDetailsSimpleContextMenu
-            x={simpleContextMenu.x}
-            y={simpleContextMenu.y}
-            onClose={() => {
-              console.log('Closing simple context menu');
-              setSimpleContextMenu(null);
-            }}
-            type={simpleContextMenu.type}
-            hasLogo={simpleContextMenu.type === 'title' && !!game?.logoUrl}
-            removeLogoTransparency={game?.removeLogoTransparency ?? false}
-            onRemoveLogoTransparency={async () => {
-              if (game && onSaveGame) {
-                const updatedGame = { ...game, removeLogoTransparency: !game.removeLogoTransparency };
-                await onSaveGame(updatedGame);
-              }
-            }}
-            onEdit={() => {
-              console.log('Edit clicked for type:', simpleContextMenu.type);
-              switch (simpleContextMenu.type) {
-                case 'artwork':
-                  setShowArtworkMenu(true);
-                  break;
-                case 'boxart':
-                  setShowBoxartMenu(true);
-                  break;
-                case 'title':
-                  setShowTitleMenu(true);
-                  break;
-                case 'description':
-                  setShowDescriptionMenu(true);
-                  break;
-                case 'details':
-                  setShowDetailsMenu(true);
-                  break;
-              }
-            }}
-            onResize={() => {
-              console.log('Resize clicked for type:', simpleContextMenu.type);
-              if (simpleContextMenu.type === 'title') {
-                setShowLogoResizeDialog(true);
-              } else if (simpleContextMenu.type === 'boxart') {
-                setShowBoxartResizeDialog(true);
-              }
-            }}
-            onOpenInGameManager={game && onOpenInGameManager ? () => {
-              const tab = (simpleContextMenu.type === 'artwork' || simpleContextMenu.type === 'boxart' || simpleContextMenu.type === 'title') 
-                ? 'images' 
-                : 'metadata';
-              onOpenInGameManager(game, tab);
-            } : undefined}
-          />
-        );
-      })()}
-
-      {/* Full Settings Menus (appear over game list section) */}
-      {showArtworkMenu && game && (
-        <ImageContextMenu
-          onClose={() => setShowArtworkMenu(false)}
-          positionOverGameList={true}
-          imageType="artwork"
-          onSelectFromFile={async () => {
-            try {
-              const imagePath = await window.electronAPI.showImageDialog();
-              if (imagePath && onSaveGame && game) {
-                // Convert file path to file:// URL for display
-                const fileUrl = imagePath.startsWith('file://') ? imagePath : `file:///${imagePath.replace(/\\/g, '/')}`;
-                const updatedGame = { ...game, bannerUrl: fileUrl };
-                await onSaveGame(updatedGame);
-              }
-            } catch (error) {
-              console.error('Error selecting image:', error);
-            }
-          }}
-          onSearchImages={() => {
-            setImageSearchModal({ type: 'artwork' });
-          }}
-          onOpenInGameManager={onOpenInGameManager ? () => onOpenInGameManager(game, 'images') : undefined}
-        />
-      )}
-
-      {showBoxartMenu && game && (
-        <ImageContextMenu
-          onClose={() => setShowBoxartMenu(false)}
-          positionOverGameList={true}
-          imageType="boxart"
-          onSelectFromFile={async () => {
-            try {
-              const imagePath = await window.electronAPI.showImageDialog();
-              if (imagePath && onSaveGame && game) {
-                // Convert file path to file:// URL for display
-                const fileUrl = imagePath.startsWith('file://') ? imagePath : `file:///${imagePath.replace(/\\/g, '/')}`;
-                const updatedGame = { ...game, boxArtUrl: fileUrl };
-                await onSaveGame(updatedGame);
-              }
-            } catch (error) {
-              console.error('Error selecting image:', error);
-            }
-          }}
-          onSearchImages={() => {
-            setImageSearchModal({ type: 'boxart' });
-          }}
-          onOpenInGameManager={onOpenInGameManager ? () => onOpenInGameManager(game, 'images') : undefined}
-        />
-      )}
-
-      {showTitleMenu && (
-        <TextStyleContextMenu
-          onClose={() => setShowTitleMenu(false)}
-          positionOverGameList={true}
-          fontSize={titleFontSize}
-          onFontSizeChange={setTitleFontSize}
-          fontFamily={titleFontFamily}
-          onFontFamilyChange={setTitleFontFamily}
-          label="Title"
-          onOpenInGameManager={game && onOpenInGameManager ? () => onOpenInGameManager(game, 'images') : undefined}
-        />
-      )}
-
-      {showDescriptionMenu && (
-        <TextStyleContextMenu
-          onClose={() => setShowDescriptionMenu(false)}
-          positionOverGameList={true}
-          fontSize={descriptionFontSize}
-          onFontSizeChange={setDescriptionFontSize}
-          fontFamily={descriptionFontFamily}
-          onFontFamilyChange={setDescriptionFontFamily}
-          label="Description"
-          onOpenInGameManager={game && onOpenInGameManager ? () => onOpenInGameManager(game, 'metadata') : undefined}
-        />
-      )}
-
-      {showDetailsMenu && game && (
-        <DetailsContextMenu
-          onClose={() => setShowDetailsMenu(false)}
-          positionOverGameList={true}
-          fontSize={detailsFontSize}
-          onFontSizeChange={setDetailsFontSize}
-          fontFamily={detailsFontFamily}
-          onFontFamilyChange={setDetailsFontFamily}
-          visibleDetails={visibleDetails}
-          onVisibleDetailsChange={setVisibleDetails}
-          onOpenInGameManager={onOpenInGameManager ? () => onOpenInGameManager(game, 'metadata') : undefined}
+      {/* Context Menu */}
+      {contextMenu && game && (
+        <GameContextMenu
           game={game}
+          x={contextMenu.x}
+          y={contextMenu.y}
+          onClose={() => setContextMenu(null)}
+          onPlay={onPlay}
+          onEdit={onEdit}
+          onEditImages={onEditImages}
+          onEditCategories={onEditCategories}
+          onFavorite={onFavorite}
+          onPin={onPin}
+          onFixMatch={onFixMatch}
+          onHide={onHide}
+          onUnhide={onUnhide}
+          isHiddenView={isHiddenView}
+          onResizeLogo={() => setShowLogoResizeDialog(true)}
         />
       )}
 
@@ -864,7 +750,13 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game, onPlay
 
       {/* Action Buttons at Bottom */}
       {game && (
-        <div className="border-t border-gray-700 p-4 flex items-center justify-end gap-3 flex-shrink-0">
+        <div 
+          className={`border-t border-gray-700 p-4 flex items-center gap-3 flex-shrink-0 ${
+            rightPanelButtonLocation === 'left' ? 'justify-start' :
+            rightPanelButtonLocation === 'middle' ? 'justify-center' :
+            'justify-end'
+          }`}
+        >
           {/* Playtime display - DISABLED (Future Feature) */}
           {/* {steamSyncPlaytimeEnabled && game.id.startsWith('steam-') && game.playtime !== undefined && game.playtime > 0 && (
             <div className="absolute left-4 bottom-4 text-sm text-gray-400">
@@ -880,6 +772,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game, onPlay
               game.favorite ? 'text-yellow-400' : 'text-gray-300 hover:bg-gray-700'
             }`}
             title="Favorite"
+            style={{ fontSize: `${rightPanelButtonSize}px` }}
           >
             <svg className="w-5 h-5" fill={game.favorite ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
@@ -891,6 +784,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game, onPlay
               onClick={() => onEdit(game)}
               className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white font-medium rounded-lg transition-colors flex items-center gap-2"
               title="Edit Game"
+              style={{ fontSize: `${rightPanelButtonSize}px` }}
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -912,6 +806,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game, onPlay
               }}
               className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-medium rounded-lg transition-colors flex items-center gap-2"
               title="Open Mod Manager"
+              style={{ fontSize: `${rightPanelButtonSize}px` }}
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
@@ -923,6 +818,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game, onPlay
           <button
             onClick={() => onPlay?.(game)}
             className="onyx-btn-primary px-6 py-2 rounded-lg flex items-center gap-2"
+            style={{ fontSize: `${rightPanelButtonSize}px` }}
           >
             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
               <path d="M8 5v14l11-7z" />

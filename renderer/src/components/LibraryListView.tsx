@@ -27,6 +27,7 @@ interface LibraryListViewProps {
   hideGameTitles?: boolean;
   listViewOptions?: ListViewOptions;
   listViewSize?: number;
+  onEmptySpaceClick?: (x: number, y: number) => void;
 }
 
 export const LibraryListView: React.FC<LibraryListViewProps> = ({
@@ -51,6 +52,7 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
     showPlatform: false,
   },
   listViewSize = 128,
+  onEmptySpaceClick,
 }) => {
   const formatPlaytime = (minutes?: number) => {
     if (!minutes) return 'Not Played';
@@ -72,22 +74,33 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
 
   const [contextMenu, setContextMenu] = useState<{ game: Game; x: number; y: number } | null>(null);
 
-  // Handle right-click to show context menu
-  const handleContextMenu = (e: React.MouseEvent, game: Game) => {
+  // Handle right-click on game boxart/logo (opens game context menu)
+  const handleGameElementContextMenu = (e: React.MouseEvent, game: Game) => {
     e.preventDefault();
     e.stopPropagation();
     setContextMenu({ game, x: e.clientX, y: e.clientY });
   };
 
   return (
-    <div className="w-full h-full flex flex-col">
+    <div 
+      className="w-full h-full flex flex-col"
+      onContextMenu={(e) => {
+        // Right click on empty space opens library context menu
+        e.preventDefault();
+        onEmptySpaceClick?.(e.clientX, e.clientY);
+      }}
+    >
       <div className="flex-1 overflow-y-auto">
         <div className="space-y-2 p-2">
           {games.map((game) => (
             <div
               key={game.id}
               onClick={() => onGameClick?.(game)}
-              onContextMenu={(e) => handleContextMenu(e, game)}
+              onContextMenu={(e) => {
+                // Right click anywhere except boxart opens library context menu
+                e.preventDefault();
+                onEmptySpaceClick?.(e.clientX, e.clientY);
+              }}
               className="flex items-center gap-4 p-3 bg-gray-800/40 backdrop-blur-md border border-white/5 rounded-xl transition-all duration-300 hover:bg-gray-700/60 hover:border-cyan-400/30 cursor-pointer group"
             >
               {/* Game Image */}
@@ -107,6 +120,7 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                       const target = e.target as HTMLImageElement;
                       target.style.display = 'none';
                     }}
+                    onContextMenu={(e) => handleGameElementContextMenu(e, game)}
                   />
                 ) : (
                   <div className="w-full h-full bg-gray-700/50 flex items-center justify-center">
