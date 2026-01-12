@@ -6,7 +6,7 @@ interface TopBarProps {
   onFolder?: () => void;
   onGridToggle?: () => void;
   onSettings?: () => void;
-  viewMode?: 'grid' | 'list' | 'logo';
+  viewMode?: 'grid' | 'list' | 'logo' | 'carousel';
   notificationCount?: number;
 }
 

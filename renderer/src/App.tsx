@@ -82,7 +82,7 @@ function App() {
   const [hideAppsTitles, setHideAppsTitles] = useState(true);
   const [hideGameTitles, setHideGameTitles] = useState(false);
   const [gameTilePadding, setGameTilePadding] = useState(16);
-  const [selectedBoxArtSize, setSelectedBoxArtSize] = useState(12.5);
+  const [selectedBoxArtSize, setSelectedBoxArtSize] = useState(25);
   const [showLogoOverBoxart, setShowLogoOverBoxart] = useState(true);
   const [logoPosition, setLogoPosition] = useState<'top' | 'middle' | 'bottom' | 'underneath'>('middle');
   const [backgroundBlur, setBackgroundBlur] = useState(40);
