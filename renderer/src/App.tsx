@@ -5,6 +5,7 @@ import { LibraryListView } from './components/LibraryListView';
 import { LibraryCarousel } from './components/LibraryCarousel';
 import { LibraryContextMenu } from './components/LibraryContextMenu';
 import { SimpleContextMenu } from './components/SimpleContextMenu';
+import { GameContextMenu } from './components/GameContextMenu';
 import { AddGameModal } from './components/AddGameModal';
 import { GameDetailsPanel } from './components/GameDetailsPanel';
 import { GameMetadataEditor } from './components/GameMetadataEditor';
@@ -85,6 +86,8 @@ function App() {
   const [selectedBoxArtSize, setSelectedBoxArtSize] = useState(25);
   const [showLogoOverBoxart, setShowLogoOverBoxart] = useState(true);
   const [logoPosition, setLogoPosition] = useState<'top' | 'middle' | 'bottom' | 'underneath'>('middle');
+  const [logoBackgroundColor, setLogoBackgroundColor] = useState('#374151');
+  const [logoBackgroundOpacity, setLogoBackgroundOpacity] = useState(100);
   const [backgroundBlur, setBackgroundBlur] = useState(40);
   const [showCarouselDetails, setShowCarouselDetails] = useState(true);
   const [showCarouselLogos, setShowCarouselLogos] = useState(true);
@@ -92,9 +95,6 @@ function App() {
   const [carouselLogoSize, setCarouselLogoSize] = useState(100);
   const [carouselButtonSize, setCarouselButtonSize] = useState(14);
   const [carouselDescriptionSize, setCarouselDescriptionSize] = useState(18);
-  const [gridDescriptionSize, setGridDescriptionSize] = useState(14);
-  const [gridButtonSize, setGridButtonSize] = useState(14);
-  const [gridButtonLocation, setGridButtonLocation] = useState<'left' | 'middle' | 'right'>('middle');
   // Right panel (GameDetailsPanel) settings
   const [rightPanelLogoSize, setRightPanelLogoSize] = useState(100);
   const [rightPanelBoxartPosition, setRightPanelBoxartPosition] = useState<'left' | 'right' | 'none'>('right');
@@ -122,6 +122,7 @@ function App() {
   const [listViewSize, setListViewSize] = useState(128);
   const [panelWidth, setPanelWidth] = useState(800);
   const [simpleContextMenu, setSimpleContextMenu] = useState<{ x: number; y: number } | null>(null);
+  const [gameContextMenu, setGameContextMenu] = useState<{ x: number; y: number; game: Game } | null>(null);
   const [showAppearanceMenu, setShowAppearanceMenu] = useState(false);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [autoSizeToFit, setAutoSizeToFit] = useState(false);
@@ -141,6 +142,8 @@ function App() {
         if (prefs.gameTilePadding !== undefined) setGameTilePadding(prefs.gameTilePadding);
         if (prefs.showLogoOverBoxart !== undefined) setShowLogoOverBoxart(prefs.showLogoOverBoxart);
         if (prefs.logoPosition !== undefined) setLogoPosition(prefs.logoPosition);
+        if (prefs.logoBackgroundColor !== undefined) setLogoBackgroundColor(prefs.logoBackgroundColor);
+        if (prefs.logoBackgroundOpacity !== undefined) setLogoBackgroundOpacity(prefs.logoBackgroundOpacity);
         if (prefs.backgroundBlur !== undefined) setBackgroundBlur(prefs.backgroundBlur);
         if (prefs.showCarouselDetails !== undefined) setShowCarouselDetails(prefs.showCarouselDetails);
         if (prefs.showCarouselLogos !== undefined) setShowCarouselLogos(prefs.showCarouselLogos);
@@ -148,9 +151,6 @@ function App() {
         if (prefs.carouselLogoSize !== undefined) setCarouselLogoSize(prefs.carouselLogoSize);
         if (prefs.carouselButtonSize !== undefined) setCarouselButtonSize(prefs.carouselButtonSize);
         if (prefs.carouselDescriptionSize !== undefined) setCarouselDescriptionSize(prefs.carouselDescriptionSize);
-        if (prefs.gridDescriptionSize !== undefined) setGridDescriptionSize(prefs.gridDescriptionSize);
-        if (prefs.gridButtonSize !== undefined) setGridButtonSize(prefs.gridButtonSize);
-        if (prefs.gridButtonLocation !== undefined) setGridButtonLocation(prefs.gridButtonLocation);
         // Right panel settings
         if (prefs.rightPanelLogoSize !== undefined) setRightPanelLogoSize(prefs.rightPanelLogoSize);
         if (prefs.rightPanelBoxartPosition !== undefined) setRightPanelBoxartPosition(prefs.rightPanelBoxartPosition);
@@ -1208,9 +1208,12 @@ function App() {
           <div 
             ref={gridContainerRef}
             className={`flex-1 overflow-y-auto relative z-10 ${viewMode === 'carousel' ? '' : 'p-4'}`}
-            onContextMenu={(e) => {
-              e.preventDefault();
-              setSimpleContextMenu({ x: e.clientX, y: e.clientY });
+            onClick={(e) => {
+              // Left click on empty space opens simple context menu
+              if (e.target === e.currentTarget) {
+                setGameContextMenu(null);
+                setSimpleContextMenu({ x: e.clientX, y: e.clientY });
+              }
             }}
           >
             {loading && (
@@ -1236,6 +1239,14 @@ function App() {
                         onPlay={handlePlay}
                         onGameClick={handleGameClick}
                         onEdit={handleEditGame}
+                        onEditImages={handleEditImages}
+                        onEditCategories={handleEditCategories}
+                        onFavorite={handleToggleFavorite}
+                        onPin={handleTogglePin}
+                        onFixMatch={handleFixMatch}
+                        onHide={handleHideGame}
+                        onUnhide={handleUnhideGame}
+                        isHiddenView={selectedCategory === 'hidden'}
                         gridSize={gridSize}
                         logoSize={logoSize}
                         onGridSizeChange={setGridSize}
@@ -1245,7 +1256,16 @@ function App() {
                         logoPosition={logoPosition}
                         useLogosInsteadOfBoxart={viewMode === 'logo'}
                         autoSizeToFit={autoSizeToFit}
-                        descriptionSize={gridDescriptionSize}
+                        logoBackgroundColor={logoBackgroundColor}
+                        logoBackgroundOpacity={logoBackgroundOpacity}
+                        onGameContextMenu={(game, x, y) => {
+                          setSimpleContextMenu(null);
+                          setGameContextMenu({ game, x, y });
+                        }}
+                        onEmptySpaceClick={(x, y) => {
+                          setGameContextMenu(null);
+                          setSimpleContextMenu({ x, y });
+                        }}
                       />
                     ) : viewMode === 'carousel' ? (
                       <LibraryCarousel
@@ -1286,7 +1306,10 @@ function App() {
                           setCarouselDescriptionSize(size);
                           window.electronAPI.savePreferences({ carouselDescriptionSize: size });
                         }}
-                        onMoreSettings={() => setShowAppearanceMenu(true)}
+                        onEmptySpaceClick={(x, y) => {
+                          setGameContextMenu(null);
+                          setSimpleContextMenu({ x, y });
+                        }}
                       />
                     ) : (
                       <LibraryListView
@@ -1305,6 +1328,10 @@ function App() {
                         hideGameTitles={hideGameTitles}
                         listViewOptions={listViewOptions}
                         listViewSize={listViewSize}
+                        onEmptySpaceClick={(x, y) => {
+                          setGameContextMenu(null);
+                          setSimpleContextMenu({ x, y });
+                        }}
                       />
                     )}
                   </div>
@@ -1402,6 +1429,17 @@ function App() {
             }}
             onFavorite={handleToggleFavorite}
             onEdit={handleEditGame}
+            onEditImages={handleEditImages}
+            onEditCategories={handleEditCategories}
+            onPin={handleTogglePin}
+            onFixMatch={handleFixMatch}
+            onHide={handleHideGame}
+            onUnhide={handleUnhideGame}
+            isHiddenView={selectedCategory === 'hidden'}
+            onRightClick={(x, y) => {
+              setGameContextMenu(null);
+              setSimpleContextMenu({ x, y });
+            }}
             rightPanelLogoSize={rightPanelLogoSize}
             rightPanelBoxartPosition={rightPanelBoxartPosition}
             rightPanelBoxartSize={rightPanelBoxartSize}
@@ -1670,20 +1708,15 @@ function App() {
             setLogoPosition(position);
             window.electronAPI.savePreferences({ logoPosition: position });
           }}
-          gridDescriptionSize={gridDescriptionSize}
-          onGridDescriptionSizeChange={(size) => {
-            setGridDescriptionSize(size);
-            window.electronAPI.savePreferences({ gridDescriptionSize: size });
+          logoBackgroundColor={logoBackgroundColor}
+          onLogoBackgroundColorChange={(color) => {
+            setLogoBackgroundColor(color);
+            window.electronAPI.savePreferences({ logoBackgroundColor: color });
           }}
-          gridButtonSize={gridButtonSize}
-          onGridButtonSizeChange={(size) => {
-            setGridButtonSize(size);
-            window.electronAPI.savePreferences({ gridButtonSize: size });
-          }}
-          gridButtonLocation={gridButtonLocation}
-          onGridButtonLocationChange={(location) => {
-            setGridButtonLocation(location);
-            window.electronAPI.savePreferences({ gridButtonLocation: location });
+          logoBackgroundOpacity={logoBackgroundOpacity}
+          onLogoBackgroundOpacityChange={(opacity) => {
+            setLogoBackgroundOpacity(opacity);
+            window.electronAPI.savePreferences({ logoBackgroundOpacity: opacity });
           }}
           rightPanelLogoSize={rightPanelLogoSize}
           onRightPanelLogoSizeChange={(size) => {
@@ -1715,6 +1748,26 @@ function App() {
             setRightPanelButtonLocation(location);
             window.electronAPI.savePreferences({ rightPanelButtonLocation: location });
           }}
+        />
+      )}
+
+      {/* Game Context Menu */}
+      {gameContextMenu && (
+        <GameContextMenu
+          game={gameContextMenu.game}
+          x={gameContextMenu.x}
+          y={gameContextMenu.y}
+          onClose={() => setGameContextMenu(null)}
+          onPlay={handlePlay}
+          onEdit={handleEditGame}
+          onEditImages={handleEditImages}
+          onEditCategories={handleEditCategories}
+          onFavorite={handleToggleFavorite}
+          onPin={handleTogglePin}
+          onFixMatch={handleFixMatch}
+          onHide={handleHideGame}
+          onUnhide={handleUnhideGame}
+          isHiddenView={selectedCategory === 'hidden'}
         />
       )}
 
