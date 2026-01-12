@@ -16,6 +16,7 @@ interface GameContextMenuProps {
   onHide?: (game: Game) => void;
   onUnhide?: (game: Game) => void;
   isHiddenView?: boolean;
+  onResizeLogo?: () => void;
 }
 
 export const GameContextMenu: React.FC<GameContextMenuProps> = ({
@@ -33,6 +34,7 @@ export const GameContextMenu: React.FC<GameContextMenuProps> = ({
   onHide,
   onUnhide,
   isHiddenView = false,
+  onResizeLogo,
 }) => {
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -130,10 +132,15 @@ export const GameContextMenu: React.FC<GameContextMenuProps> = ({
     onClose();
   };
 
+  const handleResizeLogo = () => {
+    onResizeLogo?.();
+    onClose();
+  };
+
   return (
     <div
       ref={menuRef}
-      className="fixed bg-gray-800 border border-gray-700 rounded-lg shadow-xl z-50 min-w-[160px] py-1"
+      className="fixed bg-gray-800 border border-gray-700 rounded-lg shadow-xl z-[9999] min-w-[160px] py-1"
       style={{ left: `${x}px`, top: `${y}px` }}
     >
       <button
@@ -185,6 +192,17 @@ export const GameContextMenu: React.FC<GameContextMenuProps> = ({
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v6m3-3H7" />
           </svg>
           Fix Metadata/Match
+        </button>
+      )}
+      {onResizeLogo && (
+        <button
+          onClick={handleResizeLogo}
+          className="w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 transition-colors flex items-center gap-2"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+          </svg>
+          Resize Logo
         </button>
       )}
       {game.modManagerUrl && (

@@ -23,14 +23,6 @@ interface LibraryGridProps {
   onPlay?: (game: Game) => void;
   onGameClick?: (game: Game) => void;
   onEdit?: (game: Game) => void;
-  onEditImages?: (game: Game) => void;
-  onEditCategories?: (game: Game) => void;
-  onFavorite?: (game: Game) => void;
-  onPin?: (game: Game) => void;
-  onFixMatch?: (game: Game) => void;
-  onHide?: (game: Game) => void;
-  onUnhide?: (game: Game) => void;
-  isHiddenView?: boolean;
   gridSize?: number;
   logoSize?: number;
   onGridSizeChange?: (size: number) => void;
@@ -40,9 +32,10 @@ interface LibraryGridProps {
   logoPosition?: 'top' | 'middle' | 'bottom' | 'underneath';
   useLogosInsteadOfBoxart?: boolean;
   autoSizeToFit?: boolean;
+  descriptionSize?: number;
 }
 
-export const LibraryGrid: React.FC<LibraryGridProps> = ({ games, onReorder, onPlay, onGameClick, onEdit, onEditImages, onEditCategories, onFavorite, onPin, onFixMatch, onHide, onUnhide, isHiddenView = false, gridSize = 120, logoSize = 120, gameTilePadding = 16, hideGameTitles = false, showLogoOverBoxart = true, logoPosition = 'middle', useLogosInsteadOfBoxart = false, autoSizeToFit = false }) => {
+export const LibraryGrid: React.FC<LibraryGridProps> = ({ games, onReorder, onPlay, onGameClick, onEdit, gridSize = 120, logoSize = 120, gameTilePadding = 3, hideGameTitles = false, showLogoOverBoxart = true, logoPosition = 'middle', useLogosInsteadOfBoxart = false, autoSizeToFit = false, descriptionSize = 14 }) => {
   const [items, setItems] = useState<Game[]>(games);
 
   // Update items when games prop changes
@@ -103,18 +96,11 @@ export const LibraryGrid: React.FC<LibraryGridProps> = ({ games, onReorder, onPl
                   onPlay={onPlay}
                   onClick={onGameClick}
                   onEdit={onEdit}
-                  onEditImages={onEditImages}
-                  onEditCategories={onEditCategories}
-                  onFavorite={onFavorite}
-                  onPin={onPin}
-                  onFixMatch={onFixMatch}
-                  onHide={onHide}
-                  onUnhide={onUnhide}
-                  isHiddenView={isHiddenView}
                   hideTitle={hideGameTitles}
                   showLogoOverBoxart={showLogoOverBoxart}
                   logoPosition={logoPosition}
                   useLogoInsteadOfBoxart={useLogosInsteadOfBoxart}
+                  descriptionSize={descriptionSize}
                 />
               ))}
             </div>

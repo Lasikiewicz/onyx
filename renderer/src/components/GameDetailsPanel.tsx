@@ -14,9 +14,30 @@ interface GameDetailsPanelProps {
   onFavorite?: (game: Game) => void;
   onEdit?: (game: Game) => void;
   onUpdateGameInState?: (game: Game) => void;
+  // Right panel styling props
+  rightPanelLogoSize?: number;
+  rightPanelBoxartPosition?: 'left' | 'right' | 'none';
+  rightPanelBoxartSize?: number;
+  rightPanelTextSize?: number;
+  rightPanelButtonSize?: number;
+  rightPanelButtonLocation?: 'left' | 'middle' | 'right';
 }
 
-export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game, onPlay, onSaveGame, onOpenInGameManager, onFavorite, onEdit, onUpdateGameInState }) => {
+export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ 
+  game, 
+  onPlay, 
+  onSaveGame, 
+  onOpenInGameManager, 
+  onFavorite, 
+  onEdit, 
+  onUpdateGameInState,
+  rightPanelLogoSize = 200,
+  rightPanelBoxartPosition = 'right',
+  rightPanelBoxartSize = 300,
+  rightPanelTextSize = 14,
+  rightPanelButtonSize = 14,
+  rightPanelButtonLocation = 'right'
+}) => {
   const [width, setWidth] = useState(800);
   const [fanartHeight, setFanartHeight] = useState(320);
   const [descriptionHeight, setDescriptionHeight] = useState(400);
@@ -258,11 +279,15 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game, onPlay
             {/* Blurred background for logo area */}
             {game.logoUrl && (
               <div 
-                className="absolute left-6 bottom-0 z-10"
+                className={`absolute bottom-0 z-10 ${
+                  rightPanelBoxartPosition === 'left' ? 'right-6' : 
+                  rightPanelBoxartPosition === 'right' ? 'left-6' : 
+                  'left-1/2 transform -translate-x-1/2'
+                }`}
                 style={{ 
-                  width: 'calc(100% - 11rem)', // Space to the left of boxart (right-6 = 1.5rem, boxart w-32 = 8rem, plus some spacing)
+                  width: rightPanelBoxartPosition === 'none' ? 'calc(100% - 3rem)' : 'calc(100% - 11rem)', // Full width when no boxart, space for boxart otherwise
                   height: '60%',
-                  transform: 'translateY(50%)',
+                  transform: rightPanelBoxartPosition === 'none' ? 'translateY(50%) translateX(-50%)' : 'translateY(50%)',
                   pointerEvents: 'none'
                 }}
               >
@@ -283,12 +308,16 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game, onPlay
           </>
         )}
         
-        {/* Logo - Centered to the left of boxart, overlapping banner, same row as boxart */}
+        {/* Logo - Position based on rightPanelBoxartPosition */}
         <div 
-          className="absolute left-6 bottom-0 z-20 flex items-center justify-center"
+          className={`absolute bottom-0 z-20 flex items-center justify-center ${
+            rightPanelBoxartPosition === 'left' ? 'right-6' : 
+            rightPanelBoxartPosition === 'right' ? 'left-6' : 
+            'left-1/2 transform -translate-x-1/2'
+          }`}
           style={{ 
-            width: 'calc(100% - 11rem)', // Space to the left of boxart
-            transform: 'translateY(50%)',
+            width: rightPanelBoxartPosition === 'none' ? 'calc(100% - 3rem)' : 'calc(100% - 11rem)', // Full width when no boxart, space for boxart otherwise
+            transform: rightPanelBoxartPosition === 'none' ? 'translateY(50%) translateX(-50%)' : 'translateY(50%)',
             maxHeight: '60%'
           }}
           onContextMenu={(e) => {
@@ -305,7 +334,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game, onPlay
               alt={game.title}
               className="max-w-full max-h-full object-contain cursor-pointer drop-shadow-2xl"
               style={{ 
-                maxHeight: `${showLogoResizeDialog && localLogoSize !== undefined ? localLogoSize : (game.logoSize || 100)}px`,
+                maxHeight: `${showLogoResizeDialog && localLogoSize !== undefined ? localLogoSize : rightPanelLogoSize}px`,
                 ...(game.removeLogoTransparency ? {
                   backgroundColor: 'rgba(0, 0, 0, 0.5)',
                   padding: '8px',
@@ -331,52 +360,57 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game, onPlay
           )}
         </div>
         
-        {/* Box Art - Half overlapping the top image */}
-        <div className="absolute right-6 bottom-0 z-20" style={{ transform: 'translateY(50%)' }}>
-          {game.boxArtUrl ? (
-            <img
-              key={game.boxArtUrl}
-              src={game.boxArtUrl}
-              alt={game.title}
-              className="aspect-[2/3] object-cover rounded border border-gray-600 shadow-lg cursor-pointer"
-              style={{ width: `${boxartWidth}px` }}
-              onError={(e) => {
-                const target = e.target as HTMLImageElement;
-                // Prevent infinite retry loop
-                if (target.dataset.errorHandled === 'true') return;
-                
-                // Try banner URL as fallback (only once)
-                if (game.bannerUrl && target.src !== game.bannerUrl && !target.dataset.fallbackAttempted) {
-                  target.dataset.fallbackAttempted = 'true';
-                  target.src = game.bannerUrl;
-                } else {
-                  target.dataset.errorHandled = 'true';
-                  target.style.display = 'none';
-                  target.src = ''; // Clear src to prevent retries
-                }
-              }}
-              onContextMenu={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                console.log('Boxart right-click:', e.clientX, e.clientY);
-                setSimpleContextMenu({ x: e.clientX, y: e.clientY, type: 'boxart' });
-              }}
-            />
-          ) : (
-            <div 
-              className="aspect-[2/3] bg-gray-800 rounded border border-gray-600 flex items-center justify-center text-gray-400 text-xs text-center px-2 cursor-pointer hover:bg-gray-700 transition-colors"
-              style={{ width: `${boxartWidth}px` }}
-              onClick={() => onOpenInGameManager?.(game, 'images')}
-              onContextMenu={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                setSimpleContextMenu({ x: e.clientX, y: e.clientY, type: 'boxart' });
-              }}
-            >
-              Click to add boxart
-            </div>
-          )}
-        </div>
+        {/* Box Art - Position based on rightPanelBoxartPosition */}
+        {rightPanelBoxartPosition !== 'none' && (
+          <div 
+            className={`absolute ${rightPanelBoxartPosition === 'left' ? 'left-6' : 'right-6'} bottom-0 z-20`} 
+            style={{ transform: 'translateY(50%)' }}
+          >
+            {game.boxArtUrl ? (
+              <img
+                key={game.boxArtUrl}
+                src={game.boxArtUrl}
+                alt={game.title}
+                className="aspect-[2/3] object-cover rounded border border-gray-600 shadow-lg cursor-pointer"
+                style={{ width: `${rightPanelBoxartSize}px` }}
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  // Prevent infinite retry loop
+                  if (target.dataset.errorHandled === 'true') return;
+                  
+                  // Try banner URL as fallback (only once)
+                  if (game.bannerUrl && target.src !== game.bannerUrl && !target.dataset.fallbackAttempted) {
+                    target.dataset.fallbackAttempted = 'true';
+                    target.src = game.bannerUrl;
+                  } else {
+                    target.dataset.errorHandled = 'true';
+                    target.style.display = 'none';
+                    target.src = ''; // Clear src to prevent retries
+                  }
+                }}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  console.log('Boxart right-click:', e.clientX, e.clientY);
+                  setSimpleContextMenu({ x: e.clientX, y: e.clientY, type: 'boxart' });
+                }}
+              />
+            ) : (
+              <div 
+                className="aspect-[2/3] bg-gray-800 rounded border border-gray-600 flex items-center justify-center text-gray-400 text-xs text-center px-2 cursor-pointer hover:bg-gray-700 transition-colors"
+                style={{ width: `${rightPanelBoxartSize}px` }}
+                onClick={() => onOpenInGameManager?.(game, 'images')}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setSimpleContextMenu({ x: e.clientX, y: e.clientY, type: 'boxart' });
+                }}
+              >
+                Click to add boxart
+              </div>
+            )}
+          </div>
+        )}
         
         {/* Resize handle */}
         {backgroundImageUrl && (
@@ -467,7 +501,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game, onPlay
                     <div 
                       className="text-gray-200 leading-relaxed cursor-pointer"
                       style={{
-                        fontSize: `${descriptionFontSize}px`,
+                        fontSize: `${rightPanelTextSize}px`,
                         fontFamily: descriptionFontFamily,
                       }}
                       dangerouslySetInnerHTML={{ __html: game.description }}
@@ -528,14 +562,14 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game, onPlay
               <div className="grid grid-cols-1 gap-4">
               {visibleDetails.releaseDate && game.releaseDate && (
                 <div>
-                  <p className="text-gray-400 mb-1">Release Date</p>
-                  <p className="text-gray-200">{formatDate(game.releaseDate)}</p>
+                  <p className="text-gray-400 mb-1" style={{ fontSize: `${rightPanelTextSize - 2}px` }}>Release Date</p>
+                  <p className="text-gray-200" style={{ fontSize: `${rightPanelTextSize}px` }}>{formatDate(game.releaseDate)}</p>
                 </div>
               )}
               {visibleDetails.platform && platformDisplay && (
                 <div>
-                  <p className="text-gray-400 mb-1">Platform</p>
-                  <p className="text-gray-200">{platformDisplay}</p>
+                  <p className="text-gray-400 mb-1" style={{ fontSize: `${rightPanelTextSize - 2}px` }}>Platform</p>
+                  <p className="text-gray-200" style={{ fontSize: `${rightPanelTextSize}px` }}>{platformDisplay}</p>
                 </div>
               )}
               {visibleDetails.ageRating && game.ageRating && (
@@ -864,7 +898,13 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game, onPlay
 
       {/* Action Buttons at Bottom */}
       {game && (
-        <div className="border-t border-gray-700 p-4 flex items-center justify-end gap-3 flex-shrink-0">
+        <div 
+          className={`border-t border-gray-700 p-4 flex items-center gap-3 flex-shrink-0 ${
+            rightPanelButtonLocation === 'left' ? 'justify-start' :
+            rightPanelButtonLocation === 'middle' ? 'justify-center' :
+            'justify-end'
+          }`}
+        >
           {/* Playtime display - DISABLED (Future Feature) */}
           {/* {steamSyncPlaytimeEnabled && game.id.startsWith('steam-') && game.playtime !== undefined && game.playtime > 0 && (
             <div className="absolute left-4 bottom-4 text-sm text-gray-400">
@@ -880,6 +920,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game, onPlay
               game.favorite ? 'text-yellow-400' : 'text-gray-300 hover:bg-gray-700'
             }`}
             title="Favorite"
+            style={{ fontSize: `${rightPanelButtonSize}px` }}
           >
             <svg className="w-5 h-5" fill={game.favorite ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
@@ -891,6 +932,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game, onPlay
               onClick={() => onEdit(game)}
               className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white font-medium rounded-lg transition-colors flex items-center gap-2"
               title="Edit Game"
+              style={{ fontSize: `${rightPanelButtonSize}px` }}
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -912,6 +954,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game, onPlay
               }}
               className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-medium rounded-lg transition-colors flex items-center gap-2"
               title="Open Mod Manager"
+              style={{ fontSize: `${rightPanelButtonSize}px` }}
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
@@ -923,6 +966,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ game, onPlay
           <button
             onClick={() => onPlay?.(game)}
             className="onyx-btn-primary px-6 py-2 rounded-lg flex items-center gap-2"
+            style={{ fontSize: `${rightPanelButtonSize}px` }}
           >
             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
               <path d="M8 5v14l11-7z" />

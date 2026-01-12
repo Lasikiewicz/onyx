@@ -43,6 +43,12 @@ interface LibraryContextMenuProps {
   onLogoSizeChange?: (size: number) => void;
   selectedBoxArtSize?: number;
   onSelectedBoxArtSizeChange?: (size: number) => void;
+  showCarouselDetails?: boolean;
+  onShowCarouselDetailsChange?: (show: boolean) => void;
+  showCarouselLogos?: boolean;
+  onShowCarouselLogosChange?: (show: boolean) => void;
+  detailsBarSize?: number;
+  onDetailsBarSizeChange?: (size: number) => void;
 }
 
 export const LibraryContextMenu: React.FC<LibraryContextMenuProps> = ({
@@ -79,6 +85,12 @@ export const LibraryContextMenu: React.FC<LibraryContextMenuProps> = ({
   onLogoSizeChange,
   selectedBoxArtSize = 12.5,
   onSelectedBoxArtSizeChange,
+  showCarouselDetails = true,
+  onShowCarouselDetailsChange,
+  showCarouselLogos = true,
+  onShowCarouselLogosChange,
+  detailsBarSize = 14,
+  onDetailsBarSizeChange,
 }) => {
   const menuRef = useRef<HTMLDivElement>(null);
   const [activeTab, setActiveTab] = useState<'grid' | 'list' | 'logo' | 'carousel'>(viewMode === 'grid' || viewMode === 'list' || viewMode === 'logo' || viewMode === 'carousel' ? viewMode : 'grid');
@@ -177,6 +189,18 @@ export const LibraryContextMenu: React.FC<LibraryContextMenuProps> = ({
 
   const handleSelectedBoxArtSizeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     onSelectedBoxArtSizeChange?.(Number(e.target.value));
+  };
+
+  const handleShowCarouselDetailsToggle = () => {
+    onShowCarouselDetailsChange?.(!showCarouselDetails);
+  };
+
+  const handleShowCarouselLogosToggle = () => {
+    onShowCarouselLogosChange?.(!showCarouselLogos);
+  };
+
+  const handleDetailsBarSizeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    onDetailsBarSizeChange?.(Number(e.target.value));
   };
 
   return (
@@ -679,32 +703,70 @@ export const LibraryContextMenu: React.FC<LibraryContextMenuProps> = ({
         {/* Carousel View Tab Content */}
         {activeTab === 'carousel' && (
           <>
-            <div className="px-5 py-4 text-center">
-              <div className="mb-4">
-                <svg className="w-16 h-16 mx-auto text-blue-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
-                </svg>
-                <h3 className="text-lg font-semibold text-white mb-2">Carousel View</h3>
-                <p className="text-gray-400 text-sm leading-relaxed">
-                  Experience your games in a cinematic carousel view with full-screen banners and an interactive thumbnail strip at the bottom.
-                </p>
-              </div>
-              
-              <div className="bg-gray-700/30 rounded-lg p-4 text-left">
-                <h4 className="text-sm font-semibold text-gray-300 mb-2">Navigation Controls:</h4>
-                <ul className="text-xs text-gray-400 space-y-1">
-                  <li>• Use ← → arrow keys to navigate</li>
-                  <li>• Click thumbnails to select games</li>
-                  <li>• Press Enter to select a game</li>
-                  <li>• Press Space to play the selected game</li>
-                </ul>
+            {/* Carousel-specific settings */}
+            <div className="px-5 py-1">
+              <div className="text-xs text-gray-500 mb-2 px-3 font-semibold uppercase tracking-wide">Carousel Settings</div>
+            </div>
+
+            {/* Show Details Toggle */}
+            <div className="px-5 py-2">
+              <div className="px-3 flex items-center justify-between">
+                <label className="text-xs text-gray-400 font-medium">Show Details Across Top</label>
+                <button
+                  onClick={handleShowCarouselDetailsToggle}
+                  className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                    showCarouselDetails ? 'bg-blue-600' : 'bg-gray-600'
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${
+                      showCarouselDetails ? 'translate-x-5' : 'translate-x-1'
+                    }`}
+                  />
+                </button>
               </div>
             </div>
 
-            {/* Carousel-specific settings */}
-            <div className="border-t border-gray-700 my-2" />
-            <div className="px-5 py-1">
-              <div className="text-xs text-gray-500 mb-2 px-3 font-semibold uppercase tracking-wide">Carousel Settings</div>
+            {/* Details Bar Size - only show when details are enabled */}
+            {showCarouselDetails && (
+              <div className="px-5 py-2">
+                <label className="block text-xs text-gray-400 mb-2 px-3">Details Bar Size</label>
+                <div className="px-3">
+                  <input
+                    type="range"
+                    min="10"
+                    max="24"
+                    step="1"
+                    value={detailsBarSize}
+                    onChange={handleDetailsBarSizeChange}
+                    className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider"
+                  />
+                  <div className="flex justify-between text-xs text-gray-500 mt-1">
+                    <span>10px</span>
+                    <span className="font-medium text-gray-300">{detailsBarSize}px</span>
+                    <span>24px</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Show Logos Toggle */}
+            <div className="px-5 py-2">
+              <div className="px-3 flex items-center justify-between">
+                <label className="text-xs text-gray-400 font-medium">Show Game Logos</label>
+                <button
+                  onClick={handleShowCarouselLogosToggle}
+                  className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                    showCarouselLogos ? 'bg-blue-600' : 'bg-gray-600'
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${
+                      showCarouselLogos ? 'translate-x-5' : 'translate-x-1'
+                    }`}
+                  />
+                </button>
+              </div>
             </div>
 
             {/* Selected Box Art Size */}
@@ -735,7 +797,7 @@ export const LibraryContextMenu: React.FC<LibraryContextMenuProps> = ({
                 <input
                   type="range"
                   min="0"
-                  max="32"
+                  max="3"
                   value={gameTilePadding}
                   onChange={handlePaddingChange}
                   className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider"
@@ -743,7 +805,7 @@ export const LibraryContextMenu: React.FC<LibraryContextMenuProps> = ({
                 <div className="flex justify-between text-xs text-gray-500 mt-1">
                   <span>0px</span>
                   <span className="font-medium text-gray-300">{gameTilePadding}px</span>
-                  <span>32px</span>
+                  <span>3px</span>
                 </div>
               </div>
             </div>

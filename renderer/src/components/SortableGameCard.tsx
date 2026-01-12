@@ -1,30 +1,22 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Game } from '../types/game';
 import { GameCard } from './GameCard';
-import { GameContextMenu } from './GameContextMenu';
 
 interface SortableGameCardProps {
   game: Game;
   onPlay?: (game: Game) => void;
   onClick?: (game: Game) => void;
   onEdit?: (game: Game) => void;
-  onEditImages?: (game: Game) => void;
-  onEditCategories?: (game: Game) => void;
-  onFavorite?: (game: Game) => void;
-  onPin?: (game: Game) => void;
-  onFixMatch?: (game: Game) => void;
-  onHide?: (game: Game) => void;
-  onUnhide?: (game: Game) => void;
-  isHiddenView?: boolean;
   hideTitle?: boolean;
   showLogoOverBoxart?: boolean;
   logoPosition?: 'top' | 'middle' | 'bottom' | 'underneath';
   useLogoInsteadOfBoxart?: boolean;
+  descriptionSize?: number;
 }
 
-export const SortableGameCard: React.FC<SortableGameCardProps> = ({ game, onPlay, onClick, onEdit, onEditImages, onEditCategories, onFavorite, onPin, onFixMatch, onHide, onUnhide, isHiddenView = false, hideTitle = false, showLogoOverBoxart = true, logoPosition = 'middle', useLogoInsteadOfBoxart = false }) => {
+export const SortableGameCard: React.FC<SortableGameCardProps> = ({ game, onPlay, onClick, onEdit, hideTitle = false, showLogoOverBoxart = true, logoPosition = 'middle', useLogoInsteadOfBoxart = false, descriptionSize = 14 }) => {
   const {
     attributes,
     listeners,
@@ -33,8 +25,6 @@ export const SortableGameCard: React.FC<SortableGameCardProps> = ({ game, onPlay
     transition,
     isDragging,
   } = useSortable({ id: game.id });
-
-  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -58,47 +48,17 @@ export const SortableGameCard: React.FC<SortableGameCardProps> = ({ game, onPlay
     }
   };
 
-  // Handle right-click to show context menu
-  const handleContextMenu = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (!isDragging) {
-      setContextMenu({ x: e.clientX, y: e.clientY });
-    }
-  };
-
   return (
-    <>
-      <div 
-        ref={setNodeRef} 
-        style={style} 
-        {...attributes} 
-        {...listeners}
-        onClick={handleClick}
-        onDoubleClick={handleDoubleClick}
-        onContextMenu={handleContextMenu}
-        className="cursor-pointer"
-      >
-        <GameCard game={game} onPlay={onPlay} onEdit={onEdit} hideTitle={hideTitle} showLogoOverBoxart={showLogoOverBoxart} logoPosition={logoPosition} useLogoInsteadOfBoxart={useLogoInsteadOfBoxart} />
-      </div>
-      {contextMenu && (
-        <GameContextMenu
-          game={game}
-          x={contextMenu.x}
-          y={contextMenu.y}
-          onClose={() => setContextMenu(null)}
-          onPlay={onPlay}
-          onEdit={onEdit}
-          onEditImages={onEditImages}
-          onEditCategories={onEditCategories}
-          onFavorite={onFavorite}
-          onPin={onPin}
-          onFixMatch={onFixMatch}
-          onHide={onHide}
-          onUnhide={onUnhide}
-          isHiddenView={isHiddenView}
-        />
-      )}
-    </>
+    <div 
+      ref={setNodeRef} 
+      style={style} 
+      {...attributes} 
+      {...listeners}
+      onClick={handleClick}
+      onDoubleClick={handleDoubleClick}
+      className="cursor-pointer"
+    >
+      <GameCard game={game} onPlay={onPlay} onEdit={onEdit} hideTitle={hideTitle} showLogoOverBoxart={showLogoOverBoxart} logoPosition={logoPosition} useLogoInsteadOfBoxart={useLogoInsteadOfBoxart} descriptionSize={descriptionSize} />
+    </div>
   );
 };

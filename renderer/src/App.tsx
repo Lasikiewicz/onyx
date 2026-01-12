@@ -81,11 +81,27 @@ function App() {
   const [hideVRTitles, setHideVRTitles] = useState(true);
   const [hideAppsTitles, setHideAppsTitles] = useState(true);
   const [hideGameTitles, setHideGameTitles] = useState(false);
-  const [gameTilePadding, setGameTilePadding] = useState(16);
+  const [gameTilePadding, setGameTilePadding] = useState(3);
   const [selectedBoxArtSize, setSelectedBoxArtSize] = useState(25);
   const [showLogoOverBoxart, setShowLogoOverBoxart] = useState(true);
   const [logoPosition, setLogoPosition] = useState<'top' | 'middle' | 'bottom' | 'underneath'>('middle');
   const [backgroundBlur, setBackgroundBlur] = useState(40);
+  const [showCarouselDetails, setShowCarouselDetails] = useState(true);
+  const [showCarouselLogos, setShowCarouselLogos] = useState(true);
+  const [detailsBarSize, setDetailsBarSize] = useState(14);
+  const [carouselLogoSize, setCarouselLogoSize] = useState(100);
+  const [carouselButtonSize, setCarouselButtonSize] = useState(14);
+  const [carouselDescriptionSize, setCarouselDescriptionSize] = useState(18);
+  const [gridDescriptionSize, setGridDescriptionSize] = useState(14);
+  const [gridButtonSize, setGridButtonSize] = useState(14);
+  const [gridButtonLocation, setGridButtonLocation] = useState<'left' | 'middle' | 'right'>('middle');
+  // Right panel (GameDetailsPanel) settings
+  const [rightPanelLogoSize, setRightPanelLogoSize] = useState(100);
+  const [rightPanelBoxartPosition, setRightPanelBoxartPosition] = useState<'left' | 'right' | 'none'>('right');
+  const [rightPanelBoxartSize, setRightPanelBoxartSize] = useState(120);
+  const [rightPanelTextSize, setRightPanelTextSize] = useState(14);
+  const [rightPanelButtonSize, setRightPanelButtonSize] = useState(14);
+  const [rightPanelButtonLocation, setRightPanelButtonLocation] = useState<'left' | 'middle' | 'right'>('right');
 
   // Set background blur to 0 when switching to carousel mode
   useEffect(() => {
@@ -126,6 +142,22 @@ function App() {
         if (prefs.showLogoOverBoxart !== undefined) setShowLogoOverBoxart(prefs.showLogoOverBoxart);
         if (prefs.logoPosition !== undefined) setLogoPosition(prefs.logoPosition);
         if (prefs.backgroundBlur !== undefined) setBackgroundBlur(prefs.backgroundBlur);
+        if (prefs.showCarouselDetails !== undefined) setShowCarouselDetails(prefs.showCarouselDetails);
+        if (prefs.showCarouselLogos !== undefined) setShowCarouselLogos(prefs.showCarouselLogos);
+        if (prefs.detailsBarSize !== undefined) setDetailsBarSize(prefs.detailsBarSize);
+        if (prefs.carouselLogoSize !== undefined) setCarouselLogoSize(prefs.carouselLogoSize);
+        if (prefs.carouselButtonSize !== undefined) setCarouselButtonSize(prefs.carouselButtonSize);
+        if (prefs.carouselDescriptionSize !== undefined) setCarouselDescriptionSize(prefs.carouselDescriptionSize);
+        if (prefs.gridDescriptionSize !== undefined) setGridDescriptionSize(prefs.gridDescriptionSize);
+        if (prefs.gridButtonSize !== undefined) setGridButtonSize(prefs.gridButtonSize);
+        if (prefs.gridButtonLocation !== undefined) setGridButtonLocation(prefs.gridButtonLocation);
+        // Right panel settings
+        if (prefs.rightPanelLogoSize !== undefined) setRightPanelLogoSize(prefs.rightPanelLogoSize);
+        if (prefs.rightPanelBoxartPosition !== undefined) setRightPanelBoxartPosition(prefs.rightPanelBoxartPosition);
+        if (prefs.rightPanelBoxartSize !== undefined) setRightPanelBoxartSize(prefs.rightPanelBoxartSize);
+        if (prefs.rightPanelTextSize !== undefined) setRightPanelTextSize(prefs.rightPanelTextSize);
+        if (prefs.rightPanelButtonSize !== undefined) setRightPanelButtonSize(prefs.rightPanelButtonSize);
+        if (prefs.rightPanelButtonLocation !== undefined) setRightPanelButtonLocation(prefs.rightPanelButtonLocation);
         if (prefs.viewMode) setViewMode(prefs.viewMode as 'grid' | 'list' | 'logo');
         if (prefs.backgroundMode) setBackgroundMode(prefs.backgroundMode as 'image' | 'color');
         if (prefs.backgroundColor) setBackgroundColor(prefs.backgroundColor);
@@ -268,6 +300,14 @@ function App() {
       }
     }
   }, [loading, games, activeGameId]);
+
+  // Adjust game tile padding when switching to carousel view
+  useEffect(() => {
+    if (viewMode === 'carousel' && gameTilePadding > 3) {
+      // If switching to carousel and current padding is above the carousel max (3px), set to default (1px)
+      setGameTilePadding(1);
+    }
+  }, [viewMode, gameTilePadding]);
 
   // Toggle pin category
   const handleTogglePinCategory = (category: string) => {
@@ -1196,14 +1236,6 @@ function App() {
                         onPlay={handlePlay}
                         onGameClick={handleGameClick}
                         onEdit={handleEditGame}
-                        onEditImages={handleEditImages}
-                        onEditCategories={handleEditCategories}
-                        onFavorite={handleToggleFavorite}
-                        onPin={handleTogglePin}
-                        onFixMatch={handleFixMatch}
-                        onHide={handleHideGame}
-                        onUnhide={handleUnhideGame}
-                        isHiddenView={selectedCategory === 'hidden'}
                         gridSize={gridSize}
                         logoSize={logoSize}
                         onGridSizeChange={setGridSize}
@@ -1213,6 +1245,7 @@ function App() {
                         logoPosition={logoPosition}
                         useLogosInsteadOfBoxart={viewMode === 'logo'}
                         autoSizeToFit={autoSizeToFit}
+                        descriptionSize={gridDescriptionSize}
                       />
                     ) : viewMode === 'carousel' ? (
                       <LibraryCarousel
@@ -1231,6 +1264,29 @@ function App() {
                         activeGameId={activeGameId}
                         selectedBoxArtSize={selectedBoxArtSize}
                         gameTilePadding={gameTilePadding}
+                        showCarouselDetails={showCarouselDetails}
+                        showCarouselLogos={showCarouselLogos}
+                        detailsBarSize={detailsBarSize}
+                        onDetailsBarSizeChange={(size) => {
+                          setDetailsBarSize(size);
+                          window.electronAPI.savePreferences({ detailsBarSize: size });
+                        }}
+                        carouselLogoSize={carouselLogoSize}
+                        onCarouselLogoSizeChange={(size) => {
+                          setCarouselLogoSize(size);
+                          window.electronAPI.savePreferences({ carouselLogoSize: size });
+                        }}
+                        carouselButtonSize={carouselButtonSize}
+                        onCarouselButtonSizeChange={(size) => {
+                          setCarouselButtonSize(size);
+                          window.electronAPI.savePreferences({ carouselButtonSize: size });
+                        }}
+                        carouselDescriptionSize={carouselDescriptionSize}
+                        onCarouselDescriptionSizeChange={(size) => {
+                          setCarouselDescriptionSize(size);
+                          window.electronAPI.savePreferences({ carouselDescriptionSize: size });
+                        }}
+                        onMoreSettings={() => setShowAppearanceMenu(true)}
                       />
                     ) : (
                       <LibraryListView
@@ -1346,6 +1402,12 @@ function App() {
             }}
             onFavorite={handleToggleFavorite}
             onEdit={handleEditGame}
+            rightPanelLogoSize={rightPanelLogoSize}
+            rightPanelBoxartPosition={rightPanelBoxartPosition}
+            rightPanelBoxartSize={rightPanelBoxartSize}
+            rightPanelTextSize={rightPanelTextSize}
+            rightPanelButtonSize={rightPanelButtonSize}
+            rightPanelButtonLocation={rightPanelButtonLocation}
           />
         )}
       </div>
@@ -1554,10 +1616,6 @@ function App() {
           x={simpleContextMenu.x}
           y={simpleContextMenu.y}
           onClose={() => setSimpleContextMenu(null)}
-          onEditAppearance={() => {
-            setSimpleContextMenu(null);
-            setShowAppearanceMenu(true);
-          }}
           viewMode={viewMode}
           onViewModeChange={setViewMode}
           gridSize={gridSize}
@@ -1572,6 +1630,91 @@ function App() {
           onBackgroundBlurChange={setBackgroundBlur}
           selectedBoxArtSize={selectedBoxArtSize}
           onSelectedBoxArtSizeChange={setSelectedBoxArtSize}
+          carouselLogoSize={carouselLogoSize}
+          onCarouselLogoSizeChange={(size) => {
+            setCarouselLogoSize(size);
+            window.electronAPI.savePreferences({ carouselLogoSize: size });
+          }}
+          detailsBarSize={detailsBarSize}
+          onDetailsBarSizeChange={(size) => {
+            setDetailsBarSize(size);
+            window.electronAPI.savePreferences({ detailsBarSize: size });
+          }}
+          showCarouselDetails={showCarouselDetails}
+          onShowCarouselDetailsChange={(show) => {
+            setShowCarouselDetails(show);
+            window.electronAPI.savePreferences({ showCarouselDetails: show });
+          }}
+          showCarouselLogos={showCarouselLogos}
+          onShowCarouselLogosChange={(show) => {
+            setShowCarouselLogos(show);
+            window.electronAPI.savePreferences({ showCarouselLogos: show });
+          }}
+          carouselButtonSize={carouselButtonSize}
+          onCarouselButtonSizeChange={(size) => {
+            setCarouselButtonSize(size);
+            window.electronAPI.savePreferences({ carouselButtonSize: size });
+          }}
+          carouselDescriptionSize={carouselDescriptionSize}
+          onCarouselDescriptionSizeChange={(size) => {
+            setCarouselDescriptionSize(size);
+            window.electronAPI.savePreferences({ carouselDescriptionSize: size });
+          }}
+          showLogoOverBoxart={showLogoOverBoxart}
+          onShowLogoOverBoxartChange={(show) => {
+            setShowLogoOverBoxart(show);
+            window.electronAPI.savePreferences({ showLogoOverBoxart: show });
+          }}
+          logoPosition={logoPosition}
+          onLogoPositionChange={(position) => {
+            setLogoPosition(position);
+            window.electronAPI.savePreferences({ logoPosition: position });
+          }}
+          gridDescriptionSize={gridDescriptionSize}
+          onGridDescriptionSizeChange={(size) => {
+            setGridDescriptionSize(size);
+            window.electronAPI.savePreferences({ gridDescriptionSize: size });
+          }}
+          gridButtonSize={gridButtonSize}
+          onGridButtonSizeChange={(size) => {
+            setGridButtonSize(size);
+            window.electronAPI.savePreferences({ gridButtonSize: size });
+          }}
+          gridButtonLocation={gridButtonLocation}
+          onGridButtonLocationChange={(location) => {
+            setGridButtonLocation(location);
+            window.electronAPI.savePreferences({ gridButtonLocation: location });
+          }}
+          rightPanelLogoSize={rightPanelLogoSize}
+          onRightPanelLogoSizeChange={(size) => {
+            setRightPanelLogoSize(size);
+            window.electronAPI.savePreferences({ rightPanelLogoSize: size });
+          }}
+          rightPanelBoxartPosition={rightPanelBoxartPosition}
+          onRightPanelBoxartPositionChange={(position) => {
+            setRightPanelBoxartPosition(position);
+            window.electronAPI.savePreferences({ rightPanelBoxartPosition: position });
+          }}
+          rightPanelBoxartSize={rightPanelBoxartSize}
+          onRightPanelBoxartSizeChange={(size) => {
+            setRightPanelBoxartSize(size);
+            window.electronAPI.savePreferences({ rightPanelBoxartSize: size });
+          }}
+          rightPanelTextSize={rightPanelTextSize}
+          onRightPanelTextSizeChange={(size) => {
+            setRightPanelTextSize(size);
+            window.electronAPI.savePreferences({ rightPanelTextSize: size });
+          }}
+          rightPanelButtonSize={rightPanelButtonSize}
+          onRightPanelButtonSizeChange={(size) => {
+            setRightPanelButtonSize(size);
+            window.electronAPI.savePreferences({ rightPanelButtonSize: size });
+          }}
+          rightPanelButtonLocation={rightPanelButtonLocation}
+          onRightPanelButtonLocationChange={(location) => {
+            setRightPanelButtonLocation(location);
+            window.electronAPI.savePreferences({ rightPanelButtonLocation: location });
+          }}
         />
       )}
 
@@ -1615,6 +1758,21 @@ function App() {
           onLogoSizeChange={setLogoSize}
           selectedBoxArtSize={selectedBoxArtSize}
           onSelectedBoxArtSizeChange={setSelectedBoxArtSize}
+          showCarouselDetails={showCarouselDetails}
+          onShowCarouselDetailsChange={(show) => {
+            setShowCarouselDetails(show);
+            window.electronAPI.savePreferences({ showCarouselDetails: show });
+          }}
+          showCarouselLogos={showCarouselLogos}
+          onShowCarouselLogosChange={(show) => {
+            setShowCarouselLogos(show);
+            window.electronAPI.savePreferences({ showCarouselLogos: show });
+          }}
+          detailsBarSize={detailsBarSize}
+          onDetailsBarSizeChange={(size) => {
+            setDetailsBarSize(size);
+            window.electronAPI.savePreferences({ detailsBarSize: size });
+          }}
         />
       )}
 

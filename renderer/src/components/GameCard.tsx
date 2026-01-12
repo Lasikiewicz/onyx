@@ -9,9 +9,10 @@ interface GameCardProps {
   showLogoOverBoxart?: boolean;
   logoPosition?: 'top' | 'middle' | 'bottom' | 'underneath';
   useLogoInsteadOfBoxart?: boolean;
+  descriptionSize?: number;
 }
 
-export const GameCard: React.FC<GameCardProps> = ({ game, hideTitle = false, showLogoOverBoxart = true, logoPosition = 'middle', useLogoInsteadOfBoxart = false }) => {
+export const GameCard: React.FC<GameCardProps> = ({ game, hideTitle = false, showLogoOverBoxart = true, logoPosition = 'middle', useLogoInsteadOfBoxart = false, descriptionSize = 14 }) => {
   const formatPlaytime = (minutes?: number) => {
     if (!minutes) return 'Not Played';
     if (minutes < 60) return `${minutes} minutes`;
@@ -112,11 +113,11 @@ export const GameCard: React.FC<GameCardProps> = ({ game, hideTitle = false, sho
         {/* Game Title and Status Overlay (only when logo is not underneath) */}
         {!hideTitle && !isLogoUnderneath && (
           <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/70 to-transparent p-2 z-10">
-            <h3 className="text-sm font-semibold text-white line-clamp-1">
+            <h3 className="font-semibold text-white line-clamp-1" style={{ fontSize: `${descriptionSize}px` }}>
               {game.title}
             </h3>
             {game.playtime && (
-              <p className="text-xs text-gray-300 mt-1">
+              <p className="text-gray-300 mt-1" style={{ fontSize: `${Math.max(10, descriptionSize - 2)}px` }}>
                 {formatPlaytime(game.playtime)}
               </p>
             )}
@@ -149,11 +150,11 @@ export const GameCard: React.FC<GameCardProps> = ({ game, hideTitle = false, sho
       {/* Game Title below logo when logo is underneath */}
       {!hideTitle && isLogoUnderneath && (
         <div className="bg-gradient-to-t from-black/90 via-black/70 to-transparent p-2 flex-shrink-0">
-          <h3 className="text-sm font-semibold text-white line-clamp-1">
+          <h3 className="font-semibold text-white line-clamp-1" style={{ fontSize: `${descriptionSize}px` }}>
             {game.title}
           </h3>
           {game.playtime && (
-            <p className="text-xs text-gray-300 mt-1">
+            <p className="text-gray-300 mt-1" style={{ fontSize: `${Math.max(10, descriptionSize - 2)}px` }}>
               {formatPlaytime(game.playtime)}
             </p>
           )}
