@@ -35,22 +35,23 @@
 
 ### **NEVER PUSH TO GIT WITHOUT EXPLICIT PERMISSION**
 
-**This is non-negotiable:**
-- ❌ **DO NOT** `git push` to any branch (master, develop, main, or any other)
+**This is ABSOLUTE and NON-NEGOTIABLE - DO NOT EVER SKIP THIS:**
+- ❌ **DO NOT** `git commit` without asking first
+- ❌ **DO NOT** `git push` to any branch (master, develop, main, or any other) EVER without explicit permission
 - ❌ **DO NOT** `git pull` without asking first
 - ❌ **DO NOT** force push (`--force`) without explicit instruction
+- ❌ **DO NOT** proceed if permission is not explicitly given
 
-**ALWAYS:**
-- ✅ Ask the user for permission BEFORE running any git push/pull commands
-- ✅ Show the user what will be pushed (commit messages, files changed)
-- ✅ Wait for explicit approval to proceed
-- ✅ Report what was pushed/pulled after the fact
+**MANDATORY WORKFLOW - ALWAYS FOLLOW THIS EXACTLY:**
+1. Make code changes and build successfully
+2. **STOP - DO NOT COMMIT**
+3. Ask the user: "I've made changes to files X, Y, Z. Here's the summary: [list changes]. Would you like me to commit and push?"
+4. Show full summary of what will be committed
+5. **WAIT for explicit user approval** (user must say "yes" or similar)
+6. Only after explicit approval, run `git add`, `git commit`, `git push`
+7. Report the results
 
-**Example Flow:**
-1. "I've made changes to files X, Y, Z. Would you like me to commit and push to master?"
-2. Show summary of changes
-3. Wait for user approval
-4. Only push after explicit "yes" or approval
+**If you ever push without asking, that is a critical failure and breach of protocol.**
 
 ---
 
