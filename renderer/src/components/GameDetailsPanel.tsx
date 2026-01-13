@@ -345,10 +345,13 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
           {game.logoUrl ? (
             <div
               onContextMenu={(e) => {
+                console.log('Context menu event on wrapper:', e);
                 e.preventDefault();
                 e.stopPropagation();
+                console.log('Setting logo resize menu at', e.clientX, e.clientY);
                 setLogoResizeMenu({ x: e.clientX, y: e.clientY });
               }}
+              style={{ pointerEvents: 'auto' }}
             >
               <img
                 key={game.logoUrl}
