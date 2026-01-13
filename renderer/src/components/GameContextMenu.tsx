@@ -39,8 +39,6 @@ export const GameContextMenu: React.FC<GameContextMenuProps> = ({
   viewMode = 'grid',
 }) => {
   const menuRef = useRef<HTMLDivElement>(null);
-  const [showLogoResizeDialog, setShowLogoResizeDialog] = useState(false);
-  const [logoSize, setLogoSize] = useState<number>(game.logoSizePerViewMode?.carousel || 200);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -136,73 +134,12 @@ export const GameContextMenu: React.FC<GameContextMenuProps> = ({
     onClose();
   };
 
-  const handleSaveLogoSize = async () => {
-    const updated = {
-      ...game,
-      logoSizePerViewMode: {
-        ...(game.logoSizePerViewMode || {}),
-        carousel: logoSize,
-      },
-    };
-    if (onSaveGame) await onSaveGame(updated);
-    setShowLogoResizeDialog(false);
-    onClose();
-  };
-
-  // Logo Resize Dialog
-  if (showLogoResizeDialog) {
-    return (
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[10000]">
-        <div className="bg-gray-800 border border-gray-700 rounded-lg p-6 w-96">
-          <h3 className="text-lg font-semibold text-white mb-4">Resize Logo</h3>
-          <div className="flex items-center gap-4 mb-6">
-            <input
-              type="range"
-              min="50"
-              max="400"
-              step="10"
-              value={logoSize}
-              onChange={(e) => setLogoSize(Number(e.target.value))}
-              className="flex-1 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
-            />
-            <span className="text-sm text-gray-400 w-12 text-right">{logoSize}px</span>
-          </div>
-          <div className="flex gap-3">
-            <button
-              onClick={() => setShowLogoResizeDialog(false)}
-              className="flex-1 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleSaveLogoSize}
-              className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded transition-colors"
-            >
-              Apply
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div
       ref={menuRef}
       className="fixed bg-gray-800 border border-gray-700 rounded-lg shadow-xl z-[9999] min-w-[160px] py-1"
       style={{ left: `${x}px`, top: `${y}px` }}
     >
-      {game.logoUrl && (
-        <button
-          onClick={() => setShowLogoResizeDialog(true)}
-          className="w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 transition-colors flex items-center gap-2"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
-          </svg>
-          Resize Logo
-        </button>
-      )}
       <button
         onClick={handlePlay}
         className="w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 transition-colors flex items-center gap-2"
