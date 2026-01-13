@@ -390,7 +390,8 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
           style={{ 
             width: rightPanelBoxartPosition === 'none' ? 'calc(100% - 3rem)' : 'calc(100% - 11rem)', // Full width when no boxart, space for boxart otherwise
             transform: rightPanelBoxartPosition === 'none' ? 'translateY(50%) translateX(-50%)' : 'translateY(50%)',
-            maxHeight: '60%'
+            maxHeight: '60%',
+            transition: 'max-height 0.2s ease-out'
           }}
         >
           {game.logoUrl ? (
@@ -411,6 +412,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
                 className="max-w-full max-h-full object-contain cursor-pointer drop-shadow-2xl"
                 style={{ 
                   maxHeight: `${game.logoSizePerViewMode?.[viewMode] || game.logoSizePerViewMode?.carousel || rightPanelLogoSize}px`,
+                  transition: 'max-height 0.2s ease-out',
                   ...(game.removeLogoTransparency ? {
                     backgroundColor: 'rgba(0, 0, 0, 0.5)',
                     padding: '8px',
