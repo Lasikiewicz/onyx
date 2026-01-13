@@ -61,7 +61,8 @@ export const LibraryGrid: React.FC<LibraryGridProps> = ({
   logoPosition = 'middle', 
   useLogosInsteadOfBoxart = false, 
   autoSizeToFit = false,
-  descriptionSize = 14
+  descriptionSize = 14,
+  onGameContextMenu
 }) => {
   const [items, setItems] = useState<Game[]>(games);
 
@@ -128,6 +129,7 @@ export const LibraryGrid: React.FC<LibraryGridProps> = ({
                   logoPosition={logoPosition}
                   useLogoInsteadOfBoxart={useLogosInsteadOfBoxart}
                   descriptionSize={descriptionSize}
+                  onContextMenu={onGameContextMenu}
                 />
               ))}
             </div>

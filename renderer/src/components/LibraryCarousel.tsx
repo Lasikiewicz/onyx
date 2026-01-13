@@ -354,7 +354,7 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
                 style={{ 
                   fontSize: `${carouselDescriptionSize}px`,
                   padding: '0 20px',
-                  maxHeight: `${carouselDescriptionSize * 6 * 1.5}px`, // 6 lines with line-height 1.5
+                  maxHeight: `${carouselDescriptionSize * 10 * 1.5}px`, // 10 lines with line-height 1.5
                   overflowY: 'auto', // Show scrollbar only when needed
                   lineHeight: '1.5',
                   boxSizing: 'border-box'
