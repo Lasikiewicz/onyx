@@ -75,7 +75,6 @@ jobs:
           prerelease: ${{ steps.build_profile.outputs.is_prerelease }}
           files: |
             release/*Setup*.exe
-            release/*.exe
             release/*.blockmap
             release/latest.yml
           draft: false
