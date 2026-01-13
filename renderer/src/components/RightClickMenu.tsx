@@ -108,8 +108,6 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
   logoPosition = 'middle',
   onLogoPositionChange,
   // Right panel (GameDetailsPanel) specific props
-  rightPanelLogoSize = 100,
-  onRightPanelLogoSizeChange,
   rightPanelBoxartPosition = 'right',
   onRightPanelBoxartPositionChange,
   rightPanelBoxartSize = 120,

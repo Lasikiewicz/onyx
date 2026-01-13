@@ -64,6 +64,7 @@ export const LibraryGrid: React.FC<LibraryGridProps> = ({
   autoSizeToFit = false,
   descriptionSize = 14,
   onGameContextMenu,
+  onEmptySpaceClick,
   viewMode = 'grid'
 }) => {
   const [items, setItems] = useState<Game[]>(games);

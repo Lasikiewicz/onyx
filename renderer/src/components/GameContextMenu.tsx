@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Game } from '../types/game';
 
 interface GameContextMenuProps {
@@ -16,8 +16,6 @@ interface GameContextMenuProps {
   onHide?: (game: Game) => void;
   onUnhide?: (game: Game) => void;
   isHiddenView?: boolean;
-  onSaveGame?: (game: Game) => Promise<void>;
-  viewMode?: 'grid' | 'logo' | 'carousel' | 'list';
 }
 
 export const GameContextMenu: React.FC<GameContextMenuProps> = ({
@@ -35,8 +33,6 @@ export const GameContextMenu: React.FC<GameContextMenuProps> = ({
   onHide,
   onUnhide,
   isHiddenView = false,
-  onSaveGame,
-  viewMode = 'grid',
 }) => {
   const menuRef = useRef<HTMLDivElement>(null);
 

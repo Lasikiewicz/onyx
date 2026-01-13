@@ -52,7 +52,6 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
   detailsBarSize: propDetailsBarSize = 14,
   onDetailsBarSizeChange,
   carouselLogoSize: propCarouselLogoSize = 100,
-  onCarouselLogoSizeChange,
   carouselButtonSize = 14,
   carouselDescriptionSize = 18,
   carouselDescriptionAlignment = 'center',
@@ -293,12 +292,13 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
               height: `calc(100vh - 200px)`, // Full height above carousel
               padding: '20px',
               zIndex: 30, // Above carousel
-              pointerEvents: 'auto' // Ensure clicks work
+              pointerEvents: 'none' // Don't block carousel clicks
             }}
           >
             {/* Logo Section - Fixed above description */}
             <div 
               className={`w-full flex mb-6 ${getFlexAlignment(carouselLogoAlignment)}`}
+              style={{ pointerEvents: 'auto' }}
             >
               {showCarouselLogos ? (
                 // Show logo if available
@@ -357,7 +357,8 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
                   maxHeight: `${carouselDescriptionSize * 10 * 1.5}px`, // 10 lines with line-height 1.5
                   overflowY: 'auto', // Show scrollbar only when needed
                   lineHeight: '1.5',
-                  boxSizing: 'border-box'
+                  boxSizing: 'border-box',
+                  pointerEvents: 'auto'
                 }}
                 onWheel={(e) => {
                   // Ensure wheel events work for scrolling
@@ -379,6 +380,7 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
             {/* Buttons Section - Fixed below description */}
             <div 
               className={`w-full flex ${getFlexAlignment(carouselButtonAlignment)}`}
+              style={{ pointerEvents: 'auto' }}
             >
               <div className={`flex items-center gap-3 flex-wrap ${getFlexAlignment(carouselButtonAlignment)}`}>
               <button
@@ -470,10 +472,9 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
         style={{ 
           height: '200px', // Fixed height independent of selected game size
           minHeight: '170px', // Ensure minimum space for carousel
-          pointerEvents: 'none' // Don't block clicks on content above
         }}
       >
-        <div className="h-full flex items-end pb-4 relative" style={{ pointerEvents: 'auto' }}>
+        <div className="h-full flex items-end pb-4 relative">
           
           {/* Flowing carousel container with smooth animation */}
           <div 
@@ -481,7 +482,6 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
             style={{ 
               gap: `${gameTilePadding}px`,
               transform: `translateX(${carouselOffset}px)`,
-              pointerEvents: 'auto' // Re-enable clicks for carousel games
             }}
           >
             {/* Render all games in sequence */}
