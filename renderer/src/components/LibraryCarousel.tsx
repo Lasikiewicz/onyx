@@ -309,7 +309,7 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
                       alt={selectedGame.title}
                       className="drop-shadow-lg cursor-pointer hover:drop-shadow-xl transition-all duration-200 hover:scale-105"
                       style={{ 
-                        width: `${selectedGame.logoSize || propCarouselLogoSize}px`,
+                        width: `${selectedGame.logoSizePerViewMode?.carousel || propCarouselLogoSize}px`,
                         maxWidth: '400px',
                         height: 'auto'
                       }}

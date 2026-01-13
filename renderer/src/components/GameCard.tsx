@@ -10,9 +10,10 @@ interface GameCardProps {
   logoPosition?: 'top' | 'middle' | 'bottom' | 'underneath';
   useLogoInsteadOfBoxart?: boolean;
   descriptionSize?: number;
+  viewMode?: 'grid' | 'logo' | 'list' | 'carousel';
 }
 
-export const GameCard: React.FC<GameCardProps> = ({ game, hideTitle = false, showLogoOverBoxart = true, logoPosition = 'middle', useLogoInsteadOfBoxart = false, descriptionSize = 14 }) => {
+export const GameCard: React.FC<GameCardProps> = ({ game, hideTitle = false, showLogoOverBoxart = true, logoPosition = 'middle', useLogoInsteadOfBoxart = false, descriptionSize = 14, viewMode = 'grid' }) => {
   const formatPlaytime = (minutes?: number) => {
     if (!minutes) return 'Not Played';
     if (minutes < 60) return `${minutes} minutes`;
@@ -134,7 +135,7 @@ export const GameCard: React.FC<GameCardProps> = ({ game, hideTitle = false, sho
             alt={`${game.title} Logo`}
             style={{
               maxWidth: '100%',
-              maxHeight: `${game.logoSize || 48}px`,
+              maxHeight: `${game.logoSizePerViewMode?.[viewMode as keyof typeof game.logoSizePerViewMode] || 48}px`,
               objectFit: 'contain',
               ...(game.removeLogoTransparency ? { 
                 backgroundColor: 'rgba(0, 0, 0, 0.5)',

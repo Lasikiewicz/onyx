@@ -8,6 +8,12 @@ export interface Game {
   bannerUrl: string;
   logoUrl?: string;
   logoSize?: number;
+  logoSizePerViewMode?: {
+    carousel?: number;
+    grid?: number;
+    logo?: number;
+    list?: number;
+  };
   heroUrl?: string;
   iconUrl?: string; // Game icon (typically 32x32 or 64x64)
   description?: string; // Can contain HTML markup for rich formatting

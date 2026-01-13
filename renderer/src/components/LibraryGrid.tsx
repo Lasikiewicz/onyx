@@ -45,6 +45,7 @@ interface LibraryGridProps {
   onGameContextMenu?: (game: Game, x: number, y: number) => void;
   onEmptySpaceClick?: (x: number, y: number) => void;
   descriptionSize?: number;
+  viewMode?: 'grid' | 'logo';
 }
 
 export const LibraryGrid: React.FC<LibraryGridProps> = ({ 
@@ -62,7 +63,8 @@ export const LibraryGrid: React.FC<LibraryGridProps> = ({
   useLogosInsteadOfBoxart = false, 
   autoSizeToFit = false,
   descriptionSize = 14,
-  onGameContextMenu
+  onGameContextMenu,
+  viewMode = 'grid'
 }) => {
   const [items, setItems] = useState<Game[]>(games);
 
@@ -130,6 +132,7 @@ export const LibraryGrid: React.FC<LibraryGridProps> = ({
                   useLogoInsteadOfBoxart={useLogosInsteadOfBoxart}
                   descriptionSize={descriptionSize}
                   onContextMenu={onGameContextMenu}
+                  viewMode={viewMode}
                 />
               ))}
             </div>

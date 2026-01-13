@@ -1280,6 +1280,7 @@ function App() {
                           setGameContextMenu(null);
                           setRightClickMenu({ x, y });
                         }}
+                        viewMode={viewMode as 'grid' | 'logo'}
                       />
                     ) : viewMode === 'carousel' ? (
                       <LibraryCarousel

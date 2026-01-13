@@ -15,9 +15,10 @@ interface SortableGameCardProps {
   useLogoInsteadOfBoxart?: boolean;
   descriptionSize?: number;
   onContextMenu?: (game: Game, x: number, y: number) => void;
+  viewMode?: 'grid' | 'logo' | 'list' | 'carousel';
 }
 
-export const SortableGameCard: React.FC<SortableGameCardProps> = ({ game, onPlay, onClick, onEdit, hideTitle = false, showLogoOverBoxart = true, logoPosition = 'middle', useLogoInsteadOfBoxart = false, descriptionSize = 14, onContextMenu }) => {
+export const SortableGameCard: React.FC<SortableGameCardProps> = ({ game, onPlay, onClick, onEdit, hideTitle = false, showLogoOverBoxart = true, logoPosition = 'middle', useLogoInsteadOfBoxart = false, descriptionSize = 14, onContextMenu, viewMode }) => {
   const {
     attributes,
     listeners,
@@ -69,7 +70,7 @@ export const SortableGameCard: React.FC<SortableGameCardProps> = ({ game, onPlay
       onContextMenu={handleContextMenu}
       className="cursor-pointer"
     >
-      <GameCard game={game} onPlay={onPlay} onEdit={onEdit} hideTitle={hideTitle} showLogoOverBoxart={showLogoOverBoxart} logoPosition={logoPosition} useLogoInsteadOfBoxart={useLogoInsteadOfBoxart} descriptionSize={descriptionSize} />
+      <GameCard game={game} onPlay={onPlay} onEdit={onEdit} hideTitle={hideTitle} showLogoOverBoxart={showLogoOverBoxart} logoPosition={logoPosition} useLogoInsteadOfBoxart={useLogoInsteadOfBoxart} descriptionSize={descriptionSize} viewMode={viewMode} />
     </div>
   );
 };

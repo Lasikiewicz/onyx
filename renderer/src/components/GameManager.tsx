@@ -1332,30 +1332,119 @@ export const GameManager: React.FC<GameManagerProps> = ({
                         </div>
                       </div>
 
-                      {/* Per-Game Logo Size Control */}
+                      {/* Per-Game Logo Size Control (Per View Mode) */}
                       {editedGame.logoUrl && (
                         <div className="border-t border-gray-700 pt-4 mt-4">
-                          <label className="block text-sm font-medium text-gray-300 mb-3">Logo Size for this game</label>
-                          <div className="flex items-center gap-4">
-                            <input
-                              type="range"
-                              min="50"
-                              max="400"
-                              step="10"
-                              value={editedGame.logoSize || 100}
-                              onChange={(e) => setEditedGame({ ...editedGame, logoSize: Number(e.target.value) })}
-                              className="flex-1 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
-                            />
-                            <span className="text-sm text-gray-400 w-12 text-right">{editedGame.logoSize || 100}px</span>
-                            <button
-                              onClick={() => setEditedGame({ ...editedGame, logoSize: undefined })}
-                              className="px-3 py-1 text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 rounded transition-colors"
-                              title="Reset to default size"
-                            >
-                              Reset
-                            </button>
+                          <label className="block text-sm font-medium text-gray-300 mb-3">Logo Size by View Mode</label>
+                          <p className="text-xs text-gray-500 mb-4">Set custom logo size for each view (or leave at 0 to use global setting)</p>
+                          
+                          {/* Grid View Logo Size */}
+                          <div className="mb-4">
+                            <label className="block text-xs text-gray-400 mb-2">Grid View</label>
+                            <div className="flex items-center gap-4">
+                              <input
+                                type="range"
+                                min="0"
+                                max="400"
+                                step="10"
+                                value={editedGame.logoSizePerViewMode?.grid || 0}
+                                onChange={(e) => setEditedGame({
+                                  ...editedGame,
+                                  logoSizePerViewMode: {
+                                    ...(editedGame.logoSizePerViewMode || {}),
+                                    grid: Number(e.target.value) || undefined
+                                  }
+                                })}
+                                className="flex-1 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
+                              />
+                              <span className="text-sm text-gray-400 w-16 text-right">
+                                {editedGame.logoSizePerViewMode?.grid ? `${editedGame.logoSizePerViewMode.grid}px` : 'Global'}
+                              </span>
+                            </div>
                           </div>
-                          <p className="text-xs text-gray-500 mt-2">Adjust the logo size just for this game (default: 100px). Leave at 100 for global setting.</p>
+
+                          {/* Logo View Logo Size */}
+                          <div className="mb-4">
+                            <label className="block text-xs text-gray-400 mb-2">Logo View</label>
+                            <div className="flex items-center gap-4">
+                              <input
+                                type="range"
+                                min="0"
+                                max="400"
+                                step="10"
+                                value={editedGame.logoSizePerViewMode?.logo || 0}
+                                onChange={(e) => setEditedGame({
+                                  ...editedGame,
+                                  logoSizePerViewMode: {
+                                    ...(editedGame.logoSizePerViewMode || {}),
+                                    logo: Number(e.target.value) || undefined
+                                  }
+                                })}
+                                className="flex-1 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
+                              />
+                              <span className="text-sm text-gray-400 w-16 text-right">
+                                {editedGame.logoSizePerViewMode?.logo ? `${editedGame.logoSizePerViewMode.logo}px` : 'Global'}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Carousel View Logo Size */}
+                          <div className="mb-4">
+                            <label className="block text-xs text-gray-400 mb-2">Carousel View</label>
+                            <div className="flex items-center gap-4">
+                              <input
+                                type="range"
+                                min="0"
+                                max="400"
+                                step="10"
+                                value={editedGame.logoSizePerViewMode?.carousel || 0}
+                                onChange={(e) => setEditedGame({
+                                  ...editedGame,
+                                  logoSizePerViewMode: {
+                                    ...(editedGame.logoSizePerViewMode || {}),
+                                    carousel: Number(e.target.value) || undefined
+                                  }
+                                })}
+                                className="flex-1 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
+                              />
+                              <span className="text-sm text-gray-400 w-16 text-right">
+                                {editedGame.logoSizePerViewMode?.carousel ? `${editedGame.logoSizePerViewMode.carousel}px` : 'Global'}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* List View Logo Size */}
+                          <div className="mb-4">
+                            <label className="block text-xs text-gray-400 mb-2">List View</label>
+                            <div className="flex items-center gap-4">
+                              <input
+                                type="range"
+                                min="0"
+                                max="400"
+                                step="10"
+                                value={editedGame.logoSizePerViewMode?.list || 0}
+                                onChange={(e) => setEditedGame({
+                                  ...editedGame,
+                                  logoSizePerViewMode: {
+                                    ...(editedGame.logoSizePerViewMode || {}),
+                                    list: Number(e.target.value) || undefined
+                                  }
+                                })}
+                                className="flex-1 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
+                              />
+                              <span className="text-sm text-gray-400 w-16 text-right">
+                                {editedGame.logoSizePerViewMode?.list ? `${editedGame.logoSizePerViewMode.list}px` : 'Global'}
+                              </span>
+                            </div>
+                          </div>
+
+                          <button
+                            onClick={() => setEditedGame({ ...editedGame, logoSizePerViewMode: {} })}
+                            className="mt-2 w-full px-3 py-1 text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 rounded transition-colors"
+                            title="Reset all logo sizes to use global settings"
+                          >
+                            Reset All to Global
+                          </button>
                         </div>
                       )}
 
