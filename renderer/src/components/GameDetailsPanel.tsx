@@ -238,7 +238,6 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
     };
     if (onSaveGame) await onSaveGame(updated);
   };
-  };
 
   if (!game) {
     return (
