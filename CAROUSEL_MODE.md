@@ -13,18 +13,28 @@ The carousel mode provides a **console-style, full-screen gaming experience** wi
 - **Center Focus**: Selected game always appears in the center of the screen
 - **2x Scale**: Selected game appears twice as large while staying in the carousel flow
 
-### 🎯 **Centered Game Information**
-- **No Large Boxart**: Removed the large boxart display for cleaner focus on carousel
-- **Centered Layout**: Game information displayed in the center of the screen
-- **Logo Priority**: Game logos displayed prominently when available
-- **Enhanced Typography**: Larger text and better spacing for readability
-- **Prominent Actions**: Bigger buttons with better visual hierarchy
+### 🎯 **Cohesive Group Layout**
+- **Right 50% Usage**: Content uses the entire right half of the screen above carousel
+- **Centered Group**: Logo, description, and buttons move as a cohesive group centered vertically
+- **Description Anchor**: Description is the center point with logo above and buttons below
+- **Fixed Relationships**: Logo always above description, buttons always below description
+- **Vertical Centering**: Entire group (logo + description + buttons) centered in right section
+- **Full Box Art Display**: Carousel uses overflow-visible to show complete box art
+- **6-Line Description**: Description limited to 6 lines with proper overflow handling
+- **HTML Description Support**: Game descriptions can contain HTML markup for rich formatting including:
+  - **Bold** and *italic* text
+  - Headers (h1-h6)
+  - Lists (ordered and unordered)
+  - Links with hover effects
+  - Blockquotes and code blocks
+  - Horizontal rules and line breaks
 
 ### 🎨 **Immersive Visual Design**
 - **Clean Background**: No distracting elements, focus on the carousel
 - **Floating Elements**: Carousel floats above content with subtle backdrop blur
 - **Seamless Edges**: Games extend off-screen for true infinite feel
 - **Visual Consistency**: Selected game maintains position while scaling
+- **Smart Text Positioning**: Descriptions automatically avoid overlapping with carousel games
 
 ### ⌨️ **Intuitive Navigation**
 - **Arrow Keys**: Navigate left/right through the infinite rotation
@@ -47,6 +57,70 @@ The carousel mode provides a **console-style, full-screen gaming experience** wi
 - **Seamless Overflow**: Games extend beyond screen edges for infinite feel
 
 ## Technical Implementation
+
+### **HTML Description Support**
+```typescript
+// Game descriptions now support HTML markup
+<div 
+  className="carousel-description"
+  dangerouslySetInnerHTML={{ __html: selectedGame.description }}
+/>
+```
+
+**Supported HTML Elements:**
+- Text formatting: `<strong>`, `<em>`, `<b>`, `<i>`
+- Headers: `<h1>` through `<h6>`
+- Lists: `<ul>`, `<ol>`, `<li>`
+- Links: `<a href="...">` with hover effects
+- Paragraphs: `<p>` with proper spacing
+- Code: `<code>` and `<pre>` blocks
+- Quotes: `<blockquote>`
+- Separators: `<hr>`
+
+### **Cohesive Group Layout System**
+```typescript
+// Single container for logo, description, and buttons - centered as a group
+<div className="absolute right-0 top-0 flex flex-col items-center justify-center" style={{
+  width: '50%',
+  height: `calc(100vh - 200px)`, // Full height above carousel
+  padding: '20px'
+}}>
+  
+  {/* Logo - Fixed above description */}
+  <div className="flex justify-center mb-6">
+    <img style={{ maxHeight: '80px' }} />
+  </div>
+  
+  {/* Description - Center anchor point */}
+  <div className="flex justify-center mb-6">
+    <div className="text-center line-clamp-6">
+      {/* Description is the center of the group */}
+    </div>
+  </div>
+  
+  {/* Buttons - Fixed below description */}
+  <div className="flex justify-center">
+    <div className="flex gap-3 justify-center">
+      {/* Buttons always below description */}
+    </div>
+  </div>
+</div>
+
+// Carousel - Full box art display
+<div className="overflow-visible" style={{ height: '200px' }}>
+  {/* Box art shows completely without clipping */}
+</div>
+```
+
+### **Group Centering Benefits**
+```typescript
+// justify-center: Centers the entire group vertically in right section
+// items-center: Centers all elements horizontally
+// mb-6: Consistent spacing between logo, description, and buttons
+// Single container: All elements move together as one cohesive unit
+// Description anchor: Group positioning based on description being centered
+// Fixed relationships: Logo always above, buttons always below description
+```
 
 ### **Full-Width Extension**
 ```typescript
@@ -90,6 +164,34 @@ Array.from({ length: 21 }, (_, i) => {
 - **Visual clarity**: Clear indication of selected game with scaling and border
 
 ## User Experience
+
+### **HTML Description Usage**
+Game descriptions now support HTML markup for rich formatting. Examples:
+
+**Basic Formatting:**
+```html
+<strong>Epic Adventure</strong> awaits in this <em>critically acclaimed</em> RPG.
+```
+
+**Structured Content:**
+```html
+<h3>Key Features</h3>
+<ul>
+  <li>Open world exploration</li>
+  <li>Dynamic weather system</li>
+  <li>Multiplayer co-op</li>
+</ul>
+```
+
+**Links and References:**
+```html
+Visit the <a href="https://example.com">official website</a> for more info.
+```
+
+**Reviews and Quotes:**
+```html
+<blockquote>"One of the best games of the year" - Gaming Magazine</blockquote>
+```
 
 ### **Browsing Flow**
 1. **Game information** displayed prominently in center

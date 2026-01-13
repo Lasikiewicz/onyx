@@ -158,3 +158,112 @@ input[type="range"].slider::-moz-range-thumb:hover {
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 4;
 }
+
+.line-clamp-6 {
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 6;
+}
+
+/* Carousel description HTML content styling */
+.carousel-description {
+  /* Ensure proper spacing and prevent overlap */
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+.carousel-description p {
+  margin-bottom: 1rem;
+}
+
+.carousel-description p:last-child {
+  margin-bottom: 0;
+}
+
+.carousel-description h1,
+.carousel-description h2,
+.carousel-description h3,
+.carousel-description h4,
+.carousel-description h5,
+.carousel-description h6 {
+  color: #f1f5f9;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+  margin-top: 1.5rem;
+}
+
+.carousel-description h1:first-child,
+.carousel-description h2:first-child,
+.carousel-description h3:first-child,
+.carousel-description h4:first-child,
+.carousel-description h5:first-child,
+.carousel-description h6:first-child {
+  margin-top: 0;
+}
+
+.carousel-description strong,
+.carousel-description b {
+  color: #f8fafc;
+  font-weight: 600;
+}
+
+.carousel-description em,
+.carousel-description i {
+  font-style: italic;
+}
+
+.carousel-description ul,
+.carousel-description ol {
+  margin-bottom: 1rem;
+  padding-left: 1.5rem;
+}
+
+.carousel-description li {
+  margin-bottom: 0.25rem;
+}
+
+.carousel-description a {
+  color: #60a5fa;
+  text-decoration: underline;
+  transition: color 0.2s ease;
+}
+
+.carousel-description a:hover {
+  color: #93c5fd;
+}
+
+.carousel-description blockquote {
+  border-left: 4px solid #374151;
+  padding-left: 1rem;
+  margin: 1rem 0;
+  font-style: italic;
+  color: #d1d5db;
+}
+
+.carousel-description code {
+  background-color: rgba(55, 65, 81, 0.5);
+  padding: 0.125rem 0.25rem;
+  border-radius: 0.25rem;
+  font-family: 'Courier New', monospace;
+  font-size: 0.875em;
+}
+
+.carousel-description pre {
+  background-color: rgba(55, 65, 81, 0.5);
+  padding: 1rem;
+  border-radius: 0.5rem;
+  overflow-x: auto;
+  margin: 1rem 0;
+}
+
+.carousel-description pre code {
+  background: none;
+  padding: 0;
+}
+
+.carousel-description hr {
+  border: none;
+  border-top: 1px solid #374151;
+  margin: 1.5rem 0;
+}
