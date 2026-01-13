@@ -16,9 +16,11 @@ interface SortableGameCardProps {
   descriptionSize?: number;
   onContextMenu?: (game: Game, x: number, y: number) => void;
   viewMode?: 'grid' | 'logo' | 'list' | 'carousel';
+  logoBackgroundColor?: string;
+  logoBackgroundOpacity?: number;
 }
 
-export const SortableGameCard: React.FC<SortableGameCardProps> = ({ game, onPlay, onClick, onEdit, hideTitle = false, showLogoOverBoxart = true, logoPosition = 'middle', useLogoInsteadOfBoxart = false, descriptionSize = 14, onContextMenu, viewMode }) => {
+export const SortableGameCard: React.FC<SortableGameCardProps> = ({ game, onPlay, onClick, onEdit, hideTitle = false, showLogoOverBoxart = true, logoPosition = 'middle', useLogoInsteadOfBoxart = false, descriptionSize = 14, onContextMenu, viewMode, logoBackgroundColor, logoBackgroundOpacity }) => {
   const {
     attributes,
     listeners,
@@ -76,7 +78,7 @@ export const SortableGameCard: React.FC<SortableGameCardProps> = ({ game, onPlay
       className="cursor-pointer"
       data-game-card
     >
-      <GameCard game={game} onPlay={onPlay} onEdit={onEdit} hideTitle={hideTitle} showLogoOverBoxart={showLogoOverBoxart} logoPosition={logoPosition} useLogoInsteadOfBoxart={useLogoInsteadOfBoxart} descriptionSize={descriptionSize} viewMode={viewMode} />
+      <GameCard game={game} onPlay={onPlay} onEdit={onEdit} hideTitle={hideTitle} showLogoOverBoxart={showLogoOverBoxart} logoPosition={logoPosition} useLogoInsteadOfBoxart={useLogoInsteadOfBoxart} descriptionSize={descriptionSize} viewMode={viewMode} logoBackgroundColor={logoBackgroundColor} logoBackgroundOpacity={logoBackgroundOpacity} />
     </div>
   );
 };

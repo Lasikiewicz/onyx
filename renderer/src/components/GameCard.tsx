@@ -11,9 +11,11 @@ interface GameCardProps {
   useLogoInsteadOfBoxart?: boolean;
   descriptionSize?: number;
   viewMode?: 'grid' | 'logo' | 'list' | 'carousel';
+  logoBackgroundColor?: string;
+  logoBackgroundOpacity?: number;
 }
 
-export const GameCard: React.FC<GameCardProps> = ({ game, hideTitle = false, showLogoOverBoxart = true, logoPosition = 'middle', useLogoInsteadOfBoxart = false, descriptionSize = 14, viewMode = 'grid' }) => {
+export const GameCard: React.FC<GameCardProps> = ({ game, hideTitle = false, showLogoOverBoxart = true, logoPosition = 'middle', useLogoInsteadOfBoxart = false, descriptionSize = 14, viewMode = 'grid', logoBackgroundColor = '#374151', logoBackgroundOpacity = 100 }) => {
   const formatPlaytime = (minutes?: number) => {
     if (!minutes) return 'Not Played';
     if (minutes < 60) return `${minutes} minutes`;
@@ -34,8 +36,22 @@ export const GameCard: React.FC<GameCardProps> = ({ game, hideTitle = false, sho
   // Use rectangular aspect ratio for logo view
   const aspectRatio = useLogoInsteadOfBoxart ? 'aspect-[16/9]' : 'aspect-[2/3]';
 
+  const toRgba = (hex: string, opacityPct: number) => {
+    const sanitized = hex.replace('#', '');
+    const bigint = parseInt(sanitized.length === 3
+      ? sanitized.split('').map((c) => c + c).join('')
+      : sanitized, 16);
+    const r = (bigint >> 16) & 255;
+    const g = (bigint >> 8) & 255;
+    const b = bigint & 255;
+    const alpha = Math.max(0, Math.min(100, opacityPct)) / 100;
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  };
+
+  const cardBackground = viewMode === 'logo' ? { backgroundColor: toRgba(logoBackgroundColor, logoBackgroundOpacity) } : undefined;
+
   return (
-    <div className={`relative group overflow-hidden onyx-card ${aspectRatio} flex flex-col`}>
+    <div className={`relative group overflow-hidden onyx-card ${aspectRatio} flex flex-col`} style={cardBackground}>
       {/* Box art image container - takes flex-1 when logo is underneath, full height otherwise */}
       <div className={`relative ${isLogoUnderneath ? 'flex-1 min-h-0' : 'w-full h-full'}`}>
         {imageToShow ? (

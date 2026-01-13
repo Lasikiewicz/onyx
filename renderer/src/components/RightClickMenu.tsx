@@ -36,6 +36,22 @@ interface RightClickMenuProps {
   onCarouselButtonAlignmentChange?: (alignment: 'left' | 'center' | 'right') => void;
   carouselLogoAlignment?: 'left' | 'center' | 'right';
   onCarouselLogoAlignmentChange?: (alignment: 'left' | 'center' | 'right') => void;
+  listViewOptions?: {
+    showDescription: boolean;
+    showCategories: boolean;
+    showPlaytime: boolean;
+    showReleaseDate: boolean;
+    showGenres: boolean;
+    showPlatform: boolean;
+  };
+  onListViewOptionsChange?: (options: {
+    showDescription: boolean;
+    showCategories: boolean;
+    showPlaytime: boolean;
+    showReleaseDate: boolean;
+    showGenres: boolean;
+    showPlatform: boolean;
+  }) => void;
   // Grid view specific props
   showLogoOverBoxart?: boolean;
   onShowLogoOverBoxartChange?: (show: boolean) => void;
@@ -64,6 +80,8 @@ interface RightClickMenuProps {
   onRightPanelButtonSizeChange?: (size: number) => void;
   rightPanelButtonLocation?: 'left' | 'middle' | 'right';
   onRightPanelButtonLocationChange?: (location: 'left' | 'middle' | 'right') => void;
+  detailsPanelOpacity?: number;
+  onDetailsPanelOpacityChange?: (opacity: number) => void;
 }
 
 export const RightClickMenu: React.FC<RightClickMenuProps> = ({
@@ -102,11 +120,15 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
   onCarouselButtonAlignmentChange,
   carouselLogoAlignment = 'center',
   onCarouselLogoAlignmentChange,
+  listViewOptions,
+  onListViewOptionsChange,
   // Grid view specific props
   showLogoOverBoxart = true,
   onShowLogoOverBoxartChange,
   logoPosition = 'middle',
   onLogoPositionChange,
+  logoBackgroundOpacity = 100,
+  onLogoBackgroundOpacityChange,
   // Right panel (GameDetailsPanel) specific props
   rightPanelBoxartPosition = 'right',
   onRightPanelBoxartPositionChange,
@@ -118,6 +140,8 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
   onRightPanelButtonSizeChange,
   rightPanelButtonLocation = 'right',
   onRightPanelButtonLocationChange,
+  detailsPanelOpacity = 80,
+  onDetailsPanelOpacityChange,
 }) => {
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -165,28 +189,24 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
     }
   };
 
-  // Get the appropriate size value based on view mode
   const getSizeValue = () => {
     if (viewMode === 'grid') return gridSize;
     if (viewMode === 'logo') return logoSize;
     return listSize;
   };
 
-  // Get the appropriate size change handler based on view mode
   const handleSizeChange = (value: number) => {
     if (viewMode === 'grid' && onGridSizeChange) onGridSizeChange(value);
     if (viewMode === 'logo' && onLogoSizeChange) onLogoSizeChange(value);
     if (viewMode === 'list' && onListSizeChange) onListSizeChange(value);
   };
 
-  // Get size label based on view mode
   const getSizeLabel = () => {
-    if (viewMode === 'grid') return 'Grid Size';
+    if (viewMode === 'grid') return 'Boxart Size';
     if (viewMode === 'logo') return 'Logo Size';
-    return 'List View Size';
+    return 'Game Tile Size';
   };
 
-  // Get size range based on view mode
   const getSizeRange = () => {
     if (viewMode === 'list') return { min: 80, max: 200 };
     return { min: 80, max: 500 };
@@ -197,6 +217,13 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
     return { min: 0, max: 10 };
   };
 
+  const getPaddingLabel = () => {
+    if (viewMode === 'grid') return 'Boxart Padding';
+    if (viewMode === 'logo') return 'Logo Padding';
+    return 'Game Tile Padding';
+  };
+
+  const paddingLabel = getPaddingLabel();
   const sizeValue = getSizeValue();
   const sizeRange = getSizeRange();
   const paddingRange = getPaddingRange();
@@ -216,7 +243,7 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
       style={{ 
         left: `${x}px`, 
         top: `${y}px`,
-        minWidth: '600px'
+        minWidth: '620px'
       }}
     >
       {/* View Mode Toggle Buttons - Single Row */}
@@ -279,30 +306,13 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
         </button>
       </div>
 
-      {/* View-specific size controls for all non-carousel views */}
-      {viewMode !== 'carousel' && ((viewMode === 'grid' && onGridSizeChange) || (viewMode === 'logo' && onLogoSizeChange) || (viewMode === 'list' && onListSizeChange)) && (
-        <div className="px-4 py-2">
-          <label className="block text-xs text-gray-400 mb-1 font-semibold">{getSizeLabel()}</label>
-          <input
-            type="range"
-            min={sizeRange.min}
-            max={sizeRange.max}
-            step="1"
-            value={sizeValue}
-            onChange={(e) => handleSizeChange(Number(e.target.value))}
-            className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider accent-blue-600"
-          />
-          <div className="flex justify-between text-xs text-gray-500 mt-1">
-            <span>{sizeRange.min}px</span>
-            <span className="font-medium text-gray-300">{sizeValue}px</span>
-            <span>{sizeRange.max}px</span>
-          </div>
-        </div>
-      )}
-
       {/* Carousel Settings - in two columns */}
       {viewMode === 'carousel' && (
         <>
+          <div className="grid grid-cols-2 text-xs text-gray-400 px-3 pb-1 font-semibold">
+            <span>Games View</span>
+            <span className="text-right">Game Details</span>
+          </div>
           <div className="px-2 py-2">
             <div className="grid grid-cols-2 gap-3">
               {/* Left Column */}
@@ -557,81 +567,107 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
       {/* Shared layout settings for Grid, List, and Logo views */}
       {viewMode !== 'carousel' && (
         <>
+          <div className="grid grid-cols-2 text-xs text-gray-400 px-3 pb-1 font-semibold">
+            <span>Games View</span>
+            <span className="text-right">Game Details</span>
+          </div>
           <div className="px-2 py-2">
             <div className="grid grid-cols-2 gap-3">
               {/* Left Column */}
               <div className="space-y-2">
-                {/* Show Logo Over Boxart Toggle */}
-                <div className="px-3 py-2 bg-gray-700/30 rounded-md">
-                  <div className="flex items-center justify-between mb-2">
-                    <label className="text-xs text-gray-400 font-medium">Show Logo Over Boxart</label>
-                    <button
-                      onClick={() => onShowLogoOverBoxartChange?.(!showLogoOverBoxart)}
-                      className={`relative inline-flex h-3 w-6 items-center rounded-full transition-colors ${
-                        showLogoOverBoxart ? 'bg-blue-600' : 'bg-gray-600'
-                      }`}
-                    >
-                      <span
-                        className={`inline-block h-2 w-2 transform rounded-full bg-white transition-transform ${
-                          showLogoOverBoxart ? 'translate-x-3' : 'translate-x-0.5'
-                        }`}
-                      />
-                    </button>
+                {/* Size control per view */}
+                {((viewMode === 'grid' && onGridSizeChange) || (viewMode === 'logo' && onLogoSizeChange) || (viewMode === 'list' && onListSizeChange)) && (
+                  <div className="px-3 py-2 bg-gray-700/30 rounded-md">
+                    <label className="block text-xs text-gray-400 mb-1 font-semibold">{getSizeLabel()}</label>
+                    <input
+                      type="range"
+                      min={sizeRange.min}
+                      max={sizeRange.max}
+                      step="1"
+                      value={sizeValue}
+                      onChange={(e) => handleSizeChange(Number(e.target.value))}
+                      className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider accent-blue-600"
+                    />
+                    <div className="flex justify-between text-xs text-gray-500 mt-1">
+                      <span>{sizeRange.min}px</span>
+                      <span className="font-medium text-gray-300">{sizeValue}px</span>
+                      <span>{sizeRange.max}px</span>
+                    </div>
                   </div>
+                )}
 
-                  {/* Logo Position - only show when toggle is on */}
-                  {showLogoOverBoxart && (
-                    <>
-                      <label className="block text-xs text-gray-400 mb-2 font-semibold">Logo Position</label>
-                      <div className="grid grid-cols-3 gap-1 mb-2">
-                        <button
-                          onClick={() => onLogoPositionChange?.('top')}
-                          className={`px-2 py-1 text-xs rounded transition-colors ${
-                            logoPosition === 'top'
-                              ? 'bg-blue-600/40 text-white border border-blue-500'
-                              : 'bg-gray-600 text-gray-300 hover:bg-gray-500 border border-gray-500'
-                          }`}
-                        >
-                          Top
-                        </button>
-                        <button
-                          onClick={() => onLogoPositionChange?.('middle')}
-                          className={`px-2 py-1 text-xs rounded transition-colors ${
-                            logoPosition === 'middle'
-                              ? 'bg-blue-600/40 text-white border border-blue-500'
-                              : 'bg-gray-600 text-gray-300 hover:bg-gray-500 border border-gray-500'
-                          }`}
-                        >
-                          Middle
-                        </button>
-                        <button
-                          onClick={() => onLogoPositionChange?.('bottom')}
-                          className={`px-2 py-1 text-xs rounded transition-colors ${
-                            logoPosition === 'bottom'
-                              ? 'bg-blue-600/40 text-white border border-blue-500'
-                              : 'bg-gray-600 text-gray-300 hover:bg-gray-500 border border-gray-500'
-                          }`}
-                        >
-                          Bottom
-                        </button>
-                      </div>
+                {/* Show Logo Over Boxart Toggle (Grid only) */}
+                {viewMode === 'grid' && (
+                  <div className="px-3 py-2 bg-gray-700/30 rounded-md">
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="text-xs text-gray-400 font-medium">Show Logo Over Boxart</label>
                       <button
-                        onClick={() => onLogoPositionChange?.('underneath')}
-                        className={`w-full px-2 py-1 text-xs rounded transition-colors ${
-                          logoPosition === 'underneath'
-                            ? 'bg-blue-600/40 text-white border border-blue-500'
-                            : 'bg-gray-600 text-gray-300 hover:bg-gray-500 border border-gray-500'
+                        onClick={() => onShowLogoOverBoxartChange?.(!showLogoOverBoxart)}
+                        className={`relative inline-flex h-3 w-6 items-center rounded-full transition-colors ${
+                          showLogoOverBoxart ? 'bg-blue-600' : 'bg-gray-600'
                         }`}
                       >
-                        Below
+                        <span
+                          className={`inline-block h-2 w-2 transform rounded-full bg-white transition-transform ${
+                            showLogoOverBoxart ? 'translate-x-3' : 'translate-x-0.5'
+                          }`}
+                        />
                       </button>
-                    </>
-                  )}
-                </div>
+                    </div>
+
+                    {showLogoOverBoxart && (
+                      <>
+                        <label className="block text-xs text-gray-400 mb-2 font-semibold">Logo Position</label>
+                        <div className="grid grid-cols-3 gap-1 mb-2">
+                          <button
+                            onClick={() => onLogoPositionChange?.('top')}
+                            className={`px-2 py-1 text-xs rounded transition-colors ${
+                              logoPosition === 'top'
+                                ? 'bg-blue-600/40 text-white border border-blue-500'
+                                : 'bg-gray-600 text-gray-300 hover:bg-gray-500 border border-gray-500'
+                            }`}
+                          >
+                            Top
+                          </button>
+                          <button
+                            onClick={() => onLogoPositionChange?.('middle')}
+                            className={`px-2 py-1 text-xs rounded transition-colors ${
+                              logoPosition === 'middle'
+                                ? 'bg-blue-600/40 text-white border border-blue-500'
+                                : 'bg-gray-600 text-gray-300 hover:bg-gray-500 border border-gray-500'
+                            }`}
+                          >
+                            Middle
+                          </button>
+                          <button
+                            onClick={() => onLogoPositionChange?.('bottom')}
+                            className={`px-2 py-1 text-xs rounded transition-colors ${
+                              logoPosition === 'bottom'
+                                ? 'bg-blue-600/40 text-white border border-blue-500'
+                                : 'bg-gray-600 text-gray-300 hover:bg-gray-500 border border-gray-500'
+                            }`}
+                          >
+                            Bottom
+                          </button>
+                        </div>
+                        <button
+                          onClick={() => onLogoPositionChange?.('underneath')}
+                          className={`w-full px-2 py-1 text-xs rounded transition-colors ${
+                            logoPosition === 'underneath'
+                              ? 'bg-blue-600/40 text-white border border-blue-500'
+                              : 'bg-gray-600 text-gray-300 hover:bg-gray-500 border border-gray-500'
+                          }`}
+                        >
+                          Below
+                        </button>
+                      </>
+                    )}
+                  </div>
+                )}
 
                 {/* Game Tile Padding */}
                 <div className="px-3 py-2 bg-gray-700/30 rounded-md">
-                  <label className="block text-xs text-gray-400 mb-1 font-semibold">Game Tile Padding</label>
+                  <label className="block text-xs text-gray-400 mb-1 font-semibold">{paddingLabel}</label>
                   <input
                     type="range"
                     min={paddingRange.min}
@@ -647,6 +683,63 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                     <span>{paddingRange.max}px</span>
                   </div>
                 </div>
+
+                {/* Logo tile background transparency (Logo view) */}
+                {viewMode === 'logo' && (
+                  <div className="px-3 py-2 bg-gray-700/30 rounded-md">
+                    <label className="block text-xs text-gray-400 mb-1 font-semibold">Logo Tile Background Transparency</label>
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      step="1"
+                      value={logoBackgroundOpacity}
+                      onChange={(e) => onLogoBackgroundOpacityChange?.(Number(e.target.value))}
+                      className="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer slider accent-blue-600"
+                    />
+                    <div className="flex justify-between text-xs text-gray-500 mt-1">
+                      <span>0%</span>
+                      <span className="font-medium text-gray-300">{logoBackgroundOpacity}%</span>
+                      <span>100%</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* List view section toggles */}
+                {viewMode === 'list' && listViewOptions && (
+                  <div className="px-3 py-2 bg-gray-700/30 rounded-md space-y-2">
+                    <label className="block text-xs text-gray-400 font-semibold">Game Tile Sections</label>
+                    {(
+                      [
+                        { key: 'showDescription', label: 'Description' },
+                        { key: 'showReleaseDate', label: 'Release Date' },
+                        { key: 'showGenres', label: 'Genres' },
+                        { key: 'showCategories', label: 'Categories' },
+                        { key: 'showPlaytime', label: 'Playtime' },
+                        { key: 'showPlatform', label: 'Platform' },
+                      ] as const
+                    ).map(({ key, label }) => (
+                      <div key={key} className="flex items-center justify-between text-xs">
+                        <span className="text-gray-300">{label}</span>
+                        <button
+                          onClick={() => onListViewOptionsChange?.({
+                            ...listViewOptions,
+                            [key]: !listViewOptions[key],
+                          })}
+                          className={`relative inline-flex h-3 w-6 items-center rounded-full transition-colors ${
+                            listViewOptions[key] ? 'bg-blue-600' : 'bg-gray-600'
+                          }`}
+                        >
+                          <span
+                            className={`inline-block h-2 w-2 transform rounded-full bg-white transition-transform ${
+                              listViewOptions[key] ? 'translate-x-3' : 'translate-x-0.5'
+                            }`}
+                          />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
 
                 {/* Background Blur Amount */}
                 <div className="px-3 py-2 bg-gray-700/30 rounded-md">
@@ -706,7 +799,6 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                     </button>
                   </div>
 
-                  {/* Resize Boxart - only show when left or right is selected */}
                   {(rightPanelBoxartPosition === 'left' || rightPanelBoxartPosition === 'right') && (
                     <>
                       <label className="block text-xs text-gray-400 mb-1 font-semibold">Resize Boxart</label>
@@ -800,6 +892,25 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                     >
                       Right
                     </button>
+                  </div>
+                </div>
+
+                {/* Details View Transparency */}
+                <div className="px-3 py-2 bg-gray-700/30 rounded-md">
+                  <label className="block text-xs text-gray-400 mb-1 font-semibold">Details View Transparency</label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    step="1"
+                    value={detailsPanelOpacity}
+                    onChange={(e) => onDetailsPanelOpacityChange?.(Number(e.target.value))}
+                    className="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer slider accent-blue-600"
+                  />
+                  <div className="flex justify-between text-xs text-gray-500 mt-1">
+                    <span>0%</span>
+                    <span className="font-medium text-gray-300">{detailsPanelOpacity}%</span>
+                    <span>100%</span>
                   </div>
                 </div>
               </div>

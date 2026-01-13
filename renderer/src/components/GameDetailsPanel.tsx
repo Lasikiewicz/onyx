@@ -32,6 +32,7 @@ interface GameDetailsPanelProps {
   rightPanelTextSize?: number;
   rightPanelButtonSize?: number;
   rightPanelButtonLocation?: 'left' | 'middle' | 'right';
+  detailsPanelOpacity?: number;
 }
 
 export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ 
@@ -58,7 +59,8 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
   rightPanelBoxartSize = 300,
   rightPanelTextSize = 14,
   rightPanelButtonSize = 14,
-  rightPanelButtonLocation = 'right'
+  rightPanelButtonLocation = 'right',
+  detailsPanelOpacity = 80,
 }) => {
   const defaultPanelWidths: Record<ViewKey, number> = { grid: 800, list: 800, logo: 800 };
   const [panelWidths, setPanelWidths] = useState<Record<ViewKey, number>>(defaultPanelWidths);
@@ -75,6 +77,8 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
   const descriptionContainerRef = useRef<HTMLDivElement>(null);
   const viewKey: ViewKey = viewMode === 'list' ? 'list' : viewMode === 'logo' ? 'logo' : 'grid';
   const activePanelWidth = panelWidths[viewKey] ?? defaultPanelWidths[viewKey];
+  const normalizedOpacity = Math.max(0, Math.min(100, detailsPanelOpacity));
+  const panelBackground = `rgba(26, 31, 46, ${normalizedOpacity / 100})`;
 
   // Context menu state
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
@@ -261,7 +265,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
       <div 
         ref={panelRef}
         className="onyx-glass-panel rounded-l-3xl flex items-center justify-center p-8 relative"
-        style={{ width: `${activePanelWidth}px`, minWidth: '400px' }}
+        style={{ width: `${activePanelWidth}px`, minWidth: '400px', backgroundColor: panelBackground }}
       >
         <div className="text-center">
           <p className="text-gray-100 text-lg">Select a game</p>
@@ -296,7 +300,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
     <div 
       ref={panelRef}
       className="onyx-glass-panel rounded-l-3xl flex flex-col h-full overflow-hidden relative ml-auto"
-      style={{ width: `${activePanelWidth}px`, minWidth: '400px' }}
+      style={{ width: `${activePanelWidth}px`, minWidth: '400px', backgroundColor: panelBackground }}
       onContextMenu={(e) => {
         // Allow right-click anywhere except on explicit interactive elements (buttons/links/logo)
         const target = e.target as HTMLElement;

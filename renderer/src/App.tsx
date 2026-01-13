@@ -104,6 +104,7 @@ function App() {
   const [rightPanelTextSize, setRightPanelTextSize] = useState(14);
   const [rightPanelButtonSize, setRightPanelButtonSize] = useState(14);
   const [rightPanelButtonLocation, setRightPanelButtonLocation] = useState<'left' | 'middle' | 'right'>('right');
+  const [detailsPanelOpacity, setDetailsPanelOpacity] = useState(80);
 
   // Set background blur to 0 when switching to carousel mode
   useEffect(() => {
@@ -159,6 +160,7 @@ function App() {
         if (prefs.rightPanelTextSize !== undefined) setRightPanelTextSize(prefs.rightPanelTextSize);
         if (prefs.rightPanelButtonSize !== undefined) setRightPanelButtonSize(prefs.rightPanelButtonSize);
         if (prefs.rightPanelButtonLocation !== undefined) setRightPanelButtonLocation(prefs.rightPanelButtonLocation);
+        if (prefs.detailsPanelOpacity !== undefined) setDetailsPanelOpacity(prefs.detailsPanelOpacity);
         if (prefs.viewMode) setViewMode(prefs.viewMode as 'grid' | 'list' | 'logo');
         if (prefs.backgroundMode) setBackgroundMode(prefs.backgroundMode as 'image' | 'color');
         if (prefs.backgroundColor) setBackgroundColor(prefs.backgroundColor);
@@ -1531,6 +1533,7 @@ function App() {
             rightPanelTextSize={rightPanelTextSize}
             rightPanelButtonSize={rightPanelButtonSize}
             rightPanelButtonLocation={rightPanelButtonLocation}
+            detailsPanelOpacity={detailsPanelOpacity}
           />
         )}
       </div>
@@ -1747,6 +1750,11 @@ function App() {
           onLogoSizeChange={setLogoSize}
           listSize={listViewSize}
           onListSizeChange={setListViewSize}
+          listViewOptions={listViewOptions}
+          onListViewOptionsChange={(options) => {
+            setListViewOptions(options);
+            window.electronAPI.savePreferences({ listViewOptions: options });
+          }}
           gameTilePadding={gameTilePadding}
           onGameTilePaddingChange={setGameTilePadding}
           backgroundBlur={backgroundBlur}
@@ -1832,6 +1840,11 @@ function App() {
           onRightPanelButtonLocationChange={(location) => {
             setRightPanelButtonLocation(location);
             window.electronAPI.savePreferences({ rightPanelButtonLocation: location });
+          }}
+          detailsPanelOpacity={detailsPanelOpacity}
+          onDetailsPanelOpacityChange={(opacity) => {
+            setDetailsPanelOpacity(opacity);
+            window.electronAPI.savePreferences({ detailsPanelOpacity: opacity });
           }}
         />
       )}

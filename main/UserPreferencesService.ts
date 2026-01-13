@@ -18,6 +18,8 @@ export interface UserPreferences {
   gameTilePadding?: number;
   showLogoOverBoxart?: boolean;
   logoPosition?: 'top' | 'middle' | 'bottom' | 'underneath';
+  logoBackgroundColor?: string;
+  logoBackgroundOpacity?: number;
   backgroundBlur?: number;
   backgroundMode?: 'image' | 'color';
   backgroundColor?: string;
@@ -41,6 +43,7 @@ export interface UserPreferences {
   carouselDescriptionAlignment?: 'left' | 'center' | 'right';
   carouselButtonAlignment?: 'left' | 'center' | 'right';
   carouselLogoAlignment?: 'left' | 'center' | 'right';
+  detailsPanelOpacity?: number;
   // View-specific settings
   gridView?: {
     gridSize?: number;
@@ -123,6 +126,8 @@ export class UserPreferencesService {
             gameTilePadding: 16,
             showLogoOverBoxart: false,
             logoPosition: 'middle',
+            logoBackgroundColor: '#374151',
+            logoBackgroundOpacity: 100,
             backgroundBlur: 3,
             backgroundMode: 'image',
             backgroundColor: '#000000',
@@ -161,6 +166,7 @@ export class UserPreferencesService {
             storeMetadataLocally: true, // Default to local storage
             enableSuspendFeature: false, // Opt-in by default
             suspendShortcut: 'Ctrl+Shift+S', // Default shortcut
+            detailsPanelOpacity: 80,
           },
         },
       });
@@ -193,13 +199,15 @@ export class UserPreferencesService {
       startClosedToTray: false,
       updateLibrariesOnStartup: false,
       activeGameId: null,
-            hideVRTitles: true,
-            hideGameTitles: true,
-            gameTilePadding: 16,
-            showLogoOverBoxart: false,
-            logoPosition: 'middle',
-            backgroundBlur: 3,
-            backgroundMode: 'image',
+      hideVRTitles: true,
+      hideGameTitles: true,
+      gameTilePadding: 16,
+      showLogoOverBoxart: false,
+      logoPosition: 'middle',
+      logoBackgroundColor: '#374151',
+      logoBackgroundOpacity: 100,
+      backgroundBlur: 3,
+      backgroundMode: 'image',
       backgroundColor: '#000000',
       viewMode: 'grid',
       listViewOptions: {
@@ -235,6 +243,8 @@ export class UserPreferencesService {
       windowState: undefined,
       storeMetadataLocally: true, // Default to local storage
       enableSuspendFeature: false, // Opt-in by default
+      suspendShortcut: 'Ctrl+Shift+S',
+      detailsPanelOpacity: 80,
     });
   }
 

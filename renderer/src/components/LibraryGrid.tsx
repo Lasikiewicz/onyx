@@ -65,7 +65,9 @@ export const LibraryGrid: React.FC<LibraryGridProps> = ({
   descriptionSize = 14,
   onGameContextMenu,
   onEmptySpaceClick,
-  viewMode = 'grid'
+  viewMode = 'grid',
+  logoBackgroundColor = '#374151',
+  logoBackgroundOpacity = 100,
 }) => {
   const [items, setItems] = useState<Game[]>(games);
 
@@ -154,6 +156,8 @@ export const LibraryGrid: React.FC<LibraryGridProps> = ({
                   descriptionSize={descriptionSize}
                   onContextMenu={onGameContextMenu}
                   viewMode={viewMode}
+                  logoBackgroundColor={logoBackgroundColor}
+                  logoBackgroundOpacity={logoBackgroundOpacity}
                 />
               ))}
             </div>
