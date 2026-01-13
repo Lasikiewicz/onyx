@@ -31,7 +31,6 @@ interface LibraryCarouselProps {
   carouselDescriptionSize?: number;
   onCarouselDescriptionSizeChange?: (size: number) => void;
   onMoreSettings?: () => void;
-  onEmptySpaceClick?: (x: number, y: number) => void;
   onEmptySpaceRightClick?: (x: number, y: number) => void;
 }
 
@@ -59,7 +58,6 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
   onHide,
   onUnhide,
   isHiddenView = false,
-  onEmptySpaceClick,
   onEmptySpaceRightClick,
 }) => {
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -95,11 +93,6 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
   const selectedGameWidth = Math.max(minSelectedWidth, (selectedBoxArtSize * (typeof window !== 'undefined' ? window.innerWidth : 1920) / 100));
   // Use the same aspect ratio as base games (100px width / 150px height = 0.667)
   const selectedGameHeight = Math.max(minSelectedHeight, selectedGameWidth * 1.5); // Match box art aspect ratio
-
-  // Calculate safe padding to prevent text overlap with carousel
-  const carouselHeight = Math.max(selectedGameHeight, 150) + 20; // Carousel container height
-  const carouselBottomOffset = 32; // bottom-8 = 32px
-  const safeBottomPadding = carouselHeight + carouselBottomOffset + 20; // Extra 20px buffer
 
   // Calculate carousel offset for smooth animations
   const calculateOffset = (index: number) => {
@@ -212,15 +205,9 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
       className="h-full w-full flex flex-col absolute inset-0"
       onContextMenu={(e) => {
         // Handle right-clicks anywhere except on game elements
-        if (!e.target.closest('[data-game-element]')) {
+        if (!(e.target as HTMLElement).closest('[data-game-element]')) {
           e.preventDefault();
           onEmptySpaceRightClick?.(e.clientX, e.clientY);
-        }
-      }}
-      onClick={(e) => {
-        // Handle clicks anywhere except on game elements
-        if (!e.target.closest('[data-game-element]')) {
-          onEmptySpaceClick?.(e.clientX, e.clientY);
         }
       }}
     >

@@ -1314,10 +1314,6 @@ function App() {
                           setCarouselDescriptionSize(size);
                           window.electronAPI.savePreferences({ carouselDescriptionSize: size });
                         }}
-                        onEmptySpaceClick={(x, y) => {
-                          setGameContextMenu(null);
-                          setSimpleContextMenu({ x, y });
-                        }}
                         onEmptySpaceRightClick={(x, y) => {
                           setGameContextMenu(null);
                           setSimpleContextMenu({ x, y });
