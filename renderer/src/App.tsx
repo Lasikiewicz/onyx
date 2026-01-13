@@ -95,6 +95,7 @@ function App() {
   const [carouselLogoSize, setCarouselLogoSize] = useState(100);
   const [carouselButtonSize, setCarouselButtonSize] = useState(14);
   const [carouselDescriptionSize, setCarouselDescriptionSize] = useState(18);
+  const [gridDescriptionSize] = useState(14);
   // Right panel (GameDetailsPanel) settings
   const [rightPanelLogoSize, setRightPanelLogoSize] = useState(100);
   const [rightPanelBoxartPosition, setRightPanelBoxartPosition] = useState<'left' | 'right' | 'none'>('right');
@@ -1266,11 +1267,12 @@ function App() {
                         autoSizeToFit={autoSizeToFit}
                         logoBackgroundColor={logoBackgroundColor}
                         logoBackgroundOpacity={logoBackgroundOpacity}
-                        onGameContextMenu={(game, x, y) => {
+                        descriptionSize={gridDescriptionSize}
+                        onGameContextMenu={(game: Game, x: number, y: number) => {
                           setSimpleContextMenu(null);
                           setGameContextMenu({ game, x, y });
                         }}
-                        onEmptySpaceClick={(x, y) => {
+                        onEmptySpaceClick={(x: number, y: number) => {
                           setGameContextMenu(null);
                           setSimpleContextMenu({ x, y });
                         }}
@@ -1717,12 +1719,12 @@ function App() {
             window.electronAPI.savePreferences({ logoPosition: position });
           }}
           logoBackgroundColor={logoBackgroundColor}
-          onLogoBackgroundColorChange={(color) => {
+          onLogoBackgroundColorChange={(color: string) => {
             setLogoBackgroundColor(color);
             window.electronAPI.savePreferences({ logoBackgroundColor: color });
           }}
           logoBackgroundOpacity={logoBackgroundOpacity}
-          onLogoBackgroundOpacityChange={(opacity) => {
+          onLogoBackgroundOpacityChange={(opacity: number) => {
             setLogoBackgroundOpacity(opacity);
             window.electronAPI.savePreferences({ logoBackgroundOpacity: opacity });
           }}

@@ -35,6 +35,10 @@ interface SimpleContextMenuProps {
   onShowLogoOverBoxartChange?: (show: boolean) => void;
   logoPosition?: 'top' | 'middle' | 'bottom' | 'underneath';
   onLogoPositionChange?: (position: 'top' | 'middle' | 'bottom' | 'underneath') => void;
+  logoBackgroundColor?: string;
+  onLogoBackgroundColorChange?: (color: string) => void;
+  logoBackgroundOpacity?: number;
+  onLogoBackgroundOpacityChange?: (opacity: number) => void;
   gridDescriptionSize?: number;
   onGridDescriptionSizeChange?: (size: number) => void;
   gridButtonSize?: number;
