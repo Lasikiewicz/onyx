@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Game } from '../types/game';
 
 interface GameContextMenuProps {
@@ -16,6 +16,7 @@ interface GameContextMenuProps {
   onHide?: (game: Game) => void;
   onUnhide?: (game: Game) => void;
   isHiddenView?: boolean;
+  onSaveGame?: (game: Game) => Promise<void>;
 }
 
 export const GameContextMenu: React.FC<GameContextMenuProps> = ({
@@ -33,8 +34,11 @@ export const GameContextMenu: React.FC<GameContextMenuProps> = ({
   onHide,
   onUnhide,
   isHiddenView = false,
+  onSaveGame,
 }) => {
   const menuRef = useRef<HTMLDivElement>(null);
+  const [showLogoSizeSubmenu, setShowLogoSizeSubmenu] = useState(false);
+  const logoSizeRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -130,6 +134,19 @@ export const GameContextMenu: React.FC<GameContextMenuProps> = ({
     onClose();
   };
 
+  const handleLogoSizeChange = async (newSize: number) => {
+    try {
+      const updatedGame = { ...game, logoSize: newSize };
+      await onSaveGame?.(updatedGame);
+      setShowLogoSizeSubmenu(false);
+      onClose();
+    } catch (err) {
+      console.error('Error saving logo size:', err);
+    }
+  };
+
+  const logoSizeOptions = [50, 75, 100, 125, 150, 175, 200, 250, 300, 350, 400];
+
   return (
     <div
       ref={menuRef}
@@ -164,6 +181,44 @@ export const GameContextMenu: React.FC<GameContextMenuProps> = ({
           </svg>
           Edit Images
         </button>
+      )}
+      {game.logoUrl && (
+        <div className="relative" ref={logoSizeRef}>
+          <button
+            onClick={() => setShowLogoSizeSubmenu(!showLogoSizeSubmenu)}
+            className="w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 transition-colors flex items-center gap-2"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+            </svg>
+            Logo Size
+            <svg className={`w-3 h-3 ml-auto transition-transform ${showLogoSizeSubmenu ? 'rotate-180' : ''}`} fill="currentColor" viewBox="0 0 24 24">
+              <path d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+            </svg>
+          </button>
+          {showLogoSizeSubmenu && (
+            <div className="absolute left-full top-0 ml-2 bg-gray-800 border border-gray-700 rounded-lg shadow-xl min-w-[140px] py-1 z-[10000]">
+              {logoSizeOptions.map((size) => (
+                <button
+                  key={size}
+                  onClick={() => handleLogoSizeChange(size)}
+                  className={`w-full text-left px-4 py-2 text-sm transition-colors flex items-center gap-2 ${
+                    game.logoSize === size
+                      ? 'bg-blue-600/40 text-blue-300'
+                      : 'text-gray-300 hover:bg-gray-700'
+                  }`}
+                >
+                  {size}px
+                  {game.logoSize === size && (
+                    <svg className="w-4 h-4 ml-auto" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z" />
+                    </svg>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       )}
       {onEditCategories && (
         <button

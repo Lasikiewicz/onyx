@@ -35,6 +35,7 @@ interface LibraryCarouselProps {
   carouselLogoAlignment?: 'left' | 'center' | 'right';
   onMoreSettings?: () => void;
   onEmptySpaceRightClick?: (x: number, y: number) => void;
+  onSaveGame?: (game: Game, oldGame?: Game) => Promise<void>;
 }
 
 export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
@@ -65,6 +66,7 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
   onUnhide,
   isHiddenView = false,
   onEmptySpaceRightClick,
+  onSaveGame,
 }) => {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [showDetailsBarResizer, setShowDetailsBarResizer] = useState(false);
@@ -574,6 +576,7 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
           onHide={onHide}
           onUnhide={onUnhide}
           isHiddenView={isHiddenView}
+          onSaveGame={onSaveGame}
         />,
         document.body
       )}
@@ -595,6 +598,7 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
           onHide={onHide}
           onUnhide={onUnhide}
           isHiddenView={isHiddenView}
+          onSaveGame={onSaveGame}
         />,
         document.body
       )}
