@@ -1327,7 +1327,6 @@ function App() {
                           setGameContextMenu(null);
                           setRightClickMenu({ x, y });
                         }}
-                        onSaveGame={handleSaveGame}
                       />
                     ) : (
                       <LibraryListView
@@ -1801,7 +1800,6 @@ function App() {
           onHide={handleHideGame}
           onUnhide={handleUnhideGame}
           isHiddenView={selectedCategory === 'hidden'}
-          onSaveGame={handleSaveGame}
         />
       )}
 
