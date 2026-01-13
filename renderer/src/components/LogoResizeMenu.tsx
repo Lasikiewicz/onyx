@@ -19,18 +19,11 @@ export const LogoResizeMenu: React.FC<LogoResizeMenuProps> = ({
   rightPanelLogoSize,
 }) => {
   const menuRef = useRef<HTMLDivElement>(null);
-  const openTimeRef = useRef<number>(Date.now());
   const [logoSize, setLogoSize] = useState<number>(game.logoSizePerViewMode?.carousel || rightPanelLogoSize);
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      // Ignore clicks for the first 200ms after opening to prevent immediate close
-      if (Date.now() - openTimeRef.current < 200) {
-        console.log('Ignoring click too soon after opening');
-        return;
-      }
-      
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
         console.log('Click outside logo menu, closing');
         onClose();
@@ -43,11 +36,12 @@ export const LogoResizeMenu: React.FC<LogoResizeMenuProps> = ({
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
+    // Use mouseup instead of mousedown to avoid catching the initial right-click
+    document.addEventListener('mouseup', handleClickOutside);
     document.addEventListener('keydown', handleEscape);
 
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('mouseup', handleClickOutside);
       document.removeEventListener('keydown', handleEscape);
     };
   }, [onClose]);
