@@ -102,7 +102,18 @@ export const LibraryGrid: React.FC<LibraryGridProps> = ({
   return (
     <div className="w-full h-full flex flex-col">
       {/* Grid Container */}
-      <div className="flex-1 overflow-y-auto">
+      <div 
+        className="flex-1 overflow-y-auto"
+        onContextMenu={(e) => {
+          // Right click on empty space in grid - check if target is not a game card
+          const target = e.target as HTMLElement;
+          if (!target.closest('[data-game-card]')) {
+            e.preventDefault();
+            e.stopPropagation();
+            onEmptySpaceClick?.(e.clientX, e.clientY);
+          }
+        }}
+      >
         <DndContext
           sensors={sensors}
           collisionDetection={closestCenter}
@@ -117,6 +128,15 @@ export const LibraryGrid: React.FC<LibraryGridProps> = ({
                   : `repeat(auto-fit, ${useLogosInsteadOfBoxart ? logoSize : gridSize}px)`,
                 gap: `${gameTilePadding}px`,
                 justifyContent: 'start',
+              }}
+              onContextMenu={(e) => {
+                // Right click on empty space in grid itself
+                const target = e.target as HTMLElement;
+                if (!target.closest('[data-game-card]')) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onEmptySpaceClick?.(e.clientX, e.clientY);
+                }
               }}
             >
               {items.map((game) => (

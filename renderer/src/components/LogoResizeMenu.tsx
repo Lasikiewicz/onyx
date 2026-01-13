@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Game } from '../types/game';
 
 interface LogoResizeMenuProps {
@@ -22,6 +23,12 @@ export const LogoResizeMenu: React.FC<LogoResizeMenuProps> = ({
   const menuRef = useRef<HTMLDivElement>(null);
   const [logoSize, setLogoSize] = useState<number>(game.logoSizePerViewMode?.carousel || rightPanelLogoSize);
   const [isSaving, setIsSaving] = useState(false);
+  const [menuPos, setMenuPos] = useState({ x, y });
+  const dragRef = useRef<{ isDragging: boolean; offsetX: number; offsetY: number }>({
+    isDragging: false,
+    offsetX: 0,
+    offsetY: 0,
+  });
 
   useEffect(() => {
     const handleEscape = (event: KeyboardEvent) => {
@@ -37,6 +44,58 @@ export const LogoResizeMenu: React.FC<LogoResizeMenuProps> = ({
       document.removeEventListener('keydown', handleEscape);
     };
   }, [onClose]);
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      // Only close on left click, not right click
+      if (event.button !== 0) return;
+      
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        onClose();
+      }
+    };
+
+    // Small delay to avoid closing immediately after opening
+    const timer = setTimeout(() => {
+      document.addEventListener('mousedown', handleClickOutside);
+    }, 100);
+
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [onClose]);
+
+  const handleDragStart = (e: React.MouseEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    dragRef.current.isDragging = true;
+    dragRef.current.offsetX = e.clientX - menuPos.x;
+    dragRef.current.offsetY = e.clientY - menuPos.y;
+  };
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!dragRef.current.isDragging) return;
+      
+      setMenuPos({
+        x: e.clientX - dragRef.current.offsetX,
+        y: e.clientY - dragRef.current.offsetY,
+      });
+    };
+
+    const handleMouseUp = () => {
+      dragRef.current.isDragging = false;
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, []);
 
   // Adjust position if menu would go off screen
   useEffect(() => {
@@ -64,17 +123,19 @@ export const LogoResizeMenu: React.FC<LogoResizeMenuProps> = ({
     }
   };
 
-  return (
+  const menuContent = (
     <div
       ref={menuRef}
-      className="fixed bg-red-900 border-2 border-red-500 rounded-lg shadow-xl z-[10000] p-4 w-64"
-      style={{ left: `${x}px`, top: `${y}px` }}
-      onMouseDown={(e) => {
-        e.stopPropagation();
-      }}
+      className="fixed bg-gray-800 border border-gray-700 rounded-lg shadow-xl z-[10000] p-4 w-64"
+      style={{ left: `${menuPos.x}px`, top: `${menuPos.y}px` }}
     >
-      <h3 className="text-sm font-semibold text-white mb-3">Resize Logo</h3>
-      <div className="space-y-3">
+      <div
+        className="text-sm font-semibold text-white mb-4 cursor-move select-none"
+        onMouseDown={handleDragStart}
+      >
+        Resize Logo
+      </div>
+      <div className="space-y-4">
         <input
           type="range"
           min="50"
@@ -83,7 +144,7 @@ export const LogoResizeMenu: React.FC<LogoResizeMenuProps> = ({
           value={logoSize}
           onChange={(e) => handleSliderChange(Number(e.target.value))}
           disabled={isSaving}
-          className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
+          className="w-full h-3 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-blue-500"
         />
         <div className="flex justify-between items-center text-xs text-gray-400">
           <span>50px</span>
@@ -93,4 +154,6 @@ export const LogoResizeMenu: React.FC<LogoResizeMenuProps> = ({
       </div>
     </div>
   );
+
+  return createPortal(menuContent, document.body);
 };

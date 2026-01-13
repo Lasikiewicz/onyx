@@ -132,6 +132,19 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
     }
   }, [showLogoResizeDialog, game?.logoSize]);
 
+  // Close the logo resize UI whenever a context menu is invoked anywhere
+  useEffect(() => {
+    const handleGlobalContextMenu = () => {
+      setLogoResizeMenu(null);
+      setShowLogoResizeDialog(false);
+    };
+
+    document.addEventListener('contextmenu', handleGlobalContextMenu, true);
+    return () => {
+      document.removeEventListener('contextmenu', handleGlobalContextMenu, true);
+    };
+  }, []);
+
   // Save preferences when they change
   useEffect(() => {
     const savePreferences = async () => {
@@ -265,6 +278,20 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
       ref={panelRef}
       className="onyx-glass-panel rounded-l-3xl flex flex-col h-full overflow-hidden relative ml-auto"
       style={{ width: `${width}px`, minWidth: '400px' }}
+      onContextMenu={(e) => {
+        // Allow right-click anywhere except on explicit interactive elements (buttons/links/logo)
+        const target = e.target as HTMLElement;
+        const isInteractive = target.closest('button, a, [role="button"], input, textarea, select');
+        const isLogoArea = target.closest('[data-logo-area]');
+
+        if (isInteractive || isLogoArea) return;
+
+        setLogoResizeMenu(null);
+        setShowLogoResizeDialog(false);
+        e.preventDefault();
+        e.stopPropagation();
+        onRightClick?.(e.clientX, e.clientY);
+      }}
     >
       <div
         className="absolute left-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-blue-500 transition-colors z-10"
@@ -336,6 +363,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
             rightPanelBoxartPosition === 'right' ? 'left-6' : 
             'left-1/2 transform -translate-x-1/2'
           }`}
+          data-logo-area
           style={{ 
             width: rightPanelBoxartPosition === 'none' ? 'calc(100% - 3rem)' : 'calc(100% - 11rem)', // Full width when no boxart, space for boxart otherwise
             transform: rightPanelBoxartPosition === 'none' ? 'translateY(50%) translateX(-50%)' : 'translateY(50%)',

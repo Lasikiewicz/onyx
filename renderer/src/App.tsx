@@ -1197,17 +1197,21 @@ function App() {
           <div 
             ref={gridContainerRef}
             className={`flex-1 overflow-y-auto relative z-10 ${viewMode === 'carousel' ? '' : 'p-4'}`}
-            onClick={(e) => {
-              // Left click on empty space opens simple context menu
-              if (e.target === e.currentTarget) {
+            onContextMenuCapture={(e) => {
+              // Capture-phase fallback: open menu on any non-card area before children stop propagation
+              const target = e.target as HTMLElement;
+              if (!target.closest('[data-game-card]')) {
+                e.preventDefault();
+                e.stopPropagation();
                 setGameContextMenu(null);
                 setRightClickMenu({ x: e.clientX, y: e.clientY });
               }
             }}
             onContextMenu={(e) => {
-              // Right click on empty space opens simple context menu
-              if (e.target === e.currentTarget) {
+              const target = e.target as HTMLElement;
+              if (!target.closest('[data-game-card]')) {
                 e.preventDefault();
+                e.stopPropagation();
                 setGameContextMenu(null);
                 setRightClickMenu({ x: e.clientX, y: e.clientY });
               }

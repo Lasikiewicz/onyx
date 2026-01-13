@@ -59,16 +59,22 @@ export const SortableGameCard: React.FC<SortableGameCardProps> = ({ game, onPlay
     }
   };
 
+  // Merge listeners with context menu handler
+  const mergedListeners = {
+    ...listeners,
+    onContextMenu: handleContextMenu,
+  };
+
   return (
     <div 
       ref={setNodeRef} 
       style={style} 
-      {...attributes} 
-      {...listeners}
+      {...attributes}
+      {...mergedListeners}
       onClick={handleClick}
       onDoubleClick={handleDoubleClick}
-      onContextMenu={handleContextMenu}
       className="cursor-pointer"
+      data-game-card
     >
       <GameCard game={game} onPlay={onPlay} onEdit={onEdit} hideTitle={hideTitle} showLogoOverBoxart={showLogoOverBoxart} logoPosition={logoPosition} useLogoInsteadOfBoxart={useLogoInsteadOfBoxart} descriptionSize={descriptionSize} viewMode={viewMode} />
     </div>
