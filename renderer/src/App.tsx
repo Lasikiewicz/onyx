@@ -1318,6 +1318,10 @@ function App() {
                           setGameContextMenu(null);
                           setSimpleContextMenu({ x, y });
                         }}
+                        onEmptySpaceRightClick={(x, y) => {
+                          setGameContextMenu(null);
+                          setSimpleContextMenu({ x, y });
+                        }}
                       />
                     ) : (
                       <LibraryListView

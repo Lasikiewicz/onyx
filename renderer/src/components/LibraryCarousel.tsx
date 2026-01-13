@@ -31,6 +31,8 @@ interface LibraryCarouselProps {
   carouselDescriptionSize?: number;
   onCarouselDescriptionSizeChange?: (size: number) => void;
   onMoreSettings?: () => void;
+  onEmptySpaceClick?: (x: number, y: number) => void;
+  onEmptySpaceRightClick?: (x: number, y: number) => void;
 }
 
 export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
@@ -57,6 +59,8 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
   onHide,
   onUnhide,
   isHiddenView = false,
+  onEmptySpaceClick,
+  onEmptySpaceRightClick,
 }) => {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [showLogoResizer, setShowLogoResizer] = useState(false);
@@ -204,7 +208,22 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
   }
 
   return (
-    <div className="h-full w-full flex flex-col absolute inset-0">
+    <div 
+      className="h-full w-full flex flex-col absolute inset-0"
+      onClick={(e) => {
+        // Handle clicks on empty space
+        if (e.target === e.currentTarget) {
+          onEmptySpaceClick?.(e.clientX, e.clientY);
+        }
+      }}
+      onContextMenu={(e) => {
+        // Handle right-clicks on empty space
+        if (e.target === e.currentTarget) {
+          e.preventDefault();
+          onEmptySpaceRightClick?.(e.clientX, e.clientY);
+        }
+      }}
+    >
       {/* Game details across the top - additional details bar */}
       {showCarouselDetails && selectedGame && (
         <div 
