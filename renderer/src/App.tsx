@@ -1215,6 +1215,14 @@ function App() {
                 setSimpleContextMenu({ x: e.clientX, y: e.clientY });
               }
             }}
+            onContextMenu={(e) => {
+              // Right click on empty space opens simple context menu
+              if (e.target === e.currentTarget) {
+                e.preventDefault();
+                setGameContextMenu(null);
+                setSimpleContextMenu({ x: e.clientX, y: e.clientY });
+              }
+            }}
           >
             {loading && (
               <div className="text-center py-8">
