@@ -31,6 +31,9 @@ export interface UserPreferences {
     showReleaseDate: boolean;
     showGenres: boolean;
     showPlatform: boolean;
+    showLauncher?: boolean;
+    showLogos?: boolean;
+    titleTextSize?: number;
   };
   listViewSize?: number;
   logoViewSize?: number;
@@ -139,6 +142,9 @@ export class UserPreferencesService {
               showReleaseDate: true,
               showGenres: true,
               showPlatform: false,
+              showLauncher: true,
+              showLogos: false,
+              titleTextSize: 18,
             },
             listViewSize: 80,
             logoViewSize: 200,
@@ -217,6 +223,9 @@ export class UserPreferencesService {
         showReleaseDate: true,
         showGenres: true,
         showPlatform: false,
+        showLauncher: true,
+        showLogos: false,
+        titleTextSize: 18,
       },
       listViewSize: 80,
       logoViewSize: 200,
@@ -282,6 +291,9 @@ export class UserPreferencesService {
         showReleaseDate: true,
         showGenres: true,
         showPlatform: false,
+        showLauncher: true,
+        showLogos: false,
+        titleTextSize: 18,
       },
       listViewSize: 80,
       logoViewSize: 200,
@@ -345,6 +357,9 @@ export class UserPreferencesService {
         showReleaseDate: true,
         showGenres: true,
         showPlatform: false,
+        showLauncher: true,
+        showLogos: false,
+        titleTextSize: 18,
       },
       listViewSize: 80,
       logoViewSize: 200,

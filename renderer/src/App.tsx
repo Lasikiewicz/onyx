@@ -97,6 +97,17 @@ function App() {
   const [carouselButtonSize, setCarouselButtonSize] = useState(14);
   const [carouselDescriptionSize, setCarouselDescriptionSize] = useState(18);
   const [gridDescriptionSize] = useState(14);
+  const defaultListViewOptions = {
+    showDescription: true,
+    showCategories: false,
+    showPlaytime: true,
+    showReleaseDate: true,
+    showGenres: true,
+    showPlatform: false,
+    showLauncher: true,
+    showLogos: false,
+    titleTextSize: 18,
+  };
   // Right panel (GameDetailsPanel) settings
   const [rightPanelLogoSize, setRightPanelLogoSize] = useState(100);
   const [rightPanelBoxartPosition, setRightPanelBoxartPosition] = useState<'left' | 'right' | 'none'>('right');
@@ -114,14 +125,7 @@ function App() {
   }, [viewMode]);
   const [backgroundMode, setBackgroundMode] = useState<'image' | 'color'>('image');
   const [backgroundColor, setBackgroundColor] = useState('#000000');
-  const [listViewOptions, setListViewOptions] = useState({
-    showDescription: true,
-    showCategories: false,
-    showPlaytime: true,
-    showReleaseDate: true,
-    showGenres: true,
-    showPlatform: false,
-  });
+  const [listViewOptions, setListViewOptions] = useState(defaultListViewOptions);
   const [listViewSize, setListViewSize] = useState(128);
   const [panelWidth, setPanelWidth] = useState(800);
   const [rightClickMenu, setRightClickMenu] = useState<{ x: number; y: number } | null>(null);
@@ -164,7 +168,11 @@ function App() {
         if (prefs.viewMode) setViewMode(prefs.viewMode as 'grid' | 'list' | 'logo');
         if (prefs.backgroundMode) setBackgroundMode(prefs.backgroundMode as 'image' | 'color');
         if (prefs.backgroundColor) setBackgroundColor(prefs.backgroundColor);
-        if (prefs.listViewOptions) setListViewOptions(prefs.listViewOptions);
+        if (prefs.listViewOptions) {
+          setListViewOptions({ ...defaultListViewOptions, ...prefs.listViewOptions });
+        } else {
+          setListViewOptions(defaultListViewOptions);
+        }
         if (prefs.listViewSize) setListViewSize(prefs.listViewSize);
         const savedPanelWidth = (prefs.panelWidthByView && prefs.viewMode ? prefs.panelWidthByView[prefs.viewMode as 'grid' | 'list' | 'logo' | 'carousel'] : undefined) ?? prefs.panelWidth;
         if (savedPanelWidth) setPanelWidth(savedPanelWidth);

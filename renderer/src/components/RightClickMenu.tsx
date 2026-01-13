@@ -46,6 +46,9 @@ interface RightClickMenuProps {
     showReleaseDate: boolean;
     showGenres: boolean;
     showPlatform: boolean;
+    showLauncher?: boolean;
+    showLogos?: boolean;
+    titleTextSize?: number;
   };
   onListViewOptionsChange?: (options: {
     showDescription: boolean;
@@ -54,6 +57,9 @@ interface RightClickMenuProps {
     showReleaseDate: boolean;
     showGenres: boolean;
     showPlatform: boolean;
+    showLauncher?: boolean;
+    showLogos?: boolean;
+    titleTextSize?: number;
   }) => void;
   // Grid view specific props
   showLogoOverBoxart?: boolean;
@@ -794,39 +800,91 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                   </div>
                 )}
 
-                {/* List view section toggles */}
+                {/* List view specific controls */}
                 {viewMode === 'list' && listViewOptions && (
-                  <div className="px-3 py-2 bg-gray-700/30 rounded-md space-y-2">
-                    <label className="block text-xs text-gray-400 font-semibold">Game Tile Sections</label>
-                    {(
-                      [
-                        { key: 'showDescription', label: 'Description' },
-                        { key: 'showReleaseDate', label: 'Release Date' },
-                        { key: 'showGenres', label: 'Genres' },
-                        { key: 'showCategories', label: 'Categories' },
-                        { key: 'showPlaytime', label: 'Playtime' },
-                        { key: 'showPlatform', label: 'Platform' },
-                      ] as const
-                    ).map(({ key, label }) => (
-                      <div key={key} className="flex items-center justify-between text-xs">
-                        <span className="text-gray-300">{label}</span>
+                  <div className="space-y-2">
+                    {/* Title vs Logo controls */}
+                    <div className="px-3 py-2 bg-gray-700/30 rounded-md space-y-2">
+                      <label className="block text-xs text-gray-400 font-semibold">Title Display</label>
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-gray-300">Show Logos Instead of Titles</span>
                         <button
                           onClick={() => onListViewOptionsChange?.({
                             ...listViewOptions,
-                            [key]: !listViewOptions[key],
+                            showLogos: !listViewOptions.showLogos,
                           })}
                           className={`relative inline-flex h-3 w-6 items-center rounded-full transition-colors ${
-                            listViewOptions[key] ? 'bg-blue-600' : 'bg-gray-600'
+                            listViewOptions.showLogos ? 'bg-blue-600' : 'bg-gray-600'
                           }`}
                         >
                           <span
                             className={`inline-block h-2 w-2 transform rounded-full bg-white transition-transform ${
-                              listViewOptions[key] ? 'translate-x-3' : 'translate-x-0.5'
+                              listViewOptions.showLogos ? 'translate-x-3' : 'translate-x-0.5'
                             }`}
                           />
                         </button>
                       </div>
-                    ))}
+
+                      {!listViewOptions.showLogos && (
+                        <div>
+                          <label className="block text-xs text-gray-400 mb-1 font-semibold">Title Text Size</label>
+                          <input
+                            type="range"
+                            min={12}
+                            max={32}
+                            step="1"
+                            value={listViewOptions.titleTextSize ?? 18}
+                            onChange={(e) => onListViewOptionsChange?.({
+                              ...listViewOptions,
+                              titleTextSize: Number(e.target.value),
+                            })}
+                            className="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer slider accent-blue-600"
+                          />
+                          <div className="flex justify-between text-xs text-gray-500 mt-1">
+                            <span>12px</span>
+                            <span className="font-medium text-gray-300">{listViewOptions.titleTextSize ?? 18}px</span>
+                            <span>32px</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Game Tile Sections */}
+                    <div className="px-3 py-2 bg-gray-700/30 rounded-md space-y-2">
+                      <label className="block text-xs text-gray-400 font-semibold">Game Tile Sections</label>
+                      {(
+                        [
+                          { key: 'showDescription', label: 'Description' },
+                          { key: 'showReleaseDate', label: 'Release Date' },
+                          { key: 'showGenres', label: 'Genres' },
+                          { key: 'showCategories', label: 'Categories' },
+                          { key: 'showPlatform', label: 'Platform' },
+                          { key: 'showLauncher', label: 'Launcher' },
+                        ] as const
+                      ).map(({ key, label }) => {
+                        const currentValue = !!listViewOptions[key as keyof typeof listViewOptions];
+                        return (
+                          <div key={key} className="flex items-center justify-between text-xs">
+                            <span className="text-gray-300">{label}</span>
+                            <button
+                              onClick={() => onListViewOptionsChange?.({
+                                ...listViewOptions,
+                                [key]: !currentValue,
+                              })}
+                              className={`relative inline-flex h-3 w-6 items-center rounded-full transition-colors ${
+                                currentValue ? 'bg-blue-600' : 'bg-gray-600'
+                              }`}
+                            >
+                              <span
+                                className={`inline-block h-2 w-2 transform rounded-full bg-white transition-transform ${
+                                  currentValue ? 'translate-x-3' : 'translate-x-0.5'
+                                }`}
+                              />
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
 

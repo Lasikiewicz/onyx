@@ -9,6 +9,9 @@ export interface ListViewOptions {
   showReleaseDate: boolean;
   showGenres: boolean;
   showPlatform: boolean;
+  showLauncher?: boolean;
+  showLogos?: boolean;
+  titleTextSize?: number;
 }
 
 interface LibraryListViewProps {
@@ -50,6 +53,9 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
     showReleaseDate: true,
     showGenres: true,
     showPlatform: false,
+    showLauncher: true,
+    showLogos: false,
+    titleTextSize: 18,
   },
   listViewSize = 128,
   onEmptySpaceClick,
@@ -72,6 +78,31 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
     }
   };
 
+  const formatLauncher = (launcher?: string) => {
+    if (!launcher) return '';
+    const normalized = launcher.toLowerCase();
+    const lookup: Record<string, string> = {
+      steam: 'Steam',
+      epic: 'Epic Games',
+      gog: 'GOG',
+      xbox: 'Xbox',
+      ubisoft: 'Ubisoft Connect',
+      uplay: 'Ubisoft Connect',
+      rockstar: 'Rockstar',
+      battlenet: 'Battle.net',
+      blizzard: 'Battle.net',
+      ea: 'EA App',
+      origin: 'Origin',
+      amazon: 'Amazon Games',
+      itch: 'itch.io',
+    };
+    if (lookup[normalized]) return lookup[normalized];
+    return launcher.charAt(0).toUpperCase() + launcher.slice(1);
+  };
+
+  const showLogoInsteadOfTitle = listViewOptions.showLogos ?? false;
+  const titleTextSize = listViewOptions.titleTextSize ?? 18;
+
   const [contextMenu, setContextMenu] = useState<{ game: Game; x: number; y: number } | null>(null);
 
   // Handle right-click on game boxart/logo (opens game context menu)
@@ -92,17 +123,19 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
     >
       <div className="flex-1 overflow-y-auto">
         <div className="space-y-2 p-2">
-          {games.map((game) => (
-            <div
-              key={game.id}
-              onClick={() => onGameClick?.(game)}
-              onContextMenu={(e) => {
-                // Right click anywhere except boxart opens library context menu
-                e.preventDefault();
-                onEmptySpaceClick?.(e.clientX, e.clientY);
-              }}
-              className="flex items-center gap-4 p-3 bg-gray-800/40 backdrop-blur-md border border-white/5 rounded-xl transition-all duration-300 hover:bg-gray-700/60 hover:border-cyan-400/30 cursor-pointer group"
-            >
+          {games.map((game) => {
+            const launcherLabel = formatLauncher(game.source || game.platform);
+            return (
+              <div
+                key={game.id}
+                onClick={() => onGameClick?.(game)}
+                onContextMenu={(e) => {
+                  // Right click anywhere except boxart opens library context menu
+                  e.preventDefault();
+                  onEmptySpaceClick?.(e.clientX, e.clientY);
+                }}
+                className="flex items-center gap-4 p-3 bg-gray-800/40 backdrop-blur-md border border-white/5 rounded-xl transition-all duration-300 hover:bg-gray-700/60 hover:border-cyan-400/30 cursor-pointer group"
+              >
               {/* Game Image */}
               <div 
                 className="flex-shrink-0 overflow-hidden rounded-lg"
@@ -131,9 +164,28 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
 
               {/* Game Info */}
               <div className="flex-1 min-w-0">
-                <h3 className="text-lg font-semibold text-white truncate mb-1">
-                  {game.title}
-                </h3>
+                <div className="flex items-center gap-3 mb-1 min-h-[28px]">
+                  {showLogoInsteadOfTitle && game.logoUrl ? (
+                    <img
+                      src={game.logoUrl}
+                      alt={game.title}
+                      className="max-h-10 object-contain"
+                      style={{ maxWidth: `${Math.round(listViewSize)}px` }}
+                      onContextMenu={(e) => handleGameElementContextMenu(e, game)}
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.style.display = 'none';
+                      }}
+                    />
+                  ) : (
+                    <h3
+                      className="font-semibold text-white truncate leading-tight"
+                      style={{ fontSize: `${titleTextSize}px` }}
+                    >
+                      {game.title}
+                    </h3>
+                  )}
+                </div>
                 <div className="flex flex-wrap gap-4 text-sm text-gray-400">
                   {listViewOptions.showPlaytime && game.playtime !== undefined && (
                     <span className="flex items-center gap-1">
@@ -173,6 +225,14 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                       </svg>
                       {game.platform === 'steam' ? 'PC (Windows)' : game.platform}
+                    </span>
+                  )}
+                  {listViewOptions.showLauncher && launcherLabel && (
+                    <span className="flex items-center gap-1">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7h16M7 7V5a2 2 0 012-2h6a2 2 0 012 2v2m-6 5v5m-4 0h8a2 2 0 002-2V7H5v8a2 2 0 002 2z" />
+                      </svg>
+                      {launcherLabel}
                     </span>
                   )}
                 </div>
@@ -233,7 +293,8 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                 )}
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       </div>
       {contextMenu && (
