@@ -344,7 +344,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
               alt={game.title}
               className="max-w-full max-h-full object-contain cursor-pointer drop-shadow-2xl"
               style={{ 
-                maxHeight: `${showLogoResizeDialog && localLogoSize !== undefined ? localLogoSize : rightPanelLogoSize}px`,
+                maxHeight: `${showLogoResizeDialog && localLogoSize !== undefined ? localLogoSize : (game.logoSize || rightPanelLogoSize)}px`,
                 ...(game.removeLogoTransparency ? {
                   backgroundColor: 'rgba(0, 0, 0, 0.5)',
                   padding: '8px',

@@ -132,12 +132,16 @@ export const GameCard: React.FC<GameCardProps> = ({ game, hideTitle = false, sho
             key={game.logoUrl}
             src={game.logoUrl}
             alt={`${game.title} Logo`}
-            className="max-w-full max-h-12 object-contain"
-            style={game.removeLogoTransparency ? { 
-              backgroundColor: 'rgba(0, 0, 0, 0.5)',
-              padding: '4px',
-              borderRadius: '4px'
-            } : {}}
+            style={{
+              maxWidth: '100%',
+              maxHeight: `${game.logoSize || 48}px`,
+              objectFit: 'contain',
+              ...(game.removeLogoTransparency ? { 
+                backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                padding: '4px',
+                borderRadius: '4px'
+              } : {})
+            }}
             onError={(e) => {
               const target = e.target as HTMLImageElement;
               console.error('Failed to load logo:', game.logoUrl, target.src);

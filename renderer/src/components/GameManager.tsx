@@ -1332,6 +1332,33 @@ export const GameManager: React.FC<GameManagerProps> = ({
                         </div>
                       </div>
 
+                      {/* Per-Game Logo Size Control */}
+                      {editedGame.logoUrl && (
+                        <div className="border-t border-gray-700 pt-4 mt-4">
+                          <label className="block text-sm font-medium text-gray-300 mb-3">Logo Size for this game</label>
+                          <div className="flex items-center gap-4">
+                            <input
+                              type="range"
+                              min="50"
+                              max="400"
+                              step="10"
+                              value={editedGame.logoSize || 100}
+                              onChange={(e) => setEditedGame({ ...editedGame, logoSize: Number(e.target.value) })}
+                              className="flex-1 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
+                            />
+                            <span className="text-sm text-gray-400 w-12 text-right">{editedGame.logoSize || 100}px</span>
+                            <button
+                              onClick={() => setEditedGame({ ...editedGame, logoSize: undefined })}
+                              className="px-3 py-1 text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 rounded transition-colors"
+                              title="Reset to default size"
+                            >
+                              Reset
+                            </button>
+                          </div>
+                          <p className="text-xs text-gray-500 mt-2">Adjust the logo size just for this game (default: 100px). Leave at 100 for global setting.</p>
+                        </div>
+                      )}
+
                       {/* Image Search Panel */}
                       {showImageSearch && showImageSearch.gameId === selectedGame.id && (
                         <div className="border-t border-gray-800 pt-6">
