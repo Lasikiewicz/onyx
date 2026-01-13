@@ -205,23 +205,6 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
     }
   }, [isResizing, isResizingFanart, isResizingDescription, isResizingDescriptionWidth]);
 
-  // Handle right-click anywhere in the right section (opens library context menu)
-  const handleRightClick = (e: React.MouseEvent) => {
-    // Check if the right-click was on the logo image
-    const target = e.target as HTMLElement;
-    if (target.tagName === 'IMG') {
-      // This is the logo, prevent default and let the logo handler deal with it
-      e.preventDefault();
-      e.stopPropagation();
-      return;
-    }
-    
-    e.preventDefault();
-    e.stopPropagation();
-    // Call the library context menu (same as empty space click)
-    onRightClick?.(e.clientX, e.clientY);
-  };
-
   // Handle right-click on game elements (boxart/logo) - opens game context menu
   const handleGameElementRightClick = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -282,7 +265,6 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
       ref={panelRef}
       className="onyx-glass-panel rounded-l-3xl flex flex-col h-full overflow-hidden relative ml-auto"
       style={{ width: `${width}px`, minWidth: '400px' }}
-      onContextMenu={handleRightClick}
     >
       <div
         className="absolute left-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-blue-500 transition-colors z-10"
@@ -382,9 +364,10 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
                 target.style.display = 'none';
                 target.src = ''; // Clear src to prevent retries
               }}
-              onContextMenu={(e) => {
+              onContextMenuCapture={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
+                console.log('Logo right-clicked, opening resize menu');
                 setLogoResizeMenu({ x: e.clientX, y: e.clientY });
               }}
             />
