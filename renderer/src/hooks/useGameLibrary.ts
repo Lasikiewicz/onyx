@@ -7,7 +7,7 @@ function addCacheBuster(url: string, timestamp?: number): string {
   // Add timestamp as cache buster (only for local/http URLs, not for data URLs)
   if (url.startsWith('onyx-local://') || url.startsWith('http://') || url.startsWith('https://')) {
     // Remove any existing timestamp parameters to avoid stacking them
-    const cleanUrl = url.replace(/[?&]t=\d+(&|$)/g, (match, ampersand) => ampersand === '&' ? '&' : '');
+    const cleanUrl = url.replace(/[?&]t=\d+(&|$)/g, (_match, ampersand) => ampersand === '&' ? '&' : '');
     const separator = cleanUrl.includes('?') ? '&' : '?';
     return `${cleanUrl}${separator}t=${timestamp || Date.now()}`;
   }

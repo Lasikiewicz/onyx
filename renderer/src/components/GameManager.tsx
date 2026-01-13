@@ -1102,7 +1102,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
         </div>
 
         {/* Error/Success Messages */}
-        {error && (
+        {error && !error.includes('Steam account not linked') && (
           <div className="mx-6 mt-4 bg-red-900/20 border border-red-500 rounded p-3 text-red-300 text-sm">
             {error}
           </div>

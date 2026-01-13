@@ -1579,10 +1579,11 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                                 </div>
                               </div>
                               
-                              {/* Steam-specific options */}
-                              {app.id === 'steam' && (
+                              {/* Steam-specific options - hidden when not signed in */}
+                              {app.id === 'steam' && steamAuthState.authenticated && (
                                 <div className="space-y-2 pt-1.5 border-t border-gray-600">
-                                  {/* Steam Authentication Status */}
+                                  {/* Steam Authentication Status - hidden when not signed in */}
+                                  {steamAuthState.authenticated && (
                                   <div className="flex items-center justify-between p-1.5 bg-gray-800/50 rounded">
                                     <div className="flex items-center gap-1.5">
                                       <div className={`w-1.5 h-1.5 rounded-full ${steamAuthState.authenticated ? 'bg-green-500' : 'bg-gray-500'}`}></div>
@@ -1608,9 +1609,10 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                                       </button>
                                     )}
                                   </div>
+                                  )}
                                   
-                                  {/* Sign into Steam button - only show when not authenticated */}
-                                  {!steamAuthState.authenticated && (
+                                  {/* Sign into Steam button - DISABLED */}
+                                  {false && !steamAuthState.authenticated && (
                                     <button
                                       onClick={handleSteamAuthenticate}
                                       disabled={isAuthenticating}
