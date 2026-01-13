@@ -78,5 +78,6 @@ jobs:
             release/*.blockmap
             release/latest.yml
           draft: false
+          overwrite: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
