@@ -69,6 +69,11 @@ export const MenuBar: React.FC<MenuBarProps> = ({
   const [isSortDropdownOpen, setIsSortDropdownOpen] = useState(false);
   const [isLauncherDropdownOpen, setIsLauncherDropdownOpen] = useState(false);
   const [isOnyxSettingsMenuOpen, setIsOnyxSettingsMenuOpen] = useState(false);
+  
+  // Check if this is an alpha build using build-time constant
+  // __BUILD_PROFILE__ is set by Vite during the build process
+  const isAlphaBuild = __BUILD_PROFILE__ === 'alpha' || import.meta.env.DEV;
+  
   const filterDropdownRef = useRef<HTMLDivElement>(null);
   const sortDropdownRef = useRef<HTMLDivElement>(null);
   const launcherDropdownRef = useRef<HTMLDivElement>(null);
@@ -122,7 +127,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
           </button>
         )}
         {/* Bug Report Button (development and alpha builds) */}
-        {(import.meta.env.DEV || __BUILD_PROFILE__ === 'alpha') && onBugReport && (
+        {(import.meta.env.DEV || isAlphaBuild) && onBugReport && (
           <button
             onClick={() => {
               onBugReport();

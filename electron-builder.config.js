@@ -64,7 +64,7 @@ const config = {
     uninstallerIcon: 'build/icon.ico',
     perMachine: false,
     deleteAppDataOnUninstall: false,
-    runAfterFinish: false
+    runAfterFinish: true
   },
   publish: {
     provider: 'github',
