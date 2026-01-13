@@ -12,6 +12,30 @@ Onyx supports three separate build channels that can coexist on the same compute
 
 Alpha and Production builds use different App IDs, allowing them to be installed side-by-side without conflicts. Alpha builds display a yellow "ALPHA" banner in the top-right corner for easy identification.
 
+## Git Workflow
+
+**All local development and testing is done on the `master` branch.**
+
+### Pushing Alpha Builds
+
+When ready to deploy an alpha build:
+
+```bash
+git push origin master:develop --force
+```
+
+This overwrites the `develop` branch with `master`, triggering an automatic Alpha build via GitHub Actions.
+
+### Pushing Production Builds
+
+Once the alpha build is tested and confirmed working:
+
+```bash
+git push origin develop:main --force
+```
+
+This overwrites the `main` branch with `develop`, triggering an automatic Production build via GitHub Actions.
+
 ## Project Structure
 
 ```
@@ -124,10 +148,12 @@ Releases are tagged as:
 - Alpha: `alpha-v{version}` (marked as pre-release)
 - Production: `v{version}` (stable release)
 
-To use automated builds:
-1. Push to `develop` for Alpha builds
-2. Merge `develop` into `main` for Production builds
-3. Download releases from the GitHub Releases page
+**Workflow:**
+1. Work and test locally on `master` branch
+2. Force push `master` to `develop` for Alpha builds: `git push origin master:develop --force`
+3. Test the Alpha build
+4. Force push `develop` to `main` for Production builds: `git push origin develop:main --force`
+5. Download releases from the GitHub Releases page
 
 ### Icon Management
 

@@ -44,9 +44,22 @@
 - **IPC**: ContextBridge for secure communication between main and renderer processes
 
 ### Build Channels
-- **Development**: Local development builds
+- **Development**: Local development builds on `master` branch
 - **Alpha**: Testing builds from `develop` branch (installs as "Onyx Alpha")
 - **Production**: Stable builds from `main` branch (installs as "Onyx")
+
+### Git Workflow
+**All local work and testing is done on the `master` branch.**
+
+- **Alpha Deployment**: Force push `master` → `develop` to trigger Alpha build
+  ```bash
+  git push origin master:develop --force
+  ```
+
+- **Production Deployment**: Force push `develop` → `main` to trigger Production build
+  ```bash
+  git push origin develop:main --force
+  ```
 
 ---
 
