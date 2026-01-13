@@ -704,7 +704,7 @@ function App() {
   const checkProcessRunning = async (pid: number): Promise<boolean> => {
     try {
       // On Windows, we can use tasklist to check if process exists
-      const result = await window.electronAPI.checkProcessExists?.(pid);
+      const result = await window.electronAPI.checkProcessExists(pid);
       return result ?? false;
     } catch {
       return false;

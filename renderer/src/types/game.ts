@@ -119,7 +119,7 @@ declare global {
       fixMatch: (query: string, scannedGame?: any) => Promise<{ success: boolean; error?: string; matchedGame?: any; metadata?: any }>;
       fetchAndUpdateByProviderId: (gameId: string, providerId: string, providerSource: string) => Promise<{ success: boolean; error?: string; metadata: GameMetadata | null }>;
       fetchMetadataOnlyByProviderId: (gameId: string, providerId: string, providerSource: string) => Promise<{ success: boolean; error?: string; metadata: Partial<GameMetadata> | null }>;
-      launchGame: (gameId: string) => Promise<{ success: boolean; error?: string }>;
+      launchGame: (gameId: string) => Promise<{ success: boolean; error?: string; pid?: number }>;
       getAppConfigs: () => Promise<Record<string, { id: string; name: string; enabled: boolean; path: string; autoAdd?: boolean; syncPlaytime?: boolean }>>;
       getAppConfig: (appId: string) => Promise<{ id: string; name: string; enabled: boolean; path: string; autoAdd?: boolean; syncPlaytime?: boolean } | null>;
       saveAppConfig: (config: { id: string; name: string; enabled: boolean; path: string; autoAdd?: boolean }) => Promise<{ success: boolean; error?: string }>;
@@ -169,6 +169,7 @@ declare global {
       getName: () => Promise<string>;
       removeWinGDKGames: () => Promise<{ success: boolean; removedCount?: number; removedGames?: Array<{ id: string; title: string; exePath?: string }>; error?: string }>;
       openPath: (pathOrType: string) => Promise<{ success: boolean; error?: string }>;
+      checkProcessExists: (pid: number) => Promise<boolean>;
       suspend: {
         getRunningGames: () => Promise<Array<{ gameId: string; title: string; pid: number; status: 'running' | 'suspended'; exePath?: string }>>;
         suspendGame: (gameId: string) => Promise<{ success: boolean; error?: string }>;
