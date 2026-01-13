@@ -23,25 +23,16 @@ export const LogoResizeMenu: React.FC<LogoResizeMenuProps> = ({
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        console.log('Click outside logo menu, closing');
-        onClose();
-      }
-    };
-
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
+        console.log('Escape pressed, closing logo menu');
         onClose();
       }
     };
 
-    // Use mouseup instead of mousedown to avoid catching the initial right-click
-    document.addEventListener('mouseup', handleClickOutside);
     document.addEventListener('keydown', handleEscape);
 
     return () => {
-      document.removeEventListener('mouseup', handleClickOutside);
       document.removeEventListener('keydown', handleEscape);
     };
   }, [onClose]);
@@ -75,8 +66,11 @@ export const LogoResizeMenu: React.FC<LogoResizeMenuProps> = ({
   return (
     <div
       ref={menuRef}
-      className="fixed bg-gray-800 border border-gray-700 rounded-lg shadow-xl z-[9999] p-4 w-64"
+      className="fixed bg-gray-800 border border-gray-700 rounded-lg shadow-xl z-[10000] p-4 w-64"
       style={{ left: `${x}px`, top: `${y}px` }}
+      onMouseDown={(e) => {
+        e.stopPropagation();
+      }}
     >
       <h3 className="text-sm font-semibold text-white mb-3">Resize Logo</h3>
       <div className="space-y-3">
