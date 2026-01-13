@@ -30,6 +30,9 @@ interface LibraryCarouselProps {
   onCarouselButtonSizeChange?: (size: number) => void;
   carouselDescriptionSize?: number;
   onCarouselDescriptionSizeChange?: (size: number) => void;
+  carouselDescriptionAlignment?: 'left' | 'center' | 'right';
+  carouselButtonAlignment?: 'left' | 'center' | 'right';
+  carouselLogoAlignment?: 'left' | 'center' | 'right';
   onMoreSettings?: () => void;
   onEmptySpaceRightClick?: (x: number, y: number) => void;
 }
@@ -52,6 +55,9 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
   onCarouselLogoSizeChange,
   carouselButtonSize = 14,
   carouselDescriptionSize = 18,
+  carouselDescriptionAlignment = 'center',
+  carouselButtonAlignment = 'center',
+  carouselLogoAlignment = 'center',
   onEditImages,
   onEditCategories,
   onFixMatch,
@@ -66,6 +72,23 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
   const [detailsBarSize, setDetailsBarSize] = useState(propDetailsBarSize);
   const [logoContextMenu, setLogoContextMenu] = useState<{ x: number; y: number } | null>(null);
   const [thumbnailContextMenu, setThumbnailContextMenu] = useState<{ x: number; y: number; game: Game } | null>(null);
+
+  // Helper functions for alignment
+  const getAlignmentClass = (alignment: 'left' | 'center' | 'right') => {
+    switch (alignment) {
+      case 'left': return 'text-left';
+      case 'right': return 'text-right';
+      default: return 'text-center';
+    }
+  };
+
+  const getFlexAlignment = (alignment: 'left' | 'center' | 'right') => {
+    switch (alignment) {
+      case 'left': return 'justify-start';
+      case 'right': return 'justify-end';
+      default: return 'justify-center';
+    }
+  };
 
   // Update local state when props change
   React.useEffect(() => {
@@ -261,18 +284,22 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
       )}
 
       {/* Main game display area - always visible */}
-      <div className="h-full relative overflow-hidden">
+      <div className="h-full relative">
         {selectedGame && (
           <div 
-            className="absolute right-0 top-0 flex flex-col items-center justify-center"
+            className="absolute right-0 top-0 flex flex-col justify-center"
             style={{
               width: '50%',
               height: `calc(100vh - 200px)`, // Full height above carousel
-              padding: '20px'
+              padding: '20px',
+              zIndex: 30, // Above carousel
+              pointerEvents: 'auto' // Ensure clicks work
             }}
           >
             {/* Logo Section - Fixed above description */}
-            <div className="flex justify-center mb-6">
+            <div 
+              className={`w-full flex mb-6 ${getFlexAlignment(carouselLogoAlignment)}`}
+            >
               {showCarouselLogos ? (
                 // Show logo if available
                 selectedGame.logoUrl ? (
@@ -321,29 +348,39 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
             </div>
 
             {/* Description Section - Center of the group */}
-            <div className="flex justify-center mb-6">
-              {selectedGame.description && (
-                <div 
-                  className="text-gray-200 leading-relaxed carousel-description text-center line-clamp-6"
-                  style={{ 
-                    fontSize: `${carouselDescriptionSize}px`,
-                    maxWidth: '100%',
-                    padding: '0 20px'
-                  }}
-                >
-                  {/* Try HTML rendering first, fallback to plain text */}
-                  {selectedGame.description.includes('<') ? (
-                    <div dangerouslySetInnerHTML={{ __html: selectedGame.description }} />
-                  ) : (
-                    <p>{selectedGame.description}</p>
-                  )}
-                </div>
-              )}
-            </div>
+            {selectedGame.description && (
+              <div 
+                className={`w-full mb-6 text-gray-200 leading-relaxed carousel-description ${getAlignmentClass(carouselDescriptionAlignment)}`}
+                style={{ 
+                  fontSize: `${carouselDescriptionSize}px`,
+                  padding: '0 20px',
+                  maxHeight: `${carouselDescriptionSize * 6 * 1.5}px`, // 6 lines with line-height 1.5
+                  overflowY: 'auto', // Show scrollbar only when needed
+                  lineHeight: '1.5',
+                  boxSizing: 'border-box'
+                }}
+                onWheel={(e) => {
+                  // Ensure wheel events work for scrolling
+                  e.stopPropagation();
+                }}
+              >
+                {/* Try HTML rendering first, fallback to plain text */}
+                {selectedGame.description.includes('<') ? (
+                  <div 
+                    dangerouslySetInnerHTML={{ __html: selectedGame.description }} 
+                    style={{ margin: 0, padding: 0 }}
+                  />
+                ) : (
+                  selectedGame.description
+                )}
+              </div>
+            )}
             
             {/* Buttons Section - Fixed below description */}
-            <div className="flex justify-center">
-              <div className="flex items-center gap-3 flex-wrap justify-center">
+            <div 
+              className={`w-full flex ${getFlexAlignment(carouselButtonAlignment)}`}
+            >
+              <div className={`flex items-center gap-3 flex-wrap ${getFlexAlignment(carouselButtonAlignment)}`}>
               <button
                 onClick={() => onPlay?.(selectedGame)}
                 className="bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors flex items-center gap-2 shadow-lg"
@@ -429,20 +466,22 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
       
       {/* Animated flowing carousel */}
       <div 
-        className="fixed bottom-8 left-0 right-0 z-50 overflow-visible" 
+        className="fixed bottom-8 left-0 right-0 z-20 overflow-visible" 
         style={{ 
           height: '200px', // Fixed height independent of selected game size
-          minHeight: '170px' // Ensure minimum space for carousel
+          minHeight: '170px', // Ensure minimum space for carousel
+          pointerEvents: 'none' // Don't block clicks on content above
         }}
       >
-        <div className="h-full flex items-end pb-4 relative">
+        <div className="h-full flex items-end pb-4 relative" style={{ pointerEvents: 'auto' }}>
           
           {/* Flowing carousel container with smooth animation */}
           <div 
             className="flex items-end transition-transform duration-700 ease-out absolute bottom-4"
             style={{ 
               gap: `${gameTilePadding}px`,
-              transform: `translateX(${carouselOffset}px)`
+              transform: `translateX(${carouselOffset}px)`,
+              pointerEvents: 'auto' // Re-enable clicks for carousel games
             }}
           >
             {/* Render all games in sequence */}

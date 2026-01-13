@@ -37,6 +37,9 @@ export interface UserPreferences {
   carouselLogoSize?: number;
   carouselButtonSize?: number;
   carouselDescriptionSize?: number;
+  carouselDescriptionAlignment?: 'left' | 'center' | 'right';
+  carouselButtonAlignment?: 'left' | 'center' | 'right';
+  carouselLogoAlignment?: 'left' | 'center' | 'right';
   // View-specific settings
   gridView?: {
     gridSize?: number;

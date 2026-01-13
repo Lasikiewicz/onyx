@@ -30,6 +30,12 @@ interface RightClickMenuProps {
   onCarouselButtonSizeChange?: (size: number) => void;
   carouselDescriptionSize?: number;
   onCarouselDescriptionSizeChange?: (size: number) => void;
+  carouselDescriptionAlignment?: 'left' | 'center' | 'right';
+  onCarouselDescriptionAlignmentChange?: (alignment: 'left' | 'center' | 'right') => void;
+  carouselButtonAlignment?: 'left' | 'center' | 'right';
+  onCarouselButtonAlignmentChange?: (alignment: 'left' | 'center' | 'right') => void;
+  carouselLogoAlignment?: 'left' | 'center' | 'right';
+  onCarouselLogoAlignmentChange?: (alignment: 'left' | 'center' | 'right') => void;
   // Grid view specific props
   showLogoOverBoxart?: boolean;
   onShowLogoOverBoxartChange?: (show: boolean) => void;
@@ -90,6 +96,12 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
   onCarouselButtonSizeChange,
   carouselDescriptionSize = 18,
   onCarouselDescriptionSizeChange,
+  carouselDescriptionAlignment = 'center',
+  onCarouselDescriptionAlignmentChange,
+  carouselButtonAlignment = 'center',
+  onCarouselButtonAlignmentChange,
+  carouselLogoAlignment = 'center',
+  onCarouselLogoAlignmentChange,
   // Grid view specific props
   showLogoOverBoxart = true,
   onShowLogoOverBoxartChange,
@@ -429,6 +441,28 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                       </div>
                     </>
                   )}
+
+                  {/* Logo Alignment - only show when logos are enabled */}
+                  {showCarouselLogos && onCarouselLogoAlignmentChange && (
+                    <>
+                      <label className="block text-xs text-gray-400 mb-2 font-semibold mt-3">Logo Alignment</label>
+                      <div className="flex gap-1">
+                        {(['left', 'center', 'right'] as const).map((alignment) => (
+                          <button
+                            key={alignment}
+                            onClick={() => onCarouselLogoAlignmentChange(alignment)}
+                            className={`flex-1 px-2 py-1 text-xs rounded transition-colors ${
+                              carouselLogoAlignment === alignment
+                                ? 'bg-blue-600 text-white'
+                                : 'bg-gray-600 text-gray-300 hover:bg-gray-500'
+                            }`}
+                          >
+                            {alignment.charAt(0).toUpperCase() + alignment.slice(1)}
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  )}
                 </div>
 
                 {/* Description Text Size */}
@@ -450,6 +484,26 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                   </div>
                 </div>
 
+                {/* Description Text Alignment */}
+                <div className="px-3 py-2 bg-gray-700/30 rounded-md">
+                  <label className="block text-xs text-gray-400 mb-2 font-semibold">Description Text Alignment</label>
+                  <div className="flex gap-1">
+                    {(['left', 'center', 'right'] as const).map((alignment) => (
+                      <button
+                        key={alignment}
+                        onClick={() => onCarouselDescriptionAlignmentChange?.(alignment)}
+                        className={`flex-1 px-2 py-1 text-xs rounded transition-colors ${
+                          carouselDescriptionAlignment === alignment
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-gray-600 text-gray-300 hover:bg-gray-500'
+                        }`}
+                      >
+                        {alignment.charAt(0).toUpperCase() + alignment.slice(1)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 {/* Button Size */}
                 <div className="px-3 py-2 bg-gray-700/30 rounded-md">
                   <label className="block text-xs text-gray-400 mb-1 font-semibold">Button Size</label>
@@ -466,6 +520,26 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                     <span>10px</span>
                     <span className="font-medium text-gray-300">{carouselButtonSize}px</span>
                     <span>24px</span>
+                  </div>
+                </div>
+
+                {/* Button Alignment */}
+                <div className="px-3 py-2 bg-gray-700/30 rounded-md">
+                  <label className="block text-xs text-gray-400 mb-2 font-semibold">Button Alignment</label>
+                  <div className="flex gap-1">
+                    {(['left', 'center', 'right'] as const).map((alignment) => (
+                      <button
+                        key={alignment}
+                        onClick={() => onCarouselButtonAlignmentChange?.(alignment)}
+                        className={`flex-1 px-2 py-1 text-xs rounded transition-colors ${
+                          carouselButtonAlignment === alignment
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-gray-600 text-gray-300 hover:bg-gray-500'
+                        }`}
+                      >
+                        {alignment.charAt(0).toUpperCase() + alignment.slice(1)}
+                      </button>
+                    ))}
                   </div>
                 </div>
               </div>

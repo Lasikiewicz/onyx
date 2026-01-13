@@ -171,6 +171,28 @@ input[type="range"].slider::-moz-range-thumb:hover {
   /* Ensure proper spacing and prevent overlap */
   word-wrap: break-word;
   overflow-wrap: break-word;
+  /* Scrollbar styles */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.3) rgba(0, 0, 0, 0.2);
+}
+
+/* Webkit scrollbar for carousel description */
+.carousel-description::-webkit-scrollbar {
+  width: 6px;
+}
+
+.carousel-description::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 3px;
+}
+
+.carousel-description::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 3px;
+}
+
+.carousel-description::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.5);
 }
 
 .carousel-description p {
