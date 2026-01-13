@@ -143,15 +143,17 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
     loadPreferences();
   }, []);
 
-  // Initialize local logo size when dialog opens, reset when it closes
+  // Initialize local logo size when dialog opens or when game changes, reset when it closes
   useEffect(() => {
     if (showLogoResizeDialog && game) {
-      setLocalLogoSize(game.logoSize);
+      // Use per-view-mode size for the current view, or fallback to global logoSize
+      const sizeForCurrentView = game.logoSizePerViewMode?.[viewMode] || game.logoSizePerViewMode?.carousel || game.logoSize;
+      setLocalLogoSize(sizeForCurrentView);
     } else if (!showLogoResizeDialog) {
       setLocalLogoSize(undefined);
       setIsSavingLogoSize(false);
     }
-  }, [showLogoResizeDialog, game?.logoSize]);
+  }, [showLogoResizeDialog, game?.logoSize, game?.logoSizePerViewMode, viewMode]);
 
   // Close the logo resize UI whenever a context menu is invoked anywhere
   useEffect(() => {
@@ -388,10 +390,10 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
           }`}
           data-logo-area
           style={{ 
-            width: rightPanelBoxartPosition === 'none' ? 'calc(100% - 3rem)' : 'calc(100% - 11rem)', // Full width when no boxart, space for boxart otherwise
+            width: rightPanelBoxartPosition === 'none' ? 'calc(100% - 3rem)' : 'calc(100% - 11rem)',
             transform: rightPanelBoxartPosition === 'none' ? 'translateY(50%) translateX(-50%)' : 'translateY(50%)',
             maxHeight: '60%',
-            transition: 'max-height 0.2s ease-out'
+            contain: 'layout style',
           }}
         >
           {game.logoUrl ? (
@@ -406,13 +408,13 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
               style={{ pointerEvents: 'auto' }}
             >
               <img
-                key={game.logoUrl}
                 src={game.logoUrl}
                 alt={game.title}
                 className="max-w-full max-h-full object-contain cursor-pointer drop-shadow-2xl"
                 style={{ 
-                  maxHeight: `${game.logoSizePerViewMode?.[viewMode] || game.logoSizePerViewMode?.carousel || rightPanelLogoSize}px`,
-                  transition: 'max-height 0.2s ease-out',
+                  maxHeight: `${localLogoSize !== undefined ? localLogoSize : (game.logoSizePerViewMode?.[viewMode] || game.logoSizePerViewMode?.carousel || rightPanelLogoSize)}px`,
+                  display: 'block',
+                  contain: 'layout style paint',
                   ...(game.removeLogoTransparency ? {
                     backgroundColor: 'rgba(0, 0, 0, 0.5)',
                     padding: '8px',
@@ -447,7 +449,6 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
           >
             {game.boxArtUrl ? (
               <img
-                key={game.boxArtUrl}
                 src={game.boxArtUrl}
                 alt={game.title}
                 className="aspect-[2/3] object-cover rounded border border-gray-600 shadow-lg cursor-pointer"

@@ -398,6 +398,193 @@ Key IPC handlers:
 
 ---
 
+## 🔧 Development Workflow & Build Versioning
+
+### Development Setup
+
+**Always run the app with HMR (Hot Module Reload) during development:**
+```bash
+npm run electron:dev
+```
+
+This enables:
+- Hot module reloading for immediate feedback
+- Source maps for debugging
+- DevTools access for inspecting state
+- Proper error reporting
+
+**DO NOT** use `npm run electron` for development - that's a production build.
+
+### Build Number Auto-Increment System
+
+**Purpose**: Automatically increment the patch version (build number) in `package.json` whenever code is committed to the `master` branch.
+
+**Current System**:
+- Version format: `MAJOR.MINOR.PATCH` (e.g., `0.0.102`)
+- PATCH number = build number
+- Script: `scripts/increment-build.js` - reads package.json, increments patch, writes back
+- Current version: See `package.json` "version" field
+
+**How It Works**:
+1. When you commit code with `git commit`, the build number should automatically increment
+2. This is handled by a **git post-commit hook** that runs `npm run increment-build`
+3. The hook only increments on `master` branch commits
+4. After increment, the updated `package.json` is automatically staged and amended to the commit
+
+**Setting Up the Hook** (Git 2.9+):
+
+Create file: `.git/hooks/post-commit`
+```bash
+#!/bin/bash
+BRANCH=$(git rev-parse --abbrev-ref HEAD)
+if [ "$BRANCH" = "master" ]; then
+  npm run increment-build
+  git add package.json
+  git commit --amend --no-edit
+fi
+```
+
+Make it executable:
+```bash
+chmod +x .git/hooks/post-commit
+```
+
+**Alternative: Using Husky** (npm package):
+```bash
+npm install husky --save-dev
+npx husky install
+npx husky add .husky/post-commit "if [ \"$(git rev-parse --abbrev-ref HEAD)\" = \"master\" ]; then npm run increment-build && git add package.json && git commit --amend --no-edit; fi"
+```
+
+**Manual Increment** (if hook fails):
+```bash
+npm run increment-build
+```
+
+**Checking Current Version**:
+```bash
+cat package.json | grep '"version"'
+```
+
+### Build Commands
+
+- `npm run build` - Build for development
+- `npm run dist` - Build production executable (increments build number via increment-build)
+- `npm run build:alpha` - Build alpha release (for `develop` branch)
+- `npm run build:prod` - Build production release (for `main` branch)
+
+### Deployment Workflow
+
+**Development to Alpha**:
+```bash
+git push origin master:develop --force
+```
+Triggers alpha build from `develop` branch.
+
+**Alpha to Production**:
+```bash
+git push origin develop:main --force
+```
+Triggers production build from `main` branch.
+
+**ALWAYS**:
+1. Test locally with `npm run electron:dev` before pushing
+2. Verify all changes are built successfully
+3. Get explicit user approval before any git operations
+
+---
+
+## 🎨 Game Logo Resizing & Flickering Fix
+
+### Per-Game Logo Sizing Feature
+
+**What It Does**: Users can resize game logos in the Game Details panel. Sizes are saved per game, per view mode (carousel/grid/list/logo).
+
+**How It Works**:
+1. User drags logo size slider in GameDetailsPanel
+2. `localLogoSize` state updates immediately (instant UI feedback)
+3. RightClickMenu saves change to backend (debounced 500ms)
+4. Game's `logoSizePerViewMode` object stores sizes: `{ carousel: 150, grid: 120, list: 80, logo: 200 }`
+
+**Technical Details**:
+- Storage key: `logoSizePerViewMode` (Record<'carousel'|'grid'|'list'|'logo', number>)
+- Persisted in electron-store under game's `logoSizePerViewMode` field
+- View mode detection: Checks current view type and loads corresponding saved size
+- Falls back to default sizes if no saved value
+
+### Flickering Issue Resolution
+
+**Root Cause** (THREE-LAYER PROBLEM):
+1. **Layer 1**: Logo element was using `game.logoSizePerViewMode` directly instead of local state
+   - Each game state update re-rendered with potentially different size
+   - Solution: Switch to `localLogoSize` state (like boxart uses `rightPanelBoxartSize`)
+
+2. **Layer 2**: Cache buster query parameters were stacking
+   - URLs went from `?t=123` to `?t=123&t=456&t=789...`
+   - Solution: Clean old params with regex before adding new timestamp
+
+3. **Layer 3**: State updates were generating new cache buster timestamps
+   - Every call to `updateGameInState()` was adding a new `?t=<timestamp>` param
+   - This forced image reloads on every property edit
+   - Solution: Remove cache buster calls from `updateGameInState()` - only add on initial `loadLibrary()`
+
+**Fix Implementation**:
+
+**File**: `renderer/src/hooks/useGameLibrary.ts`
+
+Change 1 - `addCacheBuster()` function:
+```typescript
+// OLD: return `${url}${separator}t=${timestamp || Date.now()}`;
+// NEW: Cleans old params first, then adds single new timestamp
+const cleanUrl = url.replace(/[?&]t=\d+(&|$)/g, (match, ampersand) => 
+  ampersand === '&' ? '&' : ''
+);
+return `${cleanUrl}${separator}t=${timestamp || Date.now()}`;
+```
+
+Change 2 - `updateGameInState()` function:
+```typescript
+// OLD: const gameWithCacheBuster = addCacheBuster(updatedGame);
+// NEW: Only convert URLs to local protocol, don't add cache busters
+const gameWithConvertedUrls = convertFileUrlToLocalProtocol(updatedGame);
+```
+
+**Effect**: Logo URLs stay stable during edits (same `?t=<initial-timestamp>`), preventing unnecessary image reloads.
+
+**Validation**:
+- Image logs show single timestamp per session: `Successfully loaded image: onyx-local://steam-379430-logo?t=1768342502051`
+- No stacking parameters observed anymore
+- Logo resizes smoothly without flickering (like boxart behavior)
+
+### Testing the Fix
+
+After code changes, restart the dev server:
+```bash
+npm run electron:dev
+```
+
+Then:
+1. Open a game with a logo image
+2. Slowly drag the logo size slider back and forth
+3. Observe: Logo should resize smoothly WITHOUT image reloading/flickering
+4. Check DevTools console (F12) for image load logs - should NOT see new timestamps during slider drag
+
+**Expected Console Output**:
+```
+Successfully loaded image: onyx-local://steam-379430-logo?t=1768342502051
+(no new timestamps as you resize)
+```
+
+**NOT Expected** (indicates problem):
+```
+Successfully loaded image: onyx-local://steam-379430-logo?t=1768342502051
+Successfully loaded image: onyx-local://steam-379430-logo?t=1768342502096
+Successfully loaded image: onyx-local://steam-379430-logo?t=1768342502141
+(new timestamp on each console message indicates state updates still adding cache busters)
+```
+
+---
+
 ## Quick Reference
 
 ### Key Files to Know
@@ -418,5 +605,5 @@ Key IPC handlers:
 
 ---
 
-**Last Updated**: 2025-01-09
-**Version**: 0.0.75
+**Last Updated**: 2025-01-10
+**Version**: 0.0.102

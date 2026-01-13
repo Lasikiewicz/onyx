@@ -158,6 +158,9 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
     carousel: activeGame?.logoSizePerViewMode?.carousel ?? 100,
   });
   
+  // Ref for debouncing saves
+  const saveTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+  
   // Sync local state when activeGame changes
   React.useEffect(() => {
     if (activeGame) {
@@ -167,6 +170,10 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
         logo: activeGame.logoSizePerViewMode?.logo ?? 100,
         carousel: activeGame.logoSizePerViewMode?.carousel ?? 100,
       });
+    }
+    // Clear any pending saves when game changes
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
     }
   }, [activeGame?.id]); // Only change when game ID changes
 
@@ -233,8 +240,8 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
   };
 
   const getSizeRange = () => {
-    if (viewMode === 'list') return { min: 80, max: 200 };
-    return { min: 80, max: 500 };
+    if (viewMode === 'list') return { min: 50, max: 200 };
+    return { min: 50, max: 600 };
   };
 
   const getPaddingRange = () => {
@@ -264,6 +271,9 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
   const handlePerGameLogoSizeChange = (viewModeType: 'grid' | 'list' | 'logo' | 'carousel', size: number) => {
     if (!activeGame || !onActiveGameChange) return;
     
+    // Skip if size hasn't actually changed
+    if (activeGame.logoSizePerViewMode?.[viewModeType] === size) return;
+    
     // Update local state immediately for instant UI feedback
     setLocalLogoSizes(prev => ({
       ...prev,
@@ -278,13 +288,20 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
       },
     };
     
-    // Update parent state
+    // Update parent state immediately for UI update
     onActiveGameChange(updatedGame);
     
-    // Save to backend asynchronously (don't block UI)
-    window.electronAPI.saveGame(updatedGame).catch((error) => {
-      console.error('Failed to save game:', error);
-    });
+    // Debounce the backend save - only save after user stops dragging
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+    
+    saveTimeoutRef.current = setTimeout(() => {
+      window.electronAPI.saveGame(updatedGame).catch((error) => {
+        console.error('Failed to save game:', error);
+      });
+      saveTimeoutRef.current = null;
+    }, 500); // Save 500ms after user stops moving slider
   };
 
   return (
@@ -475,17 +492,17 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                     <label className="block text-xs text-gray-400 mb-2 font-semibold">Game Logo Size</label>
                     <input
                       type="range"
-                      min="40"
-                      max="300"
+                      min="50"
+                      max="600"
                       step="5"
                       value={localLogoSizes.carousel}
                       onChange={(e) => handlePerGameLogoSizeChange('carousel', Number(e.target.value))}
                       className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider accent-blue-600"
                     />
                     <div className="flex justify-between text-xs text-gray-500 mt-1">
-                      <span>40px</span>
+                      <span>50px</span>
                       <span className="font-medium text-gray-300">{localLogoSizes.carousel}px</span>
-                      <span>300px</span>
+                      <span>600px</span>
                     </div>
                   </div>
                 )}
@@ -516,7 +533,7 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                       <input
                         type="range"
                         min="50"
-                        max="400"
+                        max="600"
                         step="5"
                         value={carouselLogoSize}
                         onChange={(e) => onCarouselLogoSizeChange(Number(e.target.value))}
@@ -525,7 +542,7 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                       <div className="flex justify-between text-xs text-gray-500 mt-1">
                         <span>50px</span>
                         <span className="font-medium text-gray-300">{carouselLogoSize}px</span>
-                        <span>400px</span>
+                        <span>600px</span>
                       </div>
                     </>
                   )}
@@ -845,17 +862,17 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                       <div>
                         <input
                           type="range"
-                          min="40"
-                          max="200"
+                          min="50"
+                          max="600"
                           step="5"
                           value={localLogoSizes.grid}
                           onChange={(e) => handlePerGameLogoSizeChange('grid', Number(e.target.value))}
                           className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider accent-blue-600"
                         />
                         <div className="flex justify-between text-xs text-gray-500 mt-1">
-                          <span>40px</span>
+                          <span>50px</span>
                           <span className="font-medium text-gray-300">{localLogoSizes.grid}px</span>
-                          <span>200px</span>
+                          <span>600px</span>
                         </div>
                       </div>
                     )}
@@ -865,17 +882,17 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                       <div>
                         <input
                           type="range"
-                          min="40"
-                          max="200"
+                          min="50"
+                          max="600"
                           step="5"
                           value={localLogoSizes.list}
                           onChange={(e) => handlePerGameLogoSizeChange('list', Number(e.target.value))}
                           className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider accent-blue-600"
                         />
                         <div className="flex justify-between text-xs text-gray-500 mt-1">
-                          <span>40px</span>
+                          <span>50px</span>
                           <span className="font-medium text-gray-300">{localLogoSizes.list}px</span>
-                          <span>200px</span>
+                          <span>600px</span>
                         </div>
                       </div>
                     )}
@@ -885,17 +902,17 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                       <div>
                         <input
                           type="range"
-                          min="40"
-                          max="300"
+                          min="50"
+                          max="600"
                           step="5"
                           value={localLogoSizes.logo}
                           onChange={(e) => handlePerGameLogoSizeChange('logo', Number(e.target.value))}
                           className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider accent-blue-600"
                         />
                         <div className="flex justify-between text-xs text-gray-500 mt-1">
-                          <span>40px</span>
+                          <span>50px</span>
                           <span className="font-medium text-gray-300">{localLogoSizes.logo}px</span>
-                          <span>300px</span>
+                          <span>600px</span>
                         </div>
                       </div>
                     )}

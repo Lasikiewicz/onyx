@@ -139,7 +139,7 @@ export const LogoResizeMenu: React.FC<LogoResizeMenuProps> = ({
         <input
           type="range"
           min="50"
-          max="400"
+          max="600"
           step="10"
           value={logoSize}
           onChange={(e) => handleSliderChange(Number(e.target.value))}

@@ -6,8 +6,10 @@ function addCacheBuster(url: string, timestamp?: number): string {
   if (!url) return url;
   // Add timestamp as cache buster (only for local/http URLs, not for data URLs)
   if (url.startsWith('onyx-local://') || url.startsWith('http://') || url.startsWith('https://')) {
-    const separator = url.includes('?') ? '&' : '?';
-    return `${url}${separator}t=${timestamp || Date.now()}`;
+    // Remove any existing timestamp parameters to avoid stacking them
+    const cleanUrl = url.replace(/[?&]t=\d+(&|$)/g, (match, ampersand) => ampersand === '&' ? '&' : '');
+    const separator = cleanUrl.includes('?') ? '&' : '?';
+    return `${cleanUrl}${separator}t=${timestamp || Date.now()}`;
   }
   return url;
 }
@@ -91,17 +93,17 @@ export function useGameLibrary() {
 
   const updateGameInState = (updatedGame: Game) => {
     // Update the game in local state without reloading
-    // Add cache buster to image URLs to force refresh
-    const timestamp = Date.now();
-    const gameWithCacheBuster = {
+    // DO NOT add cache busters here - that causes image reloads on every state update
+    // Images already have cache busters from initial load, keep URLs stable during edits
+    const gameWithConvertedUrls = {
       ...updatedGame,
-      boxArtUrl: updatedGame.boxArtUrl ? addCacheBuster(convertFileUrlToLocalProtocol(updatedGame.boxArtUrl), timestamp) : updatedGame.boxArtUrl,
-      bannerUrl: updatedGame.bannerUrl ? addCacheBuster(convertFileUrlToLocalProtocol(updatedGame.bannerUrl), timestamp) : updatedGame.bannerUrl,
-      logoUrl: updatedGame.logoUrl ? addCacheBuster(convertFileUrlToLocalProtocol(updatedGame.logoUrl), timestamp) : updatedGame.logoUrl,
-      heroUrl: updatedGame.heroUrl ? addCacheBuster(convertFileUrlToLocalProtocol(updatedGame.heroUrl), timestamp) : updatedGame.heroUrl,
+      boxArtUrl: updatedGame.boxArtUrl ? convertFileUrlToLocalProtocol(updatedGame.boxArtUrl) : updatedGame.boxArtUrl,
+      bannerUrl: updatedGame.bannerUrl ? convertFileUrlToLocalProtocol(updatedGame.bannerUrl) : updatedGame.bannerUrl,
+      logoUrl: updatedGame.logoUrl ? convertFileUrlToLocalProtocol(updatedGame.logoUrl) : updatedGame.logoUrl,
+      heroUrl: updatedGame.heroUrl ? convertFileUrlToLocalProtocol(updatedGame.heroUrl) : updatedGame.heroUrl,
     };
     setGames(prevGames => 
-      prevGames.map(g => g.id === updatedGame.id ? gameWithCacheBuster : g)
+      prevGames.map(g => g.id === updatedGame.id ? gameWithConvertedUrls : g)
     );
   };
 

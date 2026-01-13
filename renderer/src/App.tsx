@@ -1748,6 +1748,8 @@ function App() {
           onActiveGameChange={(game) => {
             setActiveGameId(game.id);
             updateGameInState(game);
+            // Note: Do NOT save here - let RightClickMenu handle saves with debouncing
+            // This prevents duplicate saves and flickering on logo size changes
           }}
           gridSize={gridSize}
           onGridSizeChange={setGridSize}

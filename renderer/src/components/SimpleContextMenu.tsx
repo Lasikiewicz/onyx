@@ -111,8 +111,8 @@ export const SimpleContextMenu: React.FC<SimpleContextMenuProps> = ({
 
   // Get size range based on view mode
   const getSizeRange = () => {
-    if (viewMode === 'grid') return { min: 80, max: 500 };
-    if (viewMode === 'logo') return { min: 80, max: 500 };
+    if (viewMode === 'grid') return { min: 50, max: 600 };
+    if (viewMode === 'logo') return { min: 50, max: 600 };
     return { min: 80, max: 200 };
   };
 
