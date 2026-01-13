@@ -58,6 +58,15 @@ jobs:
           echo "version=$version" >> $env:GITHUB_OUTPUT
         shell: pwsh
       
+      - name: Create and push tag
+        run: |
+          $tag = "${{ steps.build_profile.outputs.tag_prefix }}${{ steps.version.outputs.version }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -f $tag
+          git push origin $tag -f
+        shell: pwsh
+      
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
