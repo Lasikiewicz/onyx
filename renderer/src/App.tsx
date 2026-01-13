@@ -94,9 +94,6 @@ function App() {
   const [carouselLogoSize, setCarouselLogoSize] = useState(100);
   const [carouselButtonSize, setCarouselButtonSize] = useState(14);
   const [carouselDescriptionSize, setCarouselDescriptionSize] = useState(18);
-  const [carouselDescriptionAlignment, setCarouselDescriptionAlignment] = useState<'left' | 'center' | 'right'>('center');
-  const [carouselButtonAlignment, setCarouselButtonAlignment] = useState<'left' | 'center' | 'right'>('center');
-  const [carouselLogoAlignment, setCarouselLogoAlignment] = useState<'left' | 'center' | 'right'>('center');
   const [gridDescriptionSize] = useState(14);
   // Right panel (GameDetailsPanel) settings
   const [rightPanelLogoSize, setRightPanelLogoSize] = useState(100);
@@ -153,9 +150,6 @@ function App() {
         if (prefs.carouselLogoSize !== undefined) setCarouselLogoSize(prefs.carouselLogoSize);
         if (prefs.carouselButtonSize !== undefined) setCarouselButtonSize(prefs.carouselButtonSize);
         if (prefs.carouselDescriptionSize !== undefined) setCarouselDescriptionSize(prefs.carouselDescriptionSize);
-        if (prefs.carouselDescriptionAlignment !== undefined) setCarouselDescriptionAlignment(prefs.carouselDescriptionAlignment);
-        if (prefs.carouselButtonAlignment !== undefined) setCarouselButtonAlignment(prefs.carouselButtonAlignment);
-        if (prefs.carouselLogoAlignment !== undefined) setCarouselLogoAlignment(prefs.carouselLogoAlignment);
         // Right panel settings
         if (prefs.rightPanelLogoSize !== undefined) setRightPanelLogoSize(prefs.rightPanelLogoSize);
         if (prefs.rightPanelBoxartPosition !== undefined) setRightPanelBoxartPosition(prefs.rightPanelBoxartPosition);
@@ -797,16 +791,6 @@ function App() {
     };
   }, [autoSizeToFit, viewMode, filteredGames.length, calculateAutoSize]);
 
-  const handleAutoSizeToFit = () => {
-    const newValue = !autoSizeToFit;
-    setAutoSizeToFit(newValue);
-    window.electronAPI.savePreferences({ autoSizeToFit: newValue });
-    
-    if (newValue) {
-      // Calculate immediately when enabled
-      calculateAutoSize();
-    }
-  };
 
   const handleGameClick = (game: Game) => {
     setActiveGameId(game.id);
@@ -1321,9 +1305,6 @@ function App() {
                           setCarouselDescriptionSize(size);
                           window.electronAPI.savePreferences({ carouselDescriptionSize: size });
                         }}
-                        carouselDescriptionAlignment={carouselDescriptionAlignment}
-                        carouselButtonAlignment={carouselButtonAlignment}
-                        carouselLogoAlignment={carouselLogoAlignment}
                         onEmptySpaceRightClick={(x, y) => {
                           setGameContextMenu(null);
                           setRightClickMenu({ x, y });
@@ -1715,21 +1696,6 @@ function App() {
           onCarouselDescriptionSizeChange={(size) => {
             setCarouselDescriptionSize(size);
             window.electronAPI.savePreferences({ carouselDescriptionSize: size });
-          }}
-          carouselDescriptionAlignment={carouselDescriptionAlignment}
-          onCarouselDescriptionAlignmentChange={(alignment) => {
-            setCarouselDescriptionAlignment(alignment);
-            window.electronAPI.savePreferences({ carouselDescriptionAlignment: alignment });
-          }}
-          carouselButtonAlignment={carouselButtonAlignment}
-          onCarouselButtonAlignmentChange={(alignment) => {
-            setCarouselButtonAlignment(alignment);
-            window.electronAPI.savePreferences({ carouselButtonAlignment: alignment });
-          }}
-          carouselLogoAlignment={carouselLogoAlignment}
-          onCarouselLogoAlignmentChange={(alignment) => {
-            setCarouselLogoAlignment(alignment);
-            window.electronAPI.savePreferences({ carouselLogoAlignment: alignment });
           }}
           showLogoOverBoxart={showLogoOverBoxart}
           onShowLogoOverBoxartChange={(show) => {

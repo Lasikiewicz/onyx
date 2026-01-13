@@ -664,25 +664,6 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
 
               {/* Right Column */}
               <div className="space-y-2">
-                {/* Resize Logo */}
-                <div className="px-3 py-2 bg-gray-700/30 rounded-md">
-                  <label className="block text-xs text-gray-400 mb-1 font-semibold">Resize Logo</label>
-                  <input
-                    type="range"
-                    min="50"
-                    max="200"
-                    step="5"
-                    value={rightPanelLogoSize}
-                    onChange={(e) => onRightPanelLogoSizeChange?.(Number(e.target.value))}
-                    className="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer slider accent-blue-600"
-                  />
-                  <div className="flex justify-between text-xs text-gray-500 mt-1">
-                    <span>50px</span>
-                    <span className="font-medium text-gray-300">{rightPanelLogoSize}px</span>
-                    <span>200px</span>
-                  </div>
-                </div>
-
                 {/* Boxart Position and Size - Grouped together */}
                 <div className="px-3 py-2 bg-gray-700/30 rounded-md">
                   <label className="block text-xs text-gray-400 mb-2 font-semibold">Boxart Position</label>
