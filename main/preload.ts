@@ -99,6 +99,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   applySystemTraySettings: (settings: { showSystemTrayIcon: boolean; minimizeToTray: boolean }) => ipcRenderer.invoke('app:applySystemTraySettings', settings),
   applyStartupSettings: (settings: { startWithComputer: boolean; startClosedToTray: boolean }) => ipcRenderer.invoke('app:applyStartupSettings', settings),
   openExternal: (url: string) => ipcRenderer.invoke('app:openExternal', url),
+  // Process monitoring
+  checkProcessExists: (pid: number) => ipcRenderer.invoke('process:checkExists', pid),
   // API credentials methods
   getAPICredentials: () => ipcRenderer.invoke('api:getCredentials'),
   saveAPICredentials: (credentials: { igdbClientId?: string; igdbClientSecret?: string; steamGridDBApiKey?: string }) => ipcRenderer.invoke('api:saveCredentials', credentials),

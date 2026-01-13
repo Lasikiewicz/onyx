@@ -2613,17 +2613,39 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
     try {
       // Convert StagedGame to Game
       const gamesToImport: Game[] = selectedGames.map(staged => {
-        // If game has a Steam App ID (from SteamGridDB search or direct Steam scan), treat it as a Steam game
-        // Check if appId is a numeric Steam App ID (all Steam App IDs are numeric)
-        const hasSteamAppId = staged.appId && (staged.source === 'steam' || /^\d+$/.test(staged.appId.toString()));
-        const gameId = hasSteamAppId
-          ? `steam-${staged.appId}`
-          : `custom-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        // CRITICAL FIX: Game ID and launcher source must be based on SOURCE, not Steam App ID
+        // Steam App ID is used ONLY for metadata fetching, NOT for determining the launcher
+        // A Ubisoft game with a Steam App ID should remain a Ubisoft game
+        // However, keep the display-friendly platform info from metadata (e.g., "Windows, PC")
+        
+        let gameId: string;
+        let launcherSource: string;
+        let displayPlatform: string;
+        
+        if (staged.source === 'steam' && staged.appId) {
+          // Only true Steam games get steam-{appId} format
+          gameId = `steam-${staged.appId}`;
+          launcherSource = 'steam';
+          displayPlatform = staged.platform || 'steam';
+        } else if (staged.source === 'xbox' && staged.uuid.startsWith('xbox-')) {
+          // Xbox games keep their Xbox ID format
+          gameId = staged.uuid;
+          launcherSource = 'xbox';
+          displayPlatform = staged.platform || 'xbox';
+        } else {
+          // All other sources (epic, gog, ubisoft, rockstar, ea, etc.) get custom IDs
+          // Source determines the launcher, but platform can be descriptive (e.g., "Windows, PC")
+          gameId = `custom-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+          launcherSource = staged.source;
+          // Keep metadata platform for display if available, otherwise use source
+          displayPlatform = staged.platform || staged.source;
+        }
 
         return {
           id: gameId,
           title: staged.title,
-          platform: staged.platform || (hasSteamAppId ? 'steam' : 'other'),
+          platform: displayPlatform,
+          source: launcherSource, // CRITICAL: This determines which launcher to use
           exePath: staged.exePath || staged.installPath,
           boxArtUrl: staged.boxArtUrl,
           bannerUrl: staged.bannerUrl,

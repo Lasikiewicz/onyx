@@ -7,6 +7,8 @@ import { ImageSearchModal } from './ImageSearchModal';
 interface GameDetailsPanelProps {
   game: Game | null;
   onPlay?: (game: Game) => void;
+  isLaunching?: boolean;
+  isRunning?: boolean;
   onSaveGame?: (game: Game) => Promise<void>;
   onOpenInGameManager?: (game: Game, tab: 'images' | 'metadata') => void;
   onFavorite?: (game: Game) => void;
@@ -31,7 +33,9 @@ interface GameDetailsPanelProps {
 
 export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ 
   game, 
-  onPlay, 
+  onPlay,
+  isLaunching = false,
+  isRunning = false,
   onSaveGame, 
   onOpenInGameManager, 
   onFavorite, 
@@ -871,13 +875,14 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
 
           <button
             onClick={() => onPlay?.(game)}
-            className="onyx-btn-primary px-6 py-2 rounded-lg flex items-center gap-2"
+            disabled={isLaunching || isRunning}
+            className="onyx-btn-primary px-6 py-2 rounded-lg flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             style={{ fontSize: `${rightPanelButtonSize}px` }}
           >
             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
               <path d="M8 5v14l11-7z" />
             </svg>
-            Play
+            {isLaunching ? 'Launching...' : isRunning ? 'Running' : 'Play'}
           </button>
         </div>
       )}

@@ -3367,6 +3367,32 @@ ipcMain.handle('launcher:launchGame', async (_event, gameId: string) => {
   }
 });
 
+// Process monitoring handler
+ipcMain.handle('process:checkExists', async (_event, pid: number) => {
+  try {
+    // On Windows, check if process exists
+    if (process.platform === 'win32') {
+      const { exec } = require('child_process');
+      return new Promise<boolean>((resolve) => {
+        exec(`tasklist /FI "PID eq ${pid}" /NH`, (error: any, stdout: string) => {
+          if (error) {
+            resolve(false);
+            return;
+          }
+          // If the process exists, tasklist will return its info
+          // If not, it will return "INFO: No tasks are running..."
+          const exists = !stdout.includes('No tasks') && stdout.includes(pid.toString());
+          resolve(exists);
+        });
+      });
+    }
+    return false;
+  } catch (error) {
+    console.error('Error checking process:', error);
+    return false;
+  }
+});
+
 // Folder selection dialog handler
 ipcMain.handle('dialog:showFolderDialog', async () => {
   try {

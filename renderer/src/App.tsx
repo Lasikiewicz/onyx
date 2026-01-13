@@ -29,6 +29,8 @@ function App() {
   const { games, loading, error, reorderGames, addCustomGame, loadLibrary, deleteGame, updateGameInState } = useGameLibrary();
   const [activeGameId, setActiveGameId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [launchingGameId, setLaunchingGameId] = useState<string | null>(null);
+  const [runningGames, setRunningGames] = useState<Set<string>>(new Set());
   
   // Scanning state
   const [, setIsScanningSteam] = useState(false);
@@ -620,16 +622,92 @@ function App() {
   const activeGame = activeGameId ? games.find(g => g.id === activeGameId) || null : null;
 
   const handlePlay = async (game: Game) => {
+    setLaunchingGameId(game.id);
     try {
       const result = await window.electronAPI.launchGame(game.id);
       if (!result.success) {
         console.error('Failed to launch game:', result.error);
-        // You could show a toast notification here
         alert(`Failed to launch game: ${result.error || 'Unknown error'}`);
+        setLaunchingGameId(null);
+        return;
       }
+      
+      // Game launched successfully
+      // Wait a moment for the process to start, then mark as running
+      setTimeout(() => {
+        setLaunchingGameId(null);
+        setRunningGames(prev => new Set(prev).add(game.id));
+        
+        // For non-Steam games with PIDs, monitor the process
+        if (result.pid) {
+          monitorGameProcess(game.id, result.pid);
+        } else {
+          // For Steam games or games without PID, poll for process
+          pollForGameProcess(game.id);
+        }
+      }, 1000); // Show "Launching..." for 1 second
+      
     } catch (error) {
       console.error('Error launching game:', error);
       alert(`Error launching game: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setLaunchingGameId(null);
+    }
+  };
+  
+  // Monitor game process and update state when it closes
+  const monitorGameProcess = (gameId: string, pid: number) => {
+    const checkInterval = setInterval(async () => {
+      try {
+        // Check if process is still running by trying to kill with signal 0
+        // This doesn't actually kill the process, just checks if it exists
+        const isRunning = await checkProcessRunning(pid);
+        if (!isRunning) {
+          clearInterval(checkInterval);
+          setRunningGames(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(gameId);
+            return newSet;
+          });
+        }
+      } catch (error) {
+        console.error('Error checking process:', error);
+        clearInterval(checkInterval);
+      }
+    }, 2000); // Check every 2 seconds
+  };
+  
+  // Poll for game process for Steam games
+  const pollForGameProcess = (gameId: string) => {
+    let pollCount = 0;
+    const maxPolls = 30; // Poll for up to 60 seconds (30 * 2s)
+    
+    const checkInterval = setInterval(() => {
+      pollCount++;
+      
+      // After max polls, assume game closed
+      if (pollCount > maxPolls) {
+        clearInterval(checkInterval);
+        setRunningGames(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(gameId);
+          return newSet;
+        });
+        return;
+      }
+      
+      // For now, just keep it running for a reasonable time
+      // TODO: Implement actual process checking for Steam games
+    }, 2000);
+  };
+  
+  // Helper to check if process is running
+  const checkProcessRunning = async (pid: number): Promise<boolean> => {
+    try {
+      // On Windows, we can use tasklist to check if process exists
+      const result = await window.electronAPI.checkProcessExists?.(pid);
+      return result ?? false;
+    } catch {
+      return false;
     }
   };
 
@@ -1421,7 +1499,9 @@ function App() {
         {/* Right Panel - Game Details (hidden in carousel mode) */}
         {viewMode !== 'carousel' && (
           <GameDetailsPanel 
-            game={activeGame} 
+            game={activeGame}
+            isLaunching={launchingGameId === activeGame?.id}
+            isRunning={activeGame ? runningGames.has(activeGame.id) : false}
             onPlay={handlePlay} 
             onSaveGame={handleSaveGame}
             onUpdateGameInState={updateGameInState}
