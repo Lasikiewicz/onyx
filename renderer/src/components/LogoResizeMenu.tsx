@@ -24,16 +24,7 @@ export const LogoResizeMenu: React.FC<LogoResizeMenuProps> = ({
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
-    useEffect(() => {
-    console.log('LogoResizeMenu mounted, ref:', menuRef.current);
-    if (menuRef.current) {
-      console.log('Menu element:', menuRef.current);
-      console.log('Menu visibility:', menuRef.current.style.display);
-      console.log('Menu computed style:', window.getComputedStyle(menuRef.current));
-    }
-  }, []);
-
-  const handleEscape = (event: KeyboardEvent) => {
+    const handleEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         console.log('Escape pressed, closing logo menu');
         onClose();
