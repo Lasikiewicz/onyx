@@ -25,6 +25,7 @@ export const LogoResizeMenu: React.FC<LogoResizeMenuProps> = ({
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        console.log('Click outside logo menu, closing');
         onClose();
       }
     };
@@ -35,10 +36,14 @@ export const LogoResizeMenu: React.FC<LogoResizeMenuProps> = ({
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
-    document.addEventListener('keydown', handleEscape);
+    // Delay handler attachment to prevent immediate close from the right-click
+    const timeout = setTimeout(() => {
+      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('keydown', handleEscape);
+    }, 100);
 
     return () => {
+      clearTimeout(timeout);
       document.removeEventListener('mousedown', handleClickOutside);
       document.removeEventListener('keydown', handleEscape);
     };
