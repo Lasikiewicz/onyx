@@ -243,13 +243,6 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
     }
   }, [isResizing, isResizingFanart, isResizingDescription, isResizingDescriptionWidth, viewKey]);
 
-  // Handle right-click on game elements (boxart/logo) - opens game context menu
-  const handleGameElementRightClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setContextMenu({ x: e.clientX, y: e.clientY });
-  };
-
   const handleLogoSizeChange = async (newSize: number) => {
     if (!game) return;
     const updated = {
@@ -304,13 +297,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
       className="onyx-glass-panel rounded-l-3xl flex flex-col h-full overflow-hidden relative ml-auto"
       style={{ width: `${activePanelWidth}px`, minWidth: '400px', backgroundColor: panelBackground }}
       onContextMenu={(e) => {
-        // Allow right-click anywhere except on explicit interactive elements (buttons/links/logo)
-        const target = e.target as HTMLElement;
-        const isInteractive = target.closest('button, a, [role="button"], input, textarea, select');
-        const isLogoArea = target.closest('[data-logo-area]');
-
-        if (isInteractive || isLogoArea) return;
-
+        // Open right-click menu anywhere in the panel
         setLogoResizeMenu(null);
         setShowLogoResizeDialog(false);
         e.preventDefault();
@@ -399,11 +386,8 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
           {game.logoUrl ? (
             <div
               onContextMenu={(e) => {
-                console.log('Context menu event on wrapper:', e);
+                // Allow event to bubble up to parent to open RightClickMenu
                 e.preventDefault();
-                e.stopPropagation();
-                console.log('Setting logo resize menu at', e.clientX, e.clientY);
-                setLogoResizeMenu({ x: e.clientX, y: e.clientY });
               }}
               style={{ pointerEvents: 'auto' }}
             >
@@ -468,7 +452,10 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
                     target.src = ''; // Clear src to prevent retries
                   }
                 }}
-                onContextMenu={handleGameElementRightClick}
+                onContextMenu={(e) => {
+                  // Allow event to bubble up to parent to open RightClickMenu
+                  e.preventDefault();
+                }}
               />
             ) : (
               <div 

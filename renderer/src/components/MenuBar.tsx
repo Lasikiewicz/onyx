@@ -121,8 +121,8 @@ export const MenuBar: React.FC<MenuBarProps> = ({
             </svg>
           </button>
         )}
-        {/* Bug Report Button (development mode only) */}
-        {import.meta.env.DEV && onBugReport && (
+        {/* Bug Report Button (development and alpha builds) */}
+        {(import.meta.env.DEV || __BUILD_PROFILE__ === 'alpha') && onBugReport && (
           <button
             onClick={() => {
               onBugReport();
