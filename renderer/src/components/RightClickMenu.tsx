@@ -135,7 +135,6 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
   logoBackgroundOpacity = 100,
   onLogoBackgroundOpacityChange,
   // Right panel (GameDetailsPanel) specific props
-  rightPanelLogoSize = 100,
   rightPanelBoxartPosition = 'right',
   onRightPanelBoxartPositionChange,
   rightPanelBoxartSize = 120,
@@ -150,6 +149,26 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
   onDetailsPanelOpacityChange,
 }) => {
   const menuRef = useRef<HTMLDivElement>(null);
+  
+  // Local state for per-game logo sizes - updates immediately for UI responsiveness
+  const [localLogoSizes, setLocalLogoSizes] = React.useState({
+    grid: activeGame?.logoSizePerViewMode?.grid ?? 100,
+    list: activeGame?.logoSizePerViewMode?.list ?? 100,
+    logo: activeGame?.logoSizePerViewMode?.logo ?? 100,
+    carousel: activeGame?.logoSizePerViewMode?.carousel ?? 100,
+  });
+  
+  // Sync local state when activeGame changes
+  React.useEffect(() => {
+    if (activeGame) {
+      setLocalLogoSizes({
+        grid: activeGame.logoSizePerViewMode?.grid ?? 100,
+        list: activeGame.logoSizePerViewMode?.list ?? 100,
+        logo: activeGame.logoSizePerViewMode?.logo ?? 100,
+        carousel: activeGame.logoSizePerViewMode?.carousel ?? 100,
+      });
+    }
+  }, [activeGame?.id]); // Only change when game ID changes
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -245,6 +264,12 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
   const handlePerGameLogoSizeChange = (viewModeType: 'grid' | 'list' | 'logo' | 'carousel', size: number) => {
     if (!activeGame || !onActiveGameChange) return;
     
+    // Update local state immediately for instant UI feedback
+    setLocalLogoSizes(prev => ({
+      ...prev,
+      [viewModeType]: size,
+    }));
+    
     const updatedGame = {
       ...activeGame,
       logoSizePerViewMode: {
@@ -253,7 +278,7 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
       },
     };
     
-    // Update local state immediately for UI responsiveness
+    // Update parent state
     onActiveGameChange(updatedGame);
     
     // Save to backend asynchronously (don't block UI)
@@ -453,13 +478,13 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                       min="40"
                       max="300"
                       step="5"
-                      value={activeGame.logoSizePerViewMode?.carousel ?? rightPanelLogoSize ?? 100}
+                      value={localLogoSizes.carousel}
                       onChange={(e) => handlePerGameLogoSizeChange('carousel', Number(e.target.value))}
                       className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider accent-blue-600"
                     />
                     <div className="flex justify-between text-xs text-gray-500 mt-1">
                       <span>40px</span>
-                      <span className="font-medium text-gray-300">{activeGame.logoSizePerViewMode?.carousel ?? rightPanelLogoSize ?? 100}px</span>
+                      <span className="font-medium text-gray-300">{localLogoSizes.carousel}px</span>
                       <span>300px</span>
                     </div>
                   </div>
@@ -484,8 +509,8 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                     </button>
                   </div>
 
-                  {/* Logo Size - only show when logos are enabled */}
-                  {showCarouselLogos && onCarouselLogoSizeChange && (
+                  {/* Logo Size - only show when logos are enabled AND no per-game override */}
+                  {showCarouselLogos && !activeGame && onCarouselLogoSizeChange && (
                     <>
                       <label className="block text-xs text-gray-400 mb-1 font-semibold">Logo Size</label>
                       <input
@@ -823,13 +848,13 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                           min="40"
                           max="200"
                           step="5"
-                          value={activeGame.logoSizePerViewMode?.grid ?? rightPanelLogoSize ?? 100}
+                          value={localLogoSizes.grid}
                           onChange={(e) => handlePerGameLogoSizeChange('grid', Number(e.target.value))}
                           className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider accent-blue-600"
                         />
                         <div className="flex justify-between text-xs text-gray-500 mt-1">
                           <span>40px</span>
-                          <span className="font-medium text-gray-300">{activeGame.logoSizePerViewMode?.grid ?? rightPanelLogoSize ?? 100}px</span>
+                          <span className="font-medium text-gray-300">{localLogoSizes.grid}px</span>
                           <span>200px</span>
                         </div>
                       </div>
@@ -843,13 +868,13 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                           min="40"
                           max="200"
                           step="5"
-                          value={activeGame.logoSizePerViewMode?.list ?? rightPanelLogoSize ?? 100}
+                          value={localLogoSizes.list}
                           onChange={(e) => handlePerGameLogoSizeChange('list', Number(e.target.value))}
                           className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider accent-blue-600"
                         />
                         <div className="flex justify-between text-xs text-gray-500 mt-1">
                           <span>40px</span>
-                          <span className="font-medium text-gray-300">{activeGame.logoSizePerViewMode?.list ?? rightPanelLogoSize ?? 100}px</span>
+                          <span className="font-medium text-gray-300">{localLogoSizes.list}px</span>
                           <span>200px</span>
                         </div>
                       </div>
@@ -863,13 +888,13 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                           min="40"
                           max="300"
                           step="5"
-                          value={activeGame.logoSizePerViewMode?.logo ?? rightPanelLogoSize ?? 100}
+                          value={localLogoSizes.logo}
                           onChange={(e) => handlePerGameLogoSizeChange('logo', Number(e.target.value))}
                           className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider accent-blue-600"
                         />
                         <div className="flex justify-between text-xs text-gray-500 mt-1">
                           <span>40px</span>
-                          <span className="font-medium text-gray-300">{activeGame.logoSizePerViewMode?.logo ?? rightPanelLogoSize ?? 100}px</span>
+                          <span className="font-medium text-gray-300">{localLogoSizes.logo}px</span>
                           <span>300px</span>
                         </div>
                       </div>

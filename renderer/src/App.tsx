@@ -1745,7 +1745,10 @@ function App() {
           viewMode={viewMode}
           onViewModeChange={setViewMode}
           activeGame={activeGame || undefined}
-          onActiveGameChange={(game) => setActiveGameId(game.id)}
+          onActiveGameChange={(game) => {
+            setActiveGameId(game.id);
+            updateGameInState(game);
+          }}
           gridSize={gridSize}
           onGridSizeChange={setGridSize}
           logoSize={logoSize}

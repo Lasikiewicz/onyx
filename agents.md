@@ -31,6 +31,29 @@
 
 ---
 
+## 🚫 CRITICAL GIT RULES - MANDATORY
+
+### **NEVER PUSH TO GIT WITHOUT EXPLICIT PERMISSION**
+
+**This is non-negotiable:**
+- ❌ **DO NOT** `git push` to any branch (master, develop, main, or any other)
+- ❌ **DO NOT** `git pull` without asking first
+- ❌ **DO NOT** force push (`--force`) without explicit instruction
+
+**ALWAYS:**
+- ✅ Ask the user for permission BEFORE running any git push/pull commands
+- ✅ Show the user what will be pushed (commit messages, files changed)
+- ✅ Wait for explicit approval to proceed
+- ✅ Report what was pushed/pulled after the fact
+
+**Example Flow:**
+1. "I've made changes to files X, Y, Z. Would you like me to commit and push to master?"
+2. Show summary of changes
+3. Wait for user approval
+4. Only push after explicit "yes" or approval
+
+---
+
 ---
 
 ## Project Overview
