@@ -207,6 +207,13 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
 
   // Handle right-click anywhere in the right section (opens library context menu)
   const handleRightClick = (e: React.MouseEvent) => {
+    // Check if the right-click was on the logo image
+    const target = e.target as HTMLElement;
+    if (target.tagName === 'IMG' && target.hasAttribute('alt') && target.getAttribute('alt') === game?.title) {
+      // This is the logo, let the logo handler deal with it
+      return;
+    }
+    
     e.preventDefault();
     e.stopPropagation();
     // Call the library context menu (same as empty space click)
