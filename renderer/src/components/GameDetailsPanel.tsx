@@ -343,34 +343,36 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
           }}
         >
           {game.logoUrl ? (
-            <img
-              key={game.logoUrl}
-              src={game.logoUrl}
-              alt={game.title}
-              className="max-w-full max-h-full object-contain cursor-pointer drop-shadow-2xl"
-              style={{ 
-                maxHeight: `${game.logoSizePerViewMode?.carousel || rightPanelLogoSize}px`,
-                ...(game.removeLogoTransparency ? {
-                  backgroundColor: 'rgba(0, 0, 0, 0.5)',
-                  padding: '8px',
-                  borderRadius: '4px'
-                } : {})
-              }}
-              onError={(e) => {
-                const target = e.target as HTMLImageElement;
-                // Prevent infinite retry loop
-                if (target.dataset.errorHandled === 'true') return;
-                target.dataset.errorHandled = 'true';
-                target.style.display = 'none';
-                target.src = ''; // Clear src to prevent retries
-              }}
-              onContextMenuCapture={(e) => {
+            <div
+              onContextMenu={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                console.log('Logo right-clicked, opening resize menu');
                 setLogoResizeMenu({ x: e.clientX, y: e.clientY });
               }}
-            />
+            >
+              <img
+                key={game.logoUrl}
+                src={game.logoUrl}
+                alt={game.title}
+                className="max-w-full max-h-full object-contain cursor-pointer drop-shadow-2xl"
+                style={{ 
+                  maxHeight: `${game.logoSizePerViewMode?.carousel || rightPanelLogoSize}px`,
+                  ...(game.removeLogoTransparency ? {
+                    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                    padding: '8px',
+                    borderRadius: '4px'
+                  } : {})
+                }}
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  // Prevent infinite retry loop
+                  if (target.dataset.errorHandled === 'true') return;
+                  target.dataset.errorHandled = 'true';
+                  target.style.display = 'none';
+                  target.src = ''; // Clear src to prevent retries
+                }}
+              />
+            </div>
           ) : (
             <div 
               className="px-4 py-2 bg-gray-800/80 rounded border border-gray-600 text-gray-400 text-xs cursor-pointer hover:bg-gray-700/80 transition-colors"
