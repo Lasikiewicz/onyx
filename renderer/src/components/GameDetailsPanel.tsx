@@ -209,8 +209,10 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
   const handleRightClick = (e: React.MouseEvent) => {
     // Check if the right-click was on the logo image
     const target = e.target as HTMLElement;
-    if (target.tagName === 'IMG' && target.hasAttribute('alt') && target.getAttribute('alt') === game?.title) {
-      // This is the logo, let the logo handler deal with it
+    if (target.tagName === 'IMG') {
+      // This is the logo, prevent default and let the logo handler deal with it
+      e.preventDefault();
+      e.stopPropagation();
       return;
     }
     
@@ -225,13 +227,6 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
     e.preventDefault();
     e.stopPropagation();
     setContextMenu({ x: e.clientX, y: e.clientY });
-  };
-
-  // Handle right-click on logo specifically - opens logo resize menu
-  const handleLogoRightClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setLogoResizeMenu({ x: e.clientX, y: e.clientY });
   };
 
   const handleLogoSizeChange = async (newSize: number) => {
@@ -387,7 +382,11 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
                 target.style.display = 'none';
                 target.src = ''; // Clear src to prevent retries
               }}
-              onContextMenu={handleLogoRightClick}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setLogoResizeMenu({ x: e.clientX, y: e.clientY });
+              }}
             />
           ) : (
             <div 
