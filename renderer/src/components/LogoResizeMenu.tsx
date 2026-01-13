@@ -24,7 +24,16 @@ export const LogoResizeMenu: React.FC<LogoResizeMenuProps> = ({
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
-    const handleEscape = (event: KeyboardEvent) => {
+    useEffect(() => {
+    console.log('LogoResizeMenu mounted, ref:', menuRef.current);
+    if (menuRef.current) {
+      console.log('Menu element:', menuRef.current);
+      console.log('Menu visibility:', menuRef.current.style.display);
+      console.log('Menu computed style:', window.getComputedStyle(menuRef.current));
+    }
+  }, []);
+
+  const handleEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         console.log('Escape pressed, closing logo menu');
         onClose();
@@ -67,7 +76,7 @@ export const LogoResizeMenu: React.FC<LogoResizeMenuProps> = ({
   return (
     <div
       ref={menuRef}
-      className="fixed bg-gray-800 border border-gray-700 rounded-lg shadow-xl z-[10000] p-4 w-64"
+      className="fixed bg-red-900 border-2 border-red-500 rounded-lg shadow-xl z-[10000] p-4 w-64"
       style={{ left: `${x}px`, top: `${y}px` }}
       onMouseDown={(e) => {
         e.stopPropagation();
