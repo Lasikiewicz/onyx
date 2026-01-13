@@ -210,17 +210,17 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
   return (
     <div 
       className="h-full w-full flex flex-col absolute inset-0"
-      onClick={(e) => {
-        // Handle clicks on empty space
-        if (e.target === e.currentTarget) {
-          onEmptySpaceClick?.(e.clientX, e.clientY);
-        }
-      }}
       onContextMenu={(e) => {
-        // Handle right-clicks on empty space
-        if (e.target === e.currentTarget) {
+        // Handle right-clicks anywhere except on game elements
+        if (!e.target.closest('[data-game-element]')) {
           e.preventDefault();
           onEmptySpaceRightClick?.(e.clientX, e.clientY);
+        }
+      }}
+      onClick={(e) => {
+        // Handle clicks anywhere except on game elements
+        if (!e.target.closest('[data-game-element]')) {
+          onEmptySpaceClick?.(e.clientX, e.clientY);
         }
       }}
     >
@@ -495,6 +495,7 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
               return (
                 <div
                   key={game.id}
+                  data-game-element="true"
                   onClick={() => handleGameSelect(index)}
                   onContextMenu={(e) => {
                     e.preventDefault();
