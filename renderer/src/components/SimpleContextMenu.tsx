@@ -91,12 +91,6 @@ export const SimpleContextMenu: React.FC<SimpleContextMenuProps> = ({
   onShowLogoOverBoxartChange,
   logoPosition = 'middle',
   onLogoPositionChange,
-  gridDescriptionSize = 14,
-  onGridDescriptionSizeChange,
-  gridButtonSize = 14,
-  onGridButtonSizeChange,
-  gridButtonLocation = 'middle',
-  onGridButtonLocationChange,
   // Right panel (GameDetailsPanel) specific props
   rightPanelLogoSize = 100,
   onRightPanelLogoSizeChange,

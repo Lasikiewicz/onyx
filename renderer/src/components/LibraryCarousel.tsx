@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Game } from '../types/game';
 import { GameContextMenu } from './GameContextMenu';
@@ -43,7 +43,6 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
   activeGameId,
   selectedBoxArtSize = 25,
   gameTilePadding = 1,
-  onLogoResize,
   showCarouselDetails = true,
   showCarouselLogos = true,
   detailsBarSize: propDetailsBarSize = 14,
@@ -51,16 +50,13 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
   carouselLogoSize: propCarouselLogoSize = 100,
   onCarouselLogoSizeChange,
   carouselButtonSize = 14,
-  onCarouselButtonSizeChange,
   carouselDescriptionSize = 18,
-  onCarouselDescriptionSizeChange,
   onEditImages,
   onEditCategories,
   onFixMatch,
   onHide,
   onUnhide,
   isHiddenView = false,
-  onMoreSettings,
 }) => {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [showLogoResizer, setShowLogoResizer] = useState(false);
@@ -357,10 +353,12 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
               {selectedGame.modManagerUrl && (
                 <button
                   onClick={async () => {
-                    try {
-                      await window.electronAPI.openExternal(selectedGame.modManagerUrl);
-                    } catch (err) {
-                      console.error('Error opening mod manager:', err);
+                    if (selectedGame.modManagerUrl) {
+                      try {
+                        await window.electronAPI.openExternal(selectedGame.modManagerUrl);
+                      } catch (err) {
+                        console.error('Error opening mod manager:', err);
+                      }
                     }
                   }}
                   className="bg-purple-600 hover:bg-purple-700 text-white font-medium rounded-lg transition-colors flex items-center gap-2 shadow-lg"
