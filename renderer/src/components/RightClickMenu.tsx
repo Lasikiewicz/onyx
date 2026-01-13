@@ -242,7 +242,7 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
     onShowCarouselLogosChange?.(!showCarouselLogos);
   };
 
-  const handlePerGameLogoSizeChange = async (viewModeType: 'grid' | 'list' | 'logo' | 'carousel', size: number) => {
+  const handlePerGameLogoSizeChange = (viewModeType: 'grid' | 'list' | 'logo' | 'carousel', size: number) => {
     if (!activeGame || !onActiveGameChange) return;
     
     const updatedGame = {
@@ -253,11 +253,13 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
       },
     };
     
-    // Save to backend
-    await window.electronAPI.saveGame(updatedGame);
-    
-    // Update local state
+    // Update local state immediately for UI responsiveness
     onActiveGameChange(updatedGame);
+    
+    // Save to backend asynchronously (don't block UI)
+    window.electronAPI.saveGame(updatedGame).catch((error) => {
+      console.error('Failed to save game:', error);
+    });
   };
 
   return (
@@ -442,6 +444,27 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
 
               {/* Right Column */}
               <div className="space-y-2">
+                {/* Per-Game Logo Size Control for Carousel */}
+                {activeGame && (
+                  <div className="px-3 py-2 bg-gray-700/30 rounded-md">
+                    <label className="block text-xs text-gray-400 mb-2 font-semibold">Game Logo Size</label>
+                    <input
+                      type="range"
+                      min="40"
+                      max="300"
+                      step="5"
+                      value={activeGame.logoSizePerViewMode?.carousel ?? rightPanelLogoSize ?? 100}
+                      onChange={(e) => handlePerGameLogoSizeChange('carousel', Number(e.target.value))}
+                      className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider accent-blue-600"
+                    />
+                    <div className="flex justify-between text-xs text-gray-500 mt-1">
+                      <span>40px</span>
+                      <span className="font-medium text-gray-300">{activeGame.logoSizePerViewMode?.carousel ?? rightPanelLogoSize ?? 100}px</span>
+                      <span>300px</span>
+                    </div>
+                  </div>
+                )}
+
                 {/* Game Logos Section */}
                 <div className="px-3 py-2 bg-gray-700/30 rounded-md">
                   {/* Show Game Logos Toggle */}
@@ -787,6 +810,73 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
 
               {/* Right Column */}
               <div className="space-y-2">
+                {/* Per-Game Logo Size Control - Top of Game Details, only for current view */}
+                {activeGame && (
+                  <div className="px-3 py-2 bg-gray-700/30 rounded-md">
+                    <label className="block text-xs text-gray-400 mb-2 font-semibold">Game Logo Size</label>
+                    
+                    {/* Grid View */}
+                    {viewMode === 'grid' && (
+                      <div>
+                        <input
+                          type="range"
+                          min="40"
+                          max="200"
+                          step="5"
+                          value={activeGame.logoSizePerViewMode?.grid ?? rightPanelLogoSize ?? 100}
+                          onChange={(e) => handlePerGameLogoSizeChange('grid', Number(e.target.value))}
+                          className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider accent-blue-600"
+                        />
+                        <div className="flex justify-between text-xs text-gray-500 mt-1">
+                          <span>40px</span>
+                          <span className="font-medium text-gray-300">{activeGame.logoSizePerViewMode?.grid ?? rightPanelLogoSize ?? 100}px</span>
+                          <span>200px</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* List View */}
+                    {viewMode === 'list' && (
+                      <div>
+                        <input
+                          type="range"
+                          min="40"
+                          max="200"
+                          step="5"
+                          value={activeGame.logoSizePerViewMode?.list ?? rightPanelLogoSize ?? 100}
+                          onChange={(e) => handlePerGameLogoSizeChange('list', Number(e.target.value))}
+                          className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider accent-blue-600"
+                        />
+                        <div className="flex justify-between text-xs text-gray-500 mt-1">
+                          <span>40px</span>
+                          <span className="font-medium text-gray-300">{activeGame.logoSizePerViewMode?.list ?? rightPanelLogoSize ?? 100}px</span>
+                          <span>200px</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Logo View */}
+                    {viewMode === 'logo' && (
+                      <div>
+                        <input
+                          type="range"
+                          min="40"
+                          max="300"
+                          step="5"
+                          value={activeGame.logoSizePerViewMode?.logo ?? rightPanelLogoSize ?? 100}
+                          onChange={(e) => handlePerGameLogoSizeChange('logo', Number(e.target.value))}
+                          className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider accent-blue-600"
+                        />
+                        <div className="flex justify-between text-xs text-gray-500 mt-1">
+                          <span>40px</span>
+                          <span className="font-medium text-gray-300">{activeGame.logoSizePerViewMode?.logo ?? rightPanelLogoSize ?? 100}px</span>
+                          <span>300px</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* Boxart Position and Size - Grouped together */}
                 <div className="px-3 py-2 bg-gray-700/30 rounded-md">
                   <label className="block text-xs text-gray-400 mb-2 font-semibold">Boxart Position</label>
@@ -918,89 +1008,6 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                     </button>
                   </div>
                 </div>
-
-                {/* Per-Game Logo Size Controls - Only show when a game is selected */}
-                {activeGame && (
-                  <div className="px-3 py-2 bg-gray-700/30 rounded-md">
-                    <label className="block text-xs text-gray-400 mb-2 font-semibold">Game Logo Size Overrides</label>
-                    
-                    {/* Grid Logo Size */}
-                    <div className="mb-3">
-                      <label className="block text-xs text-gray-300 mb-1">Grid Logo Size</label>
-                      <input
-                        type="range"
-                        min="40"
-                        max="200"
-                        step="5"
-                        value={activeGame.logoSizePerViewMode?.grid ?? rightPanelLogoSize ?? 100}
-                        onChange={(e) => handlePerGameLogoSizeChange('grid', Number(e.target.value))}
-                        className="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer slider accent-blue-600 transition-all"
-                      />
-                      <div className="flex justify-between text-xs text-gray-500 mt-1">
-                        <span>40px</span>
-                        <span className="font-medium text-gray-300">{activeGame.logoSizePerViewMode?.grid ?? rightPanelLogoSize ?? 100}px</span>
-                        <span>200px</span>
-                      </div>
-                    </div>
-
-                    {/* List Logo Size */}
-                    <div className="mb-3">
-                      <label className="block text-xs text-gray-300 mb-1">List Logo Size</label>
-                      <input
-                        type="range"
-                        min="40"
-                        max="200"
-                        step="5"
-                        value={activeGame.logoSizePerViewMode?.list ?? rightPanelLogoSize ?? 100}
-                        onChange={(e) => handlePerGameLogoSizeChange('list', Number(e.target.value))}
-                        className="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer slider accent-blue-600 transition-all"
-                      />
-                      <div className="flex justify-between text-xs text-gray-500 mt-1">
-                        <span>40px</span>
-                        <span className="font-medium text-gray-300">{activeGame.logoSizePerViewMode?.list ?? rightPanelLogoSize ?? 100}px</span>
-                        <span>200px</span>
-                      </div>
-                    </div>
-
-                    {/* Logo View Logo Size */}
-                    <div className="mb-3">
-                      <label className="block text-xs text-gray-300 mb-1">Logo View Logo Size</label>
-                      <input
-                        type="range"
-                        min="40"
-                        max="300"
-                        step="5"
-                        value={activeGame.logoSizePerViewMode?.logo ?? rightPanelLogoSize ?? 100}
-                        onChange={(e) => handlePerGameLogoSizeChange('logo', Number(e.target.value))}
-                        className="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer slider accent-blue-600 transition-all"
-                      />
-                      <div className="flex justify-between text-xs text-gray-500 mt-1">
-                        <span>40px</span>
-                        <span className="font-medium text-gray-300">{activeGame.logoSizePerViewMode?.logo ?? rightPanelLogoSize ?? 100}px</span>
-                        <span>300px</span>
-                      </div>
-                    </div>
-
-                    {/* Carousel Logo Size */}
-                    <div>
-                      <label className="block text-xs text-gray-300 mb-1">Carousel Logo Size</label>
-                      <input
-                        type="range"
-                        min="40"
-                        max="300"
-                        step="5"
-                        value={activeGame.logoSizePerViewMode?.carousel ?? rightPanelLogoSize ?? 100}
-                        onChange={(e) => handlePerGameLogoSizeChange('carousel', Number(e.target.value))}
-                        className="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer slider accent-blue-600 transition-all"
-                      />
-                      <div className="flex justify-between text-xs text-gray-500 mt-1">
-                        <span>40px</span>
-                        <span className="font-medium text-gray-300">{activeGame.logoSizePerViewMode?.carousel ?? rightPanelLogoSize ?? 100}px</span>
-                        <span>300px</span>
-                      </div>
-                    </div>
-                  </div>
-                )}
 
                 {/* Details View Transparency */}
                 <div className="px-3 py-2 bg-gray-700/30 rounded-md">
