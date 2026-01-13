@@ -1,6 +1,7 @@
 export interface UserPreferences {
   gridSize: number;
   panelWidth: number;
+  panelWidthByView?: { grid?: number; list?: number; logo?: number; carousel?: number };
   fanartHeight: number;
   descriptionHeight: number;
   pinnedCategories: string[];
@@ -105,6 +106,7 @@ export class UserPreferencesService {
           preferences: {
             gridSize: 140,
             panelWidth: 800,
+            panelWidthByView: { grid: 800, list: 800, logo: 800 },
             fanartHeight: 320,
             descriptionHeight: 400,
             pinnedCategories: [],
@@ -181,6 +183,7 @@ export class UserPreferencesService {
     return store.get('preferences', {
       gridSize: 140,
       panelWidth: 800,
+      panelWidthByView: { grid: 800, list: 800, logo: 800 },
       fanartHeight: 320,
       descriptionHeight: 400,
       pinnedCategories: [],
@@ -243,6 +246,7 @@ export class UserPreferencesService {
     const current = store.get('preferences', {
       gridSize: 140,
       panelWidth: 800,
+      panelWidthByView: { grid: 800, list: 800, logo: 800 },
       fanartHeight: 320,
       descriptionHeight: 400,
       pinnedCategories: [],
@@ -305,6 +309,7 @@ export class UserPreferencesService {
     store.set('preferences', {
       gridSize: 140,
       panelWidth: 800,
+      panelWidthByView: { grid: 800, list: 800, logo: 800 },
       fanartHeight: 320,
       descriptionHeight: 400,
       pinnedCategories: [],

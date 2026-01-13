@@ -165,32 +165,41 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
     }
   };
 
-  // Get the appropriate size value based on view mode (excluding grid)
+  // Get the appropriate size value based on view mode
   const getSizeValue = () => {
+    if (viewMode === 'grid') return gridSize;
     if (viewMode === 'logo') return logoSize;
     return listSize;
   };
 
-  // Get the appropriate size change handler based on view mode (excluding grid)
+  // Get the appropriate size change handler based on view mode
   const handleSizeChange = (value: number) => {
+    if (viewMode === 'grid' && onGridSizeChange) onGridSizeChange(value);
     if (viewMode === 'logo' && onLogoSizeChange) onLogoSizeChange(value);
     if (viewMode === 'list' && onListSizeChange) onListSizeChange(value);
   };
 
-  // Get size label based on view mode (excluding grid)
+  // Get size label based on view mode
   const getSizeLabel = () => {
+    if (viewMode === 'grid') return 'Grid Size';
     if (viewMode === 'logo') return 'Logo Size';
     return 'List View Size';
   };
 
-  // Get size range based on view mode (excluding grid)
+  // Get size range based on view mode
   const getSizeRange = () => {
-    if (viewMode === 'logo') return { min: 80, max: 500 };
-    return { min: 80, max: 200 };
+    if (viewMode === 'list') return { min: 80, max: 200 };
+    return { min: 80, max: 500 };
+  };
+
+  const getPaddingRange = () => {
+    if (viewMode === 'logo') return { min: 0, max: 32 };
+    return { min: 0, max: 10 };
   };
 
   const sizeValue = getSizeValue();
   const sizeRange = getSizeRange();
+  const paddingRange = getPaddingRange();
 
   const handleShowCarouselDetailsToggle = () => {
     onShowCarouselDetailsChange?.(!showCarouselDetails);
@@ -207,7 +216,7 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
       style={{ 
         left: `${x}px`, 
         top: `${y}px`,
-        minWidth: (viewMode === 'carousel' || viewMode === 'grid') ? '600px' : '360px'
+        minWidth: '600px'
       }}
     >
       {/* View Mode Toggle Buttons - Single Row */}
@@ -270,9 +279,8 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
         </button>
       </div>
 
-      {/* View-specific size controls - exclude Grid view since it has its own section */}
-      {((viewMode === 'logo' && onLogoSizeChange) || 
-        (viewMode === 'list' && onListSizeChange)) && (
+      {/* View-specific size controls for all non-carousel views */}
+      {viewMode !== 'carousel' && ((viewMode === 'grid' && onGridSizeChange) || (viewMode === 'logo' && onLogoSizeChange) || (viewMode === 'list' && onListSizeChange)) && (
         <div className="px-4 py-2">
           <label className="block text-xs text-gray-400 mb-1 font-semibold">{getSizeLabel()}</label>
           <input
@@ -546,8 +554,8 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
         </>
       )}
 
-      {/* Grid Settings - in two columns */}
-      {viewMode === 'grid' && (
+      {/* Shared layout settings for Grid, List, and Logo views */}
+      {viewMode !== 'carousel' && (
         <>
           <div className="px-2 py-2">
             <div className="grid grid-cols-2 gap-3">
@@ -621,41 +629,41 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                   )}
                 </div>
 
-                {/* Grid Size */}
-                <div className="px-3 py-2 bg-gray-700/30 rounded-md">
-                  <label className="block text-xs text-gray-400 mb-1 font-semibold">Grid Size</label>
-                  <input
-                    type="range"
-                    min="80"
-                    max="500"
-                    step="1"
-                    value={gridSize}
-                    onChange={(e) => onGridSizeChange?.(Number(e.target.value))}
-                    className="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer slider accent-blue-600"
-                  />
-                  <div className="flex justify-between text-xs text-gray-500 mt-1">
-                    <span>80px</span>
-                    <span className="font-medium text-gray-300">{gridSize}px</span>
-                    <span>500px</span>
-                  </div>
-                </div>
-
                 {/* Game Tile Padding */}
                 <div className="px-3 py-2 bg-gray-700/30 rounded-md">
                   <label className="block text-xs text-gray-400 mb-1 font-semibold">Game Tile Padding</label>
                   <input
                     type="range"
-                    min="0"
-                    max="10"
+                    min={paddingRange.min}
+                    max={paddingRange.max}
                     step="1"
                     value={gameTilePadding}
                     onChange={(e) => onGameTilePaddingChange?.(Number(e.target.value))}
                     className="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer slider accent-blue-600"
                   />
                   <div className="flex justify-between text-xs text-gray-500 mt-1">
-                    <span>0px</span>
+                    <span>{paddingRange.min}px</span>
                     <span className="font-medium text-gray-300">{gameTilePadding}px</span>
-                    <span>10px</span>
+                    <span>{paddingRange.max}px</span>
+                  </div>
+                </div>
+
+                {/* Background Blur Amount */}
+                <div className="px-3 py-2 bg-gray-700/30 rounded-md">
+                  <label className="block text-xs text-gray-400 mb-1 font-semibold">Background Blur Amount</label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    step="1"
+                    value={backgroundBlur}
+                    onChange={(e) => onBackgroundBlurChange?.(Number(e.target.value))}
+                    className="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer slider accent-blue-600"
+                  />
+                  <div className="flex justify-between text-xs text-gray-500 mt-1">
+                    <span>0px</span>
+                    <span className="font-medium text-gray-300">{backgroundBlur}px</span>
+                    <span>100px</span>
                   </div>
                 </div>
               </div>
@@ -800,47 +808,6 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
         </>
       )}
 
-      {/* Game Tile Padding - for Logo views only (Grid now has its own section) */}
-      {viewMode === 'logo' && onGameTilePaddingChange && (
-        <div className="px-4 py-2">
-          <label className="block text-xs text-gray-400 mb-1 font-semibold">Game Tile Padding</label>
-          <input
-            type="range"
-            min="0"
-            max="32"
-            step="1"
-            value={gameTilePadding}
-            onChange={(e) => onGameTilePaddingChange(Number(e.target.value))}
-            className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider accent-blue-600"
-          />
-          <div className="flex justify-between text-xs text-gray-500 mt-1">
-            <span>0px</span>
-            <span className="font-medium text-gray-300">{gameTilePadding}px</span>
-            <span>32px</span>
-          </div>
-        </div>
-      )}
-
-      {/* Background Blur Amount - for non-carousel and non-grid views */}
-      {(viewMode !== 'carousel' && viewMode !== 'grid') && onBackgroundBlurChange && (
-        <div className="px-4 py-2">
-          <label className="block text-xs text-gray-400 mb-1 font-semibold">Background Blur Amount</label>
-          <input
-            type="range"
-            min="0"
-            max="100"
-            step="1"
-            value={backgroundBlur}
-            onChange={(e) => onBackgroundBlurChange(Number(e.target.value))}
-            className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider accent-blue-600"
-          />
-          <div className="flex justify-between text-xs text-gray-500 mt-1">
-            <span>0px</span>
-            <span className="font-medium text-gray-300">{backgroundBlur}px</span>
-            <span>100px</span>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

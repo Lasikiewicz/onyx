@@ -164,7 +164,8 @@ function App() {
         if (prefs.backgroundColor) setBackgroundColor(prefs.backgroundColor);
         if (prefs.listViewOptions) setListViewOptions(prefs.listViewOptions);
         if (prefs.listViewSize) setListViewSize(prefs.listViewSize);
-        if (prefs.panelWidth) setPanelWidth(prefs.panelWidth);
+        const savedPanelWidth = (prefs.panelWidthByView && prefs.viewMode ? prefs.panelWidthByView[prefs.viewMode as 'grid' | 'list' | 'logo' | 'carousel'] : undefined) ?? prefs.panelWidth;
+        if (savedPanelWidth) setPanelWidth(savedPanelWidth);
         if (prefs.autoSizeToFit !== undefined) setAutoSizeToFit(prefs.autoSizeToFit);
         // Restore active game selection if it exists
         if (prefs.activeGameId) {
@@ -1505,6 +1506,7 @@ function App() {
             onPlay={handlePlay} 
             onSaveGame={handleSaveGame}
             onUpdateGameInState={updateGameInState}
+            viewMode={viewMode}
             onOpenInGameManager={(game, tab) => {
               setGameManagerInitialGameId(game.id);
               setGameManagerInitialTab(tab);

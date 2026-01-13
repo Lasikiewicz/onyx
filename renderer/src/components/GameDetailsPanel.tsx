@@ -4,6 +4,8 @@ import { GameContextMenu } from './GameContextMenu';
 import { LogoResizeMenu } from './LogoResizeMenu';
 import { ImageSearchModal } from './ImageSearchModal';
 
+type ViewKey = 'grid' | 'list' | 'logo';
+
 interface GameDetailsPanelProps {
   game: Game | null;
   onPlay?: (game: Game) => void;
@@ -22,6 +24,7 @@ interface GameDetailsPanelProps {
   isHiddenView?: boolean;
   onUpdateGameInState?: (game: Game) => void;
   onRightClick?: (x: number, y: number) => void;
+  viewMode: 'grid' | 'list' | 'logo' | 'carousel';
   // Right panel styling props
   rightPanelLogoSize?: number;
   rightPanelBoxartPosition?: 'left' | 'right' | 'none';
@@ -49,6 +52,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
   isHiddenView = false,
   onUpdateGameInState,
   onRightClick,
+  viewMode,
   rightPanelLogoSize = 200,
   rightPanelBoxartPosition = 'right',
   rightPanelBoxartSize = 300,
@@ -56,7 +60,8 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
   rightPanelButtonSize = 14,
   rightPanelButtonLocation = 'right'
 }) => {
-  const [width, setWidth] = useState(800);
+  const defaultPanelWidths: Record<ViewKey, number> = { grid: 800, list: 800, logo: 800 };
+  const [panelWidths, setPanelWidths] = useState<Record<ViewKey, number>>(defaultPanelWidths);
   const [fanartHeight, setFanartHeight] = useState(320);
   const [descriptionHeight, setDescriptionHeight] = useState(400);
   const [isResizing, setIsResizing] = useState(false);
@@ -68,6 +73,8 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
   const fanartRef = useRef<HTMLDivElement>(null);
   const descriptionRef = useRef<HTMLDivElement>(null);
   const descriptionContainerRef = useRef<HTMLDivElement>(null);
+  const viewKey: ViewKey = viewMode === 'list' ? 'list' : viewMode === 'logo' ? 'logo' : 'grid';
+  const activePanelWidth = panelWidths[viewKey] ?? defaultPanelWidths[viewKey];
 
   // Context menu state
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
@@ -107,7 +114,13 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
     const loadPreferences = async () => {
       try {
         const prefs = await window.electronAPI.getPreferences();
-        if (prefs.panelWidth) setWidth(prefs.panelWidth);
+        const panelWidthByView = prefs.panelWidthByView || {};
+        const fallbackPanelWidth = prefs.panelWidth ?? defaultPanelWidths.grid;
+        setPanelWidths({
+          grid: panelWidthByView.grid ?? fallbackPanelWidth,
+          list: panelWidthByView.list ?? fallbackPanelWidth,
+          logo: panelWidthByView.logo ?? fallbackPanelWidth,
+        });
         if (prefs.fanartHeight) setFanartHeight(prefs.fanartHeight);
         if (prefs.descriptionHeight) setDescriptionHeight(prefs.descriptionHeight);
         if (prefs.titleFontSize) setTitleFontSize(prefs.titleFontSize);
@@ -154,7 +167,8 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
     const savePreferences = async () => {
       try {
         await window.electronAPI.savePreferences({
-          panelWidth: width,
+          panelWidthByView: panelWidths,
+          panelWidth: activePanelWidth,
           fanartHeight,
           descriptionHeight,
           titleFontSize,
@@ -174,7 +188,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
     // Debounce saves
     const timeoutId = setTimeout(savePreferences, 500);
     return () => clearTimeout(timeoutId);
-  }, [width, fanartHeight, descriptionHeight, titleFontSize, titleFontFamily, descriptionFontSize, descriptionFontFamily, detailsFontSize, detailsFontFamily, visibleDetails, boxartWidth, descriptionWidth]);
+  }, [panelWidths, activePanelWidth, fanartHeight, descriptionHeight, titleFontSize, titleFontFamily, descriptionFontSize, descriptionFontFamily, detailsFontSize, detailsFontFamily, visibleDetails, boxartWidth, descriptionWidth]);
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -183,7 +197,8 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
         const newWidth = window.innerWidth - e.clientX;
         const minWidth = 400;
         const maxWidth = window.innerWidth * 0.75;
-        setWidth(Math.max(minWidth, Math.min(maxWidth, newWidth)));
+        const clampedWidth = Math.max(minWidth, Math.min(maxWidth, newWidth));
+        setPanelWidths(prev => ({ ...prev, [viewKey]: clampedWidth }));
       } else if (isResizingFanart && fanartRef.current) {
         const rect = fanartRef.current.getBoundingClientRect();
         const newHeight = e.clientY - rect.top;
@@ -220,7 +235,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
         document.removeEventListener('mouseup', handleMouseUp);
       };
     }
-  }, [isResizing, isResizingFanart, isResizingDescription, isResizingDescriptionWidth]);
+  }, [isResizing, isResizingFanart, isResizingDescription, isResizingDescriptionWidth, viewKey]);
 
   // Handle right-click on game elements (boxart/logo) - opens game context menu
   const handleGameElementRightClick = (e: React.MouseEvent) => {
@@ -246,7 +261,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
       <div 
         ref={panelRef}
         className="onyx-glass-panel rounded-l-3xl flex items-center justify-center p-8 relative"
-        style={{ width: `${width}px`, minWidth: '400px' }}
+        style={{ width: `${activePanelWidth}px`, minWidth: '400px' }}
       >
         <div className="text-center">
           <p className="text-gray-100 text-lg">Select a game</p>
@@ -281,7 +296,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
     <div 
       ref={panelRef}
       className="onyx-glass-panel rounded-l-3xl flex flex-col h-full overflow-hidden relative ml-auto"
-      style={{ width: `${width}px`, minWidth: '400px' }}
+      style={{ width: `${activePanelWidth}px`, minWidth: '400px' }}
       onContextMenu={(e) => {
         // Allow right-click anywhere except on explicit interactive elements (buttons/links/logo)
         const target = e.target as HTMLElement;
