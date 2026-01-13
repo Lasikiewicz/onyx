@@ -1803,7 +1803,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
                                               <span className="text-xs text-gray-500">App ID: {result.steamAppId}</span>
                                             )}
                                             {displayDate && (
-                                              <span className="text-xs text-gray-400">ÔÇó {displayDate}</span>
+                                              <span className="text-xs text-gray-400">ï¿½ï¿½ï¿½ {displayDate}</span>
                                             )}
                                           </div>
                                         </div>
@@ -2321,7 +2321,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
             {refreshProgress.total > 0 && refreshProgress.current >= refreshProgress.total && (
               <div className="mt-4 pt-4 border-t border-gray-700">
                 <div className="text-sm text-green-400 font-medium">
-                  Ô£ô Refresh completed!
+                  Ô£ï¿½ Refresh completed!
                 </div>
               </div>
             )}

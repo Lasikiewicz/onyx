@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 
-interface SimpleContextMenuProps {
+interface RightClickMenuProps {
   x: number;
   y: number;
   onClose: () => void;
@@ -60,7 +60,7 @@ interface SimpleContextMenuProps {
   onRightPanelButtonLocationChange?: (location: 'left' | 'middle' | 'right') => void;
 }
 
-export const SimpleContextMenu: React.FC<SimpleContextMenuProps> = ({
+export const RightClickMenu: React.FC<RightClickMenuProps> = ({
   x,
   y,
   onClose,
@@ -416,16 +416,16 @@ export const SimpleContextMenu: React.FC<SimpleContextMenuProps> = ({
                       <input
                         type="range"
                         min="50"
-                        max="200"
+                        max="400"
                         step="5"
                         value={carouselLogoSize}
                         onChange={(e) => onCarouselLogoSizeChange(Number(e.target.value))}
                         className="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer slider accent-blue-600"
                       />
                       <div className="flex justify-between text-xs text-gray-500 mt-1">
-                        <span>50%</span>
-                        <span className="font-medium text-gray-300">{carouselLogoSize}%</span>
-                        <span>200%</span>
+                        <span>50px</span>
+                        <span className="font-medium text-gray-300">{carouselLogoSize}px</span>
+                        <span>400px</span>
                       </div>
                     </>
                   )}

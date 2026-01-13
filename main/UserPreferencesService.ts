@@ -1,6 +1,5 @@
 export interface UserPreferences {
   gridSize: number;
-  logoSize?: number;
   panelWidth: number;
   fanartHeight: number;
   descriptionHeight: number;
@@ -34,6 +33,10 @@ export interface UserPreferences {
   logoViewSize?: number;
   logoHeight?: number;
   autoSizeToFit?: boolean;
+  showCarouselDetails?: boolean;
+  carouselLogoSize?: number;
+  carouselButtonSize?: number;
+  carouselDescriptionSize?: number;
   // View-specific settings
   gridView?: {
     gridSize?: number;

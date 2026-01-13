@@ -3,8 +3,7 @@ import { useGameLibrary } from './hooks/useGameLibrary';
 import { LibraryGrid } from './components/LibraryGrid';
 import { LibraryListView } from './components/LibraryListView';
 import { LibraryCarousel } from './components/LibraryCarousel';
-import { LibraryContextMenu } from './components/LibraryContextMenu';
-import { SimpleContextMenu } from './components/SimpleContextMenu';
+import { RightClickMenu } from './components/RightClickMenu';
 import { GameContextMenu } from './components/GameContextMenu';
 import { AddGameModal } from './components/AddGameModal';
 import { GameDetailsPanel } from './components/GameDetailsPanel';
@@ -122,9 +121,8 @@ function App() {
   });
   const [listViewSize, setListViewSize] = useState(128);
   const [panelWidth, setPanelWidth] = useState(800);
-  const [simpleContextMenu, setSimpleContextMenu] = useState<{ x: number; y: number } | null>(null);
+  const [rightClickMenu, setRightClickMenu] = useState<{ x: number; y: number } | null>(null);
   const [gameContextMenu, setGameContextMenu] = useState<{ x: number; y: number; game: Game } | null>(null);
-  const [showAppearanceMenu, setShowAppearanceMenu] = useState(false);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [autoSizeToFit, setAutoSizeToFit] = useState(false);
   const gridContainerRef = useRef<HTMLDivElement>(null);
@@ -1213,7 +1211,7 @@ function App() {
               // Left click on empty space opens simple context menu
               if (e.target === e.currentTarget) {
                 setGameContextMenu(null);
-                setSimpleContextMenu({ x: e.clientX, y: e.clientY });
+                setRightClickMenu({ x: e.clientX, y: e.clientY });
               }
             }}
             onContextMenu={(e) => {
@@ -1221,7 +1219,7 @@ function App() {
               if (e.target === e.currentTarget) {
                 e.preventDefault();
                 setGameContextMenu(null);
-                setSimpleContextMenu({ x: e.clientX, y: e.clientY });
+                setRightClickMenu({ x: e.clientX, y: e.clientY });
               }
             }}
           >
@@ -1269,12 +1267,12 @@ function App() {
                         logoBackgroundOpacity={logoBackgroundOpacity}
                         descriptionSize={gridDescriptionSize}
                         onGameContextMenu={(game: Game, x: number, y: number) => {
-                          setSimpleContextMenu(null);
+                          setRightClickMenu(null);
                           setGameContextMenu({ game, x, y });
                         }}
                         onEmptySpaceClick={(x: number, y: number) => {
                           setGameContextMenu(null);
-                          setSimpleContextMenu({ x, y });
+                          setRightClickMenu({ x, y });
                         }}
                       />
                     ) : viewMode === 'carousel' ? (
@@ -1318,7 +1316,7 @@ function App() {
                         }}
                         onEmptySpaceRightClick={(x, y) => {
                           setGameContextMenu(null);
-                          setSimpleContextMenu({ x, y });
+                          setRightClickMenu({ x, y });
                         }}
                       />
                     ) : (
@@ -1340,7 +1338,7 @@ function App() {
                         listViewSize={listViewSize}
                         onEmptySpaceClick={(x, y) => {
                           setGameContextMenu(null);
-                          setSimpleContextMenu({ x, y });
+                          setRightClickMenu({ x, y });
                         }}
                       />
                     )}
@@ -1448,7 +1446,7 @@ function App() {
             isHiddenView={selectedCategory === 'hidden'}
             onRightClick={(x, y) => {
               setGameContextMenu(null);
-              setSimpleContextMenu({ x, y });
+              setRightClickMenu({ x, y });
             }}
             rightPanelLogoSize={rightPanelLogoSize}
             rightPanelBoxartPosition={rightPanelBoxartPosition}
@@ -1658,12 +1656,12 @@ function App() {
         onReloadLibrary={loadLibrary}
       />
 
-      {/* Simple Context Menu */}
-      {simpleContextMenu && (
-        <SimpleContextMenu
-          x={simpleContextMenu.x}
-          y={simpleContextMenu.y}
-          onClose={() => setSimpleContextMenu(null)}
+      {/* Right Click Menu */}
+      {rightClickMenu && (
+        <RightClickMenu
+          x={rightClickMenu.x}
+          y={rightClickMenu.y}
+          onClose={() => setRightClickMenu(null)}
           viewMode={viewMode}
           onViewModeChange={setViewMode}
           gridSize={gridSize}
@@ -1778,64 +1776,6 @@ function App() {
           onHide={handleHideGame}
           onUnhide={handleUnhideGame}
           isHiddenView={selectedCategory === 'hidden'}
-        />
-      )}
-
-      {/* Appearance Settings Menu */}
-      {showAppearanceMenu && (
-        <LibraryContextMenu
-          onClose={() => setShowAppearanceMenu(false)}
-          positionOverRightPanel={true}
-          rightPanelWidth={panelWidth}
-          viewMode={viewMode}
-          onViewModeChange={setViewMode}
-          backgroundBlur={backgroundBlur}
-          onBackgroundBlurChange={setBackgroundBlur}
-          gameTilePadding={gameTilePadding}
-          onGameTilePaddingChange={setGameTilePadding}
-          hideGameTitles={hideGameTitles}
-          onHideGameTitlesChange={setHideGameTitles}
-          showLogoOverBoxart={showLogoOverBoxart}
-          onShowLogoOverBoxartChange={(show) => {
-            setShowLogoOverBoxart(show);
-            window.electronAPI.savePreferences({ showLogoOverBoxart: show });
-          }}
-          logoPosition={logoPosition}
-          onLogoPositionChange={(position) => {
-            setLogoPosition(position);
-            window.electronAPI.savePreferences({ logoPosition: position });
-          }}
-          backgroundMode={backgroundMode}
-          onBackgroundModeChange={setBackgroundMode}
-          backgroundColor={backgroundColor}
-          onBackgroundColorChange={setBackgroundColor}
-          listViewOptions={listViewOptions}
-          onListViewOptionsChange={setListViewOptions}
-          listViewSize={listViewSize}
-          onListViewSizeChange={setListViewSize}
-          autoSizeToFit={autoSizeToFit}
-          onAutoSizeToFit={handleAutoSizeToFit}
-          gridSize={gridSize}
-          onGridSizeChange={setGridSize}
-          logoSize={logoSize}
-          onLogoSizeChange={setLogoSize}
-          selectedBoxArtSize={selectedBoxArtSize}
-          onSelectedBoxArtSizeChange={setSelectedBoxArtSize}
-          showCarouselDetails={showCarouselDetails}
-          onShowCarouselDetailsChange={(show) => {
-            setShowCarouselDetails(show);
-            window.electronAPI.savePreferences({ showCarouselDetails: show });
-          }}
-          showCarouselLogos={showCarouselLogos}
-          onShowCarouselLogosChange={(show) => {
-            setShowCarouselLogos(show);
-            window.electronAPI.savePreferences({ showCarouselLogos: show });
-          }}
-          detailsBarSize={detailsBarSize}
-          onDetailsBarSizeChange={(size) => {
-            setDetailsBarSize(size);
-            window.electronAPI.savePreferences({ detailsBarSize: size });
-          }}
         />
       )}
 

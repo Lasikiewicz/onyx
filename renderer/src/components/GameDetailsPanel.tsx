@@ -629,7 +629,6 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
           onHide={onHide}
           onUnhide={onUnhide}
           isHiddenView={isHiddenView}
-          onResizeLogo={() => setShowLogoResizeDialog(true)}
         />
       )}
 

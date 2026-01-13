@@ -544,6 +544,9 @@ export class ImportService {
       'blizzardbrowser.exe',
       'blizzarderror.exe',
       'gamesessionmonitor.exe',
+      'unins000.exe',
+      'autorun.exe',
+      'vc_redist.x64.exe',
       'gamelaunchhelper',
       'bootstrapper',
       'crashreportclient',
@@ -553,6 +556,9 @@ export class ImportService {
       'blizzardbrowser',
       'blizzarderror',
       'gamesessionmonitor',
+      'unins000',
+      'autorun',
+      'vc_redist.x64',
     ];
     
     try {
@@ -577,6 +583,10 @@ export class ImportService {
             if (!lowerName.includes('installer') &&
                 !lowerName.includes('setup') &&
                 !lowerName.includes('uninstall') &&
+                !lowerName.includes('unins') &&
+                !lowerName.includes('autorun') &&
+                !lowerName.includes('vc_redist') &&
+                !lowerName.includes('vcredist') &&
                 !lowerName.includes('launcher') &&
                 !lowerName.includes('updater') &&
                 !lowerName.includes('gamelaunchhelper') &&

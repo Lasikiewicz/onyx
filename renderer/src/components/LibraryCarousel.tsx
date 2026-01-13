@@ -61,9 +61,7 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
   onEmptySpaceRightClick,
 }) => {
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const [showLogoResizer, setShowLogoResizer] = useState(false);
   const [showDetailsBarResizer, setShowDetailsBarResizer] = useState(false);
-  const [logoSize, setLogoSize] = useState(propCarouselLogoSize);
   const [carouselOffset, setCarouselOffset] = useState(0);
   const [detailsBarSize, setDetailsBarSize] = useState(propDetailsBarSize);
   const [logoContextMenu, setLogoContextMenu] = useState<{ x: number; y: number } | null>(null);
@@ -74,10 +72,6 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
     setDetailsBarSize(propDetailsBarSize);
   }, [propDetailsBarSize]);
 
-  React.useEffect(() => {
-    setLogoSize(propCarouselLogoSize);
-  }, [propCarouselLogoSize]);
-  
   // Ensure selectedIndex is valid
   const validSelectedIndex = Math.max(0, Math.min(selectedIndex, games.length - 1));
   const selectedGame = games.length > 0 ? games[validSelectedIndex] : null;
@@ -169,9 +163,6 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
     const handleClickOutside = (e: MouseEvent) => {
       // Hide resizers when clicking outside
       const target = e.target as HTMLElement;
-      if (showLogoResizer && !target.closest('.logo-resizer-container')) {
-        setShowLogoResizer(false);
-      }
       if (showDetailsBarResizer && !target.closest('.details-bar-container')) {
         setShowDetailsBarResizer(false);
       }
@@ -190,7 +181,7 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('click', handleClickOutside);
     };
-  }, [games, validSelectedIndex, selectedGame, onGameClick, onPlay, showLogoResizer, showDetailsBarResizer, logoContextMenu, thumbnailContextMenu]);
+  }, [games, validSelectedIndex, selectedGame, onGameClick, onPlay, showDetailsBarResizer, logoContextMenu, thumbnailContextMenu]);
 
   if (games.length === 0) {
     return (
@@ -291,9 +282,8 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
                       alt={selectedGame.title}
                       className="drop-shadow-lg cursor-pointer hover:drop-shadow-xl transition-all duration-200 hover:scale-105"
                       style={{ 
-                        width: `${logoSize}%`,
+                        width: `${propCarouselLogoSize}px`,
                         maxWidth: '400px',
-                        maxHeight: '80px',
                         height: 'auto'
                       }}
                       onContextMenu={(e) => {
@@ -308,26 +298,6 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
                         if (titleElement) titleElement.style.display = 'block';
                       }}
                     />
-                    
-                    {/* Logo Resizer */}
-                    {showLogoResizer && (
-                      <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 bg-black/80 backdrop-blur-sm rounded-lg p-3 border border-gray-600">
-                        <input
-                          type="range"
-                          min="50"
-                          max="200"
-                          step="5"
-                          value={logoSize}
-                          onChange={(e) => {
-                            const newSize = Number(e.target.value);
-                            setLogoSize(newSize);
-                            onCarouselLogoSizeChange?.(newSize);
-                          }}
-                          className="w-32 h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer slider"
-                        />
-                        <div className="text-xs text-gray-400 text-center mt-1">{logoSize}%</div>
-                      </div>
-                    )}
                   </div>
                 ) : (
                   // Fallback to title if no logo
@@ -565,7 +535,6 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
           onHide={onHide}
           onUnhide={onUnhide}
           isHiddenView={isHiddenView}
-          onResizeLogo={() => setShowLogoResizer(true)}
         />,
         document.body
       )}
