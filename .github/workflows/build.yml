@@ -77,6 +77,14 @@ jobs:
           git push origin $tag -f
         shell: pwsh
       
+      - name: Delete old release
+        run: |
+          $tag = "${{ steps.build_profile.outputs.tag_prefix }}${{ steps.version.outputs.version }}"
+          gh release delete $tag -y || true
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
@@ -88,6 +96,5 @@ jobs:
             release/*.blockmap
             release/latest.yml
           draft: false
-          overwrite: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
