@@ -1744,6 +1744,8 @@ function App() {
           onClose={() => setRightClickMenu(null)}
           viewMode={viewMode}
           onViewModeChange={setViewMode}
+          activeGame={activeGame || undefined}
+          onActiveGameChange={(game) => setActiveGameId(game.id)}
           gridSize={gridSize}
           onGridSizeChange={setGridSize}
           logoSize={logoSize}
