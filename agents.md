@@ -23,11 +23,18 @@
 4. ✅ **Understand project structure** - Know where files are located
 5. ✅ **Check existing documentation** - Review related .md files if applicable
 
+**Before ANY git operations (commit, push, pull):**
+6. ✅ **STOP - ASK FOR PERMISSION FIRST** - Do not proceed without explicit user approval
+7. ✅ **Show what will change** - List all files, commit message, branches affected
+8. ✅ **WAIT for user response** - Only proceed after user says "yes" or approves
+9. ✅ **Report results** - Tell user what was pushed/pulled after the fact
+
 **If you skip this step, you may:**
 - Re-enable disabled features
 - Break existing functionality
 - Duplicate work that's already done
 - Miss important architectural constraints
+- **Push unauthorized changes to git (CRITICAL BREACH)**
 
 ---
 
