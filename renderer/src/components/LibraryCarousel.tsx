@@ -92,6 +92,11 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
   // Use the same aspect ratio as base games (100px width / 150px height = 0.667)
   const selectedGameHeight = Math.max(minSelectedHeight, selectedGameWidth * 1.5); // Match box art aspect ratio
 
+  // Calculate safe padding to prevent text overlap with carousel
+  const carouselHeight = Math.max(selectedGameHeight, 150) + 20; // Carousel container height
+  const carouselBottomOffset = 32; // bottom-8 = 32px
+  const safeBottomPadding = carouselHeight + carouselBottomOffset + 20; // Extra 20px buffer
+
   // Calculate carousel offset for smooth animations
   const calculateOffset = (index: number) => {
     if (games.length === 0) return 0;
@@ -261,83 +266,108 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
       {/* Main game display area - always visible */}
       <div className="h-full relative overflow-hidden">
         {selectedGame && (
-          <div className="absolute right-8 top-1/2 transform -translate-y-1/2 max-w-2xl">
-            {/* Show logos or title based on showCarouselLogos setting */}
-            {showCarouselLogos ? (
-              // Show logo if available
-              selectedGame.logoUrl ? (
-                <div className="relative logo-resizer-container">
-                  <img
-                    src={selectedGame.logoUrl}
-                    alt={selectedGame.title}
-                    className="mb-6 drop-shadow-lg cursor-pointer hover:drop-shadow-xl transition-all duration-200 hover:scale-105"
-                    style={{ 
-                      width: `${logoSize}%`,
-                      maxWidth: `${Math.max(200, logoSize * 4)}px`, // Dynamic max width based on size
-                      height: 'auto'
-                    }}
-                    onContextMenu={(e) => {
-                      e.preventDefault();
-                      setLogoContextMenu({ x: e.clientX, y: e.clientY });
-                    }}
-                    onError={(e) => {
-                      // Fallback to title if logo fails to load
-                      const target = e.target as HTMLImageElement;
-                      target.style.display = 'none';
-                      const titleElement = target.parentElement?.nextElementSibling as HTMLElement;
-                      if (titleElement) titleElement.style.display = 'block';
-                    }}
-                  />
-                  
-                  {/* Logo Resizer */}
-                  {showLogoResizer && (
-                    <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 bg-black/80 backdrop-blur-sm rounded-lg p-3 border border-gray-600">
-                      <input
-                        type="range"
-                        min="50"
-                        max="200"
-                        step="5"
-                        value={logoSize}
-                        onChange={(e) => {
-                          const newSize = Number(e.target.value);
-                          setLogoSize(newSize);
-                          onCarouselLogoSizeChange?.(newSize);
-                        }}
-                        className="w-32 h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer slider"
-                      />
-                      <div className="text-xs text-gray-400 text-center mt-1">{logoSize}%</div>
-                    </div>
-                  )}
-                </div>
+          <div 
+            className="absolute right-0 top-0 flex flex-col items-center justify-center"
+            style={{
+              width: '50%',
+              height: `calc(100vh - 200px)`, // Full height above carousel
+              padding: '20px'
+            }}
+          >
+            {/* Logo Section - Fixed above description */}
+            <div className="flex justify-center mb-6">
+              {showCarouselLogos ? (
+                // Show logo if available
+                selectedGame.logoUrl ? (
+                  <div className="relative logo-resizer-container">
+                    <img
+                      src={selectedGame.logoUrl}
+                      alt={selectedGame.title}
+                      className="drop-shadow-lg cursor-pointer hover:drop-shadow-xl transition-all duration-200 hover:scale-105"
+                      style={{ 
+                        width: `${logoSize}%`,
+                        maxWidth: '400px',
+                        maxHeight: '80px',
+                        height: 'auto'
+                      }}
+                      onContextMenu={(e) => {
+                        e.preventDefault();
+                        setLogoContextMenu({ x: e.clientX, y: e.clientY });
+                      }}
+                      onError={(e) => {
+                        // Fallback to title if logo fails to load
+                        const target = e.target as HTMLImageElement;
+                        target.style.display = 'none';
+                        const titleElement = target.parentElement?.nextElementSibling as HTMLElement;
+                        if (titleElement) titleElement.style.display = 'block';
+                      }}
+                    />
+                    
+                    {/* Logo Resizer */}
+                    {showLogoResizer && (
+                      <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 bg-black/80 backdrop-blur-sm rounded-lg p-3 border border-gray-600">
+                        <input
+                          type="range"
+                          min="50"
+                          max="200"
+                          step="5"
+                          value={logoSize}
+                          onChange={(e) => {
+                            const newSize = Number(e.target.value);
+                            setLogoSize(newSize);
+                            onCarouselLogoSizeChange?.(newSize);
+                          }}
+                          className="w-32 h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer slider"
+                        />
+                        <div className="text-xs text-gray-400 text-center mt-1">{logoSize}%</div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  // Fallback to title if no logo
+                  <h1 className="text-3xl font-bold text-white drop-shadow-lg text-center">
+                    {selectedGame.title}
+                  </h1>
+                )
               ) : (
-                // Fallback to title if no logo
-                <h1 className="text-5xl font-bold text-white mb-6 drop-shadow-lg">
+                // Always show title when logos are disabled
+                <h1 className="text-3xl font-bold text-white drop-shadow-lg text-center">
                   {selectedGame.title}
                 </h1>
-              )
-            ) : (
-              // Always show title when logos are disabled
-              <h1 className="text-5xl font-bold text-white mb-6 drop-shadow-lg">
-                {selectedGame.title}
-              </h1>
-            )}
+              )}
+              
+              {/* Hidden title element for logo fallback */}
+              {showCarouselLogos && selectedGame.logoUrl && (
+                <h1 className="text-3xl font-bold text-white drop-shadow-lg text-center" style={{ display: 'none' }}>
+                  {selectedGame.title}
+                </h1>
+              )}
+            </div>
+
+            {/* Description Section - Center of the group */}
+            <div className="flex justify-center mb-6">
+              {selectedGame.description && (
+                <div 
+                  className="text-gray-200 leading-relaxed carousel-description text-center line-clamp-6"
+                  style={{ 
+                    fontSize: `${carouselDescriptionSize}px`,
+                    maxWidth: '100%',
+                    padding: '0 20px'
+                  }}
+                >
+                  {/* Try HTML rendering first, fallback to plain text */}
+                  {selectedGame.description.includes('<') ? (
+                    <div dangerouslySetInnerHTML={{ __html: selectedGame.description }} />
+                  ) : (
+                    <p>{selectedGame.description}</p>
+                  )}
+                </div>
+              )}
+            </div>
             
-            {/* Hidden title element for logo fallback */}
-            {showCarouselLogos && selectedGame.logoUrl && (
-              <h1 className="text-5xl font-bold text-white mb-6 drop-shadow-lg" style={{ display: 'none' }}>
-                {selectedGame.title}
-              </h1>
-            )}
-            
-            {selectedGame.description && (
-              <p 
-                className="text-gray-200 leading-relaxed mb-6"
-                style={{ fontSize: `${carouselDescriptionSize}px` }}
-              >
-                {selectedGame.description}
-              </p>
-            )}
-            <div className="flex items-center gap-3">
+            {/* Buttons Section - Fixed below description */}
+            <div className="flex justify-center">
+              <div className="flex items-center gap-3 flex-wrap justify-center">
               <button
                 onClick={() => onPlay?.(selectedGame)}
                 className="bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors flex items-center gap-2 shadow-lg"
@@ -415,13 +445,20 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
                 </svg>
               </button>
+              </div>
             </div>
           </div>
         )}
       </div>
       
       {/* Animated flowing carousel */}
-      <div className="fixed bottom-8 left-0 right-0 z-50 overflow-hidden" style={{ height: `${Math.max(selectedGameHeight, 150) + 20}px` }}>
+      <div 
+        className="fixed bottom-8 left-0 right-0 z-50 overflow-visible" 
+        style={{ 
+          height: '200px', // Fixed height independent of selected game size
+          minHeight: '170px' // Ensure minimum space for carousel
+        }}
+      >
         <div className="h-full flex items-end pb-4 relative">
           
           {/* Flowing carousel container with smooth animation */}
