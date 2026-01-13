@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Game } from '../types/game';
 import { GameContextMenu } from './GameContextMenu';
+import { LogoResizeMenu } from './LogoResizeMenu';
 import { ImageSearchModal } from './ImageSearchModal';
 
 interface GameDetailsPanelProps {
@@ -66,6 +67,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
 
   // Context menu state
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
+  const [logoResizeMenu, setLogoResizeMenu] = useState<{ x: number; y: number } | null>(null);
 
   // Image search modal
   const [imageSearchModal, setImageSearchModal] = useState<{ type: 'artwork' | 'boxart' } | null>(null);
@@ -218,6 +220,26 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
     setContextMenu({ x: e.clientX, y: e.clientY });
   };
 
+  // Handle right-click on logo specifically - opens logo resize menu
+  const handleLogoRightClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setLogoResizeMenu({ x: e.clientX, y: e.clientY });
+  };
+
+  const handleLogoSizeChange = async (newSize: number) => {
+    if (!game) return;
+    const updated = {
+      ...game,
+      logoSizePerViewMode: {
+        ...(game.logoSizePerViewMode || {}),
+        carousel: newSize,
+      },
+    };
+    if (onSaveGame) await onSaveGame(updated);
+  };
+  };
+
   if (!game) {
     return (
       <div 
@@ -344,7 +366,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
               alt={game.title}
               className="max-w-full max-h-full object-contain cursor-pointer drop-shadow-2xl"
               style={{ 
-                maxHeight: `${showLogoResizeDialog && localLogoSize !== undefined ? localLogoSize : (game.logoSizePerViewMode?.carousel || rightPanelLogoSize)}px`,
+                maxHeight: `${game.logoSizePerViewMode?.carousel || rightPanelLogoSize}px`,
                 ...(game.removeLogoTransparency ? {
                   backgroundColor: 'rgba(0, 0, 0, 0.5)',
                   padding: '8px',
@@ -359,7 +381,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
                 target.style.display = 'none';
                 target.src = ''; // Clear src to prevent retries
               }}
-              onContextMenu={handleGameElementRightClick}
+              onContextMenu={handleLogoRightClick}
             />
           ) : (
             <div 
@@ -629,6 +651,18 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
           onHide={onHide}
           onUnhide={onUnhide}
           isHiddenView={isHiddenView}
+        />
+      )}
+
+      {/* Logo Resize Menu */}
+      {logoResizeMenu && game && (
+        <LogoResizeMenu
+          game={game}
+          x={logoResizeMenu.x}
+          y={logoResizeMenu.y}
+          onClose={() => setLogoResizeMenu(null)}
+          onSizeChange={handleLogoSizeChange}
+          rightPanelLogoSize={rightPanelLogoSize}
         />
       )}
 
