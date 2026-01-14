@@ -2321,7 +2321,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                     onClick={async () => {
                       try {
                         if (window.electronAPI && window.electronAPI.openExternal) {
-                          const result = await window.electronAPI.openExternal('https://discord.gg/PLACEHOLDER');
+                          const result = await window.electronAPI.openExternal('https://discord.gg/m2dgd4ZUPu');
                           if (!result.success) {
                             console.error('Failed to open external URL:', result.error);
                           }
@@ -2335,7 +2335,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                     <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                     </svg>
-                    <span>Join Community</span>
+                    <span>Join Discord</span>
                   </button>
 
                   {/* Ko-fi Support */}

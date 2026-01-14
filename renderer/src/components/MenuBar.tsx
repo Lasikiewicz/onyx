@@ -583,6 +583,29 @@ export const MenuBar: React.FC<MenuBarProps> = ({
                     <span className="flex-1">Support Onyx</span>
                   </button>
 
+                  {/* Discord */}
+                  <button
+                    onClick={async () => {
+                      try {
+                        if (window.electronAPI && window.electronAPI.openExternal) {
+                          const result = await window.electronAPI.openExternal('https://discord.gg/m2dgd4ZUPu');
+                          if (!result.success) {
+                            console.error('Failed to open external URL:', result.error);
+                          }
+                        }
+                      } catch (error) {
+                        console.error('Failed to open external URL:', error);
+                      }
+                      setIsOnyxSettingsMenuOpen(false);
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-slate-300 hover:bg-blue-500/10 hover:text-blue-400 rounded transition-colors whitespace-nowrap"
+                  >
+                    <svg className="w-5 h-5 text-blue-500 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                    </svg>
+                    <span className="flex-1">Join Discord</span>
+                  </button>
+
                   {onAbout && (
                     <button
                       onClick={() => {
