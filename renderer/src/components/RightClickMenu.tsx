@@ -174,6 +174,17 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
   const [showCustomDefaultsModal, setShowCustomDefaultsModal] = React.useState(false);
   const [hasCustomDefaults, setHasCustomDefaults] = React.useState(false);
   const [screenResolution, setScreenResolution] = React.useState('1080p');
+  const [saveFeedback, setSaveFeedback] = React.useState<{ type: 'current' | 'all'; show: boolean }>({ type: 'current', show: false });
+  const [restoreFeedback, setRestoreFeedback] = React.useState<{ type: 'current' | 'all'; show: boolean }>({ type: 'current', show: false });
+  const feedbackTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+
+  const showFeedback = (setState: (s: any) => void, type: 'current' | 'all') => {
+    setState({ type, show: true });
+    if (feedbackTimeoutRef.current) clearTimeout(feedbackTimeoutRef.current);
+    feedbackTimeoutRef.current = setTimeout(() => {
+      setState({ type, show: false });
+    }, 2000);
+  };
 
   // Detect screen resolution
   React.useEffect(() => {
@@ -413,6 +424,10 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
   });
 
   const applySettings = (settings: any) => {
+    if (settings.panelWidth !== undefined) {
+      // This would need to be passed through as a prop callback if we want to support it
+      // For now, panelWidth is only saved/restored in the modal state
+    }
     if (settings.gridSize !== undefined && onGridSizeChange) onGridSizeChange(settings.gridSize);
     if (settings.logoSize !== undefined && onLogoSizeChange) onLogoSizeChange(settings.logoSize);
     if (settings.listSize !== undefined && onListSizeChange) onListSizeChange(settings.listSize);
@@ -445,6 +460,7 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
     const result = await window.electronAPI.saveCustomDefaults?.(currentSettings);
     if (result?.success) {
       setHasCustomDefaults(true);
+      showFeedback(setSaveFeedback, 'current');
     }
   };
 
@@ -458,6 +474,7 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
     const result = await window.electronAPI.saveCustomDefaults?.(currentSettings);
     if (result?.success) {
       setHasCustomDefaults(true);
+      showFeedback(setSaveFeedback, 'all');
     }
   };
 
@@ -465,6 +482,7 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
     const result = await window.electronAPI.restoreCustomDefaults?.({ viewMode, scope: 'current' });
     if (result?.success && result.defaults) {
       applySettings(result.defaults);
+      showFeedback(setRestoreFeedback, 'current');
     }
   };
 
@@ -477,16 +495,17 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
       if (currentViewSettings) {
         applySettings(currentViewSettings);
       }
+      showFeedback(setRestoreFeedback, 'all');
     }
   };
 
   const handleExportCurrentView = async () => {
-    const result = await window.electronAPI.exportCustomDefaults?.({ viewMode, scope: 'current' });
+    await window.electronAPI.exportCustomDefaults?.({ viewMode, scope: 'current' });
     // Successfully exported or cancelled - keep modal open
   };
 
   const handleExportAllViews = async () => {
-    const result = await window.electronAPI.exportCustomDefaults?.({ viewMode, scope: 'all' });
+    await window.electronAPI.exportCustomDefaults?.({ viewMode, scope: 'all' });
     // Successfully exported or cancelled - keep modal open
   };
 
@@ -1565,6 +1584,8 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
         onExportCurrentView={handleExportCurrentView}
         onExportAllViews={handleExportAllViews}
         onImportSettings={handleImportSettings}
+        saveFeedback={saveFeedback}
+        restoreFeedback={restoreFeedback}
       />
 
     </div>
