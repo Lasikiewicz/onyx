@@ -33,6 +33,10 @@ interface GameDetailsPanelProps {
   rightPanelButtonSize?: number;
   rightPanelButtonLocation?: 'left' | 'middle' | 'right';
   detailsPanelOpacity?: number;
+  fanartHeight?: number;
+  onFanartHeightChange?: (height: number) => void;
+  descriptionWidth?: number;
+  onDescriptionWidthChange?: (width: number) => void;
 }
 
 export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ 
@@ -61,16 +65,20 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
   rightPanelButtonSize = 14,
   rightPanelButtonLocation = 'right',
   detailsPanelOpacity = 80,
+  fanartHeight: propFanartHeight = 320,
+  onFanartHeightChange,
+  descriptionWidth: propDescriptionWidth = 50,
+  onDescriptionWidthChange,
 }) => {
   const defaultPanelWidths: Record<ViewKey, number> = { grid: 800, list: 800, logo: 800 };
   const [panelWidths, setPanelWidths] = useState<Record<ViewKey, number>>(defaultPanelWidths);
-  const [fanartHeight, setFanartHeight] = useState(320);
+  const [fanartHeight, setFanartHeight] = useState(propFanartHeight);
   const [descriptionHeight, setDescriptionHeight] = useState(400);
+  const [descriptionWidth, setDescriptionWidth] = useState(propDescriptionWidth);
   const [isResizing, setIsResizing] = useState(false);
   const [isResizingFanart, setIsResizingFanart] = useState(false);
   const [isResizingDescription, setIsResizingDescription] = useState(false);
   const [isResizingDescriptionWidth, setIsResizingDescriptionWidth] = useState(false);
-  const [descriptionWidth, setDescriptionWidth] = useState(50); // Percentage
   const panelRef = useRef<HTMLDivElement>(null);
   const fanartRef = useRef<HTMLDivElement>(null);
   const descriptionRef = useRef<HTMLDivElement>(null);
@@ -127,6 +135,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
         });
         if (prefs.fanartHeight) setFanartHeight(prefs.fanartHeight);
         if (prefs.descriptionHeight) setDescriptionHeight(prefs.descriptionHeight);
+        if (prefs.descriptionWidth !== undefined) setDescriptionWidth(prefs.descriptionWidth);
         if (prefs.titleFontSize) setTitleFontSize(prefs.titleFontSize);
         if (prefs.titleFontFamily) setTitleFontFamily(prefs.titleFontFamily);
         if (prefs.descriptionFontSize) setDescriptionFontSize(prefs.descriptionFontSize);
@@ -135,13 +144,22 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
         if (prefs.detailsFontFamily) setDetailsFontFamily(prefs.detailsFontFamily);
         if (prefs.visibleDetails) setVisibleDetails(prefs.visibleDetails);
         if (prefs.boxartWidth) setBoxartWidth(prefs.boxartWidth);
-        if (prefs.descriptionWidth !== undefined) setDescriptionWidth(prefs.descriptionWidth);
+        if (prefs.descriptionHeight !== undefined) setDescriptionHeight(prefs.descriptionHeight);
       } catch (error) {
         console.error('Error loading preferences:', error);
       }
     };
     loadPreferences();
   }, []);
+
+  // Sync divider heights from props (RightClickMenu sliders)
+  useEffect(() => {
+    setFanartHeight(propFanartHeight);
+  }, [propFanartHeight]);
+
+  useEffect(() => {
+    setDescriptionWidth(propDescriptionWidth);
+  }, [propDescriptionWidth]);
 
   // Initialize local logo size when dialog opens or when game changes, reset when it closes
   useEffect(() => {
@@ -176,7 +194,8 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
           panelWidthByView: panelWidths,
           panelWidth: activePanelWidth,
           fanartHeight,
-          descriptionHeight,
+          descriptionHeight: descriptionHeight,
+          descriptionWidth,
           titleFontSize,
           titleFontFamily,
           descriptionFontSize,
@@ -185,7 +204,6 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
           detailsFontFamily,
           visibleDetails,
           boxartWidth,
-          descriptionWidth,
         });
       } catch (error) {
         console.error('Error saving preferences:', error);
@@ -194,7 +212,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
     // Debounce saves
     const timeoutId = setTimeout(savePreferences, 500);
     return () => clearTimeout(timeoutId);
-  }, [panelWidths, activePanelWidth, fanartHeight, descriptionHeight, titleFontSize, titleFontFamily, descriptionFontSize, descriptionFontFamily, detailsFontSize, detailsFontFamily, visibleDetails, boxartWidth, descriptionWidth]);
+  }, [panelWidths, activePanelWidth, fanartHeight, descriptionHeight, descriptionWidth, titleFontSize, titleFontFamily, descriptionFontSize, descriptionFontFamily, detailsFontSize, detailsFontFamily, visibleDetails, boxartWidth]);
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -210,19 +228,25 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
         const newHeight = e.clientY - rect.top;
         const minHeight = 200;
         const maxHeight = 600;
-        setFanartHeight(Math.max(minHeight, Math.min(maxHeight, newHeight)));
+        const clampedHeight = Math.max(minHeight, Math.min(maxHeight, newHeight));
+        setFanartHeight(clampedHeight);
+        onFanartHeightChange?.(clampedHeight);
       } else if (isResizingDescription && descriptionRef.current) {
         const rect = descriptionRef.current.getBoundingClientRect();
         const newHeight = e.clientY - rect.top;
         const minHeight = 200;
-        const maxHeight = 800;
-        setDescriptionHeight(Math.max(minHeight, Math.min(maxHeight, newHeight)));
+        const maxHeight = 600;
+        const clampedHeight = Math.max(minHeight, Math.min(maxHeight, newHeight));
+        setDescriptionHeight(clampedHeight);
       } else if (isResizingDescriptionWidth && descriptionContainerRef.current) {
         const rect = descriptionContainerRef.current.getBoundingClientRect();
-        const newWidth = ((e.clientX - rect.left) / rect.width) * 100;
-        const minWidth = 30;
-        const maxWidth = 70;
-        setDescriptionWidth(Math.max(minWidth, Math.min(maxWidth, newWidth)));
+        const relativeX = e.clientX - rect.left;
+        const percentage = (relativeX / rect.width) * 100;
+        const minPercentage = 20;
+        const maxPercentage = 80;
+        const clampedPercentage = Math.max(minPercentage, Math.min(maxPercentage, percentage));
+        setDescriptionWidth(clampedPercentage);
+        onDescriptionWidthChange?.(clampedPercentage);
       }
     };
 
@@ -567,6 +591,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
                   </div>
                 )}
               </div>
+
               {/* Resize handle for description */}
               <div
                 className="absolute bottom-0 left-0 right-0 h-1 cursor-row-resize hover:bg-blue-500 transition-colors z-10"
@@ -603,68 +628,68 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
                   <p className="text-gray-200" style={{ fontSize: `${rightPanelTextSize}px` }}>{formatDate(game.releaseDate)}</p>
                 </div>
               )}
-              {visibleDetails.platform && platformDisplay && (
-                <div>
-                  <p className="text-gray-400 mb-1" style={{ fontSize: `${rightPanelTextSize - 2}px` }}>Platform</p>
-                  <p className="text-gray-200" style={{ fontSize: `${rightPanelTextSize}px` }}>{platformDisplay}</p>
-                </div>
-              )}
-              {visibleDetails.ageRating && game.ageRating && (
-                <div>
-                  <p className="text-gray-400 mb-1">Age Rating</p>
-                  <p className="text-gray-200">{game.ageRating}</p>
-                </div>
-              )}
-              {visibleDetails.genres && game.genres && game.genres.length > 0 && (
-                <div>
-                  <p className="text-gray-400 mb-1">Genres</p>
-                  <p className="text-gray-200">{game.genres.join(', ')}</p>
-                </div>
-              )}
-              {visibleDetails.developers && game.developers && game.developers.length > 0 && (
-                <div>
-                  <p className="text-gray-400 mb-1">Developer</p>
-                  <p className="text-gray-200">{game.developers.join(', ')}</p>
-                </div>
-              )}
-              {visibleDetails.publishers && game.publishers && game.publishers.length > 0 && (
-                <div>
-                  <p className="text-gray-400 mb-1">Publisher</p>
-                  <p className="text-gray-200">{game.publishers.join(', ')}</p>
-                </div>
-              )}
-              {visibleDetails.communityScore && game.communityScore !== undefined && (
-                <div>
-                  <p className="text-gray-400 mb-1">Community Score</p>
-                  <p className="text-gray-200">{game.communityScore}/100</p>
-                </div>
-              )}
-              {visibleDetails.userScore && game.userScore !== undefined && (
-                <div>
-                  <p className="text-gray-400 mb-1">User Score</p>
-                  <p className="text-gray-200">{game.userScore}/100</p>
-                </div>
-              )}
-              {visibleDetails.criticScore && game.criticScore !== undefined && (
-                <div>
-                  <p className="text-gray-400 mb-1">Critic Score</p>
-                  <p className="text-gray-200">{game.criticScore}/100</p>
-                </div>
-              )}
-              {visibleDetails.installationDirectory && game.installationDirectory && (
-                <div>
-                  <p className="text-gray-400 mb-1">Installation Folder</p>
-                  <p className="text-gray-200 text-xs break-all">{game.installationDirectory}</p>
-                  {game.installSize && (
-                    <p className="text-gray-400 text-xs mt-1">
-                      {(game.installSize / 1024).toFixed(3)} GB
-                    </p>
-                  )}
-                </div>
-              )}
+                {visibleDetails.platform && platformDisplay && (
+                  <div>
+                    <p className="text-gray-400 mb-1" style={{ fontSize: `${rightPanelTextSize - 2}px` }}>Platform</p>
+                    <p className="text-gray-200" style={{ fontSize: `${rightPanelTextSize}px` }}>{platformDisplay}</p>
+                  </div>
+                )}
+                {visibleDetails.ageRating && game.ageRating && (
+                  <div>
+                    <p className="text-gray-400 mb-1">Age Rating</p>
+                    <p className="text-gray-200">{game.ageRating}</p>
+                  </div>
+                )}
+                {visibleDetails.genres && game.genres && game.genres.length > 0 && (
+                  <div>
+                    <p className="text-gray-400 mb-1">Genres</p>
+                    <p className="text-gray-200">{game.genres.join(', ')}</p>
+                  </div>
+                )}
+                {visibleDetails.developers && game.developers && game.developers.length > 0 && (
+                  <div>
+                    <p className="text-gray-400 mb-1">Developer</p>
+                    <p className="text-gray-200">{game.developers.join(', ')}</p>
+                  </div>
+                )}
+                {visibleDetails.publishers && game.publishers && game.publishers.length > 0 && (
+                  <div>
+                    <p className="text-gray-400 mb-1">Publisher</p>
+                    <p className="text-gray-200">{game.publishers.join(', ')}</p>
+                  </div>
+                )}
+                {visibleDetails.communityScore && game.communityScore !== undefined && (
+                  <div>
+                    <p className="text-gray-400 mb-1">Community Score</p>
+                    <p className="text-gray-200">{game.communityScore}/100</p>
+                  </div>
+                )}
+                {visibleDetails.userScore && game.userScore !== undefined && (
+                  <div>
+                    <p className="text-gray-400 mb-1">User Score</p>
+                    <p className="text-gray-200">{game.userScore}/100</p>
+                  </div>
+                )}
+                {visibleDetails.criticScore && game.criticScore !== undefined && (
+                  <div>
+                    <p className="text-gray-400 mb-1">Critic Score</p>
+                    <p className="text-gray-200">{game.criticScore}/100</p>
+                  </div>
+                )}
+                {visibleDetails.installationDirectory && game.installationDirectory && (
+                  <div>
+                    <p className="text-gray-400 mb-1">Installation Folder</p>
+                    <p className="text-gray-200 text-xs break-all">{game.installationDirectory}</p>
+                    {game.installSize && (
+                      <p className="text-gray-400 text-xs mt-1">
+                        {(game.installSize / 1024).toFixed(3)} GB
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-        </div>
         </div>
       </div>
 

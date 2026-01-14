@@ -104,6 +104,11 @@ interface RightClickMenuProps {
   onDetailsPanelOpacityChange?: (opacity: number) => void;
   // Panel width for saving/restoring divider position
   panelWidth?: number;
+  // Game details panel divider height control
+  fanartHeight?: number;
+  onFanartHeightChange?: (height: number) => void;
+  descriptionWidth?: number;
+  onDescriptionWidthChange?: (width: number) => void;
 }
 
 export const RightClickMenu: React.FC<RightClickMenuProps> = ({
@@ -167,6 +172,10 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
   detailsPanelOpacity = 80,
   onDetailsPanelOpacityChange,
   panelWidth = 800,
+  fanartHeight = 320,
+  onFanartHeightChange,
+  descriptionWidth = 50,
+  onDescriptionWidthChange,
 }) => {
   const menuRef = useRef<HTMLDivElement>(null);
   
@@ -943,12 +952,21 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
       {/* Shared layout settings for Grid, List, and Logo views */}
       {viewMode !== 'carousel' && (
         <>
-          <div className="grid grid-cols-2 text-xs text-gray-400 px-3 pb-1 font-semibold">
-            <span>Games View</span>
-            <span className="text-right">Game Details</span>
-          </div>
+          {/* 3-column layout for grid view, 2-column for others */}
+          {viewMode === 'grid' ? (
+            <div className="grid grid-cols-3 text-xs text-gray-400 px-3 pb-1 font-semibold">
+              <span>Games View</span>
+              <span className="text-center">Dividers</span>
+              <span className="text-right">Game Details</span>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 text-xs text-gray-400 px-3 pb-1 font-semibold">
+              <span>Games View</span>
+              <span className="text-right">Game Details</span>
+            </div>
+          )}
           <div className="px-2 py-2">
-            <div className="grid grid-cols-2 gap-3">
+            <div className={`grid ${viewMode === 'grid' ? 'grid-cols-3' : 'grid-cols-2'} gap-3`}>
               {/* Left Column */}
               <div className="space-y-2">
                 {/* Size control per view */}
@@ -1318,6 +1336,49 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                   </div>
                 </div>
               </div>
+
+              {/* Middle Column - Dividers (Grid View Only) */}
+              {viewMode === 'grid' && (
+                <div className="space-y-2">
+                  {/* Banner Height Control */}
+                  <div className="px-3 py-2 bg-gray-700/30 rounded-md">
+                    <label className="block text-xs text-gray-400 font-semibold mb-2">Banner Height</label>
+                    <input
+                      type="range"
+                      min="150"
+                      max="500"
+                      step="10"
+                      value={fanartHeight}
+                      onChange={(e) => onFanartHeightChange?.(Number(e.target.value))}
+                      className="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer slider accent-blue-600"
+                    />
+                    <div className="flex justify-between text-xs text-gray-500 mt-1">
+                      <span>150px</span>
+                      <span className="font-medium text-gray-300">{fanartHeight}px</span>
+                      <span>500px</span>
+                    </div>
+                  </div>
+
+                  {/* Description Width Control */}
+                  <div className="px-3 py-2 bg-gray-700/30 rounded-md">
+                    <label className="block text-xs text-gray-400 font-semibold mb-2">Description Width</label>
+                    <input
+                      type="range"
+                      min="20"
+                      max="80"
+                      step="1"
+                      value={descriptionWidth}
+                      onChange={(e) => onDescriptionWidthChange?.(Number(e.target.value))}
+                      className="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer slider accent-blue-600"
+                    />
+                    <div className="flex justify-between text-xs text-gray-500 mt-1">
+                      <span>20%</span>
+                      <span className="font-medium text-gray-300">{descriptionWidth}%</span>
+                      <span>80%</span>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Right Column */}
               <div className="space-y-2">

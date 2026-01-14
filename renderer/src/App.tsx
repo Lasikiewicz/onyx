@@ -116,6 +116,9 @@ function App() {
   const [rightPanelButtonSize, setRightPanelButtonSize] = useState(14);
   const [rightPanelButtonLocation, setRightPanelButtonLocation] = useState<'left' | 'middle' | 'right'>('right');
   const [detailsPanelOpacity, setDetailsPanelOpacity] = useState(80);
+  // Game details panel divider heights
+  const [fanartHeight, setFanartHeight] = useState(320);
+  const [descriptionWidth, setDescriptionWidth] = useState(50);
 
   // Set background blur to 0 when switching to carousel mode
   useEffect(() => {
@@ -1537,6 +1540,10 @@ function App() {
             rightPanelButtonSize={rightPanelButtonSize}
             rightPanelButtonLocation={rightPanelButtonLocation}
             detailsPanelOpacity={detailsPanelOpacity}
+            fanartHeight={fanartHeight}
+            onFanartHeightChange={setFanartHeight}
+            descriptionWidth={descriptionWidth}
+            onDescriptionWidthChange={setDescriptionWidth}
           />
         )}
       </div>
@@ -1861,6 +1868,16 @@ function App() {
           onDetailsPanelOpacityChange={(opacity) => {
             setDetailsPanelOpacity(opacity);
             window.electronAPI.savePreferences({ detailsPanelOpacity: opacity });
+          }}
+          fanartHeight={fanartHeight}
+          onFanartHeightChange={(height) => {
+            setFanartHeight(height);
+            window.electronAPI.savePreferences({ fanartHeight: height });
+          }}
+          descriptionWidth={descriptionWidth}
+          onDescriptionWidthChange={(width) => {
+            setDescriptionWidth(width);
+            window.electronAPI.savePreferences({ descriptionWidth: width });
           }}
         />
       )}
