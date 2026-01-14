@@ -104,6 +104,7 @@ interface RightClickMenuProps {
   onDetailsPanelOpacityChange?: (opacity: number) => void;
   // Panel width for saving/restoring divider position
   panelWidth?: number;
+  onPanelWidthChange?: (width: number) => void;
   // Game details panel divider height control
   fanartHeight?: number;
   onFanartHeightChange?: (height: number) => void;
@@ -172,6 +173,7 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
   detailsPanelOpacity = 80,
   onDetailsPanelOpacityChange,
   panelWidth = 800,
+  onPanelWidthChange,
   fanartHeight = 320,
   onFanartHeightChange,
   descriptionWidth = 50,
@@ -1340,6 +1342,25 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
               {/* Middle Column - Dividers (Grid View Only) */}
               {viewMode === 'grid' && (
                 <div className="space-y-2">
+                  {/* Right Panel Width Control */}
+                  <div className="px-3 py-2 bg-gray-700/30 rounded-md">
+                    <label className="block text-xs text-gray-400 font-semibold mb-2">Right Panel Width</label>
+                    <input
+                      type="range"
+                      min="400"
+                      max={Math.floor(window.innerWidth * 0.75)}
+                      step="10"
+                      value={panelWidth}
+                      onChange={(e) => onPanelWidthChange?.(Number(e.target.value))}
+                      className="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer slider accent-blue-600"
+                    />
+                    <div className="flex justify-between text-xs text-gray-500 mt-1">
+                      <span>400px</span>
+                      <span className="font-medium text-gray-300">{panelWidth}px</span>
+                      <span>{Math.floor(window.innerWidth * 0.75)}px</span>
+                    </div>
+                  </div>
+
                   {/* Banner Height Control */}
                   <div className="px-3 py-2 bg-gray-700/30 rounded-md">
                     <label className="block text-xs text-gray-400 font-semibold mb-2">Banner Height</label>

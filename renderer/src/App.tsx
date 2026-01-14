@@ -1533,6 +1533,11 @@ function App() {
               setGameContextMenu(null);
               setRightClickMenu({ x, y });
             }}
+            panelWidth={panelWidth}
+            onPanelWidthChange={(width) => {
+              setPanelWidth(width);
+              window.electronAPI.savePreferences({ panelWidth: width });
+            }}
             rightPanelLogoSize={rightPanelLogoSize}
             rightPanelBoxartPosition={rightPanelBoxartPosition}
             rightPanelBoxartSize={rightPanelBoxartSize}
@@ -1784,6 +1789,10 @@ function App() {
           selectedBoxArtSize={selectedBoxArtSize}
           onSelectedBoxArtSizeChange={setSelectedBoxArtSize}
           panelWidth={panelWidth}
+          onPanelWidthChange={(width) => {
+            setPanelWidth(width);
+            window.electronAPI.savePreferences({ panelWidth: width });
+          }}
           carouselLogoSize={carouselLogoSize}
           onCarouselLogoSizeChange={(size) => {
             setCarouselLogoSize(size);

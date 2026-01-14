@@ -33,6 +33,8 @@ interface GameDetailsPanelProps {
   rightPanelButtonSize?: number;
   rightPanelButtonLocation?: 'left' | 'middle' | 'right';
   detailsPanelOpacity?: number;
+  panelWidth?: number;
+  onPanelWidthChange?: (width: number) => void;
   fanartHeight?: number;
   onFanartHeightChange?: (height: number) => void;
   descriptionWidth?: number;
@@ -65,6 +67,8 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
   rightPanelButtonSize = 14,
   rightPanelButtonLocation = 'right',
   detailsPanelOpacity = 80,
+  panelWidth: propPanelWidth,
+  onPanelWidthChange,
   fanartHeight: propFanartHeight = 320,
   onFanartHeightChange,
   descriptionWidth: propDescriptionWidth = 50,
@@ -84,7 +88,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
   const descriptionRef = useRef<HTMLDivElement>(null);
   const descriptionContainerRef = useRef<HTMLDivElement>(null);
   const viewKey: ViewKey = viewMode === 'list' ? 'list' : viewMode === 'logo' ? 'logo' : 'grid';
-  const activePanelWidth = panelWidths[viewKey] ?? defaultPanelWidths[viewKey];
+  const activePanelWidth = (propPanelWidth ?? panelWidths[viewKey] ?? defaultPanelWidths[viewKey]);
   const normalizedOpacity = Math.max(0, Math.min(100, detailsPanelOpacity));
   const panelBackground = `rgba(26, 31, 46, ${normalizedOpacity / 100})`;
 
@@ -161,6 +165,14 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
     setDescriptionWidth(propDescriptionWidth);
   }, [propDescriptionWidth]);
 
+  // Sync panel width from prop when provided
+  useEffect(() => {
+    if (propPanelWidth !== undefined) {
+      setPanelWidths(prev => ({ ...prev, [viewKey]: propPanelWidth }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [propPanelWidth]);
+
   // Initialize local logo size when dialog opens or when game changes, reset when it closes
   useEffect(() => {
     if (showLogoResizeDialog && game) {
@@ -223,6 +235,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
         const maxWidth = window.innerWidth * 0.75;
         const clampedWidth = Math.max(minWidth, Math.min(maxWidth, newWidth));
         setPanelWidths(prev => ({ ...prev, [viewKey]: clampedWidth }));
+        onPanelWidthChange?.(clampedWidth);
       } else if (isResizingFanart && fanartRef.current) {
         const rect = fanartRef.current.getBoundingClientRect();
         const newHeight = e.clientY - rect.top;
