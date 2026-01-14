@@ -106,7 +106,7 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
   };
 
   const displayMode = listViewOptions.displayMode || 'boxart-title';
-  const showLogoInsteadOfTitle = listViewOptions.showLogos ?? false;
+  // const showLogoInsteadOfTitle = listViewOptions.showLogos ?? false; // Unused variable
   const titleTextSize = listViewOptions.titleTextSize ?? 18;
   const sectionTextSize = listViewOptions.sectionTextSize ?? 14;
   const tileHeight = listViewOptions.tileHeight ?? listViewSize; // Use tileHeight or fallback to listViewSize
@@ -117,7 +117,7 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
   const showBoxart = displayMode === 'boxart-title';
   const showLogo = displayMode === 'logo-title' || displayMode === 'logo-only';
   const showTitle = displayMode !== 'logo-only';
-  const showImage = displayMode !== 'title-only';
+  // const showImage = displayMode !== 'title-only'; // Unused variable
 
   const [contextMenu, setContextMenu] = useState<{ game: Game; x: number; y: number } | null>(null);
 

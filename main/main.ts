@@ -4283,6 +4283,157 @@ ipcMain.handle('preferences:save', async (_event, preferences: { gridSize?: numb
   }
 });
 
+// Custom defaults IPC handlers
+ipcMain.handle('customDefaults:has', async () => {
+  try {
+    const StoreModule = await (eval('import("electron-store")') as Promise<any>);
+    const Store = StoreModule.default;
+    const customDefaultsStore: any = new Store({ name: 'custom-defaults' });
+    const data = customDefaultsStore.get('customDefaults');
+    return data !== undefined && data !== null;
+  } catch (error) {
+    console.error('Error checking custom defaults:', error);
+    return false;
+  }
+});
+
+ipcMain.handle('customDefaults:save', async (_event, settings: any) => {
+  try {
+    const StoreModule = await (eval('import("electron-store")') as Promise<any>);
+    const Store = StoreModule.default;
+    const customDefaultsStore: any = new Store({ name: 'custom-defaults' });
+    
+    // Get existing defaults and merge with new settings
+    const existingDefaults = customDefaultsStore.get('customDefaults', {}) as any;
+    const mergedDefaults = { ...existingDefaults, ...settings };
+    
+    customDefaultsStore.set('customDefaults', mergedDefaults);
+    return { success: true };
+  } catch (error) {
+    console.error('Error saving custom defaults:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+});
+
+ipcMain.handle('customDefaults:restore', async (_event, options: { viewMode: string; scope: string }) => {
+  try {
+    const StoreModule = await (eval('import("electron-store")') as Promise<any>);
+    const Store = StoreModule.default;
+    const customDefaultsStore: any = new Store({ name: 'custom-defaults' });
+    const allDefaults = customDefaultsStore.get('customDefaults') as any;
+    
+    if (!allDefaults) {
+      return { success: false, error: 'No custom defaults found' };
+    }
+
+    // Return the appropriate defaults based on scope
+    if (options.scope === 'current') {
+      // Return only the settings for the current view mode
+      const viewDefaults = allDefaults[options.viewMode];
+      return { success: true, defaults: viewDefaults || {} };
+    } else {
+      // Return all view modes
+      return { success: true, defaults: allDefaults };
+    }
+  } catch (error) {
+    console.error('Error restoring custom defaults:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+});
+
+ipcMain.handle('customDefaults:export', async (_event, options: { viewMode: string; scope: string }) => {
+  try {
+    const StoreModule = await (eval('import("electron-store")') as Promise<any>);
+    const Store = StoreModule.default;
+    const customDefaultsStore: any = new Store({ name: 'custom-defaults' });
+    const allDefaults = customDefaultsStore.get('customDefaults') as any;
+    
+    if (!allDefaults) {
+      return { success: false, error: 'No custom defaults found' };
+    }
+
+    let exportData: any;
+    let defaultFileName: string;
+    
+    if (options.scope === 'current') {
+      exportData = { [options.viewMode]: allDefaults[options.viewMode] || {} };
+      defaultFileName = `onyx-${options.viewMode}-defaults.json`;
+    } else {
+      exportData = allDefaults;
+      defaultFileName = 'onyx-all-view-defaults.json';
+    }
+
+    // Show save dialog
+    const { filePath } = await dialog.showSaveDialog({
+      title: 'Export Custom Defaults',
+      defaultPath: defaultFileName,
+      filters: [
+        { name: 'JSON Files', extensions: ['json'] },
+        { name: 'All Files', extensions: ['*'] }
+      ]
+    });
+
+    if (!filePath) {
+      return { success: false, cancelled: true };
+    }
+
+    // Write to file
+    const fs = await import('fs/promises');
+    await fs.writeFile(filePath, JSON.stringify(exportData, null, 2), 'utf-8');
+    
+    return { success: true, filePath };
+  } catch (error) {
+    console.error('Error exporting custom defaults:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+});
+
+ipcMain.handle('customDefaults:import', async () => {
+  try {
+    // Show open dialog
+    const { filePaths } = await dialog.showOpenDialog({
+      title: 'Import Custom Defaults',
+      filters: [
+        { name: 'JSON Files', extensions: ['json'] },
+        { name: 'All Files', extensions: ['*'] }
+      ],
+      properties: ['openFile']
+    });
+
+    if (!filePaths || filePaths.length === 0) {
+      return { success: false, cancelled: true };
+    }
+
+    // Read and parse file
+    const fs = await import('fs/promises');
+    const fileContent = await fs.readFile(filePaths[0], 'utf-8');
+    const importedData = JSON.parse(fileContent);
+
+    // Validate the data structure
+    if (typeof importedData !== 'object' || importedData === null) {
+      return { success: false, error: 'Invalid settings file format' };
+    }
+
+    // Save to store
+    const StoreModule = await (eval('import("electron-store")') as Promise<any>);
+    const Store = StoreModule.default;
+    const customDefaultsStore: any = new Store({ name: 'custom-defaults' });
+    
+    // Get existing defaults
+    const existingDefaults = customDefaultsStore.get('customDefaults', {}) as any;
+    
+    // Merge imported data with existing (imported data takes precedence)
+    const mergedDefaults = { ...existingDefaults, ...importedData };
+    
+    customDefaultsStore.set('customDefaults', mergedDefaults);
+    
+    return { success: true, data: mergedDefaults };
+  } catch (error) {
+    console.error('Error importing custom defaults:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+});
+
 // API credentials IPC handlers
 ipcMain.handle('api:getCredentials', async () => {
   try {

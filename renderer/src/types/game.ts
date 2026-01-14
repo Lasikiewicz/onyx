@@ -181,6 +181,11 @@ declare global {
       };
       generateBugReport: (userDescription: string) => Promise<{ success: boolean; filePath?: string; error?: string }>;
       getBugReportLogsDirectory: () => Promise<{ success: boolean; path?: string; error?: string }>;
+      hasCustomDefaults?: () => Promise<boolean>;
+      saveCustomDefaults?: (settings: any) => Promise<{ success: boolean; error?: string }>;
+      restoreCustomDefaults?: (options: { viewMode: string; scope: string }) => Promise<any>;
+      exportCustomDefaults?: (options: { viewMode: string; scope: string }) => Promise<{ success: boolean; filePath?: string; cancelled?: boolean; error?: string }>;
+      importCustomDefaults?: () => Promise<{ success: boolean; data?: any; cancelled?: boolean; error?: string }>;
     };
   }
 }

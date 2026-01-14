@@ -1762,7 +1762,12 @@ function App() {
           onListSizeChange={setListViewSize}
           listViewOptions={listViewOptions}
           onListViewOptionsChange={(options) => {
-            setListViewOptions(options);
+            setListViewOptions({
+              ...defaultListViewOptions,
+              ...options,
+              showLauncher: options.showLauncher ?? true,
+              showLogos: options.showLogos ?? false,
+            });
             window.electronAPI.savePreferences({ listViewOptions: options });
           }}
           gameTilePadding={gameTilePadding}
@@ -1771,6 +1776,7 @@ function App() {
           onBackgroundBlurChange={setBackgroundBlur}
           selectedBoxArtSize={selectedBoxArtSize}
           onSelectedBoxArtSizeChange={setSelectedBoxArtSize}
+          panelWidth={panelWidth}
           carouselLogoSize={carouselLogoSize}
           onCarouselLogoSizeChange={(size) => {
             setCarouselLogoSize(size);

@@ -40,12 +40,23 @@ export interface UserPreferences {
   logoHeight?: number;
   autoSizeToFit?: boolean;
   showCarouselDetails?: boolean;
+  showCarouselLogos?: boolean;
+  detailsBarSize?: number;
   carouselLogoSize?: number;
   carouselButtonSize?: number;
   carouselDescriptionSize?: number;
   carouselDescriptionAlignment?: 'left' | 'center' | 'right';
   carouselButtonAlignment?: 'left' | 'center' | 'right';
   carouselLogoAlignment?: 'left' | 'center' | 'right';
+  gridDescriptionSize?: number;
+  gridButtonSize?: number;
+  gridButtonLocation?: 'left' | 'middle' | 'right';
+  rightPanelLogoSize?: number;
+  rightPanelBoxartPosition?: 'left' | 'right' | 'none';
+  rightPanelBoxartSize?: number;
+  rightPanelTextSize?: number;
+  rightPanelButtonSize?: number;
+  rightPanelButtonLocation?: 'left' | 'middle' | 'right';
   detailsPanelOpacity?: number;
   // View-specific settings
   gridView?: {
@@ -110,7 +121,7 @@ export class UserPreferencesService {
         name: 'user-preferences',
         defaults: {
           preferences: {
-            gridSize: 140,
+            gridSize: 119,
             panelWidth: 800,
             panelWidthByView: { grid: 800, list: 800, logo: 800 },
             fanartHeight: 320,
@@ -126,12 +137,12 @@ export class UserPreferencesService {
             hideVRTitles: true,
             hideAppsTitles: true,
             hideGameTitles: true,
-            gameTilePadding: 16,
+            gameTilePadding: 10,
             showLogoOverBoxart: false,
             logoPosition: 'middle',
             logoBackgroundColor: '#374151',
             logoBackgroundOpacity: 100,
-            backgroundBlur: 3,
+            backgroundBlur: 0,
             backgroundMode: 'image',
             backgroundColor: '#000000',
             viewMode: 'grid',
@@ -149,6 +160,22 @@ export class UserPreferencesService {
             listViewSize: 80,
             logoViewSize: 200,
             logoHeight: 100,
+            autoSizeToFit: false,
+            showCarouselDetails: true,
+            showCarouselLogos: true,
+            detailsBarSize: 14,
+            carouselLogoSize: 100,
+            carouselButtonSize: 14,
+            carouselDescriptionSize: 18,
+            gridDescriptionSize: 14,
+            gridButtonSize: 13,
+            gridButtonLocation: 'right',
+            rightPanelLogoSize: 200,
+            rightPanelBoxartPosition: 'right',
+            rightPanelBoxartSize: 200,
+            rightPanelTextSize: 13,
+            rightPanelButtonSize: 13,
+            rightPanelButtonLocation: 'right',
             titleFontSize: 24,
             titleFontFamily: 'system-ui',
             descriptionFontSize: 14,
@@ -193,7 +220,7 @@ export class UserPreferencesService {
   async getPreferences(): Promise<UserPreferences> {
     const store = await this.ensureStore();
     return store.get('preferences', {
-      gridSize: 140,
+      gridSize: 119,
       panelWidth: 800,
       panelWidthByView: { grid: 800, list: 800, logo: 800 },
       fanartHeight: 320,
@@ -207,12 +234,12 @@ export class UserPreferencesService {
       activeGameId: null,
       hideVRTitles: true,
       hideGameTitles: true,
-      gameTilePadding: 16,
+      gameTilePadding: 10,
       showLogoOverBoxart: false,
       logoPosition: 'middle',
       logoBackgroundColor: '#374151',
       logoBackgroundOpacity: 100,
-      backgroundBlur: 3,
+      backgroundBlur: 0,
       backgroundMode: 'image',
       backgroundColor: '#000000',
       viewMode: 'grid',
@@ -230,6 +257,22 @@ export class UserPreferencesService {
       listViewSize: 80,
       logoViewSize: 200,
       logoHeight: 100,
+      autoSizeToFit: false,
+      showCarouselDetails: true,
+      showCarouselLogos: true,
+      detailsBarSize: 14,
+      carouselLogoSize: 100,
+      carouselButtonSize: 14,
+      carouselDescriptionSize: 18,
+      gridDescriptionSize: 14,
+      gridButtonSize: 13,
+      gridButtonLocation: 'right',
+      rightPanelLogoSize: 200,
+      rightPanelBoxartPosition: 'right',
+      rightPanelBoxartSize: 200,
+      rightPanelTextSize: 13,
+      rightPanelButtonSize: 13,
+      rightPanelButtonLocation: 'right',
       titleFontSize: 24,
       titleFontFamily: 'system-ui',
       descriptionFontSize: 14,
@@ -253,7 +296,7 @@ export class UserPreferencesService {
       storeMetadataLocally: true, // Default to local storage
       enableSuspendFeature: false, // Opt-in by default
       suspendShortcut: 'Ctrl+Shift+S',
-      detailsPanelOpacity: 80,
+      detailsPanelOpacity: 0,
     });
   }
 
@@ -263,7 +306,7 @@ export class UserPreferencesService {
   async savePreferences(preferences: Partial<UserPreferences>): Promise<void> {
     const store = await this.ensureStore();
     const current = store.get('preferences', {
-      gridSize: 140,
+      gridSize: 119,
       panelWidth: 800,
       panelWidthByView: { grid: 800, list: 800, logo: 800 },
       fanartHeight: 320,
@@ -277,10 +320,10 @@ export class UserPreferencesService {
       activeGameId: null,
             hideVRTitles: true,
             hideGameTitles: true,
-            gameTilePadding: 16,
+            gameTilePadding: 10,
             showLogoOverBoxart: false,
             logoPosition: 'middle',
-            backgroundBlur: 3,
+            backgroundBlur: 0,
             backgroundMode: 'image',
       backgroundColor: '#000000',
       viewMode: 'grid',
@@ -319,6 +362,23 @@ export class UserPreferencesService {
       ignoredGames: [],
       windowState: undefined,
       storeMetadataLocally: true, // Default to local storage
+      autoSizeToFit: false,
+      showCarouselDetails: true,
+      showCarouselLogos: true,
+      detailsBarSize: 14,
+      carouselLogoSize: 100,
+      carouselButtonSize: 14,
+      carouselDescriptionSize: 18,
+      gridDescriptionSize: 14,
+      gridButtonSize: 13,
+      gridButtonLocation: 'right',
+      rightPanelLogoSize: 200,
+      rightPanelBoxartPosition: 'right',
+      rightPanelBoxartSize: 200,
+      rightPanelTextSize: 13,
+      rightPanelButtonSize: 13,
+      rightPanelButtonLocation: 'right',
+      detailsPanelOpacity: 0,
     });
     store.set('preferences', { ...current, ...preferences });
   }
@@ -329,7 +389,7 @@ export class UserPreferencesService {
   async resetPreferences(): Promise<void> {
     const store = await this.ensureStore();
     store.set('preferences', {
-      gridSize: 140,
+      gridSize: 119,
       panelWidth: 800,
       panelWidthByView: { grid: 800, list: 800, logo: 800 },
       fanartHeight: 320,
@@ -343,10 +403,10 @@ export class UserPreferencesService {
       activeGameId: null,
             hideVRTitles: true,
             hideGameTitles: true,
-            gameTilePadding: 16,
+            gameTilePadding: 10,
             showLogoOverBoxart: false,
             logoPosition: 'middle',
-            backgroundBlur: 3,
+            backgroundBlur: 0,
             backgroundMode: 'image',
       backgroundColor: '#000000',
       viewMode: 'grid',
@@ -386,6 +446,23 @@ export class UserPreferencesService {
       windowState: undefined,
       storeMetadataLocally: true, // Default to local storage
       enableSuspendFeature: false, // Opt-in by default
+      autoSizeToFit: false,
+      showCarouselDetails: true,
+      showCarouselLogos: true,
+      detailsBarSize: 14,
+      carouselLogoSize: 100,
+      carouselButtonSize: 14,
+      carouselDescriptionSize: 18,
+      gridDescriptionSize: 14,
+      gridButtonSize: 14,
+      gridButtonLocation: 'right',
+      rightPanelLogoSize: 200,
+      rightPanelBoxartPosition: 'right',
+      rightPanelBoxartSize: 200,
+      rightPanelTextSize: 13,
+      rightPanelButtonSize: 13,
+      rightPanelButtonLocation: 'right',
+      detailsPanelOpacity: 0,
     });
   }
 }

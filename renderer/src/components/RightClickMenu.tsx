@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import type { Game } from '../types/game';
+import { CustomDefaultsModal } from './CustomDefaultsModal';
 
 interface RightClickMenuProps {
   x: number;
@@ -101,6 +102,8 @@ interface RightClickMenuProps {
   onRightPanelButtonLocationChange?: (location: 'left' | 'middle' | 'right') => void;
   detailsPanelOpacity?: number;
   onDetailsPanelOpacityChange?: (opacity: number) => void;
+  // Panel width for saving/restoring divider position
+  panelWidth?: number;
 }
 
 export const RightClickMenu: React.FC<RightClickMenuProps> = ({
@@ -163,8 +166,28 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
   onRightPanelButtonLocationChange,
   detailsPanelOpacity = 80,
   onDetailsPanelOpacityChange,
+  panelWidth = 800,
 }) => {
   const menuRef = useRef<HTMLDivElement>(null);
+  
+  // State for Custom Defaults Modal
+  const [showCustomDefaultsModal, setShowCustomDefaultsModal] = React.useState(false);
+  const [hasCustomDefaults, setHasCustomDefaults] = React.useState(false);
+  const [screenResolution, setScreenResolution] = React.useState('1080p');
+
+  // Detect screen resolution
+  React.useEffect(() => {
+    const updateResolution = () => {
+      const height = window.screen.height;
+      if (height >= 2160) setScreenResolution('4K');
+      else if (height >= 1440) setScreenResolution('1440p');
+      else if (height >= 1080) setScreenResolution('1080p');
+      else setScreenResolution('720p');
+    };
+    updateResolution();
+    window.addEventListener('resize', updateResolution);
+    return () => window.removeEventListener('resize', updateResolution);
+  }, []);
   
   // Local state for per-game logo sizes - updates immediately for UI responsiveness
   const [localLogoSizes, setLocalLogoSizes] = React.useState({
@@ -247,6 +270,235 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
     if (viewMode === 'grid' && onGridSizeChange) onGridSizeChange(value);
     if (viewMode === 'logo' && onLogoSizeChange) onLogoSizeChange(value);
     if (viewMode === 'list' && onListSizeChange) onListSizeChange(value);
+  };
+
+  const handleResetToDefaults = () => {
+    // Get current screen resolution
+    const screenWidth = window.screen.width;
+    const screenHeight = window.screen.height;
+    const resolution = `${screenWidth}x${screenHeight}`;
+
+    // Confirm with user
+    const confirmed = window.confirm(
+      `Reset view settings to defaults for ${resolution} resolution?\n\nThis will reset all customization settings for the current view mode to their default values.`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    // Define defaults for 1920x1080 (and use as fallback for other resolutions)
+    const defaults = {
+      gridSize: 119,
+      logoSize: 120,
+      listSize: 80,
+      gameTilePadding: 10,
+      backgroundBlur: 0,
+      selectedBoxArtSize: 25,
+      showLogoOverBoxart: false,
+      logoPosition: 'middle' as 'top' | 'middle' | 'bottom' | 'underneath',
+      logoBackgroundOpacity: 100,
+      // Carousel settings
+      showCarouselDetails: true,
+      showCarouselLogos: true,
+      detailsBarSize: 14,
+      carouselLogoSize: 100,
+      carouselButtonSize: 14,
+      carouselDescriptionSize: 18,
+      carouselDescriptionAlignment: 'center' as 'left' | 'center' | 'right',
+      carouselButtonAlignment: 'center' as 'left' | 'center' | 'right',
+      carouselLogoAlignment: 'center' as 'left' | 'center' | 'right',
+      // Right panel settings
+      rightPanelBoxartPosition: 'right' as 'left' | 'right' | 'none',
+      rightPanelBoxartSize: 200,
+      rightPanelTextSize: 13,
+      rightPanelButtonSize: 13,
+      rightPanelButtonLocation: 'right' as 'left' | 'middle' | 'right',
+      detailsPanelOpacity: 0,
+      // List view settings
+      listViewOptions: {
+        showDescription: true,
+        showCategories: false,
+        showPlaytime: true,
+        showReleaseDate: true,
+        showGenres: true,
+        showPlatform: false,
+        showLauncher: true,
+        showLogos: false,
+        titleTextSize: 18,
+      },
+    };
+
+    // Apply defaults based on current view mode
+    if (viewMode === 'grid') {
+      onGridSizeChange?.(defaults.gridSize);
+      onGameTilePaddingChange?.(defaults.gameTilePadding);
+      onBackgroundBlurChange?.(defaults.backgroundBlur);
+      onSelectedBoxArtSizeChange?.(defaults.selectedBoxArtSize);
+      onShowLogoOverBoxartChange?.(defaults.showLogoOverBoxart);
+      onLogoPositionChange?.(defaults.logoPosition);
+      onLogoBackgroundOpacityChange?.(defaults.logoBackgroundOpacity);
+    } else if (viewMode === 'logo') {
+      onLogoSizeChange?.(defaults.logoSize);
+      onGameTilePaddingChange?.(defaults.gameTilePadding);
+      onBackgroundBlurChange?.(defaults.backgroundBlur);
+    } else if (viewMode === 'list') {
+      onListSizeChange?.(defaults.listSize);
+      onBackgroundBlurChange?.(defaults.backgroundBlur);
+      onListViewOptionsChange?.(defaults.listViewOptions);
+    } else if (viewMode === 'carousel') {
+      onShowCarouselDetailsChange?.(defaults.showCarouselDetails);
+      onShowCarouselLogosChange?.(defaults.showCarouselLogos);
+      onDetailsBarSizeChange?.(defaults.detailsBarSize);
+      onCarouselLogoSizeChange?.(defaults.carouselLogoSize);
+      onCarouselButtonSizeChange?.(defaults.carouselButtonSize);
+      onCarouselDescriptionSizeChange?.(defaults.carouselDescriptionSize);
+      onCarouselDescriptionAlignmentChange?.(defaults.carouselDescriptionAlignment);
+      onCarouselButtonAlignmentChange?.(defaults.carouselButtonAlignment);
+      onCarouselLogoAlignmentChange?.(defaults.carouselLogoAlignment);
+    }
+
+    // Apply right panel defaults (applies to all view modes)
+    onRightPanelBoxartPositionChange?.(defaults.rightPanelBoxartPosition);
+    onRightPanelBoxartSizeChange?.(defaults.rightPanelBoxartSize);
+    onRightPanelTextSizeChange?.(defaults.rightPanelTextSize);
+    onRightPanelButtonSizeChange?.(defaults.rightPanelButtonSize);
+    onRightPanelButtonLocationChange?.(defaults.rightPanelButtonLocation);
+    onDetailsPanelOpacityChange?.(defaults.detailsPanelOpacity);
+
+    // Close the menu after applying defaults
+    onClose();
+  };
+
+  // Check for custom defaults when opening the menu
+  React.useEffect(() => {
+    const checkDefaults = async () => {
+      const exists = await window.electronAPI.hasCustomDefaults?.();
+      setHasCustomDefaults(exists || false);
+    };
+    checkDefaults();
+  }, []);
+
+  const handleOpenCustomDefaultsModal = () => {
+    setShowCustomDefaultsModal(true);
+  };
+
+  const gatherCurrentSettings = () => ({
+    panelWidth,
+    gridSize,
+    logoSize,
+    listSize,
+    gameTilePadding,
+    backgroundBlur,
+    selectedBoxArtSize,
+    showLogoOverBoxart,
+    logoPosition,
+    logoBackgroundOpacity,
+    showCarouselDetails,
+    showCarouselLogos,
+    detailsBarSize,
+    carouselLogoSize,
+    carouselButtonSize,
+    carouselDescriptionSize,
+    carouselDescriptionAlignment,
+    carouselButtonAlignment,
+    carouselLogoAlignment,
+    listViewOptions,
+    rightPanelBoxartPosition,
+    rightPanelBoxartSize,
+    rightPanelTextSize,
+    rightPanelButtonSize,
+    rightPanelButtonLocation,
+    detailsPanelOpacity,
+  });
+
+  const applySettings = (settings: any) => {
+    if (settings.gridSize !== undefined && onGridSizeChange) onGridSizeChange(settings.gridSize);
+    if (settings.logoSize !== undefined && onLogoSizeChange) onLogoSizeChange(settings.logoSize);
+    if (settings.listSize !== undefined && onListSizeChange) onListSizeChange(settings.listSize);
+    if (settings.gameTilePadding !== undefined && onGameTilePaddingChange) onGameTilePaddingChange(settings.gameTilePadding);
+    if (settings.backgroundBlur !== undefined && onBackgroundBlurChange) onBackgroundBlurChange(settings.backgroundBlur);
+    if (settings.selectedBoxArtSize !== undefined && onSelectedBoxArtSizeChange) onSelectedBoxArtSizeChange(settings.selectedBoxArtSize);
+    if (settings.showLogoOverBoxart !== undefined && onShowLogoOverBoxartChange) onShowLogoOverBoxartChange(settings.showLogoOverBoxart);
+    if (settings.logoPosition !== undefined && onLogoPositionChange) onLogoPositionChange(settings.logoPosition);
+    if (settings.logoBackgroundOpacity !== undefined && onLogoBackgroundOpacityChange) onLogoBackgroundOpacityChange(settings.logoBackgroundOpacity);
+    if (settings.showCarouselDetails !== undefined && onShowCarouselDetailsChange) onShowCarouselDetailsChange(settings.showCarouselDetails);
+    if (settings.showCarouselLogos !== undefined && onShowCarouselLogosChange) onShowCarouselLogosChange(settings.showCarouselLogos);
+    if (settings.detailsBarSize !== undefined && onDetailsBarSizeChange) onDetailsBarSizeChange(settings.detailsBarSize);
+    if (settings.carouselLogoSize !== undefined && onCarouselLogoSizeChange) onCarouselLogoSizeChange(settings.carouselLogoSize);
+    if (settings.carouselButtonSize !== undefined && onCarouselButtonSizeChange) onCarouselButtonSizeChange(settings.carouselButtonSize);
+    if (settings.carouselDescriptionSize !== undefined && onCarouselDescriptionSizeChange) onCarouselDescriptionSizeChange(settings.carouselDescriptionSize);
+    if (settings.carouselDescriptionAlignment !== undefined && onCarouselDescriptionAlignmentChange) onCarouselDescriptionAlignmentChange(settings.carouselDescriptionAlignment);
+    if (settings.carouselButtonAlignment !== undefined && onCarouselButtonAlignmentChange) onCarouselButtonAlignmentChange(settings.carouselButtonAlignment);
+    if (settings.carouselLogoAlignment !== undefined && onCarouselLogoAlignmentChange) onCarouselLogoAlignmentChange(settings.carouselLogoAlignment);
+    if (settings.listViewOptions !== undefined && onListViewOptionsChange) onListViewOptionsChange(settings.listViewOptions);
+    if (settings.rightPanelBoxartPosition !== undefined && onRightPanelBoxartPositionChange) onRightPanelBoxartPositionChange(settings.rightPanelBoxartPosition);
+    if (settings.rightPanelBoxartSize !== undefined && onRightPanelBoxartSizeChange) onRightPanelBoxartSizeChange(settings.rightPanelBoxartSize);
+    if (settings.rightPanelTextSize !== undefined && onRightPanelTextSizeChange) onRightPanelTextSizeChange(settings.rightPanelTextSize);
+    if (settings.rightPanelButtonSize !== undefined && onRightPanelButtonSizeChange) onRightPanelButtonSizeChange(settings.rightPanelButtonSize);
+    if (settings.rightPanelButtonLocation !== undefined && onRightPanelButtonLocationChange) onRightPanelButtonLocationChange(settings.rightPanelButtonLocation);
+    if (settings.detailsPanelOpacity !== undefined && onDetailsPanelOpacityChange) onDetailsPanelOpacityChange(settings.detailsPanelOpacity);
+  };
+
+  const handleSaveCurrentView = async () => {
+    const currentSettings = { [viewMode]: gatherCurrentSettings() };
+    const result = await window.electronAPI.saveCustomDefaults?.(currentSettings);
+    if (result?.success) {
+      setHasCustomDefaults(true);
+    }
+  };
+
+  const handleSaveAllViews = async () => {
+    const currentSettings = {
+      grid: gatherCurrentSettings(),
+      list: gatherCurrentSettings(),
+      logo: gatherCurrentSettings(),
+      carousel: gatherCurrentSettings(),
+    };
+    const result = await window.electronAPI.saveCustomDefaults?.(currentSettings);
+    if (result?.success) {
+      setHasCustomDefaults(true);
+    }
+  };
+
+  const handleRestoreCurrentView = async () => {
+    const result = await window.electronAPI.restoreCustomDefaults?.({ viewMode, scope: 'current' });
+    if (result?.success && result.defaults) {
+      applySettings(result.defaults);
+    }
+  };
+
+  const handleRestoreAllViews = async () => {
+    const result = await window.electronAPI.restoreCustomDefaults?.({ viewMode, scope: 'all' });
+    if (result?.success && result.defaults) {
+      // Even though we loaded all views, only apply the current view's settings
+      // This restores all to memory but only applies what's relevant now
+      const currentViewSettings = result.defaults[viewMode];
+      if (currentViewSettings) {
+        applySettings(currentViewSettings);
+      }
+    }
+  };
+
+  const handleExportCurrentView = async () => {
+    const result = await window.electronAPI.exportCustomDefaults?.({ viewMode, scope: 'current' });
+    // Successfully exported or cancelled - keep modal open
+  };
+
+  const handleExportAllViews = async () => {
+    const result = await window.electronAPI.exportCustomDefaults?.({ viewMode, scope: 'all' });
+    // Successfully exported or cancelled - keep modal open
+  };
+
+  const handleImportSettings = async () => {
+    const result = await window.electronAPI.importCustomDefaults?.();
+    if (result?.success && result.data) {
+      setHasCustomDefaults(true);
+      // Optionally apply the imported settings immediately
+      if (result.data[viewMode]) {
+        applySettings(result.data[viewMode]);
+      }
+    }
   };
 
   const getSizeLabel = () => {
@@ -1272,6 +1524,48 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
           </div>
         </>
       )}
+
+      {/* Defaults Buttons - Bottom */}
+      <div className="px-3 py-2 border-t border-gray-700 mt-2">
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            onClick={handleResetToDefaults}
+            className="px-4 py-2 text-sm rounded transition-colors bg-gray-700 text-gray-300 hover:bg-gray-600 border border-gray-600 font-medium"
+            title="Reset view settings to defaults for your resolution"
+          >
+            <svg className="w-4 h-4 inline-block mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            Reset to Defaults
+          </button>
+          <button
+            onClick={handleOpenCustomDefaultsModal}
+            className="px-4 py-2 text-sm rounded transition-colors bg-blue-700 text-gray-300 hover:bg-blue-600 border border-blue-600 font-medium"
+            title="Save or restore your custom defaults"
+          >
+            <svg className="w-4 h-4 inline-block mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+            </svg>
+            Custom Defaults
+          </button>
+        </div>
+      </div>
+
+      {/* Custom Defaults Modal */}
+      <CustomDefaultsModal
+        isOpen={showCustomDefaultsModal}
+        onClose={() => setShowCustomDefaultsModal(false)}
+        viewMode={viewMode}
+        resolution={screenResolution}
+        hasCustomDefaults={hasCustomDefaults}
+        onSaveCurrentView={handleSaveCurrentView}
+        onSaveAllViews={handleSaveAllViews}
+        onRestoreCurrentView={handleRestoreCurrentView}
+        onRestoreAllViews={handleRestoreAllViews}
+        onExportCurrentView={handleExportCurrentView}
+        onExportAllViews={handleExportAllViews}
+        onImportSettings={handleImportSettings}
+      />
 
     </div>
   );
