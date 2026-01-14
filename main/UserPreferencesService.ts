@@ -102,6 +102,13 @@ export interface UserPreferences {
   storeMetadataLocally?: boolean; // Store metadata and images locally by default
   enableSuspendFeature?: boolean; // Enable suspend/resume functionality
   suspendShortcut?: string; // Keyboard shortcut for suspend/resume (e.g., "Ctrl+Shift+S")
+  // Top bar element positions
+  topBarPositions?: {
+    searchBar?: 'left' | 'middle' | 'right';
+    sortBy?: 'left' | 'middle' | 'right';
+    launcher?: 'left' | 'middle' | 'right';
+    categories?: 'left' | 'middle' | 'right';
+  };
 }
 
 interface UserPreferencesSchema {

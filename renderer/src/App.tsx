@@ -14,6 +14,7 @@ import { SteamConfigModal } from './components/SteamConfigModal';
 import { CategoriesEditor } from './components/CategoriesEditor';
 import { TopBar } from './components/TopBar';
 import { MenuBar } from './components/MenuBar';
+import { TopBarPositions } from './components/TopBarContextMenu';
 import { UpdateLibraryModal } from './components/UpdateLibraryModal';
 import { OnyxSettingsModal } from './components/OnyxSettingsModal';
 import { APISettingsModal } from './components/APISettingsModal';
@@ -116,6 +117,13 @@ function App() {
   const [rightPanelButtonSize, setRightPanelButtonSize] = useState(14);
   const [rightPanelButtonLocation, setRightPanelButtonLocation] = useState<'left' | 'middle' | 'right'>('right');
   const [detailsPanelOpacity, setDetailsPanelOpacity] = useState(80);
+  // Top bar element positions
+  const [topBarPositions, setTopBarPositions] = useState<TopBarPositions>({
+    searchBar: 'left',
+    sortBy: 'left',
+    launcher: 'left',
+    categories: 'left',
+  });
   // Game details panel divider settings per view
   const [fanartHeightByView, setFanartHeightByView] = useState<Record<'grid' | 'list' | 'logo', number>>({
     grid: 320,
@@ -194,6 +202,8 @@ function App() {
         if (prefs.rightPanelButtonSize !== undefined) setRightPanelButtonSize(prefs.rightPanelButtonSize);
         if (prefs.rightPanelButtonLocation !== undefined) setRightPanelButtonLocation(prefs.rightPanelButtonLocation);
         if (prefs.detailsPanelOpacity !== undefined) setDetailsPanelOpacity(prefs.detailsPanelOpacity);
+        // Top bar positions
+        if (prefs.topBarPositions) setTopBarPositions({ ...topBarPositions, ...prefs.topBarPositions });
         if (prefs.viewMode) setViewMode(prefs.viewMode as 'grid' | 'list' | 'logo');
         if (prefs.backgroundMode) setBackgroundMode(prefs.backgroundMode as 'image' | 'color');
         if (prefs.backgroundColor) setBackgroundColor(prefs.backgroundColor);
@@ -1295,6 +1305,15 @@ function App() {
         launchers={allLaunchers}
         selectedLauncher={selectedLauncher}
         onLauncherChange={setSelectedLauncher}
+        topBarPositions={topBarPositions}
+        onTopBarPositionsChange={async (positions) => {
+          setTopBarPositions(positions);
+          try {
+            await window.electronAPI.savePreferences({ topBarPositions: positions });
+          } catch (error) {
+            console.error('Error saving top bar positions:', error);
+          }
+        }}
       />
 
       {/* Top Bar - Hidden by default, shown when menu is open */}
