@@ -116,14 +116,37 @@ function App() {
   const [rightPanelButtonSize, setRightPanelButtonSize] = useState(14);
   const [rightPanelButtonLocation, setRightPanelButtonLocation] = useState<'left' | 'middle' | 'right'>('right');
   const [detailsPanelOpacity, setDetailsPanelOpacity] = useState(80);
-  // Game details panel divider heights
-  const [fanartHeight, setFanartHeight] = useState(320);
-  const [descriptionWidth, setDescriptionWidth] = useState(50);
+  // Game details panel divider settings per view
+  const [fanartHeightByView, setFanartHeightByView] = useState<Record<'grid' | 'list' | 'logo', number>>({
+    grid: 320,
+    list: 320,
+    logo: 320,
+  });
+  const [descriptionWidthByView, setDescriptionWidthByView] = useState<Record<'grid' | 'list' | 'logo', number>>({
+    grid: 50,
+    list: 50,
+    logo: 50,
+  });
+  const [panelWidthByViewState, setPanelWidthByViewState] = useState<Record<'grid' | 'list' | 'logo', number>>({
+    grid: 800,
+    list: 800,
+    logo: 800,
+  });
 
-  // Set background blur to 0 when switching to carousel mode
+  // Get current view's divider settings
+  const currentFanartHeight = (viewMode === 'grid' || viewMode === 'list' || viewMode === 'logo') ? fanartHeightByView[viewMode] : 320;
+  const currentDescriptionWidth = (viewMode === 'grid' || viewMode === 'list' || viewMode === 'logo') ? descriptionWidthByView[viewMode] : 50;
+  const currentPanelWidth = (viewMode === 'grid' || viewMode === 'list' || viewMode === 'logo') ? panelWidthByViewState[viewMode] : 800;
+
+  // Set background blur to 0 when switching to carousel mode and sync divider widths when view changes
   useEffect(() => {
     if (viewMode === 'carousel' && backgroundBlur !== 0) {
       setBackgroundBlur(0);
+    }
+    // Sync panelWidth to current view's setting
+    if (viewMode !== 'carousel') {
+      const viewSpecificWidth = panelWidthByViewState[viewMode];
+      setPanelWidth(viewSpecificWidth);
     }
   }, [viewMode]);
   const [backgroundMode, setBackgroundMode] = useState<'image' | 'color'>('image');
@@ -180,6 +203,17 @@ function App() {
           setListViewOptions(defaultListViewOptions);
         }
         if (prefs.listViewSize) setListViewSize(prefs.listViewSize);
+        // Load divider settings per view
+        if (prefs.fanartHeightByView) {
+          setFanartHeightByView({ ...fanartHeightByView, ...prefs.fanartHeightByView });
+        }
+        if (prefs.descriptionWidthByView) {
+          setDescriptionWidthByView({ ...descriptionWidthByView, ...prefs.descriptionWidthByView });
+        }
+        if (prefs.panelWidthByView) {
+          setPanelWidthByViewState({ ...panelWidthByViewState, ...prefs.panelWidthByView });
+        }
+        // Set initial panelWidth based on current view
         const savedPanelWidth = (prefs.panelWidthByView && prefs.viewMode ? prefs.panelWidthByView[prefs.viewMode as 'grid' | 'list' | 'logo' | 'carousel'] : undefined) ?? prefs.panelWidth;
         if (savedPanelWidth) setPanelWidth(savedPanelWidth);
         if (prefs.autoSizeToFit !== undefined) setAutoSizeToFit(prefs.autoSizeToFit);
@@ -1533,10 +1567,12 @@ function App() {
               setGameContextMenu(null);
               setRightClickMenu({ x, y });
             }}
-            panelWidth={panelWidth}
+            panelWidth={currentPanelWidth}
             onPanelWidthChange={(width) => {
               setPanelWidth(width);
-              window.electronAPI.savePreferences({ panelWidth: width });
+              const newByView = { ...panelWidthByViewState, [viewMode]: width };
+              setPanelWidthByViewState(newByView);
+              window.electronAPI.savePreferences({ panelWidthByView: newByView });
             }}
             rightPanelLogoSize={rightPanelLogoSize}
             rightPanelBoxartPosition={rightPanelBoxartPosition}
@@ -1545,10 +1581,18 @@ function App() {
             rightPanelButtonSize={rightPanelButtonSize}
             rightPanelButtonLocation={rightPanelButtonLocation}
             detailsPanelOpacity={detailsPanelOpacity}
-            fanartHeight={fanartHeight}
-            onFanartHeightChange={setFanartHeight}
-            descriptionWidth={descriptionWidth}
-            onDescriptionWidthChange={setDescriptionWidth}
+            fanartHeight={currentFanartHeight}
+            onFanartHeightChange={(height) => {
+              const newByView = { ...fanartHeightByView, [viewMode]: height };
+              setFanartHeightByView(newByView);
+              window.electronAPI.savePreferences({ fanartHeightByView: newByView });
+            }}
+            descriptionWidth={currentDescriptionWidth}
+            onDescriptionWidthChange={(width) => {
+              const newByView = { ...descriptionWidthByView, [viewMode]: width };
+              setDescriptionWidthByView(newByView);
+              window.electronAPI.savePreferences({ descriptionWidthByView: newByView });
+            }}
           />
         )}
       </div>
@@ -1788,10 +1832,12 @@ function App() {
           onBackgroundBlurChange={setBackgroundBlur}
           selectedBoxArtSize={selectedBoxArtSize}
           onSelectedBoxArtSizeChange={setSelectedBoxArtSize}
-          panelWidth={panelWidth}
+          panelWidth={currentPanelWidth}
           onPanelWidthChange={(width) => {
             setPanelWidth(width);
-            window.electronAPI.savePreferences({ panelWidth: width });
+            const newByView = { ...panelWidthByViewState, [viewMode]: width };
+            setPanelWidthByViewState(newByView);
+            window.electronAPI.savePreferences({ panelWidthByView: newByView });
           }}
           carouselLogoSize={carouselLogoSize}
           onCarouselLogoSizeChange={(size) => {
@@ -1878,15 +1924,17 @@ function App() {
             setDetailsPanelOpacity(opacity);
             window.electronAPI.savePreferences({ detailsPanelOpacity: opacity });
           }}
-          fanartHeight={fanartHeight}
+          fanartHeight={currentFanartHeight}
           onFanartHeightChange={(height) => {
-            setFanartHeight(height);
-            window.electronAPI.savePreferences({ fanartHeight: height });
+            const newByView = { ...fanartHeightByView, [viewMode]: height };
+            setFanartHeightByView(newByView);
+            window.electronAPI.savePreferences({ fanartHeightByView: newByView });
           }}
-          descriptionWidth={descriptionWidth}
+          descriptionWidth={currentDescriptionWidth}
           onDescriptionWidthChange={(width) => {
-            setDescriptionWidth(width);
-            window.electronAPI.savePreferences({ descriptionWidth: width });
+            const newByView = { ...descriptionWidthByView, [viewMode]: width };
+            setDescriptionWidthByView(newByView);
+            window.electronAPI.savePreferences({ descriptionWidthByView: newByView });
           }}
         />
       )}
