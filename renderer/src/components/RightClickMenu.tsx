@@ -49,6 +49,11 @@ interface RightClickMenuProps {
     showLauncher?: boolean;
     showLogos?: boolean;
     titleTextSize?: number;
+    displayMode?: 'boxart-title' | 'logo-title' | 'logo-only' | 'title-only';
+    sectionTextSize?: number;
+    tileHeight?: number;
+    boxartSize?: number;
+    logoSize?: number;
   };
   onListViewOptionsChange?: (options: {
     showDescription: boolean;
@@ -60,6 +65,11 @@ interface RightClickMenuProps {
     showLauncher?: boolean;
     showLogos?: boolean;
     titleTextSize?: number;
+    displayMode?: 'boxart-title' | 'logo-title' | 'logo-only' | 'title-only';
+    sectionTextSize?: number;
+    tileHeight?: number;
+    boxartSize?: number;
+    logoSize?: number;
   }) => void;
   // Grid view specific props
   showLogoOverBoxart?: boolean;
@@ -246,7 +256,7 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
   };
 
   const getSizeRange = () => {
-    if (viewMode === 'list') return { min: 50, max: 200 };
+    if (viewMode === 'list') return { min: 10, max: 300 };
     return { min: 50, max: 600 };
   };
 
@@ -671,7 +681,7 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
               {/* Left Column */}
               <div className="space-y-2">
                 {/* Size control per view */}
-                {((viewMode === 'grid' && onGridSizeChange) || (viewMode === 'logo' && onLogoSizeChange) || (viewMode === 'list' && onListSizeChange)) && (
+                {((viewMode === 'grid' && onGridSizeChange) || (viewMode === 'logo' && onLogoSizeChange)) && (
                   <div className="px-3 py-2 bg-gray-700/30 rounded-md">
                     <label className="block text-xs text-gray-400 mb-1 font-semibold">{getSizeLabel()}</label>
                     <input
@@ -760,24 +770,26 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                   </div>
                 )}
 
-                {/* Game Tile Padding */}
-                <div className="px-3 py-2 bg-gray-700/30 rounded-md">
-                  <label className="block text-xs text-gray-400 mb-1 font-semibold">{paddingLabel}</label>
-                  <input
-                    type="range"
-                    min={paddingRange.min}
-                    max={paddingRange.max}
-                    step="1"
-                    value={gameTilePadding}
-                    onChange={(e) => onGameTilePaddingChange?.(Number(e.target.value))}
-                    className="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer slider accent-blue-600"
-                  />
-                  <div className="flex justify-between text-xs text-gray-500 mt-1">
-                    <span>{paddingRange.min}px</span>
-                    <span className="font-medium text-gray-300">{gameTilePadding}px</span>
-                    <span>{paddingRange.max}px</span>
+                {/* Game Tile Padding - only for grid and logo views */}
+                {viewMode !== 'list' && (
+                  <div className="px-3 py-2 bg-gray-700/30 rounded-md">
+                    <label className="block text-xs text-gray-400 mb-1 font-semibold">{paddingLabel}</label>
+                    <input
+                      type="range"
+                      min={paddingRange.min}
+                      max={paddingRange.max}
+                      step="1"
+                      value={gameTilePadding}
+                      onChange={(e) => onGameTilePaddingChange?.(Number(e.target.value))}
+                      className="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer slider accent-blue-600"
+                    />
+                    <div className="flex justify-between text-xs text-gray-500 mt-1">
+                      <span>{paddingRange.min}px</span>
+                      <span className="font-medium text-gray-300">{gameTilePadding}px</span>
+                      <span>{paddingRange.max}px</span>
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {/* Logo tile background transparency (Logo view) */}
                 {viewMode === 'logo' && (
@@ -803,29 +815,136 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                 {/* List view specific controls */}
                 {viewMode === 'list' && listViewOptions && (
                   <div className="space-y-2">
-                    {/* Title vs Logo controls */}
+                    {/* Tile Height control - always visible */}
+                    <div className="px-3 py-2 bg-gray-700/30 rounded-md">
+                      <label className="block text-xs text-gray-400 mb-1 font-semibold">Tile Height</label>
+                      <input
+                        type="range"
+                        min={10}
+                        max={300}
+                        step="1"
+                        value={listViewOptions.tileHeight ?? 128}
+                        onChange={(e) => onListViewOptionsChange?.({
+                          ...listViewOptions,
+                          tileHeight: Number(e.target.value),
+                        })}
+                        className="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer slider accent-blue-600"
+                      />
+                      <div className="flex justify-between text-xs text-gray-500 mt-1">
+                        <span>10px</span>
+                        <span className="font-medium text-gray-300">{listViewOptions.tileHeight ?? 128}px</span>
+                        <span>300px</span>
+                      </div>
+                    </div>
+
+                    {/* Display Mode controls */}
                     <div className="px-3 py-2 bg-gray-700/30 rounded-md space-y-2">
-                      <label className="block text-xs text-gray-400 font-semibold">Title Display</label>
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-gray-300">Show Logos Instead of Titles</span>
+                      <label className="block text-xs text-gray-400 mb-2 font-semibold">Display</label>
+                      <div className="grid grid-cols-2 gap-1">
                         <button
                           onClick={() => onListViewOptionsChange?.({
                             ...listViewOptions,
-                            showLogos: !listViewOptions.showLogos,
+                            displayMode: 'boxart-title',
                           })}
-                          className={`relative inline-flex h-3 w-6 items-center rounded-full transition-colors ${
-                            listViewOptions.showLogos ? 'bg-blue-600' : 'bg-gray-600'
+                          className={`px-2 py-1 text-xs rounded transition-colors ${
+                            (listViewOptions.displayMode === 'boxart-title' || !listViewOptions.displayMode)
+                              ? 'bg-blue-600/40 text-white border border-blue-500'
+                              : 'bg-gray-600 text-gray-300 hover:bg-gray-500 border border-gray-500'
                           }`}
                         >
-                          <span
-                            className={`inline-block h-2 w-2 transform rounded-full bg-white transition-transform ${
-                              listViewOptions.showLogos ? 'translate-x-3' : 'translate-x-0.5'
-                            }`}
-                          />
+                          Boxart + Title
+                        </button>
+                        <button
+                          onClick={() => onListViewOptionsChange?.({
+                            ...listViewOptions,
+                            displayMode: 'logo-title',
+                          })}
+                          className={`px-2 py-1 text-xs rounded transition-colors ${
+                            listViewOptions.displayMode === 'logo-title'
+                              ? 'bg-blue-600/40 text-white border border-blue-500'
+                              : 'bg-gray-600 text-gray-300 hover:bg-gray-500 border border-gray-500'
+                          }`}
+                        >
+                          Logo + Title
+                        </button>
+                        <button
+                          onClick={() => onListViewOptionsChange?.({
+                            ...listViewOptions,
+                            displayMode: 'logo-only',
+                          })}
+                          className={`px-2 py-1 text-xs rounded transition-colors ${
+                            listViewOptions.displayMode === 'logo-only'
+                              ? 'bg-blue-600/40 text-white border border-blue-500'
+                              : 'bg-gray-600 text-gray-300 hover:bg-gray-500 border border-gray-500'
+                          }`}
+                        >
+                          Logo Only
+                        </button>
+                        <button
+                          onClick={() => onListViewOptionsChange?.({
+                            ...listViewOptions,
+                            displayMode: 'title-only',
+                          })}
+                          className={`px-2 py-1 text-xs rounded transition-colors ${
+                            listViewOptions.displayMode === 'title-only'
+                              ? 'bg-blue-600/40 text-white border border-blue-500'
+                              : 'bg-gray-600 text-gray-300 hover:bg-gray-500 border border-gray-500'
+                          }`}
+                        >
+                          Title Only
                         </button>
                       </div>
 
-                      {!listViewOptions.showLogos && (
+                      {/* Boxart Size - only for Boxart + Title mode */}
+                      {(listViewOptions.displayMode === 'boxart-title' || !listViewOptions.displayMode) && (
+                        <div className="pt-2">
+                          <label className="block text-xs text-gray-400 mb-1 font-semibold">Boxart Size</label>
+                          <input
+                            type="range"
+                            min={30}
+                            max={200}
+                            step="1"
+                            value={listViewOptions.boxartSize ?? 96}
+                            onChange={(e) => onListViewOptionsChange?.({
+                              ...listViewOptions,
+                              boxartSize: Number(e.target.value),
+                            })}
+                            className="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer slider accent-blue-600"
+                          />
+                          <div className="flex justify-between text-xs text-gray-500 mt-1">
+                            <span>30px</span>
+                            <span className="font-medium text-gray-300">{listViewOptions.boxartSize ?? 96}px</span>
+                            <span>200px</span>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Logo Size - only for Logo + Title mode */}
+                      {listViewOptions.displayMode === 'logo-title' && (
+                        <div className="pt-2">
+                          <label className="block text-xs text-gray-400 mb-1 font-semibold">Logo Size</label>
+                          <input
+                            type="range"
+                            min={30}
+                            max={200}
+                            step="1"
+                            value={listViewOptions.logoSize ?? 96}
+                            onChange={(e) => onListViewOptionsChange?.({
+                              ...listViewOptions,
+                              logoSize: Number(e.target.value),
+                            })}
+                            className="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer slider accent-blue-600"
+                          />
+                          <div className="flex justify-between text-xs text-gray-500 mt-1">
+                            <span>30px</span>
+                            <span className="font-medium text-gray-300">{listViewOptions.logoSize ?? 96}px</span>
+                            <span>200px</span>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Title Text Size - for all modes except Logo Only */}
+                      {listViewOptions.displayMode !== 'logo-only' && (
                         <div>
                           <label className="block text-xs text-gray-400 mb-1 font-semibold">Title Text Size</label>
                           <input
@@ -884,6 +1003,27 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                           </div>
                         );
                       })}
+
+                      <div className="pt-2">
+                        <label className="block text-xs text-gray-400 mb-1 font-semibold">Section Text Size</label>
+                        <input
+                          type="range"
+                          min={10}
+                          max={18}
+                          step="1"
+                          value={listViewOptions.sectionTextSize ?? 14}
+                          onChange={(e) => onListViewOptionsChange?.({
+                            ...listViewOptions,
+                            sectionTextSize: Number(e.target.value),
+                          })}
+                          className="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer slider accent-blue-600"
+                        />
+                        <div className="flex justify-between text-xs text-gray-500 mt-1">
+                          <span>10px</span>
+                          <span className="font-medium text-gray-300">{listViewOptions.sectionTextSize ?? 14}px</span>
+                          <span>18px</span>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 )}
