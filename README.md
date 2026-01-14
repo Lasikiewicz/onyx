@@ -16,6 +16,8 @@ Alpha and Production builds use different App IDs, allowing them to be installed
 
 **All local development and testing is done on the `master` branch.**
 
+Assistant protocol: When the user says "push to git" or "push to git master," treat it as approval to push current changes to the `master` branch after summarizing the changes and branch details.
+
 ### Pushing Alpha Builds
 
 When ready to deploy an alpha build:

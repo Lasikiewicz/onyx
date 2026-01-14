@@ -48,6 +48,7 @@
 - ❌ **DO NOT** `git pull` without asking first
 - ❌ **DO NOT** force push (`--force`) without explicit instruction
 - ❌ **DO NOT** proceed if permission is not explicitly given
+- ✅ The phrases "push to git" or "push to git master" count as explicit permission to push current work to the **master** branch (still summarize changes and branch before running commands)
 
 **MANDATORY WORKFLOW - ALWAYS FOLLOW THIS EXACTLY:**
 1. Make code changes and build successfully

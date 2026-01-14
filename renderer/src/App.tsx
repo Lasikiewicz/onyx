@@ -134,6 +134,9 @@ function App() {
   const [autoSizeToFit, setAutoSizeToFit] = useState(false);
   const gridContainerRef = useRef<HTMLDivElement>(null);
 
+  // Clamp padding in carousel without overwriting the saved preference
+  const carouselGameTilePadding = viewMode === 'carousel' && gameTilePadding > 3 ? 1 : gameTilePadding;
+
   // Load preferences on mount
   useEffect(() => {
     const loadPreferences = async () => {
@@ -312,14 +315,6 @@ function App() {
       }
     }
   }, [loading, games, activeGameId]);
-
-  // Adjust game tile padding when switching to carousel view
-  useEffect(() => {
-    if (viewMode === 'carousel' && gameTilePadding > 3) {
-      // If switching to carousel and current padding is above the carousel max (3px), set to default (1px)
-      setGameTilePadding(1);
-    }
-  }, [viewMode, gameTilePadding]);
 
   // Toggle pin category
   const handleTogglePinCategory = (category: string) => {
@@ -1375,7 +1370,7 @@ function App() {
                         isHiddenView={selectedCategory === 'hidden'}
                         activeGameId={activeGameId}
                         selectedBoxArtSize={selectedBoxArtSize}
-                        gameTilePadding={gameTilePadding}
+                        gameTilePadding={carouselGameTilePadding}
                         showCarouselDetails={showCarouselDetails}
                         showCarouselLogos={showCarouselLogos}
                         detailsBarSize={detailsBarSize}
