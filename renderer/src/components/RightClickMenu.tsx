@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import type { Game } from '../types/game';
 import { CustomDefaultsModal } from './CustomDefaultsModal';
+import { ConfirmationDialog } from './ConfirmationDialog';
 
 interface RightClickMenuProps {
   x: number;
@@ -162,6 +163,8 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
   // Right panel (GameDetailsPanel) specific props
   rightPanelBoxartPosition = 'right',
   onRightPanelBoxartPositionChange,
+  rightPanelLogoSize = 95,
+  onRightPanelLogoSizeChange,
   rightPanelBoxartSize = 120,
   onRightPanelBoxartSizeChange,
   rightPanelTextSize = 14,
@@ -188,6 +191,10 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
   const [saveFeedback, setSaveFeedback] = React.useState<{ type: 'current' | 'all'; show: boolean }>({ type: 'current', show: false });
   const [restoreFeedback, setRestoreFeedback] = React.useState<{ type: 'current' | 'all'; show: boolean }>({ type: 'current', show: false });
   const feedbackTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+
+  // State for Reset Confirmation Dialog
+  const [showResetConfirmation, setShowResetConfirmation] = React.useState(false);
+  const [resetResolution, setResetResolution] = React.useState('');
 
   const showFeedback = (setState: (s: any) => void, type: 'current' | 'all') => {
     setState({ type, show: true });
@@ -299,85 +306,165 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
     const screenWidth = window.screen.width;
     const screenHeight = window.screen.height;
     const resolution = `${screenWidth}x${screenHeight}`;
+    
+    // Store resolution and show confirmation dialog
+    setResetResolution(resolution);
+    setShowResetConfirmation(true);
+  };
 
-    // Confirm with user
-    const confirmed = window.confirm(
-      `Reset view settings to defaults for ${resolution} resolution?\n\nThis will reset all customization settings for the current view mode to their default values.`
-    );
-
-    if (!confirmed) {
-      return;
-    }
-
-    // Define defaults for 1920x1080 (and use as fallback for other resolutions)
-    const defaults = {
-      gridSize: 119,
-      logoSize: 120,
-      listSize: 80,
-      gameTilePadding: 10,
-      backgroundBlur: 0,
-      selectedBoxArtSize: 25,
+  const applyDefaultsForView = (mode: 'grid' | 'list' | 'logo' | 'carousel', is1440p: boolean) => {
+    // Define defaults based on resolution
+    const defaults = is1440p ? {
+      // Grid view defaults (1440p)
+      gridSize: 148,
       showLogoOverBoxart: false,
-      logoPosition: 'middle' as 'top' | 'middle' | 'bottom' | 'underneath',
-      logoBackgroundOpacity: 100,
-      // Carousel settings
+      gridGameTilePadding: 10,
+      gridPanelWidth: 1432,
+      gridFanartHeight: 600,
+      gridDescriptionWidth: 50,
+      // List view defaults (1440p)
+      listPanelWidth: 1920,
+      listFanartHeight: 600,
+      listDescriptionWidth: 66,
+      listRightPanelLogoSize: 60,
+      // Logo view defaults (1440p)
+      logoSize: 236,
+      logoBackgroundOpacity: 0,
+      logoGameTilePadding: 10,
+      logoPanelWidth: 1307,
+      logoFanartHeight: 600,
+      logoDescriptionWidth: 50,
+      logoRightPanelLogoSize: 60,
+      // Carousel view defaults (1440p)
       showCarouselDetails: true,
       showCarouselLogos: true,
-      detailsBarSize: 14,
-      carouselLogoSize: 100,
-      carouselButtonSize: 14,
-      carouselDescriptionSize: 18,
+      detailsBarSize: 13,
+      selectedBoxArtSize: 23,
+      carouselGameTilePadding: 10,
+      carouselLogoSize: 115,
+      carouselButtonSize: 13,
+      carouselDescriptionSize: 15,
       carouselDescriptionAlignment: 'center' as 'left' | 'center' | 'right',
       carouselButtonAlignment: 'center' as 'left' | 'center' | 'right',
-      carouselLogoAlignment: 'center' as 'left' | 'center' | 'right',
-      // Right panel settings
+      // Common settings
+      backgroundBlur: 0,
       rightPanelBoxartPosition: 'right' as 'left' | 'right' | 'none',
       rightPanelBoxartSize: 200,
       rightPanelTextSize: 13,
       rightPanelButtonSize: 13,
       rightPanelButtonLocation: 'right' as 'left' | 'middle' | 'right',
       detailsPanelOpacity: 0,
-      // List view settings
       listViewOptions: {
-        showDescription: true,
+        tileHeight: 117,
+        displayMode: 'boxart-title' as 'boxart-title' | 'logo-title' | 'logo-only' | 'title-only',
+        boxartSize: 94,
+        titleTextSize: 13,
+        showDescription: false,
         showCategories: false,
-        showPlaytime: true,
-        showReleaseDate: true,
-        showGenres: true,
+        showPlaytime: false,
+        showReleaseDate: false,
+        showGenres: false,
         showPlatform: false,
-        showLauncher: true,
+        showLauncher: false,
         showLogos: false,
-        titleTextSize: 18,
+        sectionTextSize: 13,
+      },
+    } : {
+      // Grid view defaults (1080p)
+      gridSize: 100,
+      showLogoOverBoxart: false,
+      gridGameTilePadding: 10,
+      gridPanelWidth: 1126,
+      gridFanartHeight: 320,
+      gridDescriptionWidth: 50,
+      // List view defaults (1080p)
+      listPanelWidth: 1440,
+      listFanartHeight: 420,
+      listDescriptionWidth: 66,
+      listRightPanelLogoSize: 60,
+      // Logo view defaults (1080p)
+      logoSize: 184,
+      logoBackgroundOpacity: 0,
+      logoGameTilePadding: 10,
+      logoPanelWidth: 927,
+      logoFanartHeight: 320,
+      logoDescriptionWidth: 50,
+      logoRightPanelLogoSize: 60,
+      // Carousel view defaults (1080p)
+      showCarouselDetails: true,
+      showCarouselLogos: true,
+      detailsBarSize: 13,
+      selectedBoxArtSize: 23,
+      carouselGameTilePadding: 3,
+      carouselLogoSize: 115,
+      carouselButtonSize: 13,
+      carouselDescriptionSize: 15,
+      carouselDescriptionAlignment: 'center' as 'left' | 'center' | 'right',
+      carouselButtonAlignment: 'center' as 'left' | 'center' | 'right',
+      // Common settings
+      backgroundBlur: 0,
+      rightPanelBoxartPosition: 'right' as 'left' | 'right' | 'none',
+      rightPanelBoxartSize: 200,
+      rightPanelTextSize: 13,
+      rightPanelButtonSize: 13,
+      rightPanelButtonLocation: 'right' as 'left' | 'middle' | 'right',
+      detailsPanelOpacity: 0,
+      listViewOptions: {
+        tileHeight: 117,
+        displayMode: 'boxart-title' as 'boxart-title' | 'logo-title' | 'logo-only' | 'title-only',
+        boxartSize: 94,
+        titleTextSize: 13,
+        showDescription: false,
+        showCategories: false,
+        showPlaytime: false,
+        showReleaseDate: false,
+        showGenres: false,
+        showPlatform: false,
+        showLauncher: false,
+        showLogos: false,
+        sectionTextSize: 13,
       },
     };
 
-    // Apply defaults based on current view mode
-    if (viewMode === 'grid') {
+
+    // Apply defaults based on specified view mode
+    if (mode === 'grid') {
       onGridSizeChange?.(defaults.gridSize);
-      onGameTilePaddingChange?.(defaults.gameTilePadding);
+      onGameTilePaddingChange?.(defaults.gridGameTilePadding);
+      onPanelWidthChange?.(defaults.gridPanelWidth);
+      onFanartHeightChange?.(defaults.gridFanartHeight);
+      onDescriptionWidthChange?.(defaults.gridDescriptionWidth);
       onBackgroundBlurChange?.(defaults.backgroundBlur);
       onSelectedBoxArtSizeChange?.(defaults.selectedBoxArtSize);
       onShowLogoOverBoxartChange?.(defaults.showLogoOverBoxart);
-      onLogoPositionChange?.(defaults.logoPosition);
-      onLogoBackgroundOpacityChange?.(defaults.logoBackgroundOpacity);
-    } else if (viewMode === 'logo') {
+    } else if (mode === 'logo') {
       onLogoSizeChange?.(defaults.logoSize);
-      onGameTilePaddingChange?.(defaults.gameTilePadding);
+      onGameTilePaddingChange?.(defaults.logoGameTilePadding);
+      onLogoBackgroundOpacityChange?.(defaults.logoBackgroundOpacity);
       onBackgroundBlurChange?.(defaults.backgroundBlur);
-    } else if (viewMode === 'list') {
-      onListSizeChange?.(defaults.listSize);
+      onPanelWidthChange?.(defaults.logoPanelWidth);
+      onFanartHeightChange?.(defaults.logoFanartHeight);
+      onDescriptionWidthChange?.(defaults.logoDescriptionWidth);
+      onRightPanelLogoSizeChange?.(defaults.logoRightPanelLogoSize);
+    } else if (mode === 'list') {
       onBackgroundBlurChange?.(defaults.backgroundBlur);
+      onPanelWidthChange?.(defaults.listPanelWidth);
+      onFanartHeightChange?.(defaults.listFanartHeight);
+      onDescriptionWidthChange?.(defaults.listDescriptionWidth);
       onListViewOptionsChange?.(defaults.listViewOptions);
-    } else if (viewMode === 'carousel') {
+      onRightPanelLogoSizeChange?.(defaults.listRightPanelLogoSize);
+    } else if (mode === 'carousel') {
       onShowCarouselDetailsChange?.(defaults.showCarouselDetails);
       onShowCarouselLogosChange?.(defaults.showCarouselLogos);
       onDetailsBarSizeChange?.(defaults.detailsBarSize);
+      onSelectedBoxArtSizeChange?.(defaults.selectedBoxArtSize);
+      onGameTilePaddingChange?.(defaults.carouselGameTilePadding);
+      onBackgroundBlurChange?.(defaults.backgroundBlur);
       onCarouselLogoSizeChange?.(defaults.carouselLogoSize);
       onCarouselButtonSizeChange?.(defaults.carouselButtonSize);
       onCarouselDescriptionSizeChange?.(defaults.carouselDescriptionSize);
       onCarouselDescriptionAlignmentChange?.(defaults.carouselDescriptionAlignment);
       onCarouselButtonAlignmentChange?.(defaults.carouselButtonAlignment);
-      onCarouselLogoAlignmentChange?.(defaults.carouselLogoAlignment);
     }
 
     // Apply right panel defaults (applies to all view modes)
@@ -387,8 +474,25 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
     onRightPanelButtonSizeChange?.(defaults.rightPanelButtonSize);
     onRightPanelButtonLocationChange?.(defaults.rightPanelButtonLocation);
     onDetailsPanelOpacityChange?.(defaults.detailsPanelOpacity);
+  };
 
-    // Close the menu after applying defaults
+  const handleResetCurrentView = () => {
+    const screenHeight = window.screen.height;
+    const is1440p = screenHeight >= 1440;
+    applyDefaultsForView(viewMode, is1440p);
+    setShowResetConfirmation(false);
+    onClose();
+  };
+
+  const handleResetAllViews = () => {
+    const screenHeight = window.screen.height;
+    const is1440p = screenHeight >= 1440;
+    
+    // Apply defaults for all view modes
+    const modes: ('grid' | 'list' | 'logo' | 'carousel')[] = ['grid', 'list', 'logo', 'carousel'];
+    modes.forEach(mode => applyDefaultsForView(mode, is1440p));
+    
+    setShowResetConfirmation(false);
     onClose();
   };
 
@@ -405,34 +509,92 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
     setShowCustomDefaultsModal(true);
   };
 
-  const gatherCurrentSettings = () => ({
-    panelWidth,
-    gridSize,
-    logoSize,
-    listSize,
-    gameTilePadding,
-    backgroundBlur,
-    selectedBoxArtSize,
-    showLogoOverBoxart,
-    logoPosition,
-    logoBackgroundOpacity,
-    showCarouselDetails,
-    showCarouselLogos,
-    detailsBarSize,
-    carouselLogoSize,
-    carouselButtonSize,
-    carouselDescriptionSize,
-    carouselDescriptionAlignment,
-    carouselButtonAlignment,
-    carouselLogoAlignment,
-    listViewOptions,
-    rightPanelBoxartPosition,
-    rightPanelBoxartSize,
-    rightPanelTextSize,
-    rightPanelButtonSize,
-    rightPanelButtonLocation,
-    detailsPanelOpacity,
-  });
+  const gatherSettingsForViewMode = (mode: string) => {
+    // Gather common right panel settings
+    const rightPanelSettings = {
+      rightPanelBoxartPosition,
+      rightPanelBoxartSize,
+      rightPanelTextSize,
+      rightPanelButtonSize,
+      rightPanelButtonLocation,
+      detailsPanelOpacity,
+    };
+
+    // Return view-specific settings
+    if (mode === 'grid') {
+      return {
+        gridSize,
+        showLogoOverBoxart,
+        gameTilePadding,
+        panelWidth,
+        fanartHeight,
+        descriptionWidth,
+        backgroundBlur,
+        ...rightPanelSettings,
+      };
+    } else if (mode === 'list') {
+      return {
+        panelWidth,
+        backgroundBlur,
+        fanartHeight,
+        descriptionWidth,
+        listViewOptions,
+        rightPanelLogoSize,
+        ...rightPanelSettings,
+      };
+    } else if (mode === 'logo') {
+      return {
+        logoSize,
+        gameTilePadding,
+        logoBackgroundOpacity,
+        backgroundBlur,
+        panelWidth,
+        fanartHeight,
+        descriptionWidth,
+        rightPanelLogoSize,
+        ...rightPanelSettings,
+      };
+    } else if (mode === 'carousel') {
+      return {
+        showCarouselDetails,
+        detailsBarSize,
+        selectedBoxArtSize,
+        gameTilePadding,
+        backgroundBlur,
+        carouselLogoSize,
+        showCarouselLogos,
+        carouselDescriptionSize,
+        carouselDescriptionAlignment,
+        carouselButtonSize,
+        carouselButtonAlignment,
+      };
+    }
+
+    // Fallback: return all settings if view mode is unknown
+    return {
+      panelWidth,
+      gridSize,
+      logoSize,
+      listSize,
+      gameTilePadding,
+      backgroundBlur,
+      selectedBoxArtSize,
+      showLogoOverBoxart,
+      logoBackgroundOpacity,
+      showCarouselDetails,
+      showCarouselLogos,
+      detailsBarSize,
+      carouselLogoSize,
+      carouselButtonSize,
+      carouselDescriptionSize,
+      carouselDescriptionAlignment,
+      carouselButtonAlignment,
+      listViewOptions,
+      ...rightPanelSettings,
+    };
+  };
+
+  const gatherCurrentSettings = () => gatherSettingsForViewMode(viewMode);
 
   const applySettings = (settings: any) => {
     if (settings.panelWidth !== undefined) {
@@ -476,13 +638,9 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
   };
 
   const handleSaveAllViews = async () => {
-    const currentSettings = {
-      grid: gatherCurrentSettings(),
-      list: gatherCurrentSettings(),
-      logo: gatherCurrentSettings(),
-      carousel: gatherCurrentSettings(),
-    };
-    const result = await window.electronAPI.saveCustomDefaults?.(currentSettings);
+    // Don't re-gather from UI - just confirm all views have been saved individually
+    // The export will use what's already been saved in the store
+    const result = await window.electronAPI.saveCustomDefaults?.({});
     if (result?.success) {
       setHasCustomDefaults(true);
       showFeedback(setSaveFeedback, 'all');
@@ -1659,6 +1817,21 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
         onImportSettings={handleImportSettings}
         saveFeedback={saveFeedback}
         restoreFeedback={restoreFeedback}
+      />
+
+      {/* Reset Confirmation Dialog */}
+      <ConfirmationDialog
+        isOpen={showResetConfirmation}
+        title="Reset to Defaults"
+        message={`Reset view settings to defaults for ${resetResolution} resolution?`}
+        note="This will reset all customization settings to their default values based on your screen resolution."
+        primaryActionText={`Reset ${viewMode === 'grid' ? 'Grid' : viewMode === 'list' ? 'List' : viewMode === 'logo' ? 'Logo' : 'Carousel'} View`}
+        secondaryActionText="Reset All Views"
+        onPrimaryAction={handleResetCurrentView}
+        onSecondaryAction={handleResetAllViews}
+        onConfirm={handleResetCurrentView}
+        onCancel={() => setShowResetConfirmation(false)}
+        variant="default"
       />
 
     </div>

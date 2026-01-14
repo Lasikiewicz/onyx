@@ -84,24 +84,15 @@ export const CustomDefaultsModal: React.FC<CustomDefaultsModalProps> = ({
             <p className="text-gray-400 text-xs leading-relaxed">
               Save your current view settings as custom defaults. These will be stored separately from the factory defaults.
             </p>
-            <div className="grid grid-cols-2 gap-2 pt-1">
+            <div className="pt-1">
               <button
                 onClick={onSaveCurrentView}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg transition-colors duration-200 flex items-center justify-center gap-1.5 text-xs font-medium"
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg transition-colors duration-200 flex items-center justify-center gap-1.5 text-xs font-medium"
               >
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
                 </svg>
                 {saveFeedback.show && saveFeedback.type === 'current' ? 'Saved ✓' : `Save ${viewModeDisplay[viewMode]} View`}
-              </button>
-              <button
-                onClick={onSaveAllViews}
-                className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-2 rounded-lg transition-colors duration-200 flex items-center justify-center gap-1.5 text-xs font-medium"
-              >
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
-                </svg>
-                {saveFeedback.show && saveFeedback.type === 'all' ? 'Saved ✓' : 'Save All Views'}
               </button>
             </div>
           </div>
@@ -118,24 +109,15 @@ export const CustomDefaultsModal: React.FC<CustomDefaultsModalProps> = ({
               <p className="text-gray-400 text-xs leading-relaxed">
                 Restore previously saved custom defaults. This will apply your saved settings.
               </p>
-              <div className="grid grid-cols-2 gap-2 pt-1">
+              <div className="pt-1">
                 <button
                   onClick={onRestoreCurrentView}
-                  className="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg transition-colors duration-200 flex items-center justify-center gap-1.5 text-xs font-medium"
+                  className="w-full bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg transition-colors duration-200 flex items-center justify-center gap-1.5 text-xs font-medium"
                 >
                   <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                   </svg>
                   {restoreFeedback.show && restoreFeedback.type === 'current' ? 'Restored ✓' : `Restore ${viewModeDisplay[viewMode]}`}
-                </button>
-                <button
-                  onClick={onRestoreAllViews}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-lg transition-colors duration-200 flex items-center justify-center gap-1.5 text-xs font-medium"
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                  </svg>
-                  {restoreFeedback.show && restoreFeedback.type === 'all' ? 'Restored ✓' : 'Restore All Views'}
                 </button>
               </div>
             </div>
@@ -152,10 +134,10 @@ export const CustomDefaultsModal: React.FC<CustomDefaultsModalProps> = ({
             <p className="text-gray-400 text-xs leading-relaxed">
               Export your custom defaults to share with others, or import settings from a file.
             </p>
-            <div className="grid grid-cols-2 gap-2 pt-1">
+            <div className="space-y-2 pt-1">
               <button
                 onClick={onExportCurrentView}
-                className="bg-gray-700 hover:bg-gray-600 text-white px-3 py-2 rounded-lg transition-colors duration-200 flex items-center justify-center gap-1.5 text-xs font-medium"
+                className="w-full bg-gray-700 hover:bg-gray-600 text-white px-3 py-2 rounded-lg transition-colors duration-200 flex items-center justify-center gap-1.5 text-xs font-medium"
               >
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -163,32 +145,22 @@ export const CustomDefaultsModal: React.FC<CustomDefaultsModalProps> = ({
                 Export {viewModeDisplay[viewMode]}
               </button>
               <button
-                onClick={onExportAllViews}
-                className="bg-gray-700 hover:bg-gray-600 text-white px-3 py-2 rounded-lg transition-colors duration-200 flex items-center justify-center gap-1.5 text-xs font-medium"
+                onClick={onImportSettings}
+                className="w-full bg-gray-700 hover:bg-gray-600 text-white px-3 py-2 rounded-lg transition-colors duration-200 flex items-center justify-center gap-1.5 text-xs font-medium"
               >
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l4 4m0 0l4-4m-4 4V4" />
                 </svg>
-                Export All Views
+                Import Settings File
               </button>
             </div>
-            <button
-              onClick={onImportSettings}
-              className="w-full bg-gray-700 hover:bg-gray-600 text-white px-3 py-2 rounded-lg transition-colors duration-200 flex items-center justify-center gap-1.5 text-xs font-medium"
-            >
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l4 4m0 0l4-4m-4 4V4" />
-              </svg>
-              Import Settings File
-            </button>
           </div>
 
           {/* Info Box */}
           <div className="bg-blue-900 bg-opacity-30 border border-blue-700 rounded-lg p-3">
             <p className="text-blue-200 text-xs leading-relaxed">
               <strong>💡 Tip:</strong> Custom defaults are saved separately for each view mode. 
-              You can save different settings for Grid, List, Logo, and Carousel views, or save them all at once.
-              Export your settings to share your perfect configuration with other Onyx users!
+              Save and export your settings for each view to share your perfect configuration with other Onyx users!
             </p>
           </div>
         </div>

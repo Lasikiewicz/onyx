@@ -1,0 +1,30 @@
+{
+  "list": {
+    "panelWidth": 1920,
+    "backgroundBlur": 0,
+    "fanartHeight": 600,
+    "descriptionWidth": 66,
+    "listViewOptions": {
+      "showDescription": false,
+      "showCategories": false,
+      "showPlaytime": false,
+      "showReleaseDate": false,
+      "showGenres": false,
+      "showPlatform": false,
+      "showLauncher": false,
+      "showLogos": false,
+      "titleTextSize": 13,
+      "tileHeight": 117,
+      "displayMode": "boxart-title",
+      "boxartSize": 94,
+      "sectionTextSize": 13
+    },
+    "rightPanelLogoSize": 60,
+    "rightPanelBoxartPosition": "right",
+    "rightPanelBoxartSize": 200,
+    "rightPanelTextSize": 13,
+    "rightPanelButtonSize": 13,
+    "rightPanelButtonLocation": "right",
+    "detailsPanelOpacity": 0
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "carousel": {
+    "showCarouselDetails": true,
+    "detailsBarSize": 13,
+    "selectedBoxArtSize": 23,
+    "gameTilePadding": 3,
+    "backgroundBlur": 0,
+    "carouselLogoSize": 115,
+    "showCarouselLogos": true,
+    "carouselDescriptionSize": 15,
+    "carouselDescriptionAlignment": "center",
+    "carouselButtonSize": 13,
+    "carouselButtonAlignment": "center"
+  }
+}

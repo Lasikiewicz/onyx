@@ -1,0 +1,18 @@
+{
+  "logo": {
+    "logoSize": 184,
+    "gameTilePadding": 10,
+    "logoBackgroundOpacity": 0,
+    "backgroundBlur": 0,
+    "panelWidth": 927,
+    "fanartHeight": 320,
+    "descriptionWidth": 50,
+    "rightPanelLogoSize": 60,
+    "rightPanelBoxartPosition": "right",
+    "rightPanelBoxartSize": 200,
+    "rightPanelTextSize": 13,
+    "rightPanelButtonSize": 13,
+    "rightPanelButtonLocation": "right",
+    "detailsPanelOpacity": 0
+  }
+}
