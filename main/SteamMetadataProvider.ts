@@ -125,6 +125,87 @@ export class SteamMetadataProvider implements MetadataProvider {
     }
   }
 
+  /**
+   * Search Steam Store by game title (for non-Steam games)
+   * Returns array of matching games with their Steam App IDs
+   */
+  async searchGames(title: string): Promise<GameSearchResult[]> {
+    try {
+      console.log(`[Steam searchGames] Searching Steam Store for "${title}"`);
+      
+      // Use the Steam Store search API - similar to how SteamDB.info does it
+      const searchUrl = `https://store.steampowered.com/search/?term=${encodeURIComponent(title)}&category1=998`;
+      const response = await fetch(searchUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+        }
+      });
+
+      if (!response.ok) {
+        console.warn(`[Steam searchGames] Search returned status ${response.status}`);
+        return [];
+      }
+
+      const html = await response.text();
+      const appIds: string[] = [];
+
+      // Parse App IDs from search results
+      const appIdMatches = html.match(/data-ds-appid=["'](\d+)["']/g);
+      if (appIdMatches) {
+        for (const match of appIdMatches) {
+          const appIdMatch = match.match(/(\d+)/);
+          if (appIdMatch && appIdMatch[1]) {
+            appIds.push(appIdMatch[1]);
+          }
+        }
+      }
+
+      if (appIds.length === 0) {
+        console.log(`[Steam searchGames] No results found for "${title}"`);
+        return [];
+      }
+
+      // Remove duplicates and limit to first 20
+      const uniqueAppIds = [...new Set(appIds)].slice(0, 20);
+      console.log(`[Steam searchGames] Found ${uniqueAppIds.length} matches for "${title}"`);
+
+      // Fetch game details for each App ID
+      const results: GameSearchResult[] = [];
+      for (const appId of uniqueAppIds) {
+        try {
+          const storeApiUrl = `https://store.steampowered.com/api/appdetails?appids=${appId}&l=english`;
+          const detailResponse = await fetch(storeApiUrl);
+
+          if (detailResponse.ok) {
+            const data = await detailResponse.json() as Record<string, any>;
+            const appData = data[appId];
+
+            if (appData && appData.success && appData.data) {
+              results.push({
+                id: `steam-${appId}`,
+                title: appData.data.name,
+                source: this.name,
+                externalId: appId,
+                steamAppId: appId,
+              });
+            }
+          }
+        } catch (err) {
+          console.warn(`[Steam searchGames] Error fetching details for app ${appId}:`, err);
+        }
+
+        // Rate limiting - wait 500ms between requests
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+
+      return results;
+    } catch (error) {
+      console.warn(`[Steam searchGames] Error searching for "${title}":`, error);
+      return [];
+    }
+  }
+
   async getDescription(id: string): Promise<import('./MetadataProvider.js').GameDescription | null> {
     // Extract Steam App ID
     const match = id.match(/^steam-(.+)$/);

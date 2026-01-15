@@ -743,9 +743,10 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
                   }
                 }
                 
-                // Keep autoCategory if already set from folder config, otherwise don't preselect
-                if (categories.length === 0) {
-                  categories = [];
+                // Auto-categorize games with "Utilities" genre as "Apps"
+                if (genres.includes('Utilities') && !categories.includes('Apps')) {
+                  categories = [...categories, 'Apps'];
+                  console.log(`[ImportWorkbench] Auto-categorized "${matchedTitle}" as "Apps" (genre: Utilities)`);
                 }
 
                 metadata = {
@@ -793,9 +794,10 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
                 description = (metadata.description || metadata.summary || '').trim();
                 releaseDate = (metadata.releaseDate || '').trim();
                 genres = metadata.genres || [];
-                // Keep autoCategory if already set from folder config, otherwise don't preselect
-                if (categories.length === 0) {
-                  categories = [];
+                // Auto-categorize games with "Utilities" genre as "Apps"
+                if (genres.includes('Utilities') && !categories.includes('Apps')) {
+                  categories = [...categories, 'Apps'];
+                  console.log(`[ImportWorkbench] Auto-categorized "${scanned.title}" as "Apps" (genre: Utilities)`);
                 }
                 ageRating = (metadata.ageRating || '').trim();
                 rating = metadata.rating || 0;
