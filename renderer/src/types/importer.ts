@@ -9,7 +9,12 @@ export interface StagedGame {
   originalName: string; // e.g. "Doom Eternal" or "doom_eternal.exe"
   installPath: string;
   exePath?: string;
+  launchArgs?: string;  // Command-line arguments for exe launch
   appId?: string; // For Steam/Epic IDs
+  packageFamilyName?: string;
+  appUserModelId?: string;
+  launchUri?: string;
+  xboxKind?: 'uwp' | 'pc';
   
   // Metadata (Editable)
   title: string;

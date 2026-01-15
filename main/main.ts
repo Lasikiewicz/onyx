@@ -815,7 +815,7 @@ const initializeRAWGService = async () => {
 const metadataFetcher = new MetadataFetcherService(
   null, // IGDB service (will be set after initialization)
   null, // SteamGridDB service (will be set after initialization)
-  steamService, // Steam service (always available)
+  null, // Steam service (disabled for metadata)
   null // RAWG service (will be set after initialization)
 );
 
@@ -823,7 +823,7 @@ const metadataFetcher = new MetadataFetcherService(
 const updateMetadataFetcher = () => {
   metadataFetcher.setIGDBService(igdbService);
   metadataFetcher.setSteamGridDBService(steamGridDBService);
-  metadataFetcher.setSteamService(steamService);
+  metadataFetcher.setSteamService(null);
   metadataFetcher.setRAWGService(rawgService);
 };
 
@@ -1465,7 +1465,7 @@ ipcMain.handle('metadata:searchArtwork', async (_event, title: string, steamAppI
   try {
     const metadata = await withTimeout(
       metadataFetcher.searchArtwork(title, steamAppId),
-      15000, // 15 seconds - artwork fetching should be faster
+      30000, // 30 seconds - allow more time for SteamGridDB + RAWG
       `Artwork fetch timeout for "${title}"`
     );
     return metadata;
@@ -1594,7 +1594,7 @@ ipcMain.handle('metadata:fetchAndUpdate', async (_event, gameId: string, title: 
     const steamAppId = gameId.startsWith('steam-') ? gameId.replace('steam-', '') : undefined;
     const metadata = await withTimeout(
       metadataFetcher.searchArtwork(title, steamAppId),
-      20000, // 20 seconds for full metadata fetch
+      30000, // 30 seconds for full metadata fetch (increased from 20s)
       `Metadata fetch timeout for "${title}"`
     );
     
@@ -1612,7 +1612,7 @@ ipcMain.handle('metadata:fetchAndUpdate', async (_event, gameId: string, title: 
             logoUrl: metadata.logoUrl,
             heroUrl: metadata.heroUrl,
           }, gameId),
-          10000, // 10 seconds for image caching
+          15000, // 15 seconds for image caching (increased from 10s)
           `Image cache timeout for "${title}"`
         );
         
@@ -3102,140 +3102,46 @@ ipcMain.handle('metadata:fetchAndUpdateByProviderId', async (_event, gameId: str
   }
 });
 
-// Fetch game description directly from Steam Store API using Steam App ID
-// Uses the provider's rate-limited getDescription method to avoid 403 errors
+// Fetch game description via metadata providers (RAWG)
 ipcMain.handle('metadata:fetchGameDescription', async (_event, steamGameId: string) => {
   try {
-    // Extract Steam App ID from game ID (format: "steam-123")
     const match = steamGameId.match(/^steam-(.+)$/);
     if (!match) {
       return { success: false, error: 'Invalid Steam game ID format' };
     }
-    
-    // Use the provider's getDescription method which has rate limiting built in
-    // This ensures all Steam Store API calls go through the same rate limiter
-    // Access the steamProvider through the MetadataFetcherService (using type assertion to access private property)
-    const steamProvider = (metadataFetcher as any).steamProvider;
-    
-    if (!steamProvider || !steamProvider.isAvailable()) {
-      return { success: false, error: 'Steam provider not available' };
+
+    const steamAppId = match[1];
+
+    // Prefer library title for better matching
+    const library = await gameStore.getLibrary();
+    const libraryGame = library.find(g => g.id === steamGameId);
+    const titleForLookup = libraryGame?.title || steamGameId;
+
+    const metadata = await metadataFetcher.fetchCompleteMetadata(titleForLookup, null, steamAppId);
+
+    if (!metadata.description && !metadata.summary) {
+      return { success: false, error: 'No description data returned from metadata providers' };
     }
-    
-    const description = await steamProvider.getDescription(steamGameId);
-    
-    if (!description) {
-      return { success: false, error: 'No description data returned from Steam Store API' };
-    }
-    
-    // Convert to the format expected by the frontend
-    return { 
-      success: true, 
-      description: description.description,
-      summary: description.summary,
-      releaseDate: description.releaseDate,
-      genres: description.genres,
-      developers: description.developers,
-      publishers: description.publishers,
-      ageRating: description.ageRating,
-      rating: description.rating,
-      platforms: description.platforms,
-      categories: description.categories,
+
+    return {
+      success: true,
+      description: metadata.description,
+      summary: metadata.summary,
+      releaseDate: metadata.releaseDate,
+      genres: metadata.genres,
+      developers: metadata.developers,
+      publishers: metadata.publishers,
+      ageRating: metadata.ageRating,
+      rating: metadata.rating,
+      platforms: metadata.platforms,
+      categories: metadata.categories,
     };
   } catch (error) {
     console.error('Error in metadata:fetchGameDescription handler:', error);
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
 });
-
-// Fetch metadata only (descriptions, genres, etc.) without images
-// This is useful for updating text metadata without downloading artwork
-ipcMain.handle('metadata:fetchMetadataOnlyByProviderId', async (_event, gameId: string, providerId: string, providerSource: string) => {
-  try {
-    // Get the game to know its title
-    const games = await gameStore.getLibrary();
-    const game = games.find(g => g.id === gameId);
-    if (!game) {
-      return { success: false, error: 'Game not found' };
-    }
     
-    // Extract Steam App ID if it's a Steam game
-    const steamAppId = gameId.startsWith('steam-') ? gameId.replace('steam-', '') : undefined;
-    
-    // Fetch metadata only (no images) using the specific provider ID
-    // Pass the game title to help with searching when provider doesn't have descriptions
-    const metadata = await metadataFetcher.searchMetadataOnly(providerId, providerSource, steamAppId, game.title);
-    
-    // Check if we actually got any useful metadata
-    const hasMetadata = metadata && (
-      metadata.description || 
-      metadata.summary || 
-      metadata.genres?.length || 
-      metadata.releaseDate || 
-      metadata.developers?.length || 
-      metadata.publishers?.length || 
-      metadata.ageRating || 
-      metadata.rating || 
-      metadata.platforms?.length || 
-      metadata.categories?.length
-    );
-    
-    if (!hasMetadata) {
-      // Provide helpful error message based on the provider source
-      let errorMessage = `No metadata found for ${providerSource}. `;
-      if (providerSource === 'steamgriddb') {
-        errorMessage += 'SteamGridDB only provides images, not text metadata. ';
-        if (steamAppId) {
-          errorMessage += 'For Steam games, Steam Store API should be used first. ';
-        }
-        if (!rawgService && !igdbService) {
-          errorMessage += 'Please configure RAWG API key in settings, or select a Steam/RAWG result instead.';
-        } else if (!rawgService) {
-          errorMessage += 'Try selecting a Steam result (first priority) or RAWG result (second choice), or ensure the game has a Steam App ID.';
-        } else {
-          errorMessage += 'Try selecting a Steam result (first priority) or RAWG result (second choice) for metadata.';
-        }
-      } else if (providerSource === 'igdb') {
-        errorMessage += 'IGDB is not preferred. Try selecting a Steam result (first priority) or RAWG result (second choice) instead.';
-      } else if (providerSource === 'rawg') {
-        errorMessage += 'RAWG may not have metadata for this game, or RAWG API key may not be configured. For Steam games, try selecting a Steam result first.';
-      } else if (providerSource === 'steam') {
-        errorMessage += 'Steam Store API may not have metadata for this game. Try selecting a RAWG result as second choice.';
-      } else {
-        errorMessage += 'For Steam games, try selecting a Steam result first (priority), then RAWG result (second choice).';
-      }
-      return { 
-        success: false, 
-        error: errorMessage
-      };
-    }
-    
-    // Update game metadata fields (no image URLs)
-    const updatedGame: Game = {
-      ...game,
-      description: metadata.description || metadata.summary || game.description,
-      genres: metadata.genres || game.genres,
-      releaseDate: metadata.releaseDate || game.releaseDate,
-      developers: metadata.developers || game.developers,
-      publishers: metadata.publishers || game.publishers,
-      ageRating: metadata.ageRating || game.ageRating,
-      userScore: metadata.rating ? Math.round(metadata.rating) : game.userScore,
-      platform: metadata.platforms?.join(', ') || game.platform,
-    };
-    
-    // Save the game (saveGame returns void, so if it throws, the catch block will handle it)
-    await gameStore.saveGame(updatedGame);
-    
-    return { success: true, metadata };
-  } catch (error) {
-    console.error('Error in metadata:fetchMetadataOnlyByProviderId handler:', error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error occurred',
-      metadata: null,
-    };
-  }
-});
-
 // File dialog handler for selecting executable
 ipcMain.handle('dialog:showOpenDialog', async () => {
   try {
@@ -4134,9 +4040,14 @@ ipcMain.handle('xbox:scanGames', async (_event, xboxPath: string, autoMerge: boo
         id: xboxGame.id,
         title: xboxGame.name,
         platform: 'xbox' as const,
-        exePath: xboxGame.installPath,
+        exePath: xboxGame.type === 'uwp' ? 'explorer.exe' : xboxGame.installPath,
         boxArtUrl: '',
         bannerUrl: '',
+        xboxKind: xboxGame.type,
+        packageFamilyName: xboxGame.packageFamilyName,
+        appUserModelId: xboxGame.appUserModelId,
+        launchUri: xboxGame.launchUri || (xboxGame.appUserModelId ? `shell:AppsFolder\\${xboxGame.appUserModelId}` : undefined),
+        installationDirectory: xboxGame.installPath,
       }));
       
       // Save games to store
@@ -5382,17 +5293,19 @@ app.whenReady().then(async () => {
   createMenu();
   createWindow();
 
-  // Perform startup scan (runs once on app launch, regardless of background scan setting)
-  // This checks for new games immediately when the app starts
-  // Run this asynchronously so it doesn't block window creation
+  // Perform startup scan if enabled in preferences
   (async () => {
     try {
-      // Small delay to ensure window is ready to receive notifications
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      console.log('[StartupScan] Performing startup scan for new games...');
-      // Pass true to skip the enabled check - startup scan always runs
-      await performBackgroundScan(true);
-      console.log('[StartupScan] Startup scan completed');
+      const prefs = await userPreferencesService.getPreferences();
+      if (prefs.updateLibrariesOnStartup) {
+        // Small delay to ensure window is ready to receive notifications
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        console.log('[StartupScan] Performing startup scan for new games...');
+        await performBackgroundScan(true);
+        console.log('[StartupScan] Startup scan completed');
+      } else {
+        console.log('[StartupScan] Startup scan disabled in preferences');
+      }
     } catch (error) {
       console.error('[StartupScan] Error during startup scan:', error);
       // Don't block app startup if scan fails

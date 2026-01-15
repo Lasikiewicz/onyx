@@ -8,10 +8,39 @@ export interface SteamGame {
   name: string;
   installDir: string;
   libraryPath: string;
+  stateFlags?: number;
+  isFullyInstalled?: boolean;
+}
+
+// Steam StateFlags enum (based on DLSS Swapper)
+enum SteamStateFlag {
+  StateInvalid = 0,
+  StateUninstalled = 1 << 0,         // 1
+  StateUpdateRequired = 1 << 1,      // 2
+  StateFullyInstalled = 1 << 2,      // 4
+  StateEncrypted = 1 << 3,           // 8
+  StateLocked = 1 << 4,              // 16
+  StateFilesMissing = 1 << 5,        // 32
+  StateAppRunning = 1 << 6,          // 64
+  StateFilesCorrupt = 1 << 7,        // 128
+  StateUpdateRunning = 1 << 8,       // 256
+  StateUpdatePaused = 1 << 9,        // 512
+  StateUpdateStarted = 1 << 10,      // 1024
+  StateUninstalling = 1 << 11,       // 2048
+  StateBackupRunning = 1 << 12,      // 4096
+  StateDownloading = 1 << 20,        // 1048576
 }
 
 export class SteamService {
   private customSteamPath: string | null = null;
+
+  // Known non-game Steam apps to skip (redistributables, tools, etc.)
+  private readonly EXCLUDED_STEAM_APPIDS = new Set([
+    '228980', // Steamworks Common Redistributables
+    '1070560', // Steam Linux Runtime
+    '1391110', // Steam Linux Runtime - Soldier
+    '1493710', // Steam Linux Runtime - Sniper
+  ]);
 
   constructor() {
     // Don't set default path in constructor - let it be set via setSteamPath
@@ -171,7 +200,7 @@ export class SteamService {
   /**
    * Parse an ACF (App Cache File) manifest to extract game information
    */
-  private parseACF(content: string): { appId: string; name: string; installDir: string } | null {
+  private parseACF(content: string): { appId: string; name: string; installDir: string; stateFlags: number; isFullyInstalled: boolean } | null {
     try {
       const parsed = this.parseVDF(content);
       
@@ -187,6 +216,7 @@ export class SteamService {
       const appId = appState.appid || appState.AppID || appState.appID || '';
       const name = appState.name || appState.Name || appState.NAME || '';
       const installDir = appState.installdir || appState.InstallDir || appState.INSTALLDIR || '';
+      const stateFlags = appState.StateFlags || appState.stateflags || '';
 
       if (!appId) {
         console.warn('No appid found in ACF file');
@@ -199,10 +229,27 @@ export class SteamService {
         return null;
       }
 
+      // Parse StateFlags to check if game is fully installed
+      const stateFlagsNum = stateFlags ? parseInt(String(stateFlags), 10) : 0;
+      const isFullyInstalled = (stateFlagsNum & SteamStateFlag.StateFullyInstalled) !== 0;
+      const hasIssues = (stateFlagsNum & (SteamStateFlag.StateUpdateRequired | 
+                                           SteamStateFlag.StateFilesMissing | 
+                                           SteamStateFlag.StateFilesCorrupt | 
+                                           SteamStateFlag.StateUninstalling | 
+                                           SteamStateFlag.StateDownloading)) !== 0;
+
+      // Skip games that aren't fully installed or have issues
+      if (!isFullyInstalled || hasIssues) {
+        console.warn(`Skipping game ${name} (${appId}) - not fully installed (StateFlags: ${stateFlagsNum})`);
+        return null;
+      }
+
       return {
         appId: String(appId),
         name: String(name),
-        installDir: installDir ? String(installDir) : name, // Fallback to name if installDir is missing
+        installDir: installDir ? String(installDir) : name,
+        stateFlags: stateFlagsNum,
+        isFullyInstalled: isFullyInstalled,
       };
     } catch (error) {
       console.error('Error parsing ACF file:', error);
@@ -250,11 +297,19 @@ export class SteamService {
           const gameInfo = this.parseACF(content);
           
           if (gameInfo) {
+            // Skip excluded app IDs (redistributables, tools, etc.)
+            if (this.EXCLUDED_STEAM_APPIDS.has(gameInfo.appId)) {
+              console.log(`⊘ Skipped (excluded): ${gameInfo.name} (AppID: ${gameInfo.appId})`);
+              continue;
+            }
+
             games.push({
               appId: gameInfo.appId,
               name: gameInfo.name,
               installDir: gameInfo.installDir,
               libraryPath: libraryPath,
+              stateFlags: gameInfo.stateFlags,
+              isFullyInstalled: gameInfo.isFullyInstalled,
             });
             console.log(`✓ Parsed: ${gameInfo.name} (AppID: ${gameInfo.appId})`);
           } else {

@@ -2,6 +2,7 @@ import { SteamService, SteamGame } from './SteamService.js';
 import { XboxService, XboxGame } from './XboxService.js';
 import { AppConfigService } from './AppConfigService.js';
 import { MetadataFetcherService } from './MetadataFetcherService.js';
+import { GameFilteringService } from './GameFilteringService.js';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, sep, dirname } from 'node:path';
 
@@ -11,7 +12,12 @@ export interface ScannedGameResult {
   originalName: string;
   installPath: string;
   exePath?: string;
+  launchArgs?: string;  // Command-line arguments for exe launch
   appId?: string;
+  packageFamilyName?: string;
+  appUserModelId?: string;
+  launchUri?: string;
+  xboxKind?: 'uwp' | 'pc';
   title: string;
   status: 'pending' | 'scanning' | 'matched' | 'ambiguous' | 'ready' | 'error';
   error?: string;
@@ -26,6 +32,7 @@ export class ImportService {
   private xboxService: XboxService;
   private appConfigService: AppConfigService;
   private metadataFetcher: MetadataFetcherService;
+  private gameFilteringService: GameFilteringService;
 
   constructor(
     steamService: SteamService,
@@ -37,6 +44,7 @@ export class ImportService {
     this.xboxService = xboxService;
     this.appConfigService = appConfigService;
     this.metadataFetcher = metadataFetcher;
+    this.gameFilteringService = new GameFilteringService();
   }
 
   /**
@@ -130,8 +138,8 @@ export class ImportService {
         for (const folder of manualFolders) {
           try {
             if (existsSync(folder)) {
-              progressCallback?.(`Scanning ${folder}...`);
-              const folderGames = await this.scanFolderForExecutables(folder);
+              progressCallback?.(`Scanning manual root ${folder} (subfolders = game names)...`);
+              const folderGames = this.scanManualFolder(folder);
               if (folderGames.length > 0) {
                 progressCallback?.(`Found ${folderGames.length} game${folderGames.length !== 1 ? 's' : ''} in ${folder}`);
                 folderGames.forEach(game => {
@@ -197,10 +205,15 @@ export class ImportService {
       return xboxGames.map((game: XboxGame) => {
         // XboxService returns installPath as the full exe path for both UWP and PC games
         // Extract the folder path for installPath, keep exe path separate
-        const exePath = game.installPath;
-        const pathParts = game.installPath.split(/[/\\]/);
-        pathParts.pop(); // Remove the exe filename
-        const installPath = pathParts.join(sep);
+        const exePath = game.type === 'pc' ? game.installPath : undefined;
+        let installPath = game.installPath;
+        if (game.installPath) {
+          const pathParts = game.installPath.split(/[/\\]/);
+          if (pathParts.length > 1) {
+            pathParts.pop(); // Remove the exe filename when present
+            installPath = pathParts.join(sep);
+          }
+        }
         
         return {
           uuid: `${game.id}-${Date.now()}`,
@@ -208,7 +221,11 @@ export class ImportService {
           originalName: game.name,
           installPath: installPath,
           exePath: exePath,
-          appId: undefined,
+          appId: game.appId,
+          packageFamilyName: game.packageFamilyName,
+          appUserModelId: game.appUserModelId,
+          launchUri: game.launchUri,
+          xboxKind: game.type,
           title: game.name,
           status: 'ambiguous' as const, // Xbox games need metadata matching
         };
@@ -227,8 +244,11 @@ export class ImportService {
     try {
       const results: ScannedGameResult[] = [];
       
-      // Epic Games stores manifests in: {EpicPath}\Epic Games Launcher\Data\Manifests
-      const manifestsPath = join(epicPath, 'Epic Games Launcher', 'Data', 'Manifests');
+      // Epic Games stores manifests typically in ProgramData; also try under provided epicPath
+      const defaultManifests = join(process.env.ProgramData || 'C:\\ProgramData', 'Epic', 'EpicGamesLauncher', 'Data', 'Manifests');
+      const manifestsPath = existsSync(defaultManifests)
+        ? defaultManifests
+        : join(epicPath, 'Epic Games Launcher', 'Data', 'Manifests');
       
       if (existsSync(manifestsPath)) {
         // Try to read from manifests first (preferred method)
@@ -476,40 +496,107 @@ export class ImportService {
             continue;
           }
           
-          // Use the folder name as the game title
+          // Use the folder name as the default game title
           const folderName = gameDir.split(sep).pop() || 'Unknown';
+          let gameTitle = folderName;
           
-          // Select the best executable from this folder
-          let mainExe = exePaths[0];
-          
-          // Prefer executables with the same name as the directory
-          const matchingExe = exePaths.find(exe => {
-            const exeName = exe.split(sep).pop()?.toLowerCase().replace('.exe', '') || '';
-            return exeName === folderName.toLowerCase();
-          });
-          
-          if (matchingExe) {
-            mainExe = matchingExe;
-          } else {
-            // Prefer executables closer to the folder root
-            const sortedByDepth = exePaths.sort((a, b) => {
-              const depthA = a.substring(gameDir.length).split(sep).length;
-              const depthB = b.substring(gameDir.length).split(sep).length;
-              return depthA - depthB;
-            });
-            mainExe = sortedByDepth[0];
+          // For common launcher/emulator subfolders (scummvm, dosbox, etc.), use parent folder name
+          const commonEmulators = ['scummvm', 'dosbox', 'dosboxstaging', 'wine', 'proton'];
+          if (commonEmulators.includes(folderName.toLowerCase())) {
+            // Get parent folder name instead
+            const parentFolder = gameDir.split(sep).slice(0, -1).pop();
+            if (parentFolder && parentFolder.toLowerCase() !== 'games') {
+              gameTitle = parentFolder;
+              console.log(`[GOG] Using parent folder name for emulator subfolder: ${gameTitle}`);
+            }
           }
           
-          results.push({
-            uuid: `gog-${gameDir}-${Date.now()}`,
-            source: 'gog' as const,
-            originalName: folderName,
-            installPath: gameDir,
-            exePath: mainExe,
-            appId: undefined,
-            title: folderName,
-            status: 'ambiguous' as const, // GOG games need metadata matching
-          });
+          // Try to read GOG Galaxy .info file for game metadata
+          let launchArgs: string | undefined;
+          let primaryExePath: string | undefined;
+          
+          // Look for goggame-*.info file in the game directory
+          const dirContents = readdirSync(gameDir);
+          console.log(`[GOG] Game directory: ${gameDir}`);
+          console.log(`[GOG] Directory contents: ${dirContents.join(', ')}`);
+          const infoFile = dirContents.find(f => f.match(/^goggame-\d+\.info$/));
+          console.log(`[GOG] Found info file: ${infoFile || 'none'}`);
+          
+          if (infoFile) {
+            try {
+              const infoPath = join(gameDir, infoFile);
+              const infoContent = readFileSync(infoPath, 'utf-8');
+              console.log(`[GOG] Raw info content length: ${infoContent.length}`);
+              const infoData = JSON.parse(infoContent);
+              console.log(`[GOG] Parsed info data: ${JSON.stringify(infoData).substring(0, 200)}`);
+              
+              // Extract the game name from .info file if available
+              if (infoData.name) {
+                gameTitle = infoData.name;
+                console.log(`[GOG] ✓ Using game name from .info: ${gameTitle}`);
+              } else {
+                console.log(`[GOG] ✗ No 'name' field in .info file`);
+              }
+              
+              // Find the primary game task
+              const playTasks = infoData.playTasks || [];
+              const primaryTask = playTasks.find((task: any) => task.isPrimary && task.category === 'game');
+              
+              if (primaryTask && primaryTask.path) {
+                // Resolve the relative path to absolute
+                const taskPath = primaryTask.path.replace(/\\/g, sep);
+                const absolutePath = join(gameDir, taskPath);
+                
+                // Check if the resolved exe exists
+                if (existsSync(absolutePath)) {
+                  primaryExePath = absolutePath;
+                }
+                
+                // Extract launch arguments
+                if (primaryTask.arguments) {
+                  launchArgs = primaryTask.arguments;
+                  console.log(`[GOG] Found launch arguments for ${gameTitle}: ${launchArgs}`);
+                }
+              }
+            } catch (err) {
+              console.warn(`[GOG] Could not parse ${infoFile}:`, err);
+            }
+          }
+          
+          // Select the best executable from this folder
+          let mainExe = primaryExePath || exePaths[0];
+          
+          // If no primary exe from info, try to match by folder name
+          if (!primaryExePath) {
+            const matchingExe = exePaths.find(exe => {
+              const exeName = exe.split(sep).pop()?.toLowerCase().replace('.exe', '') || '';
+              return exeName === folderName.toLowerCase();
+            });
+            
+            if (matchingExe) {
+              mainExe = matchingExe;
+            } else {
+              // Prefer executables closer to the folder root
+              const sortedByDepth = exePaths.sort((a, b) => {
+                const depthA = a.substring(gameDir.length).split(sep).length;
+                const depthB = b.substring(gameDir.length).split(sep).length;
+                return depthA - depthB;
+              });
+              mainExe = sortedByDepth[0];
+            }
+          }
+          
+            results.push({
+              uuid: `gog-${gameDir}-${Date.now()}`,
+              source: 'gog' as const,
+              originalName: gameTitle,
+              installPath: gameDir,
+              exePath: mainExe,
+              launchArgs: launchArgs,
+              appId: infoFile ? infoFile.replace(/\D+/g, '') : undefined,
+              title: gameTitle,
+              status: 'ambiguous' as const, // GOG games need metadata matching
+            });
         } catch (err) {
           console.warn(`[GOG] Could not process game folder "${gameDir}":`, err);
           continue;
@@ -521,6 +608,72 @@ export class ImportService {
       console.error('[GOG] Error scanning GOG games folder:', err);
     }
     
+    return results;
+  }
+
+  /**
+   * Scan manual root folder where each immediate subfolder is treated as a game.
+   * Game title = subfolder name. Picks the first viable executable under that subfolder.
+   */
+  private scanManualFolder(rootPath: string): ScannedGameResult[] {
+    const results: ScannedGameResult[] = [];
+
+    try {
+      const entries = readdirSync(rootPath);
+
+      for (const entry of entries) {
+        const gameDir = join(rootPath, entry);
+        try {
+          const stats = statSync(gameDir);
+          if (!stats.isDirectory()) {
+            continue;
+          }
+
+          const title = entry;
+
+          // Find executables within the game folder (allow deeper nests, but reuse global filters)
+          const exeCandidates = this.findExecutables(gameDir, 0, 20);
+
+          // Choose best executable: prefer filename matching folder name, otherwise closest to root
+          let mainExe: string | undefined;
+          if (exeCandidates.length > 0) {
+            const normalizedTitle = title.toLowerCase();
+            const exactMatch = exeCandidates.find(p => {
+              const exeName = p.split(/[/\\]/).pop()?.toLowerCase().replace('.exe', '') || '';
+              return exeName === normalizedTitle;
+            });
+
+            if (exactMatch) {
+              mainExe = exactMatch;
+            } else {
+              // Pick the exe with the shortest relative path (closest to root)
+              mainExe = exeCandidates.sort((a, b) => {
+                const relA = a.substring(gameDir.length).split(sep).length;
+                const relB = b.substring(gameDir.length).split(sep).length;
+                return relA - relB;
+              })[0];
+            }
+          }
+
+          results.push({
+            uuid: `manual-${gameDir}-${Date.now()}`,
+            source: 'manual_folder' as const,
+            originalName: title,
+            installPath: gameDir,
+            exePath: mainExe,
+            appId: undefined,
+            title,
+            status: 'ambiguous' as const,
+          });
+        } catch (err) {
+          console.warn(`[Manual] Could not process manual subfolder "${gameDir}":`, err);
+          continue;
+        }
+      }
+    } catch (error) {
+      console.error('[Manual] Error scanning manual root:', error);
+    }
+
     return results;
   }
 
@@ -579,7 +732,8 @@ export class ImportService {
               continue;
             }
             
-            // Check patterns
+            // Check patterns - be aggressive about filtering non-game executables
+            // Based on DLSS Swapper's approach
             if (!lowerName.includes('installer') &&
                 !lowerName.includes('setup') &&
                 !lowerName.includes('uninstall') &&
@@ -589,15 +743,48 @@ export class ImportService {
                 !lowerName.includes('vcredist') &&
                 !lowerName.includes('launcher') &&
                 !lowerName.includes('updater') &&
+                !lowerName.includes('update') &&
+                !lowerName.includes('patcher') &&
+                !lowerName.includes('repair') &&
+                !lowerName.includes('config') &&
+                !lowerName.includes('settings') &&
+                !lowerName.includes('benchmark') &&
+                !lowerName.includes('diagnostic') &&
+                !lowerName.includes('reporter') &&
+                !lowerName.includes('monitor') &&
+                !lowerName.includes('helper') &&
+                !lowerName.includes('service') &&
+                !lowerName.includes('daemon') &&
+                !lowerName.includes('agent') &&
+                !lowerName.includes('overlay') &&
                 !lowerName.includes('gamelaunchhelper') &&
                 !lowerName.includes('bootstrapper') &&
-                !lowerName.includes('crashreportclient') &&
+                !lowerName.includes('crashreport') &&
+                !lowerName.includes('crash_report') &&
+                !lowerName.includes('crashhandler') &&
+                !lowerName.includes('crash_handler') &&
+                !lowerName.includes('errorhandler') &&
                 !lowerName.includes('battlenet.overlay.runtime') &&
-                !lowerName.includes('crashpad_handler') &&
-                !lowerName.includes('embark-crash-helper') &&
+                !lowerName.includes('crashpad') &&
+                !lowerName.includes('embark-crash') &&
                 !lowerName.includes('blizzardbrowser') &&
                 !lowerName.includes('blizzarderror') &&
-                !lowerName.includes('gamesessionmonitor')) {
+                !lowerName.includes('gamesessionmonitor') &&
+                !lowerName.includes('uplay') &&
+                !lowerName.includes('ubisoft') &&
+                !lowerName.includes('eadesktop') &&
+                !lowerName.includes('origin') &&
+                !lowerName.includes('epicgames') &&
+                !lowerName.includes('steam') &&
+                !lowerName.includes('activation') &&
+                !lowerName.includes('redist') &&
+                !lowerName.includes('directx') &&
+                !lowerName.includes('prereq') &&
+                !lowerName.includes('_redist') &&
+                !baseName.startsWith('ue4') &&
+                !baseName.startsWith('ue5') &&
+                !baseName.endsWith('server') &&
+                !baseName.endsWith('editor')) {
               executables.push(fullPath);
             }
           } else if (stats.isDirectory() && depth < maxDepth) {
@@ -1050,6 +1237,18 @@ export class ImportService {
             mainExe = sortedByDepth[0];
             console.log(`[ImportService] Selected executable (closest to root): ${mainExe}`);
           }
+
+          // Filter using shared game filtering service
+          const exeFileName = mainExe.split(/[/\\]/).pop() || '';
+          if (this.gameFilteringService.isLikelyNonGame({
+            name: folderName,
+            folderPath: gameDir,
+            exeName: exeFileName,
+            source: 'manual',
+          })) {
+            console.log(`[ImportService] Filtering out non-game from manual folder: ${folderName}`);
+            continue; // Skip this one
+          }
           
           // Only create game if the directory is within or equal to the scanned folder
           // This prevents creating games for parent directories
@@ -1356,6 +1555,18 @@ export class ImportService {
               return depthA - depthB;
             });
             mainExe = sortedByDepth[0];
+          }
+
+          // Filter using shared game filtering service
+          const exeFileName = mainExe.split(/[/\\]/).pop() || '';
+          if (this.gameFilteringService.isLikelyNonGame({
+            name: folderName,
+            folderPath: gameDir,
+            exeName: exeFileName,
+            source: source as any,
+          })) {
+            console.log(`[${source}] Filtering out non-game: ${folderName}`);
+            continue; // Skip this one
           }
           
           results.push({

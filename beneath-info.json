@@ -1,0 +1,53 @@
+{
+    "buildId": "51156444997712340",
+    "clientId": "49002505861146264",
+    "gameId": "1207658695",
+    "language": "English",
+    "languages": [
+        "en-US"
+    ],
+    "name": "Beneath a Steel Sky",
+    "playTasks": [
+        {
+            "arguments": "-c \"..\\beneath.ini\" beneath",
+            "category": "game",
+            "isPrimary": true,
+            "languages": [
+                "*"
+            ],
+            "name": "Beneath a Steel Sky",
+            "path": "ScummVM\\scummvm.exe",
+            "type": "FileTask",
+            "workingDir": "ScummVM"
+        },
+        {
+            "category": "document",
+            "languages": [
+                "*"
+            ],
+            "name": "Manual",
+            "path": "Manual.pdf",
+            "type": "FileTask"
+        },
+        {
+            "category": "document",
+            "languages": [
+                "*"
+            ],
+            "link": "http://www.gog.com/support/beneath_a_steel_sky",
+            "name": "Support",
+            "type": "URLTask"
+        },
+        {
+            "category": "document",
+            "languages": [
+                "*"
+            ],
+            "name": "Walkthrough",
+            "path": "Walkthrough.pdf",
+            "type": "FileTask"
+        }
+    ],
+    "rootGameId": "1207658695",
+    "version": 1
+}

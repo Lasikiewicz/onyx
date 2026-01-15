@@ -7,6 +7,7 @@ export interface Game {
   sortingName?: string;
   platform: 'steam' | 'other' | string;
   exePath: string;
+  launchArgs?: string;  // Command-line arguments for exe launch
   boxArtUrl: string;
   bannerUrl: string;
   logoUrl?: string;
@@ -40,6 +41,10 @@ export interface Game {
   links?: Array<{ name: string; url: string }>;
   actions?: Array<{ name: string; path: string; arguments?: string; workingDir?: string }>;
   scripts?: Array<{ name: string; script: string }>;
+  xboxKind?: 'uwp' | 'pc';
+  packageFamilyName?: string;
+  appUserModelId?: string;
+  launchUri?: string;
   lockedFields?: {
     title?: boolean;
     boxArtUrl?: boolean;

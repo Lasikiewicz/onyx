@@ -826,8 +826,13 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
             originalName: scanned.originalName,
             installPath: scanned.installPath,
             exePath: scanned.exePath,
+            launchArgs: (scanned as any).launchArgs,
             // Always use found Steam App ID if available, otherwise use scanned appId
             appId: steamAppId || scanned.appId,
+            packageFamilyName: scanned.packageFamilyName,
+            appUserModelId: scanned.appUserModelId,
+            launchUri: scanned.launchUri,
+            xboxKind: scanned.xboxKind,
             title: matchedTitle,
             description,
             releaseDate,
@@ -1503,8 +1508,13 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
             originalName: scanned.originalName,
             installPath: scanned.installPath,
             exePath: scanned.exePath,
+            launchArgs: (scanned as any).launchArgs,
             // Always use found Steam App ID if available, otherwise use scanned appId
             appId: steamAppId || scanned.appId,
+            packageFamilyName: scanned.packageFamilyName,
+            appUserModelId: scanned.appUserModelId,
+            launchUri: scanned.launchUri,
+            xboxKind: scanned.xboxKind,
             title: matchedTitle, // Use matched title if we found a Steam match
             description,
             releaseDate,
@@ -1534,7 +1544,12 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
               originalName: scanned.originalName,
               installPath: scanned.installPath,
               exePath: scanned.exePath,
+              launchArgs: (scanned as any).launchArgs,
               appId: scanned.appId,
+              packageFamilyName: scanned.packageFamilyName,
+              appUserModelId: scanned.appUserModelId,
+              launchUri: scanned.launchUri,
+              xboxKind: scanned.xboxKind,
               title: scanned.title,
               description: '',
               releaseDate: '',
@@ -1609,7 +1624,12 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
               originalName: scanned.originalName,
               installPath: scanned.installPath,
               exePath: scanned.exePath,
+              launchArgs: (scanned as any).launchArgs,
               appId: scanned.appId,
+              packageFamilyName: scanned.packageFamilyName,
+              appUserModelId: scanned.appUserModelId,
+              launchUri: scanned.launchUri,
+              xboxKind: scanned.xboxKind,
               title: scanned.title,
               description: '',
               releaseDate: '',
@@ -1748,6 +1768,10 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
           const title = (game?.title || game?.name || 'Unknown Game') as string;
           const installPath = (game?.installPath || game?.installDir || game?.libraryPath || '') as string;
           const exePath = (game?.exePath || '') as string;
+          const packageFamilyName = (game as any)?.packageFamilyName as string | undefined;
+          const appUserModelId = (game as any)?.appUserModelId as string | undefined;
+          const launchUri = (game as any)?.launchUri as string | undefined;
+          const xboxKind = ((game as any)?.xboxKind || (game as any)?.type) as 'uwp' | 'pc' | undefined;
 
           return {
             uuid,
@@ -1756,6 +1780,10 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
             installPath,
             exePath,
             appId: game?.appId,
+            packageFamilyName,
+            appUserModelId,
+            launchUri,
+            xboxKind,
             title,
             status: 'pending' as ImportStatus,
           };
@@ -1883,7 +1911,12 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
               originalName: scanned.originalName || scanned.title || 'Unknown',
               installPath: scanned.installPath || '',
               exePath: scanned.exePath,
+              launchArgs: (scanned as any).launchArgs,
               appId: scanned.appId,
+              packageFamilyName: scanned.packageFamilyName,
+              appUserModelId: scanned.appUserModelId,
+              launchUri: scanned.launchUri,
+              xboxKind: scanned.xboxKind,
               title: scanned.title || 'Unknown',
               boxArtUrl: '',
               bannerUrl: '',
@@ -2621,6 +2654,15 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
         let gameId: string;
         let launcherSource: string;
         let displayPlatform: string;
+        const xboxKind = staged.xboxKind;
+        const appUserModelId = staged.appUserModelId;
+        const launchUri = staged.launchUri || (appUserModelId ? `shell:AppsFolder\\${appUserModelId}` : undefined);
+        const exePathForSave = xboxKind === 'uwp'
+          ? 'explorer.exe'
+          : staged.exePath || staged.installPath;
+        const actions = xboxKind === 'uwp' && launchUri
+          ? [{ name: 'Launch', path: 'explorer.exe', arguments: launchUri }]
+          : undefined;
         
         if (staged.source === 'steam' && staged.appId) {
           // Only true Steam games get steam-{appId} format
@@ -2646,7 +2688,8 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
           title: staged.title,
           platform: displayPlatform,
           source: launcherSource, // CRITICAL: This determines which launcher to use
-          exePath: staged.exePath || staged.installPath,
+          exePath: exePathForSave,
+          launchArgs: staged.launchArgs,
           boxArtUrl: staged.boxArtUrl,
           bannerUrl: staged.bannerUrl,
           logoUrl: staged.logoUrl,
@@ -2660,6 +2703,11 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
           ageRating: staged.ageRating,
           userScore: staged.rating,
           installationDirectory: staged.installPath,
+          xboxKind,
+          packageFamilyName: staged.packageFamilyName,
+          appUserModelId,
+          launchUri,
+          actions,
           lockedFields: staged.lockedFields,
         };
       });

@@ -23,7 +23,7 @@ export class SteamGridDBMetadataProvider implements MetadataProvider {
     }
 
     try {
-      const games = await this.steamGridDBService.searchGame(title);
+      const games = await this.steamGridDBService.searchGame(title, steamAppId);
       return games.map((game) => ({
         id: `steamgriddb-${game.id}`,
         title: game.name,

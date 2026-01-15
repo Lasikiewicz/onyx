@@ -105,11 +105,53 @@ export class SteamGridDBService {
   }
 
   /**
-   * Search for games by name
+   * Get game by Steam App ID (more accurate than title search)
    */
-  async searchGame(query: string): Promise<SteamGridDBGame[]> {
+  async getGameBySteamAppId(steamAppId: string | number): Promise<SteamGridDBGame | null> {
     return this.queueRequest(async () => {
       try {
+        const response = await fetch(`${this.baseUrl}/games/steam/${steamAppId}`, {
+          headers: {
+            'Authorization': `Bearer ${this.apiKey}`,
+          },
+        });
+
+        if (!response.ok) {
+          if (response.status === 404) {
+            console.log(`[SteamGridDB] No game found for Steam App ID: ${steamAppId}`);
+            return null;
+          }
+          if (response.status === 401) {
+            throw new Error('Invalid SteamGridDB API key');
+          }
+          throw new Error(`SteamGridDB API error: ${response.status} ${response.statusText}`);
+        }
+
+        const data = await response.json() as { data?: SteamGridDBGame };
+        return data.data || null;
+      } catch (error) {
+        console.error('Error fetching SteamGridDB game by Steam App ID:', error);
+        return null;
+      }
+    });
+  }
+
+  /**
+   * Search for games by name
+   */
+  async searchGame(query: string, steamAppId?: string): Promise<SteamGridDBGame[]> {
+    return this.queueRequest(async () => {
+      try {
+        // If Steam App ID provided, try direct lookup first (more accurate)
+        if (steamAppId) {
+          const game = await this.getGameBySteamAppId(steamAppId);
+          if (game) {
+            console.log(`[SteamGridDB] Found game by Steam App ID ${steamAppId}: ${game.name}`);
+            return [game];
+          }
+        }
+
+        // Fall back to title search
         const response = await fetch(`${this.baseUrl}/search/autocomplete/${encodeURIComponent(query)}`, {
           headers: {
             'Authorization': `Bearer ${this.apiKey}`,

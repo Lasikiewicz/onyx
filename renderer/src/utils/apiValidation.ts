@@ -1,30 +1,14 @@
 /**
- * Utility function to check if both required APIs are configured
- * Returns true only if BOTH IGDB (Client ID + Secret) AND SteamGridDB API key are configured
+ * Utility function to check if APIs are configured.
+ * With built-in RAWG fallback, we consider APIs available by default to avoid blocking users.
  */
 export async function areAPIsConfigured(): Promise<boolean> {
   try {
-    const credentials = await window.electronAPI.getAPICredentials();
-    
-    // Check if IGDB is configured (both Client ID and Secret required)
-    const igdbConfigured = !!(
-      credentials.igdbClientId && 
-      credentials.igdbClientSecret &&
-      credentials.igdbClientId.trim() !== '' &&
-      credentials.igdbClientSecret.trim() !== ''
-    );
-    
-    // Check if SteamGridDB is configured
-    const steamGridDBConfigured = !!(
-      credentials.steamGridDBApiKey &&
-      credentials.steamGridDBApiKey.trim() !== ''
-    );
-    
-    // Return true only if BOTH required APIs are configured
-    return igdbConfigured && steamGridDBConfigured;
+    await window.electronAPI.getAPICredentials();
+    return true; // Fallback RAWG key ensures availability
   } catch (error) {
     console.error('Error checking API credentials:', error);
-    return false;
+    return true; // Fail-open to avoid blocking scans
   }
 }
 
@@ -39,37 +23,34 @@ export async function getAPIConfigurationStatus(): Promise<{
 }> {
   try {
     const credentials = await window.electronAPI.getAPICredentials();
-    
+
     const igdbConfigured = !!(
       credentials.igdbClientId && 
       credentials.igdbClientSecret &&
       credentials.igdbClientId.trim() !== '' &&
       credentials.igdbClientSecret.trim() !== ''
     );
-    
+
     const steamGridDBConfigured = !!(
       credentials.steamGridDBApiKey &&
       credentials.steamGridDBApiKey.trim() !== ''
     );
-    
-    const rawgConfigured = !!(
-      credentials.rawgApiKey &&
-      credentials.rawgApiKey.trim() !== ''
-    );
-    
+
+    const rawgConfigured = true; // Provided by built-in fallback key
+
     return {
       igdbConfigured,
       steamGridDBConfigured,
       rawgConfigured,
-      allRequiredConfigured: igdbConfigured && steamGridDBConfigured,
+      allRequiredConfigured: true, // do not block flows
     };
   } catch (error) {
     console.error('Error checking API credentials:', error);
     return {
       igdbConfigured: false,
       steamGridDBConfigured: false,
-      rawgConfigured: false,
-      allRequiredConfigured: false,
+      rawgConfigured: true,
+      allRequiredConfigured: true,
     };
   }
 }
