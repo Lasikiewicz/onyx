@@ -106,21 +106,19 @@ export class IGDBMetadataProvider implements MetadataProvider {
       // Extract IGDB game ID
       const gameId = parseInt(id.replace('igdb-', ''), 10);
       if (isNaN(gameId)) {
+        console.log(`[IGDBProvider.getArtwork] Invalid IGDB ID format: ${id}`);
         return null;
       }
 
-      // Search for the game to get cover and screenshot info
-      let results = await this.igdbService.searchGame(`id:${gameId}`);
+      // Search for the game by numeric ID (searchGame now handles numeric IDs correctly)
+      const results = await this.igdbService.searchGame(String(gameId));
       if (results.length === 0) {
-        // Fallback: search by ID as string
-        const allResults = await this.igdbService.searchGame(String(gameId));
-        results = allResults.filter(r => r.id === gameId);
-        if (results.length === 0) {
-          return null;
-        }
+        console.log(`[IGDBProvider.getArtwork] No results found for game ID: ${gameId}`);
+        return null;
       }
 
       const result = results[0];
+      console.log(`[IGDBProvider.getArtwork] Found game "${result.name}", coverUrl: ${result.coverUrl || 'MISSING'}`);
       
       return {
         boxArtUrl: result.coverUrl,

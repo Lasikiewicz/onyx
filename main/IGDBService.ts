@@ -242,7 +242,7 @@ export class IGDBService {
       // Replace t_thumb with t_cover_big for covers
       absoluteUrl = absoluteUrl.replace(/t_thumb/g, 't_cover_big');
     } else if (type === 'screenshot') {
-      // Replace t_thumb with t_screenshot_huge or t_1080p for screenshots
+      // Replace t_thumb with t_screenshot_huge for screenshots
       absoluteUrl = absoluteUrl.replace(/t_thumb/g, 't_screenshot_huge');
     }
     
@@ -260,9 +260,20 @@ export class IGDBService {
 
           // Build the query string with all required fields
           // Note: age_ratings returns IDs, we'll fetch details separately
-          const queryBody = `fields name, summary, cover.url, screenshots.url, rating, first_release_date, genres.name, platforms.name, age_ratings, category;
+          
+          // Check if query is a numeric ID (for direct game ID lookups)
+          let queryBody: string;
+          if (/^\d+$/.test(query)) {
+            // Numeric ID query - use WHERE syntax instead of search
+            queryBody = `fields name, summary, cover.url, screenshots.url, rating, first_release_date, genres.name, platforms.name, age_ratings, category;
+where id = ${query};
+limit 1;`;
+          } else {
+            // Text search query - use search syntax
+            queryBody = `fields name, summary, cover.url, screenshots.url, rating, first_release_date, genres.name, platforms.name, age_ratings, category;
 search "${query}";
 limit 10;`;
+          }
 
           const response = await this.axiosInstance.post<IGDBGame[]>('/games', queryBody, {
             headers: {
@@ -417,6 +428,9 @@ limit 50;`;
         }
         if (coverUrl) {
           result.coverUrl = this.convertImageUrl(coverUrl, 'cover');
+          console.log(`[IGDBService] ✓ Found cover for "${game.name}": ${result.coverUrl}`);
+        } else {
+          console.log(`[IGDBService] ✗ No cover found for "${game.name}" (cover data: ${JSON.stringify(game.cover)})`);
         }
 
         // Convert screenshot URLs - handle both object and string formats

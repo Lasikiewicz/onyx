@@ -1,12 +1,12 @@
 ﻿import { MetadataProvider, GameSearchResult, GameDescription, GameArtwork, GameInstallInfo } from "./MetadataProvider.js";
 import { IGDBMetadataProvider } from "./IGDBMetadataProvider.js";
-import { SteamGridDBMetadataProvider } from "./SteamGridDBMetadataProvider.js";
 import { SteamMetadataProvider } from "./SteamMetadataProvider.js";
 import { RAWGMetadataProvider } from "./RAWGMetadataProvider.js";
+import { SteamGridDBMetadataProvider } from "./SteamGridDBMetadataProvider.js";
 import { IGDBService } from "./IGDBService.js";
-import { SteamGridDBService } from "./SteamGridDBService.js";
 import { SteamService } from "./SteamService.js";
 import { RAWGService } from "./RAWGService.js";
+import { SteamGridDBService } from "./SteamGridDBService.js";
 import { getRateLimitCoordinator } from "./RateLimitCoordinator.js";
 import { getMetadataCache } from "./MetadataCache.js";
 import { getMetadataValidator } from "./MetadataValidator.js";
@@ -48,32 +48,44 @@ export interface IGDBConfig {
 
 /**
  * MetadataFetcherService using Provider pattern
- * Aggregates data from multiple sources in parallel
+ * 
+ * METADATA STRATEGY - OFFICIAL STORES ONLY:
+ * ========================================
+ * Uses ONLY official platform APIs for maximum accuracy:
+ * 
+ * - Steam Store API for Steam games
+ * - Epic Games Store API for Epic games (TODO)
+ * - GOG API for GOG games (TODO)
+ * - Xbox Store API for Xbox games (TODO)
+ * 
+ * NO FALLBACKS - Official store data only
+ * 
+ * WHY THIS APPROACH?
+ * - Official stores provide the most accurate, up-to-date information
+ * - Platform-specific details (achievements, DLC, etc.) only available from official APIs
+ * - No third-party data ensures 100% accuracy from the source
+ * - Avoids rate limiting issues with IGDB/RAWG
+ * - Simpler, more maintainable codebase
+ * 
+ * Note: IGDB/RAWG providers are still available for manual searches
+ *       but are not used for automatic metadata fetching.
  */
 export class MetadataFetcherService {
   private providers: MetadataProvider[] = [];
   private igdbProvider?: IGDBMetadataProvider;
-  private steamGridDBProvider?: SteamGridDBMetadataProvider;
   private steamProvider?: SteamMetadataProvider;
   private rawgProvider?: RAWGMetadataProvider;
-  private steamGridDBService?: SteamGridDBService | null;
+  private steamGridDBProvider?: SteamGridDBMetadataProvider;
 
   constructor(
     igdbService?: IGDBService | null,
-    steamGridDBService?: SteamGridDBService | null,
     steamService?: SteamService | null,
-    rawgService?: RAWGService | null
+    rawgService?: RAWGService | null,
+    steamGridDBService?: SteamGridDBService | null
   ) {
-    this.steamGridDBService = steamGridDBService;
-
     if (igdbService) {
       this.igdbProvider = new IGDBMetadataProvider(igdbService);
       this.providers.push(this.igdbProvider);
-    }
-
-    if (steamGridDBService) {
-      this.steamGridDBProvider = new SteamGridDBMetadataProvider(steamGridDBService);
-      this.providers.push(this.steamGridDBProvider);
     }
 
     if (steamService) {
@@ -84,6 +96,11 @@ export class MetadataFetcherService {
     if (rawgService) {
       this.rawgProvider = new RAWGMetadataProvider(rawgService);
       this.providers.push(this.rawgProvider);
+    }
+
+    if (steamGridDBService) {
+      this.steamGridDBProvider = new SteamGridDBMetadataProvider(steamGridDBService);
+      this.providers.push(this.steamGridDBProvider);
     }
   }
 
@@ -100,22 +117,6 @@ export class MetadataFetcherService {
     } else if (this.igdbProvider) {
       this.providers = this.providers.filter(p => p !== this.igdbProvider);
       this.igdbProvider = undefined;
-    }
-  }
-
-  /**
-   * Set SteamGridDB service
-   */
-  setSteamGridDBService(steamGridDBService: SteamGridDBService | null): void {
-    this.steamGridDBService = steamGridDBService;
-    if (steamGridDBService) {
-      this.steamGridDBProvider = new SteamGridDBMetadataProvider(steamGridDBService);
-      if (!this.providers.includes(this.steamGridDBProvider)) {
-        this.providers.push(this.steamGridDBProvider);
-      }
-    } else if (this.steamGridDBProvider) {
-      this.providers = this.providers.filter(p => p !== this.steamGridDBProvider);
-      this.steamGridDBProvider = undefined;
     }
   }
 
@@ -165,16 +166,19 @@ export class MetadataFetcherService {
   }
 
   /**
-   * Merge artwork from multiple sources, prioritizing SteamGridDB (default for images)
-   * Falls back to highest resolution from other sources if SteamGridDB doesn't have the image
+   * Merge artwork from multiple sources, prioritizing Official Store (Steam, Epic, GOG)
+   * OFFICIAL STORES ONLY - no third-party fallbacks
    */
   private mergeArtwork(artworkArray: Array<{ artwork: GameArtwork | null; source: string }>): GameArtwork {
     const merged: GameArtwork = {};
 
     const getSourcePriority = (source: string): number => {
-      if (source === "steam") return 3;
-      if (source === "steamgriddb") return 2;
-      if (source === "igdb") return 1;
+      // Official stores only
+      if (source === "steam") return 4;
+      if (source === "epic") return 4;
+      if (source === "gog") return 4;
+      if (source === "xbox") return 4;
+      // All other sources disabled
       return 0;
     };
 
@@ -281,65 +285,52 @@ export class MetadataFetcherService {
   }
 
   /**
-   * Search for games across allowed providers (RAWG only)
+   * Search for games - DISABLED for official-store-only approach
+   * Official stores (Steam, Epic, GOG) don't need search - we already have their IDs from game scanning
+   * This method returns empty array to prevent any third-party searches
    */
   async searchGames(title: string, steamAppId?: string): Promise<GameSearchResult[]> {
-    const rateLimiter = getRateLimitCoordinator();
-    const allowedSearchProviders = new Set(["rawg"]);
-
-    const providersToUse = this.providers.filter(p => {
-      const providerName = (p as any).name?.toLowerCase?.() || "";
-      return p.isAvailable() && allowedSearchProviders.has(providerName);
-    });
-
-    const searchPromises = providersToUse.map(provider =>
-      rateLimiter.queueRequest(provider.name, () =>
-        withRetry(() => provider.search(title, steamAppId), { maxRetries: 3, delay: 1000 }).catch(error => {
-          console.error(`Error searching ${provider.name}:`, error);
-          return [];
-        })
-      )
-    );
-
-    const results = await Promise.all(searchPromises);
-    return results.flat();
+    // Official stores only - no search needed
+    // We already have Steam App IDs, Epic IDs, GOG IDs, etc. from game scanning
+    console.log(`[searchGames] Search disabled - official stores only (title: "${title}", steamAppId: ${steamAppId})`);
+    return [];
   }
 
   /**
-   * Match a scanned game against search results
+   * Match a scanned game - DISABLED for official-store-only approach
+   * Official stores provide accurate data directly via platform IDs (Steam App ID, Epic ID, etc.)
    */
   async searchAndMatchGame(
     scannedGame: ScannedGameResult,
     searchQuery?: string
   ): Promise<{ match: GameSearchResult | null; confidence: number; reasons: string[]; allResults: GameSearchResult[] }> {
-    const matcher = getGameMatcher();
-    const query = searchQuery || scannedGame.title;
-
-    const searchResults = await this.searchGames(query, scannedGame.appId);
-    if (searchResults.length === 0) {
-      return { match: null, confidence: 0, reasons: ["no results"], allResults: [] };
-    }
-
-    const matchResult = matcher.matchGame(scannedGame, searchResults);
-    if (!matchResult) {
-      return { match: null, confidence: 0, reasons: ["no match"], allResults: searchResults };
-    }
-
-    return {
-      match: matchResult.game,
-      confidence: matchResult.confidence,
-      reasons: matchResult.reasons,
-      allResults: searchResults,
-    };
+    // Official stores only - no matching needed
+    // We use platform IDs directly (Steam App ID, Epic ID, GOG ID, etc.)
+    console.log(`[searchAndMatchGame] Matching disabled - using official store ID for "${scannedGame.title}"`);
+    return { match: null, confidence: 0, reasons: ["official-store-only"], allResults: [] };
   }
 
   /**
-   * Get complete game metadata by aggregating from RAWG
+   * Get complete game metadata from official store ONLY (Steam, Epic, GOG, etc.)
+   * No search needed - we already have platform IDs from game scanning
    */
   async searchArtwork(title: string, steamAppId?: string): Promise<GameMetadata> {
-    const searchResults = await this.searchGames(title, steamAppId);
-    const matched = searchResults[0] || null;
-    return this.fetchCompleteMetadata(title, matched, steamAppId);
+    console.log(`[MetadataFetcher.searchArtwork] Starting for "${title}" (steamAppId: ${steamAppId})`);
+    
+    // Official stores only - no search needed
+    if (!steamAppId) {
+      console.log(`[MetadataFetcher.searchArtwork] No official store ID available for "${title}" - skipping metadata`);
+      return this.getEmptyMetadata();
+    }
+
+    // Use Steam App ID directly - no search needed
+    const result = await this.fetchCompleteMetadata(title, null, steamAppId);
+    console.log(`[MetadataFetcher.searchArtwork] Complete metadata result for "${title}":`, {
+      boxArtUrl: result.boxArtUrl ? 'present' : 'missing',
+      logoUrl: result.logoUrl ? 'present' : 'missing',
+      bannerUrl: result.bannerUrl ? 'present' : 'missing',
+    });
+    return result;
   }
 
   /**
@@ -355,9 +346,9 @@ export class MetadataFetcherService {
     const validator = getMetadataValidator();
 
     const effectiveMatch: GameSearchResult = matchedGame || {
-      id: gameTitle,
+      id: steamAppId ? `steam-${steamAppId}` : gameTitle,
       title: gameTitle,
-      source: "rawg",
+      source: steamAppId ? "steam" : "unknown",
       steamAppId,
     };
 
@@ -389,39 +380,31 @@ export class MetadataFetcherService {
   }
 
   /**
-   * Fetch artwork for a matched game (RAWG only)
+   * Fetch artwork for a matched game (Official Store ONLY)
+   * Uses platform-specific APIs (Steam for Steam games, Epic for Epic games, etc.)
    */
   private async fetchArtworkForGame(
     matchedGame: GameSearchResult,
     steamAppId?: string
   ): Promise<GameMetadata> {
+    console.log(`[fetchArtworkForGame] Fetching artwork for "${matchedGame.title}" (source: ${matchedGame.source}, id: ${matchedGame.id}, steamAppId: ${steamAppId})`);
     const artworkPromises: Array<{ promise: Promise<GameArtwork | null>; source: string }> = [];
 
-    if (matchedGame.source === "rawg" && this.rawgProvider?.isAvailable()) {
-      artworkPromises.push({ promise: this.rawgProvider.getArtwork(matchedGame.id), source: "rawg" });
-    } else if (this.rawgProvider?.isAvailable()) {
-      const results = await this.rawgProvider.search(matchedGame.title, steamAppId || matchedGame.steamAppId);
-      if (results.length > 0) {
-        artworkPromises.push({ promise: this.rawgProvider.getArtwork(results[0].id), source: "rawg" });
-      }
+    // OFFICIAL STORE ONLY - Steam for Steam games
+    if (steamAppId && this.steamProvider?.isAvailable()) {
+      console.log(`[fetchArtworkForGame] Fetching from Official Store (Steam) for app ${steamAppId}`);
+      artworkPromises.push({ 
+        promise: this.steamProvider.getArtwork(`steam-${steamAppId}`, steamAppId), 
+        source: "steam" 
+      });
     }
-
-    // Use SteamGridDB for box art / logos when available
-    if (this.steamGridDBProvider?.isAvailable()) {
-      try {
-        const sgdbResults = await this.steamGridDBProvider.search(matchedGame.title, steamAppId || matchedGame.steamAppId);
-        if (sgdbResults.length > 0) {
-          artworkPromises.push({
-            promise: this.steamGridDBProvider.getArtwork(sgdbResults[0].id, steamAppId || matchedGame.steamAppId),
-            source: "steamgriddb",
-          });
-        }
-      } catch (err) {
-        console.warn("[MetadataFetcher] SteamGridDB artwork fetch failed:", err);
-      }
-    }
+    // TODO: Add Epic, GOG, Xbox providers here when implemented
+    // if (epicGameId && this.epicProvider?.isAvailable()) { ... }
+    // if (gogGameId && this.gogProvider?.isAvailable()) { ... }
+    // if (xboxGameId && this.xboxProvider?.isAvailable()) { ... }
 
     if (artworkPromises.length === 0) {
+      console.warn(`[fetchArtworkForGame] No official store provider available for "${matchedGame.title}" - skipping metadata`);
       return this.getEmptyMetadata();
     }
 
@@ -429,13 +412,20 @@ export class MetadataFetcherService {
     const artworkWithSources = artworkResults
       .map((result, index) => {
         if (result.status === "fulfilled" && result.value) {
+          console.log(`[fetchArtworkForGame] Got artwork from ${artworkPromises[index]?.source}: ${result.value.boxArtUrl ? 'boxart' : 'no boxart'}, full result: ${JSON.stringify(result.value)}`);
           return { artwork: result.value, source: artworkPromises[index]?.source || "unknown" };
+        } else if (result.status === "fulfilled") {
+          console.log(`[fetchArtworkForGame] Artwork source ${artworkPromises[index]?.source} returned null`);
+        } else {
+          console.log(`[fetchArtworkForGame] Artwork source ${artworkPromises[index]?.source} failed:`, result.reason);
         }
         return null;
       })
       .filter((item): item is { artwork: GameArtwork; source: string } => item !== null);
 
     const mergedArtwork = artworkWithSources.length > 0 ? this.mergeArtwork(artworkWithSources) : ({} as GameArtwork);
+
+    console.log(`[fetchArtworkForGame] Final artwork for "${matchedGame.title}": boxArtUrl=${mergedArtwork.boxArtUrl ? 'present' : 'missing'}, logoUrl=${mergedArtwork.logoUrl ? 'present' : 'missing'}`);
 
     return {
       boxArtUrl: mergedArtwork.boxArtUrl || "",
@@ -448,7 +438,8 @@ export class MetadataFetcherService {
   }
 
   /**
-   * Fetch description for a matched game (RAWG only)
+  * Fetch description for a matched game (Official Store ONLY)
+  * Uses platform-specific metadata (Steam for Steam games, Epic for Epic games, etc.)
    */
   private async fetchDescriptionForGame(
     matchedGame: GameSearchResult,
@@ -457,30 +448,26 @@ export class MetadataFetcherService {
     const steamAppIdToUse = steamAppId || matchedGame.steamAppId;
     const descriptions: (GameDescription | null)[] = [];
 
-    if (this.rawgProvider?.isAvailable()) {
+    // OFFICIAL STORE ONLY - Steam for Steam games
+    if (steamAppIdToUse && this.steamProvider?.isAvailable()) {
       try {
-        let rawgDesc: GameDescription | null = null;
-
-        if (matchedGame.source === "rawg") {
-          rawgDesc = await this.rawgProvider.getDescription(matchedGame.id);
-        } else {
-          const rawgResults = await this.rawgProvider.search(matchedGame.title, steamAppIdToUse);
-          if (rawgResults.length > 0) {
-            rawgDesc = await this.rawgProvider.getDescription(rawgResults[0].id);
-          }
-        }
-
-        if (rawgDesc) {
-          descriptions.push(rawgDesc);
+        console.log(`[fetchDescriptionForGame] Fetching from Official Store (Steam) for app ${steamAppIdToUse}`);
+        const steamDesc = await this.steamProvider.getDescription(`steam-${steamAppIdToUse}`);
+        if (steamDesc) {
+          descriptions.push(steamDesc);
         }
       } catch (err: any) {
         if (err?.status === 403 || err?.status === 429) {
-          console.warn("[MetadataFetcher] RAWG rate limited, skipping");
+          console.warn("[MetadataFetcher] Steam rate limited, metadata unavailable");
         } else {
-          console.warn("[MetadataFetcher] RAWG error:", err);
+          console.warn("[MetadataFetcher] Steam error:", err);
         }
       }
     }
+    // TODO: Add Epic, GOG, Xbox providers here when implemented
+    // if (epicGameId && this.epicProvider?.isAvailable()) { ... }
+    // if (gogGameId && this.gogProvider?.isAvailable()) { ... }
+    // if (xboxGameId && this.xboxProvider?.isAvailable()) { ... }
 
     const mergedDescription = this.mergeDescriptions(descriptions, steamAppIdToUse);
     return {
@@ -499,18 +486,19 @@ export class MetadataFetcherService {
 
   /**
    * Get metadata only (descriptions, genres, etc.) without fetching artwork/images
+   * Uses Official Store ONLY (Steam for Steam games, etc.)
    */
   async searchMetadataOnly(providerId: string, providerSource: string, steamAppId?: string, gameTitle?: string): Promise<Partial<GameMetadata>> {
     const descriptionPromises: Promise<GameDescription | null>[] = [];
 
-    if (providerSource === "rawg" && this.rawgProvider?.isAvailable()) {
-      descriptionPromises.push(this.rawgProvider.getDescription(providerId));
-    } else if (gameTitle && this.rawgProvider?.isAvailable()) {
-      const rawgResults = await this.rawgProvider.search(gameTitle, steamAppId);
-      if (rawgResults.length > 0) {
-        descriptionPromises.push(this.rawgProvider.getDescription(rawgResults[0].id));
-      }
+    // OFFICIAL STORE ONLY - Steam for Steam games
+    if (steamAppId && this.steamProvider?.isAvailable()) {
+      console.log(`[searchMetadataOnly] Fetching from Steam for app ${steamAppId}`);
+      descriptionPromises.push(this.steamProvider.getDescription(`steam-${steamAppId}`));
     }
+    // TODO: Add Epic, GOG, Xbox providers here when implemented
+    // if (epicGameId && this.epicProvider?.isAvailable()) { ... }
+    // if (gogGameId && this.gogProvider?.isAvailable()) { ... }
 
     const descriptionResults = await Promise.all(descriptionPromises);
     const mergedDescription = this.mergeDescriptions(descriptionResults, steamAppId);
@@ -544,6 +532,18 @@ export class MetadataFetcherService {
   // Legacy no-op methods
   setIGDBConfig(_config: IGDBConfig): void {
     console.warn("setIGDBConfig is deprecated. Use setIGDBService instead.");
+  }
+
+  setSteamGridDBService(steamGridDBService: SteamGridDBService | null): void {
+    if (steamGridDBService) {
+      this.steamGridDBProvider = new SteamGridDBMetadataProvider(steamGridDBService);
+      if (!this.providers.includes(this.steamGridDBProvider)) {
+        this.providers.push(this.steamGridDBProvider);
+      }
+    } else if (this.steamGridDBProvider) {
+      this.providers = this.providers.filter(p => p !== this.steamGridDBProvider);
+      this.steamGridDBProvider = undefined;
+    }
   }
 
   setSteamGridDBApiKey(_apiKey: string): void {

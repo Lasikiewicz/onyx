@@ -37,11 +37,10 @@ interface AppConfig {
 interface APICredentials {
   igdbClientId: string;
   igdbClientSecret: string;
-  steamGridDBApiKey: string;
   rawgApiKey: string;
 }
 
-type APITabType = 'igdb' | 'steamgriddb' | 'rawg';
+type APITabType = 'igdb' | 'rawg';
 
 // Default game install locations for Windows
 const getDefaultPaths = (appId: string): string[] => {
@@ -122,7 +121,6 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
   const [apiCredentials, setApiCredentials] = useState<APICredentials>({
     igdbClientId: '',
     igdbClientSecret: '',
-    steamGridDBApiKey: '',
     rawgApiKey: '',
   });
   const [activeAPITab, setActiveAPITab] = useState<APITabType>('igdb');
@@ -205,12 +203,10 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
 
   const [apiStatus, setApiStatus] = useState<{
     igdbConfigured: boolean;
-    steamGridDBConfigured: boolean;
     rawgConfigured: boolean;
     allRequiredConfigured: boolean;
   }>({
     igdbConfigured: false,
-    steamGridDBConfigured: false,
     rawgConfigured: false,
     allRequiredConfigured: false,
   });
@@ -224,21 +220,18 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
           setApiCredentials({
             igdbClientId: creds.igdbClientId || '',
             igdbClientSecret: creds.igdbClientSecret || '',
-            steamGridDBApiKey: creds.steamGridDBApiKey || '',
             rawgApiKey: creds.rawgApiKey || '',
           });
           
           // Check API status
           const igdbConfigured = !!(creds.igdbClientId && creds.igdbClientSecret && 
             creds.igdbClientId.trim() !== '' && creds.igdbClientSecret.trim() !== '');
-          const steamGridDBConfigured = !!(creds.steamGridDBApiKey && creds.steamGridDBApiKey.trim() !== '');
           const rawgConfigured = !!(creds.rawgApiKey && creds.rawgApiKey.trim() !== '');
           
           setApiStatus({
             igdbConfigured,
-            steamGridDBConfigured,
             rawgConfigured,
-            allRequiredConfigured: igdbConfigured && steamGridDBConfigured,
+            allRequiredConfigured: igdbConfigured,
           });
         } catch (error) {
           console.error('Error loading API credentials:', error);
@@ -425,14 +418,12 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
       
       // Update API status in real-time
       const igdbConfigured = !!(updated.igdbClientId.trim() && updated.igdbClientSecret.trim());
-      const steamGridDBConfigured = !!updated.steamGridDBApiKey.trim();
       const rawgConfigured = !!updated.rawgApiKey.trim();
       
       setApiStatus({
         igdbConfigured,
-        steamGridDBConfigured,
         rawgConfigured,
-        allRequiredConfigured: igdbConfigured && steamGridDBConfigured,
+        allRequiredConfigured: igdbConfigured, // Only IGDB is required
       });
       
       return updated;
@@ -447,21 +438,18 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
       await window.electronAPI.saveAPICredentials({
         igdbClientId: apiCredentials.igdbClientId.trim(),
         igdbClientSecret: apiCredentials.igdbClientSecret.trim(),
-        steamGridDBApiKey: apiCredentials.steamGridDBApiKey.trim(),
         rawgApiKey: apiCredentials.rawgApiKey.trim(),
       });
       setApiSaveStatus('success');
       
       // Update API status after save
       const igdbConfigured = !!(apiCredentials.igdbClientId.trim() && apiCredentials.igdbClientSecret.trim());
-      const steamGridDBConfigured = !!apiCredentials.steamGridDBApiKey.trim();
       const rawgConfigured = !!apiCredentials.rawgApiKey.trim();
       
       setApiStatus({
         igdbConfigured,
-        steamGridDBConfigured,
         rawgConfigured,
-        allRequiredConfigured: igdbConfigured && steamGridDBConfigured,
+        allRequiredConfigured: igdbConfigured,
       });
       
       setTimeout(() => {
@@ -472,14 +460,6 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
       setApiSaveStatus('error');
     } finally {
       setIsLoadingAPI(false);
-    }
-  };
-
-  const handleOpenSteamGridDB = async () => {
-    try {
-      await window.electronAPI.openExternal('https://www.steamgriddb.com/profile/preferences/api');
-    } catch (error) {
-      console.error('Error opening SteamGridDB API page:', error);
     }
   };
 
@@ -1228,21 +1208,6 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                         )}
                       </button>
                       <button
-                        onClick={() => setActiveAPITab('steamgriddb')}
-                        className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors flex items-center gap-2 ${
-                          activeAPITab === 'steamgriddb'
-                            ? 'border-blue-500 text-blue-400'
-                            : 'border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-300'
-                        }`}
-                      >
-                        SteamGridDB
-                        {apiStatus.steamGridDBConfigured ? (
-                          <span className="text-green-400" title="Configured">✓</span>
-                        ) : (
-                          <span className="text-red-400" title="Not configured">✗</span>
-                        )}
-                      </button>
-                      <button
                         onClick={() => setActiveAPITab('rawg')}
                         className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors flex items-center gap-2 ${
                           activeAPITab === 'rawg'
@@ -1347,78 +1312,6 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                     </div>
                   )}
 
-                  {/* SteamGridDB Tab Content */}
-                  {activeAPITab === 'steamgriddb' && (
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                      {/* Left Column - Instructions */}
-                      <div className="space-y-4">
-                        <div>
-                          <h4 className="text-base font-medium text-white mb-2">SteamGridDB API <span className="text-red-400 text-sm">(Required)</span></h4>
-                          <p className="text-sm text-gray-400 mb-4">
-                            SteamGridDB provides high-quality game artwork including box art, banners, logos, and hero images. Perfect for customizing your game library's appearance. <strong className="text-yellow-300">This API is required.</strong>
-                          </p>
-                          
-                          {/* Instructions */}
-                          <div className="bg-gray-900/50 rounded-lg p-4 border border-gray-700">
-                            <h5 className="text-sm font-medium text-white mb-2">How to obtain SteamGridDB API key:</h5>
-                            <ol className="list-decimal list-inside space-y-2 text-sm text-gray-300">
-                              <li>
-                                Visit{' '}
-                                <button
-                                  onClick={handleOpenSteamGridDB}
-                                  className="text-blue-400 hover:text-blue-300 underline"
-                                >
-                                  SteamGridDB Profile Preferences
-                                </button>
-                                {' '}at https://www.steamgriddb.com/profile/preferences/api
-                              </li>
-                              <li>Sign in with your SteamGridDB account (create one if needed)</li>
-                              <li>Navigate to the "API" section in your profile preferences</li>
-                              <li>Click "Generate API Key" to create a new API key</li>
-                              <li>Copy the generated API key</li>
-                              <li>Paste it into the field on the right</li>
-                            </ol>
-                            <div className="mt-4 p-3 bg-blue-900/20 border border-blue-700/50 rounded text-xs text-blue-300">
-                              <strong>Note:</strong> SteamGridDB API keys are free and help support the community-driven artwork database.
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Right Column - Input Fields */}
-                      <div className="space-y-4">
-                        {/* API Key Input */}
-                        <div className="space-y-2">
-                          <label className="block text-sm font-medium text-gray-200">
-                            API Key
-                          </label>
-                          <input
-                            type="password"
-                            value={apiCredentials.steamGridDBApiKey}
-                            onChange={(e) => handleAPIInputChange('steamGridDBApiKey', e.target.value)}
-                            placeholder="Enter your SteamGridDB API Key"
-                            className="w-full px-4 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          />
-                          <p className="text-xs text-gray-500">
-                            Your API key is stored securely and used to fetch game artwork
-                          </p>
-                        </div>
-
-                        {/* Status Message */}
-                        {apiSaveStatus === 'success' && activeAPITab === 'steamgriddb' && (
-                          <div className="bg-green-900/30 border border-green-700 text-green-300 px-4 py-2 rounded-lg text-sm">
-                            SteamGridDB API key saved successfully! Service will be restarted.
-                          </div>
-                        )}
-                        {apiSaveStatus === 'error' && activeAPITab === 'steamgriddb' && (
-                          <div className="bg-red-900/30 border border-red-700 text-red-300 px-4 py-2 rounded-lg text-sm">
-                            Failed to save API key. Please try again.
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
                   {/* RAWG Tab Content */}
                   {activeAPITab === 'rawg' && (
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -1470,7 +1363,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                               <li>Paste it into the field on the right</li>
                             </ol>
                             <div className="mt-4 p-3 bg-yellow-900/20 border border-yellow-700/50 rounded text-xs text-yellow-300">
-                              <strong>Note:</strong> RAWG API is optional. The app will work with just IGDB and SteamGridDB, but adding RAWG can improve metadata quality for some games.
+                              <strong>Note:</strong> RAWG API is optional. The app will work with just IGDB, but adding RAWG can improve metadata quality for some games.
                             </div>
                           </div>
                         </div>

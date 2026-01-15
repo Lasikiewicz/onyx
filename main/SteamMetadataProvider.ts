@@ -264,11 +264,12 @@ export class SteamMetadataProvider implements MetadataProvider {
 
     try {
       // Steam CDN URLs - Official images (highest priority):
-      // Box Art: Library_600x900.jpg (vertical cover art)
+      // Box Art: library_600x900.jpg or library_600x900_2x.jpg (vertical cover art)
       // Banner: library_hero.jpg or header.jpg (horizontal banner)
       // Logo: logo.png
       // Icon: {appId}_icon.jpg (game icon, typically 32x32 or 64x64)
-      const boxArtUrl = `https://cdn.cloudflare.steamstatic.com/steam/apps/${steamAppId}/Library_600x900.jpg`;
+      const boxArtUrl = `https://cdn.cloudflare.steamstatic.com/steam/apps/${steamAppId}/library_600x900.jpg`;
+      const boxArtUrl2x = `https://cdn.cloudflare.steamstatic.com/steam/apps/${steamAppId}/library_600x900_2x.jpg`;
       const bannerUrl = `https://cdn.cloudflare.steamstatic.com/steam/apps/${steamAppId}/library_hero.jpg`;
       const headerUrl = `https://cdn.cloudflare.steamstatic.com/steam/apps/${steamAppId}/header.jpg`;
       const logoUrl = `https://cdn.cloudflare.steamstatic.com/steam/apps/${steamAppId}/logo.png`;
@@ -291,8 +292,9 @@ export class SteamMetadataProvider implements MetadataProvider {
       };
 
       // Check which images are available (prioritize official Steam CDN images)
-      const [boxArtResponse, bannerResponse, headerResponse, logoResponse, iconResponse] = await Promise.all([
+      const [boxArtResponse, boxArt2xResponse, bannerResponse, headerResponse, logoResponse, iconResponse] = await Promise.all([
         fetchWithTimeout(boxArtUrl),
+        fetchWithTimeout(boxArtUrl2x),
         fetchWithTimeout(bannerUrl),
         fetchWithTimeout(headerUrl),
         fetchWithTimeout(logoUrl),
@@ -301,10 +303,13 @@ export class SteamMetadataProvider implements MetadataProvider {
 
       const artwork: GameArtwork = {};
 
-      // Box Art: Library_600x900.jpg (official Steam box art)
+      // Box Art: library_600x900.jpg or library_600x900_2x.jpg (official Steam box art)
       if (boxArtResponse?.ok) {
         artwork.boxArtUrl = boxArtUrl;
         artwork.boxArtResolution = { width: 600, height: 900 }; // Standard Steam library cover size
+      } else if (boxArt2xResponse?.ok) {
+        artwork.boxArtUrl = boxArtUrl2x;
+        artwork.boxArtResolution = { width: 1200, height: 1800 }; // 2x resolution Steam library cover
       }
 
       // Banner: library_hero.jpg (preferred) or header.jpg (fallback) - official Steam banners

@@ -17,20 +17,27 @@ export class APICredentialsService {
   private store: any = null;
   private storePromise: Promise<any>;
 
+  private getEnvDefaults(): APICredentials {
+    const valueOrUndefined = (val?: string) => (val && val.trim().length > 0 ? val.trim() : undefined);
+    const rawgEnv = valueOrUndefined(process.env.RAWG_API_KEY);
+    return {
+      igdbClientId: valueOrUndefined(process.env.IGDB_CLIENT_ID),
+      igdbClientSecret: valueOrUndefined(process.env.IGDB_CLIENT_SECRET),
+      steamGridDBApiKey: valueOrUndefined(process.env.STEAMGRIDDB_API_KEY),
+      rawgApiKey: rawgEnv || RAWG_FALLBACK_API_KEY,
+    };
+  }
+
   constructor() {
     // Use dynamic import for ES module
     // eslint-disable-next-line @typescript-eslint/no-implied-eval
     this.storePromise = (new Function('return import("electron-store")')() as Promise<typeof import('electron-store')>).then((StoreModule) => {
       const Store = StoreModule.default;
+      // Don't persist env defaults to disk - only use them as runtime fallbacks
       this.store = new Store<APICredentialsSchema>({
         name: 'api-credentials',
         defaults: {
-          credentials: {
-            igdbClientId: undefined,
-            igdbClientSecret: undefined,
-            steamGridDBApiKey: undefined,
-            rawgApiKey: RAWG_FALLBACK_API_KEY,
-          },
+          credentials: {},
         },
       });
       return this.store;
@@ -49,17 +56,16 @@ export class APICredentialsService {
    */
   async getCredentials(): Promise<APICredentials> {
     const store = await this.ensureStore();
-    const creds = store.get('credentials', {
-      igdbClientId: undefined,
-      igdbClientSecret: undefined,
-      steamGridDBApiKey: undefined,
-      rawgApiKey: RAWG_FALLBACK_API_KEY,
-    });
-    // Always provide fallback RAWG key if missing
-    if (!creds.rawgApiKey || creds.rawgApiKey.trim() === '') {
-      creds.rawgApiKey = RAWG_FALLBACK_API_KEY;
-    }
-    return creds;
+    const envDefaults = this.getEnvDefaults();
+    const storedCreds = store.get('credentials', {});
+    
+    // Merge: stored credentials override env defaults
+    return {
+      igdbClientId: storedCreds.igdbClientId || envDefaults.igdbClientId,
+      igdbClientSecret: storedCreds.igdbClientSecret || envDefaults.igdbClientSecret,
+      steamGridDBApiKey: storedCreds.steamGridDBApiKey || envDefaults.steamGridDBApiKey,
+      rawgApiKey: storedCreds.rawgApiKey || envDefaults.rawgApiKey || RAWG_FALLBACK_API_KEY,
+    };
   }
 
   /**
@@ -67,13 +73,25 @@ export class APICredentialsService {
    */
   async saveCredentials(credentials: Partial<APICredentials>): Promise<void> {
     const store = await this.ensureStore();
-    const current = store.get('credentials', {
-      igdbClientId: undefined,
-      igdbClientSecret: undefined,
-      steamGridDBApiKey: undefined,
-      rawgApiKey: RAWG_FALLBACK_API_KEY,
-    });
-    store.set('credentials', { ...current, ...credentials, rawgApiKey: credentials.rawgApiKey ?? RAWG_FALLBACK_API_KEY });
+    const current = store.get('credentials', {});
+    
+    // Only save explicitly provided credentials, don't persist env defaults
+    const toSave: APICredentials = { ...current };
+    
+    if (credentials.igdbClientId !== undefined) {
+      toSave.igdbClientId = credentials.igdbClientId;
+    }
+    if (credentials.igdbClientSecret !== undefined) {
+      toSave.igdbClientSecret = credentials.igdbClientSecret;
+    }
+    if (credentials.steamGridDBApiKey !== undefined) {
+      toSave.steamGridDBApiKey = credentials.steamGridDBApiKey;
+    }
+    if (credentials.rawgApiKey !== undefined) {
+      toSave.rawgApiKey = credentials.rawgApiKey;
+    }
+    
+    store.set('credentials', toSave);
   }
 
   /**

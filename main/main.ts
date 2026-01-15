@@ -180,8 +180,8 @@ function createTray() {
     } else {
       // In development, prefer ICO on Windows, PNG on other platforms
       if (process.platform === 'win32') {
-        const icoPath = path.join(__dirname, '../../build/icon.ico');
-        const pngPath = path.join(__dirname, '../../resources/icon.png');
+        const icoPath = path.join(__dirname, '../build/icon.ico');
+        const pngPath = path.join(__dirname, '../resources/icon.png');
         
         if (existsSync(icoPath)) {
           iconPath = icoPath;
@@ -191,8 +191,8 @@ function createTray() {
           throw new Error('No icon file found');
         }
       } else {
-        const pngPath = path.join(__dirname, '../../resources/icon.png');
-        const svgPath = path.join(__dirname, '../../resources/icon.svg');
+        const pngPath = path.join(__dirname, '../resources/icon.png');
+        const svgPath = path.join(__dirname, '../resources/icon.svg');
         
         if (existsSync(pngPath)) {
           iconPath = pngPath;
@@ -257,10 +257,10 @@ function createTray() {
                 : path.join(process.resourcesPath, 'icon.png'))
             : path.join(process.resourcesPath, 'icon.png'))
         : (process.platform === 'win32'
-            ? (existsSync(path.join(__dirname, '../../build/icon.ico'))
-                ? path.join(__dirname, '../../build/icon.ico')
-                : path.join(__dirname, '../../resources/icon.png'))
-            : path.join(__dirname, '../../resources/icon.png'));
+            ? (existsSync(path.join(__dirname, '../build/icon.ico'))
+              ? path.join(__dirname, '../build/icon.ico')
+              : path.join(__dirname, '../resources/icon.png'))
+            : path.join(__dirname, '../resources/icon.png'));
       
       console.log('Trying fallback icon from:', fallbackPath);
       
@@ -383,8 +383,8 @@ async function createWindow() {
     } else {
       // In development, prefer ICO on Windows
       if (process.platform === 'win32') {
-        const icoPath = path.join(__dirname, '../../build/icon.ico');
-        const pngPath = path.join(__dirname, '../../resources/icon.png');
+        const icoPath = path.join(__dirname, '../build/icon.ico');
+        const pngPath = path.join(__dirname, '../resources/icon.png');
         
         if (existsSync(icoPath)) {
           appIcon = nativeImage.createFromPath(icoPath);
@@ -392,8 +392,8 @@ async function createWindow() {
           appIcon = nativeImage.createFromPath(pngPath);
         }
       } else {
-        const svgPath = path.join(__dirname, '../../resources/icon.svg');
-        const pngPath = path.join(__dirname, '../../resources/icon.png');
+        const svgPath = path.join(__dirname, '../resources/icon.svg');
+        const pngPath = path.join(__dirname, '../resources/icon.png');
         
         if (existsSync(svgPath)) {
           appIcon = nativeImage.createFromPath(svgPath);
@@ -814,16 +814,14 @@ const initializeRAWGService = async () => {
 // Initialize metadata fetcher with providers
 const metadataFetcher = new MetadataFetcherService(
   null, // IGDB service (will be set after initialization)
-  null, // SteamGridDB service (will be set after initialization)
-  null, // Steam service (disabled for metadata)
+  steamService, // Steam service (official store for metadata)
   null // RAWG service (will be set after initialization)
 );
 
 // Function to update metadata fetcher with initialized services
 const updateMetadataFetcher = () => {
   metadataFetcher.setIGDBService(igdbService);
-  metadataFetcher.setSteamGridDBService(steamGridDBService);
-  metadataFetcher.setSteamService(null);
+  metadataFetcher.setSteamService(steamService);
   metadataFetcher.setRAWGService(rawgService);
 };
 
@@ -1463,11 +1461,17 @@ ipcMain.handle('app:reset', async () => {
 // Metadata fetcher IPC handlers
 ipcMain.handle('metadata:searchArtwork', async (_event, title: string, steamAppId?: string) => {
   try {
+    console.log(`[searchArtwork] Fetching artwork for "${title}" (steamAppId: ${steamAppId})`);
     const metadata = await withTimeout(
       metadataFetcher.searchArtwork(title, steamAppId),
       30000, // 30 seconds - allow more time for SteamGridDB + RAWG
       `Artwork fetch timeout for "${title}"`
     );
+    console.log(`[searchArtwork] Result for "${title}":`, {
+      boxArtUrl: metadata?.boxArtUrl ? 'present' : 'missing',
+      logoUrl: metadata?.logoUrl ? 'present' : 'missing',
+      bannerUrl: metadata?.bannerUrl ? 'present' : 'missing',
+    });
     return metadata;
   } catch (error) {
     console.error('Error in metadata:searchArtwork handler:', error);
@@ -4646,6 +4650,33 @@ app.whenReady().then(async () => {
     console.error('[App] Error removing WinGDK games on startup:', error);
   }
 
+  // Initialize default launcher configurations if they don't exist
+  try {
+    const existingConfigs = await appConfigService.getAppConfigs();
+    if (Object.keys(existingConfigs).length === 0) {
+      console.log('[App] No app configs found. Detecting and initializing launchers...');
+      const detected = await launcherDetectionService.detectAllLaunchers();
+      
+      if (detected.length > 0) {
+        console.log(`[App] Detected ${detected.length} launchers. Initializing app configs...`);
+        const configs = detected.map(launcher => ({
+          id: launcher.id,
+          name: launcher.name,
+          path: launcher.path,
+          enabled: true,
+          autoAdd: true,
+        }));
+        
+        await appConfigService.saveAppConfigs(configs);
+        console.log(`[App] Initialized ${configs.length} default app configs`);
+      } else {
+        console.log('[App] No launchers detected on system');
+      }
+    }
+  } catch (error) {
+    console.error('[App] Error initializing launcher configs:', error);
+  }
+
   // IMPORTANT: Register protocol handler FIRST, before any windows are created
   // Track failed URLs to avoid spam logging
   const failedUrls = new Set<string>();
@@ -5249,8 +5280,8 @@ app.whenReady().then(async () => {
         const pngPath = path.join(process.resourcesPath, 'icon.png');
         appIconPath = existsSync(icoPath) ? icoPath : pngPath;
       } else {
-        const icoPath = path.join(__dirname, '../../build/icon.ico');
-        const pngPath = path.join(__dirname, '../../resources/icon.png');
+        const icoPath = path.join(__dirname, '../build/icon.ico');
+        const pngPath = path.join(__dirname, '../resources/icon.png');
         appIconPath = existsSync(icoPath) ? icoPath : pngPath;
       }
       

@@ -483,7 +483,7 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
   const handleScanFolder = async (folderPath: string) => {
     const apisConfigured = await areAPIsConfigured();
     if (!apisConfigured) {
-      setError('Both IGDB (Client ID + Secret) and SteamGridDB (API Key) are required before scanning. Please configure them in Settings > APIs.');
+      setError('IGDB (Client ID + Secret) is required before scanning. Please configure it in Settings > APIs.');
       return;
     }
 
@@ -557,7 +557,7 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
       for (const scanned of gamesToProcess) {
         const stagedGame = await (async (): Promise<StagedGame> => {
           // Try to find match for games to get Steam App ID
-          let steamAppId = scanned.appId;
+          let steamAppId = scanned.appId;  // Start with appId from scanning (for Steam games)
           let matchedTitle = scanned.title;
           let matchedResult: any = null;
           
@@ -579,6 +579,7 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
             }
           } catch (err) {
             // Ignore search errors during staging - will search again later
+            console.log(`[ImportWorkbench] Search failed for "${scanned.title}":`, err);
           }
           
           // Check if game is ignored
@@ -938,7 +939,7 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
   const handleScanAll = async () => {
     const apisConfigured = await areAPIsConfigured();
     if (!apisConfigured) {
-      setError('Both IGDB (Client ID + Secret) and SteamGridDB (API Key) are required before scanning. Please configure them in Settings > APIs.');
+      setError('IGDB (Client ID + Secret) is required before scanning. Please configure it in Settings > APIs.');
       return;
     }
 
@@ -2323,7 +2324,7 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
           if (aMatchesAppId && !bMatchesAppId) return -1;
           if (!aMatchesAppId && bMatchesAppId) return 1;
           
-          // Second priority: Steam results before others (prioritize Steam over SteamGridDB)
+          // Second priority: Steam results before others (prioritize Steam over external sources)
           const aIsSteam = a.source === 'steam';
           const bIsSteam = b.source === 'steam';
           if (aIsSteam && !bIsSteam) return -1;
@@ -2459,87 +2460,62 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
     setImageSearchResults([]);
 
     try {
-      // For boxart, use the new searchImages handler to get vertical grids from SteamGridDB
-      if (showImageSearch.type === 'boxart') {
-        const response = await window.electronAPI.searchImages(query, 'boxart', selectedGame.appId);
-        
-        if (response.success && response.images && response.images.length > 0) {
-          // Flatten the results - each game has multiple images
-          const flattenedResults: any[] = [];
-          response.images.forEach(gameResult => {
-            gameResult.images.forEach(img => {
-              flattenedResults.push({
-                id: gameResult.gameId,
-                name: gameResult.gameName,
-                title: gameResult.gameName,
-                boxArtUrl: img.url,
-                coverUrl: img.url,
-                source: 'steamgriddb',
-                score: img.score,
-                width: img.width,
-                height: img.height,
-              });
-            });
+      const steamAppId = selectedGame.appId?.toString();
+
+      // Primary: IGDB-backed searchArtwork (IGDB-first, RAWG fallback)
+      const primaryArtwork = await window.electronAPI.searchArtwork(query, steamAppId);
+      const primaryResults: any[] = [];
+
+      if (primaryArtwork) {
+        if (showImageSearch.type === 'boxart' && primaryArtwork.boxArtUrl) {
+          primaryResults.push({
+            id: query,
+            name: query,
+            title: query,
+            boxArtUrl: primaryArtwork.boxArtUrl,
+            coverUrl: primaryArtwork.boxArtUrl,
+            bannerUrl: primaryArtwork.bannerUrl || primaryArtwork.heroUrl,
+            logoUrl: primaryArtwork.logoUrl,
+            heroUrl: primaryArtwork.heroUrl,
+            source: 'igdb',
           });
-          setImageSearchResults(flattenedResults);
-          return;
         }
-      } else if (showImageSearch.type === 'banner') {
-        const response = await window.electronAPI.searchImages(query, 'banner', selectedGame.appId);
-        
-        if (response.success && response.images && response.images.length > 0) {
-          const flattenedResults: any[] = [];
-          response.images.forEach(gameResult => {
-            gameResult.images.forEach(img => {
-              flattenedResults.push({
-                id: gameResult.gameId,
-                name: gameResult.gameName,
-                title: gameResult.gameName,
-                bannerUrl: img.url,
-                heroUrl: img.url,
-                screenshotUrls: [img.url],
-                source: 'steamgriddb',
-                score: img.score,
-                width: img.width,
-                height: img.height,
-              });
-            });
+        if (showImageSearch.type === 'banner' && (primaryArtwork.bannerUrl || primaryArtwork.heroUrl)) {
+          const url = primaryArtwork.bannerUrl || primaryArtwork.heroUrl;
+          primaryResults.push({
+            id: query,
+            name: query,
+            title: query,
+            bannerUrl: url,
+            heroUrl: url,
+            screenshotUrls: primaryArtwork.screenshots,
+            source: 'igdb',
           });
-          setImageSearchResults(flattenedResults);
-          return;
         }
-      } else if (showImageSearch.type === 'logo') {
-        const response = await window.electronAPI.searchImages(query, 'logo', selectedGame.appId);
-        
-        if (response.success && response.images && response.images.length > 0) {
-          const flattenedResults: any[] = [];
-          response.images.forEach(gameResult => {
-            gameResult.images.forEach(img => {
-              flattenedResults.push({
-                id: gameResult.gameId,
-                name: gameResult.gameName,
-                title: gameResult.gameName,
-                logoUrl: img.url,
-                source: 'steamgriddb',
-                score: img.score,
-                width: img.width,
-                height: img.height,
-              });
-            });
+        if (showImageSearch.type === 'logo' && primaryArtwork.logoUrl) {
+          primaryResults.push({
+            id: query,
+            name: query,
+            title: query,
+            logoUrl: primaryArtwork.logoUrl,
+            source: 'igdb',
           });
-          setImageSearchResults(flattenedResults);
-          return;
         }
       }
 
-      // Fallback to general search if SteamGridDB doesn't have results
+      if (primaryResults.length > 0) {
+        setImageSearchResults(primaryResults);
+        return;
+      }
+
+      // Fallback: broader search then per-result artwork fetch (still IGDB-first via searchArtwork)
       const gamesResponse = await window.electronAPI.searchGames(query);
       
       if (gamesResponse.success && gamesResponse.results && gamesResponse.results.length > 0) {
         const artworkPromises = gamesResponse.results.slice(0, 10).map(async (gameResult) => {
           try {
-            const steamAppId = gameResult.steamAppId?.toString();
-            const artwork = await window.electronAPI.searchArtwork(gameResult.title, steamAppId);
+            const appId = gameResult.steamAppId?.toString();
+            const artwork = await window.electronAPI.searchArtwork(gameResult.title, appId);
             
             if (!artwork) return null;
 
@@ -2563,7 +2539,7 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
               logoUrl: artwork.logoUrl,
               coverUrl: artwork.boxArtUrl,
               screenshotUrls: artwork.screenshots,
-              source: gameResult.source,
+              source: 'igdb',
             };
           } catch (err) {
             return null;
@@ -2574,9 +2550,8 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
         const validResults = results.filter(r => r !== null);
         
         if (validResults.length > 0) {
-          setImageSearchResults(validResults);
+          setImageSearchResults(validResults as any[]);
         } else {
-          // Final fallback to IGDB
           const metadataResponse = await window.electronAPI.searchMetadata(query);
           if (metadataResponse.success && metadataResponse.results && metadataResponse.results.length > 0) {
             setImageSearchResults(metadataResponse.results);
@@ -3230,7 +3205,7 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
                                       </p>
                                       <div className="flex items-center gap-2 mt-1">
                                         <span className={`text-xs ${result.source === 'steam' ? 'text-blue-400' : 'text-gray-400'}`}>
-                                          {result.source === 'steam' ? 'Steam' : result.source === 'igdb' ? 'IGDB' : result.source === 'steamgriddb' ? 'SGDB' : result.source}
+                                          {result.source === 'steam' ? 'Steam' : result.source === 'igdb' ? 'IGDB' : result.source}
                                         </span>
                                         {result.steamAppId && (
                                           <span className="text-xs text-gray-500">App ID: {result.steamAppId}</span>

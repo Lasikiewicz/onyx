@@ -17,7 +17,6 @@ export async function areAPIsConfigured(): Promise<boolean> {
  */
 export async function getAPIConfigurationStatus(): Promise<{
   igdbConfigured: boolean;
-  steamGridDBConfigured: boolean;
   rawgConfigured: boolean;
   allRequiredConfigured: boolean;
 }> {
@@ -31,16 +30,10 @@ export async function getAPIConfigurationStatus(): Promise<{
       credentials.igdbClientSecret.trim() !== ''
     );
 
-    const steamGridDBConfigured = !!(
-      credentials.steamGridDBApiKey &&
-      credentials.steamGridDBApiKey.trim() !== ''
-    );
-
     const rawgConfigured = true; // Provided by built-in fallback key
 
     return {
       igdbConfigured,
-      steamGridDBConfigured,
       rawgConfigured,
       allRequiredConfigured: true, // do not block flows
     };
@@ -48,7 +41,6 @@ export async function getAPIConfigurationStatus(): Promise<{
     console.error('Error checking API credentials:', error);
     return {
       igdbConfigured: false,
-      steamGridDBConfigured: false,
       rawgConfigured: true,
       allRequiredConfigured: true,
     };
