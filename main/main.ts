@@ -11,7 +11,7 @@ import { IGDBService } from './IGDBService.js';
 import { RAWGService } from './RAWGService.js';
 import { AppConfigService } from './AppConfigService.js';
 import { XboxService } from './XboxService.js';
-import { UserPreferencesService } from './UserPreferencesService.js';
+import { UserPreferencesService, type UserPreferences } from './UserPreferencesService.js';
 import { APICredentialsService } from './APICredentialsService.js';
 import { LauncherDetectionService } from './LauncherDetectionService.js';
 import { ImportService, type ScannedGameResult } from './ImportService.js';
@@ -418,9 +418,11 @@ async function createWindow() {
 
   // Load saved window state
   let windowState: { x?: number; y?: number; width?: number; height?: number; isMaximized?: boolean } | undefined;
+  let isFirstLaunch = true;
   try {
     const prefs = await userPreferencesService.getPreferences();
     windowState = prefs.windowState;
+    isFirstLaunch = prefs.isFirstLaunch !== false;
   } catch (error) {
     console.error('Error loading window state:', error);
   }
@@ -437,13 +439,13 @@ async function createWindow() {
     minWidth: 1280,
     minHeight: 720,
     backgroundColor: '#1a1a1a',
-    title: app.getName(), // Use app name (will be "Onyx Alpha" for alpha builds)
-    icon: appIcon, // Set the app icon
+    title: app.getName(),
+    icon: appIcon,
     webPreferences: {
       preload,
       nodeIntegration: false,
       contextIsolation: true,
-      webSecurity: true, // Keep security enabled, but ensure paths work
+      webSecurity: true,
     },
     titleBarStyle: 'hidden',
     titleBarOverlay: {
@@ -454,11 +456,64 @@ async function createWindow() {
     autoHideMenuBar: true,
     frame: true,
     resizable: true,
-    show: false, // Don't show initially if startClosedToTray is enabled
+    show: false,
   });
 
-  // Restore maximized state if it was maximized
-  if (windowState?.isMaximized) {
+  // Handle first launch: Maximize and set resolution-optimized defaults
+  if (isFirstLaunch) {
+    console.log('[First Launch] Detecting resolution and applying optimized defaults...');
+    const { screen } = require('electron');
+    const primaryDisplay = screen.getPrimaryDisplay();
+    const { width, height } = primaryDisplay.bounds;
+
+    win.maximize();
+
+    // Define optimized defaults based on resolution
+    let optimizedPrefs: Partial<UserPreferences> = {
+      isFirstLaunch: false,
+      windowState: {
+        x: 0,
+        y: 0,
+        width,
+        height,
+        isMaximized: true
+      }
+    };
+
+    if (width >= 3840) { // 4K
+      optimizedPrefs = {
+        ...optimizedPrefs,
+        gridSize: 220,
+        panelWidth: 1000,
+        panelWidthByView: { grid: 1000, list: 1000, logo: 1000 },
+        carouselLogoSize: 200,
+        logoViewSize: 300,
+      };
+    } else if (width >= 2560) { // 1440p
+      optimizedPrefs = {
+        ...optimizedPrefs,
+        gridSize: 160,
+        panelWidth: 900,
+        panelWidthByView: { grid: 900, list: 900, logo: 900 },
+        carouselLogoSize: 150,
+        logoViewSize: 250,
+      };
+    } else { // 1080p and below
+      optimizedPrefs = {
+        ...optimizedPrefs,
+        gridSize: 130,
+        panelWidth: 800,
+        panelWidthByView: { grid: 800, list: 800, logo: 800 },
+        carouselLogoSize: 120,
+        logoViewSize: 200,
+      };
+    }
+
+    // Save optimized preferences
+    userPreferencesService.savePreferences(optimizedPrefs).catch(err => {
+      console.error('[First Launch] Error saving optimized preferences:', err);
+    });
+  } else if (windowState?.isMaximized) {
     win.maximize();
   }
 
@@ -1416,41 +1471,98 @@ ipcMain.handle('gameStore:removeWinGDKGames', async () => {
 // Reset app handler - clears all data
 ipcMain.handle('app:reset', async () => {
   try {
-    // Clear all stores
+    console.log('[Reset] Starting comprehensive app reset...');
+
+    // 1. Clear browser storage data (LocalStorage, IndexedDB, Cache, etc.)
+    try {
+      if (session.defaultSession) {
+        await session.defaultSession.clearStorageData();
+        console.log('[Reset] Browser storage cleared');
+      }
+    } catch (storageError) {
+      console.warn('[Reset] Error clearing browser storage:', storageError);
+    }
+
+    // 2. Clear all in-memory stores (already reset their underlying json files)
     await gameStore.clearLibrary();
     await userPreferencesService.resetPreferences();
     await appConfigService.clearAppConfigs();
     await apiCredentialsService.clearCredentials();
     await steamAuthService.clearAuth();
 
-    // Clear cached images (both current and old cache directories)
+    // 3. Clear cached images
     await imageCacheService.clearCache();
 
-    // Also clear old cache directory if it exists (fallback location)
-    try {
-      const { readdirSync, unlinkSync } = require('node:fs');
-      const oldCacheDir = path.join(app.getPath('userData'), 'cache', 'images');
-      if (existsSync(oldCacheDir)) {
-        const files = readdirSync(oldCacheDir);
-        for (const file of files) {
-          const ext = path.extname(file).toLowerCase();
-          if (['.jpg', '.jpeg', '.png', '.gif', '.webp', '.webm'].includes(ext)) {
-            unlinkSync(path.join(oldCacheDir, file));
-          }
+    // 4. Thoroughly delete files/folders in userData
+    const { readdirSync, unlinkSync, rmSync } = require('node:fs');
+    const userDataPath = app.getPath('userData');
+
+    // Files to delete (configuration files)
+    const filesToClear = [
+      'game-library.json',
+      'user-preferences.json',
+      'app-configs.json',
+      'api-credentials.json',
+      'steam-auth.json',
+      'user-preferences.json.bak', // Fallbacks if they exist
+      'game-library.json.bak',
+    ];
+
+    for (const fileName of filesToClear) {
+      const filePath = path.join(userDataPath, fileName);
+      if (existsSync(filePath)) {
+        try {
+          unlinkSync(filePath);
+          console.log(`[Reset] Deleted config file: ${fileName}`);
+        } catch (err) {
+          console.warn(`[Reset] Could not delete ${fileName}:`, err);
         }
-        console.log('[Reset] Cleared old cache directory:', oldCacheDir);
       }
-    } catch (oldCacheError) {
-      // Non-fatal - old cache directory might not exist
-      console.warn('[Reset] Could not clear old cache directory:', oldCacheError);
     }
 
-    // Reinitialize services (will be null since credentials are cleared)
-    await initializeIGDBService();
-    await initializeSteamGridDBService();
-    await initializeRAWGService();
-    // Update metadata fetcher to remove providers that are no longer available
-    updateMetadataFetcher();
+    // Folders to delete
+    const foldersToClear = [
+      'logs',
+      'cache', // Old cache location
+      path.join('Cache'), // Electron standard cache
+      path.join('Code Cache'),
+      path.join('GPUCache'),
+      path.join('Local Storage'),
+      path.join('Session Storage'),
+      path.join('blob_storage'),
+      path.join('Network'),
+    ];
+
+    for (const folderName of foldersToClear) {
+      const folderPath = path.join(userDataPath, folderName);
+      if (existsSync(folderPath)) {
+        try {
+          rmSync(folderPath, { recursive: true, force: true });
+          console.log(`[Reset] Deleted folder: ${folderName}`);
+        } catch (err) {
+          console.warn(`[Reset] Could not delete folder ${folderName}:`, err);
+        }
+      }
+    }
+
+    // 5. Also clear the custom image cache directory (local app data on Windows)
+    try {
+      const customCacheDir = imageCacheService.getCacheDir();
+      if (existsSync(customCacheDir)) {
+        rmSync(customCacheDir, { recursive: true, force: true });
+        console.log(`[Reset] Deleted custom image cache: ${customCacheDir}`);
+      }
+    } catch (err) {
+      console.warn('[Reset] Could not delete custom image cache:', err);
+    }
+
+    console.log('[Reset] Comprehensive reset complete. Relaunching...');
+
+    // 6. Relaunch the app to ensure fresh state
+    setTimeout(() => {
+      app.relaunch();
+      app.exit(0);
+    }, 1000);
 
     return { success: true };
   } catch (error) {

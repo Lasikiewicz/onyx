@@ -23,6 +23,7 @@ import { ImportWorkbench } from './components/importer/ImportWorkbench';
 import { GameManager } from './components/GameManager';
 import { ConfirmationDialog } from './components/ConfirmationDialog';
 import { BugReportModal } from './components/BugReportModal';
+import { WelcomeScreen } from './components/WelcomeScreen';
 import { Game, ExecutableFile, GameMetadata } from './types/game';
 import { areAPIsConfigured } from './utils/apiValidation';
 
@@ -32,37 +33,37 @@ function App() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [launchingGameId, setLaunchingGameId] = useState<string | null>(null);
   const [runningGames, setRunningGames] = useState<Set<string>>(new Set());
-  
+
   // Scanning state
   const [, setIsScanningSteam] = useState(false);
-  
+
   // Folder scan state (for ImportWorkbench)
   const [importWorkbenchFolderPath, setImportWorkbenchFolderPath] = useState<string | undefined>(undefined);
-  
+
   // Metadata editor state
   const [isMetadataEditorOpen, setIsMetadataEditorOpen] = useState(false);
   const [selectedExecutable, setSelectedExecutable] = useState<ExecutableFile | null>(null);
-  
+
   // Steam config modal state
   const [isSteamConfigOpen, setIsSteamConfigOpen] = useState(false);
-  
+
   // REMOVED: Steam import modal state - All imports now use ImportWorkbench
   // const [isSteamImportOpen, setIsSteamImportOpen] = useState(false);
   const [scannedSteamGames, setScannedSteamGames] = useState<Array<any>>([]);
   const [importAppType, setImportAppType] = useState<'steam' | 'xbox' | 'other'>('steam');
-  
-  
+
+
   // Categories editor state
   const [isCategoriesEditorOpen, setIsCategoriesEditorOpen] = useState(false);
   const [editingCategoriesGame, setEditingCategoriesGame] = useState<Game | null>(null);
-  
+
   // Metadata search modal state
   const [isMetadataSearchOpen, setIsMetadataSearchOpen] = useState(false);
   const [fixingGame, setFixingGame] = useState<Game | null>(null);
-  
+
   // Toast notification state
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
-  
+
   // Search and view state
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState<'grid' | 'list' | 'logo' | 'carousel'>('grid');
@@ -243,7 +244,7 @@ function App() {
   // Save grid size when it changes (but not when auto-size is enabled)
   useEffect(() => {
     if (autoSizeToFit) return; // Don't save when auto-size is calculating
-    
+
     const saveGridSize = async () => {
       try {
         await window.electronAPI.savePreferences({ gridSize });
@@ -315,10 +316,10 @@ function App() {
   // Save appearance preferences when they change (but skip initial load)
   useEffect(() => {
     if (isInitialLoad) return; // Skip saving on initial load
-    
+
     const saveAppearancePrefs = async () => {
       try {
-        await window.electronAPI.savePreferences({ 
+        await window.electronAPI.savePreferences({
           hideGameTitles,
           gameTilePadding,
           backgroundBlur,
@@ -373,7 +374,7 @@ function App() {
       }
     });
   };
-  
+
   // Filter and sort state
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedLauncher, setSelectedLauncher] = useState<string | null>(null);
@@ -406,13 +407,13 @@ function App() {
     const newGamesHandler = (_event: any, data: { count: number; games: Array<any> }) => {
       setNewGamesNotification({ count: data.count, games: data.games });
     };
-    
+
     // Listen for new games found from background scan (all sources)
     const backgroundNewGamesHandler = (_event: any, data: { count: number; games: Array<any>; bySource?: Record<string, Array<any>> }) => {
       console.log('[App] Background scan found new games:', data);
       setNewGamesNotification({ count: data.count, games: data.games });
     };
-    
+
     if (window.ipcRenderer) {
       window.ipcRenderer.on('steam:newGamesFound', newGamesHandler);
       window.ipcRenderer.on('background:newGamesFound', backgroundNewGamesHandler);
@@ -445,14 +446,14 @@ function App() {
     setPinnedCategories(prev => {
       const updated = [...prev];
       let changed = false;
-      
+
       categoriesToAutoPin.forEach(category => {
         if (allCategories.includes(category) && !prev.includes(category)) {
           updated.push(category);
           changed = true;
         }
       });
-      
+
       return changed ? updated : prev;
     });
   }, [allCategories]);
@@ -504,7 +505,7 @@ function App() {
     if (game.id.startsWith('battle-') || game.id.startsWith('battlenet-')) {
       return 'battle';
     }
-    
+
     // Check source field
     if (game.source) {
       const source = game.source.toLowerCase();
@@ -516,7 +517,7 @@ function App() {
         return source;
       }
     }
-    
+
     // Check platform field (fallback)
     const platform = game.platform?.toLowerCase();
     if (platform === 'steam') {
@@ -543,7 +544,7 @@ function App() {
     if (platform === 'rockstar' || platform === 'rockstar games') {
       return 'rockstar';
     }
-    
+
     // Check installation directory as last resort
     if (game.installationDirectory) {
       const installPath = game.installationDirectory.toLowerCase();
@@ -558,7 +559,7 @@ function App() {
       if (installPath.includes('humble')) return 'humble';
       if (installPath.includes('itch')) return 'itch';
     }
-    
+
     return 'other';
   }, []);
 
@@ -582,14 +583,14 @@ function App() {
   // Filter games based on search, section, and category
   const filteredGames = useMemo(() => {
     let filtered = games;
-    
+
     // Filter by section
     if (activeSection === 'favorites') {
       filtered = filtered.filter(g => g.favorite);
     } else if (activeSection === 'recent') {
       filtered = filtered.filter(g => g.lastPlayed);
     }
-    
+
     // Filter by category or favorites
     if (selectedCategory === 'favorites') {
       filtered = filtered.filter(g => g.favorite === true);
@@ -597,16 +598,16 @@ function App() {
       // Show only hidden games when "Hidden" category is selected
       filtered = filtered.filter(g => g.hidden === true);
     } else if (selectedCategory) {
-      filtered = filtered.filter(g => 
+      filtered = filtered.filter(g =>
         g.categories?.includes(selectedCategory)
       );
     }
-    
+
     // Filter out hidden games by default (unless "Hidden" category is selected)
     if (selectedCategory !== 'hidden') {
       filtered = filtered.filter(g => g.hidden !== true);
     }
-    
+
     // Filter by launcher
     if (selectedLauncher) {
       filtered = filtered.filter(g => {
@@ -614,31 +615,31 @@ function App() {
         return gameLauncher === selectedLauncher;
       });
     }
-    
+
     // Filter out VR titles if hideVRTitles is enabled, but not if VR category is selected
     if (hideVRTitles && selectedCategory !== 'VR') {
-      filtered = filtered.filter(g => 
+      filtered = filtered.filter(g =>
         !g.categories?.includes('VR')
       );
     }
-    
+
     // Filter out Apps titles if hideAppsTitles is enabled, but not if Apps category is selected
     if (hideAppsTitles && selectedCategory !== 'Apps') {
-      filtered = filtered.filter(g => 
+      filtered = filtered.filter(g =>
         !g.categories?.includes('Apps')
       );
     }
-    
+
     // Filter by search query
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(g => 
+      filtered = filtered.filter(g =>
         g.title.toLowerCase().includes(query) ||
         g.genres?.some(genre => genre.toLowerCase().includes(query)) ||
         g.developers?.some(dev => dev.toLowerCase().includes(query))
       );
     }
-    
+
     // Sort games - pinned games always appear first
     filtered = [...filtered].sort((a, b) => {
       // First, sort by pinned status (pinned games first)
@@ -647,7 +648,7 @@ function App() {
       if (aPinned !== bPinned) {
         return bPinned - aPinned; // Pinned games first
       }
-      
+
       // Then sort by the selected criteria
       switch (sortBy) {
         case 'title':
@@ -668,7 +669,7 @@ function App() {
           return 0;
       }
     });
-    
+
     return filtered;
   }, [games, searchQuery, activeSection, selectedCategory, selectedLauncher, sortBy, hideVRTitles]);
 
@@ -684,13 +685,13 @@ function App() {
         setLaunchingGameId(null);
         return;
       }
-      
+
       // Game launched successfully
       // Wait a moment for the process to start, then mark as running
       setTimeout(() => {
         setLaunchingGameId(null);
         setRunningGames(prev => new Set(prev).add(game.id));
-        
+
         // For non-Steam games with PIDs, monitor the process
         if (result.pid) {
           monitorGameProcess(game.id, result.pid);
@@ -699,14 +700,14 @@ function App() {
           pollForGameProcess(game.id);
         }
       }, 1000); // Show "Launching..." for 1 second
-      
+
     } catch (error) {
       console.error('Error launching game:', error);
       alert(`Error launching game: ${error instanceof Error ? error.message : 'Unknown error'}`);
       setLaunchingGameId(null);
     }
   };
-  
+
   // Monitor game process and update state when it closes
   const monitorGameProcess = (gameId: string, pid: number) => {
     const checkInterval = setInterval(async () => {
@@ -728,15 +729,15 @@ function App() {
       }
     }, 2000); // Check every 2 seconds
   };
-  
+
   // Poll for game process for Steam games
   const pollForGameProcess = (gameId: string) => {
     let pollCount = 0;
     const maxPolls = 30; // Poll for up to 60 seconds (30 * 2s)
-    
+
     const checkInterval = setInterval(() => {
       pollCount++;
-      
+
       // After max polls, assume game closed
       if (pollCount > maxPolls) {
         clearInterval(checkInterval);
@@ -747,12 +748,12 @@ function App() {
         });
         return;
       }
-      
+
       // For now, just keep it running for a reasonable time
       // TODO: Implement actual process checking for Steam games
     }, 2000);
   };
-  
+
   // Helper to check if process is running
   const checkProcessRunning = async (pid: number): Promise<boolean> => {
     try {
@@ -778,63 +779,63 @@ function App() {
     const containerWidth = container.clientWidth;
     // Use the visible viewport height, not the scrollable container height
     const containerHeight = container.clientHeight; // This is the visible height
-    
+
     // Account for padding (p-4 = 16px on each side = 32px total)
     const horizontalPadding = 32;
     const verticalPadding = 32; // Top and bottom padding
     const availableWidth = containerWidth - horizontalPadding;
     const availableHeight = containerHeight - verticalPadding;
-    
+
     if (availableWidth <= 0 || availableHeight <= 0) {
       return;
     }
-    
+
     const totalGames = filteredGames.length;
     const gap = gameTilePadding;
-    
+
     // GameCard uses aspect-[2/3], so height = width * 1.5
     // We need to find the grid size that maximizes tile size while ensuring
     // the rightmost boxart gets as close as possible to the divider
-    
+
     let bestSize = 0;
 
     let bestRemainingWidth = Infinity;
-    
+
     // Try different column counts to find the one that fills the width best
     for (let columns = 1; columns <= 20; columns++) {
       // Calculate tile width based on available width
       const totalGapWidth = gap * (columns - 1);
       const tileWidth = (availableWidth - totalGapWidth) / columns;
-      
+
       if (tileWidth < 50) continue; // Too small, skip
-      
+
       // Calculate tile height (2:3 aspect ratio)
       const tileHeight = tileWidth * 1.5;
-      
+
       // Calculate how many rows we need to fit all games
       const rowsNeeded = Math.ceil(totalGames / columns);
-      
+
       // Calculate total height needed for all rows
       const totalHeightNeeded = (tileHeight * rowsNeeded) + (gap * (rowsNeeded - 1));
-      
+
       // Check if this configuration fits ALL games in the visible height
       if (totalHeightNeeded <= availableHeight) {
         // Calculate how much space this configuration uses
         const usedWidth = (tileWidth * columns) + (gap * (columns - 1));
         const remainingWidth = availableWidth - usedWidth;
-        
+
         // Prioritize configurations that minimize remaining width (fill more space)
         // Among those, prefer larger tile sizes
-        if (bestSize === 0 || 
-            remainingWidth < bestRemainingWidth ||
-            (Math.abs(remainingWidth - bestRemainingWidth) < 5 && tileWidth > bestSize)) {
+        if (bestSize === 0 ||
+          remainingWidth < bestRemainingWidth ||
+          (Math.abs(remainingWidth - bestRemainingWidth) < 5 && tileWidth > bestSize)) {
           bestSize = tileWidth;
 
           bestRemainingWidth = remainingWidth;
         }
       }
     }
-    
+
     // If we found a solution, use it
     if (bestSize > 0) {
       setGridSize(Math.round(bestSize));
@@ -843,15 +844,15 @@ function App() {
       // Start with a reasonable tile size and work backwards
       for (let testSize = 200; testSize >= 50; testSize -= 10) {
         const tileHeight = testSize * 1.5;
-        
+
         for (let columns = 1; columns <= 20; columns++) {
           const totalGapWidth = gap * (columns - 1);
           const tileWidth = (availableWidth - totalGapWidth) / columns;
-          
+
           if (Math.abs(tileWidth - testSize) < 10) { // Close match
             const rowsNeeded = Math.ceil(totalGames / columns);
             const totalHeightNeeded = (tileHeight * rowsNeeded) + (gap * (rowsNeeded - 1));
-            
+
             if (totalHeightNeeded <= availableHeight) {
               setGridSize(Math.round(tileWidth));
               return;
@@ -859,7 +860,7 @@ function App() {
           }
         }
       }
-      
+
       // Last resort: use a small size that should fit
       const minColumns = Math.ceil(Math.sqrt(totalGames));
       const totalGapWidth = gap * (minColumns - 1);
@@ -997,6 +998,34 @@ function App() {
     }
   };
 
+  const handleAddFolder = async (path: string, categories: string[]) => {
+    try {
+      // Create config with default name (folder basename)
+      const folderName = path.split(/[/\\]/).pop() || 'Manual Folder';
+      // Generate a simple ID from the path
+      const pathHash = btoa(path).replace(/[^a-zA-Z0-9]/g, '').substring(0, 16);
+      const folderId = `manual-${pathHash}`;
+
+      const newConfig = {
+        id: folderId,
+        name: folderName,
+        path: path,
+        enabled: true,
+        autoCategory: categories
+      };
+
+      if (window.electronAPI.saveManualFolderConfig) {
+        await window.electronAPI.saveManualFolderConfig(newConfig);
+        showToast(`Successfully added folder: ${folderName}`, 'success');
+        // Refresh library to pick up any games in the new folder
+        loadLibrary();
+      }
+    } catch (err) {
+      console.error('Error adding manual folder:', err);
+      showToast('Failed to add folder', 'error');
+    }
+  };
+
 
   const handleAddGame = async (game: Game) => {
     // Check if APIs are configured
@@ -1038,19 +1067,19 @@ function App() {
   // Handle Steam configuration scan
   const handleSteamConfigScan = async (steamPath?: string) => {
     setIsScanningSteam(true);
-    
+
     try {
       const beforeCount = games.length;
       const result = await window.electronAPI.scanGamesWithPath(steamPath);
-      
+
       if (result.success) {
         const updatedGames = await window.electronAPI.getLibrary();
         const afterCount = updatedGames.length;
         const newGamesCount = afterCount - beforeCount;
-        
+
         // Reload library to update UI
         await loadLibrary();
-        
+
         if (newGamesCount > 0) {
           showToast(`Library updated: ${newGamesCount} new ${newGamesCount === 1 ? 'game' : 'games'} found`, 'success');
         } else {
@@ -1170,14 +1199,14 @@ function App() {
   const handleExit = async () => {
     try {
       const exitInfo = await window.electronAPI.requestExit();
-      
+
       if (exitInfo.shouldMinimizeToTray && exitInfo.canMinimizeToTray) {
         // Show confirmation dialog asking if user wants to minimize to tray instead
         const shouldMinimize = window.confirm(
           'Do you want to minimize Onyx to the system tray instead of exiting?\n\n' +
           'Click OK to minimize to tray, or Cancel to exit.'
         );
-        
+
         if (shouldMinimize) {
           await window.electronAPI.minimizeToTray();
         } else {
@@ -1238,7 +1267,7 @@ function App() {
       )}
       {/* Background - Image or Color */}
       {backgroundMode === 'image' && backgroundImageUrl ? (
-        <div 
+        <div
           className="fixed inset-0 pointer-events-none"
           style={{
             backgroundImage: `url(${backgroundImageUrl})`,
@@ -1250,7 +1279,7 @@ function App() {
           }}
         />
       ) : (
-        <div 
+        <div
           className="fixed inset-0 pointer-events-none"
           style={{
             backgroundColor: backgroundColor,
@@ -1258,363 +1287,294 @@ function App() {
           }}
         />
       )}
-      
+
       {/* Aurora glow effect behind the top area */}
       <div className="absolute top-0 left-0 right-0 h-96 bg-blue-500/10 blur-[100px] pointer-events-none" style={{ zIndex: 1 }} />
-      
+
       {/* Content wrapper with proper z-index */}
       <div className="relative z-10 flex flex-col h-full">
-      {/* Menu Bar - Fixed at top */}
-      <MenuBar
-        onScanFolder={handleScanFolder}
-        onUpdateSteamLibrary={handleUpdateSteamLibrary}
-        onUpdateLibrary={handleUpdateSteamLibrary}
-        onGameManager={() => setIsGameManagerOpen(true)}
-        onConfigureSteam={() => setIsSteamConfigOpen(true)}
-        onOnyxSettings={() => {
-          setOnyxSettingsInitialTab('general');
-          setIsOnyxSettingsOpen(true);
-        }}
-        onAPISettings={() => {
-          setOnyxSettingsInitialTab('apis');
-          setIsOnyxSettingsOpen(true);
-        }}
-        onAbout={() => {
-          setOnyxSettingsInitialTab('about');
-          setIsOnyxSettingsOpen(true);
-        }}
-        onExit={handleExit}
-        onBugReport={() => setIsBugReportOpen(true)}
-        searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
-        selectedCategory={selectedCategory}
-        onCategoryChange={setSelectedCategory}
-        allCategories={allCategories}
-        pinnedCategories={pinnedCategories}
-        onTogglePinCategory={handleTogglePinCategory}
-        sortBy={sortBy}
-        onSortChange={setSortBy}
-        hasFavoriteGames={hasFavoriteGames}
-        hasVRCategory={hasVRCategory}
-        hasAppsCategory={hasAppsCategory}
-        hasHiddenGames={hasHiddenGames}
-        hideVRTitles={hideVRTitles}
-        hideAppsTitles={hideAppsTitles}
-        onToggleHideVRTitles={() => setHideVRTitles(prev => !prev)}
-        onToggleHideAppsTitles={() => setHideAppsTitles(prev => !prev)}
-        launchers={allLaunchers}
-        selectedLauncher={selectedLauncher}
-        onLauncherChange={setSelectedLauncher}
-        topBarPositions={topBarPositions}
-        onTopBarPositionsChange={async (positions) => {
-          setTopBarPositions(positions);
-          try {
-            await window.electronAPI.savePreferences({ topBarPositions: positions });
-          } catch (error) {
-            console.error('Error saving top bar positions:', error);
-          }
-        }}
-      />
-
-      {/* Top Bar - Hidden by default, shown when menu is open */}
-      {showTopBar && (
-        <TopBar
-          onSearch={setSearchQuery}
-          onRefresh={loadLibrary}
-          onFolder={() => handleScanFolder()}
-          onGridToggle={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')}
-          onSettings={() => setIsSteamConfigOpen(true)}
-          viewMode={viewMode}
-          notificationCount={0}
+        {/* Menu Bar - Fixed at top */}
+        <MenuBar
+          onScanFolder={handleScanFolder}
+          onUpdateSteamLibrary={handleUpdateSteamLibrary}
+          onUpdateLibrary={handleUpdateSteamLibrary}
+          onGameManager={() => setIsGameManagerOpen(true)}
+          onConfigureSteam={() => setIsSteamConfigOpen(true)}
+          onOnyxSettings={() => {
+            setOnyxSettingsInitialTab('general');
+            setIsOnyxSettingsOpen(true);
+          }}
+          onAPISettings={() => {
+            setOnyxSettingsInitialTab('apis');
+            setIsOnyxSettingsOpen(true);
+          }}
+          onAbout={() => {
+            setOnyxSettingsInitialTab('about');
+            setIsOnyxSettingsOpen(true);
+          }}
+          onExit={handleExit}
+          onBugReport={() => setIsBugReportOpen(true)}
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          selectedCategory={selectedCategory}
+          onCategoryChange={setSelectedCategory}
+          allCategories={allCategories}
+          pinnedCategories={pinnedCategories}
+          onTogglePinCategory={handleTogglePinCategory}
+          sortBy={sortBy}
+          onSortChange={setSortBy}
+          hasFavoriteGames={hasFavoriteGames}
+          hasVRCategory={hasVRCategory}
+          hasAppsCategory={hasAppsCategory}
+          hasHiddenGames={hasHiddenGames}
+          hideVRTitles={hideVRTitles}
+          hideAppsTitles={hideAppsTitles}
+          onToggleHideVRTitles={() => setHideVRTitles(prev => !prev)}
+          onToggleHideAppsTitles={() => setHideAppsTitles(prev => !prev)}
+          launchers={allLaunchers}
+          selectedLauncher={selectedLauncher}
+          onLauncherChange={setSelectedLauncher}
+          topBarPositions={topBarPositions}
+          onTopBarPositionsChange={async (positions) => {
+            setTopBarPositions(positions);
+            try {
+              await window.electronAPI.savePreferences({ topBarPositions: positions });
+            } catch (error) {
+              console.error('Error saving top bar positions:', error);
+            }
+          }}
         />
-      )}
 
-      {/* Main Content Area */}
-      <div className="flex-1 flex overflow-hidden relative pt-10">
-        {/* Left Panel - Game Library (flexible width, full width in carousel mode) */}
-        <div className={`flex flex-col overflow-hidden ${viewMode === 'carousel' ? 'w-full' : 'flex-1'}`}>
-          {/* Game Grid */}
-          <div 
-            ref={gridContainerRef}
-            className={`flex-1 overflow-y-auto relative z-10 ${viewMode === 'carousel' ? '' : 'p-4'}`}
-            onContextMenuCapture={(e) => {
-              // Capture-phase fallback: open menu on any non-card area before children stop propagation
-              const target = e.target as HTMLElement;
-              if (!target.closest('[data-game-card]')) {
-                e.preventDefault();
-                e.stopPropagation();
-                setGameContextMenu(null);
-                setRightClickMenu({ x: e.clientX, y: e.clientY });
-              }
-            }}
-            onContextMenu={(e) => {
-              const target = e.target as HTMLElement;
-              if (!target.closest('[data-game-card]')) {
-                e.preventDefault();
-                e.stopPropagation();
-                setGameContextMenu(null);
-                setRightClickMenu({ x: e.clientX, y: e.clientY });
-              }
-            }}
-          >
-            {loading && (
-              <div className="text-center py-8">
-                <p className="text-gray-100">Loading game library...</p>
-              </div>
-            )}
-            
-            {error && (
-              <div className="bg-red-900/20 border border-red-500 rounded p-4 mb-4">
-                <p className="text-red-300">Error: {error}</p>
-              </div>
-            )}
-            
-            {!loading && !error && (
-              <div className="h-full flex flex-col">
-                {filteredGames.length > 0 ? (
-                  <div className="flex-1 overflow-y-auto">
-                    {viewMode === 'grid' || viewMode === 'logo' ? (
-                      <LibraryGrid
-                        games={filteredGames}
-                        onReorder={handleReorder}
-                        onPlay={handlePlay}
-                        onGameClick={handleGameClick}
-                        onEdit={handleEditGame}
-                        onEditImages={handleEditImages}
-                        onEditCategories={handleEditCategories}
-                        onFavorite={handleToggleFavorite}
-                        onPin={handleTogglePin}
-                        onFixMatch={handleFixMatch}
-                        onHide={handleHideGame}
-                        onUnhide={handleUnhideGame}
-                        isHiddenView={selectedCategory === 'hidden'}
-                        gridSize={gridSize}
-                        logoSize={logoSize}
-                        onGridSizeChange={setGridSize}
-                        gameTilePadding={gameTilePadding}
-                        hideGameTitles={hideGameTitles}
-                        showLogoOverBoxart={showLogoOverBoxart}
-                        logoPosition={logoPosition}
-                        useLogosInsteadOfBoxart={viewMode === 'logo'}
-                        autoSizeToFit={autoSizeToFit}
-                        logoBackgroundColor={logoBackgroundColor}
-                        logoBackgroundOpacity={logoBackgroundOpacity}
-                        descriptionSize={gridDescriptionSize}
-                        onGameContextMenu={(game: Game, x: number, y: number) => {
-                          setRightClickMenu(null);
-                          setGameContextMenu({ game, x, y });
-                        }}
-                        onEmptySpaceClick={(x: number, y: number) => {
-                          setGameContextMenu(null);
-                          setRightClickMenu({ x, y });
-                        }}
-                        viewMode={viewMode as 'grid' | 'logo'}
-                      />
-                    ) : viewMode === 'carousel' ? (
-                      <LibraryCarousel
-                        games={filteredGames}
-                        onPlay={handlePlay}
-                        onGameClick={handleGameClick}
-                        onEdit={handleEditGame}
-                        onEditImages={handleEditImages}
-                        onEditCategories={handleEditCategories}
-                        onFavorite={handleToggleFavorite}
-                        onPin={handleTogglePin}
-                        onFixMatch={handleFixMatch}
-                        onHide={handleHideGame}
-                        onUnhide={handleUnhideGame}
-                        isHiddenView={selectedCategory === 'hidden'}
-                        activeGameId={activeGameId}
-                        selectedBoxArtSize={selectedBoxArtSize}
-                        gameTilePadding={carouselGameTilePadding}
-                        showCarouselDetails={showCarouselDetails}
-                        showCarouselLogos={showCarouselLogos}
-                        detailsBarSize={detailsBarSize}
-                        onDetailsBarSizeChange={(size) => {
-                          setDetailsBarSize(size);
-                          window.electronAPI.savePreferences({ detailsBarSize: size });
-                        }}
-                        carouselLogoSize={carouselLogoSize}
-                        onCarouselLogoSizeChange={(size) => {
-                          setCarouselLogoSize(size);
-                          window.electronAPI.savePreferences({ carouselLogoSize: size });
-                        }}
-                        carouselButtonSize={carouselButtonSize}
-                        onCarouselButtonSizeChange={(size) => {
-                          setCarouselButtonSize(size);
-                          window.electronAPI.savePreferences({ carouselButtonSize: size });
-                        }}
-                        carouselDescriptionSize={carouselDescriptionSize}
-                        onCarouselDescriptionSizeChange={(size) => {
-                          setCarouselDescriptionSize(size);
-                          window.electronAPI.savePreferences({ carouselDescriptionSize: size });
-                        }}
-                        onEmptySpaceRightClick={(x, y) => {
-                          setGameContextMenu(null);
-                          setRightClickMenu({ x, y });
-                        }}
-                      />
-                    ) : (
-                      <LibraryListView
-                        games={filteredGames}
-                        onPlay={handlePlay}
-                        onGameClick={handleGameClick}
-                        onEdit={handleEditGame}
-                        onEditImages={handleEditImages}
-                        onEditCategories={handleEditCategories}
-                        onFavorite={handleToggleFavorite}
-                        onPin={handleTogglePin}
-                        onFixMatch={handleFixMatch}
-                        onHide={handleHideGame}
-                        onUnhide={handleUnhideGame}
-                        isHiddenView={selectedCategory === 'hidden'}
-                        hideGameTitles={hideGameTitles}
-                        listViewOptions={listViewOptions}
-                        listViewSize={listViewSize}
-                        onEmptySpaceClick={(x, y) => {
-                          setGameContextMenu(null);
-                          setRightClickMenu({ x, y });
-                        }}
-                      />
-                    )}
-                  </div>
-                ) : (
-                  <div className="text-center py-12 px-4">
-                    <div className="max-w-2xl mx-auto">
-                      <p className="text-gray-100 mb-8 text-xl font-semibold">No games found.</p>
-                      
-                      <div className="bg-gray-700/30 border border-gray-600 rounded-lg p-6 text-left">
-                        <p className="text-gray-300 text-sm mb-6 text-center">
-                          Get started by following these steps:
-                        </p>
-                        
-                        {/* Step Process */}
-                        <div className="space-y-4">
-                          {/* Step 1: APIs */}
-                          <button
-                            onClick={() => {
-                              setOnyxSettingsInitialTab('apis');
-                              setIsOnyxSettingsOpen(true);
-                            }}
-                            className="w-full flex items-center gap-4 px-4 py-4 bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/50 rounded-lg transition-colors group"
-                          >
-                            <div className="flex-shrink-0 w-10 h-10 rounded-full bg-blue-600/30 border-2 border-blue-500/50 flex items-center justify-center text-blue-300 font-semibold">
-                              1
-                            </div>
-                            <div className="flex-1 text-left">
-                              <p className="text-blue-300 font-medium text-sm mb-1">Step 1: APIs</p>
-                              <p className="text-gray-400 text-xs">Configure API credentials for better game metadata and images</p>
-                            </div>
-                            <svg className="w-5 h-5 text-blue-400 group-hover:translate-x-1 transition-transform flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                            </svg>
-                          </button>
-                          
-                          {/* Step 2: Configure Apps */}
-                          <button
-                            onClick={() => {
-                              setOnyxSettingsInitialTab('apps');
-                              setIsOnyxSettingsOpen(true);
-                            }}
-                            className="w-full flex items-center gap-4 px-4 py-4 bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/50 rounded-lg transition-colors group"
-                          >
-                            <div className="flex-shrink-0 w-10 h-10 rounded-full bg-blue-600/30 border-2 border-blue-500/50 flex items-center justify-center text-blue-300 font-semibold">
-                              2
-                            </div>
-                            <div className="flex-1 text-left">
-                              <p className="text-blue-300 font-medium text-sm mb-1">Step 2: Configure Apps</p>
-                              <p className="text-gray-400 text-xs">Set up Steam, Xbox, and other game launchers</p>
-                            </div>
-                            <svg className="w-5 h-5 text-blue-400 group-hover:translate-x-1 transition-transform flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                            </svg>
-                          </button>
-                          
-                          {/* Step 3: Game Importer */}
-                          <button
-                            onClick={() => {
-                              setIsImportWorkbenchOpen(true);
-                            }}
-                            className="w-full flex items-center gap-4 px-4 py-4 bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/50 rounded-lg transition-colors group"
-                          >
-                            <div className="flex-shrink-0 w-10 h-10 rounded-full bg-blue-600/30 border-2 border-blue-500/50 flex items-center justify-center text-blue-300 font-semibold">
-                              3
-                            </div>
-                            <div className="flex-1 text-left">
-                              <p className="text-blue-300 font-medium text-sm mb-1">Step 3: Game Importer</p>
-                              <p className="text-gray-400 text-xs">Import and manage your games from various sources</p>
-                            </div>
-                            <svg className="w-5 h-5 text-blue-400 group-hover:translate-x-1 transition-transform flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                            </svg>
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Right Panel - Game Details (hidden in carousel mode) */}
-        {viewMode !== 'carousel' && (
-          <GameDetailsPanel 
-            game={activeGame}
-            isLaunching={launchingGameId === activeGame?.id}
-            isRunning={activeGame ? runningGames.has(activeGame.id) : false}
-            onPlay={handlePlay} 
-            onSaveGame={handleSaveGame}
-            onUpdateGameInState={updateGameInState}
+        {/* Top Bar - Hidden by default, shown when menu is open */}
+        {showTopBar && (
+          <TopBar
+            onSearch={setSearchQuery}
+            onRefresh={loadLibrary}
+            onFolder={() => handleScanFolder()}
+            onGridToggle={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')}
+            onSettings={() => setIsSteamConfigOpen(true)}
             viewMode={viewMode}
-            onOpenInGameManager={(game, tab) => {
-              setGameManagerInitialGameId(game.id);
-              setGameManagerInitialTab(tab);
-              setIsGameManagerOpen(true);
-            }}
-            onFavorite={handleToggleFavorite}
-            onEdit={handleEditGame}
-            onEditImages={handleEditImages}
-            onEditCategories={handleEditCategories}
-            onPin={handleTogglePin}
-            onFixMatch={handleFixMatch}
-            onHide={handleHideGame}
-            onUnhide={handleUnhideGame}
-            isHiddenView={selectedCategory === 'hidden'}
-            onRightClick={(x, y) => {
-              setGameContextMenu(null);
-              setRightClickMenu({ x, y });
-            }}
-            panelWidth={currentPanelWidth}
-            onPanelWidthChange={(width) => {
-              setPanelWidth(width);
-              const newByView = { ...panelWidthByViewState, [viewMode]: width };
-              setPanelWidthByViewState(newByView);
-              window.electronAPI.savePreferences({ panelWidthByView: newByView });
-            }}
-            rightPanelLogoSize={rightPanelLogoSize}
-            rightPanelBoxartPosition={rightPanelBoxartPosition}
-            rightPanelBoxartSize={rightPanelBoxartSize}
-            rightPanelTextSize={rightPanelTextSize}
-            rightPanelButtonSize={rightPanelButtonSize}
-            rightPanelButtonLocation={rightPanelButtonLocation}
-            detailsPanelOpacity={detailsPanelOpacity}
-            fanartHeight={currentFanartHeight}
-            onFanartHeightChange={(height) => {
-              const newByView = { ...fanartHeightByView, [viewMode]: height };
-              setFanartHeightByView(newByView);
-              window.electronAPI.savePreferences({ fanartHeightByView: newByView });
-            }}
-            descriptionWidth={currentDescriptionWidth}
-            onDescriptionWidthChange={(width) => {
-              const newByView = { ...descriptionWidthByView, [viewMode]: width };
-              setDescriptionWidthByView(newByView);
-              window.electronAPI.savePreferences({ descriptionWidthByView: newByView });
-            }}
+            notificationCount={0}
           />
         )}
-      </div>
+
+        {/* Main Content Area */}
+        <div className="flex-1 flex overflow-hidden relative pt-10">
+          {/* Left Panel - Game Library (flexible width, full width in carousel mode) */}
+          <div className={`flex flex-col overflow-hidden ${viewMode === 'carousel' ? 'w-full' : 'flex-1'}`}>
+            {/* Game Grid */}
+            <div
+              ref={gridContainerRef}
+              className={`flex-1 overflow-y-auto relative z-10 ${viewMode === 'carousel' ? '' : 'p-4'}`}
+              onContextMenuCapture={(e) => {
+                // Capture-phase fallback: open menu on any non-card area before children stop propagation
+                const target = e.target as HTMLElement;
+                if (!target.closest('[data-game-card]')) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setGameContextMenu(null);
+                  setRightClickMenu({ x: e.clientX, y: e.clientY });
+                }
+              }}
+              onContextMenu={(e) => {
+                const target = e.target as HTMLElement;
+                if (!target.closest('[data-game-card]')) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setGameContextMenu(null);
+                  setRightClickMenu({ x: e.clientX, y: e.clientY });
+                }
+              }}
+            >
+              {loading && (
+                <div className="text-center py-8">
+                  <p className="text-gray-100">Loading game library...</p>
+                </div>
+              )}
+
+              {error && (
+                <div className="bg-red-900/20 border border-red-500 rounded p-4 mb-4">
+                  <p className="text-red-300">Error: {error}</p>
+                </div>
+              )}
+
+              {!loading && !error && (
+                <div className="h-full flex flex-col">
+                  {filteredGames.length > 0 ? (
+                    <div className="flex-1 overflow-y-auto">
+                      {viewMode === 'grid' || viewMode === 'logo' ? (
+                        <LibraryGrid
+                          games={filteredGames}
+                          onReorder={handleReorder}
+                          onPlay={handlePlay}
+                          onGameClick={handleGameClick}
+                          onEdit={handleEditGame}
+                          onEditImages={handleEditImages}
+                          onEditCategories={handleEditCategories}
+                          onFavorite={handleToggleFavorite}
+                          onPin={handleTogglePin}
+                          onFixMatch={handleFixMatch}
+                          onHide={handleHideGame}
+                          onUnhide={handleUnhideGame}
+                          isHiddenView={selectedCategory === 'hidden'}
+                          gridSize={gridSize}
+                          logoSize={logoSize}
+                          onGridSizeChange={setGridSize}
+                          gameTilePadding={gameTilePadding}
+                          hideGameTitles={hideGameTitles}
+                          showLogoOverBoxart={showLogoOverBoxart}
+                          logoPosition={logoPosition}
+                          useLogosInsteadOfBoxart={viewMode === 'logo'}
+                          autoSizeToFit={autoSizeToFit}
+                          logoBackgroundColor={logoBackgroundColor}
+                          logoBackgroundOpacity={logoBackgroundOpacity}
+                          descriptionSize={gridDescriptionSize}
+                          onGameContextMenu={(game: Game, x: number, y: number) => {
+                            setRightClickMenu(null);
+                            setGameContextMenu({ game, x, y });
+                          }}
+                          onEmptySpaceClick={(x: number, y: number) => {
+                            setGameContextMenu(null);
+                            setRightClickMenu({ x, y });
+                          }}
+                          viewMode={viewMode as 'grid' | 'logo'}
+                        />
+                      ) : viewMode === 'carousel' ? (
+                        <LibraryCarousel
+                          games={filteredGames}
+                          onPlay={handlePlay}
+                          onGameClick={handleGameClick}
+                          onEdit={handleEditGame}
+                          onEditImages={handleEditImages}
+                          onEditCategories={handleEditCategories}
+                          onFavorite={handleToggleFavorite}
+                          onPin={handleTogglePin}
+                          onFixMatch={handleFixMatch}
+                          onHide={handleHideGame}
+                          onUnhide={handleUnhideGame}
+                          isHiddenView={selectedCategory === 'hidden'}
+                          activeGameId={activeGameId}
+                          selectedBoxArtSize={selectedBoxArtSize}
+                          gameTilePadding={carouselGameTilePadding}
+                          showCarouselDetails={showCarouselDetails}
+                          showCarouselLogos={showCarouselLogos}
+                          detailsBarSize={detailsBarSize}
+                          onDetailsBarSizeChange={(size) => {
+                            setDetailsBarSize(size);
+                            window.electronAPI.savePreferences({ detailsBarSize: size });
+                          }}
+                          carouselLogoSize={carouselLogoSize}
+                          onCarouselLogoSizeChange={(size) => {
+                            setCarouselLogoSize(size);
+                            window.electronAPI.savePreferences({ carouselLogoSize: size });
+                          }}
+                          carouselButtonSize={carouselButtonSize}
+                          onCarouselButtonSizeChange={(size) => {
+                            setCarouselButtonSize(size);
+                            window.electronAPI.savePreferences({ carouselButtonSize: size });
+                          }}
+                          carouselDescriptionSize={carouselDescriptionSize}
+                          onCarouselDescriptionSizeChange={(size) => {
+                            setCarouselDescriptionSize(size);
+                            window.electronAPI.savePreferences({ carouselDescriptionSize: size });
+                          }}
+                          onEmptySpaceRightClick={(x, y) => {
+                            setGameContextMenu(null);
+                            setRightClickMenu({ x, y });
+                          }}
+                        />
+                      ) : (
+                        <LibraryListView
+                          games={filteredGames}
+                          onPlay={handlePlay}
+                          onGameClick={handleGameClick}
+                          onEdit={handleEditGame}
+                          onEditImages={handleEditImages}
+                          onEditCategories={handleEditCategories}
+                          onFavorite={handleToggleFavorite}
+                          onPin={handleTogglePin}
+                          onFixMatch={handleFixMatch}
+                          onHide={handleHideGame}
+                          onUnhide={handleUnhideGame}
+                          isHiddenView={selectedCategory === 'hidden'}
+                          hideGameTitles={hideGameTitles}
+                          listViewOptions={listViewOptions}
+                          listViewSize={listViewSize}
+                          onEmptySpaceClick={(x, y) => {
+                            setGameContextMenu(null);
+                            setRightClickMenu({ x, y });
+                          }}
+                        />
+                      )}
+                    </div>
+                  ) : (
+                    <WelcomeScreen
+                      onScanGames={() => setIsImportWorkbenchOpen(true)}
+                      onAddFolder={handleAddFolder}
+                    />
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Right Panel - Game Details (hidden in carousel mode and when no games exist) */}
+          {viewMode !== 'carousel' && filteredGames.length > 0 && (
+            <GameDetailsPanel
+              game={activeGame}
+              isLaunching={launchingGameId === activeGame?.id}
+              isRunning={activeGame ? runningGames.has(activeGame.id) : false}
+              onPlay={handlePlay}
+              onSaveGame={handleSaveGame}
+              onUpdateGameInState={updateGameInState}
+              viewMode={viewMode}
+              onOpenInGameManager={(game, tab) => {
+                setGameManagerInitialGameId(game.id);
+                setGameManagerInitialTab(tab);
+                setIsGameManagerOpen(true);
+              }}
+              onFavorite={handleToggleFavorite}
+              onEdit={handleEditGame}
+              onEditImages={handleEditImages}
+              onEditCategories={handleEditCategories}
+              onPin={handleTogglePin}
+              onFixMatch={handleFixMatch}
+              onHide={handleHideGame}
+              onUnhide={handleUnhideGame}
+              isHiddenView={selectedCategory === 'hidden'}
+              onRightClick={(x, y) => {
+                setGameContextMenu(null);
+                setRightClickMenu({ x, y });
+              }}
+              panelWidth={currentPanelWidth}
+              onPanelWidthChange={(width) => {
+                setPanelWidth(width);
+                const newByView = { ...panelWidthByViewState, [viewMode]: width };
+                setPanelWidthByViewState(newByView);
+                window.electronAPI.savePreferences({ panelWidthByView: newByView });
+              }}
+              rightPanelLogoSize={rightPanelLogoSize}
+              rightPanelBoxartPosition={rightPanelBoxartPosition}
+              rightPanelBoxartSize={rightPanelBoxartSize}
+              rightPanelTextSize={rightPanelTextSize}
+              rightPanelButtonSize={rightPanelButtonSize}
+              rightPanelButtonLocation={rightPanelButtonLocation}
+              detailsPanelOpacity={detailsPanelOpacity}
+              fanartHeight={currentFanartHeight}
+              onFanartHeightChange={(height) => {
+                const newByView = { ...fanartHeightByView, [viewMode]: height };
+                setFanartHeightByView(newByView);
+                window.electronAPI.savePreferences({ fanartHeightByView: newByView });
+              }}
+              descriptionWidth={currentDescriptionWidth}
+              onDescriptionWidthChange={(width) => {
+                const newByView = { ...descriptionWidthByView, [viewMode]: width };
+                setDescriptionWidthByView(newByView);
+                window.electronAPI.savePreferences({ descriptionWidthByView: newByView });
+              }}
+            />
+          )}
+        </div>
       </div>
 
       {/* Add Game Modal */}
@@ -1798,7 +1758,7 @@ function App() {
             game.logoUrl !== oldGame.logoUrl ||
             game.heroUrl !== oldGame.heroUrl
           );
-          
+
           if (isImageUpdate) {
             // Update the game in state without reloading - this updates the main app immediately
             updateGameInState(game);
@@ -2015,11 +1975,10 @@ function App() {
       {toast && (
         <div className="fixed bottom-20 left-1/2 transform -translate-x-1/2 z-50 animate-in slide-in-from-bottom-5">
           <div
-            className={`px-6 py-3 rounded-lg shadow-xl flex items-center gap-3 ${
-              toast.type === 'success'
-                ? 'bg-green-600 text-white'
-                : 'bg-red-600 text-white'
-            }`}
+            className={`px-6 py-3 rounded-lg shadow-xl flex items-center gap-3 ${toast.type === 'success'
+              ? 'bg-green-600 text-white'
+              : 'bg-red-600 text-white'
+              }`}
           >
             <div className="flex-1">{toast.message}</div>
             <button
@@ -2068,8 +2027,8 @@ function App() {
                   // Open ImportWorkbench with the new games
                   // Determine app type from the games (use 'other' for mixed sources)
                   const sources = new Set(newGamesNotification.games.map((g: any) => g.source));
-                  const appType = sources.size === 1 && sources.has('steam') ? 'steam' : 
-                                 sources.size === 1 && sources.has('xbox') ? 'xbox' : 'other';
+                  const appType = sources.size === 1 && sources.has('steam') ? 'steam' :
+                    sources.size === 1 && sources.has('xbox') ? 'xbox' : 'other';
                   setScannedSteamGames(newGamesNotification.games);
                   setImportAppType(appType);
                   setIsImportWorkbenchOpen(true);

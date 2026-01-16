@@ -23,6 +23,15 @@
 4. ✅ **Understand project structure** - Know where files are located
 5. ✅ **Check existing documentation** - Review related .md files if applicable
 
+> [!CAUTION]
+> **ONYX WILL NOT LOAD IN A STANDARD BROWSER**
+> 
+> This is an Electron application that requires native APIs (`window.electron`, `window.electronAPI`) to function. Attempting to open `http://localhost:5173` or `http://localhost:5174` in Chrome, Firefox, or any standard browser will result in crashes and errors.
+> 
+> **ALWAYS use `npm run electron:dev` to run and test the application.**
+> 
+> Do not attempt to verify UI changes using browser tools - the app will not render correctly outside of Electron.
+
 **Before ANY git operations (commit, push, pull):**
 6. ✅ **STOP - ASK FOR PERMISSION FIRST** - Do not proceed without explicit user approval
 7. ✅ **Show what will change** - List all files, commit message, branches affected

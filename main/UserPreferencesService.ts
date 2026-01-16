@@ -109,6 +109,7 @@ export interface UserPreferences {
     launcher?: 'left' | 'middle' | 'right';
     categories?: 'left' | 'middle' | 'right';
   };
+  isFirstLaunch?: boolean;
 }
 
 interface UserPreferencesSchema {
@@ -207,6 +208,7 @@ export class UserPreferencesService {
             enableSuspendFeature: false, // Opt-in by default
             suspendShortcut: 'Ctrl+Shift+S', // Default shortcut
             detailsPanelOpacity: 80,
+            isFirstLaunch: true,
           },
         },
       });
@@ -304,6 +306,7 @@ export class UserPreferencesService {
       enableSuspendFeature: false, // Opt-in by default
       suspendShortcut: 'Ctrl+Shift+S',
       detailsPanelOpacity: 0,
+      isFirstLaunch: true,
     });
   }
 
@@ -325,13 +328,13 @@ export class UserPreferencesService {
       startClosedToTray: false,
       updateLibrariesOnStartup: false,
       activeGameId: null,
-            hideVRTitles: true,
-            hideGameTitles: true,
-            gameTilePadding: 10,
-            showLogoOverBoxart: false,
-            logoPosition: 'middle',
-            backgroundBlur: 0,
-            backgroundMode: 'image',
+      hideVRTitles: true,
+      hideGameTitles: true,
+      gameTilePadding: 10,
+      showLogoOverBoxart: false,
+      logoPosition: 'middle',
+      backgroundBlur: 0,
+      backgroundMode: 'image',
       backgroundColor: '#000000',
       viewMode: 'grid',
       listViewOptions: {
@@ -386,6 +389,7 @@ export class UserPreferencesService {
       rightPanelButtonSize: 13,
       rightPanelButtonLocation: 'right',
       detailsPanelOpacity: 0,
+      isFirstLaunch: true,
     });
     store.set('preferences', { ...current, ...preferences });
   }
@@ -408,13 +412,13 @@ export class UserPreferencesService {
       startClosedToTray: false,
       updateLibrariesOnStartup: false,
       activeGameId: null,
-            hideVRTitles: true,
-            hideGameTitles: true,
-            gameTilePadding: 10,
-            showLogoOverBoxart: false,
-            logoPosition: 'middle',
-            backgroundBlur: 0,
-            backgroundMode: 'image',
+      hideVRTitles: true,
+      hideGameTitles: true,
+      gameTilePadding: 10,
+      showLogoOverBoxart: false,
+      logoPosition: 'middle',
+      backgroundBlur: 0,
+      backgroundMode: 'image',
       backgroundColor: '#000000',
       viewMode: 'grid',
       listViewOptions: {
@@ -470,6 +474,7 @@ export class UserPreferencesService {
       rightPanelButtonSize: 13,
       rightPanelButtonLocation: 'right',
       detailsPanelOpacity: 0,
+      isFirstLaunch: true,
     });
   }
 }
