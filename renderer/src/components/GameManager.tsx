@@ -74,15 +74,15 @@ export const GameManager: React.FC<GameManagerProps> = ({
   const [shouldSelectFirstGameAfterRefresh, setShouldSelectFirstGameAfterRefresh] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  
+
   // Helper function to handle refresh with continuation support
   const handleRefreshMetadata = async (mode: 'all' | 'missing', continueFromIndex: number = 0) => {
     try {
-      const result = await window.electronAPI.refreshAllMetadata({ 
+      const result = await window.electronAPI.refreshAllMetadata({
         allGames: mode === 'all',
         continueFromIndex: continueFromIndex
       });
-      
+
       if (result.success) {
         // Check if there are unmatched games
         if (result.unmatchedGames && result.unmatchedGames.length > 0) {
@@ -104,10 +104,10 @@ export const GameManager: React.FC<GameManagerProps> = ({
             setError(`Refresh completed but ${result.missingBoxartGames.length} game(s) are missing boxart. Please select boxart for these games.`);
             return; // Stop here to show the boxart fix dialog
           }
-          
+
           if (result.count === 0) {
-            setSuccess(mode === 'all' 
-              ? 'No games were refreshed.' 
+            setSuccess(mode === 'all'
+              ? 'No games were refreshed.'
               : 'No games found with missing images. All games already have metadata.');
             setTimeout(() => {
               setRefreshProgress(null);
@@ -120,7 +120,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
               // Refresh completed but some games are missing boxart
               setError(`Refresh completed but ${result.missingBoxartGames?.length || 0} game(s) are missing boxart. Please select boxart for these games.`);
             }
-            
+
             if (onReloadLibrary) {
               setRefreshProgress({
                 current: result.count,
@@ -176,11 +176,11 @@ export const GameManager: React.FC<GameManagerProps> = ({
   useEffect(() => {
     if (selectedGame && editedGame && selectedGame.id === editedGame.id) {
       // Only update if the image URLs have actually changed
-      const hasChanges = 
+      const hasChanges =
         selectedGame.boxArtUrl !== editedGame.boxArtUrl ||
         selectedGame.bannerUrl !== editedGame.bannerUrl ||
         selectedGame.logoUrl !== editedGame.logoUrl;
-      
+
       if (hasChanges) {
         setEditedGame({ ...selectedGame });
       }
@@ -203,7 +203,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
 
     if (window.ipcRenderer) {
       window.ipcRenderer.on('metadata:refreshProgress', handleProgress);
-      
+
       return () => {
         window.ipcRenderer?.off('metadata:refreshProgress', handleProgress);
       };
@@ -236,49 +236,49 @@ export const GameManager: React.FC<GameManagerProps> = ({
       setLocalGames(prevLocalGames => {
         const currentSelectedGame = prevLocalGames.find(g => g.id === selectedGameId);
         const newSelectedGame = games.find(g => g.id === selectedGameId);
-        
+
         if (currentSelectedGame && newSelectedGame) {
           // Check if the game data actually changed before updating
           const gameChanged = JSON.stringify(currentSelectedGame) !== JSON.stringify(newSelectedGame);
-          
+
           if (gameChanged) {
             // Update the specific game in localGames without replacing the whole array
             const updatedGames = prevLocalGames.map(g => g.id === selectedGameId ? newSelectedGame : g);
-            
+
             // Only update editedGame if it matches the selected game and hasn't been manually modified
             // Use functional update to access current editedGame state
             setEditedGame(prevEditedGame => {
               if (!prevEditedGame || prevEditedGame.id !== selectedGameId) {
                 return prevEditedGame; // Don't update if not the selected game
               }
-              
+
               // Check if key fields changed
-              const keyFieldsChanged = 
+              const keyFieldsChanged =
                 currentSelectedGame.title !== newSelectedGame.title ||
                 currentSelectedGame.description !== newSelectedGame.description ||
                 currentSelectedGame.boxArtUrl !== newSelectedGame.boxArtUrl;
-              
+
               if (keyFieldsChanged) {
                 // Only update if the editedGame matches the old game state (not manually modified)
                 if (prevEditedGame.title === currentSelectedGame.title &&
-                    prevEditedGame.description === currentSelectedGame.description) {
+                  prevEditedGame.description === currentSelectedGame.description) {
                   return { ...newSelectedGame };
                 }
               }
-              
+
               return prevEditedGame; // Keep current editedGame if manually modified
             });
-            
+
             return updatedGames;
           }
-          
+
           return prevLocalGames; // No change, return previous state
         } else {
           // Full sync only if selected game is not found (game was deleted)
           return games;
         }
       });
-      
+
       // If we should select first game after refresh, do it now that games are updated
       if (shouldSelectFirstGameAfterRefresh && games.length > 0) {
         const firstGame = games[0];
@@ -367,7 +367,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
 
     const steamAppId = getSteamAppId();
     const query = imageSearchQuery.trim() || selectedGame.title.trim();
-    
+
     // If we have a Steam App ID, fetch official Steam images first
     if (steamAppId) {
       setIsSearchingImages(true);
@@ -468,13 +468,13 @@ export const GameManager: React.FC<GameManagerProps> = ({
                 filteredIGDBResults.sort((a, b) => {
                   const aName = (a.name || '').toLowerCase().trim();
                   const bName = (b.name || '').toLowerCase().trim();
-                  
+
                   const aExact = aName === normalizedQuery;
                   const bExact = bName === normalizedQuery;
-                  
+
                   if (aExact && !bExact) return -1;
                   if (!aExact && bExact) return 1;
-                  
+
                   // If both or neither are exact, sort by release date (newest first)
                   if (aExact === bExact) {
                     const aDate = a.releaseDate ? (typeof a.releaseDate === 'number' ? a.releaseDate : new Date(a.releaseDate).getTime()) : 0;
@@ -483,7 +483,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
                       return bDate - aDate; // Newest first
                     }
                   }
-                  
+
                   return 0; // Keep original order for non-exact matches
                 });
                 // Update results immediately as they come in
@@ -497,7 +497,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
           })
         );
       }
-      
+
       // Search SteamGridDB for the specific image type
       searchPromises.push(
         window.electronAPI.searchImages(query, imageType, steamAppId).then((sgdbResponse: any) => {
@@ -507,7 +507,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
               gameResult.images.forEach((img: any) => {
                 // Check if this is an official Steam image (high score and specific naming)
                 const isOfficialSteam = img.score >= 1000 || gameResult.gameName?.includes('Official Steam');
-                
+
                 flattenedResults.push({
                   id: gameResult.gameId,
                   name: gameResult.gameName,
@@ -532,16 +532,16 @@ export const GameManager: React.FC<GameManagerProps> = ({
               const bIsSteam = b.source === 'steam';
               if (aIsSteam && !bIsSteam) return -1;
               if (!aIsSteam && bIsSteam) return 1;
-              
+
               // Then check for exact match
               const aName = a.name?.toLowerCase().trim() || '';
               const bName = b.name?.toLowerCase().trim() || '';
               const aExact = aName === normalizedQuery;
               const bExact = bName === normalizedQuery;
-              
+
               if (aExact && !bExact) return -1;
               if (!aExact && bExact) return 1;
-              
+
               // If both or neither are exact, sort by release date (newest first) if available
               if (aExact === bExact) {
                 const aDate = a.releaseDate ? new Date(a.releaseDate).getTime() : 0;
@@ -552,11 +552,11 @@ export const GameManager: React.FC<GameManagerProps> = ({
                 // If dates are equal or missing, sort by score
                 return (b.score || 0) - (a.score || 0);
               }
-              
+
               // If both or neither are exact, sort by score
               return (b.score || 0) - (a.score || 0);
             });
-            
+
             // Update results immediately as they come in
             if (imageType === 'boxart') {
               setSteamGridDBResults(prev => ({ ...prev, boxart: flattenedResults }));
@@ -575,11 +575,11 @@ export const GameManager: React.FC<GameManagerProps> = ({
 
       // Wait for all searches to complete
       const searchResults = await Promise.all(searchPromises);
-      
+
       // Check if we got any results
       // Note: State updates are async, so we check the actual results returned
       let hasResults = false;
-      
+
       // Check IGDB results (only for boxart and banner)
       if (imageType === 'boxart' || imageType === 'banner') {
         const igdbResponse = searchResults[0];
@@ -591,7 +591,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
           });
           if (hasIGDBResults) hasResults = true;
         }
-        
+
         // Check SteamGridDB results (index 1 when IGDB is included)
         const sgdbResponse = searchResults[1];
         if (sgdbResponse && sgdbResponse.success && sgdbResponse.images && sgdbResponse.images.length > 0) {
@@ -662,12 +662,12 @@ export const GameManager: React.FC<GameManagerProps> = ({
 
     // Update state immediately so user sees the change
     setEditedGame(updatedGame);
-    
+
     // Update local games state immediately
-    setLocalGames(prevGames => 
+    setLocalGames(prevGames =>
       prevGames.map(g => g.id === updatedGame.id ? updatedGame : g)
     );
-    
+
     // Save in background - pass old game to delete old images
     // Don't reload library - just update local state
     try {
@@ -678,12 +678,12 @@ export const GameManager: React.FC<GameManagerProps> = ({
       setError('Failed to save image');
       console.error('Error saving image:', err);
       // Revert local state on error
-      setLocalGames(prevGames => 
+      setLocalGames(prevGames =>
         prevGames.map(g => g.id === selectedGame.id ? selectedGame : g)
       );
       setEditedGame({ ...selectedGame });
     }
-    
+
     // Keep search panel open so user can select more images if needed
     // setShowImageSearch(null);
   };
@@ -789,7 +789,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
 
     const steamAppId = getSteamAppId();
     const query = metadataSearchQuery.trim() || expandedGame.title.trim();
-    
+
     // If we have a Steam App ID, use it directly to fetch metadata
     if (steamAppId) {
       setIsSearchingMetadata(true);
@@ -844,15 +844,15 @@ export const GameManager: React.FC<GameManagerProps> = ({
       if (response.success && response.results) {
         // Get the current game's Steam App ID if available
         const currentSteamAppId = steamAppIdInput || (expandedGame?.id.startsWith('steam-') ? expandedGame.id.replace('steam-', '') : undefined);
-        
+
         // Show all results from all sources - let user choose
         // Prioritize Steam results, but show all available options
         const steamResults = response.results.filter((result: any) => result.source === 'steam');
         const otherResults = response.results.filter((result: any) => result.source !== 'steam');
-        
+
         // Normalize query for matching
         const normalizedQuery = query.toLowerCase().trim();
-        
+
         // Sort Steam results: matching Steam App ID first, then exact name matches, then by release date
         const sortedSteamResults = steamResults.sort((a, b) => {
           // First priority: matching Steam App ID
@@ -860,7 +860,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
           const bMatchesAppId = currentSteamAppId && b.steamAppId === currentSteamAppId;
           if (aMatchesAppId && !bMatchesAppId) return -1;
           if (!aMatchesAppId && bMatchesAppId) return 1;
-          
+
           // Second priority: exact name matches
           const aName = (a.title || '').toLowerCase().trim();
           const bName = (b.title || '').toLowerCase().trim();
@@ -868,7 +868,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
           const bExact = bName === normalizedQuery;
           if (aExact && !bExact) return -1;
           if (!aExact && bExact) return 1;
-          
+
           // Third priority: release date (newest first)
           const getDate = (result: any): number => {
             if (result.releaseDate) {
@@ -882,16 +882,16 @@ export const GameManager: React.FC<GameManagerProps> = ({
             }
             return 0;
           };
-          
+
           const aDate = getDate(a);
           const bDate = getDate(b);
           if (aDate !== bDate && aDate > 0 && bDate > 0) {
             return bDate - aDate;
           }
-          
+
           return 0;
         });
-        
+
         // Sort other results: exact name matches first, then by source priority (IGDB > RAWG > SteamGridDB)
         const sortedOtherResults = otherResults.sort((a, b) => {
           // First priority: exact name matches
@@ -901,7 +901,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
           const bExact = bName === normalizedQuery;
           if (aExact && !bExact) return -1;
           if (!aExact && bExact) return 1;
-          
+
           // Second priority: source priority (IGDB > RAWG > SteamGridDB)
           const sourcePriority: Record<string, number> = {
             'igdb': 3,
@@ -913,21 +913,21 @@ export const GameManager: React.FC<GameManagerProps> = ({
           if (aPriority !== bPriority) {
             return bPriority - aPriority;
           }
-          
+
           return 0;
         });
-        
+
         // Combine: Steam results first, then other results (show all options)
         const allResults = [...sortedSteamResults, ...sortedOtherResults];
-        
+
         if (allResults.length === 0) {
           setError('No matching results found. Try a different search term or check if the game is available in the metadata databases.');
           setMetadataSearchResults([]);
           return;
         }
-        
+
         console.log(`[GameManager] Found ${allResults.length} search result(s) for "${query}" (${steamResults.length} Steam, ${sortedOtherResults.length} other)`);
-        
+
         setMetadataSearchResults(allResults);
       } else {
         setError(response.error || 'No results found');
@@ -950,10 +950,10 @@ export const GameManager: React.FC<GameManagerProps> = ({
 
     try {
       const gameTitle = result.title || expandedGame.title;
-      
+
       // Extract Steam App ID from result (from any source that might have it)
       const steamAppId = result.steamAppId || (result.id.startsWith('steam-') ? result.id.replace('steam-', '') : undefined);
-      
+
       // Determine new game ID - use Steam App ID if available, otherwise use result ID
       let newGameId = expandedGame.id;
       if (steamAppId) {
@@ -963,7 +963,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
       } else if (result.source === 'rawg' && result.id.startsWith('rawg-')) {
         newGameId = result.id;
       }
-      
+
       // Fetch complete metadata using searchArtwork - this now tries ALL sources for descriptions
       // searchArtwork will:
       // 1. Extract Steam App ID from search results if not provided
@@ -971,7 +971,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
       // 3. Move to next source on rate limits (no retries)
       console.log(`[GameManager] Fetching metadata for "${gameTitle}" with Steam App ID: ${steamAppId || 'none'}`);
       const metadata = await window.electronAPI.searchArtwork(gameTitle, steamAppId);
-      
+
       if (metadata && editedGame) {
         // If description is still empty, try fetching from alternative sources
         let finalDescription = (metadata.description || metadata.summary || '').trim();
@@ -982,7 +982,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
         let finalAgeRating = metadata.ageRating || '';
         let finalRating = metadata.rating || 0;
         let finalPlatform = metadata.platforms?.join(', ') || metadata.platform || expandedGame.platform;
-        
+
         // If description is still empty, try fetching description separately
         if (!finalDescription && steamAppId) {
           try {
@@ -1004,7 +1004,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
             console.warn(`[GameManager] Error fetching description from Steam Store API:`, descErr);
           }
         }
-        
+
         // Update the edited game with all metadata and images
         const updatedGame: Game = {
           ...editedGame,
@@ -1022,25 +1022,26 @@ export const GameManager: React.FC<GameManagerProps> = ({
           bannerUrl: metadata.bannerUrl || editedGame.bannerUrl || '',
           logoUrl: metadata.logoUrl || editedGame.logoUrl,
           heroUrl: metadata.heroUrl || editedGame.heroUrl,
+          screenshots: metadata.screenshots || editedGame.screenshots || [],
           // Note: iconUrl is not in Game interface yet, but we can store it if needed
         };
-        
+
         setEditedGame(updatedGame);
-        
+
         // Update the Steam App ID input to show the App ID if we have one
         if (steamAppId) {
           setSteamAppIdInput(steamAppId);
         }
-        
-        // Save the game immediately
-        await onSaveGame(updatedGame);
-        
+
+        // Save the game immediately - pass old game to handle ID changes and prevent duplicates
+        await onSaveGame(updatedGame, expandedGame);
+
         const sourceName = steamAppId ? 'Steam Store API' : (result.source === 'igdb' ? 'IGDB' : result.source === 'rawg' ? 'RAWG' : result.source);
         setSuccess(`Metadata and images updated from ${sourceName}`);
         setShowFixMatch(false);
         setMetadataSearchResults([]);
         setMetadataSearchQuery('');
-        
+
         // Reload the game data
         if (onReloadLibrary) {
           await onReloadLibrary();
@@ -1124,11 +1125,10 @@ export const GameManager: React.FC<GameManagerProps> = ({
                   <button
                     key={game.id}
                     onClick={() => handleGameSelect(game.id)}
-                    className={`w-full flex items-center gap-3 p-3 rounded-lg transition-colors ${
-                      selectedGameId === game.id
+                    className={`w-full flex items-center gap-3 p-3 rounded-lg transition-colors ${selectedGameId === game.id
                         ? 'bg-blue-600/30 border border-blue-500/50'
                         : 'bg-gray-800/50 hover:bg-gray-800 border border-gray-700'
-                    }`}
+                      }`}
                   >
                     <img
                       src={game.boxArtUrl || '/placeholder.png'}
@@ -1157,31 +1157,28 @@ export const GameManager: React.FC<GameManagerProps> = ({
                 <div className="flex border-b border-gray-800">
                   <button
                     onClick={() => setActiveTab('metadata')}
-                    className={`flex-1 px-6 py-3 text-sm font-medium transition-colors ${
-                      activeTab === 'metadata'
+                    className={`flex-1 px-6 py-3 text-sm font-medium transition-colors ${activeTab === 'metadata'
                         ? 'bg-gray-800 text-white border-b-2 border-blue-500'
                         : 'text-gray-400 hover:text-gray-300 hover:bg-gray-800/50'
-                    }`}
+                      }`}
                   >
                     Metadata
                   </button>
                   <button
                     onClick={() => setActiveTab('images')}
-                    className={`flex-1 px-6 py-3 text-sm font-medium transition-colors ${
-                      activeTab === 'images'
+                    className={`flex-1 px-6 py-3 text-sm font-medium transition-colors ${activeTab === 'images'
                         ? 'bg-gray-800 text-white border-b-2 border-blue-500'
                         : 'text-gray-400 hover:text-gray-300 hover:bg-gray-800/50'
-                    }`}
+                      }`}
                   >
                     Images
                   </button>
                   <button
                     onClick={() => setActiveTab('modManager')}
-                    className={`flex-1 px-6 py-3 text-sm font-medium transition-colors ${
-                      activeTab === 'modManager'
+                    className={`flex-1 px-6 py-3 text-sm font-medium transition-colors ${activeTab === 'modManager'
                         ? 'bg-gray-800 text-white border-b-2 border-blue-500'
                         : 'text-gray-400 hover:text-gray-300 hover:bg-gray-800/50'
-                    }`}
+                      }`}
                   >
                     Mod Manager
                   </button>
@@ -1337,218 +1334,218 @@ export const GameManager: React.FC<GameManagerProps> = ({
                       {/* Image Search Panel */}
                       {showImageSearch && showImageSearch.gameId === selectedGame.id && (
                         <div className="border-t border-gray-800 pt-6">
-                    <div className="mb-4">
-                      <label className="block text-sm font-medium text-gray-300 mb-2">
-                        Search for {showImageSearch.type}
-                      </label>
-                      <div className="flex gap-2">
-                        <input
-                          type="text"
-                          value={imageSearchQuery}
-                          onChange={(e) => setImageSearchQuery(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              handleSearchImages(showImageSearch.type);
-                            }
-                          }}
-                          placeholder="Enter game title..."
-                          className="flex-1 px-4 py-2 bg-gray-800 border border-gray-600 rounded text-white placeholder-gray-500"
-                          disabled={isSearchingImages}
-                        />
-                        <button
-                          onClick={() => handleSearchImages(showImageSearch.type)}
-                          disabled={isSearchingImages}
-                          className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors disabled:opacity-50 flex items-center gap-2"
-                        >
-                          {isSearchingImages ? (
-                            <>
-                              <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                              </svg>
-                              Searching...
-                            </>
-                          ) : (
-                            'Search'
-                          )}
-                        </button>
-                        <button
-                          onClick={() => handleBrowseImage(showImageSearch.type)}
-                          disabled={isSearchingImages}
-                          className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded transition-colors disabled:opacity-50 flex items-center gap-2"
-                          title="Browse for image file (supports animated images)"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
-                          </svg>
-                          Browse
-                        </button>
-                        <button
-                          onClick={() => {
-                            setShowImageSearch(null);
-                            setImageSearchResults([]);
-                            setSteamGridDBResults({ boxart: [], banner: [], logo: [], icon: [] });
-                          }}
-                          className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded transition-colors"
-                          disabled={isSearchingImages}
-                        >
-                          Close
-                        </button>
-                      </div>
-                      {isSearchingImages && (
-                        <div className="mt-3 flex items-center gap-2 text-sm text-gray-400">
-                          <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                          </svg>
-                          Searching for {showImageSearch.type}...
-                        </div>
-                      )}
-                    </div>
+                          <div className="mb-4">
+                            <label className="block text-sm font-medium text-gray-300 mb-2">
+                              Search for {showImageSearch.type}
+                            </label>
+                            <div className="flex gap-2">
+                              <input
+                                type="text"
+                                value={imageSearchQuery}
+                                onChange={(e) => setImageSearchQuery(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    handleSearchImages(showImageSearch.type);
+                                  }
+                                }}
+                                placeholder="Enter game title..."
+                                className="flex-1 px-4 py-2 bg-gray-800 border border-gray-600 rounded text-white placeholder-gray-500"
+                                disabled={isSearchingImages}
+                              />
+                              <button
+                                onClick={() => handleSearchImages(showImageSearch.type)}
+                                disabled={isSearchingImages}
+                                className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors disabled:opacity-50 flex items-center gap-2"
+                              >
+                                {isSearchingImages ? (
+                                  <>
+                                    <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                    </svg>
+                                    Searching...
+                                  </>
+                                ) : (
+                                  'Search'
+                                )}
+                              </button>
+                              <button
+                                onClick={() => handleBrowseImage(showImageSearch.type)}
+                                disabled={isSearchingImages}
+                                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded transition-colors disabled:opacity-50 flex items-center gap-2"
+                                title="Browse for image file (supports animated images)"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                                </svg>
+                                Browse
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setShowImageSearch(null);
+                                  setImageSearchResults([]);
+                                  setSteamGridDBResults({ boxart: [], banner: [], logo: [], icon: [] });
+                                }}
+                                className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded transition-colors"
+                                disabled={isSearchingImages}
+                              >
+                                Close
+                              </button>
+                            </div>
+                            {isSearchingImages && (
+                              <div className="mt-3 flex items-center gap-2 text-sm text-gray-400">
+                                <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                </svg>
+                                Searching for {showImageSearch.type}...
+                              </div>
+                            )}
+                          </div>
 
                           {/* Search Results */}
-                          {(imageSearchResults.length > 0 || 
+                          {(imageSearchResults.length > 0 ||
                             (showImageSearch.type === 'boxart' && steamGridDBResults.boxart.length > 0) ||
                             (showImageSearch.type === 'banner' && steamGridDBResults.banner.length > 0) ||
                             (showImageSearch.type === 'logo' && steamGridDBResults.logo.length > 0) ||
                             (showImageSearch.type === 'icon' && steamGridDBResults.icon.length > 0)) && (
-                            <div>
-                              <h4 className="text-sm font-medium text-gray-300 mb-3">Results</h4>
-                              <div className={`grid gap-3 ${showImageSearch.type === 'boxart' ? 'grid-cols-10' : 'grid-cols-4'}`}>
-                                {/* IGDB Results - Only show for boxart and banner */}
-                                {showImageSearch.type !== 'logo' && imageSearchResults.map((result, idx) => {
-                                  let imageUrl = '';
-                                  if (showImageSearch.type === 'boxart') {
-                                    imageUrl = result.coverUrl || '';
-                                  } else if (showImageSearch.type === 'banner') {
-                                    imageUrl = result.screenshotUrls?.[0] || '';
-                                  }
+                              <div>
+                                <h4 className="text-sm font-medium text-gray-300 mb-3">Results</h4>
+                                <div className={`grid gap-3 ${showImageSearch.type === 'boxart' ? 'grid-cols-10' : 'grid-cols-4'}`}>
+                                  {/* IGDB Results - Only show for boxart and banner */}
+                                  {showImageSearch.type !== 'logo' && imageSearchResults.map((result, idx) => {
+                                    let imageUrl = '';
+                                    if (showImageSearch.type === 'boxart') {
+                                      imageUrl = result.coverUrl || '';
+                                    } else if (showImageSearch.type === 'banner') {
+                                      imageUrl = result.screenshotUrls?.[0] || '';
+                                    }
 
-                                  if (!imageUrl) return null;
+                                    if (!imageUrl) return null;
 
-                                  return (
-                                    <div
-                                      key={`igdb-${result.id}-${idx}`}
-                                      onClick={() => handleSelectImage(imageUrl, showImageSearch.type)}
-                                      className="cursor-pointer hover:opacity-80 transition-opacity"
-                                    >
-                                      <img
-                                        src={imageUrl}
-                                        alt={result.name}
-                                        className={`w-full ${showImageSearch.type === 'boxart' ? 'aspect-[2/3] object-cover' : 'h-20 object-cover'} rounded border border-gray-700`}
-                                      />
-                                      <p className="text-xs text-gray-400 mt-1 truncate">{result.name}</p>
-                                    </div>
-                                  );
-                                })}
+                                    return (
+                                      <div
+                                        key={`igdb-${result.id}-${idx}`}
+                                        onClick={() => handleSelectImage(imageUrl, showImageSearch.type)}
+                                        className="cursor-pointer hover:opacity-80 transition-opacity"
+                                      >
+                                        <img
+                                          src={imageUrl}
+                                          alt={result.name}
+                                          className={`w-full ${showImageSearch.type === 'boxart' ? 'aspect-[2/3] object-cover' : 'h-20 object-cover'} rounded border border-gray-700`}
+                                        />
+                                        <p className="text-xs text-gray-400 mt-1 truncate">{result.name}</p>
+                                      </div>
+                                    );
+                                  })}
 
-                                {/* SteamGridDB Results - Filtered by type */}
-                                {showImageSearch.type === 'boxart' && steamGridDBResults.boxart.map((result: any, idx: number) => {
-                                  const imageUrl = result.boxArtUrl || result.coverUrl;
-                                  if (!imageUrl) return null;
+                                  {/* SteamGridDB Results - Filtered by type */}
+                                  {showImageSearch.type === 'boxart' && steamGridDBResults.boxart.map((result: any, idx: number) => {
+                                    const imageUrl = result.boxArtUrl || result.coverUrl;
+                                    if (!imageUrl) return null;
 
-                                  // Use imageUrl in key to ensure uniqueness since multiple images can have same gameId
-                                  const uniqueKey = `sgdb-boxart-${imageUrl}-${idx}`;
+                                    // Use imageUrl in key to ensure uniqueness since multiple images can have same gameId
+                                    const uniqueKey = `sgdb-boxart-${imageUrl}-${idx}`;
 
-                                  return (
-                                    <div
-                                      key={uniqueKey}
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleSelectImage(imageUrl, 'boxart');
-                                      }}
-                                      className="cursor-pointer hover:opacity-80 transition-opacity"
-                                    >
-                                      <img
-                                        src={imageUrl}
-                                        alt={result.name}
-                                        className="w-full aspect-[2/3] object-cover rounded border border-gray-700 bg-gray-800"
-                                      />
-                                      <p className="text-xs text-gray-400 mt-1 truncate">{result.name}</p>
-                                    </div>
-                                  );
-                                })}
+                                    return (
+                                      <div
+                                        key={uniqueKey}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleSelectImage(imageUrl, 'boxart');
+                                        }}
+                                        className="cursor-pointer hover:opacity-80 transition-opacity"
+                                      >
+                                        <img
+                                          src={imageUrl}
+                                          alt={result.name}
+                                          className="w-full aspect-[2/3] object-cover rounded border border-gray-700 bg-gray-800"
+                                        />
+                                        <p className="text-xs text-gray-400 mt-1 truncate">{result.name}</p>
+                                      </div>
+                                    );
+                                  })}
 
-                                {showImageSearch.type === 'banner' && steamGridDBResults.banner.map((result: any, idx: number) => {
-                                  const imageUrl = result.bannerUrl;
-                                  if (!imageUrl) return null;
+                                  {showImageSearch.type === 'banner' && steamGridDBResults.banner.map((result: any, idx: number) => {
+                                    const imageUrl = result.bannerUrl;
+                                    if (!imageUrl) return null;
 
-                                  // Use imageUrl in key to ensure uniqueness since multiple images can have same gameId
-                                  const uniqueKey = `sgdb-banner-${imageUrl}-${idx}`;
+                                    // Use imageUrl in key to ensure uniqueness since multiple images can have same gameId
+                                    const uniqueKey = `sgdb-banner-${imageUrl}-${idx}`;
 
-                                  return (
-                                    <div
-                                      key={uniqueKey}
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleSelectImage(imageUrl, 'banner');
-                                      }}
-                                      className="cursor-pointer hover:opacity-80 transition-opacity"
-                                    >
-                                      <img
-                                        src={imageUrl}
-                                        alt={result.name}
-                                        className="w-full h-20 object-cover rounded border border-gray-700 bg-gray-800"
-                                      />
-                                      <p className="text-xs text-gray-400 mt-1 truncate">{result.name}</p>
-                                    </div>
-                                  );
-                                })}
+                                    return (
+                                      <div
+                                        key={uniqueKey}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleSelectImage(imageUrl, 'banner');
+                                        }}
+                                        className="cursor-pointer hover:opacity-80 transition-opacity"
+                                      >
+                                        <img
+                                          src={imageUrl}
+                                          alt={result.name}
+                                          className="w-full h-20 object-cover rounded border border-gray-700 bg-gray-800"
+                                        />
+                                        <p className="text-xs text-gray-400 mt-1 truncate">{result.name}</p>
+                                      </div>
+                                    );
+                                  })}
 
-                                {showImageSearch.type === 'logo' && steamGridDBResults.logo.map((result: any, idx: number) => {
-                                  const imageUrl = result.logoUrl;
-                                  if (!imageUrl) return null;
+                                  {showImageSearch.type === 'logo' && steamGridDBResults.logo.map((result: any, idx: number) => {
+                                    const imageUrl = result.logoUrl;
+                                    if (!imageUrl) return null;
 
-                                  // Use imageUrl in key to ensure uniqueness since multiple logos can have same gameId
-                                  const uniqueKey = `sgdb-logo-${imageUrl}-${idx}`;
+                                    // Use imageUrl in key to ensure uniqueness since multiple logos can have same gameId
+                                    const uniqueKey = `sgdb-logo-${imageUrl}-${idx}`;
 
-                                  return (
-                                    <div
-                                      key={uniqueKey}
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleSelectImage(imageUrl, 'logo');
-                                      }}
-                                      className="cursor-pointer hover:opacity-80 transition-opacity"
-                                    >
-                                      <img
-                                        src={imageUrl}
-                                        alt={result.name}
-                                        className="w-full h-16 object-contain rounded border border-gray-700 bg-gray-800"
-                                      />
-                                      <p className="text-xs text-gray-400 mt-1 truncate">{result.name}</p>
-                                    </div>
-                                  );
-                                })}
+                                    return (
+                                      <div
+                                        key={uniqueKey}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleSelectImage(imageUrl, 'logo');
+                                        }}
+                                        className="cursor-pointer hover:opacity-80 transition-opacity"
+                                      >
+                                        <img
+                                          src={imageUrl}
+                                          alt={result.name}
+                                          className="w-full h-16 object-contain rounded border border-gray-700 bg-gray-800"
+                                        />
+                                        <p className="text-xs text-gray-400 mt-1 truncate">{result.name}</p>
+                                      </div>
+                                    );
+                                  })}
 
-                                {showImageSearch.type === 'icon' && steamGridDBResults.icon.map((result: any, idx: number) => {
-                                  const imageUrl = result.iconUrl;
-                                  if (!imageUrl) return null;
+                                  {showImageSearch.type === 'icon' && steamGridDBResults.icon.map((result: any, idx: number) => {
+                                    const imageUrl = result.iconUrl;
+                                    if (!imageUrl) return null;
 
-                                  // Use imageUrl in key to ensure uniqueness since multiple icons can have same gameId
-                                  const uniqueKey = `sgdb-icon-${imageUrl}-${idx}`;
+                                    // Use imageUrl in key to ensure uniqueness since multiple icons can have same gameId
+                                    const uniqueKey = `sgdb-icon-${imageUrl}-${idx}`;
 
-                                  return (
-                                    <div
-                                      key={uniqueKey}
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleSelectImage(imageUrl, 'icon');
-                                      }}
-                                      className="cursor-pointer hover:opacity-80 transition-opacity"
-                                    >
-                                      <img
-                                        src={imageUrl}
-                                        alt={result.name}
-                                        className="w-full h-16 object-contain rounded border border-gray-700 bg-gray-800"
-                                      />
-                                      <p className="text-xs text-gray-400 mt-1 truncate">{result.name}</p>
-                                    </div>
-                                  );
-                                })}
+                                    return (
+                                      <div
+                                        key={uniqueKey}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleSelectImage(imageUrl, 'icon');
+                                        }}
+                                        className="cursor-pointer hover:opacity-80 transition-opacity"
+                                      >
+                                        <img
+                                          src={imageUrl}
+                                          alt={result.name}
+                                          className="w-full h-16 object-contain rounded border border-gray-700 bg-gray-800"
+                                        />
+                                        <p className="text-xs text-gray-400 mt-1 truncate">{result.name}</p>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
                               </div>
-                            </div>
-                          )}
+                            )}
                         </div>
                       )}
                     </div>
@@ -1574,16 +1571,16 @@ export const GameManager: React.FC<GameManagerProps> = ({
                                 const value = e.target.value.trim();
                                 if (value && /^\d+$/.test(value)) {
                                   const newGameId = `steam-${value}`;
-                                  setEditedGame({ 
-                                    ...editedGame, 
+                                  setEditedGame({
+                                    ...editedGame,
                                     id: newGameId,
                                     platform: 'steam'
                                   });
                                 } else if (value === '') {
                                   // If cleared, convert to custom game ID
                                   const newGameId = `custom-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-                                  setEditedGame({ 
-                                    ...editedGame, 
+                                  setEditedGame({
+                                    ...editedGame,
                                     id: newGameId,
                                     platform: editedGame.platform === 'steam' ? 'other' : editedGame.platform
                                   });
@@ -1677,20 +1674,20 @@ export const GameManager: React.FC<GameManagerProps> = ({
                                       if (response.success && response.results) {
                                         // Filter to show only Steam Store API results
                                         const steamResults = response.results.filter((result: any) => result.source === 'steam');
-                                        
+
                                         if (steamResults.length === 0) {
                                           setError('No Steam Store API results found. Make sure the game is available on Steam.');
                                           setMetadataSearchResults([]);
                                           setIsSearchingMetadata(false);
                                           return;
                                         }
-                                        
+
                                         // Debug: Log first result to check for boxArtUrl
                                         if (steamResults.length > 0) {
                                           console.log('First Steam result (Fix Match button):', steamResults[0]);
                                           console.log('Has boxArtUrl:', !!(steamResults[0] as any).boxArtUrl);
                                         }
-                                        
+
                                         // Sort results: newest release first, then exact matches
                                         const normalizedQuery = query.toLowerCase().trim();
                                         const sortedResults = steamResults.sort((a: any, b: any) => {
@@ -1707,13 +1704,13 @@ export const GameManager: React.FC<GameManagerProps> = ({
                                             }
                                             return 0;
                                           };
-                                          
+
                                           const aDate = getDate(a);
                                           const bDate = getDate(b);
                                           if (aDate !== bDate && aDate > 0 && bDate > 0) {
                                             return bDate - aDate; // Newest first
                                           }
-                                          
+
                                           // Then prioritize exact matches
                                           const aName = (a.title || (("name" in a ? (a as any).name : "") as string)).toLowerCase().trim();
                                           const bName = (b.title || (("name" in b ? (b as any).name : "") as string)).toLowerCase().trim();
@@ -1721,7 +1718,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
                                           const bExact = bName === normalizedQuery;
                                           if (aExact && !bExact) return -1;
                                           if (!aExact && bExact) return 1;
-                                          
+
                                           return 0;
                                         });
                                         setMetadataSearchResults(sortedResults);
@@ -1785,7 +1782,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
                                       // Fallback to year only if no full date available
                                       displayDate = result.year.toString();
                                     }
-                                    
+
                                     return (
                                       <button
                                         key={result.id}
@@ -2242,7 +2239,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
       <ConfirmationDialog
         isOpen={showRefreshConfirm}
         title={refreshMode === 'all' ? 'Refresh All Games' : 'Refresh Missing Images Only'}
-        message={refreshMode === 'all' 
+        message={refreshMode === 'all'
           ? 'This will remove all existing metadata and images for every game in your library and fetch fresh data from online sources.'
           : 'This will refresh metadata and images only for games that are missing box art or banner images. Games with existing images will be left unchanged.'}
         note="This action cannot be undone. All cached images for selected games will be deleted and metadata will be re-fetched from online sources."
@@ -2274,28 +2271,28 @@ export const GameManager: React.FC<GameManagerProps> = ({
 
       {/* Refresh Progress Dialog */}
       {refreshProgress && (
-        <div 
+        <div
           className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center"
-          style={{ 
+          style={{
             pointerEvents: refreshProgress.message?.includes('Reloading') ? 'none' : 'auto',
             transition: 'opacity 0.3s ease-out'
           }}
         >
           <div className="bg-gray-800 rounded-lg shadow-xl border border-gray-700 w-full max-w-md p-6">
             <h3 className="text-xl font-semibold text-white mb-4">Refreshing Metadata</h3>
-            
+
             {/* Progress Bar */}
             <div className="w-full bg-gray-700 rounded-full h-3 mb-4 overflow-hidden">
               <div
                 className="bg-blue-600 h-full transition-all duration-300 ease-out rounded-full"
                 style={{
-                  width: refreshProgress.total > 0 
-                    ? `${(refreshProgress.current / refreshProgress.total) * 100}%` 
+                  width: refreshProgress.total > 0
+                    ? `${(refreshProgress.current / refreshProgress.total) * 100}%`
                     : '0%'
                 }}
               />
             </div>
-            
+
             {/* Progress Text */}
             <div className="text-sm text-gray-300 mb-2">
               {refreshProgress.total > 0 ? (
@@ -2306,19 +2303,19 @@ export const GameManager: React.FC<GameManagerProps> = ({
                 <span>Preparing...</span>
               )}
             </div>
-            
+
             {/* Current Status Message */}
             <div className="text-sm text-gray-400 min-h-[40px]">
               {refreshProgress.message}
             </div>
-            
+
             {/* Current Game Title */}
             {refreshProgress.gameTitle && (
               <div className="text-xs text-gray-500 mt-2 italic">
                 {refreshProgress.gameTitle}
               </div>
             )}
-            
+
             {/* Show completion message if done */}
             {refreshProgress.total > 0 && refreshProgress.current >= refreshProgress.total && (
               <div className="mt-4 pt-4 border-t border-gray-700">
@@ -2338,18 +2335,18 @@ export const GameManager: React.FC<GameManagerProps> = ({
         onFix={async (fixes, ignoredGames) => {
           setShowMatchFix(false);
           setRefreshProgress({ current: 0, total: fixes.size, message: 'Applying fixes...' });
-          
+
           try {
             // Apply fixes by fetching metadata for each game with the selected provider
             const gameIdsToRefresh = Array.from(fixes.keys());
             let fixedCount = 0;
-            
+
             for (const [gameId, fix] of fixes.entries()) {
               const game = games.find(g => g.id === gameId);
               if (game) {
-                setRefreshProgress({ 
-                  current: fixedCount + 1, 
-                  total: gameIdsToRefresh.length, 
+                setRefreshProgress({
+                  current: fixedCount + 1,
+                  total: gameIdsToRefresh.length,
                   message: `Fetching metadata for ${game.title}...`,
                   gameTitle: game.title
                 });
@@ -2357,12 +2354,12 @@ export const GameManager: React.FC<GameManagerProps> = ({
                 fixedCount++;
               }
             }
-            
+
             setSuccess(`Successfully fixed ${fixedCount} game${fixedCount !== 1 ? 's' : ''}${ignoredGames.size > 0 ? `, ${ignoredGames.size} ignored` : ''}`);
             if (onReloadLibrary) {
               await onReloadLibrary();
             }
-            
+
             // Check if there are missing boxart games to show after fixing matches
             if (missingBoxartGames.length > 0) {
               setShowBoxartFix(true);
@@ -2402,20 +2399,20 @@ export const GameManager: React.FC<GameManagerProps> = ({
         onFix={async (fixes) => {
           setShowBoxartFix(false);
           setRefreshProgress({ current: 0, total: fixes.size, message: 'Applying boxart...' });
-          
+
           try {
             let fixedCount = 0;
-            
+
             for (const [gameId, boxartUrl] of fixes.entries()) {
               const game = localGames.find(g => g.id === gameId);
               if (game) {
-                setRefreshProgress({ 
-                  current: fixedCount + 1, 
-                  total: fixes.size, 
+                setRefreshProgress({
+                  current: fixedCount + 1,
+                  total: fixes.size,
                   message: `Caching and applying boxart for ${game.title}...`,
                   gameTitle: game.title
                 });
-                
+
                 // Update the game with the selected boxart URL
                 // The game store update handler will automatically cache HTTPS URLs
                 const updatedGame = { ...game, boxArtUrl: boxartUrl };
@@ -2423,15 +2420,15 @@ export const GameManager: React.FC<GameManagerProps> = ({
                 fixedCount++;
               }
             }
-            
+
             setSuccess(`Successfully applied boxart for ${fixedCount} game${fixedCount !== 1 ? 's' : ''}`);
-            
+
             // If we were in the middle of a refresh, continue from where we left off
             if (refreshState && refreshState.continueFromIndex !== undefined) {
-              setRefreshProgress({ 
-                current: refreshState.continueFromIndex, 
-                total: games.length, 
-                message: 'Continuing refresh...' 
+              setRefreshProgress({
+                current: refreshState.continueFromIndex,
+                total: games.length,
+                message: 'Continuing refresh...'
               });
               // Reload library first to get updated games
               if (onReloadLibrary) {

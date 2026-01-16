@@ -48,7 +48,7 @@ export interface SteamGridDBMetadata {
 export class SteamGridDBService {
   private apiKey: string;
   private baseUrl = 'https://www.steamgriddb.com/api/v2';
-  
+
   // Request queue for rate limiting
   private requestQueue: Array<() => Promise<any>> = [];
   private isProcessingQueue = false;
@@ -198,13 +198,13 @@ export class SteamGridDBService {
 
       const data = await response.json() as { data?: SteamGridDBImage[] };
       const grids = data.data || [];
-      
+
       // Filter by mime type if needed (animated grids are typically webp or gif)
       // But by default, include all grids (both static and animated)
       if (!includeAnimated) {
         return grids.filter(img => !img.mime || (img.mime !== 'image/webp' && img.mime !== 'image/gif'));
       }
-      
+
       return grids;
     } catch (error) {
       // Network errors or other issues - return empty array instead of throwing
@@ -235,11 +235,11 @@ export class SteamGridDBService {
 
       const data = await response.json() as { data?: SteamGridDBImage[] };
       const grids = data.data || [];
-      
+
       if (!includeAnimated) {
         return grids.filter(img => !img.mime || (img.mime !== 'image/webp' && img.mime !== 'image/gif'));
       }
-      
+
       return grids;
     } catch (error) {
       console.warn(`[SteamGridDB] Error fetching capsules for game ${gameId}:`, error instanceof Error ? error.message : error);
@@ -315,15 +315,15 @@ export class SteamGridDBService {
 
       // Sort by score (highest first) and filter out NSFW/humor/epilepsy content
       const filterImage = (img: SteamGridDBImage) => !img.nsfw && !img.humor && !img.epilepsy;
-      
+
       const bestCapsule = capsules
         .filter(filterImage)
         .sort((a, b) => b.score - a.score)[0];
-      
+
       const bestHero = heroes
         .filter(filterImage)
         .sort((a, b) => b.score - a.score)[0];
-      
+
       const bestLogo = logos
         .filter(filterImage)
         .sort((a, b) => b.score - a.score)[0];
@@ -352,7 +352,7 @@ export class SteamGridDBService {
     try {
       // First, try to search for the game
       const games = await this.searchGame(gameTitle);
-      
+
       if (games.length === 0) {
         return null;
       }
@@ -362,14 +362,22 @@ export class SteamGridDBService {
       if (steamAppId) {
         selectedGame = games.find(g => g.steam_app_id === parseInt(steamAppId, 10));
       }
-      
+
       // If no match or no Steam App ID, use the first result
       if (!selectedGame) {
         selectedGame = games[0];
       }
 
       // Fetch metadata for the selected game
-      return await this.getGameMetadata(selectedGame.id);
+      const metadata = await this.getGameMetadata(selectedGame.id);
+
+      // If logo is missing, try a broader search or different types if possible
+      // (SteamGridDB API doesn't have many more logo options, but we can log it)
+      if (!metadata.logoUrl) {
+        console.log(`[SteamGridDB] Logo missing for ${selectedGame.name} (ID: ${selectedGame.id})`);
+      }
+
+      return metadata;
     } catch (error) {
       console.error('Error in searchAndFetchMetadata:', error);
       return null;

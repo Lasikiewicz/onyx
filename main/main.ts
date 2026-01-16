@@ -148,7 +148,7 @@ function createTray() {
   // System tray icons work better with ICO on Windows, PNG on other platforms
   let iconPath: string;
   let icon: Electron.NativeImage;
-  
+
   try {
     if (app.isPackaged) {
       // In packaged app, prefer ICO for Windows system tray (best Windows support)
@@ -156,7 +156,7 @@ function createTray() {
         // Try ICO first on Windows (best for system tray)
         const icoPath = path.join(process.resourcesPath, 'icon.ico');
         const pngPath = path.join(process.resourcesPath, 'icon.png');
-        
+
         if (existsSync(icoPath)) {
           iconPath = icoPath;
         } else if (existsSync(pngPath)) {
@@ -168,7 +168,7 @@ function createTray() {
         // On other platforms, prefer PNG
         const pngPath = path.join(process.resourcesPath, 'icon.png');
         const svgPath = path.join(process.resourcesPath, 'icon.svg');
-        
+
         if (existsSync(pngPath)) {
           iconPath = pngPath;
         } else if (existsSync(svgPath)) {
@@ -182,7 +182,7 @@ function createTray() {
       if (process.platform === 'win32') {
         const icoPath = path.join(__dirname, '../build/icon.ico');
         const pngPath = path.join(__dirname, '../resources/icon.png');
-        
+
         if (existsSync(icoPath)) {
           iconPath = icoPath;
         } else if (existsSync(pngPath)) {
@@ -193,7 +193,7 @@ function createTray() {
       } else {
         const pngPath = path.join(__dirname, '../resources/icon.png');
         const svgPath = path.join(__dirname, '../resources/icon.svg');
-        
+
         if (existsSync(pngPath)) {
           iconPath = pngPath;
         } else if (existsSync(svgPath)) {
@@ -203,13 +203,13 @@ function createTray() {
         }
       }
     }
-    
+
     console.log('Loading tray icon from:', iconPath);
     console.log('Icon file exists:', existsSync(iconPath));
-    
+
     // Load the icon
     icon = nativeImage.createFromPath(iconPath);
-    
+
     // Check if icon is empty (common issue with SVG on Windows)
     if (icon.isEmpty()) {
       console.error('Icon loaded but is empty, trying fallback...');
@@ -217,9 +217,9 @@ function createTray() {
       console.error('File size:', existsSync(iconPath) ? statSync(iconPath).size : 'N/A');
       throw new Error('Icon loaded but is empty');
     }
-    
+
     console.log('Icon loaded successfully, size:', icon.getSize());
-    
+
     // For Windows, use appropriate size (16x16 is standard, but 32x32 works better for high DPI)
     // On Windows, system tray icons are typically 16x16, but we can use a larger size for better quality
     // Note: On Windows, ICO files contain multiple sizes, so we might not need to resize
@@ -229,7 +229,7 @@ function createTray() {
     } else {
       const size = process.platform === 'darwin' ? 22 : (process.platform === 'win32' ? 32 : 16);
       const resizedIcon = icon.resize({ width: size, height: size, quality: 'best' });
-      
+
       // Verify resized icon is not empty
       if (resizedIcon.isEmpty()) {
         console.error('Resized icon is empty, trying without resize...');
@@ -243,7 +243,7 @@ function createTray() {
         tray = new Tray(resizedIcon);
       }
     }
-    
+
     console.log('Tray icon created successfully');
   } catch (error) {
     console.error('Error creating tray icon:', error);
@@ -251,19 +251,19 @@ function createTray() {
     try {
       // Last resort: try to load icon directly without resize
       const fallbackPath = app.isPackaged
-        ? (process.platform === 'win32' 
-            ? (existsSync(path.join(process.resourcesPath, 'icon.ico')) 
-                ? path.join(process.resourcesPath, 'icon.ico')
-                : path.join(process.resourcesPath, 'icon.png'))
+        ? (process.platform === 'win32'
+          ? (existsSync(path.join(process.resourcesPath, 'icon.ico'))
+            ? path.join(process.resourcesPath, 'icon.ico')
             : path.join(process.resourcesPath, 'icon.png'))
+          : path.join(process.resourcesPath, 'icon.png'))
         : (process.platform === 'win32'
-            ? (existsSync(path.join(__dirname, '../build/icon.ico'))
-              ? path.join(__dirname, '../build/icon.ico')
-              : path.join(__dirname, '../resources/icon.png'))
-            : path.join(__dirname, '../resources/icon.png'));
-      
+          ? (existsSync(path.join(__dirname, '../build/icon.ico'))
+            ? path.join(__dirname, '../build/icon.ico')
+            : path.join(__dirname, '../resources/icon.png'))
+          : path.join(__dirname, '../resources/icon.png'));
+
       console.log('Trying fallback icon from:', fallbackPath);
-      
+
       if (existsSync(fallbackPath)) {
         icon = nativeImage.createFromPath(fallbackPath);
         if (!icon.isEmpty()) {
@@ -293,7 +293,7 @@ function createTray() {
   }
 
   tray.setToolTip('Onyx');
-  
+
   // Function to update the tray menu
   const updateTrayMenu = async () => {
     try {
@@ -327,19 +327,19 @@ function createTray() {
       tray?.setContextMenu(fallbackMenu);
     }
   };
-  
+
   // Build initial context menu
   updateTrayMenu();
-  
+
   // Update context menu on right-click to refresh recent games
   // On Windows, we need to update before the menu is shown
   tray.on('right-click', () => {
     console.log('[Tray Menu] Right-click detected, refreshing menu...');
     updateTrayMenu();
   });
-  
+
   // Note: 'context-menu' event is not available on Tray, only 'right-click' is used
-  
+
   tray.on('click', () => {
     if (win) {
       if (win.isVisible()) {
@@ -363,7 +363,7 @@ async function createWindow() {
       if (process.platform === 'win32') {
         const icoPath = path.join(process.resourcesPath, 'icon.ico');
         const pngPath = path.join(process.resourcesPath, 'icon.png');
-        
+
         if (existsSync(icoPath)) {
           appIcon = nativeImage.createFromPath(icoPath);
         } else if (existsSync(pngPath)) {
@@ -373,7 +373,7 @@ async function createWindow() {
         // On other platforms, try SVG first, then PNG
         const svgPath = path.join(process.resourcesPath, 'icon.svg');
         const pngPath = path.join(process.resourcesPath, 'icon.png');
-        
+
         if (existsSync(svgPath)) {
           appIcon = nativeImage.createFromPath(svgPath);
         } else if (existsSync(pngPath)) {
@@ -385,7 +385,7 @@ async function createWindow() {
       if (process.platform === 'win32') {
         const icoPath = path.join(__dirname, '../build/icon.ico');
         const pngPath = path.join(__dirname, '../resources/icon.png');
-        
+
         if (existsSync(icoPath)) {
           appIcon = nativeImage.createFromPath(icoPath);
         } else if (existsSync(pngPath)) {
@@ -394,7 +394,7 @@ async function createWindow() {
       } else {
         const svgPath = path.join(__dirname, '../resources/icon.svg');
         const pngPath = path.join(__dirname, '../resources/icon.png');
-        
+
         if (existsSync(svgPath)) {
           appIcon = nativeImage.createFromPath(svgPath);
         } else if (existsSync(pngPath)) {
@@ -402,7 +402,7 @@ async function createWindow() {
         }
       }
     }
-    
+
     // Verify icon is not empty
     if (appIcon && appIcon.isEmpty()) {
       console.warn('App icon loaded but is empty, clearing it');
@@ -466,17 +466,17 @@ async function createWindow() {
   let saveWindowStateTimeout: NodeJS.Timeout | null = null;
   const saveWindowState = async () => {
     if (!win) return;
-    
+
     // Debounce saves to avoid too many writes
     if (saveWindowStateTimeout) {
       clearTimeout(saveWindowStateTimeout);
     }
-    
+
     saveWindowStateTimeout = setTimeout(async () => {
       try {
         const bounds = win!.getBounds();
         const isMaximized = win!.isMaximized();
-        
+
         await userPreferencesService.savePreferences({
           windowState: {
             x: bounds.x,
@@ -504,7 +504,7 @@ async function createWindow() {
       if (win) {
         const bounds = win.getBounds();
         const isMaximized = win.isMaximized();
-        
+
         await userPreferencesService.savePreferences({
           windowState: {
             x: bounds.x,
@@ -531,7 +531,7 @@ async function createWindow() {
   win.webContents.on('did-finish-load', async () => {
     win?.webContents.send('main-process-message', new Date().toLocaleString());
     console.log('Window loaded, checking if electronAPI is available...');
-    
+
     // Check if we should show the window or start closed to tray
     try {
       const prefs = await userPreferencesService.getPreferences();
@@ -586,7 +586,7 @@ async function createWindow() {
   } else {
     // Load from built files
     let indexPath: string;
-    
+
     // Use relative path from __dirname - loadFile() handles ASAR automatically
     // In packaged: __dirname = app.asar/dist-electron/main.js, so ../dist/index.html = app.asar/dist/index.html
     // In dev: __dirname = dist-electron/main.js, so ../dist/index.html = dist/index.html
@@ -599,13 +599,13 @@ async function createWindow() {
     }
     console.log('__dirname:', __dirname);
     console.log('app.isPackaged:', app.isPackaged);
-    
+
     // Try to load the file
     if (!win) {
       console.error('Window is null, cannot load file');
       return;
     }
-    
+
     // Use loadFile which handles ASAR paths correctly
     // loadFile() automatically handles ASAR archives when given a path inside app.asar
     try {
@@ -615,7 +615,7 @@ async function createWindow() {
       win.loadFile(indexPath).catch((error) => {
         console.error('Error loading file with loadFile():', error);
         if (!win) return;
-        
+
         // Try alternative paths
         const altPaths = app.isPackaged ? [
           path.join(__dirname, '../dist/index.html'), // Same as indexPath, but explicit
@@ -625,7 +625,7 @@ async function createWindow() {
           path.join(__dirname, '../dist/index.html'),
           path.join(process.env.DIST || '', 'index.html')
         ];
-        
+
         let pathIndex = 0;
         const tryNextPath = () => {
           if (pathIndex >= altPaths.length) {
@@ -635,17 +635,17 @@ async function createWindow() {
             }
             return;
           }
-          
+
           const nextPath = altPaths[pathIndex++];
           console.log(`Trying alternative path ${pathIndex}:`, nextPath);
           if (!win) return;
-          
+
           win.loadFile(nextPath).catch((nextError) => {
             console.error(`Path ${pathIndex} failed:`, nextError);
             tryNextPath();
           });
         };
-        
+
         tryNextPath();
       });
     } catch (error) {
@@ -654,7 +654,7 @@ async function createWindow() {
         win.webContents.openDevTools();
       }
     }
-    
+
     // Enable DevTools access - user can press F12 or Ctrl+Shift+I
     // Also open automatically if there's an error (handled in error handlers above)
   }
@@ -677,7 +677,7 @@ app.on('window-all-closed', async () => {
   } catch (error) {
     console.error('Error checking preferences on window-all-closed:', error);
   }
-  
+
   if (process.platform !== 'darwin') {
     app.quit();
     win = null;
@@ -732,12 +732,12 @@ const initializeIGDBService = async () => {
     const storedCreds = await apiCredentialsService.getCredentials();
     const igdbClientId = storedCreds.igdbClientId || process.env.IGDB_CLIENT_ID;
     const igdbClientSecret = storedCreds.igdbClientSecret || process.env.IGDB_CLIENT_SECRET;
-    
+
     if (igdbClientId && igdbClientSecret) {
       try {
         // Create service instance
         const service = new IGDBService(igdbClientId, igdbClientSecret);
-        
+
         // Validate credentials before using the service
         const isValid = await service.validateCredentials();
         if (isValid) {
@@ -771,7 +771,7 @@ const initializeSteamGridDBService = async () => {
   try {
     const storedCreds = await apiCredentialsService.getCredentials();
     const steamGridDBApiKey = storedCreds.steamGridDBApiKey || process.env.STEAMGRIDDB_API_KEY;
-    
+
     if (steamGridDBApiKey) {
       const { SteamGridDBService } = await import('./SteamGridDBService.js');
       steamGridDBService = new SteamGridDBService(steamGridDBApiKey);
@@ -794,7 +794,7 @@ const initializeRAWGService = async () => {
   try {
     const storedCreds = await apiCredentialsService.getCredentials();
     const rawgApiKey = storedCreds.rawgApiKey || process.env.RAWG_API_KEY;
-    
+
     if (rawgApiKey) {
       rawgService = new RAWGService(rawgApiKey);
       console.log('RAWG service initialized');
@@ -823,6 +823,7 @@ const updateMetadataFetcher = () => {
   metadataFetcher.setIGDBService(igdbService);
   metadataFetcher.setSteamService(steamService);
   metadataFetcher.setRAWGService(rawgService);
+  metadataFetcher.setSteamGridDBService(steamGridDBService);
 };
 
 const launcherService = new LauncherService(gameStore);
@@ -841,7 +842,7 @@ let backgroundScanInterval: NodeJS.Timeout | null = null;
 async function initializeSuspendService(): Promise<void> {
   try {
     const prefs = await userPreferencesService.getPreferences();
-    
+
     // Check installer preference on first launch (if preference not set)
     if (prefs.enableSuspendFeature === undefined) {
       const installerPref = await InstallerPreferenceService.readSuspendFeaturePreference();
@@ -851,7 +852,7 @@ async function initializeSuspendService(): Promise<void> {
         console.log(`[Suspend] Initialized from installer preference: ${installerPref}`);
       }
     }
-    
+
     if (prefs.enableSuspendFeature) {
       processSuspendService = new ProcessSuspendService();
       if (processSuspendService.isEnabled()) {
@@ -879,7 +880,7 @@ function registerSuspendIPCHandlers(): void {
   ipcMain.removeHandler('suspend:resumeGame');
   ipcMain.removeHandler('suspend:getFeatureEnabled');
   ipcMain.removeHandler('suspend:setFeatureEnabled');
-  
+
   ipcMain.handle('suspend:getRunningGames', async () => {
     try {
       if (!processSuspendService) {
@@ -891,7 +892,7 @@ function registerSuspendIPCHandlers(): void {
       return [];
     }
   });
-  
+
   ipcMain.handle('suspend:suspendGame', async (_event, gameId: string) => {
     try {
       if (!processSuspendService) {
@@ -904,7 +905,7 @@ function registerSuspendIPCHandlers(): void {
       return { success: false, error: errorMessage };
     }
   });
-  
+
   ipcMain.handle('suspend:resumeGame', async (_event, gameId: string) => {
     try {
       if (!processSuspendService) {
@@ -917,7 +918,7 @@ function registerSuspendIPCHandlers(): void {
       return { success: false, error: errorMessage };
     }
   });
-  
+
   ipcMain.handle('suspend:getFeatureEnabled', async () => {
     try {
       const prefs = await userPreferencesService.getPreferences();
@@ -927,11 +928,11 @@ function registerSuspendIPCHandlers(): void {
       return false;
     }
   });
-  
+
   ipcMain.handle('suspend:setFeatureEnabled', async (_event, enabled: boolean) => {
     try {
       await userPreferencesService.savePreferences({ enableSuspendFeature: enabled });
-      
+
       if (enabled && !processSuspendService) {
         // Initialize service
         processSuspendService = new ProcessSuspendService();
@@ -951,7 +952,7 @@ function registerSuspendIPCHandlers(): void {
         processSuspendService = null;
         console.log('[Suspend] Service disabled and cleaned up');
       }
-      
+
       return { success: true };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -959,7 +960,7 @@ function registerSuspendIPCHandlers(): void {
       return { success: false, error: errorMessage };
     }
   });
-  
+
   ipcMain.handle('suspend:getShortcut', async () => {
     try {
       const prefs = await userPreferencesService.getPreferences();
@@ -969,7 +970,7 @@ function registerSuspendIPCHandlers(): void {
       return 'Ctrl+Shift+S';
     }
   });
-  
+
   ipcMain.handle('suspend:setShortcut', async (_event, shortcut: string) => {
     try {
       await userPreferencesService.savePreferences({ suspendShortcut: shortcut });
@@ -981,21 +982,21 @@ function registerSuspendIPCHandlers(): void {
       return { success: false, error: errorMessage };
     }
   });
-  
+
   ipcMain.handle('suspend:toggleActiveGame', async () => {
     try {
       if (!processSuspendService) {
         return { success: false, error: 'Suspend service is not enabled' };
       }
-      
+
       const runningGames = await processSuspendService.getRunningGames();
       if (runningGames.length === 0) {
         return { success: false, error: 'No games are currently running' };
       }
-      
+
       // Get the first running game (or most recently active)
       const game = runningGames[0];
-      
+
       if (game.status === 'running') {
         return await processSuspendService.suspendGame(game.gameId);
       } else {
@@ -1016,18 +1017,18 @@ async function registerSuspendShortcut(): Promise<void> {
   try {
     // Unregister existing shortcut first
     unregisterSuspendShortcut();
-    
+
     if (!processSuspendService || !processSuspendService.isEnabled()) {
       return;
     }
-    
+
     const prefs = await userPreferencesService.getPreferences();
     const shortcut = prefs.suspendShortcut || 'Ctrl+Shift+S';
-    
+
     if (!shortcut) {
       return; // No shortcut configured
     }
-    
+
     // Electron's globalShortcut supports both single keys (like "End", "F1") 
     // and key combinations (like "Ctrl+Shift+S")
     // We'll use the shortcut as-is
@@ -1037,13 +1038,13 @@ async function registerSuspendShortcut(): Promise<void> {
         if (!processSuspendService) {
           return;
         }
-        
+
         const games = await processSuspendService.getRunningGames();
         if (games.length === 0) {
           console.log('[Suspend] No games running');
           return;
         }
-        
+
         // Get first running game (most recently active)
         const game = games[0];
         if (game.status === 'running') {
@@ -1061,7 +1062,7 @@ async function registerSuspendShortcut(): Promise<void> {
         console.error('[Suspend] Error in shortcut handler:', error);
       }
     });
-    
+
     if (registered) {
       console.log(`[Suspend] Global shortcut registered: ${shortcut}`);
     } else {
@@ -1093,15 +1094,15 @@ async function buildTrayContextMenu(): Promise<Electron.Menu> {
   try {
     const games = await gameStore.getLibrary();
     console.log(`[Tray Menu] Total games in library: ${games.length}`);
-    
+
     const visibleGames = games.filter(game => !game.hidden);
     console.log(`[Tray Menu] Visible games: ${visibleGames.length}`);
-    
+
     const gamesWithLastPlayed = visibleGames.filter(game => game.lastPlayed);
     console.log(`[Tray Menu] Games with lastPlayed: ${gamesWithLastPlayed.length}`);
-    
+
     let gamesToShow: Game[] = [];
-    
+
     if (gamesWithLastPlayed.length > 0) {
       // Sort by lastPlayed date, most recent first
       gamesToShow = gamesWithLastPlayed
@@ -1183,10 +1184,10 @@ async function buildTrayContextMenu(): Promise<Electron.Menu> {
 // Try to set default Steam path if it exists
 try {
   if (platform() === 'win32') {
-    const defaultPath = existsSync('C:\\Program Files (x86)\\Steam') 
-      ? 'C:\\Program Files (x86)\\Steam' 
-      : existsSync('C:\\Program Files\\Steam') 
-        ? 'C:\\Program Files\\Steam' 
+    const defaultPath = existsSync('C:\\Program Files (x86)\\Steam')
+      ? 'C:\\Program Files (x86)\\Steam'
+      : existsSync('C:\\Program Files\\Steam')
+        ? 'C:\\Program Files\\Steam'
         : null;
     if (defaultPath) {
       steamService.setSteamPath(defaultPath);
@@ -1209,23 +1210,23 @@ ipcMain.handle('steam:scanGames', async () => {
       // Return empty array instead of throwing - let the UI handle the error
       return [];
     }
-    
+
     // Verify Steam path exists
     if (!existsSync(steamPath)) {
       console.error(`Steam path does not exist: ${steamPath}`);
       return [];
     }
-    
+
     // Verify steamapps folder exists
     const steamappsPath = path.join(steamPath, 'steamapps');
     if (!existsSync(steamappsPath)) {
       console.error(`Steamapps folder does not exist: ${steamappsPath}`);
       return [];
     }
-    
+
     const steamGames = steamService.scanSteamGames();
     console.log(`Found ${steamGames.length} Steam games`);
-    
+
     // Don't auto-merge - let the user select which games to import
     return steamGames;
   } catch (error) {
@@ -1238,14 +1239,14 @@ ipcMain.handle('steam:scanGames', async () => {
 ipcMain.handle('gameStore:getLibrary', async () => {
   try {
     const library = await gameStore.getLibrary();
-    
+
     // Validate and fix broken onyx-local:// URLs
     const validatedLibrary = await Promise.all(library.map(async (game) => {
       const validatedGame = { ...game };
-      
+
       // Check each image URL and re-cache if broken
       let needsUpdate = false;
-      
+
       if (validatedGame.boxArtUrl?.startsWith('onyx-local://')) {
         const fixed = await imageCacheService.cacheImage(validatedGame.boxArtUrl, game.id, 'boxart');
         if (fixed && fixed !== validatedGame.boxArtUrl && fixed !== '') {
@@ -1263,7 +1264,7 @@ ipcMain.handle('gameStore:getLibrary', async () => {
         }
         // If fixed is empty or same, keep original (broken URLs will fail to load but won't spam)
       }
-      
+
       if (validatedGame.bannerUrl?.startsWith('onyx-local://')) {
         const fixed = await imageCacheService.cacheImage(validatedGame.bannerUrl, game.id, 'banner');
         if (fixed && fixed !== validatedGame.bannerUrl && fixed !== '') {
@@ -1273,7 +1274,7 @@ ipcMain.handle('gameStore:getLibrary', async () => {
         }
         // If fixed is empty or same, keep original (broken URLs will fail to load but won't spam)
       }
-      
+
       // Save all updates at once if any URLs were fixed
       if (needsUpdate) {
         await gameStore.updateGameMetadata(
@@ -1284,7 +1285,7 @@ ipcMain.handle('gameStore:getLibrary', async () => {
           validatedGame.heroUrl
         );
       }
-      
+
       if (validatedGame.logoUrl?.startsWith('onyx-local://')) {
         const fixed = await imageCacheService.cacheImage(validatedGame.logoUrl, game.id, 'logo');
         if (fixed && fixed !== validatedGame.logoUrl) {
@@ -1298,7 +1299,7 @@ ipcMain.handle('gameStore:getLibrary', async () => {
           // Keep the URL - it might be valid but in old format that will be converted on next save
         }
       }
-      
+
       if (validatedGame.heroUrl?.startsWith('onyx-local://')) {
         const fixed = await imageCacheService.cacheImage(validatedGame.heroUrl, game.id, 'hero');
         if (fixed && fixed !== validatedGame.heroUrl) {
@@ -1311,10 +1312,10 @@ ipcMain.handle('gameStore:getLibrary', async () => {
           // Keep the URL - it might be valid but in old format that will be converted on next save
         }
       }
-      
+
       return validatedGame;
     }));
-    
+
     return validatedLibrary;
   } catch (error) {
     console.error('Error in gameStore:getLibrary handler:', error);
@@ -1325,7 +1326,7 @@ ipcMain.handle('gameStore:getLibrary', async () => {
 ipcMain.handle('gameStore:saveGame', async (_event, game: Game) => {
   try {
     console.log(`[saveGame] Saving game: ${game.title} (${game.id})`);
-    
+
     // Cache images before saving
     const cachedImages = await imageCacheService.cacheImages({
       boxArtUrl: game.boxArtUrl,
@@ -1389,20 +1390,20 @@ ipcMain.handle('gameStore:removeWinGDKGames', async () => {
       const exePath = game.exePath?.toLowerCase() || '';
       return exePath.includes('wingdk');
     });
-    
+
     if (wingdkGames.length === 0) {
       return { success: true, removedCount: 0, message: 'No games with WinGDK executables found' };
     }
-    
+
     console.log(`[gameStore] Removing ${wingdkGames.length} games with WinGDK executables`);
-    
+
     for (const game of wingdkGames) {
       await gameStore.deleteGame(game.id);
       console.log(`[gameStore] Removed game: ${game.title} (${game.id}) - WinGDK path: ${game.exePath}`);
     }
-    
-    return { 
-      success: true, 
+
+    return {
+      success: true,
       removedCount: wingdkGames.length,
       removedGames: wingdkGames.map(g => ({ id: g.id, title: g.title, exePath: g.exePath }))
     };
@@ -1421,10 +1422,10 @@ ipcMain.handle('app:reset', async () => {
     await appConfigService.clearAppConfigs();
     await apiCredentialsService.clearCredentials();
     await steamAuthService.clearAuth();
-    
+
     // Clear cached images (both current and old cache directories)
     await imageCacheService.clearCache();
-    
+
     // Also clear old cache directory if it exists (fallback location)
     try {
       const { readdirSync, unlinkSync } = require('node:fs');
@@ -1443,14 +1444,14 @@ ipcMain.handle('app:reset', async () => {
       // Non-fatal - old cache directory might not exist
       console.warn('[Reset] Could not clear old cache directory:', oldCacheError);
     }
-    
+
     // Reinitialize services (will be null since credentials are cleared)
     await initializeIGDBService();
     await initializeSteamGridDBService();
     await initializeRAWGService();
     // Update metadata fetcher to remove providers that are no longer available
     updateMetadataFetcher();
-    
+
     return { success: true };
   } catch (error) {
     console.error('Error in app:reset handler:', error);
@@ -1489,9 +1490,9 @@ ipcMain.handle('metadata:searchArtwork', async (_event, title: string, steamAppI
 ipcMain.handle('metadata:searchAndMatch', async (_event, scannedGame: any, searchQuery?: string) => {
   try {
     const game: ScannedGameResult = scannedGame;
-    
+
     const matchResult = await metadataFetcher.searchAndMatchGame(game, searchQuery);
-    
+
     return {
       success: true,
       match: matchResult.match,
@@ -1517,10 +1518,10 @@ ipcMain.handle('metadata:fixMatch', async (_event, query: string, scannedGame?: 
   try {
     // Check if query is a Steam App ID (numeric)
     const isSteamAppId = /^\d+$/.test(query.trim());
-    
+
     let searchResults: any[] = [];
     let matchedGame: any = null;
-    
+
     if (isSteamAppId) {
       // Search by Steam App ID
       const steamAppId = query.trim();
@@ -1528,11 +1529,11 @@ ipcMain.handle('metadata:fixMatch', async (_event, query: string, scannedGame?: 
         // Fetch directly from Steam Store API
         const storeApiUrl = `https://store.steampowered.com/api/appdetails?appids=${steamAppId}&l=english`;
         const response = await fetch(storeApiUrl);
-        
+
         if (response.ok) {
           const data = await response.json() as Record<string, any>;
           const appData = data[steamAppId];
-          
+
           if (appData && appData.success && appData.data) {
             matchedGame = {
               id: `steam-${steamAppId}`,
@@ -1550,7 +1551,7 @@ ipcMain.handle('metadata:fixMatch', async (_event, query: string, scannedGame?: 
       // Search by name
       const searchResponse = await metadataFetcher.searchGames(query);
       searchResults = searchResponse;
-      
+
       if (scannedGame) {
         // Use matcher to find best match
         const game: ScannedGameResult = scannedGame;
@@ -1561,7 +1562,7 @@ ipcMain.handle('metadata:fixMatch', async (_event, query: string, scannedGame?: 
         matchedGame = searchResults[0] || null;
       }
     }
-    
+
     if (!matchedGame) {
       return {
         success: false,
@@ -1569,14 +1570,14 @@ ipcMain.handle('metadata:fixMatch', async (_event, query: string, scannedGame?: 
         metadata: null,
       };
     }
-    
+
     // Fetch complete metadata for the matched game
     const metadata = await metadataFetcher.fetchCompleteMetadata(
       matchedGame.title,
       matchedGame,
       matchedGame.steamAppId
     );
-    
+
     return {
       success: true,
       matchedGame,
@@ -1601,11 +1602,11 @@ ipcMain.handle('metadata:fetchAndUpdate', async (_event, gameId: string, title: 
       30000, // 30 seconds for full metadata fetch (increased from 20s)
       `Metadata fetch timeout for "${title}"`
     );
-    
+
     // Check if local storage is enabled
     const prefs = await userPreferencesService.getPreferences();
     let finalMetadata = metadata;
-    
+
     if (prefs.storeMetadataLocally !== false) { // Default to true
       // Cache images locally with timeout
       try {
@@ -1615,11 +1616,12 @@ ipcMain.handle('metadata:fetchAndUpdate', async (_event, gameId: string, title: 
             bannerUrl: metadata.bannerUrl,
             logoUrl: metadata.logoUrl,
             heroUrl: metadata.heroUrl,
+            screenshots: metadata.screenshots,
           }, gameId),
-          15000, // 15 seconds for image caching (increased from 10s)
+          20000, // 20 seconds for image caching
           `Image cache timeout for "${title}"`
         );
-        
+
         finalMetadata = {
           ...metadata,
           ...cachedImages,
@@ -1629,10 +1631,10 @@ ipcMain.handle('metadata:fetchAndUpdate', async (_event, gameId: string, title: 
         // Continue with uncached metadata
       }
     }
-    
+
     const success = await gameStore.updateGameMetadata(
-      gameId, 
-      finalMetadata.boxArtUrl, 
+      gameId,
+      finalMetadata.boxArtUrl,
       finalMetadata.bannerUrl,
       finalMetadata.logoUrl,
       finalMetadata.heroUrl
@@ -1651,7 +1653,7 @@ ipcMain.handle('metadata:setIGDBConfig', async (_event, config: IGDBConfig) => {
     // Note: IGDBConfig uses accessToken but IGDBService needs clientSecret
     // This is a legacy issue - prefer using api:saveCredentials
     console.warn('metadata:setIGDBConfig is deprecated. Use api:saveCredentials instead.');
-    
+
     // Only create service if both clientId and accessToken (used as clientSecret) are provided
     if (config.clientId && config.accessToken) {
       igdbService = new IGDBService(config.clientId, config.accessToken);
@@ -1683,7 +1685,7 @@ ipcMain.handle('metadata:searchMetadata', async (_event, gameTitle: string) => {
     if (!igdbService) {
       return { success: false, error: 'IGDB service not configured. Please configure your API credentials in Settings > APIs.', results: [] };
     }
-    
+
     let results;
     try {
       results = await withTimeout(
@@ -1705,7 +1707,7 @@ ipcMain.handle('metadata:searchMetadata', async (_event, gameTitle: string) => {
       }
       throw error;
     }
-    
+
     // Fetch logos from SteamGridDB for each result if available
     const sgdbService = steamGridDBService;
     if (sgdbService && results.length > 0) {
@@ -1715,7 +1717,7 @@ ipcMain.handle('metadata:searchMetadata', async (_event, gameTitle: string) => {
           try {
             // Try multiple search strategies to find matching game
             let sgdbGames: any[] = [];
-            
+
             // Strategy 1: Search by exact IGDB game name
             try {
               sgdbGames = await withTimeout(
@@ -1726,7 +1728,7 @@ ipcMain.handle('metadata:searchMetadata', async (_event, gameTitle: string) => {
             } catch (err) {
               console.debug(`[Logo Search] Strategy 1 failed for "${result.name}":`, err);
             }
-            
+
             // Strategy 2: If no results, try the original search query
             if (sgdbGames.length === 0 && gameTitle !== result.name) {
               try {
@@ -1739,7 +1741,7 @@ ipcMain.handle('metadata:searchMetadata', async (_event, gameTitle: string) => {
                 console.debug(`[Logo Search] Strategy 2 failed for "${gameTitle}":`, err);
               }
             }
-            
+
             // Strategy 3: Try without special characters/common words
             if (sgdbGames.length === 0) {
               const simplifiedName = result.name
@@ -1758,19 +1760,19 @@ ipcMain.handle('metadata:searchMetadata', async (_event, gameTitle: string) => {
                 }
               }
             }
-            
+
             if (sgdbGames.length > 0) {
               // Try to find the best matching game (prefer verified games)
               let selectedGame = sgdbGames.find(g => g.verified) || sgdbGames[0];
               const gameId = selectedGame.id;
               console.log(`[Logo Search] Found SteamGridDB game ${gameId} ("${selectedGame.name}") for "${result.name}", fetching logos...`);
-              
+
               const logos = await withTimeout(
                 sgdbService.getLogos(gameId),
                 8000,
                 `SteamGridDB logo fetch timeout for game ${gameId}`
               );
-              
+
               if (logos.length > 0) {
                 // Filter out NSFW/humor/epilepsy content and get highest scored logo
                 const suitableLogos = logos.filter(img => !img.nsfw && !img.humor && !img.epilepsy);
@@ -1800,7 +1802,7 @@ ipcMain.handle('metadata:searchMetadata', async (_event, gameTitle: string) => {
     } else if (!sgdbService) {
       console.warn('[Logo Search] SteamGridDB service not available - skipping logo search. Please configure SteamGridDB API key in Settings > APIs.');
     }
-    
+
     return { success: true, results };
   } catch (error) {
     console.error('Error in metadata:searchMetadata handler:', error);
@@ -1824,17 +1826,17 @@ async function searchSteamDBForAllAppIds(gameName: string, normalizedTitle: stri
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
       }
     });
-    
+
     if (!response.ok) {
       console.warn(`[SteamDB Search] Steam Store search returned status ${response.status}`);
       return [];
     }
-    
+
     const html = await response.text();
-    
+
     // Extract App IDs using multiple methods (Steam uses various formats):
     const appIds: string[] = [];
-    
+
     // Method 1: Look for href="/app/123456/" or href='/app/123456/' (most common)
     const hrefMatches = html.match(/href=["']\/app\/(\d+)\//g);
     if (hrefMatches) {
@@ -1846,7 +1848,7 @@ async function searchSteamDBForAllAppIds(gameName: string, normalizedTitle: stri
         }
       }
     }
-    
+
     // Method 2: Look for data-ds-appid="123456" (Steam uses this attribute)
     const dataAppIdMatches = html.match(/data-ds-appid=["'](\d+)["']/g);
     if (dataAppIdMatches) {
@@ -1858,13 +1860,13 @@ async function searchSteamDBForAllAppIds(gameName: string, normalizedTitle: stri
         }
       }
     }
-    
+
     // Method 3: Look for data-ds-bundleid (bundles also contain app IDs sometimes)
     const bundleMatches = html.match(/data-ds-bundleid=["'](\d+)["']/g);
     if (bundleMatches) {
       console.log(`[SteamDB Search] Found ${bundleMatches.length} bundle matches`);
     }
-    
+
     // Method 4: Look for JSON data embedded in script tags (Steam sometimes embeds search results as JSON)
     const scriptMatches = html.match(/<script[^>]*>[\s\S]*?<\/script>/gi);
     if (scriptMatches) {
@@ -1893,10 +1895,10 @@ async function searchSteamDBForAllAppIds(gameName: string, normalizedTitle: stri
         }
       }
     }
-    
+
     // Get unique App IDs
     const uniqueAppIds = [...new Set(appIds)];
-    
+
     if (uniqueAppIds.length === 0) {
       console.log(`[SteamDB Search] No App IDs found in Steam Store search results for "${gameName}"`);
       console.log(`[SteamDB Search] HTML length: ${html.length}, checking if page loaded correctly...`);
@@ -1906,10 +1908,10 @@ async function searchSteamDBForAllAppIds(gameName: string, normalizedTitle: stri
       }
       return [];
     }
-    
+
     console.log(`[SteamDB Search] Found ${uniqueAppIds.length} unique App IDs in Steam Store search for "${gameName}"`);
     console.log(`[SteamDB Search] First 5 App IDs: ${uniqueAppIds.slice(0, 5).join(', ')}`);
-    
+
     // Return all App IDs found (we'll filter and sort them later)
     // Limit to first 50 to avoid too many API calls
     return uniqueAppIds.slice(0, 50);
@@ -1926,29 +1928,29 @@ ipcMain.handle('metadata:searchGames', async (_event, gameTitle: string) => {
     // Priority: 1) Check user's Steam library, 2) Search SteamDB.info to find App ID, then verify with Steam Store API
     const exactSteamMatch: any = await (async () => {
       const normalizedTitle = gameTitle.trim().toLowerCase();
-      
+
       // Method 1: Check user's Steam library first (if available)
       if (steamService) {
         try {
           const steamGames = steamService.scanSteamGames();
-          const matchingGame = steamGames.find(g => 
+          const matchingGame = steamGames.find(g =>
             g.name.trim().toLowerCase() === normalizedTitle
           );
-          
+
           if (matchingGame) {
             // Found in user's library - verify with Steam Store API
             try {
               const steamAppId = matchingGame.appId;
               const storeApiUrl = `https://store.steampowered.com/api/appdetails?appids=${steamAppId}&l=english`;
               const response = await fetch(storeApiUrl);
-              
+
               if (response.ok) {
                 const data = await response.json() as Record<string, any>;
                 const appData = data[steamAppId];
-                
+
                 if (appData && appData.success && appData.data) {
                   const steamName = appData.data.name?.trim().toLowerCase();
-                  
+
                   // Verify exact match with Steam Store API name
                   if (steamName === normalizedTitle) {
                     console.log(`[Steam Search] Found exact match in library: "${appData.data.name}" (App ID: ${steamAppId})`);
@@ -1967,7 +1969,7 @@ ipcMain.handle('metadata:searchGames', async (_event, gameTitle: string) => {
                         }
                       }
                     }
-                    
+
                     return {
                       id: `steam-${steamAppId}`,
                       title: appData.data.name,
@@ -1987,35 +1989,35 @@ ipcMain.handle('metadata:searchGames', async (_event, gameTitle: string) => {
           console.warn('[Steam Search] Error checking Steam library:', err);
         }
       }
-      
+
       return null;
     })();
 
     // Search Steam Store for all matching App IDs
     const normalizedTitle = gameTitle.trim().toLowerCase();
     let steamResults: any[] = [];
-    
+
     try {
       console.log(`[Steam Search] Searching Steam Store for all matches of "${gameTitle}"`);
       const allAppIds = await searchSteamDBForAllAppIds(gameTitle, normalizedTitle);
-      
+
       if (allAppIds.length > 0) {
         console.log(`[Steam Search] Found ${allAppIds.length} App IDs, fetching game details...`);
-        
+
         // Fetch details for all App IDs (limit to first 30 to avoid too many API calls)
         const appIdsToFetch = allAppIds.slice(0, 30);
         const fetchPromises = appIdsToFetch.map(async (appId) => {
           try {
             const storeApiUrl = `https://store.steampowered.com/api/appdetails?appids=${appId}&l=english`;
             const response = await fetch(storeApiUrl);
-            
+
             if (response.ok) {
               const data = await response.json() as Record<string, any>;
               const appData = data[appId];
-              
+
               if (appData && appData.success && appData.data) {
                 const steamName = appData.data.name?.trim().toLowerCase();
-                
+
                 // Parse release date from Steam format
                 let releaseDate: string | undefined;
                 let releaseTimestamp: number | undefined;
@@ -2033,7 +2035,7 @@ ipcMain.handle('metadata:searchGames', async (_event, gameTitle: string) => {
                     }
                   }
                 }
-                
+
                 return {
                   id: `steam-${appId}`,
                   title: appData.data.name,
@@ -2051,30 +2053,30 @@ ipcMain.handle('metadata:searchGames', async (_event, gameTitle: string) => {
           }
           return null;
         });
-        
+
         const fetchedGames = await Promise.all(fetchPromises);
         steamResults = fetchedGames.filter((game): game is any => game !== null);
-        
+
         // Sort: exact match first, then by release date (newest first)
         steamResults.sort((a, b) => {
           // Exact match first
           if (a.isExactMatch && !b.isExactMatch) return -1;
           if (!a.isExactMatch && b.isExactMatch) return 1;
-          
+
           // Then by release date (newest first)
           if (a.releaseTimestamp !== b.releaseTimestamp) {
             return b.releaseTimestamp - a.releaseTimestamp;
           }
-          
+
           return 0;
         });
-        
+
         console.log(`[Steam Search] Found ${steamResults.length} Steam games`);
       }
     } catch (err) {
       console.warn('[Steam Search] Error searching Steam Store:', err);
     }
-    
+
     // If we found Steam results, return them (exact match first, then by date)
     if (steamResults.length > 0) {
       // Remove the temporary fields used for sorting
@@ -2084,12 +2086,12 @@ ipcMain.handle('metadata:searchGames', async (_event, gameTitle: string) => {
 
     // Otherwise, do the normal search across all providers
     const results = await metadataFetcher.searchGames(gameTitle);
-    
+
     // Transform results to include additional info for display
     const transformedResults = await Promise.all(
       results.map(async (result) => {
         const transformed: any = { ...result };
-        
+
         // For Steam results, fetch release date from Steam Store API
         if (result.source === 'steam') {
           try {
@@ -2097,17 +2099,17 @@ ipcMain.handle('metadata:searchGames', async (_event, gameTitle: string) => {
             const steamAppId = result.steamAppId || (result.id.startsWith('steam-') ? result.id.replace('steam-', '') : undefined);
             if (steamAppId) {
               transformed.steamAppId = steamAppId; // Ensure steamAppId is set
-              
+
               // Fetch release date from Steam Store API if not already present
               if (!transformed.releaseDate) {
                 try {
                   const storeApiUrl = `https://store.steampowered.com/api/appdetails?appids=${steamAppId}&l=english`;
                   const storeResponse = await fetch(storeApiUrl);
-                  
+
                   if (storeResponse.ok) {
                     const data = await storeResponse.json() as Record<string, any>;
                     const appData = data[steamAppId];
-                    
+
                     if (appData && appData.success && appData.data && appData.data.release_date) {
                       const dateStr = appData.data.release_date.date;
                       if (dateStr && dateStr !== 'Coming soon' && dateStr !== 'TBA') {
@@ -2131,14 +2133,14 @@ ipcMain.handle('metadata:searchGames', async (_event, gameTitle: string) => {
             console.warn('Error processing Steam result:', err);
           }
         }
-        
+
         // Try to get more details if it's an IGDB result
         if (result.source === 'igdb' && result.externalId && igdbService) {
           try {
             // Search IGDB to get the full game details
             const igdbResults = await igdbService.searchGame(String(result.externalId));
             const igdbResult = igdbResults.find(r => r.id === result.externalId) || igdbResults[0];
-            
+
             if (igdbResult) {
               // Extract year from release date
               if (igdbResult.releaseDate) {
@@ -2154,16 +2156,16 @@ ipcMain.handle('metadata:searchGames', async (_event, gameTitle: string) => {
             console.warn('Error fetching additional details for IGDB result:', err);
           }
         }
-        
+
         // Note: We no longer create Steam results from SteamGridDB - only use SteamDB.info for App ID matching
-        
+
         return transformed;
       })
     );
-    
+
     // Filter to show only Steam results (as requested for Fix Match)
     const steamOnlyResults = transformedResults.filter((r: any) => r.source === 'steam');
-    
+
     return { success: true, results: steamOnlyResults.length > 0 ? steamOnlyResults : transformedResults };
   } catch (error) {
     console.error('Error in metadata:searchGames handler:', error);
@@ -2187,7 +2189,7 @@ ipcMain.handle('metadata:refreshAll', async (event, options?: { allGames?: boole
 
   try {
     let games = await gameStore.getLibrary();
-    
+
     // Filter games based on options
     if (options?.gameIds) {
       // Only refresh specific games
@@ -2203,19 +2205,19 @@ ipcMain.handle('metadata:refreshAll', async (event, options?: { allGames?: boole
       console.log(`[RefreshAll] Filtered to ${games.length} games with missing images out of ${(await gameStore.getLibrary()).length} total games`);
     }
     // If allGames is true or undefined, refresh all games
-    
+
     const totalGames = games.length;
     let successCount = 0;
     let errorCount = 0;
     const unmatchedGames: Array<{ gameId: string; title: string; searchResults: any[] }> = [];
     const missingBoxartGames: Array<{ gameId: string; title: string; steamAppId?: string }> = [];
-    
+
     if (totalGames === 0) {
-      sendProgress({ 
-        current: 0, 
-        total: 0, 
-        message: options?.allGames === false 
-          ? 'No games found with missing images. All games already have metadata.' 
+      sendProgress({
+        current: 0,
+        total: 0,
+        message: options?.allGames === false
+          ? 'No games found with missing images. All games already have metadata.'
           : 'No games to refresh.'
       });
       return {
@@ -2225,9 +2227,9 @@ ipcMain.handle('metadata:refreshAll', async (event, options?: { allGames?: boole
         unmatchedGames: [],
       };
     }
-    
+
     sendProgress({ current: 0, total: totalGames, message: 'Clearing cached images...' });
-    
+
     // Clear all cached images
     const { homedir } = require('node:os');
     let cacheDir: string;
@@ -2239,13 +2241,13 @@ ipcMain.handle('metadata:refreshAll', async (event, options?: { allGames?: boole
     } else {
       cacheDir = path.join(homedir(), '.cache', 'onyx-launcher', 'images');
     }
-    
+
     if (existsSync(cacheDir)) {
       const { readdirSync, unlinkSync } = require('node:fs');
       const files = readdirSync(cacheDir);
       let deletedCount = 0;
       const gameIds = new Set(games.map(g => g.id));
-      
+
       for (const file of files) {
         const ext = path.extname(file).toLowerCase();
         if (['.jpg', '.jpeg', '.png', '.gif', '.webp', '.webm'].includes(ext)) {
@@ -2273,61 +2275,61 @@ ipcMain.handle('metadata:refreshAll', async (event, options?: { allGames?: boole
       console.log(`[RefreshAll] Cleared ${deletedCount} cached images`);
       sendProgress({ current: 0, total: totalGames, message: `Cleared ${deletedCount} cached images` });
     }
-    
+
     // Refresh metadata for each game - process one at a time
     // Start from continueFromIndex if provided (for resuming after boxart fix)
     const startIndex = options?.continueFromIndex || 0;
     for (let i = startIndex; i < games.length; i++) {
       const game = games[i];
       const current = i + 1;
-      
-        sendProgress({ 
-          current, 
-          total: totalGames, 
-          message: `Searching for boxart for ${game.title}...`,
-          gameTitle: game.title
-        });
-      
+
+      sendProgress({
+        current,
+        total: totalGames,
+        message: `Searching for boxart for ${game.title}...`,
+        gameTitle: game.title
+      });
+
       try {
         let steamAppId = game.id.startsWith('steam-') ? game.id.replace('steam-', '') : undefined;
         let foundSteamAppId = steamAppId; // Track if we found a new Steam app ID
         let shouldUpdateGameId = false; // Track if we should update the game ID to steam-{appId} format
-        
+
         // Search for Steam app ID for all games (not just Steam games)
         // This allows us to use official Steam artwork even for non-Steam games
         if (!steamAppId) {
-          sendProgress({ 
-            current, 
-            total: totalGames, 
+          sendProgress({
+            current,
+            total: totalGames,
             message: `Searching for Steam App ID for ${game.title}...`,
             gameTitle: game.title
           });
-          
+
           try {
             const normalizedTitle = game.title.trim().toLowerCase();
-            
+
             // Method 1: Check user's Steam library first (if available)
             if (steamService) {
               try {
                 const steamGames = steamService.scanSteamGames();
-                const matchingGame = steamGames.find(g => 
+                const matchingGame = steamGames.find(g =>
                   g.name.trim().toLowerCase() === normalizedTitle
                 );
-                
+
                 if (matchingGame) {
                   // Found in user's library - verify with Steam Store API
                   try {
                     const candidateAppId = matchingGame.appId;
                     const storeApiUrl = `https://store.steampowered.com/api/appdetails?appids=${candidateAppId}&l=english`;
                     const response = await fetch(storeApiUrl);
-                    
+
                     if (response.ok) {
                       const data = await response.json() as Record<string, any>;
                       const appData = data[candidateAppId];
-                      
+
                       if (appData && appData.success && appData.data) {
                         const steamName = appData.data.name?.trim().toLowerCase();
-                        
+
                         // Verify exact match with Steam Store API name
                         if (steamName === normalizedTitle) {
                           console.log(`[RefreshAll] Found Steam App ID in library: "${appData.data.name}" (App ID: ${candidateAppId})`);
@@ -2345,30 +2347,30 @@ ipcMain.handle('metadata:refreshAll', async (event, options?: { allGames?: boole
                 console.warn('[RefreshAll] Error checking Steam library:', err);
               }
             }
-            
+
             // Method 2: Search SteamDB.info to find App ID, then verify with Steam Store API
             if (!steamAppId) {
               try {
                 console.log(`[RefreshAll] Searching SteamDB.info for "${game.title}"`);
                 const steamDbAppIds = await searchSteamDBForAllAppIds(game.title, normalizedTitle);
                 const steamDbAppId = steamDbAppIds.length > 0 ? steamDbAppIds[0] : null;
-                
+
                 if (steamDbAppId) {
                   console.log(`[RefreshAll] Found App ID ${steamDbAppId} via SteamDB.info for "${game.title}"`);
                   // Verify with Steam Store API
                   const storeApiUrl = `https://store.steampowered.com/api/appdetails?appids=${steamDbAppId}&l=english`;
                   const response = await fetch(storeApiUrl);
-                  
+
                   if (response.ok) {
                     const data = await response.json() as Record<string, any>;
                     const appData = data[steamDbAppId];
-                    
+
                     if (appData && appData.success && appData.data) {
                       const steamName = appData.data.name?.trim().toLowerCase();
-                      const steamMatches = steamName === normalizedTitle || 
-                                          steamName.includes(normalizedTitle) || 
-                                          normalizedTitle.includes(steamName);
-                      
+                      const steamMatches = steamName === normalizedTitle ||
+                        steamName.includes(normalizedTitle) ||
+                        normalizedTitle.includes(steamName);
+
                       if (steamMatches) {
                         console.log(`[RefreshAll] Verified App ID ${steamDbAppId} via SteamDB.info: "${appData.data.name}"`);
                         steamAppId = steamDbAppId;
@@ -2388,29 +2390,29 @@ ipcMain.handle('metadata:refreshAll', async (event, options?: { allGames?: boole
             console.warn(`[RefreshAll] Error searching for Steam App ID for ${game.title}:`, error);
           }
         }
-        
+
         // NEW APPROACH: Use the same direct search method as manual search
         // This finds boxart even when exact game match isn't found
         // Now with Steam App ID, it will prioritize official Steam CDN artwork
         let metadata: { boxArtUrl?: string; bannerUrl?: string; logoUrl?: string; heroUrl?: string } = {};
-        
+
         // First, try direct SteamGridDB search (same as manual search)
         if (steamGridDBService) {
           try {
-            sendProgress({ 
-              current, 
-              total: totalGames, 
+            sendProgress({
+              current,
+              total: totalGames,
               message: `Searching SteamGridDB for ${game.title}...`,
               gameTitle: game.title
             });
-            
+
             // For non-Steam games, use fuzzy search (try multiple variations)
             let sgdbGames = await steamGridDBService.searchGame(game.title);
-            
+
             // If no results, try fuzzy search variations (for both Steam and non-Steam games)
             if (sgdbGames.length === 0) {
               console.log(`[RefreshAll] No exact match for "${game.title}", trying fuzzy search...`);
-              
+
               // Try variations: remove special characters, try without common words, etc.
               const variations = [
                 game.title.replace(/[^\w\s]/g, '').trim(), // Remove special chars
@@ -2418,7 +2420,7 @@ ipcMain.handle('metadata:refreshAll', async (event, options?: { allGames?: boole
                 game.title.split(' - ')[0].trim(), // Remove subtitle
                 game.title.split(':')[0].trim(), // Remove colon subtitle
               ].filter(v => v.length > 0 && v !== game.title);
-              
+
               // Add Roman numeral conversion for titles like "Final Fantasy VI" -> "Final Fantasy 6"
               if (game.title.match(/\s(?:I|II|III|IV|V|VI|VII|VIII|IX|X)$/i)) {
                 const numericTitle = game.title
@@ -2435,7 +2437,7 @@ ipcMain.handle('metadata:refreshAll', async (event, options?: { allGames?: boole
                   variations.push(numericTitle);
                 }
               }
-              
+
               for (const variation of variations) {
                 if (sgdbGames.length > 0) break; // Stop if we found results
                 try {
@@ -2449,30 +2451,30 @@ ipcMain.handle('metadata:refreshAll', async (event, options?: { allGames?: boole
                 }
               }
             }
-            
+
             if (sgdbGames.length > 0) {
               // Use the first/best match (usually sorted by relevance)
               const bestMatch = sgdbGames[0];
               console.log(`[RefreshAll] Found SteamGridDB game: ${bestMatch.name} (ID: ${bestMatch.id}) for "${game.title}"`);
-              
+
               // Note: We don't extract Steam App ID from SteamGridDB anymore - only use SteamDB.info for App ID matching
               // SteamGridDB is only used for artwork/images here, not for metadata matching
-              
-              sendProgress({ 
-                current, 
-                total: totalGames, 
+
+              sendProgress({
+                current,
+                total: totalGames,
                 message: `Fetching boxart for ${game.title}...`,
                 gameTitle: game.title
               });
-              
+
               // Get capsules (boxart), heroes (banners), and logos
               const capsules = await steamGridDBService.getCapsules(bestMatch.id, true);
               const heroes = await steamGridDBService.getHeroes(bestMatch.id);
               const logos = await steamGridDBService.getLogos(bestMatch.id);
-              
+
               // Filter and get best images (same logic as SteamGridDBMetadataProvider)
               const filterImage = (img: any) => !img.nsfw && !img.humor && !img.epilepsy;
-              
+
               const bestCapsule = capsules
                 .filter(filterImage)
                 .filter(img => {
@@ -2484,15 +2486,15 @@ ipcMain.handle('metadata:refreshAll', async (event, options?: { allGames?: boole
                   return true; // Include if dimensions missing
                 })
                 .sort((a, b) => b.score - a.score)[0];
-              
+
               const bestHero = heroes
                 .filter(filterImage)
                 .sort((a, b) => b.score - a.score)[0];
-              
+
               const bestLogo = logos
                 .filter(filterImage)
                 .sort((a, b) => b.score - a.score)[0];
-              
+
               if (bestCapsule) {
                 metadata.boxArtUrl = bestCapsule.url;
                 console.log(`[RefreshAll] Found boxart for ${game.title}: ${bestCapsule.url.substring(0, 80)}...`);
@@ -2508,10 +2510,10 @@ ipcMain.handle('metadata:refreshAll', async (event, options?: { allGames?: boole
             console.warn(`[RefreshAll] SteamGridDB direct search failed for ${game.title}:`, error);
           }
         }
-        
+
         // Keep searching all sources until we have all three: boxart, banner, logo
         let searchVariations = [game.title];
-        
+
         // Add query variations for searching
         const baseVariations = [
           game.title.replace(/[^\w\s]/g, '').trim(), // Remove special chars
@@ -2519,7 +2521,7 @@ ipcMain.handle('metadata:refreshAll', async (event, options?: { allGames?: boole
           game.title.split(' - ')[0].trim(), // Remove subtitle
           game.title.split(':')[0].trim(), // Remove colon subtitle
         ].filter(v => v.length > 0 && v !== game.title);
-        
+
         // Add Roman numeral variations
         if (game.title.match(/\s(?:I|II|III|IV|V|VI|VII|VIII|IX|X)$/i)) {
           const numericTitle = game.title
@@ -2536,9 +2538,9 @@ ipcMain.handle('metadata:refreshAll', async (event, options?: { allGames?: boole
             baseVariations.push(numericTitle);
           }
         }
-        
+
         searchVariations = [game.title, ...baseVariations];
-        
+
         // Keep searching until we have all three
         for (const searchQuery of searchVariations) {
           // If we have all three, stop searching
@@ -2546,18 +2548,18 @@ ipcMain.handle('metadata:refreshAll', async (event, options?: { allGames?: boole
             console.log(`[RefreshAll] Found all three (boxart, banner, logo) for ${game.title}`);
             break;
           }
-          
-          sendProgress({ 
-            current, 
-            total: totalGames, 
+
+          sendProgress({
+            current,
+            total: totalGames,
             message: `Searching for missing images for ${game.title}...`,
             gameTitle: game.title
           });
-          
+
           try {
             // Search all sources for this query variation
             const allSourcesMetadata = await metadataFetcher.searchArtwork(searchQuery, steamAppId);
-            
+
             if (allSourcesMetadata.boxArtUrl && !metadata.boxArtUrl) {
               metadata.boxArtUrl = allSourcesMetadata.boxArtUrl;
               console.log(`[RefreshAll] Found boxart for ${game.title} with query "${searchQuery}": ${allSourcesMetadata.boxArtUrl.substring(0, 80)}...`);
@@ -2574,16 +2576,16 @@ ipcMain.handle('metadata:refreshAll', async (event, options?: { allGames?: boole
             console.warn(`[RefreshAll] Search failed for "${searchQuery}" on ${game.title}:`, error instanceof Error ? error.message : error);
           }
         }
-        
+
         // If we still don't have all three, try all sources for all game types
         if (!metadata.boxArtUrl || !metadata.bannerUrl || !metadata.logoUrl) {
-          sendProgress({ 
-            current, 
-            total: totalGames, 
+          sendProgress({
+            current,
+            total: totalGames,
             message: `Checking Steam CDN for ${game.title}...`,
             gameTitle: game.title
           });
-          
+
           try {
             const steamMetadata = await metadataFetcher.searchArtwork(game.title, steamAppId);
             if (steamMetadata.boxArtUrl && !metadata.boxArtUrl) {
@@ -2602,13 +2604,13 @@ ipcMain.handle('metadata:refreshAll', async (event, options?: { allGames?: boole
             console.warn(`[RefreshAll] Steam CDN search failed for ${game.title}:`, error instanceof Error ? error.message : error);
           }
         }
-        
+
         console.log(`[RefreshAll] Search complete for ${game.title}:`, {
           boxArtUrl: metadata.boxArtUrl ? 'found' : 'MISSING',
           bannerUrl: metadata.bannerUrl ? 'found' : 'MISSING',
           logoUrl: metadata.logoUrl ? 'found' : 'MISSING',
         });
-        
+
         // Log what we got
         console.log(`[RefreshAll] Metadata for ${game.title}:`, {
           boxArtUrl: metadata.boxArtUrl ? 'present' : 'missing',
@@ -2616,28 +2618,28 @@ ipcMain.handle('metadata:refreshAll', async (event, options?: { allGames?: boole
           logoUrl: metadata.logoUrl ? 'present' : 'missing',
           heroUrl: metadata.heroUrl ? 'present' : 'missing',
         });
-        
+
         // If we still don't have boxart, automatically search and use first result (same as manual search)
         if (!metadata.boxArtUrl) {
           console.warn(`[RefreshAll] No boxart found for: ${game.title}, trying automatic search...`);
-          
-          sendProgress({ 
-            current, 
-            total: totalGames, 
+
+          sendProgress({
+            current,
+            total: totalGames,
             message: `Auto-searching boxart for ${game.title}...`,
             gameTitle: game.title
           });
-          
+
           // Use the same search method as manual search (searchImages)
           if (steamGridDBService) {
             try {
               // For non-Steam games, use fuzzy search (try multiple variations)
               let sgdbGames = await steamGridDBService.searchGame(game.title);
-              
+
               // If no results, try fuzzy search variations (for both Steam and non-Steam games)
               if (sgdbGames.length === 0) {
                 console.log(`[RefreshAll] No exact match for "${game.title}", trying fuzzy search...`);
-                
+
                 // Try variations: remove special characters, try without common words, etc.
                 const variations = [
                   game.title.replace(/[^\w\s]/g, '').trim(), // Remove special chars
@@ -2645,7 +2647,7 @@ ipcMain.handle('metadata:refreshAll', async (event, options?: { allGames?: boole
                   game.title.split(' - ')[0].trim(), // Remove subtitle
                   game.title.split(':')[0].trim(), // Remove colon subtitle
                 ].filter(v => v.length > 0 && v !== game.title);
-                
+
                 // Add Roman numeral conversion for titles like "Final Fantasy VI" -> "Final Fantasy 6"
                 if (game.title.match(/\s(?:I|II|III|IV|V|VI|VII|VIII|IX|X)$/i)) {
                   const numericTitle = game.title
@@ -2662,7 +2664,7 @@ ipcMain.handle('metadata:refreshAll', async (event, options?: { allGames?: boole
                     variations.push(numericTitle);
                   }
                 }
-                
+
                 for (const variation of variations) {
                   if (sgdbGames.length > 0) break; // Stop if we found results
                   try {
@@ -2676,12 +2678,12 @@ ipcMain.handle('metadata:refreshAll', async (event, options?: { allGames?: boole
                   }
                 }
               }
-              
+
               if (sgdbGames.length > 0) {
                 // Use the first game result
                 const firstGame = sgdbGames[0];
                 console.log(`[RefreshAll] Auto-selected game: ${firstGame.name} (ID: ${firstGame.id}) for "${game.title}"`);
-                
+
                 // Extract Steam App ID from result if we haven't found one yet
                 if (!steamAppId && firstGame.steam_app_id) {
                   const candidateAppId = firstGame.steam_app_id.toString();
@@ -2689,11 +2691,11 @@ ipcMain.handle('metadata:refreshAll', async (event, options?: { allGames?: boole
                   try {
                     const storeApiUrl = `https://store.steampowered.com/api/appdetails?appids=${candidateAppId}&l=english`;
                     const response = await fetch(storeApiUrl);
-                    
+
                     if (response.ok) {
                       const data = await response.json() as Record<string, any>;
                       const appData = data[candidateAppId];
-                      
+
                       if (appData && appData.success && appData.data) {
                         console.log(`[RefreshAll] Extracted Steam App ID from auto-search result: "${appData.data.name}" (App ID: ${candidateAppId})`);
                         steamAppId = candidateAppId;
@@ -2705,13 +2707,13 @@ ipcMain.handle('metadata:refreshAll', async (event, options?: { allGames?: boole
                     console.warn(`[RefreshAll] Error verifying Steam App ID ${firstGame.steam_app_id}:`, err);
                   }
                 }
-                
+
                 // Get capsules (boxart) from first result
                 const capsules = await steamGridDBService.getCapsules(firstGame.id, true);
-                
+
                 // Filter and get best image (same logic as manual search)
                 const filterImage = (img: any) => !img.nsfw && !img.humor && !img.epilepsy;
-                
+
                 const bestCapsule = capsules
                   .filter(filterImage)
                   .filter(img => {
@@ -2723,7 +2725,7 @@ ipcMain.handle('metadata:refreshAll', async (event, options?: { allGames?: boole
                     return true; // Include if dimensions missing
                   })
                   .sort((a, b) => b.score - a.score)[0];
-                
+
                 if (bestCapsule) {
                   metadata.boxArtUrl = bestCapsule.url;
                   console.log(`[RefreshAll] Auto-selected boxart for ${game.title}: ${bestCapsule.url.substring(0, 80)}...`);
@@ -2733,7 +2735,7 @@ ipcMain.handle('metadata:refreshAll', async (event, options?: { allGames?: boole
               console.warn(`[RefreshAll] Auto-search failed for ${game.title}:`, error);
             }
           }
-          
+
           // If still no boxart after auto-search, mark as missing but continue
           // Only add to missing if we couldn't find at least boxart and banner
           if (!metadata.boxArtUrl || !metadata.bannerUrl) {
@@ -2748,14 +2750,14 @@ ipcMain.handle('metadata:refreshAll', async (event, options?: { allGames?: boole
             // Continue processing - don't stop for missing images
           }
         }
-        
-        sendProgress({ 
-          current, 
-          total: totalGames, 
+
+        sendProgress({
+          current,
+          total: totalGames,
           message: `Caching images for ${game.title}...`,
           gameTitle: game.title
         });
-        
+
         // Cache images locally - only cache if URL is not empty
         const imagesToCache: { boxArtUrl?: string; bannerUrl?: string; logoUrl?: string; heroUrl?: string } = {};
         if (metadata.boxArtUrl && metadata.boxArtUrl.trim() !== '') {
@@ -2770,26 +2772,26 @@ ipcMain.handle('metadata:refreshAll', async (event, options?: { allGames?: boole
         if (metadata.heroUrl && metadata.heroUrl.trim() !== '') {
           imagesToCache.heroUrl = metadata.heroUrl;
         }
-        
+
         console.log(`[RefreshAll] Caching images for ${game.title}:`, Object.keys(imagesToCache));
         const cachedImages = await imageCacheService.cacheImages(imagesToCache, game.id);
         console.log(`[RefreshAll] Cached images for ${game.title}:`, {
           boxArtUrl: cachedImages.boxArtUrl ? 'cached' : 'not cached',
           bannerUrl: cachedImages.bannerUrl ? 'cached' : 'not cached',
         });
-        
-        sendProgress({ 
-          current, 
-          total: totalGames, 
+
+        sendProgress({
+          current,
+          total: totalGames,
           message: `Saving metadata for ${game.title}...`,
           gameTitle: game.title
         });
-        
+
         // Update game metadata
         // Priority: cached URL > metadata URL > existing URL (if not broken onyx-local)
         let finalBoxArtUrl = '';
         let boxartFailed = false;
-        
+
         // First, try cached URL
         if (cachedImages.boxArtUrl && cachedImages.boxArtUrl.trim() !== '') {
           finalBoxArtUrl = cachedImages.boxArtUrl;
@@ -2814,7 +2816,7 @@ ipcMain.handle('metadata:refreshAll', async (event, options?: { allGames?: boole
           // No boxart URL available from any source
           boxartFailed = true;
         }
-        
+
         // Same logic for banner
         let finalBannerUrl = '';
         if (cachedImages.bannerUrl && cachedImages.bannerUrl.trim() !== '') {
@@ -2829,7 +2831,7 @@ ipcMain.handle('metadata:refreshAll', async (event, options?: { allGames?: boole
             finalBannerUrl = '';
           }
         }
-        
+
         // Track games with missing required images (but don't stop - continue processing)
         if ((boxartFailed && finalBoxArtUrl === '') || (!finalBannerUrl)) {
           if (!missingBoxartGames.find(g => g.gameId === game.id)) {
@@ -2842,14 +2844,14 @@ ipcMain.handle('metadata:refreshAll', async (event, options?: { allGames?: boole
           console.warn(`[RefreshAll] Missing required images for ${game.title}: boxart=${finalBoxArtUrl ? 'found' : 'missing'}, banner=${finalBannerUrl ? 'found' : 'missing'}`);
           // Continue processing - don't stop for missing images
         }
-        
+
         // If we found a Steam app ID and the game isn't already a Steam game, update the game ID
         // This stores the Steam app ID and allows the game to use Steam artwork
         let gameIdToUpdate = game.id;
         if (shouldUpdateGameId && foundSteamAppId && !game.id.startsWith('steam-')) {
           const newGameId = `steam-${foundSteamAppId}`;
           console.log(`[RefreshAll] Updating game ID from "${game.id}" to "${newGameId}" for ${game.title} (Steam App ID: ${foundSteamAppId})`);
-          
+
           // Get the full game object and update it
           const games = await gameStore.getLibrary();
           const gameToUpdate = games.find(g => g.id === game.id);
@@ -2868,7 +2870,7 @@ ipcMain.handle('metadata:refreshAll', async (event, options?: { allGames?: boole
             }
           }
         }
-        
+
         await gameStore.updateGameMetadata(
           gameIdToUpdate,
           finalBoxArtUrl,
@@ -2876,14 +2878,14 @@ ipcMain.handle('metadata:refreshAll', async (event, options?: { allGames?: boole
           cachedImages.logoUrl || metadata.logoUrl,
           cachedImages.heroUrl || metadata.heroUrl
         );
-        
+
         // Only count as success if we have all three: boxart, banner, and logo
-        const hasAllThree = (finalBoxArtUrl && finalBoxArtUrl.trim() !== '') && 
-                           (finalBannerUrl && finalBannerUrl.trim() !== '') && 
-                           (cachedImages.logoUrl || metadata.logoUrl);
-        
+        const hasAllThree = (finalBoxArtUrl && finalBoxArtUrl.trim() !== '') &&
+          (finalBannerUrl && finalBannerUrl.trim() !== '') &&
+          (cachedImages.logoUrl || metadata.logoUrl);
+
         console.log(`[RefreshAll] Updated ${game.title} with boxArtUrl: ${finalBoxArtUrl ? 'yes' : 'NO'}, bannerUrl: ${finalBannerUrl ? 'yes' : 'no'}, logoUrl: ${cachedImages.logoUrl || metadata.logoUrl ? 'yes' : 'no'}`);
-        
+
         if (hasAllThree) {
           successCount++;
           console.log(`[RefreshAll] ✓ Successfully refreshed ${game.title} (all three: boxart, banner, logo)`);
@@ -2909,7 +2911,7 @@ ipcMain.handle('metadata:refreshAll', async (event, options?: { allGames?: boole
         // Also add to missing images if we don't have required images
         const steamAppId = game.id.startsWith('steam-') ? game.id.replace('steam-', '') : undefined;
         if (!game.boxArtUrl || game.boxArtUrl.trim() === '' || game.boxArtUrl.startsWith('onyx-local://') ||
-            !game.bannerUrl || game.bannerUrl.trim() === '' || game.bannerUrl.startsWith('onyx-local://')) {
+          !game.bannerUrl || game.bannerUrl.trim() === '' || game.bannerUrl.startsWith('onyx-local://')) {
           if (!missingBoxartGames.find(g => g.gameId === game.id)) {
             missingBoxartGames.push({
               gameId: game.id,
@@ -2918,21 +2920,21 @@ ipcMain.handle('metadata:refreshAll', async (event, options?: { allGames?: boole
             });
           }
         }
-        sendProgress({ 
-          current, 
-          total: totalGames, 
+        sendProgress({
+          current,
+          total: totalGames,
           message: `Error refreshing ${game.title}: ${error instanceof Error ? error.message : 'Unknown error'}`,
           gameTitle: game.title
         });
       }
     }
-    
-    sendProgress({ 
-      current: totalGames, 
-      total: totalGames, 
+
+    sendProgress({
+      current: totalGames,
+      total: totalGames,
       message: `Completed! Successfully refreshed ${successCount} games${unmatchedGames.length > 0 ? `, ${unmatchedGames.length} need matching` : ''}${errorCount > 0 ? `, ${errorCount} errors` : ''}`
     });
-    
+
     return {
       success: true,
       count: successCount,
@@ -2945,9 +2947,9 @@ ipcMain.handle('metadata:refreshAll', async (event, options?: { allGames?: boole
     };
   } catch (error) {
     console.error('Error in metadata:refreshAll handler:', error);
-    sendProgress({ 
-      current: 0, 
-      total: 0, 
+    sendProgress({
+      current: 0,
+      total: 0,
       message: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`
     });
     return {
@@ -2969,25 +2971,25 @@ ipcMain.handle('metadata:fetchAndUpdateByProviderId', async (_event, gameId: str
     if (!game) {
       return { success: false, error: 'Game not found' };
     }
-    
+
     // Extract Steam App ID if it's a Steam game
     const steamAppId = gameId.startsWith('steam-') ? gameId.replace('steam-', '') : undefined;
-    
+
     // Fetch metadata using the specific provider ID
     let metadata;
-    
+
     if (providerSource === 'igdb') {
       // Extract IGDB game ID from provider ID (format: "igdb-123")
       const igdbGameId = parseInt(providerId.replace('igdb-', ''), 10);
-      
+
       if (isNaN(igdbGameId) || !igdbService) {
         return { success: false, error: 'Invalid IGDB ID or service not available' };
       }
-      
+
       // Search IGDB for the specific game by ID
       const igdbResults = await igdbService.searchGame(String(igdbGameId));
       const igdbResult = igdbResults.find(r => r.id === igdbGameId) || igdbResults[0];
-      
+
       if (igdbResult) {
         // Use the game title from IGDB result to fetch complete metadata
         metadata = await metadataFetcher.searchArtwork(igdbResult.name, steamAppId);
@@ -2997,14 +2999,14 @@ ipcMain.handle('metadata:fetchAndUpdateByProviderId', async (_event, gameId: str
     } else if (providerSource === 'steamgriddb') {
       // Extract SteamGridDB game ID from provider ID (format: "steamgriddb-123")
       const sgdbGameId = parseInt(providerId.replace('steamgriddb-', ''), 10);
-      
+
       if (isNaN(sgdbGameId) || !steamGridDBService) {
         return { success: false, error: 'Invalid SteamGridDB ID or service not available' };
       }
-      
+
       // Get metadata directly from SteamGridDB
       const sgdbMetadata = await steamGridDBService.getGameMetadata(sgdbGameId);
-      
+
       // Also try to get IGDB description if available
       let igdbDescription = null;
       if (igdbService) {
@@ -3026,7 +3028,7 @@ ipcMain.handle('metadata:fetchAndUpdateByProviderId', async (_event, gameId: str
           };
         }
       }
-      
+
       metadata = {
         boxArtUrl: sgdbMetadata.boxArtUrl,
         bannerUrl: sgdbMetadata.bannerUrl,
@@ -3046,15 +3048,15 @@ ipcMain.handle('metadata:fetchAndUpdateByProviderId', async (_event, gameId: str
     } else {
       return { success: false, error: `Unknown provider source: ${providerSource}` };
     }
-    
+
     if (!metadata) {
       return { success: false, error: 'Failed to fetch metadata' };
     }
-    
+
     // Check if local storage is enabled
     const prefs = await userPreferencesService.getPreferences();
     let finalMetadata = metadata;
-    
+
     if (prefs.storeMetadataLocally !== false) { // Default to true
       // Cache images locally
       const cachedImages = await imageCacheService.cacheImages({
@@ -3063,13 +3065,13 @@ ipcMain.handle('metadata:fetchAndUpdateByProviderId', async (_event, gameId: str
         logoUrl: metadata.logoUrl,
         heroUrl: metadata.heroUrl,
       }, gameId);
-      
+
       finalMetadata = {
         ...metadata,
         ...cachedImages,
       };
     }
-    
+
     // Update game metadata in store
     const success = await gameStore.updateGameMetadata(
       gameId,
@@ -3078,7 +3080,7 @@ ipcMain.handle('metadata:fetchAndUpdateByProviderId', async (_event, gameId: str
       metadata.logoUrl,
       metadata.heroUrl
     );
-    
+
     // Also update other metadata fields if available
     if (success) {
       const updatedGame: Game = {
@@ -3094,7 +3096,7 @@ ipcMain.handle('metadata:fetchAndUpdateByProviderId', async (_event, gameId: str
       };
       await gameStore.saveGame(updatedGame);
     }
-    
+
     return { success, metadata };
   } catch (error) {
     console.error('Error in metadata:fetchAndUpdateByProviderId handler:', error);
@@ -3145,13 +3147,13 @@ ipcMain.handle('metadata:fetchGameDescription', async (_event, steamGameId: stri
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
 });
-    
+
 // File dialog handler for selecting executable
 ipcMain.handle('dialog:showOpenDialog', async () => {
   try {
     // Get the focused window or fall back to the main window
     const targetWindow = BrowserWindow.getFocusedWindow() || win;
-    
+
     // dialog.showOpenDialog can work without a window, but TypeScript types are strict
     // @ts-expect-error - Electron dialog API accepts undefined, but types don't reflect this
     const result = await dialog.showOpenDialog(targetWindow || undefined, {
@@ -3161,7 +3163,7 @@ ipcMain.handle('dialog:showOpenDialog', async () => {
         { name: 'All Files', extensions: ['*'] },
       ],
     });
-    
+
     if (!result.canceled && result.filePaths.length > 0) {
       return result.filePaths[0];
     }
@@ -3177,7 +3179,7 @@ ipcMain.handle('dialog:showOpenDialog', async () => {
 ipcMain.handle('dialog:showImageDialog', async () => {
   try {
     const targetWindow = BrowserWindow.getFocusedWindow() || win;
-    
+
     // @ts-expect-error - Electron dialog API accepts undefined, but types don't reflect this
     const result = await dialog.showOpenDialog(targetWindow || undefined, {
       properties: ['openFile'],
@@ -3186,7 +3188,7 @@ ipcMain.handle('dialog:showImageDialog', async () => {
         { name: 'All Files', extensions: ['*'] },
       ],
     });
-    
+
     if (!result.canceled && result.filePaths.length > 0) {
       return result.filePaths[0];
     }
@@ -3209,7 +3211,7 @@ ipcMain.handle('gameStore:addCustomGame', async (_event, gameData: { title: stri
       boxArtUrl: '',
       bannerUrl: '',
     };
-    
+
     await gameStore.saveGame(newGame);
     return newGame;
   } catch (error) {
@@ -3222,7 +3224,7 @@ ipcMain.handle('gameStore:addCustomGame', async (_event, gameData: { title: stri
 ipcMain.handle('launcher:launchGame', async (_event, gameId: string) => {
   try {
     const result = await launcherService.launchGame(gameId);
-    
+
     // If game launch was successful, update lastPlayed and refresh tray menu
     if (result.success) {
       try {
@@ -3232,7 +3234,7 @@ ipcMain.handle('launcher:launchGame', async (_event, gameId: string) => {
         if (game) {
           game.lastPlayed = new Date().toISOString();
           await gameStore.saveGame(game);
-          
+
           // Track process for suspend service (if enabled)
           if (processSuspendService && processSuspendService.isEnabled()) {
             // For non-Steam games, we have the PID directly
@@ -3253,13 +3255,13 @@ ipcMain.handle('launcher:launchGame', async (_event, gameId: string) => {
             }
           }
         }
-        
+
         // Refresh tray menu to show updated recent games
         if (tray) {
           const contextMenu = await buildTrayContextMenu();
           tray.setContextMenu(contextMenu);
         }
-        
+
         const prefs = await userPreferencesService.getPreferences();
         if (prefs.minimizeOnGameLaunch && win) {
           win.minimize();
@@ -3269,7 +3271,7 @@ ipcMain.handle('launcher:launchGame', async (_event, gameId: string) => {
         // Don't fail the game launch if update fails
       }
     }
-    
+
     return result;
   } catch (error) {
     console.error('Error in launcher:launchGame handler:', error);
@@ -3307,12 +3309,12 @@ ipcMain.handle('process:checkExists', async (_event, pid: number) => {
 ipcMain.handle('dialog:showFolderDialog', async () => {
   try {
     const targetWindow = BrowserWindow.getFocusedWindow() || win;
-    
+
     // @ts-expect-error - Electron dialog API accepts undefined, but types don't reflect this
     const result = await dialog.showOpenDialog(targetWindow || undefined, {
       properties: ['openDirectory'],
     });
-    
+
     if (!result.canceled && result.filePaths.length > 0) {
       return result.filePaths[0];
     }
@@ -3327,7 +3329,7 @@ ipcMain.handle('dialog:showFolderDialog', async () => {
 ipcMain.handle('import:scanFolderForExecutables', async (_event, folderPath: string) => {
   try {
     const executables: Array<{ fileName: string; fullPath: string }> = [];
-    
+
     // Common non-game executables to exclude
     const excludePatterns = [
       /uninstall/i,
@@ -3354,38 +3356,38 @@ ipcMain.handle('import:scanFolderForExecutables', async (_event, folderPath: str
       /gamelaunchhelper\.exe$/i,
       /bootstrapper\.exe$/i,
     ];
-    
+
     const shouldExclude = (fileName: string): boolean => {
       const lowerName = fileName.toLowerCase();
       // Check exact matches first for common helper executables
-      if (lowerName === 'gamelaunchhelper.exe' || 
-          lowerName === 'bootstrapper.exe' ||
-          lowerName === 'crashreportclient.exe' ||
-          lowerName === 'battlenet.overlay.runtime.exe' ||
-          lowerName === 'crashpad_handler.exe' ||
-          lowerName === 'embark-crash-helper.exe' ||
-          lowerName === 'blizzardbrowser.exe' ||
-          lowerName === 'blizzarderror.exe' ||
-          lowerName === 'gamelaunchhelper' ||
-          lowerName === 'bootstrapper' ||
-          lowerName === 'crashreportclient' ||
-          lowerName === 'battlenet.overlay.runtime' ||
-          lowerName === 'crashpad_handler' ||
-          lowerName === 'embark-crash-helper' ||
-          lowerName === 'blizzardbrowser' ||
-          lowerName === 'blizzarderror') {
+      if (lowerName === 'gamelaunchhelper.exe' ||
+        lowerName === 'bootstrapper.exe' ||
+        lowerName === 'crashreportclient.exe' ||
+        lowerName === 'battlenet.overlay.runtime.exe' ||
+        lowerName === 'crashpad_handler.exe' ||
+        lowerName === 'embark-crash-helper.exe' ||
+        lowerName === 'blizzardbrowser.exe' ||
+        lowerName === 'blizzarderror.exe' ||
+        lowerName === 'gamelaunchhelper' ||
+        lowerName === 'bootstrapper' ||
+        lowerName === 'crashreportclient' ||
+        lowerName === 'battlenet.overlay.runtime' ||
+        lowerName === 'crashpad_handler' ||
+        lowerName === 'embark-crash-helper' ||
+        lowerName === 'blizzardbrowser' ||
+        lowerName === 'blizzarderror') {
         return true;
       }
       return excludePatterns.some(pattern => pattern.test(lowerName));
     };
-    
+
     const scanDirectory = (dirPath: string): void => {
       try {
         const entries = readdirSync(dirPath, { withFileTypes: true });
-        
+
         for (const entry of entries) {
           const fullPath = path.join(dirPath, entry.name);
-          
+
           try {
             if (entry.isFile() && entry.name.toLowerCase().endsWith('.exe')) {
               // Exclude common non-game executables
@@ -3402,12 +3404,12 @@ ipcMain.handle('import:scanFolderForExecutables', async (_event, folderPath: str
               // Recursively scan all subdirectories (no depth limit)
               // Skip common system directories and WinGDK folders that are unlikely to contain games
               const dirName = entry.name.toLowerCase();
-              if (dirName !== 'node_modules' && 
-                  dirName !== '.git' && 
-                  !dirName.startsWith('$') &&
-                  dirName !== 'system volume information' &&
-                  dirName !== 'recycle.bin' &&
-                  !dirName.includes('wingdk')) {
+              if (dirName !== 'node_modules' &&
+                dirName !== '.git' &&
+                !dirName.startsWith('$') &&
+                dirName !== 'system volume information' &&
+                dirName !== 'recycle.bin' &&
+                !dirName.includes('wingdk')) {
                 scanDirectory(fullPath);
               }
             }
@@ -3421,19 +3423,19 @@ ipcMain.handle('import:scanFolderForExecutables', async (_event, folderPath: str
         console.error(`Error scanning directory ${dirPath}:`, err);
       }
     };
-    
+
     scanDirectory(folderPath);
-    
+
     // Deduplicate executables: if same filename exists in root and subdirectory, prefer root
     const executableMap = new Map<string, { fileName: string; fullPath: string; depth: number }>();
-    
+
     for (const exe of executables) {
       const fileNameLower = exe.fileName.toLowerCase();
       const relativePath = path.relative(folderPath, exe.fullPath);
       const depth = relativePath.split(path.sep).length - 1; // Number of directory separators
-      
+
       const existing = executableMap.get(fileNameLower);
-      
+
       if (!existing || depth < existing.depth) {
         // Prefer executables closer to root (lower depth)
         executableMap.set(fileNameLower, {
@@ -3443,13 +3445,13 @@ ipcMain.handle('import:scanFolderForExecutables', async (_event, folderPath: str
         });
       }
     }
-    
+
     // Convert back to array format
     const deduplicatedExecutables = Array.from(executableMap.values()).map(exe => ({
       fileName: exe.fileName,
       fullPath: exe.fullPath,
     }));
-    
+
     return deduplicatedExecutables;
   } catch (error) {
     console.error('Error in import:scanFolderForExecutables handler:', error);
@@ -3496,10 +3498,10 @@ ipcMain.handle('steam:scanGamesWithPath', async (_event, steamPath?: string, aut
         return { success: false, error: 'Steam path not configured. Please set a Steam path.', games: [] };
       }
     }
-    
+
     const steamGames = steamService.scanSteamGames();
     console.log(`Found ${steamGames.length} Steam games`);
-    
+
     // Only merge if autoMerge is true (for backward compatibility)
     if (autoMerge && steamGames.length > 0) {
       // Check if local storage is enabled
@@ -3508,7 +3510,7 @@ ipcMain.handle('steam:scanGamesWithPath', async (_event, steamPath?: string, aut
       await gameStore.mergeSteamGames(steamGames, imageCacheService, shouldCache);
       console.log('Steam games merged into store');
     }
-    
+
     return { success: true, games: steamGames };
   } catch (error) {
     console.error('Error in steam:scanGamesWithPath handler:', error);
@@ -3561,10 +3563,10 @@ ipcMain.handle('steam:importAllGames', async (_event, steamPath?: string) => {
         return { success: false, error: 'Steam path not configured. Please set a Steam path.', importedCount: 0 };
       }
     }
-    
+
     const steamGames = steamService.scanSteamGames();
     console.log(`Found ${steamGames.length} Steam games to import`);
-    
+
     if (steamGames.length > 0) {
       // Check if local storage is enabled
       const prefs = await userPreferencesService.getPreferences();
@@ -3572,7 +3574,7 @@ ipcMain.handle('steam:importAllGames', async (_event, steamPath?: string) => {
       await gameStore.mergeSteamGames(steamGames, imageCacheService, shouldCache);
       console.log(`Imported ${steamGames.length} Steam games`);
     }
-    
+
     return { success: true, importedCount: steamGames.length };
   } catch (error) {
     console.error('Error in steam:importAllGames handler:', error);
@@ -3596,14 +3598,14 @@ ipcMain.handle('steam:syncPlaytime', async () => {
 
     // Fetch playtime data from Steam
     const playtimeMap = await steamService.fetchPlaytimeData(authState.steamId, steamApiKey);
-    
+
     if (playtimeMap.size === 0) {
       return { success: false, error: 'No playtime data found. Make sure your Steam profile is set to public.' };
     }
 
     // Get all games from library
     const library = await gameStore.getLibrary();
-    
+
     // Update playtime for Steam games that match
     let updatedCount = 0;
     for (const game of library) {
@@ -3613,7 +3615,7 @@ ipcMain.handle('steam:syncPlaytime', async () => {
         if (appIdMatch && appIdMatch[1]) {
           const appId = appIdMatch[1];
           const playtime = playtimeMap.get(appId);
-          
+
           if (playtime !== undefined && playtime > 0) {
             // Only update if playtime is not locked or if it's different
             const lockedFields = game.lockedFields || {};
@@ -3708,14 +3710,14 @@ ipcMain.handle('appConfig:getBackgroundScanEnabled', async () => {
 ipcMain.handle('appConfig:setBackgroundScanEnabled', async (_event, enabled: boolean) => {
   try {
     await appConfigService.setBackgroundScanEnabled(enabled);
-    
+
     // Start or stop background scan based on setting
     if (enabled) {
       await startBackgroundScan();
     } else {
       stopBackgroundScan();
     }
-    
+
     return { success: true };
   } catch (error) {
     console.error('Error setting background scan status:', error);
@@ -3736,13 +3738,13 @@ ipcMain.handle('appConfig:getBackgroundScanIntervalMinutes', async () => {
 ipcMain.handle('appConfig:setBackgroundScanIntervalMinutes', async (_event, minutes: number) => {
   try {
     await appConfigService.setBackgroundScanIntervalMinutes(minutes);
-    
+
     // Restart background scan with new interval if it's currently enabled
     const enabled = await appConfigService.getBackgroundScanEnabled();
     if (enabled) {
       await startBackgroundScan();
     }
-    
+
     return { success: true };
   } catch (error) {
     console.error('Error setting background scan interval:', error);
@@ -3905,12 +3907,12 @@ const performBackgroundScan = async (skipEnabledCheck: boolean = false) => {
     try {
       const scannedResults = await importService.scanAllSources();
       console.log(`[BackgroundScan] Scanned ${scannedResults.length} total games`);
-      
+
       if (scannedResults.length > 0) {
         // Get existing library to find new games
         const existingLibrary = await gameStore.getLibrary();
         console.log(`[BackgroundScan] Comparing against ${existingLibrary.length} existing games in library`);
-        
+
         const existingGameIds = new Set(existingLibrary.map(g => g.id));
         const existingExePaths = new Set(
           existingLibrary
@@ -3924,21 +3926,21 @@ const performBackgroundScan = async (skipEnabledCheck: boolean = false) => {
             .filter((path): path is string => !!path)
             .map(path => path.toLowerCase().replace(/\\/g, '/').trim())
         );
-        
+
         // Debug: Log some existing paths for comparison
         if (existingExePaths.size > 0 || existingInstallPaths.size > 0) {
           console.log(`[BackgroundScan] Sample existing paths: ${Array.from(existingExePaths).slice(0, 3).join(', ') || 'none'} (exe), ${Array.from(existingInstallPaths).slice(0, 3).join(', ') || 'none'} (install)`);
         }
-        
+
         // Find new games (not in existing library)
         const newGames = scannedResults.filter(g => {
           const gameTitle = g.title;
           const isJohnWick = gameTitle.toLowerCase().includes('john wick');
-          
+
           if (isJohnWick) {
             console.log(`[BackgroundScan] Checking John Wick Hex: title="${gameTitle}", exe="${g.exePath}", install="${g.installPath}"`);
           }
-          
+
           // Check by game ID (for Steam games)
           if (g.source === 'steam' && g.appId) {
             const gameId = `steam-${g.appId}`;
@@ -3947,7 +3949,7 @@ const performBackgroundScan = async (skipEnabledCheck: boolean = false) => {
               return false;
             }
           }
-          
+
           // Check by exePath
           if (g.exePath) {
             const normalizedExePath = g.exePath.toLowerCase().replace(/\\/g, '/').trim();
@@ -3960,7 +3962,7 @@ const performBackgroundScan = async (skipEnabledCheck: boolean = false) => {
               console.log(`[BackgroundScan] Existing exePaths contains similar? ${Array.from(existingExePaths).some(p => p.includes('john') || p.includes('wick'))}`);
             }
           }
-          
+
           // Check by installPath
           if (g.installPath) {
             const normalizedInstallPath = g.installPath.toLowerCase().replace(/\\/g, '/').trim();
@@ -3968,29 +3970,29 @@ const performBackgroundScan = async (skipEnabledCheck: boolean = false) => {
               if (isJohnWick) console.log(`[BackgroundScan] John Wick Hex already exists (by installPath): ${g.installPath} -> ${normalizedInstallPath}`);
               return false;
             }
-            
+
             // Also check if this installPath is a subfolder of any existing game's installationDirectory
             // This prevents detecting Battlefield 6\SP when Battlefield 6 already exists
             for (const existingInstallPath of existingInstallPaths) {
-              if (normalizedInstallPath.startsWith(existingInstallPath + '/') || 
-                  normalizedInstallPath.startsWith(existingInstallPath + '\\')) {
+              if (normalizedInstallPath.startsWith(existingInstallPath + '/') ||
+                normalizedInstallPath.startsWith(existingInstallPath + '\\')) {
                 console.log(`[BackgroundScan] Skipping subfolder game: ${g.title} (${g.installPath}) - parent folder already exists in library: ${existingInstallPath}`);
                 return false;
               }
             }
-            
+
             if (isJohnWick) {
               console.log(`[BackgroundScan] John Wick Hex installPath not found in existing: ${normalizedInstallPath}`);
               console.log(`[BackgroundScan] Existing installPaths contains similar? ${Array.from(existingInstallPaths).some(p => p.includes('john') || p.includes('wick'))}`);
             }
           }
-          
+
           if (isJohnWick) {
             console.log(`[BackgroundScan] ✓ John Wick Hex is NEW - will be included in new games list`);
           }
           return true;
         });
-        
+
         if (newGames.length > 0) {
           // Group new games by source for better notifications
           const gamesBySource = new Map<string, ScannedGameResult[]>();
@@ -4000,7 +4002,7 @@ const performBackgroundScan = async (skipEnabledCheck: boolean = false) => {
             }
             gamesBySource.get(game.source)!.push(game);
           }
-          
+
           // Send notification to renderer about new games
           if (win && !win.isDestroyed()) {
             win.webContents.send('background:newGamesFound', {
@@ -4034,10 +4036,10 @@ ipcMain.handle('xbox:scanGames', async (_event, xboxPath: string, autoMerge: boo
     if (!xboxPath || !existsSync(xboxPath)) {
       return { success: false, error: 'Path does not exist', games: [] };
     }
-    
+
     const xboxGames = xboxService.scanGames(xboxPath);
     console.log(`Found ${xboxGames.length} Xbox Game Pass games`);
-    
+
     // Only merge if autoMerge is true (for backward compatibility)
     if (autoMerge && xboxGames.length > 0) {
       const games: Game[] = xboxGames.map(xboxGame => ({
@@ -4053,14 +4055,14 @@ ipcMain.handle('xbox:scanGames', async (_event, xboxPath: string, autoMerge: boo
         launchUri: xboxGame.launchUri || (xboxGame.appUserModelId ? `shell:AppsFolder\\${xboxGame.appUserModelId}` : undefined),
         installationDirectory: xboxGame.installPath,
       }));
-      
+
       // Save games to store
       for (const game of games) {
         await gameStore.saveGame(game);
       }
       console.log('Xbox games merged into store');
     }
-    
+
     return { success: true, games: xboxGames };
   } catch (error) {
     console.error('Error in xbox:scanGames handler:', error);
@@ -4088,18 +4090,18 @@ ipcMain.handle('metadata:searchImages', async (_event, query: string, imageType:
 
     // Search for games on SteamGridDB
     const games = await steamGridDBService.searchGame(query);
-    
+
     if (games.length === 0) {
       return { success: true, images: [] };
     }
 
     // Fetch images for each game (limit to 10 games)
     const imageResults: Array<{ gameId: number; gameName: string; images: Array<{ url: string; score: number; width: number; height: number; mime?: string; isAnimated?: boolean }> }> = [];
-    
+
     for (const game of games.slice(0, 10)) {
       try {
         let images: Array<{ url: string; score: number; width: number; height: number; mime?: string; isAnimated?: boolean }> = [];
-        
+
         if (imageType === 'boxart') {
           // Get capsules (boxart includes both static and animated)
           const capsules = await steamGridDBService.getCapsules(game.id, true);
@@ -4217,11 +4219,11 @@ ipcMain.handle('customDefaults:save', async (_event, settings: any) => {
     const StoreModule = await (eval('import("electron-store")') as Promise<any>);
     const Store = StoreModule.default;
     const customDefaultsStore: any = new Store({ name: 'custom-defaults' });
-    
+
     // Get existing defaults and merge with new settings
     const existingDefaults = customDefaultsStore.get('customDefaults', {}) as any;
     const mergedDefaults = { ...existingDefaults, ...settings };
-    
+
     customDefaultsStore.set('customDefaults', mergedDefaults);
     return { success: true };
   } catch (error) {
@@ -4236,7 +4238,7 @@ ipcMain.handle('customDefaults:restore', async (_event, options: { viewMode: str
     const Store = StoreModule.default;
     const customDefaultsStore: any = new Store({ name: 'custom-defaults' });
     const allDefaults = customDefaultsStore.get('customDefaults') as any;
-    
+
     if (!allDefaults) {
       return { success: false, error: 'No custom defaults found' };
     }
@@ -4262,14 +4264,14 @@ ipcMain.handle('customDefaults:export', async (_event, options: { viewMode: stri
     const Store = StoreModule.default;
     const customDefaultsStore: any = new Store({ name: 'custom-defaults' });
     const allDefaults = customDefaultsStore.get('customDefaults') as any;
-    
+
     if (!allDefaults) {
       return { success: false, error: 'No custom defaults found' };
     }
 
     let exportData: any;
     let defaultFileName: string;
-    
+
     if (options.scope === 'current') {
       exportData = { [options.viewMode]: allDefaults[options.viewMode] || {} };
       defaultFileName = `onyx-${options.viewMode}-defaults.json`;
@@ -4295,7 +4297,7 @@ ipcMain.handle('customDefaults:export', async (_event, options: { viewMode: stri
     // Write to file
     const fs = await import('fs/promises');
     await fs.writeFile(filePath, JSON.stringify(exportData, null, 2), 'utf-8');
-    
+
     return { success: true, filePath };
   } catch (error) {
     console.error('Error exporting custom defaults:', error);
@@ -4333,15 +4335,15 @@ ipcMain.handle('customDefaults:import', async () => {
     const StoreModule = await (eval('import("electron-store")') as Promise<any>);
     const Store = StoreModule.default;
     const customDefaultsStore: any = new Store({ name: 'custom-defaults' });
-    
+
     // Get existing defaults
     const existingDefaults = customDefaultsStore.get('customDefaults', {}) as any;
-    
+
     // Merge imported data with existing (imported data takes precedence)
     const mergedDefaults = { ...existingDefaults, ...importedData };
-    
+
     customDefaultsStore.set('customDefaults', mergedDefaults);
-    
+
     return { success: true, data: mergedDefaults };
   } catch (error) {
     console.error('Error importing custom defaults:', error);
@@ -4384,9 +4386,9 @@ ipcMain.handle('api:saveCredentials', async (_event, credentials: { igdbClientId
 ipcMain.handle('app:requestExit', async () => {
   try {
     const prefs = await userPreferencesService.getPreferences();
-    return { 
+    return {
       shouldMinimizeToTray: prefs.minimizeToTray ?? false,
-      canMinimizeToTray: prefs.showSystemTrayIcon ?? true 
+      canMinimizeToTray: prefs.showSystemTrayIcon ?? true
     };
   } catch (error) {
     console.error('Error checking exit preferences:', error);
@@ -4457,7 +4459,7 @@ ipcMain.handle('app:applyStartupSettings', async (_event, settings: { startWithC
       const appPath = app.getPath('exe');
       const appName = app.getName();
       const regKey = `HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run`;
-      
+
       if (settings.startWithComputer) {
         try {
           // Add to Windows startup registry
@@ -4511,7 +4513,7 @@ ipcMain.handle('app:openExternal', async (_event, url: string) => {
 ipcMain.handle('app:openPath', async (_event, pathOrType: string) => {
   try {
     let pathToOpen: string;
-    
+
     if (pathOrType === 'cache') {
       pathToOpen = imageCacheService.getCacheDir();
     } else if (pathOrType === 'appData') {
@@ -4520,7 +4522,7 @@ ipcMain.handle('app:openPath', async (_event, pathOrType: string) => {
       // Assume it's a direct path
       pathToOpen = pathOrType;
     }
-    
+
     await shell.openPath(pathToOpen);
     return { success: true };
   } catch (error) {
@@ -4638,7 +4640,7 @@ app.whenReady().then(async () => {
       const exePath = game.exePath?.toLowerCase() || '';
       return exePath.includes('wingdk');
     });
-    
+
     if (wingdkGames.length > 0) {
       console.log(`[App] Removing ${wingdkGames.length} games with WinGDK executables on startup`);
       for (const game of wingdkGames) {
@@ -4656,7 +4658,7 @@ app.whenReady().then(async () => {
     if (Object.keys(existingConfigs).length === 0) {
       console.log('[App] No app configs found. Detecting and initializing launchers...');
       const detected = await launcherDetectionService.detectAllLaunchers();
-      
+
       if (detected.length > 0) {
         console.log(`[App] Detected ${detected.length} launchers. Initializing app configs...`);
         const configs = detected.map(launcher => ({
@@ -4666,7 +4668,7 @@ app.whenReady().then(async () => {
           enabled: true,
           autoAdd: true,
         }));
-        
+
         await appConfigService.saveAppConfigs(configs);
         console.log(`[App] Initialized ${configs.length} default app configs`);
       } else {
@@ -4681,30 +4683,30 @@ app.whenReady().then(async () => {
   // Track failed URLs to avoid spam logging
   const failedUrls = new Set<string>();
   const failedUrlCounts = new Map<string, number>();
-  
+
   // Register a custom protocol to serve local files
   // Use the default session to ensure it intercepts all requests
   console.log('[onyx-local] Registering protocol handler...');
-  
+
   // Also register on default session to ensure it works
   const defaultSession = require('electron').session.defaultSession;
-  
+
   // Use the modern protocol.handle() API (Promise-based, works better with contextIsolation)
   // Note: protocol.handle() uses standard Fetch API Request/Response, not Electron's ProtocolRequest
   const protocolHandler = async (request: Request): Promise<Response> => {
     // Extract request URL early so it's available in catch block
     const requestUrl = request.url;
-    
+
     // Track request count early
     const count = (failedUrlCounts.get(requestUrl) || 0) + 1;
     failedUrlCounts.set(requestUrl, count);
-    
+
     // Log EVERY request to see if handler is being called
     if (count === 1) {
       console.log(`\n[onyx-local] ===== PROTOCOL HANDLER CALLED =====`);
       console.log(`[onyx-local] URL: ${requestUrl.substring(0, 150)}...`);
     }
-    
+
     try {
       // NEW SIMPLE APPROACH: URL format is onyx-local://{gameId}-{imageType}
       // Extract gameId and imageType directly from URL
@@ -4714,16 +4716,16 @@ app.whenReady().then(async () => {
       if (match) {
         urlPath = match[1].replace(/\/+$/, ''); // Remove trailing slashes
       }
-      
+
       if (!urlPath) {
         if (count === 1) console.log(`[onyx-local] Empty URL path from: ${requestUrl}`);
         return new Response(null, { status: 404, headers: { 'Cache-Control': 'no-store' } });
       }
-      
+
       if (count === 1) {
         console.log(`[onyx-local] Parsing URL: ${requestUrl} -> urlPath: "${urlPath}"`);
       }
-      
+
       // URL-decode the path first (browser may URL-encode special characters)
       let decodedUrlPath: string;
       try {
@@ -4732,15 +4734,15 @@ app.whenReady().then(async () => {
         // If decoding fails, use original
         decodedUrlPath = urlPath;
       }
-      
+
       if (count === 1 && decodedUrlPath !== urlPath) {
         console.log(`[onyx-local] Decoded urlPath: "${decodedUrlPath}"`);
       }
-      
+
       // Parse: {gameId}-{imageType} or old format with encoded path
       let gameId: string | null = null;
       let imageType: string | null = null;
-      
+
       // Check if it's the new simple format: {gameId}-{imageType}
       const simpleMatch = decodedUrlPath.match(/^([^-]+(?:-[^-]+)*?)-(boxart|banner|logo|hero)$/);
       if (simpleMatch) {
@@ -4789,7 +4791,7 @@ app.whenReady().then(async () => {
           }
         }
       }
-      
+
       // Get cache directory
       const { homedir } = require('node:os');
       let cacheDir: string;
@@ -4801,39 +4803,39 @@ app.whenReady().then(async () => {
       } else {
         cacheDir = path.join(homedir(), '.cache', 'onyx-launcher', 'images');
       }
-      
+
       if (gameId && imageType && existsSync(cacheDir)) {
         // Try to find file: {gameId}-{imageType}.{ext}
         const safeGameId = gameId.replace(/[<>:"/\\|?*]/g, '_');
         const extensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.webm'];
-        
+
         for (const ext of extensions) {
           const filename = `${safeGameId}-${imageType}${ext}`;
           const filePath = path.join(cacheDir, filename);
           if (existsSync(filePath)) {
             if (count === 1) console.log(`[onyx-local] ✓ Found: ${filename}`);
-            
+
             // Clear from failed set if it was there (file now exists)
             if (failedUrls.has(requestUrl)) {
               failedUrls.delete(requestUrl);
               failedUrlCounts.delete(requestUrl);
             }
-            
+
             try {
               const fileData = readFileSync(filePath);
               let mimeType = 'image/jpeg';
-            if (ext === '.png') mimeType = 'image/png';
-            else if (ext === '.gif') mimeType = 'image/gif';
-            else if (ext === '.webp') mimeType = 'image/webp';
-            else if (ext === '.webm') mimeType = 'video/webm';
-              
+              if (ext === '.png') mimeType = 'image/png';
+              else if (ext === '.gif') mimeType = 'image/gif';
+              else if (ext === '.webp') mimeType = 'image/webp';
+              else if (ext === '.webm') mimeType = 'video/webm';
+
               // Only log successful loads occasionally to avoid spam
               const successCount = failedUrlCounts.get(requestUrl + '_success') || 0;
               failedUrlCounts.set(requestUrl + '_success', successCount + 1);
               if (successCount === 0 || successCount % 50 === 0) {
                 console.log(`[onyx-local] Successfully serving file: ${filename}`);
               }
-              
+
               return new Response(fileData, { headers: { 'Content-Type': mimeType } });
             } catch (readError) {
               // If reading the file fails, log but don't block other requests
@@ -4845,7 +4847,7 @@ app.whenReady().then(async () => {
             }
           }
         }
-        
+
         // File not found - return 404 but don't mark as failed until we've tried a few times
         // This allows other images for the same game to still load
         if (count === 1) {
@@ -4869,13 +4871,13 @@ app.whenReady().then(async () => {
             // Ignore errors listing directory
           }
         }
-        
+
         // Return 404 for this specific image - don't block other images
         // Only mark as failed after multiple attempts to prevent retry loops
         if (count > 2) {
           failedUrls.add(requestUrl);
         }
-        return new Response(null, { 
+        return new Response(null, {
           status: 404,
           statusText: 'Not Found',
           headers: {
@@ -4889,15 +4891,15 @@ app.whenReady().then(async () => {
           console.log(`[onyx-local] Parsed: gameId="${gameId}", imageType="${imageType}"`);
         }
         // Return 404 for unparseable URLs
-        return new Response(null, { 
+        return new Response(null, {
           status: 404,
           headers: { 'Cache-Control': 'no-store' }
         });
       }
-      
+
       // Fallback: try old format decoding
       let encodedPath = urlPath;
-      
+
       // Log first few requests with full details, then throttle
       if (count === 1) {
         console.log(`\n[onyx-local] ===== FIRST REQUEST =====`);
@@ -4910,13 +4912,13 @@ app.whenReady().then(async () => {
       } else if (count % 1000 === 0) {
         console.log(`[onyx-local] Request #${count} (throttled logging)`);
       }
-      
+
       // Prevent infinite retry loops - if we've seen this URL fail 2+ times, stop processing immediately
       if (count > 2) {
         // Check if this URL has already failed
         if (failedUrls.has(requestUrl)) {
           // Return 410 Gone to tell browser to stop retrying
-          return new Response(null, { 
+          return new Response(null, {
             status: 410,
             statusText: 'Gone - Stop Retrying',
             headers: {
@@ -4926,22 +4928,22 @@ app.whenReady().then(async () => {
           });
         }
       }
-      
+
       // Validate we have an encoded path
       if (!encodedPath || encodedPath.trim() === '') {
         console.error(`[onyx-local] Could not extract path from URL: ${requestUrl}`);
-        return new Response(null, { 
+        return new Response(null, {
           status: 404,
           headers: { 'Cache-Control': 'no-store' }
         });
       }
-      
+
       // Remove ALL trailing slashes (Electron sometimes adds multiple)
       // This is critical - trailing slashes break base64 decoding
       while (encodedPath.endsWith('/')) {
         encodedPath = encodedPath.substring(0, encodedPath.length - 1);
       }
-      
+
       // Remove any query parameters or fragments
       const queryIndex = encodedPath.indexOf('?');
       if (queryIndex !== -1) {
@@ -4951,7 +4953,7 @@ app.whenReady().then(async () => {
       if (fragmentIndex !== -1) {
         encodedPath = encodedPath.substring(0, fragmentIndex);
       }
-      
+
       // Decode the path (it's URL-encoded)
       // URL encoding is case-insensitive, so Electron's URL lowercasing won't break it
       let decodedPath: string;
@@ -4975,19 +4977,19 @@ app.whenReady().then(async () => {
             failedUrls.add(requestUrl + '_decode_error');
             console.error(`[onyx-local] Failed to decode path. Encoded: ${encodedPath.substring(0, 100)}...`, e);
           }
-          return new Response(null, { 
+          return new Response(null, {
             status: 404,
             headers: { 'Cache-Control': 'no-store' }
           });
         }
       }
-      
+
       // On Windows, handle path separators and drive letters properly
       let finalPath: string;
       if (process.platform === 'win32') {
         // Replace forward slashes with backslashes
         finalPath = decodedPath.replace(/\//g, '\\');
-        
+
         // Handle Windows drive letter format
         // After decoding, we should have something like "C:\Users..." or "C:/Users..."
         // Ensure proper format: C:\Users...
@@ -5001,10 +5003,10 @@ app.whenReady().then(async () => {
         // On Unix-like systems, just replace forward slashes
         finalPath = decodedPath.replace(/\//g, path.sep);
       }
-      
+
       // Normalize the path to resolve any .. or . segments
       finalPath = path.normalize(finalPath);
-      
+
       // Verify file exists
       if (!existsSync(finalPath)) {
         // Only log error once per unique URL to avoid spam
@@ -5015,12 +5017,12 @@ app.whenReady().then(async () => {
           console.error(`[onyx-local] URL: ${requestUrl}`);
           console.error(`[onyx-local] Decoded Path: ${decodedPath}`);
           console.error(`[onyx-local] Encoded Path: ${encodedPath}`);
-          
+
           // Check if parent directory exists
           const parentDir = path.dirname(finalPath);
           if (!existsSync(parentDir)) {
             console.error(`  ❌ Parent directory does not exist: ${parentDir}`);
-            
+
             // Check if it's the image cache directory - check both old and new locations
             const oldCacheDir = path.join(app.getPath('userData'), 'cache', 'images');
             const { homedir } = require('node:os');
@@ -5033,7 +5035,7 @@ app.whenReady().then(async () => {
             } else {
               newCacheDir = path.join(homedir(), '.cache', 'onyx-launcher', 'images');
             }
-            
+
             // Check both cache locations for any matching files
             const cacheDirs = [newCacheDir, oldCacheDir];
             for (const imageCacheDir of cacheDirs) {
@@ -5041,32 +5043,32 @@ app.whenReady().then(async () => {
                 try {
                   const cacheFiles = readdirSync(imageCacheDir);
                   console.error(`  Checking cache directory: ${imageCacheDir} (${cacheFiles.length} files)`);
-                  
+
                   // Try multiple matching strategies:
                   // 1. Exact filename match
                   const filename = path.basename(finalPath);
                   let matching = cacheFiles.filter(f => f === filename);
-                  
+
                   // 2. If no exact match, try matching by game ID (first part before first dash)
                   if (matching.length === 0 && filename.includes('-')) {
                     const gameIdPart = filename.split('-')[0];
                     matching = cacheFiles.filter(f => f.startsWith(gameIdPart + '-'));
                     console.error(`  Trying to match by game ID "${gameIdPart}": found ${matching.length} files`);
                   }
-                  
+
                   // 3. If still no match, try matching by image type (boxart, banner, etc.)
                   if (matching.length === 0 && filename.includes('-')) {
                     const parts = filename.split('-');
                     if (parts.length >= 2) {
                       const imageType = parts[1]; // boxart, banner, logo, hero
                       const gameIdPart = parts[0];
-                      matching = cacheFiles.filter(f => 
+                      matching = cacheFiles.filter(f =>
                         f.startsWith(gameIdPart + '-') && f.includes('-' + imageType + '-')
                       );
                       console.error(`  Trying to match by game ID + type "${gameIdPart}-${imageType}": found ${matching.length} files`);
                     }
                   }
-                  
+
                   if (matching.length > 0) {
                     // Use the first match (or prefer .png/.jpg if available)
                     let selectedFile: string = matching[0];
@@ -5078,27 +5080,27 @@ app.whenReady().then(async () => {
                     } else if (jpgMatch) {
                       selectedFile = jpgMatch as string;
                     }
-                    
+
                     const correctPath = path.join(imageCacheDir, selectedFile);
                     console.error(`  ✓ Found matching file: ${selectedFile}`);
                     console.error(`  Serving from: ${correctPath}`);
-                    
+
                     if (existsSync(correctPath)) {
                       const fileData = readFileSync(correctPath);
                       const ext = path.extname(correctPath).toLowerCase();
                       let mimeType = 'application/octet-stream';
                       if (ext === '.jpg' || ext === '.jpeg') mimeType = 'image/jpeg';
-                      else             if (ext === '.png') mimeType = 'image/png';
-            else if (ext === '.gif') mimeType = 'image/gif';
-            else if (ext === '.webp') mimeType = 'image/webp';
-            else if (ext === '.webm') mimeType = 'video/webm';
-                      
+                      else if (ext === '.png') mimeType = 'image/png';
+                      else if (ext === '.gif') mimeType = 'image/gif';
+                      else if (ext === '.webp') mimeType = 'image/webp';
+                      else if (ext === '.webm') mimeType = 'video/webm';
+
                       // Clear from failed set since we found it
                       if (failedUrls.has(requestUrl)) {
                         failedUrls.delete(requestUrl);
                         failedUrlCounts.delete(requestUrl);
                       }
-                      
+
                       return new Response(fileData, {
                         headers: { 'Content-Type': mimeType },
                       });
@@ -5119,7 +5121,7 @@ app.whenReady().then(async () => {
             try {
               const files = readdirSync(parentDir);
               console.error(`  Files in directory (${files.length}): ${files.slice(0, 5).join(', ')}${files.length > 5 ? '...' : ''}`);
-              
+
               // Try to find similar files
               const filename = path.basename(finalPath);
               const similar = files.filter(f => {
@@ -5136,7 +5138,7 @@ app.whenReady().then(async () => {
           }
         }
         // Return 404 with headers to prevent retries
-        return new Response(null, { 
+        return new Response(null, {
           status: 404,
           statusText: 'Not Found',
           headers: {
@@ -5145,30 +5147,30 @@ app.whenReady().then(async () => {
           }
         });
       }
-      
+
       // Clear from failed set if it was there
       if (failedUrls.has(requestUrl)) {
         failedUrls.delete(requestUrl);
         failedUrlCounts.delete(requestUrl);
       }
-      
+
       // Only log successful loads occasionally to avoid spam
       const successCount = failedUrlCounts.get(requestUrl + '_success') || 0;
       failedUrlCounts.set(requestUrl + '_success', successCount + 1);
       if (successCount === 0 || successCount % 50 === 0) {
         console.log(`[onyx-local] Successfully serving file: ${finalPath}`);
       }
-      
+
       // Read file and return as Response
       const fileData = readFileSync(finalPath);
       const ext = path.extname(finalPath).toLowerCase();
       let mimeType = 'application/octet-stream';
       if (ext === '.jpg' || ext === '.jpeg') mimeType = 'image/jpeg';
-      else             if (ext === '.png') mimeType = 'image/png';
-            else if (ext === '.gif') mimeType = 'image/gif';
-            else if (ext === '.webp') mimeType = 'image/webp';
-            else if (ext === '.webm') mimeType = 'video/webm';
-      
+      else if (ext === '.png') mimeType = 'image/png';
+      else if (ext === '.gif') mimeType = 'image/gif';
+      else if (ext === '.webp') mimeType = 'image/webp';
+      else if (ext === '.webm') mimeType = 'video/webm';
+
       return new Response(fileData, {
         headers: { 'Content-Type': mimeType },
       });
@@ -5187,7 +5189,7 @@ app.whenReady().then(async () => {
         }
       }
       // Return 500 for this specific request only - don't block other images
-      return new Response(null, { 
+      return new Response(null, {
         status: 500,
         statusText: 'Internal Server Error',
         headers: {
@@ -5197,7 +5199,7 @@ app.whenReady().then(async () => {
       });
     }
   };
-  
+
   // Register using modern protocol.handle() API
   try {
     protocol.handle('onyx-local', protocolHandler);
@@ -5211,29 +5213,29 @@ app.whenReady().then(async () => {
         method: electronRequest.method || 'GET',
         headers: electronRequest.headers as Record<string, string>,
       });
-      
+
       protocolHandler(fetchRequest).then(response => {
         // For legacy API, we need to extract the file path from the URL
         // since Response doesn't have a path property
         const url = new URL(electronRequest.url);
         let encodedPath = url.pathname.substring(1); // Remove leading slash
-        
+
         if (!encodedPath && electronRequest.url.includes('onyx-local://')) {
           const match = electronRequest.url.match(/onyx-local:\/\/\/?([^?#]+)/);
           if (match) encodedPath = match[1];
         }
-        
+
         if (response.status === 200 && encodedPath) {
           try {
             // Decode the path
             let base64 = encodedPath.toUpperCase().replace(/-/g, '+').replace(/_/g, '/');
             while (base64.length % 4) base64 += '=';
             const decodedPath = Buffer.from(base64, 'base64').toString('utf-8');
-            let finalPath = process.platform === 'win32' 
+            let finalPath = process.platform === 'win32'
               ? decodedPath.replace(/\//g, '\\')
               : decodedPath;
             finalPath = path.normalize(finalPath);
-            
+
             if (existsSync(finalPath)) {
               callback({ path: finalPath });
             } else {
@@ -5251,7 +5253,7 @@ app.whenReady().then(async () => {
       console.error('[onyx-local] Failed to register protocol handler!');
     }
   }
-  
+
   // Also register on default session using modern API
   try {
     session.defaultSession.protocol.handle('onyx-local', protocolHandler);
@@ -5259,7 +5261,7 @@ app.whenReady().then(async () => {
   } catch (e) {
     console.warn('[onyx-local] Could not register on default session:', e);
   }
-  
+
   // Verify registration
   const isRegistered = protocol.isProtocolRegistered('onyx-local');
   console.log(`[onyx-local] Protocol registration verified: ${isRegistered}`);
@@ -5270,7 +5272,7 @@ app.whenReady().then(async () => {
   // On Windows, set the app user model ID for proper taskbar icon display
   if (process.platform === 'win32') {
     app.setAppUserModelId('com.onyx.launcher');
-    
+
     // Try to set the app icon explicitly (though this is mainly for macOS/Linux)
     // On Windows, the taskbar icon comes from the executable's embedded icon resource
     try {
@@ -5284,7 +5286,7 @@ app.whenReady().then(async () => {
         const pngPath = path.join(__dirname, '../resources/icon.png');
         appIconPath = existsSync(icoPath) ? icoPath : pngPath;
       }
-      
+
       if (existsSync(appIconPath)) {
         const appIcon = nativeImage.createFromPath(appIconPath);
         if (!appIcon.isEmpty()) {
@@ -5312,10 +5314,10 @@ app.whenReady().then(async () => {
   // DISABLED: Suspend feature (Future Feature)
   // Always register IPC handlers (they check if service is available)
   // registerSuspendIPCHandlers();
-  
+
   // Initialize suspend service if enabled
   // await initializeSuspendService();
-  
+
   // Register shortcut if service is enabled
   // if (processSuspendService) {
   //   await registerSuspendShortcut();

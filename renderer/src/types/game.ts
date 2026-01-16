@@ -51,6 +51,7 @@ export interface Game {
   packageFamilyName?: string;
   appUserModelId?: string;
   launchUri?: string;
+  screenshots?: string[];
   lockedFields?: {
     title?: boolean;
     boxArtUrl?: boolean;
@@ -194,4 +195,4 @@ declare global {
   }
 }
 
-export {};
+export { };

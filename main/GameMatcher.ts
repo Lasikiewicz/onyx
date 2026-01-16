@@ -81,8 +81,42 @@ export class GameMatcher {
     if (titleNormalized !== candidateNormalized) {
       const wordOverlap = this.calculateWordOverlap(titleNormalized, candidateNormalized);
       if (wordOverlap < 0.3) {
-        confidence -= 0.2;
+        confidence -= 0.5; // Increased penalty
         reasons.push('low word overlap');
+      }
+
+      // Strict title length difference penalty
+      const lengthDiff = Math.abs(titleNormalized.length - candidateNormalized.length);
+      if (lengthDiff > Math.max(titleNormalized.length, candidateNormalized.length) * 0.5) {
+        confidence -= 0.4; // Increased penalty
+        reasons.push('significant title length difference');
+      }
+
+      // Check for title suffix mismatch (e.g., "San Andreas" vs "V Enhanced")
+      const scannedWords = titleNormalized.split(/\s+/);
+      const candidateWords = candidateNormalized.split(/\s+/);
+
+      // If one title is a prefix of the other, check if the suffix is completely different
+      const minLen = Math.min(scannedWords.length, candidateWords.length);
+      let prefixMatchCount = 0;
+      for (let i = 0; i < minLen; i++) {
+        if (scannedWords[i] === candidateWords[i]) {
+          prefixMatchCount++;
+        } else {
+          break;
+        }
+      }
+
+      // If we have a common prefix but different suffixes, penalize heavily
+      if (prefixMatchCount > 0 && prefixMatchCount < Math.max(scannedWords.length, candidateWords.length)) {
+        const scannedSuffix = scannedWords.slice(prefixMatchCount).join(' ');
+        const candidateSuffix = candidateWords.slice(prefixMatchCount).join(' ');
+
+        // If both have suffixes and they're very different, penalize
+        if (scannedSuffix && candidateSuffix && this.calculateSimilarity(scannedSuffix, candidateSuffix) < 0.5) {
+          confidence -= 0.5;
+          reasons.push(`title suffix mismatch: "${scannedSuffix}" vs "${candidateSuffix}"`);
+        }
       }
     }
 
@@ -128,6 +162,41 @@ export class GameMatcher {
       .trim()
       .replace(/[^\w\s]/g, '') // Remove special characters
       .replace(/\s+/g, ' '); // Normalize whitespace
+  }
+
+  /**
+   * Strip demo-related words from a title
+   */
+  public stripDemoIndicator(title: string): { stripped: string; isDemo: boolean } {
+    const demoIndicators = [
+      /\s+demo$/i,
+      /\s+prologue$/i,
+      /\s+trial$/i,
+      /\s+beta$/i,
+      /\s+alpha$/i,
+      /\s+demo version$/i,
+      /\s+playtest$/i,
+      /demo$/i,
+      /prologue$/i
+    ];
+
+    let stripped = title;
+    let isDemo = false;
+
+    while (true) {
+      let changed = false;
+      for (const indicator of demoIndicators) {
+        if (indicator.test(stripped)) {
+          stripped = stripped.replace(indicator, '').trim();
+          isDemo = true;
+          changed = true;
+          break;
+        }
+      }
+      if (!changed) break;
+    }
+
+    return { stripped, isDemo };
   }
 
   /**

@@ -12,6 +12,7 @@ export interface GameSearchResult {
 export interface GameDescription {
   description?: string;
   summary?: string;
+  source?: string;
   releaseDate?: string;
   genres?: string[];
   developers?: string[];
