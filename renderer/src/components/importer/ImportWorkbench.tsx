@@ -237,12 +237,14 @@ function scoreMatch(scannedTitle: string, candidate: any, scannedAppId?: string)
  */
 function stripDemoIndicator(title: string): { stripped: string; isDemo: boolean } {
   const demoIndicators = [
+    // More specific patterns first
+    /\s+prologue\s+demo$/i,
+    /\s+demo\s+version$/i,
     /\s+demo$/i,
     /\s+prologue$/i,
     /\s+trial$/i,
     /\s+beta$/i,
     /\s+alpha$/i,
-    /\s+demo version$/i,
     /\s+playtest$/i,
     /demo$/i,
     /prologue$/i
@@ -730,6 +732,14 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
               console.log(`[ImportWorkbench] ✓ Applied autoCategory "${matchingConfig.autoCategory.join(', ')}" to ${scanned.title} from folder ${matchingConfig.path}`);
             } else {
               console.log(`[ImportWorkbench] ✗ No matching folder config found for ${scanned.title}`);
+            }
+          }
+
+          // Auto-assign "Demos" category if this is a demo game
+          if (isDemoMatch) {
+            if (!categories.includes('Demos')) {
+              categories.push('Demos');
+              console.log(`[ImportWorkbench] ✓ Auto-assigned "Demos" category to ${scanned.title}`);
             }
           }
 
