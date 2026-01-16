@@ -781,41 +781,62 @@ const withTimeout = <T,>(
 };
 
 // Function to initialize IGDB service with credentials
+// Function to initialize IGDB service with credentials
 const initializeIGDBService = async () => {
   try {
+    console.log('[IGDB Init] Starting IGDB service initialization...');
+
     // First check stored credentials, then fall back to environment variables
     const storedCreds = await apiCredentialsService.getCredentials();
     const igdbClientId = storedCreds.igdbClientId || process.env.IGDB_CLIENT_ID;
     const igdbClientSecret = storedCreds.igdbClientSecret || process.env.IGDB_CLIENT_SECRET;
 
+    // Log credential discovery status
+    if (storedCreds.igdbClientId && storedCreds.igdbClientSecret) {
+      console.log('[IGDB Init] ✓ Found IGDB credentials in stored settings');
+    } else if (process.env.IGDB_CLIENT_ID && process.env.IGDB_CLIENT_SECRET) {
+      console.log('[IGDB Init] ✓ Found IGDB credentials in environment variables');
+    } else if (igdbClientId || igdbClientSecret) {
+      console.warn('[IGDB Init] ⚠️  Partial IGDB credentials found (missing Client ID or Secret)');
+    } else {
+      console.warn('[IGDB Init] ✗ No IGDB credentials found in settings or environment variables');
+      console.warn('[IGDB Init] → Please configure IGDB credentials in Settings > APIs to enable metadata detection');
+    }
+
     if (igdbClientId && igdbClientSecret) {
       try {
+        console.log('[IGDB Init] Creating IGDB service instance...');
         // Create service instance
         const service = new IGDBService(igdbClientId, igdbClientSecret);
 
+        console.log('[IGDB Init] Validating IGDB credentials...');
         // Validate credentials before using the service
         const isValid = await service.validateCredentials();
         if (isValid) {
           igdbService = service;
-          console.log('IGDB service initialized with valid credentials');
+          console.log('[IGDB Init] ✓ IGDB service initialized successfully with valid credentials');
+          console.log('[IGDB Init] → Metadata detection is now available');
           return true;
         } else {
-          console.warn('IGDB credentials are invalid. IGDB features will be unavailable.');
+          console.error('[IGDB Init] ✗ IGDB credentials validation failed - credentials are invalid');
+          console.error('[IGDB Init] → Please check your IGDB Client ID and Secret in Settings > APIs');
           igdbService = null;
           return false;
         }
       } catch (error) {
-        console.error('Failed to initialize IGDB service:', error);
+        console.error('[IGDB Init] ✗ Failed to initialize IGDB service:', error);
+        console.error('[IGDB Init] → Error details:', error instanceof Error ? error.message : String(error));
         igdbService = null;
         return false;
       }
     } else {
-      console.warn('IGDB credentials not found. IGDB features will be unavailable.');
+      console.warn('[IGDB Init] ✗ IGDB credentials not configured - IGDB features will be unavailable');
+      console.warn('[IGDB Init] → Configure IGDB in Settings > APIs to enable game metadata detection');
       igdbService = null;
       return false;
     }
   } catch (error) {
-    console.error('Error initializing IGDB service:', error);
+    console.error('[IGDB Init] ✗ Error during IGDB initialization:', error);
     igdbService = null;
     return false;
   }
@@ -2036,6 +2057,24 @@ async function searchSteamDBForAllAppIds(gameName: string, normalizedTitle: stri
 // Search games across all providers (IGDB and SteamGridDB)
 ipcMain.handle('metadata:searchGames', async (_event, gameTitle: string) => {
   try {
+    console.log(`[IPC metadata:searchGames] Searching for "${gameTitle}"...`);
+
+    // Check provider availability before searching
+    const providerStatus = metadataFetcher.getProviderStatus();
+    const availableProviders = providerStatus.filter(p => p.available);
+
+    if (availableProviders.length === 0) {
+      const errorMsg = 'No metadata providers are configured. Please configure IGDB credentials in Settings > APIs to enable game metadata detection.';
+      console.warn(`[IPC metadata:searchGames] ${errorMsg}`);
+      return {
+        success: false,
+        error: errorMsg,
+        results: [],
+      };
+    }
+
+    console.log(`[IPC metadata:searchGames] Active providers: ${availableProviders.map(p => p.name).join(', ')}`);
+
     // First, try to find exact match on Steam Store API
     // Priority: 1) Check user's Steam library, 2) Search SteamDB.info to find App ID, then verify with Steam Store API
     const exactSteamMatch: any = await (async () => {
@@ -2116,10 +2155,22 @@ ipcMain.handle('metadata:searchGames', async (_event, gameTitle: string) => {
       if (allAppIds.length > 0) {
         console.log(`[Steam Search] Found ${allAppIds.length} App IDs, fetching game details...`);
 
-        // Fetch details for all App IDs (limit to first 30 to avoid too many API calls)
-        const appIdsToFetch = allAppIds.slice(0, 30);
-        const fetchPromises = appIdsToFetch.map(async (appId) => {
+        // Fetch details for App IDs with rate limiting (limit to 20 to avoid hammering API)
+        const appIdsToFetch = allAppIds.slice(0, 20);
+        const fetchedGames: any[] = [];
+
+        // Process sequentially with delays to avoid rate limiting
+        for (let i = 0; i < appIdsToFetch.length; i++) {
+          const appId = appIdsToFetch[i];
+
           try {
+            // Add delay between requests (200ms = max 5 req/sec) to respect Steam's rate limits
+            if (i > 0) {
+              await new Promise(resolve => setTimeout(resolve, 200));
+            }
+
+            console.log(`[Steam Search] Fetching ${i + 1}/${appIdsToFetch.length}: App ID ${appId}...`);
+
             const storeApiUrl = `https://store.steampowered.com/api/appdetails?appids=${appId}&l=english`;
             const response = await fetch(storeApiUrl);
 
@@ -2148,7 +2199,7 @@ ipcMain.handle('metadata:searchGames', async (_event, gameTitle: string) => {
                   }
                 }
 
-                return {
+                fetchedGames.push({
                   id: `steam-${appId}`,
                   title: appData.data.name,
                   source: 'steam',
@@ -2157,17 +2208,18 @@ ipcMain.handle('metadata:searchGames', async (_event, gameTitle: string) => {
                   releaseDate: releaseDate,
                   releaseTimestamp: releaseTimestamp || 0, // For sorting
                   isExactMatch: steamName === normalizedTitle,
-                };
+                });
               }
+            } else if (response.status === 429) {
+              console.warn(`[Steam Search] Rate limited (429) on App ID ${appId}, stopping search`);
+              break; // Stop if we hit rate limit
             }
           } catch (err) {
             console.warn(`[Steam Search] Error fetching App ID ${appId}:`, err);
           }
-          return null;
-        });
+        }
 
-        const fetchedGames = await Promise.all(fetchPromises);
-        steamResults = fetchedGames.filter((game): game is any => game !== null);
+        steamResults = fetchedGames;
 
         // Sort: exact match first, then by release date (newest first)
         steamResults.sort((a, b) => {

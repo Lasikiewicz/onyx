@@ -156,6 +156,18 @@ export class MetadataFetcherService {
   }
 
   /**
+   * Get status of all metadata providers (for debugging)
+   */
+  getProviderStatus(): { name: string; available: boolean }[] {
+    return [
+      { name: 'Steam', available: this.steamProvider?.isAvailable() ?? false },
+      { name: 'IGDB', available: this.igdbProvider?.isAvailable() ?? false },
+      { name: 'RAWG', available: this.rawgProvider?.isAvailable() ?? false },
+      { name: 'SteamGridDB', available: this.steamGridDBProvider?.isAvailable() ?? false },
+    ];
+  }
+
+  /**
    * Calculate resolution score (width * height) for comparison
    */
   private getResolutionScore(resolution?: { width: number; height: number }): number {
@@ -310,6 +322,22 @@ export class MetadataFetcherService {
    */
   async searchGames(title: string, steamAppId?: string): Promise<GameSearchResult[]> {
     console.log(`[searchGames] Searching for "${title}" (steamAppId: ${steamAppId})`);
+
+    // Log provider status for debugging
+    const providerStatus = this.getProviderStatus();
+    const availableProviders = providerStatus.filter(p => p.available).map(p => p.name);
+    const unavailableProviders = providerStatus.filter(p => !p.available).map(p => p.name);
+
+    console.log(`[searchGames] Available providers: ${availableProviders.length > 0 ? availableProviders.join(', ') : 'NONE'}`);
+    if (unavailableProviders.length > 0) {
+      console.log(`[searchGames] Unavailable providers: ${unavailableProviders.join(', ')}`);
+    }
+
+    // Warn if no providers are available
+    if (availableProviders.length === 0) {
+      console.warn('[searchGames] ⚠️  NO METADATA PROVIDERS AVAILABLE! Please configure IGDB credentials in Settings > APIs.');
+      return [];
+    }
 
     // Check if title is a Steam App ID (numeric)
     const query = steamAppId || title;
