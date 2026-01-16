@@ -126,15 +126,56 @@ export class SteamMetadataProvider implements MetadataProvider {
   }
 
   /**
+   * Normalize game titles from other platforms to match Steam Store names
+   * Handles trademark symbols, punctuation, and known naming differences
+   */
+  private normalizeGameTitleForSteamSearch(title: string): string {
+    // Known title mappings from other platforms to Steam Store names
+    const titleMappings: Record<string, string> = {
+      // Call of Duty variants
+      'Call of Duty: Black Ops 7': 'Call of Duty®: Black Ops 7',
+      'Call of Duty Black Ops 7': 'Call of Duty®: Black Ops 7',
+      
+      // Tony Hawk's games
+      "Tony Hawk's- Pro Skater- 3 + 4_1": "Tony Hawk's™ Pro Skater™ 3 + 4",
+      "Tony Hawk's Pro Skater 3 + 4": "Tony Hawk's™ Pro Skater™ 3 + 4",
+      
+      // Other trademark symbols
+      'Assassins Creed Mirage': "Assassin's Creed® Mirage",
+      'Assassins Creed mirage': "Assassin's Creed® Mirage",
+    };
+
+    // Check for exact match first
+    if (titleMappings[title]) {
+      console.log(`[Steam searchGames] Using known title mapping: "${title}" → "${titleMappings[title]}"`);
+      return titleMappings[title];
+    }
+
+    // Try case-insensitive matching
+    const lowerTitle = title.toLowerCase();
+    for (const [original, mapped] of Object.entries(titleMappings)) {
+      if (original.toLowerCase() === lowerTitle) {
+        console.log(`[Steam searchGames] Using known title mapping (case-insensitive): "${title}" → "${mapped}"`);
+        return mapped;
+      }
+    }
+
+    // Return original title if no mapping found
+    return title;
+  }
+
+  /**
    * Search Steam Store by game title (for non-Steam games)
    * Returns array of matching games with their Steam App IDs
    */
   async searchGames(title: string): Promise<GameSearchResult[]> {
     try {
-      console.log(`[Steam searchGames] Searching Steam Store for "${title}"`);
+      // Normalize title to match Steam Store naming conventions
+      const normalizedTitle = this.normalizeGameTitleForSteamSearch(title);
+      console.log(`[Steam searchGames] Searching Steam Store for "${normalizedTitle}" (original: "${title}")`);
       
       // Use the Steam Store search API - similar to how SteamDB.info does it
-      const searchUrl = `https://store.steampowered.com/search/?term=${encodeURIComponent(title)}&category1=998`;
+      const searchUrl = `https://store.steampowered.com/search/?term=${encodeURIComponent(normalizedTitle)}&category1=998`;
       const response = await fetch(searchUrl, {
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
