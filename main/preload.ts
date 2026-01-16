@@ -49,13 +49,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   deleteGame: (gameId: string) => ipcRenderer.invoke('gameStore:deleteGame', gameId),
   removeWinGDKGames: () => ipcRenderer.invoke('gameStore:removeWinGDKGames'),
   // Dialog methods
-      showOpenDialog: () => ipcRenderer.invoke('dialog:showOpenDialog'),
-      showFolderDialog: () => ipcRenderer.invoke('dialog:showFolderDialog'),
-      showImageDialog: () => ipcRenderer.invoke('dialog:showImageDialog'),
+  showOpenDialog: () => ipcRenderer.invoke('dialog:showOpenDialog'),
+  showFolderDialog: () => ipcRenderer.invoke('dialog:showFolderDialog'),
+  showImageDialog: () => ipcRenderer.invoke('dialog:showImageDialog'),
   // Import methods
   scanFolderForExecutables: (folderPath: string) => ipcRenderer.invoke('import:scanFolderForExecutables', folderPath),
   // Metadata fetcher methods
-      searchArtwork: (title: string, steamAppId?: string) => ipcRenderer.invoke('metadata:searchArtwork', title, steamAppId),
+  searchArtwork: (title: string, steamAppId?: string, bypassCache?: boolean) => ipcRenderer.invoke('metadata:searchArtwork', title, steamAppId, bypassCache),
   fetchGameDescription: (steamGameId: string) => ipcRenderer.invoke('metadata:fetchGameDescription', steamGameId),
   fetchAndUpdateMetadata: (gameId: string, title: string) => ipcRenderer.invoke('metadata:fetchAndUpdate', gameId, title),
   setIGDBConfig: (config: { clientId: string; accessToken: string }) => ipcRenderer.invoke('metadata:setIGDBConfig', config),

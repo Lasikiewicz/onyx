@@ -10,7 +10,7 @@ import { join } from 'node:path';
 export class SteamMetadataProvider implements MetadataProvider {
   readonly name = 'steam';
   private steamService: SteamService | null = null;
-  
+
   // Rate limiting for Steam Store API
   private requestQueue: Array<{ execute: () => Promise<any>; resolve: (value: any) => void; reject: (error: any) => void }> = [];
   private processingQueue = false;
@@ -99,7 +99,7 @@ export class SteamMetadataProvider implements MetadataProvider {
         console.warn(`[Steam] Rate limited (403), moving to next source`);
         throw error;
       }
-      
+
       // For other errors, still throw immediately (no retries)
       throw error;
     }
@@ -135,11 +135,11 @@ export class SteamMetadataProvider implements MetadataProvider {
       // Call of Duty variants
       'Call of Duty: Black Ops 7': 'Call of Duty®: Black Ops 7',
       'Call of Duty Black Ops 7': 'Call of Duty®: Black Ops 7',
-      
+
       // Tony Hawk's games
       "Tony Hawk's- Pro Skater- 3 + 4_1": "Tony Hawk's™ Pro Skater™ 3 + 4",
       "Tony Hawk's Pro Skater 3 + 4": "Tony Hawk's™ Pro Skater™ 3 + 4",
-      
+
       // Other trademark symbols
       'Assassins Creed Mirage': "Assassin's Creed® Mirage",
       'Assassins Creed mirage': "Assassin's Creed® Mirage",
@@ -173,7 +173,7 @@ export class SteamMetadataProvider implements MetadataProvider {
       // Normalize title to match Steam Store naming conventions
       const normalizedTitle = this.normalizeGameTitleForSteamSearch(title);
       console.log(`[Steam searchGames] Searching Steam Store for "${normalizedTitle}" (original: "${title}")`);
-      
+
       // Use the Steam Store search API - similar to how SteamDB.info does it
       const searchUrl = `https://store.steampowered.com/search/?term=${encodeURIComponent(normalizedTitle)}&category1=998`;
       const response = await fetch(searchUrl, {
@@ -269,7 +269,7 @@ export class SteamMetadataProvider implements MetadataProvider {
             'Referer': 'https://store.steampowered.com/',
           },
         });
-        
+
         if (!response.ok) {
           // Create an error object that includes status for retry logic
           const error: any = new Error(`Steam Store API returned ${response.status}`);
@@ -279,14 +279,14 @@ export class SteamMetadataProvider implements MetadataProvider {
 
         const data = await response.json() as Record<string, any>;
         const appData = data[steamAppId];
-        
+
         if (!appData || !appData.success || !appData.data) {
           console.warn(`[Steam] No data returned from Store API for app ${steamAppId}`);
           return null;
         }
 
         const gameData = appData.data;
-        
+
         // Extract text metadata from Steam Store API
         const description: import('./MetadataProvider.js').GameDescription = {};
 
@@ -297,7 +297,7 @@ export class SteamMetadataProvider implements MetadataProvider {
         if (gameData.detailed_description) {
           description.summary = gameData.detailed_description;
         }
-        
+
         // Release date
         if (gameData.release_date) {
           if (gameData.release_date.date) {
@@ -315,27 +315,27 @@ export class SteamMetadataProvider implements MetadataProvider {
             }
           }
         }
-        
+
         // Genres
         if (gameData.genres && Array.isArray(gameData.genres)) {
           description.genres = gameData.genres.map((g: any) => g.description).filter(Boolean);
         }
-        
+
         // Developers
         if (gameData.developers && Array.isArray(gameData.developers)) {
           description.developers = gameData.developers.filter(Boolean);
         }
-        
+
         // Publishers
         if (gameData.publishers && Array.isArray(gameData.publishers)) {
           description.publishers = gameData.publishers.filter(Boolean);
         }
-        
+
         // Categories (tags)
         if (gameData.categories && Array.isArray(gameData.categories)) {
           description.categories = gameData.categories.map((c: any) => c.description).filter(Boolean);
         }
-        
+
         // Age rating - only use PEGI ratings
         // Check if content_descriptors.notes contains PEGI, otherwise use required_age
         if (gameData.content_descriptors && gameData.content_descriptors.notes) {
@@ -349,12 +349,12 @@ export class SteamMetadataProvider implements MetadataProvider {
         } else if (gameData.required_age) {
           description.ageRating = `PEGI ${gameData.required_age}`;
         }
-        
+
         // Rating (metacritic score if available)
         if (gameData.metacritic && gameData.metacritic.score) {
           description.rating = gameData.metacritic.score;
         }
-        
+
         // Platforms
         if (gameData.platforms) {
           const platforms: string[] = [];
@@ -402,7 +402,7 @@ export class SteamMetadataProvider implements MetadataProvider {
       const fetchWithTimeout = async (url: string): Promise<Response | null> => {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-        
+
         try {
           const response = await fetch(url, { method: 'HEAD', signal: controller.signal });
           clearTimeout(timeoutId);
@@ -446,10 +446,32 @@ export class SteamMetadataProvider implements MetadataProvider {
         artwork.bannerResolution = { width: 460, height: 215 }; // Standard Steam header size
       }
 
-      // Logo: logo.png (official Steam logo)
+      // Logo: Try multiple variations (official Steam logos)
+      const logoEnglishUrl = `https://cdn.cloudflare.steamstatic.com/steam/apps/${steamAppId}/logo_english.png`;
+      const libraryLogoUrl = `https://cdn.cloudflare.steamstatic.com/steam/apps/${steamAppId}/library_logo.png`;
+
+      // Check logos in parallel (if main logo failed or we want to be thorough)
+      let foundLogoUrl: string | undefined;
+
       if (logoResponse?.ok) {
-        artwork.logoUrl = logoUrl;
-        // Steam logos vary in size, but typically around 231x87
+        foundLogoUrl = logoUrl;
+      } else {
+        // Try fallbacks
+        const [logoEnglishRes, libraryLogoRes] = await Promise.all([
+          fetchWithTimeout(logoEnglishUrl),
+          fetchWithTimeout(libraryLogoUrl)
+        ]);
+
+        if (logoEnglishRes?.ok) {
+          foundLogoUrl = logoEnglishUrl;
+        } else if (libraryLogoRes?.ok) {
+          foundLogoUrl = libraryLogoUrl;
+        }
+      }
+
+      if (foundLogoUrl) {
+        artwork.logoUrl = foundLogoUrl;
+        // Steam logos vary in size, but typically around 231x87 or larger for library assets
         artwork.logoResolution = { width: 231, height: 87 };
       }
 

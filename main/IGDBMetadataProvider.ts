@@ -29,6 +29,7 @@ export class IGDBMetadataProvider implements MetadataProvider {
         title: result.name,
         source: this.name,
         externalId: result.id,
+        steamAppId: result.steamAppId,
       }));
     } catch (error: any) {
       // If authentication fails, disable IGDB service
@@ -119,7 +120,7 @@ export class IGDBMetadataProvider implements MetadataProvider {
 
       const result = results[0];
       console.log(`[IGDBProvider.getArtwork] Found game "${result.name}", coverUrl: ${result.coverUrl || 'MISSING'}`);
-      
+
       return {
         boxArtUrl: result.coverUrl,
         bannerUrl: result.coverUrl, // IGDB uses same cover for banner

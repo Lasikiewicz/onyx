@@ -760,7 +760,6 @@ const bugReportService = new BugReportService();
 
 // Initialize IGDB service if credentials are available
 let igdbService: IGDBService | null = null;
-let steamGridDBService: import('./SteamGridDBService.js').SteamGridDBService | null = null;
 let rawgService: RAWGService | null = null;
 
 /**
@@ -842,28 +841,7 @@ const initializeIGDBService = async () => {
   }
 };
 
-// Function to initialize SteamGridDB service with API key
-const initializeSteamGridDBService = async () => {
-  try {
-    const storedCreds = await apiCredentialsService.getCredentials();
-    const steamGridDBApiKey = storedCreds.steamGridDBApiKey || process.env.STEAMGRIDDB_API_KEY;
 
-    if (steamGridDBApiKey) {
-      const { SteamGridDBService } = await import('./SteamGridDBService.js');
-      steamGridDBService = new SteamGridDBService(steamGridDBApiKey);
-      console.log('SteamGridDB service initialized');
-      return true;
-    } else {
-      console.warn('SteamGridDB API key not found. SteamGridDB features will be unavailable.');
-      steamGridDBService = null;
-      return false;
-    }
-  } catch (error) {
-    console.error('Error initializing SteamGridDB service:', error);
-    steamGridDBService = null;
-    return false;
-  }
-};
 
 // Function to initialize RAWG service with API key
 const initializeRAWGService = async () => {
@@ -899,7 +877,6 @@ const updateMetadataFetcher = () => {
   metadataFetcher.setIGDBService(igdbService);
   metadataFetcher.setSteamService(steamService);
   metadataFetcher.setRAWGService(rawgService);
-  metadataFetcher.setSteamGridDBService(steamGridDBService);
 };
 
 const launcherService = new LauncherService(gameStore);
@@ -1252,7 +1229,6 @@ async function buildTrayContextMenu(): Promise<Electron.Menu> {
 // Initialize on startup (wrapped in IIFE to handle async)
 (async () => {
   await initializeIGDBService();
-  await initializeSteamGridDBService();
   await initializeRAWGService();
   updateMetadataFetcher();
 })();
@@ -1593,11 +1569,11 @@ ipcMain.handle('app:reset', async () => {
 });
 
 // Metadata fetcher IPC handlers
-ipcMain.handle('metadata:searchArtwork', async (_event, title: string, steamAppId?: string) => {
+ipcMain.handle('metadata:searchArtwork', async (_event, title: string, steamAppId?: string, bypassCache?: boolean) => {
   try {
     console.log(`[searchArtwork] Fetching artwork for "${title}" (steamAppId: ${steamAppId})`);
     const metadata = await withTimeout(
-      metadataFetcher.searchArtwork(title, steamAppId),
+      metadataFetcher.searchArtwork(title, steamAppId, bypassCache),
       30000, // 30 seconds - allow more time for SteamGridDB + RAWG
       `Artwork fetch timeout for "${title}"`
     );
@@ -1841,100 +1817,7 @@ ipcMain.handle('metadata:searchMetadata', async (_event, gameTitle: string) => {
       throw error;
     }
 
-    // Fetch logos from SteamGridDB for each result if available
-    const sgdbService = steamGridDBService;
-    if (sgdbService && results.length > 0) {
-      console.log(`[Logo Search] Searching SteamGridDB for logos for ${results.length} games`);
-      const resultsWithLogos = await Promise.all(
-        results.map(async (result) => {
-          try {
-            // Try multiple search strategies to find matching game
-            let sgdbGames: any[] = [];
 
-            // Strategy 1: Search by exact IGDB game name
-            try {
-              sgdbGames = await withTimeout(
-                sgdbService.searchGame(result.name),
-                8000, // Shorter timeout for individual searches
-                `SteamGridDB search timeout for "${result.name}"`
-              );
-            } catch (err) {
-              console.debug(`[Logo Search] Strategy 1 failed for "${result.name}":`, err);
-            }
-
-            // Strategy 2: If no results, try the original search query
-            if (sgdbGames.length === 0 && gameTitle !== result.name) {
-              try {
-                sgdbGames = await withTimeout(
-                  sgdbService.searchGame(gameTitle),
-                  8000,
-                  `SteamGridDB search timeout for "${gameTitle}"`
-                );
-              } catch (err) {
-                console.debug(`[Logo Search] Strategy 2 failed for "${gameTitle}":`, err);
-              }
-            }
-
-            // Strategy 3: Try without special characters/common words
-            if (sgdbGames.length === 0) {
-              const simplifiedName = result.name
-                .replace(/[™®©]/g, '')
-                .replace(/\s*:\s*/g, ' ')
-                .trim();
-              if (simplifiedName !== result.name) {
-                try {
-                  sgdbGames = await withTimeout(
-                    sgdbService.searchGame(simplifiedName),
-                    8000,
-                    `SteamGridDB search timeout for "${simplifiedName}"`
-                  );
-                } catch (err) {
-                  console.debug(`[Logo Search] Strategy 3 failed for "${simplifiedName}":`, err);
-                }
-              }
-            }
-
-            if (sgdbGames.length > 0) {
-              // Try to find the best matching game (prefer verified games)
-              let selectedGame = sgdbGames.find(g => g.verified) || sgdbGames[0];
-              const gameId = selectedGame.id;
-              console.log(`[Logo Search] Found SteamGridDB game ${gameId} ("${selectedGame.name}") for "${result.name}", fetching logos...`);
-
-              const logos = await withTimeout(
-                sgdbService.getLogos(gameId),
-                8000,
-                `SteamGridDB logo fetch timeout for game ${gameId}`
-              );
-
-              if (logos.length > 0) {
-                // Filter out NSFW/humor/epilepsy content and get highest scored logo
-                const suitableLogos = logos.filter(img => !img.nsfw && !img.humor && !img.epilepsy);
-                if (suitableLogos.length > 0) {
-                  const bestLogo = suitableLogos.sort((a, b) => b.score - a.score)[0];
-                  console.log(`[Logo Search] ✓ Found logo for "${result.name}": ${bestLogo.url} (score: ${bestLogo.score})`);
-                  result.logoUrl = bestLogo.url;
-                } else {
-                  console.log(`[Logo Search] No suitable logo found for "${result.name}" (${logos.length} logos, all filtered out)`);
-                }
-              } else {
-                console.log(`[Logo Search] No logos available for SteamGridDB game ${gameId} ("${selectedGame.name}")`);
-              }
-            } else {
-              console.log(`[Logo Search] No SteamGridDB match found for "${result.name}" (tried: "${result.name}", "${gameTitle}")`);
-            }
-          } catch (err) {
-            // Log errors more prominently for debugging
-            console.error(`[Logo Search] Error fetching logo for "${result.name}":`, err);
-          }
-          return result;
-        })
-      );
-      const logosFound = resultsWithLogos.filter(r => r.logoUrl).length;
-      console.log(`[Logo Search] Completed: ${logosFound}/${results.length} games have logos`);
-      return { success: true, results: resultsWithLogos };
-    } else if (!sgdbService) {
-      console.warn('[Logo Search] SteamGridDB service not available - skipping logo search. Please configure SteamGridDB API key in Settings > APIs.');
-    }
 
     return { success: true, results };
   } catch (error) {
@@ -2561,119 +2444,7 @@ ipcMain.handle('metadata:refreshAll', async (event, options?: { allGames?: boole
         let metadata: { boxArtUrl?: string; bannerUrl?: string; logoUrl?: string; heroUrl?: string } = {};
 
         // First, try direct SteamGridDB search (same as manual search)
-        if (steamGridDBService) {
-          try {
-            sendProgress({
-              current,
-              total: totalGames,
-              message: `Searching SteamGridDB for ${game.title}...`,
-              gameTitle: game.title
-            });
 
-            // For non-Steam games, use fuzzy search (try multiple variations)
-            let sgdbGames = await steamGridDBService.searchGame(game.title);
-
-            // If no results, try fuzzy search variations (for both Steam and non-Steam games)
-            if (sgdbGames.length === 0) {
-              console.log(`[RefreshAll] No exact match for "${game.title}", trying fuzzy search...`);
-
-              // Try variations: remove special characters, try without common words, etc.
-              const variations = [
-                game.title.replace(/[^\w\s]/g, '').trim(), // Remove special chars
-                game.title.replace(/\s*(?:edition|pack|dlc|remastered|remaster|definitive|ultimate|gold|platinum|deluxe|collector|special|limited|anniversary|game of the year|goty)\s*/gi, '').trim(), // Remove common edition words
-                game.title.split(' - ')[0].trim(), // Remove subtitle
-                game.title.split(':')[0].trim(), // Remove colon subtitle
-              ].filter(v => v.length > 0 && v !== game.title);
-
-              // Add Roman numeral conversion for titles like "Final Fantasy VI" -> "Final Fantasy 6"
-              if (game.title.match(/\s(?:I|II|III|IV|V|VI|VII|VIII|IX|X)$/i)) {
-                const numericTitle = game.title
-                  .replace(/\sVI\b/i, ' 6')
-                  .replace(/\sVII\b/i, ' 7')
-                  .replace(/\sVIII\b/i, ' 8')
-                  .replace(/\sIX\b/i, ' 9')
-                  .replace(/\sIV\b/i, ' 4')
-                  .replace(/\sV\b/i, ' 5')
-                  .replace(/\sIII\b/i, ' 3')
-                  .replace(/\sII\b/i, ' 2')
-                  .replace(/\sI\b/i, ' 1');
-                if (numericTitle !== game.title) {
-                  variations.push(numericTitle);
-                }
-              }
-
-              for (const variation of variations) {
-                if (sgdbGames.length > 0) break; // Stop if we found results
-                try {
-                  sgdbGames = await steamGridDBService.searchGame(variation);
-                  if (sgdbGames.length > 0) {
-                    console.log(`[RefreshAll] Found match with variation "${variation}" for "${game.title}"`);
-                    break;
-                  }
-                } catch (e) {
-                  // Continue to next variation
-                }
-              }
-            }
-
-            if (sgdbGames.length > 0) {
-              // Use the first/best match (usually sorted by relevance)
-              const bestMatch = sgdbGames[0];
-              console.log(`[RefreshAll] Found SteamGridDB game: ${bestMatch.name} (ID: ${bestMatch.id}) for "${game.title}"`);
-
-              // Note: We don't extract Steam App ID from SteamGridDB anymore - only use SteamDB.info for App ID matching
-              // SteamGridDB is only used for artwork/images here, not for metadata matching
-
-              sendProgress({
-                current,
-                total: totalGames,
-                message: `Fetching boxart for ${game.title}...`,
-                gameTitle: game.title
-              });
-
-              // Get capsules (boxart), heroes (banners), and logos
-              const capsules = await steamGridDBService.getCapsules(bestMatch.id, true);
-              const heroes = await steamGridDBService.getHeroes(bestMatch.id);
-              const logos = await steamGridDBService.getLogos(bestMatch.id);
-
-              // Filter and get best images (same logic as SteamGridDBMetadataProvider)
-              const filterImage = (img: any) => !img.nsfw && !img.humor && !img.epilepsy;
-
-              const bestCapsule = capsules
-                .filter(filterImage)
-                .filter(img => {
-                  // Verify it's actually a vertical grid (portrait orientation)
-                  if (img.width && img.height) {
-                    const aspectRatio = img.height / img.width;
-                    return aspectRatio >= 0.9; // Same filter as manual search
-                  }
-                  return true; // Include if dimensions missing
-                })
-                .sort((a, b) => b.score - a.score)[0];
-
-              const bestHero = heroes
-                .filter(filterImage)
-                .sort((a, b) => b.score - a.score)[0];
-
-              const bestLogo = logos
-                .filter(filterImage)
-                .sort((a, b) => b.score - a.score)[0];
-
-              if (bestCapsule) {
-                metadata.boxArtUrl = bestCapsule.url;
-                console.log(`[RefreshAll] Found boxart for ${game.title}: ${bestCapsule.url.substring(0, 80)}...`);
-              }
-              if (bestHero) {
-                metadata.bannerUrl = bestHero.url;
-              }
-              if (bestLogo) {
-                metadata.logoUrl = bestLogo.url;
-              }
-            }
-          } catch (error) {
-            console.warn(`[RefreshAll] SteamGridDB direct search failed for ${game.title}:`, error);
-          }
-        }
 
         // Keep searching all sources until we have all three: boxart, banner, logo
         let searchVariations = [game.title];
@@ -2794,111 +2565,7 @@ ipcMain.handle('metadata:refreshAll', async (event, options?: { allGames?: boole
             gameTitle: game.title
           });
 
-          // Use the same search method as manual search (searchImages)
-          if (steamGridDBService) {
-            try {
-              // For non-Steam games, use fuzzy search (try multiple variations)
-              let sgdbGames = await steamGridDBService.searchGame(game.title);
 
-              // If no results, try fuzzy search variations (for both Steam and non-Steam games)
-              if (sgdbGames.length === 0) {
-                console.log(`[RefreshAll] No exact match for "${game.title}", trying fuzzy search...`);
-
-                // Try variations: remove special characters, try without common words, etc.
-                const variations = [
-                  game.title.replace(/[^\w\s]/g, '').trim(), // Remove special chars
-                  game.title.replace(/\s*(?:edition|pack|dlc|remastered|remaster|definitive|ultimate|gold|platinum|deluxe|collector|special|limited|anniversary|game of the year|goty)\s*/gi, '').trim(), // Remove common edition words
-                  game.title.split(' - ')[0].trim(), // Remove subtitle
-                  game.title.split(':')[0].trim(), // Remove colon subtitle
-                ].filter(v => v.length > 0 && v !== game.title);
-
-                // Add Roman numeral conversion for titles like "Final Fantasy VI" -> "Final Fantasy 6"
-                if (game.title.match(/\s(?:I|II|III|IV|V|VI|VII|VIII|IX|X)$/i)) {
-                  const numericTitle = game.title
-                    .replace(/\sVI\b/i, ' 6')
-                    .replace(/\sVII\b/i, ' 7')
-                    .replace(/\sVIII\b/i, ' 8')
-                    .replace(/\sIX\b/i, ' 9')
-                    .replace(/\sIV\b/i, ' 4')
-                    .replace(/\sV\b/i, ' 5')
-                    .replace(/\sIII\b/i, ' 3')
-                    .replace(/\sII\b/i, ' 2')
-                    .replace(/\sI\b/i, ' 1');
-                  if (numericTitle !== game.title) {
-                    variations.push(numericTitle);
-                  }
-                }
-
-                for (const variation of variations) {
-                  if (sgdbGames.length > 0) break; // Stop if we found results
-                  try {
-                    sgdbGames = await steamGridDBService.searchGame(variation);
-                    if (sgdbGames.length > 0) {
-                      console.log(`[RefreshAll] Found match with variation "${variation}" for "${game.title}"`);
-                      break;
-                    }
-                  } catch (e) {
-                    // Continue to next variation
-                  }
-                }
-              }
-
-              if (sgdbGames.length > 0) {
-                // Use the first game result
-                const firstGame = sgdbGames[0];
-                console.log(`[RefreshAll] Auto-selected game: ${firstGame.name} (ID: ${firstGame.id}) for "${game.title}"`);
-
-                // Extract Steam App ID from result if we haven't found one yet
-                if (!steamAppId && firstGame.steam_app_id) {
-                  const candidateAppId = firstGame.steam_app_id.toString();
-                  // Verify with Steam Store API
-                  try {
-                    const storeApiUrl = `https://store.steampowered.com/api/appdetails?appids=${candidateAppId}&l=english`;
-                    const response = await fetch(storeApiUrl);
-
-                    if (response.ok) {
-                      const data = await response.json() as Record<string, any>;
-                      const appData = data[candidateAppId];
-
-                      if (appData && appData.success && appData.data) {
-                        console.log(`[RefreshAll] Extracted Steam App ID from auto-search result: "${appData.data.name}" (App ID: ${candidateAppId})`);
-                        steamAppId = candidateAppId;
-                        foundSteamAppId = candidateAppId;
-                        shouldUpdateGameId = true;
-                      }
-                    }
-                  } catch (err) {
-                    console.warn(`[RefreshAll] Error verifying Steam App ID ${firstGame.steam_app_id}:`, err);
-                  }
-                }
-
-                // Get capsules (boxart) from first result
-                const capsules = await steamGridDBService.getCapsules(firstGame.id, true);
-
-                // Filter and get best image (same logic as manual search)
-                const filterImage = (img: any) => !img.nsfw && !img.humor && !img.epilepsy;
-
-                const bestCapsule = capsules
-                  .filter(filterImage)
-                  .filter(img => {
-                    // Verify it's actually a vertical grid (portrait orientation)
-                    if (img.width && img.height) {
-                      const aspectRatio = img.height / img.width;
-                      return aspectRatio >= 0.9; // Same filter as manual search
-                    }
-                    return true; // Include if dimensions missing
-                  })
-                  .sort((a, b) => b.score - a.score)[0];
-
-                if (bestCapsule) {
-                  metadata.boxArtUrl = bestCapsule.url;
-                  console.log(`[RefreshAll] Auto-selected boxart for ${game.title}: ${bestCapsule.url.substring(0, 80)}...`);
-                }
-              }
-            } catch (error) {
-              console.warn(`[RefreshAll] Auto-search failed for ${game.title}:`, error);
-            }
-          }
 
           // If still no boxart after auto-search, mark as missing but continue
           // Only add to missing if we couldn't find at least boxart and banner
@@ -3160,55 +2827,6 @@ ipcMain.handle('metadata:fetchAndUpdateByProviderId', async (_event, gameId: str
       } else {
         return { success: false, error: 'Game not found in IGDB' };
       }
-    } else if (providerSource === 'steamgriddb') {
-      // Extract SteamGridDB game ID from provider ID (format: "steamgriddb-123")
-      const sgdbGameId = parseInt(providerId.replace('steamgriddb-', ''), 10);
-
-      if (isNaN(sgdbGameId) || !steamGridDBService) {
-        return { success: false, error: 'Invalid SteamGridDB ID or service not available' };
-      }
-
-      // Get metadata directly from SteamGridDB
-      const sgdbMetadata = await steamGridDBService.getGameMetadata(sgdbGameId);
-
-      // Also try to get IGDB description if available
-      let igdbDescription = null;
-      if (igdbService) {
-        const igdbResults = await igdbService.searchGame(game.title);
-        if (igdbResults.length > 0) {
-          // Use the first result's name to get description
-          const descriptionResult = await metadataFetcher.searchArtwork(igdbResults[0].name, steamAppId);
-          igdbDescription = {
-            description: descriptionResult.description,
-            summary: descriptionResult.summary,
-            releaseDate: descriptionResult.releaseDate,
-            genres: descriptionResult.genres,
-            developers: descriptionResult.developers,
-            publishers: descriptionResult.publishers,
-            ageRating: descriptionResult.ageRating,
-            rating: descriptionResult.rating,
-            platforms: descriptionResult.platforms,
-            categories: descriptionResult.categories,
-          };
-        }
-      }
-
-      metadata = {
-        boxArtUrl: sgdbMetadata.boxArtUrl,
-        bannerUrl: sgdbMetadata.bannerUrl,
-        logoUrl: sgdbMetadata.logoUrl,
-        heroUrl: sgdbMetadata.heroUrl,
-        description: igdbDescription?.description,
-        summary: igdbDescription?.summary,
-        releaseDate: igdbDescription?.releaseDate,
-        genres: igdbDescription?.genres,
-        developers: igdbDescription?.developers,
-        publishers: igdbDescription?.publishers,
-        ageRating: igdbDescription?.ageRating,
-        rating: igdbDescription?.rating,
-        platforms: igdbDescription?.platforms,
-        categories: igdbDescription?.categories,
-      };
     } else {
       return { success: false, error: `Unknown provider source: ${providerSource}` };
     }
@@ -4247,95 +3865,7 @@ ipcMain.handle('import:scanAllSources', async () => {
 
 // Search for specific image types from SteamGridDB
 ipcMain.handle('metadata:searchImages', async (_event, query: string, imageType: 'boxart' | 'banner' | 'logo', steamAppId?: string) => {
-  try {
-    if (!steamGridDBService) {
-      return { success: false, error: 'SteamGridDB service not available', images: [] };
-    }
-
-    // Search for games on SteamGridDB
-    const games = await steamGridDBService.searchGame(query);
-
-    if (games.length === 0) {
-      return { success: true, images: [] };
-    }
-
-    // Fetch images for each game (limit to 10 games)
-    const imageResults: Array<{ gameId: number; gameName: string; images: Array<{ url: string; score: number; width: number; height: number; mime?: string; isAnimated?: boolean }> }> = [];
-
-    for (const game of games.slice(0, 10)) {
-      try {
-        let images: Array<{ url: string; score: number; width: number; height: number; mime?: string; isAnimated?: boolean }> = [];
-
-        if (imageType === 'boxart') {
-          // Get capsules (boxart includes both static and animated)
-          const capsules = await steamGridDBService.getCapsules(game.id, true);
-          images = capsules
-            .filter(img => {
-              // Filter out NSFW, humor, epilepsy
-              if (img.nsfw || img.humor || img.epilepsy) {
-                return false;
-              }
-              // Verify it's actually a vertical grid (portrait orientation - height > width)
-              // Vertical grids should be taller than wide (typical aspect ratio ~2:3 or 3:4)
-              // But be more lenient - allow aspect ratio >= 0.9 to catch edge cases
-              if (img.width && img.height) {
-                const aspectRatio = img.height / img.width;
-                // Vertical grids should have aspect ratio > 0.9 (slightly taller than wide or more)
-                // This allows for slight variations while still filtering out true landscape images
-                if (aspectRatio < 0.9) {
-                  return false;
-                }
-              }
-              // If dimensions are missing, include it (better to show than hide)
-              return true;
-            })
-            .map(img => ({
-              url: img.url,
-              score: img.score,
-              width: img.width,
-              height: img.height,
-              mime: img.mime, // Include mime type to identify animated grids
-              isAnimated: img.mime === 'image/webp' || img.mime === 'image/gif' || img.mime === 'video/webm' || img.url.includes('.webp') || img.url.includes('.gif') || img.url.includes('.webm'),
-            }));
-        } else if (imageType === 'banner') {
-          const heroes = await steamGridDBService.getHeroes(game.id);
-          images = heroes
-            .filter(img => !img.nsfw && !img.humor && !img.epilepsy)
-            .map(img => ({
-              url: img.url,
-              score: img.score,
-              width: img.width,
-              height: img.height,
-            }));
-        } else if (imageType === 'logo') {
-          const logos = await steamGridDBService.getLogos(game.id);
-          images = logos
-            .filter(img => !img.nsfw && !img.humor && !img.epilepsy)
-            .map(img => ({
-              url: img.url,
-              score: img.score,
-              width: img.width,
-              height: img.height,
-            }));
-        }
-
-        if (images.length > 0) {
-          imageResults.push({
-            gameId: game.id,
-            gameName: game.name,
-            images: images.sort((a, b) => b.score - a.score), // Sort by score descending
-          });
-        }
-      } catch (err) {
-        console.error(`Error fetching ${imageType} for game ${game.id}:`, err);
-      }
-    }
-
-    return { success: true, images: imageResults };
-  } catch (error) {
-    console.error('Error in metadata:searchImages handler:', error);
-    return { success: false, error: error instanceof Error ? error.message : 'Unknown error', images: [] };
-  }
+  return { success: true, images: [] };
 });
 
 // User preferences IPC handlers
@@ -4534,7 +4064,7 @@ ipcMain.handle('api:saveCredentials', async (_event, credentials: { igdbClientId
     // Reinitialize IGDB service with new credentials
     await initializeIGDBService();
     // Reinitialize SteamGridDB service with new API key
-    await initializeSteamGridDBService();
+
     // Reinitialize RAWG service with new API key
     await initializeRAWGService();
     // Update metadata fetcher with new services

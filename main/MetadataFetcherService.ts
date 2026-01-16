@@ -439,11 +439,11 @@ export class MetadataFetcherService {
    * Get complete game metadata from official store ONLY (Steam, Epic, GOG, etc.)
    * No search needed - we already have platform IDs from game scanning
    */
-  async searchArtwork(title: string, steamAppId?: string): Promise<GameMetadata> {
-    console.log(`[MetadataFetcher.searchArtwork] Starting for "${title}" (steamAppId: ${steamAppId})`);
+  async searchArtwork(title: string, steamAppId?: string, bypassCache: boolean = false): Promise<GameMetadata> {
+    console.log(`[MetadataFetcher.searchArtwork] Starting for "${title}" (steamAppId: ${steamAppId}, bypassCache: ${bypassCache})`);
 
     // Use Steam App ID if available, otherwise fallback to title-based search across all providers
-    const artworkResult = await this.fetchCompleteMetadata(title, null, steamAppId);
+    const artworkResult = await this.fetchCompleteMetadata(title, null, steamAppId, bypassCache);
     console.log(`[MetadataFetcher.searchArtwork] Complete metadata result for "${title}":`, {
       boxArtUrl: artworkResult.boxArtUrl ? 'present' : 'missing',
       logoUrl: artworkResult.logoUrl ? 'present' : 'missing',
@@ -458,7 +458,8 @@ export class MetadataFetcherService {
   async fetchCompleteMetadata(
     gameTitle: string,
     matchedGame?: GameSearchResult | null,
-    steamAppId?: string
+    steamAppId?: string,
+    bypassCache: boolean = false
   ): Promise<GameMetadata> {
     const rateLimiter = getRateLimitCoordinator();
     const cache = getMetadataCache();
@@ -480,10 +481,15 @@ export class MetadataFetcherService {
     }
 
     const cacheKey = cache.generateKey(gameTitle, steamAppId || effectiveMatch.steamAppId);
-    const cachedMetadata = cache.get(cacheKey);
-    if (cachedMetadata && validator.validateMetadata(cachedMetadata, effectiveMatch)) {
-      console.log(`[MetadataFetcher] Using cached metadata for ${gameTitle}`);
-      return cachedMetadata;
+
+    if (!bypassCache) {
+      const cachedMetadata = cache.get(cacheKey);
+      if (cachedMetadata && validator.validateMetadata(cachedMetadata, effectiveMatch)) {
+        console.log(`[MetadataFetcher] Using cached metadata for ${gameTitle}`);
+        return cachedMetadata;
+      }
+    } else {
+      console.log(`[MetadataFetcher] Bypassing cache for ${gameTitle}`);
     }
 
     const artworkMetadata = await rateLimiter.queueRequest("artwork", async () =>
@@ -539,7 +545,12 @@ export class MetadataFetcherService {
         try {
           const steamResults = await this.steamProvider.searchGames(matchedGame.title);
           if (steamResults.length > 0) {
-            resolvedSteamAppId = steamResults[0].steamAppId;
+            // Prefer results that don't look like demos if we're searching for artwork
+            // (Steam search often returns the Demo first if it's new/popular)
+            const bestMatch = steamResults.find(r => !/\bdemo\b/i.test(r.title)) || steamResults[0];
+            resolvedSteamAppId = bestMatch.steamAppId;
+            console.log(`[fetchArtworkForGame] Resolved Steam App ID from search: ${resolvedSteamAppId} ("${bestMatch.title}")`);
+
             artworkPromises.push({
               promise: this.steamProvider.getArtwork(`steam-${resolvedSteamAppId}`, resolvedSteamAppId),
               source: "steam"

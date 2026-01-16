@@ -23,6 +23,10 @@ export interface IGDBGame {
     category?: number;
   } | number>; // Can be rating objects or IDs
   category?: number; // Game category
+  external_games?: Array<{
+    category: number;
+    uid: string;
+  }>;
 }
 
 export interface IGDBGameResult {
@@ -38,6 +42,7 @@ export interface IGDBGameResult {
   platform?: string;
   ageRating?: string;
   categories?: string[];
+  steamAppId?: string;
 }
 
 interface AccessTokenCache {
@@ -140,7 +145,7 @@ export class IGDBService {
         console.warn(`[IGDB] Rate limited (429), moving to next source`);
         throw error;
       }
-      
+
       // For other errors, throw immediately (no retries)
       throw error;
     }
@@ -205,7 +210,7 @@ export class IGDBService {
       });
 
       const { access_token, expires_in } = response.data;
-      
+
       // Cache the token (expires_in is in seconds, convert to milliseconds)
       // Subtract 60 seconds as a safety margin
       this.accessTokenCache = {
@@ -233,10 +238,10 @@ export class IGDBService {
    */
   private convertImageUrl(url: string, type: 'cover' | 'screenshot'): string {
     if (!url) return '';
-    
+
     // Prepend https: if it's a protocol-relative URL
     let absoluteUrl = url.startsWith('//') ? `https:${url}` : url;
-    
+
     // Replace size tokens
     if (type === 'cover') {
       // Replace t_thumb with t_cover_big for covers
@@ -245,7 +250,7 @@ export class IGDBService {
       // Replace t_thumb with t_screenshot_huge for screenshots
       absoluteUrl = absoluteUrl.replace(/t_thumb/g, 't_screenshot_huge');
     }
-    
+
     return absoluteUrl;
   }
 
@@ -260,17 +265,17 @@ export class IGDBService {
 
           // Build the query string with all required fields
           // Note: age_ratings returns IDs, we'll fetch details separately
-          
+
           // Check if query is a numeric ID (for direct game ID lookups)
           let queryBody: string;
           if (/^\d+$/.test(query)) {
             // Numeric ID query - use WHERE syntax instead of search
-            queryBody = `fields name, summary, cover.url, screenshots.url, rating, first_release_date, genres.name, platforms.name, age_ratings, category;
+            queryBody = `fields name, summary, cover.url, screenshots.url, rating, first_release_date, genres.name, platforms.name, age_ratings, category, external_games.category, external_games.uid;
 where id = ${query};
 limit 1;`;
           } else {
             // Text search query - use search syntax
-            queryBody = `fields name, summary, cover.url, screenshots.url, rating, first_release_date, genres.name, platforms.name, age_ratings, category;
+            queryBody = `fields name, summary, cover.url, screenshots.url, rating, first_release_date, genres.name, platforms.name, age_ratings, category, external_games.category, external_games.uid;
 search "${query}";
 limit 10;`;
           }
@@ -283,169 +288,178 @@ limit 10;`;
             },
           });
 
-      // Collect all age rating IDs to fetch in one batch
-      const ageRatingIds: number[] = [];
-      response.data.forEach((game) => {
-        if (game.age_ratings) {
-          game.age_ratings.forEach((ar) => {
-            if (typeof ar === 'number') {
-              ageRatingIds.push(ar);
-            } else if (typeof ar === 'object' && ar !== null && 'id' in ar) {
-              ageRatingIds.push((ar as any).id);
+          // Collect all age rating IDs to fetch in one batch
+          const ageRatingIds: number[] = [];
+          response.data.forEach((game) => {
+            if (game.age_ratings) {
+              game.age_ratings.forEach((ar) => {
+                if (typeof ar === 'number') {
+                  ageRatingIds.push(ar);
+                } else if (typeof ar === 'object' && ar !== null && 'id' in ar) {
+                  ageRatingIds.push((ar as any).id);
+                }
+              });
             }
           });
-        }
-      });
 
-      // Fetch age rating details if we have any
-      const ageRatingMap: Map<number, { rating: number; category: number }> = new Map();
-      if (ageRatingIds.length > 0) {
-        try {
-          const uniqueIds = [...new Set(ageRatingIds)];
-          const ageRatingQuery = `fields rating, category;
+          // Fetch age rating details if we have any
+          const ageRatingMap: Map<number, { rating: number; category: number }> = new Map();
+          if (ageRatingIds.length > 0) {
+            try {
+              const uniqueIds = [...new Set(ageRatingIds)];
+              const ageRatingQuery = `fields rating, category;
 where id = (${uniqueIds.join(',')});
 limit 50;`;
 
-          const ageRatingResponse = await this.queueRequest(async () => {
-            return this.retryRequest(async () => {
-              return await this.axiosInstance.post<Array<{ id: number; rating: number; category: number }>>(
-                '/age_ratings',
-                ageRatingQuery,
-                {
-                  headers: {
-                    'Client-ID': this.clientId,
-                    'Authorization': `Bearer ${accessToken}`,
-                    'Content-Type': 'text/plain',
-                  },
-                }
-              );
-            });
-          });
+              const ageRatingResponse = await this.queueRequest(async () => {
+                return this.retryRequest(async () => {
+                  return await this.axiosInstance.post<Array<{ id: number; rating: number; category: number }>>(
+                    '/age_ratings',
+                    ageRatingQuery,
+                    {
+                      headers: {
+                        'Client-ID': this.clientId,
+                        'Authorization': `Bearer ${accessToken}`,
+                        'Content-Type': 'text/plain',
+                      },
+                    }
+                  );
+                });
+              });
 
-          ageRatingResponse.data.forEach((ar) => {
-            ageRatingMap.set(ar.id, { rating: ar.rating, category: ar.category });
-          });
-        } catch (error) {
-          console.warn('Failed to fetch age rating details:', error);
-        }
-      }
-
-      // Transform the results
-      const results: IGDBGameResult[] = response.data.map((game) => {
-        const result: IGDBGameResult = {
-          id: game.id,
-          name: game.name,
-          summary: game.summary,
-          rating: game.rating,
-          releaseDate: game.first_release_date,
-          genres: game.genres?.map((g) => {
-            if (typeof g === 'string') return g;
-            return g.name || '';
-          }).filter((name) => name),
-        };
-
-        // Extract platform names
-        if (game.platforms && game.platforms.length > 0) {
-          const platformNames = game.platforms
-            .map((p) => {
-              if (typeof p === 'string') return p;
-              if (typeof p === 'object' && p !== null && 'name' in p) return p.name || '';
-              return '';
-            })
-            .filter((name) => name);
-          if (platformNames.length > 0) {
-            result.platform = platformNames.join(', ');
-          }
-        }
-
-        // Extract age rating from the map we fetched - only use PEGI ratings
-        if (game.age_ratings && game.age_ratings.length > 0) {
-          // Try to find the first valid PEGI rating
-          for (const ar of game.age_ratings) {
-            let ageRatingId: number | undefined;
-            if (typeof ar === 'number') {
-              ageRatingId = ar;
-            } else if (typeof ar === 'object' && ar !== null && 'id' in ar) {
-              ageRatingId = (ar as any).id;
+              ageRatingResponse.data.forEach((ar) => {
+                ageRatingMap.set(ar.id, { rating: ar.rating, category: ar.category });
+              });
+            } catch (error) {
+              console.warn('Failed to fetch age rating details:', error);
             }
+          }
 
-            if (ageRatingId && ageRatingMap.has(ageRatingId)) {
-              const ageRatingData = ageRatingMap.get(ageRatingId)!;
-              const category = ageRatingData.category;
-              const rating = ageRatingData.rating;
+          // Transform the results
+          const results: IGDBGameResult[] = response.data.map((game) => {
+            const result: IGDBGameResult = {
+              id: game.id,
+              name: game.name,
+              summary: game.summary,
+              rating: game.rating,
+              releaseDate: game.first_release_date,
+              genres: game.genres?.map((g) => {
+                if (typeof g === 'string') return g;
+                return g.name || '';
+              }).filter((name) => name),
+            };
 
-              // IGDB age ratings: category 1 = ESRB, category 2 = PEGI
-              // Only use PEGI ratings (category 2)
-              if (category === 2) {
-                // PEGI ratings
-                const pegiRatings: { [key: number]: string } = {
-                  1: 'PEGI 3',
-                  2: 'PEGI 7',
-                  3: 'PEGI 12',
-                  4: 'PEGI 16',
-                  5: 'PEGI 18',
-                };
-                result.ageRating = pegiRatings[rating] || `PEGI ${rating}`;
-                break; // Use the first valid PEGI rating found
+            // Extract platform names
+            if (game.platforms && game.platforms.length > 0) {
+              const platformNames = game.platforms
+                .map((p) => {
+                  if (typeof p === 'string') return p;
+                  if (typeof p === 'object' && p !== null && 'name' in p) return p.name || '';
+                  return '';
+                })
+                .filter((name) => name);
+              if (platformNames.length > 0) {
+                result.platform = platformNames.join(', ');
               }
             }
-          }
-        }
 
-        // Extract categories (game categories like main game, DLC, expansion, etc.)
-        if (game.category !== undefined && game.category !== null) {
-          const categoryMap: { [key: number]: string } = {
-            0: 'Main Game',
-            1: 'DLC/Add-on',
-            2: 'Expansion',
-            3: 'Bundle',
-            4: 'Standalone Expansion',
-            5: 'Mod',
-            6: 'Episode',
-            7: 'Season',
-            8: 'Remake',
-            9: 'Remaster',
-            10: 'Expanded Game',
-            11: 'Port',
-            12: 'Fork',
-            13: 'Pack',
-            14: 'Update',
-          };
-          const categoryName = categoryMap[game.category];
-          if (categoryName) {
-            result.categories = [categoryName];
-          }
-          // Don't set a default category if category value is not recognized
-        }
-        // Don't set a default category if category is not provided
+            // Extract age rating from the map we fetched - only use PEGI ratings
+            if (game.age_ratings && game.age_ratings.length > 0) {
+              // Try to find the first valid PEGI rating
+              for (const ar of game.age_ratings) {
+                let ageRatingId: number | undefined;
+                if (typeof ar === 'number') {
+                  ageRatingId = ar;
+                } else if (typeof ar === 'object' && ar !== null && 'id' in ar) {
+                  ageRatingId = (ar as any).id;
+                }
 
-        // Convert cover URL - handle both object and string formats
-        let coverUrl: string | undefined;
-        if (typeof game.cover === 'string') {
-          coverUrl = game.cover;
-        } else if (game.cover && typeof game.cover === 'object' && 'url' in game.cover) {
-          coverUrl = game.cover.url;
-        }
-        if (coverUrl) {
-          result.coverUrl = this.convertImageUrl(coverUrl, 'cover');
-          console.log(`[IGDBService] ✓ Found cover for "${game.name}": ${result.coverUrl}`);
-        } else {
-          console.log(`[IGDBService] ✗ No cover found for "${game.name}" (cover data: ${JSON.stringify(game.cover)})`);
-        }
+                if (ageRatingId && ageRatingMap.has(ageRatingId)) {
+                  const ageRatingData = ageRatingMap.get(ageRatingId)!;
+                  const category = ageRatingData.category;
+                  const rating = ageRatingData.rating;
 
-        // Convert screenshot URLs - handle both object and string formats
-        if (game.screenshots && game.screenshots.length > 0) {
-          result.screenshotUrls = game.screenshots
-            .map((s) => {
-              if (typeof s === 'string') return s;
-              return s.url || '';
-            })
-            .filter((url) => url)
-            .map((url) => this.convertImageUrl(url, 'screenshot'));
-        }
+                  // IGDB age ratings: category 1 = ESRB, category 2 = PEGI
+                  // Only use PEGI ratings (category 2)
+                  if (category === 2) {
+                    // PEGI ratings
+                    const pegiRatings: { [key: number]: string } = {
+                      1: 'PEGI 3',
+                      2: 'PEGI 7',
+                      3: 'PEGI 12',
+                      4: 'PEGI 16',
+                      5: 'PEGI 18',
+                    };
+                    result.ageRating = pegiRatings[rating] || `PEGI ${rating}`;
+                    break; // Use the first valid PEGI rating found
+                  }
+                }
+              }
+            }
 
-        return result;
-      });
+            // Extract categories (game categories like main game, DLC, expansion, etc.)
+            if (game.category !== undefined && game.category !== null) {
+              const categoryMap: { [key: number]: string } = {
+                0: 'Main Game',
+                1: 'DLC/Add-on',
+                2: 'Expansion',
+                3: 'Bundle',
+                4: 'Standalone Expansion',
+                5: 'Mod',
+                6: 'Episode',
+                7: 'Season',
+                8: 'Remake',
+                9: 'Remaster',
+                10: 'Expanded Game',
+                11: 'Port',
+                12: 'Fork',
+                13: 'Pack',
+                14: 'Update',
+              };
+              const categoryName = categoryMap[game.category];
+              if (categoryName) {
+                result.categories = [categoryName];
+              }
+              // Don't set a default category if category value is not recognized
+            }
+
+            // Extract Steam App ID
+            if (game.external_games && game.external_games.length > 0) {
+              // Category 1 is Steam
+              const steamGame = game.external_games.find(eg => eg.category === 1);
+              if (steamGame) {
+                result.steamAppId = steamGame.uid;
+              }
+            }
+            // Don't set a default category if category is not provided
+
+            // Convert cover URL - handle both object and string formats
+            let coverUrl: string | undefined;
+            if (typeof game.cover === 'string') {
+              coverUrl = game.cover;
+            } else if (game.cover && typeof game.cover === 'object' && 'url' in game.cover) {
+              coverUrl = game.cover.url;
+            }
+            if (coverUrl) {
+              result.coverUrl = this.convertImageUrl(coverUrl, 'cover');
+              console.log(`[IGDBService] ✓ Found cover for "${game.name}": ${result.coverUrl}`);
+            } else {
+              console.log(`[IGDBService] ✗ No cover found for "${game.name}" (cover data: ${JSON.stringify(game.cover)})`);
+            }
+
+            // Convert screenshot URLs - handle both object and string formats
+            if (game.screenshots && game.screenshots.length > 0) {
+              result.screenshotUrls = game.screenshots
+                .map((s) => {
+                  if (typeof s === 'string') return s;
+                  return s.url || '';
+                })
+                .filter((url) => url)
+                .map((url) => this.convertImageUrl(url, 'screenshot'));
+            }
+
+            return result;
+          });
 
           return results;
         } catch (error) {
@@ -453,12 +467,12 @@ limit 50;`;
           if (axios.isAxiosError(error)) {
             const status = error.response?.status;
             const statusText = error.response?.statusText || error.message;
-            
+
             // For 429 errors, let retry logic handle it
             if (status === 429) {
               throw error; // Will be caught by retryRequest
             }
-            
+
             throw new Error(`IGDB API error: ${status} ${statusText}`);
           }
           throw error;

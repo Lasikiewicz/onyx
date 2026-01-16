@@ -13,6 +13,7 @@ interface IGDBGameResult {
   platform?: string;
   ageRating?: string;
   categories?: string[];
+  steamAppId?: string;
 }
 
 interface ImageSearchModalProps {
@@ -34,6 +35,7 @@ export const ImageSearchModal: React.FC<ImageSearchModalProps> = ({
   const [searchResults, setSearchResults] = useState<IGDBGameResult[]>([]);
   const [selectedResult, setSelectedResult] = useState<IGDBGameResult | null>(null);
   const [isSearching, setIsSearching] = useState(false);
+  const [isLoadingDetails, setIsLoadingDetails] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -73,8 +75,33 @@ export const ImageSearchModal: React.FC<ImageSearchModalProps> = ({
     }
   };
 
-  const handleSelectResult = (result: IGDBGameResult) => {
-    setSelectedResult(result);
+  const handleSelectResult = async (result: IGDBGameResult) => {
+    setIsLoadingDetails(true);
+    setSelectedResult(result); // Show initially
+
+    try {
+      // Fetch complete artwork using title and steamAppId (if available)
+      // This will check Steam for logos if we have an ID
+      const artwork = await window.electronAPI.searchArtwork(result.name, result.steamAppId, true);
+
+      if (artwork) {
+        setSelectedResult(prev => {
+          if (!prev || prev.id !== result.id) return prev;
+          return {
+            ...prev,
+            // Prefer fetched artwork but fallback to existing
+            coverUrl: artwork.boxArtUrl || prev.coverUrl,
+            logoUrl: artwork.logoUrl || prev.logoUrl,
+            screenshotUrls: (artwork.screenshots && artwork.screenshots.length > 0) ? artwork.screenshots : prev.screenshotUrls
+          };
+        });
+      }
+    } catch (err) {
+      console.error('Error fetching details:', err);
+      // Fail silently, just keep original result
+    } finally {
+      setIsLoadingDetails(false);
+    }
   };
 
   const handleSelectImage = async (imageUrl: string) => {
@@ -96,18 +123,18 @@ export const ImageSearchModal: React.FC<ImageSearchModalProps> = ({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
       <div className="bg-gray-800 rounded-lg shadow-xl border border-gray-700 w-full max-w-4xl h-[90vh] mx-4 flex flex-col relative">
         {/* Loading Overlay */}
-        {isSaving && (
+        {(isSaving || isLoadingDetails) && (
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm z-10 flex items-center justify-center rounded-lg">
             <div className="text-white text-lg font-semibold flex items-center gap-3">
               <svg className="animate-spin h-8 w-8" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
               </svg>
-              Saving image...
+              {isSaving ? 'Saving image...' : 'Fetching details...'}
             </div>
           </div>
         )}
-        
+
         {/* Header */}
         <div className="p-6 border-b border-gray-700 flex-shrink-0">
           <div className="flex items-center justify-between mb-4">
@@ -123,7 +150,7 @@ export const ImageSearchModal: React.FC<ImageSearchModalProps> = ({
               </svg>
             </button>
           </div>
-          
+
           {/* Search Input */}
           <div className="flex gap-2">
             <input
@@ -157,11 +184,10 @@ export const ImageSearchModal: React.FC<ImageSearchModalProps> = ({
                   <button
                     key={result.id}
                     onClick={() => handleSelectResult(result)}
-                    className={`w-full text-left p-3 rounded transition-colors ${
-                      selectedResult?.id === result.id
-                        ? 'bg-blue-600/30 border border-blue-500/50'
-                        : 'bg-gray-700 hover:bg-gray-600 border border-transparent'
-                    }`}
+                    className={`w-full text-left p-3 rounded transition-colors ${selectedResult?.id === result.id
+                      ? 'bg-blue-600/30 border border-blue-500/50'
+                      : 'bg-gray-700 hover:bg-gray-600 border border-transparent'
+                      }`}
                   >
                     <div className="flex items-center gap-3">
                       {result.coverUrl && (
@@ -191,7 +217,7 @@ export const ImageSearchModal: React.FC<ImageSearchModalProps> = ({
             {selectedResult && (
               <div>
                 <h3 className="text-lg font-semibold text-white mb-4">{selectedResult.name}</h3>
-                
+
                 {imageType === 'boxart' && selectedResult.coverUrl && (
                   <div className="mb-6">
                     <h4 className="text-sm font-medium text-gray-400 mb-3">Boxart</h4>

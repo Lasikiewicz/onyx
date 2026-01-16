@@ -247,7 +247,14 @@ function stripDemoIndicator(title: string): { stripped: string; isDemo: boolean 
     /\s+alpha$/i,
     /\s+playtest$/i,
     /demo$/i,
-    /prologue$/i
+    /prologue$/i,
+    // Bracketed variations
+    /\s*\[Demo\]\s*$/i,
+    /\s*\(Demo\)\s*$/i,
+    /\s*\[Prologue\]\s*$/i,
+    /\s*\(Prologue\)\s*$/i,
+    /\s*\[Trial\]\s*$/i,
+    /\s*\(Trial\)\s*$/i,
   ];
 
   let stripped = title;
@@ -512,6 +519,12 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
   };
 
   // Handle ignore game
+  // Handle skip game (temporary - just remove from queue for this session)
+  const handleSkipGame = (game: StagedGame) => {
+    setQueue(prev => prev.filter(g => g.uuid !== game.uuid));
+    // Don't add to ignoredGames - it will reappear on next scan
+  };
+
   const handleIgnoreGame = async (game: StagedGame) => {
     const gameId = getGameId(game);
     const newIgnoredGames = new Set(ignoredGames);
@@ -644,26 +657,43 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
           const effectiveSearchTitle = isDemo ? searchTitle : scanned.title;
           const isDemoMatch = isDemo;
 
+          let foundMatch = false;
+
+          // For demo games, try progressive word removal if initial search fails
+          const searchAttempts = [effectiveSearchTitle];
+          if (isDemoMatch) {
+            // Generate progressive searches by removing words from the end
+            const words = effectiveSearchTitle.split(' ');
+            for (let i = words.length - 1; i > 0; i--) {
+              searchAttempts.push(words.slice(0, i).join(' '));
+            }
+          }
+
           try {
-            // Step 1: Search with the provided name
-            const searchResponse = await window.electronAPI.searchGames(effectiveSearchTitle);
+            // Try each search attempt until we find a match
+            for (const attempt of searchAttempts) {
+              const searchResponse = await window.electronAPI.searchGames(attempt);
 
-            if (searchResponse && (searchResponse.success !== false) && searchResponse.results && searchResponse.results.length > 0) {
-              // Step 2: Find best match using scoring algorithm
-              const bestMatch = findBestMatch(effectiveSearchTitle, searchResponse.results, scanned.appId);
+              if (searchResponse && (searchResponse.success !== false) && searchResponse.results && searchResponse.results.length > 0) {
+                // Step 2: Find best match using scoring algorithm
+                const bestMatch = findBestMatch(attempt, searchResponse.results, scanned.appId);
 
-              if (bestMatch) {
-                if (bestMatch.steamAppId) {
-                  steamAppId = bestMatch.steamAppId.toString();
-                }
-                matchedTitle = bestMatch.title || effectiveSearchTitle;
-                matchedResult = bestMatch;
-
-                // If it was a demo match, add indicator back to matched title
-                if (isDemoMatch) {
-                  matchedTitle = `${matchedTitle} [Demo]`;
+                if (bestMatch) {
+                  if (bestMatch.steamAppId) {
+                    steamAppId = bestMatch.steamAppId.toString();
+                  }
+                  matchedTitle = bestMatch.title || attempt;
+                  matchedResult = bestMatch;
+                  foundMatch = true;
+                  console.log(`[ImportWorkbench] Found match for demo "${scanned.title}" using search: "${attempt}" -> "${matchedTitle}"`);
+                  break;
                 }
               }
+            }
+
+            // If no match found and it's a demo, use the stripped title
+            if (!foundMatch && isDemoMatch) {
+              matchedTitle = effectiveSearchTitle;
             }
           } catch (err) {
             // Ignore search errors during staging - will search again later
@@ -736,12 +766,15 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
           }
 
           // Auto-assign "Demos" category if this is a demo game
+          // Force HMR trigger
+          console.log(`[ImportWorkbench] DEBUG: isDemoMatch=${isDemoMatch}, scanned.title="${scanned.title}", categories before=${JSON.stringify(categories)}`);
           if (isDemoMatch) {
             if (!categories.includes('Demos')) {
               categories.push('Demos');
               console.log(`[ImportWorkbench] ✓ Auto-assigned "Demos" category to ${scanned.title}`);
             }
           }
+          console.log(`[ImportWorkbench] DEBUG: categories after=${JSON.stringify(categories)}`);
 
           // steamAppId and matchedTitle are already set above if found
 
@@ -962,12 +995,16 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
             const existing = existingMap.get(newGame.uuid);
             if (existing) {
               // Preserve manual edits - only update fields that haven't been manually changed
-              // For categories, always preserve existing if they exist (user may have added them)
+              // For categories, merge existing with new auto-detected ones (e.g., "Demos")
               return {
                 ...newGame,
-                categories: existing.categories && existing.categories.length > 0
-                  ? existing.categories
-                  : newGame.categories,
+                categories: (() => {
+                  // Merge categories: keep existing + add new ones
+                  const existingCats = existing.categories || [];
+                  const newCats = newGame.categories || [];
+                  const merged = [...new Set([...existingCats, ...newCats])];
+                  return merged;
+                })(),
                 // Preserve other manually edited fields if they differ from initial values
                 title: existing.title !== newGame.originalName ? existing.title : newGame.title,
                 description: existing.description || newGame.description,
@@ -1279,7 +1316,44 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
                   };
 
                   // Step 3a: Fetch images from Steam Store
-                  const artworkResult = await withTimeout(window.electronAPI.searchArtwork(scanned.title, scanned.appId), 30000).catch(err => {
+                  // If it's a demo, use the clean title and try to find the Main Game's App ID
+                  // We explicitly search and look for a Steam ID that is NOT the demo's ID.
+                  let artworkSearchTitle = scanned.title;
+                  let artworkSearchId: string | undefined = scanned.appId;
+
+                  if (isDemoMatch) {
+                    artworkSearchTitle = searchTitle;
+                    artworkSearchId = undefined; // Default to undefined (search mode) if we can't find a better ID
+
+                    try {
+                      console.log(`[ImportWorkbench] Demo detected (${scanned.appId}). Searching for Main Game ID for "${searchTitle}"...`);
+                      // Perform a quick search to find the Main Game
+                      // We use a shorter timeout since this is an auxiliary search
+                      const searchResults = await withTimeout(window.electronAPI.searchGames(searchTitle), 10000);
+
+                      if (searchResults && searchResults.results) {
+                        // Find a Steam result that is NOT the scanned App ID (which is the Demo ID)
+                        // and preferably doesn't have "Demo" in the title
+                        const bestMatch = searchResults.results.find((r: any) =>
+                          (r.source === 'steam' || r.steamAppId) &&
+                          r.steamAppId &&
+                          r.steamAppId.toString() !== scanned.appId?.toString() &&
+                          !/\bdemo\b/i.test(r.title)
+                        );
+
+                        if (bestMatch && bestMatch.steamAppId) {
+                          console.log(`[ImportWorkbench] ✓ Found Main Game ID: ${bestMatch.steamAppId} (Demo ID was ${scanned.appId})`);
+                          artworkSearchId = bestMatch.steamAppId.toString();
+                        } else {
+                          console.log(`[ImportWorkbench] Could not find distinct Main Game ID, falling back to title search`);
+                        }
+                      }
+                    } catch (err) {
+                      console.warn(`[ImportWorkbench] Error finding Main Game ID:`, err);
+                    }
+                  }
+
+                  const artworkResult = await withTimeout(window.electronAPI.searchArtwork(artworkSearchTitle, artworkSearchId), 30000).catch(err => {
                     console.warn(`[ImportWorkbench] searchArtwork timeout/error for "${scanned.title}":`, err);
                     return null;
                   });
@@ -1632,13 +1706,13 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
                 appUserModelId: scanned.appUserModelId,
                 launchUri: scanned.launchUri,
                 xboxKind: scanned.xboxKind,
-                title: isDemoMatch ? `${matchedTitle} [Demo]` : matchedTitle, // Add Demo indicator at the end
+                title: (isDemoMatch && scanned.source === 'steam') ? searchTitle : matchedTitle,
                 description,
                 releaseDate,
                 genres,
                 developers,
                 publishers,
-                categories,
+                categories: isDemoMatch && !categories.includes('Demo') ? [...categories, 'Demo'] : categories,
                 ageRating,
                 rating,
                 platform,
@@ -2565,7 +2639,8 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
   const handleSearchImages = async () => {
     if (!selectedGame || !showImageSearch) return;
 
-    const query = imageSearchQuery.trim() || selectedGame.title.trim();
+    const { stripped: cleanTitle } = stripDemoIndicator(selectedGame.title);
+    const query = imageSearchQuery.trim() || cleanTitle.trim();
     if (!query) {
       setError('Please enter a game title to search');
       return;
@@ -2579,7 +2654,7 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
       const steamAppId = selectedGame.appId?.toString();
 
       // Primary: IGDB-backed searchArtwork (IGDB-first, RAWG fallback)
-      const primaryArtwork = await window.electronAPI.searchArtwork(query, steamAppId);
+      const primaryArtwork = await window.electronAPI.searchArtwork(query, steamAppId, true);
       const primaryResults: any[] = [];
 
       if (primaryArtwork) {
@@ -2628,10 +2703,39 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
       const gamesResponse = await window.electronAPI.searchGames(query);
 
       if (gamesResponse.success && gamesResponse.results && gamesResponse.results.length > 0) {
-        const artworkPromises = gamesResponse.results.slice(0, 10).map(async (gameResult) => {
+        // Filter results for logos - stricter matching
+        let resultsToProcess = gamesResponse.results;
+
+        if (showImageSearch.type === 'logo') {
+          const normalizeForComparison = (str: string) => str.toLowerCase().replace(/[^a-z0-9]/g, '');
+          const normalizedQuery = normalizeForComparison(query);
+
+          resultsToProcess = resultsToProcess.filter((result: any) => {
+            const normalizedTitle = normalizeForComparison(result.title || result.name || '');
+
+            // Exact match (normalized)
+            if (normalizedTitle === normalizedQuery) return true;
+
+            // Verify length difference is small (e.g. "Doom" vs "Doom II" should fail, but "The Doom" might pass)
+            if (Math.abs(normalizedTitle.length - normalizedQuery.length) > 3) return false;
+
+            // Allow if one contains the other and length diff is very small (typo tolerance or "The")
+            if ((normalizedTitle.includes(normalizedQuery) || normalizedQuery.includes(normalizedTitle))) {
+              return true;
+            }
+
+            return false;
+          });
+
+          if (resultsToProcess.length === 0) {
+            console.log('[ImageSearch] No exact title matches found for logo search');
+          }
+        }
+
+        const artworkPromises = resultsToProcess.slice(0, 10).map(async (gameResult: any) => {
           try {
             const appId = gameResult.steamAppId?.toString();
-            const artwork = await window.electronAPI.searchArtwork(gameResult.title, appId);
+            const artwork = await window.electronAPI.searchArtwork(gameResult.title, appId, true);
 
             if (!artwork) return null;
 
@@ -2902,16 +3006,28 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
                           {game.title}
                         </span>
                         {!showIgnored && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleIgnoreGame(game);
-                            }}
-                            className="text-gray-400 hover:text-red-400 text-xs px-1"
-                            title="Ignore game"
-                          >
-                            ×
-                          </button>
+                          <div className="flex gap-1">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleSkipGame(game);
+                              }}
+                              className="text-gray-400 hover:text-yellow-400 text-xs px-1.5 py-0.5 rounded hover:bg-gray-700/50 transition-colors"
+                              title="Skip this time (will reappear on next scan)"
+                            >
+                              Skip
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleIgnoreGame(game);
+                              }}
+                              className="text-gray-400 hover:text-red-400 text-xs px-1.5 py-0.5 rounded hover:bg-gray-700/50 transition-colors"
+                              title="Always ignore this game"
+                            >
+                              Ignore
+                            </button>
+                          </div>
                         )}
                         {showIgnored && (
                           <button
