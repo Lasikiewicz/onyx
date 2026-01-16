@@ -65,7 +65,7 @@
 3. Ask the user: "I've made changes to files X, Y, Z. Here's the summary: [list changes]. Would you like me to commit and push?"
 4. Show full summary of what will be committed
 5. **WAIT for explicit user approval** (user must say "yes" or similar)
-6. Only after explicit approval, run `git add`, `git commit`, `git push`
+6. Increment build number using `npm run increment-build` (or ensure `scripts/increment-build.js` is run)
 7. Report the results
 
 **If you ever push without asking, that is a critical failure and breach of protocol.**
