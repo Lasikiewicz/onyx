@@ -859,7 +859,6 @@ const initializeRAWGService = async () => {
       return false;
     }
   } catch (error) {
-    console.error('Error initializing RAWG service:', error);
     rawgService = null;
     return false;
   }
@@ -3864,8 +3863,101 @@ ipcMain.handle('import:scanAllSources', async () => {
 });
 
 // Search for specific image types from SteamGridDB
-ipcMain.handle('metadata:searchImages', async (_event, query: string, imageType: 'boxart' | 'banner' | 'logo', steamAppId?: string) => {
-  return { success: true, images: [] };
+// Search for specific image types from SteamGridDB
+ipcMain.handle('metadata:searchImages', async (_event, query: string, imageType: 'boxart' | 'banner' | 'logo' | 'icon', steamAppId?: string) => {
+  try {
+    const results: any[] = [];
+    const addedGameIds = new Set<string>();
+
+    console.log(`[SearchImages] Searching for "${query}" (type: ${imageType}, steamAppId: ${steamAppId})`);
+
+    // 1. If steamAppId is provided, fetch exact match first
+    if (steamAppId) {
+      try {
+        const metadata = await metadataFetcher.searchArtwork(query, steamAppId);
+        if (metadata) {
+          const images: any[] = [];
+          let url = '';
+
+          if (imageType === 'boxart') url = metadata.boxArtUrl;
+          else if (imageType === 'banner') url = metadata.bannerUrl || metadata.heroUrl || '';
+          else if (imageType === 'logo') url = metadata.logoUrl || '';
+          else if (imageType === 'icon') url = metadata.iconUrl || '';
+
+          if (url) {
+            images.push({ url, score: 1000, width: 0, height: 0 });
+            results.push({
+              gameId: steamAppId,
+              gameName: query,
+              images: images
+            });
+            addedGameIds.add(steamAppId);
+            addedGameIds.add(String(steamAppId)); // handle number/string mismatch
+          }
+        }
+      } catch (err) {
+        console.warn(`[SearchImages] Error fetching exact match for ${steamAppId}:`, err);
+      }
+    }
+
+    // 2. Search generalized games (IGDB)
+    const storedCreds = await apiCredentialsService.getCredentials();
+    const hasIGDB = !!(storedCreds.igdbClientId && storedCreds.igdbClientSecret);
+
+    // Only perform broad search if we have credentials or if we didn't search with an ID
+    if (hasIGDB) {
+      const globalResults = await metadataFetcher.searchGames(query);
+      const topGames = globalResults.slice(0, 10); // Limit to top 10
+
+      for (const game of topGames) {
+        // Skip if we already added this game via Steam App ID
+        if (game.steamAppId && addedGameIds.has(String(game.steamAppId))) continue;
+
+        let url = '';
+        const images: any[] = [];
+
+        // Optimistic check: GameSearchResult does not have coverUrl, so we must fetch artwork
+        // unless we cast it to IGDBGameResult (bad practice).
+        // IGDBGameResult has keys: id, name, summary, coverUrl, screenshotUrls, etc.
+        // But searchGames returns GameSearchResult (from MetadataFetcherService.ts).
+        // Let's check MetadataFetcherService.searchGames return type again.
+        // It returns Promise<GameSearchResult[]>.
+        // GameSearchResult in MetadataProvider.ts has only: id, title, source, externalId, steamAppId.
+
+        // Therefore, we MUST deep fetch artwork for every candidate if we want images.
+        // To avoid excessive API calls, we limit this to top 3-5 candidates.
+
+        if (topGames.indexOf(game) < 5) {
+          try {
+            // Fetch full metadata for this candidate
+            // Note: searchArtwork takes (title, steamAppId)
+            const details = await metadataFetcher.searchArtwork(game.title, game.steamAppId);
+            if (details) {
+              if (imageType === 'boxart') url = details.boxArtUrl;
+              else if (imageType === 'banner') url = details.bannerUrl || details.heroUrl || '';
+              else if (imageType === 'logo') url = details.logoUrl || '';
+              else if (imageType === 'icon') url = details.iconUrl || '';
+            }
+          } catch (ignore) { }
+        }
+
+        if (url) {
+          images.push({ url, score: 500, width: 0, height: 0 });
+          results.push({
+            gameId: game.id,
+            gameName: game.title,
+            images: images
+          });
+        }
+      }
+    }
+
+    return { success: true, images: results };
+
+  } catch (error) {
+    console.error(`Error searching images (${imageType}) for "${query}":`, error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error', images: [] };
+  }
 });
 
 // User preferences IPC handlers

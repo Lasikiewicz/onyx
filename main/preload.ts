@@ -135,7 +135,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   scanAllSources: () => ipcRenderer.invoke('import:scanAllSources'),
   scanFolder: (folderPath: string) => ipcRenderer.invoke('import:scanFolder', folderPath),
   // Image search methods
-  searchImages: (query: string, imageType: 'boxart' | 'banner' | 'logo', steamAppId?: string) => ipcRenderer.invoke('metadata:searchImages', query, imageType, steamAppId),
+  searchImages: (query: string, imageType: 'boxart' | 'banner' | 'logo' | 'icon', steamAppId?: string) => ipcRenderer.invoke('metadata:searchImages', query, imageType, steamAppId),
   // App version
   getVersion: () => ipcRenderer.invoke('app:getVersion'),
   // App name (for detecting Alpha builds)
