@@ -242,7 +242,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
         setActiveTab(initialTab);
       }
     }
-  }, [isOpen, initialGameId, initialTab]);
+  }, [isOpen, initialGameId, initialTab, games]);
 
   // Reset search state when selected game changes
   useEffect(() => {
@@ -1133,13 +1133,26 @@ export const GameManager: React.FC<GameManagerProps> = ({
         newGameId = result.id;
       }
 
-      // Fetch complete metadata using searchArtwork - this now tries ALL sources for descriptions
+      // Fetch complete metadata using searchArtwork with timeout
       // searchArtwork will:
       // 1. Extract Steam App ID from search results if not provided
-      // 2. Try Steam Store API, RAWG, and IGDB for descriptions
+      // 2. Try Steam Store API first, then IGDB if not on Steam
       // 3. Move to next source on rate limits (no retries)
       console.log(`[GameManager] Fetching metadata for "${gameTitle}" with Steam App ID: ${steamAppId || 'none'}`);
-      const metadata = await window.electronAPI.searchArtwork(gameTitle, steamAppId);
+
+      // Add timeout to prevent indefinite spinning (15 seconds)
+      const timeoutPromise = new Promise<any>((_, reject) =>
+        setTimeout(() => reject(new Error('Metadata fetch timeout')), 15000)
+      );
+
+      const metadata = await Promise.race([
+        window.electronAPI.searchArtwork(gameTitle, steamAppId),
+        timeoutPromise
+      ]).catch(err => {
+        console.warn('[GameManager] Metadata fetch failed or timed out:', err);
+        setError('Failed to fetch metadata - request timed out. Please try again.');
+        return null;
+      });
 
       if (metadata && editedGame) {
         // If description is still empty, try fetching from alternative sources
@@ -1659,67 +1672,76 @@ export const GameManager: React.FC<GameManagerProps> = ({
                           </div>
                         )}
 
-                      {/* Result Tabs & Content - NEW SEARCH BUTTON ADDED IN TAB HEADER */}
-                      <div className="flex-1 overflow-y-auto p-1 custom-scrollbar relative">
+                      {/* Sticky Tabs Header - Outside Scrollable Container */}
+                      {(imageSearchResults.length > 0 ||
+                        steamGridDBResults.boxart.length > 0 ||
+                        steamGridDBResults.banner.length > 0 ||
+                        steamGridDBResults.logo.length > 0 ||
+                        steamGridDBResults.icon.length > 0) && (
+                          <div className="border-t border-gray-800 bg-gray-900 px-4 pt-4 pb-2">
+                            {/* Tabs Header with New Search Button */}
+                            <div className="flex items-center justify-between mb-4 border-b border-gray-700 pb-2">
+                              <div className="flex items-center gap-1">
+                                {['all', 'boxart', 'banner', 'logo', 'icon'].map((tab) => {
+                                  const label = tab.charAt(0).toUpperCase() + tab.slice(1);
+                                  const isActive = activeImageSearchTab === tab;
+
+                                  // Calculate counts
+                                  let count = 0;
+                                  if (tab === 'all') {
+                                    count = imageSearchResults.length +
+                                      steamGridDBResults.boxart.length +
+                                      steamGridDBResults.banner.length +
+                                      steamGridDBResults.logo.length +
+                                      steamGridDBResults.icon.length;
+                                  } else {
+                                    if (tab === 'boxart') count = imageSearchResults.filter(i => i.boxArtUrl || i.coverUrl).length + steamGridDBResults.boxart.length;
+                                    else if (tab === 'banner') count = imageSearchResults.filter(i => i.bannerUrl || i.screenshotUrls).length + steamGridDBResults.banner.length;
+                                    else if (tab === 'logo') count = steamGridDBResults.logo.length + imageSearchResults.filter(i => i.logoUrl).length; // Add logos from main results if any
+                                    else if (tab === 'icon') count = steamGridDBResults.icon.length;
+                                  }
+
+                                  return (
+                                    <button
+                                      key={tab}
+                                      onClick={() => setActiveImageSearchTab(tab as any)}
+                                      className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${isActive
+                                        ? 'border-green-500 text-green-400'
+                                        : 'border-transparent text-gray-400 hover:text-white hover:border-gray-600'
+                                        }`}
+                                    >
+                                      {label}
+                                      {count > 0 && <span className="ml-2 text-xs opacity-60 bg-gray-800 px-1.5 py-0.5 rounded-full">{count}</span>}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                              <button
+                                onClick={() => {
+                                  setImageSearchResults([]);
+                                  setSteamGridDBResults({ boxart: [], banner: [], logo: [], icon: [] });
+                                  setFastSearchResults([]);
+                                  setSelectedFastGame(null);
+                                }}
+                                className="text-xs text-gray-400 hover:text-white flex items-center gap-1 px-3 py-1 bg-gray-800 rounded border border-gray-700 hover:border-gray-500"
+                              >
+                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                </svg>
+                                New Search
+                              </button>
+                            </div>
+                          </div>
+                        )}
+
+                      {/* Result Tabs Content - Scrollable Container */}
+                      <div className="flex-1 overflow-y-auto px-4 py-1 custom-scrollbar relative">
                         {(imageSearchResults.length > 0 ||
                           steamGridDBResults.boxart.length > 0 ||
                           steamGridDBResults.banner.length > 0 ||
                           steamGridDBResults.logo.length > 0 ||
                           steamGridDBResults.icon.length > 0) && (
-                            <div className="mt-6 border-t border-gray-800 pt-4">
-                              {/* Tabs Header with New Search Button */}
-                              <div className="flex items-center justify-between mb-4 border-b border-gray-700 pb-2">
-                                <div className="flex items-center gap-1">
-                                  {['all', 'boxart', 'banner', 'logo', 'icon'].map((tab) => {
-                                    const label = tab.charAt(0).toUpperCase() + tab.slice(1);
-                                    const isActive = activeImageSearchTab === tab;
-
-                                    // Calculate counts
-                                    let count = 0;
-                                    if (tab === 'all') {
-                                      count = imageSearchResults.length +
-                                        steamGridDBResults.boxart.length +
-                                        steamGridDBResults.banner.length +
-                                        steamGridDBResults.logo.length +
-                                        steamGridDBResults.icon.length;
-                                    } else {
-                                      if (tab === 'boxart') count = imageSearchResults.filter(i => i.boxArtUrl || i.coverUrl).length + steamGridDBResults.boxart.length;
-                                      else if (tab === 'banner') count = imageSearchResults.filter(i => i.bannerUrl || i.screenshotUrls).length + steamGridDBResults.banner.length;
-                                      else if (tab === 'logo') count = steamGridDBResults.logo.length + imageSearchResults.filter(i => i.logoUrl).length; // Add logos from main results if any
-                                      else if (tab === 'icon') count = steamGridDBResults.icon.length;
-                                    }
-
-                                    return (
-                                      <button
-                                        key={tab}
-                                        onClick={() => setActiveImageSearchTab(tab as any)}
-                                        className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${isActive
-                                          ? 'border-green-500 text-green-400'
-                                          : 'border-transparent text-gray-400 hover:text-white hover:border-gray-600'
-                                          }`}
-                                      >
-                                        {label}
-                                        {count > 0 && <span className="ml-2 text-xs opacity-60 bg-gray-800 px-1.5 py-0.5 rounded-full">{count}</span>}
-                                      </button>
-                                    );
-                                  })}
-                                </div>
-                                <button
-                                  onClick={() => {
-                                    setImageSearchResults([]);
-                                    setSteamGridDBResults({ boxart: [], banner: [], logo: [], icon: [] });
-                                    setFastSearchResults([]);
-                                    setSelectedFastGame(null);
-                                  }}
-                                  className="text-xs text-gray-400 hover:text-white flex items-center gap-1 px-3 py-1 bg-gray-800 rounded border border-gray-700 hover:border-gray-500"
-                                >
-                                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                                  </svg>
-                                  New Search
-                                </button>
-                              </div>
-
+                            <div>
                               {/* Content */}
                               <div className="space-y-8">
                                 {/* Boxart Section */}
