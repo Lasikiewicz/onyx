@@ -10,6 +10,13 @@ export interface IGDBGame {
   screenshots?: Array<{
     url?: string;
   } | string>; // Handle both object and string formats
+  artworks?: Array<{
+    url?: string;
+  } | string>; // Handle both object and string formats - promotional art
+  game_logos?: Array<{
+    image_id?: string;
+    url?: string;
+  } | string>; // Handle both object and string formats
   rating?: number;
   first_release_date?: number;
   genres?: Array<{
@@ -35,6 +42,7 @@ export interface IGDBGameResult {
   summary?: string;
   coverUrl?: string;
   screenshotUrls?: string[];
+  artworkUrls?: string[];
   logoUrl?: string;
   rating?: number;
   releaseDate?: number;
@@ -236,7 +244,7 @@ export class IGDBService {
   /**
    * Convert IGDB relative image URL to absolute URL with proper size
    */
-  private convertImageUrl(url: string, type: 'cover' | 'screenshot'): string {
+  private convertImageUrl(url: string, type: 'cover' | 'screenshot' | 'logo'): string {
     if (!url) return '';
 
     // Prepend https: if it's a protocol-relative URL
@@ -249,9 +257,23 @@ export class IGDBService {
     } else if (type === 'screenshot') {
       // Replace t_thumb with t_screenshot_huge for screenshots
       absoluteUrl = absoluteUrl.replace(/t_thumb/g, 't_screenshot_huge');
+    } else if (type === 'logo') {
+      // For logos, use t_original or large size
+      absoluteUrl = absoluteUrl.replace(/t_thumb/g, 't_original');
     }
 
     return absoluteUrl;
+  }
+
+  /**
+   * Sanitize search query to remove special characters that might break IGDB search
+   */
+  private sanitizeQuery(query: string): string {
+    return query
+      .replace(/[®™©]/g, '') // Remove trademark/copyright symbols
+      .replace(/[:\-]/g, ' ') // Replace colons and hyphens with spaces
+      .replace(/\s+/g, ' ')   // Collapse multiple spaces
+      .trim();
   }
 
   /**
@@ -264,21 +286,25 @@ export class IGDBService {
           const accessToken = await this.getAccessToken();
 
           // Build the query string with all required fields
-          // Note: age_ratings returns IDs, we'll fetch details separately
+          // Note: game_logos is not a valid field on IGDB games endpoint
+          const fields = 'name, summary, cover.url, screenshots.url, artworks.url, rating, first_release_date, genres.name, platforms.name, age_ratings, category, external_games.category, external_games.uid';
 
           // Check if query is a numeric ID (for direct game ID lookups)
           let queryBody: string;
           if (/^\d+$/.test(query)) {
             // Numeric ID query - use WHERE syntax instead of search
-            queryBody = `fields name, summary, cover.url, screenshots.url, rating, first_release_date, genres.name, platforms.name, age_ratings, category, external_games.category, external_games.uid;
+            queryBody = `fields ${fields};
 where id = ${query};
 limit 1;`;
           } else {
             // Text search query - use search syntax
-            queryBody = `fields name, summary, cover.url, screenshots.url, rating, first_release_date, genres.name, platforms.name, age_ratings, category, external_games.category, external_games.uid;
-search "${query}";
+            const sanitizedQuery = this.sanitizeQuery(query);
+            queryBody = `fields ${fields};
+search "${sanitizedQuery}";
 limit 10;`;
           }
+
+          console.log(`[IGDBService] Sending query to /games:`, queryBody);
 
           const response = await this.axiosInstance.post<IGDBGame[]>('/games', queryBody, {
             headers: {
@@ -458,8 +484,12 @@ limit 50;`;
                 .map((url) => this.convertImageUrl(url, 'screenshot'));
             }
 
+
+
             return result;
           });
+
+          // (Removed separate game_logos batch request that was causing 404s)
 
           return results;
         } catch (error) {
@@ -473,11 +503,157 @@ limit 50;`;
               throw error; // Will be caught by retryRequest
             }
 
-            throw new Error(`IGDB API error: ${status} ${statusText}`);
+            if (status === 400) {
+              console.error('[IGDBService] 400 Bad Request details:', error.response?.data);
+            }
+            throw new Error(`IGDB API error: ${status} ${statusText} - ${JSON.stringify(error.response?.data)}`);
           }
           throw error;
         }
       });
     });
+  }
+
+  /**
+   * Fast search for games - bypasses queue and rate limiting for immediate results.
+   * Optimized for single interactive queries (like manual image search).
+   * Returns all image types at once: cover, screenshots, artworks, logos.
+   */
+  async fastSearchGame(query: string): Promise<IGDBGameResult[]> {
+    try {
+      const accessToken = await this.getAccessToken();
+
+      // Build the query string with all required fields
+      // Temporarily removed game_logos.url and artworks.url to fix 400 Bad Request error
+      // const fields = 'name, summary, cover.url, screenshots.url, artworks.url, game_logos.url, rating, first_release_date, genres.name, platforms.name, age_ratings, category, external_games.category, external_games.uid';
+      const fields = 'name, summary, cover.url, screenshots.url, rating, first_release_date, genres.name, platforms.name, age_ratings, category, external_games.category, external_games.uid';
+
+      // Check if query is a numeric ID (for direct game ID lookups)
+      let queryBody: string;
+      if (/^\d+$/.test(query)) {
+        queryBody = `fields ${fields};
+where id = ${query};
+limit 1;`;
+      } else {
+        const sanitizedQuery = this.sanitizeQuery(query);
+        queryBody = `fields ${fields};
+search "${sanitizedQuery}";
+limit 10;`;
+      }
+
+      console.log(`[IGDBService.fastSearchGame] Sending FAST query to /games:`, queryBody);
+      const startTime = Date.now();
+
+      const response = await this.axiosInstance.post<IGDBGame[]>('/games', queryBody, {
+        headers: {
+          'Client-ID': this.clientId,
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'text/plain',
+        },
+      });
+
+      console.log(`[IGDBService.fastSearchGame] Response received in ${Date.now() - startTime}ms, ${response.data.length} games`);
+
+      // Transform the results
+      const results: IGDBGameResult[] = response.data.map((game) => {
+        const result: IGDBGameResult = {
+          id: game.id,
+          name: game.name,
+          summary: game.summary,
+          rating: game.rating,
+          releaseDate: game.first_release_date,
+          genres: game.genres?.map((g) => {
+            if (typeof g === 'string') return g;
+            return g.name || '';
+          }).filter((name) => name),
+        };
+
+        // Extract platform names
+        if (game.platforms && game.platforms.length > 0) {
+          const platformNames = game.platforms
+            .map((p) => {
+              if (typeof p === 'string') return p;
+              if (typeof p === 'object' && p !== null && 'name' in p) return p.name || '';
+              return '';
+            })
+            .filter((name) => name);
+          if (platformNames.length > 0) {
+            result.platform = platformNames.join(', ');
+          }
+        }
+
+        // Extract Steam App ID
+        if (game.external_games && game.external_games.length > 0) {
+          const steamGame = game.external_games.find(eg => eg.category === 1);
+          if (steamGame) {
+            result.steamAppId = steamGame.uid;
+          }
+        }
+
+        // Convert cover URL
+        let coverUrl: string | undefined;
+        if (typeof game.cover === 'string') {
+          coverUrl = game.cover;
+        } else if (game.cover && typeof game.cover === 'object' && 'url' in game.cover) {
+          coverUrl = game.cover.url;
+        }
+        if (coverUrl) {
+          result.coverUrl = this.convertImageUrl(coverUrl, 'cover');
+        }
+
+        // Convert screenshot URLs
+        if (game.screenshots && game.screenshots.length > 0) {
+          result.screenshotUrls = game.screenshots
+            .map((s) => {
+              if (typeof s === 'string') return s;
+              return s.url || '';
+            })
+            .filter((url) => url)
+            .map((url) => this.convertImageUrl(url, 'screenshot'));
+        }
+
+        // Convert artwork URLs
+        if (game.artworks && game.artworks.length > 0) {
+          result.artworkUrls = game.artworks
+            .map((a) => {
+              if (typeof a === 'string') return a;
+              return a.url || '';
+            })
+            .filter((url) => url)
+            .map((url) => this.convertImageUrl(url, 'screenshot')); // Use screenshot size (1080p) for artworks
+        }
+
+        // Convert game logo - picking the first one
+        if (game.game_logos && game.game_logos.length > 0) {
+          const logo = game.game_logos[0];
+          let logoUrl = '';
+          if (typeof logo === 'string') {
+            logoUrl = logo;
+          } else if (logo && typeof logo === 'object' && 'url' in logo) {
+            logoUrl = logo.url || '';
+          }
+
+          if (logoUrl) {
+            result.logoUrl = this.convertImageUrl(logoUrl, 'logo');
+          }
+        }
+
+        return result;
+      });
+
+      return results;
+    } catch (error) {
+      console.error('[IGDBService.fastSearchGame] Error:', error);
+      if (axios.isAxiosError(error)) {
+        const status = error.response?.status;
+        if (status === 401 || status === 403) {
+          throw new Error('IGDB credentials are invalid. Please check your API credentials.');
+        }
+        if (status === 429) {
+          throw new Error('IGDB rate limit reached. Please try again in a moment.');
+        }
+      }
+      throw error;
+    }
   }
 }

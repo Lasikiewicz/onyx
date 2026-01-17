@@ -5,9 +5,8 @@ export interface APICredentials {
   rawgApiKey?: string;
 }
 
-// Built-in RAWG key used as a fallback so users don't need to provide one.
-// Do not log or expose this key in UI.
-const RAWG_FALLBACK_API_KEY = '57d7898a324341fab44e301e0e7be3d9';
+// Built-in RAWG key removed. Users must provide their own key if they want to use RAWG.
+// const RAWG_FALLBACK_API_KEY = '57d7898a324341fab44e301e0e7be3d9';
 
 interface APICredentialsSchema {
   credentials: APICredentials;
@@ -24,7 +23,7 @@ export class APICredentialsService {
       igdbClientId: valueOrUndefined(process.env.IGDB_CLIENT_ID),
       igdbClientSecret: valueOrUndefined(process.env.IGDB_CLIENT_SECRET),
       steamGridDBApiKey: valueOrUndefined(process.env.STEAMGRIDDB_API_KEY),
-      rawgApiKey: rawgEnv || RAWG_FALLBACK_API_KEY,
+      rawgApiKey: rawgEnv,
     };
   }
 
@@ -58,13 +57,13 @@ export class APICredentialsService {
     const store = await this.ensureStore();
     const envDefaults = this.getEnvDefaults();
     const storedCreds = store.get('credentials', {});
-    
+
     // Merge: stored credentials override env defaults
     return {
       igdbClientId: storedCreds.igdbClientId || envDefaults.igdbClientId,
       igdbClientSecret: storedCreds.igdbClientSecret || envDefaults.igdbClientSecret,
       steamGridDBApiKey: storedCreds.steamGridDBApiKey || envDefaults.steamGridDBApiKey,
-      rawgApiKey: storedCreds.rawgApiKey || envDefaults.rawgApiKey || RAWG_FALLBACK_API_KEY,
+      rawgApiKey: storedCreds.rawgApiKey || envDefaults.rawgApiKey,
     };
   }
 
@@ -74,10 +73,10 @@ export class APICredentialsService {
   async saveCredentials(credentials: Partial<APICredentials>): Promise<void> {
     const store = await this.ensureStore();
     const current = store.get('credentials', {});
-    
+
     // Only save explicitly provided credentials, don't persist env defaults
     const toSave: APICredentials = { ...current };
-    
+
     if (credentials.igdbClientId !== undefined) {
       toSave.igdbClientId = credentials.igdbClientId;
     }
@@ -90,7 +89,7 @@ export class APICredentialsService {
     if (credentials.rawgApiKey !== undefined) {
       toSave.rawgApiKey = credentials.rawgApiKey;
     }
-    
+
     store.set('credentials', toSave);
   }
 

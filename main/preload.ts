@@ -57,7 +57,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Metadata fetcher methods
   searchArtwork: (title: string, steamAppId?: string, bypassCache?: boolean) => ipcRenderer.invoke('metadata:searchArtwork', title, steamAppId, bypassCache),
   fetchGameDescription: (steamGameId: string) => ipcRenderer.invoke('metadata:fetchGameDescription', steamGameId),
+
   fetchAndUpdateMetadata: (gameId: string, title: string) => ipcRenderer.invoke('metadata:fetchAndUpdate', gameId, title),
+
+  // External
+  openExternal: (url: string) => ipcRenderer.invoke('app:openExternal', url),
   setIGDBConfig: (config: { clientId: string; accessToken: string }) => ipcRenderer.invoke('metadata:setIGDBConfig', config),
   setMockMode: (enabled: boolean) => ipcRenderer.invoke('metadata:setMockMode', enabled),
   searchMetadata: (gameTitle: string) => ipcRenderer.invoke('metadata:searchMetadata', gameTitle),
@@ -104,7 +108,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   minimizeToTray: () => ipcRenderer.invoke('app:minimizeToTray'),
   applySystemTraySettings: (settings: { showSystemTrayIcon: boolean; minimizeToTray: boolean }) => ipcRenderer.invoke('app:applySystemTraySettings', settings),
   applyStartupSettings: (settings: { startWithComputer: boolean; startClosedToTray: boolean }) => ipcRenderer.invoke('app:applyStartupSettings', settings),
-  openExternal: (url: string) => ipcRenderer.invoke('app:openExternal', url),
+
   // Process monitoring
   checkProcessExists: (pid: number) => ipcRenderer.invoke('process:checkExists', pid),
   // API credentials methods
@@ -136,6 +140,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   scanFolder: (folderPath: string) => ipcRenderer.invoke('import:scanFolder', folderPath),
   // Image search methods
   searchImages: (query: string, imageType: 'boxart' | 'banner' | 'logo' | 'icon', steamAppId?: string) => ipcRenderer.invoke('metadata:searchImages', query, imageType, steamAppId),
+  searchWebImages: (query: string, imageType: 'boxart' | 'banner' | 'logo' | 'icon') => ipcRenderer.invoke('metadata:searchWebImages', query, imageType),
+  fastImageSearch: (query: string) => ipcRenderer.invoke('metadata:fastImageSearch', query),
+  fetchGameImages: (gameName: string, steamAppId?: string, igdbId?: number) => ipcRenderer.invoke('metadata:fetchGameImages', gameName, steamAppId, igdbId),
   // App version
   getVersion: () => ipcRenderer.invoke('app:getVersion'),
   // App name (for detecting Alpha builds)

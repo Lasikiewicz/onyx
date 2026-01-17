@@ -8,6 +8,8 @@ interface APISettingsModalProps {
 interface APICredentials {
   igdbClientId: string;
   igdbClientSecret: string;
+  rawgApiKey: string;
+  steamGridDBApiKey: string;
 }
 
 export const APISettingsModal: React.FC<APISettingsModalProps> = ({
@@ -17,6 +19,8 @@ export const APISettingsModal: React.FC<APISettingsModalProps> = ({
   const [credentials, setCredentials] = useState<APICredentials>({
     igdbClientId: '',
     igdbClientSecret: '',
+    rawgApiKey: '',
+    steamGridDBApiKey: '',
   });
   const [isLoading, setIsLoading] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
@@ -30,6 +34,8 @@ export const APISettingsModal: React.FC<APISettingsModalProps> = ({
           setCredentials({
             igdbClientId: creds.igdbClientId || '',
             igdbClientSecret: creds.igdbClientSecret || '',
+            rawgApiKey: creds.rawgApiKey || '',
+            steamGridDBApiKey: creds.steamGridDBApiKey || '',
           });
         } catch (error) {
           console.error('Error loading API credentials:', error);
@@ -51,6 +57,8 @@ export const APISettingsModal: React.FC<APISettingsModalProps> = ({
       await window.electronAPI.saveAPICredentials({
         igdbClientId: credentials.igdbClientId.trim(),
         igdbClientSecret: credentials.igdbClientSecret.trim(),
+        rawgApiKey: credentials.rawgApiKey.trim(),
+        steamGridDBApiKey: credentials.steamGridDBApiKey.trim(),
       });
       setSaveStatus('success');
       setTimeout(() => {
@@ -82,10 +90,10 @@ export const APISettingsModal: React.FC<APISettingsModalProps> = ({
         className="fixed inset-0 bg-black/50 z-50"
         onClick={onClose}
       />
-      
+
       {/* Modal - Centered */}
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div 
+        <div
           className="bg-gray-800 rounded-lg shadow-xl border border-gray-700 w-full max-w-2xl max-h-[90vh] overflow-y-auto"
           onClick={(e) => e.stopPropagation()}
         >
@@ -96,17 +104,20 @@ export const APISettingsModal: React.FC<APISettingsModalProps> = ({
               Configure API credentials for enhanced game metadata
             </p>
           </div>
-          
+
           {/* Content */}
           <div className="p-6 space-y-6">
             {/* IGDB Section */}
             <div className="space-y-4">
               <div>
-                <h3 className="text-lg font-medium text-white mb-2">IGDB API</h3>
+                <div className="flex items-center gap-2 mb-2">
+                  <h3 className="text-lg font-medium text-white">IGDB API</h3>
+                  <span className="px-2 py-0.5 rounded text-xs font-semibold bg-red-900/50 text-red-300 border border-red-800">MANDATORY</span>
+                </div>
                 <p className="text-sm text-gray-400 mb-4">
-                  IGDB (Internet Game Database) provides comprehensive game metadata including covers, screenshots, descriptions, and more.
+                  IGDB (Internet Game Database) is required for game metadata (covers, descriptions, screenshots).
                 </p>
-                
+
                 {/* Instructions */}
                 <div className="bg-gray-900/50 rounded-lg p-4 mb-4 border border-gray-700">
                   <h4 className="text-sm font-medium text-white mb-2">How to obtain IGDB API credentials:</h4>
@@ -168,7 +179,7 @@ export const APISettingsModal: React.FC<APISettingsModalProps> = ({
                 {/* Status Message */}
                 {saveStatus === 'success' && (
                   <div className="bg-green-900/30 border border-green-700 text-green-300 px-4 py-2 rounded-lg text-sm">
-                    Credentials saved successfully! IGDB service will be restarted.
+                    Credentials saved successfully! Services will be restarted.
                   </div>
                 )}
                 {saveStatus === 'error' && (
@@ -178,8 +189,44 @@ export const APISettingsModal: React.FC<APISettingsModalProps> = ({
                 )}
               </div>
             </div>
+
+            {/* RAWG Section */}
+            <div className="pt-6 border-t border-gray-700">
+              <div className="flex items-center gap-2 mb-2">
+                <h3 className="text-lg font-medium text-white">RAWG API</h3>
+                <span className="px-2 py-0.5 rounded text-xs font-semibold bg-blue-900/30 text-blue-300 border border-blue-800">OPTIONAL</span>
+              </div>
+              <p className="text-sm text-gray-400 mb-4">
+                Can be used as a fallback source for metadata. Free key available at <a href="#" onClick={() => window.electronAPI.openExternal('https://rawg.io/apidocs')} className="text-blue-400 hover:underline">rawg.io</a>.
+              </p>
+              <input
+                type="text"
+                value={credentials.rawgApiKey}
+                onChange={(e) => handleInputChange('rawgApiKey', e.target.value)}
+                placeholder="Enter your RAWG API Key"
+                className="w-full px-4 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+
+            {/* SteamGridDB Section */}
+            <div className="pt-6 border-t border-gray-700">
+              <div className="flex items-center gap-2 mb-2">
+                <h3 className="text-lg font-medium text-white">SteamGridDB API</h3>
+                <span className="px-2 py-0.5 rounded text-xs font-semibold bg-blue-900/30 text-blue-300 border border-blue-800">OPTIONAL</span>
+              </div>
+              <p className="text-sm text-gray-400 mb-4">
+                Provides high-quality grids and heroes. Get a key at <a href="#" onClick={() => window.electronAPI.openExternal('https://www.steamgriddb.com/profile/preferences')} className="text-blue-400 hover:underline">steamgriddb.com</a>.
+              </p>
+              <input
+                type="text"
+                value={credentials.steamGridDBApiKey}
+                onChange={(e) => handleInputChange('steamGridDBApiKey', e.target.value)}
+                placeholder="Enter your SteamGridDB API Key"
+                className="w-full px-4 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
           </div>
-          
+
           {/* Footer */}
           <div className="px-6 py-4 border-t border-gray-700 flex justify-end gap-3">
             <button

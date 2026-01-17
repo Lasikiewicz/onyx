@@ -8,7 +8,7 @@ interface ImageContextMenuProps {
   onSearchImages: () => void;
   onOpenInGameManager?: () => void;
   onResizeImage?: () => void;
-  imageType: 'artwork' | 'boxart' | 'logo';
+  imageType: 'artwork' | 'boxart' | 'logo' | 'banner' | 'icon';
   positionOverGameList?: boolean;
 }
 
@@ -96,7 +96,13 @@ export const ImageContextMenu: React.FC<ImageContextMenuProps> = ({
     onClose();
   };
 
-  const imageTypeLabel = imageType === 'artwork' ? 'Artwork/Screenshots' : imageType === 'logo' ? 'Logo' : 'Boxart';
+  const imageTypeLabel = {
+    artwork: 'Artwork/Screenshots',
+    boxart: 'Boxart',
+    logo: 'Logo',
+    banner: 'Banner',
+    icon: 'Icon'
+  }[imageType];
 
   return (
     <div

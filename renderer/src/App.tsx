@@ -98,6 +98,7 @@ function App() {
   const [carouselLogoSize, setCarouselLogoSize] = useState(100);
   const [carouselButtonSize, setCarouselButtonSize] = useState(14);
   const [carouselDescriptionSize, setCarouselDescriptionSize] = useState(18);
+  const [startupProgress, setStartupProgress] = useState<{ message: string } | null>(null);
   const [gridDescriptionSize] = useState(14);
   const defaultListViewOptions = {
     showDescription: true,
@@ -414,9 +415,21 @@ function App() {
       setNewGamesNotification({ count: data.count, games: data.games });
     };
 
+    // Listen for startup scan progress
+    const startupProgressHandler = (_event: any, data: { message: string }) => {
+      setStartupProgress(data);
+      // Auto-hide progress after completion message
+      if (data.message.includes('Scan complete') || data.message.includes('Error')) {
+        setTimeout(() => {
+          setStartupProgress(null);
+        }, 5000);
+      }
+    };
+
     if (window.ipcRenderer) {
       window.ipcRenderer.on('steam:newGamesFound', newGamesHandler);
       window.ipcRenderer.on('background:newGamesFound', backgroundNewGamesHandler);
+      window.ipcRenderer.on('startup:progress', startupProgressHandler);
     }
 
     return () => {
@@ -427,6 +440,7 @@ function App() {
       if (window.ipcRenderer) {
         window.ipcRenderer.off('steam:newGamesFound', newGamesHandler);
         window.ipcRenderer.off('background:newGamesFound', backgroundNewGamesHandler);
+        window.ipcRenderer.off('startup:progress', startupProgressHandler);
       }
     };
   }, []);
@@ -1511,6 +1525,7 @@ function App() {
                     <WelcomeScreen
                       onScanGames={() => setIsImportWorkbenchOpen(true)}
                       onAddFolder={handleAddFolder}
+                      onOpenSettings={() => setIsAPISettingsOpen(true)}
                     />
                   )}
                 </div>
@@ -2039,6 +2054,31 @@ function App() {
                 Yes, Import
               </button>
             </div>
+          </div>
+        </div>
+      )}
+      {/* Startup Scan Progress Overlay */}
+      {startupProgress && (
+        <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[60] animate-in fade-in zoom-in duration-300">
+          <div className="bg-gray-900/90 backdrop-blur-xl border border-white/10 p-4 rounded-2xl shadow-2xl w-80">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center animate-pulse">
+                <svg className="w-4 h-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+              </div>
+              <div className="flex-1 overflow-hidden">
+                <h3 className="text-white text-sm font-semibold truncate">Updating Library</h3>
+                <div className="flex items-center gap-2">
+                  <div className="w-full bg-white/10 h-1.5 rounded-full overflow-hidden">
+                    <div className="h-full bg-blue-500 animate-[loading_2s_ease-in-out_infinite]" style={{ width: '40%' }}></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <p className="text-white/60 text-[11px] truncate font-medium">
+              {startupProgress.message}
+            </p>
           </div>
         </div>
       )}

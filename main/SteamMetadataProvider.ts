@@ -480,6 +480,14 @@ export class SteamMetadataProvider implements MetadataProvider {
         artwork.iconUrl = iconUrl;
         // Steam icons are typically 32x32 or 64x64
         artwork.iconResolution = { width: 64, height: 64 };
+      } else {
+        // Fallback icon from community media if app icon is missing
+        const communityIconUrl = `http://media.steampowered.com/steamcommunity/public/images/apps/${steamAppId}/${steamAppId}_icon.jpg`;
+        const communityRes = await fetchWithTimeout(communityIconUrl);
+        if (communityRes?.ok) {
+          artwork.iconUrl = communityIconUrl;
+          artwork.iconResolution = { width: 64, height: 64 };
+        }
       }
 
       // Return artwork if we have at least one image

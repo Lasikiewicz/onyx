@@ -38,9 +38,10 @@ interface APICredentials {
   igdbClientId: string;
   igdbClientSecret: string;
   rawgApiKey: string;
+  steamGridDBApiKey: string;
 }
 
-type APITabType = 'igdb' | 'rawg';
+type APITabType = 'igdb' | 'rawg' | 'steamgriddb';
 
 // Default game install locations for Windows
 const getDefaultPaths = (appId: string): string[] => {
@@ -122,6 +123,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
     igdbClientId: '',
     igdbClientSecret: '',
     rawgApiKey: '',
+    steamGridDBApiKey: '',
   });
   const [activeAPITab, setActiveAPITab] = useState<APITabType>('igdb');
   const [isLoadingAPI, setIsLoadingAPI] = useState(false);
@@ -175,7 +177,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
           });
           setShowLogoOverBoxart(prefs.showLogoOverBoxart ?? true);
           setLogoPosition(prefs.logoPosition ?? 'middle');
-          
+
           // Load app version
           try {
             const version = await window.electronAPI.getVersion();
@@ -204,10 +206,12 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
   const [apiStatus, setApiStatus] = useState<{
     igdbConfigured: boolean;
     rawgConfigured: boolean;
+    steamGridDBConfigured: boolean;
     allRequiredConfigured: boolean;
   }>({
     igdbConfigured: false,
     rawgConfigured: false,
+    steamGridDBConfigured: false,
     allRequiredConfigured: false,
   });
 
@@ -221,16 +225,19 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
             igdbClientId: creds.igdbClientId || '',
             igdbClientSecret: creds.igdbClientSecret || '',
             rawgApiKey: creds.rawgApiKey || '',
+            steamGridDBApiKey: creds.steamGridDBApiKey || '',
           });
-          
+
           // Check API status
-          const igdbConfigured = !!(creds.igdbClientId && creds.igdbClientSecret && 
+          const igdbConfigured = !!(creds.igdbClientId && creds.igdbClientSecret &&
             creds.igdbClientId.trim() !== '' && creds.igdbClientSecret.trim() !== '');
           const rawgConfigured = !!(creds.rawgApiKey && creds.rawgApiKey.trim() !== '');
-          
+          const steamGridDBConfigured = !!(creds.steamGridDBApiKey && creds.steamGridDBApiKey.trim() !== '');
+
           setApiStatus({
             igdbConfigured,
             rawgConfigured,
+            steamGridDBConfigured,
             allRequiredConfigured: igdbConfigured,
           });
         } catch (error) {
@@ -307,7 +314,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
         setIsLoadingApps(true);
         try {
           const savedConfigs = await window.electronAPI.getAppConfigs();
-          
+
           // Load manual folders
           try {
             const folders = await window.electronAPI.getManualFolders();
@@ -322,7 +329,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
             setManualFolders([]);
             setManualFolderConfigs({});
           }
-          
+
           let steamPath = '';
           try {
             const path = await window.electronAPI.getSteamPath();
@@ -334,7 +341,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
           const initializedApps: AppConfig[] = await Promise.all(
             defaultApps.map(async (app) => {
               const savedConfig = savedConfigs[app.id];
-              
+
               if (savedConfig) {
                 return {
                   ...app,
@@ -379,7 +386,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
         }
       };
       loadAppConfigs();
-      
+
       // Load Steam auth state
       const loadSteamAuth = async () => {
         try {
@@ -415,17 +422,19 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
   const handleAPIInputChange = (key: keyof APICredentials, value: string) => {
     setApiCredentials((prev) => {
       const updated = { ...prev, [key]: value };
-      
+
       // Update API status in real-time
       const igdbConfigured = !!(updated.igdbClientId.trim() && updated.igdbClientSecret.trim());
       const rawgConfigured = !!updated.rawgApiKey.trim();
-      
+      const steamGridDBConfigured = !!updated.steamGridDBApiKey.trim();
+
       setApiStatus({
         igdbConfigured,
         rawgConfigured,
+        steamGridDBConfigured,
         allRequiredConfigured: igdbConfigured, // Only IGDB is required
       });
-      
+
       return updated;
     });
     setApiSaveStatus('idle');
@@ -439,19 +448,22 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
         igdbClientId: apiCredentials.igdbClientId.trim(),
         igdbClientSecret: apiCredentials.igdbClientSecret.trim(),
         rawgApiKey: apiCredentials.rawgApiKey.trim(),
+        steamGridDBApiKey: apiCredentials.steamGridDBApiKey.trim(),
       });
       setApiSaveStatus('success');
-      
+
       // Update API status after save
       const igdbConfigured = !!(apiCredentials.igdbClientId.trim() && apiCredentials.igdbClientSecret.trim());
       const rawgConfigured = !!apiCredentials.rawgApiKey.trim();
-      
+      const steamGridDBConfigured = !!apiCredentials.steamGridDBApiKey.trim();
+
       setApiStatus({
         igdbConfigured,
         rawgConfigured,
+        steamGridDBConfigured,
         allRequiredConfigured: igdbConfigured,
       });
-      
+
       setTimeout(() => {
         setApiSaveStatus('idle');
       }, 2000);
@@ -477,7 +489,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
         if (app.id === appId) {
           const wasEnabled = app.enabled;
           const nowEnabled = !app.enabled;
-          
+
           if (nowEnabled && !wasEnabled) {
             setNewlyEnabledApps(prevSet => new Set(prevSet).add(appId));
           } else if (!nowEnabled && wasEnabled) {
@@ -487,7 +499,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
               return newSet;
             });
           }
-          
+
           return { ...app, enabled: nowEnabled };
         }
         return app;
@@ -585,20 +597,20 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
           alert('This folder is already in the list.');
           return;
         }
-        
+
         // Create config with default name (folder basename)
         const folderName = path.split(/[/\\]/).pop() || 'Manual Folder';
         // Generate a simple ID from the path
         const pathHash = btoa(path).replace(/[^a-zA-Z0-9]/g, '').substring(0, 16);
         const folderId = `manual-${pathHash}`;
-        
+
         const newConfig = {
           id: folderId,
           name: folderName,
           path: path,
           enabled: true,
         };
-        
+
         // Save config
         if (window.electronAPI.saveManualFolderConfig) {
           const result = await window.electronAPI.saveManualFolderConfig(newConfig);
@@ -757,11 +769,11 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
         showLogoOverBoxart: showLogoOverBoxart,
         logoPosition: logoPosition,
       });
-      
+
       if (!result.success) {
         throw new Error(result.error || 'Failed to save preferences');
       }
-      
+
       // Save app configs if we're on the apps tab or if apps have been modified
       if (apps.length > 0) {
         const configsToSave = apps.map(app => ({
@@ -774,7 +786,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
         }));
 
         const appResult = await window.electronAPI.saveAppConfigs(configsToSave);
-        
+
         if (!appResult.success) {
           console.error('Error saving app configs:', appResult.error);
         }
@@ -785,7 +797,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
           await window.electronAPI.setSteamPath(steamApp.path);
         }
       }
-      
+
       // Save manual folders
       try {
         const manualFoldersResult = await window.electronAPI.saveManualFolders(manualFolders);
@@ -795,24 +807,24 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
       } catch (err) {
         console.error('Error saving manual folders:', err);
       }
-      
+
       // Apply system tray settings
       await window.electronAPI.applySystemTraySettings({
         showSystemTrayIcon: settings.showSystemTrayIcon,
         minimizeToTray: settings.minimizeToTray,
       });
-      
+
       // Apply startup settings
       await window.electronAPI.applyStartupSettings({
         startWithComputer: settings.startWithComputer,
         startClosedToTray: settings.startClosedToTray,
       });
-      
+
       // Notify parent component to reload preferences
       if (onSave) {
         await onSave();
       }
-      
+
       onClose();
     } catch (error) {
       console.error('Error saving Onyx settings:', error);
@@ -898,10 +910,10 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
         className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50"
         onClick={onClose}
       />
-      
+
       {/* Modal - Full Screen with 3% padding */}
       <div className="fixed inset-0 z-50" style={{ padding: '3%' }}>
-        <div 
+        <div
           className="bg-gray-800 rounded-xl shadow-2xl border border-gray-700/50 w-full h-full flex flex-col overflow-hidden"
           onClick={(e) => e.stopPropagation()}
         >
@@ -909,9 +921,9 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
           <div className="px-4 py-2 border-b border-gray-700/50 bg-gray-800/95 backdrop-blur-sm">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                <img 
-                  src={iconPng} 
-                  alt="Onyx" 
+                <img
+                  src={iconPng}
+                  alt="Onyx"
                   className="w-5 h-5"
                   onError={(e) => {
                     const target = e.target as HTMLImageElement;
@@ -938,11 +950,10 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-t-lg text-sm font-medium transition-all ${
-                    activeTab === tab.id
-                      ? 'bg-gray-800 text-blue-400 border-b-2 border-blue-500'
-                      : 'text-gray-400 hover:text-gray-300 hover:bg-gray-700/50'
-                  }`}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-t-lg text-sm font-medium transition-all ${activeTab === tab.id
+                    ? 'bg-gray-800 text-blue-400 border-b-2 border-blue-500'
+                    : 'text-gray-400 hover:text-gray-300 hover:bg-gray-700/50'
+                    }`}
                 >
                   {tab.icon}
                   <span>{tab.label}</span>
@@ -950,234 +961,220 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
               ))}
             </div>
           </div>
-          
+
           {/* Content */}
           <div className="flex-1 overflow-y-auto p-6 bg-gray-800/30">
             {activeTab === 'general' && (
               <div className="space-y-6">
                 <div className="space-y-1">
                   <h3 className="text-lg font-semibold text-white mb-4">System Behavior</h3>
-                  
+
                   {/* Settings Grid - 2 columns */}
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                  {/* Minimize to tray */}
-                  <div className="flex items-start justify-between p-4 rounded-lg bg-gray-700/30 hover:bg-gray-700/50 transition-colors">
-                    <div className="flex-1 pr-4">
-                      <label className="text-gray-200 font-medium block mb-1">
-                        Minimize to System Tray
-                      </label>
-                      <p className="text-gray-400 text-sm">
-                        Minimize Onyx to system tray when the application window is closed
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => handleToggle('minimizeToTray')}
-                      className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors flex-shrink-0 ${
-                        settings.minimizeToTray ? 'bg-blue-600' : 'bg-gray-600'
-                      }`}
-                    >
-                      <span
-                        className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
-                          settings.minimizeToTray ? 'translate-x-6' : 'translate-x-1'
-                        }`}
-                      />
-                    </button>
-                  </div>
-
-                  {/* Show system tray icon */}
-                  <div className="flex items-start justify-between p-4 rounded-lg bg-gray-700/30 hover:bg-gray-700/50 transition-colors">
-                    <div className="flex-1 pr-4">
-                      <label className="text-gray-200 font-medium block mb-1">
-                        Show System Tray Icon
-                      </label>
-                      <p className="text-gray-400 text-sm">
-                        Display Onyx icon in the system tray
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => handleToggle('showSystemTrayIcon')}
-                      className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors flex-shrink-0 ${
-                        settings.showSystemTrayIcon ? 'bg-blue-600' : 'bg-gray-600'
-                      }`}
-                    >
-                      <span
-                        className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
-                          settings.showSystemTrayIcon ? 'translate-x-6' : 'translate-x-1'
-                        }`}
-                      />
-                    </button>
-                  </div>
-
-                  {/* Start with computer */}
-                  <div className="flex items-start justify-between p-4 rounded-lg bg-gray-700/30 hover:bg-gray-700/50 transition-colors">
-                    <div className="flex-1 pr-4">
-                      <label className="text-gray-200 font-medium block mb-1">
-                        Start with Computer
-                      </label>
-                      <p className="text-gray-400 text-sm">
-                        Launch Onyx automatically when your computer starts
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => handleToggle('startWithComputer')}
-                      className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors flex-shrink-0 ${
-                        settings.startWithComputer ? 'bg-blue-600' : 'bg-gray-600'
-                      }`}
-                    >
-                      <span
-                        className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
-                          settings.startWithComputer ? 'translate-x-6' : 'translate-x-1'
-                        }`}
-                      />
-                    </button>
-                  </div>
-
-                  {/* Start closed to tray */}
-                  <div className="flex items-start justify-between p-4 rounded-lg bg-gray-700/30 hover:bg-gray-700/50 transition-colors">
-                    <div className="flex-1 pr-4">
-                      <label className="text-gray-200 font-medium block mb-1">
-                        Start Minimized to Tray
-                      </label>
-                      <p className="text-gray-400 text-sm">
-                        Start Onyx minimized to the system tray
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => handleToggle('startClosedToTray')}
-                      className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors flex-shrink-0 ${
-                        settings.startClosedToTray ? 'bg-blue-600' : 'bg-gray-600'
-                      }`}
-                    >
-                      <span
-                        className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
-                          settings.startClosedToTray ? 'translate-x-6' : 'translate-x-1'
-                        }`}
-                      />
-                    </button>
-                  </div>
-
-                  {/* Update libraries on startup */}
-                  <div className="flex items-start justify-between p-4 rounded-lg bg-gray-700/30 hover:bg-gray-700/50 transition-colors">
-                    <div className="flex-1 pr-4">
-                      <label className="text-gray-200 font-medium block mb-1">
-                        Update Libraries on Startup
-                      </label>
-                      <p className="text-gray-400 text-sm">
-                        Automatically scan for new games when Onyx starts. If new games are found, you'll be prompted to configure metadata and images.
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => handleToggle('updateLibrariesOnStartup')}
-                      className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors flex-shrink-0 ${
-                        settings.updateLibrariesOnStartup ? 'bg-blue-600' : 'bg-gray-600'
-                      }`}
-                    >
-                      <span
-                        className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
-                          settings.updateLibrariesOnStartup ? 'translate-x-6' : 'translate-x-1'
-                        }`}
-                      />
-                    </button>
-                  </div>
-
-                  {/* Background scanning */}
-                  <div className="space-y-4 p-4 rounded-lg bg-gray-700/30 hover:bg-gray-700/50 transition-colors">
-                    <div className="flex items-start justify-between">
+                    {/* Minimize to tray */}
+                    <div className="flex items-start justify-between p-4 rounded-lg bg-gray-700/30 hover:bg-gray-700/50 transition-colors">
                       <div className="flex-1 pr-4">
                         <label className="text-gray-200 font-medium block mb-1">
-                          Background Scanning
+                          Minimize to System Tray
                         </label>
                         <p className="text-gray-400 text-sm">
-                          Automatically scan for new games at regular intervals while Onyx is running. New games will be detected and you'll be notified.
+                          Minimize Onyx to system tray when the application window is closed
                         </p>
                       </div>
                       <button
-                        onClick={async () => {
-                          const newValue = !backgroundScanEnabled;
-                          setBackgroundScanEnabled(newValue);
-                          try {
-                            await window.electronAPI.setBackgroundScanEnabled(newValue);
-                          } catch (error) {
-                            console.error('Error toggling background scan:', error);
-                            setBackgroundScanEnabled(!newValue); // Revert on error
-                          }
-                        }}
-                        className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors flex-shrink-0 ${
-                          backgroundScanEnabled ? 'bg-blue-600' : 'bg-gray-600'
-                        }`}
+                        onClick={() => handleToggle('minimizeToTray')}
+                        className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors flex-shrink-0 ${settings.minimizeToTray ? 'bg-blue-600' : 'bg-gray-600'
+                          }`}
                       >
                         <span
-                          className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
-                            backgroundScanEnabled ? 'translate-x-6' : 'translate-x-1'
-                          }`}
+                          className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${settings.minimizeToTray ? 'translate-x-6' : 'translate-x-1'
+                            }`}
                         />
                       </button>
                     </div>
-                    
-                    {/* Scan interval setting */}
-                    {backgroundScanEnabled && (
-                      <div className="pt-2 border-t border-gray-600/50">
-                        <label className="text-gray-200 font-medium block mb-2">
-                          Scan Interval
-                        </label>
-                        <div className="flex items-center gap-3">
-                          <input
-                            type="number"
-                            min="1"
-                            max="1440"
-                            value={backgroundScanIntervalMinutes}
-                            onChange={(e) => {
-                              const value = parseInt(e.target.value, 10);
-                              if (!isNaN(value) && value >= 1 && value <= 1440) {
-                                setBackgroundScanIntervalMinutes(value);
-                              }
-                            }}
-                            onBlur={async () => {
-                              try {
-                                await window.electronAPI.setBackgroundScanIntervalMinutes(backgroundScanIntervalMinutes);
-                              } catch (error) {
-                                console.error('Error setting background scan interval:', error);
-                                // Reload the value on error
-                                const interval = await window.electronAPI.getBackgroundScanIntervalMinutes();
-                                setBackgroundScanIntervalMinutes(interval);
-                              }
-                            }}
-                            className="w-24 px-3 py-2 bg-gray-600 text-white rounded border border-gray-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                          />
-                          <span className="text-gray-400 text-sm">
-                            {backgroundScanIntervalMinutes === 1 ? 'minute' : 'minutes'}
-                          </span>
-                          <span className="text-gray-500 text-xs">
-                            (1-1440 minutes, 24 hours max)
-                          </span>
-                        </div>
-                      </div>
-                    )}
-                  </div>
 
-                  {/* Minimize on game launch */}
-                  <div className="flex items-start justify-between p-4 rounded-lg bg-gray-700/30 hover:bg-gray-700/50 transition-colors">
-                    <div className="flex-1 pr-4">
-                      <label className="text-gray-200 font-medium block mb-1">
-                        Minimize When Game Opens
-                      </label>
-                      <p className="text-gray-400 text-sm">
-                        Automatically minimize Onyx to the system tray when a game is launched
-                      </p>
+                    {/* Show system tray icon */}
+                    <div className="flex items-start justify-between p-4 rounded-lg bg-gray-700/30 hover:bg-gray-700/50 transition-colors">
+                      <div className="flex-1 pr-4">
+                        <label className="text-gray-200 font-medium block mb-1">
+                          Show System Tray Icon
+                        </label>
+                        <p className="text-gray-400 text-sm">
+                          Display Onyx icon in the system tray
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => handleToggle('showSystemTrayIcon')}
+                        className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors flex-shrink-0 ${settings.showSystemTrayIcon ? 'bg-blue-600' : 'bg-gray-600'
+                          }`}
+                      >
+                        <span
+                          className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${settings.showSystemTrayIcon ? 'translate-x-6' : 'translate-x-1'
+                            }`}
+                        />
+                      </button>
                     </div>
-                    <button
-                      onClick={() => handleToggle('minimizeOnGameLaunch')}
-                      className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors flex-shrink-0 ${
-                        settings.minimizeOnGameLaunch ? 'bg-blue-600' : 'bg-gray-600'
-                      }`}
-                    >
-                      <span
-                        className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
-                          settings.minimizeOnGameLaunch ? 'translate-x-6' : 'translate-x-1'
-                        }`}
-                      />
-                    </button>
-                  </div>
+
+                    {/* Start with computer */}
+                    <div className="flex items-start justify-between p-4 rounded-lg bg-gray-700/30 hover:bg-gray-700/50 transition-colors">
+                      <div className="flex-1 pr-4">
+                        <label className="text-gray-200 font-medium block mb-1">
+                          Start with Computer
+                        </label>
+                        <p className="text-gray-400 text-sm">
+                          Launch Onyx automatically when your computer starts
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => handleToggle('startWithComputer')}
+                        className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors flex-shrink-0 ${settings.startWithComputer ? 'bg-blue-600' : 'bg-gray-600'
+                          }`}
+                      >
+                        <span
+                          className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${settings.startWithComputer ? 'translate-x-6' : 'translate-x-1'
+                            }`}
+                        />
+                      </button>
+                    </div>
+
+                    {/* Start closed to tray */}
+                    <div className="flex items-start justify-between p-4 rounded-lg bg-gray-700/30 hover:bg-gray-700/50 transition-colors">
+                      <div className="flex-1 pr-4">
+                        <label className="text-gray-200 font-medium block mb-1">
+                          Start Minimized to Tray
+                        </label>
+                        <p className="text-gray-400 text-sm">
+                          Start Onyx minimized to the system tray
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => handleToggle('startClosedToTray')}
+                        className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors flex-shrink-0 ${settings.startClosedToTray ? 'bg-blue-600' : 'bg-gray-600'
+                          }`}
+                      >
+                        <span
+                          className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${settings.startClosedToTray ? 'translate-x-6' : 'translate-x-1'
+                            }`}
+                        />
+                      </button>
+                    </div>
+
+                    {/* Update libraries on startup */}
+                    <div className="flex items-start justify-between p-4 rounded-lg bg-gray-700/30 hover:bg-gray-700/50 transition-colors">
+                      <div className="flex-1 pr-4">
+                        <label className="text-gray-200 font-medium block mb-1">
+                          Update Libraries on Startup
+                        </label>
+                        <p className="text-gray-400 text-sm">
+                          Automatically scan for new games when Onyx starts. If new games are found, you'll be prompted to configure metadata and images.
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => handleToggle('updateLibrariesOnStartup')}
+                        className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors flex-shrink-0 ${settings.updateLibrariesOnStartup ? 'bg-blue-600' : 'bg-gray-600'
+                          }`}
+                      >
+                        <span
+                          className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${settings.updateLibrariesOnStartup ? 'translate-x-6' : 'translate-x-1'
+                            }`}
+                        />
+                      </button>
+                    </div>
+
+                    {/* Background scanning */}
+                    <div className="space-y-4 p-4 rounded-lg bg-gray-700/30 hover:bg-gray-700/50 transition-colors">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1 pr-4">
+                          <label className="text-gray-200 font-medium block mb-1">
+                            Background Scanning
+                          </label>
+                          <p className="text-gray-400 text-sm">
+                            Automatically scan for new games at regular intervals while Onyx is running. New games will be detected and you'll be notified.
+                          </p>
+                        </div>
+                        <button
+                          onClick={async () => {
+                            const newValue = !backgroundScanEnabled;
+                            setBackgroundScanEnabled(newValue);
+                            try {
+                              await window.electronAPI.setBackgroundScanEnabled(newValue);
+                            } catch (error) {
+                              console.error('Error toggling background scan:', error);
+                              setBackgroundScanEnabled(!newValue); // Revert on error
+                            }
+                          }}
+                          className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors flex-shrink-0 ${backgroundScanEnabled ? 'bg-blue-600' : 'bg-gray-600'
+                            }`}
+                        >
+                          <span
+                            className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${backgroundScanEnabled ? 'translate-x-6' : 'translate-x-1'
+                              }`}
+                          />
+                        </button>
+                      </div>
+
+                      {/* Scan interval setting */}
+                      {backgroundScanEnabled && (
+                        <div className="pt-2 border-t border-gray-600/50">
+                          <label className="text-gray-200 font-medium block mb-2">
+                            Scan Interval
+                          </label>
+                          <div className="flex items-center gap-3">
+                            <input
+                              type="number"
+                              min="1"
+                              max="1440"
+                              value={backgroundScanIntervalMinutes}
+                              onChange={(e) => {
+                                const value = parseInt(e.target.value, 10);
+                                if (!isNaN(value) && value >= 1 && value <= 1440) {
+                                  setBackgroundScanIntervalMinutes(value);
+                                }
+                              }}
+                              onBlur={async () => {
+                                try {
+                                  await window.electronAPI.setBackgroundScanIntervalMinutes(backgroundScanIntervalMinutes);
+                                } catch (error) {
+                                  console.error('Error setting background scan interval:', error);
+                                  // Reload the value on error
+                                  const interval = await window.electronAPI.getBackgroundScanIntervalMinutes();
+                                  setBackgroundScanIntervalMinutes(interval);
+                                }
+                              }}
+                              className="w-24 px-3 py-2 bg-gray-600 text-white rounded border border-gray-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            />
+                            <span className="text-gray-400 text-sm">
+                              {backgroundScanIntervalMinutes === 1 ? 'minute' : 'minutes'}
+                            </span>
+                            <span className="text-gray-500 text-xs">
+                              (1-1440 minutes, 24 hours max)
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Minimize on game launch */}
+                    <div className="flex items-start justify-between p-4 rounded-lg bg-gray-700/30 hover:bg-gray-700/50 transition-colors">
+                      <div className="flex-1 pr-4">
+                        <label className="text-gray-200 font-medium block mb-1">
+                          Minimize When Game Opens
+                        </label>
+                        <p className="text-gray-400 text-sm">
+                          Automatically minimize Onyx to the system tray when a game is launched
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => handleToggle('minimizeOnGameLaunch')}
+                        className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors flex-shrink-0 ${settings.minimizeOnGameLaunch ? 'bg-blue-600' : 'bg-gray-600'
+                          }`}
+                      >
+                        <span
+                          className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${settings.minimizeOnGameLaunch ? 'translate-x-6' : 'translate-x-1'
+                            }`}
+                        />
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1188,38 +1185,62 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
               <div className="space-y-6">
                 <div className="space-y-1">
                   <h3 className="text-lg font-semibold text-white mb-4">API Credentials</h3>
-                  
+
                   {/* API Tabs */}
                   <div className="border-b border-gray-700 mb-6">
                     <nav className="flex space-x-8" aria-label="API Tabs">
+                      {/* IGDB Tab Button */}
                       <button
                         onClick={() => setActiveAPITab('igdb')}
-                        className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors flex items-center gap-2 ${
-                          activeAPITab === 'igdb'
-                            ? 'border-blue-500 text-blue-400'
-                            : 'border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-300'
-                        }`}
+                        className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors border-b-2 ${activeAPITab === 'igdb'
+                          ? 'border-blue-500 text-blue-400'
+                          : 'border-transparent text-gray-400 hover:text-gray-200'
+                          }`}
                       >
                         IGDB
-                        {apiStatus.igdbConfigured ? (
-                          <span className="text-green-400" title="Configured">✓</span>
-                        ) : (
-                          <span className="text-red-400" title="Not configured">✗</span>
+                        {apiStatus.igdbConfigured && (
+                          <span className="text-green-400">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                          </span>
                         )}
                       </button>
+
+                      {/* RAWG Tab Button */}
                       <button
                         onClick={() => setActiveAPITab('rawg')}
-                        className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors flex items-center gap-2 ${
-                          activeAPITab === 'rawg'
-                            ? 'border-blue-500 text-blue-400'
-                            : 'border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-300'
-                        }`}
+                        className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors border-b-2 ${activeAPITab === 'rawg'
+                          ? 'border-blue-500 text-blue-400'
+                          : 'border-transparent text-gray-400 hover:text-gray-200'
+                          }`}
                       >
-                        RAWG
+                        RAWG <span className="text-xs opacity-75">(Optional)</span>
                         {apiStatus.rawgConfigured && (
-                          <span className="text-green-400" title="Configured">✓</span>
+                          <span className="text-green-400">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                          </span>
                         )}
-                        <span className="text-gray-500 text-xs ml-1">(Optional)</span>
+                      </button>
+
+                      {/* SteamGridDB Tab Button */}
+                      <button
+                        onClick={() => setActiveAPITab('steamgriddb')}
+                        className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors border-b-2 ${activeAPITab === 'steamgriddb'
+                          ? 'border-blue-500 text-blue-400'
+                          : 'border-transparent text-gray-400 hover:text-gray-200'
+                          }`}
+                      >
+                        SteamGridDB <span className="text-xs opacity-75">(Optional)</span>
+                        {apiStatus.steamGridDBConfigured && (
+                          <span className="text-green-400">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                          </span>
+                        )}
                       </button>
                     </nav>
                   </div>
@@ -1230,11 +1251,11 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                       {/* Left Column - Instructions */}
                       <div className="space-y-4">
                         <div>
-                          <h4 className="text-base font-medium text-white mb-2">IGDB API <span className="text-red-400 text-sm">(Required)</span></h4>
+                          <h4 className="text-base font-medium text-white mb-2">IGDB API (Mandatory)</h4>
                           <p className="text-sm text-gray-400 mb-4">
-                            IGDB (Internet Game Database) provides comprehensive game metadata including covers, screenshots, descriptions, genres, and more. <strong className="text-yellow-300">This API is required.</strong>
+                            IGDB (Internet Game Database) provides comprehensive game metadata including covers, screenshots, descriptions, genres, and more. <span className="text-red-400 font-semibold">This API is required.</span>
                           </p>
-                          
+
                           {/* Instructions */}
                           <div className="bg-gray-900/50 rounded-lg p-4 border border-gray-700">
                             <h5 className="text-sm font-medium text-white mb-2">How to obtain IGDB API credentials:</h5>
@@ -1322,7 +1343,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                           <p className="text-sm text-gray-400 mb-4">
                             RAWG (Rapid API for Video Games) provides comprehensive game metadata including descriptions, genres, ratings, and release dates. This is an optional API that can enhance metadata quality when IGDB results are incomplete.
                           </p>
-                          
+
                           {/* Why use RAWG */}
                           <div className="bg-blue-900/20 rounded-lg p-4 border border-blue-700/50 mb-4">
                             <h5 className="text-sm font-medium text-blue-300 mb-2">Why use RAWG API?</h5>
@@ -1334,7 +1355,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                               <li>Free tier available with generous rate limits</li>
                             </ul>
                           </div>
-                          
+
                           {/* Instructions */}
                           <div className="bg-gray-900/50 rounded-lg p-4 border border-gray-700">
                             <h5 className="text-sm font-medium text-white mb-2">How to obtain RAWG API key:</h5>
@@ -1403,6 +1424,95 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                     </div>
                   )}
 
+                  {/* SteamGridDB Tab Content */}
+                  {activeAPITab === 'steamgriddb' && (
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      {/* Left Column - Instructions */}
+                      <div className="space-y-4">
+                        <div>
+                          <h4 className="text-base font-medium text-white mb-2">SteamGridDB API (Optional)</h4>
+                          <p className="text-sm text-gray-400 mb-4">
+                            SteamGridDB is a community-driven database for custom game assets. It provides high-quality grids, heroes, and logos that can replace standard metadata images.
+                          </p>
+
+                          {/* Why use SteamGridDB */}
+                          <div className="bg-blue-900/20 rounded-lg p-4 border border-blue-700/50 mb-4">
+                            <h5 className="text-sm font-medium text-blue-300 mb-2">Why use SteamGridDB API?</h5>
+                            <ul className="list-disc list-inside space-y-1 text-sm text-blue-200">
+                              <li>Access to thousands of community-created assets</li>
+                              <li>Animated grids and heroes (APNG/WebM) support</li>
+                              <li>High-resolution logos and icons</li>
+                              <li>Better coverage for non-Steam games</li>
+                            </ul>
+                          </div>
+
+                          {/* Instructions */}
+                          <div className="bg-gray-900/50 rounded-lg p-4 border border-gray-700">
+                            <h5 className="text-sm font-medium text-white mb-2">How to obtain SteamGridDB API key:</h5>
+                            <ol className="list-decimal list-inside space-y-2 text-sm text-gray-300">
+                              <li>
+                                Visit{' '}
+                                <button
+                                  onClick={async () => {
+                                    try {
+                                      await window.electronAPI.openExternal('https://www.steamgriddb.com/profile/preferences');
+                                    } catch (error) {
+                                      console.error('Error opening SteamGridDB page:', error);
+                                    }
+                                  }}
+                                  className="text-blue-400 hover:text-blue-300 underline"
+                                >
+                                  SteamGridDB Profile Preferences
+                                </button>
+                                {' '}at steamgriddb.com
+                              </li>
+                              <li>Log in with your Steam account</li>
+                              <li>Scan down to the "API" section</li>
+                              <li>Click "Create API Key" if you haven't already</li>
+                              <li>Copy the generated API Key</li>
+                              <li>Paste it into the field on the right</li>
+                            </ol>
+                            <div className="mt-4 p-3 bg-yellow-900/20 border border-yellow-700/50 rounded text-xs text-yellow-300">
+                              <strong>Note:</strong> SteamGridDB is optional. It is primarily used for finding better artwork for games.
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Right Column - Input Fields */}
+                      <div className="space-y-4">
+                        {/* API Key Input */}
+                        <div className="space-y-2">
+                          <label className="block text-sm font-medium text-gray-200">
+                            API Key <span className="text-gray-500 text-xs">(Optional)</span>
+                          </label>
+                          <input
+                            type="password"
+                            value={apiCredentials.steamGridDBApiKey}
+                            onChange={(e) => handleAPIInputChange('steamGridDBApiKey', e.target.value)}
+                            placeholder="Enter your SteamGridDB API Key"
+                            className="w-full px-4 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          />
+                          <p className="text-xs text-gray-500">
+                            Your API key is stored securely and used to fetch community artwork.
+                          </p>
+                        </div>
+
+                        {/* Status Message */}
+                        {apiSaveStatus === 'success' && activeAPITab === 'steamgriddb' && (
+                          <div className="bg-green-900/30 border border-green-700 text-green-300 px-4 py-2 rounded-lg text-sm">
+                            SteamGridDB API key saved successfully!
+                          </div>
+                        )}
+                        {apiSaveStatus === 'error' && activeAPITab === 'steamgriddb' && (
+                          <div className="bg-red-900/30 border border-red-700 text-red-300 px-4 py-2 rounded-lg text-sm">
+                            Failed to save API key. Please try again.
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Save All API Credentials Button */}
                   <div className="flex justify-end pt-6 border-t border-gray-700">
                     <button
@@ -1424,7 +1534,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                   <p className="text-gray-400 text-sm mb-6">
                     Enable and configure game launchers to automatically import your games
                   </p>
-                  
+
                   {isLoadingApps ? (
                     <div className="text-center py-8">
                       <p className="text-gray-300">Loading app configurations...</p>
@@ -1448,7 +1558,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                               <div className="w-9 h-5 bg-gray-600 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
                             </label>
                           </div>
-                          
+
                           {app.enabled && (
                             <div className="space-y-1.5">
                               <div>
@@ -1471,39 +1581,39 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                                   </button>
                                 </div>
                               </div>
-                              
+
                               {/* Steam-specific options - hidden when not signed in */}
                               {app.id === 'steam' && steamAuthState.authenticated && (
                                 <div className="space-y-2 pt-1.5 border-t border-gray-600">
                                   {/* Steam Authentication Status - hidden when not signed in */}
                                   {steamAuthState.authenticated && (
-                                  <div className="flex items-center justify-between p-1.5 bg-gray-800/50 rounded">
-                                    <div className="flex items-center gap-1.5">
-                                      <div className={`w-1.5 h-1.5 rounded-full ${steamAuthState.authenticated ? 'bg-green-500' : 'bg-gray-500'}`}></div>
-                                      <span className="text-xs text-gray-300 truncate">
-                                        {steamAuthState.authenticated 
-                                          ? steamAuthState.username || `Steam ID: ${steamAuthState.steamId?.substring(0, 8)}...`
-                                          : 'Not signed in'}
-                                      </span>
-                                    </div>
-                                    {steamAuthState.authenticated && (
-                                      <button
-                                        onClick={async () => {
-                                          if (confirm('Sign out of Steam?')) {
-                                            if (window.electronAPI.clearSteamAuth) {
-                                              await window.electronAPI.clearSteamAuth();
+                                    <div className="flex items-center justify-between p-1.5 bg-gray-800/50 rounded">
+                                      <div className="flex items-center gap-1.5">
+                                        <div className={`w-1.5 h-1.5 rounded-full ${steamAuthState.authenticated ? 'bg-green-500' : 'bg-gray-500'}`}></div>
+                                        <span className="text-xs text-gray-300 truncate">
+                                          {steamAuthState.authenticated
+                                            ? steamAuthState.username || `Steam ID: ${steamAuthState.steamId?.substring(0, 8)}...`
+                                            : 'Not signed in'}
+                                        </span>
+                                      </div>
+                                      {steamAuthState.authenticated && (
+                                        <button
+                                          onClick={async () => {
+                                            if (confirm('Sign out of Steam?')) {
+                                              if (window.electronAPI.clearSteamAuth) {
+                                                await window.electronAPI.clearSteamAuth();
+                                              }
+                                              setSteamAuthState({ authenticated: false });
                                             }
-                                            setSteamAuthState({ authenticated: false });
-                                          }
-                                        }}
-                                        className="text-xs text-gray-400 hover:text-gray-200"
-                                      >
-                                        Sign out
-                                      </button>
-                                    )}
-                                  </div>
+                                          }}
+                                          className="text-xs text-gray-400 hover:text-gray-200"
+                                        >
+                                          Sign out
+                                        </button>
+                                      )}
+                                    </div>
                                   )}
-                                  
+
                                   {/* Sign into Steam button - DISABLED */}
                                   {false && !steamAuthState.authenticated && (
                                     <button
@@ -1529,7 +1639,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                                       )}
                                     </button>
                                   )}
-                                  
+
                                   {/* Auto add toggle - only show when authenticated */}
                                   {steamAuthState.authenticated && (
                                     <>
@@ -1548,7 +1658,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                                           <div className="w-9 h-5 bg-gray-600 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
                                         </label>
                                       </div>
-                                      
+
                                       {/* Sync Playtime toggle - only show when authenticated */}
                                       <div className="flex items-center justify-between p-1.5 bg-gray-800/30 rounded mt-1.5">
                                         <div className="flex-1">
@@ -1569,7 +1679,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                                   )}
                                 </div>
                               )}
-                              
+
                               {/* Scan Now button for newly enabled apps (non-Steam) */}
                               {app.id !== 'steam' && newlyEnabledApps.has(app.id) && app.path && (
                                 <div className="flex items-center gap-1.5 pt-1.5">
@@ -1603,7 +1713,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                       ))}
                     </div>
                   )}
-                  
+
                   {/* Manual Folders Section - Display like apps */}
                   <div className="mt-8 pt-8 border-t border-gray-700">
                     <div className="flex items-center justify-between mb-4">
@@ -1623,7 +1733,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                         Add Folder
                       </button>
                     </div>
-                    
+
                     {Object.keys(manualFolderConfigs).length === 0 ? (
                       <div className="text-center py-8 text-gray-500 text-sm">
                         No manual folders added. Click "Add Folder" to monitor a custom location.
@@ -1664,7 +1774,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                                 <div className="w-9 h-5 bg-gray-600 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
                               </label>
                             </div>
-                            
+
                             {folderConfig.enabled && (
                               <div className="space-y-1.5">
                                 <div>
@@ -1689,7 +1799,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                                     </button>
                                   </div>
                                 </div>
-                                
+
                                 {/* Auto Category Selection */}
                                 <div>
                                   <label className="block text-xs text-gray-400 mb-0.5">
@@ -1732,11 +1842,10 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                                               await window.electronAPI.saveManualFolderConfig(updatedConfig);
                                             }
                                           }}
-                                          className={`px-2 py-0.5 text-xs rounded transition-colors ${
-                                            isSelected
-                                              ? 'bg-blue-600 text-white'
-                                              : 'bg-gray-700/50 text-gray-300 hover:bg-gray-700'
-                                          }`}
+                                          className={`px-2 py-0.5 text-xs rounded transition-colors ${isSelected
+                                            ? 'bg-blue-600 text-white'
+                                            : 'bg-gray-700/50 text-gray-300 hover:bg-gray-700'
+                                            }`}
                                         >
                                           {isSelected ? '✓' : '+'} {cat}
                                         </button>
@@ -1788,7 +1897,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                   <p className="text-gray-400 text-sm mb-6">
                     This will completely reset Onyx to its default state. All data will be permanently deleted.
                   </p>
-                  
+
                   {/* Warning Box */}
                   <div className="bg-red-900/20 border-2 border-red-500/50 rounded-lg p-6 mb-6">
                     <div className="flex items-start gap-4">
@@ -1909,7 +2018,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
               <div className="space-y-6">
                 <div className="space-y-1">
                   <h3 className="text-lg font-semibold text-white mb-4">Suspend/Resume Feature</h3>
-                  
+
                   {/* Feature Toggle */}
                   <div className="flex items-start justify-between p-4 rounded-lg bg-gray-700/30 hover:bg-gray-700/50 transition-colors">
                     <div className="flex-1 pr-4">
@@ -1943,14 +2052,12 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                           setSuspendFeatureEnabled(!newValue); // Revert on error
                         }
                       }}
-                      className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors flex-shrink-0 ${
-                        suspendFeatureEnabled ? 'bg-blue-600' : 'bg-gray-600'
-                      }`}
+                      className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors flex-shrink-0 ${suspendFeatureEnabled ? 'bg-blue-600' : 'bg-gray-600'
+                        }`}
                     >
                       <span
-                        className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
-                          suspendFeatureEnabled ? 'translate-x-6' : 'translate-x-1'
-                        }`}
+                        className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${suspendFeatureEnabled ? 'translate-x-6' : 'translate-x-1'
+                          }`}
                       />
                     </button>
                   </div>
@@ -1985,16 +2092,16 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                               const handleKeyDown = async (e: KeyboardEvent) => {
                                 e.preventDefault();
                                 e.stopPropagation();
-                                
+
                                 const parts: string[] = [];
                                 if (e.ctrlKey) parts.push('Ctrl');
                                 if (e.altKey) parts.push('Alt');
                                 if (e.shiftKey) parts.push('Shift');
                                 if (e.metaKey) parts.push('Meta');
-                                
+
                                 // Get the key, excluding modifiers
                                 let key = e.key;
-                                
+
                                 // Handle special keys - map to Electron's expected format
                                 const keyMap: Record<string, string> = {
                                   ' ': 'Space',
@@ -2018,7 +2125,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                                   'Pause': 'Pause',
                                   'PrintScreen': 'PrintScreen',
                                 };
-                                
+
                                 // Map special keys
                                 if (keyMap[key]) {
                                   key = keyMap[key];
@@ -2032,18 +2139,18 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                                   // Other special keys - use as-is (End, Home, etc. should already be correct)
                                   key = key;
                                 }
-                                
+
                                 // Don't add if it's just a modifier
                                 if (!['Control', 'Alt', 'Shift', 'Meta', 'Tab', 'Escape'].includes(key)) {
                                   parts.push(key);
                                 }
-                                
+
                                 // Allow single keys OR key combinations
                                 if (parts.length >= 1) {
                                   const shortcut = parts.join('+');
                                   setSuspendShortcut(shortcut);
                                   setIsRecordingShortcut(false);
-                                  
+
                                   try {
                                     if (window.electronAPI.suspend?.setShortcut) {
                                       await window.electronAPI.suspend.setShortcut(shortcut);
@@ -2051,13 +2158,13 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                                   } catch (error) {
                                     console.error('Error setting shortcut:', error);
                                   }
-                                  
+
                                   window.removeEventListener('keydown', handleKeyDown);
                                 }
                               };
-                              
+
                               window.addEventListener('keydown', handleKeyDown, true);
-                              
+
                               // Cancel after 5 seconds
                               setTimeout(() => {
                                 setIsRecordingShortcut(false);
@@ -2184,9 +2291,9 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
               <div className="flex flex-col items-center justify-center min-h-[400px] text-center space-y-6 p-8">
                 {/* Header Section */}
                 <div className="flex flex-col items-center animate-fade-in">
-                  <img 
-                    src={iconPng} 
-                    alt="Onyx Logo" 
+                  <img
+                    src={iconPng}
+                    alt="Onyx Logo"
                     className="w-24 h-24 mb-4 drop-shadow-[0_0_15px_rgba(14,165,233,0.3)]"
                     onError={(e) => {
                       const target = e.target as HTMLImageElement;
@@ -2210,7 +2317,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                 {/* Social Actions Row */}
                 <div className="flex items-center gap-4 mt-4">
                   {/* Discord */}
-                  <button 
+                  <button
                     onClick={async () => {
                       try {
                         if (window.electronAPI && window.electronAPI.openExternal) {
@@ -2232,7 +2339,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                   </button>
 
                   {/* Ko-fi Support */}
-                  <button 
+                  <button
                     onClick={async () => {
                       try {
                         if (window.electronAPI && window.electronAPI.openExternal) {
@@ -2270,7 +2377,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                   <p className="text-gray-400 text-xs mb-4">
                     View and open all folders used by Onyx
                   </p>
-                  
+
                   <div className="grid grid-cols-3 gap-3">
                     {/* Image Cache Folder */}
                     <div className="flex items-center justify-between p-3 bg-gray-700/30 rounded-lg border border-gray-600 hover:bg-gray-700/50 transition-colors">
@@ -2420,7 +2527,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
               </div>
             )}
           </div>
-          
+
           {/* Footer */}
           <div className="px-6 py-4 border-t border-gray-700/50 bg-gray-800/95 backdrop-blur-sm flex justify-end gap-3">
             <button

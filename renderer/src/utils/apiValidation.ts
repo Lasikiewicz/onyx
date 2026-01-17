@@ -1,14 +1,14 @@
 /**
  * Utility function to check if APIs are configured.
- * With built-in RAWG fallback, we consider APIs available by default to avoid blocking users.
+ * IGDB is now MANDATORY.
  */
 export async function areAPIsConfigured(): Promise<boolean> {
   try {
-    await window.electronAPI.getAPICredentials();
-    return true; // Fallback RAWG key ensures availability
+    const status = await getAPIConfigurationStatus();
+    return status.allRequiredConfigured;
   } catch (error) {
     console.error('Error checking API credentials:', error);
-    return true; // Fail-open to avoid blocking scans
+    return false;
   }
 }
 
@@ -18,31 +18,42 @@ export async function areAPIsConfigured(): Promise<boolean> {
 export async function getAPIConfigurationStatus(): Promise<{
   igdbConfigured: boolean;
   rawgConfigured: boolean;
+  steamGridDBConfigured: boolean;
   allRequiredConfigured: boolean;
 }> {
   try {
     const credentials = await window.electronAPI.getAPICredentials();
 
     const igdbConfigured = !!(
-      credentials.igdbClientId && 
+      credentials.igdbClientId &&
       credentials.igdbClientSecret &&
       credentials.igdbClientId.trim() !== '' &&
       credentials.igdbClientSecret.trim() !== ''
     );
 
-    const rawgConfigured = true; // Provided by built-in fallback key
+    const rawgConfigured = !!(
+      credentials.rawgApiKey &&
+      credentials.rawgApiKey.trim() !== ''
+    );
+
+    const steamGridDBConfigured = !!(
+      credentials.steamGridDBApiKey &&
+      credentials.steamGridDBApiKey.trim() !== ''
+    );
 
     return {
       igdbConfigured,
       rawgConfigured,
-      allRequiredConfigured: true, // do not block flows
+      steamGridDBConfigured,
+      allRequiredConfigured: igdbConfigured, // IGDB is mandatory
     };
   } catch (error) {
     console.error('Error checking API credentials:', error);
     return {
       igdbConfigured: false,
-      rawgConfigured: true,
-      allRequiredConfigured: true,
+      rawgConfigured: false,
+      steamGridDBConfigured: false,
+      allRequiredConfigured: false,
     };
   }
 }

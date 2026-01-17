@@ -9,6 +9,7 @@ import { MetadataFetcherService, IGDBConfig } from './MetadataFetcherService.js'
 import { LauncherService } from './LauncherService.js';
 import { IGDBService } from './IGDBService.js';
 import { RAWGService } from './RAWGService.js';
+import { SteamGridDBService } from './SteamGridDBService.js';
 import { AppConfigService } from './AppConfigService.js';
 import { XboxService } from './XboxService.js';
 import { UserPreferencesService, type UserPreferences } from './UserPreferencesService.js';
@@ -20,6 +21,7 @@ import { SteamAuthService } from './SteamAuthService.js';
 import { ProcessSuspendService } from './ProcessSuspendService.js';
 import { InstallerPreferenceService } from './InstallerPreferenceService.js';
 import { BugReportService } from './BugReportService.js';
+import { DuckDuckGoImageService } from './DuckDuckGoImageService.js';
 
 // Load environment variables
 dotenv.config();
@@ -221,7 +223,6 @@ function createTray() {
     console.log('Icon loaded successfully, size:', icon.getSize());
 
     // For Windows, use appropriate size (16x16 is standard, but 32x32 works better for high DPI)
-    // On Windows, system tray icons are typically 16x16, but we can use a larger size for better quality
     // Note: On Windows, ICO files contain multiple sizes, so we might not need to resize
     if (process.platform === 'win32' && iconPath.endsWith('.ico')) {
       // For ICO files on Windows, use directly without resize (ICO contains multiple sizes)
@@ -761,6 +762,7 @@ const bugReportService = new BugReportService();
 // Initialize IGDB service if credentials are available
 let igdbService: IGDBService | null = null;
 let rawgService: RAWGService | null = null;
+let steamGridDBService: SteamGridDBService | null = null;
 
 /**
  * Utility function to add a timeout to any promise
@@ -829,8 +831,8 @@ const initializeIGDBService = async () => {
         return false;
       }
     } else {
-      console.warn('[IGDB Init] ✗ IGDB credentials not configured - IGDB features will be unavailable');
-      console.warn('[IGDB Init] → Configure IGDB in Settings > APIs to enable game metadata detection');
+      console.warn('[IGDB Init] ✗ IGDB credentials not configured - app will run but metadata features will be disabled');
+      console.warn('[IGDB Init] → IGDB is MANDATORY for metadata. Please Configure in Settings > APIs');
       igdbService = null;
       return false;
     }
@@ -851,10 +853,10 @@ const initializeRAWGService = async () => {
 
     if (rawgApiKey) {
       rawgService = new RAWGService(rawgApiKey);
-      console.log('RAWG service initialized');
+      console.log('[RAWG Init] RAWG service initialized (Optional API enabled)');
       return true;
     } else {
-      console.warn('RAWG API key not found. RAWG features will be unavailable.');
+      console.log('[RAWG Init] RAWG API key not found. RAWG features will be unavailable (Optional).');
       rawgService = null;
       return false;
     }
@@ -864,18 +866,43 @@ const initializeRAWGService = async () => {
   }
 };
 
+// Function to initialize SteamGridDB service with API key
+const initializeSteamGridDBService = async () => {
+  try {
+    const storedCreds = await apiCredentialsService.getCredentials();
+    const steamGridDBApiKey = storedCreds.steamGridDBApiKey || process.env.STEAMGRIDDB_API_KEY;
+
+    if (steamGridDBApiKey) {
+      steamGridDBService = new SteamGridDBService(steamGridDBApiKey);
+      console.log('[SteamGridDB Init] SteamGridDB service initialized (Optional API enabled)');
+      return true;
+    } else {
+      console.log('[SteamGridDB Init] SteamGridDB API key not found. SteamGridDB features will be unavailable (Optional).');
+      steamGridDBService = null;
+      return false;
+    }
+  } catch (error) {
+    steamGridDBService = null;
+    return false;
+  }
+};
+
 // Initialize metadata fetcher with providers
 const metadataFetcher = new MetadataFetcherService(
   null, // IGDB service (will be set after initialization)
   steamService, // Steam service (official store for metadata)
-  null // RAWG service (will be set after initialization)
+  null, // RAWG service (will be set after initialization)
+  null // SteamGridDB service (will be set after initialization)
 );
+
+const duckDuckGoImageService = new DuckDuckGoImageService();
 
 // Function to update metadata fetcher with initialized services
 const updateMetadataFetcher = () => {
   metadataFetcher.setIGDBService(igdbService);
   metadataFetcher.setSteamService(steamService);
   metadataFetcher.setRAWGService(rawgService);
+  metadataFetcher.setSteamGridDBService(steamGridDBService);
 };
 
 const launcherService = new LauncherService(gameStore);
@@ -1227,9 +1254,16 @@ async function buildTrayContextMenu(): Promise<Electron.Menu> {
 
 // Initialize on startup (wrapped in IIFE to handle async)
 (async () => {
+  // Register handlers immediately so UI doesn't error on missing handlers
+  registerSuspendIPCHandlers();
+
   await initializeIGDBService();
   await initializeRAWGService();
+  await initializeSteamGridDBService();
   updateMetadataFetcher();
+
+  // Initialize optional services
+  await initializeSuspendService();
 })();
 
 // Try to set default Steam path if it exists
@@ -1374,9 +1408,22 @@ ipcMain.handle('gameStore:getLibrary', async () => {
   }
 });
 
-ipcMain.handle('gameStore:saveGame', async (_event, game: Game) => {
+ipcMain.handle('gameStore:saveGame', async (_event, game: Game, oldGame?: Game) => {
   try {
     console.log(`[saveGame] Saving game: ${game.title} (${game.id})`);
+
+    // If oldGame is provided and has a different ID, delete it first to prevent duplicates
+    // This happens when Fix Match changes the game ID (e.g., from xbox-pc-... to steam-...)
+    if (oldGame && oldGame.id !== game.id) {
+      console.log(`[saveGame] Game ID changed from ${oldGame.id} to ${game.id}, deleting old entry`);
+      try {
+        await gameStore.deleteGame(oldGame.id);
+        console.log(`[saveGame] Successfully deleted old game entry: ${oldGame.id}`);
+      } catch (deleteError) {
+        console.warn(`[saveGame] Failed to delete old game entry (may not exist): ${oldGame.id}`, deleteError);
+        // Continue with save even if delete fails
+      }
+    }
 
     // Cache images before saving
     const cachedImages = await imageCacheService.cacheImages({
@@ -2936,8 +2983,7 @@ ipcMain.handle('dialog:showOpenDialog', async () => {
     const targetWindow = BrowserWindow.getFocusedWindow() || win;
 
     // dialog.showOpenDialog can work without a window, but TypeScript types are strict
-    // @ts-expect-error - Electron dialog API accepts undefined, but types don't reflect this
-    const result = await dialog.showOpenDialog(targetWindow || undefined, {
+    const result = await dialog.showOpenDialog((targetWindow || undefined) as any, {
       properties: ['openFile'],
       filters: [
         { name: 'Executables', extensions: ['exe'] },
@@ -2961,11 +3007,10 @@ ipcMain.handle('dialog:showImageDialog', async () => {
   try {
     const targetWindow = BrowserWindow.getFocusedWindow() || win;
 
-    // @ts-expect-error - Electron dialog API accepts undefined, but types don't reflect this
-    const result = await dialog.showOpenDialog(targetWindow || undefined, {
+    const result = await dialog.showOpenDialog((targetWindow || undefined) as any, {
       properties: ['openFile'],
       filters: [
-        { name: 'Images', extensions: ['jpg', 'jpeg', 'png', 'gif', 'webp'] },
+        { name: 'Images', extensions: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'ico'] },
         { name: 'All Files', extensions: ['*'] },
       ],
     });
@@ -3437,6 +3482,17 @@ ipcMain.handle('appConfig:get', async (_event, appId: string) => {
   }
 });
 
+// Open external URL handler
+ipcMain.handle('app:openExternal', async (_event, url: string) => {
+  try {
+    await shell.openExternal(url);
+    return { success: true };
+  } catch (error) {
+    console.error('Error opening external URL:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+});
+
 ipcMain.handle('appConfig:save', async (_event, config: { id: string; name: string; enabled: boolean; path: string; autoAdd?: boolean }) => {
   try {
     await appConfigService.saveAppConfig(config);
@@ -3686,7 +3742,11 @@ const performBackgroundScan = async (skipEnabledCheck: boolean = false) => {
     // Scan all configured launchers using ImportService
     // This will scan Steam, Xbox, Epic, GOG, Ubisoft, EA, Battle.net, Rockstar, Humble, itch.io, etc.
     try {
-      const scannedResults = await importService.scanAllSources();
+      const scannedResults = await importService.scanAllSources((message) => {
+        if (win && !win.isDestroyed()) {
+          win.webContents.send('startup:progress', { message });
+        }
+      });
       console.log(`[BackgroundScan] Scanned ${scannedResults.length} total games`);
 
       if (scannedResults.length > 0) {
@@ -3907,49 +3967,48 @@ ipcMain.handle('metadata:searchImages', async (_event, query: string, imageType:
     // Only perform broad search if we have credentials or if we didn't search with an ID
     if (hasIGDB) {
       const globalResults = await metadataFetcher.searchGames(query);
+      console.log(`[SearchImages] IGDB Game Search Results for "${query}":`, globalResults.map(r => `${r.title} (ID: ${r.id})`));
       const topGames = globalResults.slice(0, 10); // Limit to top 10
 
-      for (const game of topGames) {
+      // Process top games in parallel to fetch metadata
+      const limitedTopGames = topGames.slice(0, 5);
+
+      const metadataPromises = limitedTopGames.map(async (game) => {
         // Skip if we already added this game via Steam App ID
-        if (game.steamAppId && addedGameIds.has(String(game.steamAppId))) continue;
+        if (game.steamAppId && addedGameIds.has(String(game.steamAppId))) return null;
 
         let url = '';
         const images: any[] = [];
 
-        // Optimistic check: GameSearchResult does not have coverUrl, so we must fetch artwork
-        // unless we cast it to IGDBGameResult (bad practice).
-        // IGDBGameResult has keys: id, name, summary, coverUrl, screenshotUrls, etc.
-        // But searchGames returns GameSearchResult (from MetadataFetcherService.ts).
-        // Let's check MetadataFetcherService.searchGames return type again.
-        // It returns Promise<GameSearchResult[]>.
-        // GameSearchResult in MetadataProvider.ts has only: id, title, source, externalId, steamAppId.
-
-        // Therefore, we MUST deep fetch artwork for every candidate if we want images.
-        // To avoid excessive API calls, we limit this to top 3-5 candidates.
-
-        if (topGames.indexOf(game) < 5) {
-          try {
-            // Fetch full metadata for this candidate
-            // Note: searchArtwork takes (title, steamAppId)
-            const details = await metadataFetcher.searchArtwork(game.title, game.steamAppId);
-            if (details) {
-              if (imageType === 'boxart') url = details.boxArtUrl;
-              else if (imageType === 'banner') url = details.bannerUrl || details.heroUrl || '';
-              else if (imageType === 'logo') url = details.logoUrl || '';
-              else if (imageType === 'icon') url = details.iconUrl || '';
-            }
-          } catch (ignore) { }
-        }
+        try {
+          // Fetch full metadata for this candidate
+          // Note: searchArtwork takes (title, steamAppId)
+          const details = await metadataFetcher.searchArtwork(game.title, game.steamAppId);
+          if (details) {
+            if (imageType === 'boxart') url = details.boxArtUrl;
+            else if (imageType === 'banner') url = details.bannerUrl || details.heroUrl || '';
+            else if (imageType === 'logo') url = details.logoUrl || '';
+            else if (imageType === 'icon') url = details.iconUrl || '';
+          }
+        } catch (ignore) { }
 
         if (url) {
           images.push({ url, score: 500, width: 0, height: 0 });
-          results.push({
+          return {
             gameId: game.id,
             gameName: game.title,
             images: images
-          });
+          };
         }
-      }
+        return null;
+      });
+
+      const parallelResults = await Promise.all(metadataPromises);
+
+      // Filter out nulls and add to results
+      parallelResults.forEach(result => {
+        if (result) results.push(result);
+      });
     }
 
     return { success: true, images: results };
@@ -3957,6 +4016,368 @@ ipcMain.handle('metadata:searchImages', async (_event, query: string, imageType:
   } catch (error) {
     console.error(`Error searching images (${imageType}) for "${query}":`, error);
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error', images: [] };
+  }
+});
+
+ipcMain.handle('metadata:searchWebImages', async (_event, query: string, imageType: 'boxart' | 'banner' | 'logo' | 'icon') => {
+  try {
+    console.log(`[SearchWebImages] Searching for "${query}" (type: ${imageType})`);
+
+    // Add type-specific keywords to query for better results
+    let enhancedQuery = query;
+    if (imageType === 'boxart') enhancedQuery += ' game box art cover';
+    else if (imageType === 'banner') enhancedQuery += ' game banner backdrop background wallpaper';
+    else if (imageType === 'logo') enhancedQuery += ' game logo transparent png pngegg';
+
+    const webResults = await duckDuckGoImageService.searchImages(enhancedQuery);
+
+    // Transform to standard ImageResult format
+    const results = webResults.map((item: any, index: number) => ({
+      url: item.url,
+      score: 100 - index, // Lower score for subsequent results
+      width: item.width,
+      height: item.height,
+      source: 'web',
+      title: item.title,
+      isAnimated: item.url.includes('.gif') || item.url.includes('.webp')
+    }));
+
+    // Wrap in the format expected by the frontend (grouped by "game")
+    // For web search, we just return one group
+    return {
+      success: true,
+      images: [{
+        gameId: 'web-search',
+        gameName: 'Web Search Results',
+        images: results
+      }]
+    };
+  } catch (error) {
+    console.error('Error in metadata:searchWebImages handler:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error', images: [] };
+  }
+});
+
+// Fast image search - Playnite-style instant results
+// Uses fastSearchGame() which bypasses rate limiting for immediate response
+ipcMain.handle('metadata:fastImageSearch', async (_event, query: string) => {
+  try {
+    console.log(`[FastImageSearch] Searching for "${query}"`);
+    const startTime = Date.now();
+
+    if (!igdbService) {
+      return {
+        success: false,
+        error: 'IGDB service not configured. Please configure your API credentials in Settings > APIs.',
+        games: []
+      };
+    }
+
+    // Use fast search method - no rate limiting, immediate results
+    const results = await igdbService.fastSearchGame(query);
+
+    console.log(`[FastImageSearch] Completed in ${Date.now() - startTime}ms, ${results.length} games found`);
+
+    // Transform to unified format with all image types
+    const games = results.map((game) => ({
+      id: game.id,
+      name: game.name,
+      coverUrl: game.coverUrl || '',
+      bannerUrl: game.screenshotUrls?.[0] || '', // Use first screenshot as banner
+      logoUrl: game.logoUrl || '',
+      screenshotUrls: game.screenshotUrls || [],
+      steamAppId: game.steamAppId,
+      releaseDate: game.releaseDate,
+      source: 'igdb'
+    }));
+
+    return { success: true, games };
+  } catch (error) {
+    console.error('Error in metadata:fastImageSearch handler:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+      games: []
+    };
+  }
+});
+
+// Fetch all images for a confirmed game from multiple sources
+// Called after user confirms a game selection from quick search
+ipcMain.handle('metadata:fetchGameImages', async (_event, gameName: string, steamAppId?: string, igdbId?: number) => {
+  try {
+    console.log(`[FetchGameImages] Fetching images for "${gameName}" (steamAppId: ${steamAppId}, igdbId: ${igdbId})`);
+    const startTime = Date.now();
+
+    interface ImageResult {
+      url: string;
+      type: 'boxart' | 'banner' | 'logo' | 'icon' | 'screenshot';
+      source: string;
+      name?: string;
+    }
+
+    const images: ImageResult[] = [];
+    const errors: string[] = [];
+
+    // 1. Fetch from IGDB (primary source for covers, screenshots, artworks)
+    if (igdbService) {
+      try {
+        console.log(`[FetchGameImages] Searching IGDB for "${gameName}"...`);
+        const igdbResults = igdbId
+          ? await igdbService.fastSearchGame(String(igdbId))
+          : await igdbService.fastSearchGame(gameName);
+
+        if (igdbResults.length > 0) {
+          const game = igdbResults[0];
+
+          // Cover as boxart
+          if (game.coverUrl) {
+            images.push({ url: game.coverUrl, type: 'boxart', source: 'IGDB', name: game.name });
+          }
+
+          // Screenshots as banners
+          if (game.screenshotUrls && game.screenshotUrls.length > 0) {
+            game.screenshotUrls.forEach((url, idx) => {
+              images.push({ url, type: 'banner', source: 'IGDB', name: `${game.name} - Screenshot ${idx + 1}` });
+              images.push({ url, type: 'screenshot', source: 'IGDB', name: `${game.name} - Screenshot ${idx + 1}` });
+            });
+          }
+
+          // Artworks as banners/backgrounds
+          if (game.artworkUrls && game.artworkUrls.length > 0) {
+            game.artworkUrls.forEach((url, idx) => {
+              images.push({ url, type: 'banner', source: 'IGDB', name: `${game.name} - Artwork ${idx + 1}` });
+            });
+          }
+
+          // Logo
+          if (game.logoUrl) {
+            images.push({ url: game.logoUrl, type: 'logo', source: 'IGDB', name: `${game.name} - Logo` });
+          }
+
+          console.log(`[FetchGameImages] IGDB returned ${images.length} images`);
+        }
+      } catch (err) {
+        console.error('[FetchGameImages] IGDB error:', err);
+        errors.push('IGDB: ' + (err instanceof Error ? err.message : 'Unknown error'));
+      }
+    }
+
+    // 2. Fetch from RAWG (background images, additional screenshots)
+    if (rawgService) {
+      try {
+        console.log(`[FetchGameImages] Searching RAWG for "${gameName}"...`);
+        const rawgResults = await rawgService.searchGame(gameName);
+
+        if (rawgResults.length > 0) {
+          const game = rawgResults[0];
+
+          // Background image as banner
+          if (game.background_image) {
+            images.push({ url: game.background_image, type: 'banner', source: 'RAWG', name: game.name });
+          }
+
+          // Additional background as banner
+          if (game.background_image_additional) {
+            images.push({ url: game.background_image_additional, type: 'banner', source: 'RAWG', name: `${game.name} - Alt` });
+          }
+
+          // Screenshots
+          if (game.screenshots && game.screenshots.length > 0) {
+            game.screenshots.forEach((ss, idx) => {
+              images.push({ url: ss.image, type: 'screenshot', source: 'RAWG', name: `${game.name} - Screenshot ${idx + 1}` });
+            });
+          }
+
+          console.log(`[FetchGameImages] RAWG added images, total now: ${images.length}`);
+        }
+      } catch (err) {
+        console.error('[FetchGameImages] RAWG error:', err);
+        errors.push('RAWG: ' + (err instanceof Error ? err.message : 'Unknown error'));
+      }
+    }
+
+    // 3. Fetch from SteamGridDB (logos, icons, grids, heroes)
+    if (steamGridDBService) {
+      try {
+        console.log(`[FetchGameImages] Searching SteamGridDB for "${gameName}"...`);
+        // Add 5s timeout to search
+        const sgdbGames = await withTimeout(
+          steamGridDBService.searchGame(gameName, steamAppId),
+          15000,
+          'SteamGridDB search timeout'
+        );
+
+        if (sgdbGames.length > 0) {
+          const sgdbGame = sgdbGames[0];
+
+          // Get all image types from SteamGridDB with 10s timeout
+          const [grids, logos, heroes, icons] = await withTimeout(
+            Promise.allSettled([
+              steamGridDBService.getVerticalGrids(sgdbGame.id),
+              steamGridDBService.getLogos(sgdbGame.id),
+              steamGridDBService.getHeroes(sgdbGame.id),
+              steamGridDBService.getIcons(sgdbGame.id)
+            ]),
+            15000,
+            'SteamGridDB image fetch timeout'
+          );
+
+          // Vertical grids as boxart
+          if (grids.status === 'fulfilled' && grids.value.length > 0) {
+            grids.value.slice(0, 5).forEach((img, idx) => {
+              images.push({ url: img.url, type: 'boxart', source: 'SteamGridDB', name: `${sgdbGame.name} - Grid ${idx + 1}` });
+            });
+          }
+
+          // Logos
+          if (logos.status === 'fulfilled' && logos.value.length > 0) {
+            logos.value.slice(0, 5).forEach((img, idx) => {
+              images.push({ url: img.url, type: 'logo', source: 'SteamGridDB', name: `${sgdbGame.name} - Logo ${idx + 1}` });
+            });
+          }
+
+          // Heroes as banners
+          if (heroes.status === 'fulfilled' && heroes.value.length > 0) {
+            heroes.value.slice(0, 5).forEach((img, idx) => {
+              images.push({ url: img.url, type: 'banner', source: 'SteamGridDB', name: `${sgdbGame.name} - Hero ${idx + 1}` });
+            });
+          }
+
+          // Icons
+          if (icons.status === 'fulfilled' && icons.value.length > 0) {
+            icons.value.slice(0, 5).forEach((img, idx) => {
+              images.push({ url: img.url, type: 'icon', source: 'SteamGridDB', name: `${sgdbGame.name} - Icon ${idx + 1}` });
+            });
+          }
+
+          console.log(`[FetchGameImages] SteamGridDB added images, total now: ${images.length}`);
+        }
+      } catch (err) {
+        console.error('[FetchGameImages] SteamGridDB error:', err);
+        errors.push('SteamGridDB: ' + (err instanceof Error ? err.message : 'Unknown error'));
+      }
+    }
+
+    // 4. Fetch from Web (DuckDuckGo Search)
+    // DISABLED: Automated scraping of search results violates standard ToS.
+    // Preserving code structure in case an official API becomes available.
+    /*
+    const ddgService = new DuckDuckGoImageService();
+    try {
+      console.log(`[FetchGameImages] Searching Web (DDG) for "${gameName}"...`);
+      // Search for a broad set of images
+      const webImages = await withTimeout(
+        ddgService.searchImages(`${gameName} game art boxart logo wallpaper`),
+        8000,
+        'Web search timeout'
+      );
+
+      if (webImages.length > 0) {
+        webImages.forEach((img, idx) => {
+          // Simple classification by aspect ratio
+          const ratio = img.width / img.height;
+          let type: 'boxart' | 'banner' | 'logo' | undefined;
+
+          // Vertical-ish -> Boxart
+          if (ratio < 0.85) type = 'boxart';
+          // Wide -> Banner
+          else if (ratio > 1.5) type = 'banner';
+          // Square-ish might be logo or close-up
+          // else type = 'logo'; // Risk of getting random squares. stick to banner/boxart for now unless confident.
+
+          if (type) {
+            images.push({
+              url: img.url,
+              type,
+              source: 'DuckDuckGo',
+              name: img.title || `Web Result ${idx + 1}`
+            });
+          }
+        });
+        console.log(`[FetchGameImages] Web search added ${webImages.length} candidates, total unique images: ${images.length}`);
+      }
+    } catch (err) {
+        console.error('[FetchGameImages] Web search error:', err);
+        // Don't fail the whole request
+    }
+    */
+
+
+    // 5. Fetch from Steam Store Direct (Standard Assets + Screenshots)
+    if (steamAppId) {
+      try {
+        console.log(`[FetchGameImages] Fetching from Steam Store (AppID: ${steamAppId})...`);
+
+        // Add standard predictably named assets
+        // Boxart (Library Vertical)
+        images.push({
+          url: `https://cdn.akamai.steamstatic.com/steam/apps/${steamAppId}/library_600x900_2x.jpg`,
+          type: 'boxart', source: 'Steam Store', name: 'Steam Library Vertical'
+        });
+        // Banner (Library Hero)
+        images.push({
+          url: `https://cdn.akamai.steamstatic.com/steam/apps/${steamAppId}/library_hero.jpg`,
+          type: 'banner', source: 'Steam Store', name: 'Steam Library Hero'
+        });
+        // Logo
+        images.push({
+          url: `https://cdn.akamai.steamstatic.com/steam/apps/${steamAppId}/logo.png`,
+          type: 'logo', source: 'Steam Store', name: 'Steam Logo'
+        });
+        // Header (can be banner)
+        images.push({
+          url: `https://cdn.akamai.steamstatic.com/steam/apps/${steamAppId}/header.jpg`,
+          type: 'banner', source: 'Steam Store', name: 'Steam Header'
+        });
+
+        // Fetch screenshots via API
+        const storeUrl = `https://store.steampowered.com/api/appdetails?appids=${steamAppId}`;
+        const storeRes = await fetch(storeUrl);
+        if (storeRes.ok) {
+          const storeData: any = await storeRes.json();
+          if (storeData[steamAppId] && storeData[steamAppId].success) {
+            const appData = storeData[steamAppId].data;
+            if (appData.screenshots && Array.isArray(appData.screenshots)) {
+              appData.screenshots.slice(0, 8).forEach((ss: any, idx: number) => {
+                images.push({
+                  url: ss.path_full,
+                  type: 'banner', // Treat screenshots as banners for now
+                  source: 'Steam Store',
+                  name: `Screenshot ${idx + 1}`
+                });
+              });
+            }
+          }
+        }
+        console.log(`[FetchGameImages] Steam Store added assets, total unique images: ${images.length}`);
+      } catch (err) {
+        console.error('[FetchGameImages] Steam Store error:', err);
+      }
+    }
+
+    console.log(`[FetchGameImages] Completed in ${Date.now() - startTime}ms, ${images.length} total images`);
+
+    return {
+      success: true,
+      images,
+      errors: errors.length > 0 ? errors : undefined,
+      stats: {
+        total: images.length,
+        boxart: images.filter(i => i.type === 'boxart').length,
+        banner: images.filter(i => i.type === 'banner').length,
+        logo: images.filter(i => i.type === 'logo').length,
+        icon: images.filter(i => i.type === 'icon').length,
+        screenshot: images.filter(i => i.type === 'screenshot').length,
+      }
+    };
+  } catch (error) {
+    console.error('Error in metadata:fetchGameImages handler:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+      images: []
+    };
   }
 });
 
@@ -4284,16 +4705,7 @@ ipcMain.handle('app:applyStartupSettings', async (_event, settings: { startWithC
   }
 });
 
-// Open external URL handler
-ipcMain.handle('app:openExternal', async (_event, url: string) => {
-  try {
-    await shell.openExternal(url);
-    return { success: true };
-  } catch (error) {
-    console.error('Error opening external URL:', error);
-    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
-  }
-});
+
 
 // Open folder/path handler
 ipcMain.handle('app:openPath', async (_event, pathOrType: string) => {

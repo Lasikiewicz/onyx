@@ -55,9 +55,8 @@ export class IGDBMetadataProvider implements MetadataProvider {
         return null;
       }
 
-      // Search for the game - IGDB searchGame can handle ID-based queries
-      // We'll search with a unique identifier to get the specific game
-      const results = await this.igdbService.searchGame(`id:${gameId}`);
+      // Search for the game by ID (IGDBService.searchGame handles numeric strings as 'where id = ...')
+      const results = await this.igdbService.searchGame(String(gameId));
       if (results.length === 0) {
         // Try searching by the ID directly as a fallback
         const allResults = await this.igdbService.searchGame(String(gameId));
@@ -119,11 +118,12 @@ export class IGDBMetadataProvider implements MetadataProvider {
       }
 
       const result = results[0];
-      console.log(`[IGDBProvider.getArtwork] Found game "${result.name}", coverUrl: ${result.coverUrl || 'MISSING'}`);
+      console.log(`[IGDBProvider.getArtwork] Found game "${result.name}", coverUrl: ${result.coverUrl || 'MISSING'}, logoUrl: ${result.logoUrl || 'MISSING'}`);
 
       return {
         boxArtUrl: result.coverUrl,
         bannerUrl: result.coverUrl, // IGDB uses same cover for banner
+        logoUrl: result.logoUrl, // Now includes logos from IGDB's game_logos endpoint
         screenshots: result.screenshotUrls,
         // IGDB cover_big is typically 264x374
         boxArtResolution: result.coverUrl ? { width: 264, height: 374 } : undefined,

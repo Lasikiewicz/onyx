@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { ImageSelector, ImageResult } from './ImageSelector';
 
 interface MissingBoxartGame {
   gameId: string;
@@ -13,18 +14,6 @@ interface BoxartFixDialogProps {
   onCancel: () => void;
 }
 
-interface ImageResult {
-  id: string;
-  url: string;
-  title?: string;
-  source?: string;
-  score?: number;
-  width?: number;
-  height?: number;
-  mime?: string;
-  isAnimated?: boolean;
-}
-
 export const BoxartFixDialog: React.FC<BoxartFixDialogProps> = ({
   isOpen,
   missingBoxartGames,
@@ -36,6 +25,7 @@ export const BoxartFixDialog: React.FC<BoxartFixDialogProps> = ({
   const [searchQueries, setSearchQueries] = useState<Map<string, string>>(new Map());
   const [searchResults, setSearchResults] = useState<Map<string, ImageResult[]>>(new Map());
   const [isSearching, setIsSearching] = useState<Map<string, boolean>>(new Map());
+  const [isWebSearching, setIsWebSearching] = useState<Map<string, boolean>>(new Map());
   const [expandedGameId, setExpandedGameId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -52,75 +42,82 @@ export const BoxartFixDialog: React.FC<BoxartFixDialogProps> = ({
       setSearchQueries(new Map());
       setSearchResults(new Map());
       setIsSearching(new Map());
+      setIsWebSearching(new Map());
       setExpandedGameId(null);
     }
   }, [isOpen, missingBoxartGames]);
 
-  const handleSearch = async (gameId: string, query: string) => {
+  const handleSearch = async (gameId: string, query: string, useWeb: boolean = false) => {
     if (!query.trim()) return;
 
     const game = missingBoxartGames.find(g => g.gameId === gameId);
     if (!game) return;
 
-    setIsSearching(prev => new Map(prev).set(gameId, true));
+    if (useWeb) {
+      setIsWebSearching(prev => new Map(prev).set(gameId, true));
+    } else {
+      setIsSearching(prev => new Map(prev).set(gameId, true));
+    }
+
     setSearchQueries(prev => new Map(prev).set(gameId, query));
 
     try {
-      // Search for boxart images
-      const steamAppId = game.steamAppId;
-      const response = await window.electronAPI.searchImages(query, 'boxart', steamAppId);
+      let results: ImageResult[] = [];
 
-      const results: ImageResult[] = [];
-
-      if (response.success && response.images) {
-        // Flatten SteamGridDB results - these should be vertical grids (boxart) only
-        response.images.forEach((gameResult: any) => {
-          gameResult.images.forEach((img: any) => {
-            // Verify it's a vertical grid (portrait orientation)
-            // Boxart should have height >= width (aspect ratio >= 0.9 to be lenient)
-            if (img.width && img.height) {
-              const aspectRatio = img.height / img.width;
-              if (aspectRatio < 0.9) {
-                // Skip landscape images (these would be banners/heroes, not boxart)
-                console.warn(`[BoxartFixDialog] Skipping landscape image (not boxart): ${img.width}x${img.height} (aspect ${aspectRatio.toFixed(2)})`);
-                return;
-              }
-            }
-            const isAnimated = img.mime === 'image/webp' || img.mime === 'image/gif' || 
-                              img.url?.includes('.webp') || img.url?.includes('.gif');
-            results.push({
-              id: `${gameResult.gameId}-${img.url}`,
-              url: img.url,
-              title: gameResult.gameName,
-              source: 'steamgriddb',
-              score: img.score,
-              width: img.width,
-              height: img.height,
-              mime: img.mime,
-              isAnimated: isAnimated,
-            });
-          });
-        });
-      }
-
-      // Also search IGDB for boxart
-      try {
-        const igdbResponse = await window.electronAPI.searchMetadata(query);
-        if (igdbResponse && igdbResponse.success && igdbResponse.results) {
-          igdbResponse.results.forEach((result: any) => {
-            if (result.coverUrl) {
-              results.push({
-                id: `igdb-${result.id}-${result.coverUrl}`,
-                url: result.coverUrl,
-                title: result.name,
-                source: 'igdb',
-              });
-            }
+      if (useWeb) {
+        const response = await window.electronAPI.searchWebImages(query, 'boxart');
+        if (response.success && response.images) {
+          response.images.forEach((gameResult: any) => {
+            results.push(...gameResult.images);
           });
         }
-      } catch (e) {
-        // IGDB search is optional, continue if it fails
-        console.warn('IGDB search failed:', e);
+      } else {
+        // Standard provider search
+        const steamAppId = game.steamAppId;
+        const response = await window.electronAPI.searchImages(query, 'boxart', steamAppId);
+
+        if (response.success && response.images) {
+          response.images.forEach((gameResult: any) => {
+            gameResult.images.forEach((img: any) => {
+              // Verify it's a vertical grid (portrait orientation)
+              if (img.width && img.height) {
+                const aspectRatio = img.height / img.width;
+                if (aspectRatio < 0.9) return;
+              }
+              results.push({
+                id: `${gameResult.gameId}-${img.url}`,
+                url: img.url,
+                title: gameResult.gameName,
+                source: 'steamgriddb',
+                score: img.score,
+                width: img.width,
+                height: img.height,
+                mime: img.mime,
+                isAnimated: img.mime === 'image/webp' || img.mime === 'image/gif' ||
+                  img.url?.includes('.webp') || img.url?.includes('.gif'),
+              });
+            });
+          });
+        }
+
+        // Also search IGDB
+        try {
+          const igdbResponse = await window.electronAPI.searchMetadata(query);
+          if (igdbResponse && igdbResponse.success && igdbResponse.results) {
+            igdbResponse.results.forEach((result: any) => {
+              if (result.coverUrl) {
+                results.push({
+                  id: `igdb-${result.id}-${result.coverUrl}`,
+                  url: result.coverUrl,
+                  title: result.name,
+                  source: 'igdb',
+                });
+              }
+            });
+          }
+        } catch (e) {
+          console.warn('IGDB search failed:', e);
+        }
       }
 
       // Sort results: exact matches first, then by score
@@ -128,23 +125,39 @@ export const BoxartFixDialog: React.FC<BoxartFixDialogProps> = ({
       results.sort((a, b) => {
         const aTitle = (a.title || '').toLowerCase().trim();
         const bTitle = (b.title || '').toLowerCase().trim();
-        
+
         const aExact = aTitle === normalizedQuery;
         const bExact = bTitle === normalizedQuery;
-        
+
         if (aExact && !bExact) return -1;
         if (!aExact && bExact) return 1;
-        
-        // If both or neither are exact, sort by score (if available)
+
         return (b.score || 0) - (a.score || 0);
       });
 
-      setSearchResults(prev => new Map(prev).set(gameId, results));
+      // Merge with existing results if it's a web search, or replace if it's a new provider search
+      if (useWeb) {
+        setSearchResults(prev => {
+          const existing = prev.get(gameId) || [];
+          // Avoid duplicates
+          const seenUrls = new Set(existing.map(r => r.url));
+          const newResults = results.filter(r => !seenUrls.has(r.url));
+          return new Map(prev).set(gameId, [...existing, ...newResults]);
+        });
+      } else {
+        setSearchResults(prev => new Map(prev).set(gameId, results));
+      }
     } catch (error) {
       console.error('Error searching for boxart:', error);
-      setSearchResults(prev => new Map(prev).set(gameId, []));
+      if (!useWeb) {
+        setSearchResults(prev => new Map(prev).set(gameId, []));
+      }
     } finally {
-      setIsSearching(prev => new Map(prev).set(gameId, false));
+      if (useWeb) {
+        setIsWebSearching(prev => new Map(prev).set(gameId, false));
+      } else {
+        setIsSearching(prev => new Map(prev).set(gameId, false));
+      }
     }
   };
 
@@ -167,7 +180,6 @@ export const BoxartFixDialog: React.FC<BoxartFixDialogProps> = ({
 
   if (!isOpen) return null;
 
-  // Get visible games (games that need boxart)
   const visibleGames = missingBoxartGames;
   const allFixed = visibleGames.length > 0 && selectedBoxarts && visibleGames.every(game => selectedBoxarts.has(game.gameId));
 
@@ -190,7 +202,7 @@ export const BoxartFixDialog: React.FC<BoxartFixDialogProps> = ({
         {/* Content */}
         <div className="flex-1 overflow-y-auto px-6 py-4">
           <p className="text-sm text-gray-400 mb-4">
-            {missingBoxartGames.length} game{missingBoxartGames.length !== 1 ? 's' : ''} couldn't have boxart downloaded automatically. 
+            {missingBoxartGames.length} game{missingBoxartGames.length !== 1 ? 's' : ''} couldn't have boxart downloaded automatically.
             Please search and select boxart for each game:
           </p>
 
@@ -198,6 +210,7 @@ export const BoxartFixDialog: React.FC<BoxartFixDialogProps> = ({
             {missingBoxartGames.map((game) => {
               const gameResults = searchResults.get(game.gameId) || [];
               const isSearchingGame = isSearching.get(game.gameId);
+              const isWebSearchingGame = isWebSearching.get(game.gameId);
               const selectedBoxart = selectedBoxarts.get(game.gameId);
               const searchQuery = searchQueries.get(game.gameId) || game.title;
               const isExpanded = expandedGameId === game.gameId;
@@ -205,115 +218,83 @@ export const BoxartFixDialog: React.FC<BoxartFixDialogProps> = ({
               return (
                 <div key={game.gameId} className="border border-gray-700 rounded-lg p-4 bg-gray-900/50">
                   <div className="flex items-center justify-between mb-3">
-                    <div className="font-medium text-white">{game.title}</div>
+                    <div className="flex items-center gap-3">
+                      <div className="font-medium text-white">{game.title}</div>
+                      {selectedBoxart && (
+                        <div className="text-xs bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded border border-blue-500/30 font-bold">
+                          BOXART SELECTED
+                        </div>
+                      )}
+                    </div>
                     <button
                       onClick={() => setExpandedGameId(isExpanded ? null : game.gameId)}
-                      className="text-xs text-gray-400 hover:text-gray-300 px-2 py-1 rounded hover:bg-gray-800"
+                      className={`text-xs px-3 py-1.5 rounded-lg transition-all font-medium ${isExpanded
+                          ? 'bg-gray-700 text-white shadow-inner'
+                          : 'bg-gray-800 text-gray-400 hover:text-gray-200 hover:bg-gray-700'
+                        }`}
                     >
-                      {isExpanded ? 'Collapse' : 'Expand'}
+                      {isExpanded ? 'Collapse' : 'Select Boxart'}
                     </button>
                   </div>
-                  
+
                   {isExpanded && (
-                    <>
+                    <div className="space-y-4 animate-in slide-in-from-top-2 duration-300">
                       {/* Search Box */}
-                      <div className="mb-3">
-                        <input
-                          type="text"
-                          placeholder="Search for boxart..."
-                          value={searchQuery}
-                          onChange={(e) => {
-                            const query = e.target.value;
-                            setSearchQueries(prev => new Map(prev).set(game.gameId, query));
-                            if (query.trim()) {
-                              handleSearch(game.gameId, query);
-                            }
-                          }}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' && searchQuery.trim()) {
-                              handleSearch(game.gameId, searchQuery);
-                            }
-                          }}
-                          className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white placeholder-gray-400 focus:outline-none focus:border-blue-500"
-                        />
+                      <div className="flex gap-2">
+                        <div className="relative flex-1">
+                          <input
+                            type="text"
+                            placeholder="Search for boxart..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQueries(prev => new Map(prev).set(game.gameId, e.target.value))}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' && searchQuery.trim()) {
+                                handleSearch(game.gameId, searchQuery);
+                              }
+                            }}
+                            className="w-full pl-10 pr-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-colors"
+                          />
+                          <svg className="absolute left-3 top-2.5 w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                          </svg>
+                        </div>
                         <button
                           onClick={() => handleSearch(game.gameId, searchQuery)}
-                          disabled={!searchQuery.trim() || isSearchingGame}
-                          className="mt-2 w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-medium rounded transition-colors"
+                          disabled={!searchQuery.trim() || isSearchingGame || isWebSearchingGame}
+                          className="px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 disabled:text-gray-500 text-white font-bold rounded-lg transition-all shadow-lg shadow-blue-500/20"
                         >
-                          {isSearchingGame ? 'Searching...' : 'Search'}
+                          {isSearchingGame ? 'Searching...' : 'Search Providers'}
                         </button>
-                        {isSearchingGame && (
-                          <div className="text-xs text-gray-500 mt-1">Searching...</div>
-                        )}
+                        <button
+                          onClick={() => handleSearch(game.gameId, searchQuery, true)}
+                          disabled={!searchQuery.trim() || isSearchingGame || isWebSearchingGame}
+                          className="px-6 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-700 disabled:text-gray-500 text-white font-bold rounded-lg transition-all shadow-lg shadow-purple-500/20 flex items-center gap-2"
+                        >
+                          {isWebSearchingGame ? (
+                            <>
+                              <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                              <span>Web...</span>
+                            </>
+                          ) : (
+                            <>
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
+                              </svg>
+                              <span>Search Web</span>
+                            </>
+                          )}
+                        </button>
                       </div>
 
-                      {/* Results */}
-                      {gameResults.length > 0 ? (
-                        <div className="grid grid-cols-10 gap-2 max-h-96 overflow-y-auto">
-                          {gameResults.map((result) => {
-                            const isSelected = selectedBoxart === result.url;
-                            const isAnimated = result.isAnimated || result.url?.includes('.webp') || result.url?.includes('.gif');
-                            return (
-                              <div
-                                key={result.id}
-                                className={`relative group cursor-pointer border-2 rounded transition-all ${
-                                  isSelected
-                                    ? 'border-blue-500 ring-2 ring-blue-500/50'
-                                    : 'border-gray-600 hover:border-gray-500'
-                                }`}
-                                onClick={() => handleSelectBoxart(game.gameId, result.url)}
-                              >
-                                {isAnimated ? (
-                                  <img
-                                    src={result.url}
-                                    alt={result.title || 'Animated Boxart'}
-                                    className="w-full aspect-[2/3] object-cover rounded"
-                                    onError={(e) => {
-                                      (e.target as HTMLImageElement).style.display = 'none';
-                                    }}
-                                  />
-                                ) : (
-                                  <img
-                                    src={result.url}
-                                    alt={result.title || 'Boxart'}
-                                    className="w-full aspect-[2/3] object-cover rounded"
-                                    onError={(e) => {
-                                      (e.target as HTMLImageElement).style.display = 'none';
-                                    }}
-                                  />
-                                )}
-                                {isAnimated && (
-                                  <div className="absolute top-1 right-1 bg-purple-600/80 text-white text-xs px-1.5 py-0.5 rounded flex items-center gap-1">
-                                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                                      <path d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" />
-                                    </svg>
-                                    <span>GIF</span>
-                                  </div>
-                                )}
-                                {isSelected && (
-                                  <div className="absolute inset-0 bg-blue-500/20 flex items-center justify-center">
-                                    <svg className="w-8 h-8 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
-                                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                                    </svg>
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      ) : searchQuery.trim() && !isSearchingGame ? (
-                        <div className="text-sm text-gray-500 py-4 text-center">
-                          No results found. Try searching with a different name.
-                        </div>
-                      ) : null}
-                    </>
-                  )}
-
-                  {/* Selected Boxart Indicator */}
-                  {selectedBoxart && (
-                    <div className="mt-3 p-2 bg-blue-600/20 border border-blue-600/50 rounded text-sm text-blue-300">
-                      ✓ Boxart selected
+                      {/* Unified Image Selector */}
+                      <ImageSelector
+                        images={gameResults}
+                        onSelect={(url) => handleSelectBoxart(game.gameId, url)}
+                        selectedUrl={selectedBoxart}
+                        imageType="boxart"
+                        isLoading={isSearchingGame}
+                        emptyMessage="No boxart found. Try 'Search Web' for more results."
+                      />
                     </div>
                   )}
                 </div>
@@ -323,23 +304,32 @@ export const BoxartFixDialog: React.FC<BoxartFixDialogProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-gray-700 flex items-center justify-between">
-          <div className="text-sm text-gray-400">
-            {selectedBoxarts?.size || 0} of {visibleGames.length} game{visibleGames.length !== 1 ? 's' : ''} with boxart selected
+        <div className="px-6 py-4 border-t border-gray-700 flex items-center justify-between bg-gray-900/40 rounded-b-lg">
+          <div className="flex items-center gap-4">
+            <div className="text-sm text-gray-400">
+              <span className="text-white font-bold">{selectedBoxarts?.size || 0}</span> of <span className="text-white font-bold">{visibleGames.length}</span> selected
+            </div>
+            <div className="h-4 w-px bg-gray-700"></div>
+            <div className="w-48 h-2 bg-gray-700 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-blue-500 transition-all duration-500"
+                style={{ width: `${(selectedBoxarts?.size || 0) / (visibleGames.length || 1) * 100}%` }}
+              ></div>
+            </div>
           </div>
           <div className="flex gap-3">
             <button
               onClick={onCancel}
-              className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white font-medium rounded-lg transition-colors"
+              className="px-6 py-2 bg-gray-700 hover:bg-gray-600 text-white font-bold rounded-lg transition-all"
             >
               Cancel
             </button>
             <button
               onClick={handleFix}
               disabled={!allFixed || isFixing}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-6 py-2 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white font-bold rounded-lg transition-all shadow-lg shadow-blue-600/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:from-gray-700 disabled:to-gray-700"
             >
-              {isFixing ? 'Applying...' : 'Apply Boxart'}
+              {isFixing ? 'Applying...' : 'Apply All Boxart'}
             </button>
           </div>
         </div>

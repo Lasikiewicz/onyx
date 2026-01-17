@@ -302,15 +302,43 @@ export class SteamGridDBService {
   }
 
   /**
-   * Get all metadata for a game (box art, banner, logo, hero)
+   * Get icons for a game
+   */
+  async getIcons(gameId: number): Promise<SteamGridDBImage[]> {
+    try {
+      const response = await fetch(`${this.baseUrl}/icons/game/${gameId}`, {
+        headers: {
+          'Authorization': `Bearer ${this.apiKey}`,
+        },
+      });
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          return [];
+        }
+        console.warn(`[SteamGridDB] API error ${response.status} for icons (game ${gameId}): ${response.statusText}`);
+        return [];
+      }
+
+      const data = await response.json() as { data?: SteamGridDBImage[] };
+      return data.data || [];
+    } catch (error) {
+      console.warn(`[SteamGridDB] Error fetching icons for game ${gameId}:`, error instanceof Error ? error.message : error);
+      return [];
+    }
+  }
+
+  /**
+   * Get all metadata for a game (box art, banner, logo, hero, icon)
    * Prioritizes highest scored images
    */
   async getGameMetadata(gameId: number): Promise<SteamGridDBMetadata> {
     try {
-      const [capsules, heroes, logos] = await Promise.all([
+      const [capsules, heroes, logos, icons] = await Promise.all([
         this.getCapsules(gameId),
         this.getHeroes(gameId),
         this.getLogos(gameId),
+        this.getIcons(gameId),
       ]);
 
       // Sort by score (highest first) and filter out NSFW/humor/epilepsy content
@@ -328,11 +356,16 @@ export class SteamGridDBService {
         .filter(filterImage)
         .sort((a, b) => b.score - a.score)[0];
 
+      const bestIcon = icons
+        .filter(filterImage)
+        .sort((a, b) => b.score - a.score)[0];
+
       return {
         boxArtUrl: bestCapsule?.url || '',
         bannerUrl: bestHero?.url || '',
         logoUrl: bestLogo?.url || '',
         heroUrl: bestHero?.url || '',
+        iconUrl: bestIcon?.url || '',
       };
     } catch (error) {
       console.error('Error fetching game metadata:', error);

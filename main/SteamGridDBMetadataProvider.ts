@@ -56,10 +56,11 @@ export class SteamGridDBMetadataProvider implements MetadataProvider {
       }
 
       // Fetch all artwork types in parallel
-      const [capsules, heroes, logos] = await Promise.all([
+      const [capsules, heroes, logos, icons] = await Promise.all([
         this.steamGridDBService.getCapsules(gameId),
         this.steamGridDBService.getHeroes(gameId),
         this.steamGridDBService.getLogos(gameId),
+        this.steamGridDBService.getIcons(gameId),
       ]);
 
       console.log(`[SteamGridDB] Fetched artwork for game ${gameId}:`, {
@@ -70,16 +71,20 @@ export class SteamGridDBMetadataProvider implements MetadataProvider {
 
       // Filter and sort images by score (highest first), excluding NSFW/humor/epilepsy
       const filterImage = (img: SteamGridDBImage) => !img.nsfw && !img.humor && !img.epilepsy;
-      
+
       const bestCapsule = capsules
         .filter(filterImage)
         .sort((a, b) => b.score - a.score)[0];
-      
+
       const bestHero = heroes
         .filter(filterImage)
         .sort((a, b) => b.score - a.score)[0];
-      
+
       const bestLogo = logos
+        .filter(filterImage)
+        .sort((a, b) => b.score - a.score)[0];
+
+      const bestIcon = icons
         .filter(filterImage)
         .sort((a, b) => b.score - a.score)[0];
 
@@ -88,10 +93,12 @@ export class SteamGridDBMetadataProvider implements MetadataProvider {
         bannerUrl: bestHero?.url,
         logoUrl: bestLogo?.url,
         heroUrl: bestHero?.url,
+        iconUrl: bestIcon?.url,
         boxArtResolution: bestCapsule ? { width: bestCapsule.width, height: bestCapsule.height } : undefined,
         bannerResolution: bestHero ? { width: bestHero.width, height: bestHero.height } : undefined,
         logoResolution: bestLogo ? { width: bestLogo.width, height: bestLogo.height } : undefined,
         heroResolution: bestHero ? { width: bestHero.width, height: bestHero.height } : undefined,
+        iconResolution: bestIcon ? { width: bestIcon.width, height: bestIcon.height } : undefined,
       };
 
       console.log(`[SteamGridDB] Returning artwork for game ${gameId}:`, {

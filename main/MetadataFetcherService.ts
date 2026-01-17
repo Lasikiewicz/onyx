@@ -2,11 +2,11 @@
 import { IGDBMetadataProvider } from "./IGDBMetadataProvider.js";
 import { SteamMetadataProvider } from "./SteamMetadataProvider.js";
 import { RAWGMetadataProvider } from "./RAWGMetadataProvider.js";
-import { SteamGridDBMetadataProvider } from "./SteamGridDBMetadataProvider.js";
 import { IGDBService } from "./IGDBService.js";
 import { SteamService } from "./SteamService.js";
 import { RAWGService } from "./RAWGService.js";
 import { SteamGridDBService } from "./SteamGridDBService.js";
+import { SteamGridDBMetadataProvider } from "./SteamGridDBMetadataProvider.js";
 import { getRateLimitCoordinator } from "./RateLimitCoordinator.js";
 import { getMetadataCache } from "./MetadataCache.js";
 import { getMetadataValidator } from "./MetadataValidator.js";
@@ -184,8 +184,8 @@ export class MetadataFetcherService {
     const getSourcePriority = (source: string): number => {
       if (source === "steam") return 5;
       if (source === "igdb") return 4;
-      if (source === "steamgriddb") return 3;
-      if (source === "rawg") return 2;
+      if (source === "steamgriddb") return 3.5; // SGDB assets are often higher quality than RAWG
+      if (source === "rawg") return 3;
       return 1;
     };
 
@@ -562,17 +562,26 @@ export class MetadataFetcherService {
       }
     }
 
-    // 2. SteamGridDB Provider - Best for Logos, Icons, and Banners
+    // 2. SteamGridDB Provider - High quality artwork
     if (this.steamGridDBProvider?.isAvailable()) {
-      const sgdbAppId = resolvedSteamAppId || (isValidSteamAppId(steamAppId) ? steamAppId : undefined);
-      console.log(`[fetchArtworkForGame] Adding SteamGridDB provider (appId: ${sgdbAppId})`);
-      artworkPromises.push({
-        promise: this.steamGridDBProvider.getArtwork(sgdbAppId ? `steam-${sgdbAppId}` : matchedGame.id, sgdbAppId),
-        source: "steamgriddb"
-      });
+      console.log(`[fetchArtworkForGame] Adding SteamGridDB provider for "${matchedGame.title}"`);
+      if (matchedGame.source === 'steamgriddb') {
+        artworkPromises.push({
+          promise: this.steamGridDBProvider.getArtwork(matchedGame.id, resolvedSteamAppId),
+          source: "steamgriddb"
+        });
+      } else {
+        artworkPromises.push({
+          promise: (async () => {
+            const results = await this.steamGridDBProvider!.search(matchedGame.title, resolvedSteamAppId);
+            return results.length > 0 ? this.steamGridDBProvider!.getArtwork(results[0].id, resolvedSteamAppId) : null;
+          })(),
+          source: "steamgriddb"
+        });
+      }
     }
 
-    // 3. IGDB Provider - Comprehensive fallback
+    // 2. IGDB Provider - Comprehensive fallback
     if (this.igdbProvider?.isAvailable()) {
       console.log(`[fetchArtworkForGame] Adding IGDB provider for "${matchedGame.title}"`);
       // Use direct ID if it's IGDB, otherwise search
@@ -592,7 +601,7 @@ export class MetadataFetcherService {
       }
     }
 
-    // 4. RAWG Provider - Additional fallback
+    // 3. RAWG Provider - Additional fallback
     if (this.rawgProvider?.isAvailable()) {
       console.log(`[fetchArtworkForGame] Adding RAWG provider for "${matchedGame.title}"`);
       if (matchedGame.source === 'rawg') {
@@ -759,6 +768,7 @@ export class MetadataFetcherService {
       bannerUrl: "",
       logoUrl: "",
       heroUrl: "",
+      iconUrl: "", // Added iconUrl to empty metadata
     };
   }
 
@@ -767,6 +777,7 @@ export class MetadataFetcherService {
     console.warn("setIGDBConfig is deprecated. Use setIGDBService instead.");
   }
 
+  // SteamGridDB is disabled project-wide - these methods are kept for API compatibility
   setSteamGridDBService(steamGridDBService: SteamGridDBService | null): void {
     if (steamGridDBService) {
       this.steamGridDBProvider = new SteamGridDBMetadataProvider(steamGridDBService);
@@ -779,8 +790,12 @@ export class MetadataFetcherService {
     }
   }
 
-  setSteamGridDBApiKey(_apiKey: string): void {
-    console.warn("setSteamGridDBApiKey is deprecated. Use setSteamGridDBService instead.");
+  setSteamGridDBApiKey(apiKey: string): void {
+    if (apiKey) {
+      this.setSteamGridDBService(new SteamGridDBService(apiKey));
+    } else {
+      this.setSteamGridDBService(null);
+    }
   }
 
   setMockMode(_enabled: boolean): void {
