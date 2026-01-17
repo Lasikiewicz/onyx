@@ -2538,8 +2538,118 @@ ipcMain.handle('metadata:refreshAll', async (event, options?: { allGames?: boole
           });
 
           try {
-            // Search all sources for this query variation
-            const allSourcesMetadata = await metadataFetcher.searchArtwork(searchQuery, steamAppId);
+            // Fetch from all sources with proper timeouts
+            const allSourcesMetadata: { boxArtUrl?: string; bannerUrl?: string; logoUrl?: string; heroUrl?: string; iconUrl?: string } = {};
+
+            // 1. Try IGDB first (covers, screenshots, artworks, logos)
+            if (igdbService) {
+              try {
+                const igdbResults = await withTimeout(
+                  igdbService.fastSearchGame(searchQuery),
+                  10000,
+                  'IGDB search timeout'
+                );
+
+                if (igdbResults.length > 0) {
+                  const game = igdbResults[0];
+                  if (game.coverUrl && !allSourcesMetadata.boxArtUrl) {
+                    allSourcesMetadata.boxArtUrl = game.coverUrl;
+                  }
+                  if (game.screenshotUrls && game.screenshotUrls.length > 0 && !allSourcesMetadata.bannerUrl) {
+                    allSourcesMetadata.bannerUrl = game.screenshotUrls[0];
+                  }
+                  if (game.logoUrl && !allSourcesMetadata.logoUrl) {
+                    allSourcesMetadata.logoUrl = game.logoUrl;
+                  }
+                }
+              } catch (err) {
+                console.warn(`[RefreshAll] IGDB error for "${searchQuery}":`, err);
+              }
+            }
+
+            // 2. Try RAWG (background images)
+            if (rawgService && !allSourcesMetadata.bannerUrl) {
+              try {
+                const rawgResults = await withTimeout(
+                  rawgService.searchGame(searchQuery),
+                  10000,
+                  'RAWG search timeout'
+                );
+
+                if (rawgResults.length > 0 && rawgResults[0].background_image) {
+                  allSourcesMetadata.bannerUrl = rawgResults[0].background_image;
+                }
+              } catch (err) {
+                console.warn(`[RefreshAll] RAWG error for "${searchQuery}":`, err);
+              }
+            }
+
+            // 3. Try SteamGridDB (grids, logos, heroes, icons)
+            if (steamGridDBService) {
+              try {
+                const sgdbGames = await withTimeout(
+                  steamGridDBService.searchGame(searchQuery, steamAppId),
+                  15000,
+                  'SGDB search timeout'
+                );
+
+                if (sgdbGames.length > 0) {
+                  const sgdbGame = sgdbGames[0];
+
+                  // Fetch all image types in parallel
+                  const [grids, logos, heroes, icons] = await withTimeout(
+                    Promise.allSettled([
+                      steamGridDBService.getVerticalGrids(sgdbGame.id),
+                      steamGridDBService.getLogos(sgdbGame.id),
+                      steamGridDBService.getHeroes(sgdbGame.id),
+                      steamGridDBService.getIcons(sgdbGame.id)
+                    ]),
+                    15000,
+                    'SGDB image fetch timeout'
+                  );
+
+                  // Grids as boxart
+                  if (grids.status === 'fulfilled' && grids.value.length > 0 && !allSourcesMetadata.boxArtUrl) {
+                    allSourcesMetadata.boxArtUrl = grids.value[0].url;
+                  }
+
+                  // Logos
+                  if (logos.status === 'fulfilled' && logos.value.length > 0 && !allSourcesMetadata.logoUrl) {
+                    allSourcesMetadata.logoUrl = logos.value[0].url;
+                  }
+
+                  // Heroes as banners
+                  if (heroes.status === 'fulfilled' && heroes.value.length > 0 && !allSourcesMetadata.bannerUrl) {
+                    allSourcesMetadata.bannerUrl = heroes.value[0].url;
+                  }
+
+                  // Icons
+                  if (icons.status === 'fulfilled' && icons.value.length > 0 && !allSourcesMetadata.iconUrl) {
+                    allSourcesMetadata.iconUrl = icons.value[0].url;
+                  }
+                }
+              } catch (err) {
+                console.warn(`[RefreshAll] SteamGridDB error for "${searchQuery}":`, err);
+              }
+            }
+
+            // 4. Try Steam Store if we have steamAppId
+            if (steamAppId) {
+              try {
+                // Standard Steam CDN assets
+                if (!allSourcesMetadata.boxArtUrl) {
+                  allSourcesMetadata.boxArtUrl = `https://cdn.akamai.steamstatic.com/steam/apps/${steamAppId}/library_600x900_2x.jpg`;
+                }
+                if (!allSourcesMetadata.bannerUrl) {
+                  allSourcesMetadata.bannerUrl = `https://cdn.akamai.steamstatic.com/steam/apps/${steamAppId}/library_hero.jpg`;
+                }
+                if (!allSourcesMetadata.logoUrl) {
+                  allSourcesMetadata.logoUrl = `https://cdn.akamai.steamstatic.com/steam/apps/${steamAppId}/logo.png`;
+                }
+              } catch (err) {
+                console.warn(`[RefreshAll] Steam CDN error for "${searchQuery}":`, err);
+              }
+            }
 
             if (allSourcesMetadata.boxArtUrl && !metadata.boxArtUrl) {
               metadata.boxArtUrl = allSourcesMetadata.boxArtUrl;
@@ -2558,33 +2668,6 @@ ipcMain.handle('metadata:refreshAll', async (event, options?: { allGames?: boole
           }
         }
 
-        // If we still don't have all three, try all sources for all game types
-        if (!metadata.boxArtUrl || !metadata.bannerUrl || !metadata.logoUrl) {
-          sendProgress({
-            current,
-            total: totalGames,
-            message: `Checking Steam CDN for ${game.title}...`,
-            gameTitle: game.title
-          });
-
-          try {
-            const steamMetadata = await metadataFetcher.searchArtwork(game.title, steamAppId);
-            if (steamMetadata.boxArtUrl && !metadata.boxArtUrl) {
-              metadata.boxArtUrl = steamMetadata.boxArtUrl;
-              console.log(`[RefreshAll] Found Steam CDN boxart for ${game.title}: ${steamMetadata.boxArtUrl.substring(0, 80)}...`);
-            }
-            if (steamMetadata.bannerUrl && !metadata.bannerUrl) {
-              metadata.bannerUrl = steamMetadata.bannerUrl;
-              console.log(`[RefreshAll] Found Steam CDN banner for ${game.title}: ${steamMetadata.bannerUrl.substring(0, 80)}...`);
-            }
-            if (steamMetadata.logoUrl && !metadata.logoUrl) {
-              metadata.logoUrl = steamMetadata.logoUrl;
-              console.log(`[RefreshAll] Found Steam CDN logo for ${game.title}: ${steamMetadata.logoUrl.substring(0, 80)}...`);
-            }
-          } catch (error) {
-            console.warn(`[RefreshAll] Steam CDN search failed for ${game.title}:`, error instanceof Error ? error.message : error);
-          }
-        }
 
         console.log(`[RefreshAll] Search complete for ${game.title}:`, {
           boxArtUrl: metadata.boxArtUrl ? 'found' : 'MISSING',
