@@ -4011,6 +4011,88 @@ ipcMain.handle('metadata:searchImages', async (_event, query: string, imageType:
       });
     }
 
+    // 3. Search SteamGridDB for the specific image type
+    if (steamGridDBService) {
+      try {
+        console.log(`[SearchImages] Searching SteamGridDB for "${query}" (type: ${imageType})...`);
+
+        // Search for games on SteamGridDB
+        const sgdbGames = await withTimeout(
+          steamGridDBService.searchGame(query, steamAppId),
+          15000,
+          'SteamGridDB search timeout'
+        );
+
+        if (sgdbGames.length > 0) {
+          // Process top 3 games from SGDB
+          const topSGDBGames = sgdbGames.slice(0, 3);
+
+          for (const sgdbGame of topSGDBGames) {
+            try {
+              let sgdbImages: any[] = [];
+
+              // Fetch the appropriate image type from SGDB
+              if (imageType === 'boxart') {
+                // Get vertical grids (600x900)
+                const grids = await withTimeout(
+                  steamGridDBService.getVerticalGrids(sgdbGame.id),
+                  10000,
+                  'SGDB grids timeout'
+                );
+                sgdbImages = grids.slice(0, 10); // Top 10 grids
+              } else if (imageType === 'logo') {
+                // Get logos
+                const logos = await withTimeout(
+                  steamGridDBService.getLogos(sgdbGame.id),
+                  10000,
+                  'SGDB logos timeout'
+                );
+                sgdbImages = logos.slice(0, 10); // Top 10 logos
+              } else if (imageType === 'banner') {
+                // Get heroes (1920x1080 banners)
+                const heroes = await withTimeout(
+                  steamGridDBService.getHeroes(sgdbGame.id),
+                  10000,
+                  'SGDB heroes timeout'
+                );
+                sgdbImages = heroes.slice(0, 10); // Top 10 heroes
+              } else if (imageType === 'icon') {
+                // Get icons
+                const icons = await withTimeout(
+                  steamGridDBService.getIcons(sgdbGame.id),
+                  10000,
+                  'SGDB icons timeout'
+                );
+                sgdbImages = icons.slice(0, 10); // Top 10 icons
+              }
+
+              // Add SGDB images to results
+              if (sgdbImages.length > 0) {
+                const formattedImages = sgdbImages.map(img => ({
+                  url: img.url,
+                  score: img.score || 0,
+                  width: img.width || 0,
+                  height: img.height || 0
+                }));
+
+                results.push({
+                  gameId: String(sgdbGame.id),
+                  gameName: sgdbGame.name,
+                  images: formattedImages
+                });
+
+                console.log(`[SearchImages] Added ${formattedImages.length} ${imageType} images from SGDB for "${sgdbGame.name}"`);
+              }
+            } catch (err) {
+              console.warn(`[SearchImages] Error fetching ${imageType} from SGDB for game ${sgdbGame.id}:`, err);
+            }
+          }
+        }
+      } catch (err) {
+        console.error(`[SearchImages] SteamGridDB search error:`, err);
+      }
+    }
+
     return { success: true, images: results };
 
   } catch (error) {
