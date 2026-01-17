@@ -72,6 +72,7 @@ function App() {
   const [isUpdateLibraryOpen, setIsUpdateLibraryOpen] = useState(false);
   const [isOnyxSettingsOpen, setIsOnyxSettingsOpen] = useState(false);
   const [isImportWorkbenchOpen, setIsImportWorkbenchOpen] = useState(false);
+  const [autoStartScan, setAutoStartScan] = useState(false);
   const [isGameManagerOpen, setIsGameManagerOpen] = useState(false);
   const [gameManagerInitialGameId, setGameManagerInitialGameId] = useState<string | null>(null);
   const [gameManagerInitialTab, setGameManagerInitialTab] = useState<'images' | 'metadata' | 'modManager'>('images');
@@ -1523,7 +1524,10 @@ function App() {
                     </div>
                   ) : (
                     <WelcomeScreen
-                      onScanGames={() => setIsImportWorkbenchOpen(true)}
+                      onScanGames={() => {
+                        setAutoStartScan(true);
+                        setIsImportWorkbenchOpen(true);
+                      }}
                       onAddFolder={handleAddFolder}
                       onOpenSettings={() => setIsAPISettingsOpen(true)}
                     />
@@ -1720,8 +1724,10 @@ function App() {
       {/* Game Importer */}
       <ImportWorkbench
         isOpen={isImportWorkbenchOpen}
+        autoStartScan={autoStartScan}
         onClose={() => {
           setIsImportWorkbenchOpen(false);
+          setAutoStartScan(false); // Reset auto-start flag
           setImportWorkbenchFolderPath(undefined); // Clear folder path on close
           setScannedSteamGames([]); // Clear pre-scanned games
           setImportAppType('steam');
@@ -1739,6 +1745,7 @@ function App() {
             await loadLibrary();
             showToast(`Successfully imported ${games.length} ${games.length === 1 ? 'game' : 'games'}`, 'success');
             setIsImportWorkbenchOpen(false);
+            setAutoStartScan(false); // Reset auto-start flag
             setImportWorkbenchFolderPath(undefined);
             setScannedSteamGames([]);
             setImportAppType('steam');

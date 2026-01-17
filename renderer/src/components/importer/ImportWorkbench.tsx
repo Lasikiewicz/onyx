@@ -9,6 +9,7 @@ interface ImportWorkbenchProps {
   onImport: (games: Game[]) => Promise<void>;
   existingLibrary?: Game[];
   initialFolderPath?: string; // Optional: folder path to scan on open
+  autoStartScan?: boolean; // Auto-start scanning when modal opens
   preScannedGames?: Array<{
     uuid?: string;
     source?: 'steam' | 'epic' | 'gog' | 'xbox' | 'ubisoft' | 'rockstar' | 'ea' | 'battle' | 'humble' | 'itch' | 'manual_file' | 'manual_folder';
@@ -365,6 +366,7 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
   onImport,
   existingLibrary = [],
   initialFolderPath,
+  autoStartScan = false,
   preScannedGames,
   appType = 'steam',
 }) => {
@@ -388,6 +390,22 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
   const [folderConfigs, setFolderConfigs] = useState<Record<string, { id: string; name: string; path: string; enabled: boolean; autoCategory?: string[] }>>({});
   const titleInputRef = useRef<HTMLInputElement>(null);
   const hasAutoScannedRef = useRef<boolean>(false); // Track if we've already auto-scanned
+
+  // Auto-start scanning when modal opens if autoStartScan is true
+  useEffect(() => {
+    if (isOpen && autoStartScan && !hasAutoScannedRef.current && !preScannedGames) {
+      hasAutoScannedRef.current = true;
+      // Small delay to let the modal render first
+      setTimeout(() => {
+        handleScanAll();
+      }, 300);
+    }
+
+    // Reset when modal closes
+    if (!isOpen) {
+      hasAutoScannedRef.current = false;
+    }
+  }, [isOpen, autoStartScan, preScannedGames]);
 
   // Default categories for quick selection
   const DEFAULT_CATEGORIES = ['Apps', 'Games', 'VR'];
