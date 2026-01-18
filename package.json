@@ -1,6 +1,6 @@
 {
   "name": "onyx-launcher",
-  "version": "0.2.8",
+  "version": "0.2.9",
   "description": "The premium unified game library.",
   "main": "dist-electron/main.js",
   "scripts": {
@@ -16,8 +16,8 @@
     "predist": "npm run generate-icons && npm run validate-icons",
     "increment-build": "node scripts/increment-build.js",
     "dist": "npm run increment-build && npm run predist && tsc && vite build && tsc -p main/tsconfig.json && tsc -p main/tsconfig.preload.json && electron-builder --config electron-builder.config.js",
-    "build:alpha": "cross-env BUILD_PROFILE=alpha npm run increment-build && npm run predist && tsc && vite build && tsc -p main/tsconfig.json && tsc -p main/tsconfig.preload.json && cross-env BUILD_PROFILE=alpha electron-builder build --config electron-builder.config.js --publish never --config.nsis.oneClick=false",
-    "build:prod": "cross-env BUILD_PROFILE=production CSC_IDENTITY_AUTO_DISCOVERY=false WIN_CSC_LINK= npm run increment-build && npm run predist && tsc && vite build && tsc -p main/tsconfig.json && tsc -p main/tsconfig.preload.json && cross-env BUILD_PROFILE=production CSC_IDENTITY_AUTO_DISCOVERY=false WIN_CSC_LINK= electron-builder build --config electron-builder.config.js --publish never --config.nsis.oneClick=false"
+    "build:alpha": "cross-env BUILD_PROFILE=alpha npm run predist && cross-env BUILD_PROFILE=alpha tsc && cross-env BUILD_PROFILE=alpha vite build && cross-env BUILD_PROFILE=alpha tsc -p main/tsconfig.json && cross-env BUILD_PROFILE=alpha tsc -p main/tsconfig.preload.json && cross-env BUILD_PROFILE=alpha electron-builder build --config electron-builder.config.js --publish never --config.nsis.oneClick=false",
+    "build:prod": "cross-env BUILD_PROFILE=production CSC_IDENTITY_AUTO_DISCOVERY=false WIN_CSC_LINK= npm run predist && cross-env BUILD_PROFILE=production vite build && cross-env BUILD_PROFILE=production tsc -p main/tsconfig.json && cross-env BUILD_PROFILE=production tsc -p main/tsconfig.preload.json && cross-env BUILD_PROFILE=production CSC_IDENTITY_AUTO_DISCOVERY=false WIN_CSC_LINK= electron-builder build --config electron-builder.config.js --publish never --config.nsis.oneClick=false"
   },
   "keywords": [],
   "author": "",
