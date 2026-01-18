@@ -13,6 +13,37 @@
 ╚══════════════════════════════════════════════════════════════════════════════╝
 ```
 
+> [!IMPORTANT]
+> **CRITICAL RELEASE RULES - FOLLOW THESE EXACTLY**
+> 
+> 1. **Command: "Push to git"**
+>    - **TARGET**: `master` branch
+>    - **ACTION**: 
+>      - `npm run increment-build` (Increments local patch version)
+>      - `git add package.json`
+>      - `git commit -m "Build X.Y.Z - [Brief Summary]"`
+>      - `git push origin master`
+> 
+> 2. **Command: "Force to alpha"**
+>    - **TARGET**: `alpha` branch
+>    - **ACTION**:
+>      - Ensure current `master` is clean and pushed.
+>      - `npm run increment-build` (Ensures Alpha has a unique, higher build number than master)
+>      - `git add package.json`
+>      - `git commit -m "Alpha Build X.Y.Z"`
+>      - `git push origin master:alpha --force`
+>    - **PURPOSE**: Forces the current state of `master` into the Alpha release channel with a new version number.
+> 
+> 3. **Command: "Force to main"**
+>    - **TARGET**: `main` branch
+>    - **ACTION**:
+>      - Switch to `alpha` branch or ensure `alpha` state is captured.
+>      - `npm run increment-build` (Ensures Main has a unique, higher build number than alpha)
+>      - `git add package.json`
+>      - `git commit -m "Main Build X.Y.Z"`
+>      - `git push origin alpha:main --force`
+>    - **PURPOSE**: Forces the current state of `alpha` into the Production release channel with a new version number.
+
 ## ⚠️ MANDATORY PRE-WORK CHECKLIST
 
 **Before executing ANY command or making ANY code changes:**
@@ -86,21 +117,18 @@
 
 ### Build Channels
 - **Development**: Local development builds on `master` branch
-- **Alpha**: Testing builds from `develop` branch (installs as "Onyx Alpha")
+- **Alpha**: Testing builds from `alpha` branch (installs as "Onyx Alpha")
 - **Production**: Stable builds from `main` branch (installs as "Onyx")
 
 ### Git Workflow
 **All local work and testing is done on the `master` branch.**
 
-- **Alpha Deployment**: Force push `master` → `develop` to trigger Alpha build
-  ```bash
-  git push origin master:develop --force
-  ```
-
-- **Production Deployment**: Force push `develop` → `main` to trigger Production build
-  ```bash
-  git push origin develop:main --force
-  ```
+- **Master Deployment**: `Push to git`
+  - Increments version and pushes to `master`
+- **Alpha Deployment**: `Force to alpha`
+  - Increments version and force pushes `master` → `alpha`
+- **Production Deployment**: `Force to main`
+  - Increments version and force pushes `alpha` → `main`
 
 ---
 
