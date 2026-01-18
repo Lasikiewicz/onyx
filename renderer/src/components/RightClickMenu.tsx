@@ -183,7 +183,7 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
   onDescriptionWidthChange,
 }) => {
   const menuRef = useRef<HTMLDivElement>(null);
-  
+
   // State for Custom Defaults Modal
   const [showCustomDefaultsModal, setShowCustomDefaultsModal] = React.useState(false);
   const [hasCustomDefaults, setHasCustomDefaults] = React.useState(false);
@@ -195,6 +195,7 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
   // State for Reset Confirmation Dialog
   const [showResetConfirmation, setShowResetConfirmation] = React.useState(false);
   const [resetResolution, setResetResolution] = React.useState('');
+  const [baselineDefaults, setBaselineDefaults] = React.useState<any>(null);
 
   const showFeedback = (setState: (s: any) => void, type: 'current' | 'all') => {
     setState({ type, show: true });
@@ -217,7 +218,7 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
     window.addEventListener('resize', updateResolution);
     return () => window.removeEventListener('resize', updateResolution);
   }, []);
-  
+
   // Local state for per-game logo sizes - updates immediately for UI responsiveness
   const [localLogoSizes, setLocalLogoSizes] = React.useState({
     grid: activeGame?.logoSizePerViewMode?.grid ?? 100,
@@ -225,10 +226,10 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
     logo: activeGame?.logoSizePerViewMode?.logo ?? 100,
     carousel: activeGame?.logoSizePerViewMode?.carousel ?? 100,
   });
-  
+
   // Ref for debouncing saves
   const saveTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
-  
+
   // Sync local state when activeGame changes
   React.useEffect(() => {
     if (activeGame) {
@@ -303,206 +304,97 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
 
   const handleResetToDefaults = () => {
     // Get current screen resolution
-    const screenWidth = window.screen.width;
     const screenHeight = window.screen.height;
-    const resolution = `${screenWidth}x${screenHeight}`;
-    
+    const resKey = screenHeight >= 1440 ? '1440p' : '1080p';
+
     // Store resolution and show confirmation dialog
-    setResetResolution(resolution);
+    setResetResolution(resKey);
     setShowResetConfirmation(true);
   };
 
-  const applyDefaultsForView = (mode: 'grid' | 'list' | 'logo' | 'carousel', is1440p: boolean) => {
-    // Define defaults based on resolution
-    const defaults = is1440p ? {
-      // Grid view defaults (1440p)
-      gridSize: 148,
-      showLogoOverBoxart: false,
-      gridGameTilePadding: 10,
-      gridPanelWidth: 1432,
-      gridFanartHeight: 600,
-      gridDescriptionWidth: 50,
-      // List view defaults (1440p)
-      listPanelWidth: 1920,
-      listFanartHeight: 600,
-      listDescriptionWidth: 66,
-      listRightPanelLogoSize: 60,
-      // Logo view defaults (1440p)
-      logoSize: 236,
-      logoBackgroundOpacity: 0,
-      logoGameTilePadding: 10,
-      logoPanelWidth: 1307,
-      logoFanartHeight: 600,
-      logoDescriptionWidth: 50,
-      logoRightPanelLogoSize: 60,
-      // Carousel view defaults (1440p)
-      showCarouselDetails: true,
-      showCarouselLogos: true,
-      detailsBarSize: 13,
-      selectedBoxArtSize: 23,
-      carouselGameTilePadding: 10,
-      carouselLogoSize: 115,
-      carouselButtonSize: 13,
-      carouselDescriptionSize: 15,
-      carouselDescriptionAlignment: 'center' as 'left' | 'center' | 'right',
-      carouselButtonAlignment: 'center' as 'left' | 'center' | 'right',
-      // Common settings
-      backgroundBlur: 0,
-      rightPanelBoxartPosition: 'right' as 'left' | 'right' | 'none',
-      rightPanelBoxartSize: 200,
-      rightPanelTextSize: 13,
-      rightPanelButtonSize: 13,
-      rightPanelButtonLocation: 'right' as 'left' | 'middle' | 'right',
-      detailsPanelOpacity: 0,
-      listViewOptions: {
-        tileHeight: 117,
-        displayMode: 'boxart-title' as 'boxart-title' | 'logo-title' | 'logo-only' | 'title-only',
-        boxartSize: 94,
-        titleTextSize: 13,
-        showDescription: false,
-        showCategories: false,
-        showPlaytime: false,
-        showReleaseDate: false,
-        showGenres: false,
-        showPlatform: false,
-        showLauncher: false,
-        showLogos: false,
-        sectionTextSize: 13,
-      },
-    } : {
-      // Grid view defaults (1080p)
-      gridSize: 100,
-      showLogoOverBoxart: false,
-      gridGameTilePadding: 10,
-      gridPanelWidth: 1126,
-      gridFanartHeight: 320,
-      gridDescriptionWidth: 50,
-      // List view defaults (1080p)
-      listPanelWidth: 1440,
-      listFanartHeight: 420,
-      listDescriptionWidth: 66,
-      listRightPanelLogoSize: 60,
-      // Logo view defaults (1080p)
-      logoSize: 184,
-      logoBackgroundOpacity: 0,
-      logoGameTilePadding: 10,
-      logoPanelWidth: 927,
-      logoFanartHeight: 320,
-      logoDescriptionWidth: 50,
-      logoRightPanelLogoSize: 60,
-      // Carousel view defaults (1080p)
-      showCarouselDetails: true,
-      showCarouselLogos: true,
-      detailsBarSize: 13,
-      selectedBoxArtSize: 23,
-      carouselGameTilePadding: 3,
-      carouselLogoSize: 115,
-      carouselButtonSize: 13,
-      carouselDescriptionSize: 15,
-      carouselDescriptionAlignment: 'center' as 'left' | 'center' | 'right',
-      carouselButtonAlignment: 'center' as 'left' | 'center' | 'right',
-      // Common settings
-      backgroundBlur: 0,
-      rightPanelBoxartPosition: 'right' as 'left' | 'right' | 'none',
-      rightPanelBoxartSize: 200,
-      rightPanelTextSize: 13,
-      rightPanelButtonSize: 13,
-      rightPanelButtonLocation: 'right' as 'left' | 'middle' | 'right',
-      detailsPanelOpacity: 0,
-      listViewOptions: {
-        tileHeight: 117,
-        displayMode: 'boxart-title' as 'boxart-title' | 'logo-title' | 'logo-only' | 'title-only',
-        boxartSize: 94,
-        titleTextSize: 13,
-        showDescription: false,
-        showCategories: false,
-        showPlaytime: false,
-        showReleaseDate: false,
-        showGenres: false,
-        showPlatform: false,
-        showLauncher: false,
-        showLogos: false,
-        sectionTextSize: 13,
-      },
-    };
+  const applyDefaultsForView = (mode: 'grid' | 'list' | 'logo' | 'carousel', resKey: string) => {
+    if (!baselineDefaults || !baselineDefaults[resKey]) return;
 
+    const defaults = baselineDefaults[resKey][mode];
+    if (!defaults) return;
 
-    // Apply defaults based on specified view mode
+    // Apply view-specific settings
     if (mode === 'grid') {
-      onGridSizeChange?.(defaults.gridSize);
-      onGameTilePaddingChange?.(defaults.gridGameTilePadding);
-      onPanelWidthChange?.(defaults.gridPanelWidth);
-      onFanartHeightChange?.(defaults.gridFanartHeight);
-      onDescriptionWidthChange?.(defaults.gridDescriptionWidth);
-      onBackgroundBlurChange?.(defaults.backgroundBlur);
-      onSelectedBoxArtSizeChange?.(defaults.selectedBoxArtSize);
-      onShowLogoOverBoxartChange?.(defaults.showLogoOverBoxart);
+      if (defaults.gridSize !== undefined) onGridSizeChange?.(defaults.gridSize);
+      if (defaults.gameTilePadding !== undefined) onGameTilePaddingChange?.(defaults.gameTilePadding);
+      if (defaults.panelWidth !== undefined) onPanelWidthChange?.(defaults.panelWidth);
+      if (defaults.fanartHeight !== undefined) onFanartHeightChange?.(defaults.fanartHeight);
+      if (defaults.descriptionWidth !== undefined) onDescriptionWidthChange?.(defaults.descriptionWidth);
+      if (defaults.backgroundBlur !== undefined) onBackgroundBlurChange?.(defaults.backgroundBlur);
+      if (defaults.showLogoOverBoxart !== undefined) onShowLogoOverBoxartChange?.(defaults.showLogoOverBoxart);
     } else if (mode === 'logo') {
-      onLogoSizeChange?.(defaults.logoSize);
-      onGameTilePaddingChange?.(defaults.logoGameTilePadding);
-      onLogoBackgroundOpacityChange?.(defaults.logoBackgroundOpacity);
-      onBackgroundBlurChange?.(defaults.backgroundBlur);
-      onPanelWidthChange?.(defaults.logoPanelWidth);
-      onFanartHeightChange?.(defaults.logoFanartHeight);
-      onDescriptionWidthChange?.(defaults.logoDescriptionWidth);
-      onRightPanelLogoSizeChange?.(defaults.logoRightPanelLogoSize);
+      if (defaults.logoSize !== undefined) onLogoSizeChange?.(defaults.logoSize);
+      if (defaults.gameTilePadding !== undefined) onGameTilePaddingChange?.(defaults.gameTilePadding);
+      if (defaults.logoBackgroundOpacity !== undefined) onLogoBackgroundOpacityChange?.(defaults.logoBackgroundOpacity);
+      if (defaults.backgroundBlur !== undefined) onBackgroundBlurChange?.(defaults.backgroundBlur);
+      if (defaults.panelWidth !== undefined) onPanelWidthChange?.(defaults.panelWidth);
+      if (defaults.fanartHeight !== undefined) onFanartHeightChange?.(defaults.fanartHeight);
+      if (defaults.descriptionWidth !== undefined) onDescriptionWidthChange?.(defaults.descriptionWidth);
+      if (defaults.rightPanelLogoSize !== undefined) onRightPanelLogoSizeChange?.(defaults.rightPanelLogoSize);
     } else if (mode === 'list') {
-      onBackgroundBlurChange?.(defaults.backgroundBlur);
-      onPanelWidthChange?.(defaults.listPanelWidth);
-      onFanartHeightChange?.(defaults.listFanartHeight);
-      onDescriptionWidthChange?.(defaults.listDescriptionWidth);
-      onListViewOptionsChange?.(defaults.listViewOptions);
-      onRightPanelLogoSizeChange?.(defaults.listRightPanelLogoSize);
+      if (defaults.backgroundBlur !== undefined) onBackgroundBlurChange?.(defaults.backgroundBlur);
+      if (defaults.panelWidth !== undefined) onPanelWidthChange?.(defaults.panelWidth);
+      if (defaults.fanartHeight !== undefined) onFanartHeightChange?.(defaults.fanartHeight);
+      if (defaults.descriptionWidth !== undefined) onDescriptionWidthChange?.(defaults.descriptionWidth);
+      if (defaults.listViewOptions !== undefined) onListViewOptionsChange?.(defaults.listViewOptions);
+      if (defaults.rightPanelLogoSize !== undefined) onRightPanelLogoSizeChange?.(defaults.rightPanelLogoSize);
     } else if (mode === 'carousel') {
-      onShowCarouselDetailsChange?.(defaults.showCarouselDetails);
-      onShowCarouselLogosChange?.(defaults.showCarouselLogos);
-      onDetailsBarSizeChange?.(defaults.detailsBarSize);
-      onSelectedBoxArtSizeChange?.(defaults.selectedBoxArtSize);
-      onGameTilePaddingChange?.(defaults.carouselGameTilePadding);
-      onBackgroundBlurChange?.(defaults.backgroundBlur);
-      onCarouselLogoSizeChange?.(defaults.carouselLogoSize);
-      onCarouselButtonSizeChange?.(defaults.carouselButtonSize);
-      onCarouselDescriptionSizeChange?.(defaults.carouselDescriptionSize);
-      onCarouselDescriptionAlignmentChange?.(defaults.carouselDescriptionAlignment);
-      onCarouselButtonAlignmentChange?.(defaults.carouselButtonAlignment);
+      if (defaults.showCarouselDetails !== undefined) onShowCarouselDetailsChange?.(defaults.showCarouselDetails);
+      if (defaults.showCarouselLogos !== undefined) onShowCarouselLogosChange?.(defaults.showCarouselLogos);
+      if (defaults.detailsBarSize !== undefined) onDetailsBarSizeChange?.(defaults.detailsBarSize);
+      if (defaults.selectedBoxArtSize !== undefined) onSelectedBoxArtSizeChange?.(defaults.selectedBoxArtSize);
+      if (defaults.gameTilePadding !== undefined) onGameTilePaddingChange?.(defaults.gameTilePadding);
+      if (defaults.backgroundBlur !== undefined) onBackgroundBlurChange?.(defaults.backgroundBlur);
+      if (defaults.carouselLogoSize !== undefined) onCarouselLogoSizeChange?.(defaults.carouselLogoSize);
+      if (defaults.carouselButtonSize !== undefined) onCarouselButtonSizeChange?.(defaults.carouselButtonSize);
+      if (defaults.carouselDescriptionSize !== undefined) onCarouselDescriptionSizeChange?.(defaults.carouselDescriptionSize);
+      if (defaults.carouselDescriptionAlignment !== undefined) onCarouselDescriptionAlignmentChange?.(defaults.carouselDescriptionAlignment);
+      if (defaults.carouselButtonAlignment !== undefined) onCarouselButtonAlignmentChange?.(defaults.carouselButtonAlignment);
     }
 
-    // Apply right panel defaults (applies to all view modes)
-    onRightPanelBoxartPositionChange?.(defaults.rightPanelBoxartPosition);
-    onRightPanelBoxartSizeChange?.(defaults.rightPanelBoxartSize);
-    onRightPanelTextSizeChange?.(defaults.rightPanelTextSize);
-    onRightPanelButtonSizeChange?.(defaults.rightPanelButtonSize);
-    onRightPanelButtonLocationChange?.(defaults.rightPanelButtonLocation);
-    onDetailsPanelOpacityChange?.(defaults.detailsPanelOpacity);
+    // Apply right panel defaults (shared by all view modes in the JSON)
+    if (defaults.rightPanelBoxartPosition !== undefined) onRightPanelBoxartPositionChange?.(defaults.rightPanelBoxartPosition);
+    if (defaults.rightPanelBoxartSize !== undefined) onRightPanelBoxartSizeChange?.(defaults.rightPanelBoxartSize);
+    if (defaults.rightPanelTextSize !== undefined) onRightPanelTextSizeChange?.(defaults.rightPanelTextSize);
+    if (defaults.rightPanelButtonSize !== undefined) onRightPanelButtonSizeChange?.(defaults.rightPanelButtonSize);
+    if (defaults.rightPanelButtonLocation !== undefined) onRightPanelButtonLocationChange?.(defaults.rightPanelButtonLocation);
+    if (defaults.detailsPanelOpacity !== undefined) onDetailsPanelOpacityChange?.(defaults.detailsPanelOpacity);
   };
 
   const handleResetCurrentView = () => {
-    const screenHeight = window.screen.height;
-    const is1440p = screenHeight >= 1440;
-    applyDefaultsForView(viewMode, is1440p);
+    applyDefaultsForView(viewMode, resetResolution);
     setShowResetConfirmation(false);
     onClose();
   };
 
   const handleResetAllViews = () => {
-    const screenHeight = window.screen.height;
-    const is1440p = screenHeight >= 1440;
-    
     // Apply defaults for all view modes
     const modes: ('grid' | 'list' | 'logo' | 'carousel')[] = ['grid', 'list', 'logo', 'carousel'];
-    modes.forEach(mode => applyDefaultsForView(mode, is1440p));
-    
+    modes.forEach(mode => applyDefaultsForView(mode, resetResolution));
+
     setShowResetConfirmation(false);
     onClose();
   };
 
-  // Check for custom defaults when opening the menu
+  // Check for custom defaults and load baseline defaults when opening the menu
   React.useEffect(() => {
-    const checkDefaults = async () => {
+    const initialize = async () => {
+      // Check for custom defaults
       const exists = await window.electronAPI.hasCustomDefaults?.();
       setHasCustomDefaults(exists || false);
+
+      // Load baseline defaults
+      const baseline = await window.electronAPI.getBaselineDefaults?.();
+      if (baseline) {
+        setBaselineDefaults(baseline);
+      }
     };
-    checkDefaults();
+    initialize();
   }, []);
 
   const handleOpenCustomDefaultsModal = () => {
@@ -520,6 +412,16 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
       detailsPanelOpacity,
     };
 
+    const getRightPanelLogoSize = (m: string) => {
+      if (activeGame) {
+        if (m === 'grid') return localLogoSizes.grid;
+        if (m === 'list') return localLogoSizes.list;
+        if (m === 'logo') return localLogoSizes.logo;
+        if (m === 'carousel') return localLogoSizes.carousel;
+      }
+      return rightPanelLogoSize;
+    };
+
     // Return view-specific settings
     if (mode === 'grid') {
       return {
@@ -530,6 +432,8 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
         fanartHeight,
         descriptionWidth,
         backgroundBlur,
+        logoSize: activeGame ? localLogoSizes.grid : logoSize,
+        rightPanelLogoSize: activeGame ? localLogoSizes.grid : rightPanelLogoSize,
         ...rightPanelSettings,
       };
     } else if (mode === 'list') {
@@ -539,19 +443,19 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
         fanartHeight,
         descriptionWidth,
         listViewOptions,
-        rightPanelLogoSize,
+        rightPanelLogoSize: activeGame ? localLogoSizes.list : rightPanelLogoSize,
         ...rightPanelSettings,
       };
     } else if (mode === 'logo') {
       return {
-        logoSize,
+        logoSize: activeGame ? localLogoSizes.logo : logoSize,
         gameTilePadding,
         logoBackgroundOpacity,
         backgroundBlur,
         panelWidth,
         fanartHeight,
         descriptionWidth,
-        rightPanelLogoSize,
+        rightPanelLogoSize: activeGame ? localLogoSizes.logo : rightPanelLogoSize,
         ...rightPanelSettings,
       };
     } else if (mode === 'carousel') {
@@ -561,7 +465,8 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
         selectedBoxArtSize,
         gameTilePadding,
         backgroundBlur,
-        carouselLogoSize,
+        carouselLogoSize: activeGame ? localLogoSizes.carousel : carouselLogoSize,
+        rightPanelLogoSize: activeGame ? localLogoSizes.carousel : rightPanelLogoSize,
         showCarouselLogos,
         carouselDescriptionSize,
         carouselDescriptionAlignment,
@@ -590,6 +495,7 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
       carouselDescriptionAlignment,
       carouselButtonAlignment,
       listViewOptions,
+      rightPanelLogoSize: getRightPanelLogoSize(viewMode),
       ...rightPanelSettings,
     };
   };
@@ -626,6 +532,7 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
     if (settings.rightPanelButtonSize !== undefined && onRightPanelButtonSizeChange) onRightPanelButtonSizeChange(settings.rightPanelButtonSize);
     if (settings.rightPanelButtonLocation !== undefined && onRightPanelButtonLocationChange) onRightPanelButtonLocationChange(settings.rightPanelButtonLocation);
     if (settings.detailsPanelOpacity !== undefined && onDetailsPanelOpacityChange) onDetailsPanelOpacityChange(settings.detailsPanelOpacity);
+    if (settings.rightPanelLogoSize !== undefined && onRightPanelLogoSizeChange) onRightPanelLogoSizeChange(settings.rightPanelLogoSize);
   };
 
   const handleSaveCurrentView = async () => {
@@ -669,12 +576,33 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
   };
 
   const handleExportCurrentView = async () => {
-    await window.electronAPI.exportCustomDefaults?.({ viewMode, scope: 'current' });
+    const overrideSettings = gatherCurrentSettings();
+
+    await window.electronAPI.exportCustomDefaults?.({
+      viewMode,
+      scope: 'current',
+      resolution: screenResolution,
+      overrideSettings
+    });
     // Successfully exported or cancelled - keep modal open
   };
 
   const handleExportAllViews = async () => {
-    await window.electronAPI.exportCustomDefaults?.({ viewMode, scope: 'all' });
+    // Gather overrides for all views if an active game is selected
+    const allOverrides: any = {};
+    if (activeGame) {
+      const modes: ('grid' | 'list' | 'logo' | 'carousel')[] = ['grid', 'list', 'logo', 'carousel'];
+      modes.forEach(mode => {
+        allOverrides[mode] = gatherSettingsForViewMode(mode);
+      });
+    }
+
+    await window.electronAPI.exportCustomDefaults?.({
+      viewMode,
+      scope: 'all',
+      resolution: screenResolution,
+      overrideSettings: activeGame ? allOverrides : undefined
+    });
     // Successfully exported or cancelled - keep modal open
   };
 
@@ -726,16 +654,16 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
 
   const handlePerGameLogoSizeChange = (viewModeType: 'grid' | 'list' | 'logo' | 'carousel', size: number) => {
     if (!activeGame || !onActiveGameChange) return;
-    
+
     // Skip if size hasn't actually changed
     if (activeGame.logoSizePerViewMode?.[viewModeType] === size) return;
-    
+
     // Update local state immediately for instant UI feedback
     setLocalLogoSizes(prev => ({
       ...prev,
       [viewModeType]: size,
     }));
-    
+
     const updatedGame = {
       ...activeGame,
       logoSizePerViewMode: {
@@ -743,15 +671,15 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
         [viewModeType]: size,
       },
     };
-    
+
     // Update parent state immediately for UI update
     onActiveGameChange(updatedGame);
-    
+
     // Debounce the backend save - only save after user stops dragging
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
     }
-    
+
     saveTimeoutRef.current = setTimeout(() => {
       window.electronAPI.saveGame(updatedGame).catch((error) => {
         console.error('Failed to save game:', error);
@@ -764,8 +692,8 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
     <div
       ref={menuRef}
       className="fixed bg-gray-800 border border-gray-700 rounded-lg shadow-xl z-50 py-1"
-      style={{ 
-        left: `${x}px`, 
+      style={{
+        left: `${x}px`,
         top: `${y}px`,
         minWidth: '620px'
       }}
@@ -774,11 +702,10 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
       <div className="px-3 py-3 grid grid-cols-4 gap-2">
         <button
           onClick={() => handleViewModeChange('grid')}
-          className={`px-3 py-2 text-sm rounded transition-colors flex flex-col items-center gap-1 font-medium ${
-            viewMode === 'grid'
-              ? 'bg-blue-600/40 text-white border border-blue-500'
-              : 'bg-gray-700 text-gray-300 hover:bg-gray-600 border border-gray-600'
-          }`}
+          className={`px-3 py-2 text-sm rounded transition-colors flex flex-col items-center gap-1 font-medium ${viewMode === 'grid'
+            ? 'bg-blue-600/40 text-white border border-blue-500'
+            : 'bg-gray-700 text-gray-300 hover:bg-gray-600 border border-gray-600'
+            }`}
           title="Grid View"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -788,11 +715,10 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
         </button>
         <button
           onClick={() => handleViewModeChange('list')}
-          className={`px-3 py-2 text-sm rounded transition-colors flex flex-col items-center gap-1 font-medium ${
-            viewMode === 'list'
-              ? 'bg-blue-600/40 text-white border border-blue-500'
-              : 'bg-gray-700 text-gray-300 hover:bg-gray-600 border border-gray-600'
-          }`}
+          className={`px-3 py-2 text-sm rounded transition-colors flex flex-col items-center gap-1 font-medium ${viewMode === 'list'
+            ? 'bg-blue-600/40 text-white border border-blue-500'
+            : 'bg-gray-700 text-gray-300 hover:bg-gray-600 border border-gray-600'
+            }`}
           title="List View"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -802,11 +728,10 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
         </button>
         <button
           onClick={() => handleViewModeChange('logo')}
-          className={`px-3 py-2 text-sm rounded transition-colors flex flex-col items-center gap-1 font-medium ${
-            viewMode === 'logo'
-              ? 'bg-blue-600/40 text-white border border-blue-500'
-              : 'bg-gray-700 text-gray-300 hover:bg-gray-600 border border-gray-600'
-          }`}
+          className={`px-3 py-2 text-sm rounded transition-colors flex flex-col items-center gap-1 font-medium ${viewMode === 'logo'
+            ? 'bg-blue-600/40 text-white border border-blue-500'
+            : 'bg-gray-700 text-gray-300 hover:bg-gray-600 border border-gray-600'
+            }`}
           title="Logo View"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -816,11 +741,10 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
         </button>
         <button
           onClick={() => handleViewModeChange('carousel')}
-          className={`px-3 py-2 text-sm rounded transition-colors flex flex-col items-center gap-1 font-medium ${
-            viewMode === 'carousel'
-              ? 'bg-blue-600/40 text-white border border-blue-500'
-              : 'bg-gray-700 text-gray-300 hover:bg-gray-600 border border-gray-600'
-          }`}
+          className={`px-3 py-2 text-sm rounded transition-colors flex flex-col items-center gap-1 font-medium ${viewMode === 'carousel'
+            ? 'bg-blue-600/40 text-white border border-blue-500'
+            : 'bg-gray-700 text-gray-300 hover:bg-gray-600 border border-gray-600'
+            }`}
           title="Carousel View"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -848,14 +772,12 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                     <label className="text-xs text-gray-400 font-medium">Show Details Across Top</label>
                     <button
                       onClick={handleShowCarouselDetailsToggle}
-                      className={`relative inline-flex h-3 w-6 items-center rounded-full transition-colors ${
-                        showCarouselDetails ? 'bg-blue-600' : 'bg-gray-600'
-                      }`}
+                      className={`relative inline-flex h-3 w-6 items-center rounded-full transition-colors ${showCarouselDetails ? 'bg-blue-600' : 'bg-gray-600'
+                        }`}
                     >
                       <span
-                        className={`inline-block h-2 w-2 transform rounded-full bg-white transition-transform ${
-                          showCarouselDetails ? 'translate-x-3' : 'translate-x-0.5'
-                        }`}
+                        className={`inline-block h-2 w-2 transform rounded-full bg-white transition-transform ${showCarouselDetails ? 'translate-x-3' : 'translate-x-0.5'
+                          }`}
                       />
                     </button>
                   </div>
@@ -970,14 +892,12 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                     <label className="text-xs text-gray-400 font-medium">Show Game Logos</label>
                     <button
                       onClick={handleShowCarouselLogosToggle}
-                      className={`relative inline-flex h-3 w-6 items-center rounded-full transition-colors ${
-                        showCarouselLogos ? 'bg-blue-600' : 'bg-gray-600'
-                      }`}
+                      className={`relative inline-flex h-3 w-6 items-center rounded-full transition-colors ${showCarouselLogos ? 'bg-blue-600' : 'bg-gray-600'
+                        }`}
                     >
                       <span
-                        className={`inline-block h-2 w-2 transform rounded-full bg-white transition-transform ${
-                          showCarouselLogos ? 'translate-x-3' : 'translate-x-0.5'
-                        }`}
+                        className={`inline-block h-2 w-2 transform rounded-full bg-white transition-transform ${showCarouselLogos ? 'translate-x-3' : 'translate-x-0.5'
+                          }`}
                       />
                     </button>
                   </div>
@@ -1012,11 +932,10 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                           <button
                             key={alignment}
                             onClick={() => onCarouselLogoAlignmentChange(alignment)}
-                            className={`flex-1 px-2 py-1 text-xs rounded transition-colors ${
-                              carouselLogoAlignment === alignment
-                                ? 'bg-blue-600 text-white'
-                                : 'bg-gray-600 text-gray-300 hover:bg-gray-500'
-                            }`}
+                            className={`flex-1 px-2 py-1 text-xs rounded transition-colors ${carouselLogoAlignment === alignment
+                              ? 'bg-blue-600 text-white'
+                              : 'bg-gray-600 text-gray-300 hover:bg-gray-500'
+                              }`}
                           >
                             {alignment.charAt(0).toUpperCase() + alignment.slice(1)}
                           </button>
@@ -1053,11 +972,10 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                       <button
                         key={alignment}
                         onClick={() => onCarouselDescriptionAlignmentChange?.(alignment)}
-                        className={`flex-1 px-2 py-1 text-xs rounded transition-colors ${
-                          carouselDescriptionAlignment === alignment
-                            ? 'bg-blue-600 text-white'
-                            : 'bg-gray-600 text-gray-300 hover:bg-gray-500'
-                        }`}
+                        className={`flex-1 px-2 py-1 text-xs rounded transition-colors ${carouselDescriptionAlignment === alignment
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-gray-600 text-gray-300 hover:bg-gray-500'
+                          }`}
                       >
                         {alignment.charAt(0).toUpperCase() + alignment.slice(1)}
                       </button>
@@ -1092,11 +1010,10 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                       <button
                         key={alignment}
                         onClick={() => onCarouselButtonAlignmentChange?.(alignment)}
-                        className={`flex-1 px-2 py-1 text-xs rounded transition-colors ${
-                          carouselButtonAlignment === alignment
-                            ? 'bg-blue-600 text-white'
-                            : 'bg-gray-600 text-gray-300 hover:bg-gray-500'
-                        }`}
+                        className={`flex-1 px-2 py-1 text-xs rounded transition-colors ${carouselButtonAlignment === alignment
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-gray-600 text-gray-300 hover:bg-gray-500'
+                          }`}
                       >
                         {alignment.charAt(0).toUpperCase() + alignment.slice(1)}
                       </button>
@@ -1150,14 +1067,12 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                       <label className="text-xs text-gray-400 font-medium">Show Logo Over Boxart</label>
                       <button
                         onClick={() => onShowLogoOverBoxartChange?.(!showLogoOverBoxart)}
-                        className={`relative inline-flex h-3 w-6 items-center rounded-full transition-colors ${
-                          showLogoOverBoxart ? 'bg-blue-600' : 'bg-gray-600'
-                        }`}
+                        className={`relative inline-flex h-3 w-6 items-center rounded-full transition-colors ${showLogoOverBoxart ? 'bg-blue-600' : 'bg-gray-600'
+                          }`}
                       >
                         <span
-                          className={`inline-block h-2 w-2 transform rounded-full bg-white transition-transform ${
-                            showLogoOverBoxart ? 'translate-x-3' : 'translate-x-0.5'
-                          }`}
+                          className={`inline-block h-2 w-2 transform rounded-full bg-white transition-transform ${showLogoOverBoxart ? 'translate-x-3' : 'translate-x-0.5'
+                            }`}
                         />
                       </button>
                     </div>
@@ -1168,42 +1083,38 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                         <div className="grid grid-cols-3 gap-1 mb-2">
                           <button
                             onClick={() => onLogoPositionChange?.('top')}
-                            className={`px-2 py-1 text-xs rounded transition-colors ${
-                              logoPosition === 'top'
-                                ? 'bg-blue-600/40 text-white border border-blue-500'
-                                : 'bg-gray-600 text-gray-300 hover:bg-gray-500 border border-gray-500'
-                            }`}
+                            className={`px-2 py-1 text-xs rounded transition-colors ${logoPosition === 'top'
+                              ? 'bg-blue-600/40 text-white border border-blue-500'
+                              : 'bg-gray-600 text-gray-300 hover:bg-gray-500 border border-gray-500'
+                              }`}
                           >
                             Top
                           </button>
                           <button
                             onClick={() => onLogoPositionChange?.('middle')}
-                            className={`px-2 py-1 text-xs rounded transition-colors ${
-                              logoPosition === 'middle'
-                                ? 'bg-blue-600/40 text-white border border-blue-500'
-                                : 'bg-gray-600 text-gray-300 hover:bg-gray-500 border border-gray-500'
-                            }`}
+                            className={`px-2 py-1 text-xs rounded transition-colors ${logoPosition === 'middle'
+                              ? 'bg-blue-600/40 text-white border border-blue-500'
+                              : 'bg-gray-600 text-gray-300 hover:bg-gray-500 border border-gray-500'
+                              }`}
                           >
                             Middle
                           </button>
                           <button
                             onClick={() => onLogoPositionChange?.('bottom')}
-                            className={`px-2 py-1 text-xs rounded transition-colors ${
-                              logoPosition === 'bottom'
-                                ? 'bg-blue-600/40 text-white border border-blue-500'
-                                : 'bg-gray-600 text-gray-300 hover:bg-gray-500 border border-gray-500'
-                            }`}
+                            className={`px-2 py-1 text-xs rounded transition-colors ${logoPosition === 'bottom'
+                              ? 'bg-blue-600/40 text-white border border-blue-500'
+                              : 'bg-gray-600 text-gray-300 hover:bg-gray-500 border border-gray-500'
+                              }`}
                           >
                             Bottom
                           </button>
                         </div>
                         <button
                           onClick={() => onLogoPositionChange?.('underneath')}
-                          className={`w-full px-2 py-1 text-xs rounded transition-colors ${
-                            logoPosition === 'underneath'
-                              ? 'bg-blue-600/40 text-white border border-blue-500'
-                              : 'bg-gray-600 text-gray-300 hover:bg-gray-500 border border-gray-500'
-                          }`}
+                          className={`w-full px-2 py-1 text-xs rounded transition-colors ${logoPosition === 'underneath'
+                            ? 'bg-blue-600/40 text-white border border-blue-500'
+                            : 'bg-gray-600 text-gray-300 hover:bg-gray-500 border border-gray-500'
+                            }`}
                         >
                           Below
                         </button>
@@ -1288,11 +1199,10 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                             ...listViewOptions,
                             displayMode: 'boxart-title',
                           })}
-                          className={`px-2 py-1 text-xs rounded transition-colors ${
-                            (listViewOptions.displayMode === 'boxart-title' || !listViewOptions.displayMode)
-                              ? 'bg-blue-600/40 text-white border border-blue-500'
-                              : 'bg-gray-600 text-gray-300 hover:bg-gray-500 border border-gray-500'
-                          }`}
+                          className={`px-2 py-1 text-xs rounded transition-colors ${(listViewOptions.displayMode === 'boxart-title' || !listViewOptions.displayMode)
+                            ? 'bg-blue-600/40 text-white border border-blue-500'
+                            : 'bg-gray-600 text-gray-300 hover:bg-gray-500 border border-gray-500'
+                            }`}
                         >
                           Boxart + Title
                         </button>
@@ -1301,11 +1211,10 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                             ...listViewOptions,
                             displayMode: 'logo-title',
                           })}
-                          className={`px-2 py-1 text-xs rounded transition-colors ${
-                            listViewOptions.displayMode === 'logo-title'
-                              ? 'bg-blue-600/40 text-white border border-blue-500'
-                              : 'bg-gray-600 text-gray-300 hover:bg-gray-500 border border-gray-500'
-                          }`}
+                          className={`px-2 py-1 text-xs rounded transition-colors ${listViewOptions.displayMode === 'logo-title'
+                            ? 'bg-blue-600/40 text-white border border-blue-500'
+                            : 'bg-gray-600 text-gray-300 hover:bg-gray-500 border border-gray-500'
+                            }`}
                         >
                           Logo + Title
                         </button>
@@ -1314,11 +1223,10 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                             ...listViewOptions,
                             displayMode: 'logo-only',
                           })}
-                          className={`px-2 py-1 text-xs rounded transition-colors ${
-                            listViewOptions.displayMode === 'logo-only'
-                              ? 'bg-blue-600/40 text-white border border-blue-500'
-                              : 'bg-gray-600 text-gray-300 hover:bg-gray-500 border border-gray-500'
-                          }`}
+                          className={`px-2 py-1 text-xs rounded transition-colors ${listViewOptions.displayMode === 'logo-only'
+                            ? 'bg-blue-600/40 text-white border border-blue-500'
+                            : 'bg-gray-600 text-gray-300 hover:bg-gray-500 border border-gray-500'
+                            }`}
                         >
                           Logo Only
                         </button>
@@ -1327,11 +1235,10 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                             ...listViewOptions,
                             displayMode: 'title-only',
                           })}
-                          className={`px-2 py-1 text-xs rounded transition-colors ${
-                            listViewOptions.displayMode === 'title-only'
-                              ? 'bg-blue-600/40 text-white border border-blue-500'
-                              : 'bg-gray-600 text-gray-300 hover:bg-gray-500 border border-gray-500'
-                          }`}
+                          className={`px-2 py-1 text-xs rounded transition-colors ${listViewOptions.displayMode === 'title-only'
+                            ? 'bg-blue-600/40 text-white border border-blue-500'
+                            : 'bg-gray-600 text-gray-300 hover:bg-gray-500 border border-gray-500'
+                            }`}
                         >
                           Title Only
                         </button>
@@ -1432,14 +1339,12 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                                 ...listViewOptions,
                                 [key]: !currentValue,
                               })}
-                              className={`relative inline-flex h-3 w-6 items-center rounded-full transition-colors ${
-                                currentValue ? 'bg-blue-600' : 'bg-gray-600'
-                              }`}
+                              className={`relative inline-flex h-3 w-6 items-center rounded-full transition-colors ${currentValue ? 'bg-blue-600' : 'bg-gray-600'
+                                }`}
                             >
                               <span
-                                className={`inline-block h-2 w-2 transform rounded-full bg-white transition-transform ${
-                                  currentValue ? 'translate-x-3' : 'translate-x-0.5'
-                                }`}
+                                className={`inline-block h-2 w-2 transform rounded-full bg-white transition-transform ${currentValue ? 'translate-x-3' : 'translate-x-0.5'
+                                  }`}
                               />
                             </button>
                           </div>
@@ -1556,7 +1461,7 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                 {activeGame && (
                   <div className="px-3 py-2 bg-gray-700/30 rounded-md">
                     <label className="block text-xs text-gray-400 mb-2 font-semibold">Game Logo Size</label>
-                    
+
                     {/* Grid View */}
                     {viewMode === 'grid' && (
                       <div>
@@ -1625,31 +1530,28 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                   <div className="grid grid-cols-3 gap-1 mb-3">
                     <button
                       onClick={() => onRightPanelBoxartPositionChange?.('left')}
-                      className={`px-2 py-1 text-xs rounded transition-colors ${
-                        rightPanelBoxartPosition === 'left'
-                          ? 'bg-blue-600/40 text-white border border-blue-500'
-                          : 'bg-gray-600 text-gray-300 hover:bg-gray-500 border border-gray-500'
-                      }`}
+                      className={`px-2 py-1 text-xs rounded transition-colors ${rightPanelBoxartPosition === 'left'
+                        ? 'bg-blue-600/40 text-white border border-blue-500'
+                        : 'bg-gray-600 text-gray-300 hover:bg-gray-500 border border-gray-500'
+                        }`}
                     >
                       Left
                     </button>
                     <button
                       onClick={() => onRightPanelBoxartPositionChange?.('right')}
-                      className={`px-2 py-1 text-xs rounded transition-colors ${
-                        rightPanelBoxartPosition === 'right'
-                          ? 'bg-blue-600/40 text-white border border-blue-500'
-                          : 'bg-gray-600 text-gray-300 hover:bg-gray-500 border border-gray-500'
-                      }`}
+                      className={`px-2 py-1 text-xs rounded transition-colors ${rightPanelBoxartPosition === 'right'
+                        ? 'bg-blue-600/40 text-white border border-blue-500'
+                        : 'bg-gray-600 text-gray-300 hover:bg-gray-500 border border-gray-500'
+                        }`}
                     >
                       Right
                     </button>
                     <button
                       onClick={() => onRightPanelBoxartPositionChange?.('none')}
-                      className={`px-2 py-1 text-xs rounded transition-colors ${
-                        rightPanelBoxartPosition === 'none'
-                          ? 'bg-blue-600/40 text-white border border-blue-500'
-                          : 'bg-gray-600 text-gray-300 hover:bg-gray-500 border border-gray-500'
-                      }`}
+                      className={`px-2 py-1 text-xs rounded transition-colors ${rightPanelBoxartPosition === 'none'
+                        ? 'bg-blue-600/40 text-white border border-blue-500'
+                        : 'bg-gray-600 text-gray-300 hover:bg-gray-500 border border-gray-500'
+                        }`}
                     >
                       None
                     </button>
@@ -1720,31 +1622,28 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                   <div className="grid grid-cols-3 gap-1">
                     <button
                       onClick={() => onRightPanelButtonLocationChange?.('left')}
-                      className={`px-2 py-1 text-xs rounded transition-colors ${
-                        rightPanelButtonLocation === 'left'
-                          ? 'bg-blue-600/40 text-white border border-blue-500'
-                          : 'bg-gray-600 text-gray-300 hover:bg-gray-500 border border-gray-500'
-                      }`}
+                      className={`px-2 py-1 text-xs rounded transition-colors ${rightPanelButtonLocation === 'left'
+                        ? 'bg-blue-600/40 text-white border border-blue-500'
+                        : 'bg-gray-600 text-gray-300 hover:bg-gray-500 border border-gray-500'
+                        }`}
                     >
                       Left
                     </button>
                     <button
                       onClick={() => onRightPanelButtonLocationChange?.('middle')}
-                      className={`px-2 py-1 text-xs rounded transition-colors ${
-                        rightPanelButtonLocation === 'middle'
-                          ? 'bg-blue-600/40 text-white border border-blue-500'
-                          : 'bg-gray-600 text-gray-300 hover:bg-gray-500 border border-gray-500'
-                      }`}
+                      className={`px-2 py-1 text-xs rounded transition-colors ${rightPanelButtonLocation === 'middle'
+                        ? 'bg-blue-600/40 text-white border border-blue-500'
+                        : 'bg-gray-600 text-gray-300 hover:bg-gray-500 border border-gray-500'
+                        }`}
                     >
                       Middle
                     </button>
                     <button
                       onClick={() => onRightPanelButtonLocationChange?.('right')}
-                      className={`px-2 py-1 text-xs rounded transition-colors ${
-                        rightPanelButtonLocation === 'right'
-                          ? 'bg-blue-600/40 text-white border border-blue-500'
-                          : 'bg-gray-600 text-gray-300 hover:bg-gray-500 border border-gray-500'
-                      }`}
+                      className={`px-2 py-1 text-xs rounded transition-colors ${rightPanelButtonLocation === 'right'
+                        ? 'bg-blue-600/40 text-white border border-blue-500'
+                        : 'bg-gray-600 text-gray-300 hover:bg-gray-500 border border-gray-500'
+                        }`}
                     >
                       Right
                     </button>

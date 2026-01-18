@@ -17,9 +17,10 @@
       "tileHeight": 117,
       "displayMode": "boxart-title",
       "boxartSize": 94,
-      "sectionTextSize": 13
+      "sectionTextSize": 13,
+      "logoSize": 200
     },
-    "rightPanelLogoSize": 60,
+    "rightPanelLogoSize": 200,
     "rightPanelBoxartPosition": "right",
     "rightPanelBoxartSize": 200,
     "rightPanelTextSize": 13,

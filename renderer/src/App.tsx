@@ -170,78 +170,155 @@ function App() {
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [autoSizeToFit, setAutoSizeToFit] = useState(false);
   const gridContainerRef = useRef<HTMLDivElement>(null);
+  const currentResolutionRef = useRef<string>(window.screen.height >= 1440 ? '1440p' : '1080p');
+  const baselineDefaultsRef = useRef<any>(null);
 
   // Clamp padding in carousel without overwriting the saved preference
   const carouselGameTilePadding = viewMode === 'carousel' && gameTilePadding > 3 ? 1 : gameTilePadding;
 
-  // Load preferences on mount
+  // Load preferences and baseline defaults on mount
   useEffect(() => {
-    const loadPreferences = async () => {
-      try {
-        const prefs = await window.electronAPI.getPreferences();
-        if (prefs.gridSize) setGridSize(prefs.gridSize);
-        if (prefs.logoSize) setLogoSize(prefs.logoSize);
-        if (prefs.pinnedCategories) setPinnedCategories(prefs.pinnedCategories);
-        if (prefs.hideVRTitles !== undefined) setHideVRTitles(prefs.hideVRTitles);
-        if (prefs.hideAppsTitles !== undefined) setHideAppsTitles(prefs.hideAppsTitles);
-        if (prefs.hideGameTitles !== undefined) setHideGameTitles(prefs.hideGameTitles);
-        if (prefs.gameTilePadding !== undefined) setGameTilePadding(prefs.gameTilePadding);
-        if (prefs.showLogoOverBoxart !== undefined) setShowLogoOverBoxart(prefs.showLogoOverBoxart);
-        if (prefs.logoPosition !== undefined) setLogoPosition(prefs.logoPosition);
-        if (prefs.logoBackgroundColor !== undefined) setLogoBackgroundColor(prefs.logoBackgroundColor);
-        if (prefs.logoBackgroundOpacity !== undefined) setLogoBackgroundOpacity(prefs.logoBackgroundOpacity);
-        if (prefs.backgroundBlur !== undefined) setBackgroundBlur(prefs.backgroundBlur);
-        if (prefs.showCarouselDetails !== undefined) setShowCarouselDetails(prefs.showCarouselDetails);
-        if (prefs.showCarouselLogos !== undefined) setShowCarouselLogos(prefs.showCarouselLogos);
-        if (prefs.detailsBarSize !== undefined) setDetailsBarSize(prefs.detailsBarSize);
-        if (prefs.carouselLogoSize !== undefined) setCarouselLogoSize(prefs.carouselLogoSize);
-        if (prefs.carouselButtonSize !== undefined) setCarouselButtonSize(prefs.carouselButtonSize);
-        if (prefs.carouselDescriptionSize !== undefined) setCarouselDescriptionSize(prefs.carouselDescriptionSize);
-        // Right panel settings
-        if (prefs.rightPanelLogoSize !== undefined) setRightPanelLogoSize(prefs.rightPanelLogoSize);
-        if (prefs.rightPanelBoxartPosition !== undefined) setRightPanelBoxartPosition(prefs.rightPanelBoxartPosition);
-        if (prefs.rightPanelBoxartSize !== undefined) setRightPanelBoxartSize(prefs.rightPanelBoxartSize);
-        if (prefs.rightPanelTextSize !== undefined) setRightPanelTextSize(prefs.rightPanelTextSize);
-        if (prefs.rightPanelButtonSize !== undefined) setRightPanelButtonSize(prefs.rightPanelButtonSize);
-        if (prefs.rightPanelButtonLocation !== undefined) setRightPanelButtonLocation(prefs.rightPanelButtonLocation);
-        if (prefs.detailsPanelOpacity !== undefined) setDetailsPanelOpacity(prefs.detailsPanelOpacity);
-        // Top bar positions
-        if (prefs.topBarPositions) setTopBarPositions({ ...topBarPositions, ...prefs.topBarPositions });
-        if (prefs.viewMode) setViewMode(prefs.viewMode as 'grid' | 'list' | 'logo');
-        if (prefs.backgroundMode) setBackgroundMode(prefs.backgroundMode as 'image' | 'color');
-        if (prefs.backgroundColor) setBackgroundColor(prefs.backgroundColor);
-        if (prefs.listViewOptions) {
-          setListViewOptions({ ...defaultListViewOptions, ...prefs.listViewOptions });
-        } else {
-          setListViewOptions(defaultListViewOptions);
+    const initialize = async () => {
+      // Load baseline defaults first
+      const baseline = await window.electronAPI.getBaselineDefaults?.();
+      if (baseline) {
+        baselineDefaultsRef.current = baseline;
+      }
+
+      const loadPreferences = async () => {
+        try {
+          const prefs = await window.electronAPI.getPreferences();
+          if (prefs.gridSize) setGridSize(prefs.gridSize);
+          if (prefs.logoSize) setLogoSize(prefs.logoSize);
+          if (prefs.pinnedCategories) setPinnedCategories(prefs.pinnedCategories);
+          if (prefs.hideVRTitles !== undefined) setHideVRTitles(prefs.hideVRTitles);
+          if (prefs.hideAppsTitles !== undefined) setHideAppsTitles(prefs.hideAppsTitles);
+          if (prefs.hideGameTitles !== undefined) setHideGameTitles(prefs.hideGameTitles);
+          if (prefs.gameTilePadding !== undefined) setGameTilePadding(prefs.gameTilePadding);
+          if (prefs.showLogoOverBoxart !== undefined) setShowLogoOverBoxart(prefs.showLogoOverBoxart);
+          if (prefs.logoPosition !== undefined) setLogoPosition(prefs.logoPosition);
+          if (prefs.logoBackgroundColor !== undefined) setLogoBackgroundColor(prefs.logoBackgroundColor);
+          if (prefs.logoBackgroundOpacity !== undefined) setLogoBackgroundOpacity(prefs.logoBackgroundOpacity);
+          if (prefs.backgroundBlur !== undefined) setBackgroundBlur(prefs.backgroundBlur);
+          if (prefs.showCarouselDetails !== undefined) setShowCarouselDetails(prefs.showCarouselDetails);
+          if (prefs.showCarouselLogos !== undefined) setShowCarouselLogos(prefs.showCarouselLogos);
+          if (prefs.detailsBarSize !== undefined) setDetailsBarSize(prefs.detailsBarSize);
+          if (prefs.carouselLogoSize !== undefined) setCarouselLogoSize(prefs.carouselLogoSize);
+          if (prefs.carouselButtonSize !== undefined) setCarouselButtonSize(prefs.carouselButtonSize);
+          if (prefs.carouselDescriptionSize !== undefined) setCarouselDescriptionSize(prefs.carouselDescriptionSize);
+          // Right panel settings
+          if (prefs.rightPanelLogoSize !== undefined) setRightPanelLogoSize(prefs.rightPanelLogoSize);
+          if (prefs.rightPanelBoxartPosition !== undefined) setRightPanelBoxartPosition(prefs.rightPanelBoxartPosition);
+          if (prefs.rightPanelBoxartSize !== undefined) setRightPanelBoxartSize(prefs.rightPanelBoxartSize);
+          if (prefs.rightPanelTextSize !== undefined) setRightPanelTextSize(prefs.rightPanelTextSize);
+          if (prefs.rightPanelButtonSize !== undefined) setRightPanelButtonSize(prefs.rightPanelButtonSize);
+          if (prefs.rightPanelButtonLocation !== undefined) setRightPanelButtonLocation(prefs.rightPanelButtonLocation);
+          if (prefs.detailsPanelOpacity !== undefined) setDetailsPanelOpacity(prefs.detailsPanelOpacity);
+          // Top bar positions
+          if (prefs.topBarPositions) setTopBarPositions({ ...topBarPositions, ...prefs.topBarPositions });
+          if (prefs.viewMode) setViewMode(prefs.viewMode);
+          if (prefs.backgroundMode) setBackgroundMode(prefs.backgroundMode as 'image' | 'color');
+          if (prefs.backgroundColor) setBackgroundColor(prefs.backgroundColor);
+          if (prefs.listViewOptions) {
+            setListViewOptions({ ...defaultListViewOptions, ...prefs.listViewOptions });
+          } else {
+            setListViewOptions(defaultListViewOptions);
+          }
+          if (prefs.listViewSize) setListViewSize(prefs.listViewSize);
+          // Load divider settings per view
+          if (prefs.fanartHeightByView) {
+            setFanartHeightByView({ ...fanartHeightByView, ...prefs.fanartHeightByView });
+          }
+          if (prefs.descriptionWidthByView) {
+            setDescriptionWidthByView({ ...descriptionWidthByView, ...prefs.descriptionWidthByView });
+          }
+          if (prefs.panelWidthByView) {
+            setPanelWidthByViewState({ ...panelWidthByViewState, ...prefs.panelWidthByView });
+          }
+          // Set initial panelWidth based on current view
+          const savedPanelWidth = (prefs.panelWidthByView && prefs.viewMode ? prefs.panelWidthByView[prefs.viewMode as 'grid' | 'list' | 'logo' | 'carousel'] : undefined) ?? prefs.panelWidth;
+          if (savedPanelWidth) setPanelWidth(savedPanelWidth);
+          if (prefs.autoSizeToFit !== undefined) setAutoSizeToFit(prefs.autoSizeToFit);
+          // Restore active game selection if it exists
+          if (prefs.activeGameId) {
+            setActiveGameId(prefs.activeGameId);
+          }
+          // If this is the very first time (no preferences saved), apply baseline for current resolution
+          if (prefs.isFirstLaunch && baselineDefaultsRef.current) {
+            console.log(`[App] First launch detected. Applying baseline defaults for ${currentResolutionRef.current}.`);
+            applyBaselineDefaults(currentResolutionRef.current);
+            // Save preference change to set isFirstLaunch to false
+            window.electronAPI.savePreferences({ isFirstLaunch: false });
+          }
+
+          setIsInitialLoad(false);
+        } catch (error) {
+          console.error('Error loading preferences:', error);
+          setIsInitialLoad(false);
         }
-        if (prefs.listViewSize) setListViewSize(prefs.listViewSize);
-        // Load divider settings per view
-        if (prefs.fanartHeightByView) {
-          setFanartHeightByView({ ...fanartHeightByView, ...prefs.fanartHeightByView });
-        }
-        if (prefs.descriptionWidthByView) {
-          setDescriptionWidthByView({ ...descriptionWidthByView, ...prefs.descriptionWidthByView });
-        }
-        if (prefs.panelWidthByView) {
-          setPanelWidthByViewState({ ...panelWidthByViewState, ...prefs.panelWidthByView });
-        }
-        // Set initial panelWidth based on current view
-        const savedPanelWidth = (prefs.panelWidthByView && prefs.viewMode ? prefs.panelWidthByView[prefs.viewMode as 'grid' | 'list' | 'logo' | 'carousel'] : undefined) ?? prefs.panelWidth;
-        if (savedPanelWidth) setPanelWidth(savedPanelWidth);
-        if (prefs.autoSizeToFit !== undefined) setAutoSizeToFit(prefs.autoSizeToFit);
-        // Restore active game selection if it exists
-        if (prefs.activeGameId) {
-          setActiveGameId(prefs.activeGameId);
-        }
-        setIsInitialLoad(false);
-      } catch (error) {
-        console.error('Error loading preferences:', error);
-        setIsInitialLoad(false);
+      };
+      await loadPreferences();
+    };
+    initialize();
+  }, []);
+
+  const applyBaselineDefaults = (resKey: string) => {
+    if (!baselineDefaultsRef.current || !baselineDefaultsRef.current[resKey]) return;
+    const defaults = baselineDefaultsRef.current[resKey][viewMode];
+    if (!defaults) return;
+
+    // Apply view-specific settings from baseline
+    if (viewMode === 'grid') {
+      if (defaults.gridSize !== undefined) setGridSize(defaults.gridSize);
+      if (defaults.showLogoOverBoxart !== undefined) setShowLogoOverBoxart(defaults.showLogoOverBoxart);
+      if (defaults.gameTilePadding !== undefined) setGameTilePadding(defaults.gameTilePadding);
+    } else if (viewMode === 'logo') {
+      if (defaults.logoSize !== undefined) setLogoSize(defaults.logoSize);
+      if (defaults.logoBackgroundOpacity !== undefined) setLogoBackgroundOpacity(defaults.logoBackgroundOpacity);
+      if (defaults.gameTilePadding !== undefined) setGameTilePadding(defaults.gameTilePadding);
+      if (defaults.rightPanelLogoSize !== undefined) setRightPanelLogoSize(defaults.rightPanelLogoSize);
+    } else if (viewMode === 'list') {
+      if (defaults.listViewOptions !== undefined) setListViewOptions(defaults.listViewOptions);
+      if (defaults.rightPanelLogoSize !== undefined) setRightPanelLogoSize(defaults.rightPanelLogoSize);
+    } else if (viewMode === 'carousel') {
+      if (defaults.showCarouselDetails !== undefined) setShowCarouselDetails(defaults.showCarouselDetails);
+      if (defaults.showCarouselLogos !== undefined) setShowCarouselLogos(defaults.showCarouselLogos);
+      if (defaults.detailsBarSize !== undefined) setDetailsBarSize(defaults.detailsBarSize);
+      if (defaults.selectedBoxArtSize !== undefined) setSelectedBoxArtSize(defaults.selectedBoxArtSize);
+      if (defaults.gameTilePadding !== undefined) setGameTilePadding(defaults.gameTilePadding);
+      if (defaults.carouselLogoSize !== undefined) setCarouselLogoSize(defaults.carouselLogoSize);
+      if (defaults.carouselButtonSize !== undefined) setCarouselButtonSize(defaults.carouselButtonSize);
+      if (defaults.carouselDescriptionSize !== undefined) setCarouselDescriptionSize(defaults.carouselDescriptionSize);
+    }
+
+    // Common baseline settings
+    if (defaults.backgroundBlur !== undefined) setBackgroundBlur(defaults.backgroundBlur);
+    if (defaults.panelWidth !== undefined) setPanelWidth(defaults.panelWidth);
+    if (defaults.rightPanelBoxartPosition !== undefined) setRightPanelBoxartPosition(defaults.rightPanelBoxartPosition);
+    if (defaults.rightPanelBoxartSize !== undefined) setRightPanelBoxartSize(defaults.rightPanelBoxartSize);
+    if (defaults.rightPanelTextSize !== undefined) setRightPanelTextSize(defaults.rightPanelTextSize);
+    if (defaults.rightPanelButtonSize !== undefined) setRightPanelButtonSize(defaults.rightPanelButtonSize);
+    if (defaults.rightPanelButtonLocation !== undefined) setRightPanelButtonLocation(defaults.rightPanelButtonLocation);
+    if (defaults.detailsPanelOpacity !== undefined) setDetailsPanelOpacity(defaults.detailsPanelOpacity);
+  };
+
+  // Detect resolution changes and auto-apply defaults
+  useEffect(() => {
+    const handleResize = () => {
+      const height = window.screen.height;
+      const newResKey = height >= 1440 ? '1440p' : '1080p';
+
+      if (newResKey !== currentResolutionRef.current) {
+        console.log(`[App] Resolution change detected: ${currentResolutionRef.current} -> ${newResKey}. Auto-applying baseline defaults.`);
+        currentResolutionRef.current = newResKey;
+        applyBaselineDefaults(newResKey);
       }
     };
-    loadPreferences();
-  }, []);
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [viewMode]);
+
 
   // Save grid size when it changes (but not when auto-size is enabled)
   useEffect(() => {

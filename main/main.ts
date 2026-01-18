@@ -1,6 +1,6 @@
 import { app, BrowserWindow, ipcMain, dialog, Menu, protocol, Tray, nativeImage, shell, session, net, globalShortcut } from 'electron';
 import path from 'node:path';
-import { readdirSync, statSync, existsSync, readFileSync } from 'node:fs';
+import { readdirSync, statSync, existsSync, readFileSync, promises as fsPromises } from 'node:fs';
 import { platform } from 'node:os';
 import dotenv from 'dotenv';
 import { SteamService } from './SteamService.js';
@@ -4529,6 +4529,37 @@ ipcMain.handle('preferences:save', async (_event, preferences: { gridSize?: numb
   }
 });
 
+ipcMain.handle('customDefaults:getBaseline', async () => {
+  try {
+    const filesDir = path.join(process.cwd(), 'files');
+    const baselineDefaults: any = {};
+
+    const modes = ['grid', 'list', 'logo', 'carousel'];
+    const resolutions = ['1080p', '1440p'];
+
+    for (const resolution of resolutions) {
+      baselineDefaults[resolution] = {};
+      for (const mode of modes) {
+        const fileName = `onyx-${mode}-defaults-${resolution}.json`;
+        const filePath = path.join(filesDir, fileName);
+        try {
+          const content = await fsPromises.readFile(filePath, 'utf-8');
+          const data = JSON.parse(content);
+          // Merge into baseline
+          baselineDefaults[resolution][mode] = data[mode] || {};
+        } catch (fileError) {
+          console.warn(`Could not load baseline default file: ${fileName}`, fileError);
+        }
+      }
+    }
+
+    return baselineDefaults;
+  } catch (error) {
+    console.error('Error fetching baseline defaults:', error);
+    return {};
+  }
+});
+
 // Custom defaults IPC handlers
 ipcMain.handle('customDefaults:has', async () => {
   try {
@@ -4587,7 +4618,7 @@ ipcMain.handle('customDefaults:restore', async (_event, options: { viewMode: str
   }
 });
 
-ipcMain.handle('customDefaults:export', async (_event, options: { viewMode: string; scope: string }) => {
+ipcMain.handle('customDefaults:export', async (_event, options: { viewMode: string; scope: string; resolution?: string; overrideSettings?: any }) => {
   try {
     const StoreModule = await (eval('import("electron-store")') as Promise<any>);
     const Store = StoreModule.default;
@@ -4600,13 +4631,28 @@ ipcMain.handle('customDefaults:export', async (_event, options: { viewMode: stri
 
     let exportData: any;
     let defaultFileName: string;
+    const resSuffix = options.resolution ? `-${options.resolution}` : '';
 
     if (options.scope === 'current') {
-      exportData = { [options.viewMode]: allDefaults[options.viewMode] || {} };
-      defaultFileName = `onyx-${options.viewMode}-defaults.json`;
+      const currentViewDefaults = allDefaults[options.viewMode] || {};
+      // Merge override settings if provided (e.g. current game's logo size)
+      const mergedViewDefaults = options.overrideSettings
+        ? { ...currentViewDefaults, ...options.overrideSettings }
+        : currentViewDefaults;
+
+      exportData = { [options.viewMode]: mergedViewDefaults };
+      defaultFileName = `onyx-${options.viewMode}-defaults${resSuffix}.json`;
     } else {
-      exportData = allDefaults;
-      defaultFileName = 'onyx-all-view-defaults.json';
+      // For scope 'all', merge overrides for each view mode if provided
+      if (options.overrideSettings) {
+        exportData = { ...allDefaults };
+        for (const mode in options.overrideSettings) {
+          exportData[mode] = { ...(allDefaults[mode] || {}), ...options.overrideSettings[mode] };
+        }
+      } else {
+        exportData = allDefaults;
+      }
+      defaultFileName = `onyx-all-view-defaults${resSuffix}.json`;
     }
 
     // Show save dialog

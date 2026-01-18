@@ -1,12 +1,14 @@
 {
   "grid": {
-    "gridSize": 148,
+    "gridSize": 120,
     "showLogoOverBoxart": false,
     "gameTilePadding": 10,
-    "panelWidth": 1432,
-    "fanartHeight": 600,
+    "panelWidth": 1003,
+    "fanartHeight": 320,
     "descriptionWidth": 50,
     "backgroundBlur": 0,
+    "logoSize": 150,
+    "rightPanelLogoSize": 150,
     "rightPanelBoxartPosition": "right",
     "rightPanelBoxartSize": 200,
     "rightPanelTextSize": 13,

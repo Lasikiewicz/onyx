@@ -34,6 +34,11 @@ export interface UserPreferences {
     showLauncher?: boolean;
     showLogos?: boolean;
     titleTextSize?: number;
+    displayMode?: 'boxart-title' | 'logo-title' | 'logo-only' | 'title-only';
+    sectionTextSize?: number;
+    tileHeight?: number;
+    boxartSize?: number;
+    logoSize?: number;
   };
   listViewSize?: number;
   logoViewSize?: number;
@@ -63,15 +68,19 @@ export interface UserPreferences {
     gridSize?: number;
     gameTilePadding?: number;
     backgroundBlur?: number;
+    logoSize?: number;
+    rightPanelLogoSize?: number;
   };
   logoView?: {
     logoSize?: number;
     gameTilePadding?: number;
     backgroundBlur?: number;
+    rightPanelLogoSize?: number;
   };
   listView?: {
     listSize?: number;
     backgroundBlur?: number;
+    rightPanelLogoSize?: number;
   };
   titleFontSize?: number;
   titleFontFamily?: string;

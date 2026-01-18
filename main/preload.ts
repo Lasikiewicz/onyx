@@ -100,8 +100,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   hasCustomDefaults: () => ipcRenderer.invoke('customDefaults:has'),
   saveCustomDefaults: (settings: any) => ipcRenderer.invoke('customDefaults:save', settings),
   restoreCustomDefaults: (options: { viewMode: string; scope: string }) => ipcRenderer.invoke('customDefaults:restore', options),
-  exportCustomDefaults: (options: { viewMode: string; scope: string }) => ipcRenderer.invoke('customDefaults:export', options),
+  exportCustomDefaults: (options: { viewMode: string; scope: string; resolution?: string; overrideSettings?: any }) => ipcRenderer.invoke('customDefaults:export', options),
   importCustomDefaults: () => ipcRenderer.invoke('customDefaults:import'),
+  getBaselineDefaults: () => ipcRenderer.invoke('customDefaults:getBaseline'),
   // App control methods
   requestExit: () => ipcRenderer.invoke('app:requestExit'),
   exit: () => ipcRenderer.invoke('app:exit'),

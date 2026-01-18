@@ -34,15 +34,15 @@ export class LauncherService {
       // Check ID format to determine launcher (most reliable method)
       // Steam games: steam-<AppID>
       const steamMatch = gameId.match(/^steam-(.+)$/);
-      
+
       if (steamMatch && steamMatch[1]) {
         // This is a Steam game - launch via Steam URL protocol
         const appId = steamMatch[1];
         const steamUrl = `steam://rungameid/${appId}`;
         await shell.openExternal(steamUrl);
         return { success: true };
-      } 
-      
+      }
+
       // Epic Games: epic-<CatalogItemId> or epic-<AppName>
       const epicMatch = gameId.match(/^epic-(.+)$/);
       const isEpic = epicMatch || game.platform === 'epic' || game.source === 'epic';
@@ -55,7 +55,7 @@ export class LauncherService {
         await shell.openExternal(epicUrl);
         return { success: true };
       }
-      
+
       // EA/Origin: ea-<OfferId> or origin-<OfferId>
       const eaMatch = gameId.match(/^(ea|origin)-(.+)$/);
       const isEA = eaMatch || game.platform === 'ea' || game.source === 'ea' || game.platform === 'origin' || game.source === 'origin';
@@ -67,27 +67,27 @@ export class LauncherService {
         await shell.openExternal(eaUrl);
         return { success: true };
       }
-      
-      // GOG: gog-<ProductId>
-      const gogMatch = gameId.match(/^gog-(.+)$/);
+
+      // GOG: gog-<ProductId> (Product IDs should be numeric)
+      const gogMatch = gameId.match(/^gog-(\d+)$/);
       const isGOG = gogMatch || game.platform === 'gog' || game.source === 'gog';
       if (isGOG && gogMatch && gogMatch[1]) {
-        // GOG uses: goggalaxy://openGameView/<ProductID>
+        // GOG uses: goggalaxy://launchGame/<ProductID>
         const productId = gogMatch[1];
-        const gogUrl = `goggalaxy://openGameView/${productId}`;
-        console.log(`[LauncherService] Launching GOG game: ${gogUrl}`);
+        const gogUrl = `goggalaxy://launchGame/${productId}`;
+        console.log(`[LauncherService] Launching GOG game via protocol: ${gogUrl}`);
         await shell.openExternal(gogUrl);
         return { success: true };
       }
-      
-      // Ubisoft Connect: ubisoft-<GameId>
-      const ubisoftMatch = gameId.match(/^ubisoft-(.+)$/);
+
+      // Ubisoft Connect: ubisoft-<GameId> (Game IDs should be numeric)
+      const ubisoftMatch = gameId.match(/^ubisoft-(\d+)$/);
       const isUbisoft = ubisoftMatch || game.platform === 'ubisoft' || game.source === 'ubisoft';
       if (isUbisoft && ubisoftMatch && ubisoftMatch[1]) {
         // Ubisoft uses: uplay://launch/<GameID>
         const gameUbisoftId = ubisoftMatch[1];
         const ubisoftUrl = `uplay://launch/${gameUbisoftId}`;
-        console.log(`[LauncherService] Launching Ubisoft game: ${ubisoftUrl}`);
+        console.log(`[LauncherService] Launching Ubisoft game via protocol: ${ubisoftUrl}`);
         await shell.openExternal(ubisoftUrl);
         return { success: true };
       }
@@ -132,10 +132,10 @@ export class LauncherService {
           console.error(`[LauncherService] Xbox PC game has no executable path: ${game.title}`);
           return { success: false, error: 'Executable path not set for this Xbox game' };
         }
-        
+
         console.log(`[LauncherService] Using exe launch for PC Game Pass: ${game.exePath}`);
       }
-      
+
       // Fallback: Check platform field if ID format doesn't match
       if (game.platform === 'steam') {
         // Fallback: platform is set to 'steam' but ID format doesn't match
@@ -161,7 +161,7 @@ export class LauncherService {
         console.log(`[LauncherService] Epic game without installation directory, launching via exe: ${game.exePath}`);
         // Fall through to exe launch below
       }
-      
+
       // Non-launcher game or fallback: launch the executable
       if (!game.exePath) {
         return { success: false, error: 'Executable path not set for this game' };
@@ -169,20 +169,33 @@ export class LauncherService {
 
       // Use spawn to execute the game
       // On Windows, we need to use shell: true for paths with spaces
-      // Also extract the directory as the working directory
+      // When using shell: true, the command/path must be quoted if it contains spaces
       const { dirname } = require('path');
       const workingDir = dirname(game.exePath);
-      
+
       console.log(`[LauncherService] Spawning exe: ${game.exePath}`);
       console.log(`[LauncherService] Working directory: ${workingDir}`);
       if (game.launchArgs) {
         console.log(`[LauncherService] Launch arguments: ${game.launchArgs}`);
       }
-      
+
       // Parse launch arguments if provided
-      const args = game.launchArgs ? game.launchArgs.split(/\s+/) : [];
-      
-      const child = spawn(game.exePath, args, {
+      // Use a regex that respects quoted strings to avoid splitting paths with spaces
+      const args: string[] = [];
+      if (game.launchArgs) {
+        const regex = /[^\s"]+|"([^"]*)"/g;
+        let match;
+        while ((match = regex.exec(game.launchArgs)) !== null) {
+          // If the match is quoted, match[1] will have the content without quotes
+          // Otherwise, match[0] has the unquoted word
+          args.push(match[1] !== undefined ? match[1] : match[0]);
+        }
+      }
+
+      // Quote the executable path for the shell if it hasn't been already
+      const quotedExePath = game.exePath.startsWith('"') ? game.exePath : `"${game.exePath}"`;
+
+      const child = spawn(quotedExePath, args, {
         detached: true,
         stdio: 'ignore',
         shell: true,  // Required on Windows for paths with spaces

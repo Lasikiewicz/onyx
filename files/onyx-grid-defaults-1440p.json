@@ -1,13 +1,14 @@
 {
-  "logo": {
-    "logoSize": 236,
+  "grid": {
+    "gridSize": 155,
+    "showLogoOverBoxart": false,
     "gameTilePadding": 10,
-    "logoBackgroundOpacity": 0,
-    "backgroundBlur": 0,
-    "panelWidth": 1307,
+    "panelWidth": 1383,
     "fanartHeight": 600,
     "descriptionWidth": 50,
-    "rightPanelLogoSize": 60,
+    "backgroundBlur": 0,
+    "logoSize": 250,
+    "rightPanelLogoSize": 250,
     "rightPanelBoxartPosition": "right",
     "rightPanelBoxartSize": 200,
     "rightPanelTextSize": 13,
