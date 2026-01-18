@@ -656,4 +656,52 @@ limit 10;`;
       throw error;
     }
   }
+  /**
+   * Search for a game by Steam App ID
+   */
+  async getGameBySteamAppId(steamAppId: string): Promise<IGDBGameResult | null> {
+    return this.queueRequest(async () => {
+      return this.retryRequest(async () => {
+        try {
+          const accessToken = await this.getAccessToken();
+
+          // Query the external_games endpoint to find the IGDB game ID
+          const externalGamesQuery = `fields game; where uid = "${steamAppId}" & category = 1; limit 1;`;
+
+          console.log(`[IGDBService] Looking up Steam App ID ${steamAppId}`);
+
+          const externalResponse = await this.axiosInstance.post<Array<{ id: number; game: number }>>(
+            '/external_games',
+            externalGamesQuery,
+            {
+              headers: {
+                'Client-ID': this.clientId,
+                'Authorization': `Bearer ${accessToken}`,
+                'Content-Type': 'text/plain',
+              },
+            }
+          );
+
+          if (externalResponse.data.length === 0 || !externalResponse.data[0].game) {
+            console.log(`[IGDBService] No IGDB game found for Steam App ID ${steamAppId}`);
+            return null;
+          }
+
+          const gameId = externalResponse.data[0].game;
+          console.log(`[IGDBService] Found IGDB Game ID ${gameId} for Steam App ID ${steamAppId}`);
+
+          // Now fetch the full game details using the found game ID
+          const results = await this.searchGame(String(gameId));
+          return results.length > 0 ? results[0] : null;
+
+        } catch (error) {
+          console.error(`[IGDBService] Error looking up Steam App ID ${steamAppId}:`, error);
+          if (axios.isAxiosError(error) && error.response?.status === 429) {
+            throw error; // Let retry logic handle rate limits
+          }
+          return null; // Return null for other errors to allow fallback to title search
+        }
+      });
+    });
+  }
 }

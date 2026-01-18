@@ -10,7 +10,7 @@ import { SteamGridDBMetadataProvider } from "./SteamGridDBMetadataProvider.js";
 import { getRateLimitCoordinator } from "./RateLimitCoordinator.js";
 import { getMetadataCache } from "./MetadataCache.js";
 import { getMetadataValidator } from "./MetadataValidator.js";
-import { withRetry } from "./RetryUtils.js";
+import { withRetry, withTimeout } from "./RetryUtils.js";
 import { ScannedGameResult } from "./ImportService.js";
 import { getGameMatcher } from "./GameMatcher.js";
 
@@ -554,9 +554,14 @@ export class MetadataFetcherService {
         try {
           const steamResults = await this.steamProvider.searchGames(matchedGame.title);
           if (steamResults.length > 0) {
-            // Prefer results that don't look like demos if we're searching for artwork
-            // (Steam search often returns the Demo first if it's new/popular)
-            const bestMatch = steamResults.find(r => !/\bdemo\b/i.test(r.title)) || steamResults[0];
+            // 1. Try to find an exact title match (case-insensitive)
+            let bestMatch = steamResults.find(r => r.title.toLowerCase() === matchedGame.title.toLowerCase());
+
+            // 2. If no exact match, prefer results that don't look like demos
+            if (!bestMatch) {
+              bestMatch = steamResults.find(r => !/\bdemo\b/i.test(r.title)) || steamResults[0];
+            }
+
             resolvedSteamAppId = bestMatch.steamAppId;
             console.log(`[fetchArtworkForGame] Resolved Steam App ID from search: ${resolvedSteamAppId} ("${bestMatch.title}")`);
 
@@ -576,58 +581,106 @@ export class MetadataFetcherService {
       console.log(`[fetchArtworkForGame] Adding SteamGridDB provider for "${matchedGame.title}"`);
       if (matchedGame.source === 'steamgriddb') {
         artworkPromises.push({
-          promise: this.steamGridDBProvider.getArtwork(matchedGame.id, resolvedSteamAppId),
+          promise: withTimeout(
+            this.steamGridDBProvider.getArtwork(matchedGame.id, resolvedSteamAppId),
+            15000,
+            "SteamGridDB Artwork Timeout"
+          ).catch((err: any) => {
+            console.warn(`[fetchArtworkForGame] SteamGridDB timeout/error: ${err.message}`);
+            return null;
+          }),
           source: "steamgriddb"
         });
       } else {
         artworkPromises.push({
-          promise: (async () => {
-            const results = await this.steamGridDBProvider!.search(matchedGame.title, resolvedSteamAppId);
-            return results.length > 0 ? this.steamGridDBProvider!.getArtwork(results[0].id, resolvedSteamAppId) : null;
-          })(),
+          promise: withTimeout(
+            (async () => {
+              const results = await this.steamGridDBProvider!.search(matchedGame.title, resolvedSteamAppId);
+              return results.length > 0 ? this.steamGridDBProvider!.getArtwork(results[0].id, resolvedSteamAppId) : null;
+            })(),
+            15000,
+            "SteamGridDB Search/Artwork Timeout"
+          ).catch((err: any) => {
+            console.warn(`[fetchArtworkForGame] SteamGridDB search timeout/error: ${err.message}`);
+            return null;
+          }),
           source: "steamgriddb"
         });
       }
     }
 
-    // 2. IGDB Provider - Comprehensive fallback
-    if (this.igdbProvider?.isAvailable()) {
-      console.log(`[fetchArtworkForGame] Adding IGDB provider for "${matchedGame.title}"`);
-      // Use direct ID if it's IGDB, otherwise search
-      if (matchedGame.source === 'igdb') {
-        artworkPromises.push({
-          promise: this.igdbProvider.getArtwork(matchedGame.id),
-          source: "igdb"
-        });
-      } else {
-        artworkPromises.push({
-          promise: (async () => {
-            const results = await this.igdbProvider!.search(matchedGame.title);
-            return results.length > 0 ? this.igdbProvider!.getArtwork(results[0].id) : null;
-          })(),
-          source: "igdb"
-        });
+    // 3. Fallback Providers (IGDB, RAWG) - ONLY use if we didn't find a Steam App ID
+    // The user explicitly wants to avoid pollution from other sources if a direct Steam match exists.
+    if (!resolvedSteamAppId) {
+      // IGDB Provider
+      if (this.igdbProvider?.isAvailable()) {
+        console.log(`[fetchArtworkForGame] Adding IGDB provider for "${matchedGame.title}" (No Steam ID found)`);
+        if (matchedGame.source === 'igdb') {
+          artworkPromises.push({
+            promise: withTimeout(
+              this.igdbProvider.getArtwork(matchedGame.id, resolvedSteamAppId),
+              15000,
+              "IGDB Artwork Timeout"
+            ).catch((err: any) => {
+              console.warn(`[fetchArtworkForGame] IGDB timeout/error: ${err.message}`);
+              return null;
+            }),
+            source: "igdb"
+          });
+        } else {
+          artworkPromises.push({
+            promise: withTimeout(
+              (async () => {
+                const results = await this.igdbProvider!.search(matchedGame.title, resolvedSteamAppId);
+                return results.length > 0 ? this.igdbProvider!.getArtwork(results[0].id, resolvedSteamAppId) : null;
+              })(),
+              15000,
+              "IGDB Search/Artwork Timeout"
+            ).catch((err: any) => {
+              console.warn(`[fetchArtworkForGame] IGDB search timeout/error: ${err.message}`);
+              return null;
+            }),
+            source: "igdb"
+          });
+        }
       }
+
+      // RAWG Provider
+      if (this.rawgProvider?.isAvailable()) {
+        console.log(`[fetchArtworkForGame] Adding RAWG provider for "${matchedGame.title}" (No Steam ID found)`);
+        if (matchedGame.source === 'rawg') {
+          artworkPromises.push({
+            promise: withTimeout(
+              this.rawgProvider.getArtwork(matchedGame.id),
+              15000,
+              "RAWG Artwork Timeout"
+            ).catch((err: any) => {
+              console.warn(`[fetchArtworkForGame] RAWG timeout/error: ${err.message}`);
+              return null;
+            }),
+            source: "rawg"
+          });
+        } else {
+          artworkPromises.push({
+            promise: withTimeout(
+              (async () => {
+                const results = await this.rawgProvider!.search(matchedGame.title);
+                return results.length > 0 ? this.rawgProvider!.getArtwork(results[0].id) : null;
+              })(),
+              15000,
+              "RAWG Search/Artwork Timeout"
+            ).catch((err: any) => {
+              console.warn(`[fetchArtworkForGame] RAWG search timeout/error: ${err.message}`);
+              return null;
+            }),
+            source: "rawg"
+          });
+        }
+      }
+    } else {
+      console.log(`[fetchArtworkForGame] Skipping IGDB/RAWG because valid Steam App ID ${resolvedSteamAppId} was found.`);
     }
 
-    // 3. RAWG Provider - Additional fallback
-    if (this.rawgProvider?.isAvailable()) {
-      console.log(`[fetchArtworkForGame] Adding RAWG provider for "${matchedGame.title}"`);
-      if (matchedGame.source === 'rawg') {
-        artworkPromises.push({
-          promise: this.rawgProvider.getArtwork(matchedGame.id),
-          source: "rawg"
-        });
-      } else {
-        artworkPromises.push({
-          promise: (async () => {
-            const results = await this.rawgProvider!.search(matchedGame.title);
-            return results.length > 0 ? this.rawgProvider!.getArtwork(results[0].id) : null;
-          })(),
-          source: "rawg"
-        });
-      }
-    }
 
     if (artworkPromises.length === 0) {
       console.warn(`[fetchArtworkForGame] No metadata providers available for "${matchedGame.title}"`);
@@ -693,26 +746,29 @@ export class MetadataFetcherService {
       }
     }
 
-    // 2. IGDB Provider
-    if (this.igdbProvider?.isAvailable()) {
-      providersToTry.push(async () => {
-        if (matchedGame.source === 'igdb') {
-          return this.igdbProvider!.getDescription(matchedGame.id);
-        }
-        const results = await this.igdbProvider!.search(matchedGame.title);
-        return results.length > 0 ? this.igdbProvider!.getDescription(results[0].id) : null;
-      });
-    }
+    // 2. Fallback Providers (IGDB, RAWG) - ONLY use if we didn't find a Steam App ID
+    if (!steamAppIdToUse) {
+      if (this.igdbProvider?.isAvailable()) {
+        providersToTry.push(async () => {
+          if (matchedGame.source === 'igdb') {
+            return this.igdbProvider!.getDescription(matchedGame.id);
+          }
+          const results = await this.igdbProvider!.search(matchedGame.title);
+          return results.length > 0 ? this.igdbProvider!.getDescription(results[0].id) : null;
+        });
+      }
 
-    // 3. RAWG Provider
-    if (this.rawgProvider?.isAvailable()) {
-      providersToTry.push(async () => {
-        if (matchedGame.source === 'rawg') {
-          return this.rawgProvider!.getDescription(matchedGame.id);
-        }
-        const results = await this.rawgProvider!.search(matchedGame.title);
-        return results.length > 0 ? this.rawgProvider!.getDescription(results[0].id) : null;
-      });
+      if (this.rawgProvider?.isAvailable()) {
+        providersToTry.push(async () => {
+          if (matchedGame.source === 'rawg') {
+            return this.rawgProvider!.getDescription(matchedGame.id);
+          }
+          const results = await this.rawgProvider!.search(matchedGame.title);
+          return results.length > 0 ? this.rawgProvider!.getDescription(results[0].id) : null;
+        });
+      }
+    } else {
+      console.log(`[fetchDescriptionForGame] Skipping IGDB/RAWG because valid Steam App ID ${steamAppIdToUse} is available.`);
     }
 
     const results = await Promise.all(providersToTry.map(p => p()));

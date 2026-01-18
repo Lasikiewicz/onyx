@@ -23,6 +23,26 @@ export class IGDBMetadataProvider implements MetadataProvider {
     }
 
     try {
+      // If we have a Steam App ID, try to find the specific game via external_games lookup first
+      if (steamAppId) {
+        console.log(`[IGDBMetadataProvider] Attempting verification via Steam App ID: ${steamAppId}`);
+        const exactMatch = await this.igdbService.getGameBySteamAppId(steamAppId);
+
+        if (exactMatch) {
+          console.log(`[IGDBMetadataProvider] Found exact match via Steam ID: "${exactMatch.name}" (IGDB ID: ${exactMatch.id})`);
+          return [{
+            id: `igdb-${exactMatch.id}`,
+            title: exactMatch.name,
+            source: this.name,
+            externalId: exactMatch.id,
+            steamAppId: exactMatch.steamAppId,
+          }];
+        } else {
+          console.log(`[IGDBMetadataProvider] No match found for Steam ID ${steamAppId}, skipping fuzzy search to avoid incorrect matches.`);
+          return [];
+        }
+      }
+
       const results = await this.igdbService.searchGame(title);
       return results.map((result) => ({
         id: `igdb-${result.id}`,

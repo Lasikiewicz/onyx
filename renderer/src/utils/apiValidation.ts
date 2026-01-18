@@ -45,7 +45,7 @@ export async function getAPIConfigurationStatus(): Promise<{
       igdbConfigured,
       rawgConfigured,
       steamGridDBConfigured,
-      allRequiredConfigured: igdbConfigured, // IGDB is mandatory
+      allRequiredConfigured: true, // IGDB is now optional (project-wide decision)
     };
   } catch (error) {
     console.error('Error checking API credentials:', error);

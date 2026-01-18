@@ -1296,9 +1296,9 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                       {/* Left Column - Instructions */}
                       <div className="space-y-4">
                         <div>
-                          <h4 className="text-base font-medium text-white mb-2">IGDB API (Mandatory)</h4>
+                          <h4 className="text-base font-medium text-white mb-2">IGDB API (Optional)</h4>
                           <p className="text-sm text-gray-400 mb-4">
-                            IGDB (Internet Game Database) provides comprehensive game metadata including covers, screenshots, descriptions, genres, and more. <span className="text-red-400 font-semibold">This API is required.</span>
+                            IGDB (Internet Game Database) provides comprehensive game metadata including covers, screenshots, descriptions, genres, and more. <span className="text-blue-400 font-semibold">This API is recommended but optional.</span>
                           </p>
 
                           {/* Instructions */}
