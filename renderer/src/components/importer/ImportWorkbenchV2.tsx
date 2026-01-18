@@ -57,7 +57,6 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
 
     // Refs
     const hasAutoScanned = useRef(false);
-    const sidebarListRef = useRef<HTMLDivElement>(null);
 
     // Get selected game from queue
     const selectedGame = useMemo(() => queue.find(g => g.uuid === selectedId) || null, [queue, selectedId]);
@@ -142,11 +141,21 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
         await processScannedGames(normalized);
     };
 
+    // Auto-scroll to bottom when queue changes
+    useEffect(() => {
+        // Only scroll if we're adding items (scanning)
+        if (isScanning && queue.length > 0) {
+            const container = document.querySelector('.overflow-y-auto.h-full');
+            if (container) {
+                container.scrollTop = container.scrollHeight;
+            }
+        }
+    }, [queue.length, isScanning]);
+
     const processScannedGames = async (scannedGames: any[]) => {
         const existingIds = new Set(existingLibrary.map(g => g.id));
         const existingTitles = new Set(existingLibrary.map(g => g.title.toLowerCase().trim()));
         let firstGameUuid: string | null = null;
-        let newGamesCount = 0;
 
         for (const scanned of scannedGames) {
             // Skip if already in library by ID (check various patterns)
@@ -177,25 +186,6 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
                 console.warn(`Failed to fetch metadata for ${scanned.title}:`, err);
             }
 
-            // --- Category Logic ---
-            const categories: string[] = [];
-
-            // Auto-assign "Apps" for Utilities
-            if (metadata?.genres?.some((g: string) => g.toLowerCase() === 'utilities')) {
-                categories.push('Apps');
-            }
-
-            // Auto-assign "Demo" for Demos
-            const titleLower = scanned.title.toLowerCase();
-            const metaTitleLower = (metadata?.title || '').toLowerCase();
-            if (titleLower.includes('demo') || metaTitleLower.includes('demo')) {
-                categories.push('Demo');
-            }
-
-            // Manual folders basically always get "Games" unless specified otherwise, 
-            // but let's leave it empty so user can decide, or default to Games if standard.
-            // For now, only Utility/Demo logic was explicitly requested.
-
             const staged: StagedGame = {
                 uuid,
                 source: scanned.source,
@@ -209,7 +199,7 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
                 genres: metadata?.genres || [],
                 developers: metadata?.developers || [],
                 publishers: metadata?.publishers || [],
-                categories: categories, // Use our calculated categories
+                categories: [],
                 boxArtUrl: metadata?.boxArtUrl || '',
                 bannerUrl: metadata?.bannerUrl || '',
                 logoUrl: metadata?.logoUrl || '',
@@ -222,29 +212,58 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
                 isIgnored: false,
             };
 
+            // Auto-categorize "Apps" for Utilities
+            if (staged.genres?.includes('Utilities')) {
+                if (!staged.categories) staged.categories = [];
+                staged.categories.push('Apps');
+            }
+
+            // Auto-categorize "Demo"
+            const titleLower = staged.title.toLowerCase();
+            const originalLower = staged.originalName.toLowerCase();
+            if (titleLower.includes('demo') || originalLower.includes('demo') || staged.genres?.some(g => g.toLowerCase().includes('demo'))) {
+                if (!staged.categories) staged.categories = [];
+                if (!staged.categories.includes('Demo')) {
+                    staged.categories.push('Demo');
+                }
+            }
+            // Auto-categorize Manual Folder games as "Games" if no other category
+            if (scanned.source === 'manual_folder') {
+                if (!staged.categories) staged.categories = [];
+                if (staged.categories.length === 0) {
+                    staged.categories.push('Games');
+                }
+            }
+
+
             // Check if ready
             const hasImages = staged.boxArtUrl && staged.bannerUrl && staged.logoUrl;
             const hasDesc = staged.description;
-            if (hasImages && hasDesc) staged.status = 'ready';
+            // Relaxed ready check: if high confidence match OR has verified images/desc OR manual folder with title
+            // User requested that "direct matches" should be ready even if some data missing (implied)
+            // But safely: if we have images and description, it's ready.
+            if (hasImages && hasDesc) {
+                staged.status = 'ready';
+            } else if (metadata?.title && (metadata.title.toLowerCase() === scanned.title.toLowerCase())) {
+                // Exact title match from metadata provider -> consider ready even if missing some art?
+                // User said "Ambiguous should be changed to attention needed".
+                // User also said "Lots of things should ambiguous even though the titles would be direct matches" -> wait, they said "should NOT be ambiguous" is typically what that means, but let's re-read carefully.
+                // "Lots of things should ambiguous even though the titles would be direct matches"
+                // This phrasing is tricky. "Lots of things SHOW ambiguous...".
+                // I will assume they want FEWER false positives for Ambiguous.
+                // If we have a title match and at least a boxart, let's call it ready.
+                if (staged.boxArtUrl) {
+                    staged.status = 'ready';
+                }
+            }
 
             // Add to queue immediately so it appears in sidebar
             setQueue(prev => [...prev, staged]);
-            newGamesCount++;
 
             // Select first game if none selected
             if (!selectedId && firstGameUuid === uuid) {
                 setSelectedId(uuid);
             }
-        }
-
-        // Scroll to bottom if we added games
-        if (newGamesCount > 0 && sidebarListRef.current) {
-            // Small timeout to allow render
-            setTimeout(() => {
-                if (sidebarListRef.current) {
-                    sidebarListRef.current.scrollTop = sidebarListRef.current.scrollHeight;
-                }
-            }, 100);
         }
     };
 
@@ -358,17 +377,12 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
         switch (status) {
             case 'ready': return '✓';
             case 'matched': return '◎';
-            case 'ambiguous': return '!'; // Changed from ? to !
+            case 'ambiguous': return '?';
             case 'error': return '✗';
             case 'pending': return '○';
             case 'scanning': return '↻';
             default: return '○';
         }
-    };
-
-    const getStatusLabel = (status: ImportStatus) => {
-        if (status === 'ambiguous') return 'Attention Needed';
-        return status.charAt(0).toUpperCase() + status.slice(1);
     };
 
     if (!isOpen) return null;
@@ -415,7 +429,7 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
                 {/* Main Content */}
                 <div className="flex flex-1 overflow-hidden">
                     {/* Sidebar - Game List */}
-                    <div ref={sidebarListRef} className="w-[300px] lg:w-[350px] border-r border-gray-800 bg-gray-900/50 overflow-y-auto">
+                    <div className="w-[300px] lg:w-[350px] border-r border-gray-800 bg-gray-900/50 overflow-y-auto">
                         {Object.entries(groupedGames).map(([source, games]) => {
                             if (!games || games.length === 0) return null;
                             return (
@@ -444,7 +458,7 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
                                                 <div className="text-sm font-medium text-white truncate">{game.title}</div>
                                                 <div className="flex items-center gap-2 mt-1">
                                                     <span className={`text-xs ${getStatusColor(game.status)}`}>
-                                                        {getStatusIcon(game.status)} {getStatusLabel(game.status)}
+                                                        {getStatusIcon(game.status)} {game.status === 'ambiguous' ? 'Attention Needed' : game.status}
                                                     </span>
                                                 </div>
                                             </div>
