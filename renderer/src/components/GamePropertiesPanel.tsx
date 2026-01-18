@@ -41,7 +41,7 @@ export const GamePropertiesPanel: React.FC<GamePropertiesPanelProps> = ({
     // Image Search State
     const [imageSearchQuery, setImageSearchQuery] = useState('');
     const [isSearchingImages, setIsSearchingImages] = useState(false);
-    const [activeImageSearchTab, setActiveImageSearchTab] = useState<'boxart' | 'banner' | 'logo' | 'icon'>('boxart');
+    const [activeImageSearchTab, setActiveImageSearchTab] = useState<'all' | 'boxart' | 'banner' | 'logo' | 'icon'>('all');
     const [steamGridDBResults, setSteamGridDBResults] = useState<{
         boxart: any[];
         banner: any[];
@@ -556,7 +556,7 @@ export const GamePropertiesPanel: React.FC<GamePropertiesPanelProps> = ({
                                 type="text"
                                 value={imageSearchQuery}
                                 onChange={(e) => setImageSearchQuery(e.target.value)}
-                                onKeyDown={(e) => e.key === 'Enter' && handleSearchImages(activeImageSearchTab)}
+                                onKeyDown={(e) => e.key === 'Enter' && (activeImageSearchTab === 'all' ? handleFastSearch() : handleSearchImages(activeImageSearchTab))}
                                 placeholder="Enter game title..."
                                 className="flex-1 bg-gray-800 border border-gray-700 rounded p-2 text-sm"
                             />
@@ -585,7 +585,7 @@ export const GamePropertiesPanel: React.FC<GamePropertiesPanelProps> = ({
                                 )}
                             </button>
                             <button
-                                onClick={() => handleSearchImages(activeImageSearchTab)}
+                                onClick={() => activeImageSearchTab === 'all' ? handleFastSearch() : handleSearchImages(activeImageSearchTab)}
                                 disabled={isSearchingImages}
                                 className="bg-purple-600 px-4 rounded text-sm hover:bg-purple-700 disabled:opacity-50"
                             >
@@ -656,19 +656,163 @@ export const GamePropertiesPanel: React.FC<GamePropertiesPanelProps> = ({
                         )}
 
                         {/* Tabs */}
-                        <div className="flex gap-1 mb-4 border-b border-gray-800">
-                            {(['boxart', 'banner', 'logo', 'icon'] as const).map(type => (
-                                <button
-                                    key={type}
-                                    onClick={() => setActiveImageSearchTab(type)}
-                                    className={`px-3 py-2 text-xs font-medium uppercase border-b-2 transition-colors ${activeImageSearchTab === type ? 'border-purple-500 text-purple-400' : 'border-transparent text-gray-500'}`}
-                                >
-                                    {type}
-                                </button>
-                            ))}
+                        <div className="flex gap-1 mb-4 border-b border-gray-800 overflow-x-auto">
+                            {(['all', 'boxart', 'logo', 'banner', 'icon'] as const).map(type => {
+                                let count = 0;
+                                if (type === 'all') {
+                                    count = steamGridDBResults.boxart.length + steamGridDBResults.logo.length + steamGridDBResults.banner.length + steamGridDBResults.icon.length;
+                                } else {
+                                    count = steamGridDBResults[type]?.length || 0;
+                                }
+
+                                return (
+                                    <button
+                                        key={type}
+                                        onClick={() => setActiveImageSearchTab(type)}
+                                        className={`px-3 py-2 text-xs font-medium uppercase border-b-2 transition-colors whitespace-nowrap ${activeImageSearchTab === type ? 'border-purple-500 text-purple-400' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
+                                    >
+                                        {type} <span className="ml-1 opacity-70">({count})</span>
+                                    </button>
+                                );
+                            })}
                         </div>
 
                         {/* Results Grid - Different layouts per type */}
+                        {activeImageSearchTab === 'all' && (
+                            <div className="space-y-8 pb-8">
+                                {Object.values(steamGridDBResults).every(arr => arr.length === 0) && !isSearchingImages && (
+                                    <div className="text-center text-gray-500 py-12 flex flex-col items-center">
+                                        <svg className="w-12 h-12 mb-4 opacity-20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                        </svg>
+                                        <p>No images found. Click "Quick All" to search everywhere.</p>
+                                    </div>
+                                )}
+
+                                {/* Boxart Section */}
+                                {steamGridDBResults.boxart.length > 0 && (
+                                    <div>
+                                        <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-3 border-b border-gray-800 pb-1 flex justify-between">
+                                            Boxart <span className="bg-gray-800 px-2 rounded text-gray-400">{steamGridDBResults.boxart.length}</span>
+                                        </h4>
+                                        <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-10 gap-3">
+                                            {steamGridDBResults.boxart.map((result: any, idx: number) => {
+                                                const url = result.url || result.boxArtUrl || result.coverUrl;
+                                                if (!url) return null;
+                                                return (
+                                                    <div
+                                                        key={`all-boxart-${idx}`}
+                                                        onClick={() => applyImage('boxart', url)}
+                                                        className="group cursor-pointer"
+                                                    >
+                                                        <div className="aspect-[2/3] rounded overflow-hidden border border-gray-700 bg-gray-800 group-hover:border-green-500 transition-all relative">
+                                                            <img
+                                                                src={url}
+                                                                alt=""
+                                                                className="w-full h-full object-cover"
+                                                                onError={(e) => {
+                                                                    (e.target as HTMLImageElement).style.display = 'none';
+                                                                    (e.target as HTMLImageElement).parentElement?.parentElement?.remove();
+                                                                }}
+                                                            />
+                                                            <div className="absolute inset-x-0 bottom-0 bg-black/60 p-1 translate-y-full group-hover:translate-y-0 transition-transform">
+                                                                <p className="text-[10px] text-white truncate text-center">SteamGridDB</p>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Logo Section */}
+                                {steamGridDBResults.logo.length > 0 && (
+                                    <div>
+                                        <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-3 border-b border-gray-800 pb-1 flex justify-between">
+                                            Logo <span className="bg-gray-800 px-2 rounded text-gray-400">{steamGridDBResults.logo.length}</span>
+                                        </h4>
+                                        <div className="grid grid-cols-4 sm:grid-cols-6 gap-3 bg-gray-900/50 p-4 rounded-lg border border-gray-800">
+                                            {steamGridDBResults.logo.map((result: any, idx: number) => {
+                                                const url = result.url || result.logoUrl;
+                                                if (!url) return null;
+                                                return (
+                                                    <div
+                                                        key={`all-logo-${idx}`}
+                                                        onClick={() => applyImage('logo', url)}
+                                                        className="group cursor-pointer flex items-center justify-center p-3 rounded bg-gray-800/50 border border-gray-700 hover:border-green-500 hover:bg-gray-800 transition-all aspect-video"
+                                                    >
+                                                        <img src={url} alt="Logo" className="max-w-full max-h-full object-contain" />
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Banner Section */}
+                                {steamGridDBResults.banner.length > 0 && (
+                                    <div>
+                                        <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-3 border-b border-gray-800 pb-1 flex justify-between">
+                                            Banner <span className="bg-gray-800 px-2 rounded text-gray-400">{steamGridDBResults.banner.length}</span>
+                                        </h4>
+                                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                                            {steamGridDBResults.banner.map((result: any, idx: number) => {
+                                                const url = result.url || result.bannerUrl;
+                                                if (!url) return null;
+                                                return (
+                                                    <div
+                                                        key={`all-banner-${idx}`}
+                                                        onClick={() => applyImage('banner', url)}
+                                                        className="group cursor-pointer"
+                                                    >
+                                                        <div className="aspect-video rounded overflow-hidden border border-gray-700 bg-gray-800 group-hover:border-green-500 transition-all relative">
+                                                            <img
+                                                                src={url}
+                                                                alt=""
+                                                                className="w-full h-full object-cover"
+                                                                onError={(e) => {
+                                                                    (e.target as HTMLImageElement).style.display = 'none';
+                                                                    (e.target as HTMLImageElement).parentElement?.parentElement?.remove();
+                                                                }}
+                                                            />
+                                                            <div className="absolute inset-x-0 bottom-0 bg-black/60 p-1 translate-y-full group-hover:translate-y-0 transition-transform">
+                                                                <p className="text-[10px] text-white truncate text-center">SteamGridDB</p>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Icon Section */}
+                                {steamGridDBResults.icon.length > 0 && (
+                                    <div>
+                                        <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-3 border-b border-gray-800 pb-1 flex justify-between">
+                                            Icon <span className="bg-gray-800 px-2 rounded text-gray-400">{steamGridDBResults.icon.length}</span>
+                                        </h4>
+                                        <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-12 gap-3 bg-gray-900/50 p-4 rounded-lg border border-gray-800">
+                                            {steamGridDBResults.icon.map((result: any, idx: number) => {
+                                                const url = result.url || result.iconUrl;
+                                                if (!url) return null;
+                                                return (
+                                                    <div
+                                                        key={`all-icon-${idx}`}
+                                                        onClick={() => applyImage('icon', url)}
+                                                        className="group cursor-pointer flex items-center justify-center p-2 rounded bg-gray-800/50 border border-gray-700 hover:border-green-500 hover:bg-gray-800 transition-all aspect-square"
+                                                    >
+                                                        <img src={url} alt="Icon" className="w-full h-full object-contain" />
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
                         {activeImageSearchTab === 'boxart' && (
                             <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-10 gap-3">
                                 {steamGridDBResults.boxart.map((result: any, idx: number) => {
