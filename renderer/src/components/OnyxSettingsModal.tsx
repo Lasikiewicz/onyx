@@ -1,12 +1,16 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import iconPng from '../../../resources/icon.png';
 import iconSvg from '../../../resources/icon.svg';
+import { SettingsLayout } from './settings/SettingsLayout';
+import { SettingsSidebar, SettingsTab } from './settings/SettingsSidebar';
+import { SettingsSection, SettingsToggle, SettingsInput } from './settings/SettingsComponents';
 
 interface OnyxSettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave?: () => void;
-  initialTab?: 'general' | 'apis' | 'apps' | 'reset' | 'about' | 'appearance';
+  // Allow both old and new tab names for compatibility during migration
+  initialTab?: 'general' | 'apis' | 'apps' | 'reset' | 'about' | 'appearance' | 'integrations' | 'launchers' | 'library' | 'advanced';
   onShowImportModal?: (games: Array<any>, appType?: 'steam' | 'xbox' | 'other') => void;
 }
 
@@ -21,7 +25,7 @@ interface OnyxSettings {
   gameTilePadding: number;
 }
 
-type TabType = 'general' | 'apis' | 'apps' | 'reset' | 'about' | 'appearance' | 'folders' | 'suspend';
+type TabType = 'general' | 'library' | 'launchers' | 'integrations' | 'appearance' | 'advanced' | 'about'; // Keep legacy types for state compatibility, but UI will hide them
 
 interface AppConfig {
   id: string;
@@ -32,6 +36,7 @@ interface AppConfig {
   placeholder: string;
   autoAdd?: boolean;
   syncPlaytime?: boolean;
+  autoCategory?: string[];
 }
 
 interface APICredentials {
@@ -118,7 +123,13 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
   initialTab = 'general',
   onShowImportModal,
 }) => {
-  const [activeTab, setActiveTab] = useState<TabType>(initialTab);
+  const [activeTab, setActiveTab] = useState<TabType>(() => {
+    if (initialTab === 'apps') return 'launchers';
+    if (initialTab === 'apis') return 'integrations';
+    if ((initialTab as string) === 'folders') return 'library';
+    if (initialTab === 'reset') return 'advanced';
+    return initialTab as TabType;
+  });
   const [apiCredentials, setApiCredentials] = useState<APICredentials>({
     igdbClientId: '',
     igdbClientSecret: '',
@@ -126,16 +137,18 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
     steamGridDBApiKey: '',
   });
   const [activeAPITab, setActiveAPITab] = useState<APITabType>('igdb');
-  const [isLoadingAPI, setIsLoadingAPI] = useState(false);
-  const [apiSaveStatus, setApiSaveStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
+  // const [isLoadingAPI, setIsLoadingAPI] = useState(false);
+  // const [apiSaveStatus, setApiSaveStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
   const [apps, setApps] = useState<AppConfig[]>([]);
   const [isLoadingApps, setIsLoadingApps] = useState(false);
   const [scanningAppId, setScanningAppId] = useState<string | null>(null);
-  const [newlyEnabledApps, setNewlyEnabledApps] = useState<Set<string>>(new Set());
-  const [steamAuthState, setSteamAuthState] = useState<{ authenticated: boolean; steamId?: string; username?: string }>({ authenticated: false });
-  const [isAuthenticating, setIsAuthenticating] = useState(false);
+  // const [newlyEnabledApps, setNewlyEnabledApps] = useState<Set<string>>(new Set());
+  // const [steamAuthState, setSteamAuthState] = useState<{ authenticated: boolean; steamId?: string; username?: string }>({ authenticated: false });
+  // const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [manualFolders, setManualFolders] = useState<string[]>([]);
   const [manualFolderConfigs, setManualFolderConfigs] = useState<Record<string, { id: string; name: string; path: string; enabled: boolean; autoCategory?: string[] }>>({});
+  const [editingAppId, setEditingAppId] = useState<string | null>(null);
+  const [editingManualFolderId, setEditingManualFolderId] = useState<string | null>(null);
   // const [isImporting, setIsImporting] = useState(false);
   const [settings, setSettings] = useState<OnyxSettings>({
     minimizeToTray: false,
@@ -150,12 +163,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
   const [showLogoOverBoxart, setShowLogoOverBoxart] = useState(true);
   const [logoPosition, setLogoPosition] = useState<'top' | 'middle' | 'bottom' | 'underneath'>('middle');
   const [appVersion, setAppVersion] = useState<string>('0.0.0');
-  // Suspend feature state
-  const [suspendFeatureEnabled, setSuspendFeatureEnabled] = useState(false);
-  const [runningGames, setRunningGames] = useState<Array<{ gameId: string; title: string; pid: number; status: 'running' | 'suspended'; exePath?: string }>>([]);
-  const [isLoadingGames, setIsLoadingGames] = useState(false);
-  const [suspendShortcut, setSuspendShortcut] = useState<string>('Ctrl+Shift+S');
-  const [isRecordingShortcut, setIsRecordingShortcut] = useState(false);
+
   const [backgroundScanEnabled, setBackgroundScanEnabled] = useState(false);
   const [backgroundScanIntervalMinutes, setBackgroundScanIntervalMinutes] = useState(30);
 
@@ -251,61 +259,15 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
   // Update active tab when initialTab changes
   useEffect(() => {
     if (isOpen && initialTab) {
-      setActiveTab(initialTab);
+      if (initialTab === 'apps') setActiveTab('launchers');
+      else if (initialTab === 'apis') setActiveTab('integrations');
+      else if ((initialTab as string) === 'folders') setActiveTab('library');
+      else if (initialTab === 'reset') setActiveTab('advanced');
+      else setActiveTab(initialTab as TabType);
     }
   }, [isOpen, initialTab]);
 
-  // Load suspend feature state
-  useEffect(() => {
-    if (isOpen) {
-      const loadSuspendFeature = async () => {
-        try {
-          if (window.electronAPI.suspend?.getFeatureEnabled) {
-            const enabled = await window.electronAPI.suspend.getFeatureEnabled();
-            setSuspendFeatureEnabled(enabled);
-            if (enabled) {
-              loadRunningGames();
-            }
-          }
-          if (window.electronAPI.suspend?.getShortcut) {
-            const shortcut = await window.electronAPI.suspend.getShortcut();
-            setSuspendShortcut(shortcut || 'Ctrl+Shift+S');
-          }
-        } catch (error) {
-          console.error('Error loading suspend feature state:', error);
-        }
-      };
-      loadSuspendFeature();
-    }
-  }, [isOpen]);
 
-  // Load running games function
-  const loadRunningGames = useCallback(async () => {
-    if (!suspendFeatureEnabled) return;
-    setIsLoadingGames(true);
-    try {
-      if (window.electronAPI.suspend?.getRunningGames) {
-        const games = await window.electronAPI.suspend.getRunningGames();
-        setRunningGames(games || []);
-      }
-    } catch (error) {
-      console.error('Error loading running games:', error);
-      setRunningGames([]);
-    } finally {
-      setIsLoadingGames(false);
-    }
-  }, [suspendFeatureEnabled]);
-
-  // DISABLED: Auto-refresh running games when suspend tab is active (Future Feature)
-  // useEffect(() => {
-  //   if (activeTab === 'suspend' && suspendFeatureEnabled) {
-  //     loadRunningGames();
-  //     const interval = setInterval(() => {
-  //       loadRunningGames();
-  //     }, 5000); // Refresh every 5 seconds
-  //     return () => clearInterval(interval);
-  //   }
-  // }, [activeTab, suspendFeatureEnabled, loadRunningGames]);
 
   // Load app configs and manual folders on mount
   useEffect(() => {
@@ -378,7 +340,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
           );
 
           setApps(initializedApps);
-          setNewlyEnabledApps(new Set());
+          // setNewlyEnabledApps(new Set());
         } catch (err) {
           console.error('Error loading app configs:', err);
         } finally {
@@ -387,18 +349,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
       };
       loadAppConfigs();
 
-      // Load Steam auth state
-      const loadSteamAuth = async () => {
-        try {
-          if (window.electronAPI.getSteamAuthState) {
-            const authState = await window.electronAPI.getSteamAuthState();
-            setSteamAuthState(authState);
-          }
-        } catch (err) {
-          console.error('Error loading Steam auth state:', err);
-        }
-      };
-      loadSteamAuth();
+      // loadSteamAuth removed (unused)
     }
   }, [isOpen]);
 
@@ -437,70 +388,18 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
 
       return updated;
     });
-    setApiSaveStatus('idle');
+    // setApiSaveStatus('idle');
   };
 
-  const handleAPISave = async () => {
-    setIsLoadingAPI(true);
-    setApiSaveStatus('saving');
-    try {
-      await window.electronAPI.saveAPICredentials({
-        igdbClientId: apiCredentials.igdbClientId.trim(),
-        igdbClientSecret: apiCredentials.igdbClientSecret.trim(),
-        rawgApiKey: apiCredentials.rawgApiKey.trim(),
-        steamGridDBApiKey: apiCredentials.steamGridDBApiKey.trim(),
-      });
-      setApiSaveStatus('success');
+  // handleAPISave removed (unused)
 
-      // Update API status after save
-      const igdbConfigured = !!(apiCredentials.igdbClientId.trim() && apiCredentials.igdbClientSecret.trim());
-      const rawgConfigured = !!apiCredentials.rawgApiKey.trim();
-      const steamGridDBConfigured = !!apiCredentials.steamGridDBApiKey.trim();
-
-      setApiStatus({
-        igdbConfigured,
-        rawgConfigured,
-        steamGridDBConfigured,
-        allRequiredConfigured: igdbConfigured,
-      });
-
-      setTimeout(() => {
-        setApiSaveStatus('idle');
-      }, 2000);
-    } catch (error) {
-      console.error('Error saving API credentials:', error);
-      setApiSaveStatus('error');
-    } finally {
-      setIsLoadingAPI(false);
-    }
-  };
-
-  const handleOpenIGDB = async () => {
-    try {
-      await window.electronAPI.openExternal('https://dev.twitch.tv/console/apps/create');
-    } catch (error) {
-      console.error('Error opening Twitch Developer Console:', error);
-    }
-  };
+  // handleOpenIGDB removed (unused)
 
   const handleToggleAppEnabled = (appId: string) => {
     setApps((prev) => {
       const updated = prev.map((app) => {
         if (app.id === appId) {
-          const wasEnabled = app.enabled;
-          const nowEnabled = !app.enabled;
-
-          if (nowEnabled && !wasEnabled) {
-            setNewlyEnabledApps(prevSet => new Set(prevSet).add(appId));
-          } else if (!nowEnabled && wasEnabled) {
-            setNewlyEnabledApps(prevSet => {
-              const newSet = new Set(prevSet);
-              newSet.delete(appId);
-              return newSet;
-            });
-          }
-
-          return { ...app, enabled: nowEnabled };
+          return { ...app, enabled: !app.enabled };
         }
         return app;
       });
@@ -514,39 +413,17 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
     );
   };
 
-  const handleToggleAutoAdd = (appId: string) => {
+  // handleToggleAutoAdd removed (unused)
+
+  // handleToggleSyncPlaytime removed (unused)
+
+  const handleUpdateAppCategory = (appId: string, categories: string[]) => {
     setApps((prev) =>
-      prev.map((app) => (app.id === appId ? { ...app, autoAdd: !app.autoAdd } : app))
+      prev.map((app) => (app.id === appId ? { ...app, autoCategory: categories } : app))
     );
   };
 
-  const handleToggleSyncPlaytime = (appId: string) => {
-    setApps((prev) =>
-      prev.map((app) => (app.id === appId ? { ...app, syncPlaytime: !app.syncPlaytime } : app))
-    );
-  };
-
-  const handleSteamAuthenticate = async () => {
-    setIsAuthenticating(true);
-    try {
-      if (!window.electronAPI.authenticateSteam) return;
-      const result = await window.electronAPI.authenticateSteam();
-      if (result.success) {
-        setSteamAuthState({
-          authenticated: true,
-          steamId: result.steamId,
-          username: result.username,
-        });
-      } else {
-        alert(result.error || 'Failed to authenticate with Steam');
-      }
-    } catch (err) {
-      console.error('Error authenticating with Steam:', err);
-      alert('Failed to authenticate with Steam');
-    } finally {
-      setIsAuthenticating(false);
-    }
-  };
+  // handleSteamAuthenticate removed (unused)
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any
   // const _handleSteamImportAll = async (): Promise<any> => {
@@ -696,11 +573,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
           }
         }
       }
-      setNewlyEnabledApps(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(appId);
-        return newSet;
-      });
+      // setNewlyEnabledApps removed (unused)
     } catch (err) {
       console.error('Error scanning app:', err);
     } finally {
@@ -879,69 +752,50 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
 
   if (!isOpen) return null;
 
-  const tabs: { id: TabType; label: string; icon: JSX.Element }[] = [
+  const tabs: SettingsTab[] = [
     {
       id: 'general',
       label: 'General',
       icon: (
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
         </svg>
       ),
     },
     {
-      id: 'apps',
-      label: 'Apps',
+      id: 'library',
+      label: 'Libraries',
       icon: (
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
         </svg>
       ),
     },
     {
-      id: 'folders',
-      label: 'Folders',
+      id: 'integrations',
+      label: 'API Integrations',
       icon: (
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
         </svg>
       ),
     },
+
     {
-      id: 'apis',
-      label: "API's",
+      id: 'advanced',
+      label: 'Advanced',
       icon: (
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
         </svg>
       ),
     },
-    {
-      id: 'reset',
-      label: 'Reset',
-      icon: (
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-        </svg>
-      ),
-    },
-    // DISABLED: Suspend feature (Future Feature)
-    // {
-    //   id: 'suspend',
-    //   label: 'Suspend',
-    //   icon: (
-    //     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    //       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-    //     </svg>
-    //   ),
-    // },
     {
       id: 'about',
       label: 'About',
       icon: (
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
       ),
@@ -949,1499 +803,732 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
   ];
 
   return (
-    <>
-      {/* Backdrop */}
-      <div
-        className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50"
-        onClick={onClose}
+    <SettingsLayout isOpen={isOpen} onClose={onClose}>
+      <SettingsSidebar
+        tabs={tabs}
+        activeTab={activeTab}
+        onTabChange={(id) => setActiveTab(id as TabType)}
+        onClose={onClose}
+        appVersion={appVersion}
       />
 
-      {/* Modal - Full Screen with 3% padding */}
-      <div className="fixed inset-0 z-50" style={{ padding: '3%' }}>
-        <div
-          className="bg-gray-800 rounded-xl shadow-2xl border border-gray-700/50 w-full h-full flex flex-col overflow-hidden"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {/* Header */}
-          <div className="px-4 py-2 border-b border-gray-700/50 bg-gray-800/95 backdrop-blur-sm">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                <img
-                  src={iconPng}
-                  alt="Onyx"
-                  className="w-5 h-5"
-                  onError={(e) => {
-                    const target = e.target as HTMLImageElement;
-                    target.src = iconSvg;
+      <div className="flex-1 bg-gray-900 overflow-y-auto custom-scrollbar flex flex-col">
+        <div className="flex-1 w-full">
+          {activeTab === 'general' && (
+            <div className="space-y-6 p-6">
+              <SettingsSection title="System" description="Configure how Onyx integrates with your system">
+                <SettingsToggle
+                  label="Start with Windows"
+                  description="Automatically start Onyx when you log into Windows"
+                  checked={settings.startWithComputer}
+                  onChange={() => handleToggle('startWithComputer')}
+                />
+                <SettingsToggle
+                  label="System Tray Icon"
+                  description="Show Onyx in the system tray"
+                  checked={settings.showSystemTrayIcon}
+                  onChange={() => handleToggle('showSystemTrayIcon')}
+                />
+                <SettingsToggle
+                  label="Minimize to Tray"
+                  description="Minimize to the system tray instead of the taskbar"
+                  checked={settings.minimizeToTray}
+                  onChange={() => handleToggle('minimizeToTray')}
+                />
+                <SettingsToggle
+                  label="Start Closed to Tray"
+                  description="Launch Onyx in the background"
+                  checked={settings.startClosedToTray}
+                  onChange={() => handleToggle('startClosedToTray')}
+                />
+              </SettingsSection>
+
+              <SettingsSection title="Scanning Options" description="Automatic game detection">
+                <SettingsToggle
+                  label="Background Scanning"
+                  description="Automatically scan for new games periodically"
+                  checked={backgroundScanEnabled}
+                  onChange={(checked) => {
+                    setBackgroundScanEnabled(checked);
+                    if (window.electronAPI.setBackgroundScanEnabled) {
+                      window.electronAPI.setBackgroundScanEnabled(checked);
+                    }
                   }}
                 />
-                Onyx Settings
-              </h2>
-              <button
-                onClick={onClose}
-                className="text-gray-400 hover:text-white transition-colors p-1 rounded-lg hover:bg-gray-700"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
+                {backgroundScanEnabled && (
+                  <SettingsInput
+                    label="Scan Interval (Minutes)"
+                    value={backgroundScanIntervalMinutes}
+                    onChange={(val) => {
+                      const num = parseInt(val) || 30;
+                      setBackgroundScanIntervalMinutes(num);
+                      if (window.electronAPI.setBackgroundScanIntervalMinutes) {
+                        window.electronAPI.setBackgroundScanIntervalMinutes(num);
+                      }
+                    }}
+                    type="number"
+                    description="How often to check for new games (1-1440 minutes)"
+                  />
+                )}
+              </SettingsSection>
+
+              <SettingsSection title="Window Behavior">
+                <SettingsToggle
+                  label="Minimize on Game Launch"
+                  description="Automatically minimize Onyx when a game starts"
+                  checked={settings.minimizeOnGameLaunch}
+                  onChange={() => handleToggle('minimizeOnGameLaunch')}
+                />
+              </SettingsSection>
+
+              <SettingsSection title="Updates">
+                <SettingsToggle
+                  label="Update Libraries on Startup"
+                  description="Automatically scan for new games when Onyx starts"
+                  checked={settings.updateLibrariesOnStartup}
+                  onChange={() => handleToggle('updateLibrariesOnStartup')}
+                />
+              </SettingsSection>
             </div>
-          </div>
-
-          {/* Tabs */}
-          <div className="px-4 pt-2 pb-1 border-b border-gray-700/50 bg-gray-800/50">
-            <div className="flex flex-wrap gap-1">
-              {tabs.map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-t-lg text-sm font-medium transition-all ${activeTab === tab.id
-                    ? 'bg-gray-800 text-blue-400 border-b-2 border-blue-500'
-                    : 'text-gray-400 hover:text-gray-300 hover:bg-gray-700/50'
-                    }`}
-                >
-                  {tab.icon}
-                  <span>{tab.label}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Content */}
-          <div className="flex-1 overflow-y-auto p-6 bg-gray-800/30">
-            {activeTab === 'general' && (
-              <div className="space-y-6">
-                <div className="space-y-1">
-                  <h3 className="text-lg font-semibold text-white mb-4">System Behavior</h3>
-
-                  {/* Settings Grid - 2 columns */}
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                    {/* Minimize to tray */}
-                    <div className="flex items-start justify-between p-4 rounded-lg bg-gray-700/30 hover:bg-gray-700/50 transition-colors">
-                      <div className="flex-1 pr-4">
-                        <label className="text-gray-200 font-medium block mb-1">
-                          Minimize to System Tray
-                        </label>
-                        <p className="text-gray-400 text-sm">
-                          Minimize Onyx to system tray when the application window is closed
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => handleToggle('minimizeToTray')}
-                        className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors flex-shrink-0 ${settings.minimizeToTray ? 'bg-blue-600' : 'bg-gray-600'
-                          }`}
-                      >
-                        <span
-                          className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${settings.minimizeToTray ? 'translate-x-6' : 'translate-x-1'
-                            }`}
-                        />
-                      </button>
+          )}
+          {
+            activeTab === 'library' && (
+              <div className="space-y-8 animate-fade-in h-full overflow-y-auto p-6">
+                {/* Manual Folders Section (Moved to Top) */}
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between border-b border-gray-700/50 pb-2">
+                    <div>
+                      <h3 className="text-base font-bold text-white tracking-tight">Manual Folders</h3>
+                      <p className="text-gray-400 text-xs mt-0.5">Add custom directories to scan for games</p>
                     </div>
-
-                    {/* Show system tray icon */}
-                    <div className="flex items-start justify-between p-4 rounded-lg bg-gray-700/30 hover:bg-gray-700/50 transition-colors">
-                      <div className="flex-1 pr-4">
-                        <label className="text-gray-200 font-medium block mb-1">
-                          Show System Tray Icon
-                        </label>
-                        <p className="text-gray-400 text-sm">
-                          Display Onyx icon in the system tray
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => handleToggle('showSystemTrayIcon')}
-                        className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors flex-shrink-0 ${settings.showSystemTrayIcon ? 'bg-blue-600' : 'bg-gray-600'
-                          }`}
-                      >
-                        <span
-                          className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${settings.showSystemTrayIcon ? 'translate-x-6' : 'translate-x-1'
-                            }`}
-                        />
-                      </button>
-                    </div>
-
-                    {/* Start with computer */}
-                    <div className="flex items-start justify-between p-4 rounded-lg bg-gray-700/30 hover:bg-gray-700/50 transition-colors">
-                      <div className="flex-1 pr-4">
-                        <label className="text-gray-200 font-medium block mb-1">
-                          Start with Computer
-                        </label>
-                        <p className="text-gray-400 text-sm">
-                          Launch Onyx automatically when your computer starts
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => handleToggle('startWithComputer')}
-                        className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors flex-shrink-0 ${settings.startWithComputer ? 'bg-blue-600' : 'bg-gray-600'
-                          }`}
-                      >
-                        <span
-                          className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${settings.startWithComputer ? 'translate-x-6' : 'translate-x-1'
-                            }`}
-                        />
-                      </button>
-                    </div>
-
-                    {/* Start closed to tray */}
-                    <div className="flex items-start justify-between p-4 rounded-lg bg-gray-700/30 hover:bg-gray-700/50 transition-colors">
-                      <div className="flex-1 pr-4">
-                        <label className="text-gray-200 font-medium block mb-1">
-                          Start Minimized to Tray
-                        </label>
-                        <p className="text-gray-400 text-sm">
-                          Start Onyx minimized to the system tray
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => handleToggle('startClosedToTray')}
-                        className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors flex-shrink-0 ${settings.startClosedToTray ? 'bg-blue-600' : 'bg-gray-600'
-                          }`}
-                      >
-                        <span
-                          className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${settings.startClosedToTray ? 'translate-x-6' : 'translate-x-1'
-                            }`}
-                        />
-                      </button>
-                    </div>
-
-                    {/* Update libraries on startup */}
-                    <div className="flex items-start justify-between p-4 rounded-lg bg-gray-700/30 hover:bg-gray-700/50 transition-colors">
-                      <div className="flex-1 pr-4">
-                        <label className="text-gray-200 font-medium block mb-1">
-                          Update Libraries on Startup
-                        </label>
-                        <p className="text-gray-400 text-sm">
-                          Automatically scan for new games when Onyx starts. If new games are found, you'll be prompted to configure metadata and images.
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => handleToggle('updateLibrariesOnStartup')}
-                        className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors flex-shrink-0 ${settings.updateLibrariesOnStartup ? 'bg-blue-600' : 'bg-gray-600'
-                          }`}
-                      >
-                        <span
-                          className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${settings.updateLibrariesOnStartup ? 'translate-x-6' : 'translate-x-1'
-                            }`}
-                        />
-                      </button>
-                    </div>
-
-                    {/* Background scanning */}
-                    <div className="space-y-4 p-4 rounded-lg bg-gray-700/30 hover:bg-gray-700/50 transition-colors">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1 pr-4">
-                          <label className="text-gray-200 font-medium block mb-1">
-                            Background Scanning
-                          </label>
-                          <p className="text-gray-400 text-sm">
-                            Automatically scan for new games at regular intervals while Onyx is running. New games will be detected and you'll be notified.
-                          </p>
-                        </div>
-                        <button
-                          onClick={async () => {
-                            const newValue = !backgroundScanEnabled;
-                            setBackgroundScanEnabled(newValue);
-                            try {
-                              await window.electronAPI.setBackgroundScanEnabled(newValue);
-                            } catch (error) {
-                              console.error('Error toggling background scan:', error);
-                              setBackgroundScanEnabled(!newValue); // Revert on error
-                            }
-                          }}
-                          className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors flex-shrink-0 ${backgroundScanEnabled ? 'bg-blue-600' : 'bg-gray-600'
-                            }`}
-                        >
-                          <span
-                            className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${backgroundScanEnabled ? 'translate-x-6' : 'translate-x-1'
-                              }`}
-                          />
-                        </button>
-                      </div>
-
-                      {/* Scan interval setting */}
-                      {backgroundScanEnabled && (
-                        <div className="pt-2 border-t border-gray-600/50">
-                          <label className="text-gray-200 font-medium block mb-2">
-                            Scan Interval
-                          </label>
-                          <div className="flex items-center gap-3">
-                            <input
-                              type="number"
-                              min="1"
-                              max="1440"
-                              value={backgroundScanIntervalMinutes}
-                              onChange={(e) => {
-                                const value = parseInt(e.target.value, 10);
-                                if (!isNaN(value) && value >= 1 && value <= 1440) {
-                                  setBackgroundScanIntervalMinutes(value);
-                                }
-                              }}
-                              onBlur={async () => {
-                                try {
-                                  await window.electronAPI.setBackgroundScanIntervalMinutes(backgroundScanIntervalMinutes);
-                                } catch (error) {
-                                  console.error('Error setting background scan interval:', error);
-                                  // Reload the value on error
-                                  const interval = await window.electronAPI.getBackgroundScanIntervalMinutes();
-                                  setBackgroundScanIntervalMinutes(interval);
-                                }
-                              }}
-                              className="w-24 px-3 py-2 bg-gray-600 text-white rounded border border-gray-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                            />
-                            <span className="text-gray-400 text-sm">
-                              {backgroundScanIntervalMinutes === 1 ? 'minute' : 'minutes'}
-                            </span>
-                            <span className="text-gray-500 text-xs">
-                              (1-1440 minutes, 24 hours max)
-                            </span>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Minimize on game launch */}
-                    <div className="flex items-start justify-between p-4 rounded-lg bg-gray-700/30 hover:bg-gray-700/50 transition-colors">
-                      <div className="flex-1 pr-4">
-                        <label className="text-gray-200 font-medium block mb-1">
-                          Minimize When Game Opens
-                        </label>
-                        <p className="text-gray-400 text-sm">
-                          Automatically minimize Onyx to the system tray when a game is launched
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => handleToggle('minimizeOnGameLaunch')}
-                        className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors flex-shrink-0 ${settings.minimizeOnGameLaunch ? 'bg-blue-600' : 'bg-gray-600'
-                          }`}
-                      >
-                        <span
-                          className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${settings.minimizeOnGameLaunch ? 'translate-x-6' : 'translate-x-1'
-                            }`}
-                        />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-
-            {activeTab === 'apis' && (
-              <div className="space-y-6">
-                <div className="space-y-1">
-                  <h3 className="text-lg font-semibold text-white mb-4">API Credentials</h3>
-
-                  {/* API Tabs */}
-                  <div className="border-b border-gray-700 mb-6">
-                    <nav className="flex space-x-8" aria-label="API Tabs">
-                      {/* IGDB Tab Button */}
-                      <button
-                        onClick={() => setActiveAPITab('igdb')}
-                        className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors border-b-2 ${activeAPITab === 'igdb'
-                          ? 'border-blue-500 text-blue-400'
-                          : 'border-transparent text-gray-400 hover:text-gray-200'
-                          }`}
-                      >
-                        IGDB
-                        {apiStatus.igdbConfigured && (
-                          <span className="text-green-400">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                            </svg>
-                          </span>
-                        )}
-                      </button>
-
-                      {/* RAWG Tab Button */}
-                      <button
-                        onClick={() => setActiveAPITab('rawg')}
-                        className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors border-b-2 ${activeAPITab === 'rawg'
-                          ? 'border-blue-500 text-blue-400'
-                          : 'border-transparent text-gray-400 hover:text-gray-200'
-                          }`}
-                      >
-                        RAWG <span className="text-xs opacity-75">(Optional)</span>
-                        {apiStatus.rawgConfigured && (
-                          <span className="text-green-400">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                            </svg>
-                          </span>
-                        )}
-                      </button>
-
-                      {/* SteamGridDB Tab Button */}
-                      <button
-                        onClick={() => setActiveAPITab('steamgriddb')}
-                        className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors border-b-2 ${activeAPITab === 'steamgriddb'
-                          ? 'border-blue-500 text-blue-400'
-                          : 'border-transparent text-gray-400 hover:text-gray-200'
-                          }`}
-                      >
-                        SteamGridDB <span className="text-xs opacity-75">(Optional)</span>
-                        {apiStatus.steamGridDBConfigured && (
-                          <span className="text-green-400">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                            </svg>
-                          </span>
-                        )}
-                      </button>
-                    </nav>
-                  </div>
-
-                  {/* IGDB Tab Content */}
-                  {activeAPITab === 'igdb' && (
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                      {/* Left Column - Instructions */}
-                      <div className="space-y-4">
-                        <div>
-                          <h4 className="text-base font-medium text-white mb-2">IGDB API (Optional)</h4>
-                          <p className="text-sm text-gray-400 mb-4">
-                            IGDB (Internet Game Database) provides comprehensive game metadata including covers, screenshots, descriptions, genres, and more. <span className="text-blue-400 font-semibold">This API is recommended but optional.</span>
-                          </p>
-
-                          {/* Instructions */}
-                          <div className="bg-gray-900/50 rounded-lg p-4 border border-gray-700">
-                            <h5 className="text-sm font-medium text-white mb-2">How to obtain IGDB API credentials:</h5>
-                            <ol className="list-decimal list-inside space-y-2 text-sm text-gray-300">
-                              <li>
-                                Visit the{' '}
-                                <button
-                                  onClick={handleOpenIGDB}
-                                  className="text-blue-400 hover:text-blue-300 underline"
-                                >
-                                  Twitch Developer Console
-                                </button>
-                                {' '}at https://dev.twitch.tv/console/apps/create
-                              </li>
-                              <li>Sign in with your Twitch account (create one if needed)</li>
-                              <li>Click "Register Your Application" to create a new application</li>
-                              <li>Fill in the form:
-                                <ul className="list-disc list-inside ml-4 mt-1 space-y-1">
-                                  <li><strong>Name:</strong> Enter your application name (e.g., "Onyx")</li>
-                                  <li><strong>OAuth Redirect URLs:</strong> Enter <code className="bg-gray-800 px-1 rounded">http://localhost</code> and click "Add"</li>
-                                  <li><strong>Category:</strong> Select "Game Integration" from the dropdown</li>
-                                  <li><strong>Client Type:</strong> Select "Confidential" (recommended for desktop applications)</li>
-                                </ul>
-                              </li>
-                              <li>Click the "Create" button</li>
-                              <li>On the next page, you'll see your <strong>Client ID</strong> and can click "New Secret" to generate a <strong>Client Secret</strong></li>
-                              <li>Copy both values and paste them into the fields on the right</li>
-                            </ol>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Right Column - Input Fields */}
-                      <div className="space-y-4">
-                        {/* Client ID Input */}
-                        <div className="space-y-2">
-                          <label className="block text-sm font-medium text-gray-200">
-                            Client ID
-                          </label>
-                          <input
-                            type="text"
-                            value={apiCredentials.igdbClientId}
-                            onChange={(e) => handleAPIInputChange('igdbClientId', e.target.value)}
-                            placeholder="Enter your IGDB Client ID"
-                            className="w-full px-4 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          />
-                        </div>
-
-                        {/* Client Secret Input */}
-                        <div className="space-y-2">
-                          <label className="block text-sm font-medium text-gray-200">
-                            Client Secret
-                          </label>
-                          <input
-                            type="password"
-                            value={apiCredentials.igdbClientSecret}
-                            onChange={(e) => handleAPIInputChange('igdbClientSecret', e.target.value)}
-                            placeholder="Enter your IGDB Client Secret"
-                            className="w-full px-4 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          />
-                        </div>
-
-                        {/* Status Message */}
-                        {apiSaveStatus === 'success' && activeAPITab === 'igdb' && (
-                          <div className="bg-green-900/30 border border-green-700 text-green-300 px-4 py-2 rounded-lg text-sm">
-                            IGDB credentials saved successfully! Service will be restarted.
-                          </div>
-                        )}
-                        {apiSaveStatus === 'error' && activeAPITab === 'igdb' && (
-                          <div className="bg-red-900/30 border border-red-700 text-red-300 px-4 py-2 rounded-lg text-sm">
-                            Failed to save credentials. Please try again.
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* RAWG Tab Content */}
-                  {activeAPITab === 'rawg' && (
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                      {/* Left Column - Instructions */}
-                      <div className="space-y-4">
-                        <div>
-                          <h4 className="text-base font-medium text-white mb-2">RAWG API (Optional)</h4>
-                          <p className="text-sm text-gray-400 mb-4">
-                            RAWG (Rapid API for Video Games) provides comprehensive game metadata including descriptions, genres, ratings, and release dates. This is an optional API that can enhance metadata quality when IGDB results are incomplete.
-                          </p>
-
-                          {/* Why use RAWG */}
-                          <div className="bg-blue-900/20 rounded-lg p-4 border border-blue-700/50 mb-4">
-                            <h5 className="text-sm font-medium text-blue-300 mb-2">Why use RAWG API?</h5>
-                            <ul className="list-disc list-inside space-y-1 text-sm text-blue-200">
-                              <li>Fallback metadata source when IGDB doesn't have complete information</li>
-                              <li>Comprehensive game database with detailed descriptions</li>
-                              <li>User ratings and reviews data</li>
-                              <li>Better coverage for indie and lesser-known games</li>
-                              <li>Free tier available with generous rate limits</li>
-                            </ul>
-                          </div>
-
-                          {/* Instructions */}
-                          <div className="bg-gray-900/50 rounded-lg p-4 border border-gray-700">
-                            <h5 className="text-sm font-medium text-white mb-2">How to obtain RAWG API key:</h5>
-                            <ol className="list-decimal list-inside space-y-2 text-sm text-gray-300">
-                              <li>
-                                Visit{' '}
-                                <button
-                                  onClick={async () => {
-                                    try {
-                                      await window.electronAPI.openExternal('https://rawg.io/apidocs');
-                                    } catch (error) {
-                                      console.error('Error opening RAWG API docs:', error);
-                                    }
-                                  }}
-                                  className="text-blue-400 hover:text-blue-300 underline"
-                                >
-                                  RAWG API Documentation
-                                </button>
-                                {' '}at https://rawg.io/apidocs
-                              </li>
-                              <li>Click "Get API Key" or "Sign Up" to create a free account</li>
-                              <li>Sign in with your account (or create one if needed)</li>
-                              <li>Navigate to your API dashboard or profile settings</li>
-                              <li>Generate a new API key (free tier is sufficient for most users)</li>
-                              <li>Copy the generated API key</li>
-                              <li>Paste it into the field on the right</li>
-                            </ol>
-                            <div className="mt-4 p-3 bg-yellow-900/20 border border-yellow-700/50 rounded text-xs text-yellow-300">
-                              <strong>Note:</strong> RAWG API is optional. The app will work with just IGDB, but adding RAWG can improve metadata quality for some games.
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Right Column - Input Fields */}
-                      <div className="space-y-4">
-                        {/* API Key Input */}
-                        <div className="space-y-2">
-                          <label className="block text-sm font-medium text-gray-200">
-                            API Key <span className="text-gray-500 text-xs">(Optional)</span>
-                          </label>
-                          <input
-                            type="password"
-                            value={apiCredentials.rawgApiKey}
-                            onChange={(e) => handleAPIInputChange('rawgApiKey', e.target.value)}
-                            placeholder="Enter your RAWG API Key"
-                            className="w-full px-4 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          />
-                          <p className="text-xs text-gray-500">
-                            Your API key is stored securely and used as a fallback for game metadata
-                          </p>
-                        </div>
-
-                        {/* Status Message */}
-                        {apiSaveStatus === 'success' && activeAPITab === 'rawg' && (
-                          <div className="bg-green-900/30 border border-green-700 text-green-300 px-4 py-2 rounded-lg text-sm">
-                            RAWG API key saved successfully! Service will be restarted.
-                          </div>
-                        )}
-                        {apiSaveStatus === 'error' && activeAPITab === 'rawg' && (
-                          <div className="bg-red-900/30 border border-red-700 text-red-300 px-4 py-2 rounded-lg text-sm">
-                            Failed to save API key. Please try again.
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* SteamGridDB Tab Content */}
-                  {activeAPITab === 'steamgriddb' && (
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                      {/* Left Column - Instructions */}
-                      <div className="space-y-4">
-                        <div>
-                          <h4 className="text-base font-medium text-white mb-2">SteamGridDB API (Optional)</h4>
-                          <p className="text-sm text-gray-400 mb-4">
-                            SteamGridDB is a community-driven database for custom game assets. It provides high-quality grids, heroes, and logos that can replace standard metadata images.
-                          </p>
-
-                          {/* Why use SteamGridDB */}
-                          <div className="bg-blue-900/20 rounded-lg p-4 border border-blue-700/50 mb-4">
-                            <h5 className="text-sm font-medium text-blue-300 mb-2">Why use SteamGridDB API?</h5>
-                            <ul className="list-disc list-inside space-y-1 text-sm text-blue-200">
-                              <li>Access to thousands of community-created assets</li>
-                              <li>Animated grids and heroes (APNG/WebM) support</li>
-                              <li>High-resolution logos and icons</li>
-                              <li>Better coverage for non-Steam games</li>
-                            </ul>
-                          </div>
-
-                          {/* Instructions */}
-                          <div className="bg-gray-900/50 rounded-lg p-4 border border-gray-700">
-                            <h5 className="text-sm font-medium text-white mb-2">How to obtain SteamGridDB API key:</h5>
-                            <ol className="list-decimal list-inside space-y-2 text-sm text-gray-300">
-                              <li>
-                                Visit{' '}
-                                <button
-                                  onClick={async () => {
-                                    try {
-                                      await window.electronAPI.openExternal('https://www.steamgriddb.com/profile/preferences');
-                                    } catch (error) {
-                                      console.error('Error opening SteamGridDB page:', error);
-                                    }
-                                  }}
-                                  className="text-blue-400 hover:text-blue-300 underline"
-                                >
-                                  SteamGridDB Profile Preferences
-                                </button>
-                                {' '}at steamgriddb.com
-                              </li>
-                              <li>Log in with your Steam account</li>
-                              <li>Scan down to the "API" section</li>
-                              <li>Click "Create API Key" if you haven't already</li>
-                              <li>Copy the generated API Key</li>
-                              <li>Paste it into the field on the right</li>
-                            </ol>
-                            <div className="mt-4 p-3 bg-yellow-900/20 border border-yellow-700/50 rounded text-xs text-yellow-300">
-                              <strong>Note:</strong> SteamGridDB is optional. It is primarily used for finding better artwork for games.
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Right Column - Input Fields */}
-                      <div className="space-y-4">
-                        {/* API Key Input */}
-                        <div className="space-y-2">
-                          <label className="block text-sm font-medium text-gray-200">
-                            API Key <span className="text-gray-500 text-xs">(Optional)</span>
-                          </label>
-                          <input
-                            type="password"
-                            value={apiCredentials.steamGridDBApiKey}
-                            onChange={(e) => handleAPIInputChange('steamGridDBApiKey', e.target.value)}
-                            placeholder="Enter your SteamGridDB API Key"
-                            className="w-full px-4 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          />
-                          <p className="text-xs text-gray-500">
-                            Your API key is stored securely and used to fetch community artwork.
-                          </p>
-                        </div>
-
-                        {/* Status Message */}
-                        {apiSaveStatus === 'success' && activeAPITab === 'steamgriddb' && (
-                          <div className="bg-green-900/30 border border-green-700 text-green-300 px-4 py-2 rounded-lg text-sm">
-                            SteamGridDB API key saved successfully!
-                          </div>
-                        )}
-                        {apiSaveStatus === 'error' && activeAPITab === 'steamgriddb' && (
-                          <div className="bg-red-900/30 border border-red-700 text-red-300 px-4 py-2 rounded-lg text-sm">
-                            Failed to save API key. Please try again.
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Save All API Credentials Button */}
-                  <div className="flex justify-end pt-6 border-t border-gray-700">
                     <button
-                      onClick={handleAPISave}
-                      disabled={isLoadingAPI}
-                      className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                      onClick={handleAddManualFolder}
+                      className="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded transition-colors flex items-center gap-1.5 shadow-sm shadow-blue-500/20"
                     >
-                      {isLoadingAPI ? 'Saving...' : 'Save All API Credentials'}
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                      </svg>
+                      Add Folder
                     </button>
                   </div>
-                </div>
-              </div>
-            )}
 
-            {activeTab === 'apps' && (
-              <div className="space-y-6">
-                <div className="space-y-1">
-                  <h3 className="text-lg font-semibold text-white mb-4">Configure Game Launchers</h3>
-                  <p className="text-gray-400 text-sm mb-6">
-                    Enable and configure game launchers to automatically import your games
-                  </p>
-
-                  {isLoadingApps ? (
-                    <div className="text-center py-8">
-                      <p className="text-gray-300">Loading app configurations...</p>
+                  {Object.keys(manualFolderConfigs).length === 0 ? (
+                    <div className="text-center py-6 bg-gray-800/30 rounded-lg border border-gray-700/50 border-dashed hover:bg-gray-800/50 transition-colors">
+                      <p className="text-gray-500 text-xs">No custom folders added yet.</p>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-5 gap-3">
-                      {apps.map((app) => (
-                        <div key={app.id} className="border border-gray-700 rounded-lg p-2.5 bg-gray-700/30 hover:bg-gray-700/50 transition-colors">
-                          <div className="flex items-center justify-between mb-2">
-                            <h4 className="text-xs font-semibold text-gray-300 uppercase tracking-wide">
-                              {app.name}
-                            </h4>
-                            {/* Enable/Disable Toggle */}
-                            <label className="relative inline-flex items-center cursor-pointer">
-                              <input
-                                type="checkbox"
-                                checked={app.enabled}
-                                onChange={() => handleToggleAppEnabled(app.id)}
-                                className="sr-only peer"
-                              />
-                              <div className="w-9 h-5 bg-gray-600 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
-                            </label>
-                          </div>
-
-                          {app.enabled && (
-                            <div className="space-y-1.5">
-                              <div>
-                                <label className="block text-xs text-gray-400 mb-0.5">
-                                  Installation Path
-                                </label>
-                                <div className="flex gap-1.5">
-                                  <input
-                                    type="text"
-                                    value={app.path}
-                                    onChange={(e) => handleAppPathChange(app.id, e.target.value)}
-                                    placeholder={app.placeholder}
-                                    className="flex-1 px-1.5 py-1 bg-gray-900 border border-gray-600 rounded text-xs text-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                  />
-                                  <button
-                                    onClick={() => handleBrowseApp(app.id)}
-                                    className="px-1.5 py-1 bg-gray-700 hover:bg-gray-600 text-white text-xs rounded transition-colors"
-                                  >
-                                    Browse
-                                  </button>
-                                </div>
-                              </div>
-
-                              {/* Steam-specific options - hidden when not signed in */}
-                              {app.id === 'steam' && steamAuthState.authenticated && (
-                                <div className="space-y-2 pt-1.5 border-t border-gray-600">
-                                  {/* Steam Authentication Status - hidden when not signed in */}
-                                  {steamAuthState.authenticated && (
-                                    <div className="flex items-center justify-between p-1.5 bg-gray-800/50 rounded">
-                                      <div className="flex items-center gap-1.5">
-                                        <div className={`w-1.5 h-1.5 rounded-full ${steamAuthState.authenticated ? 'bg-green-500' : 'bg-gray-500'}`}></div>
-                                        <span className="text-xs text-gray-300 truncate">
-                                          {steamAuthState.authenticated
-                                            ? steamAuthState.username || `Steam ID: ${steamAuthState.steamId?.substring(0, 8)}...`
-                                            : 'Not signed in'}
-                                        </span>
-                                      </div>
-                                      {steamAuthState.authenticated && (
-                                        <button
-                                          onClick={async () => {
-                                            if (confirm('Sign out of Steam?')) {
-                                              if (window.electronAPI.clearSteamAuth) {
-                                                await window.electronAPI.clearSteamAuth();
-                                              }
-                                              setSteamAuthState({ authenticated: false });
-                                            }
-                                          }}
-                                          className="text-xs text-gray-400 hover:text-gray-200"
-                                        >
-                                          Sign out
-                                        </button>
-                                      )}
-                                    </div>
-                                  )}
-
-                                  {/* Sign into Steam button - DISABLED */}
-                                  {false && !steamAuthState.authenticated && (
-                                    <button
-                                      onClick={handleSteamAuthenticate}
-                                      disabled={isAuthenticating}
-                                      className="w-full px-2 py-1.5 bg-gray-700 hover:bg-gray-600 text-white text-xs rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
-                                    >
-                                      {isAuthenticating ? (
-                                        <>
-                                          <svg className="animate-spin h-3 w-3" fill="none" viewBox="0 0 24 24">
-                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                                          </svg>
-                                          <span className="text-xs">Authenticating...</span>
-                                        </>
-                                      ) : (
-                                        <>
-                                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
-                                          </svg>
-                                          <span className="text-xs">Sign into Steam</span>
-                                        </>
-                                      )}
-                                    </button>
-                                  )}
-
-                                  {/* Auto add toggle - only show when authenticated */}
-                                  {steamAuthState.authenticated && (
-                                    <>
-                                      <div className="flex items-center justify-between p-1.5 bg-gray-800/30 rounded">
-                                        <div className="flex-1">
-                                          <label className="text-xs font-medium text-gray-300 block">Auto add</label>
-                                          <p className="text-xs text-gray-500">Show notification when new games are found</p>
-                                        </div>
-                                        <label className="relative inline-flex items-center cursor-pointer">
-                                          <input
-                                            type="checkbox"
-                                            checked={app.autoAdd || false}
-                                            onChange={() => handleToggleAutoAdd(app.id)}
-                                            className="sr-only peer"
-                                          />
-                                          <div className="w-9 h-5 bg-gray-600 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
-                                        </label>
-                                      </div>
-
-                                      {/* Sync Playtime toggle - only show when authenticated */}
-                                      <div className="flex items-center justify-between p-1.5 bg-gray-800/30 rounded mt-1.5">
-                                        <div className="flex-1">
-                                          <label className="text-xs font-medium text-gray-300 block">Sync Playtime</label>
-                                          <p className="text-xs text-gray-500">Automatically sync playtime from Steam</p>
-                                        </div>
-                                        <label className="relative inline-flex items-center cursor-pointer">
-                                          <input
-                                            type="checkbox"
-                                            checked={app.syncPlaytime || false}
-                                            onChange={() => handleToggleSyncPlaytime(app.id)}
-                                            className="sr-only peer"
-                                          />
-                                          <div className="w-9 h-5 bg-gray-600 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
-                                        </label>
-                                      </div>
-                                    </>
-                                  )}
-                                </div>
-                              )}
-
-                              {/* Scan Now button for newly enabled apps (non-Steam) */}
-                              {app.id !== 'steam' && newlyEnabledApps.has(app.id) && app.path && (
-                                <div className="flex items-center gap-1.5 pt-1.5">
-                                  <button
-                                    onClick={() => handleScanApp(app.id)}
-                                    disabled={scanningAppId === app.id}
-                                    className="px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
-                                  >
-                                    {scanningAppId === app.id ? (
-                                      <>
-                                        <svg className="animate-spin h-3 w-3" fill="none" viewBox="0 0 24 24">
-                                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                                        </svg>
-                                        <span className="text-xs">Scanning...</span>
-                                      </>
-                                    ) : (
-                                      <>
-                                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                                        </svg>
-                                        <span className="text-xs">Scan Now</span>
-                                      </>
-                                    )}
-                                  </button>
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Manual Folders Section - Display like apps */}
-                  <div className="mt-8 pt-8 border-t border-gray-700">
-                    <div className="flex items-center justify-between mb-4">
-                      <div>
-                        <h3 className="text-lg font-semibold text-white mb-1">Manual Folders</h3>
-                        <p className="text-gray-400 text-sm">
-                          Add custom folders to monitor for games. All locations are deep scanned recursively.
-                        </p>
-                      </div>
-                      <button
-                        onClick={handleAddManualFolder}
-                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg transition-colors flex items-center gap-2"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                        </svg>
-                        Add Folder
-                      </button>
-                    </div>
-
-                    {Object.keys(manualFolderConfigs).length === 0 ? (
-                      <div className="text-center py-8 text-gray-500 text-sm">
-                        No manual folders added. Click "Add Folder" to monitor a custom location.
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-5 gap-3">
-                        {Object.values(manualFolderConfigs).map((folderConfig) => (
-                          <div key={folderConfig.id} className="border border-gray-700 rounded-lg p-2.5 bg-gray-700/30 hover:bg-gray-700/50 transition-colors">
-                            <div className="flex items-center justify-between mb-2">
+                    <div className="space-y-3">
+                      {Object.values(manualFolderConfigs).map((folderConfig) => (
+                        <div key={folderConfig.id} className="border border-gray-700/50 rounded-lg p-3 bg-gray-800/40 hover:bg-gray-800/60 transition-colors">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3 flex-1 min-w-0 mr-4">
                               <input
                                 type="text"
                                 value={folderConfig.name}
                                 onChange={(e) => handleUpdateManualFolderName(folderConfig.id, e.target.value)}
                                 onBlur={() => {
-                                  // Save on blur
                                   const config = manualFolderConfigs[folderConfig.id];
                                   if (config && window.electronAPI.saveManualFolderConfig) {
                                     window.electronAPI.saveManualFolderConfig(config);
                                   }
                                 }}
-                                className="text-xs font-semibold text-gray-300 uppercase tracking-wide bg-transparent border-none p-0 w-full focus:outline-none focus:ring-1 focus:ring-blue-500 rounded px-1"
-                                style={{ textTransform: 'uppercase' }}
+                                className="font-medium text-white text-sm bg-transparent border-none p-0 focus:ring-0 focus:underline max-w-[150px]"
                               />
-                              {/* Enable/Disable Toggle */}
-                              <label className="relative inline-flex items-center cursor-pointer">
-                                <input
-                                  type="checkbox"
-                                  checked={folderConfig.enabled}
-                                  onChange={async () => {
-                                    const updated = { ...folderConfig, enabled: !folderConfig.enabled };
-                                    if (window.electronAPI.saveManualFolderConfig) {
-                                      await window.electronAPI.saveManualFolderConfig(updated);
-                                      setManualFolderConfigs({ ...manualFolderConfigs, [folderConfig.id]: updated });
-                                    }
-                                  }}
-                                  className="sr-only peer"
-                                />
-                                <div className="w-9 h-5 bg-gray-600 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
-                              </label>
-                            </div>
-
-                            {folderConfig.enabled && (
-                              <div className="space-y-1.5">
-                                <div>
-                                  <label className="block text-xs text-gray-400 mb-0.5">
-                                    Folder Path
-                                  </label>
-                                  <div className="flex gap-1.5">
-                                    <input
-                                      type="text"
-                                      value={folderConfig.path}
-                                      readOnly
-                                      className="flex-1 px-1.5 py-1 bg-gray-900 border border-gray-600 rounded text-xs text-gray-400 cursor-not-allowed"
-                                    />
-                                    <button
-                                      onClick={() => handleRemoveManualFolder(folderConfig.path)}
-                                      className="px-1.5 py-1 bg-red-600/20 hover:bg-red-600/30 text-red-400 text-xs rounded transition-colors"
-                                      title="Remove folder"
-                                    >
-                                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                      </svg>
-                                    </button>
-                                  </div>
+                              {/* Inline Categories Badges */}
+                              {folderConfig.autoCategory && folderConfig.autoCategory.length > 0 && (
+                                <div className="flex items-center gap-1.5 overflow-hidden">
+                                  {folderConfig.autoCategory.slice(0, 3).map(cat => (
+                                    <span key={cat} className="px-1.5 py-0.5 rounded text-[10px] bg-gray-700 text-gray-400 border border-gray-600/50 whitespace-nowrap">
+                                      {cat}
+                                    </span>
+                                  ))}
+                                  {folderConfig.autoCategory.length > 3 && (
+                                    <span className="text-[10px] text-gray-500">+{folderConfig.autoCategory.length - 3}</span>
+                                  )}
                                 </div>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-3 flex-shrink-0">
+                              {folderConfig.enabled && (
+                                <button
+                                  onClick={() => setEditingManualFolderId(editingManualFolderId === folderConfig.id ? null : folderConfig.id)}
+                                  className={`text-xs font-medium px-2 py-1 rounded transition-colors ${editingManualFolderId === folderConfig.id ? 'text-blue-400 bg-blue-400/10' : 'text-gray-400 hover:text-white hover:bg-gray-700/50'}`}
+                                >
+                                  Edit
+                                </button>
+                              )}
+                              <button
+                                onClick={async () => {
+                                  const updated = { ...folderConfig, enabled: !folderConfig.enabled };
+                                  if (window.electronAPI.saveManualFolderConfig) {
+                                    await window.electronAPI.saveManualFolderConfig(updated);
+                                    setManualFolderConfigs({ ...manualFolderConfigs, [folderConfig.id]: updated });
+                                  }
+                                }}
+                                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors flex-shrink-0 focus:outline-none focus:ring-2 focus:ring-blue-500/50 ${folderConfig.enabled ? 'bg-blue-600' : 'bg-gray-600'}`}
+                              >
+                                <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform shadow-sm ${folderConfig.enabled ? 'translate-x-[18px]' : 'translate-x-[3px]'}`} />
+                              </button>
+                            </div>
+                          </div>
 
-                                {/* Auto Category Selection */}
-                                <div>
-                                  <label className="block text-xs text-gray-400 mb-0.5">
-                                    Auto Category (optional)
-                                  </label>
-                                  <div className="flex gap-1.5 mb-1.5">
-                                    <input
-                                      type="text"
-                                      value={folderConfig.autoCategory?.join(', ') || ''}
-                                      onChange={(e) => {
-                                        const categories = e.target.value.split(',').map(c => c.trim()).filter(c => c);
-                                        const updated = { ...folderConfig, autoCategory: categories };
-                                        setManualFolderConfigs({ ...manualFolderConfigs, [folderConfig.id]: updated });
-                                      }}
-                                      onBlur={async () => {
-                                        const config = manualFolderConfigs[folderConfig.id];
-                                        if (config && window.electronAPI.saveManualFolderConfig) {
-                                          await window.electronAPI.saveManualFolderConfig(config);
-                                        }
-                                      }}
-                                      className="flex-1 px-1.5 py-1 bg-gray-800 border border-gray-600 rounded text-xs text-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                      placeholder="Games, Apps, VR (comma-separated)"
-                                    />
-                                  </div>
-                                  <div className="flex flex-wrap gap-1">
+                          {editingManualFolderId === folderConfig.id && folderConfig.enabled && (
+                            <div className="space-y-3 mt-3 pt-3 border-t border-gray-700/50 animate-fade-in origin-top">
+                              <div className="space-y-1">
+                                <label className="text-[10px] text-gray-500 font-semibold uppercase tracking-wider">Path</label>
+                                <div className="flex items-center gap-2">
+                                  <input
+                                    type="text"
+                                    value={folderConfig.path}
+                                    readOnly
+                                    className="w-full px-2.5 py-1.5 bg-gray-900/50 border border-gray-600/50 rounded text-xs text-gray-300 font-mono"
+                                  />
+                                  <button
+                                    onClick={() => handleRemoveManualFolder(folderConfig.path)}
+                                    className="px-2.5 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs font-medium rounded border border-red-500/20 transition-colors whitespace-nowrap"
+                                  >
+                                    Remove
+                                  </button>
+                                </div>
+                              </div>
+
+                              <div className="space-y-1">
+                                <label className="text-[10px] text-gray-500 font-semibold uppercase tracking-wider">Auto Categories</label>
+                                <div className="space-y-2">
+                                  <div className="flex flex-wrap gap-2">
                                     {(['Games', 'Apps', 'VR'] as const).map((cat) => {
                                       const isSelected = folderConfig.autoCategory?.includes(cat);
                                       return (
                                         <button
                                           key={cat}
-                                          type="button"
                                           onClick={async () => {
                                             const current = folderConfig.autoCategory || [];
-                                            const updated = isSelected
-                                              ? current.filter(c => c !== cat)
-                                              : [...current, cat];
+                                            const updated = isSelected ? current.filter(c => c !== cat) : [...current, cat];
                                             const updatedConfig = { ...folderConfig, autoCategory: updated };
                                             setManualFolderConfigs({ ...manualFolderConfigs, [folderConfig.id]: updatedConfig });
                                             if (window.electronAPI.saveManualFolderConfig) {
                                               await window.electronAPI.saveManualFolderConfig(updatedConfig);
                                             }
                                           }}
-                                          className={`px-2 py-0.5 text-xs rounded transition-colors ${isSelected
-                                            ? 'bg-blue-600 text-white'
-                                            : 'bg-gray-700/50 text-gray-300 hover:bg-gray-700'
-                                            }`}
+                                          className={`px-2 py-0.5 text-[10px] rounded border transition-colors ${isSelected ? 'bg-blue-600/20 border-blue-500/50 text-blue-300' : 'bg-gray-700/50 border-gray-600 text-gray-400 hover:border-gray-500'}`}
                                         >
-                                          {isSelected ? '✓' : '+'} {cat}
+                                          {cat}
                                         </button>
                                       );
                                     })}
                                   </div>
-                                  {folderConfig.autoCategory && folderConfig.autoCategory.length > 0 && (
-                                    <div className="mt-1.5 flex flex-wrap gap-1">
-                                      {folderConfig.autoCategory.map((cat, idx) => (
-                                        <span
-                                          key={idx}
-                                          className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-blue-600/20 border border-blue-500/50 rounded text-xs text-blue-300"
-                                        >
-                                          {cat}
-                                          <button
-                                            type="button"
-                                            onClick={async () => {
-                                              const updated = folderConfig.autoCategory?.filter(c => c !== cat) || [];
-                                              const updatedConfig = { ...folderConfig, autoCategory: updated.length > 0 ? updated : undefined };
-                                              setManualFolderConfigs({ ...manualFolderConfigs, [folderConfig.id]: updatedConfig });
-                                              if (window.electronAPI.saveManualFolderConfig) {
-                                                await window.electronAPI.saveManualFolderConfig(updatedConfig);
-                                              }
-                                            }}
-                                            className="text-blue-300 hover:text-blue-100"
-                                          >
-                                            ×
-                                          </button>
-                                        </span>
-                                      ))}
-                                    </div>
-                                  )}
+                                  <input
+                                    type="text"
+                                    placeholder="Custom categories (comma separated)"
+                                    value={folderConfig.autoCategory?.join(', ') || ''}
+                                    onChange={(e) => {
+                                      const categories = e.target.value.split(',').map(c => c.trim()).filter(c => c);
+                                      const updated = { ...folderConfig, autoCategory: categories };
+                                      setManualFolderConfigs({ ...manualFolderConfigs, [folderConfig.id]: updated });
+                                    }}
+                                    onBlur={async () => {
+                                      const config = manualFolderConfigs[folderConfig.id];
+                                      if (config && window.electronAPI.saveManualFolderConfig) {
+                                        await window.electronAPI.saveManualFolderConfig(config);
+                                      }
+                                    }}
+                                    className="w-full bg-gray-900/50 border border-gray-600/50 rounded px-2.5 py-1.5 text-xs text-gray-300 focus:outline-none focus:border-blue-500 transition-colors"
+                                  />
                                 </div>
                               </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {activeTab === 'reset' && (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Left Column - Remove All Games */}
-                <div className="space-y-4">
-                  <div className="space-y-1">
-                    <h3 className="text-lg font-semibold text-white mb-2">Remove All Games</h3>
-                    <p className="text-gray-400 text-sm mb-4">
-                      Clear your game library while keeping all app settings and configurations.
-                    </p>
-
-                    {/* Warning Box */}
-                    <div className="bg-orange-900/20 border-2 border-orange-500/50 rounded-lg p-4 mb-4">
-                      <div className="flex items-start gap-3">
-                        <svg className="w-5 h-5 text-orange-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                        </svg>
-                        <div className="flex-1">
-                          <h4 className="text-orange-400 font-semibold mb-2">This will permanently delete:</h4>
-                          <ul className="list-disc list-inside text-orange-300 text-sm space-y-1">
-                            <li>All games in your library</li>
-                            <li>All game metadata and images</li>
-                          </ul>
-                          <p className="text-orange-200 text-xs mt-3">
-                            Your app settings, API credentials, and launcher configurations will be preserved.
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Confirmation Section */}
-                    <div className="bg-gray-900/50 border border-gray-700 rounded-lg p-4">
-                      {removeGamesConfirmation.step === 1 && (
-                        <div className="space-y-3">
-                          <p className="text-gray-300 text-sm">
-                            Click below to start the removal process.
-                          </p>
-                          <button
-                            onClick={handleRemoveAllGames}
-                            className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white font-medium rounded-lg transition-colors text-sm"
-                          >
-                            Remove All Games
-                          </button>
-                        </div>
-                      )}
-
-                      {removeGamesConfirmation.step === 2 && (
-                        <div className="space-y-3">
-                          <p className="text-gray-300 text-sm font-medium">
-                            Type <span className="text-orange-400 font-bold">DELETE</span> to confirm:
-                          </p>
-                          <input
-                            type="text"
-                            value={removeGamesConfirmation.typedText}
-                            onChange={(e) => setRemoveGamesConfirmation({ ...removeGamesConfirmation, typedText: e.target.value })}
-                            placeholder="Type DELETE here"
-                            className="w-full px-3 py-2 bg-gray-800 border-2 border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent text-sm"
-                            autoFocus
-                          />
-                          <div className="flex gap-2">
-                            <button
-                              onClick={() => setRemoveGamesConfirmation({ step: 1, typedText: '' })}
-                              className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-white font-medium rounded-lg transition-colors text-sm"
-                            >
-                              Cancel
-                            </button>
-                            <button
-                              onClick={handleRemoveAllGames}
-                              disabled={removeGamesConfirmation.typedText !== 'DELETE'}
-                              className="px-4 py-1.5 bg-orange-600 hover:bg-orange-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-                            >
-                              Continue
-                            </button>
-                          </div>
-                        </div>
-                      )}
-
-                      {removeGamesConfirmation.step === 3 && (
-                        <div className="space-y-3">
-                          <div className="bg-yellow-900/20 border border-yellow-500/50 rounded-lg p-3">
-                            <p className="text-yellow-300 text-sm font-medium">Final Confirmation</p>
-                            <p className="text-yellow-200 text-xs mt-1">This will delete all games and their images permanently.</p>
-                          </div>
-                          <div className="flex gap-2">
-                            <button
-                              onClick={() => setRemoveGamesConfirmation({ step: 1, typedText: '' })}
-                              disabled={isRemovingGames}
-                              className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-white font-medium rounded-lg transition-colors disabled:opacity-50 text-sm"
-                            >
-                              Cancel
-                            </button>
-                            <button
-                              onClick={handleRemoveAllGames}
-                              disabled={isRemovingGames}
-                              className="px-4 py-1.5 bg-orange-600 hover:bg-orange-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 text-sm"
-                            >
-                              {isRemovingGames ? (
-                                <>
-                                  <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                                  </svg>
-                                  Removing...
-                                </>
-                              ) : (
-                                'Remove All Games Now'
-                              )}
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Right Column - Reset Application */}
-                <div className="space-y-4">
-                  <div className="space-y-1">
-                    <h3 className="text-lg font-semibold text-white mb-2">Reset Application</h3>
-                    <p className="text-gray-400 text-sm mb-4">
-                      Completely reset Onyx to its initial installation state.
-                    </p>
-
-                    {/* Warning Box */}
-                    <div className="bg-red-900/20 border-2 border-red-500/50 rounded-lg p-4 mb-4">
-                      <div className="flex items-start gap-3">
-                        <svg className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                        </svg>
-                        <div className="flex-1">
-                          <h4 className="text-red-400 font-semibold mb-2">This will permanently delete EVERYTHING:</h4>
-                          <ul className="list-disc list-inside text-red-300 text-sm space-y-1">
-                            <li>All games in your library</li>
-                            <li>All game metadata and images</li>
-                            <li>All app configurations (Steam, Xbox, etc.)</li>
-                            <li>All user preferences and settings</li>
-                            <li>All API credentials</li>
-                          </ul>
-                          <p className="text-red-200 text-xs mt-3 font-medium">
-                            You will need to reconfigure everything from scratch.
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Confirmation Section */}
-                    <div className="bg-gray-900/50 border border-gray-700 rounded-lg p-4">
-                      {resetConfirmation.step === 1 && (
-                        <div className="space-y-3">
-                          <p className="text-gray-300 text-sm">
-                            Click below to start the reset process.
-                          </p>
-                          <button
-                            onClick={handleReset}
-                            className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition-colors text-sm"
-                          >
-                            Factory Reset
-                          </button>
-                        </div>
-                      )}
-
-                      {resetConfirmation.step === 2 && (
-                        <div className="space-y-3">
-                          <p className="text-gray-300 text-sm font-medium">
-                            Type <span className="text-red-400 font-bold">RESET</span> to confirm:
-                          </p>
-                          <input
-                            type="text"
-                            value={resetConfirmation.typedText}
-                            onChange={(e) => setResetConfirmation({ ...resetConfirmation, typedText: e.target.value })}
-                            placeholder="Type RESET here"
-                            className="w-full px-3 py-2 bg-gray-800 border-2 border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm"
-                            autoFocus
-                          />
-                          <div className="flex gap-2">
-                            <button
-                              onClick={() => setResetConfirmation({ step: 1, typedText: '' })}
-                              className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-white font-medium rounded-lg transition-colors text-sm"
-                            >
-                              Cancel
-                            </button>
-                            <button
-                              onClick={handleReset}
-                              disabled={resetConfirmation.typedText !== 'RESET'}
-                              className="px-4 py-1.5 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-                            >
-                              Continue
-                            </button>
-                          </div>
-                        </div>
-                      )}
-
-                      {resetConfirmation.step === 3 && (
-                        <div className="space-y-3">
-                          <div className="bg-yellow-900/20 border border-yellow-500/50 rounded-lg p-3">
-                            <p className="text-yellow-300 text-sm font-medium">Final Confirmation</p>
-                            <p className="text-yellow-200 text-xs mt-1">This will reset Onyx to factory settings permanently.</p>
-                          </div>
-                          <div className="flex gap-2">
-                            <button
-                              onClick={() => setResetConfirmation({ step: 1, typedText: '' })}
-                              disabled={isResetting}
-                              className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-white font-medium rounded-lg transition-colors disabled:opacity-50 text-sm"
-                            >
-                              Cancel
-                            </button>
-                            <button
-                              onClick={handleReset}
-                              disabled={isResetting}
-                              className="px-4 py-1.5 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 text-sm"
-                            >
-                              {isResetting ? (
-                                <>
-                                  <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                                  </svg>
-                                  Resetting...
-                                </>
-                              ) : (
-                                'Reset Now'
-                              )}
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* DISABLED: Suspend feature (Future Feature) */}
-            {false && activeTab === 'suspend' && (
-              <div className="space-y-6">
-                <div className="space-y-1">
-                  <h3 className="text-lg font-semibold text-white mb-4">Suspend/Resume Feature</h3>
-
-                  {/* Feature Toggle */}
-                  <div className="flex items-start justify-between p-4 rounded-lg bg-gray-700/30 hover:bg-gray-700/50 transition-colors">
-                    <div className="flex-1 pr-4">
-                      <label className="text-gray-200 font-medium block mb-1">
-                        Enable Suspend/Resume Feature
-                      </label>
-                      <p className="text-gray-400 text-sm mb-2">
-                        Allow suspending and resuming running games to free up system resources.
-                        Similar to console suspend functionality (like Nintendo Switch or PlayStation).
-                      </p>
-                      <p className="text-yellow-400 text-xs">
-                        ⚠️ May require administrator privileges. Some games may crash when suspended.
-                      </p>
-                    </div>
-                    <button
-                      onClick={async () => {
-                        const newValue = !suspendFeatureEnabled;
-                        setSuspendFeatureEnabled(newValue);
-                        try {
-                          if (window.electronAPI.suspend?.setFeatureEnabled) {
-                            await window.electronAPI.suspend.setFeatureEnabled(newValue);
-                            // Reload running games if enabled
-                            if (newValue) {
-                              loadRunningGames();
-                            } else {
-                              setRunningGames([]);
-                            }
-                          }
-                        } catch (error) {
-                          console.error('Error toggling suspend feature:', error);
-                          setSuspendFeatureEnabled(!newValue); // Revert on error
-                        }
-                      }}
-                      className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors flex-shrink-0 ${suspendFeatureEnabled ? 'bg-blue-600' : 'bg-gray-600'
-                        }`}
-                    >
-                      <span
-                        className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${suspendFeatureEnabled ? 'translate-x-6' : 'translate-x-1'
-                          }`}
-                      />
-                    </button>
-                  </div>
-
-                  {/* Keyboard Shortcut Configuration */}
-                  {suspendFeatureEnabled && (
-                    <div className="p-4 rounded-lg bg-gray-700/30">
-                      <label className="text-gray-200 font-medium block mb-2">
-                        Keyboard Shortcut
-                      </label>
-                      <p className="text-gray-400 text-sm mb-3">
-                        Press a key combination to suspend/resume the active game. Works globally even when Onyx is in the background.
-                      </p>
-                      <div className="flex items-center gap-3">
-                        <div className="flex-1">
-                          {isRecordingShortcut ? (
-                            <div className="px-4 py-2 bg-yellow-600/20 border-2 border-yellow-500 rounded text-yellow-300 text-sm font-mono">
-                              Press keys...
-                            </div>
-                          ) : (
-                            <div className="px-4 py-2 bg-gray-600/50 border border-gray-500 rounded text-white text-sm font-mono">
-                              {suspendShortcut || 'Not set'}
                             </div>
                           )}
                         </div>
-                        <button
-                          onClick={() => {
-                            if (isRecordingShortcut) {
-                              setIsRecordingShortcut(false);
-                            } else {
-                              setIsRecordingShortcut(true);
-                              const handleKeyDown = async (e: KeyboardEvent) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-
-                                const parts: string[] = [];
-                                if (e.ctrlKey) parts.push('Ctrl');
-                                if (e.altKey) parts.push('Alt');
-                                if (e.shiftKey) parts.push('Shift');
-                                if (e.metaKey) parts.push('Meta');
-
-                                // Get the key, excluding modifiers
-                                let key = e.key;
-
-                                // Handle special keys - map to Electron's expected format
-                                const keyMap: Record<string, string> = {
-                                  ' ': 'Space',
-                                  'ArrowUp': 'Up',
-                                  'ArrowDown': 'Down',
-                                  'ArrowLeft': 'Left',
-                                  'ArrowRight': 'Right',
-                                  'End': 'End',
-                                  'Home': 'Home',
-                                  'PageUp': 'PageUp',
-                                  'PageDown': 'PageDown',
-                                  'Insert': 'Insert',
-                                  'Delete': 'Delete',
-                                  'Backspace': 'Backspace',
-                                  'Enter': 'Enter',
-                                  'Escape': 'Escape',
-                                  'Tab': 'Tab',
-                                  'CapsLock': 'CapsLock',
-                                  'NumLock': 'NumLock',
-                                  'ScrollLock': 'ScrollLock',
-                                  'Pause': 'Pause',
-                                  'PrintScreen': 'PrintScreen',
-                                };
-
-                                // Map special keys
-                                if (keyMap[key]) {
-                                  key = keyMap[key];
-                                } else if (key.startsWith('F') && (key.length === 2 || key.length === 3)) {
-                                  // Function keys F1-F12 (F1, F2, ..., F12)
-                                  key = key.toUpperCase();
-                                } else if (key.length === 1 && /[a-zA-Z0-9]/.test(key)) {
-                                  // Regular character keys (letters and numbers)
-                                  key = key.toUpperCase();
-                                } else {
-                                  // Other special keys - use as-is (End, Home, etc. should already be correct)
-                                  key = key;
-                                }
-
-                                // Don't add if it's just a modifier
-                                if (!['Control', 'Alt', 'Shift', 'Meta', 'Tab', 'Escape'].includes(key)) {
-                                  parts.push(key);
-                                }
-
-                                // Allow single keys OR key combinations
-                                if (parts.length >= 1) {
-                                  const shortcut = parts.join('+');
-                                  setSuspendShortcut(shortcut);
-                                  setIsRecordingShortcut(false);
-
-                                  try {
-                                    if (window.electronAPI.suspend?.setShortcut) {
-                                      await window.electronAPI.suspend.setShortcut(shortcut);
-                                    }
-                                  } catch (error) {
-                                    console.error('Error setting shortcut:', error);
-                                  }
-
-                                  window.removeEventListener('keydown', handleKeyDown);
-                                }
-                              };
-
-                              window.addEventListener('keydown', handleKeyDown, true);
-
-                              // Cancel after 5 seconds
-                              setTimeout(() => {
-                                setIsRecordingShortcut(false);
-                                window.removeEventListener('keydown', handleKeyDown);
-                              }, 5000);
-                            }
-                          }}
-                          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded transition-colors"
-                        >
-                          {isRecordingShortcut ? 'Cancel' : 'Change Shortcut'}
-                        </button>
-                        {suspendShortcut && (
-                          <button
-                            onClick={async () => {
-                              setSuspendShortcut('');
-                              try {
-                                if (window.electronAPI.suspend?.setShortcut) {
-                                  await window.electronAPI.suspend.setShortcut('');
-                                }
-                              } catch (error) {
-                                console.error('Error clearing shortcut:', error);
-                              }
-                            }}
-                            className="px-3 py-2 bg-gray-600 hover:bg-gray-700 text-white text-sm rounded transition-colors"
-                          >
-                            Clear
-                          </button>
-                        )}
-                      </div>
+                      ))}
                     </div>
                   )}
+                </div>
 
-                  {/* Running Games List */}
-                  {suspendFeatureEnabled && (
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <h3 className="text-lg font-semibold text-white">Running Games</h3>
-                        <button
-                          onClick={loadRunningGames}
-                          disabled={isLoadingGames}
-                          className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-white text-sm rounded transition-colors disabled:opacity-50 flex items-center gap-2"
-                        >
-                          <svg className={`w-4 h-4 ${isLoadingGames ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                          </svg>
-                          Refresh
-                        </button>
-                      </div>
-                      {isLoadingGames ? (
-                        <div className="text-gray-400 p-4 rounded-lg bg-gray-700/30 text-center">Loading...</div>
-                      ) : runningGames.length === 0 ? (
-                        <div className="text-gray-400 p-4 rounded-lg bg-gray-700/30 text-center">
-                          No games currently running
-                        </div>
-                      ) : (
-                        <div className="space-y-2">
-                          {runningGames.map((game) => (
-                            <div
-                              key={game.gameId}
-                              className="flex items-center justify-between p-4 rounded-lg bg-gray-700/30 hover:bg-gray-700/50 transition-colors"
-                            >
-                              <div className="flex-1 min-w-0 pr-4">
-                                <div className="text-white font-medium truncate">{game.title}</div>
-                                <div className="text-gray-400 text-sm">
-                                  PID: {game.pid} • {game.status === 'suspended' ? 'Suspended' : 'Running'}
+                {/* Launchers Section */}
+                <div className="space-y-4">
+                  <div className="border-b border-gray-700/50 pb-2">
+                    <h3 className="text-base font-bold text-white tracking-tight">Launchers</h3>
+                    <p className="text-gray-400 text-xs mt-0.5">Configure platform integrations</p>
+                  </div>
+
+                  {isLoadingApps ? (
+                    <div className="flex items-center justify-center p-8">
+                      <svg className="animate-spin h-6 w-6 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {apps.map((app) => (
+                        <div key={app.id} className="bg-gray-800/40 border border-gray-700/50 rounded-lg p-3 hover:bg-gray-800/60 transition-colors">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <span className={`font-medium text-sm ${app.enabled ? 'text-white' : 'text-gray-500'}`}>{app.name}</span>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              {app.enabled && (
+                                <button
+                                  onClick={() => setEditingAppId(editingAppId === app.id ? null : app.id)}
+                                  className={`text-xs font-medium px-2 py-1 rounded transition-colors ${editingAppId === app.id ? 'text-blue-400 bg-blue-400/10' : 'text-gray-400 hover:text-white hover:bg-gray-700/50'}`}
+                                >
+                                  Edit
+                                </button>
+                              )}
+                              <button
+                                onClick={() => handleToggleAppEnabled(app.id)}
+                                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors flex-shrink-0 focus:outline-none focus:ring-2 focus:ring-blue-500/50 ${app.enabled ? 'bg-blue-600' : 'bg-gray-600'}`}
+                              >
+                                <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform shadow-sm ${app.enabled ? 'translate-x-[18px]' : 'translate-x-[3px]'}`} />
+                              </button>
+                            </div>
+                          </div>
+
+                          {editingAppId === app.id && app.enabled && (
+                            <div className="mt-3 pt-3 border-t border-gray-700/50 space-y-4 animate-slide-down origin-top">
+                              {/* Path Input */}
+                              <div className="space-y-1.5">
+                                <label className="text-[10px] text-gray-500 font-semibold uppercase tracking-wider">Installation Path</label>
+                                <div className="flex items-center gap-2">
+                                  <input
+                                    type="text"
+                                    value={app.path || ''}
+                                    readOnly
+                                    className="flex-1 px-2.5 py-1.5 bg-gray-900/50 border border-gray-600/50 rounded text-xs text-gray-300 font-mono"
+                                    placeholder="Not configured"
+                                  />
+                                  <button
+                                    onClick={() => handleBrowseApp(app.id)}
+                                    className="px-2.5 py-1.5 bg-blue-600/10 hover:bg-blue-600/20 text-blue-400 text-xs font-medium rounded border border-blue-600/20 transition-colors whitespace-nowrap"
+                                  >
+                                    Change
+                                  </button>
                                 </div>
                               </div>
-                              <div className="flex gap-2 flex-shrink-0">
-                                {game.status === 'running' ? (
-                                  <button
-                                    onClick={async () => {
-                                      try {
-                                        if (window.electronAPI.suspend?.suspendGame) {
-                                          const result = await window.electronAPI.suspend.suspendGame(game.gameId);
-                                          if (result.success) {
-                                            loadRunningGames();
-                                          } else {
-                                            alert(`Failed to suspend game: ${result.error || 'Unknown error'}`);
-                                          }
-                                        }
-                                      } catch (error) {
-                                        console.error('Error suspending game:', error);
-                                        alert('Failed to suspend game');
-                                      }
-                                    }}
-                                    className="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 rounded text-white text-sm transition-colors"
-                                  >
-                                    Suspend
-                                  </button>
-                                ) : (
-                                  <button
-                                    onClick={async () => {
-                                      try {
-                                        if (window.electronAPI.suspend?.resumeGame) {
-                                          const result = await window.electronAPI.suspend.resumeGame(game.gameId);
-                                          if (result.success) {
-                                            loadRunningGames();
-                                          } else {
-                                            alert(`Failed to resume game: ${result.error || 'Unknown error'}`);
-                                          }
-                                        }
-                                      } catch (error) {
-                                        console.error('Error resuming game:', error);
-                                        alert('Failed to resume game');
-                                      }
-                                    }}
-                                    className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded text-white text-sm transition-colors"
-                                  >
-                                    Resume
-                                  </button>
-                                )}
+
+                              {/* Auto Categories */}
+                              <div className="space-y-1.5">
+                                <label className="text-[10px] text-gray-500 font-semibold uppercase tracking-wider">Auto Categories</label>
+                                <div className="space-y-2">
+                                  <input
+                                    type="text"
+                                    placeholder="e.g. FPS, RPG (comma separated)"
+                                    value={app.autoCategory?.join(', ') || ''}
+                                    onChange={(e) => handleUpdateAppCategory(app.id, e.target.value.split(',').map(s => s.trim()).filter(Boolean))}
+                                    className="w-full bg-gray-900/50 border border-gray-600/50 rounded px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500 transition-colors"
+                                  />
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {['Favorite', 'Multiplayer', 'Completed'].map(cat => (
+                                      <button
+                                        key={cat}
+                                        onClick={() => {
+                                          const current = app.autoCategory || [];
+                                          const updated = current.includes(cat) ? current.filter(c => c !== cat) : [...current, cat];
+                                          handleUpdateAppCategory(app.id, updated);
+                                        }}
+                                        className={`px-2 py-0.5 text-[10px] rounded border transition-colors ${app.autoCategory?.includes(cat) ? 'bg-blue-600/20 border-blue-500/50 text-blue-300' : 'bg-gray-700/50 border-gray-600 text-gray-400 hover:border-gray-500'}`}
+                                      >
+                                        {cat}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Actions */}
+                              <div className="flex justify-end pt-1">
+                                <button
+                                  onClick={() => handleScanApp(app.id)}
+                                  disabled={scanningAppId === app.id}
+                                  className="px-3 py-1.5 bg-gray-700/50 hover:bg-gray-700 text-gray-300 hover:text-white text-xs rounded border border-gray-600/50 flex items-center gap-2 transition-colors disabled:opacity-50"
+                                >
+                                  {scanningAppId === app.id ? (
+                                    <>
+                                      <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                                      <span>Scanning...</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                      </svg>
+                                      <span>Force Scan</span>
+                                    </>
+                                  )}
+                                </button>
                               </div>
                             </div>
-                          ))}
+                          )}
                         </div>
-                      )}
+                      ))}
                     </div>
                   )}
                 </div>
               </div>
-            )}
+            )
+          }
 
-            {activeTab === 'about' && (
-              <div className="flex flex-col items-center justify-center min-h-[400px] text-center space-y-6 p-8">
+          {
+            activeTab === 'integrations' && (
+              <div className="space-y-6 animate-fade-in p-6">
+                <div className="space-y-1 mb-6">
+                  <h3 className="text-lg font-semibold text-white mb-2">API Integrations</h3>
+                  <p className="text-gray-400 text-sm">
+                    Configure external services for metadata and images.
+                  </p>
+                </div>
+
+                {/* Tabs */}
+                <div className="flex space-x-6 border-b border-gray-700/50 mb-6">
+                  {(['steamgriddb', 'igdb', 'rawg'] as const).map((tab) => (
+                    <button
+                      key={tab}
+                      onClick={() => setActiveAPITab(tab)}
+                      className={`pb-3 text-sm font-medium transition-all duration-200 border-b-2 capitalize relative ${activeAPITab === tab
+                        ? 'border-blue-500 text-blue-400'
+                        : 'border-transparent text-gray-400 hover:text-gray-200'
+                        }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        {tab === 'steamgriddb' ? 'SteamGridDB' : tab === 'igdb' ? 'IGDB (Optional)' : 'RAWG (Optional)'}
+                        {((tab === 'igdb' && apiStatus.igdbConfigured) ||
+                          (tab === 'steamgriddb' && apiStatus.steamGridDBConfigured) ||
+                          (tab === 'rawg' && apiStatus.rawgConfigured)) && (
+                            <svg className="w-3.5 h-3.5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                            </svg>
+                          )}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+
+                {/* Content */}
+                <div className="animate-fade-in">
+                  {/* SteamGridDB Input */}
+                  {activeAPITab === 'steamgriddb' && (
+                    <div className="space-y-6">
+                      <SettingsInput
+                        label="API Key"
+                        value={apiCredentials.steamGridDBApiKey}
+                        onChange={(val) => handleAPIInputChange('steamGridDBApiKey', val)}
+                        placeholder="SteamGridDB API Key"
+                        type="password"
+                        description="Required for custom artwork."
+                      />
+                    </div>
+                  )}
+
+                  {/* IGDB Inputs */}
+                  {activeAPITab === 'igdb' && (
+                    <div className="space-y-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <SettingsInput
+                          label="Client ID"
+                          value={apiCredentials.igdbClientId}
+                          onChange={(val) => handleAPIInputChange('igdbClientId', val)}
+                          placeholder="IGDB Client ID"
+                          description="Optional game metadata"
+                        />
+                        <SettingsInput
+                          label="Client Secret"
+                          value={apiCredentials.igdbClientSecret}
+                          onChange={(val) => handleAPIInputChange('igdbClientSecret', val)}
+                          placeholder="IGDB Client Secret"
+                          type="password"
+                          description="Keep this secret safe"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* RAWG Input */}
+                  {activeAPITab === 'rawg' && (
+                    <div className="space-y-6">
+                      <SettingsInput
+                        label="API Key"
+                        value={apiCredentials.rawgApiKey}
+                        onChange={(val) => handleAPIInputChange('rawgApiKey', val)}
+                        placeholder="RAWG API Key"
+                        type="password"
+                        description="Alternative metadata source (Optional)"
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+            )
+          }
+
+          {activeTab === 'integrations' && (
+            /* Scrollable Instructions */
+            <div className="flex-1 overflow-y-auto p-6 border-t border-gray-700/50">
+              <div className="space-y-6 animate-slide-up">
+                {activeAPITab === 'igdb' && (
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2 text-blue-400 mb-2">
+                      <span className="text-sm font-semibold uppercase tracking-wider">Instructions</span>
+                    </div>
+                    <h4 className="text-lg font-medium text-white">How to configure IGDB</h4>
+                    <ol className="space-y-3 list-decimal list-inside text-gray-300 text-sm pl-2">
+                      <li>Log in to the <button onClick={() => window.electronAPI?.openExternal('https://dev.twitch.tv/console')} className="text-blue-400 hover:text-blue-300 underline">Twitch Developer Console</button></li>
+                      <li>Click <span className="font-semibold text-white">"Register Your Application"</span></li>
+                      <li>Name it (e.g. "Onyx") and set Category to <span className="font-semibold text-white">"Game Integration"</span></li>
+                      <li>Click <span className="font-semibold text-white">"Create"</span>, then <span className="font-semibold text-white">"Manage"</span></li>
+                      <li>Copy the <strong className="text-white">Client ID</strong></li>
+                      <li>Click <span className="font-semibold text-white">"New Secret"</span> to generate a <strong className="text-white">Client Secret</strong></li>
+                    </ol>
+                    <div className="p-4 bg-blue-900/10 border border-blue-500/10 rounded-lg mt-4">
+                      <p className="text-xs text-blue-300">IGDB provides essential metadata like release dates, genres, and summaries.</p>
+                    </div>
+                  </div>
+                )}
+
+                {activeAPITab === 'steamgriddb' && (
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2 text-blue-400 mb-2">
+                      <span className="text-sm font-semibold uppercase tracking-wider">Instructions</span>
+                    </div>
+                    <h4 className="text-lg font-medium text-white">How to configure SteamGridDB</h4>
+                    <ol className="space-y-3 list-decimal list-inside text-gray-300 text-sm pl-2">
+                      <li>Log in to the <button onClick={() => window.electronAPI?.openExternal('https://www.steamgriddb.com/profile/preferences/api')} className="text-blue-400 hover:text-blue-300 underline">SteamGridDB API Page</button></li>
+                      <li>Click the <span className="font-semibold text-white">"Generate API Key"</span> button</li>
+                      <li>Copy the generated key and paste it into the field above</li>
+                    </ol>
+                    <div className="p-4 bg-blue-900/10 border border-blue-500/10 rounded-lg mt-4">
+                      <p className="text-xs text-blue-300">SteamGridDB is the best source for high-quality vertical covers, heroes, and logos.</p>
+                    </div>
+                  </div>
+                )}
+
+                {activeAPITab === 'rawg' && (
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2 text-blue-400 mb-2">
+                      <span className="text-sm font-semibold uppercase tracking-wider">Instructions</span>
+                    </div>
+                    <h4 className="text-lg font-medium text-white">How to configure RAWG</h4>
+                    <ol className="space-y-3 list-decimal list-inside text-gray-300 text-sm pl-2">
+                      <li>Sign up for an account at <button onClick={() => window.electronAPI?.openExternal('https://rawg.io/apidocs')} className="text-blue-400 hover:text-blue-300 underline">RAWG API</button></li>
+                      <li>Click <span className="font-semibold text-white">"Get API Key"</span> on your profile or API page</li>
+                      <li>Copy the key and paste it into the field above</li>
+                    </ol>
+                    <div className="p-4 bg-blue-900/10 border border-blue-500/10 rounded-lg mt-4">
+                      <p className="text-xs text-blue-300">RAWG is an optional secondary source for metadata.</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+
+          {
+            activeTab === 'advanced' && (
+              <div className="space-y-8 p-6">
+                <div className="space-y-1">
+                  <h3 className="text-lg font-semibold text-white mb-2">Advanced Settings</h3>
+                  <p className="text-gray-400 text-sm">
+                    Manage system folders and dangerous settings.
+                  </p>
+                </div>
+
+                {/* System Folders */}
+                <div className="space-y-4">
+                  <h4 className="text-base font-medium text-white">System Folders</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {/* Image Cache Folder */}
+                    <div className="flex items-center justify-between p-3 bg-gray-700/30 rounded-lg border border-gray-600 hover:bg-gray-700/50 transition-colors">
+                      <div className="flex-1 min-w-0 pr-3">
+                        <h4 className="text-xs font-medium text-white mb-0.5">Image Cache</h4>
+                        <p className="text-xs text-gray-500 font-mono truncate">Cache Directory</p>
+                      </div>
+                      <button
+                        onClick={async () => {
+                          try {
+                            if (window.electronAPI.openPath) {
+                              await window.electronAPI.openPath('cache');
+                            } else {
+                              alert('Open folder functionality not available');
+                            }
+                          } catch (err) {
+                            console.error('Error opening folder:', err);
+                          }
+                        }}
+                        className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded transition-colors flex items-center gap-1.5 flex-shrink-0"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                        </svg>
+                        Open
+                      </button>
+                    </div>
+
+                    {/* App Data Folder */}
+                    <div className="flex items-center justify-between p-3 bg-gray-700/30 rounded-lg border border-gray-600 hover:bg-gray-700/50 transition-colors">
+                      <div className="flex-1 min-w-0 pr-3">
+                        <h4 className="text-xs font-medium text-white mb-0.5">Application Data</h4>
+                        <p className="text-xs text-gray-500 font-mono truncate">Config Directory</p>
+                      </div>
+                      <button
+                        onClick={async () => {
+                          try {
+                            if (window.electronAPI.openPath) {
+                              await window.electronAPI.openPath('appData');
+                            } else {
+                              alert('Open folder functionality not available');
+                            }
+                          } catch (err) {
+                            console.error('Error opening folder:', err);
+                          }
+                        }}
+                        className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded transition-colors flex items-center gap-1.5 flex-shrink-0"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                        </svg>
+                        Open
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Danger Zone */}
+                <div className="space-y-4 pt-6 border-t border-gray-700">
+                  <h4 className="text-base font-medium text-red-400">Danger Zone</h4>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* Remove All Games */}
+                    <div className="space-y-4">
+                      <div className="space-y-1">
+                        <h3 className="text-lg font-semibold text-white mb-2">Remove All Games</h3>
+                        <p className="text-gray-400 text-sm mb-4">
+                          Clear your game library while keeping all app settings and configurations.
+                        </p>
+                        <div className="bg-orange-900/20 border-2 border-orange-500/50 rounded-lg p-4 mb-4">
+                          <div className="flex items-start gap-3">
+                            <svg className="w-5 h-5 text-orange-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                            <div className="flex-1">
+                              <h4 className="text-orange-400 font-semibold mb-2">This will permanently delete:</h4>
+                              <ul className="list-disc list-inside text-orange-300 text-sm space-y-1">
+                                <li>All games in your library</li>
+                                <li>All game metadata and images</li>
+                              </ul>
+                            </div>
+                          </div>
+                        </div>
+                        {/* Confirmation UI */}
+                        <div className="bg-gray-900/50 border border-gray-700 rounded-lg p-4">
+                          {removeGamesConfirmation.step === 1 && (
+                            <button
+                              onClick={handleRemoveAllGames}
+                              className="w-full px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white font-medium rounded-lg transition-colors text-sm"
+                            >
+                              Remove All Games
+                            </button>
+                          )}
+                          {removeGamesConfirmation.step === 2 && (
+                            <div className="space-y-3">
+                              <p className="text-gray-300 text-sm font-medium">Type <span className="text-orange-400 font-bold">DELETE</span> to confirm:</p>
+                              <input
+                                type="text"
+                                value={removeGamesConfirmation.typedText}
+                                onChange={(e) => setRemoveGamesConfirmation({ ...removeGamesConfirmation, typedText: e.target.value })}
+                                placeholder="Type DELETE"
+                                className="w-full px-3 py-2 bg-gray-800 border-2 border-gray-600 rounded-lg text-white text-sm"
+                                autoFocus
+                              />
+                              <div className="flex gap-2">
+                                <button onClick={() => setRemoveGamesConfirmation({ step: 1, typedText: '' })} className="flex-1 px-3 py-1.5 bg-gray-700 text-white rounded-lg text-sm">Cancel</button>
+                                <button onClick={handleRemoveAllGames} disabled={removeGamesConfirmation.typedText !== 'DELETE'} className="flex-1 px-4 py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded-lg disabled:opacity-50 text-sm">Continue</button>
+                              </div>
+                            </div>
+                          )}
+                          {removeGamesConfirmation.step === 3 && (
+                            <div className="space-y-3">
+                              <p className="text-yellow-300 text-sm font-medium">Final Confirmation: Delete all games?</p>
+                              <div className="flex gap-2">
+                                <button onClick={() => setRemoveGamesConfirmation({ step: 1, typedText: '' })} className="flex-1 px-3 py-1.5 bg-gray-700 text-white rounded-lg text-sm">Cancel</button>
+                                <button onClick={handleRemoveAllGames} disabled={isRemovingGames} className="flex-1 px-4 py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-sm">{isRemovingGames ? 'Removing...' : 'Remove Now'}</button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Reset Application */}
+                    <div className="space-y-4">
+                      <div className="space-y-1">
+                        <h3 className="text-lg font-semibold text-white mb-2">Reset Application</h3>
+                        <p className="text-gray-400 text-sm mb-4">
+                          Completely reset Onyx to its initial installation state.
+                        </p>
+                        <div className="bg-red-900/20 border-2 border-red-500/50 rounded-lg p-4 mb-4">
+                          <div className="flex items-start gap-3">
+                            <svg className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                            <div className="flex-1">
+                              <h4 className="text-red-400 font-semibold mb-2">This will permanently delete EVERYTHING:</h4>
+                              <ul className="list-disc list-inside text-red-300 text-sm space-y-1">
+                                <li>All games, metadata, and images</li>
+                                <li>All app configurations and settings</li>
+                              </ul>
+                            </div>
+                          </div>
+                        </div>
+                        {/* Confirmation UI */}
+                        <div className="bg-gray-900/50 border border-gray-700 rounded-lg p-4">
+                          {resetConfirmation.step === 1 && (
+                            <button
+                              onClick={handleReset}
+                              className="w-full px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition-colors text-sm"
+                            >
+                              Factory Reset
+                            </button>
+                          )}
+                          {resetConfirmation.step === 2 && (
+                            <div className="space-y-3">
+                              <p className="text-gray-300 text-sm font-medium">Type <span className="text-red-400 font-bold">RESET</span> to confirm:</p>
+                              <input
+                                type="text"
+                                value={resetConfirmation.typedText}
+                                onChange={(e) => setResetConfirmation({ ...resetConfirmation, typedText: e.target.value })}
+                                placeholder="Type RESET"
+                                className="w-full px-3 py-2 bg-gray-800 border-2 border-gray-600 rounded-lg text-white text-sm"
+                                autoFocus
+                              />
+                              <div className="flex gap-2">
+                                <button onClick={() => setResetConfirmation({ step: 1, typedText: '' })} className="flex-1 px-3 py-1.5 bg-gray-700 text-white rounded-lg text-sm">Cancel</button>
+                                <button onClick={handleReset} disabled={resetConfirmation.typedText !== 'RESET'} className="flex-1 px-4 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg disabled:opacity-50 text-sm">Continue</button>
+                              </div>
+                            </div>
+                          )}
+                          {resetConfirmation.step === 3 && (
+                            <div className="space-y-3">
+                              <p className="text-yellow-300 text-sm font-medium">Final Confirmation: Reset everything?</p>
+                              <div className="flex gap-2">
+                                <button onClick={() => setResetConfirmation({ step: 1, typedText: '' })} className="flex-1 px-3 py-1.5 bg-gray-700 text-white rounded-lg text-sm">Cancel</button>
+                                <button onClick={handleReset} disabled={isResetting} className="flex-1 px-4 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm">{isResetting ? 'Resetting...' : 'Reset Now'}</button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )
+          }
+
+          {/* DISABLED: Suspend feature (Future Feature) */}
+
+
+          {
+            activeTab === 'about' && (
+              <div className="flex flex-col items-center justify-center h-full text-center space-y-6 p-8">
                 {/* Header Section */}
                 <div className="flex flex-col items-center animate-fade-in">
                   <img
@@ -2465,6 +1552,12 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                   <p className="text-slate-400 leading-relaxed font-medium">
                     No ads, no bloat—just games.
                   </p>
+                  {/* API Credits */}
+                  <div className="pt-4 border-t border-slate-700/50 mt-4">
+                    <p className="text-xs text-slate-500">
+                      Powered by <span className="text-slate-400 font-medium">IGDB</span>, <span className="text-slate-400 font-medium">SteamGridDB</span>, and <span className="text-slate-400 font-medium">RAWG.io</span>
+                    </p>
+                  </div>
                 </div>
 
                 {/* Social Actions Row */}
@@ -2521,183 +1614,29 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                   </p>
                 </div>
               </div>
-            )}
+            )
+          }
+        </div>
 
-            {activeTab === 'folders' && (
-              <div className="space-y-4">
-                <div className="space-y-1">
-                  <h3 className="text-lg font-semibold text-white mb-2">Application Folders</h3>
-                  <p className="text-gray-400 text-xs mb-4">
-                    View and open all folders used by Onyx
-                  </p>
-
-                  <div className="grid grid-cols-3 gap-3">
-                    {/* Image Cache Folder */}
-                    <div className="flex items-center justify-between p-3 bg-gray-700/30 rounded-lg border border-gray-600 hover:bg-gray-700/50 transition-colors">
-                      <div className="flex-1 min-w-0 pr-3">
-                        <h4 className="text-xs font-medium text-white mb-0.5">Image Cache</h4>
-                        <p className="text-xs text-gray-500 font-mono truncate" title={(() => {
-                          const isWindows = navigator.platform.toLowerCase().includes('win');
-                          if (isWindows) {
-                            return '%LOCALAPPDATA%\\onyx-launcher\\images';
-                          }
-                          return '~/.cache/onyx-launcher/images';
-                        })()}>
-                          {(() => {
-                            const isWindows = navigator.platform.toLowerCase().includes('win');
-                            if (isWindows) {
-                              return '%LOCALAPPDATA%\\onyx-launcher\\images';
-                            }
-                            return '~/.cache/onyx-launcher/images';
-                          })()}
-                        </p>
-                      </div>
-                      <button
-                        onClick={async () => {
-                          try {
-                            if (window.electronAPI.openPath) {
-                              await window.electronAPI.openPath('cache');
-                            } else {
-                              alert('Open folder functionality not available');
-                            }
-                          } catch (err) {
-                            console.error('Error opening folder:', err);
-                          }
-                        }}
-                        className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded transition-colors flex items-center gap-1.5 flex-shrink-0"
-                      >
-                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                        </svg>
-                        Open
-                      </button>
-                    </div>
-
-                    {/* App Data Folder */}
-                    <div className="flex items-center justify-between p-3 bg-gray-700/30 rounded-lg border border-gray-600 hover:bg-gray-700/50 transition-colors">
-                      <div className="flex-1 min-w-0 pr-3">
-                        <h4 className="text-xs font-medium text-white mb-0.5">Application Data</h4>
-                        <p className="text-xs text-gray-500 font-mono truncate" title={(() => {
-                          const isWindows = navigator.platform.toLowerCase().includes('win');
-                          if (isWindows) {
-                            return '%APPDATA%\\onyx-launcher';
-                          }
-                          return '~/.config/onyx-launcher';
-                        })()}>
-                          {(() => {
-                            const isWindows = navigator.platform.toLowerCase().includes('win');
-                            if (isWindows) {
-                              return '%APPDATA%\\onyx-launcher';
-                            }
-                            return '~/.config/onyx-launcher';
-                          })()}
-                        </p>
-                      </div>
-                      <button
-                        onClick={async () => {
-                          try {
-                            if (window.electronAPI.openPath) {
-                              await window.electronAPI.openPath('appData');
-                            } else {
-                              alert('Open folder functionality not available');
-                            }
-                          } catch (err) {
-                            console.error('Error opening folder:', err);
-                          }
-                        }}
-                        className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded transition-colors flex items-center gap-1.5 flex-shrink-0"
-                      >
-                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                        </svg>
-                        Open
-                      </button>
-                    </div>
-
-                    {/* Install Locations - Show all configured app paths */}
-                    {apps.filter(app => app.enabled && app.path).map((app) => (
-                      <div key={app.id} className="flex items-center justify-between p-3 bg-gray-700/30 rounded-lg border border-gray-600 hover:bg-gray-700/50 transition-colors">
-                        <div className="flex-1 min-w-0 pr-3">
-                          <h4 className="text-xs font-medium text-white mb-0.5">{app.name}</h4>
-                          <p className="text-xs text-gray-500 font-mono truncate" title={app.path}>
-                            {app.path}
-                          </p>
-                        </div>
-                        <button
-                          onClick={async () => {
-                            try {
-                              if (window.electronAPI.openPath) {
-                                await window.electronAPI.openPath(app.path);
-                              } else {
-                                alert('Open folder functionality not available');
-                              }
-                            } catch (err) {
-                              console.error('Error opening folder:', err);
-                            }
-                          }}
-                          className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded transition-colors flex items-center gap-1.5 flex-shrink-0"
-                        >
-                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                          </svg>
-                          Open
-                        </button>
-                      </div>
-                    ))}
-
-                    {/* Manual Folders */}
-                    {Object.values(manualFolderConfigs).filter(f => f.enabled).map((folderConfig) => (
-                      <div key={folderConfig.id} className="flex items-center justify-between p-3 bg-gray-700/30 rounded-lg border border-gray-600 hover:bg-gray-700/50 transition-colors">
-                        <div className="flex-1 min-w-0 pr-3">
-                          <h4 className="text-xs font-medium text-white mb-0.5">{folderConfig.name}</h4>
-                          <p className="text-xs text-gray-500 font-mono truncate" title={folderConfig.path}>
-                            {folderConfig.path}
-                          </p>
-                        </div>
-                        <button
-                          onClick={async () => {
-                            try {
-                              if (window.electronAPI.openPath) {
-                                await window.electronAPI.openPath(folderConfig.path);
-                              } else {
-                                alert('Open folder functionality not available');
-                              }
-                            } catch (err) {
-                              console.error('Error opening folder:', err);
-                            }
-                          }}
-                          className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded transition-colors flex items-center gap-1.5 flex-shrink-0"
-                        >
-                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                          </svg>
-                          Open
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Footer */}
-          <div className="px-6 py-4 border-t border-gray-700/50 bg-gray-800/95 backdrop-blur-sm flex justify-end gap-3">
-            <button
-              onClick={onClose}
-              className="px-5 py-2.5 text-gray-300 hover:text-white hover:bg-gray-700 rounded-lg transition-colors font-medium"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleSave}
-              className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium shadow-lg shadow-blue-600/20"
-            >
-              Save Changes
-            </button>
-          </div>
+        {/* Footer */}
+        <div className="px-6 py-4 border-t border-gray-700/50 bg-gray-900 flex justify-end gap-3 z-10 relative">
+          <button
+            onClick={onClose}
+            className="px-5 py-2.5 text-gray-300 hover:text-white hover:bg-gray-700 rounded-lg transition-colors font-medium text-sm"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium shadow-lg shadow-blue-600/20 text-sm"
+          >
+            Save Changes
+          </button>
         </div>
       </div>
-    </>
+    </SettingsLayout >
   );
 };
+
+
+
