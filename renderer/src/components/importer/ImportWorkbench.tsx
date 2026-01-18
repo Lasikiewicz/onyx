@@ -27,6 +27,31 @@ interface ImportWorkbenchProps {
   appType?: 'steam' | 'xbox' | 'other'; // Type of app being imported
 }
 
+interface IGDBGameResult {
+  id: number;
+  name: string;
+  title?: string;
+  coverUrl?: string;
+  screenshotUrls?: string[];
+  logoUrl?: string;
+  bannerUrl?: string;
+  summary?: string;
+  releaseDate?: number;
+  genres?: string[];
+  rating?: number;
+  platform?: string;
+  ageRating?: string;
+  categories?: string[];
+}
+
+interface FastSearchGame {
+  id: number;
+  name: string;
+  coverUrl?: string;
+  releaseDate?: number;
+  source?: string;
+}
+
 /**
  * Normalize title for comparison
  */
@@ -378,18 +403,31 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
   const [ignoredGames, setIgnoredGames] = useState<Set<string>>(new Set());
   const [scanProgressMessage, setScanProgressMessage] = useState<string>('');
   const [showIgnored, setShowIgnored] = useState(false);
-  const [showImageSearch, setShowImageSearch] = useState<{ type: 'boxart' | 'banner' | 'logo'; gameId: string } | null>(null);
+  const [showImageSearch, setShowImageSearch] = useState<{ type: 'boxart' | 'banner' | 'logo' | 'icon'; gameId: string } | null>(null);
   const [imageSearchQuery, setImageSearchQuery] = useState('');
   const [imageSearchResults, setImageSearchResults] = useState<any[]>([]);
   const [isSearchingImages, setIsSearchingImages] = useState(false);
+  const [isFastSearching, setIsFastSearching] = useState(false);
+  const [fastSearchResults, setFastSearchResults] = useState<FastSearchGame[]>([]);
+  const [, setSelectedFastGame] = useState<FastSearchGame | null>(null);
+  const [activeImageSearchTab, setActiveImageSearchTab] = useState<'all' | 'boxart' | 'logo' | 'banner' | 'icon'>('all');
+  const [showAnimatedImages, setShowAnimatedImages] = useState(true);
+  const [steamGridDBResults, setSteamGridDBResults] = useState<{
+    boxart: any[];
+    banner: any[];
+    logo: any[];
+    icon: any[];
+  }>({ boxart: [], banner: [], logo: [], icon: [] });
   const [showMetadataSearch, setShowMetadataSearch] = useState(false);
   const [metadataSearchQuery, setMetadataSearchQuery] = useState('');
   const [metadataSearchResults, setMetadataSearchResults] = useState<any[]>([]);
   const [isSearchingMetadata, setIsSearchingMetadata] = useState(false);
   const [categoryInput, setCategoryInput] = useState<string>('');
+
   const [folderConfigs, setFolderConfigs] = useState<Record<string, { id: string; name: string; path: string; enabled: boolean; autoCategory?: string[] }>>({});
   const titleInputRef = useRef<HTMLInputElement>(null);
   const hasAutoScannedRef = useRef<boolean>(false); // Track if we've already auto-scanned
+  const [success, setSuccess] = useState<string | null>(null);
 
   // Auto-start scanning when modal opens if autoStartScan is true
   useEffect(() => {
@@ -2653,12 +2691,126 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
   //   );
   // };
 
-  // Search for images
-  const handleSearchImages = async () => {
-    if (!selectedGame || !showImageSearch) return;
+  // Playnite-style fast search - fetches all images at once with no rate limiting
+  const handleFastSearch = async () => {
+    if (!selectedGame) return;
 
-    const { stripped: cleanTitle } = stripDemoIndicator(selectedGame.title);
-    const query = imageSearchQuery.trim() || cleanTitle.trim();
+    const query = imageSearchQuery.trim() || stripDemoIndicator(selectedGame.title).stripped.trim();
+    if (!query) {
+      setError('Please enter a game title to search');
+      return;
+    }
+
+    setIsFastSearching(true);
+    setError(null);
+    setFastSearchResults([]);
+    setSelectedFastGame(null);
+
+    try {
+      console.log(`[FastSearch] Searching for "${query}"...`);
+      const startTime = Date.now();
+
+      const response = await (window.electronAPI as any).fastImageSearch(query);
+
+      console.log(`[FastSearch] Completed in ${Date.now() - startTime}ms`);
+
+      if (response.success && response.games && response.games.length > 0) {
+        setFastSearchResults(response.games);
+        setSuccess(`Found ${response.games.length} game(s) in ${Date.now() - startTime}ms`);
+        setTimeout(() => setSuccess(null), 3000);
+      } else if (response.error) {
+        setError(response.error);
+      } else {
+        setError(`No results found for "${query}". Try a different search term or check the spelling.`);
+      }
+    } catch (err) {
+      setError('Failed to search. Check your internet connection and API credentials.');
+      console.error('[FastSearch] Error:', err);
+    } finally {
+      setIsFastSearching(false);
+    }
+  };
+
+  // Show images from a fast search result (click to display, not auto-apply)
+  const handleSelectFastGame = async (gameResult: FastSearchGame) => {
+    if (!selectedGame) return;
+
+    setSelectedFastGame(gameResult);
+    setFastSearchResults([]);
+    setIsSearchingImages(true);
+    setError(null);
+    setImageSearchQuery(gameResult.name);
+
+    try {
+      // Call the multi-source fetcher
+      const response = await (window.electronAPI as any).fetchGameImages(
+        gameResult.name,
+        selectedGame.appId?.startsWith('steam-') ? selectedGame.appId.replace('steam-', '') : selectedGame.appId,
+        Number(gameResult.id),
+        showAnimatedImages
+      );
+
+      if (response.success && response.images) {
+        // Categorize images by type
+        const newImages: any[] = [];
+        const sgdbResults = {
+          boxart: [] as any[],
+          banner: [] as any[],
+          logo: [] as any[],
+          icon: [] as any[],
+        };
+
+        const seenUrls = new Set<string>();
+
+        response.images.forEach((img: any) => {
+          if (!img.url || seenUrls.has(img.url)) return;
+          seenUrls.add(img.url);
+
+          const imageObj = {
+            id: `${img.source}-${img.type}-${Math.random().toString(36).substr(2, 9)}`,
+            name: img.name || img.source,
+            source: img.source,
+            url: img.url,
+            [img.type === 'boxart' ? 'boxArtUrl' : img.type === 'logo' ? 'logoUrl' : img.type === 'icon' ? 'iconUrl' : 'bannerUrl']: img.url,
+            screenshotUrls: img.type === 'banner' || img.type === 'screenshot' ? [img.url] : undefined
+          };
+
+          if (img.source === 'SteamGridDB') {
+            if (img.type === 'boxart') sgdbResults.boxart.push(imageObj);
+            else if (img.type === 'banner') sgdbResults.banner.push(imageObj);
+            else if (img.type === 'logo') sgdbResults.logo.push(imageObj);
+            else if (img.type === 'icon') sgdbResults.icon.push(imageObj);
+          } else {
+            if (img.type === 'boxart' || img.type === 'banner' || img.type === 'screenshot') {
+              newImages.push(imageObj);
+            } else if (img.type === 'logo') {
+              sgdbResults.logo.push(imageObj);
+            }
+          }
+        });
+
+        setImageSearchResults(newImages);
+        setSteamGridDBResults(sgdbResults);
+        setActiveImageSearchTab('all');
+        setSuccess(`Showing images for "${gameResult.name}"`);
+        setTimeout(() => setSuccess(null), 3000);
+      } else {
+        setError(response.error || 'Failed to fetch images');
+      }
+    } catch (err) {
+      console.error('Error fetching game images:', err);
+      setError('Failed to fetch images from sources');
+    } finally {
+      setIsSearchingImages(false);
+    }
+  };
+
+  // Search for images (classic progressive loading)
+  const handleSearchImages = async (imageType: 'boxart' | 'banner' | 'logo' | 'icon') => {
+    if (!selectedGame) return;
+
+    const query = imageSearchQuery.trim() || stripDemoIndicator(selectedGame.title).stripped.trim();
+
     if (!query) {
       setError('Please enter a game title to search');
       return;
@@ -2666,150 +2818,82 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
 
     setIsSearchingImages(true);
     setError(null);
-    setImageSearchResults([]);
+
+    // Tracker for active searches to know when to turn off loading indicator
+    let activeSearches = 0;
+    const checkFinished = () => {
+      activeSearches--;
+      if (activeSearches <= 0) {
+        setIsSearchingImages(false);
+      }
+    };
+
+    const steamAppId = selectedGame.appId?.toString();
 
     try {
-      const steamAppId = selectedGame.appId?.toString();
+      // Search IGDB for metadata (only if searching for boxart or banner)
+      if (imageType === 'boxart' || imageType === 'banner') {
+        activeSearches++;
+        window.electronAPI.searchMetadata(query).then((igdbResponse: any) => {
+          if (igdbResponse && igdbResponse.success && igdbResponse.results && igdbResponse.results.length > 0) {
+            const filteredIGDBResults = igdbResponse.results.filter((result: any) => {
+              if (imageType === 'boxart') return result.coverUrl;
+              if (imageType === 'banner') return result.screenshotUrls && result.screenshotUrls.length > 0;
+              return false;
+            });
 
-      // Primary: IGDB-backed searchArtwork (IGDB-first, RAWG fallback)
-      const primaryArtwork = await window.electronAPI.searchArtwork(query, steamAppId, true);
-      const primaryResults: any[] = [];
-
-      if (primaryArtwork) {
-        if (showImageSearch.type === 'boxart' && primaryArtwork.boxArtUrl) {
-          primaryResults.push({
-            id: query,
-            name: query,
-            title: query,
-            boxArtUrl: primaryArtwork.boxArtUrl,
-            coverUrl: primaryArtwork.boxArtUrl,
-            bannerUrl: primaryArtwork.bannerUrl || primaryArtwork.heroUrl,
-            logoUrl: primaryArtwork.logoUrl,
-            heroUrl: primaryArtwork.heroUrl,
-            source: 'igdb',
-          });
-        }
-        if (showImageSearch.type === 'banner' && (primaryArtwork.bannerUrl || primaryArtwork.heroUrl)) {
-          const url = primaryArtwork.bannerUrl || primaryArtwork.heroUrl;
-          primaryResults.push({
-            id: query,
-            name: query,
-            title: query,
-            bannerUrl: url,
-            heroUrl: url,
-            screenshotUrls: primaryArtwork.screenshots,
-            source: 'igdb',
-          });
-        }
-        if (showImageSearch.type === 'logo' && primaryArtwork.logoUrl) {
-          primaryResults.push({
-            id: query,
-            name: query,
-            title: query,
-            logoUrl: primaryArtwork.logoUrl,
-            source: 'igdb',
-          });
-        }
+            if (filteredIGDBResults.length > 0) {
+              setImageSearchResults(prev => [...prev, ...filteredIGDBResults]);
+            }
+          }
+        }).catch(err => console.error('Error searching IGDB:', err)).finally(checkFinished);
       }
 
-      if (primaryResults.length > 0) {
-        setImageSearchResults(primaryResults);
-        return;
-      }
-
-      // Fallback: broader search then per-result artwork fetch (still IGDB-first via searchArtwork)
-      const gamesResponse = await window.electronAPI.searchGames(query);
-
-      if (gamesResponse.success && gamesResponse.results && gamesResponse.results.length > 0) {
-        // Filter results for logos - stricter matching
-        let resultsToProcess = gamesResponse.results;
-
-        if (showImageSearch.type === 'logo') {
-          const normalizeForComparison = (str: string) => str.toLowerCase().replace(/[^a-z0-9]/g, '');
-          const normalizedQuery = normalizeForComparison(query);
-
-          resultsToProcess = resultsToProcess.filter((result: any) => {
-            const normalizedTitle = normalizeForComparison(result.title || result.name || '');
-
-            // Exact match (normalized)
-            if (normalizedTitle === normalizedQuery) return true;
-
-            // Verify length difference is small (e.g. "Doom" vs "Doom II" should fail, but "The Doom" might pass)
-            if (Math.abs(normalizedTitle.length - normalizedQuery.length) > 3) return false;
-
-            // Allow if one contains the other and length diff is very small (typo tolerance or "The")
-            if ((normalizedTitle.includes(normalizedQuery) || normalizedQuery.includes(normalizedTitle))) {
-              return true;
-            }
-
-            return false;
+      // Search SteamGridDB for the specific image type
+      activeSearches++;
+      window.electronAPI.searchImages(query, imageType, steamAppId, showAnimatedImages).then((sgdbResponse: any) => {
+        if (sgdbResponse.success && sgdbResponse.images) {
+          const flattenedResults: any[] = [];
+          sgdbResponse.images.forEach((gameResult: any) => {
+            gameResult.images.forEach((img: any) => {
+              flattenedResults.push({
+                id: gameResult.gameId,
+                name: gameResult.gameName,
+                title: gameResult.gameName,
+                boxArtUrl: imageType === 'boxart' ? img.url : undefined,
+                bannerUrl: imageType === 'banner' ? img.url : undefined,
+                logoUrl: imageType === 'logo' ? img.url : undefined,
+                iconUrl: imageType === 'icon' ? img.url : undefined,
+                coverUrl: imageType === 'boxart' ? img.url : undefined,
+                source: 'steamgriddb',
+                score: img.score,
+                width: img.width,
+                height: img.height,
+              });
+            });
           });
 
-          if (resultsToProcess.length === 0) {
-            console.log('[ImageSearch] No exact title matches found for logo search');
+          if (flattenedResults.length > 0) {
+            setSteamGridDBResults(prev => ({
+              ...prev,
+              [imageType]: [...prev[imageType], ...flattenedResults]
+            }));
           }
         }
+      }).catch(err => console.error('Error searching SteamGridDB:', err)).finally(checkFinished);
 
-        const artworkPromises = resultsToProcess.slice(0, 10).map(async (gameResult: any) => {
-          try {
-            const appId = gameResult.steamAppId?.toString();
-            const artwork = await window.electronAPI.searchArtwork(gameResult.title, appId, true);
-
-            if (!artwork) return null;
-
-            let imageUrl: string | undefined;
-            if (showImageSearch.type === 'boxart') {
-              imageUrl = artwork.boxArtUrl;
-            } else if (showImageSearch.type === 'banner') {
-              imageUrl = artwork.bannerUrl || artwork.heroUrl;
-            } else if (showImageSearch.type === 'logo') {
-              imageUrl = artwork.logoUrl;
-            }
-
-            if (!imageUrl) return null;
-
-            return {
-              id: gameResult.externalId || gameResult.id,
-              name: gameResult.title,
-              title: gameResult.title,
-              boxArtUrl: artwork.boxArtUrl,
-              bannerUrl: artwork.bannerUrl || artwork.heroUrl,
-              logoUrl: artwork.logoUrl,
-              coverUrl: artwork.boxArtUrl,
-              screenshotUrls: artwork.screenshots,
-              source: 'igdb',
-            };
-          } catch (err) {
-            return null;
-          }
-        });
-
-        const results = await Promise.all(artworkPromises);
-        const validResults = results.filter(r => r !== null);
-
-        if (validResults.length > 0) {
-          setImageSearchResults(validResults as any[]);
-        } else {
-          const metadataResponse = await window.electronAPI.searchMetadata(query);
-          if (metadataResponse.success && metadataResponse.results && metadataResponse.results.length > 0) {
-            setImageSearchResults(metadataResponse.results);
-          } else {
-            setError('No results found');
-          }
-        }
-      } else {
-        setError('No results found');
+      if (activeSearches === 0) {
+        setIsSearchingImages(false);
       }
     } catch (err) {
-      setError('Failed to search for images');
-      console.error('Error searching images:', err);
-    } finally {
+      setError(`Failed to search for ${imageType}`);
+      console.error(`Error searching ${imageType}:`, err);
       setIsSearchingImages(false);
     }
   };
 
   // Select image from search
-  const handleSelectImage = (imageUrl: string, type: 'boxart' | 'banner' | 'logo') => {
+  const handleSelectImage = (imageUrl: string, type: 'boxart' | 'banner' | 'logo' | 'icon') => {
     if (!selectedGame) return;
 
     const updates: Partial<StagedGame> = {};
@@ -2819,16 +2903,16 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
       updates.bannerUrl = imageUrl;
     } else if (type === 'logo') {
       updates.logoUrl = imageUrl;
+    } else if (type === 'icon') {
+      updates.iconUrl = imageUrl;
     }
 
     updateGame(selectedGame.uuid, updates);
-    setShowImageSearch(null);
-    setImageSearchResults([]);
-    setImageSearchQuery('');
+    // Don't close modal here, keep it open so user can pick more images
   };
 
   // Select image from local file
-  const handleSelectLocalImage = async (type: 'boxart' | 'banner' | 'logo') => {
+  const handleSelectLocalImage = async (type: 'boxart' | 'banner' | 'logo' | 'icon') => {
     if (!selectedGame) return;
 
     try {
@@ -3081,680 +3165,870 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
           <div className="flex-1 flex flex-col overflow-y-auto bg-gray-800/30">
             {selectedGame ? (
               <>
-                {/* Images Section - Moved to top */}
-                <div className="p-4 space-y-3 border-b border-gray-700">
-                  <h3 className="text-base font-semibold text-white">Images</h3>
-
-                  {/* All Images in One Row */}
-                  <div className="grid grid-cols-3 gap-3">
-                    {/* Box Art */}
-                    <div>
-                      <div className="flex items-center justify-between mb-1">
-                        <label className="block text-xs font-medium text-gray-300">
-                          Box Art
-                        </label>
-                        <div className="flex gap-1">
-                          <button
-                            onClick={() => handleSelectLocalImage('boxart')}
-                            className="text-xs px-2 py-1 bg-gray-700 hover:bg-gray-600 text-white rounded"
-                            title="Select local file"
-                          >
-                            📁
-                          </button>
-                          <button
-                            onClick={() => toggleFieldLock(selectedGame.uuid, 'boxArtUrl')}
-                            className={`text-xs px-2 py-1 rounded ${selectedGame.lockedFields?.boxArtUrl
-                              ? 'bg-yellow-600 text-white'
-                              : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                              }`}
-                            title={selectedGame.lockedFields?.boxArtUrl ? 'Unlock' : 'Lock'}
-                          >
-                            {selectedGame.lockedFields?.boxArtUrl ? '🔒' : '🔓'}
-                          </button>
+                {/* Images Section - Horizontal Preview Strip */}
+                <div className="p-2 space-y-2 flex-shrink-0 bg-gray-900/95 z-10 border-b border-gray-800">
+                  {/* Top Images Section - Compact Flex Layout */}
+                  <div className="flex gap-2 mb-1 items-start">
+                    {/* Boxart */}
+                    <div
+                      onClick={() => setShowImageSearch({ type: 'boxart', gameId: selectedGame.uuid })}
+                      className="h-36 w-auto aspect-[2/3] relative group cursor-pointer border border-gray-700 rounded-lg overflow-hidden bg-gray-800 hover:border-green-500 transition-colors flex-shrink-0"
+                    >
+                      {selectedGame.boxArtUrl ? (
+                        <img
+                          src={selectedGame.boxArtUrl}
+                          alt="Boxart"
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <span className="text-[8px] text-gray-600 text-center p-1">Boxart</span>
                         </div>
-                      </div>
-                      <div
-                        onClick={() => setShowImageSearch({ type: 'boxart', gameId: selectedGame.uuid })}
-                        className="cursor-pointer"
-                      >
-                        {selectedGame.boxArtUrl ? (
-                          <div className="w-full h-32 bg-gray-800 rounded border-2 border-blue-500 hover:border-blue-400 transition-colors flex items-center justify-center p-1">
-                            <img
-                              src={selectedGame.boxArtUrl}
-                              alt="Box Art"
-                              className="max-w-full max-h-full object-contain"
-                            />
-                          </div>
-                        ) : (
-                          <div className="w-full h-32 bg-gray-700 rounded flex flex-col items-center justify-center text-gray-400 text-xs border-2 border-dashed border-gray-600 hover:border-gray-500 transition-colors">
-                            <span>Click to search</span>
-                            <span className="text-[10px] mt-1">Box Art</span>
-                          </div>
-                        )}
+                      )}
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <span className="text-[10px] text-white font-medium">Edit</span>
                       </div>
                     </div>
 
-                    {/* Hero/Banner */}
-                    <div>
-                      <div className="flex items-center justify-between mb-1">
-                        <label className="block text-xs font-medium text-gray-300">
-                          Hero
-                        </label>
-                        <div className="flex gap-1">
-                          <button
-                            onClick={() => handleSelectLocalImage('banner')}
-                            className="text-xs px-2 py-1 bg-gray-700 hover:bg-gray-600 text-white rounded"
-                            title="Select local file"
-                          >
-                            📁
-                          </button>
-                          <button
-                            onClick={() => toggleFieldLock(selectedGame.uuid, 'bannerUrl')}
-                            className={`text-xs px-2 py-1 rounded ${selectedGame.lockedFields?.bannerUrl
-                              ? 'bg-yellow-600 text-white'
-                              : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                              }`}
-                            title={selectedGame.lockedFields?.bannerUrl ? 'Unlock' : 'Lock'}
-                          >
-                            {selectedGame.lockedFields?.bannerUrl ? '🔒' : '🔓'}
-                          </button>
-                        </div>
-                      </div>
-                      <div
-                        onClick={() => setShowImageSearch({ type: 'banner', gameId: selectedGame.uuid })}
-                        className="cursor-pointer"
-                      >
-                        {selectedGame.bannerUrl || selectedGame.heroUrl ? (
+                    {/* Logo - 2nd position */}
+                    <div
+                      onClick={() => setShowImageSearch({ type: 'logo', gameId: selectedGame.uuid })}
+                      className="h-36 w-56 relative group cursor-pointer border border-gray-700 rounded-lg overflow-hidden bg-gray-800 hover:border-green-500 transition-colors flex-shrink-0"
+                    >
+                      {selectedGame.logoUrl ? (
+                        <div className="w-full h-full p-2 flex items-center justify-center">
                           <img
-                            src={selectedGame.bannerUrl || selectedGame.heroUrl}
-                            alt="Hero"
-                            className="w-full h-32 object-cover rounded border-2 border-blue-500 hover:border-blue-400 transition-colors"
+                            src={selectedGame.logoUrl}
+                            alt="Logo"
+                            className="max-w-full max-h-full object-contain"
                           />
-                        ) : (
-                          <div className="w-full h-32 bg-gray-700 rounded flex flex-col items-center justify-center text-gray-400 text-xs border-2 border-dashed border-gray-600 hover:border-gray-500 transition-colors">
-                            <span>Click to search</span>
-                            <span className="text-[10px] mt-1">Hero/Banner</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Logo */}
-                    <div>
-                      <div className="flex items-center justify-between mb-1">
-                        <label className="block text-xs font-medium text-gray-300">
-                          Logo
-                        </label>
-                        <div className="flex gap-1">
-                          <button
-                            onClick={() => handleSelectLocalImage('logo')}
-                            className="text-xs px-2 py-1 bg-gray-700 hover:bg-gray-600 text-white rounded"
-                            title="Select local file"
-                          >
-                            📁
-                          </button>
-                          <button
-                            onClick={() => toggleFieldLock(selectedGame.uuid, 'logoUrl')}
-                            className={`text-xs px-2 py-1 rounded ${selectedGame.lockedFields?.logoUrl
-                              ? 'bg-yellow-600 text-white'
-                              : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                              }`}
-                            title={selectedGame.lockedFields?.logoUrl ? 'Unlock' : 'Lock'}
-                          >
-                            {selectedGame.lockedFields?.logoUrl ? '🔒' : '🔓'}
-                          </button>
                         </div>
-                      </div>
-                      <div
-                        onClick={() => setShowImageSearch({ type: 'logo', gameId: selectedGame.uuid })}
-                        className="cursor-pointer"
-                      >
-                        {selectedGame.logoUrl ? (
-                          <div className="w-full h-16 bg-gray-800 rounded border-2 border-blue-500 hover:border-blue-400 transition-colors flex items-center justify-center p-1">
-                            <img
-                              src={selectedGame.logoUrl}
-                              alt="Logo"
-                              className="max-w-full max-h-full object-contain"
-                            />
-                          </div>
-                        ) : (
-                          <div className="w-full h-16 bg-gray-700 rounded flex flex-col items-center justify-center text-gray-400 text-xs border-2 border-dashed border-gray-600 hover:border-gray-500 transition-colors">
-                            <span>Click to search</span>
-                            <span className="text-[10px] mt-1">Logo</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Categories Section */}
-                  <div className="mt-3">
-                    <label className="block text-xs font-medium text-gray-400 mb-2">
-                      Categories
-                    </label>
-                    <div className="flex gap-2 mb-2">
-                      <input
-                        type="text"
-                        value={categoryInput}
-                        onChange={(e) => setCategoryInput(e.target.value)}
-                        onKeyPress={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            addCategory(categoryInput);
-                          }
-                        }}
-                        className="flex-1 px-2 py-1.5 text-sm bg-gray-700 border border-gray-600 rounded text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="Add category"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => addCategory(categoryInput)}
-                        disabled={!categoryInput.trim()}
-                        className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-white font-medium rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-                      >
-                        +
-                      </button>
-                    </div>
-
-                    {/* Existing Categories for Quick Selection */}
-                    <div className="mb-3">
-                      <p className="text-xs text-gray-500 mb-2">Quick select existing categories:</p>
-                      <div className="flex flex-wrap gap-2">
-                        {DEFAULT_CATEGORIES
-                          .filter(cat => !selectedGame.categories?.includes(cat))
-                          .map((category) => (
-                            <button
-                              key={category}
-                              type="button"
-                              onClick={() => addCategory(category)}
-                              className="px-2 py-1 bg-gray-700/50 hover:bg-gray-700 border border-gray-600 hover:border-gray-500 rounded text-xs text-gray-300 transition-colors"
-                            >
-                              + {category}
-                            </button>
-                          ))}
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center p-2">
+                          <span className="text-xs text-gray-600">Click to search for logo</span>
+                        </div>
+                      )}
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <span className="text-xs text-white font-medium">Edit Logo</span>
                       </div>
                     </div>
 
-                    {/* Selected Categories */}
-                    {selectedGame.categories && selectedGame.categories.length > 0 && (
-                      <div className="flex flex-wrap gap-2">
-                        {selectedGame.categories.map((category, idx) => (
-                          <span
-                            key={idx}
-                            className="inline-flex items-center gap-1 px-2 py-1 bg-blue-600/20 border border-blue-500/50 rounded text-xs text-blue-300"
-                          >
-                            {category}
-                            <button
-                              type="button"
-                              onClick={() => removeCategory(category)}
-                              className="text-blue-300 hover:text-blue-100"
-                            >
-                              ×
-                            </button>
-                          </span>
-                        ))}
+                    {/* Banner - 3rd position and flex-1 (fill remaining width) */}
+                    <div
+                      onClick={() => setShowImageSearch({ type: 'banner', gameId: selectedGame.uuid })}
+                      className="h-36 flex-1 relative group cursor-pointer border border-gray-700 rounded-lg overflow-hidden bg-gray-800 hover:border-green-500 transition-colors"
+                    >
+                      {(selectedGame.bannerUrl || selectedGame.heroUrl) ? (
+                        <img
+                          src={selectedGame.bannerUrl || selectedGame.heroUrl}
+                          alt="Banner"
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <span className="text-xs text-gray-600">Click to search for banner</span>
+                        </div>
+                      )}
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <span className="text-xs text-white font-medium">Edit Banner</span>
                       </div>
-                    )}
+                    </div>
+
+                    {/* Icon - 4th position */}
+                    <div
+                      onClick={() => setShowImageSearch({ type: 'icon', gameId: selectedGame.uuid })}
+                      className="h-36 w-36 relative group cursor-pointer border border-gray-700 rounded-lg overflow-hidden bg-gray-800 hover:border-green-500 transition-colors flex-shrink-0"
+                    >
+                      {selectedGame.iconUrl ? (
+                        <div className="w-full h-full p-2 flex items-center justify-center">
+                          <img
+                            src={selectedGame.iconUrl}
+                            alt="Icon"
+                            className="max-w-full max-h-full object-contain"
+                          />
+                        </div>
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-center p-1">
+                          <span className="text-[10px] text-gray-600">Click to search for icon</span>
+                        </div>
+                      )}
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <span className="text-[10px] text-white font-medium">Edit Icon</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
-                {/* Metadata Form */}
-                <div className="p-3 space-y-2">
-                  {/* Basic Info */}
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-xs font-medium text-gray-400 mb-1">
-                        Title
-                      </label>
-                      <div className="relative flex items-center">
-                        <input
-                          ref={titleInputRef}
-                          type="text"
-                          value={selectedGame.title}
-                          onChange={(e) => updateGame(selectedGame.uuid, { title: e.target.value })}
-                          disabled={selectedGame.lockedFields?.title}
-                          className="w-full px-2 py-1.5 pr-20 text-sm bg-gray-700 border border-gray-600 rounded text-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                        />
-                        <div className="absolute right-1 flex items-center gap-1">
+                {/* Categories Section */}
+                <div className="p-4 border-b border-gray-700">
+                  <label className="block text-xs font-medium text-gray-400 mb-2">
+                    Categories
+                  </label>
+                  <div className="flex gap-2 mb-2">
+                    <input
+                      type="text"
+                      value={categoryInput}
+                      onChange={(e) => setCategoryInput(e.target.value)}
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          addCategory(categoryInput);
+                        }
+                      }}
+                      className="flex-1 px-2 py-1.5 text-sm bg-gray-700 border border-gray-600 rounded text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Add category"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => addCategory(categoryInput)}
+                      disabled={!categoryInput.trim()}
+                      className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-white font-medium rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                    >
+                      +
+                    </button>
+                  </div>
+
+                  {/* Existing Categories for Quick Selection */}
+                  <div className="mb-3">
+                    <p className="text-xs text-gray-500 mb-2">Quick select existing categories:</p>
+                    <div className="flex flex-wrap gap-2">
+                      {DEFAULT_CATEGORIES
+                        .filter(cat => !selectedGame.categories?.includes(cat))
+                        .map((category) => (
                           <button
-                            onClick={async () => {
-                              if (selectedGame) {
-                                // Use current input value if available, otherwise fall back to selectedGame.title
-                                // Read directly from the input element to get the most up-to-date value
-                                const currentTitle = titleInputRef.current?.value?.trim() || selectedGame.title?.trim() || '';
-
-                                if (!currentTitle) {
-                                  setError('Please enter a game title first');
-                                  return;
-                                }
-
-                                // Update the game title in state if it's different (in case state is stale)
-                                if (currentTitle !== selectedGame.title) {
-                                  updateGame(selectedGame.uuid, { title: currentTitle });
-                                }
-
-                                setMetadataSearchQuery(currentTitle);
-                                setShowMetadataSearch(true);
-                                // Trigger search immediately with the current title
-                                await handleSearchMetadata(currentTitle);
-                              }
-                            }}
-                            className="text-xs px-1.5 py-0.5 bg-green-600 hover:bg-green-700 text-white rounded"
-                            title="Search for better metadata match"
+                            key={category}
+                            type="button"
+                            onClick={() => addCategory(category)}
+                            className="px-2 py-1 bg-gray-700/50 hover:bg-gray-700 border border-gray-600 hover:border-gray-500 rounded text-xs text-gray-300 transition-colors"
                           >
-                            Fix Match
+                            + {category}
                           </button>
-                          <button
-                            onClick={() => toggleFieldLock(selectedGame.uuid, 'title')}
-                            className={`text-xs px-1.5 py-0.5 rounded ${selectedGame.lockedFields?.title
-                              ? 'bg-yellow-600 text-white'
-                              : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                              }`}
-                            title={selectedGame.lockedFields?.title ? 'Unlock' : 'Lock'}
-                          >
-                            {selectedGame.lockedFields?.title ? '🔒' : '🔓'}
-                          </button>
-                        </div>
-                      </div>
+                        ))}
                     </div>
+                  </div>
 
-                    {/* Inline Fix Match Section - appears directly below Title field */}
-                    {showMetadataSearch && selectedGame && (
-                      <div className="p-4 border-t border-gray-700 bg-gray-800/50 mt-2">
-                        <div className="flex items-center justify-between mb-4">
-                          <h3 className="text-base font-semibold text-white">
-                            Fix Match - Search for Correct Game
-                          </h3>
+                  {/* Selected Categories */}
+                  {selectedGame.categories && selectedGame.categories.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {selectedGame.categories.map((category, idx) => (
+                        <span
+                          key={idx}
+                          className="inline-flex items-center gap-1 px-2 py-1 bg-blue-600/20 border border-blue-500/50 rounded text-xs text-blue-300"
+                        >
+                          {category}
                           <button
-                            onClick={() => {
-                              setShowMetadataSearch(false);
-                              setMetadataSearchResults([]);
-                              setMetadataSearchQuery('');
-                            }}
-                            className="text-gray-400 hover:text-white text-lg font-bold"
+                            type="button"
+                            onClick={() => removeCategory(category)}
+                            className="text-blue-300 hover:text-blue-100"
                           >
                             ×
                           </button>
-                        </div>
-                        <div className="mb-4">
-                          <div className="flex gap-2">
-                            <input
-                              type="text"
-                              value={metadataSearchQuery}
-                              onChange={(e) => setMetadataSearchQuery(e.target.value)}
-                              onKeyPress={(e) => e.key === 'Enter' && handleSearchMetadata()}
-                              placeholder="Enter game name or Steam App ID (e.g., 782330)"
-                              className="flex-1 px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            />
-                            <button
-                              onClick={() => handleSearchMetadata()}
-                              disabled={isSearchingMetadata}
-                              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 disabled:cursor-not-allowed text-white rounded-lg transition-colors"
-                            >
-                              {isSearchingMetadata ? 'Searching...' : 'Search'}
-                            </button>
-                          </div>
-                          <p className="text-xs text-gray-400 mt-2">
-                            You can search by game name or enter a Steam App ID directly (numbers only)
-                          </p>
-                        </div>
-                        <div className="max-h-96 overflow-y-auto">
-                          {isSearchingMetadata && metadataSearchResults.length === 0 && (
-                            <div className="flex items-center gap-2 text-sm text-gray-400 py-8">
-                              <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                              </svg>
-                              Searching for metadata matches...
-                            </div>
-                          )}
-                          {metadataSearchResults.length > 0 ? (
-                            <div className="space-y-2">
-                              {metadataSearchResults.map((result, idx) => {
-                                // Extract release date properly
-                                let displayDate: string | undefined;
-                                if (result.releaseDate) {
-                                  if (typeof result.releaseDate === 'number') {
-                                    const date = new Date(result.releaseDate * 1000);
-                                    displayDate = date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-                                  } else if (typeof result.releaseDate === 'string') {
-                                    const date = new Date(result.releaseDate);
-                                    if (!isNaN(date.getTime())) {
-                                      displayDate = date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-                                    } else {
-                                      displayDate = result.releaseDate;
-                                    }
-                                  }
-                                } else if (result.year) {
-                                  displayDate = result.year.toString();
-                                }
-
-                                return (
-                                  <button
-                                    key={result.id || result.externalId || idx}
-                                    onClick={async () => {
-                                      await handleApplyMetadata({
-                                        id: String(result.id || result.externalId || ''),
-                                        source: result.source,
-                                        steamAppId: result.steamAppId,
-                                        title: result.title || result.name
-                                      });
-                                    }}
-                                    disabled={isSearchingMetadata}
-                                    className="relative w-full text-left p-3 text-sm bg-gray-700 hover:bg-gray-600 rounded border border-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-3 cursor-pointer"
-                                  >
-                                    <div className="flex-1 min-w-0">
-                                      <p className="text-white font-medium text-sm truncate" title={result.title || result.name}>
-                                        {result.title || result.name}
-                                      </p>
-                                      <div className="flex items-center gap-2 mt-1">
-                                        <span className={`text-xs ${result.source === 'steam' ? 'text-blue-400' : 'text-gray-400'}`}>
-                                          {result.source === 'steam' ? 'Steam' : result.source === 'igdb' ? 'IGDB' : result.source}
-                                        </span>
-                                        {result.steamAppId && (
-                                          <span className="text-xs text-gray-500">App ID: {result.steamAppId}</span>
-                                        )}
-                                        {displayDate && (
-                                          <span className="text-xs text-gray-400">• {displayDate}</span>
-                                        )}
-                                      </div>
-                                    </div>
-                                    {isSearchingMetadata && (
-                                      <div className="absolute inset-0 bg-black/50 rounded flex items-center justify-center">
-                                        <svg className="animate-spin h-5 w-5 text-blue-500" fill="none" viewBox="0 0 24 24">
-                                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                                        </svg>
-                                      </div>
-                                    )}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          ) : !isSearchingMetadata && (
-                            <div className="text-center text-gray-400 py-8">
-                              No results. Try searching for a game title or Steam App ID.
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
-
-                    <div>
-                      <div className="flex items-center justify-between mb-1">
-                        <label className="block text-xs font-medium text-gray-400">
-                          Platform
-                        </label>
-                      </div>
-                      <input
-                        type="text"
-                        value={selectedGame.platform || selectedGame.source}
-                        onChange={(e) => updateGame(selectedGame.uuid, { platform: e.target.value })}
-                        className="w-full px-2 py-1.5 text-sm bg-gray-700 border border-gray-600 rounded text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-medium text-gray-400 mb-1">
-                      Executable Path
-                    </label>
-                    <div className="relative flex items-center">
-                      <input
-                        type="text"
-                        value={selectedGame.exePath || selectedGame.installPath}
-                        onChange={(e) => updateGame(selectedGame.uuid, { exePath: e.target.value })}
-                        disabled={selectedGame.lockedFields?.exePath}
-                        className="w-full px-2 py-1.5 pr-10 text-sm bg-gray-700 border border-gray-600 rounded text-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                      />
-                      <button
-                        onClick={() => toggleFieldLock(selectedGame.uuid, 'exePath')}
-                        className={`absolute right-1 text-xs px-1.5 py-0.5 rounded ${selectedGame.lockedFields?.exePath
-                          ? 'bg-yellow-600 text-white'
-                          : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                          }`}
-                        title={selectedGame.lockedFields?.exePath ? 'Unlock' : 'Lock'}
-                      >
-                        {selectedGame.lockedFields?.exePath ? '🔒' : '🔓'}
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Description */}
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="block text-xs font-medium text-gray-400">
-                        Description
-                      </label>
-                      {selectedGame.appId && (
-                        <span className="text-xs text-gray-500">
-                          App ID: {selectedGame.appId}
                         </span>
-                      )}
+                      ))}
                     </div>
-                    <div className="relative">
-                      <textarea
-                        value={selectedGame.description || ''}
-                        onChange={(e) => updateGame(selectedGame.uuid, { description: e.target.value })}
-                        disabled={selectedGame.lockedFields?.description}
-                        rows={3}
-                        className="w-full px-2 py-1.5 pr-10 text-sm bg-gray-700 border border-gray-600 rounded text-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed resize-none"
-                      />
+                  )}
+                </div>
+              </div>
+
+            {/* Metadata Form */}
+            <div className="p-3 space-y-2">
+              {/* Basic Info */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-400 mb-1">
+                    Title
+                  </label>
+                  <div className="relative flex items-center">
+                    <input
+                      ref={titleInputRef}
+                      type="text"
+                      value={selectedGame.title}
+                      onChange={(e) => updateGame(selectedGame.uuid, { title: e.target.value })}
+                      disabled={selectedGame.lockedFields?.title}
+                      className="w-full px-2 py-1.5 pr-20 text-sm bg-gray-700 border border-gray-600 rounded text-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                    />
+                    <div className="absolute right-1 flex items-center gap-1">
                       <button
-                        onClick={() => toggleFieldLock(selectedGame.uuid, 'description')}
-                        className={`absolute top-1 right-1 text-xs px-1.5 py-0.5 rounded ${selectedGame.lockedFields?.description
+                        onClick={async () => {
+                          if (selectedGame) {
+                            // Use current input value if available, otherwise fall back to selectedGame.title
+                            // Read directly from the input element to get the most up-to-date value
+                            const currentTitle = titleInputRef.current?.value?.trim() || selectedGame.title?.trim() || '';
+
+                            if (!currentTitle) {
+                              setError('Please enter a game title first');
+                              return;
+                            }
+
+                            // Update the game title in state if it's different (in case state is stale)
+                            if (currentTitle !== selectedGame.title) {
+                              updateGame(selectedGame.uuid, { title: currentTitle });
+                            }
+
+                            setMetadataSearchQuery(currentTitle);
+                            setShowMetadataSearch(true);
+                            // Trigger search immediately with the current title
+                            await handleSearchMetadata(currentTitle);
+                          }
+                        }}
+                        className="text-xs px-1.5 py-0.5 bg-green-600 hover:bg-green-700 text-white rounded"
+                        title="Search for better metadata match"
+                      >
+                        Fix Match
+                      </button>
+                      <button
+                        onClick={() => toggleFieldLock(selectedGame.uuid, 'title')}
+                        className={`text-xs px-1.5 py-0.5 rounded ${selectedGame.lockedFields?.title
                           ? 'bg-yellow-600 text-white'
                           : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
                           }`}
-                        title={selectedGame.lockedFields?.description ? 'Unlock' : 'Lock'}
+                        title={selectedGame.lockedFields?.title ? 'Unlock' : 'Lock'}
                       >
-                        {selectedGame.lockedFields?.description ? '🔒' : '🔓'}
+                        {selectedGame.lockedFields?.title ? '🔒' : '🔓'}
                       </button>
-                    </div>
-                  </div>
-
-                  {/* Metadata Grid - 4 columns for compact layout */}
-                  <div className="grid grid-cols-4 gap-2">
-                    <div>
-                      <label className="block text-xs font-medium text-gray-400 mb-1">
-                        Release Date
-                      </label>
-                      <input
-                        type="text"
-                        value={selectedGame.releaseDate || ''}
-                        onChange={(e) => updateGame(selectedGame.uuid, { releaseDate: e.target.value })}
-                        className="w-full px-2 py-1.5 text-sm bg-gray-700 border border-gray-600 rounded text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-medium text-gray-400 mb-1">
-                        Age Rating
-                      </label>
-                      <input
-                        type="text"
-                        value={selectedGame.ageRating || ''}
-                        onChange={(e) => updateGame(selectedGame.uuid, { ageRating: e.target.value })}
-                        className="w-full px-2 py-1.5 text-sm bg-gray-700 border border-gray-600 rounded text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-medium text-gray-400 mb-1">
-                        Genres
-                      </label>
-                      <input
-                        type="text"
-                        value={selectedGame.genres?.join(', ') || ''}
-                        onChange={(e) => updateGame(selectedGame.uuid, { genres: e.target.value.split(',').map(g => g.trim()).filter(Boolean) })}
-                        className="w-full px-2 py-1.5 text-sm bg-gray-700 border border-gray-600 rounded text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="Action, Adventure, RPG"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-medium text-gray-400 mb-1">
-                        Rating
-                      </label>
-                      <input
-                        type="number"
-                        value={selectedGame.rating || 0}
-                        onChange={(e) => updateGame(selectedGame.uuid, { rating: parseFloat(e.target.value) || 0 })}
-                        className="w-full px-2 py-1.5 text-sm bg-gray-700 border border-gray-600 rounded text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        min="0"
-                        max="100"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-medium text-gray-400 mb-1">
-                        Developers
-                      </label>
-                      <input
-                        type="text"
-                        value={selectedGame.developers?.join(', ') || ''}
-                        onChange={(e) => updateGame(selectedGame.uuid, { developers: e.target.value.split(',').map(d => d.trim()).filter(Boolean) })}
-                        className="w-full px-2 py-1.5 text-sm bg-gray-700 border border-gray-600 rounded text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="Developer 1, Developer 2"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-medium text-gray-400 mb-1">
-                        Publishers
-                      </label>
-                      <input
-                        type="text"
-                        value={selectedGame.publishers?.join(', ') || ''}
-                        onChange={(e) => updateGame(selectedGame.uuid, { publishers: e.target.value.split(',').map(p => p.trim()).filter(Boolean) })}
-                        className="w-full px-2 py-1.5 text-sm bg-gray-700 border border-gray-600 rounded text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="Publisher 1, Publisher 2"
-                      />
                     </div>
                   </div>
                 </div>
 
-                {/* Image Search Modal */}
-                {showImageSearch && showImageSearch.gameId === selectedGame.uuid && (
-                  <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-8">
-                    <div className="bg-gray-900 border border-gray-700 rounded-xl shadow-2xl w-full max-w-4xl max-h-[80vh] flex flex-col">
-                      <div className="p-4 border-b border-gray-800 flex items-center justify-between">
-                        <h3 className="text-lg font-semibold text-white">
-                          Search {showImageSearch.type === 'boxart' ? 'Box Art' : showImageSearch.type === 'banner' ? 'Hero/Banner' : 'Logo'} Images
-                        </h3>
+                {/* Inline Fix Match Section - appears directly below Title field */}
+                {showMetadataSearch && selectedGame && (
+                  <div className="p-4 border-t border-gray-700 bg-gray-800/50 mt-2">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-base font-semibold text-white">
+                        Fix Match - Search for Correct Game
+                      </h3>
+                      <button
+                        onClick={() => {
+                          setShowMetadataSearch(false);
+                          setMetadataSearchResults([]);
+                          setMetadataSearchQuery('');
+                        }}
+                        className="text-gray-400 hover:text-white text-lg font-bold"
+                      >
+                        ×
+                      </button>
+                    </div>
+                    <div className="mb-4">
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={metadataSearchQuery}
+                          onChange={(e) => setMetadataSearchQuery(e.target.value)}
+                          onKeyPress={(e) => e.key === 'Enter' && handleSearchMetadata()}
+                          placeholder="Enter game name or Steam App ID (e.g., 782330)"
+                          className="flex-1 px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
                         <button
-                          onClick={() => {
-                            setShowImageSearch(null);
-                            setImageSearchResults([]);
-                            setImageSearchQuery('');
-                          }}
-                          className="text-gray-400 hover:text-white"
+                          onClick={() => handleSearchMetadata()}
+                          disabled={isSearchingMetadata}
+                          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 disabled:cursor-not-allowed text-white rounded-lg transition-colors"
                         >
-                          ×
+                          {isSearchingMetadata ? 'Searching...' : 'Search'}
                         </button>
                       </div>
-                      <div className="p-4 border-b border-gray-800">
-                        <div className="flex gap-2">
-                          <input
-                            type="text"
-                            value={imageSearchQuery}
-                            onChange={(e) => setImageSearchQuery(e.target.value)}
-                            onKeyPress={(e) => e.key === 'Enter' && handleSearchImages()}
-                            placeholder="Search for images..."
-                            className="flex-1 px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          />
-                          <button
-                            onClick={handleSearchImages}
-                            disabled={isSearchingImages}
-                            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 text-white rounded-lg"
-                          >
-                            {isSearchingImages ? 'Searching...' : 'Search'}
-                          </button>
+                      <p className="text-xs text-gray-400 mt-2">
+                        You can search by game name or enter a Steam App ID directly (numbers only)
+                      </p>
+                    </div>
+                    <div className="max-h-96 overflow-y-auto">
+                      {isSearchingMetadata && metadataSearchResults.length === 0 && (
+                        <div className="flex items-center gap-2 text-sm text-gray-400 py-8">
+                          <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                          </svg>
+                          Searching for metadata matches...
                         </div>
-                      </div>
-                      <div className="flex-1 overflow-y-auto p-4">
-                        {imageSearchResults.length > 0 ? (
-                          <div className="grid grid-cols-3 gap-4">
-                            {imageSearchResults.map((result, idx) => {
-                              let imageUrl: string | undefined;
-
-                              if (showImageSearch.type === 'boxart') {
-                                imageUrl = (result as any).boxArtUrl || (result as any).coverUrl;
-                              } else if (showImageSearch.type === 'logo') {
-                                imageUrl = result.logoUrl;
-                              } else if (showImageSearch.type === 'banner') {
-                                imageUrl = result.bannerUrl || result.screenshotUrls?.[0] || result.heroUrl;
+                      )}
+                      {metadataSearchResults.length > 0 ? (
+                        <div className="space-y-2">
+                          {metadataSearchResults.map((result, idx) => {
+                            // Extract release date properly
+                            let displayDate: string | undefined;
+                            if (result.releaseDate) {
+                              if (typeof result.releaseDate === 'number') {
+                                const date = new Date(result.releaseDate * 1000);
+                                displayDate = date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+                              } else if (typeof result.releaseDate === 'string') {
+                                const date = new Date(result.releaseDate);
+                                if (!isNaN(date.getTime())) {
+                                  displayDate = date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+                                } else {
+                                  displayDate = result.releaseDate;
+                                }
                               }
+                            } else if (result.year) {
+                              displayDate = result.year.toString();
+                            }
 
-                              if (!imageUrl) return null;
-
-                              return (
-                                <div
-                                  key={idx}
-                                  onClick={() => handleSelectImage(imageUrl!, showImageSearch.type)}
-                                  className="cursor-pointer border-2 border-gray-700 hover:border-blue-500 rounded-lg overflow-hidden transition-colors"
-                                >
-                                  <img
-                                    src={imageUrl}
-                                    alt={result.name || result.title}
-                                    className={`w-full ${showImageSearch.type === 'logo'
-                                      ? 'h-24 object-contain bg-gray-800 p-2'
-                                      : 'h-48 object-cover'
-                                      }`}
-                                  />
-                                  <div className="p-2 bg-gray-800 text-white text-sm truncate">
-                                    {result.name || result.title}
+                            return (
+                              <button
+                                key={result.id || result.externalId || idx}
+                                onClick={async () => {
+                                  await handleApplyMetadata({
+                                    id: String(result.id || result.externalId || ''),
+                                    source: result.source,
+                                    steamAppId: result.steamAppId,
+                                    title: result.title || result.name
+                                  });
+                                }}
+                                disabled={isSearchingMetadata}
+                                className="relative w-full text-left p-3 text-sm bg-gray-700 hover:bg-gray-600 rounded border border-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-3 cursor-pointer"
+                              >
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-white font-medium text-sm truncate" title={result.title || result.name}>
+                                    {result.title || result.name}
+                                  </p>
+                                  <div className="flex items-center gap-2 mt-1">
+                                    <span className={`text-xs ${result.source === 'steam' ? 'text-blue-400' : 'text-gray-400'}`}>
+                                      {result.source === 'steam' ? 'Steam' : result.source === 'igdb' ? 'IGDB' : result.source}
+                                    </span>
+                                    {result.steamAppId && (
+                                      <span className="text-xs text-gray-500">App ID: {result.steamAppId}</span>
+                                    )}
+                                    {displayDate && (
+                                      <span className="text-xs text-gray-400">• {displayDate}</span>
+                                    )}
                                   </div>
                                 </div>
-                              );
-                            })}
-                          </div>
-                        ) : (
-                          <div className="text-center text-gray-400 py-8">
-                            {isSearchingImages ? 'Searching...' : 'No results. Try searching for images.'}
-                          </div>
-                        )}
-                      </div>
+                                {isSearchingMetadata && (
+                                  <div className="absolute inset-0 bg-black/50 rounded flex items-center justify-center">
+                                    <svg className="animate-spin h-5 w-5 text-blue-500" fill="none" viewBox="0 0 24 24">
+                                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                    </svg>
+                                  </div>
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      ) : !isSearchingMetadata && (
+                        <div className="text-center text-gray-400 py-8">
+                          No results. Try searching for a game title or Steam App ID.
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
-              </>
-            ) : (
-              <div className="flex-1 flex items-center justify-center text-gray-400">
-                <p>Select a game from the sidebar to view details</p>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-medium text-gray-400">
+                      Platform
+                    </label>
+                  </div>
+                  <input
+                    type="text"
+                    value={selectedGame.platform || selectedGame.source}
+                    onChange={(e) => updateGame(selectedGame.uuid, { platform: e.target.value })}
+                    className="w-full px-2 py-1.5 text-sm bg-gray-700 border border-gray-600 rounded text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-400 mb-1">
+                  Executable Path
+                </label>
+                <div className="relative flex items-center">
+                  <input
+                    type="text"
+                    value={selectedGame.exePath || selectedGame.installPath}
+                    onChange={(e) => updateGame(selectedGame.uuid, { exePath: e.target.value })}
+                    disabled={selectedGame.lockedFields?.exePath}
+                    className="w-full px-2 py-1.5 pr-10 text-sm bg-gray-700 border border-gray-600 rounded text-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  />
+                  <button
+                    onClick={() => toggleFieldLock(selectedGame.uuid, 'exePath')}
+                    className={`absolute right-1 text-xs px-1.5 py-0.5 rounded ${selectedGame.lockedFields?.exePath
+                      ? 'bg-yellow-600 text-white'
+                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                      }`}
+                    title={selectedGame.lockedFields?.exePath ? 'Unlock' : 'Lock'}
+                  >
+                    {selectedGame.lockedFields?.exePath ? '🔒' : '🔓'}
+                  </button>
+                </div>
+              </div>
+
+              {/* Description */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-medium text-gray-400">
+                    Description
+                  </label>
+                  {selectedGame.appId && (
+                    <span className="text-xs text-gray-500">
+                      App ID: {selectedGame.appId}
+                    </span>
+                  )}
+                </div>
+                <div className="relative">
+                  <textarea
+                    value={selectedGame.description || ''}
+                    onChange={(e) => updateGame(selectedGame.uuid, { description: e.target.value })}
+                    disabled={selectedGame.lockedFields?.description}
+                    rows={3}
+                    className="w-full px-2 py-1.5 pr-10 text-sm bg-gray-700 border border-gray-600 rounded text-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed resize-none"
+                  />
+                  <button
+                    onClick={() => toggleFieldLock(selectedGame.uuid, 'description')}
+                    className={`absolute top-1 right-1 text-xs px-1.5 py-0.5 rounded ${selectedGame.lockedFields?.description
+                      ? 'bg-yellow-600 text-white'
+                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                      }`}
+                    title={selectedGame.lockedFields?.description ? 'Unlock' : 'Lock'}
+                  >
+                    {selectedGame.lockedFields?.description ? '🔒' : '🔓'}
+                  </button>
+                </div>
+              </div>
+
+              {/* Metadata Grid - 4 columns for compact layout */}
+              <div className="grid grid-cols-4 gap-2">
+                <div>
+                  <label className="block text-xs font-medium text-gray-400 mb-1">
+                    Release Date
+                  </label>
+                  <input
+                    type="text"
+                    value={selectedGame.releaseDate || ''}
+                    onChange={(e) => updateGame(selectedGame.uuid, { releaseDate: e.target.value })}
+                    className="w-full px-2 py-1.5 text-sm bg-gray-700 border border-gray-600 rounded text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-400 mb-1">
+                    Age Rating
+                  </label>
+                  <input
+                    type="text"
+                    value={selectedGame.ageRating || ''}
+                    onChange={(e) => updateGame(selectedGame.uuid, { ageRating: e.target.value })}
+                    className="w-full px-2 py-1.5 text-sm bg-gray-700 border border-gray-600 rounded text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-400 mb-1">
+                    Genres
+                  </label>
+                  <input
+                    type="text"
+                    value={selectedGame.genres?.join(', ') || ''}
+                    onChange={(e) => updateGame(selectedGame.uuid, { genres: e.target.value.split(',').map(g => g.trim()).filter(Boolean) })}
+                    className="w-full px-2 py-1.5 text-sm bg-gray-700 border border-gray-600 rounded text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Action, Adventure, RPG"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-400 mb-1">
+                    Rating
+                  </label>
+                  <input
+                    type="number"
+                    value={selectedGame.rating || 0}
+                    onChange={(e) => updateGame(selectedGame.uuid, { rating: parseFloat(e.target.value) || 0 })}
+                    className="w-full px-2 py-1.5 text-sm bg-gray-700 border border-gray-600 rounded text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    min="0"
+                    max="100"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-400 mb-1">
+                    Developers
+                  </label>
+                  <input
+                    type="text"
+                    value={selectedGame.developers?.join(', ') || ''}
+                    onChange={(e) => updateGame(selectedGame.uuid, { developers: e.target.value.split(',').map(d => d.trim()).filter(Boolean) })}
+                    className="w-full px-2 py-1.5 text-sm bg-gray-700 border border-gray-600 rounded text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Developer 1, Developer 2"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-400 mb-1">
+                    Publishers
+                  </label>
+                  <input
+                    type="text"
+                    value={selectedGame.publishers?.join(', ') || ''}
+                    onChange={(e) => updateGame(selectedGame.uuid, { publishers: e.target.value.split(',').map(p => p.trim()).filter(Boolean) })}
+                    className="w-full px-2 py-1.5 text-sm bg-gray-700 border border-gray-600 rounded text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Publisher 1, Publisher 2"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Image Search Modal */}
+            {showImageSearch && showImageSearch.gameId === selectedGame.uuid && (
+              <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-8">
+                <div className="bg-gray-900 border border-gray-700 rounded-xl shadow-2xl w-full max-w-4xl max-h-[80vh] flex flex-col">
+                  <div className="p-4 border-b border-gray-800 flex items-center justify-between">
+                    <h3 className="text-lg font-semibold text-white">
+                      Search {showImageSearch.type === 'boxart' ? 'Box Art' : showImageSearch.type === 'banner' ? 'Hero/Banner' : showImageSearch.type === 'logo' ? 'Logo' : 'Icon'} Images
+                    </h3>
+                    <div className="flex items-center gap-4">
+                      {success && <span className="text-green-400 text-sm animate-pulse">{success}</span>}
+                      <button
+                        onClick={() => {
+                          setShowImageSearch(null);
+                          setImageSearchResults([]);
+                          setSteamGridDBResults({ boxart: [], banner: [], logo: [], icon: [] });
+                          setFastSearchResults([]);
+                          setSelectedFastGame(null);
+                          setImageSearchQuery('');
+                        }}
+                        className="text-gray-400 hover:text-white text-2xl font-bold"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="p-4 border-b border-gray-800 bg-gray-800/20">
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={imageSearchQuery}
+                        onChange={(e) => setImageSearchQuery(e.target.value)}
+                        onKeyPress={(e) => e.key === 'Enter' && handleSearchImages(showImageSearch.type)}
+                        placeholder="Enter game title..."
+                        className="flex-1 px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      <button
+                        onClick={handleFastSearch}
+                        disabled={isFastSearching || isSearchingImages}
+                        className="px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white font-bold rounded-lg transition-all shadow-lg shadow-green-500/20 disabled:opacity-50 flex items-center gap-2"
+                      >
+                        {isFastSearching ? (
+                          <>
+                            <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                            </svg>
+                            <span>Fast...</span>
+                          </>
+                        ) : (
+                          <>
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                            </svg>
+                            <span>Quick All</span>
+                          </>
+                        )}
+                      </button>
+                      <button
+                        onClick={() => handleSearchImages(showImageSearch.type)}
+                        disabled={isSearchingImages || isFastSearching}
+                        className="px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 text-white rounded-lg font-medium transition-colors"
+                      >
+                        {isSearchingImages ? 'Searching...' : 'Search'}
+                      </button>
+                      <button
+                        onClick={() => handleSelectLocalImage(showImageSearch.type)}
+                        className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg transition-colors border border-gray-600"
+                        title="Browse local file"
+                      >
+                        Browse...
+                      </button>
+                      <button
+                        onClick={() => setShowAnimatedImages(!showAnimatedImages)}
+                        className={`px-3 py-2 rounded-lg border transition-colors flex items-center gap-2 ${showAnimatedImages
+                          ? 'bg-blue-600/20 border-blue-500 text-blue-400'
+                          : 'bg-gray-700 border-gray-600 text-gray-400 hover:bg-gray-600'
+                          }`}
+                      >
+                        {showAnimatedImages ? 'Animated' : 'Static'}
+                      </button>
+                    </div>
+
+                    {/* Fast Search Results Selection */}
+                    {fastSearchResults.length > 0 && (
+                      <div className="mt-4 p-3 bg-gray-800/50 border border-gray-700 rounded-lg">
+                        <div className="flex items-center justify-between mb-2">
+                          <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider">
+                            ⚡ Select game to see images:
+                          </h4>
+                          <button onClick={() => setFastSearchResults([])} className="text-xs text-gray-500 hover:text-white">Clear</button>
+                        </div>
+                        <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto">
+                          {fastSearchResults.map((game) => (
+                            <button
+                              key={game.id}
+                              onClick={() => handleSelectFastGame(game)}
+                              className="flex items-center gap-2 p-1.5 pr-3 bg-gray-800 border border-gray-700 hover:border-green-500 rounded-lg transition-all group max-w-[250px]"
+                            >
+                              <div className="w-8 h-10 bg-gray-900 rounded overflow-hidden flex-shrink-0">
+                                {game.coverUrl && <img src={game.coverUrl} className="w-full h-full object-cover" alt="" />}
+                              </div>
+                              <div className="flex-1 min-w-0 text-left">
+                                <div className="text-xs font-medium text-white truncate">{game.name}</div>
+                                <div className="text-[10px] text-gray-500">
+                                  {game.releaseDate ? new Date(game.releaseDate * 1000).getFullYear() : 'N/A'} • {game.source || 'IGDB'}
+                                </div>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Tabs */}
+                  {(imageSearchResults.length > 0 ||
+                    steamGridDBResults.boxart.length > 0 ||
+                    steamGridDBResults.banner.length > 0 ||
+                    steamGridDBResults.logo.length > 0 ||
+                    steamGridDBResults.icon.length > 0) && (
+                      <div className="px-4 border-b border-gray-800 flex items-center gap-1 bg-gray-900">
+                        {['all', 'boxart', 'logo', 'banner', 'icon'].map((tab) => {
+                          const label = tab.charAt(0).toUpperCase() + tab.slice(1);
+                          const isActive = activeImageSearchTab === tab;
+
+                          // Calculate counts
+                          let count = 0;
+                          if (tab === 'all') {
+                            count = imageSearchResults.length +
+                              steamGridDBResults.boxart.length +
+                              steamGridDBResults.banner.length +
+                              steamGridDBResults.logo.length +
+                              steamGridDBResults.icon.length;
+                          } else if (tab === 'boxart') {
+                            count = imageSearchResults.filter(i => i.boxArtUrl || i.coverUrl).length + steamGridDBResults.boxart.length;
+                          } else if (tab === 'banner') {
+                            count = imageSearchResults.filter(i => i.bannerUrl || i.screenshotUrls).length + steamGridDBResults.banner.length;
+                          } else if (tab === 'logo') {
+                            count = steamGridDBResults.logo.length + imageSearchResults.filter(i => i.logoUrl).length;
+                          } else if (tab === 'icon') {
+                            count = steamGridDBResults.icon.length;
+                          }
+
+                          return (
+                            <button
+                              key={tab}
+                              onClick={() => setActiveImageSearchTab(tab as any)}
+                              className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${isActive
+                                ? 'border-green-500 text-green-400'
+                                : 'border-transparent text-gray-500 hover:text-white hover:border-gray-600'
+                                }`}
+                            >
+                              {label} {count > 0 && <span className="ml-1 text-[10px] opacity-50">({count})</span>}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                  <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
+                    {isSearchingImages && imageSearchResults.length === 0 && (
+                      <div className="flex flex-col items-center justify-center py-20 text-gray-500">
+                        <svg className="animate-spin h-10 w-10 text-blue-500 mb-4" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                        </svg>
+                        <p className="text-lg">Searching for images...</p>
+                      </div>
+                    )}
+
+                    {(imageSearchResults.length > 0 ||
+                      steamGridDBResults.boxart.length > 0 ||
+                      steamGridDBResults.banner.length > 0 ||
+                      steamGridDBResults.logo.length > 0 ||
+                      steamGridDBResults.icon.length > 0) ? (
+                      <div className="space-y-8">
+                        {/* Boxart Section */}
+                        {(activeImageSearchTab === 'all' || activeImageSearchTab === 'boxart') &&
+                          (imageSearchResults.some(i => i.boxArtUrl || i.coverUrl) || steamGridDBResults.boxart.length > 0) && (
+                            <div>
+                              {activeImageSearchTab === 'all' && <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">Box Art & Covers</h4>}
+                              <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-3">
+                                {imageSearchResults.filter(i => i.boxArtUrl || i.coverUrl).map((result, idx) => (
+                                  <div
+                                    key={`igdb-boxart-${idx}`}
+                                    onClick={() => handleSelectImage(result.boxArtUrl || result.coverUrl, 'boxart')}
+                                    className={`group cursor-pointer aspect-[2/3] rounded-lg overflow-hidden border-2 transition-all relative ${selectedGame.boxArtUrl === (result.boxArtUrl || result.coverUrl) ? 'border-green-500 ring-2 ring-green-500/50' : 'border-gray-800 hover:border-gray-600'
+                                      }`}
+                                  >
+                                    <img src={result.boxArtUrl || result.coverUrl} className="w-full h-full object-cover" alt="" />
+                                    <div className="absolute inset-x-0 top-0 bottom-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                      <span className="text-xs text-white font-bold bg-green-600 px-2 py-1 rounded">Select</span>
+                                    </div>
+                                  </div>
+                                ))}
+                                {steamGridDBResults.boxart.map((result, idx) => (
+                                  <div
+                                    key={`sgdb-boxart-${idx}`}
+                                    onClick={() => handleSelectImage(result.url || result.boxArtUrl, 'boxart')}
+                                    className={`group cursor-pointer aspect-[2/3] rounded-lg overflow-hidden border-2 transition-all relative ${selectedGame.boxArtUrl === (result.url || result.boxArtUrl) ? 'border-green-500 ring-2 ring-green-500/50' : 'border-gray-800 hover:border-gray-600'
+                                      }`}
+                                  >
+                                    <img src={result.url || result.boxArtUrl} className="w-full h-full object-cover" alt="" />
+                                    <div className="absolute bottom-0 inset-x-0 bg-black/60 p-1 text-[8px] text-white text-center opacity-0 group-hover:opacity-100 uppercase tracking-tighter">SteamGridDB</div>
+                                    <div className="absolute inset-x-0 top-0 bottom-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                      <span className="text-xs text-white font-bold bg-green-600 px-2 py-1 rounded">Select</span>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                        {/* Logos Section */}
+                        {(activeImageSearchTab === 'all' || activeImageSearchTab === 'logo') &&
+                          (steamGridDBResults.logo.length > 0 || imageSearchResults.some(i => i.logoUrl)) && (
+                            <div>
+                              {activeImageSearchTab === 'all' && <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">Logos</h4>}
+                              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
+                                {steamGridDBResults.logo.map((result, idx) => (
+                                  <div
+                                    key={`sgdb-logo-${idx}`}
+                                    onClick={() => handleSelectImage(result.url || result.logoUrl, 'logo')}
+                                    className={`group cursor-pointer h-24 p-2 flex items-center justify-center rounded-lg bg-gray-800 border-2 transition-all relative ${selectedGame.logoUrl === (result.url || result.logoUrl) ? 'border-green-500 bg-green-500/5' : 'border-gray-700 hover:border-gray-500'
+                                      }`}
+                                  >
+                                    <img src={result.url || result.logoUrl} className="max-w-full max-h-full object-contain" alt="" />
+                                    <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 flex items-center justify-center">
+                                      <span className="text-[10px] text-white font-bold bg-green-600 px-2 py-1 rounded">Select</span>
+                                    </div>
+                                  </div>
+                                ))}
+                                {imageSearchResults.filter(i => i.logoUrl).map((result, idx) => (
+                                  <div
+                                    key={`igdb-logo-${idx}`}
+                                    onClick={() => handleSelectImage(result.logoUrl, 'logo')}
+                                    className={`group cursor-pointer h-24 p-2 flex items-center justify-center rounded-lg bg-gray-800 border-2 transition-all relative ${selectedGame.logoUrl === result.logoUrl ? 'border-green-500 bg-green-500/5' : 'border-gray-700 hover:border-gray-500'
+                                      }`}
+                                  >
+                                    <img src={result.logoUrl} className="max-w-full max-h-full object-contain" alt="" />
+                                    <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 flex items-center justify-center">
+                                      <span className="text-[10px] text-white font-bold bg-green-600 px-2 py-1 rounded">Select</span>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                        {/* Banners/Screenshots Section */}
+                        {(activeImageSearchTab === 'all' || activeImageSearchTab === 'banner') &&
+                          (imageSearchResults.some(i => i.bannerUrl || i.screenshotUrls) || steamGridDBResults.banner.length > 0) && (
+                            <div>
+                              {activeImageSearchTab === 'all' && <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">Banners & Screenshots</h4>}
+                              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                                {imageSearchResults.filter(i => i.bannerUrl || i.screenshotUrls).map((result, idx) => {
+                                  const url = result.bannerUrl || result.screenshotUrls?.[0];
+                                  return (
+                                    <div
+                                      key={`igdb-banner-${idx}`}
+                                      onClick={() => handleSelectImage(url, 'banner')}
+                                      className={`group cursor-pointer aspect-video rounded-lg overflow-hidden border-2 transition-all relative ${selectedGame.bannerUrl === url ? 'border-green-500 ring-2 ring-green-500/50' : 'border-gray-800 hover:border-gray-600'
+                                        }`}
+                                    >
+                                      <img src={url} className="w-full h-full object-cover" alt="" />
+                                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                        <span className="text-xs text-white font-bold bg-green-600 px-2 py-1 rounded">Select</span>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                                {steamGridDBResults.banner.map((result, idx) => (
+                                  <div
+                                    key={`sgdb-banner-${idx}`}
+                                    onClick={() => handleSelectImage(result.url || result.bannerUrl, 'banner')}
+                                    className={`group cursor-pointer aspect-video rounded-lg overflow-hidden border-2 transition-all relative ${selectedGame.bannerUrl === (result.url || result.bannerUrl) ? 'border-green-500 ring-2 ring-green-500/50' : 'border-gray-800 hover:border-gray-600'
+                                      }`}
+                                  >
+                                    <img src={result.url || result.bannerUrl} className="w-full h-full object-cover" alt="" />
+                                    <div className="absolute bottom-0 inset-x-0 bg-black/60 p-1 text-[8px] text-white text-center opacity-0 group-hover:opacity-100 uppercase tracking-tighter">SteamGridDB</div>
+                                    <div className="absolute inset-x-0 top-0 bottom-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                      <span className="text-xs text-white font-bold bg-green-600 px-2 py-1 rounded">Select</span>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                        {/* Icons Section */}
+                        {(activeImageSearchTab === 'all' || activeImageSearchTab === 'icon') &&
+                          (steamGridDBResults.icon.length > 0) && (
+                            <div>
+                              {activeImageSearchTab === 'all' && <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">Icons</h4>}
+                              <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-10 gap-3">
+                                {steamGridDBResults.icon.map((result, idx) => (
+                                  <div
+                                    key={`sgdb-icon-${idx}`}
+                                    onClick={() => handleSelectImage(result.url || result.iconUrl, 'icon')}
+                                    className={`group cursor-pointer aspect-square p-2 flex items-center justify-center rounded-lg bg-gray-800 border-2 transition-all relative ${selectedGame.iconUrl === (result.url || result.iconUrl) ? 'border-green-500 bg-green-500/5' : 'border-gray-700 hover:border-gray-500'
+                                      }`}
+                                  >
+                                    <img src={result.url || result.iconUrl} className="max-w-full max-h-full object-contain" alt="" />
+                                    <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 flex items-center justify-center">
+                                      <span className="text-[10px] text-white font-bold bg-green-600 px-2 py-1 rounded">Select</span>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                      </div>
+                    ) : !isSearchingImages && (
+                      <div className="text-center text-gray-500 py-20">
+                        <svg className="w-16 h-16 mx-auto mb-4 opacity-20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        <p className="text-xl font-medium">No results found</p>
+                        <p className="mt-2">Try a different search term or use the ⚡ Quick All button</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
             )}
+          </>
+          ) : (
+          <div className="flex-1 flex items-center justify-center text-gray-400">
+            <p>Select a game from the sidebar to view details</p>
           </div>
+            )}
         </div>
+      </div>
 
-        {/* Footer */}
-        <div className="h-[60px] flex items-center justify-between px-6 border-t border-gray-800 bg-gray-900/50">
-          <div className="text-sm text-gray-300">
-            Summary: {readyCount} {readyCount === 1 ? 'game' : 'games'} ready
-          </div>
+      {/* Footer */}
+      <div className="h-[60px] flex items-center justify-between px-6 border-t border-gray-800 bg-gray-900/50">
+        <div className="text-sm text-gray-300">
+          Summary: {readyCount} {readyCount === 1 ? 'game' : 'games'} ready
+        </div>
+        <button
+          onClick={handleImport}
+          disabled={isImporting || readyCount === 0}
+          className="px-6 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-700 disabled:cursor-not-allowed text-white rounded-lg transition-colors font-medium flex items-center gap-2"
+        >
+          {isImporting ? 'Importing...' : `Import ${readyCount} ${readyCount === 1 ? 'Game' : 'Games'}`}
+          <span>→</span>
+        </button>
+      </div>
+
+      {/* Error Message */}
+      {error && (
+        <div className="absolute bottom-24 left-1/2 transform -translate-x-1/2 bg-red-600 text-white px-6 py-3 rounded-lg shadow-xl flex items-center gap-3">
+          <span>{error}</span>
           <button
-            onClick={handleImport}
-            disabled={isImporting || readyCount === 0}
-            className="px-6 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-700 disabled:cursor-not-allowed text-white rounded-lg transition-colors font-medium flex items-center gap-2"
+            onClick={() => setError(null)}
+            className="text-white/80 hover:text-white font-bold"
           >
-            {isImporting ? 'Importing...' : `Import ${readyCount} ${readyCount === 1 ? 'Game' : 'Games'}`}
-            <span>→</span>
+            ×
           </button>
         </div>
-
-        {/* Error Message */}
-        {error && (
-          <div className="absolute bottom-24 left-1/2 transform -translate-x-1/2 bg-red-600 text-white px-6 py-3 rounded-lg shadow-xl flex items-center gap-3">
-            <span>{error}</span>
-            <button
-              onClick={() => setError(null)}
-              className="text-white/80 hover:text-white font-bold"
-            >
-              ×
-            </button>
-          </div>
-        )}
-      </div>
+      )}
     </div>
+    </div >
   );
 };

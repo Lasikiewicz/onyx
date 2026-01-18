@@ -839,9 +839,31 @@ export class ImportService {
               executables.push(fullPath);
             }
           } else if (stats.isDirectory() && depth < maxDepth) {
-            // Skip WinGDK folders - they don't contain actual games
+            // Skip folders that definitely don't contain primary game executables
             const dirName = entry.toLowerCase();
-            if (dirName.includes('wingdk')) {
+            if (dirName.includes('wingdk') ||
+              dirName === 'update' ||
+              dirName === 'updater' ||
+              dirName === 'setup' ||
+              dirName === 'install' ||
+              dirName === 'installer' ||
+              dirName === 'redist' ||
+              dirName === 'redistributables' ||
+              dirName === 'directx' ||
+              dirName === 'dotnet' ||
+              dirName === '_commonredist' ||
+              dirName === 'support' ||
+              dirName === 'engine' ||
+              dirName === 'binaries' || // Some games use Binaries, but often primary exe is at root
+              dirName === 'tools' ||
+              dirName === 'benchmark' ||
+              dirName === 'extras' ||
+              dirName === 'bonus' ||
+              dirName === 'soundtrack' ||
+              dirName === 'artbook' ||
+              dirName === 'manuals' ||
+              dirName === 'patch' ||
+              dirName === 'patches') {
               continue;
             }
             // Recursively search subdirectories

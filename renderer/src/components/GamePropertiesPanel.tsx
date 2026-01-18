@@ -49,6 +49,12 @@ export const GamePropertiesPanel: React.FC<GamePropertiesPanelProps> = ({
         icon: any[];
     }>({ boxart: [], banner: [], logo: [], icon: [] });
 
+    // Fast Search State
+    const [isFastSearching, setIsFastSearching] = useState(false);
+    const [fastSearchResults, setFastSearchResults] = useState<any[]>([]);
+    const [selectedFastGame, setSelectedFastGame] = useState<any | null>(null);
+    const [showAnimatedImages, setShowAnimatedImages] = useState(false);
+
     // General State
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
@@ -189,6 +195,85 @@ export const GamePropertiesPanel: React.FC<GamePropertiesPanelProps> = ({
         setTimeout(() => setSuccess(null), 2000);
     };
 
+    // Fast Search Handler - Playnite-style instant search
+    const handleFastSearch = async () => {
+        const query = imageSearchQuery || editedFields.title;
+        if (!query) {
+            setError('Please enter a game title to search');
+            return;
+        }
+
+        setIsFastSearching(true);
+        setError(null);
+        setFastSearchResults([]);
+        setSelectedFastGame(null);
+
+        try {
+            console.log(`[FastSearch] Searching for "${query}"...`);
+            const startTime = Date.now();
+
+            const response = await (window.electronAPI as any).fastImageSearch(query);
+
+            console.log(`[FastSearch] Completed in ${Date.now() - startTime}ms`);
+
+            if (response.success && response.games && response.games.length > 0) {
+                setFastSearchResults(response.games);
+                setSuccess(`Found ${response.games.length} game(s) in ${Date.now() - startTime}ms`);
+                setTimeout(() => setSuccess(null), 3000);
+            } else if (response.error) {
+                setError(response.error);
+            } else {
+                setError(`No results found for "${query}". Try a different search term.`);
+            }
+        } catch (err) {
+            setError('Failed to search. Check your internet connection and API credentials.');
+            console.error('[FastSearch] Error:', err);
+        } finally {
+            setIsFastSearching(false);
+        }
+    };
+
+    const handleSelectFastGame = async (gameResult: any) => {
+        setSelectedFastGame(gameResult);
+        setFastSearchResults([]);
+        setIsSearchingImages(true);
+        setError(null);
+
+        try {
+            const steamAppId = (game as any).appId || (game as any).steamAppId;
+            const response = await (window.electronAPI as any).fetchGameImages(
+                gameResult.name,
+                steamAppId,
+                Number(gameResult.id),
+                showAnimatedImages
+            );
+
+            if (response.success && response.images) {
+                const categorized = { boxart: [], banner: [], logo: [], icon: [] } as any;
+                const seenUrls = new Set<string>();
+
+                response.images.forEach((img: any) => {
+                    if (!img.url || seenUrls.has(img.url)) return;
+                    seenUrls.add(img.url);
+                    if (categorized[img.type]) {
+                        categorized[img.type].push(img);
+                    }
+                });
+
+                setSteamGridDBResults(categorized);
+                setSuccess(`Showing images for "${gameResult.name}"`);
+                setTimeout(() => setSuccess(null), 3000);
+            } else {
+                setError(response.error || 'Failed to fetch images');
+            }
+        } catch (err) {
+            console.error('Error fetching game images:', err);
+            setError('Failed to fetch images from sources');
+        } finally {
+            setIsSearchingImages(false);
+        }
+    };
+
     // Save Handler
     const handleSave = async () => {
         setIsSaving(true);
@@ -206,13 +291,20 @@ export const GamePropertiesPanel: React.FC<GamePropertiesPanelProps> = ({
         }
     };
 
-    // Render Image Strip (Mini)
+    // Render Image Strip (matching GameManager dimensions)
     const renderImageStrip = () => (
-        <div className="flex gap-2 mb-6 items-start p-3 bg-gray-900/50 rounded-lg border border-gray-800 overflow-x-auto">
+        <div className="flex gap-2 mb-4 items-start p-2 bg-gray-900/95 rounded-lg border border-gray-800">
             {(['boxart', 'logo', 'banner', 'icon'] as const).map(type => {
                 const fieldMap = { boxart: 'boxArtUrl', logo: 'logoUrl', banner: 'bannerUrl', icon: 'iconUrl' } as const;
                 const val = editedFields[fieldMap[type]];
                 const label = type.charAt(0).toUpperCase() + type.slice(1);
+
+                // Match GameManager dimensions exactly
+                const sizeClasses =
+                    type === 'boxart' ? 'h-36 w-auto aspect-[2/3]' :
+                        type === 'logo' ? 'h-36 w-56' :
+                            type === 'banner' ? 'h-36 flex-1' :
+                                'h-36 w-36'; // icon
 
                 return (
                     <div
@@ -223,15 +315,27 @@ export const GamePropertiesPanel: React.FC<GamePropertiesPanelProps> = ({
                             setImageSearchQuery(editedFields.title);
                             handleSearchImages(type);
                         }}
-                        className={`relative group cursor-pointer border border-gray-700 rounded-lg overflow-hidden bg-gray-800 hover:border-green-500 transition-colors flex-shrink-0 ${type === 'banner' ? 'h-24 flex-1 min-w-[150px]' : type === 'logo' ? 'h-24 w-36' : 'h-24 w-auto aspect-[2/3]'}`}
+                        className={`${sizeClasses} relative group cursor-pointer border border-gray-700 rounded-lg overflow-hidden bg-gray-800 hover:border-green-500 transition-colors flex-shrink-0`}
                     >
                         {val ? (
-                            <img src={val} className="w-full h-full object-contain p-1" alt={label} />
+                            type === 'boxart' || type === 'banner' ? (
+                                <img src={val} className="w-full h-full object-cover" alt={label} />
+                            ) : (
+                                <div className="w-full h-full p-2 flex items-center justify-center">
+                                    <img src={val} className="max-w-full max-h-full object-contain" alt={label} />
+                                </div>
+                            )
                         ) : (
-                            <div className="w-full h-full flex items-center justify-center text-[8px] text-gray-600">{label}</div>
+                            <div className="w-full h-full flex items-center justify-center">
+                                <span className={`text-gray-600 text-center p-1 ${type === 'icon' ? 'text-[10px]' : 'text-xs'}`}>
+                                    {type === 'boxart' ? 'Boxart' : type === 'icon' ? 'Click to search for icon' : `Click to search for ${type}`}
+                                </span>
+                            </div>
                         )}
                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                            <span className="text-[10px] text-white font-medium">Edit</span>
+                            <span className={`text-white font-medium ${type === 'icon' ? 'text-[10px]' : 'text-xs'}`}>
+                                {type === 'icon' ? 'Edit Icon' : type === 'logo' ? 'Edit Logo' : type === 'banner' ? 'Edit Banner' : 'Edit'}
+                            </span>
                         </div>
                     </div>
                 );
@@ -397,17 +501,161 @@ export const GamePropertiesPanel: React.FC<GamePropertiesPanelProps> = ({
 
                 {activeTab === 'images' && (
                     <div>
+                        {/* Image Preview Strip - Same as GameManager */}
+                        <div className="p-2 space-y-2 flex-shrink-0 bg-gray-900/95 border-b border-gray-800 mb-4">
+                            <div className="flex gap-2 mb-1 items-start">
+                                {(['boxart', 'logo', 'banner', 'icon'] as const).map(type => {
+                                    const fieldMap = { boxart: 'boxArtUrl', logo: 'logoUrl', banner: 'bannerUrl', icon: 'iconUrl' } as const;
+                                    const val = editedFields[fieldMap[type]];
+
+                                    const sizeClasses =
+                                        type === 'boxart' ? 'h-36 w-auto aspect-[2/3]' :
+                                            type === 'logo' ? 'h-36 w-56' :
+                                                type === 'banner' ? 'h-36 flex-1' :
+                                                    'h-36 w-36';
+
+                                    return (
+                                        <div
+                                            key={type}
+                                            onClick={() => {
+                                                setActiveImageSearchTab(type);
+                                                setImageSearchQuery(editedFields.title);
+                                                handleSearchImages(type);
+                                            }}
+                                            className={`${sizeClasses} relative group cursor-pointer border border-gray-700 rounded-lg overflow-hidden bg-gray-800 hover:border-green-500 transition-colors flex-shrink-0`}
+                                        >
+                                            {val ? (
+                                                type === 'boxart' || type === 'banner' ? (
+                                                    <img src={val} className="w-full h-full object-cover" alt={type} />
+                                                ) : (
+                                                    <div className="w-full h-full p-2 flex items-center justify-center">
+                                                        <img src={val} className="max-w-full max-h-full object-contain" alt={type} />
+                                                    </div>
+                                                )
+                                            ) : (
+                                                <div className="w-full h-full flex items-center justify-center">
+                                                    <span className={`text-gray-600 text-center p-1 ${type === 'icon' ? 'text-[10px]' : type === 'boxart' ? 'text-[8px]' : 'text-xs'}`}>
+                                                        {type === 'boxart' ? 'Boxart' : type === 'icon' ? 'Click to search for icon' : `Click to search for ${type}`}
+                                                    </span>
+                                                </div>
+                                            )}
+                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                <span className={`text-white font-medium ${type === 'icon' ? 'text-[10px]' : type === 'boxart' ? 'text-[10px]' : 'text-xs'}`}>
+                                                    {type === 'icon' ? 'Edit Icon' : type === 'logo' ? 'Edit Logo' : type === 'banner' ? 'Edit Banner' : 'Edit'}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        {/* Search Input */}
                         <div className="flex gap-2 mb-4 sticky top-0 bg-gray-900 z-10 py-2">
                             <input
                                 type="text"
                                 value={imageSearchQuery}
                                 onChange={(e) => setImageSearchQuery(e.target.value)}
                                 onKeyDown={(e) => e.key === 'Enter' && handleSearchImages(activeImageSearchTab)}
-                                placeholder={`Search ${activeImageSearchTab}...`}
+                                placeholder="Enter game title..."
                                 className="flex-1 bg-gray-800 border border-gray-700 rounded p-2 text-sm"
                             />
-                            <button onClick={() => handleSearchImages(activeImageSearchTab)} disabled={isSearchingImages} className="bg-purple-600 px-4 rounded text-sm hover:bg-purple-700 disabled:opacity-50">Search</button>
+                            {/* Quick All Button */}
+                            <button
+                                onClick={handleFastSearch}
+                                disabled={isFastSearching || isSearchingImages}
+                                className="px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white font-bold rounded transition-all shadow-lg shadow-green-500/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                                title="Quick search all image types at once"
+                            >
+                                {isFastSearching ? (
+                                    <>
+                                        <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                        </svg>
+                                        <span>Fast...</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                        </svg>
+                                        <span>Quick All</span>
+                                    </>
+                                )}
+                            </button>
+                            <button
+                                onClick={() => handleSearchImages(activeImageSearchTab)}
+                                disabled={isSearchingImages}
+                                className="bg-purple-600 px-4 rounded text-sm hover:bg-purple-700 disabled:opacity-50"
+                            >
+                                Search
+                            </button>
+                            <button
+                                onClick={() => {
+                                    setSteamGridDBResults({ boxart: [], banner: [], logo: [], icon: [] });
+                                    setFastSearchResults([]);
+                                    setSelectedFastGame(null);
+                                }}
+                                className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded transition-colors"
+                                disabled={isSearchingImages}
+                            >
+                                Clear
+                            </button>
+                            <button
+                                onClick={() => setShowAnimatedImages(!showAnimatedImages)}
+                                className={`px-3 py-2 rounded border transition-colors flex items-center gap-2 ${showAnimatedImages
+                                    ? 'bg-blue-600/20 border-blue-500 text-blue-400'
+                                    : 'bg-gray-700 border-gray-600 text-gray-400 hover:bg-gray-600'
+                                    }`}
+                                title="Include animated images (GIF/WebP) in search results"
+                            >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                {showAnimatedImages ? 'Animated' : 'Static'}
+                            </button>
                         </div>
+
+                        {/* Fast Search Results */}
+                        {fastSearchResults.length > 0 && (
+                            <div className="mb-4">
+                                <div className="flex items-center justify-between mb-2">
+                                    <h4 className="text-sm font-medium text-gray-300">
+                                        <span className="text-green-400">⚡</span> Quick Results - Click to see images:
+                                    </h4>
+                                    <button
+                                        onClick={() => {
+                                            setFastSearchResults([]);
+                                            setSelectedFastGame(null);
+                                        }}
+                                        className="text-xs text-gray-400 hover:text-white"
+                                    >
+                                        Clear
+                                    </button>
+                                </div>
+                                <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto">
+                                    {fastSearchResults.map((result: any) => (
+                                        <div
+                                            key={result.id}
+                                            onClick={() => handleSelectFastGame(result)}
+                                            className="flex items-center gap-2 p-2 bg-gray-800 rounded border border-gray-700 hover:border-green-500 cursor-pointer transition-colors"
+                                        >
+                                            {result.coverUrl && (
+                                                <img src={result.coverUrl} alt="" className="w-10 h-14 object-cover rounded" />
+                                            )}
+                                            <div className="flex-1 min-w-0">
+                                                <div className="text-sm font-medium text-white truncate">{result.name}</div>
+                                                <div className="text-xs text-gray-400">{result.releaseDate ? new Date(result.releaseDate * 1000).getFullYear() : ''}</div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Tabs */}
                         <div className="flex gap-1 mb-4 border-b border-gray-800">
                             {(['boxart', 'banner', 'logo', 'icon'] as const).map(type => (
                                 <button
@@ -419,20 +667,119 @@ export const GamePropertiesPanel: React.FC<GamePropertiesPanelProps> = ({
                                 </button>
                             ))}
                         </div>
-                        <div className="grid grid-cols-3 gap-2">
-                            {steamGridDBResults[activeImageSearchTab]?.map((img, idx) => (
-                                <div key={idx} onClick={() => applyImage(activeImageSearchTab, img.url)} className="aspect-square relative group bg-gray-800 rounded border border-gray-700 cursor-pointer overflow-hidden">
-                                    <img src={img.url} className="w-full h-full object-contain p-1" alt="" />
-                                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-all">
-                                        <span className="text-white text-xs font-bold bg-black/50 px-2 py-1 rounded">Apply</span>
-                                    </div>
-                                </div>
-                            ))}
-                            {steamGridDBResults[activeImageSearchTab]?.length === 0 && !isSearchingImages && (
-                                <div className="col-span-3 text-center text-gray-500 py-8">No images found</div>
-                            )}
-                            {isSearchingImages && <div className="col-span-3 text-center text-gray-500 py-8 animate-pulse">Searching...</div>}
-                        </div>
+
+                        {/* Results Grid - Different layouts per type */}
+                        {activeImageSearchTab === 'boxart' && (
+                            <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-10 gap-3">
+                                {steamGridDBResults.boxart.map((result: any, idx: number) => {
+                                    const url = result.url || result.boxArtUrl || result.coverUrl;
+                                    if (!url) return null;
+                                    return (
+                                        <div
+                                            key={`boxart-${idx}`}
+                                            onClick={() => applyImage('boxart', url)}
+                                            className="group cursor-pointer"
+                                        >
+                                            <div className="aspect-[2/3] rounded overflow-hidden border border-gray-700 bg-gray-800 group-hover:border-green-500 transition-all relative">
+                                                <img
+                                                    src={url}
+                                                    alt=""
+                                                    className="w-full h-full object-cover"
+                                                    onError={(e) => {
+                                                        (e.target as HTMLImageElement).style.display = 'none';
+                                                        (e.target as HTMLImageElement).parentElement?.parentElement?.remove();
+                                                    }}
+                                                />
+                                                <div className="absolute inset-x-0 bottom-0 bg-black/60 p-1 translate-y-full group-hover:translate-y-0 transition-transform">
+                                                    <p className="text-[10px] text-white truncate text-center">SteamGridDB</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                                {steamGridDBResults.boxart.length === 0 && !isSearchingImages && (
+                                    <div className="col-span-full text-center text-gray-500 py-8">No box art found</div>
+                                )}
+                            </div>
+                        )}
+
+                        {activeImageSearchTab === 'logo' && (
+                            <div className="grid grid-cols-4 sm:grid-cols-6 gap-3 bg-gray-900/50 p-4 rounded-lg border border-gray-800">
+                                {steamGridDBResults.logo.map((result: any, idx: number) => {
+                                    const url = result.url || result.logoUrl;
+                                    if (!url) return null;
+                                    return (
+                                        <div
+                                            key={`logo-${idx}`}
+                                            onClick={() => applyImage('logo', url)}
+                                            className="group cursor-pointer flex items-center justify-center p-3 rounded bg-gray-800/50 border border-gray-700 hover:border-green-500 hover:bg-gray-800 transition-all aspect-video"
+                                        >
+                                            <img src={url} alt="Logo" className="max-w-full max-h-full object-contain" />
+                                        </div>
+                                    );
+                                })}
+                                {steamGridDBResults.logo.length === 0 && !isSearchingImages && (
+                                    <div className="col-span-full text-center text-gray-500 py-8">No logos found</div>
+                                )}
+                            </div>
+                        )}
+
+                        {activeImageSearchTab === 'banner' && (
+                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                                {steamGridDBResults.banner.map((result: any, idx: number) => {
+                                    const url = result.url || result.bannerUrl;
+                                    if (!url) return null;
+                                    return (
+                                        <div
+                                            key={`banner-${idx}`}
+                                            onClick={() => applyImage('banner', url)}
+                                            className="group cursor-pointer"
+                                        >
+                                            <div className="aspect-video rounded overflow-hidden border border-gray-700 bg-gray-800 group-hover:border-green-500 transition-all relative">
+                                                <img
+                                                    src={url}
+                                                    alt=""
+                                                    className="w-full h-full object-cover"
+                                                    onError={(e) => {
+                                                        (e.target as HTMLImageElement).style.display = 'none';
+                                                        (e.target as HTMLImageElement).parentElement?.parentElement?.remove();
+                                                    }}
+                                                />
+                                                <div className="absolute inset-x-0 bottom-0 bg-black/60 p-1 translate-y-full group-hover:translate-y-0 transition-transform">
+                                                    <p className="text-[10px] text-white truncate text-center">SteamGridDB</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                                {steamGridDBResults.banner.length === 0 && !isSearchingImages && (
+                                    <div className="col-span-full text-center text-gray-500 py-8">No banners found</div>
+                                )}
+                            </div>
+                        )}
+
+                        {activeImageSearchTab === 'icon' && (
+                            <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-12 gap-3 bg-gray-900/50 p-4 rounded-lg border border-gray-800">
+                                {steamGridDBResults.icon.map((result: any, idx: number) => {
+                                    const url = result.url || result.iconUrl;
+                                    if (!url) return null;
+                                    return (
+                                        <div
+                                            key={`icon-${idx}`}
+                                            onClick={() => applyImage('icon', url)}
+                                            className="group cursor-pointer flex items-center justify-center p-2 rounded bg-gray-800/50 border border-gray-700 hover:border-green-500 hover:bg-gray-800 transition-all aspect-square"
+                                        >
+                                            <img src={url} alt="Icon" className="w-full h-full object-contain" />
+                                        </div>
+                                    );
+                                })}
+                                {steamGridDBResults.icon.length === 0 && !isSearchingImages && (
+                                    <div className="col-span-full text-center text-gray-500 py-8">No icons found</div>
+                                )}
+                            </div>
+                        )}
+
+                        {isSearchingImages && <div className="text-center text-gray-500 py-8 animate-pulse">Searching...</div>}
                     </div>
                 )}
 
@@ -473,6 +820,6 @@ export const GamePropertiesPanel: React.FC<GamePropertiesPanelProps> = ({
                     </button>
                 </div>
             </div>
-        </div>
+        </div >
     );
 };
