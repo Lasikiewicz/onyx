@@ -139,10 +139,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   scanAllSources: () => ipcRenderer.invoke('import:scanAllSources'),
   scanFolder: (folderPath: string) => ipcRenderer.invoke('import:scanFolder', folderPath),
   // Image search methods
-  searchImages: (query: string, imageType: 'boxart' | 'banner' | 'logo' | 'icon', steamAppId?: string) => ipcRenderer.invoke('metadata:searchImages', query, imageType, steamAppId),
+  searchImages: (query: string, imageType: 'boxart' | 'banner' | 'logo' | 'icon', steamAppId?: string, includeAnimated?: boolean) => ipcRenderer.invoke('metadata:searchImages', query, imageType, steamAppId, includeAnimated),
   searchWebImages: (query: string, imageType: 'boxart' | 'banner' | 'logo' | 'icon') => ipcRenderer.invoke('metadata:searchWebImages', query, imageType),
   fastImageSearch: (query: string) => ipcRenderer.invoke('metadata:fastImageSearch', query),
-  fetchGameImages: (gameName: string, steamAppId?: string, igdbId?: number) => ipcRenderer.invoke('metadata:fetchGameImages', gameName, steamAppId, igdbId),
+  fetchGameImages: (gameName: string, steamAppId?: string, igdbId?: number, includeAnimated?: boolean) => ipcRenderer.invoke('metadata:fetchGameImages', gameName, steamAppId, igdbId, includeAnimated),
   // App version
   getVersion: () => ipcRenderer.invoke('app:getVersion'),
   // App name (for detecting Alpha builds)

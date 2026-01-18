@@ -94,6 +94,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
   const [selectedFastGame, setSelectedFastGame] = useState<FastSearchGame | null>(null);
   const [showGameListThumbnails, setShowGameListThumbnails] = useState(true);
   const [newCategoryInput, setNewCategoryInput] = useState('');
+  const [showAnimatedImages, setShowAnimatedImages] = useState(false);
 
   // Get all unique categories from all games for suggestions
   const allCategories = useMemo(() => {
@@ -574,7 +575,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
         // Search SteamGridDB for the specific image type
         activeSearches++;
         searchPromises.push(
-          window.electronAPI.searchImages(query, imageType, steamAppId).then((sgdbResponse: any) => {
+          window.electronAPI.searchImages(query, imageType, steamAppId, showAnimatedImages).then((sgdbResponse: any) => {
             if (sgdbResponse.success && sgdbResponse.images) {
               const flattenedResults: any[] = [];
               sgdbResponse.images.forEach((gameResult: any) => {
@@ -704,7 +705,8 @@ export const GameManager: React.FC<GameManagerProps> = ({
       const response = await (window.electronAPI as any).fetchGameImages(
         gameResult.name,
         selectedGame?.id.startsWith('steam-') ? selectedGame.id.replace('steam-', '') : undefined,
-        Number(gameResult.id)
+        Number(gameResult.id),
+        showAnimatedImages
       );
 
       if (response.success && response.images) {
@@ -1603,6 +1605,20 @@ export const GameManager: React.FC<GameManagerProps> = ({
                                 >
                                   Clear
                                 </button>
+                                <button
+                                  onClick={() => setShowAnimatedImages(!showAnimatedImages)}
+                                  className={`px-3 py-2 rounded border transition-colors flex items-center gap-2 ${showAnimatedImages
+                                    ? 'bg-blue-600/20 border-blue-500 text-blue-400'
+                                    : 'bg-gray-700 border-gray-600 text-gray-400 hover:bg-gray-600'
+                                    }`}
+                                  title="Include animated images (GIF/WebP) in search results"
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                  </svg>
+                                  {showAnimatedImages ? 'Animated' : 'Static'}
+                                </button>
                               </div>
 
                               {/* Fast Search Results - Game Selection (inline, no border) */}
@@ -1690,7 +1706,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
                             {/* Tabs Header with New Search Button */}
                             <div className="flex items-center justify-between mb-4 border-b border-gray-700 pb-2">
                               <div className="flex items-center gap-1">
-                                {['all', 'boxart', 'banner', 'logo', 'icon'].map((tab) => {
+                                {['all', 'boxart', 'logo', 'banner', 'icon'].map((tab) => {
                                   const label = tab.charAt(0).toUpperCase() + tab.slice(1);
                                   const isActive = activeImageSearchTab === tab;
 
@@ -1808,6 +1824,38 @@ export const GameManager: React.FC<GameManagerProps> = ({
                                     </div>
                                   )}
 
+                                {/* Logo Section */}
+                                {(activeImageSearchTab === 'all' || activeImageSearchTab === 'logo') &&
+                                  (steamGridDBResults.logo.length > 0 || imageSearchResults.some(i => i.logoUrl)) && (
+                                    <div>
+                                      {activeImageSearchTab === 'all' && <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">Logos</h4>}
+                                      <div className="grid grid-cols-4 sm:grid-cols-6 gap-3 bg-gray-900/50 p-4 rounded-lg border border-gray-800">
+                                        {steamGridDBResults.logo.map((result: any, idx: number) => {
+                                          const url = result.url || result.logoUrl;
+                                          if (!url) return null;
+                                          return (
+                                            <div
+                                              key={`sgdb-logo-${idx}`}
+                                              onClick={() => handleSelectImage(url, 'logo')}
+                                              className="group cursor-pointer flex items-center justify-center p-2 rounded bg-gray-800/50 border border-gray-700 hover:border-green-500 hover:bg-gray-800 transition-all h-24"
+                                            >
+                                              <img src={url} alt="Logo" className="max-w-full max-h-full object-contain" />
+                                            </div>
+                                          );
+                                        })}
+                                        {imageSearchResults.filter(i => i.logoUrl).map((result, idx) => (
+                                          <div
+                                            key={`igdb-logo-${idx}`}
+                                            onClick={() => handleSelectImage(result.logoUrl, 'logo')}
+                                            className="group cursor-pointer flex items-center justify-center p-2 rounded bg-gray-800/50 border border-gray-700 hover:border-green-500 hover:bg-gray-800 transition-all h-24"
+                                          >
+                                            <img src={result.logoUrl} alt="Logo" className="max-w-full max-h-full object-contain" />
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+
                                 {/* Banner Section */}
                                 {(activeImageSearchTab === 'all' || activeImageSearchTab === 'banner') &&
                                   (imageSearchResults.some(i => i.bannerUrl || i.screenshotUrls) || steamGridDBResults.banner.length > 0) && (
@@ -1868,38 +1916,6 @@ export const GameManager: React.FC<GameManagerProps> = ({
                                             </div>
                                           );
                                         })}
-                                      </div>
-                                    </div>
-                                  )}
-
-                                {/* Logo Section */}
-                                {(activeImageSearchTab === 'all' || activeImageSearchTab === 'logo') &&
-                                  (steamGridDBResults.logo.length > 0 || imageSearchResults.some(i => i.logoUrl)) && (
-                                    <div>
-                                      {activeImageSearchTab === 'all' && <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">Logos</h4>}
-                                      <div className="grid grid-cols-4 sm:grid-cols-6 gap-3 bg-gray-900/50 p-4 rounded-lg border border-gray-800">
-                                        {steamGridDBResults.logo.map((result: any, idx: number) => {
-                                          const url = result.url || result.logoUrl;
-                                          if (!url) return null;
-                                          return (
-                                            <div
-                                              key={`sgdb-logo-${idx}`}
-                                              onClick={() => handleSelectImage(url, 'logo')}
-                                              className="group cursor-pointer flex items-center justify-center p-2 rounded bg-gray-800/50 border border-gray-700 hover:border-green-500 hover:bg-gray-800 transition-all h-24"
-                                            >
-                                              <img src={url} alt="Logo" className="max-w-full max-h-full object-contain" />
-                                            </div>
-                                          );
-                                        })}
-                                        {imageSearchResults.filter(i => i.logoUrl).map((result, idx) => (
-                                          <div
-                                            key={`igdb-logo-${idx}`}
-                                            onClick={() => handleSelectImage(result.logoUrl, 'logo')}
-                                            className="group cursor-pointer flex items-center justify-center p-2 rounded bg-gray-800/50 border border-gray-700 hover:border-green-500 hover:bg-gray-800 transition-all h-24"
-                                          >
-                                            <img src={result.logoUrl} alt="Logo" className="max-w-full max-h-full object-contain" />
-                                          </div>
-                                        ))}
                                       </div>
                                     </div>
                                   )}

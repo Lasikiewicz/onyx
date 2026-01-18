@@ -101,7 +101,7 @@ export class SteamService {
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
       const trimmed = line.trim();
-      
+
       // Skip empty lines and comments
       if (!trimmed || trimmed.startsWith('//')) continue;
 
@@ -158,9 +158,9 @@ export class SteamService {
   private getLibraryFolders(): string[] {
     const steamPath = this.getSteamPath();
     const libraryFoldersPath = join(steamPath, 'steamapps', 'libraryfolders.vdf');
-    
+
     const libraries: string[] = [steamPath]; // Always include main Steam path
-    
+
     if (!existsSync(libraryFoldersPath)) {
       console.warn(`libraryfolders.vdf not found at ${libraryFoldersPath}, using default Steam path only`);
       console.log(`Will scan: ${steamPath}`);
@@ -203,10 +203,10 @@ export class SteamService {
   private parseACF(content: string): { appId: string; name: string; installDir: string; stateFlags: number; isFullyInstalled: boolean } | null {
     try {
       const parsed = this.parseVDF(content);
-      
+
       // ACF files can have AppState or appstate at the root level
       const appState = parsed.AppState || parsed.appstate || parsed;
-      
+
       if (!appState) {
         console.warn('No AppState found in ACF file');
         return null;
@@ -232,11 +232,11 @@ export class SteamService {
       // Parse StateFlags to check if game is fully installed
       const stateFlagsNum = stateFlags ? parseInt(String(stateFlags), 10) : 0;
       const isFullyInstalled = (stateFlagsNum & SteamStateFlag.StateFullyInstalled) !== 0;
-      const hasIssues = (stateFlagsNum & (SteamStateFlag.StateUpdateRequired | 
-                                           SteamStateFlag.StateFilesMissing | 
-                                           SteamStateFlag.StateFilesCorrupt | 
-                                           SteamStateFlag.StateUninstalling | 
-                                           SteamStateFlag.StateDownloading)) !== 0;
+      const hasIssues = (stateFlagsNum & (SteamStateFlag.StateUpdateRequired |
+        SteamStateFlag.StateFilesMissing |
+        SteamStateFlag.StateFilesCorrupt |
+        SteamStateFlag.StateUninstalling |
+        SteamStateFlag.StateDownloading)) !== 0;
 
       // Skip games that aren't fully installed or have issues
       if (!isFullyInstalled || hasIssues) {
@@ -262,7 +262,7 @@ export class SteamService {
    */
   private scanLibraryFolder(libraryPath: string): SteamGame[] {
     const steamappsPath = join(libraryPath, 'steamapps');
-    
+
     if (!existsSync(steamappsPath)) {
       console.warn(`Steamapps folder not found: ${steamappsPath}`);
       return [];
@@ -273,7 +273,7 @@ export class SteamService {
     try {
       const files = readdirSync(steamappsPath);
       const acfFiles = files.filter(file => file.endsWith('.acf'));
-      
+
       console.log(`Scanning ${steamappsPath}`);
       console.log(`Total files in steamapps: ${files.length}`);
       console.log(`Found ${acfFiles.length} ACF files`);
@@ -285,17 +285,17 @@ export class SteamService {
 
       for (const acfFile of acfFiles) {
         const acfPath = join(steamappsPath, acfFile);
-        
+
         try {
           const content = readFileSync(acfPath, 'utf-8');
-          
+
           // Debug: log first few lines of problematic files
           if (content.length < 100) {
             console.warn(`ACF file ${acfFile} is very small (${content.length} bytes)`);
           }
-          
+
           const gameInfo = this.parseACF(content);
-          
+
           if (gameInfo) {
             // Skip excluded app IDs (redistributables, tools, etc.)
             if (this.EXCLUDED_STEAM_APPIDS.has(gameInfo.appId)) {
@@ -321,7 +321,7 @@ export class SteamService {
               const parsed = this.parseVDF(content);
               const appState = parsed.AppState || parsed.appstate || parsed;
               const name = appState?.name || appState?.Name || `Steam Game ${appId}`;
-              
+
               games.push({
                 appId: appId,
                 name: String(name),
@@ -351,10 +351,10 @@ export class SteamService {
     try {
       const steamPath = this.getSteamPath();
       console.log(`Scanning Steam games from: ${steamPath}`);
-      
+
       const libraries = this.getLibraryFolders();
       console.log(`Found ${libraries.length} Steam library folder(s)`);
-      
+
       const allGames: SteamGame[] = [];
 
       for (const library of libraries) {
@@ -424,21 +424,21 @@ export class SteamService {
 
         // Parse XML response
         const xmlData = response.data;
-        
+
         // Extract game data from XML
         // Format: <game><appID>123456</appID><name>Game Name</name><hoursOnRecord>12.5</hoursOnRecord>...</game>
         // Also handle cases where hoursOnRecord might be missing (game not played)
         const gameMatches = Array.from(xmlData.matchAll(/<game>[\s\S]*?<\/game>/g)) as RegExpMatchArray[];
-        
+
         for (const gameMatch of gameMatches) {
           const gameXml = gameMatch[0] as string;
           const appIdMatch = gameXml.match(/<appID>(\d+)<\/appID>/);
-          
+
           if (appIdMatch) {
             const appId = appIdMatch[1];
             // Try to find hoursOnRecord (may not exist if game hasn't been played)
             const hoursMatch = gameXml.match(/<hoursOnRecord>([\d.]+)<\/hoursOnRecord>/);
-            
+
             if (hoursMatch) {
               const hours = parseFloat(hoursMatch[1]);
               const minutes = Math.round(hours * 60);
@@ -465,5 +465,31 @@ export class SteamService {
     }
 
     return playtimeMap;
+  }
+
+  /**
+   * Get game details from Steam Store API
+   * @param appId - Steam App ID
+   */
+  async getGameDetails(appId: string): Promise<{ name: string; description: string; developers: string[]; publishers: string[] } | null> {
+    try {
+      const response = await axios.get(`https://store.steampowered.com/api/appdetails?appids=${appId}&l=english`, {
+        timeout: 10000
+      });
+
+      if (response.data && response.data[appId] && response.data[appId].success) {
+        const data = response.data[appId].data;
+        return {
+          name: data.name,
+          description: data.short_description,
+          developers: data.developers || [],
+          publishers: data.publishers || []
+        };
+      }
+      return null;
+    } catch (error) {
+      console.error(`[SteamService] Error fetching details for app ${appId}:`, error);
+      return null;
+    }
   }
 }

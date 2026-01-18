@@ -140,19 +140,28 @@ export class SteamGridDBService {
    * Search for games by name
    */
   async searchGame(query: string, steamAppId?: string): Promise<SteamGridDBGame[]> {
+    // If Steam App ID provided, try direct lookup first (more accurate)
+    if (steamAppId) {
+      try {
+        const game = await this.getGameBySteamAppId(steamAppId);
+        if (game) {
+          console.log(`[SteamGridDB] Found game by Steam App ID ${steamAppId}: ${game.name}`);
+          return [game];
+        } else {
+          console.log(`[SteamGridDB] No game found for Steam App ID ${steamAppId}, falling back to text search for "${query}"`);
+        }
+      } catch (error) {
+        console.warn(`[SteamGridDB] Error looking up Steam App ID ${steamAppId}, falling back to text search:`, error);
+      }
+    }
+
     return this.queueRequest(async () => {
       try {
-        // If Steam App ID provided, try direct lookup first (more accurate)
-        if (steamAppId) {
-          const game = await this.getGameBySteamAppId(steamAppId);
-          if (game) {
-            console.log(`[SteamGridDB] Found game by Steam App ID ${steamAppId}: ${game.name}`);
-            return [game];
-          }
-        }
-
         // Fall back to title search
-        const response = await fetch(`${this.baseUrl}/search/autocomplete/${encodeURIComponent(query)}`, {
+        const searchUrl = `${this.baseUrl}/search/autocomplete/${encodeURIComponent(query)}`;
+        console.log(`[SteamGridDB] Searching URL: ${searchUrl}`);
+
+        const response = await fetch(searchUrl, {
           headers: {
             'Authorization': `Bearer ${this.apiKey}`,
           },
