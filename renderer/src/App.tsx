@@ -19,7 +19,7 @@ import { UpdateLibraryModal } from './components/UpdateLibraryModal';
 import { OnyxSettingsModal } from './components/OnyxSettingsModal';
 import { APISettingsModal } from './components/APISettingsModal';
 import { MetadataSearchModal } from './components/MetadataSearchModal';
-import { ImportWorkbench } from './components/importer/ImportWorkbench';
+import { ImportWorkbenchV2 as ImportWorkbench } from './components/importer/ImportWorkbenchV2';
 import { GameManager } from './components/GameManager';
 import { ConfirmationDialog } from './components/ConfirmationDialog';
 import { BugReportModal } from './components/BugReportModal';
@@ -38,7 +38,7 @@ function App() {
   const [, setIsScanningSteam] = useState(false);
 
   // Folder scan state (for ImportWorkbench)
-  const [importWorkbenchFolderPath, setImportWorkbenchFolderPath] = useState<string | undefined>(undefined);
+  const [, setImportWorkbenchFolderPath] = useState<string | undefined>(undefined);
 
   // Metadata editor state
   const [isMetadataEditorOpen, setIsMetadataEditorOpen] = useState(false);
@@ -50,7 +50,7 @@ function App() {
   // REMOVED: Steam import modal state - All imports now use ImportWorkbench
   // const [isSteamImportOpen, setIsSteamImportOpen] = useState(false);
   const [scannedSteamGames, setScannedSteamGames] = useState<Array<any>>([]);
-  const [importAppType, setImportAppType] = useState<'steam' | 'xbox' | 'other'>('steam');
+  const [, setImportAppType] = useState<'steam' | 'xbox' | 'other'>('steam');
 
 
   // Categories editor state
@@ -1727,25 +1727,22 @@ function App() {
         autoStartScan={autoStartScan}
         onClose={() => {
           setIsImportWorkbenchOpen(false);
-          setAutoStartScan(false); // Reset auto-start flag
-          setImportWorkbenchFolderPath(undefined); // Clear folder path on close
-          setScannedSteamGames([]); // Clear pre-scanned games
+          setAutoStartScan(false);
+          setImportWorkbenchFolderPath(undefined);
+          setScannedSteamGames([]);
           setImportAppType('steam');
         }}
         existingLibrary={games}
-        initialFolderPath={importWorkbenchFolderPath}
         preScannedGames={scannedSteamGames && scannedSteamGames.length > 0 ? scannedSteamGames : undefined}
-        appType={importAppType}
         onImport={async (games) => {
           try {
-            // Save all games
             for (const game of games) {
               await window.electronAPI.saveGame(game);
             }
             await loadLibrary();
             showToast(`Successfully imported ${games.length} ${games.length === 1 ? 'game' : 'games'}`, 'success');
             setIsImportWorkbenchOpen(false);
-            setAutoStartScan(false); // Reset auto-start flag
+            setAutoStartScan(false);
             setImportWorkbenchFolderPath(undefined);
             setScannedSteamGames([]);
             setImportAppType('steam');

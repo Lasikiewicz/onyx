@@ -4,7 +4,7 @@ export type ImportSource = 'steam' | 'epic' | 'gog' | 'xbox' | 'ubisoft' | 'rock
 export interface StagedGame {
   uuid: string; // Temporary unique ID for the UI list
   source: ImportSource;
-  
+
   // File System Info
   originalName: string; // e.g. "Doom Eternal" or "doom_eternal.exe"
   installPath: string;
@@ -15,7 +15,7 @@ export interface StagedGame {
   appUserModelId?: string;
   launchUri?: string;
   xboxKind?: 'uwp' | 'pc';
-  
+
   // Metadata (Editable)
   title: string;
   description?: string;
@@ -28,14 +28,15 @@ export interface StagedGame {
   rating?: number;
   platform?: string;
   scrapedMetadata?: any; // Raw result from IGDB/SteamGridDB
-  
+
   // Visuals (Selected URLs)
   boxArtUrl: string;
   bannerUrl: string;
   logoUrl?: string;
   heroUrl?: string;
+  iconUrl?: string;
   screenshots?: string[];
-  
+
   // Locked fields (prevent editing)
   lockedFields?: {
     title?: boolean;
@@ -47,7 +48,7 @@ export interface StagedGame {
     releaseDate?: boolean;
     [key: string]: boolean | undefined;
   };
-  
+
   status: ImportStatus;
   isSelected: boolean;
   isIgnored?: boolean;

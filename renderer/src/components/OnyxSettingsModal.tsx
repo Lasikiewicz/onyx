@@ -714,6 +714,51 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
   });
   const [isResetting, setIsResetting] = useState(false);
 
+  // Remove All Games state (separate from full reset)
+  const [removeGamesConfirmation, setRemoveGamesConfirmation] = useState({
+    step: 1,
+    typedText: '',
+  });
+  const [isRemovingGames, setIsRemovingGames] = useState(false);
+
+  const handleRemoveAllGames = async () => {
+    if (removeGamesConfirmation.step === 1) {
+      setRemoveGamesConfirmation({ step: 2, typedText: '' });
+      return;
+    }
+
+    if (removeGamesConfirmation.step === 2) {
+      if (removeGamesConfirmation.typedText !== 'DELETE') {
+        return;
+      }
+      setRemoveGamesConfirmation({ step: 3, typedText: '' });
+      return;
+    }
+
+    if (removeGamesConfirmation.step === 3) {
+      setIsRemovingGames(true);
+      try {
+        // Call backend to clear only games (library, images, metadata)
+        const result = await window.electronAPI.clearGameLibrary();
+        if (result.success) {
+          setRemoveGamesConfirmation({ step: 1, typedText: '' });
+          setIsRemovingGames(false);
+          onClose();
+          window.location.reload();
+        } else {
+          alert('Failed to remove games: ' + (result.error || 'Unknown error'));
+          setIsRemovingGames(false);
+          setRemoveGamesConfirmation({ step: 1, typedText: '' });
+        }
+      } catch (error) {
+        console.error('Error removing games:', error);
+        alert('Failed to remove games: ' + (error instanceof Error ? error.message : 'Unknown error'));
+        setIsRemovingGames(false);
+        setRemoveGamesConfirmation({ step: 1, typedText: '' });
+      }
+    }
+  };
+
   const handleReset = async () => {
     if (resetConfirmation.step === 1) {
       // First step: show typing confirmation
@@ -1891,123 +1936,231 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
             )}
 
             {activeTab === 'reset' && (
-              <div className="space-y-6">
-                <div className="space-y-1">
-                  <h3 className="text-lg font-semibold text-white mb-2">Reset Application</h3>
-                  <p className="text-gray-400 text-sm mb-6">
-                    This will completely reset Onyx to its default state. All data will be permanently deleted.
-                  </p>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Left Column - Remove All Games */}
+                <div className="space-y-4">
+                  <div className="space-y-1">
+                    <h3 className="text-lg font-semibold text-white mb-2">Remove All Games</h3>
+                    <p className="text-gray-400 text-sm mb-4">
+                      Clear your game library while keeping all app settings and configurations.
+                    </p>
 
-                  {/* Warning Box */}
-                  <div className="bg-red-900/20 border-2 border-red-500/50 rounded-lg p-6 mb-6">
-                    <div className="flex items-start gap-4">
-                      <svg className="w-6 h-6 text-red-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                      </svg>
-                      <div className="flex-1">
-                        <h4 className="text-red-400 font-semibold mb-2">Warning: This action cannot be undone!</h4>
-                        <p className="text-red-300 text-sm mb-4">
-                          Resetting the application will permanently delete:
-                        </p>
-                        <ul className="list-disc list-inside text-red-300 text-sm space-y-1 ml-2">
-                          <li>All games in your library</li>
-                          <li>All game metadata and images</li>
-                          <li>All app configurations (Steam, Xbox, etc.)</li>
-                          <li>All user preferences and settings</li>
-                          <li>All API credentials</li>
-                        </ul>
-                        <p className="text-red-200 text-sm mt-4 font-medium">
-                          This will restore Onyx to a fresh installation state. You will need to reconfigure everything from scratch.
-                        </p>
+                    {/* Warning Box */}
+                    <div className="bg-orange-900/20 border-2 border-orange-500/50 rounded-lg p-4 mb-4">
+                      <div className="flex items-start gap-3">
+                        <svg className="w-5 h-5 text-orange-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                        <div className="flex-1">
+                          <h4 className="text-orange-400 font-semibold mb-2">This will permanently delete:</h4>
+                          <ul className="list-disc list-inside text-orange-300 text-sm space-y-1">
+                            <li>All games in your library</li>
+                            <li>All game metadata and images</li>
+                          </ul>
+                          <p className="text-orange-200 text-xs mt-3">
+                            Your app settings, API credentials, and launcher configurations will be preserved.
+                          </p>
+                        </div>
                       </div>
                     </div>
+
+                    {/* Confirmation Section */}
+                    <div className="bg-gray-900/50 border border-gray-700 rounded-lg p-4">
+                      {removeGamesConfirmation.step === 1 && (
+                        <div className="space-y-3">
+                          <p className="text-gray-300 text-sm">
+                            Click below to start the removal process.
+                          </p>
+                          <button
+                            onClick={handleRemoveAllGames}
+                            className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white font-medium rounded-lg transition-colors text-sm"
+                          >
+                            Remove All Games
+                          </button>
+                        </div>
+                      )}
+
+                      {removeGamesConfirmation.step === 2 && (
+                        <div className="space-y-3">
+                          <p className="text-gray-300 text-sm font-medium">
+                            Type <span className="text-orange-400 font-bold">DELETE</span> to confirm:
+                          </p>
+                          <input
+                            type="text"
+                            value={removeGamesConfirmation.typedText}
+                            onChange={(e) => setRemoveGamesConfirmation({ ...removeGamesConfirmation, typedText: e.target.value })}
+                            placeholder="Type DELETE here"
+                            className="w-full px-3 py-2 bg-gray-800 border-2 border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent text-sm"
+                            autoFocus
+                          />
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => setRemoveGamesConfirmation({ step: 1, typedText: '' })}
+                              className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-white font-medium rounded-lg transition-colors text-sm"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              onClick={handleRemoveAllGames}
+                              disabled={removeGamesConfirmation.typedText !== 'DELETE'}
+                              className="px-4 py-1.5 bg-orange-600 hover:bg-orange-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                            >
+                              Continue
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {removeGamesConfirmation.step === 3 && (
+                        <div className="space-y-3">
+                          <div className="bg-yellow-900/20 border border-yellow-500/50 rounded-lg p-3">
+                            <p className="text-yellow-300 text-sm font-medium">Final Confirmation</p>
+                            <p className="text-yellow-200 text-xs mt-1">This will delete all games and their images permanently.</p>
+                          </div>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => setRemoveGamesConfirmation({ step: 1, typedText: '' })}
+                              disabled={isRemovingGames}
+                              className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-white font-medium rounded-lg transition-colors disabled:opacity-50 text-sm"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              onClick={handleRemoveAllGames}
+                              disabled={isRemovingGames}
+                              className="px-4 py-1.5 bg-orange-600 hover:bg-orange-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 text-sm"
+                            >
+                              {isRemovingGames ? (
+                                <>
+                                  <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                  </svg>
+                                  Removing...
+                                </>
+                              ) : (
+                                'Remove All Games Now'
+                              )}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
+                </div>
 
-                  {/* Confirmation Section */}
-                  <div className="bg-gray-900/50 border border-gray-700 rounded-lg p-6">
-                    {resetConfirmation.step === 1 && (
-                      <div className="space-y-4">
-                        <p className="text-gray-300 text-sm">
-                          To confirm you understand the consequences, click the button below to proceed with the reset process.
-                        </p>
-                        <button
-                          onClick={handleReset}
-                          className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition-colors"
-                        >
-                          I Understand, Proceed with Reset
-                        </button>
-                      </div>
-                    )}
+                {/* Right Column - Reset Application */}
+                <div className="space-y-4">
+                  <div className="space-y-1">
+                    <h3 className="text-lg font-semibold text-white mb-2">Reset Application</h3>
+                    <p className="text-gray-400 text-sm mb-4">
+                      Completely reset Onyx to its initial installation state.
+                    </p>
 
-                    {resetConfirmation.step === 2 && (
-                      <div className="space-y-4">
-                        <p className="text-gray-300 text-sm font-medium mb-2">
-                          Type <span className="text-red-400 font-bold">RESET</span> in the box below to confirm:
-                        </p>
-                        <input
-                          type="text"
-                          value={resetConfirmation.typedText}
-                          onChange={(e) => setResetConfirmation({ ...resetConfirmation, typedText: e.target.value })}
-                          placeholder="Type RESET here"
-                          className="w-full px-4 py-3 bg-gray-800 border-2 border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                          autoFocus
-                        />
-                        <div className="flex gap-3">
-                          <button
-                            onClick={() => setResetConfirmation({ step: 1, typedText: '' })}
-                            className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white font-medium rounded-lg transition-colors"
-                          >
-                            Cancel
-                          </button>
-                          <button
-                            onClick={handleReset}
-                            disabled={resetConfirmation.typedText !== 'RESET'}
-                            className="px-6 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            Continue
-                          </button>
-                        </div>
-                      </div>
-                    )}
-
-                    {resetConfirmation.step === 3 && (
-                      <div className="space-y-4">
-                        <div className="bg-yellow-900/20 border border-yellow-500/50 rounded-lg p-4">
-                          <p className="text-yellow-300 text-sm font-medium mb-2">
-                            Final Confirmation Required
-                          </p>
-                          <p className="text-yellow-200 text-sm">
-                            This is your last chance to cancel. Clicking "Reset Now" will immediately and permanently delete all your data.
+                    {/* Warning Box */}
+                    <div className="bg-red-900/20 border-2 border-red-500/50 rounded-lg p-4 mb-4">
+                      <div className="flex items-start gap-3">
+                        <svg className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                        <div className="flex-1">
+                          <h4 className="text-red-400 font-semibold mb-2">This will permanently delete EVERYTHING:</h4>
+                          <ul className="list-disc list-inside text-red-300 text-sm space-y-1">
+                            <li>All games in your library</li>
+                            <li>All game metadata and images</li>
+                            <li>All app configurations (Steam, Xbox, etc.)</li>
+                            <li>All user preferences and settings</li>
+                            <li>All API credentials</li>
+                          </ul>
+                          <p className="text-red-200 text-xs mt-3 font-medium">
+                            You will need to reconfigure everything from scratch.
                           </p>
                         </div>
-                        <div className="flex gap-3">
-                          <button
-                            onClick={() => setResetConfirmation({ step: 1, typedText: '' })}
-                            disabled={isResetting}
-                            className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white font-medium rounded-lg transition-colors disabled:opacity-50"
-                          >
-                            Cancel
-                          </button>
+                      </div>
+                    </div>
+
+                    {/* Confirmation Section */}
+                    <div className="bg-gray-900/50 border border-gray-700 rounded-lg p-4">
+                      {resetConfirmation.step === 1 && (
+                        <div className="space-y-3">
+                          <p className="text-gray-300 text-sm">
+                            Click below to start the reset process.
+                          </p>
                           <button
                             onClick={handleReset}
-                            disabled={isResetting}
-                            className="px-6 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                            className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition-colors text-sm"
                           >
-                            {isResetting ? (
-                              <>
-                                <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                                </svg>
-                                Resetting...
-                              </>
-                            ) : (
-                              'Reset Now'
-                            )}
+                            Factory Reset
                           </button>
                         </div>
-                      </div>
-                    )}
+                      )}
+
+                      {resetConfirmation.step === 2 && (
+                        <div className="space-y-3">
+                          <p className="text-gray-300 text-sm font-medium">
+                            Type <span className="text-red-400 font-bold">RESET</span> to confirm:
+                          </p>
+                          <input
+                            type="text"
+                            value={resetConfirmation.typedText}
+                            onChange={(e) => setResetConfirmation({ ...resetConfirmation, typedText: e.target.value })}
+                            placeholder="Type RESET here"
+                            className="w-full px-3 py-2 bg-gray-800 border-2 border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm"
+                            autoFocus
+                          />
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => setResetConfirmation({ step: 1, typedText: '' })}
+                              className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-white font-medium rounded-lg transition-colors text-sm"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              onClick={handleReset}
+                              disabled={resetConfirmation.typedText !== 'RESET'}
+                              className="px-4 py-1.5 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                            >
+                              Continue
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {resetConfirmation.step === 3 && (
+                        <div className="space-y-3">
+                          <div className="bg-yellow-900/20 border border-yellow-500/50 rounded-lg p-3">
+                            <p className="text-yellow-300 text-sm font-medium">Final Confirmation</p>
+                            <p className="text-yellow-200 text-xs mt-1">This will reset Onyx to factory settings permanently.</p>
+                          </div>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => setResetConfirmation({ step: 1, typedText: '' })}
+                              disabled={isResetting}
+                              className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-white font-medium rounded-lg transition-colors disabled:opacity-50 text-sm"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              onClick={handleReset}
+                              disabled={isResetting}
+                              className="px-4 py-1.5 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 text-sm"
+                            >
+                              {isResetting ? (
+                                <>
+                                  <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                  </svg>
+                                  Resetting...
+                                </>
+                              ) : (
+                                'Reset Now'
+                              )}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>

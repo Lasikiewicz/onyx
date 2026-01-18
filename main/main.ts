@@ -1511,6 +1511,63 @@ ipcMain.handle('gameStore:removeWinGDKGames', async () => {
   }
 });
 
+// Clear game library handler - clears only games and images
+ipcMain.handle('app:clearGameLibrary', async () => {
+  try {
+    console.log('[Reset] Starting game library clearance...');
+
+    // 1. Clear in-memory game store
+    await gameStore.clearLibrary();
+    console.log('[Reset] Game store cleared');
+
+    // 2. Clear cached images
+    await imageCacheService.clearCache();
+    console.log('[Reset] Image cache cleared');
+
+    // 3. Delete game library storage files
+    const { unlinkSync } = require('node:fs');
+    const userDataPath = app.getPath('userData');
+
+    const filesToClear = [
+      'game-library.json',
+      'game-library.json.bak',
+    ];
+
+    for (const fileName of filesToClear) {
+      const filePath = path.join(userDataPath, fileName);
+      if (existsSync(filePath)) {
+        try {
+          unlinkSync(filePath);
+          console.log(`[Reset] Deleted library file: ${fileName}`);
+        } catch (err) {
+          console.warn(`[Reset] Could not delete ${fileName}:`, err);
+        }
+      }
+    }
+
+    // 4. Also clear the custom image cache directory
+    try {
+      const { rmSync } = require('node:fs');
+      const customCacheDir = imageCacheService.getCacheDir();
+      if (existsSync(customCacheDir)) {
+        rmSync(customCacheDir, { recursive: true, force: true });
+        console.log(`[Reset] Deleted custom image cache: ${customCacheDir}`);
+      }
+    } catch (err) {
+      console.warn('[Reset] Could not delete custom image cache:', err);
+    }
+
+    // 5. Relaunch app to ensure clean state
+    app.relaunch();
+    app.exit(0);
+
+    return { success: true };
+  } catch (error) {
+    console.error('[Reset] Error clearing game library:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+});
+
 // Reset app handler - clears all data
 ipcMain.handle('app:reset', async () => {
   try {

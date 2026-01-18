@@ -1034,28 +1034,43 @@ export const GameManager: React.FC<GameManagerProps> = ({
         const currentSteamAppId = steamAppIdInput || (expandedGame?.id.startsWith('steam-') ? expandedGame.id.replace('steam-', '') : undefined);
 
         // Show all results from all sources - let user choose
-        // Prioritize Steam results, but show all available options
         const steamResults = response.results.filter((result: any) => result.source === 'steam');
         const otherResults = response.results.filter((result: any) => result.source !== 'steam');
 
         // Normalize query for matching
         const normalizedQuery = query.toLowerCase().trim();
 
-        // Sort Steam results: matching Steam App ID first, then exact name matches, then by release date
-        const sortedSteamResults = steamResults.sort((a, b) => {
+        // Fuzzy scoring function: returns 0-100
+        const getFuzzyScore = (title: string): number => {
+          const normalizedTitle = (title || '').toLowerCase().trim();
+          if (normalizedTitle === normalizedQuery) return 100; // Exact match
+          if (normalizedTitle.startsWith(normalizedQuery)) return 90; // Starts with
+          if (normalizedQuery.startsWith(normalizedTitle)) return 85; // Query starts with title
+          if (normalizedTitle.includes(normalizedQuery)) return 70; // Contains
+          if (normalizedQuery.includes(normalizedTitle)) return 65; // Query contains title
+
+          // Word overlap scoring
+          const queryWords = normalizedQuery.split(/\s+/).filter(w => w.length > 2);
+          const titleWords = normalizedTitle.split(/\s+/).filter(w => w.length > 2);
+          const matchingWords = queryWords.filter(qw =>
+            titleWords.some(tw => tw.includes(qw) || qw.includes(tw))
+          );
+          const overlapScore = (matchingWords.length / Math.max(queryWords.length, 1)) * 50;
+          return Math.max(overlapScore, 10); // Minimum score if no match
+        };
+
+        // Sort Steam results: matching Steam App ID first, then by fuzzy score, then by release date
+        const sortedSteamResults = steamResults.sort((a: any, b: any) => {
           // First priority: matching Steam App ID
           const aMatchesAppId = currentSteamAppId && a.steamAppId === currentSteamAppId;
           const bMatchesAppId = currentSteamAppId && b.steamAppId === currentSteamAppId;
           if (aMatchesAppId && !bMatchesAppId) return -1;
           if (!aMatchesAppId && bMatchesAppId) return 1;
 
-          // Second priority: exact name matches
-          const aName = (a.title || '').toLowerCase().trim();
-          const bName = (b.title || '').toLowerCase().trim();
-          const aExact = aName === normalizedQuery;
-          const bExact = bName === normalizedQuery;
-          if (aExact && !bExact) return -1;
-          if (!aExact && bExact) return 1;
+          // Second priority: fuzzy match score (higher is better)
+          const aScore = getFuzzyScore(a.title);
+          const bScore = getFuzzyScore(b.title);
+          if (aScore !== bScore) return bScore - aScore;
 
           // Third priority: release date (newest first)
           const getDate = (result: any): number => {
@@ -1080,15 +1095,14 @@ export const GameManager: React.FC<GameManagerProps> = ({
           return 0;
         });
 
-        // Sort other results: exact name matches first, then by source priority (IGDB > RAWG > SteamGridDB)
-        const sortedOtherResults = otherResults.sort((a, b) => {
-          // First priority: exact name matches
-          const aName = (a.title || (("name" in a ? (a as any).name : "") as string)).toLowerCase().trim();
-          const bName = (b.title || (("name" in b ? (b as any).name : "") as string)).toLowerCase().trim();
-          const aExact = aName === normalizedQuery;
-          const bExact = bName === normalizedQuery;
-          if (aExact && !bExact) return -1;
-          if (!aExact && bExact) return 1;
+        // Sort other results: by fuzzy score, then by source priority
+        const sortedOtherResults = otherResults.sort((a: any, b: any) => {
+          // First priority: fuzzy match score
+          const aName = a.title || ((a as any).name || '');
+          const bName = b.title || ((b as any).name || '');
+          const aScore = getFuzzyScore(aName);
+          const bScore = getFuzzyScore(bName);
+          if (aScore !== bScore) return bScore - aScore;
 
           // Second priority: source priority (IGDB > RAWG > SteamGridDB)
           const sourcePriority: Record<string, number> = {

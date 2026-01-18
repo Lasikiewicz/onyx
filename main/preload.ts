@@ -135,6 +135,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   closeWindow: () => ipcRenderer.invoke('app:closeWindow'),
   // App reset method
   resetApp: () => ipcRenderer.invoke('app:reset'),
+  clearGameLibrary: () => ipcRenderer.invoke('app:clearGameLibrary'),
   // Import service methods
   scanAllSources: () => ipcRenderer.invoke('import:scanAllSources'),
   scanFolder: (folderPath: string) => ipcRenderer.invoke('import:scanFolder', folderPath),

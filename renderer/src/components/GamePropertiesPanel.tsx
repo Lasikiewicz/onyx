@@ -1,6 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Game } from '../types/game';
 import { StagedGame } from '../types/importer';
+import {
+    EditableGameFields,
+    toEditableFields,
+    mergeIntoGame,
+    mergeIntoStagedGame
+} from '../types/EditableGame';
 
 interface GamePropertiesPanelProps {
     game: Game | StagedGame;
@@ -16,11 +22,15 @@ export const GamePropertiesPanel: React.FC<GamePropertiesPanelProps> = ({
     onSave,
     onCancel,
     onDelete,
-    allCategories = [],
+    allCategories: _allCategories = [],
     isStaged = false
 }) => {
     const [activeTab, setActiveTab] = useState<'metadata' | 'images' | 'modManager'>('metadata');
-    const [editedGame, setEditedGame] = useState<Game | StagedGame>(game);
+    const [editedFields, setEditedFields] = useState<EditableGameFields>(() => toEditableFields(game));
+
+    // Undo state: store previous state before Fix Match
+    const previousStateRef = useRef<EditableGameFields | null>(null);
+    const [canUndo, setCanUndo] = useState(false);
 
     // Metadata Search State
     const [showFixMatch, setShowFixMatch] = useState(false);
@@ -46,16 +56,29 @@ export const GamePropertiesPanel: React.FC<GamePropertiesPanelProps> = ({
     const [isSaving, setIsSaving] = useState(false);
 
     useEffect(() => {
-        setEditedGame(game);
+        setEditedFields(toEditableFields(game));
         // Reset transient states
         setShowFixMatch(false);
         setMetadataSearchResults([]);
         setError(null);
         setImageSearchQuery('');
+        setCanUndo(false);
+        previousStateRef.current = null;
     }, [game]);
 
-    const updateField = (field: string, value: any) => {
-        setEditedGame(prev => ({ ...prev, [field]: value }));
+    const updateField = <K extends keyof EditableGameFields>(field: K, value: EditableGameFields[K]) => {
+        setEditedFields(prev => ({ ...prev, [field]: value }));
+    };
+
+    // --- Undo ---
+    const handleUndo = () => {
+        if (previousStateRef.current) {
+            setEditedFields(previousStateRef.current);
+            previousStateRef.current = null;
+            setCanUndo(false);
+            setSuccess('Reverted to previous state');
+            setTimeout(() => setSuccess(null), 2000);
+        }
     };
 
     // --- Metadata Search ---
@@ -80,23 +103,24 @@ export const GamePropertiesPanel: React.FC<GamePropertiesPanelProps> = ({
     };
 
     const handleApplyMatch = async (result: any) => {
-        // For StagedGame, we just want the metadata values
-        // For Game, GameManager usually updates DB directly via fetchAndUpdateByProviderId
+        // Store current state for undo
+        previousStateRef.current = { ...editedFields };
 
         try {
-            if (!isStaged && 'id' in editedGame) {
+            if (!isStaged && 'id' in game) {
                 // Use existing API for real games
-                await window.electronAPI.fetchAndUpdateByProviderId(editedGame.id, result.id, result.source);
-                // We should probably reload the game prop or notify parent?
-                // The parent likely will reload the library and pass new game prop.
+                await window.electronAPI.fetchAndUpdateByProviderId((game as Game).id, result.id, result.source);
                 setSuccess("Match fixed!");
                 setShowFixMatch(false);
-                if (onSave) onSave(editedGame); // Trigger reload-ish behavior
+                setCanUndo(true);
+                // Trigger parent reload
+                const merged = mergeIntoGame(game as Game, editedFields);
+                if (onSave) onSave(merged);
             } else {
                 // For Staged / Import: Fetch Metadata and Apply to Local State
                 const metadata = await window.electronAPI.searchArtwork(result.title, result.steamAppId);
                 if (metadata) {
-                    setEditedGame(prev => ({
+                    setEditedFields(prev => ({
                         ...prev,
                         title: metadata.title || prev.title,
                         description: metadata.description || prev.description,
@@ -104,33 +128,34 @@ export const GamePropertiesPanel: React.FC<GamePropertiesPanelProps> = ({
                         genres: metadata.genres || prev.genres,
                         developers: metadata.developers || prev.developers,
                         publishers: metadata.publishers || prev.publishers,
+                        categories: metadata.categories || prev.categories,
                         boxArtUrl: metadata.boxArtUrl || prev.boxArtUrl,
                         bannerUrl: metadata.bannerUrl || prev.bannerUrl,
                         logoUrl: metadata.logoUrl || prev.logoUrl,
                         heroUrl: metadata.heroUrl || prev.heroUrl,
-                        rating: metadata.rating || prev.rating,
-                        platform: metadata.platform || (prev as any).platform
+                        iconUrl: metadata.iconUrl || prev.iconUrl,
                     }));
                     setShowFixMatch(false);
+                    setCanUndo(true);
                     setSuccess("Metadata applied!");
                 }
             }
         } catch (err) {
             setError("Failed to apply match");
+            previousStateRef.current = null;
         }
     };
 
     // --- Image Search ---
     const handleSearchImages = async (type: 'boxart' | 'banner' | 'logo' | 'icon') => {
-        const query = imageSearchQuery || editedGame.title;
+        const query = imageSearchQuery || editedFields.title;
         if (!query) return;
 
         setIsSearchingImages(true);
         setSteamGridDBResults(prev => ({ ...prev, [type]: [] }));
 
         try {
-            // Use searchImages which handles SGDB
-            const steamAppId = (editedGame as any).appId || (editedGame as any).steamAppId;
+            const steamAppId = (game as any).appId || (game as any).steamAppId;
             const response = await window.electronAPI.searchImages(query, type, steamAppId);
             if (response.success && response.images) {
                 const flattened = response.images.flatMap(r => r.images || []);
@@ -143,11 +168,14 @@ export const GamePropertiesPanel: React.FC<GamePropertiesPanelProps> = ({
         }
     };
 
-    const applyImage = (type: string, url: string) => {
-        if (type === 'boxart') updateField('boxArtUrl', url);
-        if (type === 'banner') updateField('bannerUrl', url);
-        if (type === 'logo') updateField('logoUrl', url);
-        if (type === 'icon') updateField('iconUrl', url);
+    const applyImage = (type: 'boxart' | 'banner' | 'logo' | 'icon', url: string) => {
+        const fieldMap = {
+            boxart: 'boxArtUrl',
+            banner: 'bannerUrl',
+            logo: 'logoUrl',
+            icon: 'iconUrl'
+        } as const;
+        updateField(fieldMap[type], url);
         setSuccess(`Applied ${type}`);
         setTimeout(() => setSuccess(null), 2000);
     };
@@ -156,7 +184,10 @@ export const GamePropertiesPanel: React.FC<GamePropertiesPanelProps> = ({
     const handleSave = async () => {
         setIsSaving(true);
         try {
-            await onSave(editedGame);
+            const merged = isStaged
+                ? mergeIntoStagedGame(game as StagedGame, editedFields)
+                : mergeIntoGame(game as Game, editedFields);
+            await onSave(merged);
             setSuccess("Saved successfully");
             setTimeout(() => setSuccess(null), 2000);
         } catch (err) {
@@ -170,14 +201,19 @@ export const GamePropertiesPanel: React.FC<GamePropertiesPanelProps> = ({
     const renderImageStrip = () => (
         <div className="flex gap-2 mb-6 items-start p-3 bg-gray-900/50 rounded-lg border border-gray-800 overflow-x-auto">
             {(['boxart', 'logo', 'banner', 'icon'] as const).map(type => {
-                const field = type === 'boxart' ? 'boxArtUrl' : type === 'logo' ? 'logoUrl' : type === 'banner' ? 'bannerUrl' : 'iconUrl';
-                const val = (editedGame as any)[field];
+                const fieldMap = { boxart: 'boxArtUrl', logo: 'logoUrl', banner: 'bannerUrl', icon: 'iconUrl' } as const;
+                const val = editedFields[fieldMap[type]];
                 const label = type.charAt(0).toUpperCase() + type.slice(1);
 
                 return (
                     <div
                         key={type}
-                        onClick={() => { setActiveTab('images'); setActiveImageSearchTab(type); setImageSearchQuery(editedGame.title); handleSearchImages(type); }}
+                        onClick={() => {
+                            setActiveTab('images');
+                            setActiveImageSearchTab(type);
+                            setImageSearchQuery(editedFields.title);
+                            handleSearchImages(type);
+                        }}
                         className={`relative group cursor-pointer border border-gray-700 rounded-lg overflow-hidden bg-gray-800 hover:border-green-500 transition-colors flex-shrink-0 ${type === 'banner' ? 'h-24 flex-1 min-w-[150px]' : type === 'logo' ? 'h-24 w-36' : 'h-24 w-auto aspect-[2/3]'}`}
                     >
                         {val ? (
@@ -213,17 +249,24 @@ export const GamePropertiesPanel: React.FC<GamePropertiesPanelProps> = ({
                         <div>
                             <div className="flex justify-between items-center mb-1">
                                 <label className="text-xs font-medium text-gray-400">Title</label>
-                                <button onClick={() => {
-                                    setShowFixMatch(!showFixMatch);
-                                    if (!showFixMatch) setMetadataSearchQuery(editedGame.title);
-                                }} className="text-xs text-blue-400 hover:text-blue-300">
-                                    {showFixMatch ? 'Cancel Fix' : 'Fix Match'}
-                                </button>
+                                <div className="flex gap-2">
+                                    {canUndo && (
+                                        <button onClick={handleUndo} className="text-xs text-yellow-400 hover:text-yellow-300">
+                                            Undo
+                                        </button>
+                                    )}
+                                    <button onClick={() => {
+                                        setShowFixMatch(!showFixMatch);
+                                        if (!showFixMatch) setMetadataSearchQuery(editedFields.title);
+                                    }} className="text-xs text-blue-400 hover:text-blue-300">
+                                        {showFixMatch ? 'Cancel Fix' : 'Fix Match'}
+                                    </button>
+                                </div>
                             </div>
                             {!showFixMatch ? (
                                 <input
                                     type="text"
-                                    value={editedGame.title}
+                                    value={editedFields.title}
                                     onChange={(e) => updateField('title', e.target.value)}
                                     className="w-full bg-gray-800 border border-gray-700 rounded p-2 text-sm focus:border-blue-500 focus:outline-none"
                                 />
@@ -259,7 +302,7 @@ export const GamePropertiesPanel: React.FC<GamePropertiesPanelProps> = ({
                         <div>
                             <label className="text-xs font-medium text-gray-400 mb-1 block">Description</label>
                             <textarea
-                                value={editedGame.description || ''}
+                                value={editedFields.description || ''}
                                 onChange={(e) => updateField('description', e.target.value)}
                                 className="w-full bg-gray-800 border border-gray-700 rounded p-2 text-sm min-h-[100px]"
                             />
@@ -269,10 +312,10 @@ export const GamePropertiesPanel: React.FC<GamePropertiesPanelProps> = ({
                         <div>
                             <label className="text-xs font-medium text-gray-400 mb-1 block">Categories</label>
                             <div className="flex flex-wrap gap-2 p-2 bg-gray-800 rounded border border-gray-700">
-                                {editedGame.categories?.map(cat => (
+                                {editedFields.categories?.map(cat => (
                                     <span key={cat} className="bg-blue-900/50 text-blue-200 px-2 py-0.5 rounded text-xs flex items-center gap-1 border border-blue-800">
                                         {cat}
-                                        <button onClick={() => updateField('categories', (editedGame.categories || []).filter(c => c !== cat))} className="hover:text-white">×</button>
+                                        <button onClick={() => updateField('categories', (editedFields.categories || []).filter(c => c !== cat))} className="hover:text-white">×</button>
                                     </span>
                                 ))}
                                 <input
@@ -282,8 +325,8 @@ export const GamePropertiesPanel: React.FC<GamePropertiesPanelProps> = ({
                                         if (e.key === 'Enter' && newCategoryInput.trim()) {
                                             e.preventDefault();
                                             const cat = newCategoryInput.trim();
-                                            if (!(editedGame.categories || []).includes(cat)) {
-                                                updateField('categories', [...(editedGame.categories || []), cat]);
+                                            if (!(editedFields.categories || []).includes(cat)) {
+                                                updateField('categories', [...(editedFields.categories || []), cat]);
                                             }
                                             setNewCategoryInput('');
                                         }
@@ -294,13 +337,21 @@ export const GamePropertiesPanel: React.FC<GamePropertiesPanelProps> = ({
                             </div>
                         </div>
 
+                        {/* Genres */}
+                        <div>
+                            <label className="text-xs font-medium text-gray-400 mb-1 block">Genres</label>
+                            <div className="text-sm text-gray-300 bg-gray-800 border border-gray-700 rounded p-2">
+                                {editedFields.genres?.join(', ') || <span className="text-gray-500 italic">None</span>}
+                            </div>
+                        </div>
+
                         {/* Grid Fields */}
                         <div className="grid grid-cols-2 gap-3">
                             <div>
                                 <label className="text-xs font-medium text-gray-400 mb-1 block">Release Date</label>
                                 <input
                                     type="text"
-                                    value={editedGame.releaseDate || ''}
+                                    value={editedFields.releaseDate || ''}
                                     onChange={(e) => updateField('releaseDate', e.target.value)}
                                     className="w-full bg-gray-800 border border-gray-700 rounded p-2 text-sm"
                                     placeholder="YYYY-MM-DD"
@@ -310,10 +361,26 @@ export const GamePropertiesPanel: React.FC<GamePropertiesPanelProps> = ({
                                 <label className="text-xs font-medium text-gray-400 mb-1 block">Age Rating</label>
                                 <input
                                     type="text"
-                                    value={editedGame.ageRating || ''}
+                                    value={editedFields.ageRating || ''}
                                     onChange={(e) => updateField('ageRating', e.target.value)}
                                     className="w-full bg-gray-800 border border-gray-700 rounded p-2 text-sm"
                                 />
+                            </div>
+                        </div>
+
+                        {/* Developers / Publishers */}
+                        <div className="grid grid-cols-2 gap-3">
+                            <div>
+                                <label className="text-xs font-medium text-gray-400 mb-1 block">Developers</label>
+                                <div className="text-sm text-gray-300 bg-gray-800 border border-gray-700 rounded p-2 truncate">
+                                    {editedFields.developers?.join(', ') || <span className="text-gray-500 italic">Unknown</span>}
+                                </div>
+                            </div>
+                            <div>
+                                <label className="text-xs font-medium text-gray-400 mb-1 block">Publishers</label>
+                                <div className="text-sm text-gray-300 bg-gray-800 border border-gray-700 rounded p-2 truncate">
+                                    {editedFields.publishers?.join(', ') || <span className="text-gray-500 italic">Unknown</span>}
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -346,7 +413,7 @@ export const GamePropertiesPanel: React.FC<GamePropertiesPanelProps> = ({
                         <div className="grid grid-cols-3 gap-2">
                             {steamGridDBResults[activeImageSearchTab]?.map((img, idx) => (
                                 <div key={idx} onClick={() => applyImage(activeImageSearchTab, img.url)} className="aspect-square relative group bg-gray-800 rounded border border-gray-700 cursor-pointer overflow-hidden">
-                                    <img src={img.url} className="w-full h-full object-contain p-1" />
+                                    <img src={img.url} className="w-full h-full object-contain p-1" alt="" />
                                     <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-all">
                                         <span className="text-white text-xs font-bold bg-black/50 px-2 py-1 rounded">Apply</span>
                                     </div>
@@ -366,9 +433,13 @@ export const GamePropertiesPanel: React.FC<GamePropertiesPanelProps> = ({
                             <label className="text-xs font-medium text-gray-400 mb-1 block">Mod Manager URL</label>
                             <input
                                 type="text"
-                                value={(editedGame as Game).modManagerUrl || ''}
-                                onChange={(e) => updateField('modManagerUrl', e.target.value)}
+                                value={(game as Game).modManagerUrl || ''}
+                                onChange={() => {
+                                    // Mod manager is on the original game, not editable fields
+                                    // This would need special handling if we want to edit it
+                                }}
                                 className="w-full bg-gray-800 border border-gray-700 rounded p-2 text-sm"
+                                placeholder="https://..."
                             />
                         </div>
                     </div>
@@ -382,6 +453,11 @@ export const GamePropertiesPanel: React.FC<GamePropertiesPanelProps> = ({
                     {success && <span className="text-green-400 text-xs">{success}</span>}
                 </div>
                 <div className="flex gap-2">
+                    {onDelete && !isStaged && (
+                        <button onClick={onDelete} className="px-3 py-1.5 bg-red-900/50 hover:bg-red-800 text-red-300 text-sm rounded border border-red-800">
+                            Delete
+                        </button>
+                    )}
                     {onCancel && <button onClick={onCancel} className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-white text-sm rounded">Cancel</button>}
                     <button onClick={handleSave} disabled={isSaving} className="px-4 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded shadow-lg transition-all disabled:opacity-50">
                         {isSaving ? 'Saving...' : 'Save Changes'}
