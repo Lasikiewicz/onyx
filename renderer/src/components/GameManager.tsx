@@ -93,6 +93,16 @@ export const GameManager: React.FC<GameManagerProps> = ({
   const [fastSearchResults, setFastSearchResults] = useState<FastSearchGame[]>([]);
   const [selectedFastGame, setSelectedFastGame] = useState<FastSearchGame | null>(null);
   const [showGameListThumbnails, setShowGameListThumbnails] = useState(true);
+  const [newCategoryInput, setNewCategoryInput] = useState('');
+
+  // Get all unique categories from all games for suggestions
+  const allCategories = useMemo(() => {
+    const categories = new Set<string>();
+    games.forEach(game => {
+      game.categories?.forEach(cat => categories.add(cat));
+    });
+    return Array.from(categories).sort();
+  }, [games]);
 
   // Helper function to handle refresh with continuation support
   const handleRefreshMetadata = async (mode: 'all' | 'missing', continueFromIndex: number = 0) => {
@@ -882,6 +892,13 @@ export const GameManager: React.FC<GameManagerProps> = ({
       setSelectedFastGame(null);
       setShowImageSearch(null);
 
+      // Reset Fix Match state
+      setShowFixMatch(false);
+      setMetadataSearchResults([]);
+      setMetadataSearchQuery('');
+      setIsSearchingMetadata(false);
+      setSteamAppIdInput((game.id.startsWith('steam-') ? game.id.replace('steam-', '') : ''));
+
       // Update localGames if game was found in games prop but not localGames
       if (!localGames.find(g => g.id === gameId)) {
         setLocalGames(prevGames => [...prevGames, game]);
@@ -1256,7 +1273,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-[5vh]">
-      <div className="w-[90vw] h-[90vh] bg-gray-900 border border-gray-700 rounded-xl shadow-2xl flex flex-col overflow-hidden">
+      <div className="w-[90vw] h-[90vh] bg-gray-900 border border-gray-700 rounded-xl shadow-2xl flex flex-col overflow-hidden relative">
         {/* Header */}
         <div className="h-[60px] flex items-center justify-between px-6 border-b border-gray-800 bg-gray-900/50">
           <h2 className="text-xl font-semibold text-white">
@@ -1285,16 +1302,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
         </div>
 
         {/* Error/Success Messages */}
-        {error && !error.includes('Steam account not linked') && (
-          <div className="mx-6 mt-4 bg-red-900/20 border border-red-500 rounded p-3 text-red-300 text-sm">
-            {error}
-          </div>
-        )}
-        {success && (
-          <div className="mx-6 mt-4 bg-green-900/20 border border-green-500 rounded p-3 text-green-300 text-sm">
-            {success}
-          </div>
-        )}
+        {/* Notifications moved to bottom */}
 
         {/* Main Content */}
         <div className="flex-1 flex overflow-hidden">
@@ -1976,196 +1984,300 @@ export const GameManager: React.FC<GameManagerProps> = ({
                   )}
 
                   {activeTab === 'metadata' && (
-                    <div className="p-4">
-                      <div className="space-y-4">
-                        {/* Steam App ID */}
-                        <div>
-                          <label className="block text-xs font-medium text-gray-400 mb-1">Steam App ID</label>
-                          <div className="flex gap-2">
-                            <input
-                              type="text"
-                              value={steamAppIdInput}
-                              onChange={(e) => {
-                                // Only update the input value - don't update game ID yet
-                                setSteamAppIdInput(e.target.value);
-                              }}
-                              onBlur={(e) => {
-                                setIsSteamAppIdInputFocused(false);
-                                // Update game ID when user finishes typing
-                                const value = e.target.value.trim();
-                                if (value && /^\d+$/.test(value)) {
-                                  const newGameId = `steam-${value}`;
-                                  setEditedGame({
-                                    ...editedGame,
-                                    id: newGameId,
-                                    platform: 'steam'
-                                  });
-                                } else if (value === '') {
-                                  // If cleared, convert to custom game ID
-                                  const newGameId = `custom-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-                                  setEditedGame({
-                                    ...editedGame,
-                                    id: newGameId,
-                                    platform: editedGame.platform === 'steam' ? 'other' : editedGame.platform
-                                  });
-                                }
-                              }}
-                              onFocus={() => {
-                                setIsSteamAppIdInputFocused(true);
-                              }}
-                              onKeyDown={(e) => {
-                                // Update game ID when user presses Enter
-                                if (e.key === 'Enter') {
-                                  e.currentTarget.blur(); // This will trigger onBlur
-                                }
-                              }}
-                              placeholder="Enter Steam App ID or search by game name"
-                              className="flex-1 px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    <div className="p-4 h-full overflow-y-auto">
+                      {/* Image Preview Strip - Copied from Images Tab */}
+                      <div className="flex gap-2 mb-6 items-start p-3 bg-gray-900/50 rounded-lg border border-gray-800">
+                        {/* Boxart */}
+                        <div
+                          onClick={() => {
+                            setActiveTab('images');
+                            setShowImageSearch({ type: 'boxart', gameId: selectedGame.id });
+                            setActiveImageSearchTab('boxart');
+                            setImageSearchQuery(selectedGame.title);
+                          }}
+                          className="h-24 w-auto aspect-[2/3] relative group cursor-pointer border border-gray-700 rounded-lg overflow-hidden bg-gray-800 hover:border-green-500 transition-colors flex-shrink-0"
+                        >
+                          {(editedGame.boxArtUrl || selectedGame.boxArtUrl) ? (
+                            <img
+                              src={editedGame.boxArtUrl || selectedGame.boxArtUrl}
+                              alt="Boxart"
+                              className="w-full h-full object-cover"
                             />
-                            <button
-                              onClick={() => {
-                                window.electronAPI.openExternal(`https://steamdb.info/search/?q=${encodeURIComponent(editedGame.title)}`);
-                              }}
-                              className="px-4 py-1.5 text-sm bg-purple-600 hover:bg-purple-700 text-white rounded transition-colors flex items-center gap-2"
-                              title="Search on steamdb.info"
-                            >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                              </svg>
-                              SteamDB
-                            </button>
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center">
+                              <span className="text-[8px] text-gray-600 text-center p-1">Boxart</span>
+                            </div>
+                          )}
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                            <span className="text-[10px] text-white font-medium">Edit</span>
                           </div>
-                          <p className="mt-1 text-xs text-gray-500">
-                            Steam App ID is used as the primary source for all images and text metadata. Use the "Fix Match" button below to search for games and automatically set the App ID.
-                          </p>
                         </div>
 
-                        {/* Title Row with Fix Match */}
-                        <div>
-                          <label className="block text-xs font-medium text-gray-400 mb-1">Title</label>
-                          <div className="flex gap-2">
-                            <input
-                              type="text"
-                              value={showFixMatch ? metadataSearchQuery : editedGame.title}
-                              onChange={(e) => {
-                                if (showFixMatch) {
-                                  setMetadataSearchQuery(e.target.value);
-                                } else {
-                                  setEditedGame({ ...editedGame, title: e.target.value });
-                                }
-                              }}
-                              onKeyDown={(e) => {
-                                if (showFixMatch && e.key === 'Enter') {
-                                  handleFixMatchSearch();
-                                }
-                              }}
-                              placeholder={showFixMatch ? "Enter game title to search..." : ""}
-                              className="flex-1 px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                              disabled={showFixMatch && isSearchingMetadata}
+                        {/* Logo */}
+                        <div
+                          onClick={() => {
+                            setActiveTab('images');
+                            setShowImageSearch({ type: 'logo', gameId: selectedGame.id });
+                            setActiveImageSearchTab('logo');
+                            setImageSearchQuery(selectedGame.title);
+                          }}
+                          className="h-24 w-36 relative group cursor-pointer border border-gray-700 rounded-lg overflow-hidden bg-gray-800 hover:border-green-500 transition-colors flex-shrink-0"
+                        >
+                          {(editedGame.logoUrl || selectedGame.logoUrl) ? (
+                            <div className="w-full h-full p-2 flex items-center justify-center">
+                              <img
+                                src={editedGame.logoUrl || selectedGame.logoUrl}
+                                alt="Logo"
+                                className="max-w-full max-h-full object-contain"
+                              />
+                            </div>
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center p-2">
+                              <span className="text-[8px] text-gray-600">Logo</span>
+                            </div>
+                          )}
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                            <span className="text-[10px] text-white font-medium">Edit</span>
+                          </div>
+                        </div>
+
+                        {/* Banner */}
+                        <div
+                          onClick={() => {
+                            setActiveTab('images');
+                            setShowImageSearch({ type: 'banner', gameId: selectedGame.id });
+                            setActiveImageSearchTab('banner');
+                            setImageSearchQuery(selectedGame.title);
+                          }}
+                          className="h-24 flex-1 relative group cursor-pointer border border-gray-700 rounded-lg overflow-hidden bg-gray-800 hover:border-green-500 transition-colors"
+                        >
+                          {(editedGame.bannerUrl || selectedGame.bannerUrl) ? (
+                            <img
+                              src={editedGame.bannerUrl || selectedGame.bannerUrl}
+                              alt="Banner"
+                              className="w-full h-full object-cover"
                             />
-                            {showFixMatch && (
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center">
+                              <span className="text-[8px] text-gray-600">Banner</span>
+                            </div>
+                          )}
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                            <span className="text-[10px] text-white font-medium">Edit</span>
+                          </div>
+                        </div>
+
+                        {/* Icon */}
+                        <div
+                          onClick={() => {
+                            setActiveTab('images');
+                            setShowImageSearch({ type: 'icon', gameId: selectedGame.id });
+                            setActiveImageSearchTab('icon');
+                            setImageSearchQuery(selectedGame.title);
+                          }}
+                          className="h-24 w-24 relative group cursor-pointer border border-gray-700 rounded-lg overflow-hidden bg-gray-800 hover:border-green-500 transition-colors flex-shrink-0"
+                        >
+                          {(editedGame.iconUrl || selectedGame.iconUrl) ? (
+                            <div className="w-full h-full p-2 flex items-center justify-center">
+                              <img
+                                src={editedGame.iconUrl || selectedGame.iconUrl}
+                                alt="Icon"
+                                className="max-w-full max-h-full object-contain"
+                              />
+                            </div>
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-center p-1">
+                              <span className="text-[8px] text-gray-600">Icon</span>
+                            </div>
+                          )}
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                            <span className="text-[10px] text-white font-medium">Edit</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="space-y-4">
+                        <div className="flex flex-col lg:flex-row gap-4">
+                          {/* Title Row with Fix Match */}
+                          <div className="flex-1">
+                            <label className="block text-xs font-medium text-gray-400 mb-1">Title</label>
+                            <div className="flex gap-2">
+                              <input
+                                type="text"
+                                value={showFixMatch ? metadataSearchQuery : editedGame.title}
+                                onChange={(e) => {
+                                  if (showFixMatch) {
+                                    setMetadataSearchQuery(e.target.value);
+                                  } else {
+                                    setEditedGame({ ...editedGame, title: e.target.value });
+                                  }
+                                }}
+                                onKeyDown={(e) => {
+                                  if (showFixMatch && e.key === 'Enter') {
+                                    handleFixMatchSearch();
+                                  }
+                                }}
+                                placeholder={showFixMatch ? "Enter game title to search..." : ""}
+                                className="flex-1 px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                disabled={showFixMatch && isSearchingMetadata}
+                              />
+                              {showFixMatch && (
+                                <button
+                                  onClick={handleFixMatchSearch}
+                                  disabled={isSearchingMetadata}
+                                  className="px-4 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors disabled:opacity-50 flex items-center gap-2"
+                                >
+                                  {isSearchingMetadata ? (
+                                    <>
+                                      <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                      </svg>
+                                      Searching...
+                                    </>
+                                  ) : (
+                                    'Search'
+                                  )}
+                                </button>
+                              )}
                               <button
-                                onClick={handleFixMatchSearch}
-                                disabled={isSearchingMetadata}
-                                className="px-4 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors disabled:opacity-50 flex items-center gap-2"
-                              >
-                                {isSearchingMetadata ? (
-                                  <>
-                                    <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-                                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                                    </svg>
-                                    Searching...
-                                  </>
-                                ) : (
-                                  'Search'
-                                )}
-                              </button>
-                            )}
-                            <button
-                              onClick={async () => {
-                                const wasHidden = !showFixMatch;
-                                setShowFixMatch(!showFixMatch);
-                                if (wasHidden) {
-                                  // When opening, set search query to current title and auto-search
-                                  setMetadataSearchQuery(editedGame.title || selectedGame.title);
-                                  const query = editedGame.title || selectedGame.title;
-                                  if (query) {
-                                    setIsSearchingMetadata(true);
-                                    setMetadataSearchResults([]);
-                                    try {
-                                      const response = await window.electronAPI.searchGames(query);
-                                      if (response.success && response.results) {
-                                        // Filter to show only Steam Store API results
-                                        const steamResults = response.results.filter((result: any) => result.source === 'steam');
+                                onClick={async () => {
+                                  const wasHidden = !showFixMatch;
+                                  setShowFixMatch(!showFixMatch);
+                                  if (wasHidden) {
+                                    // When opening, set search query to current title and auto-search
+                                    setMetadataSearchQuery(editedGame.title || selectedGame.title);
+                                    const query = editedGame.title || selectedGame.title;
+                                    if (query) {
+                                      setIsSearchingMetadata(true);
+                                      setMetadataSearchResults([]);
+                                      try {
+                                        const response = await window.electronAPI.searchGames(query);
+                                        if (response.success && response.results) {
+                                          // Filter to show only Steam Store API results
+                                          const steamResults = response.results.filter((result: any) => result.source === 'steam');
 
-                                        if (steamResults.length === 0) {
-                                          setError('No Steam Store API results found. Make sure the game is available on Steam.');
-                                          setMetadataSearchResults([]);
-                                          setIsSearchingMetadata(false);
-                                          return;
-                                        }
-
-                                        // Debug: Log first result to check for boxArtUrl
-                                        if (steamResults.length > 0) {
-                                          console.log('First Steam result (Fix Match button):', steamResults[0]);
-                                          console.log('Has boxArtUrl:', !!(steamResults[0] as any).boxArtUrl);
-                                        }
-
-                                        // Sort results: newest release first, then exact matches
-                                        const normalizedQuery = query.toLowerCase().trim();
-                                        const sortedResults = steamResults.sort((a: any, b: any) => {
-                                          // First, sort by release date (newest first)
-                                          const getDate = (result: any): number => {
-                                            if (result.releaseDate) {
-                                              if (typeof result.releaseDate === 'number') {
-                                                return result.releaseDate * 1000; // Convert Unix timestamp (seconds) to milliseconds
-                                              }
-                                              return new Date(result.releaseDate).getTime();
-                                            }
-                                            if (result.year) {
-                                              return new Date(result.year, 0, 1).getTime();
-                                            }
-                                            return 0;
-                                          };
-
-                                          const aDate = getDate(a);
-                                          const bDate = getDate(b);
-                                          if (aDate !== bDate && aDate > 0 && bDate > 0) {
-                                            return bDate - aDate; // Newest first
+                                          if (steamResults.length === 0) {
+                                            setError('No Steam Store API results found. Make sure the game is available on Steam.');
+                                            setMetadataSearchResults([]);
+                                            setIsSearchingMetadata(false);
+                                            return;
                                           }
 
-                                          // Then prioritize exact matches
-                                          const aName = (a.title || (("name" in a ? (a as any).name : "") as string)).toLowerCase().trim();
-                                          const bName = (b.title || (("name" in b ? (b as any).name : "") as string)).toLowerCase().trim();
-                                          const aExact = aName === normalizedQuery;
-                                          const bExact = bName === normalizedQuery;
-                                          if (aExact && !bExact) return -1;
-                                          if (!aExact && bExact) return 1;
+                                          // Sort results: newest release first, then exact matches
+                                          const normalizedQuery = query.toLowerCase().trim();
+                                          const sortedResults = steamResults.sort((a: any, b: any) => {
+                                            // First, sort by release date (newest first)
+                                            const getDate = (result: any): number => {
+                                              if (result.releaseDate) {
+                                                if (typeof result.releaseDate === 'number') {
+                                                  return result.releaseDate * 1000;
+                                                }
+                                                return new Date(result.releaseDate).getTime();
+                                              }
+                                              if (result.year) {
+                                                return new Date(result.year, 0, 1).getTime();
+                                              }
+                                              return 0;
+                                            };
 
-                                          return 0;
-                                        });
-                                        setMetadataSearchResults(sortedResults);
+                                            const aDate = getDate(a);
+                                            const bDate = getDate(b);
+                                            if (aDate !== bDate && aDate > 0 && bDate > 0) {
+                                              return bDate - aDate; // Newest first
+                                            }
+
+                                            // Then prioritize exact matches
+                                            const aName = (a.title || (("name" in a ? (a as any).name : "") as string)).toLowerCase().trim();
+                                            const bName = (b.title || (("name" in b ? (b as any).name : "") as string)).toLowerCase().trim();
+                                            const aExact = aName === normalizedQuery;
+                                            const bExact = bName === normalizedQuery;
+                                            if (aExact && !bExact) return -1;
+                                            if (!aExact && bExact) return 1;
+
+                                            return 0;
+                                          });
+                                          setMetadataSearchResults(sortedResults);
+                                        }
+                                      } catch (err) {
+                                        console.error('Error searching metadata:', err);
+                                      } finally {
+                                        setIsSearchingMetadata(false);
                                       }
-                                    } catch (err) {
-                                      console.error('Error searching metadata:', err);
-                                    } finally {
-                                      setIsSearchingMetadata(false);
                                     }
+                                  } else {
+                                    // When hiding, clear search results
+                                    setMetadataSearchResults([]);
+                                    setMetadataSearchQuery('');
                                   }
-                                } else {
-                                  // When hiding, clear search results
-                                  setMetadataSearchResults([]);
-                                  setMetadataSearchQuery('');
-                                }
-                              }}
-                              className="px-3 py-1.5 text-sm bg-purple-600 hover:bg-purple-700 text-white rounded transition-colors flex items-center gap-1.5"
-                            >
-                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                              </svg>
-                              {showFixMatch ? 'Hide' : 'Fix Match'}
-                            </button>
+                                }}
+                                className="px-3 py-1.5 text-sm bg-purple-600 hover:bg-purple-700 text-white rounded transition-colors flex items-center gap-1.5"
+                              >
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                </svg>
+                                {showFixMatch ? 'Hide' : 'Fix Match'}
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Steam App ID */}
+                          <div className="w-full lg:w-1/3">
+                            <label className="block text-xs font-medium text-gray-400 mb-1">Steam App ID</label>
+                            <div className="flex gap-2">
+                              <input
+                                type="text"
+                                value={steamAppIdInput}
+                                onChange={(e) => {
+                                  // Only update the input value - don't update game ID yet
+                                  setSteamAppIdInput(e.target.value);
+                                }}
+                                onBlur={(e) => {
+                                  setIsSteamAppIdInputFocused(false);
+                                  // Update game ID when user finishes typing
+                                  const value = e.target.value.trim();
+                                  if (value && /^\d+$/.test(value)) {
+                                    const newGameId = `steam-${value}`;
+                                    setEditedGame({
+                                      ...editedGame,
+                                      id: newGameId,
+                                      platform: 'steam'
+                                    });
+                                  } else if (value === '') {
+                                    // If cleared, convert to custom game ID
+                                    const newGameId = `custom-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+                                    setEditedGame({
+                                      ...editedGame,
+                                      id: newGameId,
+                                      platform: editedGame.platform === 'steam' ? 'other' : editedGame.platform
+                                    });
+                                  }
+                                }}
+                                onFocus={() => {
+                                  setIsSteamAppIdInputFocused(true);
+                                }}
+                                onKeyDown={(e) => {
+                                  // Update game ID when user presses Enter
+                                  if (e.key === 'Enter') {
+                                    e.currentTarget.blur(); // This will trigger onBlur
+                                  }
+                                }}
+                                placeholder="Steam App ID"
+                                className="flex-1 px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                              />
+                              <button
+                                onClick={() => {
+                                  window.electronAPI.openExternal(`https://steamdb.info/search/?q=${encodeURIComponent(editedGame.title)}`);
+                                }}
+                                className="px-4 py-1.5 text-sm bg-purple-600 hover:bg-purple-700 text-white rounded transition-colors flex items-center gap-2"
+                                title="Search on steamdb.info"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                </svg>
+                                SteamDB
+                              </button>
+                            </div>
                           </div>
                         </div>
 
@@ -2247,7 +2359,83 @@ export const GameManager: React.FC<GameManagerProps> = ({
                           </div>
                         )}
 
-                        {/* Description - moved below Fix Match results */}
+                        {/* Categories - refined single line layout */}
+                        <div>
+                          <label className="block text-xs font-medium text-gray-400 mb-1">Categories</label>
+                          <div className="flex items-center gap-2">
+                            {/* Input Area (Tags + Input) */}
+                            <div className="flex-1 flex items-center gap-2 p-1.5 bg-gray-800/50 rounded border border-gray-700 overflow-x-auto whitespace-nowrap min-h-[38px] scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent">
+                              {/* Existing Tags */}
+                              {editedGame.categories?.map((category, index) => (
+                                <span key={index} className="flex-shrink-0 inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-medium bg-blue-900/30 text-blue-200 border border-blue-700/30 rounded-full group hover:border-blue-500/50 transition-colors">
+                                  {category}
+                                  <button
+                                    onClick={() => {
+                                      const newCategories = [...(editedGame.categories || [])];
+                                      newCategories.splice(index, 1);
+                                      setEditedGame({ ...editedGame, categories: newCategories });
+                                    }}
+                                    className="ml-0.5 text-blue-400 hover:text-white focus:outline-none rounded-full p-0.5 hover:bg-blue-800/50 transition-colors"
+                                    title="Remove category"
+                                  >
+                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                  </button>
+                                </span>
+                              ))}
+
+                              {/* Input Field */}
+                              <input
+                                type="text"
+                                value={newCategoryInput}
+                                onChange={(e) => setNewCategoryInput(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    if (newCategoryInput.trim()) {
+                                      const currentCategories = editedGame.categories || [];
+                                      const newCat = newCategoryInput.trim();
+                                      if (!currentCategories.includes(newCat)) {
+                                        setEditedGame({
+                                          ...editedGame,
+                                          categories: [...currentCategories, newCat]
+                                        });
+                                        setNewCategoryInput('');
+                                      }
+                                    }
+                                  }
+                                }}
+                                placeholder={(!editedGame.categories || editedGame.categories.length === 0) ? "Add category..." : ""}
+                                className="min-w-[100px] flex-1 bg-transparent border-none text-sm text-white focus:outline-none placeholder-gray-500 py-0.5"
+                              />
+                            </div>
+
+                            {/* Suggestions - Right Side */}
+                            <div className="flex items-center gap-2 max-w-[30%] overflow-x-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent py-1">
+                              {allCategories
+                                .filter(cat => !editedGame.categories?.includes(cat))
+                                .slice(0, 5) // Show top 5 unused categories
+                                .map((cat, idx) => (
+                                  <button
+                                    key={idx}
+                                    onClick={() => {
+                                      const currentCategories = editedGame.categories || [];
+                                      setEditedGame({
+                                        ...editedGame,
+                                        categories: [...currentCategories, cat]
+                                      });
+                                    }}
+                                    className="flex-shrink-0 px-2.5 py-1 text-xs font-medium bg-gray-700/50 hover:bg-gray-600 text-gray-300 border border-gray-600 rounded-full transition-colors whitespace-nowrap"
+                                  >
+                                    + {cat}
+                                  </button>
+                                ))}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Description */}
                         <div>
                           <label className="block text-xs font-medium text-gray-400 mb-1">Description</label>
                           <textarea
@@ -2258,282 +2446,195 @@ export const GameManager: React.FC<GameManagerProps> = ({
                           />
                         </div>
 
-                        {/* Platform - only if filled */}
-                        {editedGame.platform && editedGame.platform !== 'other' && (
+                        {/* Metadata Grid - 4 Columns */}
+                        <div className="grid grid-cols-4 gap-3">
+                          {/* Platform */}
+                          {editedGame.platform && editedGame.platform !== 'other' && (
+                            <div>
+                              <label className="block text-xs font-medium text-gray-400 mb-1">Platform</label>
+                              <input
+                                type="text"
+                                value={editedGame.platform}
+                                onChange={(e) => setEditedGame({ ...editedGame, platform: e.target.value })}
+                                className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                              />
+                            </div>
+                          )}
+
                           <div>
-                            <label className="block text-xs font-medium text-gray-400 mb-1">Platform</label>
+                            <label className="block text-xs font-medium text-gray-400 mb-1">Release Date</label>
                             <input
                               type="text"
-                              value={editedGame.platform}
-                              onChange={(e) => setEditedGame({ ...editedGame, platform: e.target.value })}
+                              value={editedGame.releaseDate || ''}
+                              onChange={(e) => setEditedGame({ ...editedGame, releaseDate: e.target.value })}
+                              placeholder="YYYY-MM-DD"
                               className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
                             />
                           </div>
-                        )}
-
-                        {/* Metadata Rows - only show if any field in row has value */}
-                        {((editedGame.releaseDate) || (editedGame.ageRating) || (editedGame.series)) && (
-                          <div className="grid grid-cols-3 gap-3">
-                            {editedGame.releaseDate && (
-                              <div>
-                                <label className="block text-xs font-medium text-gray-400 mb-1">Release Date</label>
-                                <input
-                                  type="text"
-                                  value={editedGame.releaseDate}
-                                  onChange={(e) => setEditedGame({ ...editedGame, releaseDate: e.target.value })}
-                                  className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                />
-                              </div>
-                            )}
-                            {editedGame.ageRating && (
-                              <div>
-                                <label className="block text-xs font-medium text-gray-400 mb-1">Age Rating</label>
-                                <input
-                                  type="text"
-                                  value={editedGame.ageRating}
-                                  onChange={(e) => setEditedGame({ ...editedGame, ageRating: e.target.value })}
-                                  className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                />
-                              </div>
-                            )}
-                            {editedGame.series && (
-                              <div>
-                                <label className="block text-xs font-medium text-gray-400 mb-1">Series</label>
-                                <input
-                                  type="text"
-                                  value={editedGame.series}
-                                  onChange={(e) => setEditedGame({ ...editedGame, series: e.target.value })}
-                                  className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                />
-                              </div>
-                            )}
-                          </div>
-                        )}
-
-                        {/* Genres, Developers, Publishers - only if filled */}
-                        {((editedGame.genres && editedGame.genres.length > 0) || (editedGame.developers && editedGame.developers.length > 0) || (editedGame.publishers && editedGame.publishers.length > 0)) && (
-                          <div className="grid grid-cols-3 gap-3">
-                            {editedGame.genres && editedGame.genres.length > 0 && (
-                              <div>
-                                <label className="block text-xs font-medium text-gray-400 mb-1">Genres</label>
-                                <input
-                                  type="text"
-                                  value={editedGame.genres.join(', ')}
-                                  onChange={(e) => setEditedGame({ ...editedGame, genres: e.target.value.split(',').map(g => g.trim()).filter(g => g) })}
-                                  className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                />
-                              </div>
-                            )}
-                            {editedGame.developers && editedGame.developers.length > 0 && (
-                              <div>
-                                <label className="block text-xs font-medium text-gray-400 mb-1">Developers</label>
-                                <input
-                                  type="text"
-                                  value={editedGame.developers.join(', ')}
-                                  onChange={(e) => setEditedGame({ ...editedGame, developers: e.target.value.split(',').map(d => d.trim()).filter(d => d) })}
-                                  className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                />
-                              </div>
-                            )}
-                            {editedGame.publishers && editedGame.publishers.length > 0 && (
-                              <div>
-                                <label className="block text-xs font-medium text-gray-400 mb-1">Publishers</label>
-                                <input
-                                  type="text"
-                                  value={editedGame.publishers.join(', ')}
-                                  onChange={(e) => setEditedGame({ ...editedGame, publishers: e.target.value.split(',').map(p => p.trim()).filter(p => p) })}
-                                  className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                />
-                              </div>
-                            )}
-                          </div>
-                        )}
-
-                        {/* Categories, Tags, Region - only if filled */}
-                        {((editedGame.categories && editedGame.categories.length > 0) || (editedGame.tags && editedGame.tags.length > 0) || editedGame.region) && (
-                          <div className="grid grid-cols-3 gap-3">
-                            {editedGame.categories && editedGame.categories.length > 0 && (
-                              <div>
-                                <label className="block text-xs font-medium text-gray-400 mb-1">Categories</label>
-                                <input
-                                  type="text"
-                                  value={editedGame.categories.join(', ')}
-                                  onChange={(e) => setEditedGame({ ...editedGame, categories: e.target.value.split(',').map(c => c.trim()).filter(c => c) })}
-                                  className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                />
-                              </div>
-                            )}
-                            {editedGame.tags && editedGame.tags.length > 0 && (
-                              <div>
-                                <label className="block text-xs font-medium text-gray-400 mb-1">Tags</label>
-                                <input
-                                  type="text"
-                                  value={editedGame.tags.join(', ')}
-                                  onChange={(e) => setEditedGame({ ...editedGame, tags: e.target.value.split(',').map(t => t.trim()).filter(t => t) })}
-                                  className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                />
-                              </div>
-                            )}
-                            {editedGame.region && (
-                              <div>
-                                <label className="block text-xs font-medium text-gray-400 mb-1">Region</label>
-                                <input
-                                  type="text"
-                                  value={editedGame.region}
-                                  onChange={(e) => setEditedGame({ ...editedGame, region: e.target.value })}
-                                  className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                />
-                              </div>
-                            )}
-                          </div>
-                        )}
-
-                        {/* Scores - only if any score exists */}
-                        {((editedGame.userScore !== undefined && editedGame.userScore !== null) || (editedGame.criticScore !== undefined && editedGame.criticScore !== null) || (editedGame.communityScore !== undefined && editedGame.communityScore !== null)) && (
-                          <div className="grid grid-cols-3 gap-3">
-                            {editedGame.userScore !== undefined && editedGame.userScore !== null && (
-                              <div>
-                                <label className="block text-xs font-medium text-gray-400 mb-1">User Score</label>
-                                <input
-                                  type="number"
-                                  value={editedGame.userScore}
-                                  onChange={(e) => setEditedGame({ ...editedGame, userScore: e.target.value ? Number(e.target.value) : undefined })}
-                                  className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                />
-                              </div>
-                            )}
-                            {editedGame.criticScore !== undefined && editedGame.criticScore !== null && (
-                              <div>
-                                <label className="block text-xs font-medium text-gray-400 mb-1">Critic Score</label>
-                                <input
-                                  type="number"
-                                  value={editedGame.criticScore}
-                                  onChange={(e) => setEditedGame({ ...editedGame, criticScore: e.target.value ? Number(e.target.value) : undefined })}
-                                  className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                />
-                              </div>
-                            )}
-                            {editedGame.communityScore !== undefined && editedGame.communityScore !== null && (
-                              <div>
-                                <label className="block text-xs font-medium text-gray-400 mb-1">Community Score</label>
-                                <input
-                                  type="number"
-                                  value={editedGame.communityScore}
-                                  onChange={(e) => setEditedGame({ ...editedGame, communityScore: e.target.value ? Number(e.target.value) : undefined })}
-                                  className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                />
-                              </div>
-                            )}
-                          </div>
-                        )}
-
-                        {/* Game Info - only if filled */}
-                        {(editedGame.installationDirectory || editedGame.exePath || editedGame.installSize) && (
-                          <div className="grid grid-cols-3 gap-3">
-                            {editedGame.installationDirectory && (
-                              <div>
-                                <label className="block text-xs font-medium text-gray-400 mb-1">Install Directory</label>
-                                <input
-                                  type="text"
-                                  value={editedGame.installationDirectory}
-                                  onChange={(e) => setEditedGame({ ...editedGame, installationDirectory: e.target.value })}
-                                  className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                />
-                              </div>
-                            )}
-                            {editedGame.exePath && (
-                              <div>
-                                <label className="block text-xs font-medium text-gray-400 mb-1">Executable Path</label>
-                                <input
-                                  type="text"
-                                  value={editedGame.exePath}
-                                  onChange={(e) => setEditedGame({ ...editedGame, exePath: e.target.value })}
-                                  className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                />
-                              </div>
-                            )}
-                            {editedGame.installSize && (
-                              <div>
-                                <label className="block text-xs font-medium text-gray-400 mb-1">Install Size</label>
-                                <input
-                                  type="text"
-                                  value={`${Math.round(editedGame.installSize / 1024 / 1024 / 1024 * 100) / 100} GB`}
-                                  readOnly
-                                  className="w-full px-3 py-1.5 text-sm bg-gray-800/50 border border-gray-600 rounded text-gray-400"
-                                />
-                              </div>
-                            )}
-                          </div>
-                        )}
-
-                        {/* Last Played and Play Count - only if filled */}
-                        {(editedGame.lastPlayed || (editedGame.playCount !== undefined && editedGame.playCount !== null)) && (
-                          <div className="grid grid-cols-2 gap-3">
-                            {editedGame.lastPlayed && (
-                              <div>
-                                <label className="block text-xs font-medium text-gray-400 mb-1">Last Played</label>
-                                <input
-                                  type="text"
-                                  value={editedGame.lastPlayed}
-                                  readOnly
-                                  className="w-full px-3 py-1.5 text-sm bg-gray-800/50 border border-gray-600 rounded text-gray-400"
-                                />
-                              </div>
-                            )}
-                            {editedGame.playCount !== undefined && editedGame.playCount !== null && (
-                              <div>
-                                <label className="block text-xs font-medium text-gray-400 mb-1">Play Count</label>
-                                <input
-                                  type="number"
-                                  value={editedGame.playCount}
-                                  onChange={(e) => setEditedGame({ ...editedGame, playCount: e.target.value ? Number(e.target.value) : undefined })}
-                                  className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                />
-                              </div>
-                            )}
-                          </div>
-                        )}
-
-                        {/* Additional Fields - only if filled */}
-                        {(editedGame.completionStatus || editedGame.source) && (
-                          <div className="grid grid-cols-2 gap-3">
-                            {editedGame.completionStatus && (
-                              <div>
-                                <label className="block text-xs font-medium text-gray-400 mb-1">Completion Status</label>
-                                <input
-                                  type="text"
-                                  value={editedGame.completionStatus}
-                                  onChange={(e) => setEditedGame({ ...editedGame, completionStatus: e.target.value })}
-                                  className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                />
-                              </div>
-                            )}
-                            {editedGame.source && (
-                              <div>
-                                <label className="block text-xs font-medium text-gray-400 mb-1">Source</label>
-                                <input
-                                  type="text"
-                                  value={editedGame.source}
-                                  onChange={(e) => setEditedGame({ ...editedGame, source: e.target.value })}
-                                  className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                />
-                              </div>
-                            )}
-                          </div>
-                        )}
-
-                        {/* Notes - only if filled */}
-                        {editedGame.notes && (
                           <div>
+                            <label className="block text-xs font-medium text-gray-400 mb-1">Age Rating</label>
+                            <input
+                              type="text"
+                              value={editedGame.ageRating || ''}
+                              onChange={(e) => setEditedGame({ ...editedGame, ageRating: e.target.value })}
+                              className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-400 mb-1">Series</label>
+                            <input
+                              type="text"
+                              value={editedGame.series || ''}
+                              onChange={(e) => setEditedGame({ ...editedGame, series: e.target.value })}
+                              className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-400 mb-1">Genres</label>
+                            <input
+                              type="text"
+                              value={editedGame.genres?.join(', ') || ''}
+                              onChange={(e) => setEditedGame({ ...editedGame, genres: e.target.value.split(',').map(g => g.trim()).filter(g => g) })}
+                              className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-400 mb-1">Developers</label>
+                            <input
+                              type="text"
+                              value={editedGame.developers?.join(', ') || ''}
+                              onChange={(e) => setEditedGame({ ...editedGame, developers: e.target.value.split(',').map(d => d.trim()).filter(d => d) })}
+                              className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-400 mb-1">Publishers</label>
+                            <input
+                              type="text"
+                              value={editedGame.publishers?.join(', ') || ''}
+                              onChange={(e) => setEditedGame({ ...editedGame, publishers: e.target.value.split(',').map(p => p.trim()).filter(p => p) })}
+                              className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-400 mb-1">Tags</label>
+                            <input
+                              type="text"
+                              value={editedGame.tags?.join(', ') || ''}
+                              onChange={(e) => setEditedGame({ ...editedGame, tags: e.target.value.split(',').map(t => t.trim()).filter(t => t) })}
+                              className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-400 mb-1">Region</label>
+                            <input
+                              type="text"
+                              value={editedGame.region || ''}
+                              onChange={(e) => setEditedGame({ ...editedGame, region: e.target.value })}
+                              className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-400 mb-1">User Score</label>
+                            <input
+                              type="number"
+                              value={editedGame.userScore ?? ''}
+                              onChange={(e) => setEditedGame({ ...editedGame, userScore: e.target.value ? Number(e.target.value) : undefined })}
+                              className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-400 mb-1">Critic Score</label>
+                            <input
+                              type="number"
+                              value={editedGame.criticScore ?? ''}
+                              onChange={(e) => setEditedGame({ ...editedGame, criticScore: e.target.value ? Number(e.target.value) : undefined })}
+                              className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-400 mb-1">Community Score</label>
+                            <input
+                              type="number"
+                              value={editedGame.communityScore ?? ''}
+                              onChange={(e) => setEditedGame({ ...editedGame, communityScore: e.target.value ? Number(e.target.value) : undefined })}
+                              className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-400 mb-1">Install Directory</label>
+                            <input
+                              type="text"
+                              value={editedGame.installationDirectory || ''}
+                              onChange={(e) => setEditedGame({ ...editedGame, installationDirectory: e.target.value })}
+                              className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-400 mb-1">Executable Path</label>
+                            <input
+                              type="text"
+                              value={editedGame.exePath || ''}
+                              onChange={(e) => setEditedGame({ ...editedGame, exePath: e.target.value })}
+                              className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-400 mb-1">Install Size</label>
+                            <input
+                              type="text"
+                              value={editedGame.installSize ? `${Math.round(editedGame.installSize / 1024 / 1024 / 1024 * 100) / 100} GB` : ''}
+                              readOnly
+                              className="w-full px-3 py-1.5 text-sm bg-gray-800/50 border border-gray-600 rounded text-gray-400"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-400 mb-1">Last Played</label>
+                            <input
+                              type="text"
+                              value={editedGame.lastPlayed || ''}
+                              readOnly
+                              className="w-full px-3 py-1.5 text-sm bg-gray-800/50 border border-gray-600 rounded text-gray-400"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-400 mb-1">Play Count</label>
+                            <input
+                              type="number"
+                              value={editedGame.playCount ?? ''}
+                              onChange={(e) => setEditedGame({ ...editedGame, playCount: e.target.value ? Number(e.target.value) : undefined })}
+                              className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-400 mb-1">Completion Status</label>
+                            <input
+                              type="text"
+                              value={editedGame.completionStatus || ''}
+                              onChange={(e) => setEditedGame({ ...editedGame, completionStatus: e.target.value })}
+                              className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-400 mb-1">Source</label>
+                            <input
+                              type="text"
+                              value={editedGame.source || ''}
+                              onChange={(e) => setEditedGame({ ...editedGame, source: e.target.value })}
+                              className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            />
+                          </div>
+                          {/* Notes - Span 4 columns */}
+                          <div className="col-span-4">
                             <label className="block text-xs font-medium text-gray-400 mb-1">Notes</label>
                             <textarea
-                              value={editedGame.notes}
+                              value={editedGame.notes || ''}
                               onChange={(e) => setEditedGame({ ...editedGame, notes: e.target.value })}
                               className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
                               rows={2}
                             />
                           </div>
-                        )}
+                        </div>
 
                         {/* Action Buttons */}
                         <div className="flex gap-2 pt-2">
@@ -2550,6 +2651,10 @@ export const GameManager: React.FC<GameManagerProps> = ({
                               setEditedGame(null);
                               setShowFixMatch(false);
                               setSelectedGameId(null);
+                              // Reset Fix Match state when cancelling edit
+                              setMetadataSearchResults([]);
+                              setMetadataSearchQuery('');
+                              setIsSearchingMetadata(false);
                             }}
                             className="px-4 py-2 text-sm bg-gray-600 hover:bg-gray-700 text-white rounded transition-colors"
                           >
@@ -2885,6 +2990,21 @@ export const GameManager: React.FC<GameManagerProps> = ({
       />
 
       {/* Delete Confirmation Dialog */}
+      {/* Notifications - Fixed Popup */}
+      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex flex-col gap-2 z-[60] pointer-events-none w-full max-w-md items-center">
+        {error && !error.includes('Steam account not linked') && (
+          <div className="pointer-events-auto flex items-center gap-3 bg-red-900/95 border border-red-500 text-red-100 px-4 py-3 rounded-lg shadow-xl backdrop-blur-sm animate-in fade-in slide-in-from-bottom-4">
+            <svg className="w-5 h-5 text-red-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            <div className="text-sm font-medium">{error}</div>
+          </div>
+        )}
+        {success && (
+          <div className="pointer-events-auto flex items-center gap-3 bg-green-900/95 border border-green-500 text-green-100 px-4 py-3 rounded-lg shadow-xl backdrop-blur-sm animate-in fade-in slide-in-from-bottom-4">
+            <svg className="w-5 h-5 text-green-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            <div className="text-sm font-medium">{success}</div>
+          </div>
+        )}
+      </div>
       <ConfirmationDialog
         isOpen={showDeleteConfirm}
         title="Delete Game"
