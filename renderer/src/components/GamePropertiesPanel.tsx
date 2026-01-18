@@ -120,24 +120,33 @@ export const GamePropertiesPanel: React.FC<GamePropertiesPanelProps> = ({
                 // For Staged / Import: Fetch Metadata and Apply to Local State
                 const metadata = await window.electronAPI.searchArtwork(result.title, result.steamAppId);
                 if (metadata) {
-                    setEditedFields(prev => ({
-                        ...prev,
-                        title: metadata.title || prev.title,
-                        description: metadata.description || prev.description,
-                        releaseDate: metadata.releaseDate || prev.releaseDate,
-                        genres: metadata.genres || prev.genres,
-                        developers: metadata.developers || prev.developers,
-                        publishers: metadata.publishers || prev.publishers,
-                        categories: metadata.categories || prev.categories,
-                        boxArtUrl: metadata.boxArtUrl || prev.boxArtUrl,
-                        bannerUrl: metadata.bannerUrl || prev.bannerUrl,
-                        logoUrl: metadata.logoUrl || prev.logoUrl,
-                        heroUrl: metadata.heroUrl || prev.heroUrl,
-                        iconUrl: metadata.iconUrl || prev.iconUrl,
-                    }));
+                    const newFields = {
+                        ...editedFields,
+                        title: metadata.title || editedFields.title,
+                        description: metadata.description || editedFields.description,
+                        releaseDate: metadata.releaseDate || editedFields.releaseDate,
+                        genres: metadata.genres || editedFields.genres,
+                        developers: metadata.developers || editedFields.developers,
+                        publishers: metadata.publishers || editedFields.publishers,
+                        categories: metadata.categories || editedFields.categories,
+                        boxArtUrl: metadata.boxArtUrl || editedFields.boxArtUrl,
+                        bannerUrl: metadata.bannerUrl || editedFields.bannerUrl,
+                        logoUrl: metadata.logoUrl || editedFields.logoUrl,
+                        heroUrl: metadata.heroUrl || editedFields.heroUrl,
+                        iconUrl: metadata.iconUrl || editedFields.iconUrl,
+                    };
+                    setEditedFields(newFields);
                     setShowFixMatch(false);
                     setCanUndo(true);
-                    setSuccess("Metadata applied!");
+
+                    // Auto-save/update parent for Staged games to simulate "re-import"
+                    if (isStaged) {
+                        const merged = mergeIntoStagedGame(game as StagedGame, newFields);
+                        if (onSave) await onSave(merged);
+                        setSuccess("Match fixed & Updated!");
+                    } else {
+                        setSuccess("Metadata applied!");
+                    }
                 }
             }
         } catch (err) {

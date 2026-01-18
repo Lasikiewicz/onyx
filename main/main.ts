@@ -1677,7 +1677,7 @@ ipcMain.handle('metadata:searchArtwork', async (_event, title: string, steamAppI
     console.log(`[searchArtwork] Fetching artwork for "${title}" (steamAppId: ${steamAppId})`);
     const metadata = await withTimeout(
       metadataFetcher.searchArtwork(title, steamAppId, bypassCache),
-      30000, // 30 seconds - allow more time for SteamGridDB + RAWG
+      60000, // 60 seconds - allow more time for SteamGridDB + RAWG
       `Artwork fetch timeout for "${title}"`
     );
     console.log(`[searchArtwork] Result for "${title}":`, {
@@ -1811,7 +1811,7 @@ ipcMain.handle('metadata:fetchAndUpdate', async (_event, gameId: string, title: 
     const steamAppId = gameId.startsWith('steam-') ? gameId.replace('steam-', '') : undefined;
     const metadata = await withTimeout(
       metadataFetcher.searchArtwork(title, steamAppId),
-      30000, // 30 seconds for full metadata fetch (increased from 20s)
+      60000, // 60 seconds for full metadata fetch (increased from 20s)
       `Metadata fetch timeout for "${title}"`
     );
 
@@ -2112,7 +2112,7 @@ ipcMain.handle('metadata:searchGames', async (_event, gameTitle: string) => {
       new Promise<any[]>((resolve) => setTimeout(() => {
         console.warn('[Metadata Search] Timeout reached (2500ms), returning empty results for other providers');
         resolve([]);
-      }, 2500))
+      }, 8000))
     ]);
 
     const [steamResults, otherResults] = await Promise.all([steamSearchPromise, otherSearchWithTimeout]);
