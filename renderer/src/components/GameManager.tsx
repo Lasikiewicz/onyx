@@ -58,6 +58,8 @@ export const GameManager: React.FC<GameManagerProps> = ({
 }) => {
   const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
   const [expandedGameId, setExpandedGameId] = useState<string | null>(null);
+  const [showUnsavedChanges, setShowUnsavedChanges] = useState(false);
+  const [pendingAction, setPendingAction] = useState<{ type: 'select', gameId: string } | { type: 'close' } | null>(null);
   const [showImageSearch, setShowImageSearch] = useState<{ type: 'boxart' | 'banner' | 'logo' | 'icon'; gameId: string } | null>(null);
   const [imageSearchQuery, setImageSearchQuery] = useState('');
   const [imageSearchResults, setImageSearchResults] = useState<any[]>([]);
@@ -235,6 +237,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
   }, []);
 
   // Sync local games with prop when modal opens or games change significantly
+  // Sync local games with prop when modal opens or games change significantly
   useEffect(() => {
     if (isOpen) {
       // Sort games alphabetically by title
@@ -242,6 +245,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
       setLocalGames(sortedGames);
       // Set initial game and tab when modal first opens
       if (initialGameId && !selectedGameId) {
+        // Direct state update safe in effect
         setSelectedGameId(initialGameId);
         const game = games.find(g => g.id === initialGameId);
         if (game) {
@@ -252,6 +256,10 @@ export const GameManager: React.FC<GameManagerProps> = ({
       if (initialTab) {
         setActiveTab(initialTab);
       }
+    } else {
+      // Reset unsaved changes state when closed
+      setShowUnsavedChanges(false);
+      setPendingAction(null);
     }
   }, [isOpen, initialGameId, initialTab, games]);
 
@@ -350,6 +358,22 @@ export const GameManager: React.FC<GameManagerProps> = ({
       setSelectedGameId(null);
     }
   }, [isOpen, initialTab]);
+
+  // Check for unsaved changes
+  const hasUnsavedChanges = useMemo(() => {
+    if (!editedGame || !selectedGame) return false;
+    // Compare essential fields
+    return JSON.stringify(editedGame) !== JSON.stringify(selectedGame);
+  }, [editedGame, selectedGame]);
+
+  const handleCloseRequest = () => {
+    if (hasUnsavedChanges) {
+      setPendingAction({ type: 'close' });
+      setShowUnsavedChanges(true);
+    } else {
+      onClose();
+    }
+  };
 
   // Fetch launcher data for a game
   const handleFetchLauncherData = async (game?: Game) => {
@@ -879,6 +903,19 @@ export const GameManager: React.FC<GameManagerProps> = ({
 
   // Handle game selection
   const handleGameSelect = (gameId: string) => {
+    // If clicking same game, do nothing
+    if (gameId === selectedGameId) return;
+
+    if (hasUnsavedChanges) {
+      setPendingAction({ type: 'select', gameId });
+      setShowUnsavedChanges(true);
+      return;
+    }
+
+    performGameSelect(gameId);
+  };
+
+  const performGameSelect = (gameId: string) => {
     setSelectedGameId(gameId);
     // Find game from both localGames and games prop to ensure we get the latest data
     const game = localGames.find(g => g.id === gameId) || games.find(g => g.id === gameId);
@@ -1307,7 +1344,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
               Refresh Metadata
             </button>
             <button
-              onClick={onClose}
+              onClick={handleCloseRequest}
               className="p-2 hover:bg-gray-700 rounded transition-colors"
             >
               <svg className="w-5 h-5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1409,7 +1446,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
 
                 {/* Tab Content */}
                 <div className="flex-1 overflow-hidden flex flex-col relative">
-                  {activeTab === 'images' && (
+                  {(activeTab === 'images' || activeTab === 'metadata') && (
                     <>
                       <div className="p-2 space-y-2 flex-shrink-0 bg-gray-900/95 z-10 border-b border-gray-800">
                         {/* Top Images Section - Compact Flex Layout */}
@@ -1547,7 +1584,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
                       </div>
 
                       {/* Image Search Input - Hidden when results found */}
-                      {(!imageSearchResults.length &&
+                      {activeTab === 'images' && (!imageSearchResults.length &&
                         !steamGridDBResults.boxart.length &&
                         !steamGridDBResults.banner.length &&
                         !steamGridDBResults.logo.length &&
@@ -1711,7 +1748,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
                         )}
 
                       {/* Sticky Tabs Header - Outside Scrollable Container */}
-                      {(imageSearchResults.length > 0 ||
+                      {activeTab === 'images' && (imageSearchResults.length > 0 ||
                         steamGridDBResults.boxart.length > 0 ||
                         steamGridDBResults.banner.length > 0 ||
                         steamGridDBResults.logo.length > 0 ||
@@ -1774,7 +1811,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
 
                       {/* Result Tabs Content - Scrollable Container */}
                       <div className="flex-1 overflow-y-auto px-4 py-1 custom-scrollbar relative">
-                        {(imageSearchResults.length > 0 ||
+                        {activeTab === 'images' && (imageSearchResults.length > 0 ||
                           steamGridDBResults.boxart.length > 0 ||
                           steamGridDBResults.banner.length > 0 ||
                           steamGridDBResults.logo.length > 0 ||
@@ -2014,690 +2051,693 @@ export const GameManager: React.FC<GameManagerProps> = ({
                   )}
 
                   {activeTab === 'metadata' && (
-                    <div className="p-4 h-full overflow-y-auto">
-                      {/* Image Preview Strip - Copied from Images Tab */}
-                      <div className="flex gap-2 mb-6 items-start p-3 bg-gray-900/50 rounded-lg border border-gray-800">
-                        {/* Boxart */}
-                        <div
-                          onClick={() => {
-                            setActiveTab('images');
-                            setShowImageSearch({ type: 'boxart', gameId: selectedGame.id });
-                            setActiveImageSearchTab('boxart');
-                            setImageSearchQuery(selectedGame.title);
-                          }}
-                          className="h-24 w-auto aspect-[2/3] relative group cursor-pointer border border-gray-700 rounded-lg overflow-hidden bg-gray-800 hover:border-green-500 transition-colors flex-shrink-0"
-                        >
-                          {(editedGame.boxArtUrl || selectedGame.boxArtUrl) ? (
-                            <img
-                              src={editedGame.boxArtUrl || selectedGame.boxArtUrl}
-                              alt="Boxart"
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center">
-                              <span className="text-[8px] text-gray-600 text-center p-1">Boxart</span>
-                            </div>
-                          )}
-                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                            <span className="text-[10px] text-white font-medium">Edit</span>
-                          </div>
-                        </div>
-
-                        {/* Logo */}
-                        <div
-                          onClick={() => {
-                            setActiveTab('images');
-                            setShowImageSearch({ type: 'logo', gameId: selectedGame.id });
-                            setActiveImageSearchTab('logo');
-                            setImageSearchQuery(selectedGame.title);
-                          }}
-                          className="h-24 w-36 relative group cursor-pointer border border-gray-700 rounded-lg overflow-hidden bg-gray-800 hover:border-green-500 transition-colors flex-shrink-0"
-                        >
-                          {(editedGame.logoUrl || selectedGame.logoUrl) ? (
-                            <div className="w-full h-full p-2 flex items-center justify-center">
+                    <>
+                      <div className="p-4 flex-1 overflow-y-auto custom-scrollbar">
+                        {/* Image Preview Strip - Copied from Images Tab */}
+                        <div className="flex gap-2 mb-6 items-start p-3 bg-gray-900/50 rounded-lg border border-gray-800">
+                          {/* Boxart */}
+                          <div
+                            onClick={() => {
+                              setActiveTab('images');
+                              setShowImageSearch({ type: 'boxart', gameId: selectedGame.id });
+                              setActiveImageSearchTab('boxart');
+                              setImageSearchQuery(selectedGame.title);
+                            }}
+                            className="h-24 w-auto aspect-[2/3] relative group cursor-pointer border border-gray-700 rounded-lg overflow-hidden bg-gray-800 hover:border-green-500 transition-colors flex-shrink-0"
+                          >
+                            {(editedGame.boxArtUrl || selectedGame.boxArtUrl) ? (
                               <img
-                                src={editedGame.logoUrl || selectedGame.logoUrl}
-                                alt="Logo"
-                                className="max-w-full max-h-full object-contain"
+                                src={editedGame.boxArtUrl || selectedGame.boxArtUrl}
+                                alt="Boxart"
+                                className="w-full h-full object-cover"
                               />
-                            </div>
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center p-2">
-                              <span className="text-[8px] text-gray-600">Logo</span>
-                            </div>
-                          )}
-                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                            <span className="text-[10px] text-white font-medium">Edit</span>
-                          </div>
-                        </div>
-
-                        {/* Banner */}
-                        <div
-                          onClick={() => {
-                            setActiveTab('images');
-                            setShowImageSearch({ type: 'banner', gameId: selectedGame.id });
-                            setActiveImageSearchTab('banner');
-                            setImageSearchQuery(selectedGame.title);
-                          }}
-                          className="h-24 flex-1 relative group cursor-pointer border border-gray-700 rounded-lg overflow-hidden bg-gray-800 hover:border-green-500 transition-colors"
-                        >
-                          {(editedGame.bannerUrl || selectedGame.bannerUrl) ? (
-                            <img
-                              src={editedGame.bannerUrl || selectedGame.bannerUrl}
-                              alt="Banner"
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center">
-                              <span className="text-[8px] text-gray-600">Banner</span>
-                            </div>
-                          )}
-                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                            <span className="text-[10px] text-white font-medium">Edit</span>
-                          </div>
-                        </div>
-
-                        {/* Icon */}
-                        <div
-                          onClick={() => {
-                            setActiveTab('images');
-                            setShowImageSearch({ type: 'icon', gameId: selectedGame.id });
-                            setActiveImageSearchTab('icon');
-                            setImageSearchQuery(selectedGame.title);
-                          }}
-                          className="h-24 w-24 relative group cursor-pointer border border-gray-700 rounded-lg overflow-hidden bg-gray-800 hover:border-green-500 transition-colors flex-shrink-0"
-                        >
-                          {(editedGame.iconUrl || selectedGame.iconUrl) ? (
-                            <div className="w-full h-full p-2 flex items-center justify-center">
-                              <img
-                                src={editedGame.iconUrl || selectedGame.iconUrl}
-                                alt="Icon"
-                                className="max-w-full max-h-full object-contain"
-                              />
-                            </div>
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center text-center p-1">
-                              <span className="text-[8px] text-gray-600">Icon</span>
-                            </div>
-                          )}
-                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                            <span className="text-[10px] text-white font-medium">Edit</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="space-y-4">
-                        <div className="flex flex-col lg:flex-row gap-4">
-                          {/* Title Row with Fix Match */}
-                          <div className="flex-1">
-                            <label className="block text-xs font-medium text-gray-400 mb-1">Title</label>
-                            <div className="flex gap-2">
-                              <input
-                                type="text"
-                                value={showFixMatch ? metadataSearchQuery : editedGame.title}
-                                onChange={(e) => {
-                                  if (showFixMatch) {
-                                    setMetadataSearchQuery(e.target.value);
-                                  } else {
-                                    setEditedGame({ ...editedGame, title: e.target.value });
-                                  }
-                                }}
-                                onKeyDown={(e) => {
-                                  if (showFixMatch && e.key === 'Enter') {
-                                    handleFixMatchSearch();
-                                  }
-                                }}
-                                placeholder={showFixMatch ? "Enter game title to search..." : ""}
-                                className="flex-1 px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                disabled={showFixMatch && isSearchingMetadata}
-                              />
-                              {showFixMatch && (
-                                <button
-                                  onClick={handleFixMatchSearch}
-                                  disabled={isSearchingMetadata}
-                                  className="px-4 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors disabled:opacity-50 flex items-center gap-2"
-                                >
-                                  {isSearchingMetadata ? (
-                                    <>
-                                      <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                                      </svg>
-                                      Searching...
-                                    </>
-                                  ) : (
-                                    'Search'
-                                  )}
-                                </button>
-                              )}
-                              <button
-                                onClick={async () => {
-                                  const wasHidden = !showFixMatch;
-                                  setShowFixMatch(!showFixMatch);
-                                  if (wasHidden) {
-                                    // When opening, set search query to current title and auto-search
-                                    setMetadataSearchQuery(editedGame.title || selectedGame.title);
-                                    const query = editedGame.title || selectedGame.title;
-                                    if (query) {
-                                      setIsSearchingMetadata(true);
-                                      setMetadataSearchResults([]);
-                                      try {
-                                        const response = await window.electronAPI.searchGames(query);
-                                        if (response.success && response.results) {
-                                          const results = response.results;
-
-                                          if (results.length === 0) {
-                                            setError('No matches found.');
-                                            setMetadataSearchResults([]);
-                                          } else {
-                                            // Sort: Score > Date > Exact Match
-                                            const normalizedQuery = query.toLowerCase().trim();
-                                            const sortedResults = results.sort((a: any, b: any) => {
-                                              // 1. Score (assigned by backend)
-                                              const scoreA = a.score || 0;
-                                              const scoreB = b.score || 0;
-                                              if (scoreA !== scoreB) return scoreB - scoreA;
-
-                                              // 2. Release Date (Newest first)
-                                              const getDate = (r: any) => {
-                                                if (r.releaseDate) return typeof r.releaseDate === 'number' ? r.releaseDate * 1000 : new Date(r.releaseDate).getTime();
-                                                if (r.year) return new Date(r.year, 0, 1).getTime();
-                                                return 0;
-                                              };
-                                              const dateA = getDate(a);
-                                              const dateB = getDate(b);
-                                              if (dateA !== dateB && dateA > 0 && dateB > 0) return dateB - dateA;
-
-                                              // 3. Exact Match
-                                              const nameA = (a.title || a.name || "").toLowerCase().trim();
-                                              const nameB = (b.title || b.name || "").toLowerCase().trim();
-                                              if (nameA === normalizedQuery && nameB !== normalizedQuery) return -1;
-                                              if (nameA !== normalizedQuery && nameB === normalizedQuery) return 1;
-
-                                              return 0;
-                                            });
-                                            setMetadataSearchResults(sortedResults);
-                                          }
-                                        } else {
-                                          setError(response.error || 'Search failed');
-                                          setMetadataSearchResults([]);
-                                        }
-                                      } catch (err) {
-                                        console.error('Error searching metadata:', err);
-                                      } finally {
-                                        setIsSearchingMetadata(false);
-                                      }
-                                    }
-                                  } else {
-                                    // When hiding, clear search results
-                                    setMetadataSearchResults([]);
-                                    setMetadataSearchQuery('');
-                                  }
-                                }}
-                                className="px-3 py-1.5 text-sm bg-purple-600 hover:bg-purple-700 text-white rounded transition-colors flex items-center gap-1.5"
-                              >
-                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                                </svg>
-                                {showFixMatch ? 'Hide' : 'Fix Match'}
-                              </button>
-                            </div>
-                          </div>
-
-                          {/* Steam App ID */}
-                          <div className="w-full lg:w-1/3">
-                            <label className="block text-xs font-medium text-gray-400 mb-1">Steam App ID</label>
-                            <div className="flex gap-2">
-                              <input
-                                type="text"
-                                value={steamAppIdInput}
-                                onChange={(e) => {
-                                  // Only update the input value - don't update game ID yet
-                                  setSteamAppIdInput(e.target.value);
-                                }}
-                                onBlur={(e) => {
-                                  setIsSteamAppIdInputFocused(false);
-                                  // Update game ID when user finishes typing
-                                  const value = e.target.value.trim();
-                                  if (value && /^\d+$/.test(value)) {
-                                    const newGameId = `steam-${value}`;
-                                    setEditedGame({
-                                      ...editedGame,
-                                      id: newGameId,
-                                      platform: 'steam'
-                                    });
-                                  } else if (value === '') {
-                                    // If cleared, convert to custom game ID
-                                    const newGameId = `custom-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-                                    setEditedGame({
-                                      ...editedGame,
-                                      id: newGameId,
-                                      platform: editedGame.platform === 'steam' ? 'other' : editedGame.platform
-                                    });
-                                  }
-                                }}
-                                onFocus={() => {
-                                  setIsSteamAppIdInputFocused(true);
-                                }}
-                                onKeyDown={(e) => {
-                                  // Update game ID when user presses Enter
-                                  if (e.key === 'Enter') {
-                                    e.currentTarget.blur(); // This will trigger onBlur
-                                  }
-                                }}
-                                placeholder="Steam App ID"
-                                className="flex-1 px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                              />
-                              <button
-                                onClick={() => {
-                                  window.electronAPI.openExternal(`https://steamdb.info/search/?q=${encodeURIComponent(editedGame.title)}`);
-                                }}
-                                className="px-4 py-1.5 text-sm bg-purple-600 hover:bg-purple-700 text-white rounded transition-colors flex items-center gap-2"
-                                title="Search on steamdb.info"
-                              >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                                </svg>
-                                SteamDB
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Fix Match Results */}
-                        {showFixMatch && (
-                          <div className="space-y-2">
-                            {isSearchingMetadata && (
-                              <div className="flex items-center gap-2 text-sm text-gray-400">
-                                <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                                </svg>
-                                Searching for metadata matches...
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center">
+                                <span className="text-[8px] text-gray-600 text-center p-1">Boxart</span>
                               </div>
                             )}
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                              <span className="text-[10px] text-white font-medium">Edit</span>
+                            </div>
+                          </div>
 
-                            {metadataSearchResults.length > 0 && (
-                              <div className="max-h-96 overflow-y-auto">
-                                <div className="space-y-2">
-                                  {metadataSearchResults.map((result) => {
-                                    // Extract release date properly - show full date, not just year
-                                    let displayDate: string | undefined;
-                                    if (result.releaseDate) {
-                                      // Handle both Unix timestamp (seconds) and Date objects
-                                      if (typeof result.releaseDate === 'number') {
-                                        const date = new Date(result.releaseDate * 1000);
-                                        displayDate = date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-                                      } else if (typeof result.releaseDate === 'string') {
-                                        const date = new Date(result.releaseDate);
-                                        if (!isNaN(date.getTime())) {
-                                          displayDate = date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-                                        } else {
-                                          // Try parsing as ISO date string
-                                          displayDate = result.releaseDate;
-                                        }
-                                      }
-                                    } else if (result.year) {
-                                      // Fallback to year only if no full date available
-                                      displayDate = result.year.toString();
-                                    }
-
-                                    return (
-                                      <button
-                                        key={result.id}
-                                        onClick={() => handleSelectMetadataMatch({ id: result.id, source: result.source, steamAppId: result.steamAppId, title: result.title || result.name })}
-                                        disabled={isApplyingMetadata}
-                                        className="relative w-full text-left p-3 text-sm bg-gray-800 hover:bg-gray-700 rounded border border-gray-600 disabled:opacity-50 transition-colors flex items-center gap-3"
-                                      >
-                                        <div className="flex-1 min-w-0">
-                                          <p className="text-white font-medium text-sm truncate" title={result.title || result.name}>
-                                            {result.title || result.name}
-                                          </p>
-                                          <div className="flex items-center gap-2 mt-1">
-                                            <span className={`text-xs ${result.source === 'steam' ? 'text-blue-400' : 'text-gray-400'}`}>
-                                              {result.source === 'steam' ? 'Steam' : result.source === 'igdb' ? 'IGDB' : result.source === 'steamgriddb' ? 'SGDB' : result.source}
-                                            </span>
-                                            {result.steamAppId && (
-                                              <span className="text-xs text-gray-500">App ID: {result.steamAppId}</span>
-                                            )}
-                                            {displayDate && (
-                                              <span className="text-xs text-gray-400">��� {displayDate}</span>
-                                            )}
-                                          </div>
-                                        </div>
-                                        {isApplyingMetadata && (
-                                          <div className="absolute inset-0 bg-black/50 rounded flex items-center justify-center">
-                                            <svg className="animate-spin h-5 w-5 text-blue-500" fill="none" viewBox="0 0 24 24">
-                                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                                            </svg>
-                                          </div>
-                                        )}
-                                      </button>
-                                    );
-                                  })}
-                                </div>
+                          {/* Logo */}
+                          <div
+                            onClick={() => {
+                              setActiveTab('images');
+                              setShowImageSearch({ type: 'logo', gameId: selectedGame.id });
+                              setActiveImageSearchTab('logo');
+                              setImageSearchQuery(selectedGame.title);
+                            }}
+                            className="h-24 w-36 relative group cursor-pointer border border-gray-700 rounded-lg overflow-hidden bg-gray-800 hover:border-green-500 transition-colors flex-shrink-0"
+                          >
+                            {(editedGame.logoUrl || selectedGame.logoUrl) ? (
+                              <div className="w-full h-full p-2 flex items-center justify-center">
+                                <img
+                                  src={editedGame.logoUrl || selectedGame.logoUrl}
+                                  alt="Logo"
+                                  className="max-w-full max-h-full object-contain"
+                                />
+                              </div>
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center p-2">
+                                <span className="text-[8px] text-gray-600">Logo</span>
                               </div>
                             )}
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                              <span className="text-[10px] text-white font-medium">Edit</span>
+                            </div>
                           </div>
-                        )}
 
-                        {/* Categories - refined single line layout */}
-                        <div>
-                          <label className="block text-xs font-medium text-gray-400 mb-1">Categories</label>
-                          <div className="flex items-center gap-2">
-                            {/* Input Area (Tags + Input) */}
-                            <div className="flex-1 flex items-center gap-2 p-1.5 bg-gray-800/50 rounded border border-gray-700 overflow-x-auto whitespace-nowrap min-h-[38px] scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent">
-                              {/* Existing Tags */}
-                              {editedGame.categories?.map((category, index) => (
-                                <span key={index} className="flex-shrink-0 inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-medium bg-blue-900/30 text-blue-200 border border-blue-700/30 rounded-full group hover:border-blue-500/50 transition-colors">
-                                  {category}
+                          {/* Banner */}
+                          <div
+                            onClick={() => {
+                              setActiveTab('images');
+                              setShowImageSearch({ type: 'banner', gameId: selectedGame.id });
+                              setActiveImageSearchTab('banner');
+                              setImageSearchQuery(selectedGame.title);
+                            }}
+                            className="h-24 flex-1 relative group cursor-pointer border border-gray-700 rounded-lg overflow-hidden bg-gray-800 hover:border-green-500 transition-colors"
+                          >
+                            {(editedGame.bannerUrl || selectedGame.bannerUrl) ? (
+                              <img
+                                src={editedGame.bannerUrl || selectedGame.bannerUrl}
+                                alt="Banner"
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center">
+                                <span className="text-[8px] text-gray-600">Banner</span>
+                              </div>
+                            )}
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                              <span className="text-[10px] text-white font-medium">Edit</span>
+                            </div>
+                          </div>
+
+                          {/* Icon */}
+                          <div
+                            onClick={() => {
+                              setActiveTab('images');
+                              setShowImageSearch({ type: 'icon', gameId: selectedGame.id });
+                              setActiveImageSearchTab('icon');
+                              setImageSearchQuery(selectedGame.title);
+                            }}
+                            className="h-24 w-24 relative group cursor-pointer border border-gray-700 rounded-lg overflow-hidden bg-gray-800 hover:border-green-500 transition-colors flex-shrink-0"
+                          >
+                            {(editedGame.iconUrl || selectedGame.iconUrl) ? (
+                              <div className="w-full h-full p-2 flex items-center justify-center">
+                                <img
+                                  src={editedGame.iconUrl || selectedGame.iconUrl}
+                                  alt="Icon"
+                                  className="max-w-full max-h-full object-contain"
+                                />
+                              </div>
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-center p-1">
+                                <span className="text-[8px] text-gray-600">Icon</span>
+                              </div>
+                            )}
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                              <span className="text-[10px] text-white font-medium">Edit</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="space-y-4">
+                          <div className="flex flex-col lg:flex-row gap-4">
+                            {/* Title Row with Fix Match */}
+                            <div className="flex-1">
+                              <label className="block text-xs font-medium text-gray-400 mb-1">Title</label>
+                              <div className="flex gap-2">
+                                <input
+                                  type="text"
+                                  value={showFixMatch ? metadataSearchQuery : editedGame.title}
+                                  onChange={(e) => {
+                                    if (showFixMatch) {
+                                      setMetadataSearchQuery(e.target.value);
+                                    } else {
+                                      setEditedGame({ ...editedGame, title: e.target.value });
+                                    }
+                                  }}
+                                  onKeyDown={(e) => {
+                                    if (showFixMatch && e.key === 'Enter') {
+                                      handleFixMatchSearch();
+                                    }
+                                  }}
+                                  placeholder={showFixMatch ? "Enter game title to search..." : ""}
+                                  className="flex-1 px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                  disabled={showFixMatch && isSearchingMetadata}
+                                />
+                                {showFixMatch && (
                                   <button
-                                    onClick={() => {
-                                      const newCategories = [...(editedGame.categories || [])];
-                                      newCategories.splice(index, 1);
-                                      setEditedGame({ ...editedGame, categories: newCategories });
-                                    }}
-                                    className="ml-0.5 text-blue-400 hover:text-white focus:outline-none rounded-full p-0.5 hover:bg-blue-800/50 transition-colors"
-                                    title="Remove category"
+                                    onClick={handleFixMatchSearch}
+                                    disabled={isSearchingMetadata}
+                                    className="px-4 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors disabled:opacity-50 flex items-center gap-2"
                                   >
-                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                    </svg>
+                                    {isSearchingMetadata ? (
+                                      <>
+                                        <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                        </svg>
+                                        Searching...
+                                      </>
+                                    ) : (
+                                      'Search'
+                                    )}
                                   </button>
-                                </span>
-                              ))}
+                                )}
+                                <button
+                                  onClick={async () => {
+                                    const wasHidden = !showFixMatch;
+                                    setShowFixMatch(!showFixMatch);
+                                    if (wasHidden) {
+                                      // When opening, set search query to current title and auto-search
+                                      setMetadataSearchQuery(editedGame.title || selectedGame.title);
+                                      const query = editedGame.title || selectedGame.title;
+                                      if (query) {
+                                        setIsSearchingMetadata(true);
+                                        setMetadataSearchResults([]);
+                                        try {
+                                          const response = await window.electronAPI.searchGames(query);
+                                          if (response.success && response.results) {
+                                            const results = response.results;
 
-                              {/* Input Field */}
-                              <input
-                                type="text"
-                                value={newCategoryInput}
-                                onChange={(e) => setNewCategoryInput(e.target.value)}
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') {
-                                    e.preventDefault();
-                                    if (newCategoryInput.trim()) {
-                                      const currentCategories = editedGame.categories || [];
-                                      const newCat = newCategoryInput.trim();
-                                      if (!currentCategories.includes(newCat)) {
-                                        setEditedGame({
-                                          ...editedGame,
-                                          categories: [...currentCategories, newCat]
-                                        });
-                                        setNewCategoryInput('');
+                                            if (results.length === 0) {
+                                              setError('No matches found.');
+                                              setMetadataSearchResults([]);
+                                            } else {
+                                              // Sort: Score > Date > Exact Match
+                                              const normalizedQuery = query.toLowerCase().trim();
+                                              const sortedResults = results.sort((a: any, b: any) => {
+                                                // 1. Score (assigned by backend)
+                                                const scoreA = a.score || 0;
+                                                const scoreB = b.score || 0;
+                                                if (scoreA !== scoreB) return scoreB - scoreA;
+
+                                                // 2. Release Date (Newest first)
+                                                const getDate = (r: any) => {
+                                                  if (r.releaseDate) return typeof r.releaseDate === 'number' ? r.releaseDate * 1000 : new Date(r.releaseDate).getTime();
+                                                  if (r.year) return new Date(r.year, 0, 1).getTime();
+                                                  return 0;
+                                                };
+                                                const dateA = getDate(a);
+                                                const dateB = getDate(b);
+                                                if (dateA !== dateB && dateA > 0 && dateB > 0) return dateB - dateA;
+
+                                                // 3. Exact Match
+                                                const nameA = (a.title || a.name || "").toLowerCase().trim();
+                                                const nameB = (b.title || b.name || "").toLowerCase().trim();
+                                                if (nameA === normalizedQuery && nameB !== normalizedQuery) return -1;
+                                                if (nameA !== normalizedQuery && nameB === normalizedQuery) return 1;
+
+                                                return 0;
+                                              });
+                                              setMetadataSearchResults(sortedResults);
+                                            }
+                                          } else {
+                                            setError(response.error || 'Search failed');
+                                            setMetadataSearchResults([]);
+                                          }
+                                        } catch (err) {
+                                          console.error('Error searching metadata:', err);
+                                        } finally {
+                                          setIsSearchingMetadata(false);
+                                        }
                                       }
+                                    } else {
+                                      // When hiding, clear search results
+                                      setMetadataSearchResults([]);
+                                      setMetadataSearchQuery('');
                                     }
-                                  }
-                                }}
-                                placeholder={(!editedGame.categories || editedGame.categories.length === 0) ? "Add category..." : ""}
-                                className="min-w-[100px] flex-1 bg-transparent border-none text-sm text-white focus:outline-none placeholder-gray-500 py-0.5"
-                              />
+                                  }}
+                                  className="px-3 py-1.5 text-sm bg-purple-600 hover:bg-purple-700 text-white rounded transition-colors flex items-center gap-1.5"
+                                >
+                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                  </svg>
+                                  {showFixMatch ? 'Hide' : 'Fix Match'}
+                                </button>
+                              </div>
                             </div>
 
-                            {/* Suggestions - Right Side */}
-                            <div className="flex items-center gap-2 max-w-[30%] overflow-x-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent py-1">
-                              {allCategories
-                                .filter(cat => !editedGame.categories?.includes(cat))
-                                .slice(0, 5) // Show top 5 unused categories
-                                .map((cat, idx) => (
-                                  <button
-                                    key={idx}
-                                    onClick={() => {
-                                      const currentCategories = editedGame.categories || [];
+                            {/* Steam App ID */}
+                            <div className="w-full lg:w-1/3">
+                              <label className="block text-xs font-medium text-gray-400 mb-1">Steam App ID</label>
+                              <div className="flex gap-2">
+                                <input
+                                  type="text"
+                                  value={steamAppIdInput}
+                                  onChange={(e) => {
+                                    // Only update the input value - don't update game ID yet
+                                    setSteamAppIdInput(e.target.value);
+                                  }}
+                                  onBlur={(e) => {
+                                    setIsSteamAppIdInputFocused(false);
+                                    // Update game ID when user finishes typing
+                                    const value = e.target.value.trim();
+                                    if (value && /^\d+$/.test(value)) {
+                                      const newGameId = `steam-${value}`;
                                       setEditedGame({
                                         ...editedGame,
-                                        categories: [...currentCategories, cat]
+                                        id: newGameId,
+                                        platform: 'steam'
                                       });
-                                    }}
-                                    className="flex-shrink-0 px-2.5 py-1 text-xs font-medium bg-gray-700/50 hover:bg-gray-600 text-gray-300 border border-gray-600 rounded-full transition-colors whitespace-nowrap"
-                                  >
-                                    + {cat}
-                                  </button>
-                                ))}
+                                    } else if (value === '') {
+                                      // If cleared, convert to custom game ID
+                                      const newGameId = `custom-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+                                      setEditedGame({
+                                        ...editedGame,
+                                        id: newGameId,
+                                        platform: editedGame.platform === 'steam' ? 'other' : editedGame.platform
+                                      });
+                                    }
+                                  }}
+                                  onFocus={() => {
+                                    setIsSteamAppIdInputFocused(true);
+                                  }}
+                                  onKeyDown={(e) => {
+                                    // Update game ID when user presses Enter
+                                    if (e.key === 'Enter') {
+                                      e.currentTarget.blur(); // This will trigger onBlur
+                                    }
+                                  }}
+                                  placeholder="Steam App ID"
+                                  className="flex-1 px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                />
+                                <button
+                                  onClick={() => {
+                                    window.electronAPI.openExternal(`https://steamdb.info/search/?q=${encodeURIComponent(editedGame.title)}`);
+                                  }}
+                                  className="px-4 py-1.5 text-sm bg-purple-600 hover:bg-purple-700 text-white rounded transition-colors flex items-center gap-2"
+                                  title="Search on steamdb.info"
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                  </svg>
+                                  SteamDB
+                                </button>
+                              </div>
                             </div>
                           </div>
+
+                          {/* Fix Match Results */}
+                          {showFixMatch && (
+                            <div className="space-y-2">
+                              {isSearchingMetadata && (
+                                <div className="flex items-center gap-2 text-sm text-gray-400">
+                                  <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                  </svg>
+                                  Searching for metadata matches...
+                                </div>
+                              )}
+
+                              {metadataSearchResults.length > 0 && (
+                                <div className="max-h-96 overflow-y-auto">
+                                  <div className="space-y-2">
+                                    {metadataSearchResults.map((result) => {
+                                      // Extract release date properly - show full date, not just year
+                                      let displayDate: string | undefined;
+                                      if (result.releaseDate) {
+                                        // Handle both Unix timestamp (seconds) and Date objects
+                                        if (typeof result.releaseDate === 'number') {
+                                          const date = new Date(result.releaseDate * 1000);
+                                          displayDate = date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+                                        } else if (typeof result.releaseDate === 'string') {
+                                          const date = new Date(result.releaseDate);
+                                          if (!isNaN(date.getTime())) {
+                                            displayDate = date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+                                          } else {
+                                            // Try parsing as ISO date string
+                                            displayDate = result.releaseDate;
+                                          }
+                                        }
+                                      } else if (result.year) {
+                                        // Fallback to year only if no full date available
+                                        displayDate = result.year.toString();
+                                      }
+
+                                      return (
+                                        <button
+                                          key={result.id}
+                                          onClick={() => handleSelectMetadataMatch({ id: result.id, source: result.source, steamAppId: result.steamAppId, title: result.title || result.name })}
+                                          disabled={isApplyingMetadata}
+                                          className="relative w-full text-left p-3 text-sm bg-gray-800 hover:bg-gray-700 rounded border border-gray-600 disabled:opacity-50 transition-colors flex items-center gap-3"
+                                        >
+                                          <div className="flex-1 min-w-0">
+                                            <p className="text-white font-medium text-sm truncate" title={result.title || result.name}>
+                                              {result.title || result.name}
+                                            </p>
+                                            <div className="flex items-center gap-2 mt-1">
+                                              <span className={`text-xs ${result.source === 'steam' ? 'text-blue-400' : 'text-gray-400'}`}>
+                                                {result.source === 'steam' ? 'Steam' : result.source === 'igdb' ? 'IGDB' : result.source === 'steamgriddb' ? 'SGDB' : result.source}
+                                              </span>
+                                              {result.steamAppId && (
+                                                <span className="text-xs text-gray-500">App ID: {result.steamAppId}</span>
+                                              )}
+                                              {displayDate && (
+                                                <span className="text-xs text-gray-400">��� {displayDate}</span>
+                                              )}
+                                            </div>
+                                          </div>
+                                          {isApplyingMetadata && (
+                                            <div className="absolute inset-0 bg-black/50 rounded flex items-center justify-center">
+                                              <svg className="animate-spin h-5 w-5 text-blue-500" fill="none" viewBox="0 0 24 24">
+                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                              </svg>
+                                            </div>
+                                          )}
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
 
-                        {/* Description */}
-                        <div>
-                          <label className="block text-xs font-medium text-gray-400 mb-1">Description</label>
-                          <textarea
-                            value={editedGame.description || ''}
-                            onChange={(e) => setEditedGame({ ...editedGame, description: e.target.value })}
-                            className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                            rows={3}
-                          />
-                        </div>
-
-                        {/* Metadata Grid - 4 Columns */}
-                        <div className="grid grid-cols-4 gap-3">
-                          {/* Platform */}
-                          {editedGame.platform && editedGame.platform !== 'other' && (
+                        {/* Categories - refined single line layout */}
+                        {activeTab === 'metadata' && (
+                          <div className="space-y-6 pt-4">
                             <div>
-                              <label className="block text-xs font-medium text-gray-400 mb-1">Platform</label>
-                              <input
-                                type="text"
-                                value={editedGame.platform}
-                                onChange={(e) => setEditedGame({ ...editedGame, platform: e.target.value })}
+                              <label className="block text-xs font-medium text-gray-400 mb-1">Categories</label>
+                              <div className="flex items-center gap-2">
+                                {/* Input Area (Tags + Input) */}
+                                <div className="flex-1 flex items-center gap-2 p-1.5 bg-gray-800/50 rounded border border-gray-700 overflow-x-auto whitespace-nowrap min-h-[38px] scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent">
+                                  {/* Existing Tags */}
+                                  {editedGame.categories?.map((category, index) => (
+                                    <span key={index} className="flex-shrink-0 inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-medium bg-blue-900/30 text-blue-200 border border-blue-700/30 rounded-full group hover:border-blue-500/50 transition-colors">
+                                      {category}
+                                      <button
+                                        onClick={() => {
+                                          const newCategories = [...(editedGame.categories || [])];
+                                          newCategories.splice(index, 1);
+                                          setEditedGame({ ...editedGame, categories: newCategories });
+                                        }}
+                                        className="ml-0.5 text-blue-400 hover:text-white focus:outline-none rounded-full p-0.5 hover:bg-blue-800/50 transition-colors"
+                                        title="Remove category"
+                                      >
+                                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                      </button>
+                                    </span>
+                                  ))}
+
+                                  {/* Input Field */}
+                                  <input
+                                    type="text"
+                                    value={newCategoryInput}
+                                    onChange={(e) => setNewCategoryInput(e.target.value)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') {
+                                        e.preventDefault();
+                                        if (newCategoryInput.trim()) {
+                                          const currentCategories = editedGame.categories || [];
+                                          const newCat = newCategoryInput.trim();
+                                          if (!currentCategories.includes(newCat)) {
+                                            setEditedGame({
+                                              ...editedGame,
+                                              categories: [...currentCategories, newCat]
+                                            });
+                                            setNewCategoryInput('');
+                                          }
+                                        }
+                                      }
+                                    }}
+                                    placeholder={(!editedGame.categories || editedGame.categories.length === 0) ? "Add category..." : ""}
+                                    className="min-w-[100px] flex-1 bg-transparent border-none text-sm text-white focus:outline-none placeholder-gray-500 py-0.5"
+                                  />
+                                </div>
+
+                                {/* Suggestions - Right Side */}
+                                <div className="flex items-center gap-2 max-w-[30%] overflow-x-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent py-1">
+                                  {allCategories
+                                    .filter(cat => !editedGame.categories?.includes(cat))
+                                    .slice(0, 5) // Show top 5 unused categories
+                                    .map((cat, idx) => (
+                                      <button
+                                        key={idx}
+                                        onClick={() => {
+                                          const currentCategories = editedGame.categories || [];
+                                          setEditedGame({
+                                            ...editedGame,
+                                            categories: [...currentCategories, cat]
+                                          });
+                                        }}
+                                        className="flex-shrink-0 px-2.5 py-1 text-xs font-medium bg-gray-700/50 hover:bg-gray-600 text-gray-300 border border-gray-600 rounded-full transition-colors whitespace-nowrap"
+                                      >
+                                        + {cat}
+                                      </button>
+                                    ))}
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Description */}
+                            <div>
+                              <label className="block text-xs font-medium text-gray-400 mb-1">Description</label>
+                              <textarea
+                                value={editedGame.description || ''}
+                                onChange={(e) => setEditedGame({ ...editedGame, description: e.target.value })}
                                 className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                rows={3}
                               />
                             </div>
-                          )}
 
-                          <div>
-                            <label className="block text-xs font-medium text-gray-400 mb-1">Release Date</label>
-                            <input
-                              type="text"
-                              value={editedGame.releaseDate || ''}
-                              onChange={(e) => setEditedGame({ ...editedGame, releaseDate: e.target.value })}
-                              placeholder="YYYY-MM-DD"
-                              className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-medium text-gray-400 mb-1">Age Rating</label>
-                            <input
-                              type="text"
-                              value={editedGame.ageRating || ''}
-                              onChange={(e) => setEditedGame({ ...editedGame, ageRating: e.target.value })}
-                              className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-medium text-gray-400 mb-1">Series</label>
-                            <input
-                              type="text"
-                              value={editedGame.series || ''}
-                              onChange={(e) => setEditedGame({ ...editedGame, series: e.target.value })}
-                              className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-medium text-gray-400 mb-1">Genres</label>
-                            <input
-                              type="text"
-                              value={editedGame.genres?.join(', ') || ''}
-                              onChange={(e) => setEditedGame({ ...editedGame, genres: e.target.value.split(',').map(g => g.trim()).filter(g => g) })}
-                              className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-medium text-gray-400 mb-1">Developers</label>
-                            <input
-                              type="text"
-                              value={editedGame.developers?.join(', ') || ''}
-                              onChange={(e) => setEditedGame({ ...editedGame, developers: e.target.value.split(',').map(d => d.trim()).filter(d => d) })}
-                              className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-medium text-gray-400 mb-1">Publishers</label>
-                            <input
-                              type="text"
-                              value={editedGame.publishers?.join(', ') || ''}
-                              onChange={(e) => setEditedGame({ ...editedGame, publishers: e.target.value.split(',').map(p => p.trim()).filter(p => p) })}
-                              className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-medium text-gray-400 mb-1">Tags</label>
-                            <input
-                              type="text"
-                              value={editedGame.tags?.join(', ') || ''}
-                              onChange={(e) => setEditedGame({ ...editedGame, tags: e.target.value.split(',').map(t => t.trim()).filter(t => t) })}
-                              className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-medium text-gray-400 mb-1">Region</label>
-                            <input
-                              type="text"
-                              value={editedGame.region || ''}
-                              onChange={(e) => setEditedGame({ ...editedGame, region: e.target.value })}
-                              className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-medium text-gray-400 mb-1">User Score</label>
-                            <input
-                              type="number"
-                              value={editedGame.userScore ?? ''}
-                              onChange={(e) => setEditedGame({ ...editedGame, userScore: e.target.value ? Number(e.target.value) : undefined })}
-                              className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-medium text-gray-400 mb-1">Critic Score</label>
-                            <input
-                              type="number"
-                              value={editedGame.criticScore ?? ''}
-                              onChange={(e) => setEditedGame({ ...editedGame, criticScore: e.target.value ? Number(e.target.value) : undefined })}
-                              className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-medium text-gray-400 mb-1">Community Score</label>
-                            <input
-                              type="number"
-                              value={editedGame.communityScore ?? ''}
-                              onChange={(e) => setEditedGame({ ...editedGame, communityScore: e.target.value ? Number(e.target.value) : undefined })}
-                              className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-medium text-gray-400 mb-1">Install Directory</label>
-                            <input
-                              type="text"
-                              value={editedGame.installationDirectory || ''}
-                              onChange={(e) => setEditedGame({ ...editedGame, installationDirectory: e.target.value })}
-                              className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-medium text-gray-400 mb-1">Executable Path</label>
-                            <input
-                              type="text"
-                              value={editedGame.exePath || ''}
-                              onChange={(e) => setEditedGame({ ...editedGame, exePath: e.target.value })}
-                              className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-medium text-gray-400 mb-1">Install Size</label>
-                            <input
-                              type="text"
-                              value={editedGame.installSize ? `${Math.round(editedGame.installSize / 1024 / 1024 / 1024 * 100) / 100} GB` : ''}
-                              readOnly
-                              className="w-full px-3 py-1.5 text-sm bg-gray-800/50 border border-gray-600 rounded text-gray-400"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-medium text-gray-400 mb-1">Last Played</label>
-                            <input
-                              type="text"
-                              value={editedGame.lastPlayed || ''}
-                              readOnly
-                              className="w-full px-3 py-1.5 text-sm bg-gray-800/50 border border-gray-600 rounded text-gray-400"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-medium text-gray-400 mb-1">Play Count</label>
-                            <input
-                              type="number"
-                              value={editedGame.playCount ?? ''}
-                              onChange={(e) => setEditedGame({ ...editedGame, playCount: e.target.value ? Number(e.target.value) : undefined })}
-                              className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-medium text-gray-400 mb-1">Completion Status</label>
-                            <input
-                              type="text"
-                              value={editedGame.completionStatus || ''}
-                              onChange={(e) => setEditedGame({ ...editedGame, completionStatus: e.target.value })}
-                              className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-medium text-gray-400 mb-1">Source</label>
-                            <input
-                              type="text"
-                              value={editedGame.source || ''}
-                              onChange={(e) => setEditedGame({ ...editedGame, source: e.target.value })}
-                              className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                            />
-                          </div>
-                          {/* Notes - Span 4 columns */}
-                          <div className="col-span-4">
-                            <label className="block text-xs font-medium text-gray-400 mb-1">Notes</label>
-                            <textarea
-                              value={editedGame.notes || ''}
-                              onChange={(e) => setEditedGame({ ...editedGame, notes: e.target.value })}
-                              className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                              rows={2}
-                            />
-                          </div>
-                        </div>
+                            {/* Metadata Grid - 4 Columns */}
+                            <div className="grid grid-cols-4 gap-3">
+                              {/* Platform */}
+                              {editedGame.platform && editedGame.platform !== 'other' && (
+                                <div>
+                                  <label className="block text-xs font-medium text-gray-400 mb-1">Platform</label>
+                                  <input
+                                    type="text"
+                                    value={editedGame.platform}
+                                    onChange={(e) => setEditedGame({ ...editedGame, platform: e.target.value })}
+                                    className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                  />
+                                </div>
+                              )}
 
-                        {/* Action Buttons */}
-                        <div className="flex gap-2 pt-2">
-                          <button
-                            onClick={handleSave}
-                            disabled={isSaving}
-                            className="flex-1 px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors disabled:opacity-50"
-                          >
-                            {isSaving ? 'Saving...' : 'Save'}
-                          </button>
-                          <button
-                            onClick={() => {
-                              setExpandedGameId(null);
-                              setEditedGame(null);
-                              setShowFixMatch(false);
-                              setSelectedGameId(null);
-                              // Reset Fix Match state when cancelling edit
-                              setMetadataSearchResults([]);
-                              setMetadataSearchQuery('');
-                              setIsSearchingMetadata(false);
-                            }}
-                            className="px-4 py-2 text-sm bg-gray-600 hover:bg-gray-700 text-white rounded transition-colors"
-                          >
-                            Cancel
-                          </button>
-                          {onDeleteGame && (
-                            <button
-                              onClick={() => setShowDeleteConfirm(true)}
-                              disabled={isDeleting}
-                              className="px-4 py-2 text-sm bg-red-600 hover:bg-red-700 text-white rounded transition-colors disabled:opacity-50 flex items-center gap-2"
-                            >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                              </svg>
-                              Delete
-                            </button>
-                          )}
-                        </div>
+                              <div>
+                                <label className="block text-xs font-medium text-gray-400 mb-1">Release Date</label>
+                                <input
+                                  type="text"
+                                  value={editedGame.releaseDate || ''}
+                                  onChange={(e) => setEditedGame({ ...editedGame, releaseDate: e.target.value })}
+                                  placeholder="YYYY-MM-DD"
+                                  className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-medium text-gray-400 mb-1">Age Rating</label>
+                                <input
+                                  type="text"
+                                  value={editedGame.ageRating || ''}
+                                  onChange={(e) => setEditedGame({ ...editedGame, ageRating: e.target.value })}
+                                  className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-medium text-gray-400 mb-1">Series</label>
+                                <input
+                                  type="text"
+                                  value={editedGame.series || ''}
+                                  onChange={(e) => setEditedGame({ ...editedGame, series: e.target.value })}
+                                  className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-medium text-gray-400 mb-1">Genres</label>
+                                <input
+                                  type="text"
+                                  value={editedGame.genres?.join(', ') || ''}
+                                  onChange={(e) => setEditedGame({ ...editedGame, genres: e.target.value.split(',').map(g => g.trim()).filter(g => g) })}
+                                  className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-medium text-gray-400 mb-1">Developers</label>
+                                <input
+                                  type="text"
+                                  value={editedGame.developers?.join(', ') || ''}
+                                  onChange={(e) => setEditedGame({ ...editedGame, developers: e.target.value.split(',').map(d => d.trim()).filter(d => d) })}
+                                  className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-medium text-gray-400 mb-1">Publishers</label>
+                                <input
+                                  type="text"
+                                  value={editedGame.publishers?.join(', ') || ''}
+                                  onChange={(e) => setEditedGame({ ...editedGame, publishers: e.target.value.split(',').map(p => p.trim()).filter(p => p) })}
+                                  className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-medium text-gray-400 mb-1">Tags</label>
+                                <input
+                                  type="text"
+                                  value={editedGame.tags?.join(', ') || ''}
+                                  onChange={(e) => setEditedGame({ ...editedGame, tags: e.target.value.split(',').map(t => t.trim()).filter(t => t) })}
+                                  className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-medium text-gray-400 mb-1">Region</label>
+                                <input
+                                  type="text"
+                                  value={editedGame.region || ''}
+                                  onChange={(e) => setEditedGame({ ...editedGame, region: e.target.value })}
+                                  className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-medium text-gray-400 mb-1">User Score</label>
+                                <input
+                                  type="number"
+                                  value={editedGame.userScore ?? ''}
+                                  onChange={(e) => setEditedGame({ ...editedGame, userScore: e.target.value ? Number(e.target.value) : undefined })}
+                                  className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-medium text-gray-400 mb-1">Critic Score</label>
+                                <input
+                                  type="number"
+                                  value={editedGame.criticScore ?? ''}
+                                  onChange={(e) => setEditedGame({ ...editedGame, criticScore: e.target.value ? Number(e.target.value) : undefined })}
+                                  className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-medium text-gray-400 mb-1">Community Score</label>
+                                <input
+                                  type="number"
+                                  value={editedGame.communityScore ?? ''}
+                                  onChange={(e) => setEditedGame({ ...editedGame, communityScore: e.target.value ? Number(e.target.value) : undefined })}
+                                  className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-medium text-gray-400 mb-1">Install Directory</label>
+                                <input
+                                  type="text"
+                                  value={editedGame.installationDirectory || ''}
+                                  onChange={(e) => setEditedGame({ ...editedGame, installationDirectory: e.target.value })}
+                                  className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-medium text-gray-400 mb-1">Executable Path</label>
+                                <input
+                                  type="text"
+                                  value={editedGame.exePath || ''}
+                                  onChange={(e) => setEditedGame({ ...editedGame, exePath: e.target.value })}
+                                  className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-medium text-gray-400 mb-1">Install Size</label>
+                                <input
+                                  type="text"
+                                  value={editedGame.installSize ? `${Math.round(editedGame.installSize / 1024 / 1024 / 1024 * 100) / 100} GB` : ''}
+                                  readOnly
+                                  className="w-full px-3 py-1.5 text-sm bg-gray-800/50 border border-gray-600 rounded text-gray-400"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-medium text-gray-400 mb-1">Last Played</label>
+                                <input
+                                  type="text"
+                                  value={editedGame.lastPlayed || ''}
+                                  readOnly
+                                  className="w-full px-3 py-1.5 text-sm bg-gray-800/50 border border-gray-600 rounded text-gray-400"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-medium text-gray-400 mb-1">Play Count</label>
+                                <input
+                                  type="number"
+                                  value={editedGame.playCount ?? ''}
+                                  onChange={(e) => setEditedGame({ ...editedGame, playCount: e.target.value ? Number(e.target.value) : undefined })}
+                                  className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-medium text-gray-400 mb-1">Completion Status</label>
+                                <input
+                                  type="text"
+                                  value={editedGame.completionStatus || ''}
+                                  onChange={(e) => setEditedGame({ ...editedGame, completionStatus: e.target.value })}
+                                  className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-medium text-gray-400 mb-1">Source</label>
+                                <input
+                                  type="text"
+                                  value={editedGame.source || ''}
+                                  onChange={(e) => setEditedGame({ ...editedGame, source: e.target.value })}
+                                  className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                />
+                              </div>
+                              {/* Notes - Span 4 columns */}
+                              <div className="col-span-4">
+                                <label className="block text-xs font-medium text-gray-400 mb-1">Notes</label>
+                                <textarea
+                                  value={editedGame.notes || ''}
+                                  onChange={(e) => setEditedGame({ ...editedGame, notes: e.target.value })}
+                                  className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                  rows={2}
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
-                    </div>
+                      {/* Sticky Footer Action Buttons */}
+                      <div className="p-4 border-t border-gray-800 bg-gray-900/95 backdrop-blur z-10 flex gap-2 shrink-0">
+                        <button
+                          onClick={handleSave}
+                          disabled={isSaving}
+                          className="flex-1 px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors disabled:opacity-50"
+                        >
+                          {isSaving ? 'Saving...' : 'Save'}
+                        </button>
+                        <button
+                          onClick={() => {
+                            // Reset changes
+                            if (selectedGame) {
+                              setEditedGame({ ...selectedGame });
+                              setSuccess('Changes reverted');
+                              setTimeout(() => setSuccess(null), 1500);
+                            }
+                          }}
+                          className="px-4 py-2 text-sm bg-gray-600 hover:bg-gray-700 text-white rounded transition-colors"
+                        >
+                          Revert
+                        </button>
+                        {onDeleteGame && (
+                          <button
+                            onClick={() => setShowDeleteConfirm(true)}
+                            disabled={isDeleting}
+                            className="px-4 py-2 text-sm bg-red-600 hover:bg-red-700 text-white rounded transition-colors disabled:opacity-50 flex items-center gap-2"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                            Delete
+                          </button>
+                        )}
+                      </div>
+                    </>
                   )}
 
                   {activeTab === 'modManager' && editedGame && (
@@ -3037,6 +3077,30 @@ export const GameManager: React.FC<GameManagerProps> = ({
         onConfirm={handleDelete}
         onCancel={() => setShowDeleteConfirm(false)}
         variant="danger"
+      />
+
+      <ConfirmationDialog
+        isOpen={showUnsavedChanges}
+        title="Unsaved Changes"
+        message="You have unsaved changes. Are you sure you want to discard them?"
+        confirmText="Discard Changes"
+        cancelText="Keep Editing"
+        variant="warning"
+        onConfirm={() => {
+          setShowUnsavedChanges(false);
+          if (pendingAction) {
+            if (pendingAction.type === 'close') {
+              onClose();
+            } else if (pendingAction.type === 'select') {
+              performGameSelect(pendingAction.gameId);
+            }
+          }
+          setPendingAction(null);
+        }}
+        onCancel={() => {
+          setShowUnsavedChanges(false);
+          setPendingAction(null);
+        }}
       />
       {contextMenu && (
         <ImageContextMenu

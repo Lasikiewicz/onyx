@@ -181,17 +181,27 @@ export class MetadataFetcherService {
   private mergeArtwork(artworkArray: Array<{ artwork: GameArtwork | null; source: string }>): GameArtwork {
     const merged: GameArtwork = {};
 
-    const getSourcePriority = (source: string): number => {
+    const getSourcePriority = (source: string, assetType: 'general' | 'detailed' = 'general'): number => {
+      // For banners and heroes (detailed artwork), prefer SteamGridDB
+      if (assetType === 'detailed') {
+        if (source === "steamgriddb") return 6; // Highest priority for detailed art
+        if (source === "steam") return 5;
+        if (source === "igdb") return 4;
+        if (source === "rawg") return 3;
+        return 1;
+      }
+
+      // Default priority for other assets (Icons, Boxart)
       if (source === "steam") return 5;
       if (source === "igdb") return 4;
-      if (source === "steamgriddb") return 3.5; // SGDB assets are often higher quality than RAWG
+      if (source === "steamgriddb") return 3.5;
       if (source === "rawg") return 3;
       return 1;
     };
 
-    const sortByPriority = (items: Array<{ url: string; resolution?: { width: number; height: number }; source: string }>) =>
+    const sortByPriority = (items: Array<{ url: string; resolution?: { width: number; height: number }; source: string }>, assetType: 'general' | 'detailed' = 'general') =>
       items.sort((a, b) => {
-        const priorityDiff = getSourcePriority(b.source) - getSourcePriority(a.source);
+        const priorityDiff = getSourcePriority(b.source, assetType) - getSourcePriority(a.source, assetType);
         if (priorityDiff !== 0) return priorityDiff;
         return this.getResolutionScore(b.resolution) - this.getResolutionScore(a.resolution);
       });
@@ -206,10 +216,12 @@ export class MetadataFetcherService {
       merged.boxArtResolution = boxArts[0].resolution;
     }
 
+    // Use 'detailed' priority (SGDB preferred) for Banners
     const banners = sortByPriority(
       artworkArray
         .filter(item => item.artwork?.bannerUrl)
-        .map(item => ({ url: item.artwork!.bannerUrl!, resolution: item.artwork!.bannerResolution, source: item.source }))
+        .map(item => ({ url: item.artwork!.bannerUrl!, resolution: item.artwork!.bannerResolution, source: item.source })),
+      'detailed'
     );
     if (banners.length > 0) {
       merged.bannerUrl = banners[0].url;
@@ -236,10 +248,12 @@ export class MetadataFetcherService {
       merged.iconResolution = icons[0].resolution;
     }
 
+    // Use 'detailed' priority (SGDB preferred) for Heroes
     const heroes = sortByPriority(
       artworkArray
         .filter(item => item.artwork?.heroUrl)
-        .map(item => ({ url: item.artwork!.heroUrl!, resolution: item.artwork!.heroResolution, source: item.source }))
+        .map(item => ({ url: item.artwork!.heroUrl!, resolution: item.artwork!.heroResolution, source: item.source })),
+      'detailed'
     );
     if (heroes.length > 0) {
       merged.heroUrl = heroes[0].url;

@@ -57,6 +57,7 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
 
     // Refs
     const hasAutoScanned = useRef(false);
+    const sidebarListRef = useRef<HTMLDivElement>(null);
 
     // Get selected game from queue
     const selectedGame = useMemo(() => queue.find(g => g.uuid === selectedId) || null, [queue, selectedId]);
@@ -145,6 +146,7 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
         const existingIds = new Set(existingLibrary.map(g => g.id));
         const existingTitles = new Set(existingLibrary.map(g => g.title.toLowerCase().trim()));
         let firstGameUuid: string | null = null;
+        let newGamesCount = 0;
 
         for (const scanned of scannedGames) {
             // Skip if already in library by ID (check various patterns)
@@ -175,6 +177,25 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
                 console.warn(`Failed to fetch metadata for ${scanned.title}:`, err);
             }
 
+            // --- Category Logic ---
+            const categories: string[] = [];
+
+            // Auto-assign "Apps" for Utilities
+            if (metadata?.genres?.some((g: string) => g.toLowerCase() === 'utilities')) {
+                categories.push('Apps');
+            }
+
+            // Auto-assign "Demo" for Demos
+            const titleLower = scanned.title.toLowerCase();
+            const metaTitleLower = (metadata?.title || '').toLowerCase();
+            if (titleLower.includes('demo') || metaTitleLower.includes('demo')) {
+                categories.push('Demo');
+            }
+
+            // Manual folders basically always get "Games" unless specified otherwise, 
+            // but let's leave it empty so user can decide, or default to Games if standard.
+            // For now, only Utility/Demo logic was explicitly requested.
+
             const staged: StagedGame = {
                 uuid,
                 source: scanned.source,
@@ -188,7 +209,7 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
                 genres: metadata?.genres || [],
                 developers: metadata?.developers || [],
                 publishers: metadata?.publishers || [],
-                categories: [],
+                categories: categories, // Use our calculated categories
                 boxArtUrl: metadata?.boxArtUrl || '',
                 bannerUrl: metadata?.bannerUrl || '',
                 logoUrl: metadata?.logoUrl || '',
@@ -208,11 +229,22 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
 
             // Add to queue immediately so it appears in sidebar
             setQueue(prev => [...prev, staged]);
+            newGamesCount++;
 
             // Select first game if none selected
             if (!selectedId && firstGameUuid === uuid) {
                 setSelectedId(uuid);
             }
+        }
+
+        // Scroll to bottom if we added games
+        if (newGamesCount > 0 && sidebarListRef.current) {
+            // Small timeout to allow render
+            setTimeout(() => {
+                if (sidebarListRef.current) {
+                    sidebarListRef.current.scrollTop = sidebarListRef.current.scrollHeight;
+                }
+            }, 100);
         }
     };
 
@@ -326,12 +358,17 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
         switch (status) {
             case 'ready': return '✓';
             case 'matched': return '◎';
-            case 'ambiguous': return '?';
+            case 'ambiguous': return '!'; // Changed from ? to !
             case 'error': return '✗';
             case 'pending': return '○';
             case 'scanning': return '↻';
             default: return '○';
         }
+    };
+
+    const getStatusLabel = (status: ImportStatus) => {
+        if (status === 'ambiguous') return 'Attention Needed';
+        return status.charAt(0).toUpperCase() + status.slice(1);
     };
 
     if (!isOpen) return null;
@@ -378,7 +415,7 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
                 {/* Main Content */}
                 <div className="flex flex-1 overflow-hidden">
                     {/* Sidebar - Game List */}
-                    <div className="w-[300px] lg:w-[350px] border-r border-gray-800 bg-gray-900/50 overflow-y-auto">
+                    <div ref={sidebarListRef} className="w-[300px] lg:w-[350px] border-r border-gray-800 bg-gray-900/50 overflow-y-auto">
                         {Object.entries(groupedGames).map(([source, games]) => {
                             if (!games || games.length === 0) return null;
                             return (
@@ -407,7 +444,7 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
                                                 <div className="text-sm font-medium text-white truncate">{game.title}</div>
                                                 <div className="flex items-center gap-2 mt-1">
                                                     <span className={`text-xs ${getStatusColor(game.status)}`}>
-                                                        {getStatusIcon(game.status)} {game.status}
+                                                        {getStatusIcon(game.status)} {getStatusLabel(game.status)}
                                                     </span>
                                                 </div>
                                             </div>
