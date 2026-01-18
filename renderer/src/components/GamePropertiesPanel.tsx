@@ -52,7 +52,7 @@ export const GamePropertiesPanel: React.FC<GamePropertiesPanelProps> = ({
     // Fast Search State
     const [isFastSearching, setIsFastSearching] = useState(false);
     const [fastSearchResults, setFastSearchResults] = useState<any[]>([]);
-    const [selectedFastGame, setSelectedFastGame] = useState<any | null>(null);
+
     const [showAnimatedImages, setShowAnimatedImages] = useState(false);
 
     // General State
@@ -206,7 +206,7 @@ export const GamePropertiesPanel: React.FC<GamePropertiesPanelProps> = ({
         setIsFastSearching(true);
         setError(null);
         setFastSearchResults([]);
-        setSelectedFastGame(null);
+
 
         try {
             console.log(`[FastSearch] Searching for "${query}"...`);
@@ -234,7 +234,7 @@ export const GamePropertiesPanel: React.FC<GamePropertiesPanelProps> = ({
     };
 
     const handleSelectFastGame = async (gameResult: any) => {
-        setSelectedFastGame(gameResult);
+
         setFastSearchResults([]);
         setIsSearchingImages(true);
         setError(null);
@@ -595,7 +595,7 @@ export const GamePropertiesPanel: React.FC<GamePropertiesPanelProps> = ({
                                 onClick={() => {
                                     setSteamGridDBResults({ boxart: [], banner: [], logo: [], icon: [] });
                                     setFastSearchResults([]);
-                                    setSelectedFastGame(null);
+
                                 }}
                                 className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded transition-colors"
                                 disabled={isSearchingImages}
@@ -628,7 +628,7 @@ export const GamePropertiesPanel: React.FC<GamePropertiesPanelProps> = ({
                                     <button
                                         onClick={() => {
                                             setFastSearchResults([]);
-                                            setSelectedFastGame(null);
+                                            // setSelectedFastGame(null);
                                         }}
                                         className="text-xs text-gray-400 hover:text-white"
                                     >
