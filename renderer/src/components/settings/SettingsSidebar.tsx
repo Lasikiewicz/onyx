@@ -13,7 +13,6 @@ interface SettingsSidebarProps {
     tabs: SettingsTab[];
     activeTab: string;
     onTabChange: (id: string) => void;
-    onClose: () => void;
     appVersion?: string;
 }
 
@@ -21,7 +20,6 @@ export const SettingsSidebar: React.FC<SettingsSidebarProps> = ({
     tabs,
     activeTab,
     onTabChange,
-    onClose,
     appVersion = '0.0.0'
 }) => {
     return (

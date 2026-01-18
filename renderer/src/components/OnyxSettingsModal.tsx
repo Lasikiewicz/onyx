@@ -808,7 +808,6 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
         tabs={tabs}
         activeTab={activeTab}
         onTabChange={(id) => setActiveTab(id as TabType)}
-        onClose={onClose}
         appVersion={appVersion}
       />
 
