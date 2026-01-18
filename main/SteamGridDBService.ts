@@ -105,6 +105,38 @@ export class SteamGridDBService {
   }
 
   /**
+   * Get game by ID
+   */
+  async getGameById(id: number): Promise<SteamGridDBGame | null> {
+    return this.queueRequest(async () => {
+      try {
+        const response = await fetch(`${this.baseUrl}/games/id/${id}`, {
+          headers: {
+            'Authorization': `Bearer ${this.apiKey}`,
+          },
+        });
+
+        if (!response.ok) {
+          if (response.status === 404) {
+            console.log(`[SteamGridDB] No game found for ID: ${id}`);
+            return null;
+          }
+          if (response.status === 401) {
+            throw new Error('Invalid SteamGridDB API key');
+          }
+          throw new Error(`SteamGridDB API error: ${response.status} ${response.statusText}`);
+        }
+
+        const data = await response.json() as { data?: SteamGridDBGame };
+        return data.data || null;
+      } catch (error) {
+        console.error('Error fetching SteamGridDB game by ID:', error);
+        return null;
+      }
+    });
+  }
+
+  /**
    * Get game by Steam App ID (more accurate than title search)
    */
   async getGameBySteamAppId(steamAppId: string | number): Promise<SteamGridDBGame | null> {

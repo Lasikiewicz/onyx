@@ -2170,50 +2170,43 @@ export const GameManager: React.FC<GameManagerProps> = ({
                                       try {
                                         const response = await window.electronAPI.searchGames(query);
                                         if (response.success && response.results) {
-                                          // Filter to show only Steam Store API results
-                                          const steamResults = response.results.filter((result: any) => result.source === 'steam');
+                                          const results = response.results;
 
-                                          if (steamResults.length === 0) {
-                                            setError('No Steam Store API results found. Make sure the game is available on Steam.');
+                                          if (results.length === 0) {
+                                            setError('No matches found.');
                                             setMetadataSearchResults([]);
-                                            setIsSearchingMetadata(false);
-                                            return;
-                                          }
+                                          } else {
+                                            // Sort: Score > Date > Exact Match
+                                            const normalizedQuery = query.toLowerCase().trim();
+                                            const sortedResults = results.sort((a: any, b: any) => {
+                                              // 1. Score (assigned by backend)
+                                              const scoreA = a.score || 0;
+                                              const scoreB = b.score || 0;
+                                              if (scoreA !== scoreB) return scoreB - scoreA;
 
-                                          // Sort results: newest release first, then exact matches
-                                          const normalizedQuery = query.toLowerCase().trim();
-                                          const sortedResults = steamResults.sort((a: any, b: any) => {
-                                            // First, sort by release date (newest first)
-                                            const getDate = (result: any): number => {
-                                              if (result.releaseDate) {
-                                                if (typeof result.releaseDate === 'number') {
-                                                  return result.releaseDate * 1000;
-                                                }
-                                                return new Date(result.releaseDate).getTime();
-                                              }
-                                              if (result.year) {
-                                                return new Date(result.year, 0, 1).getTime();
-                                              }
+                                              // 2. Release Date (Newest first)
+                                              const getDate = (r: any) => {
+                                                if (r.releaseDate) return typeof r.releaseDate === 'number' ? r.releaseDate * 1000 : new Date(r.releaseDate).getTime();
+                                                if (r.year) return new Date(r.year, 0, 1).getTime();
+                                                return 0;
+                                              };
+                                              const dateA = getDate(a);
+                                              const dateB = getDate(b);
+                                              if (dateA !== dateB && dateA > 0 && dateB > 0) return dateB - dateA;
+
+                                              // 3. Exact Match
+                                              const nameA = (a.title || a.name || "").toLowerCase().trim();
+                                              const nameB = (b.title || b.name || "").toLowerCase().trim();
+                                              if (nameA === normalizedQuery && nameB !== normalizedQuery) return -1;
+                                              if (nameA !== normalizedQuery && nameB === normalizedQuery) return 1;
+
                                               return 0;
-                                            };
-
-                                            const aDate = getDate(a);
-                                            const bDate = getDate(b);
-                                            if (aDate !== bDate && aDate > 0 && bDate > 0) {
-                                              return bDate - aDate; // Newest first
-                                            }
-
-                                            // Then prioritize exact matches
-                                            const aName = (a.title || (("name" in a ? (a as any).name : "") as string)).toLowerCase().trim();
-                                            const bName = (b.title || (("name" in b ? (b as any).name : "") as string)).toLowerCase().trim();
-                                            const aExact = aName === normalizedQuery;
-                                            const bExact = bName === normalizedQuery;
-                                            if (aExact && !bExact) return -1;
-                                            if (!aExact && bExact) return 1;
-
-                                            return 0;
-                                          });
-                                          setMetadataSearchResults(sortedResults);
+                                            });
+                                            setMetadataSearchResults(sortedResults);
+                                          }
+                                        } else {
+                                          setError(response.error || 'Search failed');
+                                          setMetadataSearchResults([]);
                                         }
                                       } catch (err) {
                                         console.error('Error searching metadata:', err);

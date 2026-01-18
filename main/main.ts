@@ -1876,112 +1876,7 @@ ipcMain.handle('metadata:searchMetadata', async (_event, gameTitle: string) => {
   }
 });
 
-// Helper function to search Steam Store for App ID (using Steam Store search page)
-// Based on SteamDB.info's approach: parse Steam Store pages to get App IDs
-async function searchSteamDBForAllAppIds(gameName: string, normalizedTitle: string): Promise<string[]> {
-  try {
-    // Use Steam Store search page - SteamDB.info parses store pages for data
-    const searchUrl = `https://store.steampowered.com/search/?term=${encodeURIComponent(gameName)}&category1=998`;
-    const response = await fetch(searchUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
-      }
-    });
 
-    if (!response.ok) {
-      console.warn(`[SteamDB Search] Steam Store search returned status ${response.status}`);
-      return [];
-    }
-
-    const html = await response.text();
-
-    // Extract App IDs using multiple methods (Steam uses various formats):
-    const appIds: string[] = [];
-
-    // Method 1: Look for href="/app/123456/" or href='/app/123456/' (most common)
-    const hrefMatches = html.match(/href=["']\/app\/(\d+)\//g);
-    if (hrefMatches) {
-      console.log(`[SteamDB Search] Found ${hrefMatches.length} href matches`);
-      for (const match of hrefMatches) {
-        const appIdMatch = match.match(/\/app\/(\d+)\//);
-        if (appIdMatch && appIdMatch[1]) {
-          appIds.push(appIdMatch[1]);
-        }
-      }
-    }
-
-    // Method 2: Look for data-ds-appid="123456" (Steam uses this attribute)
-    const dataAppIdMatches = html.match(/data-ds-appid=["'](\d+)["']/g);
-    if (dataAppIdMatches) {
-      console.log(`[SteamDB Search] Found ${dataAppIdMatches.length} data-ds-appid matches`);
-      for (const match of dataAppIdMatches) {
-        const appIdMatch = match.match(/data-ds-appid=["'](\d+)["']/);
-        if (appIdMatch && appIdMatch[1]) {
-          appIds.push(appIdMatch[1]);
-        }
-      }
-    }
-
-    // Method 3: Look for data-ds-bundleid (bundles also contain app IDs sometimes)
-    const bundleMatches = html.match(/data-ds-bundleid=["'](\d+)["']/g);
-    if (bundleMatches) {
-      console.log(`[SteamDB Search] Found ${bundleMatches.length} bundle matches`);
-    }
-
-    // Method 4: Look for JSON data embedded in script tags (Steam sometimes embeds search results as JSON)
-    const scriptMatches = html.match(/<script[^>]*>[\s\S]*?<\/script>/gi);
-    if (scriptMatches) {
-      console.log(`[SteamDB Search] Found ${scriptMatches.length} script tags, searching for JSON data...`);
-      for (const script of scriptMatches) {
-        // Look for JSON objects with app IDs
-        const jsonMatches = script.match(/"appid"\s*:\s*(\d+)/g);
-        if (jsonMatches) {
-          console.log(`[SteamDB Search] Found ${jsonMatches.length} appid entries in JSON`);
-          for (const match of jsonMatches) {
-            const appIdMatch = match.match(/"appid"\s*:\s*(\d+)/);
-            if (appIdMatch && appIdMatch[1]) {
-              appIds.push(appIdMatch[1]);
-            }
-          }
-        }
-        // Also look for app IDs in other JSON formats
-        const altJsonMatches = script.match(/appid["']?\s*[:=]\s*["']?(\d+)/gi);
-        if (altJsonMatches) {
-          for (const match of altJsonMatches) {
-            const appIdMatch = match.match(/appid["']?\s*[:=]\s*["']?(\d+)/i);
-            if (appIdMatch && appIdMatch[1]) {
-              appIds.push(appIdMatch[1]);
-            }
-          }
-        }
-      }
-    }
-
-    // Get unique App IDs
-    const uniqueAppIds = [...new Set(appIds)];
-
-    if (uniqueAppIds.length === 0) {
-      console.log(`[SteamDB Search] No App IDs found in Steam Store search results for "${gameName}"`);
-      console.log(`[SteamDB Search] HTML length: ${html.length}, checking if page loaded correctly...`);
-      // Debug: check if we got HTML at all
-      if (html.length < 1000) {
-        console.warn(`[SteamDB Search] HTML response seems too short (${html.length} chars), might be an error page`);
-      }
-      return [];
-    }
-
-    console.log(`[SteamDB Search] Found ${uniqueAppIds.length} unique App IDs in Steam Store search for "${gameName}"`);
-    console.log(`[SteamDB Search] First 5 App IDs: ${uniqueAppIds.slice(0, 5).join(', ')}`);
-
-    // Return all App IDs found (we'll filter and sort them later)
-    // Limit to first 50 to avoid too many API calls
-    return uniqueAppIds.slice(0, 50);
-  } catch (err) {
-    console.warn(`[SteamDB Search] Error searching Steam Store for "${gameName}":`, err);
-    return [];
-  }
-}
 
 // Search games across all providers (IGDB and SteamGridDB)
 ipcMain.handle('metadata:searchGames', async (_event, gameTitle: string) => {
@@ -2073,193 +1968,102 @@ ipcMain.handle('metadata:searchGames', async (_event, gameTitle: string) => {
       return null;
     })();
 
-    // Search Steam Store for all matching App IDs
+    // Search Steam Store and other providers in PARALLEL
     const normalizedTitle = gameTitle.trim().toLowerCase();
-    let steamResults: any[] = [];
+    // 1. Steam Search Task
+    const steamSearchPromise = (async () => {
+      let steamGames: any[] = [];
+      try {
+        if (!steamService) return [];
 
-    try {
-      console.log(`[Steam Search] Searching Steam Store for all matches of "${gameTitle}"`);
-      const allAppIds = await searchSteamDBForAllAppIds(gameTitle, normalizedTitle);
+        console.log(`[Steam Search] Searching Steam Store for "${gameTitle}" via API`);
+        // Use optimized storesearch API
+        const results = await steamService.searchGames(gameTitle);
 
-      if (allAppIds.length > 0) {
-        console.log(`[Steam Search] Found ${allAppIds.length} App IDs, fetching game details...`);
+        steamGames = results.map((game, index) => {
+          const isExactMatch = game.name.trim().toLowerCase() === normalizedTitle;
+          return {
+            id: `steam-${game.appId}`,
+            title: game.name,
+            source: 'steam',
+            externalId: game.appId,
+            steamAppId: game.appId,
+            // Construct high-quality boxart URL
+            boxArtUrl: `https://cdn.akamai.steamstatic.com/steam/apps/${game.appId}/library_600x900_2x.jpg`,
+            // Use tiny image as fallback or placeholder provided by API? 
+            // The API provides tiny_image, but we prefer the library asset.
 
-        // Fetch details for App IDs with rate limiting (limit to 20 to avoid hammering API)
-        const appIdsToFetch = allAppIds.slice(0, 20);
-        const fetchedGames: any[] = [];
-
-        // Process sequentially with delays to avoid rate limiting
-        for (let i = 0; i < appIdsToFetch.length; i++) {
-          const appId = appIdsToFetch[i];
-
-          try {
-            // Add delay between requests (200ms = max 5 req/sec) to respect Steam's rate limits
-            if (i > 0) {
-              await new Promise(resolve => setTimeout(resolve, 200));
-            }
-
-            console.log(`[Steam Search] Fetching ${i + 1}/${appIdsToFetch.length}: App ID ${appId}...`);
-
-            const storeApiUrl = `https://store.steampowered.com/api/appdetails?appids=${appId}&l=english`;
-            const response = await fetch(storeApiUrl);
-
-            if (response.ok) {
-              const data = await response.json() as Record<string, any>;
-              const appData = data[appId];
-
-              if (appData && appData.success && appData.data) {
-                const steamName = appData.data.name?.trim().toLowerCase();
-
-                // Parse release date from Steam format
-                let releaseDate: string | undefined;
-                let releaseTimestamp: number | undefined;
-                if (appData.data.release_date && appData.data.release_date.date) {
-                  const dateStr = appData.data.release_date.date;
-                  if (dateStr !== 'Coming soon' && dateStr !== 'TBA') {
-                    try {
-                      const date = new Date(dateStr);
-                      if (!isNaN(date.getTime())) {
-                        releaseDate = date.toISOString().split('T')[0];
-                        releaseTimestamp = date.getTime();
-                      }
-                    } catch (err) {
-                      // Ignore date parsing errors
-                    }
-                  }
-                }
-
-                fetchedGames.push({
-                  id: `steam-${appId}`,
-                  title: appData.data.name,
-                  source: 'steam',
-                  externalId: appId,
-                  steamAppId: appId,
-                  releaseDate: releaseDate,
-                  releaseTimestamp: releaseTimestamp || 0, // For sorting
-                  isExactMatch: steamName === normalizedTitle,
-                });
-              }
-            } else if (response.status === 429) {
-              console.warn(`[Steam Search] Rate limited (429) on App ID ${appId}, stopping search`);
-              break; // Stop if we hit rate limit
-            }
-          } catch (err) {
-            console.warn(`[Steam Search] Error fetching App ID ${appId}:`, err);
-          }
-        }
-
-        steamResults = fetchedGames;
-
-        // Sort: exact match first, then by release date (newest first)
-        steamResults.sort((a, b) => {
-          // Exact match first
-          if (a.isExactMatch && !b.isExactMatch) return -1;
-          if (!a.isExactMatch && b.isExactMatch) return 1;
-
-          // Then by release date (newest first)
-          if (a.releaseTimestamp !== b.releaseTimestamp) {
-            return b.releaseTimestamp - a.releaseTimestamp;
-          }
-
-          return 0;
+            // Prioritize: 3000 base + relevance (inverse index) + exact match bonus
+            // This preserves the API's relevance order
+            score: 3000 - index + (isExactMatch ? 100 : 0),
+            isExactMatch
+          };
         });
 
-        console.log(`[Steam Search] Found ${steamResults.length} Steam games`);
+        console.log(`[Steam Search] Found ${steamGames.length} games via API`);
+
+      } catch (err) {
+        console.warn('[Steam Search] Error:', err);
       }
-    } catch (err) {
-      console.warn('[Steam Search] Error searching Steam Store:', err);
-    }
+      return steamGames;
+    })();
 
-    // If we found Steam results, return them (exact match first, then by date)
-    if (steamResults.length > 0) {
-      // Remove the temporary fields used for sorting
-      const cleanedResults = steamResults.map(({ releaseTimestamp, isExactMatch, ...rest }) => rest);
-      return { success: true, results: cleanedResults };
-    }
+    // 2. MetadataProvider Search Task (SGDB, RAWG, IGDB)
+    const otherSearchPromise = (async () => {
+      try {
+        const results = await metadataFetcher.searchGames(gameTitle);
 
-    // Otherwise, do the normal search across all providers
-    const results = await metadataFetcher.searchGames(gameTitle);
+        // Transform and hydrate
+        const transformed = await Promise.all(results.map(async (result) => {
+          // Skip Steam results from here to avoid dupes (we use custom search logic above)
+          if (result.source === 'steam') return null;
 
-    // Transform results to include additional info for display
-    const transformedResults = await Promise.all(
-      results.map(async (result) => {
-        const transformed: any = { ...result };
+          const item: any = { ...result };
 
-        // For Steam results, fetch release date from Steam Store API
-        if (result.source === 'steam') {
-          try {
-            // Extract Steam App ID from result
-            const steamAppId = result.steamAppId || (result.id.startsWith('steam-') ? result.id.replace('steam-', '') : undefined);
-            if (steamAppId) {
-              transformed.steamAppId = steamAppId; // Ensure steamAppId is set
+          // Assign Score based on source
+          if (item.source === 'steamgriddb') item.score = 2000;
+          else if (item.source === 'rawg') item.score = 1000;
+          else if (item.source === 'igdb') item.score = 500;
+          else item.score = 100;
 
-              // Fetch release date from Steam Store API if not already present
-              if (!transformed.releaseDate) {
-                try {
-                  const storeApiUrl = `https://store.steampowered.com/api/appdetails?appids=${steamAppId}&l=english`;
-                  const storeResponse = await fetch(storeApiUrl);
-
-                  if (storeResponse.ok) {
-                    const data = await storeResponse.json() as Record<string, any>;
-                    const appData = data[steamAppId];
-
-                    if (appData && appData.success && appData.data && appData.data.release_date) {
-                      const dateStr = appData.data.release_date.date;
-                      if (dateStr && dateStr !== 'Coming soon' && dateStr !== 'TBA') {
-                        try {
-                          const date = new Date(dateStr);
-                          if (!isNaN(date.getTime())) {
-                            transformed.releaseDate = date.toISOString().split('T')[0];
-                          }
-                        } catch (err) {
-                          // Ignore date parsing errors
-                        }
-                      }
-                    }
-                  }
-                } catch (err) {
-                  // Ignore errors fetching release date
-                }
+          // IGDB Hydration (Year/Platform)
+          if (item.source === 'igdb' && item.externalId && igdbService) {
+            try {
+              const igdbRes = await igdbService.searchGame(String(item.externalId));
+              const igdbGame = igdbRes.find(r => r.id === item.externalId) || igdbRes[0];
+              if (igdbGame) {
+                if (igdbGame.releaseDate) item.year = new Date(igdbGame.releaseDate * 1000).getFullYear();
+                if (igdbGame.platform) item.platform = igdbGame.platform;
               }
-            }
-          } catch (err) {
-            console.warn('Error processing Steam result:', err);
+            } catch (e) { }
           }
-        }
+          return item;
+        }));
 
-        // Try to get more details if it's an IGDB result
-        if (result.source === 'igdb' && result.externalId && igdbService) {
-          try {
-            // Search IGDB to get the full game details
-            const igdbResults = await igdbService.searchGame(String(result.externalId));
-            const igdbResult = igdbResults.find(r => r.id === result.externalId) || igdbResults[0];
+        return transformed.filter((r: any) => r !== null);
+      } catch (err) {
+        console.warn('[Metadata Search] Error:', err);
+        return [];
+      }
+    })();
 
-            if (igdbResult) {
-              // Extract year from release date
-              if (igdbResult.releaseDate) {
-                const date = new Date(igdbResult.releaseDate * 1000);
-                transformed.year = date.getFullYear();
-              }
-              // Extract platform
-              if (igdbResult.platform) {
-                transformed.platform = igdbResult.platform;
-              }
-            }
-          } catch (err) {
-            console.warn('Error fetching additional details for IGDB result:', err);
-          }
-        }
+    // Await both, but race otherSearchPromise with a strict timeout
+    // detailed providers (IGDB/SGDB) can be slow, but Steam is fast.
+    // If others are too slow, we just return Steam matches to keep UI snappy.
+    const otherSearchWithTimeout = Promise.race([
+      otherSearchPromise,
+      new Promise<any[]>((resolve) => setTimeout(() => {
+        console.warn('[Metadata Search] Timeout reached (2500ms), returning empty results for other providers');
+        resolve([]);
+      }, 2500))
+    ]);
 
-        // Note: We no longer create Steam results from SteamGridDB - only use SteamDB.info for App ID matching
+    const [steamResults, otherResults] = await Promise.all([steamSearchPromise, otherSearchWithTimeout]);
 
-        return transformed;
-      })
-    );
+    // Combine and Sort
+    const allResults = [...steamResults, ...otherResults].sort((a: any, b: any) => (b.score || 0) - (a.score || 0));
 
-    // Filter to show only Steam results (as requested for Fix Match)
-    const steamOnlyResults = transformedResults.filter((r: any) => r.source === 'steam');
-
-    return { success: true, results: steamOnlyResults.length > 0 ? steamOnlyResults : transformedResults };
+    return { success: true, results: allResults };
   } catch (error) {
     console.error('Error in metadata:searchGames handler:', error);
     return {
@@ -2441,12 +2245,12 @@ ipcMain.handle('metadata:refreshAll', async (event, options?: { allGames?: boole
               }
             }
 
-            // Method 2: Search SteamDB.info to find App ID, then verify with Steam Store API
-            if (!steamAppId) {
+            // Method 2: Search Steam Store API to find App ID, then verify
+            if (!steamAppId && steamService) {
               try {
-                console.log(`[RefreshAll] Searching SteamDB.info for "${game.title}"`);
-                const steamDbAppIds = await searchSteamDBForAllAppIds(game.title, normalizedTitle);
-                const steamDbAppId = steamDbAppIds.length > 0 ? steamDbAppIds[0] : null;
+                console.log(`[RefreshAll] Searching Steam Store for "${game.title}"`);
+                const searchResults = await steamService.searchGames(game.title);
+                const steamDbAppId = searchResults.length > 0 ? searchResults[0].appId : null;
 
                 if (steamDbAppId) {
                   console.log(`[RefreshAll] Found App ID ${steamDbAppId} via SteamDB.info for "${game.title}"`);
@@ -2972,34 +2776,40 @@ ipcMain.handle('metadata:fetchAndUpdateByProviderId', async (_event, gameId: str
         return { success: false, error: 'Game not found on Steam' };
       }
     } else if (providerSource === 'steamgriddb') {
-      // Check SGDB service
       if (!steamGridDBService) {
         return { success: false, error: 'SteamGridDB service not available' };
       }
 
-      // SGDB matching usually returns a game object, but we need title to aggregate
-      // We can fetch SGDB game details if possible, or search by ID?
-      // SGDB ID is numeric. PROVIDER ID is "sgdb-123" maybe?
-      const sgdbId = parseInt(providerId.replace('steamgriddb-', '').replace('sgdb-', ''), 10);
+      const sgdbId = parseInt(String(providerId).replace('steamgriddb-', '').replace('sgdb-', ''), 10);
+      try {
+        const sgdbGame = await steamGridDBService.getGameById(sgdbId);
+        if (sgdbGame) {
+          metadata = await metadataFetcher.searchArtwork(sgdbGame.name, steamAppId);
+        } else {
+          return { success: false, error: 'Game not found on SteamGridDB' };
+        }
+      } catch (err) {
+        console.error('Error fetching SGDB game details:', err);
+        return { success: false, error: 'Failed to fetch details from SteamGridDB' };
+      }
 
-      // We don't have a direct "getGameById" in SteamGridDBService exposed easily (getGame(id) exists in API?)
-      // Let's assume we can rely on title if we can't get it. but wait we need title!
-      // Actually `SteamGridDBService` has `searchGame` but not `getGame`?
-      // Let's check SteamGridDBService again if needed. 
-      // For now, let's assume we can fall back to using what we have or skipping if we strictly need title.
-      // Actually, we can assume the user selected a result, which implies we know the title from the search result in the frontend?
-      // But the frontend only passes ID.
+    } else if (providerSource === 'rawg') {
+      if (!rawgService) {
+        return { success: false, error: 'RAWG service not available' };
+      }
 
-      // Workaround: We'll error for now or try to implement getGame if easy.
-      // It seems SGDB provider is less critical for "Base Metadata" fixing (usually IGDB/Steam is better for description/metadata).
-      // SGDB is mostly for images.
-      // BUT if the user wants to match to SGDB to fix images...
-
-      // Let's just return error for now as I can't confirm getGame availability without viewing file again.
-      // Actually, I viewed SteamGridDBService.ts in step 135 and it only had getVerticalGrids etc.
-      // It did NOT have getGameById.
-      // So I will stick to adding Steam support which is critical.
-      return { success: false, error: 'SteamGridDB matching not fully supported yet (ID lookup missing)' };
+      const rawgId = parseInt(String(providerId).replace('rawg-', ''), 10);
+      try {
+        const rawgGame = await rawgService.getGameDetails(rawgId);
+        if (rawgGame) {
+          metadata = await metadataFetcher.searchArtwork(rawgGame.name, steamAppId);
+        } else {
+          return { success: false, error: 'Game not found on RAWG' };
+        }
+      } catch (err) {
+        console.error('Error fetching RAWG game details:', err);
+        return { success: false, error: 'Failed to fetch details from RAWG' };
+      }
 
     } else {
       return { success: false, error: `Unknown provider source: ${providerSource}` };

@@ -468,6 +468,31 @@ export class SteamService {
   }
 
   /**
+   * Search for games on Steam Store
+   * @param query - Search term
+   * @returns Array of matching games with basic info
+   */
+  async searchGames(query: string): Promise<Array<{ appId: string; name: string; tinyImage: string }>> {
+    try {
+      const response = await axios.get(`https://store.steampowered.com/api/storesearch/?term=${encodeURIComponent(query)}&l=english&cc=US`, {
+        timeout: 10000
+      });
+
+      if (response.data && response.data.items) {
+        return response.data.items.map((item: any) => ({
+          appId: String(item.id),
+          name: item.name,
+          tinyImage: item.tiny_image
+        }));
+      }
+      return [];
+    } catch (error) {
+      console.error(`[SteamService] Error searching for "${query}":`, error);
+      return [];
+    }
+  }
+
+  /**
    * Get game details from Steam Store API
    * @param appId - Steam App ID
    */
