@@ -5,6 +5,12 @@ on:
     branches:
       - main
       - develop
+    paths-ignore:
+      - 'website/**'
+      - 'docs/**'
+      - 'agents.md'
+      - 'brain/**'
+      - '.gemini/**'
 
 permissions:
   contents: write
