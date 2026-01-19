@@ -1,0 +1,141 @@
+/* Game Transition Animations */
+
+/* Keyframe Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeInScale {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(30px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-30px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Animation Classes */
+.game-transition-fade {
+  animation: fadeIn 500ms ease-out;
+}
+
+.game-transition-fade-up {
+  animation: fadeInUp 500ms ease-out;
+}
+
+.game-transition-fade-scale {
+  animation: fadeInScale 500ms ease-out;
+}
+
+.game-transition-slide-right {
+  animation: slideInRight 450ms ease-out;
+}
+
+.game-transition-slide-left {
+  animation: slideInLeft 450ms ease-out;
+}
+
+/* Staggered animations for content sections */
+.game-transition-stagger-1 {
+  animation: fadeInUp 500ms ease-out;
+  animation-delay: 0ms;
+}
+
+.game-transition-stagger-2 {
+  animation: fadeInUp 500ms ease-out;
+  animation-delay: 150ms;
+  opacity: 0;
+  animation-fill-mode: forwards;
+}
+
+.game-transition-stagger-3 {
+  animation: fadeInUp 500ms ease-out;
+  animation-delay: 300ms;
+  opacity: 0;
+  animation-fill-mode: forwards;
+}
+
+/* Image transitions */
+.game-image-transition {
+  animation: fadeIn 450ms ease-out;
+}
+
+.game-logo-transition {
+  animation: fadeInScale 500ms ease-out;
+}
+
+/* Game card transitions */
+.game-card-transition {
+  transition: all 250ms ease-out;
+}
+
+.game-card-transition:hover {
+  transform: translateY(-4px) scale(1.02);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.game-card-selected {
+  transform: scale(1.03);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5), 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+/* Details panel content wrapper */
+.game-details-content {
+  animation: fadeInUp 500ms ease-out;
+}
+
+/* Smooth transitions for all game-related content */
+.game-content-transition {
+  transition: opacity 400ms ease-out, transform 400ms ease-out;
+}
+
+/* Prevent animation on initial page load */
+.no-animation {
+  animation: none !important;
+  transition: none !important;
+}

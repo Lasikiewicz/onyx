@@ -25,14 +25,14 @@ export const GameCard: React.FC<GameCardProps> = ({ game, hideTitle = false, sho
   };
 
   const isLogoUnderneath = game.logoUrl && showLogoOverBoxart && logoPosition === 'underneath';
-  
+
   // Determine which image to show
   const imageToShow = useLogoInsteadOfBoxart && game.logoUrl ? game.logoUrl : (game.boxArtUrl || game.bannerUrl);
   const imageAlt = useLogoInsteadOfBoxart && game.logoUrl ? `${game.title} Logo` : game.title;
-  const imageClass = useLogoInsteadOfBoxart && game.logoUrl 
+  const imageClass = useLogoInsteadOfBoxart && game.logoUrl
     ? "w-full h-full object-contain transition-transform duration-300 group-hover:scale-110 p-4"
     : "w-full h-full object-cover transition-transform duration-300 group-hover:scale-110";
-  
+
   // Use rectangular aspect ratio for logo view
   const aspectRatio = useLogoInsteadOfBoxart ? 'aspect-[16/9]' : 'aspect-[2/3]';
 
@@ -51,7 +51,7 @@ export const GameCard: React.FC<GameCardProps> = ({ game, hideTitle = false, sho
   const cardBackground = viewMode === 'logo' ? { backgroundColor: toRgba(logoBackgroundColor, logoBackgroundOpacity) } : undefined;
 
   return (
-    <div className={`relative group overflow-hidden onyx-card ${aspectRatio} flex flex-col`} style={cardBackground}>
+    <div className={`relative group overflow-hidden onyx-card game-card-transition ${aspectRatio} flex flex-col`} style={cardBackground}>
       {/* Box art image container - takes flex-1 when logo is underneath, full height otherwise */}
       <div className={`relative ${isLogoUnderneath ? 'flex-1 min-h-0' : 'w-full h-full'}`}>
         {imageToShow ? (
@@ -69,13 +69,13 @@ export const GameCard: React.FC<GameCardProps> = ({ game, hideTitle = false, sho
                 e.preventDefault();
                 return;
               }
-              
+
               // Mark as handled immediately to prevent retries
               target.dataset.errorHandled = 'true';
-              
+
               // Stop the error from propagating
               e.stopPropagation();
-              
+
               // Fallback to bannerUrl if boxArtUrl fails (only once)
               if (game.boxArtUrl && game.bannerUrl && target.src !== game.bannerUrl && !target.src.includes(game.bannerUrl) && !target.dataset.fallbackAttempted) {
                 target.dataset.fallbackAttempted = 'true';
@@ -100,20 +100,19 @@ export const GameCard: React.FC<GameCardProps> = ({ game, hideTitle = false, sho
             <span className="text-gray-300 text-sm">No Image</span>
           </div>
         )}
-        
+
         {/* Logo - position based on settings (overlaid on boxart) */}
         {game.logoUrl && showLogoOverBoxart && logoPosition !== 'underneath' && (
-          <div className={`absolute inset-0 flex p-4 pointer-events-none ${
-            logoPosition === 'top' ? 'items-start' :
-            logoPosition === 'bottom' ? 'items-end' :
-            'items-center'
-          } justify-center`}>
+          <div className={`absolute inset-0 flex p-4 pointer-events-none ${logoPosition === 'top' ? 'items-start' :
+              logoPosition === 'bottom' ? 'items-end' :
+                'items-center'
+            } justify-center`}>
             <img
               key={game.logoUrl}
               src={game.logoUrl}
               alt={`${game.title} Logo`}
               className="max-w-full max-h-full object-contain drop-shadow-2xl"
-              style={game.removeLogoTransparency ? { 
+              style={game.removeLogoTransparency ? {
                 backgroundColor: 'rgba(0, 0, 0, 0.5)',
                 padding: '8px',
                 borderRadius: '4px'
@@ -126,7 +125,7 @@ export const GameCard: React.FC<GameCardProps> = ({ game, hideTitle = false, sho
             />
           </div>
         )}
-        
+
         {/* Game Title and Status Overlay (only when logo is not underneath) */}
         {!hideTitle && !isLogoUnderneath && (
           <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/70 to-transparent p-2 z-10">
@@ -141,7 +140,7 @@ export const GameCard: React.FC<GameCardProps> = ({ game, hideTitle = false, sho
           </div>
         )}
       </div>
-      
+
       {/* Logo underneath boxart - separate flex item below the boxart */}
       {isLogoUnderneath && (
         <div className="bg-black/80 p-2 flex items-center justify-center flex-shrink-0 border-t border-gray-800/50">
@@ -153,7 +152,7 @@ export const GameCard: React.FC<GameCardProps> = ({ game, hideTitle = false, sho
               maxWidth: '100%',
               maxHeight: `${game.logoSizePerViewMode?.[viewMode as keyof typeof game.logoSizePerViewMode] || 48}px`,
               objectFit: 'contain',
-              ...(game.removeLogoTransparency ? { 
+              ...(game.removeLogoTransparency ? {
                 backgroundColor: 'rgba(0, 0, 0, 0.5)',
                 padding: '4px',
                 borderRadius: '4px'
@@ -167,7 +166,7 @@ export const GameCard: React.FC<GameCardProps> = ({ game, hideTitle = false, sho
           />
         </div>
       )}
-      
+
       {/* Game Title below logo when logo is underneath */}
       {!hideTitle && isLogoUnderneath && (
         <div className="bg-gradient-to-t from-black/90 via-black/70 to-transparent p-2 flex-shrink-0">

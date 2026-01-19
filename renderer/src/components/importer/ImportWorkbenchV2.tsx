@@ -155,6 +155,16 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
     const processScannedGames = async (scannedGames: any[]) => {
         const existingIds = new Set(existingLibrary.map(g => g.id));
         const existingTitles = new Set(existingLibrary.map(g => g.title.toLowerCase().trim()));
+        const existingInstallPaths = new Set(
+            existingLibrary
+                .map(g => g.installationDirectory?.toLowerCase().trim())
+                .filter(Boolean)
+        );
+        const existingExePaths = new Set(
+            existingLibrary
+                .map(g => g.exePath?.toLowerCase().trim())
+                .filter(Boolean)
+        );
         let firstGameUuid: string | null = null;
 
         for (const scanned of scannedGames) {
@@ -167,12 +177,36 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
                     `xbox-${scanned.appId}`,
                     scanned.appId, // raw ID
                 ];
-                if (idPatterns.some(id => existingIds.has(id))) continue;
+                if (idPatterns.some(id => existingIds.has(id))) {
+                    console.log(`[Importer] Skipping duplicate by app ID: ${scanned.title} (${scanned.appId})`);
+                    continue;
+                }
+            }
+
+            // Skip if already in library by install path
+            if (scanned.installPath) {
+                const normalizedPath = scanned.installPath.toLowerCase().trim();
+                if (existingInstallPaths.has(normalizedPath)) {
+                    console.log(`[Importer] Skipping duplicate by install path: ${scanned.title}`);
+                    continue;
+                }
+            }
+
+            // Skip if already in library by exe path
+            if (scanned.exePath) {
+                const normalizedExe = scanned.exePath.toLowerCase().trim();
+                if (existingExePaths.has(normalizedExe)) {
+                    console.log(`[Importer] Skipping duplicate by exe path: ${scanned.title}`);
+                    continue;
+                }
             }
 
             // Skip if already in library by title (normalized)
             const normalizedTitle = (scanned.title || scanned.name || '').toLowerCase().trim();
-            if (normalizedTitle && existingTitles.has(normalizedTitle)) continue;
+            if (normalizedTitle && existingTitles.has(normalizedTitle)) {
+                console.log(`[Importer] Skipping duplicate by title: ${scanned.title}`);
+                continue;
+            }
 
             const uuid = `${scanned.source}-${scanned.appId || Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
             if (!firstGameUuid) firstGameUuid = uuid;

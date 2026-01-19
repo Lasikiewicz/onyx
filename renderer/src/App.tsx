@@ -1389,6 +1389,7 @@ function App() {
       {/* Background - Image or Color */}
       {backgroundMode === 'image' && backgroundImageUrl ? (
         <div
+          key={backgroundImageUrl}
           className="fixed inset-0 pointer-events-none"
           style={{
             backgroundImage: `url(${backgroundImageUrl})`,
@@ -1397,6 +1398,8 @@ function App() {
             filter: `blur(${backgroundBlur}px) brightness(0.3)`,
             transform: 'scale(1.1)', // Slight scale to avoid edges
             zIndex: 0,
+            transition: 'opacity 600ms ease-in-out',
+            animation: 'fadeIn 600ms ease-in-out',
           }}
         />
       ) : (

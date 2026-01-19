@@ -41,14 +41,14 @@ interface GameDetailsPanelProps {
   onDescriptionWidthChange?: (width: number) => void;
 }
 
-export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({ 
-  game, 
+export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
+  game,
   onPlay,
   isLaunching = false,
   isRunning = false,
-  onSaveGame, 
-  onOpenInGameManager, 
-  onFavorite, 
+  onSaveGame,
+  onOpenInGameManager,
+  onFavorite,
   onEdit,
   onEditImages,
   onEditCategories,
@@ -123,6 +123,21 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
     criticScore: true,
     installationDirectory: true,
   });
+
+  // Track game changes for transitions
+  const [currentGameId, setCurrentGameId] = useState<string | null>(game?.id || null);
+  const [isTransitioning, setIsTransitioning] = useState(false);
+
+  // Detect game changes and trigger transition
+  useEffect(() => {
+    if (game?.id !== currentGameId) {
+      setIsTransitioning(true);
+      setCurrentGameId(game?.id || null);
+      // Reset transition state after animation completes
+      const timer = setTimeout(() => setIsTransitioning(false), 350);
+      return () => clearTimeout(timer);
+    }
+  }, [game?.id, currentGameId]);
 
 
   // Load preferences on mount
@@ -294,7 +309,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
 
   if (!game) {
     return (
-      <div 
+      <div
         ref={panelRef}
         className="onyx-glass-panel rounded-l-3xl flex items-center justify-center p-8 relative"
         style={{ width: `${activePanelWidth}px`, minWidth: '400px', backgroundColor: panelBackground }}
@@ -329,7 +344,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
   const platformDisplay = game.platform === 'steam' ? 'PC (Windows)' : game.platform;
 
   return (
-    <div 
+    <div
       ref={panelRef}
       className="onyx-glass-panel rounded-l-3xl flex flex-col h-full overflow-hidden relative ml-auto"
       style={{ width: `${activePanelWidth}px`, minWidth: '400px', backgroundColor: panelBackground }}
@@ -351,7 +366,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
       />
 
       {/* Background Image - Resizable */}
-      <div 
+      <div
         ref={fanartRef}
         className="relative flex-shrink-0 overflow-visible"
         style={{ height: backgroundImageUrl ? `${fanartHeight}px` : 'auto', minHeight: backgroundImageUrl ? `${fanartHeight}px` : '120px' }}
@@ -362,7 +377,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
               key={backgroundImageUrl}
               src={backgroundImageUrl}
               alt={game.title}
-              className="w-full h-full object-cover cursor-pointer"
+              className="w-full h-full object-cover cursor-pointer game-image-transition"
               style={{ height: `${fanartHeight}px` }}
               onError={(e) => {
                 const target = e.target as HTMLImageElement;
@@ -375,20 +390,19 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
             />
             {/* Blurred background for logo area */}
             {game.logoUrl && (
-              <div 
-                className={`absolute bottom-0 z-10 ${
-                  rightPanelBoxartPosition === 'left' ? 'right-6' : 
-                  rightPanelBoxartPosition === 'right' ? 'left-6' : 
-                  'left-1/2 transform -translate-x-1/2'
-                }`}
-                style={{ 
+              <div
+                className={`absolute bottom-0 z-10 ${rightPanelBoxartPosition === 'left' ? 'right-6' :
+                    rightPanelBoxartPosition === 'right' ? 'left-6' :
+                      'left-1/2 transform -translate-x-1/2'
+                  }`}
+                style={{
                   width: rightPanelBoxartPosition === 'none' ? 'calc(100% - 3rem)' : 'calc(100% - 11rem)', // Full width when no boxart, space for boxart otherwise
                   height: '60%',
                   transform: rightPanelBoxartPosition === 'none' ? 'translateY(50%) translateX(-50%)' : 'translateY(50%)',
                   pointerEvents: 'none'
                 }}
               >
-                <div 
+                <div
                   className="w-full h-full"
                   style={{
                     backgroundImage: `url(${backgroundImageUrl})`,
@@ -404,16 +418,15 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
             )}
           </>
         )}
-        
+
         {/* Logo - Position based on rightPanelBoxartPosition */}
-        <div 
-          className={`absolute bottom-0 z-20 flex items-center justify-center ${
-            rightPanelBoxartPosition === 'left' ? 'right-6' : 
-            rightPanelBoxartPosition === 'right' ? 'left-6' : 
-            'left-1/2 transform -translate-x-1/2'
-          }`}
+        <div
+          className={`absolute bottom-0 z-20 flex items-center justify-center ${rightPanelBoxartPosition === 'left' ? 'right-6' :
+              rightPanelBoxartPosition === 'right' ? 'left-6' :
+                'left-1/2 transform -translate-x-1/2'
+            }`}
           data-logo-area
-          style={{ 
+          style={{
             width: rightPanelBoxartPosition === 'none' ? 'calc(100% - 3rem)' : 'calc(100% - 11rem)',
             transform: rightPanelBoxartPosition === 'none' ? 'translateY(50%) translateX(-50%)' : 'translateY(50%)',
             maxHeight: '60%',
@@ -429,10 +442,11 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
               style={{ pointerEvents: 'auto' }}
             >
               <img
+                key={game.logoUrl}
                 src={game.logoUrl}
                 alt={game.title}
-                className="max-w-full max-h-full object-contain cursor-pointer drop-shadow-2xl"
-                style={{ 
+                className="max-w-full max-h-full object-contain cursor-pointer drop-shadow-2xl game-logo-transition"
+                style={{
                   maxHeight: `${localLogoSize !== undefined ? localLogoSize : (game.logoSizePerViewMode?.[viewMode] || game.logoSizePerViewMode?.carousel || rightPanelLogoSize)}px`,
                   display: 'block',
                   contain: 'layout style paint',
@@ -453,7 +467,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
               />
             </div>
           ) : (
-            <div 
+            <div
               className="px-4 py-2 bg-gray-800/80 rounded border border-gray-600 text-gray-400 text-xs cursor-pointer hover:bg-gray-700/80 transition-colors"
               onClick={() => onOpenInGameManager?.(game, 'images')}
             >
@@ -461,24 +475,25 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
             </div>
           )}
         </div>
-        
+
         {/* Box Art - Position based on rightPanelBoxartPosition */}
         {rightPanelBoxartPosition !== 'none' && (
-          <div 
-            className={`absolute ${rightPanelBoxartPosition === 'left' ? 'left-6' : 'right-6'} bottom-0 z-20`} 
+          <div
+            className={`absolute ${rightPanelBoxartPosition === 'left' ? 'left-6' : 'right-6'} bottom-0 z-20`}
             style={{ transform: 'translateY(50%)' }}
           >
             {game.boxArtUrl ? (
               <img
+                key={game.boxArtUrl}
                 src={game.boxArtUrl}
                 alt={game.title}
-                className="aspect-[2/3] object-cover rounded border border-gray-600 shadow-lg cursor-pointer"
+                className="aspect-[2/3] object-cover rounded border border-gray-600 shadow-lg cursor-pointer game-image-transition"
                 style={{ width: `${rightPanelBoxartSize}px` }}
                 onError={(e) => {
                   const target = e.target as HTMLImageElement;
                   // Prevent infinite retry loop
                   if (target.dataset.errorHandled === 'true') return;
-                  
+
                   // Try banner URL as fallback (only once)
                   if (game.bannerUrl && target.src !== game.bannerUrl && !target.dataset.fallbackAttempted) {
                     target.dataset.fallbackAttempted = 'true';
@@ -495,7 +510,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
                 }}
               />
             ) : (
-              <div 
+              <div
                 className="aspect-[2/3] bg-gray-800 rounded border border-gray-600 flex items-center justify-center text-gray-400 text-xs text-center px-2 cursor-pointer hover:bg-gray-700 transition-colors"
                 style={{ width: `${rightPanelBoxartSize}px` }}
                 onClick={() => onOpenInGameManager?.(game, 'images')}
@@ -505,7 +520,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
             )}
           </div>
         )}
-        
+
         {/* Resize handle */}
         {backgroundImageUrl && (
           <div
@@ -538,8 +553,9 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
 
       {/* Content */}
       <div className="flex-1" style={{ overflowY: 'auto', overflowX: 'hidden', minHeight: 0 }}>
-        <div 
-          className="p-6 space-y-6"
+        <div
+          key={game.id}
+          className="p-6 space-y-6 game-details-content"
           style={{
             paddingTop: (game.logoUrl || game.boxArtUrl) ? '7rem' : '1.5rem' // Add extra padding when logo/boxart overlap
           }}
@@ -548,9 +564,9 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
           {!game.logoUrl && (
             <div className="relative">
               <div>
-                <h1 
+                <h1
                   className="title-fallback font-bold text-white onyx-text-glow tracking-wide break-words cursor-pointer"
-                  style={{ 
+                  style={{
                     fontSize: `${titleFontSize}px`,
                     fontFamily: titleFontFamily,
                   }}
@@ -560,15 +576,15 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
               </div>
             </div>
           )}
-          
+
           {/* Description and Details in a row */}
           <div ref={descriptionContainerRef} className="flex gap-0 relative">
             {/* Description Content - Left side */}
             <div className="relative" style={{ width: `${descriptionWidth}%` }}>
-              <div 
+              <div
                 ref={descriptionRef}
                 className="space-y-6 relative pr-3"
-                style={{ 
+                style={{
                   height: `${descriptionHeight}px`,
                   overflowY: 'auto',
                   overflowX: 'hidden'
@@ -578,7 +594,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
                 {game.description && (
                   <div>
                     <h3 className="text-lg font-semibold text-white mb-3">Description</h3>
-                    <div 
+                    <div
                       className="text-gray-200 leading-relaxed cursor-pointer"
                       style={{
                         fontSize: `${rightPanelTextSize}px`,
@@ -625,9 +641,9 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
             />
 
             {/* Details Section - Right side */}
-            <div 
+            <div
               className="pl-6"
-              style={{ 
+              style={{
                 width: `${100 - descriptionWidth}%`,
                 fontSize: `${detailsFontSize}px`,
                 fontFamily: detailsFontFamily,
@@ -635,12 +651,12 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
             >
               <h3 className="text-lg font-semibold text-white mb-4">Details</h3>
               <div className="grid grid-cols-1 gap-4">
-              {visibleDetails.releaseDate && game.releaseDate && (
-                <div>
-                  <p className="text-gray-400 mb-1" style={{ fontSize: `${rightPanelTextSize - 2}px` }}>Release Date</p>
-                  <p className="text-gray-200" style={{ fontSize: `${rightPanelTextSize}px` }}>{formatDate(game.releaseDate)}</p>
-                </div>
-              )}
+                {visibleDetails.releaseDate && game.releaseDate && (
+                  <div>
+                    <p className="text-gray-400 mb-1" style={{ fontSize: `${rightPanelTextSize - 2}px` }}>Release Date</p>
+                    <p className="text-gray-200" style={{ fontSize: `${rightPanelTextSize}px` }}>{formatDate(game.releaseDate)}</p>
+                  </div>
+                )}
                 {visibleDetails.platform && platformDisplay && (
                   <div>
                     <p className="text-gray-400 mb-1" style={{ fontSize: `${rightPanelTextSize - 2}px` }}>Platform</p>
@@ -782,12 +798,12 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
                     if (isSavingLogoSize || !game || localLogoSize === undefined) {
                       return;
                     }
-                    
+
                     setIsSavingLogoSize(true);
                     try {
                       // Ensure we have the latest game data with all properties preserved
-                      const updatedGame = { 
-                        ...game, 
+                      const updatedGame = {
+                        ...game,
                         logoSize: localLogoSize,
                         // Explicitly preserve all image URLs to prevent them from being lost
                         bannerUrl: game.bannerUrl,
@@ -795,12 +811,12 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
                         logoUrl: game.logoUrl,
                         heroUrl: game.heroUrl
                       };
-                      
+
                       // Update UI immediately without full reload to prevent banner from disappearing
                       if (onUpdateGameInState) {
                         onUpdateGameInState(updatedGame);
                       }
-                      
+
                       // Save to disk in the background
                       if (onSaveGame) {
                         await onSaveGame(updatedGame);
@@ -855,12 +871,11 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
 
       {/* Action Buttons at Bottom */}
       {game && (
-        <div 
-          className={`border-t border-gray-700 p-4 flex items-center gap-3 flex-shrink-0 ${
-            rightPanelButtonLocation === 'left' ? 'justify-start' :
-            rightPanelButtonLocation === 'middle' ? 'justify-center' :
-            'justify-end'
-          }`}
+        <div
+          className={`border-t border-gray-700 p-4 flex items-center gap-3 flex-shrink-0 ${rightPanelButtonLocation === 'left' ? 'justify-start' :
+              rightPanelButtonLocation === 'middle' ? 'justify-center' :
+                'justify-end'
+            }`}
         >
           {/* Playtime display - DISABLED (Future Feature) */}
           {/* {steamSyncPlaytimeEnabled && game.id.startsWith('steam-') && game.playtime !== undefined && game.playtime > 0 && (
@@ -870,12 +885,11 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
               </span>
             </div>
           )} */}
-          
+
           <button
             onClick={() => onFavorite?.(game)}
-            className={`p-2 rounded transition-colors ${
-              game.favorite ? 'text-yellow-400' : 'text-gray-300 hover:bg-gray-700'
-            }`}
+            className={`p-2 rounded transition-colors ${game.favorite ? 'text-yellow-400' : 'text-gray-300 hover:bg-gray-700'
+              }`}
             title="Favorite"
             style={{ fontSize: `${rightPanelButtonSize}px` }}
           >
