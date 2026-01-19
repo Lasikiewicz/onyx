@@ -1,0 +1,377 @@
+---
+import Layout from '../layouts/Layout.astro';
+import '../styles/global.css';
+
+// Feature data for the expanded showcase
+const collectionViews = [
+	{ title: 'Grid View', img: '/Screenshots/Grid View.png', desc: 'The classic experience, perfected.' },
+	{ title: 'List View', img: '/Screenshots/List View.png', desc: 'High-density management.' },
+	{ title: 'Logo View', img: '/Screenshots/Logo View.png', desc: 'Clean, minimalist focus.' },
+	{ title: 'Carousel View', img: '/Screenshots/Carousel View.png', desc: 'Cinematic, immersive details.' },
+];
+
+const managementTools = [
+	{ title: 'Metadata Mastery', img: '/Screenshots/Game Manager - Metadata.png', desc: 'Complete control over your game library details.' },
+	{ title: 'Visual Search', img: '/Screenshots/Game Manager - Image Search.png', desc: 'Find the perfect assets with integrated high-resolution search.' },
+	{ title: 'Contextual Ease', img: '/Screenshots/Game Right Click Menu.png', desc: 'Everything you need, exactly where you expect it.' },
+];
+
+const advancedFeatures = [
+	{ title: 'Unified Importer', img: '/Screenshots/Game Importer.png', desc: 'Steam, Epic, GOG, Xbox, and more. All in one place.' },
+	{ title: 'Deep Configuration', img: '/Screenshots/Settings.png', desc: 'Tailor every aspect of your experience.' },
+	{ title: 'View Personalization', img: '/Screenshots/View Options.png', desc: 'Adapt the interface to your unique style.' },
+];
+---
+
+<Layout title="Onyx | The Premium Unified Game Library">
+	<main class="min-h-screen bg-[#0b0e14] selection:bg-onyx-accent/30 overflow-hidden">
+		<!-- Navigation: Minimalist -->
+		<nav class="fixed top-0 w-full z-50 px-8 py-4 onyx-nav-thin">
+			<div class="max-w-7xl mx-auto flex items-center justify-between">
+				<div class="flex items-center gap-3">
+					<img src="/logo.svg" alt="Onyx Logo" class="w-8 h-8" />
+					<span class="text-xl font-bold tracking-tighter uppercase">Onyx</span>
+				</div>
+				<div class="flex items-center gap-6">
+					<button class="px-4 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all hover:scale-105 cursor-default">Coming Soon</button>
+					<span class="text-[10px] font-medium text-slate-400 uppercase tracking-widest">Latest Version <span class="text-white">v0.2.12</span></span>
+				</div>
+			</div>
+		</nav>
+
+		<!-- Hero Section: Ultimate Minimalism -->
+		<section class="relative min-h-[70vh] flex items-center justify-center overflow-hidden px-8 md:px-24">
+			<!-- Background Fanart Blur -->
+			<div class="absolute inset-0 z-0 scale-110 opacity-20 blur-[80px]">
+				<img src="/Screenshots/Carousel View.png" class="w-full h-full object-cover" />
+			</div>
+			
+			<div class="relative z-10 w-full max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 items-center gap-12">
+				<!-- Left: 3D Mouse-Following Cube -->
+				<div class="flex justify-center md:justify-start md:pl-16 perspective-container">
+					<div class="onyx-cube-wrapper">
+						<div class="onyx-cube" id="mouse-cube">
+							<div class="cube-face front"><div class="pip"></div></div>
+							<div class="cube-face back"><div class="pip"></div></div>
+							<div class="cube-face right"><div class="pip"></div></div>
+							<div class="cube-face left"><div class="pip"></div></div>
+							<div class="cube-face top"><div class="pip"></div></div>
+							<div class="cube-face bottom"><div class="pip"></div></div>
+						</div>
+						<!-- Emerald Glow Core -->
+						<div class="cube-glow"></div>
+					</div>
+				</div>
+
+				<!-- Right: Tagline -->
+				<div class="text-center md:text-left">
+					<p class="text-4xl md:text-6xl text-slate-200 leading-tight font-light tracking-wide uppercase italic relative z-10">
+						The Premium<br/>
+						<span class="text-onyx-accent font-bold">Unified Game Library</span>
+					</p>
+				</div>
+			</div>
+		</section>
+
+		<!-- The Full Experience: Showcase -->
+		<div class="relative z-10 py-24 px-12 bg-gradient-to-b from-transparent via-[#0b0e14] to-[#0b0e14] -mt-32">
+			<div class="max-w-7xl mx-auto space-y-24">
+				
+				<!-- Section 1: Collection Diversity -->
+				<section>
+					<div class="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-6">
+						<div>
+							<h2 class="text-5xl font-black uppercase tracking-tighter mb-2">Your Collection</h2>
+							<p class="text-slate-400 text-xl font-medium">Four distinct ways to experience your library.</p>
+						</div>
+					</div>
+					<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+						{collectionViews.map((view) => (
+							<div class="group relative bg-[#1a1f2e] rounded-xl overflow-hidden border border-white/5 transition-all duration-500 hover:border-onyx-accent/50 hover:shadow-[0_0_40px_rgba(14,165,233,0.1)] cursor-pointer lightbox-trigger">
+								<div class="aspect-video overflow-hidden">
+									<img src={view.img} alt={view.title} class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
+								</div>
+								<div class="p-8">
+									<h3 class="text-2xl font-bold mb-2 uppercase tracking-tight">{view.title}</h3>
+									<p class="text-slate-400 leading-relaxed">{view.desc}</p>
+								</div>
+							</div>
+						))}
+					</div>
+				</section>
+
+				<!-- Section 2: Management & Metadata -->
+				<section>
+					<div class="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-6">
+						<div>
+							<h2 class="text-5xl font-black uppercase tracking-tighter mb-2">Metadata Mastery</h2>
+							<p class="text-slate-400 text-xl font-medium">Power tools for the perfectionist.</p>
+						</div>
+					</div>
+					<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+						{managementTools.map((tool) => (
+							<div class="group bg-[#1a1f2e] border border-white/5 rounded-xl overflow-hidden flex flex-col h-full cursor-pointer lightbox-trigger">
+								<div class="relative aspect-[4/3] overflow-hidden">
+									<img src={tool.img} alt={tool.title} class="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity duration-500" />
+									<div class="absolute inset-0 bg-gradient-to-t from-[#1a1f2e] via-transparent to-transparent opacity-60"></div>
+								</div>
+								<div class="p-8 mt-auto">
+									<h3 class="text-xl font-bold mb-3 uppercase tracking-tight">{tool.title}</h3>
+									<p class="text-slate-400 text-sm leading-relaxed">{tool.desc}</p>
+								</div>
+							</div>
+						))}
+					</div>
+				</section>
+
+				<!-- Section 3: Advanced Setup -->
+				<section>
+					<div class="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-6">
+						<div>
+							<h2 class="text-5xl font-black uppercase tracking-tighter mb-2">System Depth</h2>
+							<p class="text-slate-400 text-xl font-medium">Unifying every source with surgical precision.</p>
+						</div>
+					</div>
+					<div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+						{advancedFeatures.map((feat) => (
+							<div class="group bg-[#1a1f2e] border border-white/5 rounded-xl overflow-hidden flex flex-col h-full cursor-pointer lightbox-trigger">
+								<div class="relative aspect-[4/3] overflow-hidden">
+									<img src={feat.img} alt={feat.title} class="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity duration-500" />
+									<div class="absolute inset-0 bg-gradient-to-t from-[#1a1f2e] via-transparent to-transparent opacity-60"></div>
+								</div>
+								<div class="p-8 mt-auto">
+									<h3 class="text-xl font-bold mb-3 uppercase tracking-tight">{feat.title}</h3>
+									<p class="text-slate-400 text-sm leading-relaxed">{feat.desc}</p>
+								</div>
+							</div>
+						))}
+					</div>
+				</section>
+			</div>
+		</div>
+
+		<!-- Footer Section: Minimalist CTA -->
+		<footer class="py-32 px-12 border-t border-white/5 relative bg-[#0b0e14]">
+			<div class="max-w-4xl mx-auto text-center space-y-12">
+				<h2 class="text-6xl md:text-8xl font-black uppercase tracking-tighter italic opacity-20">The Future of Play</h2>
+				<p class="text-xl text-slate-400 font-light tracking-wide italic">Download Onyx and reclaim your library.</p>
+				<div class="flex flex-col sm:flex-row items-center justify-center gap-6">
+					<button class="onyx-btn-play !px-12 !py-4 text-xl !rounded-none uppercase tracking-widest font-black transition-all hover:tracking-[0.2em] cursor-default opacity-80 hover:opacity-100">
+						Coming Soon
+					</button>
+				</div>
+				<div class="pt-24 flex flex-col items-center justify-center gap-8">
+					<div class="flex gap-8 text-[10px] uppercase tracking-[0.5em] text-slate-400">
+						<span>Local-First</span>
+						<span>•</span>
+						<span>Privacy Oriented</span>
+						<span>•</span>
+						<span>Open Source</span>
+					</div>
+					<p class="max-w-2xl text-[10px] text-center leading-relaxed font-sans normal-case tracking-normal text-slate-500">
+						Onyx is an independent open-source project and is not affiliated with, endorsed by, or connected to Valve Corporation, Epic Games, GOG.com, or any other third-party game platforms. All trademarks, service marks, and company names are the property of their respective owners.
+					</p>
+				</div>
+			</div>
+		</footer>
+		<!-- Lightbox Backdrop -->
+		<div id="lightbox" class="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center p-8 md:p-24 opacity-0 pointer-events-none transition-opacity duration-500 cursor-zoom-out">
+			<img id="lightbox-img" src="" class="max-w-full max-h-full rounded-lg shadow-2xl transform scale-95 transition-transform duration-500" />
+			<button id="close-lightbox" class="absolute top-8 right-8 text-white/50 hover:text-white transition-colors">
+				<svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M6 18L18 6M6 6l12 12"></path></svg>
+			</button>
+		</div>
+	</main>
+
+	<style>
+	<style>
+		@keyframes cube-float {
+			0%, 100% { transform: translateY(0px); }
+			50% { transform: translateY(-20px); }
+		}
+
+		.onyx-cube-wrapper {
+			position: relative;
+			width: 256px;
+			height: 256px;
+			perspective: 1200px;
+			animation: cube-float 6s ease-in-out infinite;
+		}
+
+		.onyx-cube {
+			width: 100%;
+			height: 100%;
+			position: absolute;
+			transform-style: preserve-3d;
+			/* Removed infinite rotation for mouse control */
+			transform: rotateX(-30deg) rotateY(-45deg); 
+			/* transition removed to allow JS Physics loop */
+		}
+
+		.cube-face {
+			position: absolute;
+			width: 256px;
+			height: 256px;
+			background: linear-gradient(to bottom, #334155 0%, #020617 100%);
+			border: 2px solid #0ea5e9;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			box-shadow: 0 0 30px rgba(14, 165, 233, 0.1);
+			backface-visibility: visible;
+		}
+
+		.pip {
+			width: 112px;
+			height: 112px;
+			border-radius: 50%;
+			position: relative;
+			border: 8px solid #ffffff;
+			background: transparent;
+			box-shadow: 
+				0 0 25px rgba(14, 165, 233, 0.9), /* Strong blue aura */
+				inset 0 0 15px rgba(14, 165, 233, 0.6); /* Inner blue depth */
+			filter: drop-shadow(0 0 5px rgba(14, 165, 233, 1)); /* Hard blue edge */
+		}
+
+		/* Face Positions */
+		.front  { transform: rotateY(  0deg) translateZ(128px); }
+		.back   { transform: rotateY(180deg) translateZ(128px); }
+		.right  { transform: rotateY( 90deg) translateZ(128px); }
+		.left   { transform: rotateY(-90deg) translateZ(128px); }
+		.top    { transform: rotateX( 90deg) translateZ(128px); }
+		.bottom { transform: rotateX(-90deg) translateZ(128px); }
+
+		.cube-glow {
+			position: absolute;
+			top: 50%;
+			left: 50%;
+			transform: translate(-50%, -50%);
+			width: 450px;
+			height: 450px;
+			background: radial-gradient(circle, rgba(14, 165, 233, 0.15) 0%, transparent 70%);
+			filter: blur(80px);
+			pointer-events: none;
+			z-index: -1;
+		}
+
+		#lightbox.active {
+			opacity: 1;
+			pointer-events: auto;
+		}
+
+		#lightbox.active #lightbox-img {
+			transform: scale(1);
+		}
+	</style>
+
+	<script>
+		// Physics-based Mouse Tracking & Idle Spin
+		const cube = document.getElementById('mouse-cube');
+		
+		// State
+		let currentRotX = -30;
+		let currentRotY = -45;
+		let targetRotX = -30;
+		let targetRotY = -45;
+		
+		let lastMouseX = 0;
+		let lastMouseY = 0;
+		let lastMoveTime = Date.now();
+		let isIdle = false;
+
+		// Config
+		const SENSITIVITY = 0.3; // "Move slower than mouse"
+		const DAMPING = 0.05; // "Shouldn't instant stop" (Lower = smoother/heavier)
+		const IDLE_SPEED = 0.2; // Slow spin when idle
+		const IDLE_TIMEOUT = 1000; // Time before auto-spin kicks in
+
+		if (cube) {
+			// Initialize mouse position
+			lastMouseX = window.innerWidth / 2;
+			lastMouseY = window.innerHeight / 2;
+
+			document.addEventListener('mousemove', (e) => {
+				const now = Date.now();
+				const dt = now - lastMoveTime;
+				lastMoveTime = now;
+				isIdle = false;
+
+				// Calculate delta
+				const deltaX = e.clientX - lastMouseX;
+				const deltaY = e.clientY - lastMouseY;
+
+				lastMouseX = e.clientX;
+				lastMouseY = e.clientY;
+
+				// Apply to target (Delta-based control)
+				targetRotY += deltaX * SENSITIVITY;
+				targetRotX -= deltaY * SENSITIVITY;
+				
+				// Clamp X to prevent flipping upside down visually (optional, feels better)
+				targetRotX = Math.max(-90, Math.min(90, targetRotX));
+			});
+
+			const animate = () => {
+				const now = Date.now();
+				
+				// Check for idle state
+				if (now - lastMoveTime > IDLE_TIMEOUT) {
+					isIdle = true;
+				}
+
+				if (isIdle) {
+					// Auto-spin slowly
+					targetRotY += IDLE_SPEED;
+					// Gently return X to a nice viewing angle if it's too extreme
+					targetRotX += (-30 - targetRotX) * 0.02;
+				}
+
+				// Smoothly interpolate current -> target (Inertia)
+				// Lerp formula: current = current + (target - current) * damping
+				currentRotX += (targetRotX - currentRotX) * DAMPING;
+				currentRotY += (targetRotY - currentRotY) * DAMPING;
+
+				if (cube) {
+					// Use direct style update for performance
+					cube.style.transform = `rotateX(${currentRotX}deg) rotateY(${currentRotY}deg)`;
+				}
+				
+				requestAnimationFrame(animate);
+			};
+			
+			animate();
+		}
+
+		// Lightbox Logic
+		const lightbox = document.getElementById('lightbox');
+		const lightboxImg = document.getElementById('lightbox-img') as HTMLImageElement;
+		const triggers = document.querySelectorAll('.lightbox-trigger');
+
+		triggers.forEach(trigger => {
+			trigger.addEventListener('click', () => {
+				const img = trigger.querySelector('img');
+				if (img && lightbox && lightboxImg) {
+					lightboxImg.src = img.src;
+					lightbox.classList.add('active');
+					document.body.style.overflow = 'hidden';
+				}
+			});
+		});
+
+		const closeLightbox = () => {
+			if (lightbox) {
+				lightbox.classList.remove('active');
+				document.body.style.overflow = 'auto';
+			}
+		};
+
+		lightbox?.addEventListener('click', closeLightbox);
+		document.getElementById('close-lightbox')?.addEventListener('click', closeLightbox);
+
+		// ESC key to close
+		window.addEventListener('keydown', (e) => {
+			if (e.key === 'Escape') closeLightbox();
+		});
+	</script>
+</Layout>

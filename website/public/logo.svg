@@ -1,0 +1,47 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="onyx" x1="256" y1="20" x2="256" y2="492" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#334155"/>
+      <stop offset="1" stop-color="#020617"/>
+    </linearGradient>
+    
+    <filter id="softGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+
+    <filter id="intenseGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="12" result="blur"/>
+      <feColorMatrix in="blur" type="matrix" values="0 0 0 0 0   0 0.8 0 0 0   0 0 1 0 0  0 0 0 1 0"/>
+    </filter>
+  </defs>
+  
+  <path d="M256 30 L465 150 V362 L256 482 L47 362 V150 L256 30Z" 
+        fill="url(#onyx)" 
+        stroke="#0ea5e9" 
+        stroke-width="8"
+        filter="url(#softGlow)"/>
+  
+  <path d="M256 256 L256 482 M256 256 L47 150 M256 256 L465 150" 
+        stroke="#1e293b" 
+        stroke-width="4"/>
+
+  <g transform="translate(256, 143) scale(1, 0.58)">
+    <circle r="55" stroke="#0ea5e9" stroke-width="20" stroke-opacity="0.6" filter="url(#intenseGlow)" fill="none"/>
+    <circle r="55" stroke="#e0f2fe" stroke-width="8" filter="url(#softGlow)" fill="none"/>
+  </g>
+
+  <g transform="translate(151, 325) rotate(60) scale(1, 0.58)">
+    <circle r="55" stroke="#0ea5e9" stroke-width="20" stroke-opacity="0.6" filter="url(#intenseGlow)" fill="none"/>
+    <circle r="55" stroke="#e0f2fe" stroke-width="8" filter="url(#softGlow)" fill="none"/>
+  </g>
+
+  <g transform="translate(361, 325) rotate(-60) scale(1, 0.58)">
+    <circle r="55" stroke="#0ea5e9" stroke-width="20" stroke-opacity="0.6" filter="url(#intenseGlow)" fill="none"/>
+    <circle r="55" stroke="#e0f2fe" stroke-width="8" filter="url(#softGlow)" fill="none"/>
+  </g>
+        
+  <path d="M256 30 L465 150 L256 256 L47 150 L256 30Z" 
+        fill="white" 
+        fill-opacity="0.1"/>
+</svg>
