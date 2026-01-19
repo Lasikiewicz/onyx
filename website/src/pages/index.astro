@@ -7,22 +7,22 @@ const collectionViews = [
 	{ 
 		title: 'Grid View', 
 		images: ['/Screenshots/Grid View.png', '/Screenshots/Grid View 1.png', '/Screenshots/Grid View 2.png', '/Screenshots/Grid View 3.png', '/Screenshots/Grid View 4.png'], 
-		desc: 'The classic experience, perfected.' 
+		desc: 'A refined presentation of your library, balancing visual impact with efficient browsing.<br/>The gold standard for any digital collection, optimized for clarity.' 
 	},
 	{ 
 		title: 'List View', 
 		images: ['/Screenshots/List View.png', '/Screenshots/List View 1.png', '/Screenshots/List View 2.png', '/Screenshots/List View 3.png', '/Screenshots/List View 4.png'], 
-		desc: 'High-density management.' 
+		desc: 'Engineered for the organized mind.<br/>A high-density information display that puts your metadata front and center for rapid sorting and surgical management.' 
 	},
 	{ 
 		title: 'Logo View', 
 		images: ['/Screenshots/Logo View.png', '/Screenshots/Logo View 1.png', '/Screenshots/Logo View 2.png', '/Screenshots/Logo View 3.png', '/Screenshots/Logo View 4.png'], 
-		desc: 'Clean, minimalist focus.' 
+		desc: 'Strip away the noise and let the branding shine.<br/>A minimalist approach that treats your games like a gallery of icons, focusing purely on visual identity.' 
 	},
 	{ 
 		title: 'Carousel View', 
 		images: ['/Screenshots/Carousel View.png', '/Screenshots/Carousel View 1.png', '/Screenshots/Carousel View 2.png', '/Screenshots/Carousel View 3.png', '/Screenshots/Carousel View 4.png'], 
-		desc: 'Cinematic, immersive details.' 
+		desc: 'Transform your library into a cinematic showcase.<br/>Full-bleed artwork and sweeping transitions create an atmospheric experience that feels alive.' 
 	},
 ];
 
@@ -30,24 +30,24 @@ const managementTools = [
 	{ 
 		title: 'Metadata Mastery', 
 		images: ['/Screenshots/Game Manager - Metadata.png', '/Screenshots/Game Manager - Metadata 1.png', '/Screenshots/Game Manager - Metadata 2.png'], 
-		desc: 'Complete control over your game library details.' 
+		desc: 'Surgical precision for your game data.<br/>Edit titles, release dates, and developers with a suite of professional tools built for the librarian in every gamer.' 
 	},
 	{ 
 		title: 'Visual Search', 
 		images: ['/Screenshots/Game Manager - Image Search.png', '/Screenshots/Game Manager - Image Search 1.png', '/Screenshots/Game Manager - Image Search 2.png'], 
-		desc: 'Find the perfect assets with integrated high-resolution search.' 
+		desc: 'Never settle for low-resolution assets again.<br/>Our integrated high-definition search engine fetches stunning box art and banners from multiple sources instantly.' 
 	},
 	{ 
 		title: 'Contextual Ease', 
 		images: ['/Screenshots/Game Right Click Menu.png'], 
-		desc: 'Everything you need, exactly where you expect it.' 
+		desc: 'Intuitive navigation that feels like second nature.<br/>Effortless right-click menus and smart shortcuts keep the power exactly where you expect it to be.' 
 	},
 ];
 
 const advancedFeatures = [
-	{ title: 'Unified Importer', images: ['/Screenshots/Game Importer.png'], desc: 'Steam, Epic, GOG, Xbox, and more. All in one place.' },
-	{ title: 'Deep Configuration', images: ['/Screenshots/Settings.png'], desc: 'Tailor every aspect of your experience.' },
-	{ title: 'View Personalization', images: ['/Screenshots/View Options.png'], desc: 'Adapt the interface to your unique style.' },
+	{ title: 'Unified Importer', images: ['/Screenshots/Game Importer.png'], desc: 'Break down the walls between platforms.<br/>An intelligent one-click integration for Steam, Epic, GOG, and beyond, consolidated into a single universe.' },
+	{ title: 'Deep Configuration', images: ['/Screenshots/Settings.png'], desc: 'Your library, your rules.<br/>From performance tweaks to sophisticated UI behavior, customize every layer of Onyx to fit your exact specifications.' },
+	{ title: 'View Personalization', images: ['/Screenshots/View Options.png'], desc: 'Total aesthetic control for the discerning user.<br/>Adjust scaling, spacing, and accent colors to create a workspace that is uniquely yours.' },
 ];
 ---
 
@@ -58,10 +58,10 @@ const advancedFeatures = [
 			<div class="max-w-7xl mx-auto flex items-center justify-between">
 				<div class="flex items-center gap-3">
 					<img src="/logo.svg" alt="Onyx Logo" class="w-8 h-8" />
-					<span class="text-xl font-bold tracking-tighter uppercase">Onyx</span>
+					<span class="text-xl font-bold tracking-tighter">Onyx</span>
 				</div>
 				<div class="flex items-center gap-6">
-					<button class="px-4 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all hover:scale-105 cursor-default">Coming Soon</button>
+					<button class="px-4 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-[10px] font-bold tracking-widest transition-all hover:scale-105 cursor-default">Coming Soon</button>
 				</div>
 			</div>
 		</nav>
@@ -104,92 +104,30 @@ const advancedFeatures = [
 		<div class="relative z-10 py-24 px-12 bg-gradient-to-b from-transparent via-[#0b0e14] to-[#0b0e14] -mt-32">
 			<div class="max-w-7xl mx-auto space-y-24">
 				
-				<!-- Section 1: Collection Diversity -->
+				<!-- Unified Feature Showcase -->
 				<section>
-					<div class="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-6">
-						<div>
-							<h2 class="text-5xl font-black uppercase tracking-tighter mb-2">Your Collection</h2>
-							<p class="text-slate-400 text-xl font-medium">Four distinct ways to experience your library.</p>
-						</div>
-					</div>
-					<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-						{collectionViews.map((view) => (
-							<div class="group relative bg-[#1a1f2e] rounded-xl overflow-hidden border border-white/5 transition-all duration-500 hover:border-onyx-accent/50 hover:shadow-[0_0_40px_rgba(14,165,233,0.1)] cursor-pointer lightbox-trigger" data-images={JSON.stringify(view.images)}>
-								<div class="aspect-video overflow-hidden relative carousel-container">
-									{view.images.map((img, idx) => (
-										<img src={img} alt={`${view.title} - ${idx}`} class={`absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ${idx === 0 ? 'opacity-100' : 'opacity-0'} carousel-img`} />
-									))}
-									{view.images.length > 1 && (
-										<div class="absolute bottom-3 right-3 bg-black/60 backdrop-blur-md px-2 py-1 rounded-md text-[9px] font-bold uppercase tracking-widest text-white/90 border border-white/10 z-10 carousel-counter">
-											1 / {view.images.length}
-										</div>
-									)}
+					<div class="space-y-32">
+						{[...collectionViews, ...managementTools, ...advancedFeatures].map((item, index) => (
+							<div class={`flex flex-col md:items-center gap-16 lg:gap-32 ${index % 2 === 1 ? 'md:flex-row-reverse' : 'md:flex-row'}`}>
+								<!-- Image Side -->
+								<div class="md:flex-[1.6] group relative bg-[#1a1f2e] rounded-3xl overflow-hidden border border-white/5 transition-all duration-700 hover:border-onyx-accent/50 hover:shadow-[0_0_80px_rgba(14,165,233,0.15)] cursor-pointer lightbox-trigger" data-images={JSON.stringify(item.images)}>
+									<div class="aspect-video overflow-hidden relative carousel-container">
+										{item.images.map((img, idx) => (
+											<img src={img} alt={`${item.title} - ${idx}`} class={`absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ${idx === 0 ? 'opacity-100' : 'opacity-0'} carousel-img`} />
+										))}
+										{item.images.length > 1 && (
+											<div class="absolute bottom-6 right-6 bg-black/60 backdrop-blur-md px-4 py-2 rounded-xl text-[12px] font-bold uppercase tracking-widest text-white/90 border border-white/10 z-10 carousel-counter">
+												1 / {item.images.length}
+											</div>
+										)}
+									</div>
 								</div>
-								<div class="p-8">
-									<h3 class="text-2xl font-bold mb-2 uppercase tracking-tight">{view.title}</h3>
-									<p class="text-slate-400 leading-relaxed">{view.desc}</p>
-								</div>
-							</div>
-						))}
-					</div>
-				</section>
 
-				<!-- Section 2: Management & Metadata -->
-				<section>
-					<div class="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-6">
-						<div>
-							<h2 class="text-5xl font-black uppercase tracking-tighter mb-2">Metadata Mastery</h2>
-							<p class="text-slate-400 text-xl font-medium">Power tools for the perfectionist.</p>
-						</div>
-					</div>
-					<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-						{managementTools.map((tool) => (
-							<div class="group bg-[#1a1f2e] border border-white/5 rounded-xl overflow-hidden flex flex-col h-full cursor-pointer lightbox-trigger" data-images={JSON.stringify(tool.images)}>
-								<div class="relative aspect-[4/3] overflow-hidden carousel-container">
-									{tool.images.map((img, idx) => (
-										<img src={img} alt={`${tool.title} - ${idx}`} class={`absolute inset-0 w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-all duration-1000 ${idx === 0 ? 'opacity-100' : 'opacity-0'} carousel-img`} />
-									))}
-									<div class="absolute inset-0 bg-gradient-to-t from-[#1a1f2e] via-transparent to-transparent opacity-60 pointer-events-none"></div>
-									{tool.images.length > 1 && (
-										<div class="absolute bottom-3 right-3 bg-black/60 backdrop-blur-md px-2 py-1 rounded-md text-[9px] font-bold uppercase tracking-widest text-white/90 border border-white/10 z-10 carousel-counter">
-											1 / {tool.images.length}
-										</div>
-									)}
-								</div>
-								<div class="p-8 mt-auto">
-									<h3 class="text-xl font-bold mb-3 uppercase tracking-tight">{tool.title}</h3>
-									<p class="text-slate-400 text-sm leading-relaxed">{tool.desc}</p>
-								</div>
-							</div>
-						))}
-					</div>
-				</section>
-
-				<!-- Section 3: Advanced Setup -->
-				<section>
-					<div class="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-6">
-						<div>
-							<h2 class="text-5xl font-black uppercase tracking-tighter mb-2">System Depth</h2>
-							<p class="text-slate-400 text-xl font-medium">Unifying every source with surgical precision.</p>
-						</div>
-					</div>
-					<div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-						{advancedFeatures.map((feat) => (
-							<div class="group bg-[#1a1f2e] border border-white/5 rounded-xl overflow-hidden flex flex-col h-full cursor-pointer lightbox-trigger" data-images={JSON.stringify(feat.images)}>
-								<div class="relative aspect-[4/3] overflow-hidden carousel-container">
-									{feat.images.map((img, idx) => (
-										<img src={img} alt={`${feat.title} - ${idx}`} class={`absolute inset-0 w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-all duration-1000 ${idx === 0 ? 'opacity-100' : 'opacity-0'} carousel-img`} />
-									))}
-									<div class="absolute inset-0 bg-gradient-to-t from-[#1a1f2e] via-transparent to-transparent opacity-60 pointer-events-none"></div>
-									{feat.images.length > 1 && (
-										<div class="absolute bottom-3 right-3 bg-black/60 backdrop-blur-md px-2 py-1 rounded-md text-[9px] font-bold uppercase tracking-widest text-white/90 border border-white/10 z-10 carousel-counter">
-											1 / {feat.images.length}
-										</div>
-									)}
-								</div>
-								<div class="p-8 mt-auto">
-									<h3 class="text-xl font-bold mb-3 uppercase tracking-tight">{feat.title}</h3>
-									<p class="text-slate-400 text-sm leading-relaxed">{feat.desc}</p>
+								<!-- Text Side -->
+								<div class="md:flex-1 space-y-8">
+									<h3 class="text-4xl lg:text-5xl font-black tracking-tighter leading-none">{item.title}</h3>
+									<p class="text-slate-400 text-xl lg:text-2xl leading-relaxed max-w-xl font-light italic opacity-80" set:html={item.desc}>
+									</p>
 								</div>
 							</div>
 						))}
@@ -237,7 +175,19 @@ const advancedFeatures = [
 			<div id="lightbox-counter" class="absolute bottom-12 left-1/2 -translate-x-1/2 bg-white/5 backdrop-blur-xl px-4 py-2 rounded-full border border-white/10 text-xs font-bold tracking-[0.3em] uppercase opacity-50">
 				1 / 5
 			</div>
+
+			<!-- Thumbnail Reel -->
+			<div id="lightbox-thumbnails" class="absolute bottom-24 left-1/2 -translate-x-1/2 flex gap-3 p-3 bg-black/40 backdrop-blur-2xl rounded-2xl border border-white/5 opacity-0 translate-y-4 transition-all duration-700 pointer-events-none">
+				<!-- Thumbnails injected via JS -->
+			</div>
 		</div>
+
+		<!-- Back to Top Button -->
+		<button id="back-to-top" class="fixed bottom-8 right-8 z-[60] bg-[#1a1f2e] hover:bg-[#252b3d] border border-onyx-accent/50 p-4 rounded-full text-onyx-accent hover:text-white transition-all duration-500 opacity-0 pointer-events-none hover:scale-110 group shadow-[0_0_30px_rgba(14,165,233,0.3)] hover:shadow-[0_0_50px_rgba(14,165,233,0.5)]">
+			<svg class="w-6 h-6 transform transition-transform group-hover:-translate-y-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7 7 7M12 3v18"></path>
+			</svg>
+		</button>
 	</main>
 
 	<style>
@@ -427,10 +377,32 @@ const advancedFeatures = [
 			animate();
 		}
 
+		// Back to Top Logic
+		const backToTopBtn = document.getElementById('back-to-top');
+		if (backToTopBtn) {
+			window.addEventListener('scroll', () => {
+				if (window.scrollY > 500) {
+					backToTopBtn.classList.remove('opacity-0', 'pointer-events-none');
+					backToTopBtn.classList.add('opacity-100', 'pointer-events-auto');
+				} else {
+					backToTopBtn.classList.add('opacity-0', 'pointer-events-none');
+					backToTopBtn.classList.remove('opacity-100', 'pointer-events-auto');
+				}
+			});
+
+			backToTopBtn.addEventListener('click', () => {
+				window.scrollTo({
+					top: 0,
+					behavior: 'smooth'
+				});
+			});
+		}
+
 		// Lightbox & Gallery Logic
 		const lightbox = document.getElementById('lightbox');
 		const lightboxImg = document.getElementById('lightbox-img') as HTMLImageElement;
 		const lightboxCounter = document.getElementById('lightbox-counter');
+		const lightboxThumbs = document.getElementById('lightbox-thumbnails');
 		const triggers = document.querySelectorAll('.lightbox-trigger');
 		
 		let currentGallery: string[] = [];
@@ -443,6 +415,20 @@ const advancedFeatures = [
 					lightboxCounter.textContent = `${currentImgIndex + 1} / ${currentGallery.length}`;
 					lightboxCounter.style.display = currentGallery.length > 1 ? 'block' : 'none';
 				}
+
+				// Update Thumbnails
+				if (lightboxThumbs) {
+					const thumbs = lightboxThumbs.querySelectorAll('.lightbox-thumb');
+					thumbs.forEach((thumb, idx) => {
+						if (idx === currentImgIndex) {
+							thumb.classList.add('border-onyx-accent', 'scale-110', 'opacity-100');
+							thumb.classList.remove('border-white/10', 'opacity-40');
+						} else {
+							thumb.classList.remove('border-onyx-accent', 'scale-110', 'opacity-100');
+							thumb.classList.add('border-white/10', 'opacity-40');
+						}
+					});
+				}
 			}
 			// Toggle buttons visibility
 			const prevBtn = document.getElementById('prev-lightbox');
@@ -454,12 +440,36 @@ const advancedFeatures = [
 			}
 		};
 
+		const initThumbnails = () => {
+			if (!lightboxThumbs) return;
+			lightboxThumbs.innerHTML = '';
+			if (currentGallery.length <= 1) {
+				lightboxThumbs.classList.add('opacity-0', 'translate-y-4', 'pointer-events-none');
+				return;
+			}
+
+			currentGallery.forEach((img, idx) => {
+				const thumb = document.createElement('img');
+				thumb.src = img;
+				thumb.className = `lightbox-thumb w-16 h-10 object-cover rounded-md border-2 transition-all duration-300 cursor-pointer hover:opacity-100 ${idx === currentImgIndex ? 'border-onyx-accent scale-110' : 'border-white/10 opacity-40 hover:scale-105'}`;
+				thumb.addEventListener('click', (e) => {
+					e.stopPropagation();
+					currentImgIndex = idx;
+					updateLightbox();
+				});
+				lightboxThumbs.appendChild(thumb);
+			});
+
+			lightboxThumbs.classList.remove('opacity-0', 'translate-y-4', 'pointer-events-none');
+		};
+
 		triggers.forEach(trigger => {
 			trigger.addEventListener('click', (e) => {
 				const imagesData = (trigger as HTMLElement).dataset.images;
 				if (imagesData && lightbox && lightboxImg) {
 					currentGallery = JSON.parse(imagesData);
 					currentImgIndex = 0;
+					initThumbnails();
 					updateLightbox();
 					lightbox.classList.add('active');
 					document.body.style.overflow = 'hidden';

@@ -57,7 +57,7 @@
 
 > [!TIP]
 > **Updating the Site**
-> Simply tell me "Update website live". I will commit ONLY the website changes (no version bump) and push to production.
+> Simply tell me "Update website live". I will commit ONLY the website changes (no version bump) and push to production. **No need to show a preview ever on the website!**
 
 ## ⚠️ MANDATORY PRE-WORK CHECKLIST
 
