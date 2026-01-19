@@ -59,7 +59,7 @@ export class ProcessSuspendService {
         return true;
       } catch (psError: any) {
         console.log(`[Suspend] PowerShell method failed, trying alternative: ${psError.message}`);
-        
+
         // Method 2: Try using wmic (Windows Management Instrumentation)
         try {
           const wmicCommand = `wmic process where processid=${pid} call suspend`;
@@ -67,7 +67,7 @@ export class ProcessSuspendService {
           return true;
         } catch (wmicError: any) {
           console.log(`[Suspend] WMIC method failed, trying ntsd: ${wmicError.message}`);
-          
+
           // Method 3: Try using ntsd (Windows Debugger) - requires admin but very reliable
           try {
             // ntsd approach: use debugger to suspend
@@ -77,15 +77,15 @@ export class ProcessSuspendService {
           } catch (ntsdError: any) {
             const errorMessage = psError?.stderr || psError?.message || String(psError);
             console.error(`[Suspend] All methods failed: ${errorMessage}`);
-            
+
             // Check for permission errors
-            if (errorMessage.includes('Access is denied') || 
-                errorMessage.includes('permission') || 
-                errorMessage.includes('Cannot find a process') ||
-                errorMessage.includes('not found')) {
+            if (errorMessage.includes('Access is denied') ||
+              errorMessage.includes('permission') ||
+              errorMessage.includes('Cannot find a process') ||
+              errorMessage.includes('not found')) {
               throw new Error('Access denied. The process may require administrator privileges, or the process may have exited.');
             }
-            
+
             throw new Error(`Failed to suspend process: ${errorMessage}`);
           }
         }
@@ -114,7 +114,7 @@ export class ProcessSuspendService {
         return true;
       } catch (psError: any) {
         console.log(`[Suspend] PowerShell resume method failed, trying alternative: ${psError.message}`);
-        
+
         // Method 2: Try using wmic (Windows Management Instrumentation)
         try {
           const wmicCommand = `wmic process where processid=${pid} call resume`;
@@ -122,19 +122,19 @@ export class ProcessSuspendService {
           return true;
         } catch (wmicError: any) {
           console.log(`[Suspend] WMIC resume method failed: ${wmicError.message}`);
-          
+
           // Re-throw original PowerShell error with better message
           const errorMessage = psError?.stderr || psError?.message || String(psError);
           console.error(`[Suspend] All resume methods failed: ${errorMessage}`);
-          
+
           // Check for permission errors
-          if (errorMessage.includes('Access is denied') || 
-              errorMessage.includes('permission') || 
-              errorMessage.includes('Cannot find a process') ||
-              errorMessage.includes('not found')) {
+          if (errorMessage.includes('Access is denied') ||
+            errorMessage.includes('permission') ||
+            errorMessage.includes('Cannot find a process') ||
+            errorMessage.includes('not found')) {
             throw new Error('Access denied. The process may require administrator privileges, or the process may have exited.');
           }
-          
+
           throw new Error(`Failed to resume process: ${errorMessage}`);
         }
       }
@@ -174,10 +174,10 @@ export class ProcessSuspendService {
       const command = `powershell -Command "Get-Process | Select-Object Id, ProcessName, Path | ConvertTo-Json"`;
       const { stdout } = await execAsync(command);
       const processes = JSON.parse(stdout);
-      
+
       // Handle both single object and array
       const processList = Array.isArray(processes) ? processes : [processes];
-      
+
       return processList.map((p: any) => ({
         pid: p.Id,
         name: p.ProcessName,
@@ -214,7 +214,7 @@ export class ProcessSuspendService {
     try {
       const processes = await this.getAllProcesses();
       const exeName = path.basename(exePath).toLowerCase();
-      
+
       // Try exact match first
       let matchingProcess = processes.find(p => {
         if (p.path) {
@@ -226,7 +226,7 @@ export class ProcessSuspendService {
       // If no exact match, try process name match
       if (!matchingProcess) {
         const processName = exeName.replace('.exe', '');
-        matchingProcess = processes.find(p => 
+        matchingProcess = processes.find(p =>
           p.name.toLowerCase() === processName
         );
       }
@@ -244,11 +244,31 @@ export class ProcessSuspendService {
   }
 
   /**
+   * Discover and track a game process by executable path with retry
+   */
+  async discoverAndTrackGame(gameId: string, title: string, exePath: string, retries: number = 5): Promise<boolean> {
+    if (!exePath) return false;
+
+    // Helper to sleep
+    const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+    for (let i = 0; i < retries; i++) {
+      const pid = await this.discoverGameProcess(gameId, exePath, title);
+      if (pid) {
+        return true;
+      }
+      await sleep(2000); // Check every 2 seconds
+    }
+
+    return false;
+  }
+
+  /**
    * Suspend a game by gameId
    */
   async suspendGame(gameId: string): Promise<{ success: boolean; error?: string }> {
     const gameInfo = this.runningGames.get(gameId);
-    
+
     if (!gameInfo) {
       return { success: false, error: 'Game process not found. Try launching the game first.' };
     }
@@ -271,7 +291,7 @@ export class ProcessSuspendService {
 
     try {
       const success = await this.suspendProcess(gameInfo.pid);
-      
+
       if (success) {
         gameInfo.status = 'suspended';
         gameInfo.suspendedAt = Date.now();
@@ -284,7 +304,7 @@ export class ProcessSuspendService {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       console.error(`[Suspend] Error suspending game ${gameInfo.title}:`, errorMessage);
-      
+
       // Provide more helpful error messages
       if (errorMessage.includes('Access is denied') || errorMessage.includes('Access denied')) {
         return { success: false, error: 'Access denied. Please run Onyx as Administrator to suspend processes.' };
@@ -294,7 +314,7 @@ export class ProcessSuspendService {
         this.suspendedGames.delete(gameId);
         return { success: false, error: 'Process no longer exists. It may have exited.' };
       }
-      
+
       return { success: false, error: `Failed to suspend game: ${errorMessage}` };
     }
   }
@@ -304,7 +324,7 @@ export class ProcessSuspendService {
    */
   async resumeGame(gameId: string): Promise<{ success: boolean; error?: string }> {
     const gameInfo = this.runningGames.get(gameId);
-    
+
     if (!gameInfo) {
       return { success: false, error: 'Game process not found' };
     }
@@ -323,7 +343,7 @@ export class ProcessSuspendService {
 
     try {
       const success = await this.resumeProcess(gameInfo.pid);
-      
+
       if (success) {
         gameInfo.status = 'running';
         delete gameInfo.suspendedAt;
@@ -348,7 +368,7 @@ export class ProcessSuspendService {
     // Clean up stopped processes
     for (const [gameId, gameInfo] of this.runningGames.entries()) {
       const isRunning = await this.isProcessRunning(gameInfo.pid);
-      
+
       if (!isRunning) {
         this.runningGames.delete(gameId);
         this.suspendedGames.delete(gameId);

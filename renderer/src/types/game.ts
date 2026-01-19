@@ -110,6 +110,11 @@ export interface UserPreferences {
   startClosedToTray?: boolean;
   updateLibrariesOnStartup?: boolean;
   minimizeOnGameLaunch?: boolean;
+  enableHardwareAcceleration?: boolean;
+  closeToTray?: boolean;
+  confirmGameLaunch?: boolean;
+  restoreAfterLaunch?: boolean;
+  defaultStartupPage?: 'library' | 'recent' | 'favorites';
   hideVRTitles?: boolean;
   hideAppsTitles?: boolean;
   hideGameTitles?: boolean;

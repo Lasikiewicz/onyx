@@ -23,6 +23,12 @@ interface OnyxSettings {
   minimizeOnGameLaunch: boolean;
   hideGameTitles: boolean;
   gameTilePadding: number;
+  // New Settings
+  enableHardwareAcceleration: boolean;
+  closeToTray: boolean;
+  confirmGameLaunch: boolean;
+  restoreAfterLaunch: boolean;
+  defaultStartupPage: 'library' | 'recent' | 'favorites';
 }
 
 type TabType = 'general' | 'library' | 'launchers' | 'integrations' | 'appearance' | 'advanced' | 'about'; // Keep legacy types for state compatibility, but UI will hide them
@@ -159,6 +165,11 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
     minimizeOnGameLaunch: false,
     hideGameTitles: false,
     gameTilePadding: 16,
+    enableHardwareAcceleration: true,
+    closeToTray: false,
+    confirmGameLaunch: false,
+    restoreAfterLaunch: false,
+    defaultStartupPage: 'library',
   });
   const [showLogoOverBoxart, setShowLogoOverBoxart] = useState(true);
   const [logoPosition, setLogoPosition] = useState<'top' | 'middle' | 'bottom' | 'underneath'>('middle');
@@ -182,6 +193,11 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
             minimizeOnGameLaunch: prefs.minimizeOnGameLaunch ?? false,
             hideGameTitles: prefs.hideGameTitles ?? false,
             gameTilePadding: prefs.gameTilePadding ?? 16,
+            enableHardwareAcceleration: prefs.enableHardwareAcceleration ?? true,
+            closeToTray: prefs.closeToTray ?? false,
+            confirmGameLaunch: prefs.confirmGameLaunch ?? false,
+            restoreAfterLaunch: prefs.restoreAfterLaunch ?? false,
+            defaultStartupPage: (prefs.defaultStartupPage as any) ?? 'library',
           });
           setShowLogoOverBoxart(prefs.showLogoOverBoxart ?? true);
           setLogoPosition(prefs.logoPosition ?? 'middle');
@@ -356,6 +372,10 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
   const handleToggle = (key: keyof OnyxSettings) => {
     const newSettings = { ...settings, [key]: !settings[key] };
     setSettings(newSettings);
+  };
+
+  const handleSelectChange = (key: keyof OnyxSettings, value: any) => {
+    setSettings({ ...settings, [key]: value });
   };
 
   // const handlePaddingChange = (value: number) => {
@@ -686,6 +706,11 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
         gameTilePadding: settings.gameTilePadding,
         showLogoOverBoxart: showLogoOverBoxart,
         logoPosition: logoPosition,
+        enableHardwareAcceleration: settings.enableHardwareAcceleration,
+        closeToTray: settings.closeToTray,
+        confirmGameLaunch: settings.confirmGameLaunch,
+        restoreAfterLaunch: settings.restoreAfterLaunch,
+        defaultStartupPage: settings.defaultStartupPage,
       });
 
       if (!result.success) {
@@ -835,11 +860,43 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                   onChange={() => handleToggle('minimizeToTray')}
                 />
                 <SettingsToggle
+                  label="Close to Tray"
+                  description="Close button minimizes to tray instead of quitting"
+                  checked={settings.closeToTray}
+                  onChange={() => handleToggle('closeToTray')}
+                />
+                <SettingsToggle
                   label="Start Closed to Tray"
                   description="Launch Onyx in the background"
                   checked={settings.startClosedToTray}
                   onChange={() => handleToggle('startClosedToTray')}
                 />
+                <SettingsToggle
+                  label="Hardware Acceleration"
+                  description="Use GPU for rendering (Requires Restart)"
+                  checked={settings.enableHardwareAcceleration}
+                  onChange={() => handleToggle('enableHardwareAcceleration')}
+                />
+
+                {/* Startup Page Selection */}
+                <div className="flex flex-col space-y-2 pt-2">
+                  <label className="text-sm font-medium text-white">Default Startup Page</label>
+                  <div className="flex bg-gray-800/50 p-1 rounded-lg border border-gray-700/50">
+                    {(['library', 'recent', 'favorites'] as const).map((page) => (
+                      <button
+                        key={page}
+                        onClick={() => handleSelectChange('defaultStartupPage', page)}
+                        className={`flex-1 py-1.5 px-3 text-xs font-medium rounded-md transition-all ${settings.defaultStartupPage === page
+                          ? 'bg-blue-600 text-white shadow-sm'
+                          : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700/50'
+                          }`}
+                      >
+                        {page.charAt(0).toUpperCase() + page.slice(1)}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-xs text-gray-500">Choose which page opens when Onyx starts</p>
+                </div>
               </SettingsSection>
 
               <SettingsSection title="Scanning Options" description="Automatic game detection">
@@ -877,6 +934,18 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                   description="Automatically minimize Onyx when a game starts"
                   checked={settings.minimizeOnGameLaunch}
                   onChange={() => handleToggle('minimizeOnGameLaunch')}
+                />
+                <SettingsToggle
+                  label="Restore Window on Game Exit"
+                  description="Automatically restore Onyx when you close a game"
+                  checked={settings.restoreAfterLaunch}
+                  onChange={() => handleToggle('restoreAfterLaunch')}
+                />
+                <SettingsToggle
+                  label="Confirm Game Launch"
+                  description="Show a confirmation dialog before launching games"
+                  checked={settings.confirmGameLaunch}
+                  onChange={() => handleToggle('confirmGameLaunch')}
                 />
               </SettingsSection>
 

@@ -144,6 +144,12 @@ function App() {
     logo: 800,
   });
 
+  // Launch confirmation state
+  const [confirmGameLaunch, setConfirmGameLaunch] = useState(false);
+  const [launchConfirmation, setLaunchConfirmation] = useState<{ game: Game } | null>(null);
+
+
+
   // Get current view's divider settings
   const currentFanartHeight = (viewMode === 'grid' || viewMode === 'list' || viewMode === 'logo') ? fanartHeightByView[viewMode] : 320;
   const currentDescriptionWidth = (viewMode === 'grid' || viewMode === 'list' || viewMode === 'logo') ? descriptionWidthByView[viewMode] : 50;
@@ -243,12 +249,26 @@ function App() {
           if (prefs.activeGameId) {
             setActiveGameId(prefs.activeGameId);
           }
-          // If this is the very first time (no preferences saved), apply baseline for current resolution
           if (prefs.isFirstLaunch && baselineDefaultsRef.current) {
             console.log(`[App] First launch detected. Applying baseline defaults for ${currentResolutionRef.current}.`);
             applyBaselineDefaults(currentResolutionRef.current);
             // Save preference change to set isFirstLaunch to false
             window.electronAPI.savePreferences({ isFirstLaunch: false });
+          }
+
+          if (prefs.confirmGameLaunch !== undefined) setConfirmGameLaunch(prefs.confirmGameLaunch);
+
+          // Handle default startup page
+          if (prefs.defaultStartupPage) {
+            if (prefs.defaultStartupPage === 'favorites') {
+              setSelectedCategory('favorites');
+            } else if (prefs.defaultStartupPage === 'recent') {
+              // "Recent" page usually implies sort by last played
+              setSortBy('lastPlayed');
+            } else {
+              // 'library' is default, ensure defaults
+              setSelectedCategory(null);
+            }
           }
 
           setIsInitialLoad(false);
@@ -768,6 +788,15 @@ function App() {
   const activeGame = activeGameId ? games.find(g => g.id === activeGameId) || null : null;
 
   const handlePlay = async (game: Game) => {
+    if (confirmGameLaunch) {
+      setLaunchConfirmation({ game });
+      return;
+    }
+
+    launchGame(game);
+  };
+
+  const launchGame = async (game: Game) => {
     setLaunchingGameId(game.id);
     try {
       const result = await window.electronAPI.launchGame(game.id);
@@ -1768,6 +1797,11 @@ function App() {
             if (prefs.minimizeToTray !== undefined) {
               // These are handled by the modal, but we can reload them too if needed
             }
+
+            if (prefs.confirmGameLaunch !== undefined) {
+              setConfirmGameLaunch(prefs.confirmGameLaunch);
+            }
+
             // Reload library if app configs were saved
             await loadLibrary();
           } catch (error) {
@@ -2064,6 +2098,22 @@ function App() {
           cancelText="Cancel"
           onConfirm={handleConfirmHide}
           onCancel={handleCancelHide}
+        />
+      )}
+
+      {/* Launch Confirmation Dialog */}
+      {launchConfirmation && (
+        <ConfirmationDialog
+          isOpen={true}
+          title={`Launch "${launchConfirmation.game.title}"?`}
+          message="Are you sure you want to launch this game?"
+          confirmText="Launch"
+          cancelText="Cancel"
+          onConfirm={() => {
+            launchGame(launchConfirmation.game);
+            setLaunchConfirmation(null);
+          }}
+          onCancel={() => setLaunchConfirmation(null)}
         />
       )}
 

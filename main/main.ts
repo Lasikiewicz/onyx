@@ -57,6 +57,17 @@ protocol.registerSchemesAsPrivileged([
 // In dev, __dirname is in dist-electron/main.js
 // For loadFile(), we can use relative paths from __dirname
 // Electron's loadFile() automatically handles ASAR archives
+// Check hardware acceleration preference
+const userPreferencesServiceForHA = new UserPreferencesService();
+userPreferencesServiceForHA.getPreferences().then(prefs => {
+  if (prefs.enableHardwareAcceleration === false) {
+    console.log('Disabling hardware acceleration based on user preference');
+    app.disableHardwareAcceleration();
+  }
+}).catch(err => {
+  console.error('Error checking hardware acceleration preference:', err);
+});
+
 if (app.isPackaged) {
   // In packaged app, use relative path from __dirname
   // __dirname = app.asar/dist-electron/main.js
@@ -295,39 +306,6 @@ function createTray() {
 
   tray.setToolTip('Onyx');
 
-  // Function to update the tray menu
-  const updateTrayMenu = async () => {
-    try {
-      const contextMenu = await buildTrayContextMenu();
-      if (tray) {
-        tray.setContextMenu(contextMenu);
-        console.log('[Tray Menu] Context menu updated');
-      }
-    } catch (error) {
-      console.error('[Tray Menu] Error updating context menu:', error);
-      // Set a fallback menu
-      const fallbackMenu = Menu.buildFromTemplate([
-        {
-          label: 'Show Onyx',
-          click: () => {
-            if (win) {
-              win.show();
-              win.focus();
-            } else {
-              createWindow();
-            }
-          },
-        },
-        {
-          label: 'Exit',
-          click: () => {
-            app.quit();
-          },
-        },
-      ]);
-      tray?.setContextMenu(fallbackMenu);
-    }
-  };
 
   // Build initial context menu
   updateTrayMenu();
@@ -573,11 +551,14 @@ async function createWindow() {
       }
 
       const prefs = await userPreferencesService.getPreferences();
-      if (prefs.minimizeToTray) {
+      // Check closeToTray (fallback to minimizeToTray if closeToTray is undefined for backward compatibility)
+      if (prefs.closeToTray !== false) {
+        // If closeToTray is true or undefined (default), minimize
         event.preventDefault();
         win?.hide();
         return;
       }
+      // If closeToTray is false, let it close (app.quit will be called by 'window-all-closed' or similar if it's the last window)
     } catch (error) {
       console.error('Error checking preferences on close:', error);
     }
@@ -1250,6 +1231,40 @@ async function buildTrayContextMenu(): Promise<Electron.Menu> {
   );
 
   return Menu.buildFromTemplate(menuItems);
+}
+
+// Function to update the tray menu globally
+async function updateTrayMenu() {
+  try {
+    const contextMenu = await buildTrayContextMenu();
+    if (tray) {
+      tray.setContextMenu(contextMenu);
+      console.log('[Tray Menu] Context menu updated');
+    }
+  } catch (error) {
+    console.error('[Tray Menu] Error updating context menu:', error);
+    // Set a fallback menu
+    const fallbackMenu = Menu.buildFromTemplate([
+      {
+        label: 'Show Onyx',
+        click: () => {
+          if (win) {
+            win.show();
+            win.focus();
+          } else {
+            createWindow();
+          }
+        },
+      },
+      {
+        label: 'Exit',
+        click: () => {
+          app.quit();
+        },
+      },
+    ]);
+    tray?.setContextMenu(fallbackMenu);
+  }
 }
 
 // Initialize on startup (wrapped in IIFE to handle async)
@@ -3064,23 +3079,54 @@ ipcMain.handle('launcher:launchGame', async (_event, gameId: string) => {
               console.log(`[Suspend] Tracking launched game: ${game.title} (PID: ${result.pid})`);
             } else if (game.exePath) {
               // For Steam games or if PID not available, try to discover the process
-              // Wait a bit for the process to start, then discover it
-              setTimeout(async () => {
-                if (processSuspendService) {
-                  const pid = await processSuspendService.discoverGameProcess(gameId, game.exePath, game.title);
-                  if (pid) {
-                    console.log(`[Suspend] Discovered game process: ${game.title} (PID: ${pid})`);
-                  }
+              // Wait a bit for process to start
+              setTimeout(() => {
+                if (processSuspendService && game.exePath) {
+                  processSuspendService.discoverAndTrackGame(gameId, game.title, game.exePath)
+                    .then(success => {
+                      if (success) console.log(`[Suspend] Discovered and tracking game: ${game.title}`);
+                    })
+                    .catch(err => console.error(`[Suspend] Failed to track discovered game: ${err}`));
                 }
-              }, 2000); // Wait 2 seconds for process to start
+              }, 5000);
             }
           }
-        }
 
-        // Refresh tray menu to show updated recent games
-        if (tray) {
-          const contextMenu = await buildTrayContextMenu();
-          tray.setContextMenu(contextMenu);
+          // Handle restoreAfterLaunch behavior
+          const prefs = await userPreferencesService.getPreferences();
+
+          // Only track if restoreAfterLaunch is enabled AND we have a valid PID to track
+          if (prefs.restoreAfterLaunch && result.pid) {
+            console.log(`[Launch] Tracking process ${result.pid} for window restore`);
+
+            // Monitor the process to detect when it closes
+            try {
+              // We need to import 'ps-node' or use a simpler polling mechanism since we're in the main process
+              // Simple polling for PID existence is safest cross-platform approach without extra deps
+              const checkInterval = setInterval(() => {
+                try {
+                  // process.kill(pid, 0) checks for existence without killing
+                  process.kill(result.pid!, 0);
+                } catch (e) {
+                  // Process no longer exists (threw error)
+                  clearInterval(checkInterval);
+                  console.log(`[Launch] Process ${result.pid} exited, restoring window`);
+
+                  // Restore window
+                  if (win) {
+                    if (win.isMinimized()) win.restore();
+                    win.show();
+                    win.focus();
+                  }
+                }
+              }, 2000); // Check every 2 seconds
+            } catch (err) {
+              console.error('[Launch] Error setting up process monitor:', err);
+            }
+          }
+
+          // Refresh tray menu to show updated "Recent" list
+          setTimeout(() => updateTrayMenu(), 1000);
         }
 
         const prefs = await userPreferencesService.getPreferences();

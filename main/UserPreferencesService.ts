@@ -119,6 +119,11 @@ export interface UserPreferences {
     categories?: 'left' | 'middle' | 'right';
   };
   isFirstLaunch?: boolean;
+  enableHardwareAcceleration?: boolean;
+  closeToTray?: boolean;
+  confirmGameLaunch?: boolean;
+  restoreAfterLaunch?: boolean;
+  defaultStartupPage?: 'library' | 'favorites' | 'recent';
 }
 
 interface UserPreferencesSchema {
@@ -218,6 +223,11 @@ export class UserPreferencesService {
             suspendShortcut: 'Ctrl+Shift+S', // Default shortcut
             detailsPanelOpacity: 80,
             isFirstLaunch: true,
+            enableHardwareAcceleration: true,
+            closeToTray: true, // Default to true (minimize to tray on close)
+            confirmGameLaunch: false,
+            restoreAfterLaunch: true,
+            defaultStartupPage: 'library',
           },
         },
       });
@@ -316,6 +326,11 @@ export class UserPreferencesService {
       suspendShortcut: 'Ctrl+Shift+S',
       detailsPanelOpacity: 0,
       isFirstLaunch: true,
+      enableHardwareAcceleration: true,
+      closeToTray: true,
+      confirmGameLaunch: false,
+      restoreAfterLaunch: true,
+      defaultStartupPage: 'library',
     });
   }
 
@@ -399,6 +414,11 @@ export class UserPreferencesService {
       rightPanelButtonLocation: 'right',
       detailsPanelOpacity: 0,
       isFirstLaunch: true,
+      enableHardwareAcceleration: true,
+      closeToTray: true,
+      confirmGameLaunch: false,
+      restoreAfterLaunch: true,
+      defaultStartupPage: 'library',
     });
     store.set('preferences', { ...current, ...preferences });
   }
@@ -484,6 +504,11 @@ export class UserPreferencesService {
       rightPanelButtonLocation: 'right',
       detailsPanelOpacity: 0,
       isFirstLaunch: true,
+      enableHardwareAcceleration: true,
+      closeToTray: true,
+      confirmGameLaunch: false,
+      restoreAfterLaunch: true,
+      defaultStartupPage: 'library',
     });
   }
 }
