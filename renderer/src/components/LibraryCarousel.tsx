@@ -101,11 +101,11 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
   // Calculate dimensions
   const baseGameWidth = 100; // Base width without padding
   const baseGameHeight = 150; // Base height
-  
+
   // Ensure minimum size is same as base game size
   const minSelectedWidth = 100;
   const minSelectedHeight = 150;
-  
+
   const selectedGameWidth = Math.max(minSelectedWidth, (selectedBoxArtSize * (typeof window !== 'undefined' ? window.innerWidth : 1920) / 100));
   // Use the same aspect ratio as base games (100px width / 150px height = 0.667)
   const selectedGameHeight = Math.max(minSelectedHeight, selectedGameWidth * 1.5); // Match box art aspect ratio
@@ -113,22 +113,22 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
   // Calculate carousel offset for smooth animations
   const calculateOffset = (index: number) => {
     if (games.length === 0) return 0;
-    
+
     // We want to bring the selected game to position 4 (index 3)
     // So we need to shift the carousel left by the difference
     const targetPosition = 3;
     const offsetNeeded = (index - targetPosition) * (baseGameWidth + gameTilePadding * 2);
-    
+
     return -offsetNeeded;
   };
-  
+
   // Handle game selection with smooth animation
   const handleGameSelect = (index: number) => {
     if (index === selectedIndex || index < 0 || index >= games.length) return;
-    
+
     setSelectedIndex(index);
     setCarouselOffset(calculateOffset(index));
-    
+
     const game = games[index];
     if (game) {
       onGameClick?.(game);
@@ -214,7 +214,7 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
   }
 
   return (
-    <div 
+    <div
       className="h-full w-full flex flex-col absolute inset-0"
       onContextMenu={(e) => {
         // Handle right-clicks anywhere except on game elements
@@ -226,7 +226,7 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
     >
       {/* Game details across the top - additional details bar */}
       {showCarouselDetails && selectedGame && (
-        <div 
+        <div
           className="w-full bg-black/20 backdrop-blur-sm border-b border-gray-700/50 p-4 relative cursor-pointer details-bar-container"
         >
           <div className="max-w-7xl mx-auto flex items-center justify-center">
@@ -257,7 +257,7 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
               )}
             </div>
           </div>
-          
+
           {/* Details Bar Resizer */}
           {showDetailsBarResizer && (
             <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-1/2 bg-black/80 backdrop-blur-sm rounded-lg p-2 border border-gray-600">
@@ -285,7 +285,7 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
       {/* Main game display area - always visible */}
       <div className="h-full relative">
         {selectedGame && (
-          <div 
+          <div
             className="absolute right-0 top-0 flex flex-col justify-center"
             style={{
               width: '50%',
@@ -296,25 +296,26 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
             }}
           >
             {/* Logo Section - Fixed above description */}
-            <div 
+            <div
               className={`w-full flex mb-6 ${getFlexAlignment(carouselLogoAlignment)}`}
               style={{ pointerEvents: 'auto' }}
             >
               {showCarouselLogos ? (
                 // Show logo if available
                 selectedGame.logoUrl ? (
-                  <div className="relative logo-resizer-container">
+                  <div className="relative logo-resizer-container" data-game-card="true">
                     <img
                       src={selectedGame.logoUrl}
                       alt={selectedGame.title}
                       className="drop-shadow-lg cursor-pointer hover:drop-shadow-xl transition-all duration-200 hover:scale-105"
-                      style={{ 
+                      style={{
                         width: `${selectedGame.logoSizePerViewMode?.carousel || propCarouselLogoSize}px`,
                         maxWidth: '400px',
                         height: 'auto'
                       }}
                       onContextMenu={(e) => {
                         e.preventDefault();
+                        e.stopPropagation();
                         setLogoContextMenu({ x: e.clientX, y: e.clientY });
                       }}
                       onError={(e) => {
@@ -338,7 +339,7 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
                   {selectedGame.title}
                 </h1>
               )}
-              
+
               {/* Hidden title element for logo fallback */}
               {showCarouselLogos && selectedGame.logoUrl && (
                 <h1 className="text-3xl font-bold text-white drop-shadow-lg text-center" style={{ display: 'none' }}>
@@ -349,9 +350,9 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
 
             {/* Description Section - Center of the group */}
             {selectedGame.description && (
-              <div 
+              <div
                 className={`w-full mb-6 text-gray-200 leading-relaxed carousel-description ${getAlignmentClass(carouselDescriptionAlignment)}`}
-                style={{ 
+                style={{
                   fontSize: `${carouselDescriptionSize}px`,
                   padding: '0 20px',
                   maxHeight: `${carouselDescriptionSize * 10 * 1.5}px`, // 10 lines with line-height 1.5
@@ -367,8 +368,8 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
               >
                 {/* Try HTML rendering first, fallback to plain text */}
                 {selectedGame.description.includes('<') ? (
-                  <div 
-                    dangerouslySetInnerHTML={{ __html: selectedGame.description }} 
+                  <div
+                    dangerouslySetInnerHTML={{ __html: selectedGame.description }}
                     style={{ margin: 0, padding: 0 }}
                   />
                 ) : (
@@ -376,110 +377,109 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
                 )}
               </div>
             )}
-            
+
             {/* Buttons Section - Fixed below description */}
-            <div 
+            <div
               className={`w-full flex ${getFlexAlignment(carouselButtonAlignment)}`}
               style={{ pointerEvents: 'auto' }}
             >
               <div className={`flex items-center gap-3 flex-wrap ${getFlexAlignment(carouselButtonAlignment)}`}>
-              <button
-                onClick={() => onPlay?.(selectedGame)}
-                className="bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors flex items-center gap-2 shadow-lg"
-                style={{ 
-                  padding: `${carouselButtonSize * 0.5}px ${carouselButtonSize * 1.5}px`,
-                  fontSize: `${carouselButtonSize}px`
-                }}
-              >
-                Play
-              </button>
-              
-              {/* Mod Manager button - only show if game has modManagerUrl */}
-              {selectedGame.modManagerUrl && (
                 <button
-                  onClick={async () => {
-                    if (selectedGame.modManagerUrl) {
-                      try {
-                        await window.electronAPI.openExternal(selectedGame.modManagerUrl);
-                      } catch (err) {
-                        console.error('Error opening mod manager:', err);
-                      }
-                    }
+                  onClick={() => onPlay?.(selectedGame)}
+                  className="bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors flex items-center gap-2 shadow-lg"
+                  style={{
+                    padding: `${carouselButtonSize * 0.5}px ${carouselButtonSize * 1.5}px`,
+                    fontSize: `${carouselButtonSize}px`
                   }}
-                  className="bg-purple-600 hover:bg-purple-700 text-white font-medium rounded-lg transition-colors flex items-center gap-2 shadow-lg"
-                  style={{ 
+                >
+                  Play
+                </button>
+
+                {/* Mod Manager button - only show if game has modManagerUrl */}
+                {selectedGame.modManagerUrl && (
+                  <button
+                    onClick={async () => {
+                      if (selectedGame.modManagerUrl) {
+                        try {
+                          await window.electronAPI.openExternal(selectedGame.modManagerUrl);
+                        } catch (err) {
+                          console.error('Error opening mod manager:', err);
+                        }
+                      }
+                    }}
+                    className="bg-purple-600 hover:bg-purple-700 text-white font-medium rounded-lg transition-colors flex items-center gap-2 shadow-lg"
+                    style={{
+                      padding: `${carouselButtonSize * 0.5}px ${carouselButtonSize * 1.2}px`,
+                      fontSize: `${carouselButtonSize}px`
+                    }}
+                  >
+                    <svg
+                      className="flex-shrink-0"
+                      width={carouselButtonSize}
+                      height={carouselButtonSize}
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                    </svg>
+                    Mod Manager
+                  </button>
+                )}
+
+                <button
+                  onClick={() => onEdit?.(selectedGame)}
+                  className="bg-gray-700 hover:bg-gray-600 text-white font-medium rounded-lg transition-colors flex items-center gap-2 shadow-lg"
+                  style={{
                     padding: `${carouselButtonSize * 0.5}px ${carouselButtonSize * 1.2}px`,
                     fontSize: `${carouselButtonSize}px`
                   }}
                 >
-                  <svg 
-                    className="flex-shrink-0" 
-                    width={carouselButtonSize} 
-                    height={carouselButtonSize} 
-                    fill="none" 
-                    stroke="currentColor" 
+                  Edit
+                </button>
+
+                {/* Favorite button directly after edit */}
+                <button
+                  onClick={() => onFavorite?.(selectedGame)}
+                  className={`rounded-lg transition-colors flex items-center justify-center shadow-lg ${selectedGame.favorite
+                      ? 'bg-yellow-600 hover:bg-yellow-700 text-white'
+                      : 'bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white'
+                    }`}
+                  style={{
+                    padding: `${carouselButtonSize * 0.6}px`,
+                  }}
+                  title={selectedGame.favorite ? 'Remove from favorites' : 'Add to favorites'}
+                >
+                  <svg
+                    width={carouselButtonSize * 1.2}
+                    height={carouselButtonSize * 1.2}
+                    fill={selectedGame.favorite ? 'currentColor' : 'none'}
+                    stroke="currentColor"
                     viewBox="0 0 24 24"
                   >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
                   </svg>
-                  Mod Manager
                 </button>
-              )}
-              
-              <button
-                onClick={() => onEdit?.(selectedGame)}
-                className="bg-gray-700 hover:bg-gray-600 text-white font-medium rounded-lg transition-colors flex items-center gap-2 shadow-lg"
-                style={{ 
-                  padding: `${carouselButtonSize * 0.5}px ${carouselButtonSize * 1.2}px`,
-                  fontSize: `${carouselButtonSize}px`
-                }}
-              >
-                Edit
-              </button>
-              
-              {/* Favorite button directly after edit */}
-              <button
-                onClick={() => onFavorite?.(selectedGame)}
-                className={`rounded-lg transition-colors flex items-center justify-center shadow-lg ${
-                  selectedGame.favorite 
-                    ? 'bg-yellow-600 hover:bg-yellow-700 text-white' 
-                    : 'bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white'
-                }`}
-                style={{ 
-                  padding: `${carouselButtonSize * 0.6}px`,
-                }}
-                title={selectedGame.favorite ? 'Remove from favorites' : 'Add to favorites'}
-              >
-                <svg 
-                  width={carouselButtonSize * 1.2} 
-                  height={carouselButtonSize * 1.2} 
-                  fill={selectedGame.favorite ? 'currentColor' : 'none'} 
-                  stroke="currentColor" 
-                  viewBox="0 0 24 24"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
-                </svg>
-              </button>
               </div>
             </div>
           </div>
         )}
       </div>
-      
+
       {/* Animated flowing carousel */}
-      <div 
-        className="fixed bottom-8 left-0 right-0 z-20 overflow-visible" 
-        style={{ 
+      <div
+        className="fixed bottom-8 left-0 right-0 z-20 overflow-visible"
+        style={{
           height: '200px', // Fixed height independent of selected game size
           minHeight: '170px', // Ensure minimum space for carousel
         }}
       >
         <div className="h-full flex items-end pb-4 relative">
-          
+
           {/* Flowing carousel container with smooth animation */}
-          <div 
+          <div
             className="flex items-end transition-transform duration-700 ease-out absolute bottom-4"
-            style={{ 
+            style={{
               gap: `${gameTilePadding}px`,
               transform: `translateX(${carouselOffset}px)`,
             }}
@@ -487,22 +487,22 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
             {/* Render all games in sequence */}
             {games.map((game, index) => {
               const isSelected = index === validSelectedIndex;
-              
+
               return (
                 <div
                   key={game.id}
                   data-game-element="true"
+                  data-game-card="true"
                   onClick={() => handleGameSelect(index)}
                   onContextMenu={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
                     setThumbnailContextMenu({ x: e.clientX, y: e.clientY, game });
                   }}
-                  className={`relative flex-shrink-0 cursor-pointer transition-all duration-300 ease-out hover:scale-105 ${
-                    isSelected 
-                      ? 'z-20 opacity-100' 
+                  className={`relative flex-shrink-0 cursor-pointer transition-all duration-300 ease-out hover:scale-105 ${isSelected
+                      ? 'z-20 opacity-100'
                       : 'opacity-70 hover:opacity-90 z-10'
-                  }`}
+                    }`}
                   style={{
                     width: isSelected ? `${selectedGameWidth}px` : `${baseGameWidth}px`,
                     height: isSelected ? `${selectedGameHeight}px` : `${baseGameHeight}px`,
@@ -528,7 +528,7 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
                         </span>
                       </div>
                     )}
-                    
+
                     {/* Game Status Indicators */}
                     {(game.favorite || game.pinned) && (
                       <div className="absolute top-1 right-1 flex flex-col gap-1">
@@ -539,7 +539,7 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
                             </svg>
                           </div>
                         )}
-                        
+
                         {game.pinned && (
                           <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center">
                             <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 24 24">

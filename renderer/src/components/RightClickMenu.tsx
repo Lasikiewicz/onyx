@@ -51,7 +51,7 @@ interface RightClickMenuProps {
     showLauncher?: boolean;
     showLogos?: boolean;
     titleTextSize?: number;
-    displayMode?: 'boxart-title' | 'logo-title' | 'logo-only' | 'title-only';
+    displayMode?: 'boxart-title' | 'logo-title' | 'logo-only' | 'title-only' | 'icon-title';
     sectionTextSize?: number;
     tileHeight?: number;
     boxartSize?: number;
@@ -67,7 +67,7 @@ interface RightClickMenuProps {
     showLauncher?: boolean;
     showLogos?: boolean;
     titleTextSize?: number;
-    displayMode?: 'boxart-title' | 'logo-title' | 'logo-only' | 'title-only';
+    displayMode?: 'boxart-title' | 'logo-title' | 'logo-only' | 'title-only' | 'icon-title';
     sectionTextSize?: number;
     tileHeight?: number;
     boxartSize?: number;
@@ -1241,6 +1241,18 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                             }`}
                         >
                           Title Only
+                        </button>
+                        <button
+                          onClick={() => onListViewOptionsChange?.({
+                            ...listViewOptions,
+                            displayMode: 'icon-title',
+                          })}
+                          className={`px-2 py-1 text-xs rounded transition-colors ${listViewOptions.displayMode === 'icon-title'
+                            ? 'bg-blue-600/40 text-white border border-blue-500'
+                            : 'bg-gray-600 text-gray-300 hover:bg-gray-500 border border-gray-500'
+                            }`}
+                        >
+                          Icon + Title
                         </button>
                       </div>
 
