@@ -50,13 +50,14 @@
 >    - **CRITICAL**: **DO NOT** push a "Main Build" commit to the `develop` or `master` branch.
 >    - **PURPOSE**: Forces the state of `master` into Production.
 > 
-> 4. **Website-Only Updates**
->    - **ACTION**: Still use "Force to main".
->    - **EFFICIENCY**: Due to `paths-ignore` in `build.yml`, updates to the `website/` folder will NOT trigger a new Electron app release. The site will update instantly on Cloudflare, but the GitHub Release will remain untouched.
+> 4. **Website-Only Updates (CRITICAL)**
+>    - **ACTION**: Commmit website changes to `master`, then force to `main`.
+>    - **RESTRICTION**: **DO NOT** run `npm run increment-build` or modify `package.json`.
+>    - **EFFICIENCY**: Changes restricted to `website/` or `docs/` trigger Cloudflare but are IGNORED by GitHub Actions builds due to `paths-ignore`. This prevents duplicate/unnecessary app releases.
 
 > [!TIP]
 > **Updating the Site**
-> Simply tell me "Update website live" or "Push website to main". I will ensure your local changes are committed to `master` and then forced to `main` for instant Cloudflare deployment.
+> Simply tell me "Update website live". I will commit ONLY the website changes (no version bump) and push to production.
 
 ## ⚠️ MANDATORY PRE-WORK CHECKLIST
 
