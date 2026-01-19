@@ -14,7 +14,12 @@
 ```
 
 > [!IMPORTANT]
-> **CRITICAL RELEASE RULES - FOLLOW THESE EXACTLY**
+> **CRITICAL RELEASE RULES - ONE BUILD TYPE PER BRANCH**
+> 
+> Each branch must ONLY contain its designated build category to avoid CI/CD contamination.
+> - **master**: "Build X.Y.Z"
+> - **develop**: "Alpha Build X.Y.Z"
+> - **main**: "Main Build X.Y.Z"
 > 
 > 1. **Command: "Push to git"**
 >    - **TARGET**: `master` branch
@@ -28,21 +33,22 @@
 >    - **TARGET**: `develop` branch
 >    - **ACTION**:
 >      - Ensure current `master` is clean and pushed.
->      - `npm run increment-build` (Ensures Alpha has a unique, higher build number than master)
+>      - `npm run increment-build` (Ensures Alpha has a unique, higher build number)
 >      - `git add package.json`
 >      - `git commit -m "Alpha Build X.Y.Z"`
 >      - `git push origin master:develop --force`
->    - **PURPOSE**: Forces the current state of `master` into the Alpha release channel with a new version number.
+>    - **PURPOSE**: Forces the state of `master` into Alpha.
 > 
 > 3. **Command: "Force to main"**
 >    - **TARGET**: `main` branch
 >    - **ACTION**:
->      - Ensure `develop` state is clean and pushed.
->      - `npm run increment-build` (Ensures Main has a unique, higher build number than alpha)
+>      - Ensure `master` state is ready.
+>      - `npm run increment-build` (Ensures Main has a unique, higher build number)
 >      - `git add package.json`
 >      - `git commit -m "Main Build X.Y.Z"`
->      - `git push origin develop:main --force`
->    - **PURPOSE**: Forces the current state of `develop` into the Production release channel with a new version number.
+>      - `git push origin master:main --force`
+>    - **CRITICAL**: **DO NOT** push a "Main Build" commit to the `develop` or `master` branch.
+>    - **PURPOSE**: Forces the state of `master` into Production.
 
 ## ⚠️ MANDATORY PRE-WORK CHECKLIST
 
@@ -124,11 +130,11 @@
 **All local work and testing is done on the `master` branch.**
 
 - **Master Deployment**: `Push to git`
-  - Increments version and pushes to `master`
+  - Increments version and pushes to `master` as "Build X.Y.Z"
 - **Alpha Deployment**: `Force to alpha`
-  - Increments version and force pushes `master` → `develop`
+  - Increments version and force pushes `master` → `develop` as "Alpha Build X.Y.Z"
 - **Production Deployment**: `Force to main`
-  - Increments version and force pushes `develop` → `main`
+  - Increments version and force pushes `master` → `main` as "Main Build X.Y.Z" (isolation rules apply)
 
 ---
 
