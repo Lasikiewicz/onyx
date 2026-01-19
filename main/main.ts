@@ -4377,9 +4377,10 @@ ipcMain.handle('metadata:fetchGameImages', async (_event, gameName: string, stea
             const sgdbGame = sgdbGames[0];
 
             // Get all image types from SteamGridDB with 30s timeout
-            const [grids, logos, heroes, icons] = await withTimeout(
+            const [grids, capsules, logos, heroes, icons] = await withTimeout(
               Promise.all([
-                steamGridDBService!.getVerticalGrids(sgdbGame.id, includeAnimated), // Grids
+                steamGridDBService!.getVerticalGrids(sgdbGame.id, includeAnimated), // Grids (Vertical)
+                steamGridDBService!.getCapsules(sgdbGame.id, includeAnimated),      // Capsules (also Vertical)
                 steamGridDBService!.getLogos(sgdbGame.id), // Logos
                 steamGridDBService!.getHeroes(sgdbGame.id), // Heroes
                 steamGridDBService!.getIcons(sgdbGame.id)   // Icons
@@ -4392,15 +4393,28 @@ ipcMain.handle('metadata:fetchGameImages', async (_event, gameName: string, stea
             const filterAnimated = (list: any[]) => includeAnimated ? list : list.filter(i => i.mime !== 'image/webp' && i.mime !== 'image/gif');
 
             const filteredGrids = filterAnimated(grids || []);
+            const filteredCapsules = filterAnimated(capsules || []);
             const filteredHeroes = filterAnimated(heroes || []);
             // Logos/Icons usually png/ico, but apply just in case
             const filteredLogos = filterAnimated(logos || []);
             const filteredIcons = filterAnimated(icons || []);
 
+            // Combine grids and capsules for boxart (both are vertical grids on SGDB)
+            const allBoxart = [...filteredGrids, ...filteredCapsules];
+
             // Score: 2000 + item score (High priority for SGDB)
-            if (filteredGrids.length > 0) {
-              filteredGrids.slice(0, 10).forEach((img, idx) => {
-                images.push({ url: img.url, type: 'boxart', source: 'SteamGridDB', name: `${sgdbGame.name} - Grid ${idx + 1}`, score: 2000 + (img.score || 0), isAnimated: img.mime === 'image/webp' });
+            if (allBoxart.length > 0) {
+              // Remove duplicates by URL
+              const uniqueBoxart = Array.from(new Map(allBoxart.map(img => [img.url, img])).values());
+              uniqueBoxart.slice(0, 20).forEach((img, idx) => {
+                images.push({
+                  url: img.url,
+                  type: 'boxart',
+                  source: 'SteamGridDB',
+                  name: `${sgdbGame.name} - Boxart ${idx + 1}`,
+                  score: 2000 + (img.score || 0),
+                  isAnimated: img.mime === 'image/webp' || img.mime === 'image/gif'
+                });
               });
             }
 

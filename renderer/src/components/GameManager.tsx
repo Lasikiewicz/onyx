@@ -725,15 +725,26 @@ export const GameManager: React.FC<GameManagerProps> = ({
           if (!img.url || seenUrls.has(img.url)) return;
           seenUrls.add(img.url);
 
-          const imageObj = {
+          const imageObj: any = {
             id: `${img.source}-${img.type}-${Math.random().toString(36).substr(2, 9)}`,
             name: img.name || img.source,
             source: img.source,
-            url: img.url, // Explicitly keep raw URL for generic renderers
-            [img.type === 'boxart' ? 'boxArtUrl' : img.type === 'logo' ? 'logoUrl' : img.type === 'icon' ? 'iconUrl' : 'bannerUrl']: img.url,
+            url: img.url,
             // For screenshots/banners, we might need screenshotUrls array for some UI logic
-            screenshotUrls: img.type === 'banner' || img.type === 'screenshot' ? [img.url] : undefined
+            screenshotUrls: (img.type === 'banner' || img.type === 'screenshot') ? [img.url] : undefined
           };
+
+          // Map types to all possible field names used by rendering logic
+          if (img.type === 'boxart') {
+            imageObj.boxArtUrl = img.url;
+            imageObj.coverUrl = img.url;
+          } else if (img.type === 'logo') {
+            imageObj.logoUrl = img.url;
+          } else if (img.type === 'icon') {
+            imageObj.iconUrl = img.url;
+          } else {
+            imageObj.bannerUrl = img.url;
+          }
 
           if (img.source === 'SteamGridDB') {
             // Add to steamGridDBResults
