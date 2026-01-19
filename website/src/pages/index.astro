@@ -4,22 +4,50 @@ import '../styles/global.css';
 
 // Feature data for the expanded showcase
 const collectionViews = [
-	{ title: 'Grid View', img: '/Screenshots/Grid View.png', desc: 'The classic experience, perfected.' },
-	{ title: 'List View', img: '/Screenshots/List View.png', desc: 'High-density management.' },
-	{ title: 'Logo View', img: '/Screenshots/Logo View.png', desc: 'Clean, minimalist focus.' },
-	{ title: 'Carousel View', img: '/Screenshots/Carousel View.png', desc: 'Cinematic, immersive details.' },
+	{ 
+		title: 'Grid View', 
+		images: ['/Screenshots/Grid View.png', '/Screenshots/Grid View 1.png', '/Screenshots/Grid View 2.png', '/Screenshots/Grid View 3.png', '/Screenshots/Grid View 4.png'], 
+		desc: 'The classic experience, perfected.' 
+	},
+	{ 
+		title: 'List View', 
+		images: ['/Screenshots/List View.png', '/Screenshots/List View 1.png', '/Screenshots/List View 2.png', '/Screenshots/List View 3.png', '/Screenshots/List View 4.png'], 
+		desc: 'High-density management.' 
+	},
+	{ 
+		title: 'Logo View', 
+		images: ['/Screenshots/Logo View.png', '/Screenshots/Logo View 1.png', '/Screenshots/Logo View 2.png', '/Screenshots/Logo View 3.png', '/Screenshots/Logo View 4.png'], 
+		desc: 'Clean, minimalist focus.' 
+	},
+	{ 
+		title: 'Carousel View', 
+		images: ['/Screenshots/Carousel View.png', '/Screenshots/Carousel View 1.png', '/Screenshots/Carousel View 2.png', '/Screenshots/Carousel View 3.png', '/Screenshots/Carousel View 4.png'], 
+		desc: 'Cinematic, immersive details.' 
+	},
 ];
 
 const managementTools = [
-	{ title: 'Metadata Mastery', img: '/Screenshots/Game Manager - Metadata.png', desc: 'Complete control over your game library details.' },
-	{ title: 'Visual Search', img: '/Screenshots/Game Manager - Image Search.png', desc: 'Find the perfect assets with integrated high-resolution search.' },
-	{ title: 'Contextual Ease', img: '/Screenshots/Game Right Click Menu.png', desc: 'Everything you need, exactly where you expect it.' },
+	{ 
+		title: 'Metadata Mastery', 
+		images: ['/Screenshots/Game Manager - Metadata.png', '/Screenshots/Game Manager - Metadata 1.png', '/Screenshots/Game Manager - Metadata 2.png'], 
+		desc: 'Complete control over your game library details.' 
+	},
+	{ 
+		title: 'Visual Search', 
+		images: ['/Screenshots/Game Manager - Image Search.png', '/Screenshots/Game Manager - Image Search 1.png', '/Screenshots/Game Manager - Image Search 2.png'], 
+		desc: 'Find the perfect assets with integrated high-resolution search.' 
+	},
+	{ 
+		title: 'Contextual Ease', 
+		images: ['/Screenshots/Game Right Click Menu.png'], 
+		desc: 'Everything you need, exactly where you expect it.' 
+	},
 ];
 
 const advancedFeatures = [
-	{ title: 'Unified Importer', img: '/Screenshots/Game Importer.png', desc: 'Steam, Epic, GOG, Xbox, and more. All in one place.' },
-	{ title: 'Deep Configuration', img: '/Screenshots/Settings.png', desc: 'Tailor every aspect of your experience.' },
-	{ title: 'View Personalization', img: '/Screenshots/View Options.png', desc: 'Adapt the interface to your unique style.' },
+	{ title: 'Unified Importer', images: ['/Screenshots/Game Importer.png'], desc: 'Steam, Epic, GOG, Xbox, and more. All in one place.' },
+	{ title: 'Deep Configuration', images: ['/Screenshots/Settings.png'], desc: 'Tailor every aspect of your experience.' },
+	{ title: 'View Personalization', images: ['/Screenshots/View Options.png'], desc: 'Adapt the interface to your unique style.' },
 ];
 ---
 
@@ -34,7 +62,6 @@ const advancedFeatures = [
 				</div>
 				<div class="flex items-center gap-6">
 					<button class="px-4 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all hover:scale-105 cursor-default">Coming Soon</button>
-					<span class="text-[10px] font-medium text-slate-400 uppercase tracking-widest">Latest Version <span class="text-white">v0.2.12</span></span>
 				</div>
 			</div>
 		</nav>
@@ -87,9 +114,16 @@ const advancedFeatures = [
 					</div>
 					<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
 						{collectionViews.map((view) => (
-							<div class="group relative bg-[#1a1f2e] rounded-xl overflow-hidden border border-white/5 transition-all duration-500 hover:border-onyx-accent/50 hover:shadow-[0_0_40px_rgba(14,165,233,0.1)] cursor-pointer lightbox-trigger">
-								<div class="aspect-video overflow-hidden">
-									<img src={view.img} alt={view.title} class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
+							<div class="group relative bg-[#1a1f2e] rounded-xl overflow-hidden border border-white/5 transition-all duration-500 hover:border-onyx-accent/50 hover:shadow-[0_0_40px_rgba(14,165,233,0.1)] cursor-pointer lightbox-trigger" data-images={JSON.stringify(view.images)}>
+								<div class="aspect-video overflow-hidden relative carousel-container">
+									{view.images.map((img, idx) => (
+										<img src={img} alt={`${view.title} - ${idx}`} class={`absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ${idx === 0 ? 'opacity-100' : 'opacity-0'} carousel-img`} />
+									))}
+									{view.images.length > 1 && (
+										<div class="absolute bottom-3 right-3 bg-black/60 backdrop-blur-md px-2 py-1 rounded-md text-[9px] font-bold uppercase tracking-widest text-white/90 border border-white/10 z-10 carousel-counter">
+											1 / {view.images.length}
+										</div>
+									)}
 								</div>
 								<div class="p-8">
 									<h3 class="text-2xl font-bold mb-2 uppercase tracking-tight">{view.title}</h3>
@@ -110,10 +144,17 @@ const advancedFeatures = [
 					</div>
 					<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
 						{managementTools.map((tool) => (
-							<div class="group bg-[#1a1f2e] border border-white/5 rounded-xl overflow-hidden flex flex-col h-full cursor-pointer lightbox-trigger">
-								<div class="relative aspect-[4/3] overflow-hidden">
-									<img src={tool.img} alt={tool.title} class="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity duration-500" />
-									<div class="absolute inset-0 bg-gradient-to-t from-[#1a1f2e] via-transparent to-transparent opacity-60"></div>
+							<div class="group bg-[#1a1f2e] border border-white/5 rounded-xl overflow-hidden flex flex-col h-full cursor-pointer lightbox-trigger" data-images={JSON.stringify(tool.images)}>
+								<div class="relative aspect-[4/3] overflow-hidden carousel-container">
+									{tool.images.map((img, idx) => (
+										<img src={img} alt={`${tool.title} - ${idx}`} class={`absolute inset-0 w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-all duration-1000 ${idx === 0 ? 'opacity-100' : 'opacity-0'} carousel-img`} />
+									))}
+									<div class="absolute inset-0 bg-gradient-to-t from-[#1a1f2e] via-transparent to-transparent opacity-60 pointer-events-none"></div>
+									{tool.images.length > 1 && (
+										<div class="absolute bottom-3 right-3 bg-black/60 backdrop-blur-md px-2 py-1 rounded-md text-[9px] font-bold uppercase tracking-widest text-white/90 border border-white/10 z-10 carousel-counter">
+											1 / {tool.images.length}
+										</div>
+									)}
 								</div>
 								<div class="p-8 mt-auto">
 									<h3 class="text-xl font-bold mb-3 uppercase tracking-tight">{tool.title}</h3>
@@ -134,10 +175,17 @@ const advancedFeatures = [
 					</div>
 					<div class="grid grid-cols-1 md:grid-cols-3 gap-8">
 						{advancedFeatures.map((feat) => (
-							<div class="group bg-[#1a1f2e] border border-white/5 rounded-xl overflow-hidden flex flex-col h-full cursor-pointer lightbox-trigger">
-								<div class="relative aspect-[4/3] overflow-hidden">
-									<img src={feat.img} alt={feat.title} class="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity duration-500" />
-									<div class="absolute inset-0 bg-gradient-to-t from-[#1a1f2e] via-transparent to-transparent opacity-60"></div>
+							<div class="group bg-[#1a1f2e] border border-white/5 rounded-xl overflow-hidden flex flex-col h-full cursor-pointer lightbox-trigger" data-images={JSON.stringify(feat.images)}>
+								<div class="relative aspect-[4/3] overflow-hidden carousel-container">
+									{feat.images.map((img, idx) => (
+										<img src={img} alt={`${feat.title} - ${idx}`} class={`absolute inset-0 w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-all duration-1000 ${idx === 0 ? 'opacity-100' : 'opacity-0'} carousel-img`} />
+									))}
+									<div class="absolute inset-0 bg-gradient-to-t from-[#1a1f2e] via-transparent to-transparent opacity-60 pointer-events-none"></div>
+									{feat.images.length > 1 && (
+										<div class="absolute bottom-3 right-3 bg-black/60 backdrop-blur-md px-2 py-1 rounded-md text-[9px] font-bold uppercase tracking-widest text-white/90 border border-white/10 z-10 carousel-counter">
+											1 / {feat.images.length}
+										</div>
+									)}
 								</div>
 								<div class="p-8 mt-auto">
 									<h3 class="text-xl font-bold mb-3 uppercase tracking-tight">{feat.title}</h3>
@@ -153,7 +201,7 @@ const advancedFeatures = [
 		<!-- Footer Section: Minimalist CTA -->
 		<footer class="py-32 px-12 border-t border-white/5 relative bg-[#0b0e14]">
 			<div class="max-w-4xl mx-auto text-center space-y-12">
-				<h2 class="text-6xl md:text-8xl font-black uppercase tracking-tighter italic opacity-20">The Future of Play</h2>
+				<h2 class="text-6xl md:text-8xl font-black uppercase tracking-tighter italic opacity-80">The Future of Play</h2>
 				<p class="text-xl text-slate-400 font-light tracking-wide italic">Download Onyx and reclaim your library.</p>
 				<div class="flex flex-col sm:flex-row items-center justify-center gap-6">
 					<button class="onyx-btn-play !px-12 !py-4 text-xl !rounded-none uppercase tracking-widest font-black transition-all hover:tracking-[0.2em] cursor-default opacity-80 hover:opacity-100">
@@ -161,13 +209,6 @@ const advancedFeatures = [
 					</button>
 				</div>
 				<div class="pt-24 flex flex-col items-center justify-center gap-8">
-					<div class="flex gap-8 text-[10px] uppercase tracking-[0.5em] text-slate-400">
-						<span>Local-First</span>
-						<span>•</span>
-						<span>Privacy Oriented</span>
-						<span>•</span>
-						<span>Open Source</span>
-					</div>
 					<p class="max-w-2xl text-[10px] text-center leading-relaxed font-sans normal-case tracking-normal text-slate-500">
 						Onyx is an independent open-source project and is not affiliated with, endorsed by, or connected to Valve Corporation, Epic Games, GOG.com, or any other third-party game platforms. All trademarks, service marks, and company names are the property of their respective owners.
 					</p>
@@ -176,10 +217,26 @@ const advancedFeatures = [
 		</footer>
 		<!-- Lightbox Backdrop -->
 		<div id="lightbox" class="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center p-8 md:p-24 opacity-0 pointer-events-none transition-opacity duration-500 cursor-zoom-out">
-			<img id="lightbox-img" src="" class="max-w-full max-h-full rounded-lg shadow-2xl transform scale-95 transition-transform duration-500" />
-			<button id="close-lightbox" class="absolute top-8 right-8 text-white/50 hover:text-white transition-colors">
+			<!-- Prev Button -->
+			<button id="prev-lightbox" class="absolute left-4 md:left-12 z-[110] text-white/30 hover:text-white transition-all hover:scale-110 p-4">
+				<svg class="w-10 h-10 md:w-16 md:h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 19l-7-7 7-7"></path></svg>
+			</button>
+
+			<img id="lightbox-img" src="" class="max-w-full max-h-full rounded-lg shadow-2xl transform scale-95 transition-transform duration-500 cursor-default" />
+			
+			<!-- Next Button -->
+			<button id="next-lightbox" class="absolute right-4 md:right-12 z-[110] text-white/30 hover:text-white transition-all hover:scale-110 p-4">
+				<svg class="w-10 h-10 md:w-16 md:h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5l7 7-7 7"></path></svg>
+			</button>
+
+			<button id="close-lightbox" class="absolute top-8 right-8 text-white/50 hover:text-white transition-colors z-[120]">
 				<svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M6 18L18 6M6 6l12 12"></path></svg>
 			</button>
+
+			<!-- Counter -->
+			<div id="lightbox-counter" class="absolute bottom-12 left-1/2 -translate-x-1/2 bg-white/5 backdrop-blur-xl px-4 py-2 rounded-full border border-white/10 text-xs font-bold tracking-[0.3em] uppercase opacity-50">
+				1 / 5
+			</div>
 		</div>
 	</main>
 
@@ -192,10 +249,18 @@ const advancedFeatures = [
 
 		.onyx-cube-wrapper {
 			position: relative;
-			width: 256px;
-			height: 256px;
-			perspective: 1200px;
+			width: 160px;
+			height: 160px;
+			perspective: 1000px;
 			animation: cube-float 6s ease-in-out infinite;
+		}
+
+		@media (min-width: 768px) {
+			.onyx-cube-wrapper {
+				width: 256px;
+				height: 256px;
+				perspective: 1200px;
+			}
 		}
 
 		.onyx-cube {
@@ -203,15 +268,13 @@ const advancedFeatures = [
 			height: 100%;
 			position: absolute;
 			transform-style: preserve-3d;
-			/* Removed infinite rotation for mouse control */
 			transform: rotateX(-30deg) rotateY(-45deg); 
-			/* transition removed to allow JS Physics loop */
 		}
 
 		.cube-face {
 			position: absolute;
-			width: 256px;
-			height: 256px;
+			width: 100%;
+			height: 100%;
 			background: linear-gradient(to bottom, #334155 0%, #020617 100%);
 			border: 2px solid #0ea5e9;
 			display: flex;
@@ -222,37 +285,58 @@ const advancedFeatures = [
 		}
 
 		.pip {
-			width: 112px;
-			height: 112px;
+			width: 45%;
+			height: 45%;
 			border-radius: 50%;
 			position: relative;
-			border: 8px solid #ffffff;
+			border: 4px solid #ffffff;
 			background: transparent;
 			box-shadow: 
-				0 0 25px rgba(14, 165, 233, 0.9), /* Strong blue aura */
-				inset 0 0 15px rgba(14, 165, 233, 0.6); /* Inner blue depth */
-			filter: drop-shadow(0 0 5px rgba(14, 165, 233, 1)); /* Hard blue edge */
+				0 0 15px rgba(14, 165, 233, 0.9), /* Strong blue aura */
+				inset 0 0 10px rgba(14, 165, 233, 0.6); /* Inner blue depth */
+			filter: drop-shadow(0 0 3px rgba(14, 165, 233, 1)); /* Hard blue edge */
 		}
 
-		/* Face Positions */
-		.front  { transform: rotateY(  0deg) translateZ(128px); }
-		.back   { transform: rotateY(180deg) translateZ(128px); }
-		.right  { transform: rotateY( 90deg) translateZ(128px); }
-		.left   { transform: rotateY(-90deg) translateZ(128px); }
-		.top    { transform: rotateX( 90deg) translateZ(128px); }
-		.bottom { transform: rotateX(-90deg) translateZ(128px); }
+		@media (min-width: 768px) {
+			.pip {
+				border: 8px solid #ffffff;
+				box-shadow: 
+					0 0 25px rgba(14, 165, 233, 0.9),
+					inset 0 0 15px rgba(14, 165, 233, 0.6);
+				filter: drop-shadow(0 0 5px rgba(14, 165, 233, 1));
+			}
+		}
+
+		/* Face Positions - Use CSS variables for responsiveness */
+		.front  { transform: rotateY(  0deg) translateZ(calc(var(--cube-size, 160px) / 2)); }
+		.back   { transform: rotateY(180deg) translateZ(calc(var(--cube-size, 160px) / 2)); }
+		.right  { transform: rotateY( 90deg) translateZ(calc(var(--cube-size, 160px) / 2)); }
+		.left   { transform: rotateY(-90deg) translateZ(calc(var(--cube-size, 160px) / 2)); }
+		.top    { transform: rotateX( 90deg) translateZ(calc(var(--cube-size, 160px) / 2)); }
+		.bottom { transform: rotateX(-90deg) translateZ(calc(var(--cube-size, 160px) / 2)); }
+
+		:root { --cube-size: 160px; }
+		@media (min-width: 768px) { :root { --cube-size: 256px; } }
 
 		.cube-glow {
 			position: absolute;
 			top: 50%;
 			left: 50%;
 			transform: translate(-50%, -50%);
-			width: 450px;
-			height: 450px;
+			width: 250px;
+			height: 250px;
 			background: radial-gradient(circle, rgba(14, 165, 233, 0.15) 0%, transparent 70%);
-			filter: blur(80px);
+			filter: blur(50px);
 			pointer-events: none;
 			z-index: -1;
+		}
+
+		@media (min-width: 768px) {
+			.cube-glow {
+				width: 450px;
+				height: 450px;
+				filter: blur(80px);
+			}
 		}
 
 		#lightbox.active {
@@ -343,21 +427,62 @@ const advancedFeatures = [
 			animate();
 		}
 
-		// Lightbox Logic
+		// Lightbox & Gallery Logic
 		const lightbox = document.getElementById('lightbox');
 		const lightboxImg = document.getElementById('lightbox-img') as HTMLImageElement;
+		const lightboxCounter = document.getElementById('lightbox-counter');
 		const triggers = document.querySelectorAll('.lightbox-trigger');
+		
+		let currentGallery: string[] = [];
+		let currentImgIndex = 0;
+
+		const updateLightbox = () => {
+			if (lightboxImg && currentGallery.length > 0) {
+				lightboxImg.src = currentGallery[currentImgIndex];
+				if (lightboxCounter) {
+					lightboxCounter.textContent = `${currentImgIndex + 1} / ${currentGallery.length}`;
+					lightboxCounter.style.display = currentGallery.length > 1 ? 'block' : 'none';
+				}
+			}
+			// Toggle buttons visibility
+			const prevBtn = document.getElementById('prev-lightbox');
+			const nextBtn = document.getElementById('next-lightbox');
+			if (prevBtn && nextBtn) {
+				const visible = currentGallery.length > 1 ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none';
+				prevBtn.className = `absolute left-4 md:left-12 z-[110] text-white/30 hover:text-white transition-all hover:scale-110 p-4 ${visible}`;
+				nextBtn.className = `absolute right-4 md:right-12 z-[110] text-white/30 hover:text-white transition-all hover:scale-110 p-4 ${visible}`;
+			}
+		};
 
 		triggers.forEach(trigger => {
-			trigger.addEventListener('click', () => {
-				const img = trigger.querySelector('img');
-				if (img && lightbox && lightboxImg) {
-					lightboxImg.src = img.src;
+			trigger.addEventListener('click', (e) => {
+				const imagesData = (trigger as HTMLElement).dataset.images;
+				if (imagesData && lightbox && lightboxImg) {
+					currentGallery = JSON.parse(imagesData);
+					currentImgIndex = 0;
+					updateLightbox();
 					lightbox.classList.add('active');
 					document.body.style.overflow = 'hidden';
 				}
 			});
 		});
+
+		const nextImg = (e?: Event) => {
+			if (e) e.stopPropagation();
+			if (currentGallery.length <= 1) return;
+			currentImgIndex = (currentImgIndex + 1) % currentGallery.length;
+			updateLightbox();
+		};
+
+		const prevImg = (e?: Event) => {
+			if (e) e.stopPropagation();
+			if (currentGallery.length <= 1) return;
+			currentImgIndex = (currentImgIndex - 1 + currentGallery.length) % currentGallery.length;
+			updateLightbox();
+		};
+
+		document.getElementById('next-lightbox')?.addEventListener('click', nextImg);
+		document.getElementById('prev-lightbox')?.addEventListener('click', prevImg);
 
 		const closeLightbox = () => {
 			if (lightbox) {
@@ -366,12 +491,36 @@ const advancedFeatures = [
 			}
 		};
 
-		lightbox?.addEventListener('click', closeLightbox);
+		lightbox?.addEventListener('click', (e) => {
+			if (e.target === lightbox) closeLightbox();
+		});
 		document.getElementById('close-lightbox')?.addEventListener('click', closeLightbox);
 
-		// ESC key to close
+		// Keyboard Navigation
 		window.addEventListener('keydown', (e) => {
 			if (e.key === 'Escape') closeLightbox();
+			if (lightbox?.classList.contains('active')) {
+				if (e.key === 'ArrowRight') nextImg();
+				if (e.key === 'ArrowLeft') prevImg();
+			}
+		});
+
+		// Card Carousel Logic
+		const carousels = document.querySelectorAll('.carousel-container');
+		carousels.forEach(carousel => {
+			const images = carousel.querySelectorAll('.carousel-img');
+			const counter = carousel.querySelector('.carousel-counter');
+			if (images.length <= 1) return;
+
+			let index = 0;
+			setInterval(() => {
+				images[index].classList.remove('opacity-100');
+				images[index].classList.add('opacity-0');
+				index = (index + 1) % images.length;
+				images[index].classList.remove('opacity-0');
+				images[index].classList.add('opacity-100');
+				if (counter) counter.textContent = `${index + 1} / ${images.length}`;
+			}, 4000 + Math.random() * 2000); // Organic offset
 		});
 	</script>
 </Layout>

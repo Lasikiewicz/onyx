@@ -49,6 +49,14 @@
 >      - `git push origin master:main --force`
 >    - **CRITICAL**: **DO NOT** push a "Main Build" commit to the `develop` or `master` branch.
 >    - **PURPOSE**: Forces the state of `master` into Production.
+> 
+> 4. **Website-Only Updates**
+>    - **ACTION**: Still use "Force to main".
+>    - **EFFICIENCY**: Due to `paths-ignore` in `build.yml`, updates to the `website/` folder will NOT trigger a new Electron app release. The site will update instantly on Cloudflare, but the GitHub Release will remain untouched.
+
+> [!TIP]
+> **Updating the Site**
+> Simply tell me "Update website live" or "Push website to main". I will ensure your local changes are committed to `master` and then forced to `main` for instant Cloudflare deployment.
 
 ## ⚠️ MANDATORY PRE-WORK CHECKLIST
 
