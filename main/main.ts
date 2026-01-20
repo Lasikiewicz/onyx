@@ -1,4 +1,13 @@
 import { app, BrowserWindow, ipcMain, dialog, Menu, protocol, Tray, nativeImage, shell, session, net, globalShortcut } from 'electron';
+
+// Early branding setup - must happen before any other modules initialize paths
+const BUILD_PROFILE = process.env.BUILD_PROFILE || 'production';
+const IS_ALPHA = BUILD_PROFILE === 'alpha';
+app.setName(IS_ALPHA ? 'Onyx Alpha' : 'Onyx');
+if (process.platform === 'win32') {
+  app.setAppUserModelId(IS_ALPHA ? 'com.lasikiewicz.onyx.alpha' : 'com.lasikiewicz.onyx');
+}
+
 import path from 'node:path';
 import { readdirSync, statSync, existsSync, readFileSync, promises as fsPromises } from 'node:fs';
 import { platform } from 'node:os';
@@ -25,15 +34,6 @@ import { DuckDuckGoImageService } from './DuckDuckGoImageService.js';
 
 // Load environment variables
 dotenv.config();
-
-// Early branding setup - ensures Task Manager and Taskbar show correct info
-const BUILD_PROFILE = process.env.BUILD_PROFILE || 'production';
-const isAlpha = BUILD_PROFILE === 'alpha';
-if (process.platform === 'win32') {
-  app.setAppUserModelId(isAlpha ? 'com.lasikiewicz.onyx.alpha' : 'com.lasikiewicz.onyx');
-}
-// Set app name correctly for all platforms
-app.setName(isAlpha ? 'Onyx Alpha' : 'Onyx');
 
 // In CommonJS, __filename and __dirname are available as globals
 declare const __filename: string;

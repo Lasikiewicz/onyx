@@ -21,8 +21,9 @@ const config = {
       }
     ],
     requestedExecutionLevel: 'asInvoker',
+    executableName: isAlpha ? 'OnyxAlpha' : 'Onyx',
+    artifactName: "${productName} Setup ${version}.${ext}",
     icon: 'build/icon.ico',
-    signAndEditExecutable: false,
     verifyUpdateCodeSignature: false
   },
   // Explicitly disable macOS and Linux builds
@@ -65,6 +66,8 @@ const config = {
     perMachine: false,
     deleteAppDataOnUninstall: false,
     runAfterFinish: true,
+    shortcutName: isAlpha ? 'Onyx Alpha' : 'Onyx',
+    uninstallDisplayName: isAlpha ? 'Onyx Alpha' : 'Onyx',
     include: "build/installer.nsh"
   },
   publish: {
