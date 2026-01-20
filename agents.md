@@ -44,7 +44,7 @@
 > 3. **Command: "Push to main"**
 >    - **TARGET**: `main` branch (Production)
 >    - **ACTION**: 
->      - `git push origin develop:main --force`
+>      - `git push origin master:main --force`
 >    - **NOTE**: Uses the current Alpha's build number. No version increment.
 > 
 > 4. **Website-Only Updates (CRITICAL)**
@@ -545,7 +545,7 @@ Triggers alpha build from `develop` branch. Neutral commit message.
 
 **Production Deployment**:
 ```bash
-git push origin develop:main --force
+git push origin master:main --force
 ```
 Triggers production build from `main` branch. Uses Alpha patch version.
 
