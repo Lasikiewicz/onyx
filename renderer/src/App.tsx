@@ -1354,27 +1354,7 @@ function App() {
   const backgroundImageUrl = activeGame?.bannerUrl || activeGame?.boxArtUrl || '';
 
   // Check if this is an Alpha build
-  const [isAlphaBuild, setIsAlphaBuild] = useState(false);
-
-  useEffect(() => {
-    const checkAlpha = async () => {
-      try {
-        // Check document title first (fastest)
-        if (document.title.includes('Alpha')) {
-          setIsAlphaBuild(true);
-          return;
-        }
-        // Check app name via electronAPI (more reliable)
-        if (window.electronAPI?.getName) {
-          const appName = await window.electronAPI.getName();
-          setIsAlphaBuild(appName.includes('Alpha'));
-        }
-      } catch (error) {
-        console.error('Error checking Alpha build:', error);
-      }
-    };
-    checkAlpha();
-  }, []);
+  const isAlphaBuild = __BUILD_PROFILE__ === 'alpha' || (typeof process !== 'undefined' && process.env?.NODE_ENV === 'development');
 
   return (
     <div className="h-screen bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-900 via-[#0f172a] to-black text-white flex flex-col overflow-hidden relative">
@@ -1437,7 +1417,7 @@ function App() {
             setIsOnyxSettingsOpen(true);
           }}
           onExit={handleExit}
-          onBugReport={() => setIsBugReportOpen(true)}
+          onBugReport={isAlphaBuild ? () => setIsBugReportOpen(true) : undefined}
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
           selectedCategory={selectedCategory}

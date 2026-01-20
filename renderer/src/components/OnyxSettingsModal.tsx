@@ -1608,9 +1608,24 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                       target.src = iconSvg;
                     }}
                   />
-                  <h2 className="text-3xl font-bold text-white tracking-wide">Onyx</h2>
+                  <h2 className="text-3xl font-bold text-white tracking-wide">Onyx{__BUILD_PROFILE__ === 'alpha' ? ' Alpha' : ''}</h2>
                   <span className="text-sm font-medium text-slate-500 mt-1">v{appVersion}</span>
                 </div>
+
+                {/* Bug Report Button (Alpha only) */}
+                {__BUILD_PROFILE__ === 'alpha' && (
+                  <button
+                    onClick={() => {
+                      onClose();
+                      // We need a way to open the bug report modal from here
+                      // For now, it's just in the MenuBar, but we could add it here too
+                      // For now I will just show it in the MenuBar as before
+                    }}
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-yellow-500/10 text-yellow-500 hover:bg-yellow-500/20 transition-all duration-300 border border-yellow-500/20"
+                  >
+                    Found a bug?
+                  </button>
+                )}
 
                 {/* Bio / Story */}
                 <div className="max-w-md space-y-4">

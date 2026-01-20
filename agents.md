@@ -21,30 +21,31 @@
 > - **develop**: "Alpha Build X.Y.Z"
 > - **main**: "Main Build X.Y.Z"
 > 
+### CRITICAL RELEASE RULES
+
 > 1. **Command: "Push to git master"**
 >    - **TARGET**: `master` branch
 >    - **ACTION**: 
 >      - `git add .`
 >      - `git commit -m "Build X.Y.Z - [Brief Summary]"`
 >      - `git push origin master`
->    - **NOTE**: Build number is **NOT** increased for standard master pushes.
-> 
+>    - **NOTE**: Build number is **NOT** increased. Use this for standard progress.
+
 > 2. **Command: "Push to alpha"**
->    - **TARGETS**: `master` AND `develop` branches
->    - **ACTION**:
->      - `npm run increment-build` (Increments local patch version)
->      - `git add package.json`
->      - `git commit -m "Alpha Build X.Y.Z"`
+>    - **TARGET**: `develop` branch (Alpha)
+>    - **ACTION**: 
+>      - `npm run increment-build` (Increments version)
+>      - `git add .`
+>      - `git commit -m "Build X.Y.Z - [Brief Summary]"` (Neutral message, no "Alpha" in text)
 >      - `git push origin master`
 >      - `git push origin master:develop --force`
->    - **PURPOSE**: Commits the state to `master` with a version bump, then forces that state into Alpha (`develop`).
-> 
+>    - **NOTE**: This is the ONLY command that increments the build number.
+
 > 3. **Command: "Push to main"**
->    - **TARGET**: `main` branch
->    - **ACTION**:
+>    - **TARGET**: `main` branch (Production)
+>    - **ACTION**: 
 >      - `git push origin develop:main --force`
->    - **CRITICAL**: **DO NOT** run `npm run increment-build` for Main. It uses the same build number as the Alpha it's pushed from.
->    - **PURPOSE**: Forces the state of `develop` (Alpha) into Production (`main`).
+>    - **NOTE**: Uses the current Alpha's build number. No version increment.
 > 
 > 4. **Website-Only Updates (CRITICAL)**
 >    - **ACTION**: Commmit website changes to `master`, then force to `main`.
@@ -518,28 +519,40 @@ cat package.json | grep '"version"'
 ### Build Commands
 
 - `npm run build` - Build for development
-- `npm run dist` - Build production executable (increments build number via increment-build)
-- `npm run build:alpha` - Build alpha release (for `develop` branch)
-- `npm run build:prod` - Build production release (for `main` branch)
+- `npm run dist` - Build production executable locally
+- `npm run build:alpha` - Build alpha release (triggered by push to `develop`)
+- `npm run build:prod` - Build production release (triggered by push to `main`)
 
 ### Deployment Workflow
 
-**Development to Alpha**:
+**Master Progress**:
 ```bash
+git add .
+git commit -m "Build X.Y.Z - [Description]"
+git push origin master
+```
+No version bump.
+
+**Alpha Deployment**:
+```bash
+npm run increment-build
+git add .
+git commit -m "Build X.Y.Z - [Description]"
+git push origin master
 git push origin master:develop --force
 ```
-Triggers alpha build from `develop` branch.
+Triggers alpha build from `develop` branch. Neutral commit message.
 
-**Alpha to Production**:
+**Production Deployment**:
 ```bash
 git push origin develop:main --force
 ```
-Triggers production build from `main` branch.
+Triggers production build from `main` branch. Uses Alpha patch version.
 
 **ALWAYS**:
 1. Test locally with `npm run electron:dev` before pushing
 2. Verify all changes are built successfully
-3. Get explicit user approval before any git operations
+3. Follow the CRITICAL RELEASE RULES strictly
 
 ---
 
