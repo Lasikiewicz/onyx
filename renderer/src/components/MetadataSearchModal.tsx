@@ -43,11 +43,18 @@ export const MetadataSearchModal: React.FC<MetadataSearchModalProps> = ({
       return;
     }
 
-    setIsSearching(true);
-    setError(null);
-    setSearchResults([]);
-
     try {
+      // Check for SteamGridDB credentials first
+      const creds = await window.electronAPI.getAPICredentials();
+      if (!creds.steamGridDBApiKey || !creds.steamGridDBApiKey.trim()) {
+        setError('SteamGridDB API key is required for searching. Please configure it in Settings > API Integrations.');
+        return;
+      }
+
+      setIsSearching(true);
+      setError(null);
+      setSearchResults([]);
+
       const response = await window.electronAPI.searchGames(searchQuery.trim());
       if (response.success && response.results) {
         // Transform results to include year and platform info

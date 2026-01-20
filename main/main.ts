@@ -837,7 +837,7 @@ const initializeIGDBService = async () => {
       }
     } else {
       console.warn('[IGDB Init] ✗ IGDB credentials not configured - app will run but metadata features will be disabled');
-      console.warn('[IGDB Init] → IGDB is MANDATORY for metadata. Please Configure in Settings > APIs');
+      console.warn('[IGDB Init] → IGDB is Optional for metadata, but recommended. Please Configure in Settings > APIs');
       igdbService = null;
       return false;
     }
@@ -1979,6 +1979,17 @@ ipcMain.handle('metadata:searchGames', async (_event, gameTitle: string) => {
   try {
     console.log(`[IPC metadata:searchGames] Searching for "${gameTitle}"...`);
 
+    // Enforce SteamGridDB requirement
+    if (!steamGridDBService || !steamGridDBService.isAvailable()) {
+      const errorMsg = 'SteamGridDB is required for searching. Please configure the API Key in Settings.';
+      console.warn(`[IPC metadata:searchGames] ${errorMsg}`);
+      return {
+        success: false,
+        error: errorMsg,
+        results: []
+      };
+    }
+
     // Check provider availability before searching
     const providerStatus = metadataFetcher.getProviderStatus();
     const availableProviders = providerStatus.filter(p => p.available);
@@ -3079,6 +3090,9 @@ ipcMain.handle('gameStore:addCustomGame', async (_event, gameData: { title: stri
     return null;
   }
 });
+
+// Search games metadata
+
 
 // Game launcher handler
 ipcMain.handle('launcher:launchGame', async (_event, gameId: string) => {
@@ -4254,6 +4268,15 @@ ipcMain.handle('metadata:searchImages', async (_event, query: string, imageType:
 // Uses fastSearchGame() which bypasses rate limiting for immediate response
 ipcMain.handle('metadata:fastImageSearch', async (_event, query: string) => {
   try {
+    // Enforce SteamGridDB requirement
+    if (!steamGridDBService || !steamGridDBService.isAvailable()) {
+      return {
+        success: false,
+        error: 'SteamGridDB is required for searching.',
+        games: []
+      };
+    }
+
     console.log(`[FastImageSearch] Searching for "${query}"`);
     const startTime = Date.now();
 

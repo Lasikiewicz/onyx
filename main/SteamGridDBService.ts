@@ -60,6 +60,13 @@ export class SteamGridDBService {
   }
 
   /**
+   * Check if the service is available (has API key)
+   */
+  public isAvailable(): boolean {
+    return !!this.apiKey && this.apiKey.trim() !== '';
+  }
+
+  /**
    * Queue a request to prevent rate limiting
    */
   private async queueRequest<T>(execute: () => Promise<T>): Promise<T> {

@@ -713,6 +713,14 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
         defaultStartupPage: settings.defaultStartupPage,
       });
 
+      // Save API credentials
+      await window.electronAPI.saveAPICredentials({
+        igdbClientId: apiCredentials.igdbClientId,
+        igdbClientSecret: apiCredentials.igdbClientSecret,
+        steamGridDBApiKey: apiCredentials.steamGridDBApiKey,
+        rawgApiKey: apiCredentials.rawgApiKey,
+      });
+
       if (!result.success) {
         throw new Error(result.error || 'Failed to save preferences');
       }
@@ -1258,7 +1266,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                         }`}
                     >
                       <div className="flex items-center gap-2">
-                        {tab === 'steamgriddb' ? 'SteamGridDB' : tab === 'igdb' ? 'IGDB (Optional)' : 'RAWG (Optional)'}
+                        {tab === 'steamgriddb' ? 'SteamGridDB (Mandatory)' : tab === 'igdb' ? 'IGDB (Optional)' : 'RAWG (Optional)'}
                         {((tab === 'igdb' && apiStatus.igdbConfigured) ||
                           (tab === 'steamgriddb' && apiStatus.steamGridDBConfigured) ||
                           (tab === 'rawg' && apiStatus.rawgConfigured)) && (
@@ -1282,7 +1290,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                         onChange={(val) => handleAPIInputChange('steamGridDBApiKey', val)}
                         placeholder="SteamGridDB API Key"
                         type="password"
-                        description="Required for custom artwork."
+                        description="Required for searching games and fetching artwork."
                       />
                     </div>
                   )}

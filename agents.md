@@ -44,8 +44,9 @@
 > 3. **Command: "Push to main"**
 >    - **TARGET**: Remote `main` branch (Production)
 >    - **ACTION**: 
->      - `git push origin develop:main --force`
->    - **NOTE**: This forces the status of the remote `develop` branch (Alpha) into the remote `main` branch (Production). No version increment.
+>      - `git fetch origin develop`
+>      - `git push origin origin/develop:main --force`
+>    - **NOTE**: This forces the current remote `develop` branch (Alpha) state into the remote `main` branch (Production). No version increment.
 > 
 > 4. **Website-Only Updates (CRITICAL)**
 >    - **ACTION**: Commmit website changes to `master`, then force to `main`.
@@ -545,7 +546,8 @@ Updates remote `master`, then triggers alpha build on remote `develop`.
 
 **Production Deployment**:
 ```bash
-git push origin develop:main --force
+git fetch origin develop
+git push origin origin/develop:main --force
 ```
 Forces remote `develop` state into remote `main`. Triggers production build.
 
