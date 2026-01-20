@@ -21,7 +21,7 @@
 > - **develop**: "Alpha Build X.Y.Z"
 > - **main**: "Main Build X.Y.Z"
 > 
-> 1. **Command: "Push to git"**
+> 1. **Command: "Push to git master"**
 >    - **TARGET**: `master` branch
 >    - **ACTION**: 
 >      - `git add .`
@@ -29,24 +29,22 @@
 >      - `git push origin master`
 >    - **NOTE**: Build number is **NOT** increased for standard master pushes.
 > 
-> 2. **Command: "Force to alpha"**
->    - **TARGET**: `develop` branch
+> 2. **Command: "Push to alpha"**
+>    - **TARGETS**: `master` AND `develop` branches
 >    - **ACTION**:
->      - Ensure current `master` is clean and pushed.
->      - `npm run increment-build` (Ensures Alpha has a unique, higher build number)
+>      - `npm run increment-build` (Increments local patch version)
 >      - `git add package.json`
 >      - `git commit -m "Alpha Build X.Y.Z"`
+>      - `git push origin master`
 >      - `git push origin master:develop --force`
->    - **PURPOSE**: Forces the state of `master` into Alpha.
+>    - **PURPOSE**: Commits the state to `master` with a version bump, then forces that state into Alpha (`develop`).
 > 
-> 3. **Command: "Force to main"**
+> 3. **Command: "Push to main"**
 >    - **TARGET**: `main` branch
 >    - **ACTION**:
->      - Ensure `master` state is ready.
->      - `git commit -m "Main Build X.Y.Z" --allow-empty` (Optional: If no changes to commit)
 >      - `git push origin develop:main --force`
->    - **CRITICAL**: **DO NOT** run `npm run increment-build` for Main. It uses the same build number as the Alpha it's forced from.
->    - **PURPOSE**: Forces the state of `develop` (Alpha) into Production.
+>    - **CRITICAL**: **DO NOT** run `npm run increment-build` for Main. It uses the same build number as the Alpha it's pushed from.
+>    - **PURPOSE**: Forces the state of `develop` (Alpha) into Production (`main`).
 > 
 > 4. **Website-Only Updates (CRITICAL)**
 >    - **ACTION**: Commmit website changes to `master`, then force to `main`.
@@ -136,12 +134,12 @@
 ### Git Workflow
 **All local work and testing is done on the `master` branch.**
 
-- **Master Deployment**: `Push to git`
-  - Increments version and pushes to `master` as "Build X.Y.Z"
-- **Alpha Deployment**: `Force to alpha`
-  - Increments version and force pushes `master` → `develop` as "Alpha Build X.Y.Z"
-- **Production Deployment**: `Force to main`
-  - Increments version and force pushes `master` → `main` as "Main Build X.Y.Z" (isolation rules apply)
+- **Master Deployment**: `Push to git master`
+  - Pushes to `master` (no version bump)
+- **Alpha Deployment**: `Push to alpha`
+  - Increments version, pushes to `master`, and force pushes `master` → `develop`
+- **Production Deployment**: `Push to main`
+  - Force pushes `develop` → `main` (no version bump, uses alpha version)
 
 ---
 
