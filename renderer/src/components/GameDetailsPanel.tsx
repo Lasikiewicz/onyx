@@ -126,16 +126,10 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
 
   // Track game changes for transitions
   const [currentGameId, setCurrentGameId] = useState<string | null>(game?.id || null);
-  const [isTransitioning, setIsTransitioning] = useState(false);
-
-  // Detect game changes and trigger transition
+  // Detect game changes
   useEffect(() => {
     if (game?.id !== currentGameId) {
-      setIsTransitioning(true);
       setCurrentGameId(game?.id || null);
-      // Reset transition state after animation completes
-      const timer = setTimeout(() => setIsTransitioning(false), 350);
-      return () => clearTimeout(timer);
     }
   }, [game?.id, currentGameId]);
 
@@ -392,8 +386,8 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
             {game.logoUrl && (
               <div
                 className={`absolute bottom-0 z-10 ${rightPanelBoxartPosition === 'left' ? 'right-6' :
-                    rightPanelBoxartPosition === 'right' ? 'left-6' :
-                      'left-1/2 transform -translate-x-1/2'
+                  rightPanelBoxartPosition === 'right' ? 'left-6' :
+                    'left-1/2 transform -translate-x-1/2'
                   }`}
                 style={{
                   width: rightPanelBoxartPosition === 'none' ? 'calc(100% - 3rem)' : 'calc(100% - 11rem)', // Full width when no boxart, space for boxart otherwise
@@ -422,8 +416,8 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
         {/* Logo - Position based on rightPanelBoxartPosition */}
         <div
           className={`absolute bottom-0 z-20 flex items-center justify-center ${rightPanelBoxartPosition === 'left' ? 'right-6' :
-              rightPanelBoxartPosition === 'right' ? 'left-6' :
-                'left-1/2 transform -translate-x-1/2'
+            rightPanelBoxartPosition === 'right' ? 'left-6' :
+              'left-1/2 transform -translate-x-1/2'
             }`}
           data-logo-area
           style={{
@@ -873,8 +867,8 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
       {game && (
         <div
           className={`border-t border-gray-700 p-4 flex items-center gap-3 flex-shrink-0 ${rightPanelButtonLocation === 'left' ? 'justify-start' :
-              rightPanelButtonLocation === 'middle' ? 'justify-center' :
-                'justify-end'
+            rightPanelButtonLocation === 'middle' ? 'justify-center' :
+              'justify-end'
             }`}
         >
           {/* Playtime display - DISABLED (Future Feature) */}

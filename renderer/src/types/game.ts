@@ -137,7 +137,7 @@ export interface UserPreferences {
     showLauncher?: boolean;
     showLogos?: boolean;
     titleTextSize?: number;
-    displayMode?: 'boxart-title' | 'logo-title' | 'logo-only' | 'title-only';
+    displayMode?: 'boxart-title' | 'logo-title' | 'logo-only' | 'title-only' | 'icon-title';
     sectionTextSize?: number;
     tileHeight?: number;
     boxartSize?: number;
