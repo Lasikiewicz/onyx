@@ -24,10 +24,10 @@
 > 1. **Command: "Push to git"**
 >    - **TARGET**: `master` branch
 >    - **ACTION**: 
->      - `npm run increment-build` (Increments local patch version)
->      - `git add package.json`
+>      - `git add .`
 >      - `git commit -m "Build X.Y.Z - [Brief Summary]"`
 >      - `git push origin master`
+>    - **NOTE**: Build number is **NOT** increased for standard master pushes.
 > 
 > 2. **Command: "Force to alpha"**
 >    - **TARGET**: `develop` branch
@@ -43,12 +43,10 @@
 >    - **TARGET**: `main` branch
 >    - **ACTION**:
 >      - Ensure `master` state is ready.
->      - `npm run increment-build` (Ensures Main has a unique, higher build number)
->      - `git add package.json`
->      - `git commit -m "Main Build X.Y.Z"`
->      - `git push origin master:main --force`
->    - **CRITICAL**: **DO NOT** push a "Main Build" commit to the `develop` or `master` branch.
->    - **PURPOSE**: Forces the state of `master` into Production.
+>      - `git commit -m "Main Build X.Y.Z" --allow-empty` (Optional: If no changes to commit)
+>      - `git push origin develop:main --force`
+>    - **CRITICAL**: **DO NOT** run `npm run increment-build` for Main. It uses the same build number as the Alpha it's forced from.
+>    - **PURPOSE**: Forces the state of `develop` (Alpha) into Production.
 > 
 > 4. **Website-Only Updates (CRITICAL)**
 >    - **ACTION**: Commmit website changes to `master`, then force to `main`.

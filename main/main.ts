@@ -8,6 +8,21 @@ if (process.platform === 'win32') {
   app.setAppUserModelId(IS_ALPHA ? 'com.lasikiewicz.onyx.alpha' : 'com.lasikiewicz.onyx');
 }
 
+// Single instance lock - prevent multiple copies of the app from running
+const gotTheLock = app.requestSingleInstanceLock();
+if (!gotTheLock) {
+  console.log('Another instance is already running. Quitting...');
+  app.quit();
+} else {
+  app.on('second-instance', (event, commandLine, workingDirectory) => {
+    // Someone tried to run a second instance, we should focus our window.
+    if (win) {
+      if (win.isMinimized()) win.restore();
+      win.focus();
+    }
+  });
+}
+
 import path from 'node:path';
 import { readdirSync, statSync, existsSync, readFileSync, promises as fsPromises } from 'node:fs';
 import { platform } from 'node:os';
