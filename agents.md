@@ -24,7 +24,7 @@
 ### CRITICAL RELEASE RULES
 
 > 1. **Command: "Push to git master"**
->    - **TARGET**: `master` branch
+>    - **TARGET**: Remote `master` branch
 >    - **ACTION**: 
 >      - `git add .`
 >      - `git commit -m "Build X.Y.Z - [Brief Summary]"`
@@ -32,20 +32,20 @@
 >    - **NOTE**: Build number is **NOT** increased. Use this for standard progress.
 
 > 2. **Command: "Push to alpha"**
->    - **TARGET**: `develop` branch (Alpha)
+>    - **TARGET**: Remote `develop` branch (Alpha)
 >    - **ACTION**: 
->      - `npm run increment-build` (Increments version)
+>      - `npm run increment-build` (Increments version locally)
 >      - `git add .`
->      - `git commit -m "Build X.Y.Z - [Brief Summary]"` (Neutral message, no "Alpha" in text)
+>      - `git commit -m "Build X.Y.Z - [Brief Summary]"` (Neutral message)
 >      - `git push origin master`
 >      - `git push origin master:develop --force`
->    - **NOTE**: This is the ONLY command that increments the build number.
+>    - **NOTE**: This is the ONLY command that increments the build number. It pushes the local state to remote `master` and then forces that same state to remote `develop`.
 
 > 3. **Command: "Push to main"**
->    - **TARGET**: `main` branch (Production)
+>    - **TARGET**: Remote `main` branch (Production)
 >    - **ACTION**: 
->      - `git push origin master:main --force`
->    - **NOTE**: Uses the current Alpha's build number. No version increment.
+>      - `git push origin develop:main --force`
+>    - **NOTE**: This forces the status of the remote `develop` branch (Alpha) into the remote `main` branch (Production). No version increment.
 > 
 > 4. **Website-Only Updates (CRITICAL)**
 >    - **ACTION**: Commmit website changes to `master`, then force to `main`.
@@ -135,12 +135,12 @@
 ### Git Workflow
 **All local work and testing is done on the `master` branch.**
 
-- **Master Deployment**: `Push to git master`
-  - Pushes to `master` (no version bump)
+- **Master Progress**: `Push to git master`
+  - Updates remote `master`. No version bump.
 - **Alpha Deployment**: `Push to alpha`
-  - Increments version, pushes to `master`, and force pushes `master` → `develop`
+  - Increments version locally, updates remote `master`, then force-pushes remote `master` → remote `develop`.
 - **Production Deployment**: `Push to main`
-  - Force pushes `develop` → `main` (no version bump, uses alpha version)
+  - Force-pushes remote `develop` → remote `main`. No version bump.
 
 ---
 
@@ -541,13 +541,13 @@ git commit -m "Build X.Y.Z - [Description]"
 git push origin master
 git push origin master:develop --force
 ```
-Triggers alpha build from `develop` branch. Neutral commit message.
+Updates remote `master`, then triggers alpha build on remote `develop`.
 
 **Production Deployment**:
 ```bash
-git push origin master:main --force
+git push origin develop:main --force
 ```
-Triggers production build from `main` branch. Uses Alpha patch version.
+Forces remote `develop` state into remote `main`. Triggers production build.
 
 **ALWAYS**:
 1. Test locally with `npm run electron:dev` before pushing
