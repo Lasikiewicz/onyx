@@ -64,7 +64,8 @@ const config = {
     uninstallerIcon: 'build/icon.ico',
     perMachine: false,
     deleteAppDataOnUninstall: false,
-    runAfterFinish: true
+    runAfterFinish: true,
+    include: "build/installer.nsh"
   },
   publish: {
     provider: 'github',
