@@ -26,6 +26,15 @@ import { DuckDuckGoImageService } from './DuckDuckGoImageService.js';
 // Load environment variables
 dotenv.config();
 
+// Early branding setup - ensures Task Manager and Taskbar show correct info
+const BUILD_PROFILE = process.env.BUILD_PROFILE || 'production';
+const isAlpha = BUILD_PROFILE === 'alpha';
+if (process.platform === 'win32') {
+  app.setAppUserModelId(isAlpha ? 'com.lasikiewicz.onyx.alpha' : 'com.lasikiewicz.onyx');
+}
+// Set app name correctly for all platforms
+app.setName(isAlpha ? 'Onyx Alpha' : 'Onyx');
+
 // In CommonJS, __filename and __dirname are available as globals
 declare const __filename: string;
 declare const __dirname: string;
@@ -4889,42 +4898,16 @@ ipcMain.handle('app:applySystemTraySettings', async (_event, settings: { showSys
 // Apply startup settings
 ipcMain.handle('app:applyStartupSettings', async (_event, settings: { startWithComputer: boolean; startClosedToTray: boolean }) => {
   try {
-    if (process.platform === 'win32') {
-      const { execSync } = require('child_process');
-      const appPath = app.getPath('exe');
-      const appName = app.getName();
-      const regKey = `HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run`;
-
-      if (settings.startWithComputer) {
-        try {
-          // Add to Windows startup registry
-          const command = `reg add "${regKey}" /v "${appName}" /t REG_SZ /d "${appPath}" /f`;
-          execSync(command, { stdio: 'ignore' });
-          console.log(`[AutoStart] Added ${appName} to Windows startup`);
-        } catch (regError) {
-          console.error('[AutoStart] Failed to add to registry:', regError);
-          // Fallback: try using startup folder
-          try {
-            const { homedir } = require('os');
-            const startupFolder = path.join(homedir(), 'AppData', 'Roaming', 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'Startup');
-            const shortcutPath = path.join(startupFolder, `${appName}.lnk`);
-            // Note: Creating .lnk files requires additional packages, so we'll just log for now
-            console.log(`[AutoStart] Would create shortcut at: ${shortcutPath}`);
-          } catch (shortcutError) {
-            console.error('[AutoStart] Failed to create startup shortcut:', shortcutError);
-          }
-        }
-      } else {
-        try {
-          // Remove from Windows startup registry
-          const command = `reg delete "${regKey}" /v "${appName}" /f`;
-          execSync(command, { stdio: 'ignore' });
-          console.log(`[AutoStart] Removed ${appName} from Windows startup`);
-        } catch (regError) {
-          // Ignore error if key doesn't exist
-          console.log(`[AutoStart] Registry key not found or already removed`);
-        }
-      }
+    if (app.isPackaged) {
+      const args = settings.startClosedToTray ? ['--hidden'] : [];
+      app.setLoginItemSettings({
+        openAtLogin: settings.startWithComputer,
+        path: app.getPath('exe'),
+        args: args
+      });
+      console.log(`[AutoStart] Updated login item settings: openAtLogin=${settings.startWithComputer}, hidden=${settings.startClosedToTray}`);
+    } else {
+      console.log('[AutoStart] Dev mode detected, skipping login item settings');
     }
     return { success: true };
   } catch (error) {
@@ -5697,7 +5680,8 @@ app.whenReady().then(async () => {
 
   // On Windows, set the app user model ID for proper taskbar icon display
   if (process.platform === 'win32') {
-    app.setAppUserModelId('com.onyx.launcher');
+    // Already set early, but ensuring it matches the ID used in installer/builder
+    // app.setAppUserModelId('com.onyx.launcher'); // Removed: Using builder-matched IDs set early
 
     // Try to set the app icon explicitly (though this is mainly for macOS/Linux)
     // On Windows, the taskbar icon comes from the executable's embedded icon resource
