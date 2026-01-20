@@ -1,7 +1,7 @@
 {
   "name": "onyx-launcher",
   "productName": "Onyx",
-  "version": "0.2.23",
+  "version": "0.2.24",
   "description": "The premium unified game library.",
   "main": "dist-electron/main.js",
   "scripts": {
