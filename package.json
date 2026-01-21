@@ -13,6 +13,7 @@
     "electron:build": "npm run build && electron .",
     "validate-icons": "node scripts/validate-icons.js",
     "scan:secrets": "node scripts/secret-scan.js",
+    "check:no-raw-ipc": "node scripts/check-no-raw-ipc.js",
     "test:steam:short-circuit": "node scripts/test-steam-short-circuit.js",
     "generate-icons": "node scripts/generate-icons.js",
     "prebuild": "npm run validate-icons",

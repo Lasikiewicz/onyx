@@ -76,6 +76,27 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.removeListener(channel, handler);
     };
   },
+  // Generic event subscription for renderer (SAFE and WHITELISTED)
+  // Returns a remover function to unregister the listener.
+  on: (channel: string, callback: (...args: any[]) => void) => {
+    const allowedChannels = new Set([
+      'steam:newGamesFound',
+      'background:newGamesFound',
+      'startup:progress',
+      'metadata:refreshProgress',
+      'gameStore:libraryUpdated',
+    ]);
+    if (!allowedChannels.has(channel)) {
+      console.warn(`Attempt to register to unauthorized IPC channel: ${channel}`);
+      return () => {};
+    }
+    const handler = (_event: any, ...args: any[]) => callback(...args);
+    ipcRenderer.on(channel, handler);
+    return () => ipcRenderer.removeListener(channel, handler);
+  },
+  off: (channel: string, callback: (...args: any[]) => void) => {
+    ipcRenderer.removeListener(channel, callback as any);
+  },
   // User preferences methods
   getPreferences: () => ipcRenderer.invoke('preferences:get'),
   savePreferences: (preferences: Partial<UserPreferences>) => ipcRenderer.invoke('preferences:save', preferences),

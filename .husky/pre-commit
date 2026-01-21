@@ -4,5 +4,8 @@
 # Run secret scan before committing
 npm run scan:secrets
 
+# Check for raw ipc usage in renderer
+npm run check:no-raw-ipc
+
 # Validate icons before committing
 npm run validate-icons
