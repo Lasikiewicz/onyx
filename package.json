@@ -15,6 +15,7 @@
     "scan:secrets": "node scripts/secret-scan.js",
     "check:no-raw-ipc": "node scripts/check-no-raw-ipc.js",
     "test:steam:short-circuit": "node scripts/test-steam-short-circuit.js",
+    "test:credentials": "node scripts/test-credentials-migration.js",
     "generate-icons": "node scripts/generate-icons.js",
     "prebuild": "npm run validate-icons",
     "predist": "npm run generate-icons && npm run validate-icons",
@@ -51,6 +52,7 @@
     "axios": "^1.13.2",
     "dotenv": "^17.2.3",
     "electron-store": "^11.0.2",
+    "keytar": "^8.0.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
   }

@@ -82,6 +82,8 @@ This overwrites the `main` branch with `develop`, triggering an automatic Produc
 
    **Security note:** Do NOT commit real API credentials to source control. If credentials are ever committed, rotate them immediately and follow incident response procedures.
 
+   **Credential storage:** Onyx now stores API credentials in the OS secure credential store (Windows Credential Locker, macOS Keychain, or the system secret service) when available. If the OS secure store isn't available, it will temporarily fall back to `electron-store` (not recommended).
+
 3. Build the main process:
    ```bash
    npx tsc -p main/tsconfig.json

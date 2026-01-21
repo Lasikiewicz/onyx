@@ -5,16 +5,22 @@ export interface APICredentials {
   rawgApiKey?: string;
 }
 
-// Built-in RAWG key removed. Users must provide their own key via the environment variable `RAWG_API_KEY`.
-// NOTE: Previously a fallback RAWG key was present here but has been removed for security reasons.
-
 interface APICredentialsSchema {
   credentials: APICredentials;
 }
 
+const SERVICE_NAME = 'onyx-api-credentials';
+const ACCOUNT_KEYS = {
+  IGDB_CLIENT_ID: 'igdbClientId',
+  IGDB_CLIENT_SECRET: 'igdbClientSecret',
+  STEAMGRID_KEY: 'steamGridDBApiKey',
+  RAWG_KEY: 'rawgApiKey',
+};
+
 export class APICredentialsService {
   private store: any = null;
   private storePromise: Promise<any>;
+  private keytar: any = null;
 
   private getEnvDefaults(): APICredentials {
     const valueOrUndefined = (val?: string) => (val && val.trim().length > 0 ? val.trim() : undefined);
@@ -28,6 +34,14 @@ export class APICredentialsService {
   }
 
   constructor() {
+    // Attempt to load keytar for secure OS credential storage. If unavailable, we fall back to electron-store.
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      this.keytar = require('keytar');
+    } catch (err) {
+      this.keytar = null;
+    }
+
     // Use dynamic import for ES module
     // eslint-disable-next-line @typescript-eslint/no-implied-eval
     this.storePromise = (new Function('return import("electron-store")')() as Promise<typeof import('electron-store')>).then((StoreModule) => {
@@ -39,6 +53,27 @@ export class APICredentialsService {
           credentials: {},
         },
       });
+
+      // Attempt to migrate any existing plain-text credentials into the secure store
+      (async () => {
+        try {
+          const storedCreds = this.store.get('credentials', {});
+          if (this.keytar && storedCreds && Object.keys(storedCreds).length > 0) {
+            // Migrate each credential
+            if (storedCreds.igdbClientId) await this.keytar.setPassword(SERVICE_NAME, ACCOUNT_KEYS.IGDB_CLIENT_ID, storedCreds.igdbClientId);
+            if (storedCreds.igdbClientSecret) await this.keytar.setPassword(SERVICE_NAME, ACCOUNT_KEYS.IGDB_CLIENT_SECRET, storedCreds.igdbClientSecret);
+            if (storedCreds.steamGridDBApiKey) await this.keytar.setPassword(SERVICE_NAME, ACCOUNT_KEYS.STEAMGRID_KEY, storedCreds.steamGridDBApiKey);
+            if (storedCreds.rawgApiKey) await this.keytar.setPassword(SERVICE_NAME, ACCOUNT_KEYS.RAWG_KEY, storedCreds.rawgApiKey);
+            // Remove plaintext credentials from disk
+            this.store.delete('credentials');
+          }
+        } catch (err) {
+          // Migration failure should not break the app; log and continue
+          // eslint-disable-next-line no-console
+          console.error('Credential migration failed:', err);
+        }
+      })();
+
       return this.store;
     });
   }
@@ -50,12 +85,49 @@ export class APICredentialsService {
     return this.storePromise;
   }
 
+  private async readFromKeytar(): Promise<APICredentials | null> {
+    if (!this.keytar) return null;
+    try {
+      const [igdbClientId, igdbClientSecret, steamGridDBApiKey, rawgApiKey] = await Promise.all([
+        this.keytar.getPassword(SERVICE_NAME, ACCOUNT_KEYS.IGDB_CLIENT_ID),
+        this.keytar.getPassword(SERVICE_NAME, ACCOUNT_KEYS.IGDB_CLIENT_SECRET),
+        this.keytar.getPassword(SERVICE_NAME, ACCOUNT_KEYS.STEAMGRID_KEY),
+        this.keytar.getPassword(SERVICE_NAME, ACCOUNT_KEYS.RAWG_KEY),
+      ]);
+      return {
+        igdbClientId: igdbClientId || undefined,
+        igdbClientSecret: igdbClientSecret || undefined,
+        steamGridDBApiKey: steamGridDBApiKey || undefined,
+        rawgApiKey: rawgApiKey || undefined,
+      };
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error('Error reading credentials from keytar:', err);
+      return null;
+    }
+  }
+
   /**
    * Get API credentials
    */
   async getCredentials(): Promise<APICredentials> {
     const store = await this.ensureStore();
     const envDefaults = this.getEnvDefaults();
+
+    // Prefer secure keytar storage if available
+    if (this.keytar) {
+      const secure = await this.readFromKeytar();
+      if (secure) {
+        return {
+          igdbClientId: secure.igdbClientId || envDefaults.igdbClientId,
+          igdbClientSecret: secure.igdbClientSecret || envDefaults.igdbClientSecret,
+          steamGridDBApiKey: secure.steamGridDBApiKey || envDefaults.steamGridDBApiKey,
+          rawgApiKey: secure.rawgApiKey || envDefaults.rawgApiKey,
+        };
+      }
+    }
+
+    // Fallback to stored credentials in electron-store (legacy)
     const storedCreds = store.get('credentials', {});
 
     // Merge: stored credentials override env defaults
@@ -72,9 +144,21 @@ export class APICredentialsService {
    */
   async saveCredentials(credentials: Partial<APICredentials>): Promise<void> {
     const store = await this.ensureStore();
-    const current = store.get('credentials', {});
 
-    // Only save explicitly provided credentials, don't persist env defaults
+    // If keytar available, store credentials securely
+    if (this.keytar) {
+      if (credentials.igdbClientId !== undefined) await this.keytar.setPassword(SERVICE_NAME, ACCOUNT_KEYS.IGDB_CLIENT_ID, credentials.igdbClientId);
+      if (credentials.igdbClientSecret !== undefined) await this.keytar.setPassword(SERVICE_NAME, ACCOUNT_KEYS.IGDB_CLIENT_SECRET, credentials.igdbClientSecret);
+      if (credentials.steamGridDBApiKey !== undefined) await this.keytar.setPassword(SERVICE_NAME, ACCOUNT_KEYS.STEAMGRID_KEY, credentials.steamGridDBApiKey);
+      if (credentials.rawgApiKey !== undefined) await this.keytar.setPassword(SERVICE_NAME, ACCOUNT_KEYS.RAWG_KEY, credentials.rawgApiKey);
+
+      // Ensure legacy store does not keep plaintext credentials
+      store.delete('credentials');
+      return;
+    }
+
+    // Legacy path: persist in electron-store (only used when keytar not available)
+    const current = store.get('credentials', {});
     const toSave: APICredentials = { ...current };
 
     if (credentials.igdbClientId !== undefined) {
@@ -98,7 +182,23 @@ export class APICredentialsService {
    */
   async clearCredentials(): Promise<void> {
     const store = await this.ensureStore();
-    // Use delete() to properly remove the credentials key
+
+    if (this.keytar) {
+      try {
+        await Promise.all([
+          this.keytar.deletePassword(SERVICE_NAME, ACCOUNT_KEYS.IGDB_CLIENT_ID),
+          this.keytar.deletePassword(SERVICE_NAME, ACCOUNT_KEYS.IGDB_CLIENT_SECRET),
+          this.keytar.deletePassword(SERVICE_NAME, ACCOUNT_KEYS.STEAMGRID_KEY),
+          this.keytar.deletePassword(SERVICE_NAME, ACCOUNT_KEYS.RAWG_KEY),
+        ]);
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.error('Error clearing credentials from keytar:', err);
+      }
+    }
+
+    // Remove any legacy store values
     store.delete('credentials');
   }
 }
+
