@@ -5,8 +5,8 @@ export interface APICredentials {
   rawgApiKey?: string;
 }
 
-// Built-in RAWG key removed. Users must provide their own key if they want to use RAWG.
-// const RAWG_FALLBACK_API_KEY = '57d7898a324341fab44e301e0e7be3d9';
+// Built-in RAWG key removed. Users must provide their own key via the environment variable `RAWG_API_KEY`.
+// NOTE: Previously a fallback RAWG key was present here but has been removed for security reasons.
 
 interface APICredentialsSchema {
   credentials: APICredentials;

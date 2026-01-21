@@ -1,5 +1,8 @@
 #!/usr/bin/env sh
 . "$(dirname -- "$0")/_/husky.sh"
 
+# Run secret scan before committing
+npm run scan:secrets
+
 # Validate icons before committing
 npm run validate-icons

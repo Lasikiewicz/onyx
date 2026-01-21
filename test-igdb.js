@@ -1,7 +1,11 @@
 const axios = require('axios');
 
-const clientId = '28m77brcpxywpuw6k9kg3rh6vzprvd';
-const clientSecret = 'xlji4pwi9ky847t2mc9iyx5w29kdeo';
+const clientId = process.env.IGDB_CLIENT_ID;
+const clientSecret = process.env.IGDB_CLIENT_SECRET;
+if (!clientId || !clientSecret) {
+  console.error('IGDB credentials not found. Set IGDB_CLIENT_ID and IGDB_CLIENT_SECRET in environment.');
+  process.exit(1);
+}
 
 async function testIGDB() {
   try {

@@ -12,6 +12,7 @@
     "electron:dev": "npx tsc -p main/tsconfig.json && npx tsc -p main/tsconfig.preload.json && concurrently \"npm run dev\" \"wait-on http-get://localhost:5173 && cross-env VITE_DEV_SERVER_URL=http://localhost:5173 electron .\"",
     "electron:build": "npm run build && electron .",
     "validate-icons": "node scripts/validate-icons.js",
+    "scan:secrets": "node scripts/secret-scan.js",
     "generate-icons": "node scripts/generate-icons.js",
     "prebuild": "npm run validate-icons",
     "predist": "npm run generate-icons && npm run validate-icons",

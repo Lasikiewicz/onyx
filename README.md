@@ -80,6 +80,8 @@ This overwrites the `main` branch with `develop`, triggering an automatic Produc
    IGDB_CLIENT_SECRET=your_client_secret_here
    ```
 
+   **Security note:** Do NOT commit real API credentials to source control. If credentials are ever committed, rotate them immediately and follow incident response procedures.
+
 3. Build the main process:
    ```bash
    npx tsc -p main/tsconfig.json
