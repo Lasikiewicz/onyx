@@ -195,11 +195,10 @@ export interface UserPreferences {
 
 declare global {
   interface Window {
-    ipcRenderer?: {
-      on: (channel: string, callback: (event: any, ...args: any[]) => void) => void;
-      off: (channel: string, callback: (event: any, ...args: any[]) => void) => void;
-    };
+    // Note: Raw `ipcRenderer` is intentionally NOT exposed; use `electronAPI.on()` and `electronAPI.off()` for event subscriptions.
     electronAPI: {
+      on?: (channel: string, callback: (...args: any[]) => void) => (() => void) | undefined;
+      off?: (channel: string, callback: (...args: any[]) => void) => void;
       scanSteamGames: () => Promise<import('./steam').SteamGame[]>;
       getSteamPath: () => Promise<string | null>;
       setSteamPath: (path: string) => Promise<{ success: boolean; error?: string }>;

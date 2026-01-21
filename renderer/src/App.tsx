@@ -524,22 +524,18 @@ function App() {
       }
     };
 
-    if (window.ipcRenderer) {
-      window.ipcRenderer.on('steam:newGamesFound', newGamesHandler);
-      window.ipcRenderer.on('background:newGamesFound', backgroundNewGamesHandler);
-      window.ipcRenderer.on('startup:progress', startupProgressHandler);
-    }
+    const removeSteamNewGames = window.electronAPI?.on && window.electronAPI.on('steam:newGamesFound', newGamesHandler);
+    const removeBackgroundNewGames = window.electronAPI?.on && window.electronAPI.on('background:newGamesFound', backgroundNewGamesHandler);
+    const removeStartupProgress = window.electronAPI?.on && window.electronAPI.on('startup:progress', startupProgressHandler);
 
     return () => {
       cleanup1();
       cleanup2();
       cleanup3();
       cleanup4();
-      if (window.ipcRenderer) {
-        window.ipcRenderer.off('steam:newGamesFound', newGamesHandler);
-        window.ipcRenderer.off('background:newGamesFound', backgroundNewGamesHandler);
-        window.ipcRenderer.off('startup:progress', startupProgressHandler);
-      }
+      if (typeof removeSteamNewGames === 'function') removeSteamNewGames();
+      if (typeof removeBackgroundNewGames === 'function') removeBackgroundNewGames();
+      if (typeof removeStartupProgress === 'function') removeStartupProgress();
     };
   }, []);
 

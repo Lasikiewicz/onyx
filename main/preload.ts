@@ -1,28 +1,11 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import type { UserPreferences } from './UserPreferencesService';
 
-// Debug: Log that preload is loading
-console.log('Preload script loading...');
+// Note: Removed debug logging in preload for production safety
 
-// --------- Expose some API to the Renderer process ---------
-contextBridge.exposeInMainWorld('ipcRenderer', {
-  on(...args: Parameters<typeof ipcRenderer.on>) {
-    const [channel, listener] = args;
-    return ipcRenderer.on(channel, (event, ...args) => listener(event, ...args));
-  },
-  off(...args: Parameters<typeof ipcRenderer.off>) {
-    const [channel, ...omit] = args;
-    return ipcRenderer.off(channel, ...omit);
-  },
-  send(...args: Parameters<typeof ipcRenderer.send>) {
-    const [channel, ...omit] = args;
-    return ipcRenderer.send(channel, ...omit);
-  },
-  invoke(...args: Parameters<typeof ipcRenderer.invoke>) {
-    const [channel, ...omit] = args;
-    return ipcRenderer.invoke(channel, ...omit);
-  },
-});
+// --------- Expose a minimal, safe API to the Renderer process ---------
+// Note: We DO NOT expose the raw ipcRenderer object to the renderer to reduce attack surface.
+// All renderer interactions must go through the documented and permissioned `electronAPI` below.
 
 // Expose protected methods that allow the renderer process to use
 // the ipcRenderer without exposing the entire object
@@ -93,6 +76,27 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.removeListener(channel, handler);
     };
   },
+  // Generic event subscription for renderer (SAFE and WHITELISTED)
+  // Returns a remover function to unregister the listener.
+  on: (channel: string, callback: (...args: any[]) => void) => {
+    const allowedChannels = new Set([
+      'steam:newGamesFound',
+      'background:newGamesFound',
+      'startup:progress',
+      'metadata:refreshProgress',
+      'gameStore:libraryUpdated',
+    ]);
+    if (!allowedChannels.has(channel)) {
+      console.warn(`Attempt to register to unauthorized IPC channel: ${channel}`);
+      return () => {};
+    }
+    const handler = (_event: any, ...args: any[]) => callback(...args);
+    ipcRenderer.on(channel, handler);
+    return () => ipcRenderer.removeListener(channel, handler);
+  },
+  off: (channel: string, callback: (...args: any[]) => void) => {
+    ipcRenderer.removeListener(channel, callback as any);
+  },
   // User preferences methods
   getPreferences: () => ipcRenderer.invoke('preferences:get'),
   savePreferences: (preferences: Partial<UserPreferences>) => ipcRenderer.invoke('preferences:save', preferences),
@@ -151,20 +155,20 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getName: () => ipcRenderer.invoke('app:getName'),
   // Open path/folder
   openPath: (pathOrType: string) => ipcRenderer.invoke('app:openPath', pathOrType),
-  // Suspend service methods
+  // Suspend service methods - FEATURE DISABLED
+  // These methods intentionally return a disabled response to keep the feature inert.
   suspend: {
-    getRunningGames: () => ipcRenderer.invoke('suspend:getRunningGames'),
-    suspendGame: (gameId: string) => ipcRenderer.invoke('suspend:suspendGame', gameId),
-    resumeGame: (gameId: string) => ipcRenderer.invoke('suspend:resumeGame', gameId),
-    getFeatureEnabled: () => ipcRenderer.invoke('suspend:getFeatureEnabled'),
-    setFeatureEnabled: (enabled: boolean) => ipcRenderer.invoke('suspend:setFeatureEnabled', enabled),
-    getShortcut: () => ipcRenderer.invoke('suspend:getShortcut'),
-    setShortcut: (shortcut: string) => ipcRenderer.invoke('suspend:setShortcut', shortcut),
+    getRunningGames: async () => ({ success: false, enabled: false, error: 'Suspend feature is disabled' }),
+    suspendGame: async () => ({ success: false, enabled: false, error: 'Suspend feature is disabled' }),
+    resumeGame: async () => ({ success: false, enabled: false, error: 'Suspend feature is disabled' }),
+    getFeatureEnabled: async () => ({ enabled: false }),
+    setFeatureEnabled: async () => ({ success: false, error: 'Feature is disabled' }),
+    getShortcut: async () => ({ success: false, error: 'Feature is disabled' }),
+    setShortcut: async () => ({ success: false, error: 'Feature is disabled' }),
   },
   // Bug report methods
   generateBugReport: (userDescription: string) => ipcRenderer.invoke('bugReport:generate', userDescription),
   getBugReportLogsDirectory: () => ipcRenderer.invoke('bugReport:getLogsDirectory'),
 });
 
-// Debug: Log that electronAPI was exposed
-console.log('electronAPI exposed to window');
+// electronAPI is intentionally minimal and safe; do not log its exposure in production

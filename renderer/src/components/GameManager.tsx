@@ -225,13 +225,11 @@ export const GameManager: React.FC<GameManagerProps> = ({
       setRefreshProgress(progress);
     };
 
-    if (window.ipcRenderer) {
-      window.ipcRenderer.on('metadata:refreshProgress', handleProgress);
+    const removeMetadataProgress = window.electronAPI?.on && window.electronAPI.on('metadata:refreshProgress', handleProgress);
 
-      return () => {
-        window.ipcRenderer?.off('metadata:refreshProgress', handleProgress);
-      };
-    }
+    return () => {
+      if (typeof removeMetadataProgress === 'function') removeMetadataProgress();
+    };
   }, []);
 
   // Sync local games with prop when modal opens or games change significantly
