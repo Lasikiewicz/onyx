@@ -11,7 +11,8 @@ const path = require('path');
       process.exit(0);
     }
 
-    const Store = require('electron-store');
+    const StoreModule = require('electron-store');
+    const Store = StoreModule.default || StoreModule;
 
     // Setup legacy store with plaintext credentials
     const store = new Store({ name: 'api-credentials' });
