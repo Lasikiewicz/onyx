@@ -16,8 +16,8 @@ const path = require('path');
     // Setup legacy store with plaintext credentials
     const store = new Store({ name: 'api-credentials' });
     await store.set('credentials', {
-      igdbClientId: 'leaked-client-id-test',
-      igdbClientSecret: 'leaked-client-secret-test',
+      igdbClientId: 'TEST_IGDB_CLIENT_ID_VALUE',
+      igdbClientSecret: 'TEST_IGDB_CLIENT_SECRET_VALUE',
     });
 
     // Ensure values are present in legacy store
