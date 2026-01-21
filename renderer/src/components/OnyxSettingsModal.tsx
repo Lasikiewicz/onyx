@@ -1675,6 +1675,50 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                     <span>Join Discord</span>
                   </button>
 
+                  {/* Official Website */}
+                  <button
+                    onClick={async () => {
+                      try {
+                        if (window.electronAPI && window.electronAPI.openExternal) {
+                          const result = await window.electronAPI.openExternal('https://onyxlauncher.co.uk/');
+                          if (!result.success) {
+                            console.error('Failed to open external URL:', result.error);
+                          }
+                        }
+                      } catch (error) {
+                        console.error('Failed to open external URL:', error);
+                      }
+                    }}
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-700/10 text-slate-200 hover:bg-slate-700/20 transition-all duration-300 border border-slate-700/20 hover:scale-105"
+                  >
+                    <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 2a10 10 0 100 20 10 10 0 000-20zM2 12h20M12 2v20" />
+                    </svg>
+                    <span>Official Website</span>
+                  </button>
+
+                  {/* Reddit */}
+                  <button
+                    onClick={async () => {
+                      try {
+                        if (window.electronAPI && window.electronAPI.openExternal) {
+                          const result = await window.electronAPI.openExternal('https://www.reddit.com/r/OnyxLauncher/');
+                          if (!result.success) {
+                            console.error('Failed to open external URL:', result.error);
+                          }
+                        }
+                      } catch (error) {
+                        console.error('Failed to open external URL:', error);
+                      }
+                    }}
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#FF4500]/10 text-[#FF4500] hover:bg-[#FF4500]/20 transition-all duration-300 border border-[#FF4500]/20 hover:scale-105"
+                  >
+                    <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M22 12c0 5.523-4.477 10-10 10S2 17.523 2 12 6.477 2 12 2s10 4.477 10 10zM12 8a1.5 1.5 0 110-3 1.5 1.5 0 010 3zM7.5 13.5c1.5 1 4.5 1 6 0M16.5 13.5c-1.5 1-4.5 1-6 0" />
+                    </svg>
+                    <span>Visit Reddit</span>
+                  </button>
+
                   {/* Ko-fi Support */}
                   <button
                     onClick={async () => {
