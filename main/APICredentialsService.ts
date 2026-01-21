@@ -55,18 +55,13 @@ export class APICredentialsService {
       });
 
       // Attempt to migrate any existing plain-text credentials into the secure store
+      // Use a testable helper so this logic can be unit tested without native keytar
       (async () => {
         try {
-          const storedCreds = this.store.get('credentials', {});
-          if (this.keytar && storedCreds && Object.keys(storedCreds).length > 0) {
-            // Migrate each credential
-            if (storedCreds.igdbClientId) await this.keytar.setPassword(SERVICE_NAME, ACCOUNT_KEYS.IGDB_CLIENT_ID, storedCreds.igdbClientId);
-            if (storedCreds.igdbClientSecret) await this.keytar.setPassword(SERVICE_NAME, ACCOUNT_KEYS.IGDB_CLIENT_SECRET, storedCreds.igdbClientSecret);
-            if (storedCreds.steamGridDBApiKey) await this.keytar.setPassword(SERVICE_NAME, ACCOUNT_KEYS.STEAMGRID_KEY, storedCreds.steamGridDBApiKey);
-            if (storedCreds.rawgApiKey) await this.keytar.setPassword(SERVICE_NAME, ACCOUNT_KEYS.RAWG_KEY, storedCreds.rawgApiKey);
-            // Remove plaintext credentials from disk
-            this.store.delete('credentials');
-          }
+          // Import helper lazily so tests can mock behavior easily
+          // eslint-disable-next-line @typescript-eslint/no-var-requires
+          const { migrateCredentials } = require('./credentialsMigrator');
+          await migrateCredentials(this.store, this.keytar, SERVICE_NAME, ACCOUNT_KEYS);
         } catch (err) {
           // Migration failure should not break the app; log and continue
           // eslint-disable-next-line no-console
