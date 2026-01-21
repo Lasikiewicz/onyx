@@ -17,6 +17,7 @@
     "test:steam:short-circuit": "node scripts/test-steam-short-circuit.js",
     "test:credentials": "node scripts/test-credentials-migration.js",
     "test:credentials:mock": "node scripts/test-credentials-migration-mock.js",
+    "test:credentials:service-mock": "node scripts/test-credentials-service-mock.js",
     "generate-icons": "node scripts/generate-icons.js",
     "prebuild": "npm run validate-icons",
     "predist": "npm run generate-icons && npm run validate-icons",

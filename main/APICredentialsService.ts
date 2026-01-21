@@ -33,13 +33,19 @@ export class APICredentialsService {
     };
   }
 
-  constructor() {
-    // Attempt to load keytar for secure OS credential storage. If unavailable, we fall back to electron-store.
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      this.keytar = require('keytar');
-    } catch (err) {
-      this.keytar = null;
+  // Accept an optional injectedKeytar for testability (pass fake keytar in unit tests)
+  constructor(injectedKeytar?: any) {
+    // Attempt to use injected keytar first
+    if (injectedKeytar) {
+      this.keytar = injectedKeytar;
+    } else {
+      // Attempt to load keytar for secure OS credential storage. If unavailable, we fall back to electron-store.
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        this.keytar = require('keytar');
+      } catch (err) {
+        this.keytar = null;
+      }
     }
 
     // Use dynamic import for ES module
@@ -49,6 +55,7 @@ export class APICredentialsService {
       // Don't persist env defaults to disk - only use them as runtime fallbacks
       this.store = new Store<APICredentialsSchema>({
         name: 'api-credentials',
+        projectName: 'onyx',
         defaults: {
           credentials: {},
         },
