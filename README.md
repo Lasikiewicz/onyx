@@ -199,6 +199,15 @@ See [docs/ICON_REQUIREMENTS.md](docs/ICON_REQUIREMENTS.md) for detailed icon req
 - `npm run generate-icons` - Generate all icon formats from `resources/icon.svg`
 - `npm run validate-icons` - Validate that all required icon files exist and are valid
 
+## Disabled Features (Security)
+
+The project contains a few features that are implemented but intentionally disabled until reviewed and validated:
+
+- **Suspend/Resume Feature** — Implemented in `main/ProcessSuspendService.ts`, but disabled by default due to potential system-level side effects and admin requirements. See `docs/SUSPEND_FEATURE_QUICK_REFERENCE.md` for details.
+- **Steam Playtime Sync** — Playtime synchronization and display logic exists but is disabled by default. See `docs/STEAM_PLAYTIME_QUICK_REFERENCE.md` for details.
+
+These features are gated behind explicit enablement steps and require additional testing and documentation before being turned on in production.
+
 ## IPC Communication
 
 The app uses ContextBridge for secure IPC communication. The preload script exposes safe APIs to the renderer process. You can extend `main/preload.ts` to add more IPC channels as needed.
