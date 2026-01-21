@@ -1,7 +1,9 @@
+// NOTE: This file intentionally contains literal examples of known leaked tokens used by our detection tools.
+// The secret scanner will skip this file to avoid self-matching of detector patterns.
 const { execSync } = require('child_process');
 const patterns = [
-  /xlji4pwi9ky847t2mc9iyx5w29kdeo/, // known leaked secret
-  /28m77brcpxywpuw6k9kg3rh6vzprvd/,  // known leaked client id
+  /xlji4pwi9ky847t2mc9iyx5w29kdeo/, // known leaked secret (detector example)
+  /28m77brcpxywpuw6k9kg3rh6vzprvd/,  // known leaked client id (detector example)
 ];
 
 try {
