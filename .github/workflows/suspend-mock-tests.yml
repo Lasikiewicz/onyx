@@ -1,10 +1,23 @@
 name: Suspend Service Mock Tests
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   pull_request:
     branches: [ master ]
+    paths-ignore:
+      - 'docs/**'
+      - '.github/**'
+      - '*.md'
   push:
     branches: [ master, fix/**, feature/** ]
+    paths-ignore:
+      - 'docs/**'
+      - '.github/**'
+      - '*.md'
+
 
 jobs:
   suspend-mock:
