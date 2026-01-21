@@ -36,10 +36,11 @@
 >    - **ACTION**: 
 >      - `npm run increment-build` (Increments version locally)
 >      - `git add .`
->      - `git commit -m "Build X.Y.Z - [Brief Summary]"` (Neutral message)
+>      - `git commit -m "Build X.Y.Z - [Brief Summary]"` (Neutral message — **do not include the word "Alpha"** in this message)
 >      - `git push origin master`
 >      - `git push origin master:develop --force`
 >    - **NOTE**: This is the ONLY command that increments the build number. It pushes the local state to remote `master` and then forces that same state to remote `develop`.
+>    - **IMPORTANT**: Pushing `master` → `develop` and later `develop` → `main` **copies the same commit message**. If you include the literal word "Alpha" in the commit message, that text will also appear on `main`. Use a neutral commit message (e.g., `Build 0.2.26 - Release`) if you don't want the label propagated to production.
 
 > 3. **Command: "Push to main"**
 >    - **TARGET**: Remote `main` branch (Production)

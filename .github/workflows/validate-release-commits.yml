@@ -1,0 +1,44 @@
+name: Validate Release Commit Messages
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  check-commit-messages:
+    name: Check commit messages on main (non-blocking)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Detect 'alpha' in recent commit messages
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { data: commits } = await github.rest.repos.listCommits({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              per_page: 20
+            });
+
+            const flagged = commits.filter(c => c.commit && c.commit.message && /\balpha\b/i.test(c.commit.message));
+
+            if (flagged.length > 0) {
+              const body = `The latest push to \`main\` contains commit messages that include the word "alpha". This is often unintended because such wording will be visible in production commit history and release notes.\n\nCommits:\n` +
+                flagged.map(c => `- ${c.sha.substring(0,7)}: ${c.commit.message}`).join('\n');
+
+              // Create an issue to notify maintainers and provide guidance
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: 'Notice: "Alpha" found in commit messages on main',
+                body
+              });
+
+              core.info('Alpha keyword detected in commit messages — issue created to notify maintainers.');
+            } else {
+              core.info('No "alpha" occurrences found in recent commit messages on main.');
+            }
