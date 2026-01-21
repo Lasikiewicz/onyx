@@ -3490,6 +3490,13 @@ ipcMain.handle('steam:importAllGames', async (_event, steamPath?: string) => {
 // Steam playtime sync IPC handler
 ipcMain.handle('steam:syncPlaytime', async () => {
   try {
+    // Short-circuit if Steam playtime sync is disabled in app config
+    const { isSteamSyncEnabled } = require('./handlers/steamPlaytimeShortCircuit');
+    const enabled = await isSteamSyncEnabled(appConfigService);
+    if (!enabled) {
+      return { success: false, enabled: false, error: 'Steam playtime sync is disabled in Settings.' };
+    }
+
     // Check if user is authenticated
     const authState = await steamAuthService.getAuthState();
     if (!authState.authenticated || !authState.steamId) {
