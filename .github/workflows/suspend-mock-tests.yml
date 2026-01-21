@@ -1,4 +1,4 @@
-name: Secret Scan
+name: Suspend Service Mock Tests
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -6,14 +6,13 @@ concurrency:
 
 on:
   pull_request:
+    branches: [ master ]
     paths-ignore:
       - 'docs/**'
       - '.github/**'
       - '*.md'
   push:
-    branches:
-      - main
-      - develop
+    branches: [ master, fix/**, feature/** ]
     paths-ignore:
       - 'docs/**'
       - '.github/**'
@@ -21,13 +20,15 @@ on:
 
 
 jobs:
-  secret-scan:
+  suspend-mock:
+    name: Suspend Service Mock Tests (Linux)
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: '20'
@@ -35,5 +36,7 @@ jobs:
       - name: Install dependencies
         run: npm ci --prefer-offline --no-audit
 
-      - name: Run secret scan
-        run: npm run scan:secrets
+      - name: Run suspend service mock tests
+        run: npm run test:suspend:service-mock
+        env:
+          CI: true

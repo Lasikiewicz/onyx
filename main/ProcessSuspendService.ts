@@ -1,9 +1,10 @@
-import { exec } from 'child_process';
-import { promisify } from 'util';
+import { spawn, exec } from 'child_process';
 import path from 'node:path';
 import { platform } from 'node:os';
-
+import { promisify } from 'util';
 const execAsync = promisify(exec);
+
+type ExecRunner = (command: string, args: string[], opts?: any) => Promise<{ stdout: string; stderr: string; code: number }>;
 
 export interface ProcessInfo {
   pid: number;
@@ -27,9 +28,36 @@ export class ProcessSuspendService {
   private suspendedGames: Set<string> = new Set();
   private monitoringInterval: NodeJS.Timeout | null = null;
   private isWindows: boolean;
+  private execRunner: ExecRunner | null = null;
 
-  constructor() {
+  private runCommandSafe: ExecRunner = (command: string, args: string[] = [], opts: any = {}) => {
+    // If an injected execRunner is provided (in tests), use it
+    if (this.execRunner) return this.execRunner(command, args, opts);
+
+    return new Promise((resolve, reject) => {
+      const child = spawn(command, args, { shell: false, ...opts });
+      let stdout = '';
+      let stderr = '';
+      child.stdout?.on('data', (data) => { stdout += data.toString(); });
+      child.stderr?.on('data', (data) => { stderr += data.toString(); });
+      child.on('error', (err) => reject(err));
+      child.on('close', (code) => {
+        if (code === 0) resolve({ stdout, stderr, code: code || 0 });
+        else reject(Object.assign(new Error('Command failed'), { stdout, stderr, code }));
+      });
+    });
+  };
+
+  private validatePid(pid: number) {
+    if (!Number.isInteger(pid) || pid <= 0 || pid > 2147483647) {
+      throw new Error('Invalid PID');
+    }
+  }
+
+  constructor(execRunner?: any) {
     this.isWindows = platform() === 'win32';
+    // Allow injection of an exec runner for testing (should implement spawn-like API)
+    this.execRunner = execRunner || null;
     if (!this.isWindows) {
       console.warn('ProcessSuspendService: Only Windows is currently supported');
     }
@@ -50,51 +78,39 @@ export class ProcessSuspendService {
       throw new Error('Suspend/resume is only supported on Windows');
     }
 
+    this.validatePid(pid);
+
+    let psError: any = null;
+
+    // Method 1: PowerShell
     try {
-      // Try multiple methods to suspend the process
-      // Method 1: PowerShell Suspend-Process
-      try {
-        const command = `powershell -ExecutionPolicy Bypass -NoProfile -Command "Suspend-Process -Id ${pid} -ErrorAction Stop"`;
-        await execAsync(command, { timeout: 5000 });
-        return true;
-      } catch (psError: any) {
-        console.log(`[Suspend] PowerShell method failed, trying alternative: ${psError.message}`);
-
-        // Method 2: Try using wmic (Windows Management Instrumentation)
-        try {
-          const wmicCommand = `wmic process where processid=${pid} call suspend`;
-          await execAsync(wmicCommand, { timeout: 5000 });
-          return true;
-        } catch (wmicError: any) {
-          console.log(`[Suspend] WMIC method failed, trying ntsd: ${wmicError.message}`);
-
-          // Method 3: Try using ntsd (Windows Debugger) - requires admin but very reliable
-          try {
-            // ntsd approach: use debugger to suspend
-            // Note: This is a workaround - ntsd doesn't directly suspend, but we can use it
-            // Actually, let's just throw the original error with better message
-            throw psError; // Re-throw original PowerShell error
-          } catch (ntsdError: any) {
-            const errorMessage = psError?.stderr || psError?.message || String(psError);
-            console.error(`[Suspend] All methods failed: ${errorMessage}`);
-
-            // Check for permission errors
-            if (errorMessage.includes('Access is denied') ||
-              errorMessage.includes('permission') ||
-              errorMessage.includes('Cannot find a process') ||
-              errorMessage.includes('not found')) {
-              throw new Error('Access denied. The process may require administrator privileges, or the process may have exited.');
-            }
-
-            throw new Error(`Failed to suspend process: ${errorMessage}`);
-          }
-        }
-      }
-    } catch (error: any) {
-      const errorMessage = error?.stderr || error?.message || String(error);
-      console.error(`[Suspend] Failed to suspend process ${pid}:`, errorMessage);
-      throw error; // Re-throw to let caller handle
+      await this.runCommandSafe('powershell', ['-ExecutionPolicy', 'Bypass', '-NoProfile', '-Command', `Suspend-Process -Id ${pid} -ErrorAction Stop`], { timeout: 5000 });
+      return true;
+    } catch (e: any) {
+      psError = e;
+      console.log(`[Suspend] PowerShell method failed, trying alternative: ${e.message}`);
     }
+
+    // Method 2: WMIC
+    try {
+      await this.runCommandSafe('wmic', ['process', 'where', `processid=${pid}`, 'call', 'suspend'], { timeout: 5000 });
+      return true;
+    } catch (wmicError: any) {
+      console.log(`[Suspend] WMIC method failed, trying alternative: ${wmicError.message}`);
+    }
+
+    // Fallback: report original PowerShell error with context
+    const errorMessage = psError?.stderr || psError?.message || String(psError || 'Unknown error');
+    console.error(`[Suspend] All methods failed: ${errorMessage}`);
+
+    if (errorMessage.includes('Access is denied') ||
+      errorMessage.includes('permission') ||
+      errorMessage.includes('Cannot find a process') ||
+      errorMessage.includes('not found')) {
+      throw new Error('Access denied. The process may require administrator privileges, or the process may have exited.');
+    }
+
+    throw new Error(`Failed to suspend process: ${errorMessage}`);
   }
 
   /**
@@ -105,44 +121,38 @@ export class ProcessSuspendService {
       throw new Error('Suspend/resume is only supported on Windows');
     }
 
+    this.validatePid(pid);
+
+    let psError: any = null;
+
+    // Method 1: PowerShell
     try {
-      // Try multiple methods to resume the process
-      // Method 1: PowerShell Resume-Process
-      try {
-        const command = `powershell -ExecutionPolicy Bypass -NoProfile -Command "Resume-Process -Id ${pid} -ErrorAction Stop"`;
-        await execAsync(command, { timeout: 5000 });
-        return true;
-      } catch (psError: any) {
-        console.log(`[Suspend] PowerShell resume method failed, trying alternative: ${psError.message}`);
-
-        // Method 2: Try using wmic (Windows Management Instrumentation)
-        try {
-          const wmicCommand = `wmic process where processid=${pid} call resume`;
-          await execAsync(wmicCommand, { timeout: 5000 });
-          return true;
-        } catch (wmicError: any) {
-          console.log(`[Suspend] WMIC resume method failed: ${wmicError.message}`);
-
-          // Re-throw original PowerShell error with better message
-          const errorMessage = psError?.stderr || psError?.message || String(psError);
-          console.error(`[Suspend] All resume methods failed: ${errorMessage}`);
-
-          // Check for permission errors
-          if (errorMessage.includes('Access is denied') ||
-            errorMessage.includes('permission') ||
-            errorMessage.includes('Cannot find a process') ||
-            errorMessage.includes('not found')) {
-            throw new Error('Access denied. The process may require administrator privileges, or the process may have exited.');
-          }
-
-          throw new Error(`Failed to resume process: ${errorMessage}`);
-        }
-      }
-    } catch (error: any) {
-      const errorMessage = error?.stderr || error?.message || String(error);
-      console.error(`[Suspend] Failed to resume process ${pid}:`, errorMessage);
-      throw error; // Re-throw to let caller handle
+      await this.runCommandSafe('powershell', ['-ExecutionPolicy', 'Bypass', '-NoProfile', '-Command', `Resume-Process -Id ${pid} -ErrorAction Stop`], { timeout: 5000 });
+      return true;
+    } catch (e: any) {
+      psError = e;
+      console.log(`[Suspend] PowerShell resume method failed, trying alternative: ${e.message}`);
     }
+
+    // Method 2: WMIC
+    try {
+      await this.runCommandSafe('wmic', ['process', 'where', `processid=${pid}`, 'call', 'resume'], { timeout: 5000 });
+      return true;
+    } catch (wmicError: any) {
+      console.log(`[Suspend] WMIC resume method failed: ${wmicError.message}`);
+    }
+
+    const errorMessage = psError?.stderr || psError?.message || String(psError || 'Unknown error');
+    console.error(`[Suspend] All resume methods failed: ${errorMessage}`);
+
+    if (errorMessage.includes('Access is denied') ||
+      errorMessage.includes('permission') ||
+      errorMessage.includes('Cannot find a process') ||
+      errorMessage.includes('not found')) {
+      throw new Error('Access denied. The process may require administrator privileges, or the process may have exited.');
+    }
+
+    throw new Error(`Failed to resume process: ${errorMessage}`);
   }
 
   /**

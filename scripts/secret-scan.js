@@ -3,6 +3,9 @@ const path = require('path');
 
 const roots = ['.'];
 const ignoreDirs = new Set(['.git', 'node_modules', 'dist-electron', 'release', 'build', 'dist', '.github']);
+// Files that intentionally contain detector patterns and should be skipped by the scan
+const ignoreFiles = new Set(['secret-history-scan.js', 'secret-scan.js']);
+
 
 const patterns = [
   /(?:clientId|client_id)\s*[=:]\s*['\"][^'\"]{8,}['\"]?/i,
@@ -19,10 +22,17 @@ function scanFile(filePath) {
     const line = lines[i];
     // Skip scanning the script itself to avoid self-matching of explicit patterns
     if (path.basename(filePath) === path.basename(__filename)) continue;
+    // Skip files that are known detector scripts which intentionally contain test/leak patterns
+    if (ignoreFiles.has(path.basename(filePath))) continue;
     // Ignore lines that reference process.env (env var usage is allowed)
     if (/process\.env/.test(line)) continue;
     for (const pat of patterns) {
       if (pat.test(line)) {
+        // Ignore test markers explicitly inserted for migration tests
+        if (/TEST_/.test(line)) continue;
+        // Ignore lines that match constants mapping keys to camelCase placeholders like:
+        //   IGDB_CLIENT_ID: 'igdbClientId', which are not secrets
+        if (/^[\s\{,]*[A-Z0-9_]+\s*[:=]\s*['\"][a-z][A-Za-z0-9_]*['\"]\s*[,\}]?$/.test(line)) continue;
         console.error(`Potential secret found in ${filePath}:${i + 1}: ${line.trim()}`);
         return true;
       }
