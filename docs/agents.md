@@ -416,8 +416,7 @@ Key IPC handlers:
 - Process discovery may not work for all game types
 
 **Documentation**:
-- Full implementation plan: `SUSPEND_FEATURE_INTEGRATION_PLAN.md`
-- Quick reference: `SUSPEND_FEATURE_QUICK_REFERENCE.md`
+- All architectural and workflow documentation is contained within this file.
 
 ---
 
@@ -427,9 +426,7 @@ Key IPC handlers:
 
 1. **Read this file** to understand the project structure
 2. **Check existing documentation**:
-   - `GAME_SCANNING_PROCESS.md` - How game scanning works
-   - `GAME_SEARCH_LOGIC_FLOW.md` - Metadata search flow
-   - `SUSPEND_FEATURE_INTEGRATION_PLAN.md` - Suspend feature docs
+   - Refer to this file (`agents.md`) for all project guidelines and feature context.
 3. **Understand the data flow**: Main process ↔ IPC ↔ Renderer process
 4. **Check TypeScript types** in `renderer/src/types/game.ts` and service files
 

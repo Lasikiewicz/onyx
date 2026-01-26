@@ -195,7 +195,7 @@ export const GamePropertiesPanel: React.FC<GamePropertiesPanelProps> = ({
         setTimeout(() => setSuccess(null), 2000);
     };
 
-    // Fast Search Handler - Playnite-style instant search
+    // Fast Search Handler - Aggregated instant search
     const handleFastSearch = async () => {
         const query = imageSearchQuery || editedFields.title;
         if (!query) {
