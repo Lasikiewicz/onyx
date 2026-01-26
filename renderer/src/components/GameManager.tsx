@@ -669,16 +669,39 @@ export const GameManager: React.FC<GameManagerProps> = ({
       const startTime = Date.now();
 
       const response = await (window.electronAPI as any).fastImageSearch(query);
+      console.log('[FastSearch] Response:', response);
 
       console.log(`[FastSearch] Completed in ${Date.now() - startTime}ms`);
 
-      if (response.success && response.games && response.games.length > 0) {
+      // Check if response is a direct metadata object (has boxArtUrl/bannerUrl/logoUrl keys)
+      // This happens when metadataFetcher.searchArtwork returns a single result
+      if (response && (response.boxArtUrl || response.bannerUrl || response.logoUrl || response.heroUrl)) {
+        // Wrap the single result in an array format that the UI expects
+        const syntheticResult: FastSearchGame = {
+          id: Date.now(), // Fake ID since we don't have one
+          name: query,
+          coverUrl: response.boxArtUrl || '',
+          bannerUrl: response.bannerUrl || response.heroUrl || '',
+          logoUrl: response.logoUrl || '',
+          screenshotUrls: response.screenshots || [],
+          source: 'unknown'
+        };
+        setFastSearchResults([syntheticResult]);
+
+        // Auto-select this result immediately to show images
+        handleSelectFastGame(syntheticResult);
+
+        setSuccess(`Found metadata in ${Date.now() - startTime}ms`);
+        setTimeout(() => setSuccess(null), 3000);
+      }
+      else if (response.success && response.games && response.games.length > 0) {
         setFastSearchResults(response.games);
         setSuccess(`Found ${response.games.length} game(s) in ${Date.now() - startTime}ms`);
         setTimeout(() => setSuccess(null), 3000);
       } else if (response.error) {
         setError(response.error);
       } else {
+        // If we got an empty object or undefined, try falling back to regular search logic or just show error
         setError(`No results found for "${query}". Try a different search term or check the spelling.`);
       }
     } catch (err) {
@@ -689,6 +712,78 @@ export const GameManager: React.FC<GameManagerProps> = ({
     }
   };
 
+  // Listen for progressive image search results
+  useEffect(() => {
+    const handleImagesFound = (_event: any, data: { images: any[] }) => {
+      if (!data || !data.images || data.images.length === 0) return;
+
+      const newImages: any[] = [];
+      const sgdbResults = {
+        boxart: [] as any[],
+        banner: [] as any[],
+        logo: [] as any[],
+        icon: [] as any[],
+      };
+
+      const seenUrls = new Set<string>();
+
+      data.images.forEach((img: any) => {
+        if (!img.url || seenUrls.has(img.url)) return;
+        seenUrls.add(img.url);
+
+        const imageObj: any = {
+          id: `${img.source}-${img.type}-${Math.random().toString(36).substr(2, 9)}`,
+          name: img.name || img.source,
+          source: img.source,
+          url: img.url,
+          screenshotUrls: (img.type === 'banner' || img.type === 'screenshot') ? [img.url] : undefined
+        };
+
+        if (img.type === 'boxart') {
+          imageObj.boxArtUrl = img.url;
+          imageObj.coverUrl = img.url;
+        } else if (img.type === 'logo') {
+          imageObj.logoUrl = img.url;
+        } else if (img.type === 'icon') {
+          imageObj.iconUrl = img.url;
+        } else {
+          imageObj.bannerUrl = img.url;
+          imageObj.type = 'banner'; // Force type for grouping logic
+        }
+
+        if (img.source === 'SteamGridDB') {
+          if (img.type === 'boxart') sgdbResults.boxart.push(imageObj);
+          else if (img.type === 'banner' || img.type === 'hero') sgdbResults.banner.push(imageObj);
+          else if (img.type === 'logo') sgdbResults.logo.push(imageObj);
+          else if (img.type === 'icon') sgdbResults.icon.push(imageObj);
+        } else {
+          if (img.type === 'boxart' || img.type === 'banner' || img.type === 'screenshot' || img.type === 'hero') {
+            newImages.push(imageObj);
+          } else if (img.type === 'logo') {
+            sgdbResults.logo.push(imageObj);
+          }
+        }
+      });
+
+      // Merge with existing results to avoid overwriting previous chunks
+      setSteamGridDBResults(prev => ({
+        boxart: [...prev.boxart, ...sgdbResults.boxart],
+        banner: [...prev.banner, ...sgdbResults.banner],
+        logo: [...prev.logo, ...sgdbResults.logo],
+        icon: [...prev.icon, ...sgdbResults.icon]
+      }));
+      setImageSearchResults(prev => [...prev, ...newImages]);
+
+      // Update success message progressively
+      setSuccess(`Load in progress... Found images from ${[...new Set(data.images.map((i: any) => i.source))].join(', ')}`);
+    };
+
+    const removeListener = window.electronAPI?.on && window.electronAPI.on('metadata:gameImagesFound', handleImagesFound);
+    return () => {
+      if (typeof removeListener === 'function') removeListener();
+    };
+  }, []);
+
   // Show images from a fast search result (click to display, not auto-apply)
   const handleSelectFastGame = async (gameResult: FastSearchGame) => {
     setSelectedFastGame(gameResult);
@@ -696,10 +791,22 @@ export const GameManager: React.FC<GameManagerProps> = ({
     setIsSearchingImages(true);
     setError(null);
     setImageSearchQuery(gameResult.name); // Ensure search box has the name if we need it
-    // setSuccess(`Fetching images for "${gameResult.name}" from all sources...`); // Removed as per user request
+
+    // Clear previous results explicitly before starting new search
+    setImageSearchResults([]);
+    setSteamGridDBResults({ boxart: [], banner: [], logo: [], icon: [] });
+
+    // Set the search type to boxart by default and show valid tab
+    if (!showImageSearch) {
+      setShowImageSearch({ type: 'boxart', gameId: selectedGame!.id });
+    }
+    setActiveImageSearchTab('all');
 
     try {
-      // Call the multi-source fetcher
+      console.log(`[FastSearch] Fetching images for ${gameResult.name}...`);
+
+      // Call the multi-source fetcher - results will come via event listener above
+      // But we ALSO assume the final response contains everything, so we merge it as a "final consistent state"
       const response = await (window.electronAPI as any).fetchGameImages(
         gameResult.name,
         selectedGame?.id.startsWith('steam-') ? selectedGame.id.replace('steam-', '') : undefined,
@@ -707,8 +814,12 @@ export const GameManager: React.FC<GameManagerProps> = ({
         showAnimatedImages
       );
 
-      if (response.success && response.images) {
-        // Categorize images by type
+      console.log('[FastSearch] Final response:', response);
+
+      if (response.success && response.images && response.images.length > 0) {
+        // Process final results to ensure we didn't miss anything (and handle completion)
+        // We must dedupe against what's already in state from the events
+
         const newImages: any[] = [];
         const sgdbResults = {
           boxart: [] as any[],
@@ -716,6 +827,13 @@ export const GameManager: React.FC<GameManagerProps> = ({
           logo: [] as any[],
           icon: [] as any[],
         };
+
+        // Get current state to dedupe
+        // Note: using functional state updates inside strict mode might be tricky for "reading" current state synchronously
+        // But since we are at the end of the async call, we can assume previous events fired.
+        // To be safe, we just process all and React diffing might save us, or we assume the response is the "Truth".
+        // Actually, replacing everything with the final response is safer for consistency than merging if the final response is complete.
+        // Since fetchGameImages returns ALL results found, we can just set the state to this final source of truth.
 
         const seenUrls = new Set<string>();
 
@@ -728,11 +846,9 @@ export const GameManager: React.FC<GameManagerProps> = ({
             name: img.name || img.source,
             source: img.source,
             url: img.url,
-            // For screenshots/banners, we might need screenshotUrls array for some UI logic
             screenshotUrls: (img.type === 'banner' || img.type === 'screenshot') ? [img.url] : undefined
           };
 
-          // Map types to all possible field names used by rendering logic
           if (img.type === 'boxart') {
             imageObj.boxArtUrl = img.url;
             imageObj.coverUrl = img.url;
@@ -742,47 +858,46 @@ export const GameManager: React.FC<GameManagerProps> = ({
             imageObj.iconUrl = img.url;
           } else {
             imageObj.bannerUrl = img.url;
+            imageObj.type = 'banner';
           }
 
           if (img.source === 'SteamGridDB') {
-            // Add to steamGridDBResults
             if (img.type === 'boxart') sgdbResults.boxart.push(imageObj);
-            else if (img.type === 'banner') sgdbResults.banner.push(imageObj);
+            else if (img.type === 'banner' || img.type === 'hero') sgdbResults.banner.push(imageObj);
             else if (img.type === 'logo') sgdbResults.logo.push(imageObj);
             else if (img.type === 'icon') sgdbResults.icon.push(imageObj);
           } else {
-            // Add to main imageSearchResults (IGDB, RAWG, Steam)
-            // Map types to what the UI expects
-            if (img.type === 'boxart' || img.type === 'banner' || img.type === 'screenshot') {
+            if (img.type === 'boxart' || img.type === 'banner' || img.type === 'screenshot' || img.type === 'hero') {
               newImages.push(imageObj);
             } else if (img.type === 'logo') {
-              // Add logos to SGDB results even if from other sources, as that's where logos are displayed
               sgdbResults.logo.push(imageObj);
             }
           }
         });
 
+        // Set final state (overwriting progressive chunks to ensure consistency and order)
+        // This also fixes issues where events might have been missed
         setImageSearchResults(newImages);
         setSteamGridDBResults(sgdbResults);
 
-        setSuccess(`Found ${response.images.length} images from ${[...new Set(response.images.map((i: any) => i.source))].join(', ')}`);
-        setTimeout(() => setSuccess(null), 3000);
-
-        // Set the search type to boxart by default if not set, but show 'all' tab
-        if (!showImageSearch) {
-          setShowImageSearch({ type: 'boxart', gameId: selectedGame!.id });
-        }
-        setActiveImageSearchTab('all');
-
-        setSuccess(`Showing images for "${gameResult.name}"`);
+        setSuccess(`Found ${response.images.length} images for "${gameResult.name}"`);
+      } else if (response.error) {
+        // Only show error if we really have NOTHING (check state?)
+        // State might be empty if events failed.
+        setError(response.error);
       } else {
-        setError(response.error || 'Failed to fetch images');
+        // Empty results
+        if (steamGridDBResults.boxart.length === 0 && imageSearchResults.length === 0) {
+          setError('No images found');
+        }
       }
+
     } catch (err) {
-      console.error('Error fetching game images:', err);
-      setError('Failed to fetch images from sources');
+      setError('Failed to fetch images');
+      console.error(err);
     } finally {
       setIsSearchingImages(false);
+      setTimeout(() => setSuccess(null), 3000);
     }
   };
 

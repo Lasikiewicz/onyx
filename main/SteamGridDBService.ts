@@ -60,6 +60,13 @@ export class SteamGridDBService {
   }
 
   /**
+   * Update API key after initialization
+   */
+  public setApiKey(apiKey: string): void {
+    this.apiKey = apiKey;
+  }
+
+  /**
    * Check if the service is available (has API key)
    */
   public isAvailable(): boolean {

@@ -149,10 +149,20 @@ export class APICredentialsService {
 
     // If keytar available, store credentials securely
     if (this.keytar) {
-      if (credentials.igdbClientId !== undefined) await this.keytar.setPassword(SERVICE_NAME, ACCOUNT_KEYS.IGDB_CLIENT_ID, credentials.igdbClientId);
-      if (credentials.igdbClientSecret !== undefined) await this.keytar.setPassword(SERVICE_NAME, ACCOUNT_KEYS.IGDB_CLIENT_SECRET, credentials.igdbClientSecret);
-      if (credentials.steamGridDBApiKey !== undefined) await this.keytar.setPassword(SERVICE_NAME, ACCOUNT_KEYS.STEAMGRID_KEY, credentials.steamGridDBApiKey);
-      if (credentials.rawgApiKey !== undefined) await this.keytar.setPassword(SERVICE_NAME, ACCOUNT_KEYS.RAWG_KEY, credentials.rawgApiKey);
+      // Helper to save or delete based on value presence
+      const saveOrDelete = async (account: string, value?: string) => {
+        if (value && value.trim().length > 0) {
+          await this.keytar.setPassword(SERVICE_NAME, account, value.trim());
+        } else if (value === '') {
+          // Only delete if specifically set to empty string (user cleared it)
+          await this.keytar.deletePassword(SERVICE_NAME, account);
+        }
+      };
+
+      if (credentials.igdbClientId !== undefined) await saveOrDelete(ACCOUNT_KEYS.IGDB_CLIENT_ID, credentials.igdbClientId);
+      if (credentials.igdbClientSecret !== undefined) await saveOrDelete(ACCOUNT_KEYS.IGDB_CLIENT_SECRET, credentials.igdbClientSecret);
+      if (credentials.steamGridDBApiKey !== undefined) await saveOrDelete(ACCOUNT_KEYS.STEAMGRID_KEY, credentials.steamGridDBApiKey);
+      if (credentials.rawgApiKey !== undefined) await saveOrDelete(ACCOUNT_KEYS.RAWG_KEY, credentials.rawgApiKey);
 
       // Ensure legacy store does not keep plaintext credentials
       store.delete('credentials');

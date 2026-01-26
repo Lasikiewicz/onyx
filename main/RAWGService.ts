@@ -122,7 +122,7 @@ export interface QueuedRequest<T> {
 
 export class RAWGService {
   private apiKey: string;
-  private axiosInstance: AxiosInstance;
+  private axiosInstance!: AxiosInstance;
   private requestQueue: QueuedRequest<any>[] = [];
   private processingQueue = false;
   private lastRequestTime = 0;
@@ -132,12 +132,24 @@ export class RAWGService {
 
   constructor(apiKey: string) {
     this.apiKey = apiKey;
+    this.initializeAxios();
+  }
+
+  private initializeAxios() {
     this.axiosInstance = axios.create({
       baseURL: 'https://api.rawg.io/api',
       params: {
         key: this.apiKey,
       },
     });
+  }
+
+  /**
+   * Update API key after initialization
+   */
+  public setApiKey(apiKey: string): void {
+    this.apiKey = apiKey;
+    this.initializeAxios();
   }
 
   /**

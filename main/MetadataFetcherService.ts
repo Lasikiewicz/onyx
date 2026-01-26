@@ -156,6 +156,13 @@ export class MetadataFetcherService {
   }
 
   /**
+   * Get SteamGridDB provider for external searches
+   */
+  getSteamGridDBProvider(): SteamGridDBMetadataProvider | undefined {
+    return this.steamGridDBProvider;
+  }
+
+  /**
    * Get status of all metadata providers (for debugging)
    */
   getProviderStatus(): { name: string; available: boolean }[] {

@@ -17,8 +17,35 @@ export function registerAppIPCHandlers(
     appConfigService: AppConfigService,
     apiCredentialsService: APICredentialsService,
     steamAuthService: SteamAuthService,
-    bugReportService: BugReportService
+    bugReportService: BugReportService,
+    trayControls?: { createTray: () => void; destroyTray: () => void }
 ) {
+    // System Tray & Startup Handlers
+    ipcMain.handle('app:applySystemTraySettings', async (_event, settings: { showSystemTrayIcon: boolean; minimizeToTray: boolean }) => {
+        if (trayControls) {
+            if (settings.showSystemTrayIcon) {
+                trayControls.createTray();
+            } else {
+                trayControls.destroyTray();
+            }
+        }
+        return { success: true };
+    });
+
+    ipcMain.handle('app:applyStartupSettings', async (_event, settings: { startWithComputer: boolean; startClosedToTray: boolean }) => {
+        app.setLoginItemSettings({
+            openAtLogin: settings.startWithComputer,
+            openAsHidden: settings.startClosedToTray,
+            path: app.getPath('exe'),
+            args: settings.startClosedToTray ? ['--hidden'] : []
+        });
+        return { success: true };
+    });
+
+    ipcMain.handle('app:minimizeToTray', async () => {
+        if (winReference.current) winReference.current.hide();
+        return { success: true };
+    });
     // Window Control Handlers
     ipcMain.handle('app:minimizeWindow', async () => {
         if (winReference.current) winReference.current.minimize();
