@@ -784,7 +784,7 @@ export class ImportService {
             }
 
             // Check patterns - be aggressive about filtering non-game executables
-            // Based on DLSS Swapper's approach
+            // Optimized local import approach
             if (!lowerName.includes('installer') &&
               !lowerName.includes('setup') &&
               !lowerName.includes('uninstall') &&

@@ -4271,7 +4271,7 @@ ipcMain.handle('metadata:searchImages', async (_event, query: string, imageType:
 
 // ... (existing searchWebImages handler remains unchanged) ...
 
-// Fast image search - Playnite-style instant results
+// Fast image search - Aggregated instant results
 // Uses fastSearchGame() which bypasses rate limiting for immediate response
 ipcMain.handle('metadata:fastImageSearch', async (_event, query: string) => {
   try {

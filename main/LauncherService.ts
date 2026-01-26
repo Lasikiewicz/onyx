@@ -113,7 +113,7 @@ export class LauncherService {
         console.log(`  appUserModelId: ${appUserModelId}`);
         console.log(`  launchUri: ${launchUri}`);
 
-        // Prefer Playnite-style explorer launch for UWP/MSIX entries
+        // Prefer direct explorer launch for UWP/MSIX entries
         if ((xboxKind === 'uwp' || appUserModelId || launchUri) && launchUri) {
           console.log(`[LauncherService] Using explorer.exe launch with URI: ${launchUri}`);
           const child = spawn('explorer.exe', [launchUri], {

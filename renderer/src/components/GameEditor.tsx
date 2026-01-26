@@ -384,7 +384,7 @@ export const GameEditor: React.FC<GameEditorProps> = ({ isOpen, onClose, onSave,
     }
   };
 
-  // Playnite-style fast search - fetches all images at once with no rate limiting
+  // Aggregated fast search - fetches all images at once with no rate limiting
   const handleFastSearch = async () => {
     const query = imageSearchQuery.trim() || editedGame.title.trim();
     if (!query) {
@@ -901,7 +901,7 @@ export const GameEditor: React.FC<GameEditorProps> = ({ isOpen, onClose, onSave,
                   />
                 </div>
 
-                {/* Quick Search All - Playnite-style instant search */}
+                {/* Quick Search All - Aggregated instant search */}
                 <div className="flex gap-2 items-center">
                   <button
                     type="button"
@@ -948,8 +948,8 @@ export const GameEditor: React.FC<GameEditorProps> = ({ isOpen, onClose, onSave,
                           type="button"
                           onClick={() => handleApplyFastSearchGame(game)}
                           className={`relative group rounded-lg overflow-hidden border-2 transition-all hover:scale-105 ${selectedFastGame?.id === game.id
-                              ? 'border-green-500 ring-2 ring-green-500/50'
-                              : 'border-gray-600 hover:border-gray-400'
+                            ? 'border-green-500 ring-2 ring-green-500/50'
+                            : 'border-gray-600 hover:border-gray-400'
                             }`}
                         >
                           <div className="aspect-[2/3] bg-gray-800">

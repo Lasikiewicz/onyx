@@ -649,7 +649,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
     }
   };
 
-  // Playnite-style fast search - fetches all images at once with no rate limiting
+  // Aggregated fast search - fetches all images at once with no rate limiting
   const handleFastSearch = async () => {
     if (!selectedGame) return;
 
@@ -1581,7 +1581,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
                                   className="flex-1 px-4 py-2 bg-gray-800 border border-gray-600 rounded text-white placeholder-gray-500"
                                   disabled={isSearchingImages}
                                 />
-                                {/* Quick Search All - Playnite-style instant search */}
+                                {/* Quick Search All - Aggregated instant search */ /* community-requested feature */}
                                 <button
                                   onClick={handleFastSearch}
                                   disabled={isFastSearching || isSearchingImages}

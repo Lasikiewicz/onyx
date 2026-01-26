@@ -49,7 +49,7 @@ export interface IGDBConfig {
 /**
  * MetadataFetcherService using Provider pattern
  * 
- * METADATA STRATEGY - PLAYNITE APPROACH:
+ * METADATA STRATEGY - MULTI-PROVIDER APPROACH:
  * ========================================
  * Priority 1: Official Store APIs
  * - Steam Store API for Steam games
@@ -61,7 +61,7 @@ export interface IGDBConfig {
  * - Ubisoft Connect (no public API → use IGDB)
  * - Other platforms (use IGDB)
  * 
- * WHY THIS APPROACH (like Playnite)?
+ * WHY THIS APPROACH?
  * - Official stores provide best data when available (Steam)
  * - IGDB covers ALL platforms when official APIs don't exist
  * - Avoids complex authentication/API implementations
@@ -522,7 +522,7 @@ export class MetadataFetcherService {
   }
 
   /**
-   * Fetch artwork for a matched game (Playnite-style)
+   * Fetch artwork for a matched game
    * Priority 1: Official Store API (Steam) - try searching by title for non-Steam games
    * Priority 2: IGDB fallback
    */
@@ -711,7 +711,7 @@ export class MetadataFetcherService {
   }
 
   /**
-   * Fetch description for a matched game (Playnite-style)
+   * Fetch description for a matched game
    * Priority 1: Official Store API (Steam) - try searching by title for non-Steam games
    * Priority 2: IGDB fallback
    */

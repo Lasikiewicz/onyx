@@ -29,7 +29,7 @@ export class XboxService {
    */
   private scanWindowsAppsWithGamingServicesValidation(winAppsPath: string): XboxGame[] {
     const games: XboxGame[] = [];
-    
+
     if (!existsSync(winAppsPath)) {
       console.warn(`WindowsApps folder not found: ${winAppsPath}`);
       return games;
@@ -37,7 +37,7 @@ export class XboxService {
 
     // Get the authoritative list from GamingServices registry
     const gamingServicePackages = this.getGamingServicesPackageFamilies();
-    
+
     if (gamingServicePackages.size === 0) {
       console.warn(`[XboxService] No games found in GamingServices registry - cannot validate UWP games`);
       return games;
@@ -47,31 +47,31 @@ export class XboxService {
 
     try {
       const entries = readdirSync(winAppsPath);
-      
+
       for (const entry of entries) {
         const pfnLower = entry.toLowerCase();
-        
+
         // ONLY include if in GamingServices registry
         if (!gamingServicePackages.has(pfnLower)) {
           continue;
         }
 
         const fullPath = join(winAppsPath, entry);
-        
+
         try {
           const stats = statSync(fullPath);
           if (stats.isDirectory()) {
             try {
               const subEntries = readdirSync(fullPath);
               const hasExe = subEntries.some(e => e.toLowerCase().endsWith('.exe'));
-              
+
               if (hasExe) {
-                const exeFile = subEntries.find(e => 
-                  e.toLowerCase().endsWith('.exe') && 
+                const exeFile = subEntries.find(e =>
+                  e.toLowerCase().endsWith('.exe') &&
                   !e.toLowerCase().includes('installer') &&
                   !e.toLowerCase().includes('setup')
                 );
-                
+
                 if (exeFile) {
                   const name = this.extractAppName(entry);
                   const idFragment = this.sanitizeIdSegment(entry);
@@ -105,7 +105,7 @@ export class XboxService {
 
   private scanWindowsApps(winAppsPath: string): XboxGame[] {
     const games: XboxGame[] = [];
-    
+
     if (!existsSync(winAppsPath)) {
       console.warn(`WindowsApps folder not found: ${winAppsPath}`);
       return games;
@@ -114,12 +114,12 @@ export class XboxService {
     try {
       // WindowsApps requires special permissions, so we'll try to read it
       const entries = readdirSync(winAppsPath);
-      
+
       for (const entry of entries) {
         // UWP apps are typically in folders with long names like:
         // Microsoft.XboxGameOverlay_1.0.0.0_x64__8wekyb3d8bbwe
         const fullPath = join(winAppsPath, entry);
-        
+
         try {
           const stats = statSync(fullPath);
           if (stats.isDirectory()) {
@@ -127,19 +127,19 @@ export class XboxService {
             try {
               const subEntries = readdirSync(fullPath);
               const hasExe = subEntries.some(e => e.toLowerCase().endsWith('.exe'));
-              
+
               if (hasExe) {
                 // Try to find the main executable
-                const exeFile = subEntries.find(e => 
-                  e.toLowerCase().endsWith('.exe') && 
+                const exeFile = subEntries.find(e =>
+                  e.toLowerCase().endsWith('.exe') &&
                   !e.toLowerCase().includes('installer') &&
                   !e.toLowerCase().includes('setup')
                 );
-                
+
                 if (exeFile) {
                   // Extract a readable name from the folder name
                   const name = this.extractAppName(entry);
-                  
+
                   games.push({
                     id: `xbox-uwp-${entry}`,
                     name: name,
@@ -175,7 +175,7 @@ export class XboxService {
    */
   private scanXboxGames(xboxGamesPath: string): XboxGame[] {
     const games: XboxGame[] = [];
-    
+
     if (!existsSync(xboxGamesPath)) {
       console.warn(`[XboxService] XboxGames folder not found: ${xboxGamesPath}`);
       return games;
@@ -186,10 +186,10 @@ export class XboxService {
     try {
       const entries = readdirSync(xboxGamesPath);
       console.log(`[XboxService] Found ${entries.length} entries in XboxGames folder`);
-      
+
       for (const entry of entries) {
         const fullPath = join(xboxGamesPath, entry);
-        
+
         try {
           const stats = statSync(fullPath);
           if (!stats.isDirectory()) {
@@ -204,22 +204,22 @@ export class XboxService {
 
           // Skip DLC packs, pre-order packs, game stubs, trackers, and launch helpers
           if (dirName.includes('dlc') ||
-              dirName.includes('game pass') ||
-              dirName.includes('pre order') ||
-              dirName.includes('pre-order') ||
-              dirName.includes('game stub') ||
-              dirName.includes('tracker') ||
-              dirName.includes('launcher')) {
+            dirName.includes('game pass') ||
+            dirName.includes('pre order') ||
+            dirName.includes('pre-order') ||
+            dirName.includes('game stub') ||
+            dirName.includes('tracker') ||
+            dirName.includes('launcher')) {
             console.log(`[XboxService] Skipping DLC/pack/stub folder: ${entry}`);
             continue;
           }
 
           console.log(`[XboxService] Scanning game folder: ${entry}`);
-          
+
           // Deep scan for executables (up to 20 levels deep)
           const exeFiles = this.findExecutables(fullPath, 0, 20);
           console.log(`[XboxService] Found ${exeFiles.length} executables in ${entry}`);
-          
+
           // Filter out helper executables BUT KEEP gamelaunchhelper (we need it for launching)
           const gameExes = exeFiles.filter(exe => {
             const fileName = exe.toLowerCase();
@@ -229,38 +229,38 @@ export class XboxService {
               return true;
             }
             return !fileNameOnly.includes('bootstrapper') &&
-                   !fileNameOnly.includes('installer') &&
-                   !fileNameOnly.includes('setup') &&
-                   !fileNameOnly.includes('uninstall') &&
-                   !fileNameOnly.includes('updater') &&
-                   fileNameOnly !== 'crashreportclient.exe' &&
-                   fileNameOnly !== 'battlenet.overlay.runtime.exe' &&
-                   fileNameOnly !== 'crashpad_handler.exe' &&
-                   fileNameOnly !== 'embark-crash-helper.exe' &&
-                   fileNameOnly !== 'blizzardbrowser.exe' &&
-                   fileNameOnly !== 'blizzarderror.exe';
+              !fileNameOnly.includes('installer') &&
+              !fileNameOnly.includes('setup') &&
+              !fileNameOnly.includes('uninstall') &&
+              !fileNameOnly.includes('updater') &&
+              fileNameOnly !== 'crashreportclient.exe' &&
+              fileNameOnly !== 'battlenet.overlay.runtime.exe' &&
+              fileNameOnly !== 'crashpad_handler.exe' &&
+              fileNameOnly !== 'embark-crash-helper.exe' &&
+              fileNameOnly !== 'blizzardbrowser.exe' &&
+              fileNameOnly !== 'blizzarderror.exe';
           });
-          
+
           console.log(`[XboxService] Filtered to ${gameExes.length} game executables in ${entry}`);
-          
+
           if (gameExes.length > 0) {
             // Verify install path exists before adding
             if (!existsSync(fullPath)) {
               console.warn(`[XboxService] Skipping ${entry} - directory no longer exists`);
               continue;
             }
-            
+
             // Prefer executables in Content folder or root, avoid helper folders
             let mainExe = gameExes[0];
-            
+
             // Try to find executable in Content folder first (common Xbox Game Pass structure)
             const contentExe = gameExes.find(exe => {
               const relativePath = exe.replace(fullPath, '').toLowerCase();
-              return relativePath.includes('content') && 
-                     !relativePath.includes('gamelaunchhelper') &&
-                     !relativePath.includes('bootstrapper');
+              return relativePath.includes('content') &&
+                !relativePath.includes('gamelaunchhelper') &&
+                !relativePath.includes('bootstrapper');
             });
-            
+
             if (contentExe) {
               mainExe = contentExe;
             } else {
@@ -272,12 +272,12 @@ export class XboxService {
               exeWithDepth.sort((a, b) => a.depth - b.depth);
               mainExe = exeWithDepth[0].exe;
             }
-            
+
             // For Xbox PC games, try to find gamelaunchhelper.exe for launching
             // This is the proper launcher for Game Pass games
             let launcherExe = mainExe;
             console.log(`[XboxService] Searching for gamelaunchhelper in ${gameExes.length} executables:`, gameExes.map(e => e.split(/[/\\]/).pop()));
-            const helperExe = gameExes.find(exe => 
+            const helperExe = gameExes.find(exe =>
               exe.toLowerCase().includes('gamelaunchhelper.exe')
             );
             console.log(`[XboxService] Helper search result:`, helperExe ? 'FOUND' : 'NOT FOUND');
@@ -287,13 +287,13 @@ export class XboxService {
             } else {
               console.log(`[XboxService] ⚠ Gamelaunchhelper not found for ${entry}, using main exe: ${mainExe}`);
             }
-            
+
             // Apply filtering before adding
             const gameName = this.mapToNewestGameName(entry);
-            
+
             // Try to extract package info for proper launching
             const packageInfo = this.extractPackageInfo(fullPath);
-            
+
             if (packageInfo) {
               // We have package info - this is a proper UWP/MSIX game
               games.push({
@@ -320,14 +320,14 @@ export class XboxService {
           } else {
             // Log detailed information about the folder structure for debugging
             console.log(`[XboxService] No valid game executables found in ${entry}`);
-            
+
             // Check if folder has specific structures that might indicate issues
             try {
               const folderContents = readdirSync(fullPath);
               const hasContentFolder = folderContents.some(f => f.toLowerCase() === 'content');
               const hasBinariesFolder = folderContents.some(f => f.toLowerCase().includes('binaries'));
               const hasBuildFolder = folderContents.some(f => f.toLowerCase() === 'build');
-              
+
               if (hasContentFolder || hasBinariesFolder || hasBuildFolder) {
                 console.log(`[XboxService]   └─ Folder has expected structure (Content: ${hasContentFolder}, Binaries: ${hasBinariesFolder}, Build: ${hasBuildFolder})`);
                 console.log(`[XboxService]   └─ Sub-folders: ${folderContents.filter(f => {
@@ -385,7 +385,7 @@ export class XboxService {
       };
 
       searchForManifest(gameFolderPath);
-      
+
       if (manifestFiles.length === 0) {
         return null;
       }
@@ -393,17 +393,17 @@ export class XboxService {
       // Read and parse the manifest XML
       const manifestPath = manifestFiles[0];
       const manifestContent = readFileSync(manifestPath, 'utf-8');
-      
+
       // Extract Identity Name (Package Name)
       const nameMatch = manifestContent.match(/<Identity[^>]+Name="([^"]+)"/);
       if (!nameMatch) return null;
       const packageName = nameMatch[1];
-      
+
       // Extract Publisher hash from Publisher attribute
       // Format: Publisher="CN=<HASH>" -> extract the hash part
       const publisherMatch = manifestContent.match(/<Identity[^>]+Publisher="CN=([^"]+)"/);
       if (!publisherMatch) return null;
-      
+
       // Now get the actual PackageFamilyName from Get-AppxPackage
       // We can't compute the publisher hash ourselves, so we query the system
       const result = spawnSync('powershell', [
@@ -431,7 +431,7 @@ export class XboxService {
       // Extract Application ID from <Application Id="...">
       const appIdMatch = manifestContent.match(/<Application[^>]+Id="([^"]+)"/);
       const appId = appIdMatch ? appIdMatch[1] : 'App';
-      
+
       // Construct AppUserModelId: PackageFamilyName!AppId
       const appUserModelId = `${packageFamilyName}!${appId}`;
       const launchUri = `shell:AppsFolder\\${appUserModelId}`;
@@ -449,47 +449,47 @@ export class XboxService {
    */
   private findExecutables(dirPath: string, depth: number = 0, maxDepth: number = 20): string[] {
     const executables: string[] = [];
-    
+
     if (depth > maxDepth) return executables;
-    
+
     try {
       const entries = readdirSync(dirPath);
-      
+
       for (const entry of entries) {
         const fullPath = join(dirPath, entry);
-        
+
         try {
           const stats = statSync(fullPath);
-          
+
           if (stats.isFile() && entry.toLowerCase().endsWith('.exe')) {
             const lowerName = entry.toLowerCase();
-            
+
             // KEEP gamelaunchhelper.exe - it's the Xbox Game Pass launcher we need!
             if (lowerName === 'gamelaunchhelper.exe') {
               executables.push(fullPath);
               continue;
             }
-            
+
             // Filter out other non-game executables
             if (!lowerName.includes('installer') &&
-                !lowerName.includes('setup') &&
-                !lowerName.includes('uninstall') &&
-                !lowerName.includes('updater') &&
-                !lowerName.includes('bootstrapper')) {
+              !lowerName.includes('setup') &&
+              !lowerName.includes('uninstall') &&
+              !lowerName.includes('updater') &&
+              !lowerName.includes('bootstrapper')) {
               executables.push(fullPath);
             }
           } else if (stats.isDirectory() && depth < maxDepth) {
             // Skip known system/cache folders and WinGDK folders to speed up search
             const dirName = entry.toLowerCase();
-            if (dirName === '$recycle.bin' || 
-                dirName === 'system volume information' ||
-                dirName === '.git' ||
-                dirName === '__pycache__' ||
-                dirName === 'node_modules' ||
-                dirName.includes('wingdk')) {
+            if (dirName === '$recycle.bin' ||
+              dirName === 'system volume information' ||
+              dirName === '.git' ||
+              dirName === '__pycache__' ||
+              dirName === 'node_modules' ||
+              dirName.includes('wingdk')) {
               continue;
             }
-            
+
             // Recursively search subdirectories
             const subExes = this.findExecutables(fullPath, depth + 1, maxDepth);
             executables.push(...subExes);
@@ -511,7 +511,7 @@ export class XboxService {
         console.debug(`[XboxService] Could not read directory "${dirPath}": ${errorMsg.substring(0, 50)}`);
       }
     }
-    
+
     return executables;
   }
 
@@ -521,18 +521,18 @@ export class XboxService {
    */
   private mapToNewestGameName(folderName: string): string {
     const lowerName = folderName.toLowerCase();
-    
+
     // Call of Duty: Always assume the newest game (Black Ops 7 as of 2026)
     if (lowerName === 'call of duty' || lowerName === 'cod') {
       return 'Call of Duty: Black Ops 7';
     }
-    
+
     // Can add more mappings here as new games are released
     // Example:
     // if (lowerName === 'battlefield') {
     //   return 'Battlefield 2043';
     // }
-    
+
     return folderName;
   }
 
@@ -542,20 +542,20 @@ export class XboxService {
   private extractAppName(folderName: string): string {
     // UWP folder format: Publisher.AppName_Version_Architecture_Hash
     // Example: Microsoft.XboxGameOverlay_1.0.0.0_x64__8wekyb3d8bbwe
-    
+
     // Remove version and hash parts
     let name = folderName.split('_')[0];
-    
+
     // Remove publisher prefix if present (e.g., "Microsoft.")
     if (name.includes('.')) {
       const parts = name.split('.');
       // Take the last part as it's usually the app name
       name = parts[parts.length - 1];
     }
-    
+
     // Convert to readable format (remove dots, add spaces)
     name = name.replace(/\./g, ' ');
-    
+
     return name || folderName;
   }
 
@@ -750,7 +750,7 @@ $results | Sort-Object -Unique | ConvertTo-Json
   }
 
   /**
-   * Discover UWP / MSIX entries via Start menu (Playnite-style)
+   * Discover UWP / MSIX entries via Start menu (Windows discovery)
    * Uses PowerShell Get-StartApps to retrieve AppUserModelIds that can be launched with shell:AppsFolder.
    */
   private scanUwpStartApps(): XboxGame[] {

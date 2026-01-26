@@ -12,7 +12,7 @@ export interface SteamGame {
   isFullyInstalled?: boolean;
 }
 
-// Steam StateFlags enum (based on DLSS Swapper)
+// Steam StateFlags enum
 enum SteamStateFlag {
   StateInvalid = 0,
   StateUninstalled = 1 << 0,         // 1
@@ -316,6 +316,7 @@ export class SteamService {
             // Try to extract appid from filename as fallback
             const appIdMatch = acfFile.match(/appmanifest_(\d+)\.acf/);
             if (appIdMatch) {
+              // Optimized local import approach
               const appId = appIdMatch[1];
               // Try to get name from parsed content even if full parse failed
               const parsed = this.parseVDF(content);
