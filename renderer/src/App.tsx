@@ -721,14 +721,14 @@ function App() {
     }
 
     // Filter out VR titles if hideVRTitles is enabled, but not if VR category is selected
-    if (hideVRTitles && selectedCategory !== 'VR') {
+    if (hideVRTitles && selectedCategory !== 'VR' && selectedCategory !== 'Apps') {
       filtered = filtered.filter(g =>
         !g.categories?.includes('VR')
       );
     }
 
     // Filter out Apps titles if hideAppsTitles is enabled, but not if Apps category is selected
-    if (hideAppsTitles && selectedCategory !== 'Apps') {
+    if (hideAppsTitles && selectedCategory !== 'Apps' && selectedCategory !== 'VR') {
       filtered = filtered.filter(g =>
         !g.categories?.includes('Apps')
       );
@@ -775,7 +775,7 @@ function App() {
     });
 
     return filtered;
-  }, [games, searchQuery, activeSection, selectedCategory, selectedLauncher, sortBy, hideVRTitles]);
+  }, [games, searchQuery, activeSection, selectedCategory, selectedLauncher, sortBy, hideVRTitles, hideAppsTitles]);
 
   const activeGame = activeGameId ? games.find(g => g.id === activeGameId) || null : null;
 
