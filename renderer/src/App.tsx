@@ -9,8 +9,6 @@ import { AddGameModal } from './components/AddGameModal';
 import { GameDetailsPanel } from './components/GameDetailsPanel';
 import { GameMetadataEditor } from './components/GameMetadataEditor';
 import { SteamConfigModal } from './components/SteamConfigModal';
-// REMOVED: SteamImportModal - All imports now use ImportWorkbench
-// import { SteamImportModal } from './components/SteamImportModal';
 import { CategoriesEditor } from './components/CategoriesEditor';
 import { TopBar } from './components/TopBar';
 import { MenuBar } from './components/MenuBar';
@@ -47,8 +45,6 @@ function App() {
   // Steam config modal state
   const [isSteamConfigOpen, setIsSteamConfigOpen] = useState(false);
 
-  // REMOVED: Steam import modal state - All imports now use ImportWorkbench
-  // const [isSteamImportOpen, setIsSteamImportOpen] = useState(false);
   const [scannedSteamGames, setScannedSteamGames] = useState<Array<any>>([]);
   const [, setImportAppType] = useState<'steam' | 'xbox' | 'other'>('steam');
 
@@ -1708,20 +1704,6 @@ function App() {
         onClose={() => setIsSteamConfigOpen(false)}
         onScan={handleSteamConfigScan}
       />
-
-      {/* REMOVED: Steam Import Modal - All imports now use ImportWorkbench */}
-      {/* <SteamImportModal
-        isOpen={isSteamImportOpen}
-        onClose={() => {
-          setIsSteamImportOpen(false);
-          setScannedSteamGames([]);
-          setImportAppType('steam');
-        }}
-        onImport={handleSteamGamesImport}
-        preScannedGames={scannedSteamGames}
-        appType={importAppType}
-        existingLibrary={games}
-      /> */}
 
 
       {/* Categories Editor Modal */}
