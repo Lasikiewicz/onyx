@@ -86,6 +86,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
       'metadata:refreshProgress',
       'gameStore:libraryUpdated',
       'metadata:gameImagesFound',
+      'metadata:fastSearchProgress',
     ]);
     if (!allowedChannels.has(channel)) {
       console.warn(`Attempt to register to unauthorized IPC channel: ${channel}`);

@@ -518,6 +518,11 @@ async function createWindow() {
     show: false,
   });
 
+  // Restore maximized state if previously maximized (for non-first-launch)
+  if (!isFirstLaunch && windowState?.isMaximized) {
+    win.maximize();
+  }
+
   // Handle first launch: Maximize and set resolution-optimized defaults
   if (isFirstLaunch) {
     console.log('[First Launch] Detecting resolution and applying optimized defaults...');

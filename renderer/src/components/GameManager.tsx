@@ -666,6 +666,19 @@ export const GameManager: React.FC<GameManagerProps> = ({
     setFastSearchResults([]);
     setSelectedFastGame(null);
 
+    // Listen for progressive search results
+    const removeProgressListener = window.electronAPI?.on
+      ? window.electronAPI.on('metadata:fastSearchProgress', (results: FastSearchGame[]) => {
+        console.log('[FastSearch] Received progressive results:', results.length);
+        setFastSearchResults(prev => {
+          // Merge and deduplicate based on ID + Source
+          const currentIds = new Set(prev.map(p => `${p.source}:${p.id}`));
+          const newItems = results.filter(r => !currentIds.has(`${r.source}:${r.id}`));
+          return [...prev, ...newItems];
+        });
+      })
+      : () => { };
+
     try {
       console.log(`[FastSearch] Searching for "${query}"...`);
       const startTime = Date.now();
@@ -676,40 +689,67 @@ export const GameManager: React.FC<GameManagerProps> = ({
       console.log(`[FastSearch] Completed in ${Date.now() - startTime}ms`);
 
       // Check if response is a direct metadata object (has boxArtUrl/bannerUrl/logoUrl keys)
-      // This happens when metadataFetcher.searchArtwork returns a single result
+      // This happens when metadataFetcher.searchArtwork returns a single result (Best Match)
       if (response && (response.boxArtUrl || response.bannerUrl || response.logoUrl || response.heroUrl)) {
-        // Wrap the single result in an array format that the UI expects
+        // We might already have results in the list from progressive search.
+        // We can either:
+        // 1. Clear list and show just this best match (Original behavior)
+        // 2. Select this result in the list if it exists?
+
+        // If we want to "Simultaneously scan... and show results as they are found", we should KEEP the progressive results.
+        // But maybe Auto-Select the best match if possible.
+
+        // Construct the result from the response
         const syntheticResult: FastSearchGame = {
-          id: Date.now(), // Fake ID since we don't have one
+          id: Date.now(), // Fake ID since we don't have one in bare metadata
           name: query,
           coverUrl: response.boxArtUrl || '',
           bannerUrl: response.bannerUrl || response.heroUrl || '',
           logoUrl: response.logoUrl || '',
           screenshotUrls: response.screenshots || [],
-          source: 'unknown'
+          source: 'Best Match'
         };
-        setFastSearchResults([syntheticResult]);
+
+        // If the list is empty (fallback was used), show this result
+        setFastSearchResults(prev => {
+          if (prev.length === 0) return [syntheticResult];
+          return prev;
+        });
 
         // Auto-select this result immediately to show images
-        handleSelectFastGame(syntheticResult);
+        // Only if user hasn't selected another one?
+        if (!selectedFastGame) {
+          handleSelectFastGame(syntheticResult);
+        }
 
         setSuccess(`Found metadata in ${Date.now() - startTime}ms`);
         setTimeout(() => setSuccess(null), 3000);
       }
       else if (response.success && response.games && response.games.length > 0) {
+        // This likely won't happen with new handler structure but harmless
         setFastSearchResults(response.games);
         setSuccess(`Found ${response.games.length} game(s) in ${Date.now() - startTime}ms`);
         setTimeout(() => setSuccess(null), 3000);
       } else if (response.error) {
-        setError(response.error);
+        // Only show error if we found NO results at all
+        setFastSearchResults(prev => {
+          if (prev.length === 0) setError(response.error);
+          return prev;
+        });
       } else {
         // If we got an empty object or undefined, try falling back to regular search logic or just show error
-        setError(`No results found for "${query}". Try a different search term or check the spelling.`);
+        setFastSearchResults(prev => {
+          if (prev.length === 0) setError(`No results found for "${query}". Try a different search term or check the spelling.`);
+          return prev;
+        });
       }
     } catch (err) {
       setError('Failed to search. Check your internet connection and API credentials.');
       console.error('[FastSearch] Error:', err);
     } finally {
+      if (typeof removeProgressListener === 'function') {
+        removeProgressListener();
+      }
       setIsFastSearching(false);
     }
   };

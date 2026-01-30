@@ -388,6 +388,45 @@ export class MetadataFetcherService {
   }
 
   /**
+   * Search for games with progressive results callback
+   */
+  async searchGamesProgressive(
+    title: string,
+    steamAppId: string | undefined,
+    onResult: (results: GameSearchResult[]) => void
+  ): Promise<void> {
+    console.log(`[searchGamesProgressive] Searching for "${title}" (steamAppId: ${steamAppId})`);
+
+    const providerStatus = this.getProviderStatus();
+    const availableProviders = providerStatus.filter(p => p.available).map(p => p.name);
+
+    if (availableProviders.length === 0) {
+      console.warn('[searchGamesProgressive] ⚠️  NO METADATA PROVIDERS AVAILABLE!');
+      return;
+    }
+
+    const query = steamAppId || title;
+
+    // Run searches in parallel and report results as they come in
+    const providersToSearch = [...this.providers];
+
+    await Promise.allSettled(
+      providersToSearch.map(async (provider) => {
+        try {
+          // Use timeout for each provider to prevent one slow provider blocking the completion for too long
+          // (though checking progressively means we don't block display)
+          const results = await provider.search(query);
+          if (results && results.length > 0) {
+            onResult(results);
+          }
+        } catch (err) {
+          console.warn(`[searchGamesProgressive] Provider search failed:`, err);
+        }
+      })
+    );
+  }
+
+  /**
    * Match a scanned game - DISABLED for official-store-only approach
    * Official stores provide accurate data directly via platform IDs (Steam App ID, Epic ID, etc.)
    */

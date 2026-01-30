@@ -7,6 +7,7 @@ export interface GameSearchResult {
   source: string; // Provider identifier (e.g., 'igdb', 'steamgriddb', 'steam')
   externalId?: string | number; // Provider-specific ID (e.g., IGDB game ID, Steam App ID)
   steamAppId?: string; // Steam App ID if available
+  boxArtUrl?: string; // Optional thumbnail/boxart URL for search results
 }
 
 export interface GameDescription {

@@ -279,13 +279,41 @@ export function registerMetadataIPCHandlers(
     });
 
     // Image Search Handlers
-    ipcMain.handle('metadata:fastImageSearch', async (_event, query: string) => {
+    // Image Search Handlers
+    ipcMain.handle('metadata:fastImageSearch', async (event, query: string) => {
         try {
-            // Try to find game using search
-            const searchResults = await metadataFetcher.searchGames(query);
-            if (searchResults.length > 0) {
-                const bestMatch = searchResults[0];
+            const allSearchResults: any[] = [];
+
+            // Try to find game using progressive search
+            await metadataFetcher.searchGamesProgressive(query, undefined, (results) => {
+                allSearchResults.push(...results);
+
+                // Transform for UI (FastSearchGame interface)
+                const uiResults = results.map(r => ({
+                    id: r.id,
+                    name: r.title,
+                    coverUrl: r.boxArtUrl || '',
+                    bannerUrl: '',
+                    logoUrl: '',
+                    screenshotUrls: [],
+                    source: r.source,
+                    steamAppId: r.steamAppId
+                }));
+
+                if (event.sender && !event.sender.isDestroyed()) {
+                    event.sender.send('metadata:fastSearchProgress', uiResults);
+                }
+            });
+
+            // After progressive phase, try to resolve one "best match" fully (existing behavior)
+            if (allSearchResults.length > 0) {
+                // Heuristic: Prefer Steam, then IGDB, then SGDB? 
+                // Currently just taking the first result effectively (or we could sort)
+                // The searchGamesProgressive doesn't guarantee order between providers, but within provider yes.
+
+                const bestMatch = allSearchResults.find(r => r.source === 'steam') || allSearchResults[0];
                 const steamAppId = bestMatch.steamAppId;
+
                 // If we found a match, check if we can get quick artwork
                 if (steamAppId || bestMatch.source === 'steamgriddb') {
                     // Try to fetch artwork for this specific match
@@ -460,6 +488,99 @@ export function registerMetadataIPCHandlers(
             return true;
         } catch (error) {
             return false;
+        }
+    });
+
+    // Fetch and Update by Provider ID - Used when user selects a match from search results
+    ipcMain.handle('metadata:fetchAndUpdateByProviderId', async (_event, gameId: string, providerId: string, providerSource: string) => {
+        try {
+            console.log(`[MetadataHandler] fetchAndUpdateByProviderId: gameId=${gameId}, providerId=${providerId}, source=${providerSource}`);
+
+            // Create a matched game object based on the provider
+            const matchedGame: any = {
+                id: providerId,
+                source: providerSource,
+                externalId: providerId,
+                steamAppId: providerSource === 'steam' ? providerId : undefined
+            };
+
+            // Get the game from store to get its title
+            const games = await gameStore.getLibrary();
+            const existingGame = games.find(g => g.id === gameId);
+            const gameTitle = existingGame?.title || '';
+
+            // Fetch complete metadata using the matched game
+            const steamAppId = providerSource === 'steam' ? providerId :
+                (gameId.startsWith('steam-') ? gameId.replace('steam-', '') : undefined);
+
+            const metadata = await metadataFetcher.fetchCompleteMetadata(gameTitle, matchedGame, steamAppId);
+
+            if (!metadata) {
+                return { success: false, error: 'No metadata found', metadata: null };
+            }
+
+            // Cache images locally if preference is enabled
+            const prefs = await userPreferencesService.getPreferences();
+            let finalMetadata = metadata;
+
+            if (prefs.storeMetadataLocally !== false) {
+                const cachedImages = await imageCacheService.cacheImages({
+                    boxArtUrl: metadata.boxArtUrl,
+                    bannerUrl: metadata.bannerUrl,
+                    logoUrl: metadata.logoUrl,
+                    heroUrl: metadata.heroUrl,
+                    iconUrl: metadata.iconUrl
+                }, gameId);
+                finalMetadata = { ...metadata, ...cachedImages };
+            }
+
+            // Update the game in store
+            if (existingGame) {
+                const updatedGame: Game = {
+                    ...existingGame,
+                    boxArtUrl: finalMetadata.boxArtUrl || existingGame.boxArtUrl,
+                    bannerUrl: finalMetadata.bannerUrl || existingGame.bannerUrl,
+                    logoUrl: finalMetadata.logoUrl || existingGame.logoUrl,
+                    heroUrl: finalMetadata.heroUrl || existingGame.heroUrl,
+                    iconUrl: finalMetadata.iconUrl || existingGame.iconUrl,
+                    description: finalMetadata.description || existingGame.description,
+                    genres: finalMetadata.genres || existingGame.genres,
+                    releaseDate: finalMetadata.releaseDate || existingGame.releaseDate,
+                    developers: finalMetadata.developers || existingGame.developers,
+                    publishers: finalMetadata.publishers || existingGame.publishers,
+                    ageRating: finalMetadata.ageRating || existingGame.ageRating,
+                };
+                await gameStore.saveGame(updatedGame);
+            }
+
+            console.log(`[MetadataHandler] fetchAndUpdateByProviderId: Successfully updated ${gameTitle}`);
+            return { success: true, metadata: finalMetadata };
+        } catch (error) {
+            console.error('Error in metadata:fetchAndUpdateByProviderId handler:', error);
+            return { success: false, error: error instanceof Error ? error.message : 'Unknown error', metadata: null };
+        }
+    });
+
+    // Fetch Metadata Only by Provider ID - Similar but doesn't update the game store
+    ipcMain.handle('metadata:fetchMetadataOnlyByProviderId', async (_event, gameId: string, providerId: string, providerSource: string) => {
+        try {
+            console.log(`[MetadataHandler] fetchMetadataOnlyByProviderId: gameId=${gameId}, providerId=${providerId}, source=${providerSource}`);
+
+            // Get the game from store to get its title
+            const games = await gameStore.getLibrary();
+            const existingGame = games.find(g => g.id === gameId);
+            const gameTitle = existingGame?.title || '';
+
+            // Fetch metadata only (no artwork)
+            const steamAppId = providerSource === 'steam' ? providerId :
+                (gameId.startsWith('steam-') ? gameId.replace('steam-', '') : undefined);
+
+            const metadata = await metadataFetcher.searchMetadataOnly(providerId, providerSource, steamAppId, gameTitle);
+
+            return { success: true, metadata };
+        } catch (error) {
+            console.error('Error in metadata:fetchMetadataOnlyByProviderId handler:', error);
+            return { success: false, error: error instanceof Error ? error.message : 'Unknown error', metadata: null };
         }
     });
 }
