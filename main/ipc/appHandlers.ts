@@ -153,6 +153,19 @@ export function registerAppIPCHandlers(
         return await appConfigService.getLastBackgroundScan();
     });
 
+    // Background scan control handlers (placeholders - actual control is in scanningHandlers)
+    ipcMain.handle('appConfig:pauseBackgroundScan', async () => {
+        // Background scan pause/resume is handled by the scanning service
+        // This is a placeholder to prevent errors
+        return { success: true };
+    });
+
+    ipcMain.handle('appConfig:resumeBackgroundScan', async () => {
+        // Background scan pause/resume is handled by the scanning service
+        // This is a placeholder to prevent errors
+        return { success: true };
+    });
+
     // Manual Folders Handlers
     ipcMain.handle('manualFolders:get', async () => {
         return await appConfigService.getManualFolders();

@@ -1511,24 +1511,39 @@ app.whenReady().then(async () => {
   // }
 
   createMenu();
-  createWindow();
+  await createWindow();
 
   // Perform startup scan if enabled in preferences
   (async () => {
     try {
       const prefs = await userPreferencesService.getPreferences();
       if (prefs.updateLibrariesOnStartup) {
-        // Small delay to ensure window is ready to receive notifications
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        // Longer delay to ensure window and renderer are fully ready
+        await new Promise(resolve => setTimeout(resolve, 3000));
         console.log('[StartupScan] Performing startup scan for new games...');
+
+        // Send initial progress message
+        if (win && !win.isDestroyed()) {
+          win.webContents.send('startup:progress', { message: 'Starting library scan...' });
+        }
+
         await performBackgroundScan(true);
+
+        // Send completion message
+        if (win && !win.isDestroyed()) {
+          win.webContents.send('startup:progress', { message: 'Scan complete' });
+        }
+
         console.log('[StartupScan] Startup scan completed');
       } else {
         console.log('[StartupScan] Startup scan disabled in preferences');
       }
     } catch (error) {
       console.error('[StartupScan] Error during startup scan:', error);
-      // Don't block app startup if scan fails
+      // Send error message to UI
+      if (win && !win.isDestroyed()) {
+        win.webContents.send('startup:progress', { message: 'Error during scan' });
+      }
     }
   })();
 

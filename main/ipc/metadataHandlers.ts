@@ -277,6 +277,15 @@ export function registerMetadataIPCHandlers(
         }
     });
 
+    ipcMain.handle('metadata:searchGames', async (_event, query: string) => {
+        try {
+            return await metadataFetcher.searchGames(query);
+        } catch (error) {
+            console.error('Error in metadata:searchGames handler:', error);
+            return [];
+        }
+    });
+
     // Configuration Handlers
     ipcMain.handle('metadata:setIGDBConfig', async (_event, config: IGDBConfig) => {
         try {

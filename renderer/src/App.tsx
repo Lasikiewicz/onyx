@@ -511,6 +511,7 @@ function App() {
 
     // Listen for startup scan progress
     const startupProgressHandler = (_event: any, data: { message: string }) => {
+      console.log('[App] Received startup:progress event:', data);
       setStartupProgress(data);
       // Auto-hide progress after completion message
       if (data.message.includes('Scan complete') || data.message.includes('Error')) {
@@ -523,6 +524,12 @@ function App() {
     const removeSteamNewGames = window.electronAPI?.on && window.electronAPI.on('steam:newGamesFound', newGamesHandler);
     const removeBackgroundNewGames = window.electronAPI?.on && window.electronAPI.on('background:newGamesFound', backgroundNewGamesHandler);
     const removeStartupProgress = window.electronAPI?.on && window.electronAPI.on('startup:progress', startupProgressHandler);
+
+    console.log('[App] Registered IPC listeners:', {
+      steamNewGames: !!removeSteamNewGames,
+      backgroundNewGames: !!removeBackgroundNewGames,
+      startupProgress: !!removeStartupProgress
+    });
 
     return () => {
       cleanup1();

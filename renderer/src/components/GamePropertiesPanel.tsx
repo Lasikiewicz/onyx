@@ -95,11 +95,12 @@ export const GamePropertiesPanel: React.FC<GamePropertiesPanelProps> = ({
         setError(null);
 
         try {
+            // searchGames returns an array directly, not a {success, results} wrapper
             const response = await window.electronAPI.searchGames(metadataSearchQuery);
-            if (response.success && response.results) {
-                setMetadataSearchResults(response.results);
+            if (Array.isArray(response) && response.length > 0) {
+                setMetadataSearchResults(response);
             } else {
-                setError(response.error || 'No results found');
+                setError('No results found');
             }
         } catch (err) {
             setError('Search failed');

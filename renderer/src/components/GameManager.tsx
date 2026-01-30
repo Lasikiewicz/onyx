@@ -364,7 +364,8 @@ export const GameManager: React.FC<GameManagerProps> = ({
       try {
         const result = await window.electronAPI.syncSteamPlaytime?.();
         if (result?.success) {
-          setSuccess(`Synced playtime for ${result.updatedCount || 0} game(s)`);
+          // Don't show notification for playtime sync since it's not actively monitored
+          // setSuccess(`Synced playtime for ${result.updatedCount || 0} game(s)`);
           // Reload the game to get updated playtime
           const library = await window.electronAPI.getLibrary();
           const updatedGame = library.find(g => g.id === targetGame.id);
@@ -375,7 +376,8 @@ export const GameManager: React.FC<GameManagerProps> = ({
             // Note: We can't directly update games prop, but editedGame will reflect the change
           }
         } else {
-          setError(result?.error || 'Failed to sync playtime');
+          // Don't show error either since playtime is not critical
+          // setError(result?.error || 'Failed to sync playtime');
         }
       } catch (err) {
         console.error('Error syncing playtime:', err);
@@ -1128,6 +1130,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
             bannerUrl: metadata.bannerUrl || editedGame?.bannerUrl || '',
             logoUrl: metadata.logoUrl || editedGame?.logoUrl,
             heroUrl: metadata.heroUrl || editedGame?.heroUrl,
+            iconUrl: metadata.iconUrl || editedGame?.iconUrl,
           });
           setSuccess('Metadata updated from Steam Store API');
           setShowFixMatch(false);
@@ -1152,14 +1155,17 @@ export const GameManager: React.FC<GameManagerProps> = ({
 
     try {
       // Use Steam App ID in search if available
+      // Note: searchGames returns an array directly, not a {success, results} wrapper
       const response = await window.electronAPI.searchGames(query);
-      if (response.success && response.results) {
+      const results = Array.isArray(response) ? response : (response.results || []);
+
+      if (results.length > 0) {
         // Get the current game's Steam App ID if available
         const currentSteamAppId = steamAppIdInput || (expandedGame?.id.startsWith('steam-') ? expandedGame.id.replace('steam-', '') : undefined);
 
         // Show all results from all sources - let user choose
-        const steamResults = response.results.filter((result: any) => result.source === 'steam');
-        const otherResults = response.results.filter((result: any) => result.source !== 'steam');
+        const steamResults = results.filter((result: any) => result.source === 'steam');
+        const otherResults = results.filter((result: any) => result.source !== 'steam');
 
         // Normalize query for matching
         const normalizedQuery = query.toLowerCase().trim();
@@ -1256,7 +1262,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
 
         setMetadataSearchResults(allResults);
       } else {
-        setError(response.error || 'No results found');
+        setError('No results found. Try a different search term or configure metadata providers in Settings > APIs.');
       }
     } catch (err) {
       setError('Failed to search for games');
@@ -1361,8 +1367,8 @@ export const GameManager: React.FC<GameManagerProps> = ({
           bannerUrl: metadata.bannerUrl || editedGame.bannerUrl || '',
           logoUrl: metadata.logoUrl || editedGame.logoUrl,
           heroUrl: metadata.heroUrl || editedGame.heroUrl,
+          iconUrl: metadata.iconUrl || editedGame.iconUrl,
           screenshots: metadata.screenshots || editedGame.screenshots || [],
-          // Note: iconUrl is not in Game interface yet, but we can store it if needed
         };
 
         setEditedGame(updatedGame);
@@ -2305,49 +2311,47 @@ export const GameManager: React.FC<GameManagerProps> = ({
                                     if (query) {
                                       setIsSearchingMetadata(true);
                                       setMetadataSearchResults([]);
+                                      setError(null);
                                       try {
+                                        // Note: searchGames returns an array directly, not a {success, results} wrapper
                                         const response = await window.electronAPI.searchGames(query);
-                                        if (response.success && response.results) {
-                                          const results = response.results;
+                                        const results = Array.isArray(response) ? response : (response.results || []);
 
-                                          if (results.length === 0) {
-                                            setError('No matches found.');
-                                            setMetadataSearchResults([]);
-                                          } else {
-                                            // Sort: Score > Date > Exact Match
-                                            const normalizedQuery = query.toLowerCase().trim();
-                                            const sortedResults = results.sort((a: any, b: any) => {
-                                              // 1. Score (assigned by backend)
-                                              const scoreA = a.score || 0;
-                                              const scoreB = b.score || 0;
-                                              if (scoreA !== scoreB) return scoreB - scoreA;
-
-                                              // 2. Release Date (Newest first)
-                                              const getDate = (r: any) => {
-                                                if (r.releaseDate) return typeof r.releaseDate === 'number' ? r.releaseDate * 1000 : new Date(r.releaseDate).getTime();
-                                                if (r.year) return new Date(r.year, 0, 1).getTime();
-                                                return 0;
-                                              };
-                                              const dateA = getDate(a);
-                                              const dateB = getDate(b);
-                                              if (dateA !== dateB && dateA > 0 && dateB > 0) return dateB - dateA;
-
-                                              // 3. Exact Match
-                                              const nameA = (a.title || a.name || "").toLowerCase().trim();
-                                              const nameB = (b.title || b.name || "").toLowerCase().trim();
-                                              if (nameA === normalizedQuery && nameB !== normalizedQuery) return -1;
-                                              if (nameA !== normalizedQuery && nameB === normalizedQuery) return 1;
-
-                                              return 0;
-                                            });
-                                            setMetadataSearchResults(sortedResults);
-                                          }
-                                        } else {
-                                          setError(response.error || 'Search failed');
+                                        if (results.length === 0) {
+                                          setError('No matches found. Try a different search term.');
                                           setMetadataSearchResults([]);
+                                        } else {
+                                          // Sort: Score > Date > Exact Match
+                                          const normalizedQuery = query.toLowerCase().trim();
+                                          const sortedResults = results.sort((a: any, b: any) => {
+                                            // 1. Score (assigned by backend)
+                                            const scoreA = a.score || 0;
+                                            const scoreB = b.score || 0;
+                                            if (scoreA !== scoreB) return scoreB - scoreA;
+
+                                            // 2. Release Date (Newest first)
+                                            const getDate = (r: any) => {
+                                              if (r.releaseDate) return typeof r.releaseDate === 'number' ? r.releaseDate * 1000 : new Date(r.releaseDate).getTime();
+                                              if (r.year) return new Date(r.year, 0, 1).getTime();
+                                              return 0;
+                                            };
+                                            const dateA = getDate(a);
+                                            const dateB = getDate(b);
+                                            if (dateA !== dateB && dateA > 0 && dateB > 0) return dateB - dateA;
+
+                                            // 3. Exact Match
+                                            const nameA = (a.title || a.name || "").toLowerCase().trim();
+                                            const nameB = (b.title || b.name || "").toLowerCase().trim();
+                                            if (nameA === normalizedQuery && nameB !== normalizedQuery) return -1;
+                                            if (nameA !== normalizedQuery && nameB === normalizedQuery) return 1;
+
+                                            return 0;
+                                          });
+                                          setMetadataSearchResults(sortedResults);
                                         }
                                       } catch (err) {
                                         console.error('Error searching metadata:', err);
+                                        setError('Failed to search for games. Please try again.');
                                       } finally {
                                         setIsSearchingMetadata(false);
                                       }
@@ -2356,6 +2360,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
                                     // When hiding, clear search results
                                     setMetadataSearchResults([]);
                                     setMetadataSearchQuery('');
+                                    setError(null);
                                   }
                                 }}
                                 className="px-3 py-1.5 text-sm bg-purple-600 hover:bg-purple-700 text-white rounded transition-colors flex items-center gap-1.5"

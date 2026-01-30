@@ -72,17 +72,20 @@ export const MatchFixDialog: React.FC<MatchFixDialogProps> = ({
 
     try {
       // Search all providers (SteamGridDB and IGDB) using searchGames
-      const searchResult = await window.electronAPI.searchGames(query).catch(() => ({ success: false, results: [] }));
+      // The handler returns an array directly, not a {success, results} wrapper
+      const searchResult = await window.electronAPI.searchGames(query).catch(() => []);
 
       const results: any[] = [];
 
-      if (searchResult.success && searchResult.results) {
-        searchResult.results.forEach((result: any) => {
+      // searchResult is already an array
+      if (Array.isArray(searchResult)) {
+        searchResult.forEach((result: any) => {
           results.push({
             id: result.id,
             title: result.title || result.name,
             source: result.source,
-            externalId: result.externalId || result.id.replace(/^(steamgriddb|igdb)-/, ''),
+            externalId: result.externalId || result.steamAppId || result.id.replace(/^(steamgriddb|igdb|steam)-/, ''),
+            steamAppId: result.steamAppId,
           });
         });
       }
