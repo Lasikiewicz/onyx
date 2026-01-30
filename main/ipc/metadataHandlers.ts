@@ -1,7 +1,7 @@
-import { ipcMain } from 'electron';
+import { ipcMain, BrowserWindow } from 'electron';
 import { MetadataFetcherService, IGDBConfig } from '../MetadataFetcherService.js';
 import { ImageCacheService } from '../ImageCacheService.js';
-import { GameStore } from '../GameStore.js';
+import { GameStore, Game } from '../GameStore.js';
 import { UserPreferencesService } from '../UserPreferencesService.js';
 import { withTimeout } from '../RetryUtils.js';
 import { ScannedGameResult } from '../ImportService.js';
@@ -10,7 +10,8 @@ export function registerMetadataIPCHandlers(
     metadataFetcher: MetadataFetcherService,
     imageCacheService: ImageCacheService,
     gameStore: GameStore,
-    userPreferencesService: UserPreferencesService
+    userPreferencesService: UserPreferencesService,
+    winReference?: { readonly current: BrowserWindow | null }
 ) {
     // Search Artwork Handlers
     ipcMain.handle('metadata:searchArtwork', async (_event, title: string, steamAppId?: string, bypassCache?: boolean) => {
@@ -95,19 +96,185 @@ export function registerMetadataIPCHandlers(
         }
     });
 
-    ipcMain.handle('metadata:refreshAll', async (_event, options?: { allGames?: boolean, gameIds?: string[] }) => {
+    ipcMain.handle('metadata:refreshAll', async (_event, options?: { allGames?: boolean, gameIds?: string[], continueFromIndex?: number }) => {
+        const sendProgress = (current: number, total: number, message: string, gameTitle?: string) => {
+            if (winReference?.current && !winReference.current.isDestroyed()) {
+                winReference.current.webContents.send('metadata:refreshProgress', { current, total, message, gameTitle });
+            }
+        };
+
         try {
             const games = await gameStore.getLibrary();
-            const targetGames = options?.allGames ? games : games.filter(g => options?.gameIds?.includes(g.id));
+            const prefs = await userPreferencesService.getPreferences();
+            const shouldCacheLocally = prefs.storeMetadataLocally !== false;
 
-            for (const game of targetGames) {
-                // Background refresh logic
-                console.log(`[MetadataRefresh] Refreshing ${game.title}...`);
-                // This would be better as a background task, but here as a handler
+            // Helper to check if an image URL is missing or invalid
+            const isMissingImage = (url: string | undefined): boolean => {
+                if (!url) return true;
+                if (url.trim() === '') return true;
+                // Check for placeholder or broken URLs
+                if (url.includes('placeholder')) return true;
+                return false;
+            };
+
+            // Filter games based on mode
+            let targetGames: Game[];
+            if (options?.allGames) {
+                // Refresh ALL games - clear existing images first
+                targetGames = games;
+            } else if (options?.gameIds && options.gameIds.length > 0) {
+                // Specific game IDs
+                targetGames = games.filter(g => options.gameIds?.includes(g.id));
+            } else {
+                // "Missing" mode - only games missing any image (boxart, banner, logo, or icon)
+                targetGames = games.filter(game =>
+                    isMissingImage(game.boxArtUrl) ||
+                    isMissingImage(game.bannerUrl) ||
+                    isMissingImage(game.logoUrl) ||
+                    isMissingImage(game.iconUrl)
+                );
             }
-            return { success: true };
+
+            const startIndex = options?.continueFromIndex || 0;
+            const total = targetGames.length;
+            let successCount = 0;
+            let errorCount = 0;
+            const unmatchedGames: Array<{ gameId: string; title: string; searchResults: any[] }> = [];
+            const missingBoxartGames: Array<{ gameId: string; title: string; steamAppId?: string }> = [];
+
+            console.log(`[MetadataRefresh] Starting refresh for ${total} game(s), mode: ${options?.allGames ? 'all' : 'missing'}`);
+            sendProgress(0, total, `Starting metadata refresh for ${total} game(s)...`);
+
+            for (let i = startIndex; i < targetGames.length; i++) {
+                const game = targetGames[i];
+                const current = i + 1;
+
+                try {
+                    console.log(`[MetadataRefresh] [${current}/${total}] Processing: ${game.title}`);
+                    sendProgress(current, total, `Fetching metadata...`, game.title);
+
+                    // Extract Steam App ID if available
+                    const steamAppId = game.id.startsWith('steam-') ? game.id.replace('steam-', '') : undefined;
+
+                    // Determine which images to fetch
+                    const needsBoxart = options?.allGames || isMissingImage(game.boxArtUrl);
+                    const needsBanner = options?.allGames || isMissingImage(game.bannerUrl);
+                    const needsLogo = options?.allGames || isMissingImage(game.logoUrl);
+                    const needsIcon = options?.allGames || isMissingImage(game.iconUrl);
+
+                    if (!needsBoxart && !needsBanner && !needsLogo && !needsIcon) {
+                        console.log(`[MetadataRefresh] [${current}/${total}] ${game.title}: All images present, skipping`);
+                        successCount++;
+                        continue;
+                    }
+
+                    // Fetch metadata with timeout
+                    let metadata: any = null;
+                    try {
+                        metadata = await withTimeout(
+                            metadataFetcher.searchArtwork(game.title, steamAppId, options?.allGames),
+                            30000,
+                            `Metadata fetch timeout for "${game.title}"`
+                        );
+                    } catch (fetchError) {
+                        console.warn(`[MetadataRefresh] [${current}/${total}] ${game.title}: Fetch failed:`, fetchError);
+                    }
+
+                    if (!metadata) {
+                        console.log(`[MetadataRefresh] [${current}/${total}] ${game.title}: No metadata found`);
+                        unmatchedGames.push({ gameId: game.id, title: game.title, searchResults: [] });
+                        errorCount++;
+                        continue;
+                    }
+
+                    // Prepare updated image URLs
+                    let updatedBoxArt = needsBoxart && metadata.boxArtUrl ? metadata.boxArtUrl : game.boxArtUrl;
+                    let updatedBanner = needsBanner && metadata.bannerUrl ? metadata.bannerUrl : game.bannerUrl;
+                    let updatedLogo = needsLogo && metadata.logoUrl ? metadata.logoUrl : game.logoUrl;
+                    let updatedIcon = needsIcon && metadata.iconUrl ? metadata.iconUrl : game.iconUrl;
+                    let updatedHero = metadata.heroUrl || game.heroUrl;
+
+                    // Cache images locally if preference is enabled
+                    if (shouldCacheLocally) {
+                        try {
+                            const cachedImages = await imageCacheService.cacheImages({
+                                boxArtUrl: updatedBoxArt,
+                                bannerUrl: updatedBanner,
+                                logoUrl: updatedLogo,
+                                heroUrl: updatedHero,
+                                iconUrl: updatedIcon
+                            }, game.id);
+
+                            if (cachedImages.boxArtUrl) updatedBoxArt = cachedImages.boxArtUrl;
+                            if (cachedImages.bannerUrl) updatedBanner = cachedImages.bannerUrl;
+                            if (cachedImages.logoUrl) updatedLogo = cachedImages.logoUrl;
+                            if (cachedImages.heroUrl) updatedHero = cachedImages.heroUrl;
+                            if (cachedImages.iconUrl) updatedIcon = cachedImages.iconUrl;
+                        } catch (cacheError) {
+                            console.warn(`[MetadataRefresh] [${current}/${total}] ${game.title}: Cache failed:`, cacheError);
+                        }
+                    }
+
+                    // Update game in store
+                    const updatedGame: Game = {
+                        ...game,
+                        boxArtUrl: updatedBoxArt || game.boxArtUrl,
+                        bannerUrl: updatedBanner || game.bannerUrl,
+                        logoUrl: updatedLogo || game.logoUrl,
+                        iconUrl: updatedIcon || game.iconUrl,
+                        heroUrl: updatedHero || game.heroUrl,
+                        // Also update other metadata if available
+                        description: metadata.description || metadata.summary || game.description,
+                        genres: metadata.genres || game.genres,
+                        releaseDate: metadata.releaseDate || game.releaseDate,
+                        developers: metadata.developers || game.developers,
+                        publishers: metadata.publishers || game.publishers,
+                        ageRating: metadata.ageRating || game.ageRating,
+                    };
+
+                    await gameStore.saveGame(updatedGame);
+
+                    // Check if boxart is still missing after update
+                    if (isMissingImage(updatedGame.boxArtUrl)) {
+                        missingBoxartGames.push({
+                            gameId: game.id,
+                            title: game.title,
+                            steamAppId
+                        });
+                    }
+
+                    console.log(`[MetadataRefresh] [${current}/${total}] ${game.title}: Updated successfully`);
+                    successCount++;
+
+                    // Small delay to avoid rate limiting
+                    await new Promise(resolve => setTimeout(resolve, 200));
+
+                } catch (gameError) {
+                    console.error(`[MetadataRefresh] [${current}/${total}] ${game.title}: Error:`, gameError);
+                    errorCount++;
+                }
+            }
+
+            sendProgress(total, total, 'Refresh completed!');
+            console.log(`[MetadataRefresh] Completed: ${successCount} success, ${errorCount} errors, ${unmatchedGames.length} unmatched, ${missingBoxartGames.length} missing boxart`);
+
+            return {
+                success: true,
+                count: successCount,
+                errors: errorCount,
+                unmatchedGames,
+                missingBoxartGames
+            };
         } catch (error) {
-            return { success: false };
+            console.error('[MetadataRefresh] Fatal error:', error);
+            return {
+                success: false,
+                error: error instanceof Error ? error.message : 'Unknown error',
+                count: 0,
+                errors: 0,
+                unmatchedGames: [],
+                missingBoxartGames: []
+            };
         }
     });
 

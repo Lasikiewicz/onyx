@@ -144,7 +144,7 @@ trayService = new TrayService(gameStore, launcherService, userPreferencesService
 
 // Register IPC Handlers
 registerGameIPCHandlers(steamService, xboxService, gameStore, imageCacheService);
-registerMetadataIPCHandlers(metadataFetcher, imageCacheService, gameStore, userPreferencesService);
+registerMetadataIPCHandlers(metadataFetcher, imageCacheService, gameStore, userPreferencesService, { get current() { return win; } });
 registerAppIPCHandlers(
   { get current() { return win; } },
   gameStore,

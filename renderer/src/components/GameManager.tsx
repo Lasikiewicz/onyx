@@ -221,7 +221,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
 
   // Listen for refresh progress updates
   useEffect(() => {
-    const handleProgress = (_event: any, progress: { current: number; total: number; message: string; gameTitle?: string }) => {
+    const handleProgress = (progress: { current: number; total: number; message: string; gameTitle?: string }) => {
       setRefreshProgress(progress);
     };
 

@@ -311,10 +311,10 @@ export class ImageCacheService {
    * Cache multiple images
    */
   async cacheImages(
-    urls: { boxArtUrl?: string; bannerUrl?: string; logoUrl?: string; heroUrl?: string; screenshots?: string[] },
+    urls: { boxArtUrl?: string; bannerUrl?: string; logoUrl?: string; heroUrl?: string; iconUrl?: string; screenshots?: string[] },
     gameId: string
-  ): Promise<{ boxArtUrl?: string; bannerUrl?: string; logoUrl?: string; heroUrl?: string; screenshots?: string[] }> {
-    const results: { boxArtUrl?: string; bannerUrl?: string; logoUrl?: string; heroUrl?: string; screenshots?: string[] } = {};
+  ): Promise<{ boxArtUrl?: string; bannerUrl?: string; logoUrl?: string; heroUrl?: string; iconUrl?: string; screenshots?: string[] }> {
+    const results: { boxArtUrl?: string; bannerUrl?: string; logoUrl?: string; heroUrl?: string; iconUrl?: string; screenshots?: string[] } = {};
 
     const promises: Promise<void>[] = [];
 
@@ -346,6 +346,14 @@ export class ImageCacheService {
       promises.push(
         this.cacheImage(urls.heroUrl, gameId, 'hero').then((path) => {
           results.heroUrl = path;
+        })
+      );
+    }
+
+    if (urls.iconUrl) {
+      promises.push(
+        this.cacheImage(urls.iconUrl, gameId, 'icon').then((path) => {
+          results.iconUrl = path;
         })
       );
     }
