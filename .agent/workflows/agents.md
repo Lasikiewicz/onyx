@@ -22,12 +22,13 @@ git push origin master
 **NO version increment**
 
 ### 2. "Push to alpha" (Testing Release)
+**CRITICAL: ALWAYS increment version before pushing to alpha**
 ```bash
-npm run increment-build          # Increments version
+npm run increment-build          # INCREMENT VERSION FIRST
 git add .
-git commit -m "Build X.Y.Z - [Summary]"  # Neutral message, NO "Alpha" word
+git commit -m "Build X.Y.Z - [Summary]"
 git push origin master
-git push origin master:develop --force
+git push origin master:alpha --force
 ```
 **ONLY command that increments build number**
 
