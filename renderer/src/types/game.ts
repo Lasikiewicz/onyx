@@ -37,6 +37,7 @@ export interface Game {
   playtime?: number;
   lastPlayed?: string;
   playCount?: number;
+  dateAdded?: string;
   favorite?: boolean;
   pinned?: boolean;
   hidden?: boolean;

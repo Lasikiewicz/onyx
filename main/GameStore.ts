@@ -34,6 +34,7 @@ export interface Game {
   playtime?: number;
   lastPlayed?: string;
   playCount?: number;
+  dateAdded?: string;
   favorite?: boolean;
   hidden?: boolean;
   broken?: boolean;
@@ -100,7 +101,7 @@ export class GameStore {
     const store = await this.ensureStore();
     const games = await this.getLibrary();
     const existingIndex = games.findIndex(g => g.id === game.id);
-    
+
     // Create a deep copy to ensure all properties are saved
     const gameToSave: Game = {
       ...game,
@@ -108,17 +109,23 @@ export class GameStore {
       favorite: game.favorite,
       lockedFields: game.lockedFields ? { ...game.lockedFields } : undefined,
     };
-    
+
     if (existingIndex >= 0) {
-      // Update existing game
-      games[existingIndex] = gameToSave;
+      // Update existing game - preserve dateAdded
+      games[existingIndex] = {
+        ...gameToSave,
+        dateAdded: games[existingIndex].dateAdded || gameToSave.dateAdded
+      };
       console.log(`Updated game: ${gameToSave.title} (${gameToSave.id})`);
     } else {
-      // Add new game
+      // Add new game - set dateAdded if not already set
+      if (!gameToSave.dateAdded) {
+        gameToSave.dateAdded = new Date().toISOString();
+      }
       games.push(gameToSave);
       console.log(`Added new game: ${gameToSave.title} (${gameToSave.id})`);
     }
-    
+
     (store as any).set('games', games);
     console.log(`Total games in store: ${games.length}`);
   }
@@ -130,17 +137,17 @@ export class GameStore {
     const store = await this.ensureStore();
     const existingGames = await this.getLibrary();
     const gamesMap = new Map<string, Game>();
-    
+
     // Add existing games to map
     existingGames.forEach(game => {
       gamesMap.set(game.id, game);
     });
-    
+
     // Merge new games (new games override existing ones with same id)
     newGames.forEach(game => {
       gamesMap.set(game.id, game);
     });
-    
+
     (store as any).set('games', Array.from(gamesMap.values()));
   }
 
@@ -153,41 +160,41 @@ export class GameStore {
    * @param shouldCacheImages - Whether to cache images locally (default: false)
    */
   async mergeSteamGames(
-    steamGames: SteamGame[], 
+    steamGames: SteamGame[],
     imageCacheService?: { cacheImages: (urls: { boxArtUrl?: string; bannerUrl?: string; logoUrl?: string; heroUrl?: string }, gameId: string) => Promise<{ boxArtUrl?: string; bannerUrl?: string; logoUrl?: string; heroUrl?: string }> },
     shouldCacheImages: boolean = false
   ): Promise<void> {
     const store = await this.ensureStore();
     const existingGames = await this.getLibrary();
     const gamesMap = new Map<string, Game>();
-    
+
     // Add existing games to map
     existingGames.forEach(game => {
       gamesMap.set(game.id, game);
     });
-    
+
     // Convert SteamGame to Game and merge (using for...of for async operations)
     for (const steamGame of steamGames) {
       const gameId = `steam-${steamGame.appId}`;
       const existingGame = gamesMap.get(gameId);
-      
+
       // If game exists, preserve lockedFields and only update unlocked fields
       if (existingGame && existingGame.platform === 'steam') {
         const lockedFields = existingGame.lockedFields || {};
-        let boxArtUrl = lockedFields.boxArtUrl 
-          ? existingGame.boxArtUrl 
+        let boxArtUrl = lockedFields.boxArtUrl
+          ? existingGame.boxArtUrl
           : `https://cdn.cloudflare.steamstatic.com/steam/apps/${steamGame.appId}/header.jpg`;
-        let bannerUrl = lockedFields.bannerUrl 
-          ? existingGame.bannerUrl 
+        let bannerUrl = lockedFields.bannerUrl
+          ? existingGame.bannerUrl
           : `https://cdn.cloudflare.steamstatic.com/steam/apps/${steamGame.appId}/Library_600x900.jpg`;
-        
+
         // Cache images if enabled and not locked
         if (shouldCacheImages && imageCacheService && !lockedFields.boxArtUrl && !lockedFields.bannerUrl) {
           const cached = await imageCacheService.cacheImages({ boxArtUrl, bannerUrl }, gameId);
           boxArtUrl = cached.boxArtUrl || boxArtUrl;
           bannerUrl = cached.bannerUrl || bannerUrl;
         }
-        
+
         const updatedGame: Game = {
           ...existingGame, // Preserve all existing fields
           // Only update title if not locked
@@ -202,14 +209,14 @@ export class GameStore {
         // New game - create fresh
         let boxArtUrl = `https://cdn.cloudflare.steamstatic.com/steam/apps/${steamGame.appId}/header.jpg`;
         let bannerUrl = `https://cdn.cloudflare.steamstatic.com/steam/apps/${steamGame.appId}/Library_600x900.jpg`;
-        
+
         // Cache images if enabled
         if (shouldCacheImages && imageCacheService) {
           const cached = await imageCacheService.cacheImages({ boxArtUrl, bannerUrl }, gameId);
           boxArtUrl = cached.boxArtUrl || boxArtUrl;
           bannerUrl = cached.bannerUrl || bannerUrl;
         }
-        
+
         const game: Game = {
           id: gameId,
           title: steamGame.name,
@@ -222,7 +229,7 @@ export class GameStore {
       }
       // If existing game is not a Steam game, don't overwrite it
     }
-    
+
     const finalGames = Array.from(gamesMap.values());
     (store as any).set('games', finalGames);
     console.log(`Merged ${steamGames.length} Steam games, total games: ${finalGames.length}`);
@@ -250,16 +257,16 @@ export class GameStore {
    * Update metadata (boxArtUrl, bannerUrl, logoUrl, heroUrl) for a game by ID
    */
   async updateGameMetadata(
-    gameId: string, 
-    boxArtUrl: string, 
-    bannerUrl: string, 
-    logoUrl?: string, 
+    gameId: string,
+    boxArtUrl: string,
+    bannerUrl: string,
+    logoUrl?: string,
     heroUrl?: string
   ): Promise<boolean> {
     const store = await this.ensureStore();
     const games = await this.getLibrary();
     const gameIndex = games.findIndex(g => g.id === gameId);
-    
+
     if (gameIndex >= 0) {
       games[gameIndex].boxArtUrl = boxArtUrl;
       games[gameIndex].bannerUrl = bannerUrl;
@@ -272,7 +279,7 @@ export class GameStore {
       (store as any).set('games', games);
       return true;
     }
-    
+
     return false;
   }
 
@@ -350,10 +357,10 @@ export class GameStore {
    */
   private extractFilePathFromOnyxUrl(url: string, cacheDir: string): string {
     const path = require('node:path');
-    
+
     // Extract the part after onyx-local://
     let urlPart = url.replace('onyx-local://', '').replace(/\/+$/, '');
-    
+
     // If it looks like a full path (encoded), decode it
     if (urlPart.includes('%') || urlPart.includes('/')) {
       try {
@@ -366,7 +373,7 @@ export class GameStore {
         // If decode fails, treat as simple format
       }
     }
-    
+
     // Simple format: onyx-local://gameId-type
     // The protocol handler looks for files like: {gameId}-{type}.{ext}
     const extensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.webm'];
@@ -376,7 +383,7 @@ export class GameStore {
         return filePath;
       }
     }
-    
+
     // Return path with first extension as fallback (will be checked with existsSync)
     return path.join(cacheDir, `${urlPart}.jpg`);
   }
@@ -398,7 +405,7 @@ export class GameStore {
     const store = await this.ensureStore();
     const games = await this.getLibrary();
     const { existsSync } = require('node:fs');
-    
+
     let removedCount = 0;
     const gamesToKeep: Game[] = [];
 
@@ -437,11 +444,11 @@ export class GameStore {
       } else {
         // For non-Steam games, check if exePath or installationDirectory exists
         const pathsToCheck: string[] = [];
-        
+
         if (game.exePath && !game.exePath.startsWith('steam://') && !game.exePath.startsWith('http://') && !game.exePath.startsWith('https://')) {
           pathsToCheck.push(game.exePath);
         }
-        
+
         if (game.installationDirectory) {
           pathsToCheck.push(game.installationDirectory);
         }

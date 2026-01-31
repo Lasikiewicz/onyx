@@ -1,15 +1,26 @@
 import { ipcMain } from 'electron';
 import { LauncherService } from '../LauncherService.js';
 import { LauncherDetectionService } from '../LauncherDetectionService.js';
+import { TrayService } from '../ui/tray.js';
 
 export function registerLauncherIPCHandlers(
     launcherService: LauncherService,
-    launcherDetectionService: LauncherDetectionService
+    launcherDetectionService: LauncherDetectionService,
+    trayService: TrayService | null
 ) {
     ipcMain.handle('launcher:launchGame', async (_event, gameId: string) => {
         try {
             console.log(`[Launcher] Launching game: ${gameId}`);
-            return await launcherService.launchGame(gameId);
+            const result = await launcherService.launchGame(gameId);
+
+            // Update tray menu to refresh Recently Played list
+            if (result.success && trayService) {
+                trayService.updateTrayMenu().catch(err => {
+                    console.error('[Launcher] Error updating tray menu after launch:', err);
+                });
+            }
+
+            return result;
         } catch (error) {
             console.error('Error in launcher:launchGame handler:', error);
             return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };

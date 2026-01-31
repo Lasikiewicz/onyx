@@ -14,11 +14,27 @@ if (!gotTheLock) {
   console.log('Another instance is already running. Quitting...');
   app.quit();
 } else {
-  app.on('second-instance', (event, commandLine, workingDirectory) => {
+  app.on('second-instance', async (event, commandLine, workingDirectory) => {
     // Someone tried to run a second instance, we should focus our window.
     if (win) {
       if (win.isMinimized()) win.restore();
       win.focus();
+    }
+
+    // Check if a game launch was requested from jump list
+    const launchGameArg = commandLine.find(arg => arg.startsWith('--launch-game='));
+    if (launchGameArg) {
+      const gameId = launchGameArg.replace('--launch-game=', '').replace(/"/g, '');
+      console.log(`[Jump List] Launching game from jump list: ${gameId}`);
+      try {
+        await launcherService.launchGame(gameId);
+        const prefs = await userPreferencesService.getPreferences();
+        if (prefs.minimizeOnGameLaunch && win) {
+          win.minimize();
+        }
+      } catch (error) {
+        console.error('[Jump List] Error launching game:', error);
+      }
     }
   });
 }
@@ -142,6 +158,28 @@ const preload = path.join(__dirname, 'preload.js');
 // Initialize Tray service
 trayService = new TrayService(gameStore, launcherService, userPreferencesService, createWindow);
 
+// Check if this instance was launched with a game ID (first launch)
+const launchGameArg = process.argv.find(arg => arg.startsWith('--launch-game='));
+if (launchGameArg) {
+  const gameId = launchGameArg.replace('--launch-game=', '').replace(/"/g, '');
+  console.log(`[Jump List] First instance launched with game: ${gameId}`);
+  // We'll launch the game after the window is ready
+  app.whenReady().then(async () => {
+    // Wait a bit for the window to be created
+    setTimeout(async () => {
+      try {
+        await launcherService.launchGame(gameId);
+        const prefs = await userPreferencesService.getPreferences();
+        if (prefs.minimizeOnGameLaunch && win) {
+          win.minimize();
+        }
+      } catch (error) {
+        console.error('[Jump List] Error launching game on first instance:', error);
+      }
+    }, 2000);
+  });
+}
+
 // Register IPC Handlers
 registerGameIPCHandlers(steamService, xboxService, gameStore, imageCacheService);
 registerMetadataIPCHandlers(metadataFetcher, imageCacheService, gameStore, userPreferencesService, { get current() { return win; } });
@@ -166,7 +204,7 @@ registerAppIPCHandlers(
     }
   }
 );
-registerLauncherIPCHandlers(launcherService, launcherDetectionService);
+registerLauncherIPCHandlers(launcherService, launcherDetectionService, trayService);
 const { performBackgroundScan, startBackgroundScan, stopBackgroundScan } = registerScanningHandlers({ get current() { return win; } }, gameStore, appConfigService, importService, metadataFetcher, imageCacheService);
 const { registerSuspendShortcut, unregisterSuspendShortcut } = registerSuspendHandlers(processSuspendService);
 

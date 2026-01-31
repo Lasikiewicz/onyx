@@ -40,6 +40,11 @@ export class LauncherService {
         const appId = steamMatch[1];
         const steamUrl = `steam://rungameid/${appId}`;
         await shell.openExternal(steamUrl);
+
+        // Update lastPlayed timestamp
+        game.lastPlayed = new Date().toISOString();
+        await this.gameStore.saveGame(game);
+
         return { success: true };
       }
 
@@ -53,6 +58,11 @@ export class LauncherService {
         const epicUrl = `com.epicgames.launcher://apps/${installPathEncoded}?action=launch&silent=true`;
         console.log(`[LauncherService] Launching Epic game: ${epicUrl}`);
         await shell.openExternal(epicUrl);
+
+        // Update lastPlayed timestamp
+        game.lastPlayed = new Date().toISOString();
+        await this.gameStore.saveGame(game);
+
         return { success: true };
       }
 
@@ -65,6 +75,11 @@ export class LauncherService {
         const eaUrl = `origin2://game/launch?offerIds=${offerId}`;
         console.log(`[LauncherService] Launching EA game: ${eaUrl}`);
         await shell.openExternal(eaUrl);
+
+        // Update lastPlayed timestamp
+        game.lastPlayed = new Date().toISOString();
+        await this.gameStore.saveGame(game);
+
         return { success: true };
       }
 
@@ -77,6 +92,11 @@ export class LauncherService {
         const gogUrl = `goggalaxy://launchGame/${productId}`;
         console.log(`[LauncherService] Launching GOG game via protocol: ${gogUrl}`);
         await shell.openExternal(gogUrl);
+
+        // Update lastPlayed timestamp
+        game.lastPlayed = new Date().toISOString();
+        await this.gameStore.saveGame(game);
+
         return { success: true };
       }
 
@@ -89,6 +109,11 @@ export class LauncherService {
         const ubisoftUrl = `uplay://launch/${gameUbisoftId}`;
         console.log(`[LauncherService] Launching Ubisoft game via protocol: ${ubisoftUrl}`);
         await shell.openExternal(ubisoftUrl);
+
+        // Update lastPlayed timestamp
+        game.lastPlayed = new Date().toISOString();
+        await this.gameStore.saveGame(game);
+
         return { success: true };
       }
 
@@ -124,6 +149,11 @@ export class LauncherService {
           child.on('error', (error) => {
             console.error(`Failed to launch Xbox game via explorer: ${error.message}`);
           });
+
+          // Update lastPlayed timestamp
+          game.lastPlayed = new Date().toISOString();
+          await this.gameStore.saveGame(game);
+
           return { success: true, pid: child.pid };
         }
 
@@ -145,6 +175,11 @@ export class LauncherService {
           const appId = fallbackMatch[1];
           const steamUrl = `steam://rungameid/${appId}`;
           await shell.openExternal(steamUrl);
+
+          // Update lastPlayed timestamp
+          game.lastPlayed = new Date().toISOString();
+          await this.gameStore.saveGame(game);
+
           return { success: true };
         }
         return { success: false, error: 'Invalid Steam game ID format' };
@@ -209,6 +244,10 @@ export class LauncherService {
       child.on('error', (error) => {
         console.error(`Failed to launch game: ${error.message}`);
       });
+
+      // Update lastPlayed timestamp
+      game.lastPlayed = new Date().toISOString();
+      await this.gameStore.saveGame(game);
 
       // Return PID for process tracking (if available)
       return { success: true, pid: child.pid };
