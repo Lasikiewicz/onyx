@@ -221,7 +221,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
 
   // Listen for refresh progress updates
   useEffect(() => {
-    const handleProgress = (progress: { current: number; total: number; message: string; gameTitle?: string }) => {
+    const handleProgress = (_event: any, progress: { current: number; total: number; message: string; gameTitle?: string }) => {
       setRefreshProgress(progress);
     };
 
@@ -668,8 +668,12 @@ export const GameManager: React.FC<GameManagerProps> = ({
 
     // Listen for progressive search results
     const removeProgressListener = window.electronAPI?.on
-      ? window.electronAPI.on('metadata:fastSearchProgress', (results: FastSearchGame[]) => {
-        console.log('[FastSearch] Received progressive results:', results.length);
+      ? window.electronAPI.on('metadata:fastSearchProgress', (_event: any, results: FastSearchGame[]) => {
+        console.log('[FastSearch] Received progressive results:', results);
+        if (!results || !Array.isArray(results)) {
+          console.warn('[FastSearch] Received invalid results:', results);
+          return;
+        }
         setFastSearchResults(prev => {
           // Merge and deduplicate based on ID + Source
           const currentIds = new Set(prev.map(p => `${p.source}:${p.id}`));

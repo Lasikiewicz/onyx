@@ -51,8 +51,8 @@ function convertFileUrlToLocalProtocol(url: string): string {
   if (url.startsWith('file://')) {
     const filePath = url.replace('file://', '');
     // Remove leading slash on Windows
-    const normalizedPath = process.platform === 'win32' && filePath.startsWith('/') 
-      ? filePath.substring(1) 
+    const normalizedPath = process.platform === 'win32' && filePath.startsWith('/')
+      ? filePath.substring(1)
       : filePath;
     // Use URL encoding (case-insensitive, works even if Electron lowercases)
     const encodedPath = encodeURIComponent(normalizedPath);
@@ -102,7 +102,7 @@ export function useGameLibrary() {
       logoUrl: updatedGame.logoUrl ? convertFileUrlToLocalProtocol(updatedGame.logoUrl) : updatedGame.logoUrl,
       heroUrl: updatedGame.heroUrl ? convertFileUrlToLocalProtocol(updatedGame.heroUrl) : updatedGame.heroUrl,
     };
-    setGames(prevGames => 
+    setGames(prevGames =>
       prevGames.map(g => g.id === updatedGame.id ? gameWithConvertedUrls : g)
     );
   };
@@ -170,7 +170,7 @@ export function useGameLibrary() {
 
   // Listen for library updates from main process (e.g., when games are removed)
   useEffect(() => {
-    const handleLibraryUpdate = () => {
+    const handleLibraryUpdate = (_event: any) => {
       console.log('[useGameLibrary] Library updated, reloading...');
       loadLibrary();
     };
