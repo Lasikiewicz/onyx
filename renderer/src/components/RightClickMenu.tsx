@@ -21,6 +21,8 @@ interface RightClickMenuProps {
   onGameTilePaddingChange?: (padding: number) => void;
   backgroundBlur?: number;
   onBackgroundBlurChange?: (blur: number) => void;
+  backgroundBrightness?: number;
+  onBackgroundBrightnessChange?: (brightness: number) => void;
   selectedBoxArtSize?: number;
   onSelectedBoxArtSizeChange?: (size: number) => void;
   carouselLogoSize?: number;
@@ -131,6 +133,8 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
   onGameTilePaddingChange,
   backgroundBlur = 40,
   onBackgroundBlurChange,
+  backgroundBrightness = 0.3,
+  onBackgroundBrightnessChange,
   selectedBoxArtSize = 12.5,
   onSelectedBoxArtSizeChange,
   carouselLogoSize = 100,
@@ -326,18 +330,21 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
       if (defaults.fanartHeight !== undefined) onFanartHeightChange?.(defaults.fanartHeight);
       if (defaults.descriptionWidth !== undefined) onDescriptionWidthChange?.(defaults.descriptionWidth);
       if (defaults.backgroundBlur !== undefined) onBackgroundBlurChange?.(defaults.backgroundBlur);
+      if (defaults.backgroundBrightness !== undefined) onBackgroundBrightnessChange?.(defaults.backgroundBrightness);
       if (defaults.showLogoOverBoxart !== undefined) onShowLogoOverBoxartChange?.(defaults.showLogoOverBoxart);
     } else if (mode === 'logo') {
       if (defaults.logoSize !== undefined) onLogoSizeChange?.(defaults.logoSize);
       if (defaults.gameTilePadding !== undefined) onGameTilePaddingChange?.(defaults.gameTilePadding);
       if (defaults.logoBackgroundOpacity !== undefined) onLogoBackgroundOpacityChange?.(defaults.logoBackgroundOpacity);
       if (defaults.backgroundBlur !== undefined) onBackgroundBlurChange?.(defaults.backgroundBlur);
+      if (defaults.backgroundBrightness !== undefined) onBackgroundBrightnessChange?.(defaults.backgroundBrightness);
       if (defaults.panelWidth !== undefined) onPanelWidthChange?.(defaults.panelWidth);
       if (defaults.fanartHeight !== undefined) onFanartHeightChange?.(defaults.fanartHeight);
       if (defaults.descriptionWidth !== undefined) onDescriptionWidthChange?.(defaults.descriptionWidth);
       if (defaults.rightPanelLogoSize !== undefined) onRightPanelLogoSizeChange?.(defaults.rightPanelLogoSize);
     } else if (mode === 'list') {
       if (defaults.backgroundBlur !== undefined) onBackgroundBlurChange?.(defaults.backgroundBlur);
+      if (defaults.backgroundBrightness !== undefined) onBackgroundBrightnessChange?.(defaults.backgroundBrightness);
       if (defaults.panelWidth !== undefined) onPanelWidthChange?.(defaults.panelWidth);
       if (defaults.fanartHeight !== undefined) onFanartHeightChange?.(defaults.fanartHeight);
       if (defaults.descriptionWidth !== undefined) onDescriptionWidthChange?.(defaults.descriptionWidth);
@@ -350,6 +357,7 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
       if (defaults.selectedBoxArtSize !== undefined) onSelectedBoxArtSizeChange?.(defaults.selectedBoxArtSize);
       if (defaults.gameTilePadding !== undefined) onGameTilePaddingChange?.(defaults.gameTilePadding);
       if (defaults.backgroundBlur !== undefined) onBackgroundBlurChange?.(defaults.backgroundBlur);
+      if (defaults.backgroundBrightness !== undefined) onBackgroundBrightnessChange?.(defaults.backgroundBrightness);
       if (defaults.carouselLogoSize !== undefined) onCarouselLogoSizeChange?.(defaults.carouselLogoSize);
       if (defaults.carouselButtonSize !== undefined) onCarouselButtonSizeChange?.(defaults.carouselButtonSize);
       if (defaults.carouselDescriptionSize !== undefined) onCarouselDescriptionSizeChange?.(defaults.carouselDescriptionSize);
@@ -432,6 +440,7 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
         fanartHeight,
         descriptionWidth,
         backgroundBlur,
+        backgroundBrightness,
         logoSize: activeGame ? localLogoSizes.grid : logoSize,
         rightPanelLogoSize: activeGame ? localLogoSizes.grid : rightPanelLogoSize,
         ...rightPanelSettings,
@@ -440,6 +449,7 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
       return {
         panelWidth,
         backgroundBlur,
+        backgroundBrightness,
         fanartHeight,
         descriptionWidth,
         listViewOptions,
@@ -452,6 +462,7 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
         gameTilePadding,
         logoBackgroundOpacity,
         backgroundBlur,
+        backgroundBrightness,
         panelWidth,
         fanartHeight,
         descriptionWidth,
@@ -465,6 +476,7 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
         selectedBoxArtSize,
         gameTilePadding,
         backgroundBlur,
+        backgroundBrightness,
         carouselLogoSize: activeGame ? localLogoSizes.carousel : carouselLogoSize,
         rightPanelLogoSize: activeGame ? localLogoSizes.carousel : rightPanelLogoSize,
         showCarouselLogos,
@@ -483,6 +495,7 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
       listSize,
       gameTilePadding,
       backgroundBlur,
+      backgroundBrightness,
       selectedBoxArtSize,
       showLogoOverBoxart,
       logoBackgroundOpacity,
@@ -512,6 +525,7 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
     if (settings.listSize !== undefined && onListSizeChange) onListSizeChange(settings.listSize);
     if (settings.gameTilePadding !== undefined && onGameTilePaddingChange) onGameTilePaddingChange(settings.gameTilePadding);
     if (settings.backgroundBlur !== undefined && onBackgroundBlurChange) onBackgroundBlurChange(settings.backgroundBlur);
+    if (settings.backgroundBrightness !== undefined && onBackgroundBrightnessChange) onBackgroundBrightnessChange(settings.backgroundBrightness);
     if (settings.selectedBoxArtSize !== undefined && onSelectedBoxArtSizeChange) onSelectedBoxArtSizeChange(settings.selectedBoxArtSize);
     if (settings.showLogoOverBoxart !== undefined && onShowLogoOverBoxartChange) onShowLogoOverBoxartChange(settings.showLogoOverBoxart);
     if (settings.logoPosition !== undefined && onLogoPositionChange) onLogoPositionChange(settings.logoPosition);
@@ -858,6 +872,25 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                     <span>0px</span>
                     <span className="font-medium text-gray-300">{backgroundBlur}px</span>
                     <span>100px</span>
+                  </div>
+                </div>
+
+                {/* Background Brightness - for Carousel */}
+                <div className="px-3 py-2 bg-gray-700/30 rounded-md">
+                  <label className="block text-xs text-gray-400 mb-1 font-semibold">Background Brightness</label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    step="1"
+                    value={Math.round(backgroundBrightness * 100)}
+                    onChange={(e) => onBackgroundBrightnessChange?.(Number(e.target.value) / 100)}
+                    className="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer slider accent-blue-600"
+                  />
+                  <div className="flex justify-between text-xs text-gray-500 mt-1">
+                    <span>0%</span>
+                    <span className="font-medium text-gray-300">{Math.round(backgroundBrightness * 100)}%</span>
+                    <span>100%</span>
                   </div>
                 </div>
               </div>
@@ -1403,6 +1436,25 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                     <span>0px</span>
                     <span className="font-medium text-gray-300">{backgroundBlur}px</span>
                     <span>100px</span>
+                  </div>
+                </div>
+
+                {/* Background Brightness */}
+                <div className="px-3 py-2 bg-gray-700/30 rounded-md">
+                  <label className="block text-xs text-gray-400 mb-1 font-semibold">Background Brightness</label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    step="1"
+                    value={Math.round(backgroundBrightness * 100)}
+                    onChange={(e) => onBackgroundBrightnessChange?.(Number(e.target.value) / 100)}
+                    className="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer slider accent-blue-600"
+                  />
+                  <div className="flex justify-between text-xs text-gray-500 mt-1">
+                    <span>0%</span>
+                    <span className="font-medium text-gray-300">{Math.round(backgroundBrightness * 100)}%</span>
+                    <span>100%</span>
                   </div>
                 </div>
               </div>

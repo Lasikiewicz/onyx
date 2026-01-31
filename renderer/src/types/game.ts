@@ -124,6 +124,7 @@ export interface UserPreferences {
   logoBackgroundColor?: string;
   logoBackgroundOpacity?: number;
   backgroundBlur?: number;
+  backgroundBrightnessByView?: { grid?: number; list?: number; logo?: number; carousel?: number; };
   backgroundMode?: 'image' | 'color';
   backgroundColor?: string;
   viewMode?: 'grid' | 'list' | 'logo' | 'carousel';

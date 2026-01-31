@@ -89,6 +89,12 @@ function App() {
   const [logoBackgroundColor, setLogoBackgroundColor] = useState('#374151');
   const [logoBackgroundOpacity, setLogoBackgroundOpacity] = useState(100);
   const [backgroundBlur, setBackgroundBlur] = useState(40);
+  const [backgroundBrightnessByView, setBackgroundBrightnessByView] = useState<Record<'grid' | 'list' | 'logo' | 'carousel', number>>({
+    grid: 0.3,
+    list: 0.3,
+    logo: 0.3,
+    carousel: 0.3,
+  });
   const [showCarouselDetails, setShowCarouselDetails] = useState(true);
   const [showCarouselLogos, setShowCarouselLogos] = useState(true);
   const [detailsBarSize, setDetailsBarSize] = useState(14);
@@ -150,6 +156,7 @@ function App() {
   const currentFanartHeight = (viewMode === 'grid' || viewMode === 'list' || viewMode === 'logo') ? fanartHeightByView[viewMode] : 320;
   const currentDescriptionWidth = (viewMode === 'grid' || viewMode === 'list' || viewMode === 'logo') ? descriptionWidthByView[viewMode] : 50;
   const currentPanelWidth = (viewMode === 'grid' || viewMode === 'list' || viewMode === 'logo') ? panelWidthByViewState[viewMode] : 800;
+  const currentBackgroundBrightness = backgroundBrightnessByView[viewMode];
 
   // Set background blur to 0 when switching to carousel mode and sync divider widths when view changes
   useEffect(() => {
@@ -202,6 +209,14 @@ function App() {
           if (prefs.logoBackgroundColor !== undefined) setLogoBackgroundColor(prefs.logoBackgroundColor);
           if (prefs.logoBackgroundOpacity !== undefined) setLogoBackgroundOpacity(prefs.logoBackgroundOpacity);
           if (prefs.backgroundBlur !== undefined) setBackgroundBlur(prefs.backgroundBlur);
+          if (prefs.backgroundBrightnessByView !== undefined) {
+            setBackgroundBrightnessByView({
+              grid: prefs.backgroundBrightnessByView.grid ?? 0.3,
+              list: prefs.backgroundBrightnessByView.list ?? 0.3,
+              logo: prefs.backgroundBrightnessByView.logo ?? 0.3,
+              carousel: prefs.backgroundBrightnessByView.carousel ?? 0.3,
+            });
+          }
           if (prefs.showCarouselDetails !== undefined) setShowCarouselDetails(prefs.showCarouselDetails);
           if (prefs.showCarouselLogos !== undefined) setShowCarouselLogos(prefs.showCarouselLogos);
           if (prefs.detailsBarSize !== undefined) setDetailsBarSize(prefs.detailsBarSize);
@@ -418,6 +433,7 @@ function App() {
           hideGameTitles,
           gameTilePadding,
           backgroundBlur,
+          backgroundBrightnessByView,
           viewMode,
           backgroundMode,
           backgroundColor,
@@ -431,7 +447,7 @@ function App() {
     // Debounce saves
     const timeoutId = setTimeout(saveAppearancePrefs, 500);
     return () => clearTimeout(timeoutId);
-  }, [hideGameTitles, gameTilePadding, backgroundBlur, viewMode, isInitialLoad]);
+  }, [hideGameTitles, gameTilePadding, backgroundBlur, backgroundBrightnessByView, viewMode, isInitialLoad]);
 
   // Save activeGameId when it changes
   useEffect(() => {
@@ -1372,7 +1388,7 @@ function App() {
             backgroundImage: `url(${backgroundImageUrl})`,
             backgroundSize: 'cover',
             backgroundPosition: 'center',
-            filter: `blur(${backgroundBlur}px) brightness(0.3)`,
+            filter: `blur(${backgroundBlur}px) brightness(${currentBackgroundBrightness})`,
             transform: 'scale(1.1)', // Slight scale to avoid edges
             zIndex: 0,
             transition: 'opacity 600ms ease-in-out',
@@ -1905,6 +1921,12 @@ function App() {
           onGameTilePaddingChange={setGameTilePadding}
           backgroundBlur={backgroundBlur}
           onBackgroundBlurChange={setBackgroundBlur}
+          backgroundBrightness={currentBackgroundBrightness}
+          onBackgroundBrightnessChange={(brightness: number) => {
+            const newByView = { ...backgroundBrightnessByView, [viewMode]: brightness };
+            setBackgroundBrightnessByView(newByView);
+            window.electronAPI.savePreferences({ backgroundBrightnessByView: newByView });
+          }}
           selectedBoxArtSize={selectedBoxArtSize}
           onSelectedBoxArtSizeChange={setSelectedBoxArtSize}
           panelWidth={currentPanelWidth}
