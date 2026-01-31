@@ -142,7 +142,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
     rawgApiKey: '',
     steamGridDBApiKey: '',
   });
-  const [activeAPITab, setActiveAPITab] = useState<APITabType>('igdb');
+  const [activeAPITab, setActiveAPITab] = useState<APITabType>('steamgriddb');
   // const [isLoadingAPI, setIsLoadingAPI] = useState(false);
   // const [apiSaveStatus, setApiSaveStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
   const [apps, setApps] = useState<AppConfig[]>([]);
@@ -844,127 +844,114 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
         appVersion={appVersion}
       />
 
-      <div className="flex-1 bg-gray-900 overflow-y-auto custom-scrollbar flex flex-col">
-        <div className="flex-1 w-full">
+      <div className="flex-1 bg-gray-900 flex flex-col overflow-hidden">
+        <div className="flex-1 w-full overflow-y-auto custom-scrollbar">
           {activeTab === 'general' && (
             <div className="space-y-6 p-6">
               <SettingsSection title="System" description="Configure how Onyx integrates with your system">
-                <SettingsToggle
-                  label="Start with Windows"
-                  description="Automatically start Onyx when you log into Windows"
-                  checked={settings.startWithComputer}
-                  onChange={() => handleToggle('startWithComputer')}
-                />
-                <SettingsToggle
-                  label="System Tray Icon"
-                  description="Show Onyx in the system tray"
-                  checked={settings.showSystemTrayIcon}
-                  onChange={() => handleToggle('showSystemTrayIcon')}
-                />
-                <SettingsToggle
-                  label="Minimize to Tray"
-                  description="Minimize to the system tray instead of the taskbar"
-                  checked={settings.minimizeToTray}
-                  onChange={() => handleToggle('minimizeToTray')}
-                />
-                <SettingsToggle
-                  label="Close to Tray"
-                  description="Close button minimizes to tray instead of quitting"
-                  checked={settings.closeToTray}
-                  onChange={() => handleToggle('closeToTray')}
-                />
-                <SettingsToggle
-                  label="Start Closed to Tray"
-                  description="Launch Onyx in the background"
-                  checked={settings.startClosedToTray}
-                  onChange={() => handleToggle('startClosedToTray')}
-                />
-                <SettingsToggle
-                  label="Hardware Acceleration"
-                  description="Use GPU for rendering (Requires Restart)"
-                  checked={settings.enableHardwareAcceleration}
-                  onChange={() => handleToggle('enableHardwareAcceleration')}
-                />
-
-                {/* Startup Page Selection */}
-                <div className="flex flex-col space-y-2 pt-2">
-                  <label className="text-sm font-medium text-white">Default Startup Page</label>
-                  <div className="flex bg-gray-800/50 p-1 rounded-lg border border-gray-700/50">
-                    {(['library', 'recent', 'favorites'] as const).map((page) => (
-                      <button
-                        key={page}
-                        onClick={() => handleSelectChange('defaultStartupPage', page)}
-                        className={`flex-1 py-1.5 px-3 text-xs font-medium rounded-md transition-all ${settings.defaultStartupPage === page
-                          ? 'bg-blue-600 text-white shadow-sm'
-                          : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700/50'
-                          }`}
-                      >
-                        {page.charAt(0).toUpperCase() + page.slice(1)}
-                      </button>
-                    ))}
-                  </div>
-                  <p className="text-xs text-gray-500">Choose which page opens when Onyx starts</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+                  <SettingsToggle
+                    label="Start with Windows"
+                    description="Automatically start Onyx when you log into Windows"
+                    checked={settings.startWithComputer}
+                    onChange={() => handleToggle('startWithComputer')}
+                  />
+                  <SettingsToggle
+                    label="System Tray Icon"
+                    description="Show Onyx in the system tray"
+                    checked={settings.showSystemTrayIcon}
+                    onChange={() => handleToggle('showSystemTrayIcon')}
+                  />
+                  <SettingsToggle
+                    label="Minimize to Tray"
+                    description="Minimize to the system tray instead of the taskbar"
+                    checked={settings.minimizeToTray}
+                    onChange={() => handleToggle('minimizeToTray')}
+                  />
+                  <SettingsToggle
+                    label="Close to Tray"
+                    description="Close button minimizes to tray instead of quitting"
+                    checked={settings.closeToTray}
+                    onChange={() => handleToggle('closeToTray')}
+                  />
+                  <SettingsToggle
+                    label="Start Closed to Tray"
+                    description="Launch Onyx in the background"
+                    checked={settings.startClosedToTray}
+                    onChange={() => handleToggle('startClosedToTray')}
+                  />
+                  <SettingsToggle
+                    label="Hardware Acceleration"
+                    description="Use GPU for rendering (Requires Restart)"
+                    checked={settings.enableHardwareAcceleration}
+                    onChange={() => handleToggle('enableHardwareAcceleration')}
+                  />
                 </div>
+
+
               </SettingsSection>
 
               <SettingsSection title="Scanning Options" description="Automatic game detection">
-                <SettingsToggle
-                  label="Background Scanning"
-                  description="Automatically scan for new games periodically"
-                  checked={backgroundScanEnabled}
-                  onChange={(checked) => {
-                    setBackgroundScanEnabled(checked);
-                    if (window.electronAPI.setBackgroundScanEnabled) {
-                      window.electronAPI.setBackgroundScanEnabled(checked);
-                    }
-                  }}
-                />
-                {backgroundScanEnabled && (
-                  <SettingsInput
-                    label="Scan Interval (Minutes)"
-                    value={backgroundScanIntervalMinutes}
-                    onChange={(val) => {
-                      const num = parseInt(val) || 30;
-                      setBackgroundScanIntervalMinutes(num);
-                      if (window.electronAPI.setBackgroundScanIntervalMinutes) {
-                        window.electronAPI.setBackgroundScanIntervalMinutes(num);
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+                  <SettingsToggle
+                    label="Background Scanning"
+                    description="Automatically scan for new games periodically"
+                    checked={backgroundScanEnabled}
+                    onChange={(checked) => {
+                      setBackgroundScanEnabled(checked);
+                      if (window.electronAPI.setBackgroundScanEnabled) {
+                        window.electronAPI.setBackgroundScanEnabled(checked);
                       }
                     }}
-                    type="number"
-                    description="How often to check for new games (1-1440 minutes)"
                   />
-                )}
+                  {backgroundScanEnabled && (
+                    <SettingsInput
+                      label="Scan Interval (Minutes)"
+                      value={backgroundScanIntervalMinutes}
+                      onChange={(val) => {
+                        const num = parseInt(val) || 30;
+                        setBackgroundScanIntervalMinutes(num);
+                        if (window.electronAPI.setBackgroundScanIntervalMinutes) {
+                          window.electronAPI.setBackgroundScanIntervalMinutes(num);
+                        }
+                      }}
+                      type="number"
+                      description="How often to check for new games (1-1440 minutes)"
+                    />
+                  )}
+                  <SettingsToggle
+                    label="Update Libraries on Startup"
+                    description="Automatically scan for new games when Onyx starts"
+                    checked={settings.updateLibrariesOnStartup}
+                    onChange={() => handleToggle('updateLibrariesOnStartup')}
+                  />
+                </div>
               </SettingsSection>
 
               <SettingsSection title="Window Behavior">
-                <SettingsToggle
-                  label="Minimize on Game Launch"
-                  description="Automatically minimize Onyx when a game starts"
-                  checked={settings.minimizeOnGameLaunch}
-                  onChange={() => handleToggle('minimizeOnGameLaunch')}
-                />
-                <SettingsToggle
-                  label="Restore Window on Game Exit"
-                  description="Automatically restore Onyx when you close a game"
-                  checked={settings.restoreAfterLaunch}
-                  onChange={() => handleToggle('restoreAfterLaunch')}
-                />
-                <SettingsToggle
-                  label="Confirm Game Launch"
-                  description="Show a confirmation dialog before launching games"
-                  checked={settings.confirmGameLaunch}
-                  onChange={() => handleToggle('confirmGameLaunch')}
-                />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+                  <SettingsToggle
+                    label="Minimize on Game Launch"
+                    description="Automatically minimize Onyx when a game starts"
+                    checked={settings.minimizeOnGameLaunch}
+                    onChange={() => handleToggle('minimizeOnGameLaunch')}
+                  />
+                  <SettingsToggle
+                    label="Restore Window on Game Exit"
+                    description="Automatically restore Onyx when you close a game"
+                    checked={settings.restoreAfterLaunch}
+                    onChange={() => handleToggle('restoreAfterLaunch')}
+                  />
+                  <SettingsToggle
+                    label="Confirm Game Launch"
+                    description="Show a confirmation dialog before launching games"
+                    checked={settings.confirmGameLaunch}
+                    onChange={() => handleToggle('confirmGameLaunch')}
+                  />
+                </div>
               </SettingsSection>
 
-              <SettingsSection title="Updates">
-                <SettingsToggle
-                  label="Update Libraries on Startup"
-                  description="Automatically scan for new games when Onyx starts"
-                  checked={settings.updateLibrariesOnStartup}
-                  onChange={() => handleToggle('updateLibrariesOnStartup')}
-                />
-              </SettingsSection>
+
             </div>
           )}
           {

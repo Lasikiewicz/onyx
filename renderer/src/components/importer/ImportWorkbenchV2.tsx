@@ -447,13 +447,7 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
                         >
                             {showIgnored ? 'Show Active' : 'Show Ignored'}
                         </button>
-                        <button
-                            onClick={handleScanAll}
-                            disabled={isScanning}
-                            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 text-white rounded-lg text-sm font-medium"
-                        >
-                            {isScanning ? 'Scanning...' : 'Scan All'}
-                        </button>
+
                         <button onClick={onClose} className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg text-sm font-medium">
                             Close
                         </button>
@@ -545,8 +539,37 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
                                 allCategories={Array.from(new Set(queue.flatMap(g => g.categories || [])))}
                             />
                         ) : (
-                            <div className="flex-1 flex items-center justify-center text-gray-400">
-                                <p>Select a game from the sidebar to view details</p>
+                            <div className="flex-1 flex flex-col items-center justify-center text-gray-400 gap-6 p-8">
+                                <div className="text-center max-w-md space-y-2">
+                                    <h3 className="text-xl font-semibold text-white">Welcome to Game Importer</h3>
+                                    <p className="text-gray-400">
+                                        Detect games installed on your system from Steam, Epic, GOG, and other launchers.
+                                    </p>
+                                </div>
+
+                                <button
+                                    onClick={handleScanAll}
+                                    disabled={isScanning}
+                                    className="px-8 py-4 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 text-white rounded-xl text-lg font-medium shadow-lg hover:shadow-blue-500/20 transition-all flex items-center gap-3"
+                                >
+                                    {isScanning ? (
+                                        <>
+                                            <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent" />
+                                            <span>Scanning System...</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                            </svg>
+                                            <span>Scan For Games</span>
+                                        </>
+                                    )}
+                                </button>
+
+                                <p className="text-xs text-gray-500 max-w-xs text-center">
+                                    You can review matches and fix file info before final import.
+                                </p>
                             </div>
                         )}
                     </div>

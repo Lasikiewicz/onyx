@@ -92,7 +92,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
   const [isFastSearching, setIsFastSearching] = useState(false);
   const [fastSearchResults, setFastSearchResults] = useState<FastSearchGame[]>([]);
   const [selectedFastGame, setSelectedFastGame] = useState<FastSearchGame | null>(null);
-  const [showGameListThumbnails, setShowGameListThumbnails] = useState(true);
+  const [gameListView, setGameListView] = useState<'boxart' | 'icon' | 'text'>('boxart');
   const [newCategoryInput, setNewCategoryInput] = useState('');
   const [showAnimatedImages, setShowAnimatedImages] = useState(false);
 
@@ -1501,17 +1501,29 @@ export const GameManager: React.FC<GameManagerProps> = ({
             <div className="p-4">
               <div className="flex items-center justify-between mb-3 bg-gray-900 border-b border-gray-700 pb-2 top-0 sticky z-10">
                 <h3 className="text-sm font-semibold text-gray-300">Imported Games ({localGames.length})</h3>
-                <button
-                  onClick={() => setShowGameListThumbnails(!showGameListThumbnails)}
-                  className="p-1 hover:bg-gray-700 rounded text-gray-400 hover:text-white transition-colors"
-                  title={showGameListThumbnails ? "Hide Thumbnails" : "Show Thumbnails"}
-                >
-                  {showGameListThumbnails ? (
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" /></svg>
-                  ) : (
+                <div className="flex bg-gray-800 rounded-lg p-1 gap-1">
+                  <button
+                    onClick={() => setGameListView('boxart')}
+                    className={`p-1.5 rounded transition-colors ${gameListView === 'boxart' ? 'bg-gray-600 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-700'}`}
+                    title="Boxart View"
+                  >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>
-                  )}
-                </button>
+                  </button>
+                  <button
+                    onClick={() => setGameListView('icon')}
+                    className={`p-1.5 rounded transition-colors ${gameListView === 'icon' ? 'bg-gray-600 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-700'}`}
+                    title="Icon View"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
+                  </button>
+                  <button
+                    onClick={() => setGameListView('text')}
+                    className={`p-1.5 rounded transition-colors ${gameListView === 'text' ? 'bg-gray-600 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-700'}`}
+                    title="Text Only"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" /></svg>
+                  </button>
+                </div>
               </div>
               <div className="space-y-2">
                 {localGames.map((game) => (
@@ -1523,7 +1535,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
                       : 'bg-gray-800/50 hover:bg-gray-800 border border-gray-700'
                       }`}
                   >
-                    {showGameListThumbnails && (
+                    {gameListView === 'boxart' && (
                       <img
                         src={game.boxArtUrl || '/placeholder.png'}
                         alt={game.title}
@@ -1535,6 +1547,22 @@ export const GameManager: React.FC<GameManagerProps> = ({
                           target.onerror = () => { target.style.display = 'none'; };
                         }}
                       />
+                    )}
+                    {gameListView === 'icon' && (
+                      <div className="w-10 h-10 flex-shrink-0 bg-gray-900 rounded p-1 flex items-center justify-center border border-gray-700">
+                        {game.iconUrl ? (
+                          <img
+                            src={game.iconUrl}
+                            alt={game.title}
+                            className="w-full h-full object-contain"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).style.display = 'none';
+                            }}
+                          />
+                        ) : (
+                          <span className="text-[8px] text-gray-500">No Icon</span>
+                        )}
+                      </div>
                     )}
                     <div className="flex-1 min-w-0 text-left">
                       <p className="text-sm font-medium text-white truncate">{game.title}</p>

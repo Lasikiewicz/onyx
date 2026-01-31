@@ -15,12 +15,12 @@ export const SettingsSection: React.FC<SettingsSectionProps> = ({
     className = ''
 }) => {
     return (
-        <div className={`space-y-3 mb-6 ${className}`}>
-            <div className="border-b border-gray-700/50 pb-1.5">
+        <div className={`space-y-4 mb-6 ${className}`}>
+            <div className="border-b border-gray-700/50 pb-2">
                 <h3 className="text-base font-bold text-white tracking-tight">{title}</h3>
-                {description && <p className="text-gray-400 text-xs mt-0.5">{description}</p>}
+                {description && <p className="text-gray-400 text-xs mt-1">{description}</p>}
             </div>
-            <div className="space-y-2">
+            <div className="space-y-3">
                 {children}
             </div>
         </div>
@@ -42,7 +42,7 @@ export const SettingsCard: React.FC<SettingsCardProps> = ({
     return (
         <div
             className={`
-        bg-gray-800/40 border border-gray-700/50 rounded-lg p-2.5 
+        bg-gray-800/40 border border-gray-700/50 rounded-lg p-3 
         transition-all duration-200
         ${onClick ? 'hover:bg-gray-700/40 hover:border-gray-600/50 cursor-pointer active:scale-[0.99]' : ''}
         ${className}
@@ -71,9 +71,9 @@ export const SettingsToggle: React.FC<SettingsToggleProps> = ({
     disabled = false
 }) => {
     return (
-        <SettingsCard className={`flex items-center justify-between py-2 ${disabled ? 'opacity-50 pointer-events-none' : ''}`}>
+        <SettingsCard className={`flex items-center justify-between py-2 px-3 ${disabled ? 'opacity-50 pointer-events-none' : ''}`}>
             <div className="flex-1 pr-4">
-                <label className="text-gray-200 text-sm font-medium block mb-0.5">
+                <label className="text-gray-200 text-sm font-medium block mb-1">
                     {label}
                 </label>
                 {description && (
