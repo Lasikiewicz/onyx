@@ -2158,24 +2158,23 @@ function App() {
       )}
       {/* Startup Scan Progress Overlay */}
       {startupProgress && (
-        <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[60] animate-in fade-in zoom-in duration-300">
-          <div className="bg-gray-900/90 backdrop-blur-xl border border-white/10 p-4 rounded-2xl shadow-2xl w-80">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center animate-pulse">
-                <svg className="w-4 h-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[999] flex items-center justify-center animate-in fade-in duration-300">
+          <div className="bg-gray-900/95 backdrop-blur-xl border border-white/20 p-6 rounded-2xl shadow-2xl w-96 animate-in zoom-in duration-300">
+            <div className="flex items-center gap-4 mb-4">
+              <div className="w-12 h-12 rounded-xl bg-blue-500/20 flex items-center justify-center animate-pulse">
+                <svg className="w-6 h-6 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                 </svg>
               </div>
               <div className="flex-1 overflow-hidden">
-                <h3 className="text-white text-sm font-semibold truncate">Updating Library</h3>
-                <div className="flex items-center gap-2">
-                  <div className="w-full bg-white/10 h-1.5 rounded-full overflow-hidden">
-                    <div className="h-full bg-blue-500 animate-[loading_2s_ease-in-out_infinite]" style={{ width: '40%' }}></div>
-                  </div>
-                </div>
+                <h3 className="text-white text-lg font-semibold">Updating Library</h3>
+                <p className="text-white/60 text-sm">Scanning for new games...</p>
               </div>
             </div>
-            <p className="text-white/60 text-[11px] truncate font-medium">
+            <div className="w-full bg-white/10 h-2 rounded-full overflow-hidden mb-3">
+              <div className="h-full bg-gradient-to-r from-blue-500 to-blue-600 animate-[loading_2s_ease-in-out_infinite]" style={{ width: '60%' }}></div>
+            </div>
+            <p className="text-white/70 text-sm font-medium">
               {startupProgress.message}
             </p>
           </div>
