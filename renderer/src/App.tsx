@@ -22,6 +22,7 @@ import { GameManager } from './components/GameManager';
 import { ConfirmationDialog } from './components/ConfirmationDialog';
 import { BugReportModal } from './components/BugReportModal';
 import { WelcomeScreen } from './components/WelcomeScreen';
+import { MissingGamesModal } from './components/MissingGamesModal';
 import { Game, ExecutableFile, GameMetadata } from './types/game';
 import { areAPIsConfigured } from './utils/apiValidation';
 
@@ -149,6 +150,15 @@ function App() {
   // Launch confirmation state
   const [confirmGameLaunch, setConfirmGameLaunch] = useState(false);
   const [launchConfirmation, setLaunchConfirmation] = useState<{ game: Game } | null>(null);
+
+  // Missing games state
+  const [missingGames, setMissingGames] = useState<Array<{
+    id: string;
+    title: string;
+    exePath?: string;
+    platform?: string;
+    source?: string;
+  }> | null>(null);
 
 
 
@@ -541,9 +551,18 @@ function App() {
       }
     };
 
+    // Listen for missing games detected during scans
+    const missingGamesHandler = (_event: any, data: { games: Array<any> }) => {
+      console.log('[App] Missing games detected:', data);
+      if (data.games && data.games.length > 0) {
+        setMissingGames(data.games);
+      }
+    };
+
     const removeSteamNewGames = window.electronAPI?.on && window.electronAPI.on('steam:newGamesFound', newGamesHandler);
     const removeBackgroundNewGames = window.electronAPI?.on && window.electronAPI.on('background:newGamesFound', backgroundNewGamesHandler);
     const removeStartupProgress = window.electronAPI?.on && window.electronAPI.on('startup:progress', startupProgressHandler);
+    const removeMissingGames = window.electronAPI?.on && window.electronAPI.on('scan:missing-games', missingGamesHandler);
 
     return () => {
       cleanup1();
@@ -553,6 +572,7 @@ function App() {
       if (typeof removeSteamNewGames === 'function') removeSteamNewGames();
       if (typeof removeBackgroundNewGames === 'function') removeBackgroundNewGames();
       if (typeof removeStartupProgress === 'function') removeStartupProgress();
+      if (typeof removeMissingGames === 'function') removeMissingGames();
     };
   }, []);
 
@@ -1178,6 +1198,29 @@ function App() {
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 5000);
+  };
+
+  // Missing games handlers
+  const handleRemoveMissingGames = async (gameIds: string[]) => {
+    try {
+      const result = await window.electronAPI.removeMissingGames(gameIds);
+      if (result.success) {
+        showToast(`Successfully removed ${result.removedCount} missing game(s)`, 'success');
+        // Reload library to reflect changes
+        await loadLibrary();
+      } else {
+        showToast('Failed to remove missing games', 'error');
+      }
+    } catch (error) {
+      console.error('Error removing missing games:', error);
+      showToast('Failed to remove missing games', 'error');
+    } finally {
+      setMissingGames(null);
+    }
+  };
+
+  const handleCancelMissingGames = () => {
+    setMissingGames(null);
   };
 
   // Hide confirmation dialog state
@@ -2125,6 +2168,15 @@ function App() {
             </button>
           </div>
         </div>
+      )}
+
+      {/* Missing Games Modal */}
+      {missingGames && missingGames.length > 0 && (
+        <MissingGamesModal
+          missingGames={missingGames}
+          onRemove={handleRemoveMissingGames}
+          onCancel={handleCancelMissingGames}
+        />
       )}
 
       {/* New Games Notification Dialog */}

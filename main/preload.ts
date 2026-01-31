@@ -31,6 +31,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   addCustomGame: (gameData: { title: string; exePath: string }) => ipcRenderer.invoke('gameStore:addCustomGame', gameData),
   deleteGame: (gameId: string) => ipcRenderer.invoke('gameStore:deleteGame', gameId),
   removeWinGDKGames: () => ipcRenderer.invoke('gameStore:removeWinGDKGames'),
+  removeMissingGames: (gameIds: string[]) => ipcRenderer.invoke('scan:removeMissingGames', gameIds),
   // Dialog methods
   showOpenDialog: () => ipcRenderer.invoke('dialog:showOpenDialog'),
   showFolderDialog: () => ipcRenderer.invoke('dialog:showFolderDialog'),
@@ -83,6 +84,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
       'steam:newGamesFound',
       'background:newGamesFound',
       'startup:progress',
+      'scan:missing-games',
       'metadata:refreshProgress',
       'gameStore:libraryUpdated',
       'metadata:gameImagesFound',

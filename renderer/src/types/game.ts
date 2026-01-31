@@ -279,6 +279,7 @@ declare global {
       getVersion: () => Promise<string>;
       getName: () => Promise<string>;
       removeWinGDKGames: () => Promise<{ success: boolean; removedCount?: number; removedGames?: Array<{ id: string; title: string; exePath?: string }>; error?: string }>;
+      removeMissingGames: (gameIds: string[]) => Promise<{ success: boolean; removedCount?: number; error?: string }>;
       openPath: (pathOrType: string) => Promise<{ success: boolean; error?: string }>;
       checkProcessExists: (pid: number) => Promise<boolean>;
       suspend: {

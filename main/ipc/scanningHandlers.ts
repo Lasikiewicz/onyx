@@ -4,6 +4,7 @@ import { AppConfigService } from '../AppConfigService.js';
 import { ImportService } from '../ImportService.js';
 import { MetadataFetcherService } from '../MetadataFetcherService.js';
 import { ImageCacheService } from '../ImageCacheService.js';
+import { existsSync } from 'node:fs';
 
 let backgroundScanInterval: NodeJS.Timeout | null = null;
 
@@ -76,6 +77,59 @@ export function registerScanningHandlers(
                     }
                 }
             }
+
+            // Check for missing games (games whose exe paths no longer exist)
+            const existingLibrary = await gameStore.getLibrary();
+
+            // Get app configs to check which sources are enabled
+            const appConfigs = await appConfigService.getAppConfigs();
+            const isSteamEnabled = appConfigs['steam']?.enabled;
+
+            // Create set of scanned Steam IDs for efficient lookup
+            const scannedSteamIds = new Set<string>();
+            if (isSteamEnabled) {
+                scannedResults.forEach(g => {
+                    if (g.source === 'steam' && g.appId) {
+                        scannedSteamIds.add(`steam-${g.appId}`);
+                    }
+                });
+            }
+
+            const missingGames = existingLibrary.filter(game => {
+                // Special handling for Steam games (check against scan results instead of file system)
+                if (game.source === 'steam') {
+                    if (!isSteamEnabled) return false; // Skip if scanning disabled
+                    return !scannedSteamIds.has(game.id);
+                }
+
+                // Skip games without exe paths (like some Steam games that launch via protocol)
+                if (!game.exePath || game.exePath.trim() === '') {
+                    return false;
+                }
+
+                // Check if the exe file still exists
+                const fileExists = existsSync(game.exePath);
+                if (!fileExists) {
+                    console.log(`[BackgroundScan] Game missing: ${game.title} (${game.exePath})`);
+                }
+                return !fileExists;
+            });
+
+            if (missingGames.length > 0) {
+                console.log(`[BackgroundScan] Found ${missingGames.length} missing games`);
+                if (winReference.current && !winReference.current.isDestroyed()) {
+                    // Send missing games to renderer for user confirmation
+                    winReference.current.webContents.send('scan:missing-games', {
+                        games: missingGames.map(g => ({
+                            id: g.id,
+                            title: g.title,
+                            exePath: g.exePath,
+                            platform: g.platform,
+                            source: g.source
+                        }))
+                    });
+                }
+            }
         } catch (error) {
             console.error('[BackgroundScan] Error during background scan:', error);
         }
@@ -123,6 +177,34 @@ export function registerScanningHandlers(
                 success: false,
                 error: error instanceof Error ? error.message : 'Unknown error',
                 games: []
+            };
+        }
+    });
+
+    // Handle removal of missing games
+    ipcMain.handle('scan:removeMissingGames', async (_event, gameIds: string[]) => {
+        try {
+            console.log(`[BackgroundScan] Removing ${gameIds.length} missing games...`);
+            let removedCount = 0;
+
+            for (const gameId of gameIds) {
+                try {
+                    await gameStore.deleteGame(gameId);
+                    removedCount++;
+                    console.log(`[BackgroundScan] Removed missing game: ${gameId}`);
+                } catch (err) {
+                    console.error(`[BackgroundScan] Error removing game ${gameId}:`, err);
+                }
+            }
+
+            console.log(`[BackgroundScan] Successfully removed ${removedCount}/${gameIds.length} missing games`);
+            return { success: true, removedCount };
+        } catch (error) {
+            console.error('[BackgroundScan] Error removing missing games:', error);
+            return {
+                success: false,
+                error: error instanceof Error ? error.message : 'Unknown error',
+                removedCount: 0
             };
         }
     });
