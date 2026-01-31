@@ -511,10 +511,14 @@ function App() {
 
     // Listen for startup scan progress
     const startupProgressHandler = (_event: any, data: { message: string }) => {
-      console.log('[App] Received startup:progress event:', data);
+      // Handle cases where data might be undefined or malformed
+      if (!data || typeof data !== 'object') {
+        console.warn('[App] ⚠️ Received malformed startup:progress data:', data);
+        return;
+      }
       setStartupProgress(data);
       // Auto-hide progress after completion message
-      if (data.message.includes('Scan complete') || data.message.includes('Error')) {
+      if (data.message && (data.message.includes('Scan complete') || data.message.includes('Error'))) {
         setTimeout(() => {
           setStartupProgress(null);
         }, 5000);
@@ -524,12 +528,6 @@ function App() {
     const removeSteamNewGames = window.electronAPI?.on && window.electronAPI.on('steam:newGamesFound', newGamesHandler);
     const removeBackgroundNewGames = window.electronAPI?.on && window.electronAPI.on('background:newGamesFound', backgroundNewGamesHandler);
     const removeStartupProgress = window.electronAPI?.on && window.electronAPI.on('startup:progress', startupProgressHandler);
-
-    console.log('[App] Registered IPC listeners:', {
-      steamNewGames: !!removeSteamNewGames,
-      backgroundNewGames: !!removeBackgroundNewGames,
-      startupProgress: !!removeStartupProgress
-    });
 
     return () => {
       cleanup1();
@@ -2156,27 +2154,74 @@ function App() {
           </div>
         </div>
       )}
-      {/* Startup Scan Progress Overlay */}
+      {/* Startup scan progress overlay */}
       {startupProgress && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[999] flex items-center justify-center animate-in fade-in duration-300">
-          <div className="bg-gray-900/95 backdrop-blur-xl border border-white/20 p-6 rounded-2xl shadow-2xl w-96 animate-in zoom-in duration-300">
-            <div className="flex items-center gap-4 mb-4">
-              <div className="w-12 h-12 rounded-xl bg-blue-500/20 flex items-center justify-center animate-pulse">
-                <svg className="w-6 h-6 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[999] flex items-center justify-center">
+          <div className="bg-gradient-to-br from-gray-900/95 to-slate-950/95 backdrop-blur-xl border border-cyan-500/20 p-10 rounded-3xl shadow-2xl w-[600px] max-w-[90vw] animate-in fade-in zoom-in duration-300">
+            <div className="flex flex-col items-center space-y-6">
+              {/* Onyx Logo */}
+              <div className="w-24 h-24 animate-pulse">
+                <svg width="100%" height="100%" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <defs>
+                    <linearGradient id="onyxGrad" x1="256" y1="20" x2="256" y2="492" gradientUnits="userSpaceOnUse">
+                      <stop offset="0" stopColor="#334155" />
+                      <stop offset="1" stopColor="#020617" />
+                    </linearGradient>
+                    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+                      <feGaussianBlur stdDeviation="8" result="blur" />
+                      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                    </filter>
+                  </defs>
+
+                  <path d="M256 30 L465 150 V362 L256 482 L47 362 V150 L256 30Z"
+                    fill="url(#onyxGrad)"
+                    stroke="#0ea5e9"
+                    strokeWidth="8"
+                    filter="url(#glow)" />
+
+                  <path d="M256 256 L256 482 M256 256 L47 150 M256 256 L465 150"
+                    stroke="#1e293b"
+                    strokeWidth="4" />
+
+                  <g transform="translate(256, 143) scale(1, 0.58)">
+                    <circle r="55" stroke="#0ea5e9" strokeWidth="20" strokeOpacity="0.6" fill="none" />
+                    <circle r="55" stroke="#e0f2fe" strokeWidth="8" fill="none" />
+                  </g>
+
+                  <g transform="translate(151, 325) rotate(60) scale(1, 0.58)">
+                    <circle r="55" stroke="#0ea5e9" strokeWidth="20" strokeOpacity="0.6" fill="none" />
+                    <circle r="55" stroke="#e0f2fe" strokeWidth="8" fill="none" />
+                  </g>
+
+                  <g transform="translate(361, 325) rotate(-60) scale(1, 0.58)">
+                    <circle r="55" stroke="#0ea5e9" strokeWidth="20" strokeOpacity="0.6" fill="none" />
+                    <circle r="55" stroke="#e0f2fe" strokeWidth="8" fill="none" />
+                  </g>
+
+                  <path d="M256 30 L465 150 L256 256 L47 150 L256 30Z"
+                    fill="white"
+                    fillOpacity="0.1" />
                 </svg>
               </div>
-              <div className="flex-1 overflow-hidden">
-                <h3 className="text-white text-lg font-semibold">Updating Library</h3>
-                <p className="text-white/60 text-sm">Scanning for new games...</p>
+
+              {/* Title */}
+              <div className="text-center">
+                <h3 className="text-2xl font-bold text-white mb-2">Scanning Game Libraries</h3>
+                <p className="text-cyan-100/60 text-sm">Checking for new games on startup...</p>
+              </div>
+
+              {/* Progress message - larger and more visible */}
+              <div className="w-full bg-slate-800/50 rounded-xl p-4 border border-cyan-500/10">
+                <p className="text-cyan-50/90 text-base text-center font-medium break-words">
+                  {startupProgress.message}
+                </p>
+              </div>
+
+              {/* Progress bar */}
+              <div className="w-full bg-slate-700/50 rounded-full h-2.5 overflow-hidden">
+                <div className="h-full bg-gradient-to-r from-cyan-500 to-sky-400 rounded-full animate-pulse" style={{ width: '100%' }}></div>
               </div>
             </div>
-            <div className="w-full bg-white/10 h-2 rounded-full overflow-hidden mb-3">
-              <div className="h-full bg-gradient-to-r from-blue-500 to-blue-600 animate-[loading_2s_ease-in-out_infinite]" style={{ width: '60%' }}></div>
-            </div>
-            <p className="text-white/70 text-sm font-medium">
-              {startupProgress.message}
-            </p>
           </div>
         </div>
       )}

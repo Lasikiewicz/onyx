@@ -1523,23 +1523,46 @@ app.whenReady().then(async () => {
     try {
       const prefs = await userPreferencesService.getPreferences();
       if (prefs.updateLibrariesOnStartup) {
-        // Longer delay to ensure window and renderer are fully ready
-        await new Promise(resolve => setTimeout(resolve, 3000));
-        console.log('[StartupScan] Performing startup scan for new games...');
+        console.log('[StartupScan] Update Libraries on Startup is enabled');
+
+        // Wait for renderer to be ready (React app to mount and register listeners)
+        // Reduced delay for faster startup
+        console.log('[StartupScan] Waiting for renderer to be ready...');
+        await new Promise(resolve => setTimeout(resolve, 1000));
 
         // Send initial progress message
+        if (win && !win.isDestroyed()) {
+          console.log('[StartupScan] Sending initial progress message to renderer');
+          win.webContents.send('startup:progress', { message: 'Initializing library scan...' });
+        }
+
+        // Small additional delay
+        await new Promise(resolve => setTimeout(resolve, 300));
+        console.log('[StartupScan] Performing startup scan for new games...');
+
+        // Send progress message that scan is starting
         if (win && !win.isDestroyed()) {
           win.webContents.send('startup:progress', { message: 'Starting library scan...' });
         }
 
+        const scanStartTime = Date.now();
         await performBackgroundScan(true);
+        const scanDuration = Date.now() - scanStartTime;
+
+        // Ensure the modal is visible for at least 2 seconds total
+        // If scan was very quick, add a delay so users see the modal
+        const minDisplayTime = 2000;
+        const totalElapsed = Date.now() - scanStartTime;
+        if (totalElapsed < minDisplayTime) {
+          await new Promise(resolve => setTimeout(resolve, minDisplayTime - totalElapsed));
+        }
 
         // Send completion message
         if (win && !win.isDestroyed()) {
           win.webContents.send('startup:progress', { message: 'Scan complete' });
         }
 
-        console.log('[StartupScan] Startup scan completed');
+        console.log(`[StartupScan] Startup scan completed in ${scanDuration}ms`);
       } else {
         console.log('[StartupScan] Startup scan disabled in preferences');
       }
@@ -1549,6 +1572,8 @@ app.whenReady().then(async () => {
       if (win && !win.isDestroyed()) {
         win.webContents.send('startup:progress', { message: 'Error during scan' });
       }
+      // Keep error visible for 3 seconds
+      await new Promise(resolve => setTimeout(resolve, 3000));
     }
   })();
 

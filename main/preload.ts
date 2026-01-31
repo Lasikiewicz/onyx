@@ -92,7 +92,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
       console.warn(`Attempt to register to unauthorized IPC channel: ${channel}`);
       return () => { };
     }
-    const handler = (_event: any, ...args: any[]) => callback(...args);
+    const handler = (event: any, ...args: any[]) => {
+      // Call the callback with event and args
+      // This matches the expected signature: (event, data) => void
+      callback(event, ...args);
+    };
     ipcRenderer.on(channel, handler);
     return () => ipcRenderer.removeListener(channel, handler);
   },
