@@ -101,5 +101,31 @@ export function registerScanningHandlers(
         return { success: true };
     });
 
+    // Handle manual scan all sources request from the Game Importer
+    ipcMain.handle('import:scanAllSources', async () => {
+        try {
+            console.log('[ImportService] Starting manual scan from Game Importer...');
+            const scannedResults = await importService.scanAllSources((message) => {
+                if (winReference.current && !winReference.current.isDestroyed()) {
+                    winReference.current.webContents.send('import:scanProgress', { message });
+                }
+            });
+
+            console.log(`[ImportService] Manual scan completed: ${scannedResults.length} games found`);
+
+            return {
+                success: true,
+                games: scannedResults
+            };
+        } catch (error) {
+            console.error('[ImportService] Error during manual scan:', error);
+            return {
+                success: false,
+                error: error instanceof Error ? error.message : 'Unknown error',
+                games: []
+            };
+        }
+    });
+
     return { performBackgroundScan, startBackgroundScan, stopBackgroundScan };
 }
