@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 
 interface UnmatchedGame {
   gameId: string;
@@ -33,6 +33,10 @@ export const MatchFixDialog: React.FC<MatchFixDialogProps> = ({
   const [isSearching, setIsSearching] = useState<Map<string, boolean>>(new Map());
 
   const [missingKeyError, setMissingKeyError] = useState<string | null>(null);
+
+  const sortedUnmatchedGames = useMemo(() => {
+    return [...unmatchedGames].sort((a, b) => a.title.localeCompare(b.title));
+  }, [unmatchedGames]);
 
   useEffect(() => {
     if (isOpen) {
@@ -172,7 +176,7 @@ export const MatchFixDialog: React.FC<MatchFixDialogProps> = ({
           )}
 
           <div className="space-y-4">
-            {unmatchedGames.map((game) => {
+            {sortedUnmatchedGames.map((game: UnmatchedGame) => {
               const gameResults = searchResults.get(game.gameId) || game.searchResults;
               const isSearchingGame = isSearching.get(game.gameId);
               const selectedMatch = selectedMatches.get(game.gameId);

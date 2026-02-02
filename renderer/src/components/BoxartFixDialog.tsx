@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { ImageSelector, ImageResult } from './ImageSelector';
 
 interface MissingBoxartGame {
@@ -27,6 +27,10 @@ export const BoxartFixDialog: React.FC<BoxartFixDialogProps> = ({
   const [isSearching, setIsSearching] = useState<Map<string, boolean>>(new Map());
   const [isWebSearching, setIsWebSearching] = useState<Map<string, boolean>>(new Map());
   const [expandedGameId, setExpandedGameId] = useState<string | null>(null);
+
+  const sortedMissingGames = useMemo(() => {
+    return [...missingBoxartGames].sort((a, b) => a.title.localeCompare(b.title));
+  }, [missingBoxartGames]);
 
   useEffect(() => {
     if (isOpen) {
@@ -180,7 +184,7 @@ export const BoxartFixDialog: React.FC<BoxartFixDialogProps> = ({
 
   if (!isOpen) return null;
 
-  const visibleGames = missingBoxartGames;
+  const visibleGames = sortedMissingGames;
   const allFixed = visibleGames.length > 0 && selectedBoxarts && visibleGames.every(game => selectedBoxarts.has(game.gameId));
 
   return (
@@ -207,7 +211,7 @@ export const BoxartFixDialog: React.FC<BoxartFixDialogProps> = ({
           </p>
 
           <div className="space-y-4">
-            {missingBoxartGames.map((game) => {
+            {sortedMissingGames.map((game: MissingBoxartGame) => {
               const gameResults = searchResults.get(game.gameId) || [];
               const isSearchingGame = isSearching.get(game.gameId);
               const isWebSearchingGame = isWebSearching.get(game.gameId);
@@ -229,8 +233,8 @@ export const BoxartFixDialog: React.FC<BoxartFixDialogProps> = ({
                     <button
                       onClick={() => setExpandedGameId(isExpanded ? null : game.gameId)}
                       className={`text-xs px-3 py-1.5 rounded-lg transition-all font-medium ${isExpanded
-                          ? 'bg-gray-700 text-white shadow-inner'
-                          : 'bg-gray-800 text-gray-400 hover:text-gray-200 hover:bg-gray-700'
+                        ? 'bg-gray-700 text-white shadow-inner'
+                        : 'bg-gray-800 text-gray-400 hover:text-gray-200 hover:bg-gray-700'
                         }`}
                     >
                       {isExpanded ? 'Collapse' : 'Select Boxart'}

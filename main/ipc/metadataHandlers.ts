@@ -301,7 +301,7 @@ export function registerMetadataIPCHandlers(
                 }));
 
                 if (event.sender && !event.sender.isDestroyed()) {
-                    event.sender.send('metadata:fastSearchProgress', uiResults);
+                    event.sender.send('metadata:fastSearchProgress', { results: uiResults, query });
                 }
             });
 
@@ -430,7 +430,7 @@ export function registerMetadataIPCHandlers(
         }
     });
 
-    ipcMain.handle('metadata:fetchGameImages', async (event, gameName: string, steamAppId?: string, igdbId?: number, includeAnimated?: boolean) => {
+    ipcMain.handle('metadata:fetchGameImages', async (event, gameName: string, steamAppId?: string, igdbId?: number, includeAnimated?: boolean, gameId?: string) => {
         try {
             console.log(`[fetchGameImages] Searching for images for "${gameName}" (steamAppId: ${steamAppId})`);
             const results: any[] = [];
@@ -440,7 +440,7 @@ export function registerMetadataIPCHandlers(
             if (sgdbImages.length > 0) {
                 results.push(...sgdbImages);
                 // Emit event for progressive loading
-                event.sender.send('metadata:gameImagesFound', { images: sgdbImages });
+                event.sender.send('metadata:gameImagesFound', { images: sgdbImages, query: gameName, gameId });
             }
 
             // 2. Try to fetch standard metadata (Steam/IGDB auto-match) as fallback/addition
@@ -459,7 +459,7 @@ export function registerMetadataIPCHandlers(
                 if (autoMatchImages.length > 0) {
                     results.push(...autoMatchImages);
                     // Emit event for progressive loading
-                    event.sender.send('metadata:gameImagesFound', { images: autoMatchImages });
+                    event.sender.send('metadata:gameImagesFound', { images: autoMatchImages, query: gameName, gameId });
                 }
             } catch (err) {
                 console.warn('Auto-match fallback failed:', err);

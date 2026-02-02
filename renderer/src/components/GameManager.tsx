@@ -96,6 +96,18 @@ export const GameManager: React.FC<GameManagerProps> = ({
   const [newCategoryInput, setNewCategoryInput] = useState('');
   const [showAnimatedImages, setShowAnimatedImages] = useState(false);
 
+  // Refs to track current state for async IPC events
+  const selectedGameIdRef = React.useRef(selectedGameId);
+  const currentSearchQueryRef = React.useRef(imageSearchQuery);
+
+  useEffect(() => {
+    selectedGameIdRef.current = selectedGameId;
+  }, [selectedGameId]);
+
+  useEffect(() => {
+    currentSearchQueryRef.current = imageSearchQuery;
+  }, [imageSearchQuery]);
+
   // Get all unique categories from all games for suggestions
   const allCategories = useMemo(() => {
     const categories = new Set<string>();
@@ -196,6 +208,11 @@ export const GameManager: React.FC<GameManagerProps> = ({
     return localGames.find(g => g.id === expandedGameId) || null;
   }, [localGames, expandedGameId]);
 
+  // ALWAYS keep the game list sorted alphabetically by title
+  const sortedLocalGames = useMemo(() => {
+    return [...localGames].sort((a, b) => a.title.localeCompare(b.title));
+  }, [localGames]);
+
   // Update editedGame when selectedGame changes (e.g., after library reload)
   useEffect(() => {
     if (selectedGame && editedGame && selectedGame.id === editedGame.id) {
@@ -256,6 +273,11 @@ export const GameManager: React.FC<GameManagerProps> = ({
   // Reset search state when selected game changes
   useEffect(() => {
     if (selectedGame) {
+      setActiveTab('metadata');
+      setIsSearchingImages(false);
+      setIsFastSearching(false);
+      setIsSearchingMetadata(false);
+      setIsApplyingMetadata(false);
       setShowImageSearch(null);
       setImageSearchResults([]);
       setSteamGridDBResults({ boxart: [], banner: [], logo: [], icon: [] });
@@ -438,6 +460,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
       activeSearches++;
       window.electronAPI.searchArtwork(selectedGame.title, steamAppId)
         .then((steamMetadata) => {
+          if (selectedGameIdRef.current !== selectedGame.id || currentSearchQueryRef.current !== query) return;
           if (steamMetadata) {
             const steamResults: any[] = [];
             // Helper to add result
@@ -480,6 +503,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
         activeSearches++;
         searchPromises.push(
           window.electronAPI.searchWebImages(query, imageType).then((response: any) => {
+            if (selectedGameIdRef.current !== selectedGame.id || currentSearchQueryRef.current !== query) return;
             if (response.success && response.images) {
               const flattenedResults: any[] = [];
               response.images.forEach((gameResult: any) => {
@@ -526,6 +550,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
           activeSearches++;
           searchPromises.push(
             window.electronAPI.searchMetadata(query).then((igdbResponse: any) => {
+              if (selectedGameIdRef.current !== selectedGame.id || currentSearchQueryRef.current !== query) return;
               if (igdbResponse && igdbResponse.success && igdbResponse.results && igdbResponse.results.length > 0) {
                 const filteredIGDBResults: IGDBGameResult[] = igdbResponse.results.filter((result: any) => {
                   if (imageType === 'boxart') {
@@ -571,11 +596,11 @@ export const GameManager: React.FC<GameManagerProps> = ({
             }).finally(checkFinished)
           );
         }
-
         // Search SteamGridDB for the specific image type
         activeSearches++;
         searchPromises.push(
           window.electronAPI.searchImages(query, imageType, steamAppId, showAnimatedImages).then((sgdbResponse: any) => {
+            if (selectedGameIdRef.current !== selectedGame.id || currentSearchQueryRef.current !== query) return;
             if (sgdbResponse.success && sgdbResponse.images) {
               const flattenedResults: any[] = [];
               sgdbResponse.images.forEach((gameResult: any) => {
@@ -668,16 +693,19 @@ export const GameManager: React.FC<GameManagerProps> = ({
 
     // Listen for progressive search results
     const removeProgressListener = window.electronAPI?.on
-      ? window.electronAPI.on('metadata:fastSearchProgress', (_event: any, results: FastSearchGame[]) => {
-        console.log('[FastSearch] Received progressive results:', results);
-        if (!results || !Array.isArray(results)) {
-          console.warn('[FastSearch] Received invalid results:', results);
-          return;
-        }
+      ? window.electronAPI.on('metadata:fastSearchProgress', (_event: any, data: any) => {
+        // Handle both old and new data formats
+        const results = Array.isArray(data) ? data : (data.results || []);
+        const responseQuery = Array.isArray(data) ? null : data.query;
+
+        // Guard: DISCARD if this is an old query or we switched games
+        if (responseQuery && responseQuery !== query) return;
+        if (selectedGameIdRef.current !== selectedGame.id) return;
+
         setFastSearchResults(prev => {
           // Merge and deduplicate based on ID + Source
           const currentIds = new Set(prev.map(p => `${p.source}:${p.id}`));
-          const newItems = results.filter(r => !currentIds.has(`${r.source}:${r.id}`));
+          const newItems = results.filter((r: any) => !currentIds.has(`${r.source}:${r.id}`));
           return [...prev, ...newItems];
         });
       })
@@ -760,8 +788,18 @@ export const GameManager: React.FC<GameManagerProps> = ({
 
   // Listen for progressive image search results
   useEffect(() => {
-    const handleImagesFound = (_event: any, data: { images: any[] }) => {
+    const handleImagesFound = (_event: any, data: any) => {
       if (!data || !data.images || data.images.length === 0) return;
+
+      // Guard: Discard if this result is for a different query or game than what's currently active in the UI
+      if (data.query && data.query !== currentSearchQueryRef.current) {
+        console.log(`[GameManager] Discarding images for "${data.query}" (Current query: "${currentSearchQueryRef.current}")`);
+        return;
+      }
+      if (data.gameId && data.gameId !== selectedGameIdRef.current) {
+        console.log(`[GameManager] Discarding images because game changed (Event gameId: ${data.gameId}, Current: ${selectedGameIdRef.current})`);
+        return;
+      }
 
       const newImages: any[] = [];
       const sgdbResults = {
@@ -857,8 +895,15 @@ export const GameManager: React.FC<GameManagerProps> = ({
         gameResult.name,
         selectedGame?.id.startsWith('steam-') ? selectedGame.id.replace('steam-', '') : undefined,
         Number(gameResult.id),
-        showAnimatedImages
+        showAnimatedImages,
+        selectedGame!.id
       );
+
+      // Guard: Discard final response if we switched games
+      if (selectedGameIdRef.current !== selectedGame!.id) {
+        console.log('[FastSearch] Discarding final response because game changed');
+        return;
+      }
 
       console.log('[FastSearch] Final response:', response);
 
@@ -1056,7 +1101,12 @@ export const GameManager: React.FC<GameManagerProps> = ({
       setEditedGame({ ...game });
       setExpandedGameId(gameId);
 
-      // Update search query to new game's title and clear previous results
+      // Reset search states and set default tab
+      setActiveTab('metadata');
+      setIsSearchingImages(false);
+      setIsFastSearching(false);
+      setIsSearchingMetadata(false);
+      setIsApplyingMetadata(false);
       setImageSearchQuery(game.title);
       setImageSearchResults([]);
       setSteamGridDBResults({ boxart: [], banner: [], logo: [], icon: [] });
@@ -1068,7 +1118,6 @@ export const GameManager: React.FC<GameManagerProps> = ({
       setShowFixMatch(false);
       setMetadataSearchResults([]);
       setMetadataSearchQuery('');
-      setIsSearchingMetadata(false);
       setSteamAppIdInput((game.id.startsWith('steam-') ? game.id.replace('steam-', '') : ''));
 
       // Update localGames if game was found in games prop but not localGames
@@ -1526,7 +1575,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
                 </div>
               </div>
               <div className="space-y-2">
-                {localGames.map((game) => (
+                {sortedLocalGames.map((game) => (
                   <button
                     key={game.id}
                     onClick={() => handleGameSelect(game.id)}

@@ -57,9 +57,14 @@ export function registerScanningHandlers(
                 if (newGames.length > 0) {
                     console.log(`[BackgroundScan] Found ${newGames.length} new games to import`);
                     if (winReference.current && !winReference.current.isDestroyed()) {
-                        winReference.current.webContents.send('startup:new-games', { count: newGames.length });
+                        winReference.current.webContents.send('background:newGamesFound', {
+                            count: newGames.length,
+                            games: newGames
+                        });
                     }
 
+                    // Auto-import disabled in favor of user confirmation
+                    /* 
                     for (const game of newGames) {
                         try {
                             // Auto-import with basic metadata
@@ -75,6 +80,7 @@ export function registerScanningHandlers(
                             console.error(`[BackgroundScan] Error importing new game ${game.title}:`, err);
                         }
                     }
+                    */
                 }
             }
 

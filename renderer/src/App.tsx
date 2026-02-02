@@ -23,6 +23,7 @@ import { ConfirmationDialog } from './components/ConfirmationDialog';
 import { BugReportModal } from './components/BugReportModal';
 import { WelcomeScreen } from './components/WelcomeScreen';
 import { MissingGamesModal } from './components/MissingGamesModal';
+import { FoundGamesModal } from './components/FoundGamesModal';
 import { Game, ExecutableFile, GameMetadata } from './types/game';
 import { areAPIsConfigured } from './utils/apiValidation';
 
@@ -179,6 +180,9 @@ function App() {
     platform?: string;
     source?: string;
   }> | null>(null);
+
+  // Found games state
+  const [foundGames, setFoundGames] = useState<Array<any> | null>(null);
 
 
 
@@ -550,13 +554,22 @@ function App() {
 
     // Listen for new Steam games found notification
     const newGamesHandler = (_event: any, data: { count: number; games: Array<any> }) => {
-      setNewGamesNotification({ count: data.count, games: data.games });
+      // Treat Steam notifications the same as background scan if they contain games
+      if (data.games && data.games.length > 0) {
+        setFoundGames(data.games);
+      } else {
+        setNewGamesNotification({ count: data.count, games: data.games });
+      }
     };
 
     // Listen for new games found from background scan (all sources)
     const backgroundNewGamesHandler = (_event: any, data: { count: number; games: Array<any>; bySource?: Record<string, Array<any>> }) => {
       console.log('[App] Background scan found new games:', data);
-      setNewGamesNotification({ count: data.count, games: data.games });
+      if (data.games && data.games.length > 0) {
+        setFoundGames(data.games);
+      } else {
+        setNewGamesNotification({ count: data.count, games: data.games });
+      }
     };
 
     // Listen for startup scan progress
@@ -1236,7 +1249,53 @@ function App() {
   // Toast notification helper
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
     setToast({ message, type });
-    setTimeout(() => setToast(null), 5000);
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  const handleImportFoundGames = async (gamesToImport: any[]) => {
+    try {
+      let lastImportedId = null;
+
+      for (const game of gamesToImport) {
+        const gameId = game.source === 'steam' && game.appId
+          ? `steam-${game.appId}`
+          : `custom-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+        const newGame: any = {
+          id: gameId,
+          title: game.title,
+          exePath: game.exePath,
+          source: game.source,
+          installationDirectory: game.installPath,
+          platform: 'pc',
+          // Set dateAdded to now
+          dateAdded: new Date().toISOString(),
+          // Use any provided metadata
+          appId: game.appId,
+          launchArgs: game.launchArgs,
+        };
+
+        const success = await window.electronAPI.saveGame(newGame);
+        if (success) {
+          lastImportedId = gameId;
+        }
+      }
+
+      setFoundGames(null);
+
+      // Reload library to show new games
+      await loadLibrary();
+
+      // "open" the game (select it) if we imported successfully
+      if (lastImportedId) {
+        setActiveGameId(lastImportedId);
+        showToast(`Successfully imported ${gamesToImport.length} game${gamesToImport.length !== 1 ? 's' : ''}`, 'success');
+      }
+
+    } catch (error) {
+      console.error('Error importing games:', error);
+      showToast('Failed to import selected games', 'error');
+    }
   };
 
   // Missing games handlers
@@ -2380,6 +2439,26 @@ function App() {
           </div>
         </div>
       )}
+      {missingGames && (
+        <MissingGamesModal
+          missingGames={missingGames}
+          onRemove={async (gameIds) => {
+            await window.electronAPI.removeMissingGames(gameIds);
+            setMissingGames(null);
+            loadLibrary();
+          }}
+          onCancel={() => setMissingGames(null)}
+        />
+      )}
+
+      {foundGames && (
+        <FoundGamesModal
+          foundGames={foundGames}
+          onImport={handleImportFoundGames}
+          onCancel={() => setFoundGames(null)}
+        />
+      )}
+
       {/* Startup scan progress overlay */}
       {startupProgress && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[999] flex items-center justify-center">
