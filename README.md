@@ -232,3 +232,7 @@ The configuration automatically adjusts:
 - Product Name (window title and installer name)
 - Icon paths
 - GitHub release settings
+
+## License
+
+MIT
