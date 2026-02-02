@@ -1110,7 +1110,7 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                 )}
 
                 {/* Categories Section */}
-                {viewMode === 'grid' && onShowCategoriesInGameListChange && (
+                {(viewMode as string) !== 'carousel' && onShowCategoriesInGameListChange && (
                   <div className="px-3 py-2 bg-gray-700/30 rounded-md space-y-3">
                     <div className="flex items-center justify-between">
                       <label className="text-xs text-gray-300 font-medium">Show Categories</label>

@@ -1586,7 +1586,7 @@ function App() {
 
               {!loading && !error && (
                 <div className="h-full flex flex-col">
-                  {showCategoriesInGameList && viewMode === 'grid' && pinnedCategories.length > 0 && categoriesPosition === 'top' && (
+                  {showCategoriesInGameList && viewMode !== 'carousel' && pinnedCategories.length > 0 && categoriesPosition === 'top' && (
                     <div
                       className={`flex items-center gap-2 px-6 py-4 overflow-x-auto no-scrollbar ${categoriesTopAlignment === 'center' ? 'justify-center' : categoriesTopAlignment === 'right' ? 'justify-end' : 'justify-start'
                         }`}
@@ -1630,7 +1630,7 @@ function App() {
                     </div>
                   )}
                   {filteredGames.length > 0 ? (
-                    <div className={`flex-1 overflow-y-auto animate-onyx-grid-fade ${showCategoriesInGameList && viewMode === 'grid' ? (categoriesPosition === 'top' ? 'px-4 pb-4 pt-0' : 'px-4 pt-4 pb-0') : ''}`}>
+                    <div className={`flex-1 overflow-y-auto animate-onyx-grid-fade ${showCategoriesInGameList && viewMode !== 'carousel' ? (categoriesPosition === 'top' ? 'px-4 pb-4 pt-0' : 'px-4 pt-4 pb-0') : ''}`}>
                       {viewMode === 'grid' || viewMode === 'logo' ? (
                         <LibraryGrid
                           games={filteredGames}
@@ -1746,7 +1746,7 @@ function App() {
                       onOpenSettings={() => setIsAPISettingsOpen(true)}
                     />
                   )}
-                  {showCategoriesInGameList && viewMode === 'grid' && pinnedCategories.length > 0 && categoriesPosition === 'bottom' && (
+                  {showCategoriesInGameList && viewMode !== 'carousel' && pinnedCategories.length > 0 && categoriesPosition === 'bottom' && (
                     <div
                       className={`flex items-center gap-2 px-6 py-4 overflow-x-auto no-scrollbar ${categoriesTopAlignment === 'center' ? 'justify-center' : categoriesTopAlignment === 'right' ? 'justify-end' : 'justify-start'
                         }`}
