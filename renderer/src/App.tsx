@@ -576,13 +576,28 @@ function App() {
     };
   }, []);
 
-  // Get all unique categories from games
-  const allCategories = useMemo(() => {
-    const categories = new Set<string>();
+  // Get all unique categories and their counts from games
+  const { allCategories, categoryCounts } = useMemo(() => {
+    const counts: Record<string, number> = {};
+    let favorites = 0;
+    let hidden = 0;
     games.forEach(game => {
-      game.categories?.forEach(cat => categories.add(cat));
+      if (game.favorite) favorites++;
+      if (game.hidden) hidden++;
+      game.categories?.forEach(cat => {
+        counts[cat] = (counts[cat] || 0) + 1;
+      });
     });
-    return Array.from(categories).sort();
+
+    return {
+      allCategories: Object.keys(counts).sort(),
+      categoryCounts: {
+        ...counts,
+        favorites,
+        hidden,
+        all: games.length
+      }
+    };
   }, [games]);
 
   // Automatically pin VR and Apps categories when they exist
@@ -1479,8 +1494,10 @@ function App() {
           selectedCategory={selectedCategory}
           onCategoryChange={setSelectedCategory}
           allCategories={allCategories}
+          categoryCounts={categoryCounts}
           pinnedCategories={pinnedCategories}
           onTogglePinCategory={handleTogglePinCategory}
+          onReorderPinnedCategories={setPinnedCategories}
           sortBy={sortBy}
           onSortChange={setSortBy}
           hasFavoriteGames={hasFavoriteGames}
