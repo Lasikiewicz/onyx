@@ -58,10 +58,10 @@ export const GameManager: React.FC<GameManagerProps> = ({
 }) => {
   const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
   const [expandedGameId, setExpandedGameId] = useState<string | null>(null);
-  const [showImageSearch, setShowImageSearch] = useState<{ type: 'boxart' | 'banner' | 'logo' | 'icon'; gameId: string } | null>(null);
+  const [showImageSearch, setShowImageSearch] = useState<{ type: 'boxart' | 'banner' | 'alternativeBanner' | 'logo' | 'icon'; gameId: string } | null>(null);
   const [imageSearchQuery, setImageSearchQuery] = useState('');
   const [imageSearchResults, setImageSearchResults] = useState<any[]>([]);
-  const [steamGridDBResults, setSteamGridDBResults] = useState<{ boxart: any[]; banner: any[]; logo: any[]; icon: any[] }>({ boxart: [], banner: [], logo: [], icon: [] });
+  const [steamGridDBResults, setSteamGridDBResults] = useState<{ boxart: any[]; banner: any[]; alternativeBanner: any[]; logo: any[]; icon: any[] }>({ boxart: [], banner: [], alternativeBanner: [], logo: [], icon: [] });
   const [isSearchingImages, setIsSearchingImages] = useState(false);
   const [editedGame, setEditedGame] = useState<Game | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -73,12 +73,12 @@ export const GameManager: React.FC<GameManagerProps> = ({
   const [isSearchingMetadata, setIsSearchingMetadata] = useState(false);
   const [isApplyingMetadata, setIsApplyingMetadata] = useState(false);
   const [activeTab, setActiveTab] = useState<'images' | 'metadata' | 'modManager'>(initialTab);
-  const [activeImageSearchTab, setActiveImageSearchTab] = useState<'all' | 'boxart' | 'banner' | 'logo' | 'icon'>('all');
+  const [activeImageSearchTab, setActiveImageSearchTab] = useState<'all' | 'boxart' | 'banner' | 'alternativeBanner' | 'logo' | 'icon'>('all');
   const [showRefreshDialog, setShowRefreshDialog] = useState(false);
   const [showRefreshConfirm, setShowRefreshConfirm] = useState(false);
   const [refreshMode, setRefreshMode] = useState<'all' | 'missing' | null>(null);
   const [refreshProgress, setRefreshProgress] = useState<{ current: number; total: number; message: string; gameTitle?: string } | null>(null);
-  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; type: 'boxart' | 'banner' | 'logo' | 'icon' } | null>(null);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; type: 'boxart' | 'banner' | 'alternativeBanner' | 'logo' | 'icon' } | null>(null);
   const [showMatchFix, setShowMatchFix] = useState(false);
   const [steamAppIdInput, setSteamAppIdInput] = useState('');
   const [isSteamAppIdInputFocused, setIsSteamAppIdInputFocused] = useState(false);
@@ -107,6 +107,50 @@ export const GameManager: React.FC<GameManagerProps> = ({
   useEffect(() => {
     currentSearchQueryRef.current = imageSearchQuery;
   }, [imageSearchQuery]);
+
+  // Load game list view from preferences
+  useEffect(() => {
+    const loadPreferences = async () => {
+      try {
+        const prefs = await window.electronAPI.getPreferences();
+        if (prefs.listViewOptions?.displayMode) {
+          const displayMode = prefs.listViewOptions.displayMode;
+          if (displayMode === 'boxart-title') setGameListView('boxart');
+          else if (displayMode === 'logo-title') setGameListView('icon');
+          else if (displayMode === 'title-only') setGameListView('text');
+        }
+      } catch (error) {
+        console.error('Failed to load preferences:', error);
+      }
+    };
+    loadPreferences();
+  }, []);
+
+  // Save game list view to preferences
+  useEffect(() => {
+    const savePreferences = async () => {
+      try {
+        const prefs = await window.electronAPI.getPreferences();
+        const displayMode = gameListView === 'boxart' ? 'boxart-title' : gameListView === 'icon' ? 'logo-title' : 'title-only';
+        await window.electronAPI.savePreferences({
+          ...prefs,
+          listViewOptions: {
+            ...prefs.listViewOptions,
+            displayMode,
+            showDescription: prefs.listViewOptions?.showDescription ?? true,
+            showCategories: prefs.listViewOptions?.showCategories ?? true,
+            showPlaytime: prefs.listViewOptions?.showPlaytime ?? true,
+            showReleaseDate: prefs.listViewOptions?.showReleaseDate ?? false,
+            showGenres: prefs.listViewOptions?.showGenres ?? false,
+            showPlatform: prefs.listViewOptions?.showPlatform ?? false,
+          }
+        });
+      } catch (error) {
+        console.error('Failed to save preferences:', error);
+      }
+    };
+    savePreferences();
+  }, [gameListView]);
 
   // Get all unique categories from all games for suggestions
   const allCategories = useMemo(() => {
@@ -280,7 +324,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
       setIsApplyingMetadata(false);
       setShowImageSearch(null);
       setImageSearchResults([]);
-      setSteamGridDBResults({ boxart: [], banner: [], logo: [], icon: [] });
+      setSteamGridDBResults({ boxart: [], banner: [], alternativeBanner: [], logo: [], icon: [] });
       setFastSearchResults([]);
       setActiveImageSearchTab('all');
       setImageSearchQuery('');
@@ -359,7 +403,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
       setShowImageSearch(null);
       setImageSearchQuery('');
       setImageSearchResults([]);
-      setSteamGridDBResults({ boxart: [], banner: [], logo: [], icon: [] });
+      setSteamGridDBResults({ boxart: [], banner: [], alternativeBanner: [], logo: [], icon: [] });
       setEditedGame(null);
       setError(null);
       setSuccess(null);
@@ -413,8 +457,11 @@ export const GameManager: React.FC<GameManagerProps> = ({
 
   // Handle image search with progressive loading
   // Handle image search with progressive loading
-  const handleSearchImages = async (imageType: 'boxart' | 'banner' | 'logo' | 'icon', useWeb: boolean = false) => {
+  const handleSearchImages = async (imageType: 'boxart' | 'banner' | 'alternativeBanner' | 'logo' | 'icon', useWeb: boolean = false) => {
     if (!selectedGame) return;
+
+    const effectiveImageType: 'boxart' | 'banner' | 'logo' | 'icon' =
+      imageType === 'alternativeBanner' ? 'banner' : imageType;
 
     // Get Steam App ID from edited game (which may have been manually set)
     const getSteamAppId = (): string | undefined => {
@@ -440,7 +487,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
     // Initial clearing - simplified to avoid clearing if we are just switching tabs
     if (!steamAppId && !useWeb) {
       setImageSearchResults([]);
-      setSteamGridDBResults({ boxart: [], banner: [], logo: [], icon: [] });
+      setSteamGridDBResults({ boxart: [], banner: [], alternativeBanner: [], logo: [], icon: [] });
     } else if (useWeb) {
       // Only clear if starting a fresh web search
       setImageSearchResults([]);
@@ -464,27 +511,27 @@ export const GameManager: React.FC<GameManagerProps> = ({
           if (steamMetadata) {
             const steamResults: any[] = [];
             // Helper to add result
-            const addResult = (url: string | undefined, type: 'boxart' | 'banner' | 'logo' | 'icon') => {
+            const addResult = (url: string | undefined, type: 'boxart' | 'banner' | 'alternativeBanner' | 'logo' | 'icon') => {
               if (!url) return;
               steamResults.push({
                 id: `steam-${steamAppId}`,
                 name: selectedGame.title,
                 title: selectedGame.title,
-                [type === 'boxart' ? 'boxArtUrl' : type === 'logo' ? 'logoUrl' : type === 'icon' ? 'iconUrl' : 'bannerUrl']: url,
+                [type === 'boxart' ? 'boxArtUrl' : type === 'logo' ? 'logoUrl' : type === 'icon' ? 'iconUrl' : type === 'alternativeBanner' ? 'alternativeBannerUrl' : 'bannerUrl']: url,
                 source: 'steam',
                 score: 10000
               });
             };
 
-            if (imageType === 'boxart') addResult(steamMetadata.boxArtUrl, 'boxart');
-            else if (imageType === 'banner') addResult(steamMetadata.bannerUrl, 'banner');
-            else if (imageType === 'logo') addResult(steamMetadata.logoUrl, 'logo');
-            else if (imageType === 'icon') addResult(steamMetadata.iconUrl, 'icon');
+            if (effectiveImageType === 'boxart') addResult(steamMetadata.boxArtUrl, 'boxart');
+            else if (effectiveImageType === 'banner') addResult(steamMetadata.bannerUrl, 'banner');
+            else if (effectiveImageType === 'logo') addResult(steamMetadata.logoUrl, 'logo');
+            else if (effectiveImageType === 'icon') addResult(steamMetadata.iconUrl, 'icon');
 
             if (steamResults.length > 0) {
               setSteamGridDBResults(prev => ({
                 ...prev,
-                [imageType]: [...steamResults, ...prev[imageType]]
+                [effectiveImageType]: [...steamResults, ...prev[effectiveImageType]]
               }));
             }
           }
@@ -502,7 +549,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
         // Web Search
         activeSearches++;
         searchPromises.push(
-          window.electronAPI.searchWebImages(query, imageType).then((response: any) => {
+          window.electronAPI.searchWebImages(query, effectiveImageType as any).then((response: any) => {
             if (selectedGameIdRef.current !== selectedGame.id || currentSearchQueryRef.current !== query) return;
             if (response.success && response.images) {
               const flattenedResults: any[] = [];
@@ -512,11 +559,11 @@ export const GameManager: React.FC<GameManagerProps> = ({
                     id: `${gameResult.gameId}-${img.url}`,
                     name: gameResult.gameName,
                     title: gameResult.gameName,
-                    boxArtUrl: imageType === 'boxart' ? img.url : undefined,
-                    bannerUrl: imageType === 'banner' ? img.url : undefined,
-                    logoUrl: imageType === 'logo' ? img.url : undefined,
-                    iconUrl: imageType === 'icon' ? img.url : undefined,
-                    coverUrl: imageType === 'boxart' ? img.url : undefined,
+                    boxArtUrl: effectiveImageType === 'boxart' ? img.url : undefined,
+                    bannerUrl: effectiveImageType === 'banner' ? img.url : undefined,
+                    logoUrl: effectiveImageType === 'logo' ? img.url : undefined,
+                    iconUrl: effectiveImageType === 'icon' ? img.url : undefined,
+                    coverUrl: effectiveImageType === 'boxart' ? img.url : undefined,
                     source: img.source || 'web',
                     score: img.score,
                     width: img.width,
@@ -526,13 +573,13 @@ export const GameManager: React.FC<GameManagerProps> = ({
               });
 
               // Update results immediately
-              if (imageType === 'boxart') {
+              if (effectiveImageType === 'boxart') {
                 setSteamGridDBResults(prev => ({ ...prev, boxart: [...prev.boxart, ...flattenedResults] }));
-              } else if (imageType === 'banner') {
+              } else if (effectiveImageType === 'banner') {
                 setSteamGridDBResults(prev => ({ ...prev, banner: [...prev.banner, ...flattenedResults] }));
-              } else if (imageType === 'logo') {
+              } else if (effectiveImageType === 'logo') {
                 setSteamGridDBResults(prev => ({ ...prev, logo: [...prev.logo, ...flattenedResults] }));
-              } else if (imageType === 'icon') {
+              } else if (effectiveImageType === 'icon') {
                 setSteamGridDBResults(prev => ({ ...prev, icon: [...prev.icon, ...flattenedResults] }));
               }
             }
@@ -546,16 +593,16 @@ export const GameManager: React.FC<GameManagerProps> = ({
         // Regular Search (IGDB, RAWG, SteamGridDB) - Split logic for better parallelism
 
         // Search IGDB for metadata (only if searching for boxart or banner)
-        if (imageType === 'boxart' || imageType === 'banner') {
+        if (effectiveImageType === 'boxart' || effectiveImageType === 'banner') {
           activeSearches++;
           searchPromises.push(
             window.electronAPI.searchMetadata(query).then((igdbResponse: any) => {
               if (selectedGameIdRef.current !== selectedGame.id || currentSearchQueryRef.current !== query) return;
               if (igdbResponse && igdbResponse.success && igdbResponse.results && igdbResponse.results.length > 0) {
                 const filteredIGDBResults: IGDBGameResult[] = igdbResponse.results.filter((result: any) => {
-                  if (imageType === 'boxart') {
+                  if (effectiveImageType === 'boxart') {
                     return result.coverUrl;
-                  } else if (imageType === 'banner') {
+                  } else if (effectiveImageType === 'banner') {
                     return result.screenshotUrls && result.screenshotUrls.length > 0;
                   }
                   return false;
@@ -599,7 +646,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
         // Search SteamGridDB for the specific image type
         activeSearches++;
         searchPromises.push(
-          window.electronAPI.searchImages(query, imageType, steamAppId, showAnimatedImages).then((sgdbResponse: any) => {
+          window.electronAPI.searchImages(query, effectiveImageType as any, steamAppId, showAnimatedImages).then((sgdbResponse: any) => {
             if (selectedGameIdRef.current !== selectedGame.id || currentSearchQueryRef.current !== query) return;
             if (sgdbResponse.success && sgdbResponse.images) {
               const flattenedResults: any[] = [];
@@ -612,10 +659,10 @@ export const GameManager: React.FC<GameManagerProps> = ({
                     id: gameResult.gameId,
                     name: gameResult.gameName,
                     title: gameResult.gameName,
-                    boxArtUrl: imageType === 'boxart' ? img.url : undefined,
-                    bannerUrl: imageType === 'banner' ? img.url : undefined,
-                    logoUrl: imageType === 'logo' ? img.url : undefined,
-                    coverUrl: imageType === 'boxart' ? img.url : undefined,
+                    boxArtUrl: effectiveImageType === 'boxart' ? img.url : undefined,
+                    bannerUrl: effectiveImageType === 'banner' ? img.url : undefined,
+                    logoUrl: effectiveImageType === 'logo' ? img.url : undefined,
+                    coverUrl: effectiveImageType === 'boxart' ? img.url : undefined,
                     source: isOfficialSteam ? 'steam' : 'steamgriddb',
                     score: img.score,
                     width: img.width,
@@ -649,7 +696,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
               if (flattenedResults.length > 0) {
                 setSteamGridDBResults(prev => ({
                   ...prev,
-                  [imageType]: [...flattenedResults, ...prev[imageType]]
+                  [effectiveImageType]: [...flattenedResults, ...prev[effectiveImageType]]
                 }));
               }
             }
@@ -805,6 +852,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
       const sgdbResults = {
         boxart: [] as any[],
         banner: [] as any[],
+        alternativeBanner: [] as any[],
         logo: [] as any[],
         icon: [] as any[],
       };
@@ -853,6 +901,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
       setSteamGridDBResults(prev => ({
         boxart: [...prev.boxart, ...sgdbResults.boxart],
         banner: [...prev.banner, ...sgdbResults.banner],
+        alternativeBanner: [...prev.alternativeBanner, ...sgdbResults.alternativeBanner],
         logo: [...prev.logo, ...sgdbResults.logo],
         icon: [...prev.icon, ...sgdbResults.icon]
       }));
@@ -878,7 +927,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
 
     // Clear previous results explicitly before starting new search
     setImageSearchResults([]);
-    setSteamGridDBResults({ boxart: [], banner: [], logo: [], icon: [] });
+    setSteamGridDBResults({ boxart: [], banner: [], alternativeBanner: [], logo: [], icon: [] });
 
     // Set the search type to boxart by default and show valid tab
     if (!showImageSearch) {
@@ -915,6 +964,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
         const sgdbResults = {
           boxart: [] as any[],
           banner: [] as any[],
+          alternativeBanner: [] as any[],
           logo: [] as any[],
           icon: [] as any[],
         };
@@ -993,14 +1043,14 @@ export const GameManager: React.FC<GameManagerProps> = ({
   };
 
   // Handle image selection - update immediately and save
-  const handleSelectImage = async (imageUrl: string, type: 'boxart' | 'banner' | 'logo' | 'icon') => {
+  const handleSelectImage = async (imageUrl: string, type: 'boxart' | 'banner' | 'alternativeBanner' | 'logo' | 'icon') => {
     if (!selectedGame || !editedGame) return;
 
     // Always try to delete old cached image from disk
     // The image might be cached even if the URL format is different
     // This ensures we don't leave orphaned files
     try {
-      await window.electronAPI.deleteCachedImage(selectedGame.id, type);
+      await window.electronAPI.deleteCachedImage(selectedGame.id, type as any);
     } catch (err) {
       console.warn('Error deleting old image:', err);
       // Continue even if deletion fails - the cacheImage method will also try to clean up
@@ -1017,6 +1067,13 @@ export const GameManager: React.FC<GameManagerProps> = ({
       updatedGame.bannerUrl = imageUrl;
       // Preserve other image types
       updatedGame.boxArtUrl = editedGame.boxArtUrl || selectedGame.boxArtUrl || updatedGame.boxArtUrl;
+      updatedGame.logoUrl = editedGame.logoUrl || selectedGame.logoUrl || updatedGame.logoUrl;
+    } else if (type === 'alternativeBanner') {
+      updatedGame.alternativeBannerUrl = imageUrl;
+      updatedGame.useAlternativeBackground = true;
+      // Preserve other image types
+      updatedGame.boxArtUrl = editedGame.boxArtUrl || selectedGame.boxArtUrl || updatedGame.boxArtUrl;
+      updatedGame.bannerUrl = editedGame.bannerUrl || selectedGame.bannerUrl || updatedGame.bannerUrl;
       updatedGame.logoUrl = editedGame.logoUrl || selectedGame.logoUrl || updatedGame.logoUrl;
     } else if (type === 'logo') {
       updatedGame.logoUrl = imageUrl;
@@ -1065,7 +1122,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
   };
 
   // Handle browse for local image file
-  const handleBrowseImage = async (type: 'boxart' | 'banner' | 'logo' | 'icon') => {
+  const handleBrowseImage = async (type: 'boxart' | 'banner' | 'alternativeBanner' | 'logo' | 'icon') => {
     if (!selectedGame || !editedGame) return;
 
     try {
@@ -1109,7 +1166,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
       setIsApplyingMetadata(false);
       setImageSearchQuery(game.title);
       setImageSearchResults([]);
-      setSteamGridDBResults({ boxart: [], banner: [], logo: [], icon: [] });
+      setSteamGridDBResults({ boxart: [], banner: [], alternativeBanner: [], logo: [], icon: [] });
       setFastSearchResults([]);
       setSelectedFastGame(null);
       setShowImageSearch(null);
@@ -1221,6 +1278,8 @@ export const GameManager: React.FC<GameManagerProps> = ({
             platform: metadata.platforms?.join(', ') || metadata.platform || 'steam',
             boxArtUrl: metadata.boxArtUrl || editedGame?.boxArtUrl || '',
             bannerUrl: metadata.bannerUrl || editedGame?.bannerUrl || '',
+            alternativeBannerUrl: metadata.alternativeBannerUrl || editedGame?.alternativeBannerUrl || '',
+            useAlternativeBackground: true,
             logoUrl: metadata.logoUrl || editedGame?.logoUrl,
             heroUrl: metadata.heroUrl || editedGame?.heroUrl,
             iconUrl: metadata.iconUrl || editedGame?.iconUrl,
@@ -1458,6 +1517,8 @@ export const GameManager: React.FC<GameManagerProps> = ({
           userScore: finalRating ? Math.round(finalRating) : editedGame.userScore,
           boxArtUrl: metadata.boxArtUrl || editedGame.boxArtUrl || '',
           bannerUrl: metadata.bannerUrl || editedGame.bannerUrl || '',
+          alternativeBannerUrl: metadata.alternativeBannerUrl || editedGame.alternativeBannerUrl || '',
+          useAlternativeBackground: true,
           logoUrl: metadata.logoUrl || editedGame.logoUrl,
           heroUrl: metadata.heroUrl || editedGame.heroUrl,
           iconUrl: metadata.iconUrl || editedGame.iconUrl,
@@ -1733,33 +1794,66 @@ export const GameManager: React.FC<GameManagerProps> = ({
                             </div>
                           </div>
 
-                          {/* Banner - Moved to 3rd position and set to flex-1 (fill remaining width) */}
-                          <div
-                            onClick={() => {
-                              setShowImageSearch({ type: 'banner', gameId: selectedGame.id });
-                              setActiveImageSearchTab('banner');
-                              setImageSearchQuery(selectedGame.title);
-                            }}
-                            onContextMenu={(e) => {
-                              e.preventDefault();
-                              setContextMenu({ x: e.pageX, y: e.pageY, type: 'banner' });
-                            }}
-                            className="h-36 flex-1 relative group cursor-pointer border border-gray-700 rounded-lg overflow-hidden bg-gray-800 hover:border-green-500 transition-colors"
-                          >
-                            {(editedGame.bannerUrl || selectedGame.bannerUrl) ? (
-                              <img
-                                key={editedGame.bannerUrl || selectedGame.bannerUrl}
-                                src={editedGame.bannerUrl || selectedGame.bannerUrl}
-                                alt="Banner"
-                                className="w-full h-full object-cover"
-                              />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center">
-                                <span className="text-xs text-gray-600">Click to search for banner</span>
+                          {/* Banner - Split into two sections */}
+                          <div className="h-36 flex-1 flex gap-1">
+                            {/* Banner */}
+                            <div
+                              onClick={() => {
+                                setShowImageSearch({ type: 'banner', gameId: selectedGame.id });
+                                setActiveImageSearchTab('banner');
+                                setImageSearchQuery(selectedGame.title);
+                              }}
+                              onContextMenu={(e) => {
+                                e.preventDefault();
+                                setContextMenu({ x: e.pageX, y: e.pageY, type: 'banner' });
+                              }}
+                              className="flex-1 relative group cursor-pointer border border-gray-700 rounded-lg overflow-hidden bg-gray-800 hover:border-green-500 transition-colors"
+                            >
+                              {(editedGame.bannerUrl || selectedGame.bannerUrl) ? (
+                                <img
+                                  key={editedGame.bannerUrl || selectedGame.bannerUrl}
+                                  src={editedGame.bannerUrl || selectedGame.bannerUrl}
+                                  alt="Banner"
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center">
+                                  <span className="text-xs text-gray-600">Banner</span>
+                                </div>
+                              )}
+                              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                <span className="text-[10px] text-white font-medium">Edit</span>
                               </div>
-                            )}
-                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                              <span className="text-xs text-white font-medium">Edit Banner</span>
+                            </div>
+
+                            {/* Alternative Banner */}
+                            <div
+                              onClick={() => {
+                                setShowImageSearch({ type: 'alternativeBanner', gameId: selectedGame.id });
+                                setActiveImageSearchTab('alternativeBanner');
+                                setImageSearchQuery(selectedGame.title);
+                              }}
+                              onContextMenu={(e) => {
+                                e.preventDefault();
+                                setContextMenu({ x: e.pageX, y: e.pageY, type: 'alternativeBanner' });
+                              }}
+                              className="flex-1 relative group cursor-pointer border border-gray-700 rounded-lg overflow-hidden bg-gray-800 hover:border-green-500 transition-colors"
+                            >
+                              {(editedGame.alternativeBannerUrl || selectedGame.alternativeBannerUrl) ? (
+                                <img
+                                  key={editedGame.alternativeBannerUrl || selectedGame.alternativeBannerUrl}
+                                  src={editedGame.alternativeBannerUrl || selectedGame.alternativeBannerUrl}
+                                  alt="Alternative Banner"
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center">
+                                  <span className="text-xs text-gray-600">Alt Banner</span>
+                                </div>
+                              )}
+                              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                <span className="text-[10px] text-white font-medium">Edit</span>
+                              </div>
                             </div>
                           </div>
 
@@ -1848,7 +1942,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
                                   )}
                                 </button>
                                 <button
-                                  onClick={() => handleBrowseImage(showImageSearch?.type || 'boxart')}
+                                  onClick={() => handleBrowseImage(showImageSearch?.type as any || 'boxart')}
                                   disabled={isSearchingImages}
                                   className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded transition-colors disabled:opacity-50 flex items-center gap-2"
                                   title="Browse for local image file"
@@ -1861,7 +1955,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
                                 <button
                                   onClick={() => {
                                     setImageSearchResults([]);
-                                    setSteamGridDBResults({ boxart: [], banner: [], logo: [], icon: [] });
+                                    setSteamGridDBResults({ boxart: [], banner: [], alternativeBanner: [], logo: [], icon: [] });
                                     setFastSearchResults([]);
                                     setSelectedFastGame(null);
                                   }}
@@ -1965,14 +2059,15 @@ export const GameManager: React.FC<GameManagerProps> = ({
                       {(imageSearchResults.length > 0 ||
                         steamGridDBResults.boxart.length > 0 ||
                         steamGridDBResults.banner.length > 0 ||
+                        steamGridDBResults.alternativeBanner.length > 0 ||
                         steamGridDBResults.logo.length > 0 ||
                         steamGridDBResults.icon.length > 0) && (
                           <div className="border-t border-gray-800 bg-gray-900 px-4 pt-4 pb-2">
                             {/* Tabs Header with New Search Button */}
                             <div className="flex items-center justify-between mb-4 border-b border-gray-700 pb-2">
                               <div className="flex items-center gap-1">
-                                {['all', 'boxart', 'logo', 'banner', 'icon'].map((tab) => {
-                                  const label = tab.charAt(0).toUpperCase() + tab.slice(1);
+                                {['all', 'boxart', 'logo', 'banner', 'alternativeBanner', 'icon'].map((tab) => {
+                                  const label = tab === 'alternativeBanner' ? 'Alt Banner' : tab.charAt(0).toUpperCase() + tab.slice(1);
                                   const isActive = activeImageSearchTab === tab;
 
                                   // Calculate counts
@@ -1986,6 +2081,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
                                   } else {
                                     if (tab === 'boxart') count = imageSearchResults.filter(i => i.boxArtUrl || i.coverUrl).length + steamGridDBResults.boxart.length;
                                     else if (tab === 'banner') count = imageSearchResults.filter(i => i.bannerUrl || i.screenshotUrls).length + steamGridDBResults.banner.length;
+                                    else if (tab === 'alternativeBanner') count = imageSearchResults.filter(i => i.bannerUrl || i.screenshotUrls).length + steamGridDBResults.banner.length;
                                     else if (tab === 'logo') count = steamGridDBResults.logo.length + imageSearchResults.filter(i => i.logoUrl).length; // Add logos from main results if any
                                     else if (tab === 'icon') count = steamGridDBResults.icon.length;
                                   }
@@ -2008,7 +2104,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
                               <button
                                 onClick={() => {
                                   setImageSearchResults([]);
-                                  setSteamGridDBResults({ boxart: [], banner: [], logo: [], icon: [] });
+                                  setSteamGridDBResults({ boxart: [], banner: [], alternativeBanner: [], logo: [], icon: [] });
                                   setFastSearchResults([]);
                                   setSelectedFastGame(null);
                                 }}
@@ -2028,6 +2124,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
                         {(imageSearchResults.length > 0 ||
                           steamGridDBResults.boxart.length > 0 ||
                           steamGridDBResults.banner.length > 0 ||
+                          steamGridDBResults.alternativeBanner.length > 0 ||
                           steamGridDBResults.logo.length > 0 ||
                           steamGridDBResults.icon.length > 0) && (
                             <div>
@@ -2162,6 +2259,70 @@ export const GameManager: React.FC<GameManagerProps> = ({
                                             <div
                                               key={`sgdb-banner-${idx}`}
                                               onClick={() => handleSelectImage(url, 'banner')}
+                                              className="group cursor-pointer"
+                                            >
+                                              <div className="aspect-video rounded overflow-hidden border border-gray-700 bg-gray-800 group-hover:border-green-500 transition-all relative">
+                                                <img
+                                                  src={url}
+                                                  alt={result.name}
+                                                  className="w-full h-full object-cover"
+                                                  onError={(e) => {
+                                                    (e.target as HTMLImageElement).style.display = 'none';
+                                                    (e.target as HTMLImageElement).parentElement?.parentElement?.remove();
+                                                  }}
+                                                />
+                                                <div className="absolute inset-x-0 bottom-0 bg-black/60 p-1 translate-y-full group-hover:translate-y-0 transition-transform">
+                                                  <p className="text-[10px] text-white truncate text-center">SteamGridDB</p>
+                                                </div>
+                                              </div>
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+                                    </div>
+                                  )}
+
+                                {/* Alternative Banner Section */}
+                                {(activeImageSearchTab === 'all' || activeImageSearchTab === 'alternativeBanner') &&
+                                  (imageSearchResults.some(i => i.bannerUrl || i.screenshotUrls) || steamGridDBResults.banner.length > 0) && (
+                                    <div>
+                                      {activeImageSearchTab === 'all' && <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">Alternative Banners</h4>}
+                                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                                        {/* IGDB Screenshots/Banners */}
+                                        {imageSearchResults.filter(i => i.bannerUrl || i.screenshotUrls).map((result, idx) => {
+                                          const url = result.bannerUrl || result.screenshotUrls?.[0];
+                                          if (!url) return null;
+                                          return (
+                                            <div
+                                              key={`igdb-alt-banner-${result.id}-${idx}`}
+                                              onClick={() => handleSelectImage(url, 'alternativeBanner')}
+                                              className="group cursor-pointer"
+                                            >
+                                              <div className="aspect-video rounded overflow-hidden border border-gray-700 bg-gray-800 group-hover:border-green-500 transition-all relative">
+                                                <img
+                                                  src={url}
+                                                  alt={result.name}
+                                                  className="w-full h-full object-cover"
+                                                  onError={(e) => {
+                                                    (e.target as HTMLImageElement).style.display = 'none';
+                                                    (e.target as HTMLImageElement).parentElement?.parentElement?.remove();
+                                                  }}
+                                                />
+                                                <div className="absolute inset-x-0 bottom-0 bg-black/60 p-1 translate-y-full group-hover:translate-y-0 transition-transform">
+                                                  <p className="text-[10px] text-white truncate text-center">{result.name}</p>
+                                                </div>
+                                              </div>
+                                            </div>
+                                          );
+                                        })}
+                                        {/* SGDB Heroes/Banners */}
+                                        {steamGridDBResults.banner.map((result: any, idx: number) => {
+                                          const url = result.url || result.bannerUrl;
+                                          if (!url) return null;
+                                          return (
+                                            <div
+                                              key={`sgdb-alt-banner-${idx}`}
+                                              onClick={() => handleSelectImage(url, 'alternativeBanner')}
                                               className="group cursor-pointer"
                                             >
                                               <div className="aspect-video rounded overflow-hidden border border-gray-700 bg-gray-800 group-hover:border-green-500 transition-all relative">
@@ -2322,29 +2483,58 @@ export const GameManager: React.FC<GameManagerProps> = ({
                           </div>
                         </div>
 
-                        {/* Banner */}
-                        <div
-                          onClick={() => {
-                            setActiveTab('images');
-                            setShowImageSearch({ type: 'banner', gameId: selectedGame.id });
-                            setActiveImageSearchTab('banner');
-                            setImageSearchQuery(selectedGame.title);
-                          }}
-                          className="h-24 flex-1 relative group cursor-pointer border border-gray-700 rounded-lg overflow-hidden bg-gray-800 hover:border-green-500 transition-colors"
-                        >
-                          {(editedGame.bannerUrl || selectedGame.bannerUrl) ? (
-                            <img
-                              src={editedGame.bannerUrl || selectedGame.bannerUrl}
-                              alt="Banner"
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center">
-                              <span className="text-[8px] text-gray-600">Banner</span>
+                        {/* Banner + Alt Banner */}
+                        <div className="h-24 flex-1 flex gap-1">
+                          {/* Banner */}
+                          <div
+                            onClick={() => {
+                              setActiveTab('images');
+                              setShowImageSearch({ type: 'banner', gameId: selectedGame.id });
+                              setActiveImageSearchTab('banner');
+                              setImageSearchQuery(selectedGame.title);
+                            }}
+                            className="flex-1 relative group cursor-pointer border border-gray-700 rounded-lg overflow-hidden bg-gray-800 hover:border-green-500 transition-colors"
+                          >
+                            {(editedGame.bannerUrl || selectedGame.bannerUrl) ? (
+                              <img
+                                src={editedGame.bannerUrl || selectedGame.bannerUrl}
+                                alt="Banner"
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center">
+                                <span className="text-[8px] text-gray-600">Banner</span>
+                              </div>
+                            )}
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                              <span className="text-[10px] text-white font-medium">Edit</span>
                             </div>
-                          )}
-                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                            <span className="text-[10px] text-white font-medium">Edit</span>
+                          </div>
+
+                          {/* Alt Banner */}
+                          <div
+                            onClick={() => {
+                              setActiveTab('images');
+                              setShowImageSearch({ type: 'alternativeBanner', gameId: selectedGame.id });
+                              setActiveImageSearchTab('alternativeBanner');
+                              setImageSearchQuery(selectedGame.title);
+                            }}
+                            className="flex-1 relative group cursor-pointer border border-gray-700 rounded-lg overflow-hidden bg-gray-800 hover:border-green-500 transition-colors"
+                          >
+                            {(editedGame.alternativeBannerUrl || selectedGame.alternativeBannerUrl) ? (
+                              <img
+                                src={editedGame.alternativeBannerUrl || selectedGame.alternativeBannerUrl}
+                                alt="Alt Banner"
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center">
+                                <span className="text-[8px] text-gray-600">Alt Banner</span>
+                              </div>
+                            )}
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                              <span className="text-[10px] text-white font-medium">Edit</span>
+                            </div>
                           </div>
                         </div>
 
@@ -3294,7 +3484,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
           y={contextMenu.y}
           imageType={contextMenu.type}
           onClose={() => setContextMenu(null)}
-          onSelectFromFile={() => handleBrowseImage(contextMenu.type)}
+          onSelectFromFile={() => handleBrowseImage(contextMenu.type as any)}
           onSearchImages={() => {
             setShowImageSearch({ type: contextMenu.type, gameId: selectedGame!.id });
             setActiveImageSearchTab(contextMenu.type === 'banner' ? 'banner' : contextMenu.type);

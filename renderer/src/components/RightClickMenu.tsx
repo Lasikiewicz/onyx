@@ -682,6 +682,18 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
     onShowCarouselLogosChange?.(!showCarouselLogos);
   };
 
+  const handleAlternativeBackgroundToggle = () => {
+    if (!activeGame || !onActiveGameChange) return;
+    const updatedGame = {
+      ...activeGame,
+      useAlternativeBackground: activeGame.useAlternativeBackground !== true,
+    };
+    onActiveGameChange(updatedGame);
+    window.electronAPI.saveGame(updatedGame).catch((error) => {
+      console.error('Failed to save game:', error);
+    });
+  };
+
   const handlePerGameLogoSizeChange = (viewModeType: 'grid' | 'list' | 'logo' | 'carousel', size: number) => {
     if (!activeGame || !onActiveGameChange) return;
 
@@ -1088,27 +1100,6 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
             <div className="grid grid-cols-3 gap-3">
               {/* Left Column */}
               <div className="space-y-2">
-                {/* Size control per view */}
-                {((viewMode === 'grid' && onGridSizeChange) || (viewMode === 'logo' && onLogoSizeChange)) && (
-                  <div className="px-3 py-2 bg-gray-700/30 rounded-md">
-                    <label className="block text-xs text-gray-400 mb-1 font-semibold">{getSizeLabel()}</label>
-                    <input
-                      type="range"
-                      min={sizeRange.min}
-                      max={sizeRange.max}
-                      step="1"
-                      value={sizeValue}
-                      onChange={(e) => handleSizeChange(Number(e.target.value))}
-                      className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider accent-blue-600"
-                    />
-                    <div className="flex justify-between text-xs text-gray-500 mt-1">
-                      <span>{sizeRange.min}px</span>
-                      <span className="font-medium text-gray-300">{sizeValue}px</span>
-                      <span>{sizeRange.max}px</span>
-                    </div>
-                  </div>
-                )}
-
                 {/* Categories Section */}
                 {(viewMode as string) !== 'carousel' && onShowCategoriesInGameListChange && (
                   <div className="px-3 py-2 bg-gray-700/30 rounded-md space-y-3">
@@ -1122,6 +1113,19 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                         <span
                           className={`inline-block h-2.5 w-2.5 transform rounded-full bg-white transition-all shadow-sm ${showCategoriesInGameList ? 'translate-x-[14px]' : 'translate-x-0.5'
                             }`}
+                        />
+                      </button>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs text-gray-300 font-medium">Alternative Background</label>
+                      <button
+                        onClick={handleAlternativeBackgroundToggle}
+                        disabled={!activeGame}
+                        className={`relative inline-flex h-3.5 w-7 items-center rounded-full transition-all ${activeGame?.useAlternativeBackground ? 'bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]' : 'bg-gray-600'} ${!activeGame ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      >
+                        <span
+                          className={`inline-block h-2.5 w-2.5 transform rounded-full bg-white transition-all shadow-sm ${activeGame?.useAlternativeBackground ? 'translate-x-[14px]' : 'translate-x-0.5'}`}
                         />
                       </button>
                     </div>
@@ -1186,6 +1190,27 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                         </div>
                       </div>
                     )}
+                  </div>
+                )}
+
+                {/* Size control per view */}
+                {((viewMode === 'grid' && onGridSizeChange) || (viewMode === 'logo' && onLogoSizeChange)) && (
+                  <div className="px-3 py-2 bg-gray-700/30 rounded-md">
+                    <label className="block text-xs text-gray-400 mb-1 font-semibold">{getSizeLabel()}</label>
+                    <input
+                      type="range"
+                      min={sizeRange.min}
+                      max={sizeRange.max}
+                      step="1"
+                      value={sizeValue}
+                      onChange={(e) => handleSizeChange(Number(e.target.value))}
+                      className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider accent-blue-600"
+                    />
+                    <div className="flex justify-between text-xs text-gray-500 mt-1">
+                      <span>{sizeRange.min}px</span>
+                      <span className="font-medium text-gray-300">{sizeValue}px</span>
+                      <span>{sizeRange.max}px</span>
+                    </div>
                   </div>
                 )}
 

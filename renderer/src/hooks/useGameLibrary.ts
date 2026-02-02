@@ -77,6 +77,7 @@ export function useGameLibrary() {
       const timestamp = Date.now();
       const convertedGames = library.map(game => ({
         ...game,
+        useAlternativeBackground: game.useAlternativeBackground ?? true,
         boxArtUrl: addCacheBuster(convertFileUrlToLocalProtocol(game.boxArtUrl), timestamp),
         bannerUrl: addCacheBuster(convertFileUrlToLocalProtocol(game.bannerUrl), timestamp),
         logoUrl: game.logoUrl ? addCacheBuster(convertFileUrlToLocalProtocol(game.logoUrl), timestamp) : game.logoUrl,

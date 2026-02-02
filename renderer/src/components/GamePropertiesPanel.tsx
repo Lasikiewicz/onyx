@@ -41,13 +41,14 @@ export const GamePropertiesPanel: React.FC<GamePropertiesPanelProps> = ({
     // Image Search State
     const [imageSearchQuery, setImageSearchQuery] = useState('');
     const [isSearchingImages, setIsSearchingImages] = useState(false);
-    const [activeImageSearchTab, setActiveImageSearchTab] = useState<'all' | 'boxart' | 'banner' | 'logo' | 'icon'>('all');
+    const [activeImageSearchTab, setActiveImageSearchTab] = useState<'all' | 'boxart' | 'banner' | 'logo' | 'icon' | 'alternativeBanner'>('all');
     const [steamGridDBResults, setSteamGridDBResults] = useState<{
         boxart: any[];
         banner: any[];
+        alternativeBanner: any[];
         logo: any[];
         icon: any[];
-    }>({ boxart: [], banner: [], logo: [], icon: [] });
+    }>({ boxart: [], banner: [], alternativeBanner: [], logo: [], icon: [] });
 
     // Fast Search State
     const [isFastSearching, setIsFastSearching] = useState(false);
@@ -163,7 +164,7 @@ export const GamePropertiesPanel: React.FC<GamePropertiesPanelProps> = ({
     };
 
     // --- Image Search ---
-    const handleSearchImages = async (type: 'boxart' | 'banner' | 'logo' | 'icon') => {
+    const handleSearchImages = async (type: 'boxart' | 'banner' | 'logo' | 'icon' | 'alternativeBanner') => {
         const query = imageSearchQuery || editedFields.title;
         if (!query) return;
 
@@ -172,7 +173,9 @@ export const GamePropertiesPanel: React.FC<GamePropertiesPanelProps> = ({
 
         try {
             const steamAppId = (game as any).appId || (game as any).steamAppId;
-            const response = await window.electronAPI.searchImages(query, type, steamAppId);
+            // For alternativeBanner, search using 'banner' type since both use the same source
+            const searchType = type === 'alternativeBanner' ? 'banner' : type;
+            const response = await window.electronAPI.searchImages(query, searchType, steamAppId);
             if (response.success && response.images) {
                 const flattened = response.images.flatMap(r => r.images || []);
                 setSteamGridDBResults(prev => ({ ...prev, [type]: flattened }));
@@ -184,15 +187,16 @@ export const GamePropertiesPanel: React.FC<GamePropertiesPanelProps> = ({
         }
     };
 
-    const applyImage = (type: 'boxart' | 'banner' | 'logo' | 'icon', url: string) => {
+    const applyImage = (type: 'boxart' | 'banner' | 'logo' | 'icon' | 'alternativeBanner', url: string) => {
         const fieldMap = {
             boxart: 'boxArtUrl',
             banner: 'bannerUrl',
+            alternativeBanner: 'alternativeBannerUrl',
             logo: 'logoUrl',
             icon: 'iconUrl'
         } as const;
         updateField(fieldMap[type], url);
-        setSuccess(`Applied ${type}`);
+        setSuccess(`Applied ${type === 'alternativeBanner' ? 'Alt Banner' : type}`);
         setTimeout(() => setSuccess(null), 2000);
     };
 
@@ -250,7 +254,7 @@ export const GamePropertiesPanel: React.FC<GamePropertiesPanelProps> = ({
             );
 
             if (response.success && response.images) {
-                const categorized = { boxart: [], banner: [], logo: [], icon: [] } as any;
+                const categorized = { boxart: [], banner: [], alternativeBanner: [], logo: [], icon: [] } as any;
                 const seenUrls = new Set<string>();
 
                 response.images.forEach((img: any) => {
@@ -295,17 +299,18 @@ export const GamePropertiesPanel: React.FC<GamePropertiesPanelProps> = ({
     // Render Image Strip (matching GameManager dimensions)
     const renderImageStrip = () => (
         <div className="flex gap-2 mb-4 items-start p-2 bg-gray-900/95 rounded-lg border border-gray-800">
-            {(['boxart', 'logo', 'banner', 'icon'] as const).map(type => {
-                const fieldMap = { boxart: 'boxArtUrl', logo: 'logoUrl', banner: 'bannerUrl', icon: 'iconUrl' } as const;
+            {(['boxart', 'logo', 'banner', 'alternativeBanner', 'icon'] as const).map(type => {
+                const fieldMap = { boxart: 'boxArtUrl', logo: 'logoUrl', banner: 'bannerUrl', alternativeBanner: 'alternativeBannerUrl', icon: 'iconUrl' } as const;
                 const val = editedFields[fieldMap[type]];
-                const label = type.charAt(0).toUpperCase() + type.slice(1);
+                const label = type === 'alternativeBanner' ? 'Alt Banner' : type.charAt(0).toUpperCase() + type.slice(1);
 
                 // Match GameManager dimensions exactly
                 const sizeClasses =
                     type === 'boxart' ? 'h-36 w-auto aspect-[2/3]' :
                         type === 'logo' ? 'h-36 w-56' :
                             type === 'banner' ? 'h-36 flex-1' :
-                                'h-36 w-36'; // icon
+                                type === 'alternativeBanner' ? 'h-36 flex-1' :
+                                    'h-36 w-36'; // icon
 
                 return (
                     <div
@@ -319,7 +324,7 @@ export const GamePropertiesPanel: React.FC<GamePropertiesPanelProps> = ({
                         className={`${sizeClasses} relative group cursor-pointer border border-gray-700 rounded-lg overflow-hidden bg-gray-800 hover:border-green-500 transition-colors flex-shrink-0`}
                     >
                         {val ? (
-                            type === 'boxart' || type === 'banner' ? (
+                            type === 'boxart' || type === 'banner' || type === 'alternativeBanner' ? (
                                 <img src={val} className="w-full h-full object-cover" alt={label} />
                             ) : (
                                 <div className="w-full h-full p-2 flex items-center justify-center">
@@ -329,13 +334,13 @@ export const GamePropertiesPanel: React.FC<GamePropertiesPanelProps> = ({
                         ) : (
                             <div className="w-full h-full flex items-center justify-center">
                                 <span className={`text-gray-600 text-center p-1 ${type === 'icon' ? 'text-[10px]' : 'text-xs'}`}>
-                                    {type === 'boxart' ? 'Boxart' : type === 'icon' ? 'Click to search for icon' : `Click to search for ${type}`}
+                                    {type === 'boxart' ? 'Boxart' : type === 'icon' ? 'Click to search for icon' : type === 'alternativeBanner' ? 'Click to search for Alt Banner' : `Click to search for ${type}`}
                                 </span>
                             </div>
                         )}
                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                             <span className={`text-white font-medium ${type === 'icon' ? 'text-[10px]' : 'text-xs'}`}>
-                                {type === 'icon' ? 'Edit Icon' : type === 'logo' ? 'Edit Logo' : type === 'banner' ? 'Edit Banner' : 'Edit'}
+                                {type === 'icon' ? 'Edit Icon' : type === 'logo' ? 'Edit Logo' : type === 'banner' ? 'Edit Banner' : type === 'alternativeBanner' ? 'Edit Alt Banner' : 'Edit'}
                             </span>
                         </div>
                     </div>
@@ -505,15 +510,16 @@ export const GamePropertiesPanel: React.FC<GamePropertiesPanelProps> = ({
                         {/* Image Preview Strip - Same as GameManager */}
                         <div className="p-2 space-y-2 flex-shrink-0 bg-gray-900/95 border-b border-gray-800 mb-4">
                             <div className="flex gap-2 mb-1 items-start">
-                                {(['boxart', 'logo', 'banner', 'icon'] as const).map(type => {
-                                    const fieldMap = { boxart: 'boxArtUrl', logo: 'logoUrl', banner: 'bannerUrl', icon: 'iconUrl' } as const;
+                                {(['boxart', 'logo', 'banner', 'alternativeBanner', 'icon'] as const).map(type => {
+                                    const fieldMap = { boxart: 'boxArtUrl', logo: 'logoUrl', banner: 'bannerUrl', alternativeBanner: 'alternativeBannerUrl', icon: 'iconUrl' } as const;
                                     const val = editedFields[fieldMap[type]];
 
                                     const sizeClasses =
                                         type === 'boxart' ? 'h-36 w-auto aspect-[2/3]' :
                                             type === 'logo' ? 'h-36 w-56' :
                                                 type === 'banner' ? 'h-36 flex-1' :
-                                                    'h-36 w-36';
+                                                    type === 'alternativeBanner' ? 'h-36 flex-1' :
+                                                        'h-36 w-36';
 
                                     return (
                                         <div
@@ -526,7 +532,7 @@ export const GamePropertiesPanel: React.FC<GamePropertiesPanelProps> = ({
                                             className={`${sizeClasses} relative group cursor-pointer border border-gray-700 rounded-lg overflow-hidden bg-gray-800 hover:border-green-500 transition-colors flex-shrink-0`}
                                         >
                                             {val ? (
-                                                type === 'boxart' || type === 'banner' ? (
+                                                type === 'boxart' || type === 'banner' || type === 'alternativeBanner' ? (
                                                     <img src={val} className="w-full h-full object-cover" alt={type} />
                                                 ) : (
                                                     <div className="w-full h-full p-2 flex items-center justify-center">
@@ -536,13 +542,13 @@ export const GamePropertiesPanel: React.FC<GamePropertiesPanelProps> = ({
                                             ) : (
                                                 <div className="w-full h-full flex items-center justify-center">
                                                     <span className={`text-gray-600 text-center p-1 ${type === 'icon' ? 'text-[10px]' : type === 'boxart' ? 'text-[8px]' : 'text-xs'}`}>
-                                                        {type === 'boxart' ? 'Boxart' : type === 'icon' ? 'Click to search for icon' : `Click to search for ${type}`}
+                                                        {type === 'boxart' ? 'Boxart' : type === 'icon' ? 'Click to search for icon' : type === 'alternativeBanner' ? 'Click to search for Alt Banner' : `Click to search for ${type}`}
                                                     </span>
                                                 </div>
                                             )}
                                             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                                                 <span className={`text-white font-medium ${type === 'icon' ? 'text-[10px]' : type === 'boxart' ? 'text-[10px]' : 'text-xs'}`}>
-                                                    {type === 'icon' ? 'Edit Icon' : type === 'logo' ? 'Edit Logo' : type === 'banner' ? 'Edit Banner' : 'Edit'}
+                                                    {type === 'icon' ? 'Edit Icon' : type === 'logo' ? 'Edit Logo' : type === 'banner' ? 'Edit Banner' : type === 'alternativeBanner' ? 'Edit Alt Banner' : 'Edit'}
                                                 </span>
                                             </div>
                                         </div>
@@ -594,7 +600,7 @@ export const GamePropertiesPanel: React.FC<GamePropertiesPanelProps> = ({
                             </button>
                             <button
                                 onClick={() => {
-                                    setSteamGridDBResults({ boxart: [], banner: [], logo: [], icon: [] });
+                                    setSteamGridDBResults({ boxart: [], banner: [], alternativeBanner: [], logo: [], icon: [] });
                                     setFastSearchResults([]);
 
                                 }}
@@ -658,10 +664,10 @@ export const GamePropertiesPanel: React.FC<GamePropertiesPanelProps> = ({
 
                         {/* Tabs */}
                         <div className="flex gap-1 mb-4 border-b border-gray-800 overflow-x-auto">
-                            {(['all', 'boxart', 'logo', 'banner', 'icon'] as const).map(type => {
+                            {(['all', 'boxart', 'logo', 'banner', 'alternativeBanner', 'icon'] as const).map(type => {
                                 let count = 0;
                                 if (type === 'all') {
-                                    count = steamGridDBResults.boxart.length + steamGridDBResults.logo.length + steamGridDBResults.banner.length + steamGridDBResults.icon.length;
+                                    count = steamGridDBResults.boxart.length + steamGridDBResults.logo.length + steamGridDBResults.banner.length + steamGridDBResults.alternativeBanner.length + steamGridDBResults.icon.length;
                                 } else {
                                     count = steamGridDBResults[type]?.length || 0;
                                 }
@@ -672,7 +678,7 @@ export const GamePropertiesPanel: React.FC<GamePropertiesPanelProps> = ({
                                         onClick={() => setActiveImageSearchTab(type)}
                                         className={`px-3 py-2 text-xs font-medium uppercase border-b-2 transition-colors whitespace-nowrap ${activeImageSearchTab === type ? 'border-purple-500 text-purple-400' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
                                     >
-                                        {type} <span className="ml-1 opacity-70">({count})</span>
+                                        {type === 'alternativeBanner' ? 'Alt Banner' : type} <span className="ml-1 opacity-70">({count})</span>
                                     </button>
                                 );
                             })}
@@ -899,6 +905,40 @@ export const GamePropertiesPanel: React.FC<GamePropertiesPanelProps> = ({
                                 })}
                                 {steamGridDBResults.banner.length === 0 && !isSearchingImages && (
                                     <div className="col-span-full text-center text-gray-500 py-8">No banners found</div>
+                                )}
+                            </div>
+                        )}
+
+                        {activeImageSearchTab === 'alternativeBanner' && (
+                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                                {steamGridDBResults.alternativeBanner.map((result: any, idx: number) => {
+                                    const url = result.url || result.bannerUrl;
+                                    if (!url) return null;
+                                    return (
+                                        <div
+                                            key={`alt-banner-${idx}`}
+                                            onClick={() => applyImage('alternativeBanner', url)}
+                                            className="group cursor-pointer"
+                                        >
+                                            <div className="aspect-video rounded overflow-hidden border border-gray-700 bg-gray-800 group-hover:border-green-500 transition-all relative">
+                                                <img
+                                                    src={url}
+                                                    alt=""
+                                                    className="w-full h-full object-cover"
+                                                    onError={(e) => {
+                                                        (e.target as HTMLImageElement).style.display = 'none';
+                                                        (e.target as HTMLImageElement).parentElement?.parentElement?.remove();
+                                                    }}
+                                                />
+                                                <div className="absolute inset-x-0 bottom-0 bg-black/60 p-1 translate-y-full group-hover:translate-y-0 transition-transform">
+                                                    <p className="text-[10px] text-white truncate text-center">SteamGridDB</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                                {steamGridDBResults.alternativeBanner.length === 0 && !isSearchingImages && (
+                                    <div className="col-span-full text-center text-gray-500 py-8">No alt banners found</div>
                                 )}
                             </div>
                         )}

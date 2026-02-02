@@ -26,7 +26,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // GameStore methods
   getLibrary: () => ipcRenderer.invoke('gameStore:getLibrary'),
   saveGame: (game: any, oldGame?: any) => ipcRenderer.invoke('gameStore:saveGame', game, oldGame),
-  deleteCachedImage: (gameId: string, imageType: 'boxart' | 'banner' | 'logo' | 'hero') => ipcRenderer.invoke('imageCache:deleteImage', gameId, imageType),
+  deleteCachedImage: (gameId: string, imageType: 'boxart' | 'banner' | 'alternativeBanner' | 'logo' | 'hero' | 'icon') => ipcRenderer.invoke('imageCache:deleteImage', gameId, imageType),
   reorderGames: (games: any[]) => ipcRenderer.invoke('gameStore:reorderGames', games),
   addCustomGame: (gameData: { title: string; exePath: string }) => ipcRenderer.invoke('gameStore:addCustomGame', gameData),
   deleteGame: (gameId: string) => ipcRenderer.invoke('gameStore:deleteGame', gameId),
@@ -153,8 +153,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   scanAllSources: () => ipcRenderer.invoke('import:scanAllSources'),
   scanFolder: (folderPath: string) => ipcRenderer.invoke('import:scanFolder', folderPath),
   // Image search methods
-  searchImages: (query: string, imageType: 'boxart' | 'banner' | 'logo' | 'icon', steamAppId?: string, includeAnimated?: boolean) => ipcRenderer.invoke('metadata:searchImages', query, imageType, steamAppId, includeAnimated),
-  searchWebImages: (query: string, imageType: 'boxart' | 'banner' | 'logo' | 'icon') => ipcRenderer.invoke('metadata:searchWebImages', query, imageType),
+  searchImages: (query: string, imageType: 'boxart' | 'banner' | 'alternativeBanner' | 'logo' | 'icon', steamAppId?: string, includeAnimated?: boolean) => ipcRenderer.invoke('metadata:searchImages', query, imageType, steamAppId, includeAnimated),
+  searchWebImages: (query: string, imageType: 'boxart' | 'banner' | 'alternativeBanner' | 'logo' | 'icon') => ipcRenderer.invoke('metadata:searchWebImages', query, imageType),
   fastImageSearch: (query: string) => ipcRenderer.invoke('metadata:fastImageSearch', query),
   fetchGameImages: (gameName: string, steamAppId?: string, igdbId?: number, includeAnimated?: boolean) => ipcRenderer.invoke('metadata:fetchGameImages', gameName, steamAppId, igdbId, includeAnimated),
   // App version

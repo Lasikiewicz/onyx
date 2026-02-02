@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 
 interface ImageSearchModalProps {
     initialQuery: string;
-    type: 'boxart' | 'banner' | 'logo' | 'icon';
+    type: 'boxart' | 'banner' | 'logo' | 'icon' | 'alternativeBanner';
     onImageSelected: (url: string) => void;
     onClose: () => void;
 }

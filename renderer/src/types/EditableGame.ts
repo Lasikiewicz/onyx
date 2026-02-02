@@ -16,6 +16,7 @@ export interface EditableGameFields {
   ageRating?: string;
   boxArtUrl: string;
   bannerUrl: string;
+  alternativeBannerUrl?: string;
   logoUrl?: string;
   heroUrl?: string;
   iconUrl?: string;
@@ -54,6 +55,7 @@ export function toEditableFields(source: Game | StagedGame): EditableGameFields 
     ageRating: source.ageRating,
     boxArtUrl: source.boxArtUrl,
     bannerUrl: source.bannerUrl,
+    alternativeBannerUrl: (source as any).alternativeBannerUrl,
     logoUrl: source.logoUrl,
     heroUrl: source.heroUrl,
     iconUrl: (source as Game).iconUrl,
@@ -79,6 +81,7 @@ export function mergeIntoGame(original: Game, edited: EditableGameFields): Game 
     ageRating: edited.ageRating,
     boxArtUrl: edited.boxArtUrl,
     bannerUrl: edited.bannerUrl,
+    alternativeBannerUrl: edited.alternativeBannerUrl,
     logoUrl: edited.logoUrl,
     heroUrl: edited.heroUrl,
     iconUrl: edited.iconUrl,
@@ -103,6 +106,7 @@ export function mergeIntoStagedGame(original: StagedGame, edited: EditableGameFi
     ageRating: edited.ageRating,
     boxArtUrl: edited.boxArtUrl,
     bannerUrl: edited.bannerUrl,
+    alternativeBannerUrl: edited.alternativeBannerUrl,
     logoUrl: edited.logoUrl,
     heroUrl: edited.heroUrl,
     screenshots: edited.screenshots,

@@ -4,7 +4,7 @@ import { StagedGame } from '../../types/importer';
 interface ImportGameFormProps {
     selectedGame: StagedGame | null;
     onUpdateGame: (id: string, updates: Partial<StagedGame>) => void;
-    onSearchImages: (type: 'boxart' | 'banner' | 'logo' | 'icon') => void;
+    onSearchImages: (type: 'boxart' | 'banner' | 'logo' | 'icon' | 'alternativeBanner') => void;
     onFixMatch: () => void;
     onIgnore: (game: StagedGame) => void;
     onUnignore: (game: StagedGame) => void;
@@ -82,6 +82,29 @@ export const ImportGameForm: React.FC<ImportGameFormProps> = ({
 
                 {/* Images Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    {/* Alt Banner */}
+                    <div className="space-y-2 lg:col-span-2">
+                        <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">Alt Banner</label>
+                        <div
+                            onClick={() => onSearchImages('alternativeBanner')}
+                            className="aspect-video bg-gray-800 rounded-lg border-2 border-dashed border-gray-700 hover:border-gray-500 cursor-pointer overflow-hidden relative group transition-all"
+                        >
+                            {selectedGame.alternativeBannerUrl ? (
+                                <>
+                                    <img src={selectedGame.alternativeBannerUrl} className="w-full h-full object-cover" alt="Alt Banner" />
+                                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                                        <span className="text-xs font-bold text-white bg-black/50 px-3 py-1 rounded-full backdrop-blur-sm">Change</span>
+                                    </div>
+                                </>
+                            ) : (
+                                <div className="flex flex-col items-center justify-center h-full text-gray-600 group-hover:text-gray-400">
+                                    <span className="text-4xl mb-2">+</span>
+                                    <span className="text-xs">Add Image</span>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
                     {/* Box Art */}
                     <div className="space-y-2">
                         <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">Box Art</label>

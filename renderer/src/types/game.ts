@@ -6,6 +6,8 @@ export interface Game {
   exePath: string;
   boxArtUrl: string;
   bannerUrl: string;
+  alternativeBannerUrl?: string;
+  useAlternativeBackground?: boolean;
   logoUrl?: string;
   logoSize?: number;
   logoSizePerViewMode?: {
@@ -57,6 +59,7 @@ export interface Game {
     title?: boolean;
     boxArtUrl?: boolean;
     bannerUrl?: boolean;
+    alternativeBannerUrl?: boolean;
     exePath?: boolean;
     [key: string]: boolean | undefined;
   };
@@ -65,6 +68,7 @@ export interface Game {
 export interface GameMetadata {
   boxArtUrl: string;
   bannerUrl: string;
+  alternativeBannerUrl?: string;
   logoUrl?: string;
   heroUrl?: string;
   iconUrl?: string; // Game icon (typically 32x32 or 64x64)

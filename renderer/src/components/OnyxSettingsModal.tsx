@@ -374,9 +374,9 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
     setSettings(newSettings);
   };
 
-  const handleSelectChange = (key: keyof OnyxSettings, value: any) => {
-    setSettings({ ...settings, [key]: value });
-  };
+  // const handleSelectChange = (key: keyof OnyxSettings, value: any) => {
+  //   setSettings({ ...settings, [key]: value });
+  // };
 
   // const handlePaddingChange = (value: number) => {
   //   setSettings({ ...settings, gameTilePadding: value });

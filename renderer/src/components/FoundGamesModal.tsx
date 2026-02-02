@@ -28,13 +28,53 @@ export function FoundGamesModal({ foundGames, onOpenImporter, onCancel }: FoundG
     return (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100]">
             <div className="bg-gradient-to-br from-gray-900 to-slate-950 border border-gray-700/50 rounded-2xl shadow-2xl p-6 max-w-2xl w-full max-h-[80vh] flex flex-col animate-in fade-in zoom-in duration-200">
-                <div className="flex items-center gap-4 mb-6">
-                    <div className="w-12 h-12 rounded-full bg-green-500/10 flex items-center justify-center border border-green-500/20">
-                        <svg className="w-6 h-6 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                <div className="flex items-start gap-4 mb-6">
+                    {/* Onyx Logo */}
+                    <div className="w-16 h-16 flex-shrink-0">
+                        <svg width="100%" height="100%" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <defs>
+                                <linearGradient id="onyxGrad2" x1="256" y1="20" x2="256" y2="492" gradientUnits="userSpaceOnUse">
+                                    <stop offset="0" stopColor="#334155" />
+                                    <stop offset="1" stopColor="#020617" />
+                                </linearGradient>
+                                <filter id="glow2" x="-50%" y="-50%" width="200%" height="200%">
+                                    <feGaussianBlur stdDeviation="8" result="blur" />
+                                    <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                                </filter>
+                            </defs>
+
+                            <path d="M256 30 L465 150 V362 L256 482 L47 362 V150 L256 30Z"
+                                fill="url(#onyxGrad2)"
+                                stroke="#0ea5e9"
+                                strokeWidth="8"
+                                filter="url(#glow2)" />
+
+                            <path d="M256 256 L256 482 M256 256 L47 150 M256 256 L465 150"
+                                stroke="#1e293b"
+                                strokeWidth="4" />
+
+                            <g transform="translate(256, 143) scale(1, 0.58)">
+                                <circle r="55" stroke="#0ea5e9" strokeWidth="20" strokeOpacity="0.6" fill="none" />
+                                <circle r="55" stroke="#e0f2fe" strokeWidth="8" fill="none" />
+                            </g>
+
+                            <g transform="translate(151, 325) rotate(60) scale(1, 0.58)">
+                                <circle r="55" stroke="#0ea5e9" strokeWidth="20" strokeOpacity="0.6" fill="none" />
+                                <circle r="55" stroke="#e0f2fe" strokeWidth="8" fill="none" />
+                            </g>
+
+                            <g transform="translate(361, 325) rotate(-60) scale(1, 0.58)">
+                                <circle r="55" stroke="#0ea5e9" strokeWidth="20" strokeOpacity="0.6" fill="none" />
+                                <circle r="55" stroke="#e0f2fe" strokeWidth="8" fill="none" />
+                            </g>
+
+                            <path d="M256 30 L465 150 L256 256 L47 150 L256 30Z"
+                                fill="white"
+                                fillOpacity="0.1" />
                         </svg>
                     </div>
-                    <div>
+
+                    <div className="flex-1">
                         <h2 className="text-2xl font-bold text-white">New Games Found</h2>
                         <p className="text-gray-400 text-sm mt-1">
                             The following new games were detected. You can import them directly or review them in the Importer.

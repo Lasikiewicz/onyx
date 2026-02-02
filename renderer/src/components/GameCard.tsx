@@ -48,7 +48,8 @@ export const GameCard: React.FC<GameCardProps> = ({ game, hideTitle = false, sho
     return `rgba(${r}, ${g}, ${b}, ${alpha})`;
   };
 
-  const cardBackground = viewMode === 'logo' ? { backgroundColor: toRgba(logoBackgroundColor, logoBackgroundOpacity) } : undefined;
+  const cardBackground = viewMode === 'logo' ? { backgroundColor: toRgba(logoBackgroundColor, logoBackgroundOpacity) } : 
+    undefined;
 
   return (
     <div className={`relative group overflow-hidden onyx-card game-card-transition ${aspectRatio} flex flex-col`} style={cardBackground}>
@@ -150,7 +151,7 @@ export const GameCard: React.FC<GameCardProps> = ({ game, hideTitle = false, sho
             alt={`${game.title} Logo`}
             style={{
               maxWidth: '100%',
-              maxHeight: `${game.logoSizePerViewMode?.[viewMode as keyof typeof game.logoSizePerViewMode] || 48}px`,
+              maxHeight: `${game.logoSizePerViewMode?.[viewMode as keyof typeof game.logoSizePerViewMode] || 200}px`,
               objectFit: 'contain',
               ...(game.removeLogoTransparency ? {
                 backgroundColor: 'rgba(0, 0, 0, 0.5)',

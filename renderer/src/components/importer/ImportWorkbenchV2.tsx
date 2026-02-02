@@ -471,6 +471,7 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
                     exePath: staged.exePath || staged.installPath,
                     boxArtUrl: staged.boxArtUrl,
                     bannerUrl: staged.bannerUrl,
+                    alternativeBannerUrl: staged.alternativeBannerUrl,
                     logoUrl: staged.logoUrl,
                     heroUrl: staged.heroUrl,
                     iconUrl: staged.iconUrl,

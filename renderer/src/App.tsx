@@ -575,19 +575,19 @@ function App() {
         return;
       }
       setStartupProgress(data);
-      // Auto-hide progress after completion message, but only if no games were found
-      // If games were found, let the user decide by clicking Cancel or Review in Importer
+      // Auto-hide progress after completion, but keep open if games were found for user interaction
       if (data.message && (data.message.includes('Scan complete') || data.message.includes('Error'))) {
         setTimeout(() => {
-          // Only auto-hide if no games are currently displayed
-          setStartupProgress(prev => {
-            // Check if foundGames state has games - if so, don't hide the overlay
-            if (foundGames && foundGames.length > 0) {
-              return prev; // Keep the overlay open
+          setFoundGames(currentFoundGames => {
+            // If games were found, keep the overlay open (don't close startupProgress)
+            if (currentFoundGames && currentFoundGames.length > 0) {
+              return currentFoundGames;
             }
-            return null; // Hide the overlay
+            // No games found, close the overlay after 500ms
+            setStartupProgress(null);
+            return currentFoundGames;
           });
-        }, 5000);
+        }, 500);
       }
     };
 
@@ -1372,6 +1372,7 @@ function App() {
         genres: metadata.genres,
         ageRating: metadata.ageRating,
         categories: metadata.categories,
+        useAlternativeBackground: true,
       };
 
       // Save the game
@@ -1461,8 +1462,10 @@ function App() {
     }
   };
 
-  // Get background image from active game
-  const backgroundImageUrl = activeGame?.bannerUrl || activeGame?.boxArtUrl || '';
+  // Get background image from active game - use alternative banner if enabled
+  const backgroundImageUrl = (activeGame?.useAlternativeBackground && activeGame?.alternativeBannerUrl) 
+    ? activeGame.alternativeBannerUrl 
+    : activeGame?.bannerUrl || activeGame?.boxArtUrl || '';
 
   // Check if this is an Alpha build
   const isAlphaBuild = __BUILD_PROFILE__ === 'alpha' || (typeof process !== 'undefined' && process.env?.NODE_ENV === 'development');
@@ -2016,9 +2019,104 @@ function App() {
         preScannedGames={scannedSteamGames && scannedSteamGames.length > 0 ? scannedSteamGames : undefined}
         onImport={async (games) => {
           try {
+            // First pass: Save games with basic info
             for (const game of games) {
               await window.electronAPI.saveGame(game);
             }
+            
+            // Second pass: Auto-fetch and set banners (main and alternative)
+            for (const game of games) {
+              try {
+                console.log(`[Import] Fetching banners for: ${game.title}`);
+                
+                // First get the metadata to get the primary banner and resolve Steam App ID
+                const metadata = await window.electronAPI.searchArtwork(game.title, (game as any).appId);
+                
+                if (metadata) {
+                  console.log(`[Import] Metadata for ${game.title}:`, metadata);
+                  
+                  let updatedGame = { ...game };
+                  let updated = false;
+                  
+                  // Set main banner from metadata if available
+                  if (metadata.bannerUrl && !game.bannerUrl) {
+                    updatedGame.bannerUrl = metadata.bannerUrl;
+                    console.log(`[Import] Set main banner: ${metadata.bannerUrl}`);
+                    updated = true;
+                  }
+                  
+                  // Now search for multiple banner options to get an alternative
+                  try {
+                    const steamAppId = (game as any).appId;
+                    console.log(`[Import] Searching for banner images (steamAppId: ${steamAppId})`);
+                    
+                    const bannerSearch = await window.electronAPI.searchImages(game.title, 'banner', steamAppId);
+                    console.log(`[Import] Banner search result for ${game.title}:`, bannerSearch);
+                    
+                    if (bannerSearch?.success && bannerSearch.images) {
+                      const allBannerUrls: string[] = [];
+                      
+                      // Parse the response - it can have different structures
+                      if (Array.isArray(bannerSearch.images)) {
+                        bannerSearch.images.forEach((item: any) => {
+                          // Check if item has nested images array
+                          if (item.images && Array.isArray(item.images)) {
+                            item.images.forEach((img: any) => {
+                              const url = img.url || img.bannerUrl;
+                              if (url && !allBannerUrls.includes(url)) {
+                                allBannerUrls.push(url);
+                              }
+                            });
+                          } 
+                          // Check if item itself is an image object
+                          else if (item.url || item.bannerUrl) {
+                            const url = item.url || item.bannerUrl;
+                            if (url && !allBannerUrls.includes(url)) {
+                              allBannerUrls.push(url);
+                            }
+                          }
+                        });
+                      }
+                      
+                      console.log(`[Import] Extracted ${allBannerUrls.length} banner URLs:`, allBannerUrls);
+                      
+                      // If we don't have a main banner yet, use the first one
+                      if (!updatedGame.bannerUrl && allBannerUrls.length > 0) {
+                        updatedGame.bannerUrl = allBannerUrls[0];
+                        console.log(`[Import] Set main banner from search: ${allBannerUrls[0]}`);
+                        updated = true;
+                      }
+                      
+                      // Find a different banner for the alternative
+                      if (allBannerUrls.length > 1) {
+                        // Get the second banner or any one different from main
+                        const altUrl = allBannerUrls.find(url => url !== updatedGame.bannerUrl) || allBannerUrls[1];
+                        if (altUrl && altUrl !== updatedGame.bannerUrl) {
+                          updatedGame.alternativeBannerUrl = altUrl;
+                          console.log(`[Import] Set alt banner: ${altUrl}`);
+                          updated = true;
+                        }
+                      }
+                    } else {
+                      console.log(`[Import] No banner search results for ${game.title}`);
+                    }
+                  } catch (searchErr) {
+                    console.error(`[Import] Banner search error for ${game.title}:`, searchErr);
+                  }
+                  
+                  // Save if we made any updates
+                  if (updated) {
+                    console.log(`[Import] Saving updated game with banners`);
+                    await window.electronAPI.saveGame(updatedGame);
+                  }
+                } else {
+                  console.log(`[Import] No metadata found for ${game.title}`);
+                }
+              } catch (err) {
+                console.error(`[Import] Failed to fetch metadata for ${game.title}:`, err);
+              }
+            }
+            
             await loadLibrary();
             showToast(`Successfully imported ${games.length} ${games.length === 1 ? 'game' : 'games'}`, 'success');
             setIsImportWorkbenchOpen(false);
@@ -2433,10 +2531,49 @@ function App() {
               </div>
             ) : (
               <div className="flex flex-col h-full">
-                <div className="flex items-center gap-4 mb-6">
-                  <div className="w-12 h-12 rounded-full bg-green-500/10 flex items-center justify-center border border-green-500/20">
-                    <svg className="w-6 h-6 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                <div className="flex items-start gap-4 mb-6">
+                  {/* Onyx Logo */}
+                  <div className="w-16 h-16 flex-shrink-0">
+                    <svg width="100%" height="100%" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <defs>
+                        <linearGradient id="onyxGrad3" x1="256" y1="20" x2="256" y2="492" gradientUnits="userSpaceOnUse">
+                          <stop offset="0" stopColor="#334155" />
+                          <stop offset="1" stopColor="#020617" />
+                        </linearGradient>
+                        <filter id="glow3" x="-50%" y="-50%" width="200%" height="200%">
+                          <feGaussianBlur stdDeviation="8" result="blur" />
+                          <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                        </filter>
+                      </defs>
+
+                      <path d="M256 30 L465 150 V362 L256 482 L47 362 V150 L256 30Z"
+                        fill="url(#onyxGrad3)"
+                        stroke="#0ea5e9"
+                        strokeWidth="8"
+                        filter="url(#glow3)" />
+
+                      <path d="M256 256 L256 482 M256 256 L47 150 M256 256 L465 150"
+                        stroke="#1e293b"
+                        strokeWidth="4" />
+
+                      <g transform="translate(256, 143) scale(1, 0.58)">
+                        <circle r="55" stroke="#0ea5e9" strokeWidth="20" strokeOpacity="0.6" fill="none" />
+                        <circle r="55" stroke="#e0f2fe" strokeWidth="8" fill="none" />
+                      </g>
+
+                      <g transform="translate(151, 325) rotate(60) scale(1, 0.58)">
+                        <circle r="55" stroke="#0ea5e9" strokeWidth="20" strokeOpacity="0.6" fill="none" />
+                        <circle r="55" stroke="#e0f2fe" strokeWidth="8" fill="none" />
+                      </g>
+
+                      <g transform="translate(361, 325) rotate(-60) scale(1, 0.58)">
+                        <circle r="55" stroke="#0ea5e9" strokeWidth="20" strokeOpacity="0.6" fill="none" />
+                        <circle r="55" stroke="#e0f2fe" strokeWidth="8" fill="none" />
+                      </g>
+
+                      <path d="M256 30 L465 150 L256 256 L47 150 L256 30Z"
+                        fill="white"
+                        fillOpacity="0.1" />
                     </svg>
                   </div>
                   <div>
