@@ -1420,19 +1420,40 @@ export class ImportService {
         return results;
       }
 
-      // Battle.net games can be in:
-      // 1. {BattlePath}\Games (common)
-      // 2. Direct subdirectories of {BattlePath}
+      // Battle.net games are typically ONLY in the Games subdirectory
+      // Don't scan the root path to avoid picking up the launcher itself
+      const gamesPath = join(battlePath, 'Games');
+      
+      if (existsSync(gamesPath)) {
+        console.log(`[Battle.net] Scanning games directory: ${gamesPath}`);
+        const scanned = await this.scanGenericGamesFolder(gamesPath, 'battle');
+        results.push(...scanned);
+      } else {
+        console.log(`[Battle.net] Games directory not found at: ${gamesPath}`);
+      }
 
-      const possiblePaths = [
-        join(battlePath, 'Games'),
-        battlePath, // Scan the root path itself
-      ];
-
-      for (const gamesPath of possiblePaths) {
-        if (existsSync(gamesPath)) {
-          console.log(`[Battle.net] Scanning: ${gamesPath}`);
-          const scanned = await this.scanGenericGamesFolder(gamesPath, 'battle');
+      // Additional check for some Battle.net installs that might have games in other locations
+      // But specifically exclude the launcher's own directory
+      const entries = readdirSync(battlePath, { withFileTypes: true });
+      for (const entry of entries) {
+        if (entry.isDirectory()) {
+          const dirName = entry.name.toLowerCase();
+          
+          // Skip the launcher's own directories and system folders
+          if (dirName === 'battle.net' || 
+              dirName === 'battlenet' || 
+              dirName === 'launcher' ||
+              dirName === 'blizzard' ||
+              dirName === 'system' ||
+              dirName === 'cache' ||
+              dirName === 'logs' ||
+              dirName === 'temp' ||
+              dirName === 'games') { // Games already handled above
+            continue;
+          }
+          
+          const potentialGamePath = join(battlePath, entry.name);
+          const scanned = await this.scanGenericGamesFolder(potentialGamePath, 'battle');
           results.push(...scanned);
         }
       }

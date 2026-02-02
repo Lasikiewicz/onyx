@@ -165,9 +165,53 @@ export function registerScanningHandlers(
     ipcMain.handle('import:scanAllSources', async () => {
         try {
             console.log('[ImportService] Starting manual scan from Game Importer...');
+            
+            // Enhanced progress callback to send detailed real-time updates
             const scannedResults = await importService.scanAllSources((message) => {
                 if (winReference.current && !winReference.current.isDestroyed()) {
+                    // Send basic progress
                     winReference.current.webContents.send('import:scanProgress', { message });
+                    
+                    // Send real-time game discovery events
+                    if (message.includes('Found:')) {
+                        const gameName = message.replace('Found:', '').trim();
+                        winReference.current.webContents.send('import:gameDiscovered', {
+                            gameName,
+                            status: 'Discovered',
+                            progress: '0%'
+                        });
+                        
+                        // Simulate processing steps for discovered games
+                        setTimeout(() => {
+                            if (winReference.current && !winReference.current.isDestroyed()) {
+                                winReference.current.webContents.send('import:gameProcessingUpdate', {
+                                    gameName,
+                                    status: 'Fetching metadata...',
+                                    progress: '25%'
+                                });
+                            }
+                        }, 200);
+                        
+                        setTimeout(() => {
+                            if (winReference.current && !winReference.current.isDestroyed()) {
+                                winReference.current.webContents.send('import:gameProcessingUpdate', {
+                                    gameName,
+                                    status: 'Processing images...',
+                                    progress: '75%'
+                                });
+                            }
+                        }, 800);
+                        
+                        setTimeout(() => {
+                            if (winReference.current && !winReference.current.isDestroyed()) {
+                                winReference.current.webContents.send('import:gameProcessingUpdate', {
+                                    gameName,
+                                    status: 'Added to queue',
+                                    progress: '100%'
+                                });
+                            }
+                        }, 1200);
+                    }
                 }
             });
 

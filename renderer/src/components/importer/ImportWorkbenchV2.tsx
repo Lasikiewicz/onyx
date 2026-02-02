@@ -54,6 +54,11 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
     const [error, setError] = useState<string | null>(null);
     const [scanProgress, setScanProgress] = useState('');
     const [showIgnored, setShowIgnored] = useState(false);
+    
+    // New state for real-time scanning
+    const [currentlyProcessingGame, setCurrentlyProcessingGame] = useState<string | null>(null);
+    const [gameProcessingStates, setGameProcessingStates] = useState<Map<string, { status: string; progress?: string }>>(new Map());
+    const [scanStats, setScanStats] = useState({ found: 0, processed: 0 });
 
     // Refs
     const hasAutoScanned = useRef(false);
@@ -106,12 +111,73 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
         }
     }, [isOpen]);
 
+    // Listen for real-time scan progress
+    useEffect(() => {
+        if (!isOpen) return;
+
+        const handleScanProgress = (_event: any, data: { message: string }) => {
+            if (data.message) {
+                setScanProgress(data.message);
+                
+                // Parse specific game discovery messages for stats
+                if (data.message.includes('Found:')) {
+                    setScanStats(prev => ({ ...prev, found: prev.found + 1 }));
+                }
+            }
+        };
+
+        const handleGameDiscovered = (_event: any, data: { gameName: string; status: string; progress: string }) => {
+            setCurrentlyProcessingGame(data.gameName);
+            setGameProcessingStates(prev => new Map(prev).set(data.gameName, { 
+                status: data.status, 
+                progress: data.progress 
+            }));
+            setScanStats(prev => ({ ...prev, found: prev.found + 1 }));
+            
+            // Note: We don't create stub games here anymore to avoid conflicts.
+            // Games will be processed and added to the queue by processScannedGames.
+        };
+
+        const handleGameProcessingUpdate = (_event: any, data: { gameName: string; status: string; progress: string }) => {
+            setGameProcessingStates(prev => new Map(prev).set(data.gameName, { 
+                status: data.status, 
+                progress: data.progress 
+            }));
+            
+            if (data.progress === '100%') {
+                setScanStats(prev => ({ ...prev, processed: prev.processed + 1 }));
+                // Clear current processing game when done
+                setTimeout(() => setCurrentlyProcessingGame(null), 500);
+            }
+        };
+
+        const removeProgressListener = window.electronAPI?.on && window.electronAPI.on('import:scanProgress', handleScanProgress);
+        const removeDiscoveredListener = window.electronAPI?.on && window.electronAPI.on('import:gameDiscovered', handleGameDiscovered);
+        const removeProcessingListener = window.electronAPI?.on && window.electronAPI.on('import:gameProcessingUpdate', handleGameProcessingUpdate);
+
+        return () => {
+            if (removeProgressListener && typeof removeProgressListener === 'function') {
+                removeProgressListener();
+            }
+            if (removeDiscoveredListener && typeof removeDiscoveredListener === 'function') {
+                removeDiscoveredListener();
+            }
+            if (removeProcessingListener && typeof removeProcessingListener === 'function') {
+                removeProcessingListener();
+            }
+        };
+    }, [isOpen]);
+
     // --- Handlers ---
 
     const handleScanAll = async () => {
         setIsScanning(true);
         setError(null);
         setScanProgress('Starting scan...');
+        setCurrentlyProcessingGame(null);
+        setGameProcessingStates(new Map());
+        setScanStats({ found: 0, processed: 0 });
+        setQueue([]); // Clear existing queue
 
         try {
             const results = await window.electronAPI.scanAllSources();
@@ -126,6 +192,8 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
         } finally {
             setIsScanning(false);
             setScanProgress('');
+            setCurrentlyProcessingGame(null);
+            setScanStats(prev => ({ ...prev, processed: prev.found }));
         }
     };
 
@@ -167,60 +235,106 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
         );
         let firstGameUuid: string | null = null;
 
-        for (const scanned of scannedGames) {
-            // Skip if already in library by ID (check various patterns)
+        for (let i = 0; i < scannedGames.length; i++) {
+            const scanned = scannedGames[i];
+            
+            // Update current processing game for real-time feedback
+            setCurrentlyProcessingGame(scanned.title);
+            setScanStats(prev => ({ ...prev, processed: i + 1 }));
+            
+            // Skip duplicates with progress feedback
             if (scanned.appId) {
                 const idPatterns = [
                     `steam-${scanned.appId}`,
                     `epic-${scanned.appId}`,
                     `gog-${scanned.appId}`,
                     `xbox-${scanned.appId}`,
-                    scanned.appId, // raw ID
+                    scanned.appId,
                 ];
                 if (idPatterns.some(id => existingIds.has(id))) {
                     console.log(`[Importer] Skipping duplicate by app ID: ${scanned.title} (${scanned.appId})`);
+                    setGameProcessingStates(prev => new Map(prev).set(scanned.title, { status: 'Duplicate - skipped' }));
                     continue;
                 }
             }
 
-            // Skip if already in library by install path
             if (scanned.installPath) {
                 const normalizedPath = scanned.installPath.toLowerCase().trim();
                 if (existingInstallPaths.has(normalizedPath)) {
                     console.log(`[Importer] Skipping duplicate by install path: ${scanned.title}`);
+                    setGameProcessingStates(prev => new Map(prev).set(scanned.title, { status: 'Duplicate - skipped' }));
                     continue;
                 }
             }
 
-            // Skip if already in library by exe path
             if (scanned.exePath) {
                 const normalizedExe = scanned.exePath.toLowerCase().trim();
                 if (existingExePaths.has(normalizedExe)) {
                     console.log(`[Importer] Skipping duplicate by exe path: ${scanned.title}`);
+                    setGameProcessingStates(prev => new Map(prev).set(scanned.title, { status: 'Duplicate - skipped' }));
                     continue;
                 }
             }
 
-            // Skip if already in library by title (normalized)
             const normalizedTitle = (scanned.title || scanned.name || '').toLowerCase().trim();
             if (normalizedTitle && existingTitles.has(normalizedTitle)) {
                 console.log(`[Importer] Skipping duplicate by title: ${scanned.title}`);
+                setGameProcessingStates(prev => new Map(prev).set(scanned.title, { status: 'Duplicate - skipped' }));
                 continue;
             }
 
             const uuid = `${scanned.source}-${scanned.appId || Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
             if (!firstGameUuid) firstGameUuid = uuid;
 
-            // Fetch metadata
+            // Create a basic stub game immediately for real-time display
+            const stubGame: StagedGame = {
+                uuid,
+                source: scanned.source,
+                originalName: scanned.title,
+                installPath: scanned.installPath,
+                exePath: scanned.exePath,
+                appId: scanned.appId,
+                title: scanned.title,
+                description: '',
+                releaseDate: '',
+                genres: [],
+                developers: [],
+                publishers: [],
+                categories: [],
+                boxArtUrl: '',
+                bannerUrl: '',
+                logoUrl: '',
+                heroUrl: '',
+                iconUrl: '',
+                ageRating: '',
+                rating: undefined,
+                status: 'scanning' as ImportStatus,
+                isSelected: true,
+                isIgnored: false,
+            };
+
+            // Add stub game immediately to queue for real-time display
+            setQueue(prev => [...prev, stubGame]);
+            
+            // Select first game if none selected
+            if (!selectedId && firstGameUuid === uuid) {
+                setSelectedId(uuid);
+            }
+
+            // Fetch metadata with progress updates
             setScanProgress(`Fetching metadata for ${scanned.title}...`);
+            setGameProcessingStates(prev => new Map(prev).set(scanned.title, { status: 'Fetching metadata...', progress: '25%' }));
             let metadata: any = {};
             try {
                 metadata = await window.electronAPI.searchArtwork(scanned.title, scanned.appId);
+                setGameProcessingStates(prev => new Map(prev).set(scanned.title, { status: 'Metadata complete', progress: '75%' }));
             } catch (err) {
                 console.warn(`Failed to fetch metadata for ${scanned.title}:`, err);
+                setGameProcessingStates(prev => new Map(prev).set(scanned.title, { status: 'Metadata failed - using basic info', progress: '50%' }));
             }
 
-            const staged: StagedGame = {
+            // Update the stub game with full metadata
+            const fullyProcessedGame: StagedGame = {
                 uuid,
                 source: scanned.source,
                 originalName: scanned.title,
@@ -246,58 +360,45 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
                 isIgnored: false,
             };
 
-            // Auto-categorize "Apps" for Utilities
-            if (staged.genres?.includes('Utilities')) {
-                if (!staged.categories) staged.categories = [];
-                staged.categories.push('Apps');
+            // Auto-categorize
+            if (fullyProcessedGame.genres?.includes('Utilities')) {
+                if (!fullyProcessedGame.categories) fullyProcessedGame.categories = [];
+                fullyProcessedGame.categories.push('Apps');
             }
 
-            // Auto-categorize "Demo"
-            const titleLower = staged.title.toLowerCase();
-            const originalLower = staged.originalName.toLowerCase();
-            if (titleLower.includes('demo') || originalLower.includes('demo') || staged.genres?.some(g => g.toLowerCase().includes('demo'))) {
-                if (!staged.categories) staged.categories = [];
-                if (!staged.categories.includes('Demo')) {
-                    staged.categories.push('Demo');
+            const titleLower = fullyProcessedGame.title.toLowerCase();
+            const originalLower = fullyProcessedGame.originalName.toLowerCase();
+            if (titleLower.includes('demo') || originalLower.includes('demo') || fullyProcessedGame.genres?.some(g => g.toLowerCase().includes('demo'))) {
+                if (!fullyProcessedGame.categories) fullyProcessedGame.categories = [];
+                if (!fullyProcessedGame.categories.includes('Demo')) {
+                    fullyProcessedGame.categories.push('Demo');
                 }
             }
-            // Auto-categorize Manual Folder games as "Games" if no other category
+            
             if (scanned.source === 'manual_folder') {
-                if (!staged.categories) staged.categories = [];
-                if (staged.categories.length === 0) {
-                    staged.categories.push('Games');
+                if (!fullyProcessedGame.categories) fullyProcessedGame.categories = [];
+                if (fullyProcessedGame.categories.length === 0) {
+                    fullyProcessedGame.categories.push('Games');
                 }
             }
-
 
             // Check if ready
-            const hasImages = staged.boxArtUrl && staged.bannerUrl && staged.logoUrl;
-            const hasDesc = staged.description;
-            // Relaxed ready check: if high confidence match OR has verified images/desc OR manual folder with title
-            // User requested that "direct matches" should be ready even if some data missing (implied)
-            // But safely: if we have images and description, it's ready.
+            const hasImages = fullyProcessedGame.boxArtUrl && fullyProcessedGame.bannerUrl && fullyProcessedGame.logoUrl;
+            const hasDesc = fullyProcessedGame.description;
             if (hasImages && hasDesc) {
-                staged.status = 'ready';
+                fullyProcessedGame.status = 'ready';
             } else if (metadata?.title && (metadata.title.toLowerCase() === scanned.title.toLowerCase())) {
-                // Exact title match from metadata provider -> consider ready even if missing some art?
-                // User said "Ambiguous should be changed to attention needed".
-                // User also said "Lots of things should ambiguous even though the titles would be direct matches" -> wait, they said "should NOT be ambiguous" is typically what that means, but let's re-read carefully.
-                // "Lots of things should ambiguous even though the titles would be direct matches"
-                // This phrasing is tricky. "Lots of things SHOW ambiguous...".
-                // I will assume they want FEWER false positives for Ambiguous.
-                // If we have a title match and at least a boxart, let's call it ready.
-                if (staged.boxArtUrl) {
-                    staged.status = 'ready';
+                if (fullyProcessedGame.boxArtUrl) {
+                    fullyProcessedGame.status = 'ready';
                 }
             }
 
-            // Add to queue immediately so it appears in sidebar
-            setQueue(prev => [...prev, staged]);
-
-            // Select first game if none selected
-            if (!selectedId && firstGameUuid === uuid) {
-                setSelectedId(uuid);
-            }
+            // Replace stub game with fully processed game
+            setQueue(prev => prev.map(game => game.uuid === uuid ? fullyProcessedGame : game));
+            setGameProcessingStates(prev => new Map(prev).set(scanned.title, { status: 'Added to queue', progress: '100%' }));
+            
+            // Small delay for visual feedback
+            await new Promise(resolve => setTimeout(resolve, 100));
         }
     };
 
@@ -432,6 +533,15 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
                         <div className="flex-1">
                             <div className="font-medium">Scanning for games...</div>
                             {scanProgress && <div className="text-sm text-blue-100 mt-1">{scanProgress}</div>}
+                            {currentlyProcessingGame && (
+                                <div className="text-sm text-blue-100 mt-1">
+                                    Processing: {currentlyProcessingGame}
+                                </div>
+                            )}
+                        </div>
+                        <div className="text-right text-sm">
+                            <div>Found: {scanStats.found}</div>
+                            <div>Processed: {scanStats.processed}</div>
                         </div>
                     </div>
                 )}
@@ -484,6 +594,31 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
                                             {/* Info */}
                                             <div className="flex-1 min-w-0">
                                                 <div className="text-sm font-medium text-white truncate">{game.title}</div>
+                                                
+                                                {/* Progress bar for currently processing games */}
+                                                {isScanning && gameProcessingStates.has(game.title) && (
+                                                    <div className="mt-1 mb-1">
+                                                        <div className="flex items-center justify-between mb-1">
+                                                            <span className="text-xs text-gray-400 truncate">
+                                                                {gameProcessingStates.get(game.title)?.status}
+                                                            </span>
+                                                            {gameProcessingStates.get(game.title)?.progress && (
+                                                                <span className="text-xs text-gray-500">
+                                                                    {gameProcessingStates.get(game.title)?.progress}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                        <div className="w-full bg-gray-700 rounded-full h-1">
+                                                            <div 
+                                                                className="bg-blue-500 h-1 rounded-full transition-all duration-300"
+                                                                style={{ 
+                                                                    width: gameProcessingStates.get(game.title)?.progress || '0%' 
+                                                                }}
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                )}
+                                                
                                                 <div className="flex items-center gap-2 mt-1">
                                                     <span className={`text-xs ${getStatusColor(game.status)}`}>
                                                         {getStatusIcon(game.status)} {game.status === 'ambiguous' ? 'Attention Needed' : game.status}

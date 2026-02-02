@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 
 interface FoundGamesModalProps {
     foundGames: Array<{
@@ -10,59 +10,19 @@ interface FoundGamesModalProps {
         source?: string;
         appId?: string;
     }>;
-    onImport: (gamesToImport: any[]) => void;
     onOpenImporter: (gamesToImport: any[]) => void;
     onCancel: () => void;
 }
 
-export function FoundGamesModal({ foundGames, onImport, onOpenImporter, onCancel }: FoundGamesModalProps) {
-    // Generate temporary IDs for selection if not present
-    const gamesWithIds = useMemo(() => {
-        return foundGames.map((g, index) => ({
-            ...g,
-            _tempId: g.id || `temp-${index}-${g.title}`
-        }));
+export function FoundGamesModal({ foundGames, onOpenImporter, onCancel }: FoundGamesModalProps) {
+    // Sort games alphabetically
+    const sortedFoundGames = useMemo(() => {
+        return [...foundGames].sort((a, b) => a.title.localeCompare(b.title));
     }, [foundGames]);
 
-    const [selectedGames, setSelectedGames] = React.useState<Set<string>>(
-        new Set(gamesWithIds.map(g => g._tempId))
-    );
-
-    const sortedFoundGames = useMemo(() => {
-        return [...gamesWithIds].sort((a, b) => a.title.localeCompare(b.title));
-    }, [gamesWithIds]);
-
-    const toggleGame = (tempId: string) => {
-        setSelectedGames(prev => {
-            const newSet = new Set(prev);
-            if (newSet.has(tempId)) {
-                newSet.delete(tempId);
-            } else {
-                newSet.add(tempId);
-            }
-            return newSet;
-        });
-    };
-
-    const toggleAll = () => {
-        if (selectedGames.size === gamesWithIds.length) {
-            setSelectedGames(new Set());
-        } else {
-            setSelectedGames(new Set(gamesWithIds.map(g => g._tempId)));
-        }
-    };
-
-    const getSelectedGames = () => {
-        const gamesToImport = gamesWithIds.filter(g => selectedGames.has(g._tempId));
-        return gamesToImport.map(({ _tempId, ...rest }) => rest);
-    };
-
-    const handleImport = () => {
-        onImport(getSelectedGames());
-    };
-
     const handleOpenImporter = () => {
-        onOpenImporter(getSelectedGames());
+        // Pass all games to the importer
+        onOpenImporter(foundGames);
     };
 
     return (
@@ -82,35 +42,18 @@ export function FoundGamesModal({ foundGames, onImport, onOpenImporter, onCancel
                     </div>
                 </div>
 
-                <div className="flex items-center justify-between mb-4 px-1">
+                <div className="flex items-center mb-4 px-1">
                     <span className="text-sm font-medium text-gray-400">
                         {foundGames.length} {foundGames.length === 1 ? 'game' : 'games'} found
                     </span>
-                    <label className="flex items-center gap-2 cursor-pointer group">
-                        <input
-                            type="checkbox"
-                            checked={selectedGames.size === gamesWithIds.length}
-                            onChange={toggleAll}
-                            className="w-4 h-4 rounded border-gray-600 bg-gray-700 text-blue-600 focus:ring-blue-500 focus:ring-offset-gray-900"
-                        />
-                        <span className="text-sm text-gray-400 group-hover:text-gray-300 transition-colors">
-                            Select All
-                        </span>
-                    </label>
                 </div>
 
                 <div className="flex-1 overflow-y-auto mb-6 pr-2 -mr-2 space-y-2">
-                    {sortedFoundGames.map(game => (
+                    {sortedFoundGames.map((game, index) => (
                         <div
-                            key={game._tempId}
+                            key={game.id || `game-${index}`}
                             className="flex items-start gap-4 p-4 bg-gray-800/40 border border-gray-700/30 rounded-xl hover:bg-gray-800/60 transition-colors group"
                         >
-                            <input
-                                type="checkbox"
-                                checked={selectedGames.has(game._tempId)}
-                                onChange={() => toggleGame(game._tempId)}
-                                className="mt-1.5 w-4 h-4 rounded border-gray-600 bg-gray-700 text-blue-600 focus:ring-blue-500 focus:ring-offset-gray-900 cursor-pointer"
-                            />
                             <div className="flex-1 min-w-0">
                                 <div className="flex justify-between items-start gap-2">
                                     <div className="font-semibold text-white truncate">{game.title}</div>
@@ -130,26 +73,18 @@ export function FoundGamesModal({ foundGames, onImport, onOpenImporter, onCancel
                     ))}
                 </div>
 
-                <div className="flex justify-end gap-3 pt-4 border-t border-gray-800">
+                <div className="flex gap-3 pt-4 border-t border-gray-800">
                     <button
                         onClick={onCancel}
-                        className="px-5 py-2.5 bg-gray-800 hover:bg-gray-700 text-white font-medium rounded-lg transition-colors border border-gray-700"
+                        className="flex-1 px-5 py-2.5 bg-gray-800 hover:bg-gray-700 text-white font-medium rounded-lg transition-colors border border-gray-700"
                     >
                         Cancel
                     </button>
                     <button
                         onClick={handleOpenImporter}
-                        disabled={selectedGames.size === 0}
-                        className="px-5 py-2.5 bg-gray-700 hover:bg-gray-600 text-white font-medium rounded-lg transition-colors border border-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="flex-1 px-5 py-2.5 bg-gray-700 hover:bg-gray-600 text-white font-medium rounded-lg transition-colors border border-gray-600"
                     >
                         Review in Importer
-                    </button>
-                    <button
-                        onClick={handleImport}
-                        disabled={selectedGames.size === 0}
-                        className="px-5 py-2.5 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white font-medium rounded-lg transition-all shadow-lg shadow-blue-500/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
-                    >
-                        Import Selected ({selectedGames.size})
                     </button>
                 </div>
             </div>

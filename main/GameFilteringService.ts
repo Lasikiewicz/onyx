@@ -87,10 +87,14 @@ export class GameFilteringService {
       // Communication
       'whatsapp', 'telegram', 'discord', 'slack', 'zoom', 'skype', 'teams',
       
+      // Game Launchers & Platforms (not actual games)
+      'battle.net', 'battlenet', 'blizzard', 'steam client', 'epic games launcher',
+      'origin', 'ea desktop', 'ubisoft connect', 'gog galaxy', 'xbox app',
+      'game bar', 'game overlay', 'game launcher', 'launcher',
+      
       // Specific Problem Cases
       'quick assist', 'snipping', 'sticky', 'hdr calibration', 'insider hub',
-      'xbox', 'game bar', 'game overlay', 'game launcher', 'launcher',
-      'console', 'terminal', 'cmd', 'powershell', 'bash', 'shell',
+      'xbox', 'console', 'terminal', 'cmd', 'powershell', 'bash', 'shell',
       'photoshop', 'illustrator', 'premiere', 'after effects',
     ];
   }
@@ -113,7 +117,10 @@ export class GameFilteringService {
       'cleanup.exe', 'directxsetup.exe', 'dxsetup.exe',
       'vc_redist.x64.exe', 'vc_redist.x86.exe',
       'vulkan.exe', 'dxcpl.exe',
+      // Battle.net launcher executables
       'battlenet.exe', 'battle.net.exe', 'battlenet.overlay.runtime.exe',
+      'blizzardlauncher.exe', 'blizzard.exe', 'blizzardupdate.exe',
+      'blizzardbrowser.exe', 'blizzarderror.exe', 'blizztray.exe',
       'gamesessionmonitor.exe',
       'quickassist.exe', 'quickassistant.exe',
       'realtek.exe', 'snipping.exe', 'stickynotes.exe',
