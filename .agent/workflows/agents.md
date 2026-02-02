@@ -11,35 +11,33 @@ description: Onyx AI Agent Guide - Critical Rules & Project Context
 - ✅ "Push to git" or "push to git master" = permission for **master** branch only
 - **WORKFLOW**: Make changes → STOP → Ask user → Show summary → WAIT for approval → Execute
 
-## 🔄 RELEASE WORKFLOW (ONE BUILD TYPE PER BRANCH)
+## 🔄 RELEASE WORKFLOW (Strict Protocol)
 
-### 1. "Push to git master" (Standard Progress)
-**Standard development updates - No version increment**
+### 1. "Push to git master" (Code Only - NO BUILD)
+**Saves code to remote master. Does NOT trigger any build.**
 ```bash
 git add .
 git commit -m "[Summary]"
 git push origin master
 ```
 
-### 2. "Push to Alpha" (Testing Release)
-**CRITICAL: ALWAYS increment version before pushing to develop**
-Maps "Alpha" concept to `develop` branch.
+### 2. "Force to Alpha" (Triggers Alpha Build)
+**Force pushes master to develop. Triggers 'Onyx Alpha' build.**
+*Required:* Increment version first if a new build number is desired.
 ```bash
-npm run increment-build          # INCREMENT VERSION FIRST
+npm run increment-build          # Optional: Increment version
 git add .
-git commit -m "Build X.Y.Z - [Summary]"
+git commit -m "Build X.Y.Z - [Summary]" # If incremented
 git push origin master
 git push origin master:develop --force
 ```
-**ONLY command that increments build number**
 
-### 3. "Push to Main" (Production)
-Maps `develop` to `main` branch.
+### 3. "Force to Main" (Triggers Release Build)
+**Force pushes develop to main. Triggers 'Onyx' (Production) build.**
 ```bash
 git fetch origin develop
 git push origin origin/develop:main --force
 ```
-**NO version increment**
 
 ### 4. Website-Only Updates
 - Commit to `master`, force to `main`
