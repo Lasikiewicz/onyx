@@ -16,10 +16,10 @@ export interface UserPreferences {
   hideAppsTitles?: boolean;
   hideGameTitles?: boolean;
   gameTilePadding?: number;
-  showCategoriesInGameList?: boolean;
-  categoriesPosition?: 'top' | 'bottom';
-  categoriesTopAlignment?: 'left' | 'center' | 'right';
-  categoriesTopSize?: number;
+  showCategoriesInGameListByView?: { grid?: boolean; list?: boolean; logo?: boolean };
+  categoriesPositionByView?: { grid?: 'top' | 'bottom'; list?: 'top' | 'bottom'; logo?: 'top' | 'bottom' };
+  categoriesAlignmentByView?: { grid?: 'left' | 'center' | 'right'; list?: 'left' | 'center' | 'right'; logo?: 'left' | 'center' | 'right' };
+  categoriesSizeByView?: { grid?: number; list?: number; logo?: number };
   showLogoOverBoxart?: boolean;
   logoPosition?: 'top' | 'middle' | 'bottom' | 'underneath';
   logoBackgroundColor?: string;
@@ -164,10 +164,10 @@ export class UserPreferencesService {
             hideAppsTitles: true,
             hideGameTitles: true,
             gameTilePadding: 10,
-            showCategoriesInGameList: false,
-            categoriesPosition: 'top',
-            categoriesTopAlignment: 'left',
-            categoriesTopSize: 12,
+            showCategoriesInGameListByView: { grid: false, list: false, logo: false },
+            categoriesPositionByView: { grid: 'top', list: 'top', logo: 'top' },
+            categoriesAlignmentByView: { grid: 'left', list: 'left', logo: 'left' },
+            categoriesSizeByView: { grid: 12, list: 12, logo: 12 },
             showLogoOverBoxart: false,
             logoPosition: 'middle',
             logoBackgroundColor: '#374151',

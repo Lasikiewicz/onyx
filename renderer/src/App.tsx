@@ -146,10 +146,26 @@ function App() {
     list: 800,
     logo: 800,
   });
-  const [showCategoriesInGameList, setShowCategoriesInGameList] = useState(false);
-  const [categoriesPosition, setCategoriesPosition] = useState<'top' | 'bottom'>('top');
-  const [categoriesTopAlignment, setCategoriesTopAlignment] = useState<'left' | 'center' | 'right'>('left');
-  const [categoriesTopSize, setCategoriesTopSize] = useState(12);
+  const [showCategoriesByView, setShowCategoriesByView] = useState<Record<string, boolean>>({
+    grid: false,
+    list: false,
+    logo: false,
+  });
+  const [categoriesPositionByView, setCategoriesPositionByView] = useState<Record<string, 'top' | 'bottom'>>({
+    grid: 'top',
+    list: 'top',
+    logo: 'top'
+  });
+  const [categoriesAlignmentByView, setCategoriesAlignmentByView] = useState<Record<string, 'left' | 'center' | 'right'>>({
+    grid: 'left',
+    list: 'left',
+    logo: 'left'
+  });
+  const [categoriesSizeByView, setCategoriesSizeByView] = useState<Record<string, number>>({
+    grid: 12,
+    list: 12,
+    logo: 12
+  });
 
   // Launch confirmation state
   const [confirmGameLaunch, setConfirmGameLaunch] = useState(false);
@@ -218,10 +234,10 @@ function App() {
           if (prefs.hideAppsTitles !== undefined) setHideAppsTitles(prefs.hideAppsTitles);
           if (prefs.hideGameTitles !== undefined) setHideGameTitles(prefs.hideGameTitles);
           if (prefs.gameTilePadding !== undefined) setGameTilePadding(prefs.gameTilePadding);
-          if (prefs.showCategoriesInGameList !== undefined) setShowCategoriesInGameList(prefs.showCategoriesInGameList);
-          if (prefs.categoriesPosition !== undefined) setCategoriesPosition(prefs.categoriesPosition);
-          if (prefs.categoriesTopAlignment !== undefined) setCategoriesTopAlignment(prefs.categoriesTopAlignment);
-          if (prefs.categoriesTopSize !== undefined) setCategoriesTopSize(prefs.categoriesTopSize);
+          if (prefs.showCategoriesInGameListByView !== undefined) setShowCategoriesByView(prefs.showCategoriesInGameListByView);
+          if (prefs.categoriesPositionByView !== undefined) setCategoriesPositionByView(prefs.categoriesPositionByView);
+          if (prefs.categoriesAlignmentByView !== undefined) setCategoriesAlignmentByView(prefs.categoriesAlignmentByView);
+          if (prefs.categoriesSizeByView !== undefined) setCategoriesSizeByView(prefs.categoriesSizeByView);
           if (prefs.showLogoOverBoxart !== undefined) setShowLogoOverBoxart(prefs.showLogoOverBoxart);
           if (prefs.logoPosition !== undefined) setLogoPosition(prefs.logoPosition);
           if (prefs.logoBackgroundColor !== undefined) setLogoBackgroundColor(prefs.logoBackgroundColor);
@@ -1514,7 +1530,7 @@ function App() {
           hasHiddenGames={hasHiddenGames}
           hideVRTitles={hideVRTitles}
           hideAppsTitles={hideAppsTitles}
-          showCategoriesInGameList={showCategoriesInGameList}
+          showCategoriesInGameList={showCategoriesByView[viewMode] ?? false}
           onToggleHideVRTitles={() => setHideVRTitles(prev => !prev)}
           onToggleHideAppsTitles={() => setHideAppsTitles(prev => !prev)}
           launchers={allLaunchers}
@@ -1551,7 +1567,7 @@ function App() {
             {/* Game Grid */}
             <div
               ref={gridContainerRef}
-              className={`flex-1 overflow-y-auto relative z-10 ${viewMode === 'carousel' ? '' : (showCategoriesInGameList && viewMode === 'grid' ? 'p-0' : 'p-4')}`}
+              className={`flex-1 overflow-y-auto relative z-10 ${viewMode === 'carousel' ? '' : (showCategoriesByView[viewMode] && (viewMode === 'grid' || viewMode === 'list' || viewMode === 'logo') ? 'p-0' : 'p-4')}`}
               onContextMenuCapture={(e) => {
                 // Capture-phase fallback: open menu on any non-card area before children stop propagation
                 const target = e.target as HTMLElement;
@@ -1586,15 +1602,15 @@ function App() {
 
               {!loading && !error && (
                 <div className="h-full flex flex-col">
-                  {showCategoriesInGameList && viewMode !== 'carousel' && pinnedCategories.length > 0 && categoriesPosition === 'top' && (
+                  {showCategoriesByView[viewMode] && viewMode !== 'carousel' && pinnedCategories.length > 0 && (categoriesPositionByView[viewMode] ?? 'top') === 'top' && (
                     <div
-                      className={`flex items-center gap-2 px-6 py-4 overflow-x-auto no-scrollbar ${categoriesTopAlignment === 'center' ? 'justify-center' : categoriesTopAlignment === 'right' ? 'justify-end' : 'justify-start'
+                      className={`flex items-center gap-2 px-6 py-4 overflow-x-auto no-scrollbar ${(categoriesAlignmentByView[viewMode] ?? 'left') === 'center' ? 'justify-center' : (categoriesAlignmentByView[viewMode] ?? 'left') === 'right' ? 'justify-end' : 'justify-start'
                         }`}
                       style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
                     >
                       <button
                         onClick={() => setSelectedCategory(null)}
-                        style={{ fontSize: `${categoriesTopSize}px` }}
+                        style={{ fontSize: `${categoriesSizeByView[viewMode] ?? 12}px` }}
                         className={`px-3 py-1.5 rounded-full font-medium transition-all whitespace-nowrap ${selectedCategory === null
                           ? 'bg-blue-600/40 text-blue-100 border border-blue-500/40 shadow-sm shadow-blue-500/20'
                           : 'bg-gray-800/40 text-gray-400 hover:bg-gray-700/60 hover:text-gray-200 border border-gray-700/20'
@@ -1605,7 +1621,7 @@ function App() {
                       {hasFavoriteGames && (
                         <button
                           onClick={() => setSelectedCategory(selectedCategory === 'favorites' ? null : 'favorites')}
-                          style={{ fontSize: `${categoriesTopSize}px` }}
+                          style={{ fontSize: `${categoriesSizeByView[viewMode] ?? 12}px` }}
                           className={`px-3 py-1.5 rounded-full font-medium transition-all whitespace-nowrap ${selectedCategory === 'favorites'
                             ? 'bg-blue-600/40 text-blue-100 border border-blue-500/40 shadow-sm shadow-blue-500/20'
                             : 'bg-gray-800/40 text-gray-400 hover:bg-gray-700/60 hover:text-gray-200 border border-gray-700/20'
@@ -1618,7 +1634,7 @@ function App() {
                         <button
                           key={cat}
                           onClick={() => setSelectedCategory(selectedCategory === cat ? null : cat)}
-                          style={{ fontSize: `${categoriesTopSize}px` }}
+                          style={{ fontSize: `${categoriesSizeByView[viewMode] ?? 12}px` }}
                           className={`px-3 py-1.5 rounded-full font-medium transition-all whitespace-nowrap ${selectedCategory === cat
                             ? 'bg-blue-600/40 text-blue-100 border border-blue-500/40 shadow-sm shadow-blue-500/20'
                             : 'bg-gray-800/40 text-gray-400 hover:bg-gray-700/60 hover:text-gray-200 border border-gray-700/20'
@@ -1630,7 +1646,7 @@ function App() {
                     </div>
                   )}
                   {filteredGames.length > 0 ? (
-                    <div className={`flex-1 overflow-y-auto animate-onyx-grid-fade ${showCategoriesInGameList && viewMode !== 'carousel' ? (categoriesPosition === 'top' ? 'px-4 pb-4 pt-0' : 'px-4 pt-4 pb-0') : ''}`}>
+                    <div className={`flex-1 overflow-y-auto animate-onyx-grid-fade ${showCategoriesByView[viewMode] && viewMode !== 'carousel' ? ((categoriesPositionByView[viewMode] ?? 'top') === 'top' ? 'px-4 pb-4 pt-0' : 'px-4 pt-4 pb-0') : ''}`}>
                       {viewMode === 'grid' || viewMode === 'logo' ? (
                         <LibraryGrid
                           games={filteredGames}
@@ -1746,15 +1762,15 @@ function App() {
                       onOpenSettings={() => setIsAPISettingsOpen(true)}
                     />
                   )}
-                  {showCategoriesInGameList && viewMode !== 'carousel' && pinnedCategories.length > 0 && categoriesPosition === 'bottom' && (
+                  {showCategoriesByView[viewMode] && viewMode !== 'carousel' && pinnedCategories.length > 0 && (categoriesPositionByView[viewMode] ?? 'top') === 'bottom' && (
                     <div
-                      className={`flex items-center gap-2 px-6 py-4 overflow-x-auto no-scrollbar ${categoriesTopAlignment === 'center' ? 'justify-center' : categoriesTopAlignment === 'right' ? 'justify-end' : 'justify-start'
+                      className={`flex items-center gap-2 px-6 py-4 overflow-x-auto no-scrollbar ${(categoriesAlignmentByView[viewMode] ?? 'left') === 'center' ? 'justify-center' : (categoriesAlignmentByView[viewMode] ?? 'left') === 'right' ? 'justify-end' : 'justify-start'
                         }`}
                       style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
                     >
                       <button
                         onClick={() => setSelectedCategory(null)}
-                        style={{ fontSize: `${categoriesTopSize}px` }}
+                        style={{ fontSize: `${categoriesSizeByView[viewMode] ?? 12}px` }}
                         className={`px-3 py-1.5 rounded-full font-medium transition-all whitespace-nowrap ${selectedCategory === null
                           ? 'bg-blue-600/40 text-blue-100 border border-blue-500/40 shadow-sm shadow-blue-500/20'
                           : 'bg-gray-800/40 text-gray-400 hover:bg-gray-700/60 hover:text-gray-200 border border-gray-700/20'
@@ -1765,7 +1781,7 @@ function App() {
                       {hasFavoriteGames && (
                         <button
                           onClick={() => setSelectedCategory(selectedCategory === 'favorites' ? null : 'favorites')}
-                          style={{ fontSize: `${categoriesTopSize}px` }}
+                          style={{ fontSize: `${categoriesSizeByView[viewMode] ?? 12}px` }}
                           className={`px-3 py-1.5 rounded-full font-medium transition-all whitespace-nowrap ${selectedCategory === 'favorites'
                             ? 'bg-blue-600/40 text-blue-100 border border-blue-500/40 shadow-sm shadow-blue-500/20'
                             : 'bg-gray-800/40 text-gray-400 hover:bg-gray-700/60 hover:text-gray-200 border border-gray-700/20'
@@ -1778,7 +1794,7 @@ function App() {
                         <button
                           key={cat}
                           onClick={() => setSelectedCategory(selectedCategory === cat ? null : cat)}
-                          style={{ fontSize: `${categoriesTopSize}px` }}
+                          style={{ fontSize: `${categoriesSizeByView[viewMode] ?? 12}px` }}
                           className={`px-3 py-1.5 rounded-full font-medium transition-all whitespace-nowrap ${selectedCategory === cat
                             ? 'bg-blue-600/40 text-blue-100 border border-blue-500/40 shadow-sm shadow-blue-500/20'
                             : 'bg-gray-800/40 text-gray-400 hover:bg-gray-700/60 hover:text-gray-200 border border-gray-700/20'
@@ -2121,25 +2137,29 @@ function App() {
             setCarouselDescriptionSize(size);
             window.electronAPI.savePreferences({ carouselDescriptionSize: size });
           }}
-          showCategoriesInGameList={showCategoriesInGameList}
+          showCategoriesInGameList={showCategoriesByView[viewMode] ?? false}
           onShowCategoriesInGameListChange={(show) => {
-            setShowCategoriesInGameList(show);
-            window.electronAPI.savePreferences({ showCategoriesInGameList: show });
+            const newByView = { ...showCategoriesByView, [viewMode]: show };
+            setShowCategoriesByView(newByView);
+            window.electronAPI.savePreferences({ showCategoriesInGameListByView: newByView });
           }}
-          categoriesPosition={categoriesPosition}
+          categoriesPosition={categoriesPositionByView[viewMode] ?? 'top'}
           onCategoriesPositionChange={(position: 'top' | 'bottom') => {
-            setCategoriesPosition(position);
-            window.electronAPI.savePreferences({ categoriesPosition: position });
+            const newByView = { ...categoriesPositionByView, [viewMode]: position };
+            setCategoriesPositionByView(newByView);
+            window.electronAPI.savePreferences({ categoriesPositionByView: newByView });
           }}
-          categoriesTopAlignment={categoriesTopAlignment}
+          categoriesTopAlignment={categoriesAlignmentByView[viewMode] ?? 'left'}
           onCategoriesTopAlignmentChange={(alignment: 'left' | 'center' | 'right') => {
-            setCategoriesTopAlignment(alignment);
-            window.electronAPI.savePreferences({ categoriesTopAlignment: alignment });
+            const newByView = { ...categoriesAlignmentByView, [viewMode]: alignment };
+            setCategoriesAlignmentByView(newByView);
+            window.electronAPI.savePreferences({ categoriesAlignmentByView: newByView });
           }}
-          categoriesTopSize={categoriesTopSize}
+          categoriesTopSize={categoriesSizeByView[viewMode] ?? 12}
           onCategoriesTopSizeChange={(size: number) => {
-            setCategoriesTopSize(size);
-            window.electronAPI.savePreferences({ categoriesTopSize: size });
+            const newByView = { ...categoriesSizeByView, [viewMode]: size };
+            setCategoriesSizeByView(newByView);
+            window.electronAPI.savePreferences({ categoriesSizeByView: newByView });
           }}
           showLogoOverBoxart={showLogoOverBoxart}
           onShowLogoOverBoxartChange={(show) => {
