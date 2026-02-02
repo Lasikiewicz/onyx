@@ -11,10 +11,11 @@ interface FoundGamesModalProps {
         appId?: string;
     }>;
     onImport: (gamesToImport: any[]) => void;
+    onOpenImporter: (gamesToImport: any[]) => void;
     onCancel: () => void;
 }
 
-export function FoundGamesModal({ foundGames, onImport, onCancel }: FoundGamesModalProps) {
+export function FoundGamesModal({ foundGames, onImport, onOpenImporter, onCancel }: FoundGamesModalProps) {
     // Generate temporary IDs for selection if not present
     const gamesWithIds = useMemo(() => {
         return foundGames.map((g, index) => ({
@@ -51,11 +52,17 @@ export function FoundGamesModal({ foundGames, onImport, onCancel }: FoundGamesMo
         }
     };
 
-    const handleImport = () => {
+    const getSelectedGames = () => {
         const gamesToImport = gamesWithIds.filter(g => selectedGames.has(g._tempId));
-        // Strip the temp ID before sending back
-        const cleanedGames = gamesToImport.map(({ _tempId, ...rest }) => rest);
-        onImport(cleanedGames);
+        return gamesToImport.map(({ _tempId, ...rest }) => rest);
+    };
+
+    const handleImport = () => {
+        onImport(getSelectedGames());
+    };
+
+    const handleOpenImporter = () => {
+        onOpenImporter(getSelectedGames());
     };
 
     return (
@@ -70,7 +77,7 @@ export function FoundGamesModal({ foundGames, onImport, onCancel }: FoundGamesMo
                     <div>
                         <h2 className="text-2xl font-bold text-white">New Games Found</h2>
                         <p className="text-gray-400 text-sm mt-1">
-                            The following new games were detected. Would you like to import them to your library?
+                            The following new games were detected. You can import them directly or review them in the Importer.
                         </p>
                     </div>
                 </div>
@@ -129,6 +136,13 @@ export function FoundGamesModal({ foundGames, onImport, onCancel }: FoundGamesMo
                         className="px-5 py-2.5 bg-gray-800 hover:bg-gray-700 text-white font-medium rounded-lg transition-colors border border-gray-700"
                     >
                         Cancel
+                    </button>
+                    <button
+                        onClick={handleOpenImporter}
+                        disabled={selectedGames.size === 0}
+                        className="px-5 py-2.5 bg-gray-700 hover:bg-gray-600 text-white font-medium rounded-lg transition-colors border border-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        Review in Importer
                     </button>
                     <button
                         onClick={handleImport}

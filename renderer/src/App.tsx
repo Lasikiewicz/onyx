@@ -2455,6 +2455,17 @@ function App() {
         <FoundGamesModal
           foundGames={foundGames}
           onImport={handleImportFoundGames}
+          onOpenImporter={(gamesToReview) => {
+            // Determine app type from the games (use 'other' for mixed sources)
+            const sources = new Set(gamesToReview.map((g: any) => g.source));
+            const appType = sources.size === 1 && sources.has('steam') ? 'steam' :
+              sources.size === 1 && sources.has('xbox') ? 'xbox' : 'other';
+
+            setScannedSteamGames(gamesToReview);
+            setImportAppType(appType);
+            setIsImportWorkbenchOpen(true);
+            setFoundGames(null);
+          }}
           onCancel={() => setFoundGames(null)}
         />
       )}
