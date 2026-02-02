@@ -2,7 +2,7 @@ name: Validate Release Commit Messages
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, master ]
 
 jobs:
   check-commit-messages:
