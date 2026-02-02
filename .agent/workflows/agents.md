@@ -14,25 +14,27 @@ description: Onyx AI Agent Guide - Critical Rules & Project Context
 ## 🔄 RELEASE WORKFLOW (ONE BUILD TYPE PER BRANCH)
 
 ### 1. "Push to git master" (Standard Progress)
+**Standard development updates - No version increment**
 ```bash
 git add .
-git commit -m "Build X.Y.Z - [Summary]"
+git commit -m "[Summary]"
 git push origin master
 ```
-**NO version increment**
 
-### 2. "Push to alpha" (Testing Release)
-**CRITICAL: ALWAYS increment version before pushing to alpha**
+### 2. "Push to Alpha" (Testing Release)
+**CRITICAL: ALWAYS increment version before pushing to develop**
+Maps "Alpha" concept to `develop` branch.
 ```bash
 npm run increment-build          # INCREMENT VERSION FIRST
 git add .
 git commit -m "Build X.Y.Z - [Summary]"
 git push origin master
-git push origin master:alpha --force
+git push origin master:develop --force
 ```
 **ONLY command that increments build number**
 
-### 3. "Push to main" (Production)
+### 3. "Push to Main" (Production)
+Maps `develop` to `main` branch.
 ```bash
 git fetch origin develop
 git push origin origin/develop:main --force
