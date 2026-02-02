@@ -113,6 +113,14 @@ interface RightClickMenuProps {
   onFanartHeightChange?: (height: number) => void;
   descriptionWidth?: number;
   onDescriptionWidthChange?: (width: number) => void;
+  showCategoriesInGameList?: boolean;
+  onShowCategoriesInGameListChange?: (show: boolean) => void;
+  categoriesPosition?: 'top' | 'bottom';
+  onCategoriesPositionChange?: (position: 'top' | 'bottom') => void;
+  categoriesTopAlignment?: 'left' | 'center' | 'right';
+  onCategoriesTopAlignmentChange?: (alignment: 'left' | 'center' | 'right') => void;
+  categoriesTopSize?: number;
+  onCategoriesTopSizeChange?: (size: number) => void;
 }
 
 export const RightClickMenu: React.FC<RightClickMenuProps> = ({
@@ -185,6 +193,14 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
   onFanartHeightChange,
   descriptionWidth = 50,
   onDescriptionWidthChange,
+  showCategoriesInGameList = false,
+  onShowCategoriesInGameListChange,
+  categoriesPosition = 'top',
+  onCategoriesPositionChange,
+  categoriesTopAlignment = 'left',
+  onCategoriesTopAlignmentChange,
+  categoriesTopSize = 12,
+  onCategoriesTopSizeChange,
 }) => {
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -1090,6 +1106,86 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                       <span className="font-medium text-gray-300">{sizeValue}px</span>
                       <span>{sizeRange.max}px</span>
                     </div>
+                  </div>
+                )}
+
+                {/* Categories Section */}
+                {viewMode === 'grid' && onShowCategoriesInGameListChange && (
+                  <div className="px-3 py-2 bg-gray-700/30 rounded-md space-y-3">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs text-gray-300 font-medium">Show Categories</label>
+                      <button
+                        onClick={() => onShowCategoriesInGameListChange(!showCategoriesInGameList)}
+                        className={`relative inline-flex h-3.5 w-7 items-center rounded-full transition-all ${showCategoriesInGameList ? 'bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]' : 'bg-gray-600'
+                          }`}
+                      >
+                        <span
+                          className={`inline-block h-2.5 w-2.5 transform rounded-full bg-white transition-all shadow-sm ${showCategoriesInGameList ? 'translate-x-[14px]' : 'translate-x-0.5'
+                            }`}
+                        />
+                      </button>
+                    </div>
+
+                    {showCategoriesInGameList && (
+                      <div className="space-y-3 pt-3 border-t border-white/5 animate-in fade-in slide-in-from-top-1 duration-200">
+                        {/* Position */}
+                        <div>
+                          <label className="block text-xs text-gray-400 mb-2 font-semibold">Categories Position</label>
+                          <div className="flex gap-1">
+                            {(['top', 'bottom'] as const).map((pos) => (
+                              <button
+                                key={pos}
+                                onClick={() => onCategoriesPositionChange?.(pos)}
+                                className={`flex-1 px-2 py-1 text-xs rounded transition-colors ${categoriesPosition === pos
+                                  ? 'bg-blue-600/40 text-white border border-blue-500'
+                                  : 'bg-gray-600 text-gray-300 hover:bg-gray-500 border border-gray-500'
+                                  }`}
+                              >
+                                {pos.charAt(0).toUpperCase() + pos.slice(1)}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Alignment */}
+                        <div>
+                          <label className="block text-xs text-gray-400 mb-2 font-semibold">Categories Alignment</label>
+                          <div className="flex gap-1">
+                            {(['left', 'center', 'right'] as const).map((alignment) => (
+                              <button
+                                key={alignment}
+                                onClick={() => onCategoriesTopAlignmentChange?.(alignment)}
+                                className={`flex-1 px-2 py-1 text-xs rounded transition-colors ${categoriesTopAlignment === alignment
+                                  ? 'bg-blue-600/40 text-white border border-blue-500'
+                                  : 'bg-gray-600 text-gray-300 hover:bg-gray-500 border border-gray-500'
+                                  }`}
+                              >
+                                {alignment.charAt(0).toUpperCase() + alignment.slice(1)}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Text Size */}
+                        <div>
+                          <label className="block text-xs text-gray-400 mb-1 font-semibold">Categories Size</label>
+                          <input
+                            type="range"
+                            min="10"
+                            max="24"
+                            step="1"
+                            value={categoriesTopSize}
+                            onChange={(e) => onCategoriesTopSizeChange?.(Number(e.target.value))}
+                            className="w-full h-1.5 bg-gray-600 rounded-lg appearance-none cursor-pointer slider accent-blue-600"
+                          />
+                          <div className="flex justify-between text-xs text-gray-500 mt-1">
+                            <span>10px</span>
+                            <span className="font-medium text-gray-300">{categoriesTopSize}px</span>
+                            <span>24px</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 

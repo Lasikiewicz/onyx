@@ -16,6 +16,10 @@ export interface UserPreferences {
   hideAppsTitles?: boolean;
   hideGameTitles?: boolean;
   gameTilePadding?: number;
+  showCategoriesInGameList?: boolean;
+  categoriesPosition?: 'top' | 'bottom';
+  categoriesTopAlignment?: 'left' | 'center' | 'right';
+  categoriesTopSize?: number;
   showLogoOverBoxart?: boolean;
   logoPosition?: 'top' | 'middle' | 'bottom' | 'underneath';
   logoBackgroundColor?: string;
@@ -160,6 +164,10 @@ export class UserPreferencesService {
             hideAppsTitles: true,
             hideGameTitles: true,
             gameTilePadding: 10,
+            showCategoriesInGameList: false,
+            categoriesPosition: 'top',
+            categoriesTopAlignment: 'left',
+            categoriesTopSize: 12,
             showLogoOverBoxart: false,
             logoPosition: 'middle',
             logoBackgroundColor: '#374151',

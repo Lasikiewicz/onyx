@@ -55,6 +55,7 @@ interface MenuBarProps {
   onLauncherChange?: (launcher: string | null) => void;
   topBarPositions?: TopBarPositions;
   onTopBarPositionsChange?: (positions: TopBarPositions) => void;
+  showCategoriesInGameList?: boolean;
 }
 
 interface SortablePinnedCategoryProps {
@@ -129,6 +130,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
   onLauncherChange,
   topBarPositions = { searchBar: 'left', sortBy: 'left', launcher: 'left', categories: 'left' },
   onTopBarPositionsChange,
+  showCategoriesInGameList = false,
   // onScanFolder, // Unused
   onUpdateLibrary,
   onGameManager,
@@ -833,7 +835,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
         )}
 
         {/* Pinned Categories */}
-        {pinnedCategories && pinnedCategories.length > 0 && (
+        {pinnedCategories && pinnedCategories.length > 0 && !showCategoriesInGameList && (
           <DndContext
             sensors={sensors}
             collisionDetection={closestCenter}

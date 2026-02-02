@@ -120,6 +120,10 @@ export interface UserPreferences {
   hideAppsTitles?: boolean;
   hideGameTitles?: boolean;
   gameTilePadding?: number;
+  showCategoriesInGameList?: boolean;
+  categoriesPosition?: 'top' | 'bottom';
+  categoriesTopAlignment?: 'left' | 'center' | 'right';
+  categoriesTopSize?: number;
   showLogoOverBoxart?: boolean;
   logoPosition?: 'top' | 'middle' | 'bottom' | 'underneath';
   logoBackgroundColor?: string;

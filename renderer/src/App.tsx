@@ -146,6 +146,10 @@ function App() {
     list: 800,
     logo: 800,
   });
+  const [showCategoriesInGameList, setShowCategoriesInGameList] = useState(false);
+  const [categoriesPosition, setCategoriesPosition] = useState<'top' | 'bottom'>('top');
+  const [categoriesTopAlignment, setCategoriesTopAlignment] = useState<'left' | 'center' | 'right'>('left');
+  const [categoriesTopSize, setCategoriesTopSize] = useState(12);
 
   // Launch confirmation state
   const [confirmGameLaunch, setConfirmGameLaunch] = useState(false);
@@ -214,6 +218,10 @@ function App() {
           if (prefs.hideAppsTitles !== undefined) setHideAppsTitles(prefs.hideAppsTitles);
           if (prefs.hideGameTitles !== undefined) setHideGameTitles(prefs.hideGameTitles);
           if (prefs.gameTilePadding !== undefined) setGameTilePadding(prefs.gameTilePadding);
+          if (prefs.showCategoriesInGameList !== undefined) setShowCategoriesInGameList(prefs.showCategoriesInGameList);
+          if (prefs.categoriesPosition !== undefined) setCategoriesPosition(prefs.categoriesPosition);
+          if (prefs.categoriesTopAlignment !== undefined) setCategoriesTopAlignment(prefs.categoriesTopAlignment);
+          if (prefs.categoriesTopSize !== undefined) setCategoriesTopSize(prefs.categoriesTopSize);
           if (prefs.showLogoOverBoxart !== undefined) setShowLogoOverBoxart(prefs.showLogoOverBoxart);
           if (prefs.logoPosition !== undefined) setLogoPosition(prefs.logoPosition);
           if (prefs.logoBackgroundColor !== undefined) setLogoBackgroundColor(prefs.logoBackgroundColor);
@@ -1506,6 +1514,7 @@ function App() {
           hasHiddenGames={hasHiddenGames}
           hideVRTitles={hideVRTitles}
           hideAppsTitles={hideAppsTitles}
+          showCategoriesInGameList={showCategoriesInGameList}
           onToggleHideVRTitles={() => setHideVRTitles(prev => !prev)}
           onToggleHideAppsTitles={() => setHideAppsTitles(prev => !prev)}
           launchers={allLaunchers}
@@ -1542,7 +1551,7 @@ function App() {
             {/* Game Grid */}
             <div
               ref={gridContainerRef}
-              className={`flex-1 overflow-y-auto relative z-10 ${viewMode === 'carousel' ? '' : 'p-4'}`}
+              className={`flex-1 overflow-y-auto relative z-10 ${viewMode === 'carousel' ? '' : (showCategoriesInGameList && viewMode === 'grid' ? 'p-0' : 'p-4')}`}
               onContextMenuCapture={(e) => {
                 // Capture-phase fallback: open menu on any non-card area before children stop propagation
                 const target = e.target as HTMLElement;
@@ -1577,8 +1586,51 @@ function App() {
 
               {!loading && !error && (
                 <div className="h-full flex flex-col">
+                  {showCategoriesInGameList && viewMode === 'grid' && pinnedCategories.length > 0 && categoriesPosition === 'top' && (
+                    <div
+                      className={`flex items-center gap-2 px-6 py-4 overflow-x-auto no-scrollbar ${categoriesTopAlignment === 'center' ? 'justify-center' : categoriesTopAlignment === 'right' ? 'justify-end' : 'justify-start'
+                        }`}
+                      style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+                    >
+                      <button
+                        onClick={() => setSelectedCategory(null)}
+                        style={{ fontSize: `${categoriesTopSize}px` }}
+                        className={`px-3 py-1.5 rounded-full font-medium transition-all whitespace-nowrap ${selectedCategory === null
+                          ? 'bg-blue-600/40 text-blue-100 border border-blue-500/40 shadow-sm shadow-blue-500/20'
+                          : 'bg-gray-800/40 text-gray-400 hover:bg-gray-700/60 hover:text-gray-200 border border-gray-700/20'
+                          }`}
+                      >
+                        All Games
+                      </button>
+                      {hasFavoriteGames && (
+                        <button
+                          onClick={() => setSelectedCategory(selectedCategory === 'favorites' ? null : 'favorites')}
+                          style={{ fontSize: `${categoriesTopSize}px` }}
+                          className={`px-3 py-1.5 rounded-full font-medium transition-all whitespace-nowrap ${selectedCategory === 'favorites'
+                            ? 'bg-blue-600/40 text-blue-100 border border-blue-500/40 shadow-sm shadow-blue-500/20'
+                            : 'bg-gray-800/40 text-gray-400 hover:bg-gray-700/60 hover:text-gray-200 border border-gray-700/20'
+                            }`}
+                        >
+                          Favorites
+                        </button>
+                      )}
+                      {pinnedCategories.map((cat) => (
+                        <button
+                          key={cat}
+                          onClick={() => setSelectedCategory(selectedCategory === cat ? null : cat)}
+                          style={{ fontSize: `${categoriesTopSize}px` }}
+                          className={`px-3 py-1.5 rounded-full font-medium transition-all whitespace-nowrap ${selectedCategory === cat
+                            ? 'bg-blue-600/40 text-blue-100 border border-blue-500/40 shadow-sm shadow-blue-500/20'
+                            : 'bg-gray-800/40 text-gray-400 hover:bg-gray-700/60 hover:text-gray-200 border border-gray-700/20'
+                            }`}
+                        >
+                          {cat}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                   {filteredGames.length > 0 ? (
-                    <div className="flex-1 overflow-y-auto">
+                    <div className={`flex-1 overflow-y-auto animate-onyx-grid-fade ${showCategoriesInGameList && viewMode === 'grid' ? (categoriesPosition === 'top' ? 'px-4 pb-4 pt-0' : 'px-4 pt-4 pb-0') : ''}`}>
                       {viewMode === 'grid' || viewMode === 'logo' ? (
                         <LibraryGrid
                           games={filteredGames}
@@ -1693,6 +1745,49 @@ function App() {
                       onAddFolder={handleAddFolder}
                       onOpenSettings={() => setIsAPISettingsOpen(true)}
                     />
+                  )}
+                  {showCategoriesInGameList && viewMode === 'grid' && pinnedCategories.length > 0 && categoriesPosition === 'bottom' && (
+                    <div
+                      className={`flex items-center gap-2 px-6 py-4 overflow-x-auto no-scrollbar ${categoriesTopAlignment === 'center' ? 'justify-center' : categoriesTopAlignment === 'right' ? 'justify-end' : 'justify-start'
+                        }`}
+                      style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+                    >
+                      <button
+                        onClick={() => setSelectedCategory(null)}
+                        style={{ fontSize: `${categoriesTopSize}px` }}
+                        className={`px-3 py-1.5 rounded-full font-medium transition-all whitespace-nowrap ${selectedCategory === null
+                          ? 'bg-blue-600/40 text-blue-100 border border-blue-500/40 shadow-sm shadow-blue-500/20'
+                          : 'bg-gray-800/40 text-gray-400 hover:bg-gray-700/60 hover:text-gray-200 border border-gray-700/20'
+                          }`}
+                      >
+                        All Games
+                      </button>
+                      {hasFavoriteGames && (
+                        <button
+                          onClick={() => setSelectedCategory(selectedCategory === 'favorites' ? null : 'favorites')}
+                          style={{ fontSize: `${categoriesTopSize}px` }}
+                          className={`px-3 py-1.5 rounded-full font-medium transition-all whitespace-nowrap ${selectedCategory === 'favorites'
+                            ? 'bg-blue-600/40 text-blue-100 border border-blue-500/40 shadow-sm shadow-blue-500/20'
+                            : 'bg-gray-800/40 text-gray-400 hover:bg-gray-700/60 hover:text-gray-200 border border-gray-700/20'
+                            }`}
+                        >
+                          Favorites
+                        </button>
+                      )}
+                      {pinnedCategories.map((cat) => (
+                        <button
+                          key={cat}
+                          onClick={() => setSelectedCategory(selectedCategory === cat ? null : cat)}
+                          style={{ fontSize: `${categoriesTopSize}px` }}
+                          className={`px-3 py-1.5 rounded-full font-medium transition-all whitespace-nowrap ${selectedCategory === cat
+                            ? 'bg-blue-600/40 text-blue-100 border border-blue-500/40 shadow-sm shadow-blue-500/20'
+                            : 'bg-gray-800/40 text-gray-400 hover:bg-gray-700/60 hover:text-gray-200 border border-gray-700/20'
+                            }`}
+                        >
+                          {cat}
+                        </button>
+                      ))}
+                    </div>
                   )}
                 </div>
               )}
@@ -2025,6 +2120,26 @@ function App() {
           onCarouselDescriptionSizeChange={(size) => {
             setCarouselDescriptionSize(size);
             window.electronAPI.savePreferences({ carouselDescriptionSize: size });
+          }}
+          showCategoriesInGameList={showCategoriesInGameList}
+          onShowCategoriesInGameListChange={(show) => {
+            setShowCategoriesInGameList(show);
+            window.electronAPI.savePreferences({ showCategoriesInGameList: show });
+          }}
+          categoriesPosition={categoriesPosition}
+          onCategoriesPositionChange={(position: 'top' | 'bottom') => {
+            setCategoriesPosition(position);
+            window.electronAPI.savePreferences({ categoriesPosition: position });
+          }}
+          categoriesTopAlignment={categoriesTopAlignment}
+          onCategoriesTopAlignmentChange={(alignment: 'left' | 'center' | 'right') => {
+            setCategoriesTopAlignment(alignment);
+            window.electronAPI.savePreferences({ categoriesTopAlignment: alignment });
+          }}
+          categoriesTopSize={categoriesTopSize}
+          onCategoriesTopSizeChange={(size: number) => {
+            setCategoriesTopSize(size);
+            window.electronAPI.savePreferences({ categoriesTopSize: size });
           }}
           showLogoOverBoxart={showLogoOverBoxart}
           onShowLogoOverBoxartChange={(show) => {
