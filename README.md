@@ -5,7 +5,15 @@
 A modern Electron application built with React, TypeScript, Vite, and Tailwind CSS. Onyx provides a unified interface for managing games from multiple launchers (Steam, Epic, GOG, Xbox, and more).
 
 - **Download:** [https://onyxlauncher.co.uk/](https://onyxlauncher.co.uk/) · [GitHub Releases](https://github.com/Lasikiewicz/onyx/releases) (Windows installer)
-- **Free and open source** — MIT license
+- **Free and open source** — MIT license · [Changelog](CHANGELOG.md) / [What's new](https://github.com/Lasikiewicz/onyx/releases)
+
+### Screenshots
+
+| Grid View | Carousel View |
+|-----------|---------------|
+| [![Grid View](website/public/Screenshots/Grid%20View.png)](website/public/Screenshots/Grid%20View.png) | [![Carousel View](website/public/Screenshots/Carousel%20View.png)](website/public/Screenshots/Carousel%20View.png) |
+
+*Unified library with multiple view modes. See [the website](https://onyxlauncher.co.uk/) for more screenshots.*
 
 ## Build Channels
 

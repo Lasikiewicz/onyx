@@ -1,10 +1,15 @@
-# Astro Starter Kit: Minimal
+# Onyx Website
 
-```sh
-npm create astro@latest -- --template minimal
-```
+Marketing site for [Onyx](https://onyxlauncher.co.uk/) — the premium unified game library. Built with Astro.
 
-> 🧑‍🚀 **Seasoned astronaut?** Delete this file. Have fun!
+## Post-deploy verification
+
+After deploying the latest site (e.g. to Cloudflare Pages), verify:
+
+1. **Hero section** — “Download for Windows” links to `https://github.com/Lasikiewicz/onyx/releases`. “Visit website” links to `https://onyxlauncher.co.uk/`.
+2. **Footer** — “Download for Windows” links to `https://github.com/Lasikiewicz/onyx/releases`. “Join Discord” links to `https://discord.gg/m2dgd4ZUPu`.
+
+Open [https://onyxlauncher.co.uk/](https://onyxlauncher.co.uk/), click each button, and confirm the correct destination in a new tab.
 
 ## 🚀 Project Structure
 
