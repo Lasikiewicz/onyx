@@ -5,6 +5,9 @@
     process.exit(1);
   }
 
+  const repo = process.env.GITHUB_REPOSITORY || 'Lasikiewicz/onyx';
+  const [owner, repoName] = repo.includes('/') ? repo.split('/') : ['Lasikiewicz', 'onyx'];
+
   const body = {
     title: 'chore(security): migrate APICredentials to OS keyring (keytar) with migration path and test',
     body: `Summary:\n- Add Keytar to store API credentials in OS secure credential store when available.\n- Migrate any existing plaintext credentials from electron-store into the OS keyring on startup.\n- Add \`scripts/test-credentials-migration.js\` to validate migration locally and a Windows workflow to run it in CI.\n\nTesting:\n- \`npm run test:credentials\` (skip if Keytar not installed locally)\n- Windows CI job \`Credentials Migration Test\` runs on PRs to verify migration.\n\nNotes: This keeps a fallback to electron-store when Keytar is unavailable, but the intent is to rely on OS secure stores when possible.`,
@@ -13,7 +16,7 @@
   };
 
   try {
-    const resp = await fetch('https://api.github.com/repos/Lasikiewicz/onyx/pulls', {
+    const resp = await fetch(`https://api.github.com/repos/${owner}/${repoName}/pulls`, {
       method: 'POST',
       headers: {
         'Authorization': `token ${token}`,

@@ -4,8 +4,8 @@
     console.error('GHTOKEN not set');
     process.exit(1);
   }
-  const owner = 'Lasikiewicz';
-  const repo = 'onyx';
+  const repo = process.env.GITHUB_REPOSITORY || 'Lasikiewicz/onyx';
+  const [owner, repoName] = repo.includes('/') ? repo.split('/') : ['Lasikiewicz', 'onyx'];
   const workflowFile = 'credentials-migration.yml';
   const branch = 'fix/security/credentials-storage';
 
@@ -16,7 +16,7 @@
 
   try {
     // Try to find recent runs for the repo and filter by branch/workflow name
-    const allRunsRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/actions/runs?per_page=100`, { headers });
+    const allRunsRes = await fetch(`https://api.github.com/repos/${owner}/${repoName}/actions/runs?per_page=100`, { headers });
     const allRunsJson = await allRunsRes.json();
     const runs = (allRunsJson.workflow_runs || []).filter(r => r.head_branch === branch || (r.name && r.name.toLowerCase().includes('credentials')) || (r.workflow_id && String(r.workflow_id).toLowerCase().includes('credentials')));
 
@@ -54,10 +54,10 @@
     }
 
     // Also list all checks for the PR to give overall context
-    const prsRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/pulls/3/checks`, { headers }).catch(()=>null);
+    const prsRes = await fetch(`https://api.github.com/repos/${owner}/${repoName}/pulls/3/checks`, { headers }).catch(()=>null);
     // fallback: use checks API by ref? We'll instead list check runs for the head SHA
     const headSha = failingRun.head_sha;
-    const checksRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/commits/${headSha}/check-runs`, { headers });
+    const checksRes = await fetch(`https://api.github.com/repos/${owner}/${repoName}/commits/${headSha}/check-runs`, { headers });
     const checksJson = await checksRes.json();
     if (checksJson.check_runs) {
       console.log('\nOverall check runs for head sha:');
@@ -68,7 +68,7 @@
     if (process.argv.includes('--rerun') || process.argv.includes('-r')) {
       console.log('\n--rerun flag detected: requesting a rerun for the failing run...');
       try {
-        const rerunRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/actions/runs/${failingRun.id}/rerun`, {
+        const rerunRes = await fetch(`https://api.github.com/repos/${owner}/${repoName}/actions/runs/${failingRun.id}/rerun`, {
           method: 'POST',
           headers
         });
@@ -79,7 +79,7 @@
           let attempts = 0;
           let runInfo = null;
           while (attempts < 60) { // up to ~10 minutes
-            const runRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/actions/runs/${failingRun.id}`, { headers });
+            const runRes = await fetch(`https://api.github.com/repos/${owner}/${repoName}/actions/runs/${failingRun.id}`, { headers });
             runInfo = await runRes.json();
             if (!runInfo || runInfo.status === 'completed') break;
             attempts++;

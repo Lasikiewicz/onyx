@@ -28,7 +28,7 @@
     "build:prod": "cross-env BUILD_PROFILE=production CSC_IDENTITY_AUTO_DISCOVERY=false WIN_CSC_LINK= npm run predist && cross-env BUILD_PROFILE=production vite build && cross-env BUILD_PROFILE=production tsc -p main/tsconfig.json && cross-env BUILD_PROFILE=production tsc -p main/tsconfig.preload.json && cross-env BUILD_PROFILE=production CSC_IDENTITY_AUTO_DISCOVERY=false WIN_CSC_LINK= electron-builder build --config electron-builder.config.js --publish never --config.nsis.oneClick=false"
   },
   "keywords": [],
-  "author": "",
+  "author": "Onyx Contributors",
   "license": "MIT",
   "devDependencies": {
     "@types/node": "^20.10.0",

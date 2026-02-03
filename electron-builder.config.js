@@ -73,7 +73,7 @@ const config = {
   publish: {
     provider: 'github',
     owner: 'Lasikiewicz',
-    repo: 'oynx'
+    repo: 'onyx'
   }
 };
 

@@ -4,9 +4,11 @@
     console.error('GHTOKEN not set');
     process.exit(1);
   }
+  const repo = process.env.GITHUB_REPOSITORY || 'Lasikiewicz/onyx';
+  const [owner, repoName] = repo.includes('/') ? repo.split('/') : ['Lasikiewicz', 'onyx'];
   const headers = { Authorization: `token ${token}`, Accept: 'application/vnd.github+json' };
   try {
-    const res = await fetch('https://api.github.com/repos/Lasikiewicz/onyx/actions/runs?per_page=50', { headers });
+    const res = await fetch(`https://api.github.com/repos/${owner}/${repoName}/actions/runs?per_page=50`, { headers });
     const json = await res.json();
     if (!json.workflow_runs) {
       console.log('No workflow_runs in response', json);

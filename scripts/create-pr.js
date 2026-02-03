@@ -5,6 +5,9 @@
     process.exit(1);
   }
 
+  const repo = process.env.GITHUB_REPOSITORY || 'Lasikiewicz/onyx';
+  const [owner, repoName] = repo.includes('/') ? repo.split('/') : ['Lasikiewicz', 'onyx'];
+
   const body = {
     title: 'chore(security): IPC hardening - remove raw ipc exposure, disable suspend API, gate steam playtime sync',
     body: `Summary:\n- Remove raw ipcRenderer exposure from preload and expose a minimal, whitelisted \`electronAPI\` including a safe \`on()\` subscription helper.\n- Disable suspend APIs in preload (return disabled responses).\n- Gate \`steam:syncPlaytime\` to short-circuit when \`syncPlaytime\` is not enabled in Steam app config.\n- Replace renderer usages of \`window.ipcRenderer\` with \`window.electronAPI.on()\` and add a pre-commit check to prevent reintroduction.\n\nTesting:\n- Local secret-scan and short-circuit test added and passing.\n- Added \`check:no-raw-ipc\` script and \`pre-commit\` guard.\n\nNotes: keep Suspend and Playtime disabled by default; adding tests and CI checks for security.`,
@@ -13,7 +16,7 @@
   };
 
   try {
-    const resp = await fetch('https://api.github.com/repos/Lasikiewicz/onyx/pulls', {
+    const resp = await fetch(`https://api.github.com/repos/${owner}/${repoName}/pulls`, {
       method: 'POST',
       headers: {
         'Authorization': `token ${token}`,

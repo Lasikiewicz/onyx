@@ -2,6 +2,8 @@
 
 A modern Electron application built with React, TypeScript, Vite, and Tailwind CSS. Onyx provides a unified interface for managing games from multiple launchers (Steam, Epic, GOG, Xbox, and more).
 
+**Website:** [https://onyxlauncher.co.uk/](https://onyxlauncher.co.uk/)
+
 ## Build Channels
 
 Onyx supports three separate build channels that can coexist on the same computer:
@@ -71,10 +73,10 @@ This overwrites the `main` branch with `develop`, triggering an automatic Produc
    npm install
    ```
 
-2. Set up IGDB API credentials (optional, for game metadata):
+2. Set up API credentials (optional, for game metadata and artwork):
    - Copy `.env.example` to `.env`
-   - Get your IGDB API credentials from https://api.igdb.com/
-   - Add your `IGDB_CLIENT_ID` and `IGDB_CLIENT_SECRET` to the `.env` file
+   - Add keys for the services you want (IGDB, RAWG, SteamGridDB). See [.env.example](.env.example) and the **Third-party services (APIs)** section below.
+   - Example (IGDB only): get credentials from https://api.igdb.com/ and add `IGDB_CLIENT_ID` and `IGDB_CLIENT_SECRET` to `.env`.
    ```env
    IGDB_CLIENT_ID=your_client_id_here
    IGDB_CLIENT_SECRET=your_client_secret_here
@@ -98,6 +100,18 @@ This overwrites the `main` branch with `develop`, triggering an automatic Produc
    - Start the Vite dev server on http://localhost:5173
    - Launch Electron when the server is ready
    - Open DevTools automatically
+
+## Third-party services (APIs)
+
+Onyx uses the following third-party services for game metadata and artwork. You must obtain your own API keys and comply with each service's terms of use and rate limits.
+
+| Service       | Purpose        | Configure in app (Settings > APIs) or via env (see `.env.example`) |
+|---------------|-----------------|---------------------------------------------------------------------|
+| **IGDB**      | Game metadata   | `IGDB_CLIENT_ID`, `IGDB_CLIENT_SECRET`                             |
+| **RAWG**      | Game metadata   | `RAWG_API_KEY`                                                     |
+| **SteamGridDB** | Artwork (covers, logos, etc.) | `STEAMGRIDDB_API_KEY`                        |
+
+Do not commit real API credentials to the repository. Keys can be set in the app's Settings > APIs or via environment variables when running the app.
 
 ## Building
 
@@ -125,7 +139,7 @@ npm run build:alpha
 ```
 - Creates "Onyx Alpha" with App ID: `com.lasikiewicz.onyx.alpha`
 - Includes yellow "ALPHA" banner in the UI
-- Outputs to `dist/` directory
+- Outputs installer and artifacts to `release/`
 
 **Production Build**:
 ```bash
@@ -133,7 +147,7 @@ npm run build:prod
 ```
 - Creates "Onyx" with App ID: `com.lasikiewicz.onyx`
 - Standard production build
-- Outputs to `dist/` directory
+- Outputs installer and artifacts to `release/`
 
 **Standard Distribution Build**:
 ```bash
@@ -199,6 +213,20 @@ See [docs/ICON_REQUIREMENTS.md](docs/ICON_REQUIREMENTS.md) for detailed icon req
 - `npm run generate-icons` - Generate all icon formats from `resources/icon.svg`
 - `npm run validate-icons` - Validate that all required icon files exist and are valid
 
+### Checks (run before submitting PRs)
+- `npm run scan:secrets` - Scan for committed secrets; must pass (see [scripts/secret-scan.js](scripts/secret-scan.js))
+- `npm run check:no-raw-ipc` - Enforce no raw `window.ipcRenderer` in renderer (see [scripts/check-no-raw-ipc.js](scripts/check-no-raw-ipc.js))
+
+### Maintainer scripts (GitHub API)
+
+Scripts that call the GitHub API (e.g. `create-pr.js`, `create-pr-credentials.js`, `list-runs.js`, `post-pr-comment.js`, `fetch-failing-jobs.js`) are for maintainers of the canonical repo. They read:
+
+- **`GHTOKEN`** (required) — GitHub token with appropriate scopes (e.g. `repo`, `workflow`).
+- **`GITHUB_REPOSITORY`** (optional) — `owner/repo`; default `Lasikiewicz/onyx`. Set this when running against a fork (e.g. `youruser/onyx`).
+- **`GITHUB_ISSUE_NUMBER`** (optional) — Used by `post-pr-comment.js` only; default `3`.
+
+Do not put tokens in `.env` or commit them; set them in your shell (e.g. `$env:GHTOKEN = 'ghp_xxx'` in PowerShell). See [CONTRIBUTING.md](CONTRIBUTING.md#maintainer-only-scripts) for more.
+
 ## Disabled Features (Security)
 
 The project contains a few features that are implemented but intentionally disabled until reviewed and validated:
@@ -233,6 +261,17 @@ The configuration automatically adjusts:
 - Icon paths
 - GitHub release settings
 
+## Community
+
+- **Main website:** [https://onyxlauncher.co.uk/](https://onyxlauncher.co.uk/)
+- Discord and Ko-fi links in the app and on the website point to the official Onyx project. If you fork the repository and publish your own builds, you can replace these links in the app (e.g. in Settings) and in the `website/` source.
+
+## Contributing and community docs
+
+- **[CONTRIBUTING.md](CONTRIBUTING.md)** — How to run the app, get API keys, and submit PRs (including required checks).
+- **[CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)** — Community standards and enforcement.
+- **[SECURITY.md](SECURITY.md)** — How to report security vulnerabilities (do not open public issues for security-sensitive bugs).
+
 ## License
 
-MIT
+MIT — see [LICENSE](LICENSE) for the full text.
