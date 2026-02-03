@@ -1,8 +1,11 @@
 # Onyx - Premium Unified Game Library
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE) [![Platform: Windows](https://img.shields.io/badge/Platform-Windows-0078d6?logo=windows)](https://onyxlauncher.co.uk/)
+
 A modern Electron application built with React, TypeScript, Vite, and Tailwind CSS. Onyx provides a unified interface for managing games from multiple launchers (Steam, Epic, GOG, Xbox, and more).
 
-**Website:** [https://onyxlauncher.co.uk/](https://onyxlauncher.co.uk/)
+- **Download:** [https://onyxlauncher.co.uk/](https://onyxlauncher.co.uk/) · [GitHub Releases](https://github.com/Lasikiewicz/onyx/releases) (Windows installer)
+- **Free and open source** — MIT license
 
 ## Build Channels
 
@@ -17,8 +20,6 @@ Alpha and Production builds use different App IDs, allowing them to be installed
 ## Git Workflow
 
 **All local development and testing is done on the `master` branch.**
-
-Assistant protocol: When the user says "push to git" or "push to git master," treat it as approval to push current changes to the `master` branch after summarizing the changes and branch details.
 
 ### Pushing Alpha Builds
 
@@ -173,7 +174,9 @@ Releases are tagged as:
 2. Force push `master` to `develop` for Alpha builds: `git push origin master:develop --force`
 3. Test the Alpha build
 4. Force push `develop` to `main` for Production builds: `git push origin develop:main --force`
-5. Download releases from the GitHub Releases page
+5. Download releases from the [GitHub Releases](https://github.com/Lasikiewicz/onyx/releases) page
+
+*For maintainers:* "Push to git" or "push to git master" means approval to push current changes to `master` after summarizing; do not push without explicit permission.
 
 ### Icon Management
 

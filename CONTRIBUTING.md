@@ -1,6 +1,8 @@
 # Contributing to Onyx
 
-Thank you for your interest in contributing to Onyx. This document covers how to get started and what to expect.
+Onyx is free and open source. We welcome contributions from everyone.
+
+This document covers how to get started and what to expect.
 
 ## Development setup
 

@@ -27,9 +27,27 @@
     "build:alpha": "cross-env BUILD_PROFILE=alpha npm run predist && cross-env BUILD_PROFILE=alpha tsc && cross-env BUILD_PROFILE=alpha vite build && cross-env BUILD_PROFILE=alpha tsc -p main/tsconfig.json && cross-env BUILD_PROFILE=alpha tsc -p main/tsconfig.preload.json && cross-env BUILD_PROFILE=alpha electron-builder build --config electron-builder.config.js --publish never --config.nsis.oneClick=false",
     "build:prod": "cross-env BUILD_PROFILE=production CSC_IDENTITY_AUTO_DISCOVERY=false WIN_CSC_LINK= npm run predist && cross-env BUILD_PROFILE=production vite build && cross-env BUILD_PROFILE=production tsc -p main/tsconfig.json && cross-env BUILD_PROFILE=production tsc -p main/tsconfig.preload.json && cross-env BUILD_PROFILE=production CSC_IDENTITY_AUTO_DISCOVERY=false WIN_CSC_LINK= electron-builder build --config electron-builder.config.js --publish never --config.nsis.oneClick=false"
   },
-  "keywords": [],
+  "keywords": [
+    "game-launcher",
+    "electron",
+    "react",
+    "typescript",
+    "steam",
+    "epic",
+    "gog",
+    "xbox",
+    "vite"
+  ],
   "author": "Onyx Contributors",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Lasikiewicz/onyx.git"
+  },
+  "homepage": "https://onyxlauncher.co.uk/",
+  "bugs": {
+    "url": "https://github.com/Lasikiewicz/onyx/issues"
+  },
   "devDependencies": {
     "@types/node": "^20.10.0",
     "@types/react": "^18.2.43",
