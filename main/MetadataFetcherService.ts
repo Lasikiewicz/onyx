@@ -17,6 +17,7 @@ import { getGameMatcher } from "./GameMatcher.js";
 export interface GameMetadata {
   boxArtUrl: string;
   bannerUrl: string;
+  alternativeBannerUrl?: string;
   logoUrl?: string;
   heroUrl?: string;
   iconUrl?: string;
@@ -260,6 +261,33 @@ export class MetadataFetcherService {
     if (heroes.length > 0) {
       merged.heroUrl = heroes[0].url;
       merged.heroResolution = heroes[0].resolution;
+
+      // Strictly use Heroes for Alt Banner (User Request)
+      // Determine the effective primary banner URL currently set (or about to be set)
+      const effectivePrimaryUrl = merged.bannerUrl || heroes[0].url;
+
+      // 1. Try Heroes (SteamGridDB) - PREFERRED
+      const heroCandidates = heroes.filter(h => h.url !== effectivePrimaryUrl);
+      let altUrl = '';
+
+      if (heroCandidates.length > 0) {
+        // Variety Heuristic: Skip the very first candidate if possible,
+        // as it's often very similar to the primary (just a minor variant).
+        // Try index 1, fallback to 0.
+        altUrl = heroCandidates.length > 1 ? heroCandidates[1].url : heroCandidates[0].url;
+      }
+
+      // 2. Fallback to Banners (Steam/IGDB) - Fixes "missing"
+      if (!altUrl && banners.length > 0) {
+        const bannerCandidates = banners.filter(b => b.url !== effectivePrimaryUrl);
+        if (bannerCandidates.length > 0) {
+          altUrl = bannerCandidates.length > 1 ? bannerCandidates[1].url : bannerCandidates[0].url;
+        }
+      }
+
+      if (altUrl) {
+        merged.alternativeBannerUrl = altUrl;
+      }
     }
 
     const allScreenshots = artworkArray
@@ -749,6 +777,7 @@ export class MetadataFetcherService {
     return {
       boxArtUrl: mergedArtwork.boxArtUrl || "",
       bannerUrl: mergedArtwork.bannerUrl || mergedArtwork.heroUrl || mergedArtwork.boxArtUrl || "",
+      alternativeBannerUrl: mergedArtwork.alternativeBannerUrl,
       logoUrl: mergedArtwork.logoUrl,
       heroUrl: mergedArtwork.heroUrl,
       iconUrl: mergedArtwork.iconUrl,

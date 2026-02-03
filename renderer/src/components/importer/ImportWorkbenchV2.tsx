@@ -54,7 +54,7 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
     const [error, setError] = useState<string | null>(null);
     const [scanProgress, setScanProgress] = useState('');
     const [showIgnored, setShowIgnored] = useState(false);
-    
+
     // New state for real-time scanning
     const [currentlyProcessingGame, setCurrentlyProcessingGame] = useState<string | null>(null);
     const [gameProcessingStates, setGameProcessingStates] = useState<Map<string, { status: string; progress?: string }>>(new Map());
@@ -85,6 +85,25 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
     const readyCount = useMemo(() => visibleGames.filter(g => g.status === 'ready').length, [visibleGames]);
 
     // --- Effects ---
+
+    // Reset state on open
+    useEffect(() => {
+        if (isOpen) {
+            // Only reset if we are not currently receiving pre-scanned games (which will be handled by the next effect)
+            // Or even if we are, clearing first ensures no old state remains.
+            setQueue([]);
+            setSelectedId(null);
+            setIsScanning(false);
+            setIsImporting(false);
+            setError(null);
+            setScanProgress('');
+            setShowIgnored(false);
+            setCurrentlyProcessingGame(null);
+            setGameProcessingStates(new Map());
+            setScanStats({ found: 0, processed: 0 });
+            hasAutoScanned.current = false;
+        }
+    }, [isOpen]);
 
     // Auto-scan on open
     useEffect(() => {
@@ -118,7 +137,7 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
         const handleScanProgress = (_event: any, data: { message: string }) => {
             if (data.message) {
                 setScanProgress(data.message);
-                
+
                 // Parse specific game discovery messages for stats
                 if (data.message.includes('Found:')) {
                     setScanStats(prev => ({ ...prev, found: prev.found + 1 }));
@@ -128,22 +147,22 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
 
         const handleGameDiscovered = (_event: any, data: { gameName: string; status: string; progress: string }) => {
             setCurrentlyProcessingGame(data.gameName);
-            setGameProcessingStates(prev => new Map(prev).set(data.gameName, { 
-                status: data.status, 
-                progress: data.progress 
+            setGameProcessingStates(prev => new Map(prev).set(data.gameName, {
+                status: data.status,
+                progress: data.progress
             }));
             setScanStats(prev => ({ ...prev, found: prev.found + 1 }));
-            
+
             // Note: We don't create stub games here anymore to avoid conflicts.
             // Games will be processed and added to the queue by processScannedGames.
         };
 
         const handleGameProcessingUpdate = (_event: any, data: { gameName: string; status: string; progress: string }) => {
-            setGameProcessingStates(prev => new Map(prev).set(data.gameName, { 
-                status: data.status, 
-                progress: data.progress 
+            setGameProcessingStates(prev => new Map(prev).set(data.gameName, {
+                status: data.status,
+                progress: data.progress
             }));
-            
+
             if (data.progress === '100%') {
                 setScanStats(prev => ({ ...prev, processed: prev.processed + 1 }));
                 // Clear current processing game when done
@@ -237,11 +256,11 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
 
         for (let i = 0; i < scannedGames.length; i++) {
             const scanned = scannedGames[i];
-            
+
             // Update current processing game for real-time feedback
             setCurrentlyProcessingGame(scanned.title);
             setScanStats(prev => ({ ...prev, processed: i + 1 }));
-            
+
             // Skip duplicates with progress feedback
             if (scanned.appId) {
                 const idPatterns = [
@@ -315,7 +334,7 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
 
             // Add stub game immediately to queue for real-time display
             setQueue(prev => [...prev, stubGame]);
-            
+
             // Select first game if none selected
             if (!selectedId && firstGameUuid === uuid) {
                 setSelectedId(uuid);
@@ -350,6 +369,7 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
                 categories: [],
                 boxArtUrl: metadata?.boxArtUrl || '',
                 bannerUrl: metadata?.bannerUrl || '',
+                alternativeBannerUrl: metadata?.alternativeBannerUrl || '',
                 logoUrl: metadata?.logoUrl || '',
                 heroUrl: metadata?.heroUrl || '',
                 iconUrl: metadata?.iconUrl || '',
@@ -374,7 +394,7 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
                     fullyProcessedGame.categories.push('Demo');
                 }
             }
-            
+
             if (scanned.source === 'manual_folder') {
                 if (!fullyProcessedGame.categories) fullyProcessedGame.categories = [];
                 if (fullyProcessedGame.categories.length === 0) {
@@ -396,7 +416,7 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
             // Replace stub game with fully processed game
             setQueue(prev => prev.map(game => game.uuid === uuid ? fullyProcessedGame : game));
             setGameProcessingStates(prev => new Map(prev).set(scanned.title, { status: 'Added to queue', progress: '100%' }));
-            
+
             // Small delay for visual feedback
             await new Promise(resolve => setTimeout(resolve, 100));
         }
@@ -595,7 +615,7 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
                                             {/* Info */}
                                             <div className="flex-1 min-w-0">
                                                 <div className="text-sm font-medium text-white truncate">{game.title}</div>
-                                                
+
                                                 {/* Progress bar for currently processing games */}
                                                 {isScanning && gameProcessingStates.has(game.title) && (
                                                     <div className="mt-1 mb-1">
@@ -610,16 +630,16 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
                                                             )}
                                                         </div>
                                                         <div className="w-full bg-gray-700 rounded-full h-1">
-                                                            <div 
+                                                            <div
                                                                 className="bg-blue-500 h-1 rounded-full transition-all duration-300"
-                                                                style={{ 
-                                                                    width: gameProcessingStates.get(game.title)?.progress || '0%' 
+                                                                style={{
+                                                                    width: gameProcessingStates.get(game.title)?.progress || '0%'
                                                                 }}
                                                             />
                                                         </div>
                                                     </div>
                                                 )}
-                                                
+
                                                 <div className="flex items-center gap-2 mt-1">
                                                     <span className={`text-xs ${getStatusColor(game.status)}`}>
                                                         {getStatusIcon(game.status)} {game.status === 'ambiguous' ? 'Attention Needed' : game.status}

@@ -27,6 +27,7 @@ export interface GameDescription {
 export interface GameArtwork {
   boxArtUrl?: string;
   bannerUrl?: string;
+  alternativeBannerUrl?: string;
   logoUrl?: string;
   heroUrl?: string;
   iconUrl?: string; // Game icon (typically 32x32 or 64x64)

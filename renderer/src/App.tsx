@@ -1463,8 +1463,8 @@ function App() {
   };
 
   // Get background image from active game - use alternative banner if enabled
-  const backgroundImageUrl = (activeGame?.useAlternativeBackground && activeGame?.alternativeBannerUrl) 
-    ? activeGame.alternativeBannerUrl 
+  const backgroundImageUrl = (activeGame?.useAlternativeBackground && activeGame?.alternativeBannerUrl)
+    ? activeGame.alternativeBannerUrl
     : activeGame?.bannerUrl || activeGame?.boxArtUrl || '';
 
   // Check if this is an Alpha build
@@ -2019,104 +2019,85 @@ function App() {
         preScannedGames={scannedSteamGames && scannedSteamGames.length > 0 ? scannedSteamGames : undefined}
         onImport={async (games) => {
           try {
-            // First pass: Save games with basic info
-            for (const game of games) {
-              await window.electronAPI.saveGame(game);
-            }
-            
-            // Second pass: Auto-fetch and set banners (main and alternative)
-            for (const game of games) {
-              try {
-                console.log(`[Import] Fetching banners for: ${game.title}`);
-                
-                // First get the metadata to get the primary banner and resolve Steam App ID
-                const metadata = await window.electronAPI.searchArtwork(game.title, (game as any).appId);
-                
-                if (metadata) {
-                  console.log(`[Import] Metadata for ${game.title}:`, metadata);
-                  
-                  let updatedGame = { ...game };
-                  let updated = false;
-                  
-                  // Set main banner from metadata if available
-                  if (metadata.bannerUrl && !game.bannerUrl) {
-                    updatedGame.bannerUrl = metadata.bannerUrl;
-                    console.log(`[Import] Set main banner: ${metadata.bannerUrl}`);
-                    updated = true;
-                  }
-                  
-                  // Now search for multiple banner options to get an alternative
-                  try {
-                    const steamAppId = (game as any).appId;
-                    console.log(`[Import] Searching for banner images (steamAppId: ${steamAppId})`);
-                    
-                    const bannerSearch = await window.electronAPI.searchImages(game.title, 'banner', steamAppId);
-                    console.log(`[Import] Banner search result for ${game.title}:`, bannerSearch);
-                    
-                    if (bannerSearch?.success && bannerSearch.images) {
-                      const allBannerUrls: string[] = [];
-                      
-                      // Parse the response - it can have different structures
-                      if (Array.isArray(bannerSearch.images)) {
-                        bannerSearch.images.forEach((item: any) => {
-                          // Check if item has nested images array
-                          if (item.images && Array.isArray(item.images)) {
-                            item.images.forEach((img: any) => {
-                              const url = img.url || img.bannerUrl;
-                              if (url && !allBannerUrls.includes(url)) {
-                                allBannerUrls.push(url);
-                              }
-                            });
-                          } 
-                          // Check if item itself is an image object
-                          else if (item.url || item.bannerUrl) {
-                            const url = item.url || item.bannerUrl;
-                            if (url && !allBannerUrls.includes(url)) {
-                              allBannerUrls.push(url);
+            // First pass: Save games with basic info (Parallel)
+            await Promise.all(games.map(game => window.electronAPI.saveGame(game)));
+
+            // Second pass: Auto-fetch and set banners (main and alternative) in batches
+            const BATCH_SIZE = 5;
+            for (let i = 0; i < games.length; i += BATCH_SIZE) {
+              const batch = games.slice(i, i + BATCH_SIZE);
+              console.log(`[Import] Processing batch ${i / BATCH_SIZE + 1} (${batch.length} games)`);
+
+              await Promise.all(batch.map(async (game) => {
+                try {
+                  console.log(`[Import] Fetching banners for: ${game.title}`);
+
+                  // First get the metadata to get the primary banner and resolve Steam App ID
+                  const metadata = await window.electronAPI.searchArtwork(game.title, (game as any).appId);
+
+                  if (metadata) {
+                    let updatedGame = { ...game };
+                    let updated = false;
+
+                    // Set main banner from metadata if available
+                    if (metadata.bannerUrl && !game.bannerUrl) {
+                      updatedGame.bannerUrl = metadata.bannerUrl;
+                      updated = true;
+                    }
+
+                    // Now search for multiple banner options to get an alternative
+                    try {
+                      const steamAppId = (game as any).appId;
+                      const bannerSearch = await window.electronAPI.searchImages(game.title, 'banner', steamAppId);
+
+                      if (bannerSearch?.success && bannerSearch.images) {
+                        const allBannerUrls: string[] = [];
+
+                        // Parse the response
+                        if (Array.isArray(bannerSearch.images)) {
+                          bannerSearch.images.forEach((item: any) => {
+                            if (item.images && Array.isArray(item.images)) {
+                              item.images.forEach((img: any) => {
+                                const url = img.url || img.bannerUrl;
+                                if (url && !allBannerUrls.includes(url)) allBannerUrls.push(url);
+                              });
+                            } else if (item.url || item.bannerUrl) {
+                              const url = item.url || item.bannerUrl;
+                              if (url && !allBannerUrls.includes(url)) allBannerUrls.push(url);
                             }
-                          }
-                        });
-                      }
-                      
-                      console.log(`[Import] Extracted ${allBannerUrls.length} banner URLs:`, allBannerUrls);
-                      
-                      // If we don't have a main banner yet, use the first one
-                      if (!updatedGame.bannerUrl && allBannerUrls.length > 0) {
-                        updatedGame.bannerUrl = allBannerUrls[0];
-                        console.log(`[Import] Set main banner from search: ${allBannerUrls[0]}`);
-                        updated = true;
-                      }
-                      
-                      // Find a different banner for the alternative
-                      if (allBannerUrls.length > 1) {
-                        // Get the second banner or any one different from main
-                        const altUrl = allBannerUrls.find(url => url !== updatedGame.bannerUrl) || allBannerUrls[1];
-                        if (altUrl && altUrl !== updatedGame.bannerUrl) {
-                          updatedGame.alternativeBannerUrl = altUrl;
-                          console.log(`[Import] Set alt banner: ${altUrl}`);
+                          });
+                        }
+
+                        // If we don't have a main banner yet, use the first one
+                        if (!updatedGame.bannerUrl && allBannerUrls.length > 0) {
+                          updatedGame.bannerUrl = allBannerUrls[0];
                           updated = true;
                         }
+
+                        // Find a different banner for the alternative
+                        if (allBannerUrls.length > 1) {
+                          const altUrl = allBannerUrls.find(url => url !== updatedGame.bannerUrl) || allBannerUrls[1];
+                          if (altUrl && altUrl !== updatedGame.bannerUrl) {
+                            updatedGame.alternativeBannerUrl = altUrl;
+                            updated = true;
+                          }
+                        }
                       }
-                    } else {
-                      console.log(`[Import] No banner search results for ${game.title}`);
+                    } catch (searchErr) {
+                      console.error(`[Import] Banner search error for ${game.title}:`, searchErr);
                     }
-                  } catch (searchErr) {
-                    console.error(`[Import] Banner search error for ${game.title}:`, searchErr);
+
+                    // Save if we made any updates
+                    if (updated) {
+                      await window.electronAPI.saveGame(updatedGame);
+                    }
                   }
-                  
-                  // Save if we made any updates
-                  if (updated) {
-                    console.log(`[Import] Saving updated game with banners`);
-                    await window.electronAPI.saveGame(updatedGame);
-                  }
-                } else {
-                  console.log(`[Import] No metadata found for ${game.title}`);
+                } catch (err) {
+                  console.error(`[Import] Failed to fetch metadata for ${game.title}:`, err);
                 }
-              } catch (err) {
-                console.error(`[Import] Failed to fetch metadata for ${game.title}:`, err);
-              }
+              }));
             }
-            
+
             await loadLibrary();
             showToast(`Successfully imported ${games.length} ${games.length === 1 ? 'game' : 'games'}`, 'success');
             setIsImportWorkbenchOpen(false);
@@ -2629,7 +2610,7 @@ function App() {
                     onClick={() => {
                       // Close scanning overlay first for smooth transition
                       setStartupProgress(null);
-                      
+
                       // Small delay for transition effect
                       setTimeout(() => {
                         // Determine app type from the games (use 'other' for mixed sources)
