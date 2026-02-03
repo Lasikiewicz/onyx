@@ -11,6 +11,18 @@ After deploying the latest site (e.g. to Cloudflare Pages), verify:
 
 Open [https://onyxlauncher.co.uk/](https://onyxlauncher.co.uk/), click each button, and confirm the correct destination in a new tab.
 
+## Deploy to Cloudflare Pages
+
+From the `website/` directory:
+
+```bash
+npm install
+npm run build
+npx wrangler pages deploy dist --project-name=onyx
+```
+
+Ensure you’re logged in (`npx wrangler login`). The live site is at [onyxlauncher.co.uk](https://onyxlauncher.co.uk/) and `oynx.pages.dev`. Production deploys from the `main` branch; pushes to `master` create preview deployments—promote a preview in the Cloudflare dashboard to make it production.
+
 ## 🚀 Project Structure
 
 Inside of your Astro project, you'll see the following folders and files:
