@@ -9,11 +9,13 @@ A modern Electron application built with React, TypeScript, Vite, and Tailwind C
 
 ### Screenshots
 
-| Grid View | Carousel View |
-|-----------|---------------|
-| [![Grid View](website/public/Screenshots/Grid%20View.png)](website/public/Screenshots/Grid%20View.png) | [![Carousel View](website/public/Screenshots/Carousel%20View.png)](website/public/Screenshots/Carousel%20View.png) |
+| Grid View | List View |
+|-----------|-----------|
+| [![Grid View](website/public/Screenshots/Grid%20View.png)](website/public/Screenshots/Grid%20View.png) | [![List View](website/public/Screenshots/List%20View.png)](website/public/Screenshots/List%20View.png) |
+| Logo View | Carousel View |
+| [![Logo View](website/public/Screenshots/Logo%20View.png)](website/public/Screenshots/Logo%20View.png) | [![Carousel View](website/public/Screenshots/Carousel%20View.png)](website/public/Screenshots/Carousel%20View.png) |
 
-*Unified library with multiple view modes. See [the website](https://onyxlauncher.co.uk/) for more screenshots.*
+*All four view types: Grid, List, Logo, and Carousel. See [the website](https://onyxlauncher.co.uk/) for more.*
 
 ## Build Channels
 
