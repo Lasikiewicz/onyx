@@ -8,6 +8,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - See the [repository](https://github.com/Lasikiewicz/onyx) for the latest work in progress.
 
+## [0.3.16] - 2026-02-04
+
+- Workflow: push to git runs build first; fix isViewFlippedByView preference load (duplicate keys)
+
 ## [0.3.15] - 2026-02-04
 
 - Flip view option in all views (grid, list, logo, carousel); per-view flip state; flipped rounded corners on details panel
