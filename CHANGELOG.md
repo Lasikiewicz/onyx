@@ -8,6 +8,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - See the [repository](https://github.com/Lasikiewicz/onyx) for the latest work in progress.
 
+## [0.3.10] - 2026-02-04
+
+- Update toast notifications: app styling (dark theme with cyan/red borders), slide up from bottom of screen.
+
 ## [0.3.9] - 2026-02-04
 
 - Changelog bump for alpha update test.
@@ -47,7 +51,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Onyx unifies games from Steam, Epic, GOG, Xbox, Ubisoft, EA, Battle.net, Humble, Itch, and manual folders.
 - Multiple view modes (Grid, List, Logo, Carousel), metadata and artwork from IGDB, RAWG, SteamGridDB, and configurable launcher paths.
 
-[Unreleased]: https://github.com/Lasikiewicz/onyx/compare/alpha-v0.3.9...master
+[Unreleased]: https://github.com/Lasikiewicz/onyx/compare/alpha-v0.3.10...master
+[0.3.10]: https://github.com/Lasikiewicz/onyx/releases/tag/alpha-v0.3.10
 [0.3.9]: https://github.com/Lasikiewicz/onyx/releases/tag/alpha-v0.3.9
 [0.3.8]: https://github.com/Lasikiewicz/onyx/releases/tag/alpha-v0.3.8
 [0.3.7]: https://github.com/Lasikiewicz/onyx/releases/tag/alpha-v0.3.7
