@@ -1617,30 +1617,106 @@ app.whenReady().then(async () => {
   // Initialize auto-updater (only active when packaged; alpha uses prerelease channel)
   initAppUpdateService(() => win, IS_ALPHA);
 
-  // Check for updates on startup if preference is enabled (packaged app only)
+  // Coordinate update check and startup scan
   (async () => {
-    try {
-      if (!app.isPackaged) return;
-      const prefs = await userPreferencesService.getPreferences();
-      if (prefs.checkForUpdatesOnStartup !== false) {
-        setTimeout(() => checkForUpdates(), 3000);
-      }
-    } catch (err) {
-      console.error('[AppUpdate] Startup check preference error:', err);
-    }
-  })();
+    let updateFound = false;
+    let updateCheckComplete = false;
+    let updateDismissed = false;
+    let startupScanResolve: (() => void) | null = null;
 
-  // Perform startup scan if enabled in preferences
-  (async () => {
-    try {
-      const prefs = await userPreferencesService.getPreferences();
-      if (prefs.updateLibrariesOnStartup) {
+    // Set up callbacks for update found/dismissed events
+    const updateFoundCallback = () => {
+      updateFound = true;
+      console.log('[StartupScan] Update found - pausing startup scan');
+    };
+
+    const updateDismissedCallback = () => {
+      updateDismissed = true;
+      console.log('[StartupScan] Update dismissed - resuming startup scan');
+      if (startupScanResolve) {
+        startupScanResolve();
+        startupScanResolve = null;
+      }
+    };
+
+    // Register callbacks (set via global from appHandlers)
+    if ((global as any).__updateFoundCallback) {
+      (global as any).__updateFoundCallback(updateFoundCallback);
+    }
+    if ((global as any).__updateDismissedCallback) {
+      (global as any).__updateDismissedCallback(updateDismissedCallback);
+    }
+
+    // Check for updates on startup if preference is enabled (packaged app only)
+    const checkForUpdatesOnStartup = async () => {
+      try {
+        if (!app.isPackaged) {
+          updateCheckComplete = true;
+          return;
+        }
+        const prefs = await userPreferencesService.getPreferences();
+        if (prefs.checkForUpdatesOnStartup !== false) {
+          console.log('[AppUpdate] Checking for updates on startup...');
+          // Wait a bit for renderer to be ready, then check
+          await new Promise(resolve => setTimeout(resolve, 3000));
+          checkForUpdates();
+          // Give update check time to complete (max 15 seconds, but check periodically)
+          // If update is found, we'll wait for dismissal separately
+          let waited = 0;
+          const maxWait = 15000;
+          const checkInterval = 500;
+          while (waited < maxWait && !updateFound) {
+            await new Promise(resolve => setTimeout(resolve, checkInterval));
+            waited += checkInterval;
+          }
+          // If update was found, we'll wait for dismissal in performStartupScan
+          // Otherwise, mark as complete
+          if (!updateFound) {
+            console.log('[AppUpdate] Update check completed - no update found');
+          }
+        }
+        updateCheckComplete = true;
+      } catch (err) {
+        console.error('[AppUpdate] Startup check preference error:', err);
+        updateCheckComplete = true;
+      }
+    };
+
+    // Perform startup scan if enabled in preferences
+    const performStartupScan = async () => {
+      try {
+        const prefs = await userPreferencesService.getPreferences();
+        if (!prefs.updateLibrariesOnStartup) {
+          console.log('[StartupScan] Startup scan disabled in preferences');
+          return;
+        }
+
         console.log('[StartupScan] Update Libraries on Startup is enabled');
 
         // Wait for renderer to be ready (React app to mount and register listeners)
-        // Reduced delay for faster startup
         console.log('[StartupScan] Waiting for renderer to be ready...');
         await new Promise(resolve => setTimeout(resolve, 1000));
+
+        // Wait for update check to complete
+        console.log('[StartupScan] Waiting for update check to complete...');
+        while (!updateCheckComplete) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+
+        // If update was found, wait for user to dismiss it
+        if (updateFound && !updateDismissed) {
+          console.log('[StartupScan] Update found - waiting for user to dismiss update notification');
+          await new Promise<void>((resolve) => {
+            startupScanResolve = resolve;
+            // Also check periodically if update was dismissed
+            const checkInterval = setInterval(() => {
+              if (updateDismissed) {
+                clearInterval(checkInterval);
+                resolve();
+              }
+            }, 500);
+          });
+        }
 
         // Send initial progress message
         if (win && !win.isDestroyed()) {
@@ -1675,18 +1751,22 @@ app.whenReady().then(async () => {
         }
 
         console.log(`[StartupScan] Startup scan completed in ${scanDuration}ms`);
-      } else {
-        console.log('[StartupScan] Startup scan disabled in preferences');
+      } catch (error) {
+        console.error('[StartupScan] Error during startup scan:', error);
+        // Send error message to UI
+        if (win && !win.isDestroyed()) {
+          win.webContents.send('startup:progress', { message: 'Error during scan' });
+        }
+        // Keep error visible for 3 seconds
+        await new Promise(resolve => setTimeout(resolve, 3000));
       }
-    } catch (error) {
-      console.error('[StartupScan] Error during startup scan:', error);
-      // Send error message to UI
-      if (win && !win.isDestroyed()) {
-        win.webContents.send('startup:progress', { message: 'Error during scan' });
-      }
-      // Keep error visible for 3 seconds
-      await new Promise(resolve => setTimeout(resolve, 3000));
-    }
+    };
+
+    // Run update check and startup scan in parallel (scan will wait for update check)
+    await Promise.all([
+      checkForUpdatesOnStartup(),
+      performStartupScan()
+    ]);
   })();
 
   // Initialize background scan interval if enabled

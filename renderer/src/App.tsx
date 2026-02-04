@@ -23,6 +23,7 @@ import { ConfirmationDialog } from './components/ConfirmationDialog';
 import { BugReportModal } from './components/BugReportModal';
 import { WelcomeScreen } from './components/WelcomeScreen';
 import { MissingGamesModal } from './components/MissingGamesModal';
+import { UpdateNotificationModal } from './components/UpdateNotificationModal';
 import { Game, ExecutableFile, GameMetadata } from './types/game';
 import { areAPIsConfigured } from './utils/apiValidation';
 
@@ -61,6 +62,13 @@ function App() {
 
   // Toast notification state
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  // Update notification state
+  const [updateNotification, setUpdateNotification] = useState<{
+    version: string;
+    status: 'available' | 'downloading' | 'downloaded' | 'error';
+    error?: string;
+  } | null>(null);
 
   // Search and view state
   const [searchQuery, setSearchQuery] = useState('');
@@ -607,14 +615,21 @@ function App() {
     const removeStartupProgress = window.electronAPI?.on && window.electronAPI.on('startup:progress', startupProgressHandler);
     const removeMissingGames = window.electronAPI?.on && window.electronAPI.on('scan:missing-games', missingGamesHandler);
 
-    // Listen for update status: show toast when update is available (open Settings > About to install)
+    // Listen for update status: show persistent notification when update is available
     const updateStatusHandler = (_event: any, payload: { status: string; version?: string; error?: string }) => {
       if (payload.status === 'available' && payload.version) {
-        setToast({
-          message: `Update available: v${payload.version}. Open Settings > About to download and install.`,
-          type: 'success',
+        setUpdateNotification({
+          version: payload.version,
+          status: 'available',
         });
-        setTimeout(() => setToast(null), 6000);
+        // Signal main process that update was found (to pause startup scan)
+        window.electronAPI.onUpdateFound?.();
+      } else if (payload.status === 'downloading') {
+        setUpdateNotification(prev => prev ? { ...prev, status: 'downloading' } : null);
+      } else if (payload.status === 'downloaded') {
+        setUpdateNotification(prev => prev ? { ...prev, status: 'downloaded' } : null);
+      } else if (payload.status === 'error' && payload.error) {
+        setUpdateNotification(prev => prev ? { ...prev, status: 'error', error: payload.error } : null);
       }
     };
     const removeUpdateStatus = window.electronAPI?.on && window.electronAPI.on('app:update-status', updateStatusHandler);
@@ -2409,6 +2424,30 @@ function App() {
             setLaunchConfirmation(null);
           }}
           onCancel={() => setLaunchConfirmation(null)}
+        />
+      )}
+
+      {/* Update Notification Modal - Persistent until user interacts */}
+      {updateNotification && (
+        <UpdateNotificationModal
+          isOpen={true}
+          version={updateNotification.version}
+          status={updateNotification.status}
+          error={updateNotification.error}
+          onUpdateNow={async () => {
+            const result = await window.electronAPI.downloadUpdate?.();
+            if (!result?.success) {
+              setUpdateNotification(prev => prev ? { ...prev, status: 'error', error: result?.error ?? 'Download failed' } : null);
+            }
+          }}
+          onDismiss={() => {
+            setUpdateNotification(null);
+            // Signal main process that update was dismissed (so startup scan can proceed)
+            window.electronAPI.onUpdateDismissed?.();
+          }}
+          onInstall={() => {
+            window.electronAPI.quitAndInstall?.();
+          }}
         />
       )}
 

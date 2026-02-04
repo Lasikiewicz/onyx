@@ -8,6 +8,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - See the [repository](https://github.com/Lasikiewicz/onyx) for the latest work in progress.
 
+## [0.3.12] - 2026-02-04
+
+- Persistent update notification modal on startup when update is available
+- Update check coordination: startup library scan pauses when update is found
+- Update notification allows download and install directly from notification
+
 ## [0.3.11] - 2026-02-04
 
 - Fix alpha update version comparison: use semantic versioning so 0.3.10+ is correctly seen as newer than 0.3.9.
@@ -55,7 +61,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Onyx unifies games from Steam, Epic, GOG, Xbox, Ubisoft, EA, Battle.net, Humble, Itch, and manual folders.
 - Multiple view modes (Grid, List, Logo, Carousel), metadata and artwork from IGDB, RAWG, SteamGridDB, and configurable launcher paths.
 
-[Unreleased]: https://github.com/Lasikiewicz/onyx/compare/alpha-v0.3.11...master
+[Unreleased]: https://github.com/Lasikiewicz/onyx/compare/alpha-v0.3.12...master
+[0.3.12]: https://github.com/Lasikiewicz/onyx/releases/tag/alpha-v0.3.12
 [0.3.11]: https://github.com/Lasikiewicz/onyx/releases/tag/alpha-v0.3.11
 [0.3.10]: https://github.com/Lasikiewicz/onyx/releases/tag/alpha-v0.3.10
 [0.3.9]: https://github.com/Lasikiewicz/onyx/releases/tag/alpha-v0.3.9

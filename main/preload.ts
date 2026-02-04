@@ -171,6 +171,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('app:update-status', handler);
     return () => ipcRenderer.removeListener('app:update-status', handler);
   },
+  onUpdateFound: () => ipcRenderer.send('app:update-found'),
+  onUpdateDismissed: () => ipcRenderer.send('app:update-dismissed'),
   // Open path/folder
   openPath: (pathOrType: string) => ipcRenderer.invoke('app:openPath', pathOrType),
   // Suspend service methods - FEATURE DISABLED

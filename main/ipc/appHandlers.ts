@@ -104,6 +104,28 @@ export function registerAppIPCHandlers(
         doQuitAndInstall();
     });
 
+    // Update notification handlers - for coordinating with startup scan
+    let updateFoundCallback: (() => void) | null = null;
+    let updateDismissedCallback: (() => void) | null = null;
+
+    ipcMain.on('app:update-found', () => {
+        console.log('[AppUpdate] Update found - signaling startup scan to pause');
+        if (updateFoundCallback) updateFoundCallback();
+    });
+
+    ipcMain.on('app:update-dismissed', () => {
+        console.log('[AppUpdate] Update dismissed - signaling startup scan to proceed');
+        if (updateDismissedCallback) updateDismissedCallback();
+    });
+
+    // Export callbacks for main.ts to use
+    (global as any).__updateFoundCallback = (callback: () => void) => {
+        updateFoundCallback = callback;
+    };
+    (global as any).__updateDismissedCallback = (callback: () => void) => {
+        updateDismissedCallback = callback;
+    };
+
     ipcMain.handle('app:openExternal', async (_event, url) => {
         await shell.openExternal(url);
         return { success: true };
