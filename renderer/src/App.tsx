@@ -283,13 +283,8 @@ function App() {
           if (prefs.rightPanelButtonLocation !== undefined) setRightPanelButtonLocation(prefs.rightPanelButtonLocation);
           if (prefs.detailsPanelOpacity !== undefined) setDetailsPanelOpacity(prefs.detailsPanelOpacity);
           if (prefs.isViewFlippedByView !== undefined) {
-            setIsViewFlippedByView({
-              grid: false,
-              list: false,
-              logo: false,
-              carousel: false,
-              ...prefs.isViewFlippedByView,
-            });
+            const defaultFlipped = { grid: false, list: false, logo: false, carousel: false };
+            setIsViewFlippedByView({ ...defaultFlipped, ...prefs.isViewFlippedByView });
           }
           // Top bar positions
           if (prefs.topBarPositions) setTopBarPositions({ ...topBarPositions, ...prefs.topBarPositions });

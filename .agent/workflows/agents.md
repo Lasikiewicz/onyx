@@ -12,45 +12,53 @@ description: Onyx AI Agent Guide - Critical Rules & Project Context
 - ✅ **Terminal commits use your git config** (your name/email) as author - this is why we use terminal, not Cursor UI
 - ✅ **Follow the workflows below** - These are the approved ways to push to git:
   - "Push to git master" / "push to git" = push to master branch
-  - "Force to Alpha" = version bump + push workflow
-  - "Force to Main" = production release workflow
+  - "Force to Alpha" = version bump + force master → develop
+  - "Force to Main" = force develop → main (same build number as alpha)
   - "Push website live" = website deployment workflow
 
 ## 🔄 RELEASE WORKFLOW (Strict Protocol)
 
-### 1. "Push to git master"
-**Push to remote git only. Does NOT build the app or trigger any CI.** Cursor must not appear on GitHub (no co-author, no Cursor in message; commit from terminal so author is your git config).
+**SIMPLE SUMMARY — do not confuse branches:**
+- **Push to git** = run `npm run build`, fix any issues, then push local master to remote master.
+- **Force to Alpha** = force **remote master** → **remote develop**. This updates the build number (increment version, changelog, commit, push master, then force master to develop). Triggers Onyx Alpha build. There is no branch named "alpha".
+- **Force to Main** = force **remote develop** → **remote main**. Same build number as the alpha. Triggers Onyx (Production) build. Source is always **origin/develop**, never master.
+
+### 1. "Push to git" / "Push to git master"
+**Always run the build first and fix any issues, then push local master to remote master.** Does NOT trigger CI app build.
+
+1. Run `npm run build`. If it fails, fix build or type errors (and fix any lint issues if reported), then run `npm run build` again until it succeeds.
+2. Commit and push.
 ```bash
+npm run build
+# If build fails: fix errors (TypeScript, lint, etc.), then re-run npm run build. Repeat until success.
 git add -A
 git commit -m "[Summary]"
 git push origin master
 ```
 
 ### 2. "Force to Alpha"
-**Bump version, add a brief changelog, push to master, then force master → develop. Triggers 'Onyx Alpha' build.** (Do not build locally.)
+**Update build number, then force remote master → remote develop.** Triggers Onyx Alpha build from `develop`. (There is no "alpha" branch — the alpha build runs on push to `develop`.)
 
 1. Run `npm run increment-build`, then read `version` from `package.json`.
-2. **Add a brief changelog** for this alpha: edit [CHANGELOG.md](CHANGELOG.md)—add a new `## [X.Y.Z] - YYYY-MM-DD` section (or update `[Unreleased]`) with a short list of changes (e.g. "Auto-update support", "Fix settings save").
-3. Commit message **must** be: `<version> <changes>` (version first, then brief description). Example: `0.3.2 Auto-update and changelog in agents`.
+2. Add a brief changelog: edit [CHANGELOG.md](CHANGELOG.md) — new `## [X.Y.Z] - YYYY-MM-DD` with a short list of changes.
+3. Commit message **must** be: `<version> <changes>` (e.g. `0.3.15 Flip view and menu layout`).
 ```bash
 npm run increment-build
-# Edit CHANGELOG.md with a brief changelog for this alpha, then:
+# Edit CHANGELOG.md, then:
 git add package.json CHANGELOG.md
 git commit -m "<version> <changes>"
 git push origin master
 git push origin master:develop --force
 ```
-- Replace `<version>` with the value from `package.json` (e.g. `0.3.2`).
-- Replace `<changes>` with a very short summary of what this alpha contains (can match the changelog heading).
+Result: remote **develop** = remote **master**. CI builds Alpha from develop.
 
 ### 3. "Force to Main"
-**Force remote develop → remote main. Triggers 'Onyx' (Production) app build.** (Do not build locally.)
-
-**CRITICAL:** You must push the **remote** develop branch to main, not your local `develop`. Always use `origin/develop` as the source ref so main gets the latest from the server after "Force to Alpha".
+**Force remote develop → remote main. Same build number as alpha.** Triggers Onyx (Production) build. Source must be **origin/develop**, not master.
 ```bash
 git fetch origin develop
 git push origin origin/develop:main --force
 ```
+Result: remote **main** = remote **develop**. CI builds Production from main.
 
 ### 4. "Push website live"
 **Only push the website to production. Do NOT merge to main (that would trigger the Electron app build).**
