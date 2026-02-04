@@ -62,12 +62,8 @@ export const UpdateNotificationModal: React.FC<UpdateNotificationModalProps> = (
             {status === 'downloading' && (
               <div className="w-full bg-slate-800/50 rounded-lg p-4 border border-cyan-500/20">
                 <div className="flex items-center gap-3">
-                  <div className="animate-spin">
-                    <svg className="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                    </svg>
-                  </div>
-                  <span className="text-slate-200 text-sm">Downloading update...</span>
+                  <div className="animate-spin w-5 h-5 border-2 border-cyan-400 border-t-transparent rounded-full" />
+                  <span className="text-slate-200 text-sm">Downloading update... Please wait.</span>
                 </div>
               </div>
             )}
@@ -91,38 +87,45 @@ export const UpdateNotificationModal: React.FC<UpdateNotificationModalProps> = (
             {/* Actions */}
             <div className="flex flex-col gap-3 w-full">
               {status === 'available' && (
-                <button
-                  onClick={handleUpdateNow}
-                  disabled={isDownloading}
-                  className="w-full px-6 py-3 rounded-lg bg-cyan-600 hover:bg-cyan-700 text-white font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                >
-                  {isDownloading ? (
-                    <>
-                      <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full" />
-                      Starting download...
-                    </>
-                  ) : (
-                    'Update Now'
-                  )}
-                </button>
+                <>
+                  <button
+                    onClick={handleUpdateNow}
+                    disabled={isDownloading}
+                    className="w-full px-6 py-3 rounded-lg bg-cyan-600 hover:bg-cyan-700 text-white font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  >
+                    {isDownloading ? (
+                      <>
+                        <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full" />
+                        Downloading...
+                      </>
+                    ) : (
+                      'Download Update'
+                    )}
+                  </button>
+                  <button
+                    onClick={onDismiss}
+                    className="w-full px-6 py-3 rounded-lg bg-slate-700/50 hover:bg-slate-600/50 text-slate-200 font-medium transition-colors border border-slate-600/50"
+                  >
+                    Dismiss
+                  </button>
+                </>
               )}
 
               {status === 'downloaded' && (
-                <button
-                  onClick={onInstall}
-                  className="w-full px-6 py-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-medium transition-colors"
-                >
-                  Install Now
-                </button>
-              )}
-
-              {status !== 'downloading' && (
-                <button
-                  onClick={onDismiss}
-                  className="w-full px-6 py-3 rounded-lg bg-slate-700/50 hover:bg-slate-600/50 text-slate-200 font-medium transition-colors border border-slate-600/50"
-                >
-                  {status === 'downloaded' ? 'Install Later' : 'Dismiss'}
-                </button>
+                <>
+                  <button
+                    onClick={onInstall}
+                    className="w-full px-6 py-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-medium transition-colors"
+                  >
+                    Install Now
+                  </button>
+                  <button
+                    onClick={onDismiss}
+                    className="w-full px-6 py-3 rounded-lg bg-slate-700/50 hover:bg-slate-600/50 text-slate-200 font-medium transition-colors border border-slate-600/50"
+                  >
+                    Install Later
+                  </button>
+                </>
               )}
             </div>
           </div>

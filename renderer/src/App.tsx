@@ -1504,14 +1504,6 @@ function App() {
 
   return (
     <div className="h-screen bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-900 via-[#0f172a] to-black text-white flex flex-col overflow-hidden relative">
-      {/* Alpha Banner */}
-      {isAlphaBuild && (
-        <div className="fixed top-0 right-0 z-50 m-4 pointer-events-none">
-          <div className="bg-yellow-500 text-black px-4 py-2 rounded-lg shadow-lg font-bold text-sm uppercase tracking-wider">
-            ALPHA
-          </div>
-        </div>
-      )}
       {/* Background - Image or Color */}
       {backgroundMode === 'image' && backgroundImageUrl ? (
         <div

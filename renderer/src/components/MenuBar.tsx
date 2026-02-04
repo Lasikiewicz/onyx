@@ -648,6 +648,12 @@ export const MenuBar: React.FC<MenuBarProps> = ({
             </svg>
           </button>
         )}
+        {/* Alpha Badge */}
+        {isAlphaBuild && (
+          <div className="px-2 py-1 bg-yellow-500 text-black rounded font-bold text-xs uppercase tracking-wider pointer-events-none">
+            ALPHA
+          </div>
+        )}
         {/* Onyx Settings Button with Dropdown */}
         {onOnyxSettings && (
           <div className="relative" ref={onyxSettingsMenuRef}>

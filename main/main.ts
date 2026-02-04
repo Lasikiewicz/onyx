@@ -1623,6 +1623,7 @@ app.whenReady().then(async () => {
     let updateCheckComplete = false;
     let updateDismissed = false;
     let startupScanResolve: (() => void) | null = null;
+    let updateStatusReceived = false;
 
     // Set up callbacks for update found/dismissed events
     const updateFoundCallback = () => {
@@ -1638,6 +1639,20 @@ app.whenReady().then(async () => {
         startupScanResolve = null;
       }
     };
+
+    // Listen for update status to know when check completes
+    const updateStatusListener = (_event: any, payload: { status: string; version?: string; error?: string }) => {
+      if (payload.status === 'available' || payload.status === 'not-available' || payload.status === 'error') {
+        updateStatusReceived = true;
+        if (payload.status === 'available') {
+          updateFound = true;
+        }
+        console.log(`[AppUpdate] Update check completed - status: ${payload.status}`);
+      }
+    };
+
+    // Register IPC listener for update status
+    ipcMain.on('app:update-status', updateStatusListener);
 
     // Register callbacks (set via global from appHandlers)
     if ((global as any).__updateFoundCallback) {
@@ -1657,28 +1672,30 @@ app.whenReady().then(async () => {
         const prefs = await userPreferencesService.getPreferences();
         if (prefs.checkForUpdatesOnStartup !== false) {
           console.log('[AppUpdate] Checking for updates on startup...');
-          // Wait a bit for renderer to be ready, then check
-          await new Promise(resolve => setTimeout(resolve, 3000));
+          // Wait for renderer to be ready and register listeners
+          await new Promise(resolve => setTimeout(resolve, 4000));
           checkForUpdates();
-          // Give update check time to complete (max 15 seconds, but check periodically)
-          // If update is found, we'll wait for dismissal separately
+          // Wait for update status to be received (max 20 seconds)
           let waited = 0;
-          const maxWait = 15000;
+          const maxWait = 20000;
           const checkInterval = 500;
-          while (waited < maxWait && !updateFound) {
+          while (waited < maxWait && !updateStatusReceived) {
             await new Promise(resolve => setTimeout(resolve, checkInterval));
             waited += checkInterval;
           }
-          // If update was found, we'll wait for dismissal in performStartupScan
-          // Otherwise, mark as complete
-          if (!updateFound) {
-            console.log('[AppUpdate] Update check completed - no update found');
+          if (!updateStatusReceived) {
+            console.log('[AppUpdate] Update check timeout - proceeding anyway');
           }
+        } else {
+          console.log('[AppUpdate] Update check disabled in preferences');
         }
         updateCheckComplete = true;
       } catch (err) {
         console.error('[AppUpdate] Startup check preference error:', err);
         updateCheckComplete = true;
+      } finally {
+        // Clean up listener
+        ipcMain.removeListener('app:update-status', updateStatusListener);
       }
     };
 
@@ -1697,11 +1714,12 @@ app.whenReady().then(async () => {
         console.log('[StartupScan] Waiting for renderer to be ready...');
         await new Promise(resolve => setTimeout(resolve, 1000));
 
-        // Wait for update check to complete
+        // Wait for update check to complete BEFORE starting scan
         console.log('[StartupScan] Waiting for update check to complete...');
         while (!updateCheckComplete) {
           await new Promise(resolve => setTimeout(resolve, 500));
         }
+        console.log('[StartupScan] Update check completed, proceeding with scan...');
 
         // If update was found, wait for user to dismiss it
         if (updateFound && !updateDismissed) {
