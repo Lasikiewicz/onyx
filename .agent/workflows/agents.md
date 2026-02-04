@@ -10,11 +10,12 @@ description: Onyx AI Agent Guide - Critical Rules & Project Context
 - ❌ NO `git commit/push/pull` without asking first
 - ✅ "Push to git" or "push to git master" = permission for **master** branch only
 - **WORKFLOW**: Make changes → STOP → Ask user → Show summary → WAIT for approval → Execute
+- **NEVER** add `Co-authored-by: Cursor <cursoragent@cursor.com>` (or any co-author line) to commit messages. Use `git commit -m "..."` only so the message is exactly the given summary.
 
 ## 🔄 RELEASE WORKFLOW (Strict Protocol)
 
 ### 1. "Push to git master"
-**Push to remote git only. Does NOT build the app or trigger any CI.**
+**Push to remote git only. Does NOT build the app or trigger any CI.** Never add Co-authored-by to commits.
 ```bash
 git add -A
 git commit -m "[Summary]"

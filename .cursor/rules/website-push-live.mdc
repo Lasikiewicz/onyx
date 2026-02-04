@@ -8,7 +8,7 @@ alwaysApply: true
 When the user says **"push website live"** (or similar: "deploy website", "publish website", "go live"):
 
 1. **Build** — From repo root: `cd website && npm run build`
-2. **Commit & push to master** — If uncommitted changes: `git add -A`, `git commit -m "..."`, `git push origin master`
+2. **Commit & push to master** — If uncommitted changes: `git add -A`, `git commit -m "..."` (no Co-authored-by), `git push origin master`
 3. **Deploy website only** — From `website/`: `npx wrangler pages deploy dist --project-name=onyx`
 
 Do **not** merge to `main` or push to `main` — that triggers the Electron app build. Push website live updates only the site (e.g. onyxlauncher.co.uk) via Cloudflare. If the deploy creates a preview, the user can promote it to production in the Cloudflare dashboard.
