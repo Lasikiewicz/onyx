@@ -23,11 +23,14 @@ git push origin master
 ```
 
 ### 2. "Force to Alpha"
-**Force remote master → remote develop. Triggers 'Onyx Alpha' build.** (Do not build locally.)
+**Bump version, push to master, then force master → develop. Triggers 'Onyx Alpha' build.** (Do not build locally.)
 ```bash
+npm run increment-build
+git add package.json
+git commit -m "Bump version for alpha"
+git push origin master
 git push origin master:develop --force
 ```
-*Optional:* Run `npm run increment-build` and push to master first if you want a new version.
 
 ### 3. "Force to Main"
 **Force remote develop → remote main. Triggers 'Onyx' (Production) app build.** (Do not build locally.)
