@@ -1,0 +1,11 @@
+---
+description: Never add Co-authored-by; always run git commit from the terminal so the Husky commit-msg hook runs.
+alwaysApply: true
+---
+
+# Git commits: terminal only, no co-author
+
+- **Never** add `Co-authored-by: Cursor <cursoragent@cursor.com>` or any other co-author line to commit messages.
+- **Always** run `git commit` from the **terminal** (e.g. via the agent or a shell), using `git commit -m "..."` with the exact message. Do not use or suggest using Cursor’s Source Control / commit UI to create commits.
+- Commits made from the terminal go through the Husky `commit-msg` hook, which strips any co-author lines. Commits made from the IDE can bypass the hook and add Cursor branding.
+- For any “push to git”, “force to alpha” version bump, or other commit: run `git add` and `git commit -m "..."` in the terminal, then `git push` as needed.

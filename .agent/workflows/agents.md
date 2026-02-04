@@ -10,7 +10,8 @@ description: Onyx AI Agent Guide - Critical Rules & Project Context
 - ❌ NO `git commit/push/pull` without asking first
 - ✅ "Push to git" or "push to git master" = permission for **master** branch only
 - **WORKFLOW**: Make changes → STOP → Ask user → Show summary → WAIT for approval → Execute
-- **NEVER** add `Co-authored-by: Cursor <cursoragent@cursor.com>` (or any co-author line) to commit messages. Use `git commit -m "..."` only so the message is exactly the given summary.
+- **NEVER** add `Co-authored-by: Cursor <cursoragent@cursor.com>` (or any co-author line) to commit messages.
+- **Always use the terminal** for commits: run `git commit -m "..."` in the shell so the Husky `commit-msg` hook runs (it strips co-author lines). Do not use Cursor’s commit UI—it can bypass the hook and add Cursor branding.
 
 ## 🔄 RELEASE WORKFLOW (Strict Protocol)
 
