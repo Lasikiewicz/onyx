@@ -39,6 +39,7 @@ interface GameDetailsPanelProps {
   onFanartHeightChange?: (height: number) => void;
   descriptionWidth?: number;
   onDescriptionWidthChange?: (width: number) => void;
+  isViewFlipped?: boolean;
 }
 
 export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
@@ -73,6 +74,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
   onFanartHeightChange,
   descriptionWidth: propDescriptionWidth = 50,
   onDescriptionWidthChange,
+  isViewFlipped = false,
 }) => {
   const defaultPanelWidths: Record<ViewKey, number> = { grid: 800, list: 800, logo: 800 };
   const [panelWidths, setPanelWidths] = useState<Record<ViewKey, number>>(defaultPanelWidths);
@@ -305,7 +307,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
     return (
       <div
         ref={panelRef}
-        className="onyx-glass-panel rounded-l-3xl flex items-center justify-center p-8 relative"
+        className={`onyx-glass-panel ${isViewFlipped ? 'rounded-r-3xl' : 'rounded-l-3xl'} flex items-center justify-center p-8 relative`}
         style={{ width: `${activePanelWidth}px`, minWidth: '400px', backgroundColor: panelBackground }}
       >
         <div className="text-center">
@@ -340,7 +342,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
   return (
     <div
       ref={panelRef}
-      className="onyx-glass-panel rounded-l-3xl flex flex-col h-full overflow-hidden relative ml-auto"
+      className={`onyx-glass-panel ${isViewFlipped ? 'rounded-r-3xl' : 'rounded-l-3xl'} flex flex-col h-full overflow-hidden relative ml-auto`}
       style={{ width: `${activePanelWidth}px`, minWidth: '400px', backgroundColor: panelBackground }}
       onContextMenu={(e) => {
         // Open right-click menu anywhere in the panel

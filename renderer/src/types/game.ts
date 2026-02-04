@@ -202,6 +202,7 @@ export interface UserPreferences {
     categories?: 'left' | 'middle' | 'right';
   };
   isFirstLaunch?: boolean;
+  isViewFlippedByView?: Record<'grid' | 'list' | 'logo' | 'carousel', boolean>;
 }
 
 export type UpdateStatus = 'checking' | 'available' | 'not-available' | 'downloading' | 'downloaded' | 'error';

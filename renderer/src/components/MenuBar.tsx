@@ -648,8 +648,8 @@ export const MenuBar: React.FC<MenuBarProps> = ({
             </svg>
           </button>
         )}
-        {/* Alpha Badge */}
-        {isAlphaBuild && (
+        {/* Alpha Badge - only on alpha builds (not in dev unless built as alpha) */}
+        {__BUILD_PROFILE__ === 'alpha' && (
           <div className="px-2 py-1 bg-yellow-500 text-black rounded font-bold text-xs uppercase tracking-wider pointer-events-none">
             ALPHA
           </div>

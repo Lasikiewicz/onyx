@@ -131,6 +131,12 @@ function App() {
   const [rightPanelButtonSize, setRightPanelButtonSize] = useState(14);
   const [rightPanelButtonLocation, setRightPanelButtonLocation] = useState<'left' | 'middle' | 'right'>('right');
   const [detailsPanelOpacity, setDetailsPanelOpacity] = useState(80);
+  const [isViewFlippedByView, setIsViewFlippedByView] = useState<Record<'grid' | 'list' | 'logo' | 'carousel', boolean>>({
+    grid: false,
+    list: false,
+    logo: false,
+    carousel: false,
+  });
   // Top bar element positions
   const [topBarPositions, setTopBarPositions] = useState<TopBarPositions>({
     searchBar: 'left',
@@ -276,6 +282,15 @@ function App() {
           if (prefs.rightPanelButtonSize !== undefined) setRightPanelButtonSize(prefs.rightPanelButtonSize);
           if (prefs.rightPanelButtonLocation !== undefined) setRightPanelButtonLocation(prefs.rightPanelButtonLocation);
           if (prefs.detailsPanelOpacity !== undefined) setDetailsPanelOpacity(prefs.detailsPanelOpacity);
+          if (prefs.isViewFlippedByView !== undefined) {
+            setIsViewFlippedByView({
+              grid: false,
+              list: false,
+              logo: false,
+              carousel: false,
+              ...prefs.isViewFlippedByView,
+            });
+          }
           // Top bar positions
           if (prefs.topBarPositions) setTopBarPositions({ ...topBarPositions, ...prefs.topBarPositions });
           if (prefs.viewMode) setViewMode(prefs.viewMode);
@@ -1604,7 +1619,7 @@ function App() {
         )}
 
         {/* Main Content Area */}
-        <div className="flex-1 flex overflow-hidden relative pt-10">
+        <div className={`flex-1 flex overflow-hidden relative pt-10 ${isViewFlippedByView[viewMode] ? 'flex-row-reverse' : ''}`}>
           {/* Left Panel - Game Library (flexible width, full width in carousel mode) */}
           <div className={`flex flex-col overflow-hidden ${viewMode === 'carousel' ? 'w-full' : 'flex-1'}`}>
             {/* Game Grid */}
@@ -1770,6 +1785,7 @@ function App() {
                             setGameContextMenu(null);
                             setRightClickMenu({ x, y });
                           }}
+                          isViewFlipped={isViewFlippedByView[viewMode]}
                         />
                       ) : (
                         <LibraryListView
@@ -1907,6 +1923,7 @@ function App() {
                 setDescriptionWidthByView(newByView);
                 window.electronAPI.savePreferences({ descriptionWidthByView: newByView });
               }}
+              isViewFlipped={isViewFlippedByView[viewMode]}
             />
           )}
         </div>
@@ -2329,6 +2346,12 @@ function App() {
           onRightPanelButtonLocationChange={(location) => {
             setRightPanelButtonLocation(location);
             window.electronAPI.savePreferences({ rightPanelButtonLocation: location });
+          }}
+          isViewFlipped={isViewFlippedByView[viewMode]}
+          onViewFlipChange={(flipped) => {
+            const newByView = { ...isViewFlippedByView, [viewMode]: flipped };
+            setIsViewFlippedByView(newByView);
+            window.electronAPI.savePreferences({ isViewFlippedByView: newByView });
           }}
           detailsPanelOpacity={detailsPanelOpacity}
           onDetailsPanelOpacityChange={(opacity) => {

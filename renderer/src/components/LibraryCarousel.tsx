@@ -35,6 +35,7 @@ interface LibraryCarouselProps {
   carouselLogoAlignment?: 'left' | 'center' | 'right';
   onMoreSettings?: () => void;
   onEmptySpaceRightClick?: (x: number, y: number) => void;
+  isViewFlipped?: boolean;
 }
 
 export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
@@ -64,6 +65,7 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
   onUnhide,
   isHiddenView = false,
   onEmptySpaceRightClick,
+  isViewFlipped = false,
 }) => {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [showDetailsBarResizer, setShowDetailsBarResizer] = useState(false);
@@ -286,7 +288,7 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
       <div className="h-full relative">
         {selectedGame && (
           <div
-            className="absolute right-0 top-0 flex flex-col justify-center"
+            className={`absolute ${isViewFlipped ? 'left-0' : 'right-0'} top-0 flex flex-col justify-center`}
             style={{
               width: '50%',
               height: `calc(100vh - 200px)`, // Full height above carousel
@@ -468,7 +470,7 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
 
       {/* Animated flowing carousel */}
       <div
-        className="fixed bottom-8 left-0 right-0 z-20 overflow-visible"
+        className={`fixed bottom-8 z-20 overflow-visible ${isViewFlipped ? 'right-0 w-[50%]' : 'left-0 right-0'}`}
         style={{
           height: '200px', // Fixed height independent of selected game size
           minHeight: '170px', // Ensure minimum space for carousel

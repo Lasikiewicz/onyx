@@ -124,6 +124,7 @@ export interface UserPreferences {
     categories?: 'left' | 'middle' | 'right';
   };
   isFirstLaunch?: boolean;
+  isViewFlippedByView?: Record<'grid' | 'list' | 'logo' | 'carousel', boolean>;
   enableHardwareAcceleration?: boolean;
   closeToTray?: boolean;
   confirmGameLaunch?: boolean;
