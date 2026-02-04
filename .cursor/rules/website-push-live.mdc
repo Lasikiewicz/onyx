@@ -1,0 +1,19 @@
+---
+description: When user says "push website live" — commit, push to git, and update production branch so Cloudflare deploys.
+alwaysApply: true
+---
+
+# Push website live
+
+When the user says **"push website live"** (or similar: "deploy website", "publish website", "go live"), do **all** of the following so the site is in git and Cloudflare production is updated:
+
+1. **Build** — From `website/`: run `npm run build` to verify the site builds.
+2. **Commit & push to git** — If there are uncommitted changes: `git add -A`, `git commit` with a clear message (e.g. website or deploy-related), then `git push origin <current-branch>` (usually `master`).
+3. **Update production** — Cloudflare Production deploys from the **`main`** branch. So after pushing to `master`, merge into `main` and push so production updates:
+   - `git checkout main`
+   - `git pull origin main`
+   - `git merge master` (or the branch you just pushed)
+   - `git push origin main`
+   - `git checkout master` (or previous branch)
+
+Do not only run `wrangler pages deploy` without also pushing to git and updating `main`. Pushing to `master` alone creates only a **Preview** deployment; production follows `main`.

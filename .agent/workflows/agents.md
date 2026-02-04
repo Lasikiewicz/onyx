@@ -40,9 +40,32 @@ git push origin origin/develop:main --force
 ```
 
 ### 4. Website-Only Updates
-- Commit to `master`, force to `main`
-- **DO NOT** run `npm run increment-build` or modify `package.json`
-- Changes to `website/` or `docs/` trigger Cloudflare but skip GitHub Actions
+- Commit to `master`, then update `main` so Cloudflare production deploys (see **Push website live** below).
+- **DO NOT** run `npm run increment-build` or modify `package.json` for website-only changes.
+- Changes to `website/` or `docs/` trigger Cloudflare but skip GitHub Actions (build.yml path-ignores `website/`).
+
+### 5. Push website live
+**Meaning:** Put current code in git and update Cloudflare **production** (onyxlauncher.co.uk). Production deploys from **`main`**; pushes to **`master`** only create preview deployments. Do all steps:
+
+1. **Build** (from repo root):
+   ```bash
+   cd website && npm run build
+   ```
+2. **Commit and push to master** (if there are uncommitted changes):
+   ```bash
+   git add -A
+   git commit -m "[Summary — e.g. website: nav, docs, agent workflow]"
+   git push origin master
+   ```
+3. **Update production** (merge to `main` and push so Cloudflare deploys):
+   ```bash
+   git checkout main
+   git pull origin main
+   git merge master
+   git push origin main
+   git checkout master
+   ```
+- Do **not** only run `wrangler pages deploy` without pushing to git and updating `main`; that creates a preview only.
 
 ## 🚫 ELECTRON-ONLY APPLICATION
 
