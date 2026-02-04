@@ -43,7 +43,7 @@ export function initAppUpdateService(
     repo: 'onyx'
   });
   
-  // Log configuration for debugging
+  // Log configuration for debugging (helps verify alpha vs production channel)
   console.log(`[AppUpdate] Configured: isAlpha=${isAlpha}, allowPrerelease=${autoUpdater.allowPrerelease}`);
 
   const send = (payload: UpdateStatusPayload) => {
