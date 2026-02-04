@@ -8,6 +8,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - See the [repository](https://github.com/Lasikiewicz/onyx) for the latest work in progress.
 
+## [0.3.7] - 2026-02-04
+
+- Alpha: one-time migration of user data from legacy "Onyx" folder to "Onyx Alpha" on first run (fixes reset after upgrading from 0.3.5 to 0.3.6).
+- Note: 0.3.5 could not detect newer alpha updates; the fix is in 0.3.6. Install 0.3.6+ manually once, then in-app updates work for future alphas.
+
 ## [0.3.6] - 2026-02-04
 
 - Fix alpha update detection: detect alpha at runtime from executable path (OnyxAlpha.exe) so packaged alpha sees new prereleases.
@@ -34,7 +39,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Onyx unifies games from Steam, Epic, GOG, Xbox, Ubisoft, EA, Battle.net, Humble, Itch, and manual folders.
 - Multiple view modes (Grid, List, Logo, Carousel), metadata and artwork from IGDB, RAWG, SteamGridDB, and configurable launcher paths.
 
-[Unreleased]: https://github.com/Lasikiewicz/onyx/compare/alpha-v0.3.6...master
+[Unreleased]: https://github.com/Lasikiewicz/onyx/compare/alpha-v0.3.7...master
+[0.3.7]: https://github.com/Lasikiewicz/onyx/releases/tag/alpha-v0.3.7
 [0.3.6]: https://github.com/Lasikiewicz/onyx/releases/tag/alpha-v0.3.6
 [0.3.5]: https://github.com/Lasikiewicz/onyx/releases/tag/alpha-v0.3.5
 [0.3.4]: https://github.com/Lasikiewicz/onyx/releases/tag/alpha-v0.3.4
