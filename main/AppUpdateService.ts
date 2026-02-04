@@ -30,16 +30,21 @@ function versionFromTag(tag: string): string | null {
 
 /** Compare version strings (e.g. "0.3.7" > "0.3.6"). Returns true if a > b. */
 function versionGt(a: string, b: string): boolean {
+  return compareVersions(a, b) > 0;
+}
+
+/** Compare version strings for sorting. Returns -1 if a < b, 0 if equal, 1 if a > b. */
+function compareVersions(a: string, b: string): number {
   const parts = (v: string) => v.split('.').map(Number);
   const pa = parts(a);
   const pb = parts(b);
   for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
     const na = pa[i] ?? 0;
     const nb = pb[i] ?? 0;
-    if (na > nb) return true;
-    if (na < nb) return false;
+    if (na > nb) return 1;
+    if (na < nb) return -1;
   }
-  return false;
+  return 0;
 }
 
 interface AlphaUpdateInfo {
@@ -98,15 +103,11 @@ async function checkForUpdatesAlpha(): Promise<void> {
       return;
     }
 
-    // Sort by version descending (newest first)
+    // Sort by version descending (newest first) using semantic version comparison
     const withVersion = prereleases
       .map((r) => ({ release: r, version: versionFromTag(r.tag_name) }))
       .filter((x): x is { release: (typeof prereleases)[0]; version: string } => x.version !== null);
-    withVersion.sort((a, b) => {
-      if (a.version > b.version) return -1;
-      if (a.version < b.version) return 1;
-      return 0;
-    });
+    withVersion.sort((a, b) => compareVersions(b.version, a.version)); // Descending: b vs a
 
     const latest = withVersion[0];
     if (!latest) {
