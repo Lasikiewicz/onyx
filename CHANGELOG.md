@@ -8,6 +8,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - See the [repository](https://github.com/Lasikiewicz/onyx) for the latest work in progress.
 
+## [0.3.15] - 2026-02-04
+
+- Flip view option in all views (grid, list, logo, carousel); per-view flip state; flipped rounded corners on details panel
+- Right-click menu: wider list view layout with Games View in two columns; view type always visible
+- Alpha badge shown only on alpha builds (not in dev)
+
 ## [0.3.14] - 2026-02-04
 
 - Test update notification popup
