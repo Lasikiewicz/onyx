@@ -28,8 +28,21 @@ export function initAppUpdateService(
     return;
   }
 
+  // Explicitly configure GitHub provider (electron-updater doesn't read electron-builder config at runtime)
+  // For GitHub, electron-updater will look for latest.yml in releases
+  // With allowPrerelease=true, it will check prerelease tags (alpha-v*)
+  // With allowPrerelease=false, it will check stable tags (v*)
+  autoUpdater.setFeedURL({
+    provider: 'github',
+    owner: 'Lasikiewicz',
+    repo: 'onyx'
+  });
+
   autoUpdater.autoDownload = false;
   autoUpdater.allowPrerelease = isAlpha;
+  
+  // Log configuration for debugging
+  console.log(`[AppUpdate] Configured: isAlpha=${isAlpha}, allowPrerelease=${autoUpdater.allowPrerelease}`);
 
   const send = (payload: UpdateStatusPayload) => {
     const win = getWin();
