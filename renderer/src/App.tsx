@@ -2412,19 +2412,19 @@ function App() {
         />
       )}
 
-      {/* Toast Notification */}
+      {/* Toast Notification - app styling, slides up from bottom */}
       {toast && (
-        <div className="fixed bottom-20 left-1/2 transform -translate-x-1/2 z-50 animate-in slide-in-from-bottom-5">
+        <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 toast-slide-up">
           <div
-            className={`px-6 py-3 rounded-lg shadow-xl flex items-center gap-3 ${toast.type === 'success'
-              ? 'bg-green-600 text-white'
-              : 'bg-red-600 text-white'
+            className={`px-5 py-3 rounded-xl shadow-2xl flex items-center gap-3 backdrop-blur-xl border max-w-[90vw] ${toast.type === 'success'
+              ? 'bg-slate-900/95 border-cyan-500/40 text-slate-100'
+              : 'bg-slate-900/95 border-red-500/40 text-slate-100'
               }`}
           >
-            <div className="flex-1">{toast.message}</div>
+            <div className="flex-1 text-sm">{toast.message}</div>
             <button
               onClick={() => setToast(null)}
-              className="text-white/80 hover:text-white"
+              className="text-slate-400 hover:text-slate-100 transition-colors p-0.5 rounded"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
