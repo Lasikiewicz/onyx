@@ -8,6 +8,7 @@ import { AppConfigService } from '../AppConfigService.js';
 import { APICredentialsService } from '../APICredentialsService.js';
 import { SteamAuthService } from '../SteamAuthService.js';
 import { BugReportService } from '../BugReportService.js';
+import { checkForUpdates as doCheckForUpdates, downloadUpdate as doDownloadUpdate, quitAndInstall as doQuitAndInstall } from '../AppUpdateService.js';
 
 export function registerAppIPCHandlers(
     winReference: { current: BrowserWindow | null },
@@ -83,6 +84,26 @@ export function registerAppIPCHandlers(
     // App Info Handlers
     ipcMain.handle('app:getVersion', () => app.getVersion());
     ipcMain.handle('app:getName', () => app.getName());
+
+    // Auto-update Handlers (no-op when not packaged)
+    ipcMain.handle('app:checkForUpdates', () => {
+        doCheckForUpdates();
+        return Promise.resolve();
+    });
+    ipcMain.handle('app:downloadUpdate', async () => {
+        if (!app.isPackaged) return { success: false };
+        try {
+            await doDownloadUpdate();
+            return { success: true };
+        } catch (err) {
+            return { success: false, error: err instanceof Error ? err.message : String(err) };
+        }
+    });
+    ipcMain.handle('app:quitAndInstall', () => {
+        if (!app.isPackaged) return;
+        doQuitAndInstall();
+    });
+
     ipcMain.handle('app:openExternal', async (_event, url) => {
         await shell.openExternal(url);
         return { success: true };

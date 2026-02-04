@@ -70,6 +70,7 @@ import { registerSuspendHandlers } from './ipc/suspendHandlers.js';
 import { registerLauncherIPCHandlers } from './ipc/launcherHandlers.js';
 import { TrayService } from './ui/tray.js';
 import { withTimeout } from './RetryUtils.js';
+import { initAppUpdateService, checkForUpdates } from './AppUpdateService.js';
 
 // Load environment variables
 dotenv.config();
@@ -268,6 +269,17 @@ function createMenu() {
         { role: 'cut', label: 'Cut' },
         { role: 'copy', label: 'Copy' },
         { role: 'paste', label: 'Paste' },
+      ],
+    },
+    {
+      label: 'Help',
+      submenu: [
+        {
+          label: 'Check for Updates',
+          click: () => {
+            win?.webContents.send('menu:checkForUpdates');
+          },
+        },
       ],
     },
   ];
@@ -1555,6 +1567,22 @@ app.whenReady().then(async () => {
 
   createMenu();
   await createWindow();
+
+  // Initialize auto-updater (only active when packaged; alpha uses prerelease channel)
+  initAppUpdateService(() => win, IS_ALPHA);
+
+  // Check for updates on startup if preference is enabled (packaged app only)
+  (async () => {
+    try {
+      if (!app.isPackaged) return;
+      const prefs = await userPreferencesService.getPreferences();
+      if (prefs.checkForUpdatesOnStartup !== false) {
+        setTimeout(() => checkForUpdates(), 3000);
+      }
+    } catch (err) {
+      console.error('[AppUpdate] Startup check preference error:', err);
+    }
+  })();
 
   // Perform startup scan if enabled in preferences
   (async () => {

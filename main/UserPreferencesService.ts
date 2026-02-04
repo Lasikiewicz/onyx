@@ -10,6 +10,7 @@ export interface UserPreferences {
   startWithComputer?: boolean;
   startClosedToTray?: boolean;
   updateLibrariesOnStartup?: boolean;
+  checkForUpdatesOnStartup?: boolean;
   minimizeOnGameLaunch?: boolean;
   activeGameId?: string | null;
   hideVRTitles?: boolean;
@@ -158,6 +159,7 @@ export class UserPreferencesService {
             startWithComputer: false,
             startClosedToTray: false,
             updateLibrariesOnStartup: false,
+            checkForUpdatesOnStartup: true,
             minimizeOnGameLaunch: false,
             activeGameId: null,
             hideVRTitles: true,
@@ -267,6 +269,7 @@ export class UserPreferencesService {
       startWithComputer: false,
       startClosedToTray: false,
       updateLibrariesOnStartup: false,
+      checkForUpdatesOnStartup: true,
       activeGameId: null,
       hideVRTitles: true,
       hideGameTitles: true,
@@ -359,6 +362,7 @@ export class UserPreferencesService {
       startWithComputer: false,
       startClosedToTray: false,
       updateLibrariesOnStartup: false,
+      checkForUpdatesOnStartup: true,
       activeGameId: null,
       hideVRTitles: true,
       hideGameTitles: true,
@@ -448,6 +452,7 @@ export class UserPreferencesService {
       startWithComputer: false,
       startClosedToTray: false,
       updateLibrariesOnStartup: false,
+      checkForUpdatesOnStartup: true,
       activeGameId: null,
       hideVRTitles: true,
       hideGameTitles: true,

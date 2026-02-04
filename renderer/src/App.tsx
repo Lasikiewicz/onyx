@@ -550,6 +550,9 @@ function App() {
     const cleanup4 = window.electronAPI.onMenuEvent('menu:configureSteam', () => {
       setIsSteamConfigOpen(true);
     });
+    const cleanup5 = window.electronAPI.onMenuEvent('menu:checkForUpdates', () => {
+      window.electronAPI.checkForUpdates?.();
+    });
 
     // Listen for new Steam games found notification
     const newGamesHandler = (_event: any, data: { count: number; games: Array<any> }) => {
@@ -604,15 +607,29 @@ function App() {
     const removeStartupProgress = window.electronAPI?.on && window.electronAPI.on('startup:progress', startupProgressHandler);
     const removeMissingGames = window.electronAPI?.on && window.electronAPI.on('scan:missing-games', missingGamesHandler);
 
+    // Listen for update status: show toast when update is available (open Settings > About to install)
+    const updateStatusHandler = (_event: any, payload: { status: string; version?: string; error?: string }) => {
+      if (payload.status === 'available' && payload.version) {
+        setToast({
+          message: `Update available: v${payload.version}. Open Settings > About to download and install.`,
+          type: 'success',
+        });
+        setTimeout(() => setToast(null), 6000);
+      }
+    };
+    const removeUpdateStatus = window.electronAPI?.on && window.electronAPI.on('app:update-status', updateStatusHandler);
+
     return () => {
       cleanup1();
       cleanup2();
       cleanup3();
       cleanup4();
+      cleanup5();
       if (typeof removeSteamNewGames === 'function') removeSteamNewGames();
       if (typeof removeBackgroundNewGames === 'function') removeBackgroundNewGames();
       if (typeof removeStartupProgress === 'function') removeStartupProgress();
       if (typeof removeMissingGames === 'function') removeMissingGames();
+      if (typeof removeUpdateStatus === 'function') removeUpdateStatus();
     };
   }, []);
 

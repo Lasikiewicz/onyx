@@ -89,6 +89,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
       'gameStore:libraryUpdated',
       'metadata:gameImagesFound',
       'metadata:fastSearchProgress',
+      'app:update-status',
     ]);
     if (!allowedChannels.has(channel)) {
       console.warn(`Attempt to register to unauthorized IPC channel: ${channel}`);
@@ -161,6 +162,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getVersion: () => ipcRenderer.invoke('app:getVersion'),
   // App name (for detecting Alpha builds)
   getName: () => ipcRenderer.invoke('app:getName'),
+  // Auto-update (only active when packaged)
+  checkForUpdates: () => ipcRenderer.invoke('app:checkForUpdates'),
+  downloadUpdate: () => ipcRenderer.invoke('app:downloadUpdate'),
+  quitAndInstall: () => ipcRenderer.invoke('app:quitAndInstall'),
+  onUpdateStatus: (callback: (payload: { status: string; version?: string; error?: string }) => void) => {
+    const handler = (_e: Electron.IpcRendererEvent, payload: { status: string; version?: string; error?: string }) => callback(payload);
+    ipcRenderer.on('app:update-status', handler);
+    return () => ipcRenderer.removeListener('app:update-status', handler);
+  },
   // Open path/folder
   openPath: (pathOrType: string) => ipcRenderer.invoke('app:openPath', pathOrType),
   // Suspend service methods - FEATURE DISABLED

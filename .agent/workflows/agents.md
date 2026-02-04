@@ -64,6 +64,20 @@ git push origin origin/develop:main --force
    ```
    If the deploy is a preview, promote it to production in the Cloudflare Pages dashboard.
 
+### 5. Auto-update (In-app updates)
+
+**How it works:** The app uses **electron-updater** and checks **GitHub Releases** for updates. Users are only notified when a **new release is published** to the repo (same version rules: alpha sees prereleases, production sees stable releases).
+
+- **Force to Alpha** → Triggers the **Onyx Alpha** CI build from `develop`. For alpha users to see an update:
+  - The alpha build artifacts must be **published to GitHub Releases** (e.g. by CI or manually).
+  - The release must be marked as **Pre-release** so the alpha app (which checks for prereleases) sees it.
+  - Then users running Onyx Alpha get an update notification: on startup (if "Check for updates on startup" is on), via **Help > Check for Updates**, or via a toast when an update is found.
+- **Force to Main** → Triggers the **Onyx (Production)** build from `main`. For production users to see an update:
+  - The production build artifacts must be **published to GitHub Releases** as a **stable** (non–pre-release) release.
+  - Then users running Onyx get the same update notification (startup check, Help menu, or toast).
+
+**Summary:** The workflows above trigger the builds; **publishing** those builds to GitHub Releases (with installer + `latest.yml`) is what makes the update appear in the app. If CI publishes on push to `develop`/`main` (or on tag), then Force to Alpha / Force to Main will lead to users being alerted once the release is published.
+
 ## 🚫 ELECTRON-ONLY APPLICATION
 
 **CRITICAL**: This app WILL NOT work in standard browsers (Chrome, Firefox, etc.)
@@ -77,6 +91,7 @@ git push origin origin/develop:main --force
 ├── main/                    # Electron backend (Node.js)
 │   ├── main.ts              # IPC handlers, app initialization
 │   ├── preload.ts           # ContextBridge API
+│   ├── AppUpdateService.ts  # Auto-update (electron-updater, GitHub Releases)
 │   ├── GameStore.ts         # Game library storage
 │   ├── SteamService.ts      # Steam integration
 │   └── [services]           # Various backend services
@@ -133,6 +148,7 @@ git push origin origin/develop:main --force
 - `steam:syncPlaytime` - Sync playtime data
 - `appConfig:get/save` - App configuration
 - `gameStore:getLibrary/saveGame` - Game operations
+- `app:checkForUpdates` / `app:downloadUpdate` / `app:quitAndInstall` - Auto-update (packaged app only)
 
 ## 🔧 DEVELOPMENT WORKFLOW
 

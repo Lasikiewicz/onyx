@@ -20,6 +20,7 @@ interface OnyxSettings {
   startWithComputer: boolean;
   startClosedToTray: boolean;
   updateLibrariesOnStartup: boolean;
+  checkForUpdatesOnStartup: boolean;
   minimizeOnGameLaunch: boolean;
   hideGameTitles: boolean;
   gameTilePadding: number;
@@ -162,6 +163,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
     startWithComputer: false,
     startClosedToTray: false,
     updateLibrariesOnStartup: false,
+    checkForUpdatesOnStartup: true,
     minimizeOnGameLaunch: false,
     hideGameTitles: false,
     gameTilePadding: 16,
@@ -174,6 +176,9 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
   const [showLogoOverBoxart, setShowLogoOverBoxart] = useState(true);
   const [logoPosition, setLogoPosition] = useState<'top' | 'middle' | 'bottom' | 'underneath'>('middle');
   const [appVersion, setAppVersion] = useState<string>('0.0.0');
+  const [updateStatus, setUpdateStatus] = useState<'idle' | 'checking' | 'available' | 'not-available' | 'downloading' | 'downloaded' | 'error'>('idle');
+  const [updateVersion, setUpdateVersion] = useState<string | null>(null);
+  const [updateError, setUpdateError] = useState<string | null>(null);
 
   const [backgroundScanEnabled, setBackgroundScanEnabled] = useState(false);
   const [backgroundScanIntervalMinutes, setBackgroundScanIntervalMinutes] = useState(30);
@@ -190,6 +195,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
             startWithComputer: prefs.startWithComputer ?? false,
             startClosedToTray: prefs.startClosedToTray ?? false,
             updateLibrariesOnStartup: prefs.updateLibrariesOnStartup ?? false,
+            checkForUpdatesOnStartup: prefs.checkForUpdatesOnStartup ?? true,
             minimizeOnGameLaunch: prefs.minimizeOnGameLaunch ?? false,
             hideGameTitles: prefs.hideGameTitles ?? false,
             gameTilePadding: prefs.gameTilePadding ?? 16,
@@ -225,6 +231,17 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
       };
       loadSettings();
     }
+  }, [isOpen]);
+
+  // Subscribe to update status from main process (packaged app only)
+  useEffect(() => {
+    if (!isOpen || !window.electronAPI.onUpdateStatus) return;
+    const unsubscribe = window.electronAPI.onUpdateStatus((payload) => {
+      setUpdateStatus(payload.status as any);
+      setUpdateVersion(payload.version ?? null);
+      setUpdateError(payload.error ?? null);
+    });
+    return unsubscribe;
   }, [isOpen]);
 
   const [apiStatus, setApiStatus] = useState<{
@@ -701,6 +718,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
         startWithComputer: settings.startWithComputer,
         startClosedToTray: settings.startClosedToTray,
         updateLibrariesOnStartup: settings.updateLibrariesOnStartup,
+        checkForUpdatesOnStartup: settings.checkForUpdatesOnStartup,
         minimizeOnGameLaunch: settings.minimizeOnGameLaunch,
         hideGameTitles: settings.hideGameTitles,
         gameTilePadding: settings.gameTilePadding,
@@ -924,6 +942,12 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                     description="Automatically scan for new games when Onyx starts"
                     checked={settings.updateLibrariesOnStartup}
                     onChange={() => handleToggle('updateLibrariesOnStartup')}
+                  />
+                  <SettingsToggle
+                    label="Check for Updates on Startup"
+                    description="Check for app updates when Onyx starts"
+                    checked={settings.checkForUpdatesOnStartup}
+                    onChange={() => handleToggle('checkForUpdatesOnStartup')}
                   />
                 </div>
               </SettingsSection>
@@ -1606,6 +1630,56 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                   <h2 className="text-3xl font-bold text-white tracking-wide">Onyx{__BUILD_PROFILE__ === 'alpha' ? ' Alpha' : ''}</h2>
                   <span className="text-sm font-medium text-slate-500 mt-1">v{appVersion}</span>
                 </div>
+
+                {/* Check for updates (packaged app only) */}
+                {window.electronAPI.checkForUpdates && (
+                  <div className="flex flex-col items-center gap-3 mt-2">
+                    <button
+                      onClick={() => {
+                        setUpdateError(null);
+                        setUpdateStatus('checking');
+                        window.electronAPI.checkForUpdates?.();
+                      }}
+                      disabled={updateStatus === 'checking' || updateStatus === 'downloading'}
+                      className="px-4 py-2 rounded-lg bg-slate-700/50 text-slate-200 hover:bg-slate-600/50 transition-colors border border-slate-600/50 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
+                    >
+                      {updateStatus === 'checking' || updateStatus === 'downloading' ? 'Checking...' : 'Check for Updates'}
+                    </button>
+                    {updateStatus === 'available' && updateVersion && (
+                      <div className="flex flex-col items-center gap-2">
+                        <p className="text-sm text-emerald-400">Update available: v{updateVersion}</p>
+                        <button
+                          onClick={async () => {
+                            setUpdateStatus('downloading');
+                            const result = await window.electronAPI.downloadUpdate?.();
+                            if (result?.success) setUpdateStatus('downloaded');
+                            else setUpdateError(result?.error ?? 'Download failed');
+                          }}
+                          className="px-4 py-2 rounded-lg bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600/30 border border-emerald-500/30 text-sm font-medium"
+                        >
+                          Download Update
+                        </button>
+                      </div>
+                    )}
+                    {updateStatus === 'downloaded' && (
+                      <div className="flex flex-col items-center gap-2">
+                        <p className="text-sm text-emerald-400">Update ready. Restart to install.</p>
+                        <button
+                          onClick={() => window.electronAPI.quitAndInstall?.()}
+                          className="px-4 py-2 rounded-lg bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600/30 border border-emerald-500/30 text-sm font-medium"
+                        >
+                          Restart to Update
+                        </button>
+                      </div>
+                    )}
+                    {updateStatus === 'not-available' && (
+                      <p className="text-sm text-slate-500">You’re on the latest version.</p>
+                    )}
+                    {updateStatus === 'error' && updateError && (
+                      <p className="text-sm text-red-400 max-w-xs text-center">{updateError}</p>
+                    )}
+                  </div>
+                )}
 
                 {/* Bug Report Button (Alpha only) */}
                 {__BUILD_PROFILE__ === 'alpha' && (

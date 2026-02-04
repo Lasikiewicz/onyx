@@ -114,6 +114,7 @@ export interface UserPreferences {
   startWithComputer?: boolean;
   startClosedToTray?: boolean;
   updateLibrariesOnStartup?: boolean;
+  checkForUpdatesOnStartup?: boolean;
   minimizeOnGameLaunch?: boolean;
   enableHardwareAcceleration?: boolean;
   closeToTray?: boolean;
@@ -203,6 +204,14 @@ export interface UserPreferences {
   isFirstLaunch?: boolean;
 }
 
+export type UpdateStatus = 'checking' | 'available' | 'not-available' | 'downloading' | 'downloaded' | 'error';
+
+export interface UpdateStatusPayload {
+  status: UpdateStatus;
+  version?: string;
+  error?: string;
+}
+
 declare global {
   interface Window {
     // Note: Raw `ipcRenderer` is intentionally NOT exposed; use `electronAPI.on()` and `electronAPI.off()` for event subscriptions.
@@ -286,6 +295,10 @@ declare global {
       fetchAndUpdate: (gameId: string, boxartUrl: string) => Promise<{ success: boolean; error?: string }>;
       getVersion: () => Promise<string>;
       getName: () => Promise<string>;
+      checkForUpdates?: () => Promise<void>;
+      downloadUpdate?: () => Promise<{ success: boolean; error?: string }>;
+      quitAndInstall?: () => Promise<void>;
+      onUpdateStatus?: (callback: (payload: UpdateStatusPayload) => void) => () => void;
       removeWinGDKGames: () => Promise<{ success: boolean; removedCount?: number; removedGames?: Array<{ id: string; title: string; exePath?: string }>; error?: string }>;
       removeMissingGames: (gameIds: string[]) => Promise<{ success: boolean; removedCount?: number; error?: string }>;
       openPath: (pathOrType: string) => Promise<{ success: boolean; error?: string }>;
