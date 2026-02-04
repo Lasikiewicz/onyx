@@ -42,6 +42,11 @@ const managementTools = [
 		images: ['/Screenshots/Game Right Click Menu.png'], 
 		desc: 'Intuitive navigation that feels like second nature.<br/>Effortless right-click menus and smart shortcuts keep the power exactly where you expect it to be.' 
 	},
+	{ 
+		title: 'Mod Manager linking', 
+		images: ['/Screenshots/ModManager.png'], 
+		desc: 'Launch your mod manager from the library.<br/>Right-click any game or use the Mod Manager button in the details panel to open your preferred mod tool for that title.' 
+	},
 ];
 
 const advancedFeatures = [
@@ -52,15 +57,49 @@ const advancedFeatures = [
 ---
 
 <Layout title="Onyx | The Premium Unified Game Library">
-	<main class="min-h-screen bg-[#0b0e14] selection:bg-onyx-accent/30 overflow-hidden">
+	<main id="top" class="min-h-screen bg-[#0b0e14] selection:bg-onyx-accent/30 overflow-hidden">
 		<!-- Navigation: Minimalist -->
 		<nav class="fixed top-0 w-full z-50 px-8 py-4 onyx-nav-thin">
-			<div class="max-w-7xl mx-auto flex items-center justify-between">
-				<div class="flex items-center gap-3">
+			<div class="max-w-7xl mx-auto relative flex items-center justify-between">
+				<a href="#top" class="flex items-center gap-3 flex-shrink-0 text-inherit hover:opacity-90 transition-opacity">
 					<img src="/logo.svg" alt="Onyx Logo" class="w-8 h-8" />
 					<span class="text-xl font-bold tracking-tighter">Onyx</span>
+				</a>
+				<!-- Centered nav links -->
+				<div class="hidden md:flex absolute left-1/2 -translate-x-1/2 items-center gap-8">
+					<!-- Views dropdown -->
+					<div class="relative group">
+						<a href="#features" class="text-slate-300 hover:text-white text-sm font-medium transition-colors flex items-center gap-1 py-2">
+							Views
+							<svg class="w-4 h-4 transition-transform group-hover:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+						</a>
+						<div class="absolute top-full left-1/2 -translate-x-1/2 mt-2 min-w-[180px] bg-[#1a1f2e] border border-white/10 rounded-xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 py-2">
+							<a href="#grid-view" class="block px-4 py-2 text-slate-400 hover:text-onyx-accent hover:bg-white/5 text-sm transition-colors first:rounded-t-xl last:rounded-b-xl">Grid View</a>
+							<a href="#list-view" class="block px-4 py-2 text-slate-400 hover:text-onyx-accent hover:bg-white/5 text-sm transition-colors first:rounded-t-xl last:rounded-b-xl">List View</a>
+							<a href="#logo-view" class="block px-4 py-2 text-slate-400 hover:text-onyx-accent hover:bg-white/5 text-sm transition-colors first:rounded-t-xl last:rounded-b-xl">Logo View</a>
+							<a href="#carousel-view" class="block px-4 py-2 text-slate-400 hover:text-onyx-accent hover:bg-white/5 text-sm transition-colors first:rounded-t-xl last:rounded-b-xl">Carousel View</a>
+						</div>
+					</div>
+					<!-- Features dropdown -->
+					<div class="relative group">
+						<a href="#features" class="text-slate-300 hover:text-white text-sm font-medium transition-colors flex items-center gap-1 py-2">
+							Features
+							<svg class="w-4 h-4 transition-transform group-hover:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+						</a>
+						<div class="absolute top-full left-1/2 -translate-x-1/2 mt-2 min-w-[200px] bg-[#1a1f2e] border border-white/10 rounded-xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 py-2">
+							<a href="#metadata-mastery" class="block px-4 py-2 text-slate-400 hover:text-onyx-accent hover:bg-white/5 text-sm transition-colors">Metadata Mastery</a>
+							<a href="#visual-search" class="block px-4 py-2 text-slate-400 hover:text-onyx-accent hover:bg-white/5 text-sm transition-colors">Visual Search</a>
+							<a href="#contextual-ease" class="block px-4 py-2 text-slate-400 hover:text-onyx-accent hover:bg-white/5 text-sm transition-colors">Contextual Ease</a>
+							<a href="#mod-manager-linking" class="block px-4 py-2 text-slate-400 hover:text-onyx-accent hover:bg-white/5 text-sm transition-colors">Mod Manager</a>
+							<a href="#unified-importer" class="block px-4 py-2 text-slate-400 hover:text-onyx-accent hover:bg-white/5 text-sm transition-colors">Unified Importer</a>
+							<a href="#deep-configuration" class="block px-4 py-2 text-slate-400 hover:text-onyx-accent hover:bg-white/5 text-sm transition-colors">Configuration</a>
+							<a href="#view-personalization" class="block px-4 py-2 text-slate-400 hover:text-onyx-accent hover:bg-white/5 text-sm transition-colors">Personalization</a>
+						</div>
+					</div>
+					<a href="#community" class="text-slate-300 hover:text-white text-sm font-medium transition-colors py-2">Community</a>
+					<a href="#support" class="text-slate-300 hover:text-white text-sm font-medium transition-colors py-2">Support</a>
 				</div>
-				<div class="flex items-center gap-6">
+				<div class="flex items-center gap-6 flex-shrink-0">
 					<div class="hidden md:flex items-center gap-6 mr-2">
 						<!-- Ko-fi Icon -->
 						<a href="https://ko-fi.com/oynxgilga" target="_blank" title="Support Development" class="flex-shrink-0 text-slate-400 hover:text-onyx-accent transition-all hover:scale-110">
@@ -75,13 +114,13 @@ const advancedFeatures = [
 							<svg class="w-5 h-5 block" fill="currentColor" viewBox="0 0 24 24"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.419-2.157 2.419zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42.001 1.333-.956 2.419-2.157 2.419z"/></svg>
 						</a>
 					</div>
-					<a href="https://discord.gg/m2dgd4ZUPu" target="_blank" class="px-4 py-1.5 bg-white/5 hover:bg-onyx-accent hover:text-slate-950 border border-white/10 rounded-lg text-[10px] font-bold tracking-widest transition-all hover:scale-105 cursor-pointer">Join Testing</a>
+					<a href="https://github.com/Lasikiewicz/onyx/releases" target="_blank" rel="noopener noreferrer" class="px-4 py-1.5 bg-blue-600 hover:bg-blue-500 text-white border border-blue-500/50 rounded-lg text-[10px] font-bold tracking-widest transition-all hover:scale-105 cursor-pointer">Download</a>
 				</div>
 			</div>
 		</nav>
 
 		<!-- Hero Section: Ultimate Minimalism -->
-		<section class="relative min-h-[70vh] flex items-center justify-center overflow-hidden px-8 md:px-24">
+		<section class="relative min-h-[70vh] flex items-center justify-center overflow-hidden px-8 md:px-24 pb-16">
 			<!-- Background Fanart Blur -->
 			<div class="absolute inset-0 z-0 scale-110 opacity-20 blur-[80px]">
 				<img src="/Screenshots/Carousel View.png" class="w-full h-full object-cover" />
@@ -106,44 +145,47 @@ const advancedFeatures = [
 
 				<!-- Right: Tagline -->
 				<div class="text-center md:text-left">
-					<h1 class="text-4xl md:text-6xl text-onyx-accent leading-tight font-bold tracking-wide italic relative z-10">
+					<h1 class="text-4xl lg:text-5xl font-black tracking-tighter leading-none text-onyx-accent relative z-10">
 						Onyx Launcher
 					</h1>
-					<div class="mt-6 text-xl text-slate-400 font-light italic opacity-80 max-w-xl leading-relaxed mx-auto md:mx-0 space-y-4">
-						<p>
-							Onyx Launcher seamlessly unifies your game libraries into a single, cohesive experience designed for ultimate personalization.
-						</p>
-						<p>
-							While other platforms like Playnite can be complex to configure, Onyx empowers you to tailor your interface with a simple right-click. Instantly resize logos, adjust box art, and modify layout proportions to your exact specifications.
-						</p>
-						<p>
-							With granular control over every element, you can create a gaming environment that is truly your own.
-						</p>
-					</div>
-					<div class="mt-8 flex flex-wrap items-center gap-4 justify-center md:justify-start">
-						<a href="https://github.com/Lasikiewicz/onyx/releases" target="_blank" rel="noopener noreferrer" class="onyx-btn-play !px-8 !py-3 text-base uppercase tracking-widest font-black">
-							Download for Windows
-						</a>
-						<a href="https://onyxlauncher.co.uk/" target="_blank" rel="noopener noreferrer" class="text-slate-400 hover:text-onyx-accent text-sm transition-colors">Visit website</a>
-					</div>
+					<p class="mt-6 text-slate-400 text-xl lg:text-2xl leading-relaxed max-w-xl font-light italic opacity-80 mx-auto md:mx-0">
+						One library for Steam, Epic, GOG, Xbox and more. Customize everything with a right-click.
+					</p>
 				</div>
 			</div>
 		</section>
 
+		<!-- Why another launcher… -->
+		<section class="relative z-10 -mt-12 pt-16 pb-16 px-8 md:px-24 bg-[#0b0e14] border-t border-white/5">
+			<div class="max-w-6xl mx-auto text-center space-y-8">
+				<h2 class="text-4xl lg:text-5xl font-black tracking-tighter leading-none text-white">
+					Why another launcher…
+				</h2>
+				<p class="text-slate-400 text-xl lg:text-2xl leading-relaxed max-w-4xl font-light italic opacity-80 mx-auto">
+					So why Onyx? Your games live everywhere Steam, Epic, GOG, Xbox, Ubisoft, EA, and more. Most launchers like Playnite either lock you into one ecosystem or bury you in options. Onyx has a single job: <span class="text-white/90 not-italic">one library, one place, your way.</span>
+				</p>
+				<p class="text-slate-400 text-xl lg:text-2xl leading-relaxed max-w-4xl font-light italic opacity-80 mx-auto">
+					No accounts to sync, no subscription, no clutter. You add your libraries, pick your view (grid, list, logo, or carousel), and customize everything with a right-click. It’s a focused, open source hub for your existing games nothing more, nothing less.
+				</p>
+			</div>
+		</section>
+
 		<!-- The Full Experience: Showcase -->
-		<div class="relative z-10 py-24 px-12 bg-gradient-to-b from-transparent via-[#0b0e14] to-[#0b0e14] -mt-32">
-			<div class="max-w-7xl mx-auto space-y-24">
+		<div id="features" class="relative z-10 py-16 px-12 bg-gradient-to-b from-transparent via-[#0b0e14] to-[#0b0e14]">
+			<div class="max-w-7xl mx-auto">
 				
 				<!-- Unified Feature Showcase -->
 				<section>
 					<div class="space-y-32">
-						{[...collectionViews, ...managementTools, ...advancedFeatures].map((item, index) => (
-							<div class={`flex flex-col md:items-center gap-16 lg:gap-32 ${index % 2 === 1 ? 'md:flex-row-reverse' : 'md:flex-row'}`}>
+						{[...collectionViews, ...managementTools, ...advancedFeatures].map((item, index) => {
+							const itemId = item.title.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+							return (
+							<div id={itemId} class={`flex flex-col md:items-center gap-16 lg:gap-32 scroll-mt-24 ${index % 2 === 1 ? 'md:flex-row-reverse' : 'md:flex-row'}`}>
 								<!-- Image Side -->
 								<div class="md:flex-[1.6] group relative bg-[#1a1f2e] rounded-3xl overflow-hidden border border-white/5 transition-all duration-700 hover:border-onyx-accent/50 hover:shadow-[0_0_80px_rgba(14,165,233,0.15)] cursor-pointer lightbox-trigger" data-images={JSON.stringify(item.images)}>
 									<div class="aspect-video overflow-hidden relative carousel-container">
 										{item.images.map((img, idx) => (
-											<img src={img} alt={`${item.title} - ${idx}`} class={`absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ${idx === 0 ? 'opacity-100' : 'opacity-0'} carousel-img`} />
+											<img src={img} alt={`${item.title} - ${idx}`} class={`absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ${idx === 0 ? 'opacity-100' : 'opacity-0'} carousel-img ${item.title === 'Mod Manager linking' ? 'object-right-bottom' : ''}`} />
 										))}
 										{item.images.length > 1 && (
 											<div class="absolute bottom-6 right-6 bg-black/60 backdrop-blur-md px-4 py-2 rounded-xl text-[12px] font-bold uppercase tracking-widest text-white/90 border border-white/10 z-10 carousel-counter">
@@ -160,18 +202,19 @@ const advancedFeatures = [
 									</p>
 								</div>
 							</div>
-						))}
+							);
+						})}
 					</div>
 				</section>
 			</div>
 		</div>
 
 		<!-- Community Section -->
-		<section class="py-24 px-12 relative overflow-hidden bg-[#0b0e14]">
+		<section id="community" class="py-16 px-12 relative overflow-hidden bg-[#0b0e14] scroll-mt-24">
 			<div class="max-w-7xl mx-auto flex flex-col items-center text-center space-y-12">
 				<div class="space-y-4">
-					<h2 class="text-5xl font-black uppercase tracking-tighter italic">Join The Community</h2>
-					<p class="text-xl text-slate-400 font-light max-w-2xl mx-auto px-4 italic">
+					<h2 class="text-4xl lg:text-5xl font-black tracking-tighter leading-none">Join the community</h2>
+					<p class="text-slate-400 text-xl lg:text-2xl leading-relaxed max-w-xl font-light italic opacity-80 mx-auto">
 						Stay updated with the latest releases and developmental updates directly from our community hubs.
 					</p>
 				</div>
@@ -181,26 +224,26 @@ const advancedFeatures = [
 						<div class="w-12 h-12 text-onyx-accent mb-6 mx-auto">
 							<svg fill="currentColor" viewBox="0 0 24 24"><path d="M12 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0zm5.01 4.744c.688 0 1.25.561 1.25 1.249a1.25 1.25 0 0 1-2.498.056l-2.597-.547-.8 3.747c1.824.07 3.48.632 4.674 1.488.308-.309.73-.491 1.207-.491.968 0 1.754.786 1.754 1.754 0 .716-.435 1.333-1.056 1.597.04.21.06.423.06.637 0 2.512-3.493 4.549-7.801 4.549-4.308 0-7.801-2.037-7.801-4.549 0-.214.021-.427.06-.637a1.756 1.756 0 0 1-1.056-1.597c0-.968.786-1.754 1.754-1.754.463 0 .875.18 1.185.472 1.202-.846 2.84-1.398 4.646-1.472l.803-3.747 2.364.523a1.25 1.25 0 0 1 0 .142zM8.477 14.126a1.21 1.21 0 1 0 0-2.418 1.21 1.21 0 0 0 0 2.418zm7.046 0a1.21 1.21 0 1 0 0-2.418 1.21 1.21 0 0 0 0 2.418zm-3.007 3.328c-.141 0-.28-.012-.417-.035-.558-.093-1.05-.386-1.395-.81a.488.488 0 0 1 .76-.61c.21.26.51.442.853.499a1.457 1.457 0 0 0 .72-.05.488.488 0 0 1 .425.877c-.287.14-.622.23-.946.23z"/></svg>
 						</div>
-						<h3 class="text-3xl font-bold mb-3">Reddit</h3>
-						<p class="text-slate-400 italic">Official community discussion and announcements.</p>
+						<h3 class="text-4xl lg:text-5xl font-black tracking-tighter leading-none mb-3">Reddit</h3>
+						<p class="text-slate-400 text-xl lg:text-2xl leading-relaxed font-light italic opacity-80">Official community discussion and announcements.</p>
 					</a>
 					<a href="https://discord.gg/m2dgd4ZUPu" target="_blank" class="group p-10 bg-[#1a1f2e] border border-white/5 rounded-2xl hover:border-onyx-accent transition-all duration-500 hover:shadow-[0_0_40px_rgba(14,165,233,0.1)]">
 						<div class="w-12 h-12 text-onyx-accent mb-6 mx-auto">
 							<svg fill="currentColor" viewBox="0 0 24 24"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.419-2.157 2.419zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42.001 1.333-.956 2.419-2.157 2.419z"/></svg>
 						</div>
-						<h3 class="text-3xl font-bold mb-3">Discord</h3>
-						<p class="text-slate-400 italic">Direct support and community hangouts.</p>
+						<h3 class="text-4xl lg:text-5xl font-black tracking-tighter leading-none mb-3">Discord</h3>
+						<p class="text-slate-400 text-xl lg:text-2xl leading-relaxed font-light italic opacity-80">Direct support and community hangouts.</p>
 					</a>
 				</div>
 			</div>
 		</section>
 
 		<!-- Support Section -->
-		<section class="py-32 px-12 relative overflow-hidden bg-onyx-accent/5">
+		<section id="support" class="py-16 px-12 relative overflow-hidden bg-onyx-accent/5 scroll-mt-24">
 			<div class="max-w-7xl mx-auto flex flex-col items-center text-center space-y-12">
 				<div class="space-y-4">
-					<h2 class="text-6xl font-black uppercase tracking-tighter italic">Support Onyx</h2>
-					<p class="text-2xl text-slate-400 font-light max-w-2xl mx-auto italic">
+					<h2 class="text-4xl lg:text-5xl font-black tracking-tighter leading-none">Support Onyx</h2>
+					<p class="text-slate-400 text-xl lg:text-2xl leading-relaxed max-w-xl font-light italic opacity-80 mx-auto">
 						Help sustain independent development and power the future of your library.
 					</p>
 				</div>
@@ -212,10 +255,10 @@ const advancedFeatures = [
 		</section>
 
 		<!-- Footer Section: Minimalist CTA -->
-		<footer class="py-32 px-12 border-t border-white/5 relative bg-[#0b0e14]">
+		<footer class="py-16 px-12 border-t border-white/5 relative bg-[#0b0e14]">
 			<div class="max-w-4xl mx-auto text-center space-y-12">
-				<h2 class="text-6xl md:text-8xl font-black uppercase tracking-tighter italic opacity-80">The Future of Play</h2>
-				<p class="text-xl text-slate-400 font-light tracking-wide italic">Download Onyx and reclaim your library.</p>
+				<h2 class="text-4xl lg:text-5xl font-black tracking-tighter leading-none opacity-90">The Future of Play</h2>
+				<p class="text-slate-400 text-xl lg:text-2xl leading-relaxed max-w-xl font-light italic opacity-80 mx-auto">Download Onyx and reclaim your library.</p>
 				<div class="flex flex-col sm:flex-row items-center justify-center gap-6">
 					<a href="https://github.com/Lasikiewicz/onyx/releases" target="_blank" rel="noopener noreferrer" class="onyx-btn-play !px-12 !py-4 text-xl !rounded-none uppercase tracking-widest font-black transition-all hover:tracking-[0.2em] cursor-pointer">
 						Download for Windows
@@ -609,6 +652,24 @@ const advancedFeatures = [
 				images[index].classList.add('opacity-100');
 				if (counter) counter.textContent = `${index + 1} / ${images.length}`;
 			}, 4000 + Math.random() * 2000); // Organic offset
+		});
+
+		// Smooth scroll for anchor links with offset for fixed nav
+		document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+			anchor.addEventListener('click', function (e) {
+				const href = this.getAttribute('href');
+				if (href && href !== '#') {
+					const target = document.querySelector(href);
+					if (target) {
+						e.preventDefault();
+						const offsetTop = target.getBoundingClientRect().top + window.pageYOffset - 80;
+						window.scrollTo({
+							top: offsetTop,
+							behavior: 'smooth'
+						});
+					}
+				}
+			});
 		});
 	</script>
 </Layout>
