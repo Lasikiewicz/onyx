@@ -316,12 +316,15 @@ export class SteamService {
             // Try to extract appid from filename as fallback
             const appIdMatch = acfFile.match(/appmanifest_(\d+)\.acf/);
             if (appIdMatch) {
-              // Optimized local import approach
               const appId = appIdMatch[1];
-              // Try to get name from parsed content even if full parse failed
               const parsed = this.parseVDF(content);
               const appState = parsed.AppState || parsed.appstate || parsed;
               const name = appState?.name || appState?.Name || `Steam Game ${appId}`;
+              // Skip excluded app IDs in fallback path too (redistributables, tools, etc.)
+              if (this.EXCLUDED_STEAM_APPIDS.has(appId)) {
+                console.log(`⊘ Skipped (excluded): ${name} (AppID: ${appId})`);
+                continue;
+              }
 
               games.push({
                 appId: appId,
