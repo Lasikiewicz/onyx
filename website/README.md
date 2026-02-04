@@ -13,19 +13,15 @@ Open [https://onyxlauncher.co.uk/](https://onyxlauncher.co.uk/), click each butt
 
 ## Deploy to Cloudflare Pages
 
-**“Push website live”** (for AI or humans) means: build, commit and push to git, then update the **production** branch so Cloudflare deploys to production. Production deploys from **`main`**; pushes to **`master`** only create preview deployments. So: push to `master`, then merge `master` into `main` and push `main`.
-
-### One-off deploy from this repo (preview)
-
-From the `website/` directory:
+**“Push website live”** = build website, push to git `master`, then deploy via wrangler. Do **not** merge to `main` (that triggers the Electron app build). From repo root:
 
 ```bash
-npm install
-npm run build
-npx wrangler pages deploy dist --project-name=onyx
+cd website && npm run build
+git add -A && git commit -m "website: ..." && git push origin master
+cd website && npx wrangler pages deploy dist --project-name=onyx
 ```
 
-Ensure you’re logged in (`npx wrangler login`). That creates a **preview** deployment. The live production site is at [onyxlauncher.co.uk](https://onyxlauncher.co.uk/) and `oynx.pages.dev` and updates when you push to **`main`**.
+Log in first if needed: `npx wrangler login`. If the deploy is a preview, promote it to production in the Cloudflare Pages dashboard. Live site: [onyxlauncher.co.uk](https://onyxlauncher.co.uk/), `oynx.pages.dev`.
 
 ## 🚀 Project Structure
 

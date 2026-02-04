@@ -13,59 +13,45 @@ description: Onyx AI Agent Guide - Critical Rules & Project Context
 
 ## 🔄 RELEASE WORKFLOW (Strict Protocol)
 
-### 1. "Push to git master" (Code Only - NO BUILD)
-**Saves code to remote master. Does NOT trigger any build.**
+### 1. "Push to git master"
+**Push to remote git only. Does NOT build the app or trigger any CI.**
 ```bash
-git add .
+git add -A
 git commit -m "[Summary]"
 git push origin master
 ```
 
-### 2. "Force to Alpha" (Triggers Alpha Build)
-**Force pushes master to develop. Triggers 'Onyx Alpha' build.**
-*Required:* Increment version first if a new build number is desired.
+### 2. "Force to Alpha"
+**Force remote master → remote develop. Triggers 'Onyx Alpha' build.** (Do not build locally.)
 ```bash
-npm run increment-build          # Optional: Increment version
-git add .
-git commit -m "Build X.Y.Z - [Summary]" # If incremented
-git push origin master
 git push origin master:develop --force
 ```
+*Optional:* Run `npm run increment-build` and push to master first if you want a new version.
 
-### 3. "Force to Main" (Triggers Release Build)
-**Force pushes develop to main. Triggers 'Onyx' (Production) build.**
+### 3. "Force to Main"
+**Force remote develop → remote main. Triggers 'Onyx' (Production) app build.** (Do not build locally.)
 ```bash
 git fetch origin develop
 git push origin origin/develop:main --force
 ```
 
-### 4. Website-Only Updates
-- Commit to `master`, then update `main` so Cloudflare production deploys (see **Push website live** below).
-- **DO NOT** run `npm run increment-build` or modify `package.json` for website-only changes.
-- Changes to `website/` or `docs/` trigger Cloudflare but skip GitHub Actions (build.yml path-ignores `website/`).
-
-### 5. Push website live
-**Meaning:** Put current code in git and update Cloudflare **production** (onyxlauncher.co.uk). Production deploys from **`main`**; pushes to **`master`** only create preview deployments. Do all steps:
-
-1. **Build** (from repo root):
+### 4. "Push website live"
+**Only push the website to production. Do NOT merge to main (that would trigger the Electron app build).**
+1. Build the website:
    ```bash
    cd website && npm run build
    ```
-2. **Commit and push to master** (if there are uncommitted changes):
+2. Commit and push to master (if there are uncommitted changes):
    ```bash
    git add -A
-   git commit -m "[Summary — e.g. website: nav, docs, agent workflow]"
+   git commit -m "[Summary — e.g. website: ...]"
    git push origin master
    ```
-3. **Update production** (merge to `main` and push so Cloudflare deploys):
+3. Deploy the built site to Cloudflare:
    ```bash
-   git checkout main
-   git pull origin main
-   git merge master
-   git push origin main
-   git checkout master
+   cd website && npx wrangler pages deploy dist --project-name=onyx
    ```
-- Do **not** only run `wrangler pages deploy` without pushing to git and updating `main`; that creates a preview only.
+   If the deploy is a preview, promote it to production in the Cloudflare Pages dashboard.
 
 ## 🚫 ELECTRON-ONLY APPLICATION
 
