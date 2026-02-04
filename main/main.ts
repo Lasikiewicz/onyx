@@ -1,8 +1,10 @@
 import { app, BrowserWindow, ipcMain, dialog, Menu, protocol, Tray, nativeImage, shell, session, net, globalShortcut } from 'electron';
 
 // Early branding setup - must happen before any other modules initialize paths
-const BUILD_PROFILE = process.env.BUILD_PROFILE || 'production';
-const IS_ALPHA = BUILD_PROFILE === 'alpha';
+// Packaged alpha runs as OnyxAlpha.exe; detect from exec path. Dev uses BUILD_PROFILE env.
+const IS_ALPHA = app.isPackaged
+  ? process.execPath.toLowerCase().includes('onyxalpha')
+  : process.env.BUILD_PROFILE === 'alpha';
 app.setName(IS_ALPHA ? 'Onyx Alpha' : 'Onyx');
 if (process.platform === 'win32') {
   app.setAppUserModelId(IS_ALPHA ? 'com.lasikiewicz.onyx.alpha' : 'com.lasikiewicz.onyx');
