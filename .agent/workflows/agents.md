@@ -27,20 +27,26 @@ git push origin master
 ```
 
 ### 2. "Force to Alpha"
-**Bump version, push to master, then force master → develop. Triggers 'Onyx Alpha' build.** (Do not build locally.)
-- Run `npm run increment-build`, then read `version` from `package.json`.
-- Commit message **must start with the new version**, e.g. `0.2.41 Bump version for alpha`.
+**Bump version, add a brief changelog, push to master, then force master → develop. Triggers 'Onyx Alpha' build.** (Do not build locally.)
+
+1. Run `npm run increment-build`, then read `version` from `package.json`.
+2. **Add a brief changelog** for this alpha: edit [CHANGELOG.md](CHANGELOG.md)—add a new `## [X.Y.Z] - YYYY-MM-DD` section (or update `[Unreleased]`) with a short list of changes (e.g. "Auto-update support", "Fix settings save").
+3. Commit message **must** be: `<version> <changes>` (version first, then brief description). Example: `0.3.2 Auto-update and changelog in agents`.
 ```bash
 npm run increment-build
-git add package.json
-git commit -m "<version> Bump version for alpha"
+# Edit CHANGELOG.md with a brief changelog for this alpha, then:
+git add package.json CHANGELOG.md
+git commit -m "<version> <changes>"
 git push origin master
 git push origin master:develop --force
 ```
-Replace `<version>` with the value from `package.json` (e.g. `0.2.41`).
+- Replace `<version>` with the value from `package.json` (e.g. `0.3.2`).
+- Replace `<changes>` with a very short summary of what this alpha contains (can match the changelog heading).
 
 ### 3. "Force to Main"
 **Force remote develop → remote main. Triggers 'Onyx' (Production) app build.** (Do not build locally.)
+
+**CRITICAL:** You must push the **remote** develop branch to main, not your local `develop`. Always use `origin/develop` as the source ref so main gets the latest from the server after "Force to Alpha".
 ```bash
 git fetch origin develop
 git push origin origin/develop:main --force
@@ -219,4 +225,4 @@ Before ANY git operations:
 
 ---
 
-**For full details, see**: `docs/agents.md`
+**This is the single agent guide.** All workflow and project context lives here; do not use `docs/agents.md` for agent instructions.
