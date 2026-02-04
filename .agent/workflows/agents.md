@@ -6,17 +6,20 @@ description: Onyx AI Agent Guide - Critical Rules & Project Context
 
 ## ⚠️ MANDATORY GIT RULES - NON-NEGOTIABLE
 
-**NEVER push to git without explicit permission:**
-- ❌ NO `git commit/push/pull` without asking first
-- ✅ "Push to git" or "push to git master" = permission for **master** branch only
-- **WORKFLOW**: Make changes → STOP → Ask user → Show summary → WAIT for approval → Execute
-- **NEVER** add `Co-authored-by: Cursor <cursoragent@cursor.com>` (or any co-author line) to commit messages.
-- **Always use the terminal** for commits: run `git commit -m "..."` in the shell so the Husky `commit-msg` hook runs (it strips co-author lines). Do not use Cursor’s commit UI—it can bypass the hook and add Cursor branding.
+**Agent CAN push to git when following established workflows below. CRITICAL requirements:**
+- ✅ **ALWAYS use terminal commands** (`git commit -m "..."`, `git push`, etc.) - NEVER use Cursor's Source Control / commit UI
+- ✅ **NEVER add Co-authored-by or Cursor branding** - The `commit-msg` hook strips these automatically, but don't add them in the first place
+- ✅ **Terminal commits use your git config** (your name/email) as author - this is why we use terminal, not Cursor UI
+- ✅ **Follow the workflows below** - These are the approved ways to push to git:
+  - "Push to git master" / "push to git" = push to master branch
+  - "Force to Alpha" = version bump + push workflow
+  - "Force to Main" = production release workflow
+  - "Push website live" = website deployment workflow
 
 ## 🔄 RELEASE WORKFLOW (Strict Protocol)
 
 ### 1. "Push to git master"
-**Push to remote git only. Does NOT build the app or trigger any CI.** Never add Co-authored-by to commits.
+**Push to remote git only. Does NOT build the app or trigger any CI.** Cursor must not appear on GitHub (no co-author, no Cursor in message; commit from terminal so author is your git config).
 ```bash
 git add -A
 git commit -m "[Summary]"

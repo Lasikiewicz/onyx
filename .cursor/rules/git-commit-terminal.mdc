@@ -5,7 +5,7 @@ alwaysApply: true
 
 # Git commits: terminal only, no co-author
 
-- **Never** add `Co-authored-by: Cursor <cursoragent@cursor.com>` or any other co-author line to commit messages.
-- **Always** run `git commit` from the **terminal** (e.g. via the agent or a shell), using `git commit -m "..."` with the exact message. Do not use or suggest using Cursor’s Source Control / commit UI to create commits.
-- Commits made from the terminal go through the Husky `commit-msg` hook, which strips any co-author lines. Commits made from the IDE can bypass the hook and add Cursor branding.
-- For any “push to git”, “force to alpha” version bump, or other commit: run `git add` and `git commit -m "..."` in the terminal, then `git push` as needed.
+- **Agent CAN push to git** when following established workflows, but MUST use terminal commands only.
+- **Cursor must never appear on GitHub:** no Co-authored-by, no Cursor/cursoragent in messages, no Cursor as author. The Husky `commit-msg` hook strips co-author lines and any line containing "cursoragent"; terminal commits use your git config as author.
+- **ALWAYS run `git commit` from the terminal (e.g. via the agent or a shell), using `git commit -m "..."` with the exact message. NEVER use Cursor’s Source Control / commit UI - it can bypass the hook and set Cursor as author or co-author on GitHub.
+- For any “push to git”, “force to alpha” version bump, or other commit: run `git add` and `git commit -m "..."` in the terminal, then `git push` as needed. The hook automatically strips any Cursor mentions, but don't add them in the first place.

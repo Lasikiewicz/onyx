@@ -1,9 +1,9 @@
 #!/usr/bin/env sh
 . "$(dirname -- "$0")/_/husky.sh"
 
-# Strip Co-authored-by (and any co-author) lines so Cursor/IDE branding never lands in the repo
+# Strip Co-authored-by and any Cursor agent mention so Cursor never appears on GitHub
 msg_file="$1"
 if [ -f "$msg_file" ]; then
-  tmp="${msg_file}.no-coauthor"
-  grep -v -i '^Co-authored-by:' "$msg_file" > "$tmp" && mv "$tmp" "$msg_file"
+  tmp="${msg_file}.no-cursor"
+  grep -v -i -E '^Co-authored-by:|cursoragent' "$msg_file" > "$tmp" && mv "$tmp" "$msg_file"
 fi
