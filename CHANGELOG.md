@@ -8,6 +8,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - See the [repository](https://github.com/Lasikiewicz/onyx) for the latest work in progress.
 
+## [0.3.18] - 2026-02-05
+
+- Fix controller settings build error: support step value on navigation speed input
+
 ## [0.3.17] - 2026-02-05
 
 - Fix installer download URL: use dots in artifact name (Onyx.Setup) to match GitHub release
