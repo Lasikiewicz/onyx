@@ -111,6 +111,7 @@ interface SettingsInputProps {
     placeholder?: string;
     suffix?: string;
     disabled?: boolean;
+    step?: string | number;
 }
 
 export const SettingsInput: React.FC<SettingsInputProps> = ({
@@ -121,7 +122,8 @@ export const SettingsInput: React.FC<SettingsInputProps> = ({
     type = 'text',
     placeholder,
     suffix,
-    disabled = false
+    disabled = false,
+    step
 }) => {
     return (
         <SettingsCard className={`space-y-2 ${disabled ? 'opacity-50 pointer-events-none' : ''}`}>
@@ -142,6 +144,7 @@ export const SettingsInput: React.FC<SettingsInputProps> = ({
                     onChange={(e) => onChange(e.target.value)}
                     placeholder={placeholder}
                     disabled={disabled}
+                    step={step}
                     className="
             flex-1 px-2.5 py-1.5 bg-gray-900/80 border border-gray-600 rounded text-sm text-white 
             placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500
