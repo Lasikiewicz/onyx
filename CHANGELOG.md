@@ -8,6 +8,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - See the [repository](https://github.com/Lasikiewicz/onyx) for the latest work in progress.
 
+## [0.3.17] - 2026-02-05
+
+- Fix installer download URL: use dots in artifact name (Onyx.Setup) to match GitHub release
+
 ## [0.3.16] - 2026-02-04
 
 - Workflow: push to git runs build first; fix isViewFlippedByView preference load (duplicate keys)
