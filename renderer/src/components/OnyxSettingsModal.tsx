@@ -40,7 +40,7 @@ interface OnyxSettings {
   gamepadButtonLayout: 'xbox' | 'playstation';
 }
 
-type TabType = 'general' | 'library' | 'launchers' | 'integrations' | 'appearance' | 'advanced' | 'about' | 'controller'; // Keep legacy types for state compatibility, but UI will hide them
+type TabType = 'general' | 'scanning' | 'library' | 'launchers' | 'integrations' | 'appearance' | 'advanced' | 'about' | 'controller'; // Keep legacy types for state compatibility, but UI will hide them
 
 interface AppConfig {
   id: string;
@@ -853,6 +853,15 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
       ),
     },
     {
+      id: 'scanning',
+      label: 'Scanning',
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+        </svg>
+      ),
+    },
+    {
       id: 'controller',
       label: 'Fullscreen',
       icon: (
@@ -959,7 +968,34 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
 
               </SettingsSection>
 
-              <SettingsSection title="Scanning Options" description="Automatic game detection">
+              <SettingsSection title="Window Behavior">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+                  <SettingsToggle
+                    label="Minimize on Game Launch"
+                    description="Automatically minimize Onyx when a game starts"
+                    checked={settings.minimizeOnGameLaunch}
+                    onChange={() => handleToggle('minimizeOnGameLaunch')}
+                  />
+                  <SettingsToggle
+                    label="Restore Window on Game Exit"
+                    description="Automatically restore Onyx when you close a game"
+                    checked={settings.restoreAfterLaunch}
+                    onChange={() => handleToggle('restoreAfterLaunch')}
+                  />
+                  <SettingsToggle
+                    label="Confirm Game Launch"
+                    description="Show a confirmation dialog before launching games"
+                    checked={settings.confirmGameLaunch}
+                    onChange={() => handleToggle('confirmGameLaunch')}
+                  />
+                </div>
+              </SettingsSection>
+
+            </div>
+          )}
+          {activeTab === 'scanning' && (
+            <div className="space-y-6 p-6">
+              <SettingsSection title="Automatic Scanning" description="Configure how Onyx detects new games">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
                   <SettingsToggle
                     label="Background Scanning"
@@ -987,6 +1023,11 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                       description="How often to check for new games (1-1440 minutes)"
                     />
                   )}
+                </div>
+              </SettingsSection>
+
+              <SettingsSection title="Startup Behavior" description="Configure scanning behavior on application start">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
                   <SettingsToggle
                     label="Update Libraries on Startup"
                     description="Automatically scan for new games when Onyx starts"
@@ -1001,30 +1042,6 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                   />
                 </div>
               </SettingsSection>
-
-              <SettingsSection title="Window Behavior">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
-                  <SettingsToggle
-                    label="Minimize on Game Launch"
-                    description="Automatically minimize Onyx when a game starts"
-                    checked={settings.minimizeOnGameLaunch}
-                    onChange={() => handleToggle('minimizeOnGameLaunch')}
-                  />
-                  <SettingsToggle
-                    label="Restore Window on Game Exit"
-                    description="Automatically restore Onyx when you close a game"
-                    checked={settings.restoreAfterLaunch}
-                    onChange={() => handleToggle('restoreAfterLaunch')}
-                  />
-                  <SettingsToggle
-                    label="Confirm Game Launch"
-                    description="Show a confirmation dialog before launching games"
-                    checked={settings.confirmGameLaunch}
-                    onChange={() => handleToggle('confirmGameLaunch')}
-                  />
-                </div>
-              </SettingsSection>
-
             </div>
           )}
           {
