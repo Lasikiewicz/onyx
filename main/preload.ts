@@ -186,6 +186,25 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getShortcut: async () => ({ success: false, error: 'Feature is disabled' }),
     setShortcut: async () => ({ success: false, error: 'Feature is disabled' }),
   },
+  // Fullscreen methods
+  fullscreen: {
+    toggle: () => ipcRenderer.invoke('app:toggleFullscreen'),
+    enter: () => ipcRenderer.invoke('app:enterFullscreen'),
+    exit: () => ipcRenderer.invoke('app:exitFullscreen'),
+    getState: () => ipcRenderer.invoke('app:getFullscreenState'),
+    onChanged: (callback: (isFullscreen: boolean) => void) => {
+      const handler = (_event: any, isFullscreen: boolean) => callback(isFullscreen);
+      ipcRenderer.on('fullscreen-changed', handler);
+      return () => ipcRenderer.removeListener('fullscreen-changed', handler);
+    },
+  },
+  // Gamepad methods
+  gamepad: {
+    getPreferences: () => ipcRenderer.invoke('gamepad:getPreferences'),
+    setEnabled: (enabled: boolean) => ipcRenderer.invoke('gamepad:setEnabled', enabled),
+    setNavigationSpeed: (speed: number) => ipcRenderer.invoke('gamepad:setNavigationSpeed', speed),
+    setButtonLayout: (layout: 'xbox' | 'playstation') => ipcRenderer.invoke('gamepad:setButtonLayout', layout),
+  },
   // Bug report methods
   generateBugReport: (userDescription: string) => ipcRenderer.invoke('bugReport:generate', userDescription),
   getBugReportLogsDirectory: () => ipcRenderer.invoke('bugReport:getLogsDirectory'),

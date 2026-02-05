@@ -1,8 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   DndContext,
   closestCenter,
-  KeyboardSensor,
   PointerSensor,
   useSensor,
   useSensors,
@@ -11,7 +10,6 @@ import {
 import {
   arrayMove,
   SortableContext,
-  sortableKeyboardCoordinates,
   rectSortingStrategy,
 } from '@dnd-kit/sortable';
 import { Game } from '../types/game';
@@ -76,16 +74,73 @@ export const LibraryGrid: React.FC<LibraryGridProps> = ({
     setItems(games);
   }, [games]);
 
+  const gridRef = useRef<HTMLDivElement>(null);
+  const [focusedIndex, setFocusedIndex] = useState<number>(-1);
+
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
         distance: 8, // Require 8px of movement before starting drag
       },
-    }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
     })
   );
+
+  // Handle keyboard navigation for gamepad support
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!gridRef.current || items.length === 0) return;
+
+      const cards = Array.from(gridRef.current.querySelectorAll('[data-game-card]'));
+      if (cards.length === 0) return;
+
+      // Calculate grid columns based on current layout
+      const gridElement = gridRef.current.querySelector('.grid') as HTMLElement;
+      if (!gridElement) return;
+      
+      const firstCard = cards[0] as HTMLElement;
+      const gridWidth = gridElement.offsetWidth;
+      const cardWidth = firstCard.offsetWidth;
+      const gap = gameTilePadding;
+      const columns = Math.floor((gridWidth + gap) / (cardWidth + gap));
+
+      let newIndex = focusedIndex;
+
+      switch (e.key) {
+        case 'ArrowRight':
+          e.preventDefault();
+          newIndex = focusedIndex < 0 ? 0 : Math.min(focusedIndex + 1, items.length - 1);
+          break;
+        case 'ArrowLeft':
+          e.preventDefault();
+          newIndex = focusedIndex < 0 ? 0 : Math.max(focusedIndex - 1, 0);
+          break;
+        case 'ArrowDown':
+          e.preventDefault();
+          newIndex = focusedIndex < 0 ? 0 : Math.min(focusedIndex + columns, items.length - 1);
+          break;
+        case 'ArrowUp':
+          e.preventDefault();
+          newIndex = focusedIndex < 0 ? 0 : Math.max(focusedIndex - columns, 0);
+          break;
+        case 'Enter':
+          e.preventDefault();
+          if (focusedIndex >= 0 && focusedIndex < items.length && onGameClick) {
+            onGameClick(items[focusedIndex]);
+          }
+          break;
+        default:
+          return;
+      }
+
+      if (newIndex !== focusedIndex) {
+        setFocusedIndex(newIndex);
+        (cards[newIndex] as HTMLElement)?.focus();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [items, focusedIndex, gameTilePadding, onGameClick]);
 
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
@@ -106,6 +161,7 @@ export const LibraryGrid: React.FC<LibraryGridProps> = ({
     <div className="w-full h-full flex flex-col">
       {/* Grid Container */}
       <div 
+        ref={gridRef}
         className="flex-1 overflow-y-auto"
         onContextMenu={(e) => {
           // Right click on empty space in grid - check if target is not a game card
@@ -142,7 +198,7 @@ export const LibraryGrid: React.FC<LibraryGridProps> = ({
                 }
               }}
             >
-              {items.map((game) => (
+              {items.map((game, index) => (
                 <SortableGameCard
                   key={game.id}
                   game={game}
@@ -158,6 +214,9 @@ export const LibraryGrid: React.FC<LibraryGridProps> = ({
                   viewMode={viewMode}
                   logoBackgroundColor={logoBackgroundColor}
                   logoBackgroundOpacity={logoBackgroundOpacity}
+                  tabIndex={0}
+                  isFocused={index === focusedIndex}
+                  onFocus={() => setFocusedIndex(index)}
                 />
               ))}
             </div>

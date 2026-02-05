@@ -63,6 +63,7 @@ import { SteamAuthService } from './SteamAuthService.js';
 import { ProcessSuspendService } from './ProcessSuspendService.js';
 import { InstallerPreferenceService } from './InstallerPreferenceService.js';
 import { BugReportService } from './BugReportService.js';
+import { GamepadService } from './GamepadService.js';
 import { DuckDuckGoImageService } from './DuckDuckGoImageService.js';
 import { registerGameIPCHandlers } from './ipc/gameHandlers.js';
 import { registerMetadataIPCHandlers } from './ipc/metadataHandlers.js';
@@ -138,6 +139,9 @@ const steamAuthService = new SteamAuthService();
 const bugReportService = new BugReportService();
 const imageCacheService = new ImageCacheService();
 const launcherService = new LauncherService(gameStore);
+
+// winReference for services that need it (GamepadService, etc.)
+const winReference = { current: win };
 
 // Initialize Metadata Services with credentials
 // We init as null first to avoid authentication errors with empty keys
@@ -228,6 +232,9 @@ if (launchGameArg) {
 }
 
 // Register IPC Handlers
+// Initialize GamepadService
+let gamepadService: GamepadService | null = null;
+
 registerGameIPCHandlers(steamService, xboxService, gameStore, imageCacheService);
 registerMetadataIPCHandlers(metadataFetcher, imageCacheService, gameStore, userPreferencesService, { get current() { return win; } });
 registerAppIPCHandlers(
@@ -572,7 +579,7 @@ async function createWindow() {
   }
 
   // Load saved window state
-  let windowState: { x?: number; y?: number; width?: number; height?: number; isMaximized?: boolean } | undefined;
+  let windowState: { x?: number; y?: number; width?: number; height?: number; isMaximized?: boolean; isFullscreen?: boolean } | undefined;
   let isFirstLaunch = true;
   try {
     const prefs = await userPreferencesService.getPreferences();
@@ -617,6 +624,21 @@ async function createWindow() {
   // Restore maximized state if previously maximized (for non-first-launch)
   if (!isFirstLaunch && windowState?.isMaximized) {
     win.maximize();
+  }
+
+  // Restore fullscreen state if previously in fullscreen (for non-first-launch)
+  if (!isFirstLaunch && windowState?.isFullscreen) {
+    win.setFullScreen(true);
+  }
+
+  // Apply startInFullscreen preference if enabled
+  try {
+    const prefs = await userPreferencesService.getPreferences();
+    if (prefs.startInFullscreen && !win.isFullScreen()) {
+      win.setFullScreen(true);
+    }
+  } catch (error) {
+    console.error('Error applying startInFullscreen preference:', error);
   }
 
   // Handle first launch: Maximize and set resolution-optimized defaults
@@ -676,6 +698,9 @@ async function createWindow() {
   }
   if (trayService) trayService.setWindow(win);
 
+  // Initialize GamepadService with the window reference
+  gamepadService = new GamepadService(winReference, userPreferencesService);
+
   // Save window state when window is moved or resized
   let saveWindowStateTimeout: NodeJS.Timeout | null = null;
   const saveWindowState = async () => {
@@ -690,6 +715,7 @@ async function createWindow() {
       try {
         const bounds = win!.getBounds();
         const isMaximized = win!.isMaximized();
+        const isFullscreen = win!.isFullScreen();
 
         await userPreferencesService.savePreferences({
           windowState: {
@@ -698,6 +724,7 @@ async function createWindow() {
             width: bounds.width,
             height: bounds.height,
             isMaximized,
+            isFullscreen,
           },
         });
       } catch (error) {
@@ -710,6 +737,16 @@ async function createWindow() {
   win.on('resize', saveWindowState);
   win.on('maximize', saveWindowState);
   win.on('unmaximize', saveWindowState);
+  win.on('enter-full-screen', saveWindowState);
+  win.on('leave-full-screen', saveWindowState);
+
+  // Notify renderer of fullscreen state changes
+  win.on('enter-full-screen', () => {
+    win?.webContents.send('fullscreen-changed', true);
+  });
+  win.on('leave-full-screen', () => {
+    win?.webContents.send('fullscreen-changed', false);
+  });
 
   // Handle window close based on preferences
   win.on('close', async (event) => {
@@ -718,6 +755,7 @@ async function createWindow() {
       if (win) {
         const bounds = win.getBounds();
         const isMaximized = win.isMaximized();
+        const isFullscreen = win.isFullScreen();
 
         await userPreferencesService.savePreferences({
           windowState: {
@@ -726,6 +764,7 @@ async function createWindow() {
             width: bounds.width,
             height: bounds.height,
             isMaximized,
+            isFullscreen,
           },
         });
       }
@@ -785,11 +824,26 @@ async function createWindow() {
 
   // Enable DevTools in production for debugging (can be disabled later)
   // User can press F12 or Ctrl+Shift+I to open DevTools
+  // F11 toggles fullscreen
+  // Escape exits fullscreen
   if (win) {
     win.webContents.on('before-input-event', (event, input) => {
-      if (input.key === 'F12' || (input.control && input.shift && input.key === 'I')) {
-        if (win) {
-          win.webContents.toggleDevTools();
+      if (input.type === 'keyDown') {
+        if (input.key === 'F12' || (input.control && input.shift && input.key === 'I')) {
+          if (win) {
+            win.webContents.toggleDevTools();
+          }
+        } else if (input.key === 'F11') {
+          if (win) {
+            const isFullscreen = win.isFullScreen();
+            win.setFullScreen(!isFullscreen);
+            // Notify renderer of fullscreen state change
+            win.webContents.send('fullscreen-changed', !isFullscreen);
+          }
+        } else if (input.key === 'Escape' && win && win.isFullScreen()) {
+          win.setFullScreen(false);
+          // Notify renderer of fullscreen state change
+          win.webContents.send('fullscreen-changed', false);
         }
       }
     });

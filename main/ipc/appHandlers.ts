@@ -66,6 +66,35 @@ export function registerAppIPCHandlers(
         return { success: !!winReference.current };
     });
 
+    ipcMain.handle('app:toggleFullscreen', async () => {
+        if (winReference.current) {
+            const isFullscreen = winReference.current.isFullScreen();
+            winReference.current.setFullScreen(!isFullscreen);
+        }
+        return { success: !!winReference.current };
+    });
+
+    ipcMain.handle('app:enterFullscreen', async () => {
+        if (winReference.current) {
+            winReference.current.setFullScreen(true);
+        }
+        return { success: !!winReference.current };
+    });
+
+    ipcMain.handle('app:exitFullscreen', async () => {
+        if (winReference.current) {
+            winReference.current.setFullScreen(false);
+        }
+        return { success: !!winReference.current };
+    });
+
+    ipcMain.handle('app:getFullscreenState', async () => {
+        if (winReference.current) {
+            return { isFullscreen: winReference.current.isFullScreen() };
+        }
+        return { isFullscreen: false };
+    });
+
     ipcMain.handle('app:toggleDevTools', async () => {
         if (winReference.current) winReference.current.webContents.toggleDevTools();
         return { success: !!winReference.current };

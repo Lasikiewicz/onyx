@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Game } from '../types/game';
 import { GameContextMenu } from './GameContextMenu';
 
@@ -120,6 +120,8 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
   // const showImage = displayMode !== 'title-only'; // Unused variable
 
   const [contextMenu, setContextMenu] = useState<{ game: Game; x: number; y: number } | null>(null);
+  const [focusedIndex, setFocusedIndex] = useState<number>(-1);
+  const listRef = useRef<HTMLDivElement>(null);
 
   // Handle right-click on game boxart/logo (opens game context menu)
   const handleGameElementContextMenu = (e: React.MouseEvent, game: Game) => {
@@ -127,6 +129,51 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
     e.stopPropagation();
     setContextMenu({ game, x: e.clientX, y: e.clientY });
   };
+
+  // Handle keyboard navigation for gamepad support
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!listRef.current || games.length === 0) return;
+
+      const items = Array.from(listRef.current.querySelectorAll('[data-game-card]'));
+      if (items.length === 0) return;
+
+      let newIndex = focusedIndex;
+
+      switch (e.key) {
+        case 'ArrowDown':
+          e.preventDefault();
+          newIndex = focusedIndex < 0 ? 0 : Math.min(focusedIndex + 1, games.length - 1);
+          break;
+        case 'ArrowUp':
+          e.preventDefault();
+          newIndex = focusedIndex < 0 ? 0 : Math.max(focusedIndex - 1, 0);
+          break;
+        case 'Enter':
+          e.preventDefault();
+          if (focusedIndex >= 0 && focusedIndex < games.length && onGameClick) {
+            onGameClick(games[focusedIndex]);
+          }
+          break;
+        case 'ArrowLeft':
+        case 'ArrowRight':
+          // Allow horizontal navigation to pass through for other components
+          return;
+        default:
+          return;
+      }
+
+      if (newIndex !== focusedIndex) {
+        setFocusedIndex(newIndex);
+        (items[newIndex] as HTMLElement)?.focus();
+        // Scroll into view if needed
+        (items[newIndex] as HTMLElement)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [games, focusedIndex, onGameClick]);
 
   return (
     <div
@@ -137,9 +184,9 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
         onEmptySpaceClick?.(e.clientX, e.clientY);
       }}
     >
-      <div className="flex-1 overflow-y-auto">
+      <div ref={listRef} className="flex-1 overflow-y-auto">
         <div className="space-y-2 p-2">
-          {games.map((game) => {
+          {games.map((game, index) => {
             const launcherLabel = formatLauncher(game.source || game.platform);
             return (
               <div
@@ -147,7 +194,11 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                 onClick={() => onGameClick?.(game)}
                 data-game-card="true"
                 onContextMenu={(e) => handleGameElementContextMenu(e, game)}
-                className={`p-3 bg-gray-800/40 backdrop-blur-md border border-white/5 rounded-xl transition-all duration-300 hover:bg-gray-700/60 hover:border-cyan-400/30 cursor-pointer group ${displayMode === 'logo-only' || displayMode === 'title-only' ? 'flex flex-col items-center' : 'flex items-center gap-4'
+                tabIndex={0}
+                onFocus={() => setFocusedIndex(index)}
+                className={`p-3 bg-gray-800/40 backdrop-blur-md border border-white/5 rounded-xl transition-all duration-300 hover:bg-gray-700/60 hover:border-cyan-400/30 cursor-pointer group outline-none ${
+                  index === focusedIndex ? 'ring-2 ring-blue-500 ring-offset-2 ring-offset-slate-900' : ''
+                } ${displayMode === 'logo-only' || displayMode === 'title-only' ? 'flex flex-col items-center' : 'flex items-center gap-4'
                   }`}
               >
                 {displayMode === 'title-only' ? (

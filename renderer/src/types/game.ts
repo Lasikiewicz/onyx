@@ -203,6 +203,14 @@ export interface UserPreferences {
   };
   isFirstLaunch?: boolean;
   isViewFlippedByView?: Record<'grid' | 'list' | 'logo' | 'carousel', boolean>;
+  // Fullscreen settings
+  startInFullscreen?: boolean;
+  hideMouseCursorInFullscreen?: boolean;
+  cursorHideTimeout?: number;
+  // Gamepad settings
+  enableGamepadSupport?: boolean;
+  gamepadNavigationSpeed?: number;
+  gamepadButtonLayout?: 'xbox' | 'playstation';
 }
 
 export type UpdateStatus = 'checking' | 'available' | 'not-available' | 'downloading' | 'downloaded' | 'error';
@@ -314,6 +322,19 @@ declare global {
         setFeatureEnabled: (enabled: boolean) => Promise<{ success: boolean; error?: string }>;
         getShortcut: () => Promise<string>;
         setShortcut: (shortcut: string) => Promise<{ success: boolean; error?: string }>;
+      };
+      fullscreen: {
+        toggle: () => Promise<{ success: boolean }>;
+        enter: () => Promise<{ success: boolean }>;
+        exit: () => Promise<{ success: boolean }>;
+        getState: () => Promise<{ isFullscreen: boolean }>;
+        onChanged: (callback: (isFullscreen: boolean) => void) => () => void;
+      };
+      gamepad: {
+        getPreferences: () => Promise<{ enabled: boolean; navigationSpeed: number; buttonLayout: 'xbox' | 'playstation' }>;
+        setEnabled: (enabled: boolean) => Promise<{ success: boolean }>;
+        setNavigationSpeed: (speed: number) => Promise<{ success: boolean }>;
+        setButtonLayout: (layout: 'xbox' | 'playstation') => Promise<{ success: boolean }>;
       };
       generateBugReport: (userDescription: string) => Promise<{ success: boolean; filePath?: string; error?: string }>;
       getBugReportLogsDirectory: () => Promise<{ success: boolean; path?: string; error?: string }>;

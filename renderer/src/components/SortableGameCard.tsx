@@ -18,9 +18,12 @@ interface SortableGameCardProps {
   viewMode?: 'grid' | 'logo' | 'list' | 'carousel';
   logoBackgroundColor?: string;
   logoBackgroundOpacity?: number;
+  tabIndex?: number;
+  isFocused?: boolean;
+  onFocus?: () => void;
 }
 
-export const SortableGameCard: React.FC<SortableGameCardProps> = ({ game, onPlay, onClick, onEdit, hideTitle = false, showLogoOverBoxart = true, logoPosition = 'middle', useLogoInsteadOfBoxart = false, descriptionSize = 14, onContextMenu, viewMode, logoBackgroundColor, logoBackgroundOpacity }) => {
+export const SortableGameCard: React.FC<SortableGameCardProps> = ({ game, onPlay, onClick, onEdit, hideTitle = false, showLogoOverBoxart = true, logoPosition = 'middle', useLogoInsteadOfBoxart = false, descriptionSize = 14, onContextMenu, viewMode, logoBackgroundColor, logoBackgroundOpacity, tabIndex, isFocused, onFocus }) => {
   const {
     attributes,
     listeners,
@@ -75,7 +78,9 @@ export const SortableGameCard: React.FC<SortableGameCardProps> = ({ game, onPlay
       {...mergedListeners}
       onClick={handleClick}
       onDoubleClick={handleDoubleClick}
-      className="cursor-pointer"
+      onFocus={onFocus}
+      tabIndex={tabIndex}
+      className={`cursor-pointer outline-none ${isFocused ? 'ring-2 ring-blue-500 ring-offset-2 ring-offset-slate-900 rounded' : ''}`}
       data-game-card
     >
       <GameCard game={game} onPlay={onPlay} onEdit={onEdit} hideTitle={hideTitle} showLogoOverBoxart={showLogoOverBoxart} logoPosition={logoPosition} useLogoInsteadOfBoxart={useLogoInsteadOfBoxart} descriptionSize={descriptionSize} viewMode={viewMode} logoBackgroundColor={logoBackgroundColor} logoBackgroundOpacity={logoBackgroundOpacity} />

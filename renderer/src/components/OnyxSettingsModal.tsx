@@ -10,7 +10,7 @@ interface OnyxSettingsModalProps {
   onClose: () => void;
   onSave?: () => void;
   // Allow both old and new tab names for compatibility during migration
-  initialTab?: 'general' | 'apis' | 'apps' | 'reset' | 'about' | 'appearance' | 'integrations' | 'launchers' | 'library' | 'advanced';
+  initialTab?: 'general' | 'apis' | 'apps' | 'reset' | 'about' | 'appearance' | 'integrations' | 'launchers' | 'library' | 'advanced' | 'controller';
   onShowImportModal?: (games: Array<any>, appType?: 'steam' | 'xbox' | 'other') => void;
 }
 
@@ -30,9 +30,17 @@ interface OnyxSettings {
   confirmGameLaunch: boolean;
   restoreAfterLaunch: boolean;
   defaultStartupPage: 'library' | 'recent' | 'favorites';
+  // Fullscreen settings
+  startInFullscreen: boolean;
+  hideMouseCursorInFullscreen: boolean;
+  cursorHideTimeout: number;
+  // Gamepad settings
+  enableGamepadSupport: boolean;
+  gamepadNavigationSpeed: number;
+  gamepadButtonLayout: 'xbox' | 'playstation';
 }
 
-type TabType = 'general' | 'library' | 'launchers' | 'integrations' | 'appearance' | 'advanced' | 'about'; // Keep legacy types for state compatibility, but UI will hide them
+type TabType = 'general' | 'library' | 'launchers' | 'integrations' | 'appearance' | 'advanced' | 'about' | 'controller'; // Keep legacy types for state compatibility, but UI will hide them
 
 interface AppConfig {
   id: string;
@@ -172,6 +180,12 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
     confirmGameLaunch: false,
     restoreAfterLaunch: false,
     defaultStartupPage: 'library',
+    startInFullscreen: false,
+    hideMouseCursorInFullscreen: true,
+    cursorHideTimeout: 3000,
+    enableGamepadSupport: true,
+    gamepadNavigationSpeed: 1.0,
+    gamepadButtonLayout: 'xbox',
   });
   const [showLogoOverBoxart, setShowLogoOverBoxart] = useState(true);
   const [logoPosition, setLogoPosition] = useState<'top' | 'middle' | 'bottom' | 'underneath'>('middle');
@@ -204,6 +218,12 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
             confirmGameLaunch: prefs.confirmGameLaunch ?? false,
             restoreAfterLaunch: prefs.restoreAfterLaunch ?? false,
             defaultStartupPage: (prefs.defaultStartupPage as any) ?? 'library',
+            startInFullscreen: prefs.startInFullscreen ?? false,
+            hideMouseCursorInFullscreen: prefs.hideMouseCursorInFullscreen ?? true,
+            cursorHideTimeout: prefs.cursorHideTimeout ?? 3000,
+            enableGamepadSupport: prefs.enableGamepadSupport ?? true,
+            gamepadNavigationSpeed: prefs.gamepadNavigationSpeed ?? 1.0,
+            gamepadButtonLayout: prefs.gamepadButtonLayout ?? 'xbox',
           });
           setShowLogoOverBoxart(prefs.showLogoOverBoxart ?? true);
           setLogoPosition(prefs.logoPosition ?? 'middle');
@@ -729,6 +749,12 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
         confirmGameLaunch: settings.confirmGameLaunch,
         restoreAfterLaunch: settings.restoreAfterLaunch,
         defaultStartupPage: settings.defaultStartupPage,
+        startInFullscreen: settings.startInFullscreen,
+        hideMouseCursorInFullscreen: settings.hideMouseCursorInFullscreen,
+        cursorHideTimeout: settings.cursorHideTimeout,
+        enableGamepadSupport: settings.enableGamepadSupport,
+        gamepadNavigationSpeed: settings.gamepadNavigationSpeed,
+        gamepadButtonLayout: settings.gamepadButtonLayout,
       });
 
       // Save API credentials
@@ -789,6 +815,18 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
         startClosedToTray: settings.startClosedToTray,
       });
 
+      // Update gamepad service with new settings
+      try {
+        await window.electronAPI.gamepad.setEnabled(settings.enableGamepadSupport);
+        await window.electronAPI.gamepad.setNavigationSpeed(settings.gamepadNavigationSpeed);
+        await window.electronAPI.gamepad.setButtonLayout(settings.gamepadButtonLayout);
+        
+        // Notify hooks that gamepad preferences have changed
+        window.dispatchEvent(new Event('gamepad-preferences-changed'));
+      } catch (err) {
+        console.error('Error updating gamepad settings:', err);
+      }
+
       // Notify parent component to reload preferences
       if (onSave) {
         await onSave();
@@ -811,6 +849,18 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+        </svg>
+      ),
+    },
+    {
+      id: 'controller',
+      label: 'Fullscreen',
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          <circle cx="9" cy="12" r="1" fill="currentColor" />
+          <circle cx="15" cy="12" r="1" fill="currentColor" />
         </svg>
       ),
     },
@@ -975,9 +1025,79 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                 </div>
               </SettingsSection>
 
-
             </div>
           )}
+          {
+            activeTab === 'controller' && (
+              <div className="space-y-8 animate-fade-in h-full overflow-y-auto p-6">
+                <SettingsSection title="Fullscreen Mode" description="Configure fullscreen behavior and appearance">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+                    <SettingsToggle
+                      label="Start in Fullscreen Mode"
+                      description="Launch Onyx in fullscreen (Press F11 to toggle anytime)"
+                      checked={settings.startInFullscreen}
+                      onChange={() => handleToggle('startInFullscreen')}
+                    />
+                    <SettingsToggle
+                      label="Auto-Hide Cursor in Fullscreen"
+                      description="Automatically hide the mouse cursor when idle in fullscreen"
+                      checked={settings.hideMouseCursorInFullscreen}
+                      onChange={() => handleToggle('hideMouseCursorInFullscreen')}
+                    />
+                    {settings.hideMouseCursorInFullscreen && (
+                      <SettingsInput
+                        label="Cursor Hide Timeout (ms)"
+                        value={settings.cursorHideTimeout}
+                        onChange={(val) => {
+                          const num = parseInt(val) || 3000;
+                          setSettings({ ...settings, cursorHideTimeout: Math.max(500, Math.min(10000, num)) });
+                        }}
+                        type="number"
+                        description="Time in milliseconds before hiding cursor (500-10000)"
+                      />
+                    )}
+                  </div>
+                </SettingsSection>
+
+                <SettingsSection title="Gamepad Navigation" description="Configure controller support and button mapping">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+                    <SettingsToggle
+                      label="Enable Gamepad Support"
+                      description="Use controller for navigation (A=Select, B=Back, D-Pad=Navigate)"
+                      checked={settings.enableGamepadSupport}
+                      onChange={() => handleToggle('enableGamepadSupport')}
+                    />
+                    {settings.enableGamepadSupport && (
+                      <>
+                        <SettingsInput
+                          label="Navigation Speed"
+                          value={settings.gamepadNavigationSpeed}
+                          onChange={(val) => {
+                            const num = parseFloat(val) || 1.0;
+                            setSettings({ ...settings, gamepadNavigationSpeed: Math.max(0.1, Math.min(2.0, num)) });
+                          }}
+                          type="number"
+                          step="0.1"
+                          description="Analog stick sensitivity (0.1-2.0)"
+                        />
+                        <div className="space-y-2">
+                          <label className="block text-sm font-medium text-slate-200">Button Layout</label>
+                          <select
+                            value={settings.gamepadButtonLayout}
+                            onChange={(e) => setSettings({ ...settings, gamepadButtonLayout: e.target.value as 'xbox' | 'playstation' })}
+                            className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-sm text-slate-200"
+                          >
+                            <option value="xbox">Xbox (A/B/X/Y)</option>
+                            <option value="playstation">PlayStation (✕/◯/□/△)</option>
+                          </select>
+                          <p className="text-xs text-slate-400">Choose your controller button layout for on-screen prompts</p>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </SettingsSection>
+              </div>
+            )}
           {
             activeTab === 'library' && (
               <div className="space-y-8 animate-fade-in h-full overflow-y-auto p-6">

@@ -300,3 +300,13 @@ input[type="range"].slider::-moz-range-thumb:hover {
   border-top: 1px solid #374151;
   margin: 1.5rem 0;
 }
+
+/* Fullscreen mode styles */
+.fullscreen-mode {
+  /* Add any fullscreen-specific styles here */
+}
+
+.hide-cursor,
+.hide-cursor * {
+  cursor: none !important;
+}

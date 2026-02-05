@@ -1,5 +1,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useGameLibrary } from './hooks/useGameLibrary';
+import { useGamepad } from './hooks/useGamepad';
+import { useFullscreen } from './hooks/useFullscreen';
 import { LibraryGrid } from './components/LibraryGrid';
 import { LibraryListView } from './components/LibraryListView';
 import { LibraryCarousel } from './components/LibraryCarousel';
@@ -30,6 +32,11 @@ import { areAPIsConfigured } from './utils/apiValidation';
 function App() {
   // Main App Component
   const { games, loading, error, reorderGames, addCustomGame, loadLibrary, deleteGame, updateGameInState } = useGameLibrary();
+  
+  // Initialize fullscreen and gamepad support
+  useFullscreen();
+  useGamepad();
+  
   const [activeGameId, setActiveGameId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [launchingGameId, setLaunchingGameId] = useState<string | null>(null);
