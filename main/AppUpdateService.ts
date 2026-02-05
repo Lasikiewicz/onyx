@@ -214,7 +214,7 @@ export function downloadUpdate(): Promise<string[] | null> {
       }
     };
     const url = pendingAlphaUpdate.downloadUrl;
-    const filename = path.basename(new URL(url).pathname) || `Onyx-Alpha-Setup-${pendingAlphaUpdate.version}.exe`;
+    const filename = path.basename(new URL(url).pathname) || `Onyx.Alpha.Setup.${pendingAlphaUpdate.version}.exe`;
     const destPath = path.join(app.getPath('temp'), filename);
 
     send({ status: 'downloading' });

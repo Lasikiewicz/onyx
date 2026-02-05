@@ -22,7 +22,8 @@ const config = {
     ],
     requestedExecutionLevel: 'asInvoker',
     executableName: isAlpha ? 'OnyxAlpha' : 'Onyx',
-    artifactName: "${productName} Setup ${version}.${ext}",
+    // Use dots to match GitHub release asset names (e.g. Onyx.Setup.0.3.16.exe)
+    artifactName: isAlpha ? "Onyx.Alpha.Setup.${version}.${ext}" : "Onyx.Setup.${version}.${ext}",
     icon: 'build/icon.ico',
     verifyUpdateCodeSignature: false
   },
