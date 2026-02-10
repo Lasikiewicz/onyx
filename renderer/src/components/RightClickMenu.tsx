@@ -245,10 +245,10 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
 
   // Local state for per-game logo sizes - updates immediately for UI responsiveness
   const [localLogoSizes, setLocalLogoSizes] = React.useState({
-    grid: activeGame?.logoSizePerViewMode?.grid ?? 100,
-    list: activeGame?.logoSizePerViewMode?.list ?? 100,
-    logo: activeGame?.logoSizePerViewMode?.logo ?? 100,
-    carousel: activeGame?.logoSizePerViewMode?.carousel ?? 100,
+    grid: activeGame?.logoSizePerViewMode?.grid ?? 200,
+    list: activeGame?.logoSizePerViewMode?.list ?? 200,
+    logo: activeGame?.logoSizePerViewMode?.logo ?? 200,
+    carousel: activeGame?.logoSizePerViewMode?.carousel ?? 300,
   });
 
   // Ref for debouncing saves
@@ -258,10 +258,10 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
   React.useEffect(() => {
     if (activeGame) {
       setLocalLogoSizes({
-        grid: activeGame.logoSizePerViewMode?.grid ?? 100,
-        list: activeGame.logoSizePerViewMode?.list ?? 100,
-        logo: activeGame.logoSizePerViewMode?.logo ?? 100,
-        carousel: activeGame.logoSizePerViewMode?.carousel ?? 100,
+        grid: activeGame.logoSizePerViewMode?.grid ?? 200,
+        list: activeGame.logoSizePerViewMode?.list ?? 200,
+        logo: activeGame.logoSizePerViewMode?.logo ?? 200,
+        carousel: activeGame.logoSizePerViewMode?.carousel ?? 300,
       });
     }
     // Clear any pending saves when game changes
