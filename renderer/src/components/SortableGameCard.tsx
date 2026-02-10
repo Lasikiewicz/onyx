@@ -71,16 +71,16 @@ export const SortableGameCard: React.FC<SortableGameCardProps> = ({ game, onPlay
   };
 
   return (
-    <div 
-      ref={setNodeRef} 
-      style={style} 
+    <div
+      ref={setNodeRef}
+      style={style}
       {...attributes}
       {...mergedListeners}
       onClick={handleClick}
       onDoubleClick={handleDoubleClick}
       onFocus={onFocus}
       tabIndex={tabIndex}
-      className={`cursor-pointer outline-none ${isFocused ? 'ring-2 ring-blue-500 ring-offset-2 ring-offset-slate-900 rounded' : ''}`}
+      className={`cursor-pointer outline-none transition-all duration-200 ${isFocused ? 'rounded-xl animate-breathing-scale z-10' : ''}`}
       data-game-card
     >
       <GameCard game={game} onPlay={onPlay} onEdit={onEdit} hideTitle={hideTitle} showLogoOverBoxart={showLogoOverBoxart} logoPosition={logoPosition} useLogoInsteadOfBoxart={useLogoInsteadOfBoxart} descriptionSize={descriptionSize} viewMode={viewMode} logoBackgroundColor={logoBackgroundColor} logoBackgroundOpacity={logoBackgroundOpacity} />

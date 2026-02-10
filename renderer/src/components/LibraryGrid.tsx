@@ -46,19 +46,19 @@ interface LibraryGridProps {
   viewMode?: 'grid' | 'logo';
 }
 
-export const LibraryGrid: React.FC<LibraryGridProps> = ({ 
-  games, 
-  onReorder, 
-  onPlay, 
-  onGameClick, 
-  onEdit, 
-  gridSize = 120, 
-  logoSize = 120, 
-  gameTilePadding = 3, 
-  hideGameTitles = false, 
-  showLogoOverBoxart = true, 
-  logoPosition = 'middle', 
-  useLogosInsteadOfBoxart = false, 
+export const LibraryGrid: React.FC<LibraryGridProps> = ({
+  games,
+  onReorder,
+  onPlay,
+  onGameClick,
+  onEdit,
+  gridSize = 120,
+  logoSize = 120,
+  gameTilePadding = 3,
+  hideGameTitles = false,
+  showLogoOverBoxart = true,
+  logoPosition = 'middle',
+  useLogosInsteadOfBoxart = false,
   autoSizeToFit = false,
   descriptionSize = 14,
   onGameContextMenu,
@@ -96,7 +96,7 @@ export const LibraryGrid: React.FC<LibraryGridProps> = ({
       // Calculate grid columns based on current layout
       const gridElement = gridRef.current.querySelector('.grid') as HTMLElement;
       if (!gridElement) return;
-      
+
       const firstCard = cards[0] as HTMLElement;
       const gridWidth = gridElement.offsetWidth;
       const cardWidth = firstCard.offsetWidth;
@@ -151,7 +151,7 @@ export const LibraryGrid: React.FC<LibraryGridProps> = ({
 
       const newItems = arrayMove(items, oldIndex, newIndex);
       setItems(newItems);
-      
+
       // Save the new order to the backend
       await onReorder(newItems);
     }
@@ -160,7 +160,7 @@ export const LibraryGrid: React.FC<LibraryGridProps> = ({
   return (
     <div className="w-full h-full flex flex-col">
       {/* Grid Container */}
-      <div 
+      <div
         ref={gridRef}
         className="flex-1 overflow-y-auto"
         onContextMenu={(e) => {
@@ -182,7 +182,7 @@ export const LibraryGrid: React.FC<LibraryGridProps> = ({
             <div
               className="grid"
               style={{
-                gridTemplateColumns: autoSizeToFit 
+                gridTemplateColumns: autoSizeToFit
                   ? `repeat(auto-fill, ${useLogosInsteadOfBoxart ? logoSize : gridSize}px)`
                   : `repeat(auto-fit, ${useLogosInsteadOfBoxart ? logoSize : gridSize}px)`,
                 gap: `${gameTilePadding}px`,

@@ -1,0 +1,1 @@
+- Add support for changing the play / edit icon colours in all view types
