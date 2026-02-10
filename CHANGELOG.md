@@ -8,6 +8,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - See the [repository](https://github.com/Lasikiewicz/onyx) for the latest work in progress.
 
+## [0.3.20] - 2026-02-10
+
+- Improve boxart selection animation: gentle breathing scale, no harsh outlines.
+
 ## [0.3.19] - 2026-02-10
 
 - Updated default logo sizes (Grid/List/Logo: 200px, Carousel: 300px)
