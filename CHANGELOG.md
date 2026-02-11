@@ -8,6 +8,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - See the [repository](https://github.com/Lasikiewicz/onyx) for the latest work in progress.
 
+## [0.3.23] - 2026-02-11
+
+- Update notification popup now shows changelog by default
+- Changelog view displays changes between current and new version
+- Dev: update popup can show on startup for local refinement
+
 ## [0.3.22] - 2026-02-11
 
 - Enhanced "Quick All" image search with multi-source support (IGDB, RAWG, Steam, SteamGridDB)
