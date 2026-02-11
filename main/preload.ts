@@ -161,6 +161,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   fetchGameImages: (gameName: string, steamAppId?: string, igdbId?: number, includeAnimated?: boolean, requestId?: number, gameId?: string) => ipcRenderer.invoke('metadata:fetchGameImages', gameName, steamAppId, igdbId, includeAnimated, requestId, gameId),
   // App version
   getVersion: () => ipcRenderer.invoke('app:getVersion'),
+  getChangelog: () => ipcRenderer.invoke('app:getChangelog'),
   // App name (for detecting Alpha builds)
   getName: () => ipcRenderer.invoke('app:getName'),
   // Auto-update (only active when packaged)

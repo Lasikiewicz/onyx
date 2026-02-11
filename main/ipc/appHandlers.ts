@@ -1,6 +1,7 @@
 import { app, ipcMain, session, BrowserWindow, shell } from 'electron';
 import path from 'node:path';
 import { existsSync, unlinkSync, rmSync } from 'node:fs';
+import { readFile } from 'node:fs/promises';
 import { GameStore } from '../GameStore.js';
 import { ImageCacheService } from '../ImageCacheService.js';
 import { UserPreferencesService } from '../UserPreferencesService.js';
@@ -125,6 +126,26 @@ export function registerAppIPCHandlers(
     // App Info Handlers
     ipcMain.handle('app:getVersion', () => app.getVersion());
     ipcMain.handle('app:getName', () => app.getName());
+    ipcMain.handle('app:getChangelog', async () => {
+        const candidatePaths = [
+            path.join(app.getAppPath(), 'CHANGELOG.md'),
+            path.join(process.resourcesPath, 'app.asar', 'CHANGELOG.md'),
+            path.join(process.resourcesPath, 'app.asar.unpacked', 'CHANGELOG.md'),
+            path.join(process.cwd(), 'CHANGELOG.md')
+        ];
+
+        for (const candidatePath of candidatePaths) {
+            if (!existsSync(candidatePath)) continue;
+            try {
+                const content = await readFile(candidatePath, 'utf-8');
+                return { success: true, content };
+            } catch (error) {
+                return { success: false, error: error instanceof Error ? error.message : String(error) };
+            }
+        }
+
+        return { success: false, error: 'Changelog not found' };
+    });
 
     // Auto-update Handlers (no-op when not packaged)
     ipcMain.handle('app:checkForUpdates', () => {

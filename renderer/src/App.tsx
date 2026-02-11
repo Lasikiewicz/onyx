@@ -28,6 +28,20 @@ import { UpdateNotificationModal } from './components/UpdateNotificationModal';
 import { Game, ExecutableFile, GameMetadata } from './types/game';
 import { areAPIsConfigured } from './utils/apiValidation';
 
+const normalizeVersion = (value: string) => value.replace(/^v/i, '').trim();
+
+const getLatestChangelogVersion = (changelogSource: string) => {
+  const headerRegex = /^##\s+\[(.+?)\].*$/gm;
+  const matches = [...changelogSource.matchAll(headerRegex)];
+  for (const match of matches) {
+    const version = match[1];
+    if (version && version.toLowerCase() !== 'unreleased') {
+      return normalizeVersion(version);
+    }
+  }
+  return null;
+};
+
 function App() {
   // Main App Component
   const { games, loading, error, reorderGames, addCustomGame, loadLibrary, deleteGame, updateGameInState } = useGameLibrary();
@@ -74,6 +88,12 @@ function App() {
     status: 'available' | 'downloading' | 'downloaded' | 'error';
     error?: string;
   } | null>(null);
+  const [currentVersion, setCurrentVersion] = useState<string | null>(null);
+  const [changelogSource, setChangelogSource] = useState<string | null>(null);
+  const [changelogLoading, setChangelogLoading] = useState(false);
+  const [changelogError, setChangelogError] = useState<string | null>(null);
+  const [isUpdateModalTest, setIsUpdateModalTest] = useState(false);
+  const [hasShownUpdateModalTest, setHasShownUpdateModalTest] = useState(false);
 
   // Search and view state
   const [searchQuery, setSearchQuery] = useState('');
@@ -352,6 +372,58 @@ function App() {
     };
     initialize();
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadAppInfo = async () => {
+      try {
+        const version = await window.electronAPI.getVersion();
+        if (!cancelled) setCurrentVersion(version);
+      } catch (error) {
+        console.error('Error loading app version:', error);
+      }
+
+      if (!window.electronAPI.getChangelog) return;
+      if (!cancelled) {
+        setChangelogLoading(true);
+        setChangelogError(null);
+      }
+
+      try {
+        const result = await window.electronAPI.getChangelog();
+        if (cancelled) return;
+        if (result?.success && result.content) {
+          setChangelogSource(result.content);
+        } else {
+          setChangelogSource(null);
+          setChangelogError(result?.error ?? 'Unable to load changelog.');
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setChangelogSource(null);
+          setChangelogError(error instanceof Error ? error.message : String(error));
+        }
+      } finally {
+        if (!cancelled) setChangelogLoading(false);
+      }
+    };
+
+    loadAppInfo();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    if (hasShownUpdateModalTest || updateNotification || !currentVersion || !changelogSource) return;
+
+    const latestVersion = getLatestChangelogVersion(changelogSource) ?? currentVersion;
+    setIsUpdateModalTest(true);
+    setHasShownUpdateModalTest(true);
+    setUpdateNotification({ version: latestVersion, status: 'available' });
+  }, [hasShownUpdateModalTest, updateNotification, currentVersion, changelogSource]);
 
   const applyBaselineDefaults = (resKey: string) => {
     if (!baselineDefaultsRef.current || !baselineDefaultsRef.current[resKey]) return;
@@ -633,6 +705,7 @@ function App() {
     // Listen for update status: show persistent notification when update is available
     const updateStatusHandler = (_event: any, payload: { status: string; version?: string; error?: string }) => {
       if (payload.status === 'available' && payload.version) {
+        setIsUpdateModalTest(false);
         setUpdateNotification({
           version: payload.version,
           status: 'available',
@@ -640,10 +713,13 @@ function App() {
         // Signal main process that update was found (to pause startup scan)
         window.electronAPI.onUpdateFound?.();
       } else if (payload.status === 'downloading') {
+        setIsUpdateModalTest(false);
         setUpdateNotification(prev => prev ? { ...prev, status: 'downloading' } : null);
       } else if (payload.status === 'downloaded') {
+        setIsUpdateModalTest(false);
         setUpdateNotification(prev => prev ? { ...prev, status: 'downloaded' } : null);
       } else if (payload.status === 'error' && payload.error) {
+        setIsUpdateModalTest(false);
         setUpdateNotification(prev => prev ? { ...prev, status: 'error', error: payload.error } : null);
       }
     };
@@ -2482,6 +2558,11 @@ function App() {
           version={updateNotification.version}
           status={updateNotification.status}
           error={updateNotification.error}
+          currentVersion={currentVersion}
+          changelogSource={changelogSource}
+          changelogLoading={changelogLoading}
+          changelogError={changelogError}
+          isTestMode={isUpdateModalTest}
           onUpdateNow={async () => {
             const result = await window.electronAPI.downloadUpdate?.();
             if (!result?.success) {
@@ -2490,8 +2571,11 @@ function App() {
           }}
           onDismiss={() => {
             setUpdateNotification(null);
+            setIsUpdateModalTest(false);
             // Signal main process that update was dismissed (so startup scan can proceed)
-            window.electronAPI.onUpdateDismissed?.();
+            if (!isUpdateModalTest) {
+              window.electronAPI.onUpdateDismissed?.();
+            }
           }}
           onInstall={() => {
             window.electronAPI.quitAndInstall?.();

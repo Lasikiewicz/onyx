@@ -304,6 +304,7 @@ declare global {
       refreshAllMetadata: (options?: { allGames?: boolean; gameIds?: string[]; continueFromIndex?: number }) => Promise<{ success: boolean; error?: string; count: number; errors: number; unmatchedGames: Array<{ gameId: string; title: string; searchResults: any[] }>; missingBoxartGames: Array<{ gameId: string; title: string; steamAppId?: string }>; requiresBoxart?: boolean; currentGameIndex?: number; remainingGames?: number }>;
       fetchAndUpdate: (gameId: string, boxartUrl: string) => Promise<{ success: boolean; error?: string }>;
       getVersion: () => Promise<string>;
+      getChangelog: () => Promise<{ success: boolean; content?: string; error?: string }>;
       getName: () => Promise<string>;
       checkForUpdates?: () => Promise<void>;
       downloadUpdate?: () => Promise<{ success: boolean; error?: string }>;
