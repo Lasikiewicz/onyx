@@ -1666,7 +1666,9 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                 {/* Per-Game Logo Size Control - Top of Game Details, only for current view */}
                 {activeGame && (
                   <div className="px-3 py-2 bg-gray-700/30 rounded-md">
-                    <label className="block text-xs text-gray-400 mb-2 font-semibold">Game Logo Size</label>
+                    <label className="block text-xs text-gray-400 mb-2 font-semibold">
+                      {activeGame.logoUrl ? 'Game Logo Size' : 'Title Size'}
+                    </label>
 
                     {/* Grid View */}
                     {viewMode === 'grid' && (

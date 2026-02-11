@@ -196,6 +196,14 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
     }
   }, [showLogoResizeDialog, game?.logoSize, game?.logoSizePerViewMode, viewMode]);
 
+  // Keep local logo size in sync with game changes (for real-time slider updates from RightClickMenu)
+  useEffect(() => {
+    if (game && !showLogoResizeDialog) {
+      const sizeForCurrentView = game.logoSizePerViewMode?.[viewMode] || game.logoSizePerViewMode?.carousel || game.logoSize;
+      setLocalLogoSize(sizeForCurrentView);
+    }
+  }, [game?.logoSizePerViewMode, game?.logoSize, viewMode, game?.id]);
+
   // Close the logo resize UI whenever a context menu is invoked anywhere
   useEffect(() => {
     const handleGlobalContextMenu = () => {
@@ -464,10 +472,16 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
             </div>
           ) : (
             <div
-              className="px-4 py-2 bg-gray-800/80 rounded border border-gray-600 text-gray-400 text-xs cursor-pointer hover:bg-gray-700/80 transition-colors"
-              onClick={() => onOpenInGameManager?.(game, 'images')}
+              className="text-center text-gray-100 leading-tight"
+              style={{
+                fontSize: `${localLogoSize !== undefined ? localLogoSize * 0.5 : 'clamp(1.25rem, 5vw, 2.5rem)'}px`,
+                fontWeight: '600',
+                wordBreak: 'break-word',
+                hyphens: 'auto',
+                textShadow: '0 2px 8px rgba(0, 0, 0, 0.6)',
+              }}
             >
-              Click to add logo
+              {game.title}
             </div>
           )}
         </div>
@@ -557,7 +571,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
           }}
         >
           {/* Upper Section: Title - only shown when no logo */}
-          {!game.logoUrl && (
+          {game && (false && !game?.logoUrl) && (
             <div className="relative">
               <div>
                 <h1
@@ -565,9 +579,10 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
                   style={{
                     fontSize: `${titleFontSize}px`,
                     fontFamily: titleFontFamily,
+                    textShadow: '0 2px 8px rgba(0, 0, 0, 0.6)',
                   }}
                 >
-                  {game.title}
+                  {game?.title}
                 </h1>
               </div>
             </div>
