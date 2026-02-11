@@ -907,8 +907,6 @@ export const GameManager: React.FC<GameManagerProps> = ({
       }));
       setImageSearchResults(prev => [...prev, ...newImages]);
 
-      // Update success message progressively
-      setSuccess(`Load in progress... Found images from ${[...new Set(data.images.map((i: any) => i.source))].join(', ')}`);
     };
 
     const removeListener = window.electronAPI?.on && window.electronAPI.on('metadata:gameImagesFound', handleImagesFound);

@@ -127,7 +127,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   checkProcessExists: (pid: number) => ipcRenderer.invoke('process:checkExists', pid),
   // API credentials methods
   getAPICredentials: () => ipcRenderer.invoke('api:getCredentials'),
-  saveAPICredentials: (credentials: { igdbClientId?: string; igdbClientSecret?: string; steamGridDBApiKey?: string }) => ipcRenderer.invoke('api:saveCredentials', credentials),
+  saveAPICredentials: (credentials: { igdbClientId?: string; igdbClientSecret?: string; steamGridDBApiKey?: string; rawgApiKey?: string; giantBombApiKey?: string }) => ipcRenderer.invoke('api:saveCredentials', credentials),
   // Launcher detection methods
   detectLaunchers: () => ipcRenderer.invoke('launcher:detectAll'),
   detectLauncher: (launcherId: string) => ipcRenderer.invoke('launcher:detect', launcherId),
@@ -204,13 +204,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.on('fullscreen-changed', handler);
       return () => ipcRenderer.removeListener('fullscreen-changed', handler);
     },
-  },
-  // Gamepad methods
-  gamepad: {
-    getPreferences: () => ipcRenderer.invoke('gamepad:getPreferences'),
-    setEnabled: (enabled: boolean) => ipcRenderer.invoke('gamepad:setEnabled', enabled),
-    setNavigationSpeed: (speed: number) => ipcRenderer.invoke('gamepad:setNavigationSpeed', speed),
-    setButtonLayout: (layout: 'xbox' | 'playstation') => ipcRenderer.invoke('gamepad:setButtonLayout', layout),
   },
   // Bug report methods
   generateBugReport: (userDescription: string) => ipcRenderer.invoke('bugReport:generate', userDescription),

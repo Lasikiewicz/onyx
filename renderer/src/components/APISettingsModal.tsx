@@ -10,6 +10,7 @@ interface APICredentials {
   igdbClientSecret: string;
   rawgApiKey: string;
   steamGridDBApiKey: string;
+  giantBombApiKey: string;
 }
 
 export const APISettingsModal: React.FC<APISettingsModalProps> = ({
@@ -21,6 +22,7 @@ export const APISettingsModal: React.FC<APISettingsModalProps> = ({
     igdbClientSecret: '',
     rawgApiKey: '',
     steamGridDBApiKey: '',
+    giantBombApiKey: '',
   });
   const [isLoading, setIsLoading] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
@@ -36,6 +38,7 @@ export const APISettingsModal: React.FC<APISettingsModalProps> = ({
             igdbClientSecret: creds.igdbClientSecret || '',
             rawgApiKey: creds.rawgApiKey || '',
             steamGridDBApiKey: creds.steamGridDBApiKey || '',
+            giantBombApiKey: creds.giantBombApiKey || '',
           });
         } catch (error) {
           console.error('Error loading API credentials:', error);
@@ -59,6 +62,7 @@ export const APISettingsModal: React.FC<APISettingsModalProps> = ({
         igdbClientSecret: credentials.igdbClientSecret.trim(),
         rawgApiKey: credentials.rawgApiKey.trim(),
         steamGridDBApiKey: credentials.steamGridDBApiKey.trim(),
+        giantBombApiKey: credentials.giantBombApiKey.trim(),
       });
       setSaveStatus('success');
       setTimeout(() => {
@@ -223,6 +227,25 @@ export const APISettingsModal: React.FC<APISettingsModalProps> = ({
                 onChange={(e) => handleInputChange('steamGridDBApiKey', e.target.value)}
                 placeholder="Enter your SteamGridDB API Key"
                 className="w-full px-4 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+
+            {/* Giant Bomb Section */}
+            <div className="pt-6 border-t border-gray-700">
+              <div className="flex items-center gap-2 mb-2">
+                <h3 className="text-lg font-medium text-white">Giant Bomb API</h3>
+                <span className="px-2 py-0.5 rounded text-xs font-semibold bg-red-900/30 text-red-300 border border-red-800">UNAVAILABLE</span>
+              </div>
+              <p className="text-sm text-gray-400 mb-4">
+                <strong>Currently Unavailable:</strong> Giant Bomb is rebuilding their API infrastructure after becoming independent from Fandom. The API is temporarily offline while they migrate their tech stack. Check <a href="#" onClick={() => window.electronAPI.openExternal('https://www.giantbomb.com/api/')} className="text-blue-400 hover:underline">giantbomb.com/api</a> for updates.
+              </p>
+              <input
+                type="text"
+                value={credentials.giantBombApiKey}
+                onChange={(e) => handleInputChange('giantBombApiKey', e.target.value)}
+                placeholder="Enter your Giant Bomb API Key (when available)"
+                disabled
+                className="w-full px-4 py-2 bg-gray-800 border border-gray-600 rounded-lg text-gray-500 placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent cursor-not-allowed"
               />
             </div>
           </div>

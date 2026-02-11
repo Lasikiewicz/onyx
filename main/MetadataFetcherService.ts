@@ -7,6 +7,8 @@ import { SteamService } from "./SteamService.js";
 import { RAWGService } from "./RAWGService.js";
 import { SteamGridDBService } from "./SteamGridDBService.js";
 import { SteamGridDBMetadataProvider } from "./SteamGridDBMetadataProvider.js";
+import { GiantBombService } from "./GiantBombService.js";
+import { GiantBombMetadataProvider } from "./GiantBombMetadataProvider.js";
 import { getRateLimitCoordinator } from "./RateLimitCoordinator.js";
 import { getMetadataCache } from "./MetadataCache.js";
 import { getMetadataValidator } from "./MetadataValidator.js";
@@ -75,12 +77,14 @@ export class MetadataFetcherService {
   private steamProvider?: SteamMetadataProvider;
   private rawgProvider?: RAWGMetadataProvider;
   private steamGridDBProvider?: SteamGridDBMetadataProvider;
+  private giantBombProvider?: GiantBombMetadataProvider;
 
   constructor(
     igdbService?: IGDBService | null,
     steamService?: SteamService | null,
     rawgService?: RAWGService | null,
-    steamGridDBService?: SteamGridDBService | null
+    steamGridDBService?: SteamGridDBService | null,
+    giantBombService?: GiantBombService | null
   ) {
     if (igdbService) {
       this.igdbProvider = new IGDBMetadataProvider(igdbService);
@@ -100,6 +104,11 @@ export class MetadataFetcherService {
     if (steamGridDBService) {
       this.steamGridDBProvider = new SteamGridDBMetadataProvider(steamGridDBService);
       this.providers.push(this.steamGridDBProvider);
+    }
+
+    if (giantBombService) {
+      this.giantBombProvider = new GiantBombMetadataProvider(giantBombService);
+      this.providers.push(this.giantBombProvider);
     }
   }
 
@@ -172,6 +181,7 @@ export class MetadataFetcherService {
       { name: 'IGDB', available: this.igdbProvider?.isAvailable() ?? false },
       { name: 'RAWG', available: this.rawgProvider?.isAvailable() ?? false },
       { name: 'SteamGridDB', available: this.steamGridDBProvider?.isAvailable() ?? false },
+      { name: 'GiantBomb', available: this.giantBombProvider?.isAvailable() ?? false },
     ];
   }
 
@@ -683,76 +693,103 @@ export class MetadataFetcherService {
       }
     }
 
-    // 3. Fallback Providers (IGDB, RAWG) - ONLY use if we didn't find a Steam App ID
-    // The user explicitly wants to avoid pollution from other sources if a direct Steam match exists.
-    if (!resolvedSteamAppId) {
-      // IGDB Provider
-      if (this.igdbProvider?.isAvailable()) {
-        console.log(`[fetchArtworkForGame] Adding IGDB provider for "${matchedGame.title}" (No Steam ID found)`);
-        if (matchedGame.source === 'igdb') {
-          artworkPromises.push({
-            promise: withTimeout(
-              this.igdbProvider.getArtwork(matchedGame.id, resolvedSteamAppId),
-              15000,
-              "IGDB Artwork Timeout"
-            ).catch((err: any) => {
-              console.warn(`[fetchArtworkForGame] IGDB timeout/error: ${err.message}`);
-              return null;
-            }),
-            source: "igdb"
-          });
-        } else {
-          artworkPromises.push({
-            promise: withTimeout(
-              (async () => {
-                const results = await this.igdbProvider!.search(matchedGame.title, resolvedSteamAppId);
-                return results.length > 0 ? this.igdbProvider!.getArtwork(results[0].id, resolvedSteamAppId) : null;
-              })(),
-              15000,
-              "IGDB Search/Artwork Timeout"
-            ).catch((err: any) => {
-              console.warn(`[fetchArtworkForGame] IGDB search timeout/error: ${err.message}`);
-              return null;
-            }),
-            source: "igdb"
-          });
-        }
+    // 3. Giant Bomb Provider - High quality artwork
+    if (this.giantBombProvider?.isAvailable()) {
+      console.log(`[fetchArtworkForGame] Adding Giant Bomb provider for "${matchedGame.title}"`);
+      if (matchedGame.source === 'giantbomb') {
+        artworkPromises.push({
+          promise: withTimeout(
+            this.giantBombProvider.getArtwork(matchedGame.id, resolvedSteamAppId),
+            15000,
+            "Giant Bomb Artwork Timeout"
+          ).catch((err: any) => {
+            console.warn(`[fetchArtworkForGame] Giant Bomb timeout/error: ${err.message}`);
+            return null;
+          }),
+          source: "giantbomb"
+        });
+      } else {
+        artworkPromises.push({
+          promise: withTimeout(
+            (async () => {
+              const results = await this.giantBombProvider!.search(matchedGame.title, resolvedSteamAppId);
+              return results.length > 0 ? this.giantBombProvider!.getArtwork(results[0].id, resolvedSteamAppId) : null;
+            })(),
+            15000,
+            "Giant Bomb Search/Artwork Timeout"
+          ).catch((err: any) => {
+            console.warn(`[fetchArtworkForGame] Giant Bomb search timeout/error: ${err.message}`);
+            return null;
+          }),
+          source: "giantbomb"
+        });
       }
+    }
 
-      // RAWG Provider
-      if (this.rawgProvider?.isAvailable()) {
-        console.log(`[fetchArtworkForGame] Adding RAWG provider for "${matchedGame.title}" (No Steam ID found)`);
-        if (matchedGame.source === 'rawg') {
-          artworkPromises.push({
-            promise: withTimeout(
-              this.rawgProvider.getArtwork(matchedGame.id),
-              15000,
-              "RAWG Artwork Timeout"
-            ).catch((err: any) => {
-              console.warn(`[fetchArtworkForGame] RAWG timeout/error: ${err.message}`);
-              return null;
-            }),
-            source: "rawg"
-          });
-        } else {
-          artworkPromises.push({
-            promise: withTimeout(
-              (async () => {
-                const results = await this.rawgProvider!.search(matchedGame.title);
-                return results.length > 0 ? this.rawgProvider!.getArtwork(results[0].id) : null;
-              })(),
-              15000,
-              "RAWG Search/Artwork Timeout"
-            ).catch((err: any) => {
-              console.warn(`[fetchArtworkForGame] RAWG search timeout/error: ${err.message}`);
-              return null;
-            }),
-            source: "rawg"
-          });
-        }
+    // 4. IGDB Provider - Always include for broader coverage
+    if (this.igdbProvider?.isAvailable()) {
+      console.log(`[fetchArtworkForGame] Adding IGDB provider for "${matchedGame.title}"`);
+      if (matchedGame.source === 'igdb') {
+        artworkPromises.push({
+          promise: withTimeout(
+            this.igdbProvider.getArtwork(matchedGame.id, resolvedSteamAppId),
+            15000,
+            "IGDB Artwork Timeout"
+          ).catch((err: any) => {
+            console.warn(`[fetchArtworkForGame] IGDB timeout/error: ${err.message}`);
+            return null;
+          }),
+          source: "igdb"
+        });
+      } else {
+        artworkPromises.push({
+          promise: withTimeout(
+            (async () => {
+              const results = await this.igdbProvider!.search(matchedGame.title, resolvedSteamAppId);
+              return results.length > 0 ? this.igdbProvider!.getArtwork(results[0].id, resolvedSteamAppId) : null;
+            })(),
+            15000,
+            "IGDB Search/Artwork Timeout"
+          ).catch((err: any) => {
+            console.warn(`[fetchArtworkForGame] IGDB search timeout/error: ${err.message}`);
+            return null;
+          }),
+          source: "igdb"
+        });
       }
-    } else {
-      console.log(`[fetchArtworkForGame] Skipping IGDB/RAWG because valid Steam App ID ${resolvedSteamAppId} was found.`);
+    }
+
+    // 4. RAWG Provider - Always include for broader coverage
+    if (this.rawgProvider?.isAvailable()) {
+      console.log(`[fetchArtworkForGame] Adding RAWG provider for "${matchedGame.title}"`);
+      if (matchedGame.source === 'rawg') {
+        artworkPromises.push({
+          promise: withTimeout(
+            this.rawgProvider.getArtwork(matchedGame.id),
+            15000,
+            "RAWG Artwork Timeout"
+          ).catch((err: any) => {
+            console.warn(`[fetchArtworkForGame] RAWG timeout/error: ${err.message}`);
+            return null;
+          }),
+          source: "rawg"
+        });
+      } else {
+        artworkPromises.push({
+          promise: withTimeout(
+            (async () => {
+              const results = await this.rawgProvider!.search(matchedGame.title);
+              return results.length > 0 ? this.rawgProvider!.getArtwork(results[0].id) : null;
+            })(),
+            15000,
+            "RAWG Search/Artwork Timeout"
+          ).catch((err: any) => {
+            console.warn(`[fetchArtworkForGame] RAWG search timeout/error: ${err.message}`);
+            return null;
+          }),
+          source: "rawg"
+        });
+      }
     }
 
 
@@ -935,6 +972,29 @@ export class MetadataFetcherService {
       this.setSteamGridDBService(new SteamGridDBService(apiKey));
     } else {
       this.setSteamGridDBService(null);
+    }
+  }
+
+  /**
+   * Set Giant Bomb service
+   */
+  setGiantBombService(giantBombService: GiantBombService | null): void {
+    if (giantBombService) {
+      this.giantBombProvider = new GiantBombMetadataProvider(giantBombService);
+      if (!this.providers.includes(this.giantBombProvider)) {
+        this.providers.push(this.giantBombProvider);
+      }
+    } else if (this.giantBombProvider) {
+      this.providers = this.providers.filter(p => p !== this.giantBombProvider);
+      this.giantBombProvider = undefined;
+    }
+  }
+
+  setGiantBombApiKey(apiKey: string): void {
+    if (apiKey) {
+      this.setGiantBombService(new GiantBombService(apiKey));
+    } else {
+      this.setGiantBombService(null);
     }
   }
 

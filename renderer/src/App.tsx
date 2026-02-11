@@ -1,6 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useGameLibrary } from './hooks/useGameLibrary';
-import { useGamepad } from './hooks/useGamepad';
 import { useFullscreen } from './hooks/useFullscreen';
 import { LibraryGrid } from './components/LibraryGrid';
 import { LibraryListView } from './components/LibraryListView';
@@ -35,7 +34,6 @@ function App() {
   
   // Initialize fullscreen and gamepad support
   useFullscreen();
-  useGamepad();
   
   const [activeGameId, setActiveGameId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);

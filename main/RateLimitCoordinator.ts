@@ -19,6 +19,7 @@ export class RateLimitCoordinator {
     ['igdb', 250],      // IGDB: 4 req/sec
     ['steamgriddb', 250], // SteamGridDB: 4 req/sec
     ['rawg', 250],      // RAWG: 4 req/sec
+    ['giantbomb', 250], // Giant Bomb: 4 req/sec
     ['steam', 500],     // Steam Store API: more conservative
     ['search', 100],    // General search: 100ms
     ['artwork', 100],   // Artwork fetch: 100ms

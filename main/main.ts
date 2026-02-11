@@ -52,6 +52,7 @@ import { LauncherService } from './LauncherService.js';
 import { IGDBService } from './IGDBService.js';
 import { RAWGService } from './RAWGService.js';
 import { SteamGridDBService } from './SteamGridDBService.js';
+import { GiantBombService } from './GiantBombService.js';
 import { AppConfigService } from './AppConfigService.js';
 import { XboxService } from './XboxService.js';
 import { UserPreferencesService, type UserPreferences } from './UserPreferencesService.js';
@@ -63,7 +64,6 @@ import { SteamAuthService } from './SteamAuthService.js';
 import { ProcessSuspendService } from './ProcessSuspendService.js';
 import { InstallerPreferenceService } from './InstallerPreferenceService.js';
 import { BugReportService } from './BugReportService.js';
-import { GamepadService } from './GamepadService.js';
 import { DuckDuckGoImageService } from './DuckDuckGoImageService.js';
 import { registerGameIPCHandlers } from './ipc/gameHandlers.js';
 import { registerMetadataIPCHandlers } from './ipc/metadataHandlers.js';
@@ -149,9 +149,10 @@ const winReference = { current: win };
 const igdbService: IGDBService | null = null;
 const steamGridDBService: SteamGridDBService | null = null;
 const rawgService: RAWGService | null = null;
+const giantBombService: GiantBombService | null = null;
 
 // Initialize providers with null services initially
-const metadataFetcher = new MetadataFetcherService(igdbService, steamService, rawgService, steamGridDBService);
+const metadataFetcher = new MetadataFetcherService(igdbService, steamService, rawgService, steamGridDBService, giantBombService);
 const importService = new ImportService(steamService, xboxService, appConfigService, metadataFetcher);
 
 // Update credentials asynchronously
@@ -159,6 +160,7 @@ apiCredentialsService.getCredentials().then(creds => {
   let newIgdbService: IGDBService | null = null;
   let newSteamGridDBService: SteamGridDBService | null = null;
   let newRawgService: RAWGService | null = null;
+  let newGiantBombService: GiantBombService | null = null;
 
   if (creds.igdbClientId && creds.igdbClientSecret) {
     newIgdbService = new IGDBService(creds.igdbClientId, creds.igdbClientSecret);
@@ -172,11 +174,16 @@ apiCredentialsService.getCredentials().then(creds => {
     newRawgService = new RAWGService(creds.rawgApiKey);
   }
 
+  if (creds.giantBombApiKey) {
+    newGiantBombService = new GiantBombService(creds.giantBombApiKey);
+  }
+
   // Refresh providers in fetcher
   // Always update, even if null (to disable if credentials are removed)
   metadataFetcher.setIGDBService(newIgdbService);
   metadataFetcher.setSteamGridDBService(newSteamGridDBService);
   metadataFetcher.setRAWGService(newRawgService);
+  metadataFetcher.setGiantBombService(newGiantBombService);
 
   console.log('[App] Metadata services initialized with saved credentials');
 }).catch(err => console.error('[App] Failed to load credentials for metadata services:', err));
@@ -232,8 +239,6 @@ if (launchGameArg) {
 }
 
 // Register IPC Handlers
-// Initialize GamepadService
-let gamepadService: GamepadService | null = null;
 
 registerGameIPCHandlers(steamService, xboxService, gameStore, imageCacheService);
 registerMetadataIPCHandlers(metadataFetcher, imageCacheService, gameStore, userPreferencesService, { get current() { return win; } });
@@ -697,9 +702,6 @@ async function createWindow() {
     });
   }
   if (trayService) trayService.setWindow(win);
-
-  // Initialize GamepadService with the window reference
-  gamepadService = new GamepadService(winReference, userPreferencesService);
 
   // Save window state when window is moved or resized
   let saveWindowStateTimeout: NodeJS.Timeout | null = null;

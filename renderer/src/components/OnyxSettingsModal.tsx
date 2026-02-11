@@ -10,7 +10,7 @@ interface OnyxSettingsModalProps {
   onClose: () => void;
   onSave?: () => void;
   // Allow both old and new tab names for compatibility during migration
-  initialTab?: 'general' | 'apis' | 'apps' | 'reset' | 'about' | 'appearance' | 'integrations' | 'launchers' | 'library' | 'advanced' | 'controller';
+  initialTab?: 'general' | 'apis' | 'apps' | 'reset' | 'about' | 'appearance' | 'integrations' | 'launchers' | 'library' | 'advanced';
   onShowImportModal?: (games: Array<any>, appType?: 'steam' | 'xbox' | 'other') => void;
 }
 
@@ -34,13 +34,9 @@ interface OnyxSettings {
   startInFullscreen: boolean;
   hideMouseCursorInFullscreen: boolean;
   cursorHideTimeout: number;
-  // Gamepad settings
-  enableGamepadSupport: boolean;
-  gamepadNavigationSpeed: number;
-  gamepadButtonLayout: 'xbox' | 'playstation';
 }
 
-type TabType = 'general' | 'scanning' | 'library' | 'launchers' | 'integrations' | 'appearance' | 'advanced' | 'about' | 'controller'; // Keep legacy types for state compatibility, but UI will hide them
+type TabType = 'general' | 'scanning' | 'library' | 'launchers' | 'integrations' | 'appearance' | 'advanced' | 'about'; // Keep legacy types for state compatibility, but UI will hide them
 
 interface AppConfig {
   id: string;
@@ -59,9 +55,10 @@ interface APICredentials {
   igdbClientSecret: string;
   rawgApiKey: string;
   steamGridDBApiKey: string;
+  giantBombApiKey: string;
 }
 
-type APITabType = 'igdb' | 'rawg' | 'steamgriddb';
+type APITabType = 'igdb' | 'rawg' | 'steamgriddb' | 'giantbomb';
 
 // Default game install locations for Windows
 const getDefaultPaths = (appId: string): string[] => {
@@ -150,6 +147,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
     igdbClientSecret: '',
     rawgApiKey: '',
     steamGridDBApiKey: '',
+    giantBombApiKey: '',
   });
   const [activeAPITab, setActiveAPITab] = useState<APITabType>('steamgriddb');
   // const [isLoadingAPI, setIsLoadingAPI] = useState(false);
@@ -183,9 +181,6 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
     startInFullscreen: false,
     hideMouseCursorInFullscreen: true,
     cursorHideTimeout: 3000,
-    enableGamepadSupport: true,
-    gamepadNavigationSpeed: 1.0,
-    gamepadButtonLayout: 'xbox',
   });
   const [showLogoOverBoxart, setShowLogoOverBoxart] = useState(true);
   const [logoPosition, setLogoPosition] = useState<'top' | 'middle' | 'bottom' | 'underneath'>('middle');
@@ -221,9 +216,6 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
             startInFullscreen: prefs.startInFullscreen ?? false,
             hideMouseCursorInFullscreen: prefs.hideMouseCursorInFullscreen ?? true,
             cursorHideTimeout: prefs.cursorHideTimeout ?? 3000,
-            enableGamepadSupport: prefs.enableGamepadSupport ?? true,
-            gamepadNavigationSpeed: prefs.gamepadNavigationSpeed ?? 1.0,
-            gamepadButtonLayout: prefs.gamepadButtonLayout ?? 'xbox',
           });
           setShowLogoOverBoxart(prefs.showLogoOverBoxart ?? true);
           setLogoPosition(prefs.logoPosition ?? 'middle');
@@ -268,11 +260,13 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
     igdbConfigured: boolean;
     rawgConfigured: boolean;
     steamGridDBConfigured: boolean;
+    giantBombConfigured: boolean;
     allRequiredConfigured: boolean;
   }>({
     igdbConfigured: false,
     rawgConfigured: false,
     steamGridDBConfigured: false,
+    giantBombConfigured: false,
     allRequiredConfigured: false,
   });
 
@@ -287,6 +281,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
             igdbClientSecret: creds.igdbClientSecret || '',
             rawgApiKey: creds.rawgApiKey || '',
             steamGridDBApiKey: creds.steamGridDBApiKey || '',
+            giantBombApiKey: creds.giantBombApiKey || '',
           });
 
           // Check API status
@@ -294,11 +289,13 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
             creds.igdbClientId.trim() !== '' && creds.igdbClientSecret.trim() !== '');
           const rawgConfigured = !!(creds.rawgApiKey && creds.rawgApiKey.trim() !== '');
           const steamGridDBConfigured = !!(creds.steamGridDBApiKey && creds.steamGridDBApiKey.trim() !== '');
+          const giantBombConfigured = !!(creds.giantBombApiKey && creds.giantBombApiKey.trim() !== '');
 
           setApiStatus({
             igdbConfigured,
             rawgConfigured,
             steamGridDBConfigured,
+            giantBombConfigured,
             allRequiredConfigured: igdbConfigured,
           });
         } catch (error) {
@@ -435,11 +432,13 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
       const igdbConfigured = !!(updated.igdbClientId.trim() && updated.igdbClientSecret.trim());
       const rawgConfigured = !!updated.rawgApiKey.trim();
       const steamGridDBConfigured = !!updated.steamGridDBApiKey.trim();
+      const giantBombConfigured = !!updated.giantBombApiKey.trim();
 
       setApiStatus({
         igdbConfigured,
         rawgConfigured,
         steamGridDBConfigured,
+        giantBombConfigured,
         allRequiredConfigured: igdbConfigured, // Only IGDB is required
       });
 
@@ -752,9 +751,6 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
         startInFullscreen: settings.startInFullscreen,
         hideMouseCursorInFullscreen: settings.hideMouseCursorInFullscreen,
         cursorHideTimeout: settings.cursorHideTimeout,
-        enableGamepadSupport: settings.enableGamepadSupport,
-        gamepadNavigationSpeed: settings.gamepadNavigationSpeed,
-        gamepadButtonLayout: settings.gamepadButtonLayout,
       });
 
       // Save API credentials
@@ -815,18 +811,6 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
         startClosedToTray: settings.startClosedToTray,
       });
 
-      // Update gamepad service with new settings
-      try {
-        await window.electronAPI.gamepad.setEnabled(settings.enableGamepadSupport);
-        await window.electronAPI.gamepad.setNavigationSpeed(settings.gamepadNavigationSpeed);
-        await window.electronAPI.gamepad.setButtonLayout(settings.gamepadButtonLayout);
-        
-        // Notify hooks that gamepad preferences have changed
-        window.dispatchEvent(new Event('gamepad-preferences-changed'));
-      } catch (err) {
-        console.error('Error updating gamepad settings:', err);
-      }
-
       // Notify parent component to reload preferences
       if (onSave) {
         await onSave();
@@ -858,18 +842,6 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-        </svg>
-      ),
-    },
-    {
-      id: 'controller',
-      label: 'Fullscreen',
-      icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          <circle cx="9" cy="12" r="1" fill="currentColor" />
-          <circle cx="15" cy="12" r="1" fill="currentColor" />
         </svg>
       ),
     },
@@ -1044,77 +1016,6 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
               </SettingsSection>
             </div>
           )}
-          {
-            activeTab === 'controller' && (
-              <div className="space-y-8 animate-fade-in h-full overflow-y-auto p-6">
-                <SettingsSection title="Fullscreen Mode" description="Configure fullscreen behavior and appearance">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
-                    <SettingsToggle
-                      label="Start in Fullscreen Mode"
-                      description="Launch Onyx in fullscreen (Press F11 to toggle anytime)"
-                      checked={settings.startInFullscreen}
-                      onChange={() => handleToggle('startInFullscreen')}
-                    />
-                    <SettingsToggle
-                      label="Auto-Hide Cursor in Fullscreen"
-                      description="Automatically hide the mouse cursor when idle in fullscreen"
-                      checked={settings.hideMouseCursorInFullscreen}
-                      onChange={() => handleToggle('hideMouseCursorInFullscreen')}
-                    />
-                    {settings.hideMouseCursorInFullscreen && (
-                      <SettingsInput
-                        label="Cursor Hide Timeout (ms)"
-                        value={settings.cursorHideTimeout}
-                        onChange={(val) => {
-                          const num = parseInt(val) || 3000;
-                          setSettings({ ...settings, cursorHideTimeout: Math.max(500, Math.min(10000, num)) });
-                        }}
-                        type="number"
-                        description="Time in milliseconds before hiding cursor (500-10000)"
-                      />
-                    )}
-                  </div>
-                </SettingsSection>
-
-                <SettingsSection title="Gamepad Navigation" description="Configure controller support and button mapping">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
-                    <SettingsToggle
-                      label="Enable Gamepad Support"
-                      description="Use controller for navigation (A=Select, B=Back, D-Pad=Navigate)"
-                      checked={settings.enableGamepadSupport}
-                      onChange={() => handleToggle('enableGamepadSupport')}
-                    />
-                    {settings.enableGamepadSupport && (
-                      <>
-                        <SettingsInput
-                          label="Navigation Speed"
-                          value={settings.gamepadNavigationSpeed}
-                          onChange={(val) => {
-                            const num = parseFloat(val) || 1.0;
-                            setSettings({ ...settings, gamepadNavigationSpeed: Math.max(0.1, Math.min(2.0, num)) });
-                          }}
-                          type="number"
-                          step="0.1"
-                          description="Analog stick sensitivity (0.1-2.0)"
-                        />
-                        <div className="space-y-2">
-                          <label className="block text-sm font-medium text-slate-200">Button Layout</label>
-                          <select
-                            value={settings.gamepadButtonLayout}
-                            onChange={(e) => setSettings({ ...settings, gamepadButtonLayout: e.target.value as 'xbox' | 'playstation' })}
-                            className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-sm text-slate-200"
-                          >
-                            <option value="xbox">Xbox (A/B/X/Y)</option>
-                            <option value="playstation">PlayStation (✕/◯/□/△)</option>
-                          </select>
-                          <p className="text-xs text-slate-400">Choose your controller button layout for on-screen prompts</p>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                </SettingsSection>
-              </div>
-            )}
           {
             activeTab === 'library' && (
               <div className="space-y-8 animate-fade-in h-full overflow-y-auto p-6">
@@ -1404,7 +1305,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
 
                 {/* Tabs */}
                 <div className="flex space-x-6 border-b border-gray-700/50 mb-6">
-                  {(['steamgriddb', 'igdb', 'rawg'] as const).map((tab) => (
+                  {(['steamgriddb', 'igdb', 'rawg', 'giantbomb'] as const).map((tab) => (
                     <button
                       key={tab}
                       onClick={() => setActiveAPITab(tab)}
@@ -1414,7 +1315,10 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                         }`}
                     >
                       <div className="flex items-center gap-2">
-                        {tab === 'steamgriddb' ? 'SteamGridDB (Mandatory)' : tab === 'igdb' ? 'IGDB (Optional)' : 'RAWG (Optional)'}
+                        {tab === 'steamgriddb' ? 'SteamGridDB (Mandatory)' : 
+                         tab === 'igdb' ? 'IGDB (Optional)' : 
+                         tab === 'rawg' ? 'RAWG (Optional)' :
+                         'Giant Bomb (Unavailable)'}
                         {((tab === 'igdb' && apiStatus.igdbConfigured) ||
                           (tab === 'steamgriddb' && apiStatus.steamGridDBConfigured) ||
                           (tab === 'rawg' && apiStatus.rawgConfigured)) && (
@@ -1479,6 +1383,32 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                       />
                     </div>
                   )}
+
+                  {/* Giant Bomb Input */}
+                  {activeAPITab === 'giantbomb' && (
+                    <div className="space-y-6">
+                      <div className="p-4 bg-red-900/10 border border-red-500/20 rounded-lg">
+                        <div className="flex items-center gap-2 mb-2">
+                          <svg className="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                          </svg>
+                          <span className="text-red-400 font-medium">API Currently Unavailable</span>
+                        </div>
+                        <p className="text-sm text-red-300">
+                          Giant Bomb is rebuilding their API infrastructure after becoming independent from Fandom. The API is temporarily offline while they migrate their tech stack.
+                        </p>
+                      </div>
+                      <SettingsInput
+                        label="API Key (When Available)"
+                        value={apiCredentials.giantBombApiKey}
+                        onChange={(val) => handleAPIInputChange('giantBombApiKey', val)}
+                        placeholder="Giant Bomb API Key"
+                        type="password"
+                        description="Additional metadata and artwork source (Currently Unavailable)"
+                        disabled={true}
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
             )
@@ -1538,6 +1468,29 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                     </ol>
                     <div className="p-4 bg-blue-900/10 border border-blue-500/10 rounded-lg mt-4">
                       <p className="text-xs text-blue-300">RAWG is an optional secondary source for metadata.</p>
+                    </div>
+                  </div>
+                )}
+
+                {activeAPITab === 'giantbomb' && (
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2 text-red-400 mb-2">
+                      <span className="text-sm font-semibold uppercase tracking-wider">Status Update</span>
+                    </div>
+                    <h4 className="text-lg font-medium text-white">Giant Bomb API Status</h4>
+                    <div className="p-4 bg-red-900/10 border border-red-500/20 rounded-lg">
+                      <p className="text-sm text-gray-300 mb-3">
+                        Giant Bomb has become independent from Fandom and is currently rebuilding their entire tech stack. During this transition, their API is temporarily unavailable.
+                      </p>
+                      <p className="text-sm text-gray-300 mb-3">
+                        <strong>What this means for Onyx:</strong> The Giant Bomb metadata provider is currently disabled. You can still configure your API key for when the service becomes available again.
+                      </p>
+                      <p className="text-sm text-gray-300">
+                        <strong>Future plans:</strong> Giant Bomb is working on an open source wiki project. Check <button onClick={() => window.electronAPI?.openExternal('https://bombcast.com/wiki')} className="text-blue-400 hover:text-blue-300 underline">bombcast.com/wiki</button> for updates and contribution opportunities.
+                      </p>
+                    </div>
+                    <div className="p-4 bg-blue-900/10 border border-blue-500/10 rounded-lg mt-4">
+                      <p className="text-xs text-blue-300">When the API becomes available again, Giant Bomb will provide high-quality game metadata and artwork as an additional source.</p>
                     </div>
                   </div>
                 )}
