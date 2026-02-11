@@ -123,6 +123,17 @@ interface RightClickMenuProps {
   onCategoriesTopSizeChange?: (size: number) => void;
   isViewFlipped?: boolean;
   onViewFlipChange?: (flipped: boolean) => void;
+  // Button colors per view
+  rightPanelButtonColors?: { playColor?: string; editColor?: string; modManagerColor?: string };
+  onRightPanelButtonColorsChange?: (colors: { playColor?: string; editColor?: string; modManagerColor?: string }) => void;
+  carouselButtonColors?: { playColor?: string; editColor?: string; modManagerColor?: string };
+  onCarouselButtonColorsChange?: (colors: { playColor?: string; editColor?: string; modManagerColor?: string }) => void;
+  gridButtonColors?: { playColor?: string; editColor?: string; modManagerColor?: string };
+  onGridButtonColorsChange?: (colors: { playColor?: string; editColor?: string; modManagerColor?: string }) => void;
+  listButtonColors?: { playColor?: string; editColor?: string; modManagerColor?: string };
+  onListButtonColorsChange?: (colors: { playColor?: string; editColor?: string; modManagerColor?: string }) => void;
+  logoButtonColors?: { playColor?: string; editColor?: string; modManagerColor?: string };
+  onLogoButtonColorsChange?: (colors: { playColor?: string; editColor?: string; modManagerColor?: string }) => void;
 }
 
 export const RightClickMenu: React.FC<RightClickMenuProps> = ({
@@ -205,6 +216,16 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
   onCategoriesTopSizeChange,
   isViewFlipped = false,
   onViewFlipChange,
+  rightPanelButtonColors,
+  onRightPanelButtonColorsChange,
+  carouselButtonColors,
+  onCarouselButtonColorsChange,
+  gridButtonColors,
+  onGridButtonColorsChange,
+  listButtonColors,
+  onListButtonColorsChange,
+  logoButtonColors,
+  onLogoButtonColorsChange,
 }) => {
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -1084,6 +1105,56 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                   </div>
                 </div>
 
+                {/* Button Colors */}
+                <div className="px-3 py-2 bg-gray-700/30 rounded-md">
+                  <label className="block text-xs text-gray-400 mb-2 font-semibold">Button Colors</label>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <label className="text-xs text-gray-300 w-12">Play:</label>
+                      <input
+                        type="color"
+                        value={carouselButtonColors?.playColor || '#0ea5e9'}
+                        onChange={(e) => onCarouselButtonColorsChange?.({ ...carouselButtonColors, playColor: e.target.value })}
+                        className="w-12 h-8 rounded cursor-pointer"
+                        title="Play button color"
+                      />
+                      <span className="text-xs text-gray-400">{carouselButtonColors?.playColor || '#0ea5e9'}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <label className="text-xs text-gray-300 w-12">Edit:</label>
+                      <input
+                        type="color"
+                        value={carouselButtonColors?.editColor || '#6b7280'}
+                        onChange={(e) => onCarouselButtonColorsChange?.({ ...carouselButtonColors, editColor: e.target.value })}
+                        className="w-12 h-8 rounded cursor-pointer"
+                        title="Edit button color"
+                      />
+                      <span className="text-xs text-gray-400">{carouselButtonColors?.editColor || '#6b7280'}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <label className="text-xs text-gray-300 w-16">Mod Mgr:</label>
+                      <input
+                        type="color"
+                        value={carouselButtonColors?.modManagerColor || '#a855f7'}
+                        onChange={(e) => onCarouselButtonColorsChange?.({ ...carouselButtonColors, modManagerColor: e.target.value })}
+                        className="w-12 h-8 rounded cursor-pointer"
+                        title="Mod Manager button color"
+                      />
+                      <span className="text-xs text-gray-400">{carouselButtonColors?.modManagerColor || '#a855f7'}</span>
+                    </div>
+                    <button
+                      onClick={() => {
+                        const defaults = { playColor: '#0ea5e9', editColor: '#6b7280', modManagerColor: '#a855f7' };
+                        onCarouselButtonColorsChange?.(defaults);
+                        window.electronAPI.savePreferences({ carouselButtonColors: defaults });
+                      }}
+                      className="w-full px-2 py-1 text-xs bg-gray-600 hover:bg-gray-500 text-white rounded transition-colors"
+                    >
+                      Reset
+                    </button>
+                  </div>
+                </div>
+
                 {/* Button Alignment */}
                 <div className="px-3 py-2 bg-gray-700/30 rounded-md">
                   <label className="block text-xs text-gray-400 mb-2 font-semibold">Button Alignment</label>
@@ -1855,6 +1926,80 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                     >
                       Right
                     </button>
+                  </div>
+                </div>
+
+                {/* Button Colors - View Specific */}
+                <div className="px-3 py-2 bg-gray-700/30 rounded-md">
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-xs text-gray-400 font-semibold">Button Colors</label>
+                    <button
+                      onClick={() => {
+                        const defaults = { playColor: '#0ea5e9', editColor: '#6b7280', modManagerColor: '#a855f7' };
+                        if (viewMode === 'grid') onGridButtonColorsChange?.(defaults);
+                        else if (viewMode === 'list') onListButtonColorsChange?.(defaults);
+                        else if (viewMode === 'logo') onLogoButtonColorsChange?.(defaults);
+                        else onRightPanelButtonColorsChange?.(defaults);
+                        window.electronAPI.savePreferences({
+                          [viewMode === 'grid' ? 'gridButtonColors' : 
+                           viewMode === 'list' ? 'listButtonColors' :
+                           viewMode === 'logo' ? 'logoButtonColors' :
+                           'rightPanelButtonColors']: defaults
+                        });
+                      }}
+                      className="px-2 py-1 text-xs rounded bg-gray-600 hover:bg-gray-500 text-gray-300 border border-gray-500 transition-colors"
+                      title="Reset to defaults"
+                    >
+                      Reset
+                    </button>
+                  </div>
+                  <div className="space-y-2">
+                    {(() => {
+                      const getColors = () => {
+                        if (viewMode === 'grid') return { colors: gridButtonColors, handler: onGridButtonColorsChange };
+                        if (viewMode === 'list') return { colors: listButtonColors, handler: onListButtonColorsChange };
+                        if (viewMode === 'logo') return { colors: logoButtonColors, handler: onLogoButtonColorsChange };
+                        return { colors: rightPanelButtonColors, handler: onRightPanelButtonColorsChange };
+                      };
+                      const { colors, handler } = getColors();
+                      return (
+                        <>
+                          <div className="flex items-center gap-2">
+                            <label className="text-xs text-gray-300 w-12">Play:</label>
+                            <input
+                              type="color"
+                              value={colors?.playColor || '#0ea5e9'}
+                              onChange={(e) => handler?.({ ...colors, playColor: e.target.value })}
+                              className="w-12 h-8 rounded cursor-pointer"
+                              title="Play button color"
+                            />
+                            <span className="text-xs text-gray-400">{colors?.playColor || '#0ea5e9'}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <label className="text-xs text-gray-300 w-12">Edit:</label>
+                            <input
+                              type="color"
+                              value={colors?.editColor || '#6b7280'}
+                              onChange={(e) => handler?.({ ...colors, editColor: e.target.value })}
+                              className="w-12 h-8 rounded cursor-pointer"
+                              title="Edit button color"
+                            />
+                            <span className="text-xs text-gray-400">{colors?.editColor || '#6b7280'}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <label className="text-xs text-gray-300 w-12">Mod Mgr:</label>
+                            <input
+                              type="color"
+                              value={colors?.modManagerColor || '#a855f7'}
+                              onChange={(e) => handler?.({ ...colors, modManagerColor: e.target.value })}
+                              className="w-12 h-8 rounded cursor-pointer"
+                              title="Mod Manager button color"
+                            />
+                            <span className="text-xs text-gray-400">{colors?.modManagerColor || '#a855f7'}</span>
+                          </div>
+                        </>
+                      );
+                    })()}
                   </div>
                 </div>
 

@@ -3,6 +3,7 @@ import { Game } from '../types/game';
 import { GameContextMenu } from './GameContextMenu';
 import { LogoResizeMenu } from './LogoResizeMenu';
 import { ImageSearchModal } from './ImageSearchModal';
+import { getContrastingTextColor } from '../utils/colorUtils';
 
 type ViewKey = 'grid' | 'list' | 'logo';
 
@@ -40,6 +41,8 @@ interface GameDetailsPanelProps {
   descriptionWidth?: number;
   onDescriptionWidthChange?: (width: number) => void;
   isViewFlipped?: boolean;
+  // Button colors
+  rightPanelButtonColors?: { playColor?: string; editColor?: string; modManagerColor?: string };
 }
 
 export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
@@ -75,6 +78,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
   descriptionWidth: propDescriptionWidth = 50,
   onDescriptionWidthChange,
   isViewFlipped = false,
+  rightPanelButtonColors,
 }) => {
   const defaultPanelWidths: Record<ViewKey, number> = { grid: 800, list: 800, logo: 800 };
   const [panelWidths, setPanelWidths] = useState<Record<ViewKey, number>>(defaultPanelWidths);
@@ -912,9 +916,13 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
           {onEdit && (
             <button
               onClick={() => onEdit(game)}
-              className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white font-medium rounded-lg transition-colors flex items-center gap-2"
+              style={{
+                backgroundColor: rightPanelButtonColors?.editColor || '#6b7280',
+                color: getContrastingTextColor(rightPanelButtonColors?.editColor || '#6b7280'),
+                fontSize: `${rightPanelButtonSize}px`
+              }}
+              className="px-4 py-2 hover:opacity-90 text-white font-medium rounded-lg transition-colors flex items-center gap-2"
               title="Edit Game"
-              style={{ fontSize: `${rightPanelButtonSize}px` }}
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -934,9 +942,13 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
                   }
                 }
               }}
-              className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-medium rounded-lg transition-colors flex items-center gap-2"
+              style={{
+                backgroundColor: rightPanelButtonColors?.modManagerColor || '#a855f7',
+                color: getContrastingTextColor(rightPanelButtonColors?.modManagerColor || '#a855f7'),
+                fontSize: `${rightPanelButtonSize}px`
+              }}
+              className="px-4 py-2 hover:opacity-90 text-white font-medium rounded-lg transition-colors flex items-center gap-2"
               title="Open Mod Manager"
-              style={{ fontSize: `${rightPanelButtonSize}px` }}
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
@@ -948,8 +960,12 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
           <button
             onClick={() => onPlay?.(game)}
             disabled={isLaunching || isRunning}
-            className="onyx-btn-primary px-6 py-2 rounded-lg flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            style={{ fontSize: `${rightPanelButtonSize}px` }}
+            style={{
+              backgroundColor: rightPanelButtonColors?.playColor || '#0ea5e9',
+              color: getContrastingTextColor(rightPanelButtonColors?.playColor || '#0ea5e9'),
+              fontSize: `${rightPanelButtonSize}px`
+            }}
+            className="px-6 py-2 rounded-lg flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 transition-opacity text-white font-medium"
           >
             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
               <path d="M8 5v14l11-7z" />

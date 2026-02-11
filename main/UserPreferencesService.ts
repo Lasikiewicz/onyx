@@ -17,6 +17,11 @@ export interface UserPreferences {
   hideAppsTitles?: boolean;
   hideGameTitles?: boolean;
   gameTilePadding?: number;
+  rightPanelButtonColors?: { playColor?: string; editColor?: string; modManagerColor?: string };
+  carouselButtonColors?: { playColor?: string; editColor?: string; modManagerColor?: string };
+  gridButtonColors?: { playColor?: string; editColor?: string; modManagerColor?: string };
+  listButtonColors?: { playColor?: string; editColor?: string; modManagerColor?: string };
+  logoButtonColors?: { playColor?: string; editColor?: string; modManagerColor?: string };
   showCategoriesInGameListByView?: { grid?: boolean; list?: boolean; logo?: boolean };
   categoriesPositionByView?: { grid?: 'top' | 'bottom'; list?: 'top' | 'bottom'; logo?: 'top' | 'bottom' };
   categoriesAlignmentByView?: { grid?: 'left' | 'center' | 'right'; list?: 'left' | 'center' | 'right'; logo?: 'left' | 'center' | 'right' };
@@ -247,6 +252,12 @@ export class UserPreferencesService {
             confirmGameLaunch: false,
             restoreAfterLaunch: true,
             defaultStartupPage: 'library',
+            // Button colors per view (defaults use brand cyan for Play, gray for Edit, purple for Mod Manager)
+            rightPanelButtonColors: { playColor: '#0ea5e9', editColor: '#6b7280', modManagerColor: '#a855f7' },
+            carouselButtonColors: { playColor: '#0ea5e9', editColor: '#6b7280', modManagerColor: '#a855f7' },
+            gridButtonColors: { playColor: '#0ea5e9', editColor: '#6b7280', modManagerColor: '#a855f7' },
+            listButtonColors: { playColor: '#0ea5e9', editColor: '#6b7280', modManagerColor: '#a855f7' },
+            logoButtonColors: { playColor: '#0ea5e9', editColor: '#6b7280', modManagerColor: '#a855f7' },
           },
         },
       });
@@ -354,6 +365,12 @@ export class UserPreferencesService {
       confirmGameLaunch: false,
       restoreAfterLaunch: true,
       defaultStartupPage: 'library',
+      // Button colors per view
+      rightPanelButtonColors: { playColor: '#0ea5e9', editColor: '#6b7280', modManagerColor: '#a855f7' },
+      carouselButtonColors: { playColor: '#0ea5e9', editColor: '#6b7280', modManagerColor: '#a855f7' },
+      gridButtonColors: { playColor: '#0ea5e9', editColor: '#6b7280', modManagerColor: '#a855f7' },
+      listButtonColors: { playColor: '#0ea5e9', editColor: '#6b7280', modManagerColor: '#a855f7' },
+      logoButtonColors: { playColor: '#0ea5e9', editColor: '#6b7280', modManagerColor: '#a855f7' },
     });
   }
 

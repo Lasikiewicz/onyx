@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Game } from '../types/game';
 import { GameContextMenu } from './GameContextMenu';
+import { getContrastingTextColor } from '../utils/colorUtils';
 
 interface LibraryCarouselProps {
   games: Game[];
@@ -36,6 +37,8 @@ interface LibraryCarouselProps {
   onMoreSettings?: () => void;
   onEmptySpaceRightClick?: (x: number, y: number) => void;
   isViewFlipped?: boolean;
+  // Button colors
+  carouselButtonColors?: { playColor?: string; editColor?: string; modManagerColor?: string };
 }
 
 export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
@@ -66,6 +69,7 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
   isHiddenView = false,
   onEmptySpaceRightClick,
   isViewFlipped = false,
+  carouselButtonColors,
 }) => {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [showDetailsBarResizer, setShowDetailsBarResizer] = useState(false);
@@ -388,11 +392,13 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
               <div className={`flex items-center gap-3 flex-wrap ${getFlexAlignment(carouselButtonAlignment)}`}>
                 <button
                   onClick={() => onPlay?.(selectedGame)}
-                  className="bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors flex items-center gap-2 shadow-lg"
                   style={{
+                    backgroundColor: carouselButtonColors?.playColor || '#0ea5e9',
+                    color: getContrastingTextColor(carouselButtonColors?.playColor || '#0ea5e9'),
                     padding: `${carouselButtonSize * 0.5}px ${carouselButtonSize * 1.5}px`,
                     fontSize: `${carouselButtonSize}px`
                   }}
+                  className="hover:opacity-90 text-white font-medium rounded-lg transition-colors flex items-center gap-2 shadow-lg"
                 >
                   Play
                 </button>
@@ -409,11 +415,13 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
                         }
                       }
                     }}
-                    className="bg-purple-600 hover:bg-purple-700 text-white font-medium rounded-lg transition-colors flex items-center gap-2 shadow-lg"
                     style={{
+                      backgroundColor: carouselButtonColors?.modManagerColor || '#a855f7',
+                      color: getContrastingTextColor(carouselButtonColors?.modManagerColor || '#a855f7'),
                       padding: `${carouselButtonSize * 0.5}px ${carouselButtonSize * 1.2}px`,
                       fontSize: `${carouselButtonSize}px`
                     }}
+                    className="hover:opacity-90 text-white font-medium rounded-lg transition-colors flex items-center gap-2 shadow-lg"
                   >
                     <svg
                       className="flex-shrink-0"
@@ -431,11 +439,13 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
 
                 <button
                   onClick={() => onEdit?.(selectedGame)}
-                  className="bg-gray-700 hover:bg-gray-600 text-white font-medium rounded-lg transition-colors flex items-center gap-2 shadow-lg"
                   style={{
+                    backgroundColor: carouselButtonColors?.editColor || '#6b7280',
+                    color: getContrastingTextColor(carouselButtonColors?.editColor || '#6b7280'),
                     padding: `${carouselButtonSize * 0.5}px ${carouselButtonSize * 1.2}px`,
                     fontSize: `${carouselButtonSize}px`
                   }}
+                  className="hover:opacity-90 text-white font-medium rounded-lg transition-colors flex items-center gap-2 shadow-lg"
                 >
                   Edit
                 </button>

@@ -211,6 +211,12 @@ export interface UserPreferences {
   enableGamepadSupport?: boolean;
   gamepadNavigationSpeed?: number;
   gamepadButtonLayout?: 'xbox' | 'playstation';
+  // Button colors per view
+  rightPanelButtonColors?: { playColor?: string; editColor?: string; modManagerColor?: string };
+  carouselButtonColors?: { playColor?: string; editColor?: string; modManagerColor?: string };
+  gridButtonColors?: { playColor?: string; editColor?: string; modManagerColor?: string };
+  listButtonColors?: { playColor?: string; editColor?: string; modManagerColor?: string };
+  logoButtonColors?: { playColor?: string; editColor?: string; modManagerColor?: string };
 }
 
 export type UpdateStatus = 'checking' | 'available' | 'not-available' | 'downloading' | 'downloaded' | 'error';

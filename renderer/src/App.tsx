@@ -162,6 +162,12 @@ function App() {
     logo: false,
     carousel: false,
   });
+  // Button colors per view
+  const [rightPanelButtonColors, setRightPanelButtonColors] = useState<{ playColor?: string; editColor?: string; modManagerColor?: string }>({ playColor: '#0ea5e9', editColor: '#6b7280', modManagerColor: '#a855f7' });
+  const [carouselButtonColors, setCarouselButtonColors] = useState<{ playColor?: string; editColor?: string; modManagerColor?: string }>({ playColor: '#0ea5e9', editColor: '#6b7280', modManagerColor: '#a855f7' });
+  const [gridButtonColors, setGridButtonColors] = useState<{ playColor?: string; editColor?: string; modManagerColor?: string }>({ playColor: '#0ea5e9', editColor: '#6b7280', modManagerColor: '#a855f7' });
+  const [listButtonColors, setListButtonColors] = useState<{ playColor?: string; editColor?: string; modManagerColor?: string }>({ playColor: '#0ea5e9', editColor: '#6b7280', modManagerColor: '#a855f7' });
+  const [logoButtonColors, setLogoButtonColors] = useState<{ playColor?: string; editColor?: string; modManagerColor?: string }>({ playColor: '#0ea5e9', editColor: '#6b7280', modManagerColor: '#a855f7' });
   // Top bar element positions
   const [topBarPositions, setTopBarPositions] = useState<TopBarPositions>({
     searchBar: 'left',
@@ -307,6 +313,11 @@ function App() {
           if (prefs.rightPanelButtonSize !== undefined) setRightPanelButtonSize(prefs.rightPanelButtonSize);
           if (prefs.rightPanelButtonLocation !== undefined) setRightPanelButtonLocation(prefs.rightPanelButtonLocation);
           if (prefs.detailsPanelOpacity !== undefined) setDetailsPanelOpacity(prefs.detailsPanelOpacity);
+          if (prefs.rightPanelButtonColors !== undefined) setRightPanelButtonColors(prefs.rightPanelButtonColors);
+          if (prefs.carouselButtonColors !== undefined) setCarouselButtonColors(prefs.carouselButtonColors);
+          if (prefs.gridButtonColors !== undefined) setGridButtonColors(prefs.gridButtonColors);
+          if (prefs.listButtonColors !== undefined) setListButtonColors(prefs.listButtonColors);
+          if (prefs.logoButtonColors !== undefined) setLogoButtonColors(prefs.logoButtonColors);
           if (prefs.isViewFlippedByView !== undefined) {
             const defaultFlipped = { grid: false, list: false, logo: false, carousel: false };
             setIsViewFlippedByView({ ...defaultFlipped, ...prefs.isViewFlippedByView });
@@ -1895,6 +1906,7 @@ function App() {
                             setRightClickMenu({ x, y });
                           }}
                           isViewFlipped={isViewFlippedByView[viewMode]}
+                          carouselButtonColors={carouselButtonColors}
                         />
                       ) : (
                         <LibraryListView
@@ -2033,6 +2045,12 @@ function App() {
                 window.electronAPI.savePreferences({ descriptionWidthByView: newByView });
               }}
               isViewFlipped={isViewFlippedByView[viewMode]}
+              rightPanelButtonColors={
+                viewMode === 'grid' ? gridButtonColors :
+                viewMode === 'list' ? listButtonColors :
+                viewMode === 'logo' ? logoButtonColors :
+                rightPanelButtonColors
+              }
             />
           )}
         </div>
@@ -2478,6 +2496,31 @@ function App() {
             const newByView = { ...descriptionWidthByView, [viewMode]: width };
             setDescriptionWidthByView(newByView);
             window.electronAPI.savePreferences({ descriptionWidthByView: newByView });
+          }}
+          rightPanelButtonColors={rightPanelButtonColors}
+          onRightPanelButtonColorsChange={(colors) => {
+            setRightPanelButtonColors(colors);
+            window.electronAPI.savePreferences({ rightPanelButtonColors: colors });
+          }}
+          carouselButtonColors={carouselButtonColors}
+          onCarouselButtonColorsChange={(colors) => {
+            setCarouselButtonColors(colors);
+            window.electronAPI.savePreferences({ carouselButtonColors: colors });
+          }}
+          gridButtonColors={gridButtonColors}
+          onGridButtonColorsChange={(colors) => {
+            setGridButtonColors(colors);
+            window.electronAPI.savePreferences({ gridButtonColors: colors });
+          }}
+          listButtonColors={listButtonColors}
+          onListButtonColorsChange={(colors) => {
+            setListButtonColors(colors);
+            window.electronAPI.savePreferences({ listButtonColors: colors });
+          }}
+          logoButtonColors={logoButtonColors}
+          onLogoButtonColorsChange={(colors) => {
+            setLogoButtonColors(colors);
+            window.electronAPI.savePreferences({ logoButtonColors: colors });
           }}
         />
       )}
