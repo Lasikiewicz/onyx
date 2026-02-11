@@ -8,6 +8,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - See the [repository](https://github.com/Lasikiewicz/onyx) for the latest work in progress.
 
+## [0.3.24] - 2026-02-11
+
+- Game title fallback now displays when logo is missing
+- Title fallback size is resizable with game logo size slider
+- Title fallback updates in real-time when logo size is adjusted
+
 ## [0.3.23] - 2026-02-11
 
 - Update notification popup now shows changelog by default
