@@ -417,15 +417,95 @@ export function registerMetadataIPCHandlers(
 
     ipcMain.handle('metadata:searchImages', async (_event, query: string, imageType: string, steamAppId?: string) => {
         try {
-            const images = await searchSGDB(query, steamAppId, imageType, false); // Default no animated for basic search?
+            const allImages: any[] = [];
+
+            // 1. Fetch from SteamGridDB (existing behavior)
+            const sgdbImages = await searchSGDB(query, steamAppId, imageType, false);
+            allImages.push(...sgdbImages);
+
+            // 2. Fetch from IGDB/RAWG via metadata fetcher
+            try {
+                const metadata = await metadataFetcher.searchArtwork(query, steamAppId);
+                const metadataImages: any[] = [];
+
+                // Extract relevant images based on type
+                if (imageType === 'boxart' && metadata.boxArtUrl) {
+                    metadataImages.push({
+                        url: metadata.boxArtUrl,
+                        score: 90, // High score for official metadata
+                        width: metadata.boxArtResolution?.width || 512,
+                        height: metadata.boxArtResolution?.height || 512,
+                        mime: 'image/jpeg',
+                        isAnimated: false,
+                        source: 'igdb/rawg'
+                    });
+                }
+
+                if (imageType === 'banner' && metadata.bannerUrl) {
+                    metadataImages.push({
+                        url: metadata.bannerUrl,
+                        score: 85,
+                        width: metadata.bannerResolution?.width || 1920,
+                        height: metadata.bannerResolution?.height || 620,
+                        mime: 'image/jpeg',
+                        isAnimated: false,
+                        source: 'igdb/rawg'
+                    });
+                }
+
+                if (imageType === 'logo' && metadata.logoUrl) {
+                    metadataImages.push({
+                        url: metadata.logoUrl,
+                        score: 80,
+                        width: metadata.logoResolution?.width || 256,
+                        height: metadata.logoResolution?.height || 256,
+                        mime: 'image/png',
+                        isAnimated: false,
+                        source: 'igdb/rawg'
+                    });
+                }
+
+                if (imageType === 'icon' && metadata.iconUrl) {
+                    metadataImages.push({
+                        url: metadata.iconUrl,
+                        score: 75,
+                        width: metadata.iconResolution?.width || 64,
+                        height: metadata.iconResolution?.height || 64,
+                        mime: 'image/png',
+                        isAnimated: false,
+                        source: 'igdb/rawg'
+                    });
+                }
+
+                // For screenshots (used for banner sometimes)
+                if (imageType === 'banner' && metadata.screenshots && metadata.screenshots.length > 0) {
+                    metadata.screenshots.slice(0, 3).forEach((screenshot, index) => {
+                        metadataImages.push({
+                            url: screenshot,
+                            score: 70 - index, // Decreasing score for multiple screenshots
+                            width: 1920, // Assume standard resolution
+                            height: 1080,
+                            mime: 'image/jpeg',
+                            isAnimated: false,
+                            source: 'igdb/rawg'
+                        });
+                    });
+                }
+
+                allImages.push(...metadataImages);
+            } catch (error) {
+                console.warn('Failed to fetch metadata images:', error);
+            }
+
             // Transform for UI
             const uiImages = [{
                 gameId: query,
                 gameName: query,
-                images: images
+                images: allImages
             }];
             return { success: true, images: uiImages };
         } catch (error) {
+            console.error('Error in metadata:searchImages handler:', error);
             return { success: false, images: [] };
         }
     });
@@ -478,6 +558,23 @@ export function registerMetadataIPCHandlers(
         } catch (error) {
             console.error('Error in metadata:searchGames handler:', error);
             return [];
+        }
+    });
+
+    // Search IGDB for metadata (covers, screenshots, etc.)
+    ipcMain.handle('metadata:searchMetadata', async (_event, query: string) => {
+        try {
+            // Use IGDB service directly since UI expects IGDBGameResult format
+            const igdbService = metadataFetcher.getIGDBProvider()?.getIGDBService();
+            if (!igdbService) {
+                return { success: false, error: 'IGDB service not available', results: [] };
+            }
+
+            const results = await igdbService.searchGame(query);
+            return { success: true, results };
+        } catch (error) {
+            console.error('Error in metadata:searchMetadata handler:', error);
+            return { success: false, error: error instanceof Error ? error.message : 'Unknown error', results: [] };
         }
     });
 

@@ -17,6 +17,10 @@ export class IGDBMetadataProvider implements MetadataProvider {
     return this.igdbService !== null;
   }
 
+  getIGDBService(): IGDBService | null {
+    return this.igdbService;
+  }
+
   async search(title: string, steamAppId?: string): Promise<GameSearchResult[]> {
     if (!this.igdbService) {
       return [];
@@ -38,8 +42,8 @@ export class IGDBMetadataProvider implements MetadataProvider {
             steamAppId: exactMatch.steamAppId,
           }];
         } else {
-          console.log(`[IGDBMetadataProvider] No match found for Steam ID ${steamAppId}, skipping fuzzy search to avoid incorrect matches.`);
-          return [];
+          console.log(`[IGDBMetadataProvider] No exact match found for Steam ID ${steamAppId}, falling back to title search.`);
+          // Fall through to title search below
         }
       }
 
