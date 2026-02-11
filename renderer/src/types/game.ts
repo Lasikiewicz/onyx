@@ -291,6 +291,7 @@ declare global {
       getLastBackgroundScan: () => Promise<number | undefined>;
       toggleDevTools: () => Promise<{ success: boolean; error?: string }>;
       minimizeWindow: () => Promise<{ success: boolean; error?: string }>;
+      restoreWindow: () => Promise<{ success: boolean; error?: string }>;
       maximizeWindow: () => Promise<{ success: boolean; error?: string }>;
       closeWindow: () => Promise<{ success: boolean; error?: string }>;
       resetApp: () => Promise<{ success: boolean; error?: string }>;
@@ -323,11 +324,16 @@ declare global {
         getShortcut: () => Promise<string>;
         setShortcut: (shortcut: string) => Promise<{ success: boolean; error?: string }>;
       };
+      scanning: {
+        gameStarted: (gameId: string) => Promise<void>;
+        gameStopped: (gameId: string) => Promise<void>;
+      };
       fullscreen: {
         toggle: () => Promise<{ success: boolean }>;
         enter: () => Promise<{ success: boolean }>;
         exit: () => Promise<{ success: boolean }>;
         getState: () => Promise<{ isFullscreen: boolean }>;
+        isMinimized: () => Promise<{ isMinimized: boolean }>;
         onChanged: (callback: (isFullscreen: boolean) => void) => () => void;
       };
       gamepad: {

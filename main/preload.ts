@@ -143,6 +143,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   toggleDevTools: () => ipcRenderer.invoke('app:toggleDevTools'),
   // Window control methods
   minimizeWindow: () => ipcRenderer.invoke('app:minimizeWindow'),
+  restoreWindow: () => ipcRenderer.invoke('app:restoreWindow'),
   // Refresh all metadata
   refreshAllMetadata: (options?: { allGames?: boolean; gameIds?: string[] }) => ipcRenderer.invoke('metadata:refreshAll', options),
   maximizeWindow: () => ipcRenderer.invoke('app:maximizeWindow'),
@@ -186,12 +187,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getShortcut: async () => ({ success: false, error: 'Feature is disabled' }),
     setShortcut: async () => ({ success: false, error: 'Feature is disabled' }),
   },
+  // Background scanning control
+  scanning: {
+    gameStarted: (gameId: string) => ipcRenderer.invoke('scanning:gameStarted', gameId),
+    gameStopped: (gameId: string) => ipcRenderer.invoke('scanning:gameStopped', gameId),
+  },
   // Fullscreen methods
   fullscreen: {
     toggle: () => ipcRenderer.invoke('app:toggleFullscreen'),
     enter: () => ipcRenderer.invoke('app:enterFullscreen'),
     exit: () => ipcRenderer.invoke('app:exitFullscreen'),
     getState: () => ipcRenderer.invoke('app:getFullscreenState'),
+    isMinimized: () => ipcRenderer.invoke('app:isMinimized'),
     onChanged: (callback: (isFullscreen: boolean) => void) => {
       const handler = (_event: any, isFullscreen: boolean) => callback(isFullscreen);
       ipcRenderer.on('fullscreen-changed', handler);

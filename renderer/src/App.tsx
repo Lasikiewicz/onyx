@@ -944,6 +944,15 @@ function App() {
         return;
       }
 
+      // Check if we should minimize the window on game launch
+      const prefs = await window.electronAPI.getPreferences();
+      if (prefs.minimizeOnGameLaunch) {
+        await window.electronAPI.minimizeWindow();
+      }
+
+      // Notify main process that a game has started
+      await window.electronAPI.scanning?.gameStarted?.(game.id);
+
       // Game launched successfully
       // Wait a moment for the process to start, then mark as running
       setTimeout(() => {
@@ -980,6 +989,18 @@ function App() {
             newSet.delete(gameId);
             return newSet;
           });
+
+          // Notify main process that a game has stopped
+          await window.electronAPI.scanning?.gameStopped?.(gameId);
+
+          // Check if we should restore the window on game exit
+          const prefs = await window.electronAPI.getPreferences();
+          if (prefs.restoreAfterLaunch) {
+            const { isMinimized } = await window.electronAPI.fullscreen.isMinimized();
+            if (isMinimized) {
+              await window.electronAPI.restoreWindow();
+            }
+          }
         }
       } catch (error) {
         console.error('Error checking process:', error);
@@ -993,7 +1014,7 @@ function App() {
     let pollCount = 0;
     const maxPolls = 30; // Poll for up to 60 seconds (30 * 2s)
 
-    const checkInterval = setInterval(() => {
+    const checkInterval = setInterval(async () => {
       pollCount++;
 
       // After max polls, assume game closed
@@ -1004,6 +1025,18 @@ function App() {
           newSet.delete(gameId);
           return newSet;
         });
+
+        // Notify main process that a game has stopped
+        await window.electronAPI.scanning?.gameStopped?.(gameId);
+
+        // Check if we should restore the window on game exit
+        const prefs = await window.electronAPI.getPreferences();
+        if (prefs.restoreAfterLaunch) {
+          const { isMinimized } = await window.electronAPI.fullscreen.isMinimized();
+          if (isMinimized) {
+            await window.electronAPI.restoreWindow();
+          }
+        }
         return;
       }
 

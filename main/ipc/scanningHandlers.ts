@@ -7,6 +7,7 @@ import { ImageCacheService } from '../ImageCacheService.js';
 import { existsSync } from 'node:fs';
 
 let backgroundScanInterval: NodeJS.Timeout | null = null;
+let runningGames = new Set<string>();
 
 export function registerScanningHandlers(
     winReference: { readonly current: BrowserWindow | null },
@@ -23,6 +24,12 @@ export function registerScanningHandlers(
                 if (!enabled) {
                     return;
                 }
+            }
+
+            // Skip background scan if games are currently running
+            if (runningGames.size > 0) {
+                console.log(`[BackgroundScan] Skipping scan - ${runningGames.size} game(s) currently running`);
+                return;
             }
 
             console.log('[BackgroundScan] Starting background scan...');
@@ -257,6 +264,17 @@ export function registerScanningHandlers(
                 removedCount: 0
             };
         }
+    });
+
+    // Track running games to pause background scanning during gameplay
+    ipcMain.handle('scanning:gameStarted', (_event, gameId: string) => {
+        runningGames.add(gameId);
+        console.log(`[BackgroundScan] Game started: ${gameId}, running games: ${runningGames.size}`);
+    });
+
+    ipcMain.handle('scanning:gameStopped', (_event, gameId: string) => {
+        runningGames.delete(gameId);
+        console.log(`[BackgroundScan] Game stopped: ${gameId}, running games: ${runningGames.size}`);
     });
 
     return { performBackgroundScan, startBackgroundScan, stopBackgroundScan };

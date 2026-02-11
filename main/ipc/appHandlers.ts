@@ -53,6 +53,11 @@ export function registerAppIPCHandlers(
         return { success: !!winReference.current };
     });
 
+    ipcMain.handle('app:restoreWindow', async () => {
+        if (winReference.current) winReference.current.restore();
+        return { success: !!winReference.current };
+    });
+
     ipcMain.handle('app:maximizeWindow', async () => {
         if (winReference.current) {
             if (winReference.current.isMaximized()) winReference.current.unmaximize();
@@ -93,6 +98,13 @@ export function registerAppIPCHandlers(
             return { isFullscreen: winReference.current.isFullScreen() };
         }
         return { isFullscreen: false };
+    });
+
+    ipcMain.handle('app:isMinimized', async () => {
+        if (winReference.current) {
+            return { isMinimized: winReference.current.isMinimized() };
+        }
+        return { isMinimized: false };
     });
 
     ipcMain.handle('app:toggleDevTools', async () => {
