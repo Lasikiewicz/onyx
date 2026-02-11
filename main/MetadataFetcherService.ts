@@ -166,6 +166,13 @@ export class MetadataFetcherService {
   }
 
   /**
+   * Get RAWG provider for external searches
+   */
+  getRAWGProvider(): RAWGMetadataProvider | undefined {
+    return this.rawgProvider;
+  }
+
+  /**
    * Get SteamGridDB provider for external searches
    */
   getSteamGridDBProvider(): SteamGridDBMetadataProvider | undefined {

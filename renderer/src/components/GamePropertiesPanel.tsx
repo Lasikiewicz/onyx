@@ -56,6 +56,10 @@ export const GamePropertiesPanel: React.FC<GamePropertiesPanelProps> = ({
 
     const [showAnimatedImages, setShowAnimatedImages] = useState(false);
 
+    const fastSearchRunIdRef = useRef(0);
+    const imageSearchRunIdRef = useRef(0);
+    const fastSearchActiveRunIdRef = useRef(0);
+
     // General State
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
@@ -168,8 +172,20 @@ export const GamePropertiesPanel: React.FC<GamePropertiesPanelProps> = ({
         const query = imageSearchQuery || editedFields.title;
         if (!query) return;
 
+        const runId = ++imageSearchRunIdRef.current;
+
         setIsSearchingImages(true);
         setSteamGridDBResults(prev => ({ ...prev, [type]: [] }));
+
+        console.log('[ImporterImageSearch] start', {
+            runId,
+            type,
+            query,
+            gameId: (game as any).id,
+            steamAppId: (game as any).appId || (game as any).steamAppId,
+            showAnimatedImages,
+            timestamp: new Date().toISOString()
+        });
 
         try {
             const steamAppId = (game as any).appId || (game as any).steamAppId;
@@ -181,9 +197,10 @@ export const GamePropertiesPanel: React.FC<GamePropertiesPanelProps> = ({
                 setSteamGridDBResults(prev => ({ ...prev, [type]: flattened }));
             }
         } catch (err) {
-            console.error(err);
+            console.error('[ImporterImageSearch] error', { runId, query, err });
         } finally {
             setIsSearchingImages(false);
+            console.log('[ImporterImageSearch] end', { runId, query, timestamp: new Date().toISOString() });
         }
     };
 
@@ -208,20 +225,64 @@ export const GamePropertiesPanel: React.FC<GamePropertiesPanelProps> = ({
             return;
         }
 
+        const runId = ++fastSearchRunIdRef.current;
+        fastSearchActiveRunIdRef.current = runId;
         setIsFastSearching(true);
         setError(null);
         setFastSearchResults([]);
 
+        const removeProgressListener = window.electronAPI?.on
+            ? window.electronAPI.on('metadata:fastSearchProgress', (_event: any, data: any) => {
+                const results = Array.isArray(data) ? data : (data.results || []);
+                const responseRequestId = Array.isArray(data) ? undefined : data.requestId;
+
+                if (responseRequestId && responseRequestId !== fastSearchActiveRunIdRef.current) {
+                    console.log('[ImporterFastSearch] discard progress (requestId mismatch)', {
+                        runId,
+                        responseRequestId,
+                        expectedRequestId: fastSearchActiveRunIdRef.current
+                    });
+                    return;
+                }
+
+                console.log('[ImporterFastSearch] progress', {
+                    runId,
+                    query,
+                    resultsCount: results.length,
+                    timestamp: new Date().toISOString()
+                });
+                setFastSearchResults(prev => {
+                    const currentIds = new Set(prev.map(p => `${p.source}:${p.id}`));
+                    const newItems = results.filter((r: any) => !currentIds.has(`${r.source}:${r.id}`));
+                    return [...prev, ...newItems];
+                });
+            })
+            : () => { };
 
         try {
             console.log(`[FastSearch] Searching for "${query}"...`);
             const startTime = Date.now();
 
-            const response = await (window.electronAPI as any).fastImageSearch(query);
+            const response = await (window.electronAPI as any).fastImageSearch(query, runId);
 
             console.log(`[FastSearch] Completed in ${Date.now() - startTime}ms`);
 
-            if (response.success && response.games && response.games.length > 0) {
+            if (response && (response.boxArtUrl || response.bannerUrl || response.logoUrl || response.heroUrl)) {
+                const syntheticResult = {
+                    id: Date.now(),
+                    name: query,
+                    coverUrl: response.boxArtUrl || '',
+                    bannerUrl: response.bannerUrl || response.heroUrl || '',
+                    logoUrl: response.logoUrl || '',
+                    screenshotUrls: response.screenshots || [],
+                    source: 'Best Match'
+                };
+
+                setFastSearchResults(prev => (prev.length === 0 ? [syntheticResult] : prev));
+                handleSelectFastGame(syntheticResult);
+                setSuccess(`Found metadata in ${Date.now() - startTime}ms`);
+                setTimeout(() => setSuccess(null), 3000);
+            } else if (response.success && response.games && response.games.length > 0) {
                 setFastSearchResults(response.games);
                 setSuccess(`Found ${response.games.length} game(s) in ${Date.now() - startTime}ms`);
                 setTimeout(() => setSuccess(null), 3000);
@@ -232,13 +293,26 @@ export const GamePropertiesPanel: React.FC<GamePropertiesPanelProps> = ({
             }
         } catch (err) {
             setError('Failed to search. Check your internet connection and API credentials.');
-            console.error('[FastSearch] Error:', err);
+            console.error('[ImporterFastSearch] error', { runId, query, err });
         } finally {
+            if (typeof removeProgressListener === 'function') {
+                removeProgressListener();
+            }
             setIsFastSearching(false);
+            console.log('[ImporterFastSearch] end', { runId, query, timestamp: new Date().toISOString() });
         }
     };
 
     const handleSelectFastGame = async (gameResult: any) => {
+
+        console.log('[ImporterFastSearch] select result', {
+            resultId: gameResult.id,
+            resultName: gameResult.name,
+            resultSource: gameResult.source,
+            gameId: (game as any).id,
+            showAnimatedImages,
+            timestamp: new Date().toISOString()
+        });
 
         setFastSearchResults([]);
         setIsSearchingImages(true);
@@ -246,11 +320,22 @@ export const GamePropertiesPanel: React.FC<GamePropertiesPanelProps> = ({
 
         try {
             const steamAppId = (game as any).appId || (game as any).steamAppId;
+            const igdbIdParam = (() => {
+                if (gameResult.source !== 'igdb') return undefined;
+                if (typeof gameResult.id === 'number' && Number.isFinite(gameResult.id)) return gameResult.id;
+                if (typeof gameResult.id === 'string' && gameResult.id.startsWith('igdb-')) {
+                    const parsed = Number(gameResult.id.replace('igdb-', ''));
+                    return Number.isFinite(parsed) ? parsed : undefined;
+                }
+                return undefined;
+            })();
+
             const response = await (window.electronAPI as any).fetchGameImages(
                 gameResult.name,
                 steamAppId,
-                Number(gameResult.id),
-                showAnimatedImages
+                igdbIdParam,
+                showAnimatedImages,
+                fastSearchActiveRunIdRef.current
             );
 
             if (response.success && response.images) {
@@ -258,10 +343,15 @@ export const GamePropertiesPanel: React.FC<GamePropertiesPanelProps> = ({
                 const seenUrls = new Set<string>();
 
                 response.images.forEach((img: any) => {
-                    if (!img.url || seenUrls.has(img.url)) return;
-                    seenUrls.add(img.url);
-                    if (categorized[img.type]) {
-                        categorized[img.type].push(img);
+                    const dedupeKey = `${img.url}|${img.source}|${img.type}`;
+                    if (!img.url || seenUrls.has(dedupeKey)) return;
+                    seenUrls.add(dedupeKey);
+
+                    const normalizedType = img.type === 'hero' || img.type === 'screenshot' ? 'banner' : img.type;
+                    if (normalizedType === 'alternativeBanner') {
+                        categorized.alternativeBanner.push(img);
+                    } else if (categorized[normalizedType]) {
+                        categorized[normalizedType].push(img);
                     }
                 });
 
@@ -723,7 +813,7 @@ export const GamePropertiesPanel: React.FC<GamePropertiesPanelProps> = ({
                                                                 }}
                                                             />
                                                             <div className="absolute inset-x-0 bottom-0 bg-black/60 p-1 translate-y-full group-hover:translate-y-0 transition-transform">
-                                                                <p className="text-[10px] text-white truncate text-center">SteamGridDB</p>
+                                                                <p className="text-[10px] text-white truncate text-center">{result.source || 'SteamGridDB'}</p>
                                                             </div>
                                                         </div>
                                                     </div>
@@ -784,7 +874,7 @@ export const GamePropertiesPanel: React.FC<GamePropertiesPanelProps> = ({
                                                                 }}
                                                             />
                                                             <div className="absolute inset-x-0 bottom-0 bg-black/60 p-1 translate-y-full group-hover:translate-y-0 transition-transform">
-                                                                <p className="text-[10px] text-white truncate text-center">SteamGridDB</p>
+                                                                <p className="text-[10px] text-white truncate text-center">{result.source || 'SteamGridDB'}</p>
                                                             </div>
                                                         </div>
                                                     </div>
@@ -842,7 +932,7 @@ export const GamePropertiesPanel: React.FC<GamePropertiesPanelProps> = ({
                                                     }}
                                                 />
                                                 <div className="absolute inset-x-0 bottom-0 bg-black/60 p-1 translate-y-full group-hover:translate-y-0 transition-transform">
-                                                    <p className="text-[10px] text-white truncate text-center">SteamGridDB</p>
+                                                    <p className="text-[10px] text-white truncate text-center">{result.source || 'SteamGridDB'}</p>
                                                 </div>
                                             </div>
                                         </div>
@@ -897,7 +987,7 @@ export const GamePropertiesPanel: React.FC<GamePropertiesPanelProps> = ({
                                                     }}
                                                 />
                                                 <div className="absolute inset-x-0 bottom-0 bg-black/60 p-1 translate-y-full group-hover:translate-y-0 transition-transform">
-                                                    <p className="text-[10px] text-white truncate text-center">SteamGridDB</p>
+                                                    <p className="text-[10px] text-white truncate text-center">{result.source || 'SteamGridDB'}</p>
                                                 </div>
                                             </div>
                                         </div>
@@ -931,7 +1021,7 @@ export const GamePropertiesPanel: React.FC<GamePropertiesPanelProps> = ({
                                                     }}
                                                 />
                                                 <div className="absolute inset-x-0 bottom-0 bg-black/60 p-1 translate-y-full group-hover:translate-y-0 transition-transform">
-                                                    <p className="text-[10px] text-white truncate text-center">SteamGridDB</p>
+                                                    <p className="text-[10px] text-white truncate text-center">{result.source || 'SteamGridDB'}</p>
                                                 </div>
                                             </div>
                                         </div>

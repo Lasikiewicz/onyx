@@ -157,8 +157,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Image search methods
   searchImages: (query: string, imageType: 'boxart' | 'banner' | 'alternativeBanner' | 'logo' | 'icon', steamAppId?: string, includeAnimated?: boolean) => ipcRenderer.invoke('metadata:searchImages', query, imageType, steamAppId, includeAnimated),
   searchWebImages: (query: string, imageType: 'boxart' | 'banner' | 'alternativeBanner' | 'logo' | 'icon') => ipcRenderer.invoke('metadata:searchWebImages', query, imageType),
-  fastImageSearch: (query: string) => ipcRenderer.invoke('metadata:fastImageSearch', query),
-  fetchGameImages: (gameName: string, steamAppId?: string, igdbId?: number, includeAnimated?: boolean) => ipcRenderer.invoke('metadata:fetchGameImages', gameName, steamAppId, igdbId, includeAnimated),
+  fastImageSearch: (query: string, requestId?: number) => ipcRenderer.invoke('metadata:fastImageSearch', query, requestId),
+  fetchGameImages: (gameName: string, steamAppId?: string, igdbId?: number, includeAnimated?: boolean, requestId?: number, gameId?: string) => ipcRenderer.invoke('metadata:fetchGameImages', gameName, steamAppId, igdbId, includeAnimated, requestId, gameId),
   // App version
   getVersion: () => ipcRenderer.invoke('app:getVersion'),
   // App name (for detecting Alpha builds)

@@ -280,7 +280,7 @@ export function registerMetadataIPCHandlers(
 
     // Image Search Handlers
     // Image Search Handlers
-    ipcMain.handle('metadata:fastImageSearch', async (event, query: string) => {
+    ipcMain.handle('metadata:fastImageSearch', async (event, query: string, requestId?: number) => {
         try {
             const allSearchResults: any[] = [];
 
@@ -301,7 +301,7 @@ export function registerMetadataIPCHandlers(
                 }));
 
                 if (event.sender && !event.sender.isDestroyed()) {
-                    event.sender.send('metadata:fastSearchProgress', { results: uiResults, query });
+                    event.sender.send('metadata:fastSearchProgress', { results: uiResults, query, requestId });
                 }
             });
 
@@ -510,17 +510,35 @@ export function registerMetadataIPCHandlers(
         }
     });
 
-    ipcMain.handle('metadata:fetchGameImages', async (event, gameName: string, steamAppId?: string, igdbId?: number, includeAnimated?: boolean, gameId?: string) => {
+    ipcMain.handle('metadata:fetchGameImages', async (event, gameName: string, steamAppId?: string, igdbId?: number, includeAnimated?: boolean, requestId?: number, gameId?: string) => {
         try {
             console.log(`[fetchGameImages] Searching for images for "${gameName}" (steamAppId: ${steamAppId})`);
             const results: any[] = [];
+
+            const mapArtworkToImages = (artwork: any, source: string, name: string): any[] => {
+                if (!artwork) return [];
+                const images: any[] = [];
+
+                if (artwork.boxArtUrl) images.push({ type: 'boxart', url: artwork.boxArtUrl, source, name });
+                if (artwork.bannerUrl) images.push({ type: 'banner', url: artwork.bannerUrl, source, name });
+                if (artwork.heroUrl) images.push({ type: 'hero', url: artwork.heroUrl, source, name });
+                if (artwork.logoUrl) images.push({ type: 'logo', url: artwork.logoUrl, source, name });
+                if (artwork.iconUrl) images.push({ type: 'icon', url: artwork.iconUrl, source, name });
+                if (Array.isArray(artwork.screenshots)) {
+                    artwork.screenshots.forEach((url: string) => {
+                        if (url) images.push({ type: 'screenshot', url, source, name });
+                    });
+                }
+
+                return images;
+            };
 
             // 1. Fetch from SteamGridDB (Full list)
             const sgdbImages = await searchSGDB(gameName, steamAppId, 'all', includeAnimated);
             if (sgdbImages.length > 0) {
                 results.push(...sgdbImages);
                 // Emit event for progressive loading
-                event.sender.send('metadata:gameImagesFound', { images: sgdbImages, query: gameName, gameId });
+                event.sender.send('metadata:gameImagesFound', { images: sgdbImages, query: gameName, gameId, requestId });
             }
 
             // 2. Try to fetch standard metadata (Steam/IGDB auto-match) as fallback/addition
@@ -539,10 +557,54 @@ export function registerMetadataIPCHandlers(
                 if (autoMatchImages.length > 0) {
                     results.push(...autoMatchImages);
                     // Emit event for progressive loading
-                    event.sender.send('metadata:gameImagesFound', { images: autoMatchImages, query: gameName, gameId });
+                    event.sender.send('metadata:gameImagesFound', { images: autoMatchImages, query: gameName, gameId, requestId });
                 }
             } catch (err) {
                 console.warn('Auto-match fallback failed:', err);
+            }
+
+            // 3. Fetch provider-specific artwork (IGDB, RAWG) for clearer attribution
+            try {
+                const igdbProvider = metadataFetcher.getIGDBProvider();
+                if (igdbProvider?.isAvailable()) {
+                    let igdbResultId: string | undefined;
+                    if (typeof igdbId === 'number' && !isNaN(igdbId)) {
+                        igdbResultId = `igdb-${igdbId}`;
+                    } else {
+                        const igdbResults = await igdbProvider.search(gameName, steamAppId);
+                        igdbResultId = igdbResults[0]?.id;
+                    }
+
+                    if (igdbResultId) {
+                        const igdbArtwork = await igdbProvider.getArtwork(igdbResultId, steamAppId);
+                        const igdbImages = mapArtworkToImages(igdbArtwork, 'IGDB', gameName);
+                        if (igdbImages.length > 0) {
+                            results.push(...igdbImages);
+                            event.sender.send('metadata:gameImagesFound', { images: igdbImages, query: gameName, gameId, requestId });
+                        }
+                    }
+                }
+            } catch (err) {
+                console.warn('IGDB provider fetch failed:', err);
+            }
+
+            try {
+                const rawgProvider = metadataFetcher.getRAWGProvider();
+                if (rawgProvider?.isAvailable()) {
+                    const rawgResults = await rawgProvider.search(gameName);
+                    const rawgResultId = rawgResults[0]?.id;
+
+                    if (rawgResultId) {
+                        const rawgArtwork = await rawgProvider.getArtwork(rawgResultId);
+                        const rawgImages = mapArtworkToImages(rawgArtwork, 'RAWG', gameName);
+                        if (rawgImages.length > 0) {
+                            results.push(...rawgImages);
+                            event.sender.send('metadata:gameImagesFound', { images: rawgImages, query: gameName, gameId, requestId });
+                        }
+                    }
+                }
+            } catch (err) {
+                console.warn('RAWG provider fetch failed:', err);
             }
 
             return { success: true, images: results };

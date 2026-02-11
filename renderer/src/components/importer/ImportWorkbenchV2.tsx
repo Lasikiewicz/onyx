@@ -403,7 +403,7 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
             }
 
             // Check if ready
-            const hasImages = fullyProcessedGame.boxArtUrl && fullyProcessedGame.bannerUrl && fullyProcessedGame.logoUrl;
+            const hasImages = Boolean(fullyProcessedGame.boxArtUrl && (fullyProcessedGame.bannerUrl || fullyProcessedGame.alternativeBannerUrl || fullyProcessedGame.heroUrl));
             const hasDesc = fullyProcessedGame.description;
             if (hasImages && hasDesc) {
                 fullyProcessedGame.status = 'ready';
@@ -426,7 +426,7 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
         setQueue(prev => prev.map(g => {
             if (g.uuid !== updatedGame.uuid) return g;
 
-            const hasImages = updatedGame.boxArtUrl && updatedGame.bannerUrl && updatedGame.logoUrl;
+            const hasImages = Boolean(updatedGame.boxArtUrl && (updatedGame.bannerUrl || updatedGame.alternativeBannerUrl || updatedGame.heroUrl));
             const hasDesc = updatedGame.description;
             const status: ImportStatus = (hasImages && hasDesc) ? 'ready' : 'ambiguous';
 

@@ -99,6 +99,9 @@ export const GameManager: React.FC<GameManagerProps> = ({
   // Refs to track current state for async IPC events
   const selectedGameIdRef = React.useRef(selectedGameId);
   const currentSearchQueryRef = React.useRef(imageSearchQuery);
+  const fastSearchRunIdRef = React.useRef(0);
+  const imageSearchRunIdRef = React.useRef(0);
+  const fastSearchActiveRunIdRef = React.useRef(0);
 
   useEffect(() => {
     selectedGameIdRef.current = selectedGameId;
@@ -460,6 +463,8 @@ export const GameManager: React.FC<GameManagerProps> = ({
   const handleSearchImages = async (imageType: 'boxart' | 'banner' | 'alternativeBanner' | 'logo' | 'icon', useWeb: boolean = false) => {
     if (!selectedGame) return;
 
+    const runId = ++imageSearchRunIdRef.current;
+
     const effectiveImageType: 'boxart' | 'banner' | 'logo' | 'icon' =
       imageType === 'alternativeBanner' ? 'banner' : imageType;
 
@@ -475,6 +480,20 @@ export const GameManager: React.FC<GameManagerProps> = ({
 
     const steamAppId = getSteamAppId();
     const query = imageSearchQuery.trim() || selectedGame.title.trim();
+
+    console.log('[ImageSearch] start', {
+      runId,
+      imageType,
+      effectiveImageType,
+      useWeb,
+      query,
+      steamAppId,
+      selectedGameId: selectedGame.id,
+      selectedGameTitle: selectedGame.title,
+      currentSearchQuery: currentSearchQueryRef.current,
+      showAnimatedImages,
+      timestamp: new Date().toISOString()
+    });
 
     if (!query) {
       setError('Please enter a game title to search');
@@ -498,6 +517,13 @@ export const GameManager: React.FC<GameManagerProps> = ({
     const checkFinished = () => {
       activeSearches--;
       if (activeSearches <= 0) {
+        console.log('[ImageSearch] complete', {
+          runId,
+          query,
+          selectedGameId: selectedGame.id,
+          currentSearchQuery: currentSearchQueryRef.current,
+          timestamp: new Date().toISOString()
+        });
         setIsSearchingImages(false);
       }
     };
@@ -536,7 +562,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
             }
           }
         })
-        .catch(err => console.error('Error fetching Steam artwork:', err))
+        .catch(err => console.error('[ImageSearch] Steam artwork error', { runId, query, err }))
         .finally(checkFinished);
     }
 
@@ -585,7 +611,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
             }
             return response;
           }).catch((err: any) => {
-            console.error('Error searching Web:', err);
+            console.error('[ImageSearch] Web search error', { runId, query, err });
             return null;
           }).finally(checkFinished)
         );
@@ -638,7 +664,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
               }
               return igdbResponse;
             }).catch((err: any) => {
-              console.error('Error searching IGDB:', err);
+              console.error('[ImageSearch] IGDB search error', { runId, query, err });
               return null;
             }).finally(checkFinished)
           );
@@ -702,7 +728,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
             }
             return sgdbResponse;
           }).catch((err: any) => {
-            console.error('Error searching SteamGridDB:', err);
+            console.error('[ImageSearch] SteamGridDB search error', { runId, query, err });
             return null;
           }).finally(checkFinished)
         );
@@ -727,16 +753,32 @@ export const GameManager: React.FC<GameManagerProps> = ({
   const handleFastSearch = async () => {
     if (!selectedGame) return;
 
+    const runId = ++fastSearchRunIdRef.current;
+    fastSearchActiveRunIdRef.current = runId;
+
     const query = imageSearchQuery.trim() || selectedGame.title.trim();
     if (!query) {
       setError('Please enter a game title to search');
       return;
     }
 
+    setImageSearchQuery(query);
+    currentSearchQueryRef.current = query;
+
     setIsFastSearching(true);
     setError(null);
     setFastSearchResults([]);
     setSelectedFastGame(null);
+
+    console.log('[FastSearch] start', {
+      runId,
+      query,
+      selectedGameId: selectedGame.id,
+      selectedGameTitle: selectedGame.title,
+      currentSearchQuery: currentSearchQueryRef.current,
+      showAnimatedImages,
+      timestamp: new Date().toISOString()
+    });
 
     // Listen for progressive search results
     const removeProgressListener = window.electronAPI?.on
@@ -744,10 +786,37 @@ export const GameManager: React.FC<GameManagerProps> = ({
         // Handle both old and new data formats
         const results = Array.isArray(data) ? data : (data.results || []);
         const responseQuery = Array.isArray(data) ? null : data.query;
+        const responseRequestId = Array.isArray(data) ? undefined : data.requestId;
+
+        if (responseRequestId && responseRequestId !== fastSearchActiveRunIdRef.current) {
+          console.log('[FastSearch] discard progress (requestId mismatch)', {
+            runId,
+            responseRequestId,
+            expectedRequestId: fastSearchActiveRunIdRef.current,
+            responseQuery,
+            selectedGameId: selectedGameIdRef.current
+          });
+          return;
+        }
 
         // Guard: DISCARD if this is an old query or we switched games
-        if (responseQuery && responseQuery !== query) return;
-        if (selectedGameIdRef.current !== selectedGame.id) return;
+        if (responseQuery && responseQuery !== query) {
+          console.log('[FastSearch] discard progress (query mismatch)', {
+            runId,
+            responseQuery,
+            expectedQuery: query,
+            selectedGameId: selectedGameIdRef.current
+          });
+          return;
+        }
+        if (selectedGameIdRef.current !== selectedGame.id) {
+          console.log('[FastSearch] discard progress (game mismatch)', {
+            runId,
+            selectedGameId: selectedGameIdRef.current,
+            expectedGameId: selectedGame.id
+          });
+          return;
+        }
 
         setFastSearchResults(prev => {
           // Merge and deduplicate based on ID + Source
@@ -762,8 +831,13 @@ export const GameManager: React.FC<GameManagerProps> = ({
       console.log(`[FastSearch] Searching for "${query}"...`);
       const startTime = Date.now();
 
-      const response = await (window.electronAPI as any).fastImageSearch(query);
+      const response = await (window.electronAPI as any).fastImageSearch(query, runId);
       console.log('[FastSearch] Response:', response);
+      console.log('[FastSearch] response meta', {
+        runId,
+        query,
+        elapsedMs: Date.now() - startTime
+      });
 
       console.log(`[FastSearch] Completed in ${Date.now() - startTime}ms`);
 
@@ -824,12 +898,13 @@ export const GameManager: React.FC<GameManagerProps> = ({
       }
     } catch (err) {
       setError('Failed to search. Check your internet connection and API credentials.');
-      console.error('[FastSearch] Error:', err);
+      console.error('[FastSearch] Error:', { runId, query, err });
     } finally {
       if (typeof removeProgressListener === 'function') {
         removeProgressListener();
       }
       setIsFastSearching(false);
+      console.log('[FastSearch] end', { runId, query, timestamp: new Date().toISOString() });
     }
   };
 
@@ -837,6 +912,24 @@ export const GameManager: React.FC<GameManagerProps> = ({
   useEffect(() => {
     const handleImagesFound = (_event: any, data: any) => {
       if (!data || !data.images || data.images.length === 0) return;
+
+      console.log('[FastSearch] images event', {
+        eventQuery: data.query,
+        eventGameId: data.gameId,
+        eventRequestId: data.requestId,
+        imagesCount: data.images.length,
+        selectedGameId: selectedGameIdRef.current,
+        currentSearchQuery: currentSearchQueryRef.current,
+        timestamp: new Date().toISOString()
+      });
+
+      if (data.requestId && data.requestId !== fastSearchActiveRunIdRef.current) {
+        console.log('[FastSearch] Discarding images event (requestId mismatch)', {
+          eventRequestId: data.requestId,
+          expectedRequestId: fastSearchActiveRunIdRef.current
+        });
+        return;
+      }
 
       // Guard: Discard if this result is for a different query or game than what's currently active in the UI
       if (data.query && data.query !== currentSearchQueryRef.current) {
@@ -860,8 +953,9 @@ export const GameManager: React.FC<GameManagerProps> = ({
       const seenUrls = new Set<string>();
 
       data.images.forEach((img: any) => {
-        if (!img.url || seenUrls.has(img.url)) return;
-        seenUrls.add(img.url);
+        const dedupeKey = `${img.url}|${img.source}|${img.type}`;
+        if (!img.url || seenUrls.has(dedupeKey)) return;
+        seenUrls.add(dedupeKey);
 
         const imageObj: any = {
           id: `${img.source}-${img.type}-${Math.random().toString(36).substr(2, 9)}`,
@@ -888,12 +982,15 @@ export const GameManager: React.FC<GameManagerProps> = ({
           else if (img.type === 'banner' || img.type === 'hero') sgdbResults.banner.push(imageObj);
           else if (img.type === 'logo') sgdbResults.logo.push(imageObj);
           else if (img.type === 'icon') sgdbResults.icon.push(imageObj);
-        } else {
-          if (img.type === 'boxart' || img.type === 'banner' || img.type === 'screenshot' || img.type === 'hero') {
-            newImages.push(imageObj);
-          } else if (img.type === 'logo') {
-            sgdbResults.logo.push(imageObj);
-          }
+        } else if (
+          img.type === 'boxart' ||
+          img.type === 'banner' ||
+          img.type === 'screenshot' ||
+          img.type === 'hero' ||
+          img.type === 'logo' ||
+          img.type === 'icon'
+        ) {
+          newImages.push(imageObj);
         }
       });
 
@@ -917,6 +1014,15 @@ export const GameManager: React.FC<GameManagerProps> = ({
 
   // Show images from a fast search result (click to display, not auto-apply)
   const handleSelectFastGame = async (gameResult: FastSearchGame) => {
+    console.log('[FastSearch] select result', {
+      resultId: gameResult.id,
+      resultName: gameResult.name,
+      resultSource: gameResult.source,
+      selectedGameId: selectedGame?.id,
+      selectedGameTitle: selectedGame?.title,
+      showAnimatedImages,
+      timestamp: new Date().toISOString()
+    });
     setSelectedFastGame(gameResult);
     setFastSearchResults([]);
     setIsSearchingImages(true);
@@ -938,11 +1044,23 @@ export const GameManager: React.FC<GameManagerProps> = ({
 
       // Call the multi-source fetcher - results will come via event listener above
       // But we ALSO assume the final response contains everything, so we merge it as a "final consistent state"
+      const igdbIdParam = (() => {
+        if (gameResult.source !== 'igdb') return undefined;
+        if (typeof gameResult.id === 'number' && Number.isFinite(gameResult.id)) return gameResult.id;
+        const rawId = String(gameResult.id || '');
+        if (rawId.startsWith('igdb-')) {
+          const parsed = Number(rawId.replace('igdb-', ''));
+          return Number.isFinite(parsed) ? parsed : undefined;
+        }
+        return undefined;
+      })();
+
       const response = await (window.electronAPI as any).fetchGameImages(
         gameResult.name,
         selectedGame?.id.startsWith('steam-') ? selectedGame.id.replace('steam-', '') : undefined,
-        Number(gameResult.id),
+        igdbIdParam,
         showAnimatedImages,
+        fastSearchActiveRunIdRef.current,
         selectedGame!.id
       );
 
@@ -953,6 +1071,15 @@ export const GameManager: React.FC<GameManagerProps> = ({
       }
 
       console.log('[FastSearch] Final response:', response);
+      console.log('[FastSearch] final response meta', {
+        resultId: gameResult.id,
+        resultName: gameResult.name,
+        resultSource: gameResult.source,
+        imagesCount: response?.images?.length || 0,
+        selectedGameId: selectedGame?.id,
+        currentSearchQuery: currentSearchQueryRef.current,
+        timestamp: new Date().toISOString()
+      });
 
       if (response.success && response.images && response.images.length > 0) {
         // Process final results to ensure we didn't miss anything (and handle completion)
@@ -977,8 +1104,9 @@ export const GameManager: React.FC<GameManagerProps> = ({
         const seenUrls = new Set<string>();
 
         response.images.forEach((img: any) => {
-          if (!img.url || seenUrls.has(img.url)) return;
-          seenUrls.add(img.url);
+          const dedupeKey = `${img.url}|${img.source}|${img.type}`;
+          if (!img.url || seenUrls.has(dedupeKey)) return;
+          seenUrls.add(dedupeKey);
 
           const imageObj: any = {
             id: `${img.source}-${img.type}-${Math.random().toString(36).substr(2, 9)}`,
@@ -1005,12 +1133,15 @@ export const GameManager: React.FC<GameManagerProps> = ({
             else if (img.type === 'banner' || img.type === 'hero') sgdbResults.banner.push(imageObj);
             else if (img.type === 'logo') sgdbResults.logo.push(imageObj);
             else if (img.type === 'icon') sgdbResults.icon.push(imageObj);
-          } else {
-            if (img.type === 'boxart' || img.type === 'banner' || img.type === 'screenshot' || img.type === 'hero') {
-              newImages.push(imageObj);
-            } else if (img.type === 'logo') {
-              sgdbResults.logo.push(imageObj);
-            }
+          } else if (
+            img.type === 'boxart' ||
+            img.type === 'banner' ||
+            img.type === 'screenshot' ||
+            img.type === 'hero' ||
+            img.type === 'logo' ||
+            img.type === 'icon'
+          ) {
+            newImages.push(imageObj);
           }
         });
 
@@ -1033,7 +1164,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
 
     } catch (err) {
       setError('Failed to fetch images');
-      console.error(err);
+      console.error('[FastSearch] fetch images error', { err, resultId: gameResult.id, resultName: gameResult.name });
     } finally {
       setIsSearchingImages(false);
       setTimeout(() => setSuccess(null), 3000);
@@ -2028,7 +2159,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
                                         <div className="flex-1 min-w-0">
                                           <div className="font-medium text-white truncate">{game.name}</div>
                                           <div className="text-xs text-gray-400">
-                                            {game.releaseDate ? new Date(game.releaseDate * 1000).getFullYear() : 'Unknown Year'} • IGDB
+                                            {game.releaseDate ? new Date(game.releaseDate * 1000).getFullYear() : 'Unknown Year'} • {game.source || 'Unknown Source'}
                                           </div>
                                         </div>
                                         <div className="text-xs px-2 py-1 bg-gray-700 rounded text-gray-300 group-hover:bg-green-600 group-hover:text-white transition-colors">
@@ -2081,7 +2212,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
                                     else if (tab === 'banner') count = imageSearchResults.filter(i => i.bannerUrl || i.screenshotUrls).length + steamGridDBResults.banner.length;
                                     else if (tab === 'alternativeBanner') count = imageSearchResults.filter(i => i.bannerUrl || i.screenshotUrls).length + steamGridDBResults.banner.length;
                                     else if (tab === 'logo') count = steamGridDBResults.logo.length + imageSearchResults.filter(i => i.logoUrl).length; // Add logos from main results if any
-                                    else if (tab === 'icon') count = steamGridDBResults.icon.length;
+                                    else if (tab === 'icon') count = steamGridDBResults.icon.length + imageSearchResults.filter(i => i.iconUrl).length;
                                   }
 
                                   return (
@@ -2243,7 +2374,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
                                                   }}
                                                 />
                                                 <div className="absolute inset-x-0 bottom-0 bg-black/60 p-1 translate-y-full group-hover:translate-y-0 transition-transform">
-                                                  <p className="text-[10px] text-white truncate text-center">{result.name}</p>
+                                                  <p className="text-[10px] text-white truncate text-center">{result.source || result.name}</p>
                                                 </div>
                                               </div>
                                             </div>
@@ -2307,7 +2438,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
                                                   }}
                                                 />
                                                 <div className="absolute inset-x-0 bottom-0 bg-black/60 p-1 translate-y-full group-hover:translate-y-0 transition-transform">
-                                                  <p className="text-[10px] text-white truncate text-center">{result.name}</p>
+                                                  <p className="text-[10px] text-white truncate text-center">{result.source || result.name}</p>
                                                 </div>
                                               </div>
                                             </div>
@@ -2346,10 +2477,23 @@ export const GameManager: React.FC<GameManagerProps> = ({
 
                                 {/* Icon Section */}
                                 {(activeImageSearchTab === 'all' || activeImageSearchTab === 'icon') &&
-                                  (steamGridDBResults.icon.length > 0) && (
+                                  (steamGridDBResults.icon.length > 0 || imageSearchResults.some(i => i.iconUrl)) && (
                                     <div>
                                       {activeImageSearchTab === 'all' && <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">Icons</h4>}
                                       <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-12 gap-3 bg-gray-900/50 p-4 rounded-lg border border-gray-800">
+                                        {imageSearchResults.filter(i => i.iconUrl).map((result, idx) => {
+                                          const url = result.iconUrl;
+                                          if (!url) return null;
+                                          return (
+                                            <div
+                                              key={`igdb-icon-${idx}`}
+                                              onClick={() => handleSelectImage(url, 'icon')}
+                                              className="group cursor-pointer flex items-center justify-center p-2 rounded bg-gray-800/50 border border-gray-700 hover:border-green-500 hover:bg-gray-800 transition-all aspect-square"
+                                            >
+                                              <img src={url} alt="Icon" className="w-full h-full object-contain" />
+                                            </div>
+                                          );
+                                        })}
                                         {steamGridDBResults.icon.map((result: any, idx: number) => {
                                           const url = result.url || result.iconUrl;
                                           if (!url) return null;
