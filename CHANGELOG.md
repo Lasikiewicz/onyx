@@ -8,6 +8,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - See the [repository](https://github.com/Lasikiewicz/onyx) for the latest work in progress.
 
+## [0.3.25] - 2026-02-11
+
+- Added Mod Manager button color customization (per-view)
+- Added reset button for button colors to restore defaults
+- Extended button color system to support all three button types (Play, Edit, Mod Manager)
+
 ## [0.3.24] - 2026-02-11
 
 - Game title fallback now displays when logo is missing
