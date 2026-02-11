@@ -8,6 +8,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - See the [repository](https://github.com/Lasikiewicz/onyx) for the latest work in progress.
 
+## [0.3.26] - 2026-02-11
+
+- Fetch changelog from GitHub Releases on-demand, keeping app packages lean
+- Include CHANGELOG.md in packaged app as fallback when GitHub is unavailable
+- Load release notes only when update is available (not on startup)
+
 ## [0.3.25] - 2026-02-11
 
 - Added Mod Manager button color customization (per-view)
