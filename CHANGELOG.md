@@ -8,6 +8,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - See the [repository](https://github.com/Lasikiewicz/onyx) for the latest work in progress.
 
+## [0.3.22] - 2026-02-11
+
+- Enhanced "Quick All" image search with multi-source support (IGDB, RAWG, Steam, SteamGridDB)
+- Added source attribution badges to the image selection panel
+- Implemented Run ID tracking to prevent race conditions during async image searches
+- Relaxed logo requirement in the game importer (allow import with BoxArt + Banner/Hero)
+- Fixed IGDB API errors caused by invalid synthetic ID formats
+
 ## [0.3.21] - 2026-02-11
 
 - Fix individual image searches to include results from IGDB and RAWG
