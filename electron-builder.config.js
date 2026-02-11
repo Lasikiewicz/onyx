@@ -37,7 +37,8 @@ const config = {
     'dist-electron/**/*.js',
     '!dist-electron/**/*.d.ts',
     '!dist-electron/**/*.tsbuildinfo',
-    'package.json'
+    'package.json',
+    'CHANGELOG.md'
   ],
   extraResources: [
     {

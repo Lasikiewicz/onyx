@@ -394,30 +394,6 @@ function App() {
       } catch (error) {
         console.error('Error loading app version:', error);
       }
-
-      if (!window.electronAPI.getChangelog) return;
-      if (!cancelled) {
-        setChangelogLoading(true);
-        setChangelogError(null);
-      }
-
-      try {
-        const result = await window.electronAPI.getChangelog();
-        if (cancelled) return;
-        if (result?.success && result.content) {
-          setChangelogSource(result.content);
-        } else {
-          setChangelogSource(null);
-          setChangelogError(result?.error ?? 'Unable to load changelog.');
-        }
-      } catch (error) {
-        if (!cancelled) {
-          setChangelogSource(null);
-          setChangelogError(error instanceof Error ? error.message : String(error));
-        }
-      } finally {
-        if (!cancelled) setChangelogLoading(false);
-      }
     };
 
     loadAppInfo();
@@ -425,6 +401,38 @@ function App() {
       cancelled = true;
     };
   }, []);
+
+  const fetchChangelog = useCallback(async (targetVersion?: string) => {
+    if (!window.electronAPI.getChangelog) return;
+    setChangelogLoading(true);
+    setChangelogError(null);
+    setChangelogSource(null);
+
+    try {
+      const result = await window.electronAPI.getChangelog(targetVersion);
+      if (result?.success && result.content) {
+        setChangelogSource(result.content);
+      } else {
+        setChangelogSource(null);
+        setChangelogError(result?.error ?? 'Unable to load changelog.');
+      }
+    } catch (error) {
+      setChangelogSource(null);
+      setChangelogError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setChangelogLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!updateNotification?.version) return;
+    fetchChangelog(updateNotification.version);
+  }, [updateNotification?.version, fetchChangelog]);
+
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    fetchChangelog();
+  }, [fetchChangelog]);
 
   useEffect(() => {
     if (!import.meta.env.DEV) return;
