@@ -8,6 +8,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - See the [repository](https://github.com/Lasikiewicz/onyx) for the latest work in progress.
 
+## [0.3.21] - 2026-02-11
+
+- Fix individual image searches to include results from IGDB and RAWG
+- Add metadata:searchMetadata IPC handler for more robust game matching
+- Enhanced image aggregation from multiple providers in the image search panel
+
 ## [0.3.20] - 2026-02-10
 
 - Improve boxart selection animation: gentle breathing scale, no harsh outlines.
