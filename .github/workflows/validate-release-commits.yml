@@ -8,6 +8,9 @@ jobs:
   check-commit-messages:
     name: Check commit messages on main (non-blocking)
     runs-on: windows-latest
+    permissions:
+      issues: write
+      contents: read
 
     steps:
       - name: Checkout
