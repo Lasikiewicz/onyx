@@ -3,6 +3,7 @@ import path from 'node:path';
 import https from 'node:https';
 import { existsSync, unlinkSync, rmSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
+import { execFile } from 'node:child_process';
 import { GameStore } from '../GameStore.js';
 import { ImageCacheService } from '../ImageCacheService.js';
 import { UserPreferencesService } from '../UserPreferencesService.js';
@@ -134,6 +135,56 @@ export function registerAppIPCHandlers(
             args: settings.startClosedToTray ? ['--hidden'] : []
         });
         return { success: true };
+    });
+
+    // Lightweight cross-platform process existence check
+    // Used by renderer to monitor launched game processes
+    ipcMain.handle('process:checkExists', async (_event, pid: number) => {
+        if (typeof pid !== 'number' || !Number.isFinite(pid) || pid <= 0) {
+            return false;
+        }
+
+        try {
+            if (process.platform === 'win32') {
+                // On Windows, use tasklist to check if the PID exists
+                return await new Promise<boolean>((resolve) => {
+                    execFile('tasklist', ['/FI', `PID eq ${pid}`, '/FO', 'CSV', '/NH'], (error, stdout) => {
+                        if (error) {
+                            // Fail safe: assume process is not running on error
+                            console.error('[ProcessCheck] tasklist error:', error);
+                            resolve(false);
+                            return;
+                        }
+
+                        const output = stdout.trim();
+                        // When no task matches, tasklist prints an informational line starting with "INFO:"
+                        if (!output || output.startsWith('INFO:')) {
+                            resolve(false);
+                        } else {
+                            resolve(true);
+                        }
+                    });
+                });
+            }
+
+            // POSIX-style check for non-Windows platforms
+            try {
+                // Sending signal 0 does not kill the process, it only checks for its existence
+                process.kill(pid, 0);
+                return true;
+            } catch (err: any) {
+                if (err && typeof err === 'object' && 'code' in err) {
+                    // ESRSCH => no such process; EPERM => process exists but we lack permission
+                    if ((err as any).code === 'EPERM') {
+                        return true;
+                    }
+                }
+                return false;
+            }
+        } catch (err) {
+            console.error('[ProcessCheck] Unexpected error while checking PID', pid, err);
+            return false;
+        }
     });
 
     ipcMain.handle('app:minimizeToTray', async () => {

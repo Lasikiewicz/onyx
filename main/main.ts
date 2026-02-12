@@ -793,7 +793,11 @@ async function createWindow() {
     // Check if we should show the window or start closed to tray
     try {
       const prefs = await userPreferencesService.getPreferences();
-      if (!prefs.startClosedToTray) {
+      // Also respect a one-off --hidden CLI flag (used by Windows "start minimized"/login items)
+      const hasHiddenFlag = process.argv.includes('--hidden');
+      const shouldStartHidden = prefs.startClosedToTray || hasHiddenFlag;
+
+      if (!shouldStartHidden) {
         win?.show();
       }
     } catch (error) {
