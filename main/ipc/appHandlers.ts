@@ -20,6 +20,35 @@ const GITHUB_USER_AGENT = 'OnyxApp';
 
 const normalizeVersion = (value: string) => value.replace(/^v/i, '').trim();
 
+const requestRaw = (url: string, timeoutMs = 8000): Promise<{ ok: boolean; status: number; body: string | null }> => {
+    return new Promise((resolve, reject) => {
+        const urlObj = new URL(url);
+        const options = {
+            method: 'GET',
+            headers: {
+                'User-Agent': GITHUB_USER_AGENT
+            }
+        };
+
+        const request = https.request(url, options, response => {
+            let data = '';
+            response.on('data', chunk => {
+                data += chunk;
+            });
+            response.on('end', () => {
+                const status = response.statusCode ?? 0;
+                resolve({ ok: status >= 200 && status < 300, status, body: data || null });
+            });
+        });
+
+        request.on('error', reject);
+        request.setTimeout(timeoutMs, () => {
+            request.destroy(new Error('Request timed out'));
+        });
+        request.end();
+    });
+};
+
 const requestJson = (url: string, timeoutMs = 8000): Promise<{ ok: boolean; status: number; body: any }> => {
     return new Promise((resolve, reject) => {
         const request = https.request(
@@ -101,6 +130,19 @@ const fetchReleaseNotes = async (version: string): Promise<string | null> => {
         return formatReleaseNotes(match.tag_name || version, match.body);
     }
 
+    return null;
+};
+
+const fetchChangelogFromGithub = async (): Promise<string | null> => {
+    const url = `https://raw.githubusercontent.com/${GITHUB_OWNER}/${GITHUB_REPO}/master/CHANGELOG.md`;
+    try {
+        const response = await requestRaw(url);
+        if (response.ok && response.body) {
+            return response.body;
+        }
+    } catch (error) {
+        console.error('[Changelog] Error fetching raw CHANGELOG.md from GitHub:', error);
+    }
     return null;
 };
 
@@ -280,6 +322,17 @@ export function registerAppIPCHandlers(
             } catch (error) {
                 lastError = error instanceof Error ? error.message : String(error);
             }
+        }
+
+        // Try to fetch full CHANGELOG.md from GitHub as the primary source for versions
+        // This ensures the update modal can show entries for versions newer than the current local installation
+        try {
+            const githubChangelog = await fetchChangelogFromGithub();
+            if (githubChangelog) {
+                return { success: true, content: githubChangelog };
+            }
+        } catch (error) {
+            console.error('[Changelog] Fallback to local CHANGELOG.md due to GitHub error:', error);
         }
 
         const candidatePaths = [

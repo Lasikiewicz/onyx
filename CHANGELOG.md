@@ -4,6 +4,15 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+- See the [repository](https://github.com/Lasikiewicz/onyx) for the latest work in progress.
+
+## [0.3.29] - 2026-02-13
+
+- Fix: Fetch the full changelog from GitHub when release-specific notes are unavailable (fixes empty changelog in update modal)
+- Implemented robust fallback for changelog fetching in packaged environments
+
 ## [0.3.28] - 2026-02-13
 
 - Improve Battle.net game detection (parent directory scanning, `.build.info` identification)
