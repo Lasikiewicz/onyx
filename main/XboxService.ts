@@ -289,7 +289,23 @@ export class XboxService {
             }
 
             // Apply filtering before adding
-            const gameName = this.mapToNewestGameName(entry);
+            let gameName = this.mapToNewestGameName(entry);
+
+            // If the name is a UUID (common in staged/downloading Xbox games), try to get a better name from the exe
+            const xboxUuidPattern = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
+            if (xboxUuidPattern.test(entry)) {
+              const exeFileName = mainExe.split(/[/\\]/).pop()?.replace('.exe', '') || '';
+              // Convert CamelCase/PascalCase or snake_case to Space Separated
+              const betterName = exeFileName
+                .replace(/([A-Z])/g, ' $1')
+                .replace(/[_-]/g, ' ')
+                .trim();
+
+              if (betterName && betterName.length > 2) {
+                gameName = betterName;
+                console.log(`[XboxService] Detected UUID folder, extracted better name from exe: ${gameName}`);
+              }
+            }
 
             // Try to extract package info for proper launching
             const packageInfo = this.extractPackageInfo(fullPath);

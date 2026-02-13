@@ -17,7 +17,7 @@ export class GameFilteringService {
       'ea', 'activision', 'ubisoft', '2k', 'square', 'rockstar', 'bethesda', 'capcom',
       'bandai', 'konami', 'sega', 'disney', 'warner', 'paramount', 'sony',
       'microsoft', 'xbox', 'obsidian', 'ninja', 'rare', 'inxile', 'playground',
-      'coalition', 'remedy', 'compulsion', 'sloclap', 'astragon',
+      'coalition', 'remedy', 'compulsion', 'sloclap', 'astragon', 'blizzard',
     ]);
   }
 
@@ -34,7 +34,7 @@ export class GameFilteringService {
       'microsoft.maps', 'microsoft.net', 'microsoft.vclibs', 'microsoft.ui.xaml',
       'microsoft.advertising', 'microsoft.services.store', 'microsoft.gamingapp',
       'microsoft.gamingservices', 'microsoft.xboxapp', 'microsoft.xbox',
-      
+
       // Third-party utilities
       'adobe', 'autodesk', 'jetbrains', 'sublimetext', 'vscode', 'visualstudio',
       'python', 'nodejs', 'git', 'docker', 'vlc', 'audacity', 'ffmpeg',
@@ -49,49 +49,49 @@ export class GameFilteringService {
       // Media/Entertainment
       'music', 'video', 'tv', 'movie', 'media', 'photo', 'camera', 'photoeditor',
       'gallery', 'clipchamp', 'paint', 'editor', 'viewer', 'player',
-      
+
       // System/Tools
       'settings', 'config', 'update', 'updater', 'installer', 'runtime', 'driver',
       'service', 'services', 'keyboard', 'language', 'voice', 'assistant', 'copilot',
       'search', 'mail', 'outlook', 'calendar', 'news', 'weather', 'maps', 'clock',
       'calculator', 'store', 'browser', 'onedrive', 'onenote', 'teams', 'office',
       'word', 'excel', 'powerpoint', 'access', 'publisher', 'project',
-      
+
       // Support/Admin
       'support', 'help', 'feedback', 'repair', 'firmware', 'backup', 'sync',
       'family', 'security', 'defender', 'antivirus', 'malware', 'control panel',
       'device manager', 'task manager', 'registry', 'powershell', 'command',
-      
+
       // Hardware/Drivers
       'intel', 'nvidia', 'amd', 'realtek', 'audio', 'driver', 'chipset',
       'graphics', 'network', 'wifi', 'bluetooth', 'usb',
-      
+
       // Hardware Manufacturer Utilities
       'lenovo', 'dell', 'hp', 'asus', 'msi', 'acer', 'razer', 'corsair',
       'logitech', 'steelseries', 'apple', 'google',
-      
+
       // Coding/Dev Tools
       'python', 'idle', 'node', 'npm', 'git', 'compiler', 'debugger', 'ide',
       'visual', 'code', 'studio', 'jetbrains', 'sublime', 'atom',
-      
+
       // Archive/Compression
       'winrar', 'archive', '7-zip', 'zip', 'compress', 'extract', 'rar',
       'tar', 'gzip', 'bzip2',
-      
+
       // Utilities/Tools
       'tool', 'utility', 'helper', 'launcher', 'updater', 'optimizer',
       'cleaner', 'uninstaller', 'manager', 'monitor', 'viewer', 'converter',
       'recorder', 'codec', 'directx', 'vcredist', 'redist', 'runtime',
       'bootstrap', 'bootstrapper', 'gamelaunchhelper',
-      
+
       // Communication
       'whatsapp', 'telegram', 'discord', 'slack', 'zoom', 'skype', 'teams',
-      
+
       // Game Launchers & Platforms (not actual games)
       'battle.net', 'battlenet', 'blizzard', 'steam client', 'epic games launcher',
       'origin', 'ea desktop', 'ubisoft connect', 'gog galaxy', 'xbox app',
       'game bar', 'game overlay', 'game launcher', 'launcher',
-      
+
       // Specific Problem Cases
       'quick assist', 'snipping', 'sticky', 'hdr calibration', 'insider hub',
       'xbox', 'console', 'terminal', 'cmd', 'powershell', 'bash', 'shell',
@@ -136,14 +136,14 @@ export class GameFilteringService {
   private getPublisherFromName(name: string): string | null {
     const lowerName = name.toLowerCase();
     const knownPublishers = this.getKnownGamePublishers();
-    
+
     // Direct match
     for (const pub of knownPublishers) {
       if (lowerName.includes(pub)) {
         return pub;
       }
     }
-    
+
     return null;
   }
 
@@ -156,7 +156,7 @@ export class GameFilteringService {
     try {
       const files = readdirSync(folderPath, { recursive: true });
       const fileCount = files.length;
-      
+
       if (fileCount > 100) return 'large';  // likely game
       if (fileCount < 20) return 'small';   // likely utility
       return 'unknown';
@@ -225,6 +225,38 @@ export class GameFilteringService {
     }
 
     // Default: include the app (assume it's a game)
+    return false;
+  }
+
+  /**
+   * Check if a game path indicates it is currently downloading or in a staged state
+   */
+  isLikelyDownloading(folderPath: string): boolean {
+    const lowerPath = folderPath.toLowerCase();
+    const downloadPatterns = [
+      'uplay_download',
+      'steamapps\\downloading',
+      'steamapps/downloading',
+      'epicgames\\directdownload',
+      'originservice\\staged',
+      'origin games\\__origintmp',
+      'battle.net\\temp',
+      'battlenet\\temp',
+      'appdata\\local\\temp\\gog-galaxy',
+    ];
+
+    if (downloadPatterns.some(pattern => lowerPath.includes(pattern))) {
+      return true;
+    }
+
+    // Xbox UUID pattern in path (could be download)
+    // C:\XboxGames\AFA5CF80-538B-4681-A685-0C6E61521265
+    // Typical Xbox UUIDs are 8-4-4-4-12 hex chars
+    const xboxUuidPattern = /[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/i;
+    if (lowerPath.includes('xboxgames') && xboxUuidPattern.test(lowerPath)) {
+      return true;
+    }
+
     return false;
   }
 

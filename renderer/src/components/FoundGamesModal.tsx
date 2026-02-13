@@ -9,6 +9,7 @@ interface FoundGamesModalProps {
         platform?: string;
         source?: string;
         appId?: string;
+        isDownloading?: boolean;
     }>;
     onOpenImporter: (gamesToImport: any[]) => void;
     onCancel: () => void;
@@ -97,11 +98,18 @@ export function FoundGamesModal({ foundGames, onOpenImporter, onCancel }: FoundG
                             <div className="flex-1 min-w-0">
                                 <div className="flex justify-between items-start gap-2">
                                     <div className="font-semibold text-white truncate">{game.title}</div>
-                                    {(game.platform || game.source) && (
-                                        <div className="px-2 py-0.5 rounded text-xs font-medium bg-gray-700 text-gray-300 uppercase tracking-wider text-[10px]">
-                                            {game.platform || game.source}
-                                        </div>
-                                    )}
+                                    <div className="flex items-center gap-2">
+                                        {game.isDownloading && (
+                                            <div className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-500 border border-amber-500/30 uppercase tracking-tighter">
+                                                Downloading
+                                            </div>
+                                        )}
+                                        {(game.platform || game.source) && (
+                                            <div className="px-2 py-0.5 rounded text-xs font-medium bg-gray-700 text-gray-300 uppercase tracking-wider text-[10px]">
+                                                {game.platform || game.source}
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                                 {(game.exePath || game.installPath) && (
                                     <div className="text-xs text-gray-500 mt-1 font-mono break-all group-hover:text-gray-400 transition-colors">

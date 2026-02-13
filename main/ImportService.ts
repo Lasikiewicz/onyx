@@ -20,6 +20,7 @@ export interface ScannedGameResult {
   xboxKind?: 'uwp' | 'pc';
   title: string;
   status: 'pending' | 'scanning' | 'matched' | 'ambiguous' | 'ready' | 'error';
+  isDownloading?: boolean;
   error?: string;
 }
 
@@ -188,6 +189,7 @@ export class ImportService {
         appId: game.appId,
         title: game.name,
         status: 'ready' as const, // Steam games with AppID are ready
+        isDownloading: false, // Steam Service already filters for installed games
       }));
     } catch (error) {
       console.error('Error scanning Steam:', error);
@@ -228,6 +230,7 @@ export class ImportService {
           xboxKind: game.type,
           title: game.name,
           status: 'ambiguous' as const, // Xbox games need metadata matching
+          isDownloading: this.gameFilteringService.isLikelyDownloading(installPath),
         };
       });
     } catch (error) {
@@ -306,6 +309,7 @@ export class ImportService {
                 appId: appId,
                 title: appName,
                 status: 'ambiguous' as const, // Epic games need metadata matching
+                isDownloading: this.gameFilteringService.isLikelyDownloading(installLocation),
               });
             }
           } catch (err) {
@@ -381,6 +385,7 @@ export class ImportService {
                 appId: undefined,
                 title: entry,
                 status: 'ambiguous' as const, // Epic games need metadata matching
+                isDownloading: this.gameFilteringService.isLikelyDownloading(gamePath),
               });
             }
           } catch (err) {
@@ -609,6 +614,7 @@ export class ImportService {
             appId: infoFile ? infoFile.replace(/\D+/g, '') : undefined,
             title: gameTitle,
             status: 'ambiguous' as const, // GOG games need metadata matching
+            isDownloading: this.gameFilteringService.isLikelyDownloading(gameDir),
           });
         } catch (err) {
           console.warn(`[GOG] Could not process game folder "${gameDir}":`, err);
@@ -990,15 +996,27 @@ export class ImportService {
           }
 
           // Use the folder name as the game title
-          const folderName = gameDir.split(sep).pop() || 'Unknown';
+          let folderName = gameDir.split(sep).pop() || 'Unknown';
+
+          // Detect Ubisoft download/staging structure
+          if (gameDir.toLowerCase().includes('uplay_download')) {
+            const parts = gameDir.split(/[/\\]/);
+            const downloadIdx = parts.findIndex(p => p.toLowerCase() === 'uplay_download');
+            if (downloadIdx > 0) {
+              // The parent of 'uplay_download' is usually the actual game name
+              folderName = parts[downloadIdx - 1];
+              console.log(`[Ubisoft] Detected download folder, using real game name from parent: ${folderName}`);
+            }
+          }
 
           // Select the best executable from this folder
           let mainExe = exePaths[0];
 
-          // Prefer executables with the same name as the directory
+          // Prefer executables with the same name as the directory (or the parent directory we just found)
           const matchingExe = exePaths.find(exe => {
             const exeName = exe.split(sep).pop()?.toLowerCase().replace('.exe', '') || '';
-            return exeName === folderName.toLowerCase();
+            const normalizedFolder = folderName.toLowerCase();
+            return exeName === normalizedFolder || normalizedFolder.includes(exeName);
           });
 
           if (matchingExe) {
@@ -1024,6 +1042,7 @@ export class ImportService {
             appId: undefined,
             title: folderName,
             status: 'ambiguous' as const, // Ubisoft games need metadata matching
+            isDownloading: this.gameFilteringService.isLikelyDownloading(gameDir),
           });
         } catch (err) {
           console.warn(`[Ubisoft] Could not process game folder "${gameDir}":`, err);
@@ -1149,6 +1168,7 @@ export class ImportService {
                 appId: undefined,
                 title: entry,
                 status: 'ambiguous' as const, // Rockstar games need metadata matching
+                isDownloading: this.gameFilteringService.isLikelyDownloading(gamePath),
               });
             } else {
               console.log(`[Rockstar] No valid game executables found in ${entry}`);
@@ -1420,10 +1440,17 @@ export class ImportService {
         return results;
       }
 
-      // Battle.net games are typically ONLY in the Games subdirectory
+      // 1. Check if the provided path is actually a game folder itself (common Blizzard structure)
+      if (existsSync(join(battlePath, '.build.info'))) {
+        console.log(`[Battle.net] Provided path looks like a Blizzard game folder: ${battlePath}`);
+        const scanned = await this.scanGenericGamesFolder(battlePath, 'battle');
+        results.push(...scanned);
+      }
+
+      // 2. Battle.net games are typically ONLY in the Games subdirectory
       // Don't scan the root path to avoid picking up the launcher itself
       const gamesPath = join(battlePath, 'Games');
-      
+
       if (existsSync(gamesPath)) {
         console.log(`[Battle.net] Scanning games directory: ${gamesPath}`);
         const scanned = await this.scanGenericGamesFolder(gamesPath, 'battle');
@@ -1432,27 +1459,65 @@ export class ImportService {
         console.log(`[Battle.net] Games directory not found at: ${gamesPath}`);
       }
 
-      // Additional check for some Battle.net installs that might have games in other locations
-      // But specifically exclude the launcher's own directory
+      // 3. Improved check: If the path provided is the Battle.net launcher folder, check the parent
+      // Many users point to "C:\\Program Files (x86)\\Battle.net" but games are in "C:\\Program Files (x86)"
+      const isLauncherDir = existsSync(join(battlePath, 'Battle.net.exe')) ||
+        battlePath.toLowerCase().endsWith('battle.net') ||
+        battlePath.toLowerCase().endsWith('battlenet');
+
+      if (isLauncherDir) {
+        const parentDir = dirname(battlePath);
+        if (existsSync(parentDir) && parentDir !== battlePath) {
+          console.log(`[Battle.net] Detected launcher directory, also scanning parent: ${parentDir}`);
+          try {
+            const parentEntries = readdirSync(parentDir, { withFileTypes: true });
+            for (const entry of parentEntries) {
+              if (entry.isDirectory()) {
+                const dirName = entry.name.toLowerCase();
+                // Skip the launcher itself and other system folders
+                if (dirName === 'battle.net' || dirName === 'battlenet' || dirName === 'blizzard' || dirName === 'common') continue;
+
+                const potentialGamePath = join(parentDir, entry.name);
+                // Check if it's a Blizzard game (has .build.info)
+                if (existsSync(join(potentialGamePath, '.build.info'))) {
+                  // Avoid duplicate if already found
+                  if (results.some(r => r.installPath === potentialGamePath)) continue;
+
+                  console.log(`[Battle.net] Found Blizzard game via .build.info in parent: ${entry.name}`);
+                  const scanned = await this.scanGenericGamesFolder(potentialGamePath, 'battle');
+                  results.push(...scanned);
+                }
+              }
+            }
+          } catch (err) {
+            console.warn(`[Battle.net] Could not scan parent directory ${parentDir}:`, err);
+          }
+        }
+      }
+
+      // 4. Additional check for subdirectories (existing logic)
       const entries = readdirSync(battlePath, { withFileTypes: true });
       for (const entry of entries) {
         if (entry.isDirectory()) {
           const dirName = entry.name.toLowerCase();
-          
-          // Skip the launcher's own directories and system folders
-          if (dirName === 'battle.net' || 
-              dirName === 'battlenet' || 
-              dirName === 'launcher' ||
-              dirName === 'blizzard' ||
-              dirName === 'system' ||
-              dirName === 'cache' ||
-              dirName === 'logs' ||
-              dirName === 'temp' ||
-              dirName === 'games') { // Games already handled above
+
+          // Skip already handled and irrelevant folders
+          if (dirName === 'battle.net' ||
+            dirName === 'battlenet' ||
+            dirName === 'launcher' ||
+            dirName === 'blizzard' ||
+            dirName === 'system' ||
+            dirName === 'cache' ||
+            dirName === 'logs' ||
+            dirName === 'temp' ||
+            dirName === 'games') {
             continue;
           }
-          
+
           const potentialGamePath = join(battlePath, entry.name);
+          // Avoid duplicate
+          if (results.some(r => r.installPath === potentialGamePath)) continue;
+
           const scanned = await this.scanGenericGamesFolder(potentialGamePath, 'battle');
           results.push(...scanned);
         }
@@ -1672,9 +1737,10 @@ export class ImportService {
             appId: undefined,
             title: folderName,
             status: 'ambiguous' as const,
+            isDownloading: this.gameFilteringService.isLikelyDownloading(gameDir),
           });
           addedFolders.add(normalizedGameDir);
-          console.log(`[${source}] ✓ Added game: ${folderName} from ${gameDir}`);
+          console.log(`[${source}] ✓ Added game: ${folderName} from ${gameDir}${this.gameFilteringService.isLikelyDownloading(gameDir) ? ' (Downloading)' : ''}`);
         } catch (err) {
           console.warn(`[${source}] Could not process game folder "${gameDir}":`, err);
           continue;
