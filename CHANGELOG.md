@@ -4,9 +4,13 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased]
+## [0.3.28] - 2026-02-13
 
-- See the [repository](https://github.com/Lasikiewicz/onyx) for the latest work in progress.
+- Improve Battle.net game detection (parent directory scanning, `.build.info` identification)
+- Fix "Blizzard" publisher filtering in game importer
+- Detect downloading/staged states for games from multiple launchers (Steam, Epic, Ubisoft, Xbox, GOG)
+- Improve Xbox search results for games in UUID folders
+- Added visual "Downloading" badge to the new games detection window
 
 ## [0.3.27] - 2026-02-12
 
