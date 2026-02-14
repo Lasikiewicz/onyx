@@ -97,6 +97,19 @@ const formatReleaseNotes = (version: string, body: string) => {
     return `## [${normalized}]\n\n${trimmedBody}`;
 };
 
+const fetchDefaultBranch = async (): Promise<string | null> => {
+    try {
+        const repoUrl = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}`;
+        const response = await requestJson(repoUrl);
+        if (response.ok && typeof response.body?.default_branch === 'string' && response.body.default_branch.trim()) {
+            return response.body.default_branch.trim();
+        }
+    } catch (error) {
+        console.error('[Changelog] Error fetching default branch from GitHub:', error);
+    }
+    return null;
+};
+
 const fetchReleaseNotes = async (version: string): Promise<string | null> => {
     const normalized = normalizeVersion(version);
     const tagCandidates = Array.from(new Set([
@@ -133,16 +146,30 @@ const fetchReleaseNotes = async (version: string): Promise<string | null> => {
     return null;
 };
 
-const fetchChangelogFromGithub = async (): Promise<string | null> => {
-    const url = `https://raw.githubusercontent.com/${GITHUB_OWNER}/${GITHUB_REPO}/master/CHANGELOG.md`;
-    try {
-        const response = await requestRaw(url);
-        if (response.ok && response.body) {
-            return response.body;
+const fetchChangelogFromGithub = async (version?: string): Promise<string | null> => {
+    const defaultBranch = await fetchDefaultBranch();
+    const normalized = version ? normalizeVersion(version) : '';
+    const refCandidates = Array.from(new Set([
+        defaultBranch,
+        normalized ? `v${normalized}` : null,
+        normalized || null,
+        'main',
+        'master',
+        'release'
+    ].filter((ref): ref is string => Boolean(ref && ref.trim()))));
+
+    for (const ref of refCandidates) {
+        const url = `https://raw.githubusercontent.com/${GITHUB_OWNER}/${GITHUB_REPO}/${encodeURIComponent(ref)}/CHANGELOG.md`;
+        try {
+            const response = await requestRaw(url);
+            if (response.ok && response.body) {
+                return response.body;
+            }
+        } catch (error) {
+            console.error(`[Changelog] Error fetching raw CHANGELOG.md from GitHub for ref "${ref}":`, error);
         }
-    } catch (error) {
-        console.error('[Changelog] Error fetching raw CHANGELOG.md from GitHub:', error);
     }
+
     return null;
 };
 
@@ -169,12 +196,13 @@ export function registerAppIPCHandlers(
         return { success: true };
     });
 
-    ipcMain.handle('app:applyStartupSettings', async (_event, settings: { startWithComputer: boolean; startClosedToTray: boolean }) => {
+    ipcMain.handle('app:applyStartupSettings', async (_event, settings: { startWithComputer: boolean; startMinimized: boolean; startClosedToTray: boolean }) => {
+        const shouldStartHidden = settings.startMinimized || settings.startClosedToTray;
         app.setLoginItemSettings({
             openAtLogin: settings.startWithComputer,
-            openAsHidden: settings.startClosedToTray,
+            openAsHidden: shouldStartHidden,
             path: app.getPath('exe'),
-            args: settings.startClosedToTray ? ['--hidden'] : []
+            args: shouldStartHidden ? ['--hidden'] : []
         });
         return { success: true };
     });
@@ -327,7 +355,7 @@ export function registerAppIPCHandlers(
         // Try to fetch full CHANGELOG.md from GitHub as the primary source for versions
         // This ensures the update modal can show entries for versions newer than the current local installation
         try {
-            const githubChangelog = await fetchChangelogFromGithub();
+            const githubChangelog = await fetchChangelogFromGithub(version);
             if (githubChangelog) {
                 return { success: true, content: githubChangelog };
             }
@@ -337,6 +365,7 @@ export function registerAppIPCHandlers(
 
         const candidatePaths = [
             path.join(app.getAppPath(), 'CHANGELOG.md'),
+            path.join(process.resourcesPath, 'CHANGELOG.md'),
             path.join(process.resourcesPath, 'app.asar', 'CHANGELOG.md'),
             path.join(process.resourcesPath, 'app.asar.unpacked', 'CHANGELOG.md'),
             path.join(process.cwd(), 'CHANGELOG.md')

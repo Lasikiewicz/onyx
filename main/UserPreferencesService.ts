@@ -8,6 +8,7 @@ export interface UserPreferences {
   minimizeToTray?: boolean;
   showSystemTrayIcon?: boolean;
   startWithComputer?: boolean;
+  startMinimized?: boolean;
   startClosedToTray?: boolean;
   updateLibrariesOnStartup?: boolean;
   checkForUpdatesOnStartup?: boolean;
@@ -168,6 +169,7 @@ export class UserPreferencesService {
             minimizeToTray: false,
             showSystemTrayIcon: true,
             startWithComputer: false,
+            startMinimized: false,
             startClosedToTray: false,
             updateLibrariesOnStartup: false,
             checkForUpdatesOnStartup: true,
@@ -287,6 +289,7 @@ export class UserPreferencesService {
       minimizeToTray: false,
       showSystemTrayIcon: true,
       startWithComputer: false,
+      startMinimized: false,
       startClosedToTray: false,
       updateLibrariesOnStartup: false,
       checkForUpdatesOnStartup: true,
@@ -389,6 +392,7 @@ export class UserPreferencesService {
       minimizeToTray: false,
       showSystemTrayIcon: true,
       startWithComputer: false,
+      startMinimized: false,
       startClosedToTray: false,
       updateLibrariesOnStartup: false,
       checkForUpdatesOnStartup: true,
@@ -479,6 +483,7 @@ export class UserPreferencesService {
       minimizeToTray: false,
       showSystemTrayIcon: true,
       startWithComputer: false,
+      startMinimized: false,
       startClosedToTray: false,
       updateLibrariesOnStartup: false,
       checkForUpdatesOnStartup: true,

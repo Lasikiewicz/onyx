@@ -121,7 +121,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   exit: () => ipcRenderer.invoke('app:exit'),
   minimizeToTray: () => ipcRenderer.invoke('app:minimizeToTray'),
   applySystemTraySettings: (settings: { showSystemTrayIcon: boolean; minimizeToTray: boolean }) => ipcRenderer.invoke('app:applySystemTraySettings', settings),
-  applyStartupSettings: (settings: { startWithComputer: boolean; startClosedToTray: boolean }) => ipcRenderer.invoke('app:applyStartupSettings', settings),
+  applyStartupSettings: (settings: { startWithComputer: boolean; startMinimized: boolean; startClosedToTray: boolean }) => ipcRenderer.invoke('app:applyStartupSettings', settings),
 
   // Process monitoring
   checkProcessExists: (pid: number) => ipcRenderer.invoke('process:checkExists', pid),

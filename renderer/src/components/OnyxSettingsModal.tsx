@@ -18,6 +18,7 @@ interface OnyxSettings {
   minimizeToTray: boolean;
   showSystemTrayIcon: boolean;
   startWithComputer: boolean;
+  startMinimized: boolean;
   startClosedToTray: boolean;
   updateLibrariesOnStartup: boolean;
   checkForUpdatesOnStartup: boolean;
@@ -167,6 +168,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
     minimizeToTray: false,
     showSystemTrayIcon: true,
     startWithComputer: false,
+    startMinimized: false,
     startClosedToTray: false,
     updateLibrariesOnStartup: false,
     checkForUpdatesOnStartup: true,
@@ -202,6 +204,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
             minimizeToTray: prefs.minimizeToTray ?? false,
             showSystemTrayIcon: prefs.showSystemTrayIcon ?? true,
             startWithComputer: prefs.startWithComputer ?? false,
+            startMinimized: prefs.startMinimized ?? false,
             startClosedToTray: prefs.startClosedToTray ?? false,
             updateLibrariesOnStartup: prefs.updateLibrariesOnStartup ?? false,
             checkForUpdatesOnStartup: prefs.checkForUpdatesOnStartup ?? true,
@@ -735,6 +738,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
         minimizeToTray: settings.minimizeToTray,
         showSystemTrayIcon: settings.showSystemTrayIcon,
         startWithComputer: settings.startWithComputer,
+        startMinimized: settings.startMinimized,
         startClosedToTray: settings.startClosedToTray,
         updateLibrariesOnStartup: settings.updateLibrariesOnStartup,
         checkForUpdatesOnStartup: settings.checkForUpdatesOnStartup,
@@ -808,6 +812,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
       // Apply startup settings
       await window.electronAPI.applyStartupSettings({
         startWithComputer: settings.startWithComputer,
+        startMinimized: settings.startMinimized,
         startClosedToTray: settings.startClosedToTray,
       });
 
@@ -904,6 +909,12 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                     description="Automatically start Onyx when you log into Windows"
                     checked={settings.startWithComputer}
                     onChange={() => handleToggle('startWithComputer')}
+                  />
+                  <SettingsToggle
+                    label="Start Minimized"
+                    description="Start Onyx minimized on launch"
+                    checked={settings.startMinimized}
+                    onChange={() => handleToggle('startMinimized')}
                   />
                   <SettingsToggle
                     label="System Tray Icon"

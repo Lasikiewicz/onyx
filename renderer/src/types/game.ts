@@ -112,6 +112,7 @@ export interface UserPreferences {
   minimizeToTray?: boolean;
   showSystemTrayIcon?: boolean;
   startWithComputer?: boolean;
+  startMinimized?: boolean;
   startClosedToTray?: boolean;
   updateLibrariesOnStartup?: boolean;
   checkForUpdatesOnStartup?: boolean;
@@ -282,7 +283,7 @@ declare global {
       exit: () => Promise<void>;
       minimizeToTray: () => Promise<void>;
       applySystemTraySettings: (settings: { showSystemTrayIcon: boolean; minimizeToTray: boolean }) => Promise<{ success: boolean; error?: string }>;
-      applyStartupSettings: (settings: { startWithComputer: boolean; startClosedToTray: boolean }) => Promise<{ success: boolean; error?: string }>;
+      applyStartupSettings: (settings: { startWithComputer: boolean; startMinimized: boolean; startClosedToTray: boolean }) => Promise<{ success: boolean; error?: string }>;
       openExternal: (url: string) => Promise<{ success: boolean; error?: string }>;
       getAPICredentials: () => Promise<{ igdbClientId?: string; igdbClientSecret?: string; steamGridDBApiKey?: string; rawgApiKey?: string; giantBombApiKey?: string }>;
       saveAPICredentials: (credentials: { igdbClientId?: string; igdbClientSecret?: string; steamGridDBApiKey?: string; rawgApiKey?: string; giantBombApiKey?: string }) => Promise<{ success: boolean; error?: string }>;

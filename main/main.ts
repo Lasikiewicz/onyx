@@ -795,7 +795,7 @@ async function createWindow() {
       const prefs = await userPreferencesService.getPreferences();
       // Also respect a one-off --hidden CLI flag (used by Windows "start minimized"/login items)
       const hasHiddenFlag = process.argv.includes('--hidden');
-      const shouldStartHidden = prefs.startClosedToTray || hasHiddenFlag;
+      const shouldStartHidden = prefs.startClosedToTray || prefs.startMinimized || hasHiddenFlag;
 
       if (!shouldStartHidden) {
         win?.show();
