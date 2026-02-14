@@ -504,7 +504,15 @@ function createTray() {
   // Update context menu on right-click to refresh recent games
   tray.on('right-click', () => {
     console.log('[Tray Menu] Right-click detected, refreshing menu...');
-    if (trayService) trayService.updateTrayMenu();
+    if (!trayService) return;
+    if (process.platform === 'win32') {
+      trayService.showCustomTrayMenu().catch((err) => {
+        console.error('[Tray Menu] Failed to show custom tray menu:', err);
+        trayService?.updateTrayMenu();
+      });
+      return;
+    }
+    trayService.updateTrayMenu();
   });
 
   tray.on('click', () => {

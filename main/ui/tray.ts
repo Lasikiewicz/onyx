@@ -1,4 +1,4 @@
-import { app, Menu, Tray, BrowserWindow } from 'electron';
+import { app, Menu, Tray, BrowserWindow, ipcMain, screen, nativeImage } from 'electron';
 import { GameStore, Game } from '../GameStore.js';
 import { LauncherService } from '../LauncherService.js';
 import { UserPreferencesService } from '../UserPreferencesService.js';
@@ -6,6 +6,8 @@ import { UserPreferencesService } from '../UserPreferencesService.js';
 export class TrayService {
     private tray: Tray | null = null;
     private win: BrowserWindow | null = null;
+    private trayMenuWindow: BrowserWindow | null = null;
+    private trayMenuActions = new Map<string, () => void | Promise<void>>();
     private gameStore: GameStore;
     private launcherService: LauncherService;
     private userPreferencesService: UserPreferencesService;
@@ -21,6 +23,7 @@ export class TrayService {
         this.launcherService = launcherService;
         this.userPreferencesService = userPreferencesService;
         this.createWindow = createWindow;
+        this.registerTrayMenuIpc();
     }
 
     setWindow(win: BrowserWindow | null) {
@@ -29,6 +32,384 @@ export class TrayService {
 
     setTray(tray: Tray | null) {
         this.tray = tray;
+    }
+
+    private registerTrayMenuIpc() {
+        ipcMain.on('tray-menu:action', async (_event, actionId: string) => {
+            const action = this.trayMenuActions.get(actionId);
+            if (!action) return;
+            try {
+                await action();
+            } catch (error) {
+                console.error('[Tray Menu] Error running custom tray action:', error);
+            } finally {
+                this.closeCustomTrayMenu();
+            }
+        });
+
+        ipcMain.on('tray-menu:close', () => {
+            this.closeCustomTrayMenu();
+        });
+    }
+
+    private closeCustomTrayMenu() {
+        if (this.trayMenuWindow && !this.trayMenuWindow.isDestroyed()) {
+            this.trayMenuWindow.close();
+        }
+        this.trayMenuWindow = null;
+    }
+
+    private createActionId(prefix: string): string {
+        return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    }
+
+    private getTrayGameIcon(game: Game): string | undefined {
+        const candidateUrl = game.iconUrl?.trim() || game.logoUrl?.trim();
+        if (candidateUrl) {
+            return candidateUrl;
+        }
+
+        const exePath = game.exePath?.trim();
+        if (!exePath) return undefined;
+
+        try {
+            const icon = nativeImage.createFromPath(exePath);
+            if (!icon.isEmpty()) {
+                return icon.resize({ width: 22, height: 22, quality: 'best' }).toDataURL();
+            }
+        } catch (error) {
+            console.debug('[Tray Menu] Could not resolve executable icon:', error);
+        }
+
+        return undefined;
+    }
+
+    private async buildTrayMenuData() {
+        const menuItems: Array<{
+            type: 'header' | 'item' | 'separator';
+            label?: string;
+            actionId?: string;
+            iconUrl?: string;
+            isGame?: boolean;
+        }> = [];
+        this.trayMenuActions.clear();
+
+        try {
+            const games = await this.gameStore.getLibrary();
+            const visibleGames = games.filter(game => !game.hidden);
+
+            const launchGameFromTray = async (game: Game) => {
+                try {
+                    await this.launcherService.launchGame(game.id);
+                    const prefs = await this.userPreferencesService.getPreferences();
+                    if (prefs.minimizeOnGameLaunch && this.win) {
+                        this.win.minimize();
+                    }
+                } catch (error) {
+                    console.error('Error launching game from tray:', error);
+                }
+            };
+
+            const addGameSection = (title: string, source: Game[]) => {
+                if (source.length === 0) return;
+
+                menuItems.push({ type: 'header', label: title });
+                source.forEach((game) => {
+                    const label = game.title.length > 50 ? `${game.title.substring(0, 47)}...` : game.title;
+                    const actionId = this.createActionId('launch');
+                    this.trayMenuActions.set(actionId, async () => {
+                        await launchGameFromTray(game);
+                    });
+                    menuItems.push({
+                        type: 'item',
+                        label,
+                        actionId,
+                        iconUrl: this.getTrayGameIcon(game),
+                        isGame: true,
+                    });
+                });
+                menuItems.push({ type: 'separator' });
+            };
+
+            const lastPlayedGames = visibleGames
+                .filter(game => game.lastPlayed)
+                .sort((a, b) => new Date(b.lastPlayed || 0).getTime() - new Date(a.lastPlayed || 0).getTime())
+                .slice(0, 5);
+
+            const lastInstalledGames = visibleGames
+                .filter(game => game.dateAdded)
+                .sort((a, b) => new Date(b.dateAdded || 0).getTime() - new Date(a.dateAdded || 0).getTime())
+                .slice(0, 5);
+
+            addGameSection('Recently Played', lastPlayedGames);
+            addGameSection('Recently Installed', lastInstalledGames);
+        } catch (error) {
+            console.error('[Tray Menu] Error building tray menu with recent games:', error);
+        }
+
+        const showOnyxActionId = this.createActionId('show');
+        this.trayMenuActions.set(showOnyxActionId, () => {
+            if (this.win) {
+                this.win.show();
+                this.win.focus();
+            } else {
+                this.createWindow();
+            }
+        });
+
+        const exitActionId = this.createActionId('exit');
+        this.trayMenuActions.set(exitActionId, () => {
+            app.quit();
+        });
+
+        menuItems.push(
+            { type: 'item', label: 'Show Onyx', actionId: showOnyxActionId },
+            { type: 'item', label: 'Exit', actionId: exitActionId }
+        );
+
+        // Remove trailing separator if present
+        while (menuItems.length > 0 && menuItems[menuItems.length - 1].type === 'separator') {
+            menuItems.pop();
+        }
+
+        return menuItems;
+    }
+
+    async showCustomTrayMenu() {
+        if (!this.tray) return;
+
+        const menuItems = await this.buildTrayMenuData();
+        this.closeCustomTrayMenu();
+
+        const trayBounds = this.tray.getBounds();
+        const display = screen.getDisplayNearestPoint({
+            x: Math.max(0, trayBounds.x),
+            y: Math.max(0, trayBounds.y),
+        });
+
+        const estimatedHeight = Math.min(
+            620,
+            Math.max(
+                240,
+                16 + menuItems.reduce((total, item) => {
+                    if (item.type === 'item') return total + 46;
+                    if (item.type === 'header') return total + 30;
+                    return total + 12;
+                }, 0)
+            )
+        );
+        const width = 364;
+        const x = Math.min(
+            display.workArea.x + display.workArea.width - width - 8,
+            Math.max(display.workArea.x + 8, trayBounds.x - width + trayBounds.width)
+        );
+        const y = Math.min(
+            display.workArea.y + display.workArea.height - estimatedHeight - 8,
+            Math.max(display.workArea.y + 8, trayBounds.y - estimatedHeight - 4)
+        );
+
+        this.trayMenuWindow = new BrowserWindow({
+            width,
+            height: estimatedHeight,
+            x,
+            y,
+            frame: false,
+            resizable: false,
+            movable: false,
+            minimizable: false,
+            maximizable: false,
+            fullscreenable: false,
+            skipTaskbar: true,
+            alwaysOnTop: true,
+            show: false,
+            hasShadow: false,
+            transparent: true,
+            backgroundColor: '#00000000',
+            roundedCorners: true,
+            webPreferences: {
+                nodeIntegration: true,
+                contextIsolation: false,
+                devTools: false,
+            },
+        });
+
+        this.trayMenuWindow.on('blur', () => this.closeCustomTrayMenu());
+        this.trayMenuWindow.on('closed', () => {
+            this.trayMenuWindow = null;
+        });
+
+        const itemsJson = JSON.stringify(menuItems).replace(/</g, '\\u003c');
+        const html = `<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      :root { color-scheme: dark; }
+      html, body {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        padding: 0;
+        background: transparent;
+        font-family: "Segoe UI", Inter, system-ui, sans-serif;
+      }
+      .menu {
+        height: 100%;
+        background: #0f172a;
+        border: 1px solid rgba(71, 85, 105, 0.7);
+        border-radius: 10px;
+        box-shadow: 0 8px 18px rgba(2, 6, 23, 0.4);
+        overflow: hidden;
+      }
+      .scroll {
+        height: 100%;
+        overflow-y: auto;
+        overflow-x: hidden;
+        padding: 6px 0;
+      }
+      .header {
+        color: #94a3b8;
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0.25px;
+        text-transform: uppercase;
+        padding: 8px 14px 6px;
+      }
+      .item {
+        width: 100%;
+        border: none;
+        background: transparent;
+        color: #e2e8f0;
+        text-align: left;
+        font-size: 15px;
+        line-height: 1.35;
+        font-weight: 600;
+        padding: 10px 14px;
+        cursor: pointer;
+      }
+      .item-content {
+        display: flex;
+        align-items: center;
+        gap: 11px;
+        min-width: 0;
+      }
+      .item-label {
+        display: block;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .item-icon,
+      .item-fallback {
+        width: 22px;
+        height: 22px;
+        border-radius: 4px;
+        flex: 0 0 22px;
+      }
+      .item-icon {
+        object-fit: cover;
+        background: rgba(15, 23, 42, 0.5);
+      }
+      .item-fallback {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 10px;
+        font-weight: 700;
+        color: #cbd5e1;
+        background: rgba(51, 65, 85, 0.9);
+      }
+      .item:hover {
+        background: rgba(51, 65, 85, 0.6);
+      }
+      .item:focus {
+        outline: none;
+        background: rgba(51, 65, 85, 0.75);
+      }
+      .separator {
+        height: 1px;
+        margin: 7px 10px;
+        background: rgba(71, 85, 105, 0.6);
+      }
+      .scroll::-webkit-scrollbar { width: 8px; }
+      .scroll::-webkit-scrollbar-track { background: transparent; }
+      .scroll::-webkit-scrollbar-thumb { background: rgba(100, 116, 139, 0.7); border-radius: 8px; }
+      .scroll::-webkit-scrollbar-thumb:hover { background: rgba(148, 163, 184, 0.85); }
+    </style>
+  </head>
+  <body>
+    <div class="menu">
+      <div class="scroll" id="menu"></div>
+    </div>
+    <script>
+      const { ipcRenderer } = require('electron');
+      const menuItems = ${itemsJson};
+      const menu = document.getElementById('menu');
+
+      for (const item of menuItems) {
+        if (item.type === 'separator') {
+          const sep = document.createElement('div');
+          sep.className = 'separator';
+          menu.appendChild(sep);
+          continue;
+        }
+
+        if (item.type === 'header') {
+          const h = document.createElement('div');
+          h.className = 'header';
+          h.textContent = item.label || '';
+          menu.appendChild(h);
+          continue;
+        }
+
+        const btn = document.createElement('button');
+        btn.className = 'item';
+        btn.onclick = () => ipcRenderer.send('tray-menu:action', item.actionId);
+
+        const content = document.createElement('span');
+        content.className = 'item-content';
+
+        if (item.isGame) {
+          if (item.iconUrl) {
+            const icon = document.createElement('img');
+            icon.className = 'item-icon';
+            icon.src = item.iconUrl;
+            icon.alt = '';
+            icon.onerror = () => {
+              icon.style.display = 'none';
+            };
+            content.appendChild(icon);
+          } else {
+            const fallback = document.createElement('span');
+            fallback.className = 'item-fallback';
+            fallback.textContent = (item.label || '?').trim().charAt(0).toUpperCase() || '?';
+            content.appendChild(fallback);
+          }
+        }
+
+        const label = document.createElement('span');
+        label.className = 'item-label';
+        label.textContent = item.label || '';
+        content.appendChild(label);
+
+        btn.appendChild(content);
+        menu.appendChild(btn);
+      }
+
+      window.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') ipcRenderer.send('tray-menu:close');
+      });
+    </script>
+  </body>
+</html>`;
+
+        await this.trayMenuWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+        this.trayMenuWindow.showInactive();
+        this.trayMenuWindow.focus();
     }
 
     async buildTrayContextMenu(): Promise<Menu> {
@@ -233,7 +614,7 @@ export class TrayService {
     async updateTrayMenu() {
         try {
             const contextMenu = await this.buildTrayContextMenu();
-            if (this.tray) {
+            if (this.tray && process.platform !== 'win32') {
                 this.tray.setContextMenu(contextMenu);
             }
 
@@ -260,7 +641,9 @@ export class TrayService {
                     },
                 },
             ]);
-            this.tray?.setContextMenu(fallbackMenu);
+            if (process.platform !== 'win32') {
+                this.tray?.setContextMenu(fallbackMenu);
+            }
         }
     }
 }
