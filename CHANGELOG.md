@@ -8,6 +8,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - See the [repository](https://github.com/Lasikiewicz/onyx) for the latest work in progress.
 
+## [0.3.31] - 2026-02-14
+
+- Replace Windows native tray context menu with a custom Onyx-styled popup for better readability and layout control.
+- Add game icons to Recently Played/Recently Installed tray entries and refine popup sizing/scroll behavior.
+
 ## [0.3.30] - 2026-02-14
 
 - Add a new "Start Minimized" option in General settings and wire it through startup preferences/login item behavior.
