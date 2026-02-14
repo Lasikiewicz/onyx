@@ -8,6 +8,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - See the [repository](https://github.com/Lasikiewicz/onyx) for the latest work in progress.
 
+## [0.3.30] - 2026-02-14
+
+- Add a new "Start Minimized" option in General settings and wire it through startup preferences/login item behavior.
+- Make changelog fetching branch-agnostic by resolving default branch and falling back across release refs/tags for packaged builds.
+
 ## [0.3.29] - 2026-02-13
 
 - Fix: Fetch the full changelog from GitHub when release-specific notes are unavailable (fixes empty changelog in update modal)
