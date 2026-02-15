@@ -8,6 +8,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - See the [repository](https://github.com/Lasikiewicz/onyx) for the latest work in progress.
 
+## [0.3.32] - 2026-02-15
+
+- Fix the startup "New Games Found" modal so long game lists scroll instead of overflowing off-screen.
+- Keep modal action buttons visible while scrolling large detected-game results.
+
 ## [0.3.31] - 2026-02-14
 
 - Replace Windows native tray context menu with a custom Onyx-styled popup for better readability and layout control.
