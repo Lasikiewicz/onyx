@@ -28,7 +28,7 @@ export function FoundGamesModal({ foundGames, onOpenImporter, onCancel }: FoundG
 
     return (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100]">
-            <div className="bg-gradient-to-br from-gray-900 to-slate-950 border border-gray-700/50 rounded-2xl shadow-2xl p-6 max-w-2xl w-full max-h-[80vh] flex flex-col animate-in fade-in zoom-in duration-200">
+            <div className="bg-gradient-to-br from-gray-900 to-slate-950 border border-gray-700/50 rounded-2xl shadow-2xl p-6 max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col animate-in fade-in zoom-in duration-200">
                 <div className="flex items-start gap-4 mb-6">
                     {/* Onyx Logo */}
                     <div className="w-16 h-16 flex-shrink-0">
@@ -89,7 +89,7 @@ export function FoundGamesModal({ foundGames, onOpenImporter, onCancel }: FoundG
                     </span>
                 </div>
 
-                <div className="flex-1 overflow-y-auto mb-6 pr-2 -mr-2 space-y-2">
+                <div className="flex-1 min-h-0 overflow-y-auto mb-4 pr-2 -mr-2 space-y-2">
                     {sortedFoundGames.map((game, index) => (
                         <div
                             key={game.id || `game-${index}`}
@@ -121,7 +121,7 @@ export function FoundGamesModal({ foundGames, onOpenImporter, onCancel }: FoundG
                     ))}
                 </div>
 
-                <div className="flex gap-3 pt-4 border-t border-gray-800">
+                <div className="flex gap-3 pt-4 border-t border-gray-800 bg-gradient-to-t from-slate-950/90 to-transparent">
                     <button
                         onClick={onCancel}
                         className="flex-1 px-5 py-2.5 bg-gray-800 hover:bg-gray-700 text-white font-medium rounded-lg transition-colors border border-gray-700"

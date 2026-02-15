@@ -2683,7 +2683,7 @@ function App() {
       {/* Startup scan progress overlay */}
       {startupProgress && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[999] flex items-center justify-center">
-          <div className="bg-gradient-to-br from-gray-900/95 to-slate-950/95 backdrop-blur-xl border border-cyan-500/20 p-10 rounded-3xl shadow-2xl w-[800px] max-w-[90vw] max-h-[90vh] animate-in fade-in zoom-in duration-300 flex flex-col">
+          <div className="bg-gradient-to-br from-gray-900/95 to-slate-950/95 backdrop-blur-xl border border-cyan-500/20 p-10 rounded-3xl shadow-2xl w-[800px] max-w-[90vw] max-h-[90vh] overflow-hidden animate-in fade-in zoom-in duration-300 flex flex-col">
             {!foundGames ? (
               <div className="flex flex-col items-center space-y-6">
                 {/* Onyx Logo */}
@@ -2750,7 +2750,7 @@ function App() {
                 </div>
               </div>
             ) : (
-              <div className="flex flex-col h-full">
+              <div className="flex flex-1 min-h-0 flex-col">
                 <div className="flex items-start gap-4 mb-6">
                   {/* Onyx Logo */}
                   <div className="w-16 h-16 flex-shrink-0">
@@ -2810,7 +2810,7 @@ function App() {
                   </span>
                 </div>
 
-                <div className="flex-1 overflow-y-auto mb-6 pr-2 -mr-2 space-y-2">
+                <div className="flex-1 min-h-0 overflow-y-auto mb-4 pr-2 -mr-2 space-y-2">
                   {[...foundGames].sort((a, b) => a.title.localeCompare(b.title)).map((game, index) => (
                     <div
                       key={game.id || `game-${index}`}
@@ -2835,7 +2835,7 @@ function App() {
                   ))}
                 </div>
 
-                <div className="flex gap-3 pt-4 border-t border-gray-800">
+                <div className="flex gap-3 pt-4 border-t border-gray-800 bg-gradient-to-t from-slate-950/90 to-transparent">
                   <button
                     onClick={() => {
                       setFoundGames(null);
