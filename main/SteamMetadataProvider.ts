@@ -397,14 +397,13 @@ export class SteamMetadataProvider implements MetadataProvider {
       const logoUrl = `https://cdn.cloudflare.steamstatic.com/steam/apps/${steamAppId}/logo.png`;
       const iconUrl = `https://cdn.cloudflare.steamstatic.com/steam/apps/${steamAppId}/${steamAppId}_icon.jpg`;
 
-      // Verify images exist with timeout
+      // Verify images exist with timeout (HEAD first; GET fallback for icon/header when HEAD fails in packaged apps)
       const timeoutMs = 5000;
-      const fetchWithTimeout = async (url: string): Promise<Response | null> => {
+      const fetchWithTimeout = async (url: string, method: 'HEAD' | 'GET' = 'HEAD'): Promise<Response | null> => {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-
         try {
-          const response = await fetch(url, { method: 'HEAD', signal: controller.signal });
+          const response = await fetch(url, { method, signal: controller.signal });
           clearTimeout(timeoutId);
           return response;
         } catch (error) {
@@ -412,6 +411,8 @@ export class SteamMetadataProvider implements MetadataProvider {
           return null;
         }
       };
+      const isImageResponse = (r: Response | null): boolean =>
+        !!r?.ok && (r.headers.get('content-type') ?? '').toLowerCase().startsWith('image/');
 
       // Check which images are available (prioritize official Steam CDN images)
       const [boxArtResponse, boxArt2xResponse, bannerResponse, headerResponse, logoResponse, iconResponse] = await Promise.all([
@@ -479,7 +480,7 @@ export class SteamMetadataProvider implements MetadataProvider {
         artwork.logoResolution = { width: 231, height: 87 };
       }
 
-      // Icon: only set when we get a valid response so we never show a broken image
+      // Icon: only set when we get a valid response. Use GET fallback when HEAD fails (e.g. in packaged app).
       if (iconResponse?.ok) {
         artwork.iconUrl = iconUrl;
         artwork.iconResolution = { width: 64, height: 64 };
@@ -489,6 +490,12 @@ export class SteamMetadataProvider implements MetadataProvider {
         if (communityRes?.ok) {
           artwork.iconUrl = communityIconUrl;
           artwork.iconResolution = { width: 64, height: 64 };
+        } else {
+          const iconGet = await fetchWithTimeout(iconUrl, 'GET');
+          if (isImageResponse(iconGet)) {
+            artwork.iconUrl = iconUrl;
+            artwork.iconResolution = { width: 64, height: 64 };
+          }
         }
       }
 
