@@ -8,6 +8,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - See the [repository](https://github.com/Lasikiewicz/onyx) for the latest work in progress.
 
+## [0.3.35] - 2026-02-19
+
+- Quick tips overlay (library tour) with callouts for Onyx menu and right-click; available via Onyx menu > Quick tips.
+- Game Importer: show import progress (phase, count, current game); skip artwork fetch when already present.
+- Auto-select first (top-left) game when none is selected.
+
 ## [0.3.34] - 2026-02-19
 
 - Release build: Steam provider uses GET fallback for game icon when HEAD fails (fixes missing icons in packaged app).
