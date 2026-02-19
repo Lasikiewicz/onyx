@@ -8,6 +8,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - See the [repository](https://github.com/Lasikiewicz/onyx) for the latest work in progress.
 
+## [0.3.37] - 2026-02-19
+
+- Cover Flow: reflection at 0% transparency is now fully opaque (mask no longer fades to transparent at bottom).
+
 ## [0.3.36] - 2026-02-19
 
 - Cover Flow view: Apple-style horizontal cover flow with reflections and smooth scrolling.
