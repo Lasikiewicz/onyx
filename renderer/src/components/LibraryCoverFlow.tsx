@@ -26,27 +26,26 @@ interface LibraryCoverFlowProps {
 }
 
 const COVER_ASPECT = 2 / 3; // width / height, typical box art
-const PERSPECTIVE = 1000;   // subtle perspective distortion
-const ANGLE_FIRST = 12;
-const ANGLE_STEP = 10;
-const ANGLE_MAX = 46;       // cap so outer cards stay recognisable (not edge-on)
-const DEPTH_PER_SLOT = 28;  // gentler depth so outer cards don't squash
-const DEPTH_CAP = 120;      // max translateZ so perspective stays subtle
+const PERSPECTIVE = 1200;   // perspective (reference-style depth)
+const ROTATION_DEG = 50;    // max Y rotation each side (iOS-like, per reference)
+const CENTER_GAP = 220;     // horizontal spread for center + immediate neighbours (reference: centerGap)
+const STACK_SPACING = 90;   // spacing for stacked items further out (reference: stackSpacing)
+const Z_OFF_CENTER = -200;  // fixed recede when |pos| > 0.5 (reference)
+const Z_CENTER_FALLOFF = 400; // z = -|pos| * this when |pos| <= 0.5 (reference)
 const REFLECTION_HEIGHT_RATIO = 0.5;
 const REFLECTION_OPACITY_START = 0.5;
 const REFLECTION_OPACITY_END = 0;
 const LOOP_SLOTS_LEFT = 8;
 const LOOP_SLOTS_RIGHT = 8;
-const HORIZONTAL_SPACING = 165;
 const SCALE_CENTER = 1;
-const SCALE_MIN = 0.72;           // outer cards stay clearly rectangular
-const SCALE_FALLOFF_PER_STEP = 0.07; // only first ~4 steps shrink noticeably
-const OPACITY_MIN = 0.28;
-const OPACITY_FALLOFF_PER_STEP = 0.11;  // for centre + 1st + 2nd neighbour
-const OPACITY_FADE_AFTER_2ND = 0.22;    // extra fade per step after 2nd neighbour (they match 2nd, then fade)
-const OPACITY_END_MIN = 0.1;            // minimum for outermost
-const SCROLL_DURATION_MS = 520;         // smooth scroll animation (slower)
+const SCALE_MIN = 0.72;     // outer cards stay recognisable
+const SCALE_FALLOFF = 0.08; // scale falloff per step from center
+const BRIGHTNESS_OFF_CENTER = 0.55; // dim non-center cards (reference: 0.5)
+const OPACITY_MIN = 0.35;
+const OPACITY_FALLOFF = 0.12;
+const SCROLL_DURATION_PER_STEP_MS = 420; // same speed per step (1 step or distant click)
 const SCROLL_EASE = (t: number) => 1 - Math.pow(1 - t, 3); // easeOutCubic
+const PIXELS_PER_INDEX = 200; // drag distance (px) per item for 1:1 feel
 
 export const LibraryCoverFlow: React.FC<LibraryCoverFlowProps> = ({
   games,
@@ -73,6 +72,15 @@ export const LibraryCoverFlow: React.FC<LibraryCoverFlowProps> = ({
   const [scrollOffset, setScrollOffset] = useState(0); // fractional steps for smooth scroll (0 when idle)
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; game: Game } | null>(null);
   const animationRef = React.useRef<number | null>(null);
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  const animationTargetRef = React.useRef(0);
+  const scrollPositionRef = React.useRef(0);
+  const isAnimatingRef = React.useRef(false); // true while scroll animating – don't notify parent until done (so background doesn't flash in-betweens)
+  const [dragOffsetPx, setDragOffsetPx] = useState(0);
+  const dragStartXRef = React.useRef(0);
+  const isDragActiveRef = React.useRef(false);
+  const dragOffsetPxRef = React.useRef(0);
+  const justDraggedRef = React.useRef(false);
 
   const validSelectedIndex = Math.max(0, Math.min(selectedIndex, games.length - 1));
   const selectedGame = games.length > 0 ? games[validSelectedIndex] : null;
@@ -80,33 +88,45 @@ export const LibraryCoverFlow: React.FC<LibraryCoverFlowProps> = ({
   const requestSelection = React.useCallback(
     (targetIndex: number) => {
       if (games.length === 0) return;
-      const from = validSelectedIndex;
-      let steps = (targetIndex - from) % games.length;
-      if (steps > games.length / 2) steps -= games.length;
-      if (steps < -games.length / 2) steps += games.length;
-      if (steps === 0) return;
+      const length = games.length;
+      const startLogical = scrollPositionRef.current;
+      let delta = targetIndex - startLogical;
+      if (delta > length / 2) delta -= length;
+      if (delta < -length / 2) delta += length;
+      if (delta === 0) return;
 
+      animationTargetRef.current = targetIndex;
+      isAnimatingRef.current = true;
       if (animationRef.current != null) {
         cancelAnimationFrame(animationRef.current);
         animationRef.current = null;
       }
+      const duration = Math.abs(delta) * SCROLL_DURATION_PER_STEP_MS;
       const startTime = performance.now();
       const animate = () => {
         const elapsed = performance.now() - startTime;
-        const t = Math.min(1, elapsed / SCROLL_DURATION_MS);
+        const t = Math.min(1, elapsed / duration);
         const eased = SCROLL_EASE(t);
-        setScrollOffset(eased * steps);
+        const currentLogical = startLogical + delta * eased;
+        scrollPositionRef.current = currentLogical;
+        const rawIndex = Math.floor(currentLogical);
+        const sel = ((rawIndex % length) + length) % length;
+        const offset = currentLogical - rawIndex;
+        setSelectedIndex(sel);
+        setScrollOffset(offset);
         if (t < 1) {
           animationRef.current = requestAnimationFrame(animate);
         } else {
           animationRef.current = null;
+          isAnimatingRef.current = false;
           setSelectedIndex(targetIndex);
           setScrollOffset(0);
+          scrollPositionRef.current = targetIndex;
         }
       };
       animationRef.current = requestAnimationFrame(animate);
     },
-    [games.length, validSelectedIndex]
+    [games.length]
   );
 
   useEffect(() => {
@@ -116,33 +136,46 @@ export const LibraryCoverFlow: React.FC<LibraryCoverFlowProps> = ({
   }, []);
 
   useEffect(() => {
-    if (activeGameId && games.length > 0) {
-      const index = games.findIndex((g) => g.id === activeGameId);
-      if (index !== -1 && index !== selectedIndex) setSelectedIndex(index);
-    }
+    if (!activeGameId || games.length === 0) return;
+    const index = games.findIndex((g) => g.id === activeGameId);
+    if (index === -1) return;
+    setSelectedIndex((prev) => {
+      if (prev === index) return prev;
+      animationTargetRef.current = index;
+      scrollPositionRef.current = index;
+      return index;
+    });
   }, [activeGameId, games]);
 
-  // Notify parent when selection changes (e.g. keyboard) so activeGameId stays in sync
+  // Notify parent when selection settles (so background transitions current → target without in-betweens)
   const prevIndexRef = React.useRef(validSelectedIndex);
+  const onGameClickRef = React.useRef(onGameClick);
+  onGameClickRef.current = onGameClick;
   useEffect(() => {
-    if (selectedGame && prevIndexRef.current !== validSelectedIndex) {
+    if (!isAnimatingRef.current && selectedGame && prevIndexRef.current !== validSelectedIndex) {
       prevIndexRef.current = validSelectedIndex;
-      onGameClick?.(selectedGame);
+      onGameClickRef.current?.(selectedGame);
     }
-  }, [validSelectedIndex, selectedGame, onGameClick]);
+  }, [validSelectedIndex, selectedGame]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (games.length === 0) return;
       switch (e.key) {
-        case 'ArrowLeft':
+        case 'ArrowLeft': {
           e.preventDefault();
-          requestSelection(validSelectedIndex > 0 ? validSelectedIndex - 1 : games.length - 1);
+          const target = animationTargetRef.current;
+          const next = target > 0 ? target - 1 : games.length - 1;
+          requestSelection(next);
           break;
-        case 'ArrowRight':
+        }
+        case 'ArrowRight': {
           e.preventDefault();
-          requestSelection(validSelectedIndex < games.length - 1 ? validSelectedIndex + 1 : 0);
+          const target = animationTargetRef.current;
+          const next = target < games.length - 1 ? target + 1 : 0;
+          requestSelection(next);
           break;
+        }
         case 'Enter':
         case ' ':
           e.preventDefault();
@@ -155,7 +188,7 @@ export const LibraryCoverFlow: React.FC<LibraryCoverFlowProps> = ({
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [games, validSelectedIndex, selectedGame, onGameClick, onPlay, requestSelection]);
+  }, [games, selectedGame, onGameClick, onPlay, requestSelection]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -167,6 +200,43 @@ export const LibraryCoverFlow: React.FC<LibraryCoverFlowProps> = ({
     return () => window.removeEventListener('click', handleClickOutside);
   }, [contextMenu]);
 
+  // Wheel navigation disabled (scroll wheel no longer advances cover flow)
+
+  // Click-and-drag to scroll
+  const handleDragStart = React.useCallback((clientX: number) => {
+    isDragActiveRef.current = true;
+    dragStartXRef.current = clientX;
+    setDragOffsetPx(0);
+  }, []);
+  const handleDragMove = React.useCallback((clientX: number) => {
+    if (!isDragActiveRef.current) return;
+    const px = dragStartXRef.current - clientX;
+    dragOffsetPxRef.current = px;
+    setDragOffsetPx(px);
+  }, []);
+  const handleDragEnd = React.useCallback(() => {
+    if (!isDragActiveRef.current) return;
+    isDragActiveRef.current = false;
+    const px = dragOffsetPxRef.current;
+    justDraggedRef.current = Math.abs(px) > 8;
+    setDragOffsetPx(0);
+    const effectiveOffset = scrollOffset + px / PIXELS_PER_INDEX;
+    let newIndex = validSelectedIndex + Math.round(effectiveOffset);
+    newIndex = ((newIndex % games.length) + games.length) % games.length;
+    newIndex = Math.max(0, Math.min(newIndex, games.length - 1));
+    if (newIndex !== validSelectedIndex) requestSelection(newIndex);
+  }, [scrollOffset, validSelectedIndex, games.length, requestSelection]);
+  useEffect(() => {
+    const onMove = (e: MouseEvent) => handleDragMove(e.clientX);
+    const onUp = () => handleDragEnd();
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    return () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+  }, [handleDragMove, handleDragEnd]);
+
   if (games.length === 0) {
     return (
       <div className="flex items-center justify-center h-full bg-transparent">
@@ -176,6 +246,8 @@ export const LibraryCoverFlow: React.FC<LibraryCoverFlowProps> = ({
   }
 
   const coverHeight = coverSize / COVER_ASPECT;
+  const effectiveOffset = scrollOffset + dragOffsetPx / PIXELS_PER_INDEX; // includes drag for smooth flow
+  scrollPositionRef.current = validSelectedIndex + effectiveOffset; // keep ref current for interrupt animation
   const playColor = buttonColors.playColor ?? '#0ea5e9';
   const editColor = buttonColors.editColor ?? '#6b7280';
   const modColor = buttonColors.modManagerColor ?? '#a855f7';
@@ -183,8 +255,12 @@ export const LibraryCoverFlow: React.FC<LibraryCoverFlowProps> = ({
 
   return (
     <div
-      className="h-full w-full flex flex-col items-center justify-end overflow-hidden bg-transparent pb-2 relative"
+      ref={containerRef}
+      className="h-full w-full flex flex-col items-center justify-end overflow-hidden bg-transparent pb-2 relative cursor-grab active:cursor-grabbing"
       style={{ perspective: PERSPECTIVE }}
+      onMouseDown={(e) => {
+        if (e.button === 0 && !(e.target as HTMLElement).closest('button')) handleDragStart(e.clientX);
+      }}
       onContextMenu={(e) => {
         if (!(e.target as HTMLElement).closest('[data-game-element]')) {
           e.preventDefault();
@@ -252,30 +328,43 @@ export const LibraryCoverFlow: React.FC<LibraryCoverFlowProps> = ({
       >
         {Array.from({ length: LOOP_SLOTS_LEFT + 1 + LOOP_SLOTS_RIGHT }, (_, slotIndex) => {
           const delta = slotIndex - LOOP_SLOTS_LEFT;
-          const gameIndex = ((validSelectedIndex + delta) % games.length + games.length) % games.length;
+          const centerIndex = Math.floor(validSelectedIndex + effectiveOffset); // render around current center to avoid blank when scrolling to edge
+          const gameIndex = ((centerIndex + delta) % games.length + games.length) % games.length;
           const game = games[gameIndex];
-          // Flow: use position during scroll so boxarts grow/shrink and ease through center
-          const flowDelta = delta - scrollOffset;
-          const absFlow = Math.abs(flowDelta);
-          const isCenter = absFlow < 0.45;
-          const effectiveVisual = Math.min(absFlow, 2);
+          // Position in flow: center is at effectiveOffset, so slot delta is at (centerIndex + delta) - (validSelectedIndex + effectiveOffset) = delta + (centerIndex - validSelectedIndex - effectiveOffset). We want pos = (game index) - (logical center) = (centerIndex + delta) - (validSelectedIndex + effectiveOffset) = delta + centerIndex - validSelectedIndex - effectiveOffset. Since centerIndex = floor(validSelectedIndex + effectiveOffset), we have centerIndex <= validSelectedIndex + effectiveOffset < centerIndex + 1. So the offset (validSelectedIndex + effectiveOffset - centerIndex) is in [0,1). So pos = delta - (validSelectedIndex + effectiveOffset - centerIndex) = delta - frac. So we need pos = delta - (effectiveOffset + validSelectedIndex - centerIndex). Let's use: logicalCenter = validSelectedIndex + effectiveOffset; pos = (centerIndex + delta) - logicalCenter = delta + centerIndex - logicalCenter = delta - (logicalCenter - centerIndex). So pos = delta - (effectiveOffset + validSelectedIndex - centerIndex). So pos = delta - (validSelectedIndex + effectiveOffset - centerIndex). That's the position of this slot.
+          const logicalCenter = validSelectedIndex + effectiveOffset;
+          const pos = (centerIndex + delta) - logicalCenter;
+          const absPos = Math.abs(pos);
+          const isCenter = absPos < 0.5;
 
-          const angleDeg = isCenter ? 0 : Math.min(ANGLE_MAX, ANGLE_FIRST + (effectiveVisual - 1) * ANGLE_STEP);
-          const rotateY = flowDelta * -angleDeg;
-          const scale = isCenter ? SCALE_CENTER : Math.max(SCALE_MIN, SCALE_CENTER - effectiveVisual * SCALE_FALLOFF_PER_STEP);
-          const z = Math.max(-DEPTH_CAP, -effectiveVisual * DEPTH_PER_SLOT);
-          const opacityAt2 = Math.max(OPACITY_MIN, 1 - 2 * OPACITY_FALLOFF_PER_STEP);
-          const opacity =
-            isCenter
-              ? 1
-              : absFlow <= 2
-                ? Math.max(OPACITY_MIN, 1 - absFlow * OPACITY_FALLOFF_PER_STEP)
-                : opacityAt2 * Math.max(OPACITY_END_MIN, 1 - (absFlow - 2) * OPACITY_FADE_AFTER_2ND);
+          // Rotation: smooth through center band, fixed angle outside (reference)
+          let rotateY: number;
+          if (absPos < 0.5) rotateY = -pos * (ROTATION_DEG * 2);
+          else if (pos < 0) rotateY = ROTATION_DEG;
+          else rotateY = -ROTATION_DEG;
+
+          // X: center band uses centerGap spread; beyond that stack (reference)
+          let xOffset: number;
+          if (absPos < 1) xOffset = pos * CENTER_GAP;
+          else {
+            const stackIndex = absPos - 1;
+            xOffset = pos < 0 ? -CENTER_GAP - stackIndex * STACK_SPACING : CENTER_GAP + stackIndex * STACK_SPACING;
+          }
+
+          // Z depth: recede off-center (reference)
+          const z = absPos > 0.5 ? Z_OFF_CENTER : -Z_CENTER_FALLOFF * absPos;
+
+          const scale = isCenter ? SCALE_CENTER : Math.max(SCALE_MIN, SCALE_CENTER - absPos * SCALE_FALLOFF);
+          const opacity = isCenter ? 1 : Math.max(OPACITY_MIN, 1 - absPos * OPACITY_FALLOFF);
+          const brightness = isCenter ? 1 : BRIGHTNESS_OFF_CENTER;
+          // Base reflection opacity by position (centre fully opaque, sides gently fade)
+          const baseReflectionOpacity = isCenter ? 1 : Math.max(0.25, 0.85 - absPos * 0.25);
+          // Slider value is *transparency*: 0 = fully opaque, 1 = fully invisible
+          const reflectionOpacity = (1 - reflectionStrength) * baseReflectionOpacity;
 
           const width = coverSize * scale;
           const height = width / COVER_ASPECT;
-          const xOffset = flowDelta * HORIZONTAL_SPACING;
-          const zIndex = 100 - absFlow;
+          const zIndex = 1000 - Math.round(absPos * 10);
 
           return (
             <div
@@ -286,12 +375,16 @@ export const LibraryCoverFlow: React.FC<LibraryCoverFlowProps> = ({
               style={{
                 left: '50%',
                 transformStyle: 'preserve-3d',
-                transform: `translateX(${xOffset - width / 2}px) rotateY(${rotateY}deg) translateZ(${z}px)`,
+                transform: `translateX(${xOffset - width / 2}px) translateZ(${z}px) rotateY(${rotateY}deg)`,
                 zIndex,
                 opacity,
                 willChange: 'transform',
               }}
               onClick={() => {
+                if (justDraggedRef.current) {
+                  justDraggedRef.current = false;
+                  return;
+                }
                 if (delta !== 0) {
                   requestSelection(gameIndex);
                 } else if (selectedGame) {
@@ -321,7 +414,7 @@ export const LibraryCoverFlow: React.FC<LibraryCoverFlowProps> = ({
                   backfaceVisibility: 'hidden',
                   boxShadow: isCenter
                     ? '0 20px 60px -15px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.06)'
-                    : `0 ${10 + effectiveVisual * 4}px ${25 + effectiveVisual * 8}px -8px rgba(0,0,0,0.5)`,
+                    : `0 ${10 + absPos * 4}px ${25 + absPos * 8}px -8px rgba(0,0,0,0.5)`,
                 }}
               >
                 {game.boxArtUrl || game.bannerUrl ? (
@@ -330,7 +423,7 @@ export const LibraryCoverFlow: React.FC<LibraryCoverFlowProps> = ({
                     alt={game.title}
                     className="w-full h-full object-cover"
                     draggable={false}
-                    style={isCenter ? { filter: 'brightness(1.04) contrast(1.02)' } : undefined}
+                    style={isCenter ? { filter: 'brightness(1.04) contrast(1.02)' } : { filter: `brightness(${brightness})` }}
                     onError={(e) => {
                       const target = e.target as HTMLImageElement;
                       target.style.display = 'none';
@@ -368,10 +461,21 @@ export const LibraryCoverFlow: React.FC<LibraryCoverFlowProps> = ({
                   height: height * REFLECTION_HEIGHT_RATIO,
                   marginTop: 4,
                   transform: 'scaleY(-1)',
-                  opacity: reflectionStrength * (isCenter ? 0.6 : absFlow <= 2 ? Math.max(0.08, 0.5 - absFlow * 0.07) : Math.max(0.04, 0.36 - (absFlow - 2) * 0.08)),
-                  background: `linear-gradient(to bottom, rgba(0,0,0,${REFLECTION_OPACITY_START * reflectionStrength}), rgba(0,0,0,${REFLECTION_OPACITY_END}))`,
-                  WebkitMaskImage: 'linear-gradient(to bottom, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.2) 60%, transparent 100%)',
-                  maskImage: 'linear-gradient(to bottom, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.2) 60%, transparent 100%)',
+                  // 0% transparency = fully opaque, 100% = fully see-through
+                  opacity: reflectionOpacity,
+                  // Darkening follows opacity: no darkening when fully transparent
+                  background: `linear-gradient(to bottom, rgba(0,0,0,${REFLECTION_OPACITY_START * reflectionOpacity}), rgba(0,0,0,${REFLECTION_OPACITY_END}))`,
+                  // At 0% transparency use an opaque mask so reflection is solid; at higher transparency the mask fades to transparent so background shows through
+                  WebkitMaskImage: reflectionStrength >= 0.99
+                    ? 'none'
+                    : reflectionStrength <= 0.01
+                      ? 'linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,0.92) 100%)'
+                      : `linear-gradient(to bottom, rgba(0,0,0,${0.7 + 0.3 * (1 - reflectionStrength)}) 0%, rgba(0,0,0,${0.2 + 0.72 * (1 - reflectionStrength)}) 60%, rgba(0,0,0,${(1 - reflectionStrength) * 0.3}) 100%)`,
+                  maskImage: reflectionStrength >= 0.99
+                    ? 'none'
+                    : reflectionStrength <= 0.01
+                      ? 'linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,0.92) 100%)'
+                      : `linear-gradient(to bottom, rgba(0,0,0,${0.7 + 0.3 * (1 - reflectionStrength)}) 0%, rgba(0,0,0,${0.2 + 0.72 * (1 - reflectionStrength)}) 60%, rgba(0,0,0,${(1 - reflectionStrength) * 0.3}) 100%)`,
                 }}
               >
                 {game.boxArtUrl || game.bannerUrl ? (
@@ -380,7 +484,8 @@ export const LibraryCoverFlow: React.FC<LibraryCoverFlowProps> = ({
                     alt=""
                     className="w-full h-full object-cover object-top"
                     draggable={false}
-                    style={{ opacity: 0.7 }}
+                    // Image visibility also follows transparency (0 = solid, 1 = invisible)
+                    style={{ opacity: 0.4 + 0.6 * (1 - reflectionStrength) }}
                   />
                 ) : null}
               </div>
