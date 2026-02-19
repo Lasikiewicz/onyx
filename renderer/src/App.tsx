@@ -4,6 +4,7 @@ import { useFullscreen } from './hooks/useFullscreen';
 import { LibraryGrid } from './components/LibraryGrid';
 import { LibraryListView } from './components/LibraryListView';
 import { LibraryCarousel } from './components/LibraryCarousel';
+import { LibraryCoverFlow } from './components/LibraryCoverFlow';
 import { RightClickMenu } from './components/RightClickMenu';
 import { GameContextMenu } from './components/GameContextMenu';
 import { AddGameModal } from './components/AddGameModal';
@@ -83,7 +84,7 @@ function App() {
 
   // Search and view state
   const [searchQuery, setSearchQuery] = useState('');
-  const [viewMode, setViewMode] = useState<'grid' | 'list' | 'logo' | 'carousel'>('grid');
+  const [viewMode, setViewMode] = useState<'grid' | 'list' | 'logo' | 'carousel' | 'coverflow'>('grid');
   const [activeSection] = useState('library');
   const [showTopBar] = useState(false);
   const [isUpdateLibraryOpen, setIsUpdateLibraryOpen] = useState(false);
@@ -110,11 +111,12 @@ function App() {
   const [logoBackgroundColor, setLogoBackgroundColor] = useState('#374151');
   const [logoBackgroundOpacity, setLogoBackgroundOpacity] = useState(100);
   const [backgroundBlur, setBackgroundBlur] = useState(40);
-  const [backgroundBrightnessByView, setBackgroundBrightnessByView] = useState<Record<'grid' | 'list' | 'logo' | 'carousel', number>>({
+  const [backgroundBrightnessByView, setBackgroundBrightnessByView] = useState<Record<'grid' | 'list' | 'logo' | 'carousel' | 'coverflow', number>>({
     grid: 0.3,
     list: 0.3,
     logo: 0.3,
     carousel: 0.3,
+    coverflow: 0.3,
   });
   const [showCarouselDetails, setShowCarouselDetails] = useState(true);
   const [showCarouselLogos, setShowCarouselLogos] = useState(true);
@@ -143,11 +145,12 @@ function App() {
   const [rightPanelButtonSize, setRightPanelButtonSize] = useState(14);
   const [rightPanelButtonLocation, setRightPanelButtonLocation] = useState<'left' | 'middle' | 'right'>('right');
   const [detailsPanelOpacity, setDetailsPanelOpacity] = useState(80);
-  const [isViewFlippedByView, setIsViewFlippedByView] = useState<Record<'grid' | 'list' | 'logo' | 'carousel', boolean>>({
+  const [isViewFlippedByView, setIsViewFlippedByView] = useState<Record<'grid' | 'list' | 'logo' | 'carousel' | 'coverflow', boolean>>({
     grid: false,
     list: false,
     logo: false,
     carousel: false,
+    coverflow: false,
   });
   // Button colors per view
   const [rightPanelButtonColors, setRightPanelButtonColors] = useState<{ playColor?: string; editColor?: string; modManagerColor?: string }>({ playColor: '#0ea5e9', editColor: '#6b7280', modManagerColor: '#a855f7' });
@@ -155,6 +158,12 @@ function App() {
   const [gridButtonColors, setGridButtonColors] = useState<{ playColor?: string; editColor?: string; modManagerColor?: string }>({ playColor: '#0ea5e9', editColor: '#6b7280', modManagerColor: '#a855f7' });
   const [listButtonColors, setListButtonColors] = useState<{ playColor?: string; editColor?: string; modManagerColor?: string }>({ playColor: '#0ea5e9', editColor: '#6b7280', modManagerColor: '#a855f7' });
   const [logoButtonColors, setLogoButtonColors] = useState<{ playColor?: string; editColor?: string; modManagerColor?: string }>({ playColor: '#0ea5e9', editColor: '#6b7280', modManagerColor: '#a855f7' });
+  // Cover Flow (simplified menu)
+  const [coverFlowCoverSize, setCoverFlowCoverSize] = useState(300);
+  const [coverFlowReflection, setCoverFlowReflection] = useState(60);
+  const [coverFlowShowButtons, setCoverFlowShowButtons] = useState(true);
+  const [coverFlowButtonPosition, setCoverFlowButtonPosition] = useState<'left' | 'middle' | 'right'>('middle');
+  const [coverFlowButtonColors, setCoverFlowButtonColors] = useState<{ playColor?: string; editColor?: string; modManagerColor?: string }>({ playColor: '#0ea5e9', editColor: '#6b7280', modManagerColor: '#a855f7' });
   // Top bar element positions
   const [topBarPositions, setTopBarPositions] = useState<TopBarPositions>({
     searchBar: 'left',
@@ -173,10 +182,12 @@ function App() {
     list: 50,
     logo: 50,
   });
-  const [panelWidthByViewState, setPanelWidthByViewState] = useState<Record<'grid' | 'list' | 'logo', number>>({
+  const [panelWidthByViewState, setPanelWidthByViewState] = useState<Record<'grid' | 'list' | 'logo' | 'carousel' | 'coverflow', number>>({
     grid: 800,
     list: 800,
     logo: 800,
+    carousel: 800,
+    coverflow: 800,
   });
   const [showCategoriesByView, setShowCategoriesByView] = useState<Record<string, boolean>>({
     grid: false,
@@ -221,15 +232,15 @@ function App() {
   const currentFanartHeight = (viewMode === 'grid' || viewMode === 'list' || viewMode === 'logo') ? fanartHeightByView[viewMode] : 320;
   const currentDescriptionWidth = (viewMode === 'grid' || viewMode === 'list' || viewMode === 'logo') ? descriptionWidthByView[viewMode] : 50;
   const currentPanelWidth = (viewMode === 'grid' || viewMode === 'list' || viewMode === 'logo') ? panelWidthByViewState[viewMode] : 800;
-  const currentBackgroundBrightness = backgroundBrightnessByView[viewMode];
+  const currentBackgroundBrightness = backgroundBrightnessByView[viewMode] ?? 0.3;
 
-  // Set background blur to 0 when switching to carousel mode and sync divider widths when view changes
+  // Set background blur to 0 when switching to carousel/coverflow mode and sync divider widths when view changes
   useEffect(() => {
-    if (viewMode === 'carousel' && backgroundBlur !== 0) {
+    if ((viewMode === 'carousel' || viewMode === 'coverflow') && backgroundBlur !== 0) {
       setBackgroundBlur(0);
     }
     // Sync panelWidth to current view's setting
-    if (viewMode !== 'carousel') {
+    if (viewMode !== 'carousel' && viewMode !== 'coverflow') {
       const viewSpecificWidth = panelWidthByViewState[viewMode];
       setPanelWidth(viewSpecificWidth);
     }
@@ -248,7 +259,7 @@ function App() {
   const baselineDefaultsRef = useRef<any>(null);
 
   // Clamp padding in carousel without overwriting the saved preference
-  const carouselGameTilePadding = viewMode === 'carousel' && gameTilePadding > 3 ? 1 : gameTilePadding;
+  const carouselGameTilePadding = (viewMode === 'carousel' || viewMode === 'coverflow') && gameTilePadding > 3 ? 1 : gameTilePadding;
 
   // Load preferences and baseline defaults on mount
   useEffect(() => {
@@ -284,6 +295,7 @@ function App() {
               list: prefs.backgroundBrightnessByView.list ?? 0.3,
               logo: prefs.backgroundBrightnessByView.logo ?? 0.3,
               carousel: prefs.backgroundBrightnessByView.carousel ?? 0.3,
+              coverflow: prefs.backgroundBrightnessByView.coverflow ?? 0.3,
             });
           }
           if (prefs.showCarouselDetails !== undefined) setShowCarouselDetails(prefs.showCarouselDetails);
@@ -305,8 +317,13 @@ function App() {
           if (prefs.gridButtonColors !== undefined) setGridButtonColors(prefs.gridButtonColors);
           if (prefs.listButtonColors !== undefined) setListButtonColors(prefs.listButtonColors);
           if (prefs.logoButtonColors !== undefined) setLogoButtonColors(prefs.logoButtonColors);
+          if (prefs.coverFlowCoverSize !== undefined) setCoverFlowCoverSize(prefs.coverFlowCoverSize);
+          if (prefs.coverFlowReflection !== undefined) setCoverFlowReflection(prefs.coverFlowReflection);
+          if (prefs.coverFlowShowButtons !== undefined) setCoverFlowShowButtons(prefs.coverFlowShowButtons);
+          if (prefs.coverFlowButtonPosition !== undefined) setCoverFlowButtonPosition(prefs.coverFlowButtonPosition);
+          if (prefs.coverFlowButtonColors !== undefined) setCoverFlowButtonColors(prefs.coverFlowButtonColors);
           if (prefs.isViewFlippedByView !== undefined) {
-            const defaultFlipped = { grid: false, list: false, logo: false, carousel: false };
+            const defaultFlipped = { grid: false, list: false, logo: false, carousel: false, coverflow: false };
             setIsViewFlippedByView({ ...defaultFlipped, ...prefs.isViewFlippedByView });
           }
           // Top bar positions
@@ -331,7 +348,7 @@ function App() {
             setPanelWidthByViewState({ ...panelWidthByViewState, ...prefs.panelWidthByView });
           }
           // Set initial panelWidth based on current view
-          const savedPanelWidth = (prefs.panelWidthByView && prefs.viewMode ? prefs.panelWidthByView[prefs.viewMode as 'grid' | 'list' | 'logo' | 'carousel'] : undefined) ?? prefs.panelWidth;
+          const savedPanelWidth = (prefs.panelWidthByView && prefs.viewMode ? prefs.panelWidthByView[prefs.viewMode as 'grid' | 'list' | 'logo' | 'carousel' | 'coverflow'] : undefined) ?? prefs.panelWidth;
           if (savedPanelWidth) setPanelWidth(savedPanelWidth);
           if (prefs.autoSizeToFit !== undefined) setAutoSizeToFit(prefs.autoSizeToFit);
           // Restore active game selection if it exists
@@ -450,6 +467,9 @@ function App() {
       if (defaults.carouselLogoSize !== undefined) setCarouselLogoSize(defaults.carouselLogoSize);
       if (defaults.carouselButtonSize !== undefined) setCarouselButtonSize(defaults.carouselButtonSize);
       if (defaults.carouselDescriptionSize !== undefined) setCarouselDescriptionSize(defaults.carouselDescriptionSize);
+    } else if (viewMode === 'coverflow') {
+      // Cover Flow uses same-style defaults as carousel where applicable
+      if (defaults && defaults.gameTilePadding !== undefined) setGameTilePadding(defaults.gameTilePadding);
     }
 
     // Common baseline settings
@@ -1735,12 +1755,12 @@ function App() {
 
         {/* Main Content Area */}
         <div className={`flex-1 flex overflow-hidden relative pt-10 ${isViewFlippedByView[viewMode] ? 'flex-row-reverse' : ''}`}>
-          {/* Left Panel - Game Library (flexible width, full width in carousel mode) */}
-          <div className={`flex flex-col overflow-hidden ${viewMode === 'carousel' ? 'w-full' : 'flex-1'}`}>
+          {/* Left Panel - Game Library (flexible width, full width in carousel/coverflow mode) */}
+          <div className={`flex flex-col overflow-hidden ${viewMode === 'carousel' || viewMode === 'coverflow' ? 'w-full' : 'flex-1'}`}>
             {/* Game Grid */}
             <div
               ref={gridContainerRef}
-              className={`flex-1 overflow-y-auto relative z-10 ${viewMode === 'carousel' ? '' : (showCategoriesByView[viewMode] && (viewMode === 'grid' || viewMode === 'list' || viewMode === 'logo') ? 'p-0' : 'p-4')}`}
+              className={`flex-1 overflow-y-auto relative z-10 ${viewMode === 'carousel' || viewMode === 'coverflow' ? '' : (showCategoriesByView[viewMode] && (viewMode === 'grid' || viewMode === 'list' || viewMode === 'logo') ? 'p-0' : 'p-4')}`}
               onContextMenuCapture={(e) => {
                 // Capture-phase fallback: open menu on any non-card area before children stop propagation
                 const target = e.target as HTMLElement;
@@ -1775,7 +1795,7 @@ function App() {
 
               {!loading && !error && (
                 <div className="h-full flex flex-col">
-                  {showCategoriesByView[viewMode] && viewMode !== 'carousel' && pinnedCategories.length > 0 && (categoriesPositionByView[viewMode] ?? 'top') === 'top' && (
+                  {showCategoriesByView[viewMode] && viewMode !== 'carousel' && viewMode !== 'coverflow' && pinnedCategories.length > 0 && (categoriesPositionByView[viewMode] ?? 'top') === 'top' && (
                     <div
                       className={`flex items-center gap-2 px-6 py-4 overflow-x-auto no-scrollbar ${(categoriesAlignmentByView[viewMode] ?? 'left') === 'center' ? 'justify-center' : (categoriesAlignmentByView[viewMode] ?? 'left') === 'right' ? 'justify-end' : 'justify-start'
                         }`}
@@ -1819,7 +1839,7 @@ function App() {
                     </div>
                   )}
                   {filteredGames.length > 0 ? (
-                    <div className={`flex-1 overflow-y-auto animate-onyx-grid-fade ${showCategoriesByView[viewMode] && viewMode !== 'carousel' ? ((categoriesPositionByView[viewMode] ?? 'top') === 'top' ? 'px-4 pb-4 pt-0' : 'px-4 pt-4 pb-0') : ''}`}>
+                    <div className={`flex-1 overflow-y-auto animate-onyx-grid-fade ${showCategoriesByView[viewMode] && viewMode !== 'carousel' && viewMode !== 'coverflow' ? ((categoriesPositionByView[viewMode] ?? 'top') === 'top' ? 'px-4 pb-4 pt-0' : 'px-4 pt-4 pb-0') : ''}`}>
                       {viewMode === 'grid' || viewMode === 'logo' ? (
                         <LibraryGrid
                           games={filteredGames}
@@ -1856,6 +1876,31 @@ function App() {
                             setRightClickMenu({ x, y });
                           }}
                           viewMode={viewMode as 'grid' | 'logo'}
+                        />
+                      ) : viewMode === 'coverflow' ? (
+                        <LibraryCoverFlow
+                          games={filteredGames}
+                          onPlay={handlePlay}
+                          onGameClick={handleGameClick}
+                          onEdit={handleEditGame}
+                          onEditImages={handleEditImages}
+                          onEditCategories={handleEditCategories}
+                          onFavorite={handleToggleFavorite}
+                          onPin={handleTogglePin}
+                          onFixMatch={handleFixMatch}
+                          onHide={handleHideGame}
+                          onUnhide={handleUnhideGame}
+                          isHiddenView={selectedCategory === 'hidden'}
+                          activeGameId={activeGameId}
+                          coverSize={coverFlowCoverSize}
+                          reflectionStrength={coverFlowReflection / 100}
+                          showButtons={coverFlowShowButtons}
+                          buttonPosition={coverFlowButtonPosition}
+                          buttonColors={coverFlowButtonColors}
+                          onEmptySpaceRightClick={(x, y) => {
+                            setGameContextMenu(null);
+                            setRightClickMenu({ x, y });
+                          }}
                         />
                       ) : viewMode === 'carousel' ? (
                         <LibraryCarousel
@@ -1937,7 +1982,7 @@ function App() {
                       onOpenSettings={() => setIsAPISettingsOpen(true)}
                     />
                   )}
-                  {showCategoriesByView[viewMode] && viewMode !== 'carousel' && pinnedCategories.length > 0 && (categoriesPositionByView[viewMode] ?? 'top') === 'bottom' && (
+                  {showCategoriesByView[viewMode] && viewMode !== 'carousel' && viewMode !== 'coverflow' && pinnedCategories.length > 0 && (categoriesPositionByView[viewMode] ?? 'top') === 'bottom' && (
                     <div
                       className={`flex items-center gap-2 px-6 py-4 overflow-x-auto no-scrollbar ${(categoriesAlignmentByView[viewMode] ?? 'left') === 'center' ? 'justify-center' : (categoriesAlignmentByView[viewMode] ?? 'left') === 'right' ? 'justify-end' : 'justify-start'
                         }`}
@@ -1985,8 +2030,8 @@ function App() {
             </div>
           </div>
 
-          {/* Right Panel - Game Details (hidden in carousel mode and when no games exist) */}
-          {viewMode !== 'carousel' && filteredGames.length > 0 && (
+          {/* Right Panel - Game Details (hidden in carousel/coverflow mode and when no games exist) */}
+          {viewMode !== 'carousel' && viewMode !== 'coverflow' && filteredGames.length > 0 && (
             <GameDetailsPanel
               game={activeGame}
               isLaunching={launchingGameId === activeGame?.id}
@@ -2531,6 +2576,31 @@ function App() {
           onLogoButtonColorsChange={(colors) => {
             setLogoButtonColors(colors);
             window.electronAPI.savePreferences({ logoButtonColors: colors });
+          }}
+          coverFlowCoverSize={coverFlowCoverSize}
+          onCoverFlowCoverSizeChange={(size) => {
+            setCoverFlowCoverSize(size);
+            window.electronAPI.savePreferences({ coverFlowCoverSize: size });
+          }}
+          coverFlowReflection={coverFlowReflection}
+          onCoverFlowReflectionChange={(value) => {
+            setCoverFlowReflection(value);
+            window.electronAPI.savePreferences({ coverFlowReflection: value });
+          }}
+          coverFlowShowButtons={coverFlowShowButtons}
+          onCoverFlowShowButtonsChange={(show) => {
+            setCoverFlowShowButtons(show);
+            window.electronAPI.savePreferences({ coverFlowShowButtons: show });
+          }}
+          coverFlowButtonPosition={coverFlowButtonPosition}
+          onCoverFlowButtonPositionChange={(pos) => {
+            setCoverFlowButtonPosition(pos);
+            window.electronAPI.savePreferences({ coverFlowButtonPosition: pos });
+          }}
+          coverFlowButtonColors={coverFlowButtonColors}
+          onCoverFlowButtonColorsChange={(colors) => {
+            setCoverFlowButtonColors(colors);
+            window.electronAPI.savePreferences({ coverFlowButtonColors: colors });
           }}
         />
       )}

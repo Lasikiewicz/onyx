@@ -25,7 +25,7 @@ interface GameDetailsPanelProps {
   isHiddenView?: boolean;
   onUpdateGameInState?: (game: Game) => void;
   onRightClick?: (x: number, y: number) => void;
-  viewMode: 'grid' | 'list' | 'logo' | 'carousel';
+  viewMode: 'grid' | 'list' | 'logo' | 'carousel' | 'coverflow';
   // Right panel styling props
   rightPanelLogoSize?: number;
   rightPanelBoxartPosition?: 'left' | 'right' | 'none';

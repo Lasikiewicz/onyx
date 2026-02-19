@@ -7,8 +7,8 @@ interface RightClickMenuProps {
   x: number;
   y: number;
   onClose: () => void;
-  viewMode: 'grid' | 'list' | 'logo' | 'carousel';
-  onViewModeChange?: (mode: 'grid' | 'list' | 'logo' | 'carousel') => void;
+  viewMode: 'grid' | 'list' | 'logo' | 'carousel' | 'coverflow';
+  onViewModeChange?: (mode: 'grid' | 'list' | 'logo' | 'carousel' | 'coverflow') => void;
   activeGame?: Game;
   onActiveGameChange?: (game: Game) => void;
   gridSize?: number;
@@ -134,6 +134,17 @@ interface RightClickMenuProps {
   onListButtonColorsChange?: (colors: { playColor?: string; editColor?: string; modManagerColor?: string }) => void;
   logoButtonColors?: { playColor?: string; editColor?: string; modManagerColor?: string };
   onLogoButtonColorsChange?: (colors: { playColor?: string; editColor?: string; modManagerColor?: string }) => void;
+  // Cover Flow only (simplified menu)
+  coverFlowCoverSize?: number;
+  onCoverFlowCoverSizeChange?: (size: number) => void;
+  coverFlowReflection?: number;
+  onCoverFlowReflectionChange?: (value: number) => void;
+  coverFlowShowButtons?: boolean;
+  onCoverFlowShowButtonsChange?: (show: boolean) => void;
+  coverFlowButtonPosition?: 'left' | 'middle' | 'right';
+  onCoverFlowButtonPositionChange?: (pos: 'left' | 'middle' | 'right') => void;
+  coverFlowButtonColors?: { playColor?: string; editColor?: string; modManagerColor?: string };
+  onCoverFlowButtonColorsChange?: (colors: { playColor?: string; editColor?: string; modManagerColor?: string }) => void;
 }
 
 export const RightClickMenu: React.FC<RightClickMenuProps> = ({
@@ -226,6 +237,16 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
   onListButtonColorsChange,
   logoButtonColors,
   onLogoButtonColorsChange,
+  coverFlowCoverSize = 300,
+  onCoverFlowCoverSizeChange,
+  coverFlowReflection = 60,
+  onCoverFlowReflectionChange,
+  coverFlowShowButtons = true,
+  onCoverFlowShowButtonsChange,
+  coverFlowButtonPosition = 'middle',
+  onCoverFlowButtonPositionChange,
+  coverFlowButtonColors,
+  onCoverFlowButtonColorsChange,
 }) => {
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -329,7 +350,7 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
     }
   }, [x, y]);
 
-  const handleViewModeChange = (mode: 'grid' | 'list' | 'logo' | 'carousel') => {
+  const handleViewModeChange = (mode: 'grid' | 'list' | 'logo' | 'carousel' | 'coverflow') => {
     if (onViewModeChange) {
       onViewModeChange(mode);
     }
@@ -357,7 +378,7 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
     setShowResetConfirmation(true);
   };
 
-  const applyDefaultsForView = (mode: 'grid' | 'list' | 'logo' | 'carousel', resKey: string) => {
+  const applyDefaultsForView = (mode: 'grid' | 'list' | 'logo' | 'carousel' | 'coverflow', resKey: string) => {
     if (!baselineDefaults || !baselineDefaults[resKey]) return;
 
     const defaults = baselineDefaults[resKey][mode];
@@ -423,7 +444,7 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
 
   const handleResetAllViews = () => {
     // Apply defaults for all view modes
-    const modes: ('grid' | 'list' | 'logo' | 'carousel')[] = ['grid', 'list', 'logo', 'carousel'];
+    const modes: ('grid' | 'list' | 'logo' | 'carousel' | 'coverflow')[] = ['grid', 'list', 'logo', 'carousel', 'coverflow'];
     modes.forEach(mode => applyDefaultsForView(mode, resetResolution));
 
     setShowResetConfirmation(false);
@@ -646,7 +667,7 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
     // Gather overrides for all views if an active game is selected
     const allOverrides: any = {};
     if (activeGame) {
-      const modes: ('grid' | 'list' | 'logo' | 'carousel')[] = ['grid', 'list', 'logo', 'carousel'];
+      const modes: ('grid' | 'list' | 'logo' | 'carousel' | 'coverflow')[] = ['grid', 'list', 'logo', 'carousel', 'coverflow'];
       modes.forEach(mode => {
         allOverrides[mode] = gatherSettingsForViewMode(mode);
       });
@@ -766,7 +787,7 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
       }}
     >
       {/* View Mode Toggle Buttons - Single Row */}
-      <div className="px-3 py-3 grid grid-cols-4 gap-2">
+      <div className="px-3 py-3 grid grid-cols-5 gap-2">
         <button
           onClick={() => handleViewModeChange('grid')}
           className={`px-3 py-2 text-sm rounded transition-colors flex flex-col items-center gap-1 font-medium ${viewMode === 'grid'
@@ -819,24 +840,39 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
           </svg>
           Carousel
         </button>
-      </div>
-
-      {/* Flip View Option - Available in all views */}
-      <div className="px-3 py-2 border-t border-gray-700">
         <button
-          onClick={() => {
-            onViewFlipChange?.(!isViewFlipped);
-            onClose();
-          }}
-          className="w-full px-4 py-2 text-sm rounded transition-colors bg-gray-700 text-gray-300 hover:bg-gray-600 border border-gray-600 font-medium flex items-center justify-center gap-2"
-          title={viewMode === 'carousel' ? 'Flip the view - swap carousel and details sections' : 'Flip the view - swap left and right sections'}
+          onClick={() => handleViewModeChange('coverflow')}
+          className={`px-3 py-2 text-sm rounded transition-colors flex flex-col items-center gap-1 font-medium ${viewMode === 'coverflow'
+            ? 'bg-blue-600/40 text-white border border-blue-500'
+            : 'bg-gray-700 text-gray-300 hover:bg-gray-600 border border-gray-600'
+            }`}
+          title="Cover Flow View"
         >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h3v12H4V6zM10.5 4h3v16h-3V4zM17 6h3v12h-3V6z" />
           </svg>
-          Flip View
+          Cover Flow
         </button>
       </div>
+
+      {/* Flip View Option - not shown in Cover Flow */}
+      {viewMode !== 'coverflow' && (
+        <div className="px-3 py-2 border-t border-gray-700">
+          <button
+            onClick={() => {
+              onViewFlipChange?.(!isViewFlipped);
+              onClose();
+            }}
+            className="w-full px-4 py-2 text-sm rounded transition-colors bg-gray-700 text-gray-300 hover:bg-gray-600 border border-gray-600 font-medium flex items-center justify-center gap-2"
+            title={viewMode === 'carousel' ? 'Flip the view - swap carousel and details sections' : 'Flip the view - swap left and right sections'}
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+            </svg>
+            Flip View
+          </button>
+        </div>
+      )}
 
       {/* Carousel Settings - in two columns */}
       {viewMode === 'carousel' && (
@@ -1179,8 +1215,136 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
         </>
       )}
 
-      {/* Shared layout settings for Grid, List, and Logo views */}
-      {viewMode !== 'carousel' && (
+      {/* Cover Flow only – simplified menu */}
+      {viewMode === 'coverflow' && (
+        <div className="px-2 py-2 space-y-3">
+          {onCoverFlowCoverSizeChange && (
+            <div className="px-3 py-2 bg-gray-700/30 rounded-md">
+              <label className="block text-xs text-gray-400 mb-1 font-semibold">Boxart size</label>
+              <input
+                type="range"
+                min="150"
+                max="450"
+                step="10"
+                value={coverFlowCoverSize}
+                onChange={(e) => onCoverFlowCoverSizeChange(Number(e.target.value))}
+                className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider accent-blue-600"
+              />
+              <div className="flex justify-between text-xs text-gray-500 mt-1">
+                <span>150px</span>
+                <span className="font-medium text-gray-300">{coverFlowCoverSize}px</span>
+                <span>450px</span>
+              </div>
+            </div>
+          )}
+          {onCoverFlowReflectionChange && (
+            <div className="px-3 py-2 bg-gray-700/30 rounded-md">
+              <label className="block text-xs text-gray-400 mb-1 font-semibold">Reflection transparency</label>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                step="5"
+                value={coverFlowReflection}
+                onChange={(e) => onCoverFlowReflectionChange(Number(e.target.value))}
+                className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider accent-blue-600"
+              />
+              <div className="flex justify-between text-xs text-gray-500 mt-1">
+                <span>0%</span>
+                <span className="font-medium text-gray-300">{coverFlowReflection}%</span>
+                <span>100%</span>
+              </div>
+            </div>
+          )}
+          {onBackgroundBrightnessChange && (
+            <div className="px-3 py-2 bg-gray-700/30 rounded-md">
+              <label className="block text-xs text-gray-400 mb-1 font-semibold">Background brightness</label>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                step="5"
+                value={Math.round((backgroundBrightness ?? 0) * 100)}
+                onChange={(e) => onBackgroundBrightnessChange(Number(e.target.value) / 100)}
+                className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider accent-blue-600"
+              />
+              <div className="flex justify-between text-xs text-gray-500 mt-1">
+                <span>0%</span>
+                <span className="font-medium text-gray-300">{Math.round((backgroundBrightness ?? 0) * 100)}%</span>
+                <span>100%</span>
+              </div>
+            </div>
+          )}
+          <div className="px-3 py-2 bg-gray-700/30 rounded-md space-y-3">
+            <div className="flex items-center justify-between">
+              <label className="text-xs text-gray-300 font-medium">Show Buttons</label>
+              <button
+                onClick={() => onCoverFlowShowButtonsChange?.(!coverFlowShowButtons)}
+                className={`relative inline-flex h-3.5 w-7 items-center rounded-full transition-all ${coverFlowShowButtons ? 'bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]' : 'bg-gray-600'}`}
+              >
+                <span
+                  className={`inline-block h-2.5 w-2.5 transform rounded-full bg-white transition-all shadow-sm ${coverFlowShowButtons ? 'translate-x-[14px]' : 'translate-x-0.5'}`}
+                />
+              </button>
+            </div>
+            {coverFlowShowButtons && (
+              <>
+                <div>
+                  <label className="block text-xs text-gray-400 mb-1 font-semibold">Button position</label>
+                  <div className="flex gap-1">
+                    {(['left', 'middle', 'right'] as const).map((pos) => (
+                      <button
+                        key={pos}
+                        onClick={() => onCoverFlowButtonPositionChange?.(pos)}
+                        className={`flex-1 px-2 py-1 text-xs rounded transition-colors ${coverFlowButtonPosition === pos ? 'bg-blue-600 text-white' : 'bg-gray-600 text-gray-300 hover:bg-gray-500'}`}
+                      >
+                        {pos === 'middle' ? 'Middle' : pos.charAt(0).toUpperCase() + pos.slice(1)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {onCoverFlowButtonColorsChange && (
+                  <div className="space-y-2 pt-2 border-t border-white/5">
+                    <label className="block text-xs text-gray-400 font-semibold">Button colours</label>
+                    <div className="flex flex-wrap gap-2">
+                      <div className="flex items-center gap-1">
+                        <span className="text-xs text-gray-400">Play</span>
+                        <input
+                          type="color"
+                          value={coverFlowButtonColors?.playColor ?? '#0ea5e9'}
+                          onChange={(e) => onCoverFlowButtonColorsChange({ ...coverFlowButtonColors, playColor: e.target.value })}
+                          className="w-6 h-6 rounded cursor-pointer border border-gray-500"
+                        />
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <span className="text-xs text-gray-400">Edit</span>
+                        <input
+                          type="color"
+                          value={coverFlowButtonColors?.editColor ?? '#6b7280'}
+                          onChange={(e) => onCoverFlowButtonColorsChange({ ...coverFlowButtonColors, editColor: e.target.value })}
+                          className="w-6 h-6 rounded cursor-pointer border border-gray-500"
+                        />
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <span className="text-xs text-gray-400">Mod Mgr</span>
+                        <input
+                          type="color"
+                          value={coverFlowButtonColors?.modManagerColor ?? '#a855f7'}
+                          onChange={(e) => onCoverFlowButtonColorsChange({ ...coverFlowButtonColors, modManagerColor: e.target.value })}
+                          className="w-6 h-6 rounded cursor-pointer border border-gray-500"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Shared layout settings for Grid, List, and Logo views (exclude Cover Flow) */}
+      {viewMode !== 'carousel' && viewMode !== 'coverflow' && (
         <>
           {/* 3-column layout for all views (4-column for list) */}
           <div className={`grid text-xs text-gray-400 px-3 pb-1 font-semibold ${viewMode === 'list' ? 'grid-cols-4' : 'grid-cols-3'}`}>
@@ -2077,7 +2241,7 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
         title="Reset to Defaults"
         message={`Reset view settings to defaults for ${resetResolution} resolution?`}
         note="This will reset all customization settings to their default values based on your screen resolution."
-        primaryActionText={`Reset ${viewMode === 'grid' ? 'Grid' : viewMode === 'list' ? 'List' : viewMode === 'logo' ? 'Logo' : 'Carousel'} View`}
+        primaryActionText={`Reset ${viewMode === 'grid' ? 'Grid' : viewMode === 'list' ? 'List' : viewMode === 'logo' ? 'Logo' : viewMode === 'coverflow' ? 'Cover Flow' : 'Carousel'} View`}
         secondaryActionText="Reset All Views"
         onPrimaryAction={handleResetCurrentView}
         onSecondaryAction={handleResetAllViews}

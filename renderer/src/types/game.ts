@@ -12,6 +12,7 @@ export interface Game {
   logoSize?: number;
   logoSizePerViewMode?: {
     carousel?: number;
+    coverflow?: number;
     grid?: number;
     logo?: number;
     list?: number;
@@ -101,7 +102,7 @@ export interface UserPreferences {
   gridSize?: number;
   logoSize?: number;
   panelWidth?: number;
-  panelWidthByView?: { grid?: number; list?: number; logo?: number; carousel?: number; };
+  panelWidthByView?: { grid?: number; list?: number; logo?: number; carousel?: number; coverflow?: number };
   fanartHeight?: number;
   fanartHeightByView?: { grid?: number; list?: number; logo?: number; };
   descriptionHeight?: number;
@@ -135,10 +136,10 @@ export interface UserPreferences {
   logoBackgroundColor?: string;
   logoBackgroundOpacity?: number;
   backgroundBlur?: number;
-  backgroundBrightnessByView?: { grid?: number; list?: number; logo?: number; carousel?: number; };
+  backgroundBrightnessByView?: { grid?: number; list?: number; logo?: number; carousel?: number; coverflow?: number };
   backgroundMode?: 'image' | 'color';
   backgroundColor?: string;
-  viewMode?: 'grid' | 'list' | 'logo' | 'carousel';
+  viewMode?: 'grid' | 'list' | 'logo' | 'carousel' | 'coverflow';
   listViewOptions?: {
     showDescription: boolean;
     showCategories: boolean;
@@ -204,7 +205,7 @@ export interface UserPreferences {
   };
   isFirstLaunch?: boolean;
   hasSeenPostImportTutorial?: boolean;
-  isViewFlippedByView?: Record<'grid' | 'list' | 'logo' | 'carousel', boolean>;
+  isViewFlippedByView?: Record<'grid' | 'list' | 'logo' | 'carousel' | 'coverflow', boolean>;
   // Fullscreen settings
   startInFullscreen?: boolean;
   hideMouseCursorInFullscreen?: boolean;
@@ -219,6 +220,11 @@ export interface UserPreferences {
   gridButtonColors?: { playColor?: string; editColor?: string; modManagerColor?: string };
   listButtonColors?: { playColor?: string; editColor?: string; modManagerColor?: string };
   logoButtonColors?: { playColor?: string; editColor?: string; modManagerColor?: string };
+  coverFlowCoverSize?: number;
+  coverFlowReflection?: number;
+  coverFlowShowButtons?: boolean;
+  coverFlowButtonPosition?: 'left' | 'middle' | 'right';
+  coverFlowButtonColors?: { playColor?: string; editColor?: string; modManagerColor?: string };
 }
 
 export type UpdateStatus = 'checking' | 'available' | 'not-available' | 'downloading' | 'downloaded' | 'error';

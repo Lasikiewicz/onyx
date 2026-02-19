@@ -1,7 +1,7 @@
 export interface UserPreferences {
   gridSize: number;
   panelWidth: number;
-  panelWidthByView?: { grid?: number; list?: number; logo?: number; carousel?: number };
+  panelWidthByView?: { grid?: number; list?: number; logo?: number; carousel?: number; coverflow?: number };
   fanartHeight: number;
   descriptionHeight: number;
   pinnedCategories: string[];
@@ -34,7 +34,7 @@ export interface UserPreferences {
   backgroundBlur?: number;
   backgroundMode?: 'image' | 'color';
   backgroundColor?: string;
-  viewMode?: 'grid' | 'list' | 'logo' | 'carousel';
+  viewMode?: 'grid' | 'list' | 'logo' | 'carousel' | 'coverflow';
   listViewOptions?: {
     showDescription: boolean;
     showCategories: boolean;
@@ -136,7 +136,12 @@ export interface UserPreferences {
     categories?: 'left' | 'middle' | 'right';
   };
   isFirstLaunch?: boolean;
-  isViewFlippedByView?: Record<'grid' | 'list' | 'logo' | 'carousel', boolean>;
+  isViewFlippedByView?: Record<'grid' | 'list' | 'logo' | 'carousel' | 'coverflow', boolean>;
+  coverFlowCoverSize?: number;
+  coverFlowReflection?: number;
+  coverFlowShowButtons?: boolean;
+  coverFlowButtonPosition?: 'left' | 'middle' | 'right';
+  coverFlowButtonColors?: { playColor?: string; editColor?: string; modManagerColor?: string };
   enableHardwareAcceleration?: boolean;
   closeToTray?: boolean;
   confirmGameLaunch?: boolean;

@@ -10,7 +10,7 @@ interface GameCardProps {
   logoPosition?: 'top' | 'middle' | 'bottom' | 'underneath';
   useLogoInsteadOfBoxart?: boolean;
   descriptionSize?: number;
-  viewMode?: 'grid' | 'logo' | 'list' | 'carousel';
+  viewMode?: 'grid' | 'logo' | 'list' | 'carousel' | 'coverflow';
   logoBackgroundColor?: string;
   logoBackgroundOpacity?: number;
 }

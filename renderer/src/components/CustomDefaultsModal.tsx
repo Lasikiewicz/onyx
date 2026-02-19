@@ -3,7 +3,7 @@ import React from 'react';
 interface CustomDefaultsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  viewMode: 'grid' | 'list' | 'logo' | 'carousel';
+  viewMode: 'grid' | 'list' | 'logo' | 'carousel' | 'coverflow';
   resolution: string;
   hasCustomDefaults: boolean;
   onSaveCurrentView: () => void;
@@ -40,6 +40,7 @@ export const CustomDefaultsModal: React.FC<CustomDefaultsModalProps> = ({
     list: 'List',
     logo: 'Logo',
     carousel: 'Carousel',
+    coverflow: 'Cover Flow',
   };
 
   const currentViewDisplay = `${viewModeDisplay[viewMode]} View ${resolution}`;

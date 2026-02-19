@@ -68,7 +68,7 @@ export const LibraryTutorialModal: React.FC<LibraryTutorialModalProps> = ({
               <span className="font-semibold"> Update Library</span> to scan for newly installed or removed games.
             </li>
             <li>
-              <span className="font-semibold">Right-click anywhere that isn’t a game tile</span> – Opens the context menu where you can change view (grid, list, logo, carousel), set sorting, and adjust filters.
+              <span className="font-semibold">Right-click anywhere that isn’t a game tile</span> – Opens the context menu where you can change view (grid, list, logo, carousel, cover flow), set sorting, and adjust filters.
             </li>
             <li>
               <span className="font-semibold">Right-click a game tile</span> – Brings up game-specific options (launch, edit, hide, categories, and more).
