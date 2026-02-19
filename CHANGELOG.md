@@ -8,6 +8,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - See the [repository](https://github.com/Lasikiewicz/onyx) for the latest work in progress.
 
+## [0.3.33] - 2026-02-19
+
+- Game Importer: move scan status inline to header (remove top blue banner); show Found/Processed and progress next to title.
+- Onboarding: "Click here to get started" flow with SteamGridDB, optional APIs, and other folders steps; more quick tips; create custom categories on setup.
+- Importer: improve alternative banner and icon from metadata; fix corrupt icon (only set when valid, clear failed image URLs in UI).
+
 ## [0.3.32] - 2026-02-15
 
 - Fix the startup "New Games Found" modal so long game lists scroll instead of overflowing off-screen.
