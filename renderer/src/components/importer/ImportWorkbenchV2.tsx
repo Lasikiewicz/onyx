@@ -7,10 +7,12 @@ import { StagedGame, ImportStatus, ImportSource } from '../../types/importer';
 import { Game } from '../../types/game';
 import { GamePropertiesPanel } from '../GamePropertiesPanel';
 
+export type ImportProgressCallback = (current: number, total: number, phase: string, detail?: string) => void;
+
 interface ImportWorkbenchV2Props {
     isOpen: boolean;
     onClose: () => void;
-    onImport: (games: Game[]) => Promise<void>;
+    onImport: (games: Game[], onProgress?: ImportProgressCallback) => Promise<void>;
     existingLibrary?: Game[];
     autoStartScan?: boolean;
     preScannedGames?: Array<{
@@ -51,6 +53,7 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
     const [selectedId, setSelectedId] = useState<string | null>(null);
     const [isScanning, setIsScanning] = useState(false);
     const [isImporting, setIsImporting] = useState(false);
+    const [importProgress, setImportProgress] = useState<{ current: number; total: number; phase: string; detail?: string } | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [scanProgress, setScanProgress] = useState('');
     const [showIgnored, setShowIgnored] = useState(false);
@@ -95,6 +98,7 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
             setSelectedId(null);
             setIsScanning(false);
             setIsImporting(false);
+            setImportProgress(null);
             setError(null);
             setScanProgress('');
             setShowIgnored(false);
@@ -465,6 +469,7 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
         }
 
         setIsImporting(true);
+        setImportProgress(null);
         setError(null);
 
         try {
@@ -507,12 +512,15 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
                 };
             });
 
-            await onImport(gamesToImport);
+            await onImport(gamesToImport, (current, total, phase, detail) => {
+                setImportProgress({ current, total, phase, detail: detail ?? '' });
+            });
             onClose();
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Import failed');
         } finally {
             setIsImporting(false);
+            setImportProgress(null);
         }
     };
 
@@ -724,18 +732,51 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
                 </div>
 
                 {/* Footer */}
-                <div className="h-[60px] flex items-center justify-between px-6 border-t border-gray-800 bg-gray-900/50">
-                    <div className="text-sm text-gray-300">
-                        {readyCount} of {visibleGames.length} games ready to import
-                    </div>
-                    <button
-                        onClick={handleImport}
-                        disabled={isImporting || readyCount === 0}
-                        className="px-6 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-700 disabled:cursor-not-allowed text-white rounded-lg font-medium flex items-center gap-2"
-                    >
-                        {isImporting ? 'Importing...' : `Import ${readyCount} Games`}
-                        <span>→</span>
-                    </button>
+                <div className="min-h-[60px] flex flex-col justify-center px-6 py-3 border-t border-gray-800 bg-gray-900/50 gap-2">
+                    {isImporting ? (
+                        importProgress ? (
+                            <div className="flex flex-col gap-1.5 w-full">
+                                <div className="flex items-center justify-between text-sm">
+                                    <span className="text-gray-300">{importProgress.phase}</span>
+                                    <span className="text-gray-400 tabular-nums">
+                                        {importProgress.current} / {importProgress.total}
+                                    </span>
+                                </div>
+                                <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
+                                    <div
+                                        className="h-full bg-cyan-500 transition-all duration-300"
+                                        style={{ width: `${importProgress.total ? (100 * importProgress.current) / importProgress.total : 0}%` }}
+                                    />
+                                </div>
+                                {importProgress.detail && (
+                                    <p className="text-xs text-gray-500 truncate" title={importProgress.detail}>
+                                        {importProgress.detail}
+                                    </p>
+                                )}
+                            </div>
+                        ) : (
+                            <div className="flex items-center gap-2 text-sm text-gray-400">
+                                <span className="animate-spin inline-block w-4 h-4 border-2 border-cyan-500 border-t-transparent rounded-full" />
+                                Starting import...
+                            </div>
+                        )
+                    ) : (
+                        <>
+                            <div className="flex items-center justify-between">
+                                <div className="text-sm text-gray-300">
+                                    {readyCount} of {visibleGames.length} games ready to import
+                                </div>
+                                <button
+                                    onClick={handleImport}
+                                    disabled={isImporting || readyCount === 0}
+                                    className="px-6 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-700 disabled:cursor-not-allowed text-white rounded-lg font-medium flex items-center gap-2"
+                                >
+                                    {isImporting ? 'Importing...' : `Import ${readyCount} Games`}
+                                    <span>→</span>
+                                </button>
+                            </div>
+                        </>
+                    )}
                 </div>
 
                 {/* Error Toast */}

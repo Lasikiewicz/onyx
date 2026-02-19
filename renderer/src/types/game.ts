@@ -203,6 +203,7 @@ export interface UserPreferences {
     categories?: 'left' | 'middle' | 'right';
   };
   isFirstLaunch?: boolean;
+  hasSeenPostImportTutorial?: boolean;
   isViewFlippedByView?: Record<'grid' | 'list' | 'logo' | 'carousel', boolean>;
   // Fullscreen settings
   startInFullscreen?: boolean;

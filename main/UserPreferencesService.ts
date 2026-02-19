@@ -112,6 +112,7 @@ export interface UserPreferences {
     installationDirectory: boolean;
   };
   ignoredGames?: string[]; // Array of game IDs to always ignore
+  hasSeenPostImportTutorial?: boolean;
   windowState?: {
     x?: number;
     y?: number;

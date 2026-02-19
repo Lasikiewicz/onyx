@@ -25,22 +25,9 @@ import { BugReportModal } from './components/BugReportModal';
 import { WelcomeScreen } from './components/WelcomeScreen';
 import { MissingGamesModal } from './components/MissingGamesModal';
 import { UpdateNotificationModal } from './components/UpdateNotificationModal';
+import { LibraryTutorialModal } from './components/LibraryTutorialModal';
 import { Game, ExecutableFile, GameMetadata } from './types/game';
 import { areAPIsConfigured } from './utils/apiValidation';
-
-const normalizeVersion = (value: string) => value.replace(/^v/i, '').trim();
-
-const getLatestChangelogVersion = (changelogSource: string) => {
-  const headerRegex = /^##\s+\[(.+?)\].*$/gm;
-  const matches = [...changelogSource.matchAll(headerRegex)];
-  for (const match of matches) {
-    const version = match[1];
-    if (version && version.toLowerCase() !== 'unreleased') {
-      return normalizeVersion(version);
-    }
-  }
-  return null;
-};
 
 function App() {
   // Main App Component
@@ -93,7 +80,6 @@ function App() {
   const [changelogLoading, setChangelogLoading] = useState(false);
   const [changelogError, setChangelogError] = useState<string | null>(null);
   const [isUpdateModalTest, setIsUpdateModalTest] = useState(false);
-  const [hasShownUpdateModalTest, setHasShownUpdateModalTest] = useState(false);
 
   // Search and view state
   const [searchQuery, setSearchQuery] = useState('');
@@ -103,6 +89,7 @@ function App() {
   const [isUpdateLibraryOpen, setIsUpdateLibraryOpen] = useState(false);
   const [isOnyxSettingsOpen, setIsOnyxSettingsOpen] = useState(false);
   const [isImportWorkbenchOpen, setIsImportWorkbenchOpen] = useState(false);
+  const [showLibraryTutorial, setShowLibraryTutorial] = useState(false);
   const [autoStartScan, setAutoStartScan] = useState(false);
   const [isGameManagerOpen, setIsGameManagerOpen] = useState(false);
   const [gameManagerInitialGameId, setGameManagerInitialGameId] = useState<string | null>(null);
@@ -434,15 +421,7 @@ function App() {
     fetchChangelog();
   }, [fetchChangelog]);
 
-  useEffect(() => {
-    if (!import.meta.env.DEV) return;
-    if (hasShownUpdateModalTest || updateNotification || !currentVersion || !changelogSource) return;
-
-    const latestVersion = getLatestChangelogVersion(changelogSource) ?? currentVersion;
-    setIsUpdateModalTest(true);
-    setHasShownUpdateModalTest(true);
-    setUpdateNotification({ version: latestVersion, status: 'available' });
-  }, [hasShownUpdateModalTest, updateNotification, currentVersion, changelogSource]);
+  // Dev-only update popup removed so you can test without the update modal. Use Help > Check for Updates to test the modal.
 
   const applyBaselineDefaults = (resKey: string) => {
     if (!baselineDefaultsRef.current || !baselineDefaultsRef.current[resKey]) return;
@@ -1016,6 +995,13 @@ function App() {
   }, [games, searchQuery, activeSection, selectedCategory, selectedLauncher, sortBy, hideVRTitles, hideAppsTitles]);
 
   const activeGame = activeGameId ? games.find(g => g.id === activeGameId) || null : null;
+
+  // When no game is selected, select the first (top-left) game in the current view
+  useEffect(() => {
+    if (!loading && filteredGames.length > 0 && !activeGameId) {
+      setActiveGameId(filteredGames[0].id);
+    }
+  }, [loading, filteredGames, activeGameId]);
 
   const handlePlay = async (game: Game) => {
     if (confirmGameLaunch) {
@@ -1697,6 +1683,7 @@ function App() {
             setOnyxSettingsInitialTab('about');
             setIsOnyxSettingsOpen(true);
           }}
+          onShowLibraryTutorial={() => setShowLibraryTutorial(true)}
           onExit={handleExit}
           onBugReport={isAlphaBuild ? () => setIsBugReportOpen(true) : undefined}
           searchQuery={searchQuery}
@@ -2193,96 +2180,97 @@ function App() {
         }}
         existingLibrary={games}
         preScannedGames={scannedSteamGames && scannedSteamGames.length > 0 ? scannedSteamGames : undefined}
-        onImport={async (games) => {
+        onImport={async (games, onProgress) => {
           try {
-            // First pass: Save games with basic info (Parallel)
+            onProgress?.(0, games.length, 'Saving games', 'Saving to library...');
             await Promise.all(games.map(game => window.electronAPI.saveGame(game)));
+            onProgress?.(games.length, games.length, 'Saving games', 'Done');
 
-            // Second pass: Auto-fetch and set banners (main and alternative) in batches
+            // Only fetch artwork for games that don't already have it (e.g. already fetched in importer)
+            const gamesNeedingArtwork = games.filter(
+              (g) => !g.bannerUrl || !g.iconUrl || !g.alternativeBannerUrl
+            );
             const BATCH_SIZE = 5;
-            for (let i = 0; i < games.length; i += BATCH_SIZE) {
-              const batch = games.slice(i, i + BATCH_SIZE);
-              console.log(`[Import] Processing batch ${i / BATCH_SIZE + 1} (${batch.length} games)`);
+            if (gamesNeedingArtwork.length > 0) {
+              for (let i = 0; i < gamesNeedingArtwork.length; i += BATCH_SIZE) {
+                const batch = gamesNeedingArtwork.slice(i, i + BATCH_SIZE);
+                const firstTitle = batch[0]?.title ?? '';
+                onProgress?.(i, gamesNeedingArtwork.length, 'Fetching artwork', firstTitle);
+                console.log(`[Import] Processing batch ${i / BATCH_SIZE + 1} (${batch.length} games)`);
 
-              await Promise.all(batch.map(async (game) => {
-                try {
-                  console.log(`[Import] Fetching banners for: ${game.title}`);
+                await Promise.all(batch.map(async (game) => {
+                  try {
+                    console.log(`[Import] Fetching banners for: ${game.title}`);
 
-                  // First get the metadata to get the primary banner and resolve Steam App ID
-                  const metadata = await window.electronAPI.searchArtwork(game.title, (game as any).appId);
+                    const metadata = await window.electronAPI.searchArtwork(game.title, (game as any).appId);
 
-                  if (metadata) {
-                    let updatedGame = { ...game };
-                    let updated = false;
+                    if (metadata) {
+                      let updatedGame = { ...game };
+                      let updated = false;
 
-                    // Set main banner from metadata if available
-                    if (metadata.bannerUrl && !game.bannerUrl) {
-                      updatedGame.bannerUrl = metadata.bannerUrl;
-                      updated = true;
-                    }
-                    // Set alternative banner and icon from metadata when present
-                    if (metadata.alternativeBannerUrl && !game.alternativeBannerUrl) {
-                      updatedGame.alternativeBannerUrl = metadata.alternativeBannerUrl;
-                      updated = true;
-                    }
-                    if (metadata.iconUrl && !game.iconUrl) {
-                      updatedGame.iconUrl = metadata.iconUrl;
-                      updated = true;
-                    }
+                      if (metadata.bannerUrl && !game.bannerUrl) {
+                        updatedGame.bannerUrl = metadata.bannerUrl;
+                        updated = true;
+                      }
+                      if (metadata.alternativeBannerUrl && !game.alternativeBannerUrl) {
+                        updatedGame.alternativeBannerUrl = metadata.alternativeBannerUrl;
+                        updated = true;
+                      }
+                      if (metadata.iconUrl && !game.iconUrl) {
+                        updatedGame.iconUrl = metadata.iconUrl;
+                        updated = true;
+                      }
 
-                    // Now search for multiple banner options to get an alternative (if not already set)
-                    try {
-                      const steamAppId = (game as any).appId;
-                      const bannerSearch = await window.electronAPI.searchImages(game.title, 'banner', steamAppId);
+                      try {
+                        const steamAppId = (game as any).appId;
+                        const bannerSearch = await window.electronAPI.searchImages(game.title, 'banner', steamAppId);
 
-                      if (bannerSearch?.success && bannerSearch.images) {
-                        const allBannerUrls: string[] = [];
+                        if (bannerSearch?.success && bannerSearch.images) {
+                          const allBannerUrls: string[] = [];
 
-                        // Parse the response
-                        if (Array.isArray(bannerSearch.images)) {
-                          bannerSearch.images.forEach((item: any) => {
-                            if (item.images && Array.isArray(item.images)) {
-                              item.images.forEach((img: any) => {
-                                const url = img.url || img.bannerUrl;
+                          if (Array.isArray(bannerSearch.images)) {
+                            bannerSearch.images.forEach((item: any) => {
+                              if (item.images && Array.isArray(item.images)) {
+                                item.images.forEach((img: any) => {
+                                  const url = img.url || img.bannerUrl;
+                                  if (url && !allBannerUrls.includes(url)) allBannerUrls.push(url);
+                                });
+                              } else if (item.url || item.bannerUrl) {
+                                const url = item.url || item.bannerUrl;
                                 if (url && !allBannerUrls.includes(url)) allBannerUrls.push(url);
-                              });
-                            } else if (item.url || item.bannerUrl) {
-                              const url = item.url || item.bannerUrl;
-                              if (url && !allBannerUrls.includes(url)) allBannerUrls.push(url);
-                            }
-                          });
-                        }
+                              }
+                            });
+                          }
 
-                        // If we don't have a main banner yet, use the first one
-                        if (!updatedGame.bannerUrl && allBannerUrls.length > 0) {
-                          updatedGame.bannerUrl = allBannerUrls[0];
-                          updated = true;
-                        }
-
-                        // Find a different banner for the alternative
-                        if (allBannerUrls.length > 1) {
-                          const altUrl = allBannerUrls.find(url => url !== updatedGame.bannerUrl) || allBannerUrls[1];
-                          if (altUrl && altUrl !== updatedGame.bannerUrl) {
-                            updatedGame.alternativeBannerUrl = altUrl;
+                          if (!updatedGame.bannerUrl && allBannerUrls.length > 0) {
+                            updatedGame.bannerUrl = allBannerUrls[0];
                             updated = true;
                           }
+                          if (allBannerUrls.length > 1) {
+                            const altUrl = allBannerUrls.find(url => url !== updatedGame.bannerUrl) || allBannerUrls[1];
+                            if (altUrl && altUrl !== updatedGame.bannerUrl) {
+                              updatedGame.alternativeBannerUrl = altUrl;
+                              updated = true;
+                            }
+                          }
                         }
+                      } catch (searchErr) {
+                        console.error(`[Import] Banner search error for ${game.title}:`, searchErr);
                       }
-                    } catch (searchErr) {
-                      console.error(`[Import] Banner search error for ${game.title}:`, searchErr);
-                    }
 
-                    // Save if we made any updates
-                    if (updated) {
-                      await window.electronAPI.saveGame(updatedGame);
+                      if (updated) {
+                        await window.electronAPI.saveGame(updatedGame);
+                      }
                     }
+                  } catch (err) {
+                    console.error(`[Import] Failed to fetch metadata for ${game.title}:`, err);
                   }
-                } catch (err) {
-                  console.error(`[Import] Failed to fetch metadata for ${game.title}:`, err);
-                }
-              }));
+                }));
+                onProgress?.(i + batch.length, gamesNeedingArtwork.length, 'Fetching artwork', batch[batch.length - 1]?.title ?? '');
+              }
             }
 
+            onProgress?.(games.length, games.length, 'Finishing', 'Reloading library...');
             await loadLibrary();
             showToast(`Successfully imported ${games.length} ${games.length === 1 ? 'game' : 'games'}`, 'success');
             setIsImportWorkbenchOpen(false);
@@ -2290,6 +2278,11 @@ function App() {
             setImportWorkbenchFolderPath(undefined);
             setScannedSteamGames([]);
             setImportAppType('steam');
+            const prefs = await window.electronAPI.getPreferences();
+            if (!prefs.hasSeenPostImportTutorial) {
+              setShowLibraryTutorial(true);
+              await window.electronAPI.savePreferences({ hasSeenPostImportTutorial: true });
+            }
           } catch (err) {
             console.error('Error importing games:', err);
             showToast('Failed to import games', 'error');
@@ -2642,6 +2635,16 @@ function App() {
           }}
         />
       )}
+
+      <LibraryTutorialModal
+        isOpen={showLibraryTutorial}
+        onClose={() => setShowLibraryTutorial(false)}
+        onOpenSettings={() => {
+          setOnyxSettingsInitialTab('general');
+          setIsOnyxSettingsOpen(true);
+        }}
+        onOpenUpdateLibrary={handleUpdateSteamLibrary}
+      />
 
       {/* Toast Notification - app styling, slides up from bottom */}
       {toast && (
