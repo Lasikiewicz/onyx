@@ -2220,8 +2220,17 @@ function App() {
                       updatedGame.bannerUrl = metadata.bannerUrl;
                       updated = true;
                     }
+                    // Set alternative banner and icon from metadata when present
+                    if (metadata.alternativeBannerUrl && !game.alternativeBannerUrl) {
+                      updatedGame.alternativeBannerUrl = metadata.alternativeBannerUrl;
+                      updated = true;
+                    }
+                    if (metadata.iconUrl && !game.iconUrl) {
+                      updatedGame.iconUrl = metadata.iconUrl;
+                      updated = true;
+                    }
 
-                    // Now search for multiple banner options to get an alternative
+                    // Now search for multiple banner options to get an alternative (if not already set)
                     try {
                       const steamAppId = (game as any).appId;
                       const bannerSearch = await window.electronAPI.searchImages(game.title, 'banner', steamAppId);

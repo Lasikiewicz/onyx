@@ -55,6 +55,7 @@ export const GamePropertiesPanel: React.FC<GamePropertiesPanelProps> = ({
     const [fastSearchResults, setFastSearchResults] = useState<any[]>([]);
 
     const [showAnimatedImages, setShowAnimatedImages] = useState(false);
+    const [failedImageUrls, setFailedImageUrls] = useState<Set<string>>(new Set());
 
     const fastSearchRunIdRef = useRef(0);
     const imageSearchRunIdRef = useRef(0);
@@ -68,6 +69,7 @@ export const GamePropertiesPanel: React.FC<GamePropertiesPanelProps> = ({
 
     useEffect(() => {
         setEditedFields(toEditableFields(game));
+        setFailedImageUrls(new Set());
         // Reset transient states
         setShowFixMatch(false);
         setMetadataSearchResults([]);
@@ -413,12 +415,12 @@ export const GamePropertiesPanel: React.FC<GamePropertiesPanelProps> = ({
                         }}
                         className={`${sizeClasses} relative group cursor-pointer border border-gray-700 rounded-lg overflow-hidden bg-gray-800 hover:border-green-500 transition-colors flex-shrink-0`}
                     >
-                        {val ? (
+                        {val && !failedImageUrls.has(val) ? (
                             type === 'boxart' || type === 'banner' || type === 'alternativeBanner' ? (
-                                <img src={val} className="w-full h-full object-cover" alt={label} />
+                                <img src={val} className="w-full h-full object-cover" alt={label} onError={() => { setFailedImageUrls(prev => new Set(prev).add(val)); updateField(fieldMap[type], ''); }} />
                             ) : (
                                 <div className="w-full h-full p-2 flex items-center justify-center">
-                                    <img src={val} className="max-w-full max-h-full object-contain" alt={label} />
+                                    <img src={val} className="max-w-full max-h-full object-contain" alt={label} onError={() => { setFailedImageUrls(prev => new Set(prev).add(val)); updateField(fieldMap[type], ''); }} />
                                 </div>
                             )
                         ) : (
@@ -621,12 +623,12 @@ export const GamePropertiesPanel: React.FC<GamePropertiesPanelProps> = ({
                                             }}
                                             className={`${sizeClasses} relative group cursor-pointer border border-gray-700 rounded-lg overflow-hidden bg-gray-800 hover:border-green-500 transition-colors flex-shrink-0`}
                                         >
-                                            {val ? (
+                                            {val && !failedImageUrls.has(val) ? (
                                                 type === 'boxart' || type === 'banner' || type === 'alternativeBanner' ? (
-                                                    <img src={val} className="w-full h-full object-cover" alt={type} />
+                                                    <img src={val} className="w-full h-full object-cover" alt={type} onError={() => { setFailedImageUrls(prev => new Set(prev).add(val)); updateField(fieldMap[type], ''); }} />
                                                 ) : (
                                                     <div className="w-full h-full p-2 flex items-center justify-center">
-                                                        <img src={val} className="max-w-full max-h-full object-contain" alt={type} />
+                                                        <img src={val} className="max-w-full max-h-full object-contain" alt={type} onError={() => { setFailedImageUrls(prev => new Set(prev).add(val)); updateField(fieldMap[type], ''); }} />
                                                     </div>
                                                 )
                                             ) : (

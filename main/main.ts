@@ -5,9 +5,12 @@ import { app, BrowserWindow, ipcMain, dialog, Menu, protocol, Tray, nativeImage,
 const IS_ALPHA = app.isPackaged
   ? process.execPath.toLowerCase().includes('onyxalpha')
   : process.env.BUILD_PROFILE === 'alpha';
-app.setName(IS_ALPHA ? 'Onyx Alpha' : 'Onyx');
+const IS_DEV = !app.isPackaged;
+const baseName = IS_ALPHA ? 'Onyx Alpha' : 'Onyx';
+app.setName(IS_DEV ? `${baseName} Dev` : baseName);
 if (process.platform === 'win32') {
-  app.setAppUserModelId(IS_ALPHA ? 'com.lasikiewicz.onyx.alpha' : 'com.lasikiewicz.onyx');
+  const baseId = IS_ALPHA ? 'com.lasikiewicz.onyx.alpha' : 'com.lasikiewicz.onyx';
+  app.setAppUserModelId(IS_DEV ? `${baseId}.dev` : baseId);
 }
 
 // Single instance lock - prevent multiple copies of the app from running

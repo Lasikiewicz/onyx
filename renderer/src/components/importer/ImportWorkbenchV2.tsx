@@ -345,7 +345,7 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
             setGameProcessingStates(prev => new Map(prev).set(scanned.title, { status: 'Fetching metadata...', progress: '25%' }));
             let metadata: any = {};
             try {
-                metadata = await window.electronAPI.searchArtwork(scanned.title, scanned.appId);
+                metadata = await window.electronAPI.searchArtwork(scanned.title, scanned.appId, true);
                 setGameProcessingStates(prev => new Map(prev).set(scanned.title, { status: 'Metadata complete', progress: '75%' }));
             } catch (err) {
                 console.warn(`Failed to fetch metadata for ${scanned.title}:`, err);

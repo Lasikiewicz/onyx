@@ -440,6 +440,10 @@ export class SteamMetadataProvider implements MetadataProvider {
         artwork.heroUrl = bannerUrl;
         artwork.bannerResolution = { width: 1920, height: 620 }; // Standard Steam hero size
         artwork.heroResolution = { width: 1920, height: 620 };
+        // When we have the hero, use header as alternative banner if it exists (different aspect ratio)
+        if (headerResponse?.ok && headerUrl !== bannerUrl) {
+          artwork.alternativeBannerUrl = headerUrl;
+        }
       } else if (headerResponse?.ok) {
         // Fallback to header if hero is not available
         artwork.bannerUrl = headerUrl;
@@ -475,14 +479,12 @@ export class SteamMetadataProvider implements MetadataProvider {
         artwork.logoResolution = { width: 231, height: 87 };
       }
 
-      // Icon: {appId}_icon.jpg (official Steam game icon)
+      // Icon: only set when we get a valid response so we never show a broken image
       if (iconResponse?.ok) {
         artwork.iconUrl = iconUrl;
-        // Steam icons are typically 32x32 or 64x64
         artwork.iconResolution = { width: 64, height: 64 };
       } else {
-        // Fallback icon from community media if app icon is missing
-        const communityIconUrl = `http://media.steampowered.com/steamcommunity/public/images/apps/${steamAppId}/${steamAppId}_icon.jpg`;
+        const communityIconUrl = `https://media.steampowered.com/steamcommunity/public/images/apps/${steamAppId}/${steamAppId}_icon.jpg`;
         const communityRes = await fetchWithTimeout(communityIconUrl);
         if (communityRes?.ok) {
           artwork.iconUrl = communityIconUrl;

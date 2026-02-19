@@ -126,11 +126,16 @@ export class APICredentialsService {
     if (this.keytar) {
       const secure = await this.readFromKeytar();
       if (secure) {
+        const rawgApiKey = secure.rawgApiKey || storedCreds.rawgApiKey || envDefaults.rawgApiKey;
+        if (rawgApiKey) {
+          const rawgSource = secure.rawgApiKey ? 'keytar' : (storedCreds.rawgApiKey ? 'electron-store' : 'env');
+          console.log('[APICredentials] RAWG source:', rawgSource);
+        }
         return {
           igdbClientId: secure.igdbClientId || storedCreds.igdbClientId || envDefaults.igdbClientId,
           igdbClientSecret: secure.igdbClientSecret || storedCreds.igdbClientSecret || envDefaults.igdbClientSecret,
           steamGridDBApiKey: secure.steamGridDBApiKey || storedCreds.steamGridDBApiKey || envDefaults.steamGridDBApiKey,
-          rawgApiKey: secure.rawgApiKey || storedCreds.rawgApiKey || envDefaults.rawgApiKey,
+          rawgApiKey,
           giantBombApiKey: secure.giantBombApiKey || storedCreds.giantBombApiKey || envDefaults.giantBombApiKey,
         };
       }
@@ -138,11 +143,16 @@ export class APICredentialsService {
 
     // Fallback to stored credentials in electron-store (legacy)
     // Merge: stored credentials override env defaults
+    const rawgApiKey = storedCreds.rawgApiKey || envDefaults.rawgApiKey;
+    if (rawgApiKey) {
+      const rawgSource = storedCreds.rawgApiKey ? 'electron-store' : 'env';
+      console.log('[APICredentials] RAWG source:', rawgSource);
+    }
     return {
       igdbClientId: storedCreds.igdbClientId || envDefaults.igdbClientId,
       igdbClientSecret: storedCreds.igdbClientSecret || envDefaults.igdbClientSecret,
       steamGridDBApiKey: storedCreds.steamGridDBApiKey || envDefaults.steamGridDBApiKey,
-      rawgApiKey: storedCreds.rawgApiKey || envDefaults.rawgApiKey,
+      rawgApiKey,
       giantBombApiKey: storedCreds.giantBombApiKey || envDefaults.giantBombApiKey,
     };
   }

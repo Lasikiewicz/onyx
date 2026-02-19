@@ -1,4 +1,4 @@
-﻿import { MetadataProvider, GameSearchResult, GameDescription, GameArtwork, GameInstallInfo } from "./MetadataProvider.js";
+import { MetadataProvider, GameSearchResult, GameDescription, GameArtwork, GameInstallInfo } from "./MetadataProvider.js";
 import { IGDBMetadataProvider } from "./IGDBMetadataProvider.js";
 import { SteamMetadataProvider } from "./SteamMetadataProvider.js";
 import { RAWGMetadataProvider } from "./RAWGMetadataProvider.js";
@@ -304,6 +304,32 @@ export class MetadataFetcherService {
 
       if (altUrl) {
         merged.alternativeBannerUrl = altUrl;
+      }
+    }
+
+    // When no heroes (e.g. Steam-only or providers without hero art), use a second banner as alternative if available
+    if (!merged.alternativeBannerUrl && banners.length > 1) {
+      const effectivePrimary = merged.bannerUrl || banners[0].url;
+      const secondBanner = banners.find(b => b.url !== effectivePrimary) || banners[1];
+      if (secondBanner && secondBanner.url !== effectivePrimary) {
+        merged.alternativeBannerUrl = secondBanner.url;
+      }
+    }
+
+    // Use alternativeBannerUrl supplied directly by a provider (e.g. Steam header when hero is primary)
+    if (!merged.alternativeBannerUrl) {
+      const altFromProviders = sortByPriority(
+        artworkArray
+          .filter(item => item.artwork?.alternativeBannerUrl)
+          .map(item => ({ url: item.artwork!.alternativeBannerUrl!, resolution: undefined as undefined, source: item.source })),
+        getBannerPriority
+      );
+      if (altFromProviders.length > 0) {
+        const primary = merged.bannerUrl || merged.heroUrl;
+        const alt = altFromProviders[0].url;
+        if (alt !== primary) {
+          merged.alternativeBannerUrl = alt;
+        }
       }
     }
 

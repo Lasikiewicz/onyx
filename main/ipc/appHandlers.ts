@@ -1,7 +1,7 @@
 import { app, ipcMain, session, BrowserWindow, shell } from 'electron';
 import path from 'node:path';
 import https from 'node:https';
-import { existsSync, unlinkSync, rmSync } from 'node:fs';
+import { existsSync, unlinkSync, rmSync, mkdirSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { execFile } from 'node:child_process';
 import { GameStore } from '../GameStore.js';
@@ -437,9 +437,20 @@ export function registerAppIPCHandlers(
                 await shell.openPath(logsPath);
                 return { success: true };
             }
+        } else if (pathOrType === 'cache') {
+            const cacheDir = imageCacheService.getCacheDir();
+            if (!existsSync(cacheDir)) {
+                mkdirSync(cacheDir, { recursive: true });
+            }
+            const result = await shell.openPath(cacheDir);
+            return { success: result === '', error: result || undefined };
+        } else if (pathOrType === 'appData') {
+            const userDataPath = app.getPath('userData');
+            const result = await shell.openPath(userDataPath);
+            return { success: result === '', error: result || undefined };
         } else if (existsSync(pathOrType)) {
-            await shell.openPath(pathOrType);
-            return { success: true };
+            const result = await shell.openPath(pathOrType);
+            return { success: result === '', error: result || undefined };
         }
         return { success: false, error: 'Path not found' };
     });
