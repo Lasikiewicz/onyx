@@ -547,30 +547,23 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-[5vh]">
             <div className="w-[90vw] h-[90vh] bg-gray-900 border border-gray-700 rounded-xl shadow-2xl flex flex-col overflow-hidden">
 
-                {/* Scanning Indicator */}
-                {isScanning && (
-                    <div className="bg-blue-600 text-white px-6 py-3 flex items-center gap-3 border-b border-blue-700">
-                        <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent" />
-                        <div className="flex-1">
-                            <div className="font-medium">Scanning for games...</div>
-                            {scanProgress && <div className="text-sm text-blue-100 mt-1">{scanProgress}</div>}
-                            {currentlyProcessingGame && (
-                                <div className="text-sm text-blue-100 mt-1">
-                                    Processing: {currentlyProcessingGame}
-                                </div>
+                {/* Header: title, scan status (when scanning), and actions */}
+                <div className="min-h-[60px] flex items-center justify-between gap-4 px-6 border-b border-gray-800 bg-gray-900/50 flex-wrap py-2">
+                    <h2 className="text-xl font-semibold text-white shrink-0">Game Importer</h2>
+                    {isScanning && (
+                        <div className="flex items-center gap-3 text-sm text-gray-300 flex-1 min-w-0">
+                            <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-400 border-t-transparent shrink-0" />
+                            <span className="font-medium text-white">Scanning for games...</span>
+                            {(scanProgress || currentlyProcessingGame) && (
+                                <span className="text-gray-400 truncate" title={scanProgress || currentlyProcessingGame || ''}>
+                                    {scanProgress || (currentlyProcessingGame ? `Processing: ${currentlyProcessingGame}` : '')}
+                                </span>
                             )}
+                            <span className="text-gray-500 shrink-0">Found: {scanStats.found}</span>
+                            <span className="text-gray-500 shrink-0">Processed: {scanStats.processed}</span>
                         </div>
-                        <div className="text-right text-sm">
-                            <div>Found: {scanStats.found}</div>
-                            <div>Processed: {scanStats.processed}</div>
-                        </div>
-                    </div>
-                )}
-
-                {/* Header */}
-                <div className="h-[60px] flex items-center justify-between px-6 border-b border-gray-800 bg-gray-900/50">
-                    <h2 className="text-xl font-semibold text-white">Game Importer</h2>
-                    <div className="flex items-center gap-3">
+                    )}
+                    <div className="flex items-center gap-3 ml-auto shrink-0">
                         <button
                             onClick={() => setShowIgnored(!showIgnored)}
                             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${showIgnored ? 'bg-yellow-600 hover:bg-yellow-700' : 'bg-gray-700 hover:bg-gray-600'
@@ -578,7 +571,6 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
                         >
                             {showIgnored ? 'Show Active' : 'Show Ignored'}
                         </button>
-
                         <button onClick={onClose} className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg text-sm font-medium">
                             Close
                         </button>
