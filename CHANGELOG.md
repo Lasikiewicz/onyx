@@ -8,6 +8,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - See the [repository](https://github.com/Lasikiewicz/onyx) for the latest work in progress.
 
+## [0.3.34] - 2026-02-19
+
+- Release build: Steam provider uses GET fallback for game icon when HEAD fails (fixes missing icons in packaged app).
+
 ## [0.3.33] - 2026-02-19
 
 - Game Importer: move scan status inline to header (remove top blue banner); show Found/Processed and progress next to title.
