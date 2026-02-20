@@ -8,6 +8,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - See the [repository](https://github.com/Lasikiewicz/onyx) for the latest work in progress.
 
+## [0.3.38] - 2026-02-20
+
+- UI: Added creative hover animations to all primary action buttons (Play, Edit, Favorite, Mod Manager) across the app.
+- UI: Animated the Onyx brand icon in the navigation bar.
+- UI: Enhanced SVG icons with smooth transitions and group-hover effects.
+
 ## [0.3.37] - 2026-02-19
 
 - Cover Flow: reflection at 0% transparency is now fully opaque (mask no longer fades to transparent at bottom).
