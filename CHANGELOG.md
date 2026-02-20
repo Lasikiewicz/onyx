@@ -4,9 +4,10 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased]
+## [0.3.39] - 2026-02-20
 
-- See the [repository](https://github.com/Lasikiewicz/onyx) for the latest work in progress.
+- Cover Flow: Added boxart vertical position slider to the right-click menu.
+- Cover Flow: Added side boxart opacity slider to the right-click menu.
 
 ## [0.3.38] - 2026-02-20
 
