@@ -398,7 +398,7 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
                     padding: `${carouselButtonSize * 0.5}px ${carouselButtonSize * 1.5}px`,
                     fontSize: `${carouselButtonSize}px`
                   }}
-                  className="hover:opacity-90 text-white font-medium rounded-lg transition-colors flex items-center gap-2 shadow-lg"
+                  className="group hover:opacity-90 text-white font-medium rounded-lg transition-colors flex items-center gap-2 shadow-lg"
                 >
                   Play
                 </button>
@@ -421,10 +421,9 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
                       padding: `${carouselButtonSize * 0.5}px ${carouselButtonSize * 1.2}px`,
                       fontSize: `${carouselButtonSize}px`
                     }}
-                    className="hover:opacity-90 text-white font-medium rounded-lg transition-colors flex items-center gap-2 shadow-lg"
+                    className="group hover:opacity-90 text-white font-medium rounded-lg transition-colors flex items-center gap-2 shadow-lg"
                   >
-                    <svg
-                      className="flex-shrink-0"
+                    <svg className="flex-shrink-0 group- hover:animate-gear-spin group-hover:animate-gear-spin"
                       width={carouselButtonSize}
                       height={carouselButtonSize}
                       fill="none"
@@ -445,7 +444,7 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
                     padding: `${carouselButtonSize * 0.5}px ${carouselButtonSize * 1.2}px`,
                     fontSize: `${carouselButtonSize}px`
                   }}
-                  className="hover:opacity-90 text-white font-medium rounded-lg transition-colors flex items-center gap-2 shadow-lg"
+                  className="group hover:opacity-90 text-white font-medium rounded-lg transition-colors flex items-center gap-2 shadow-lg"
                 >
                   Edit
                 </button>
@@ -453,9 +452,9 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
                 {/* Favorite button directly after edit */}
                 <button
                   onClick={() => onFavorite?.(selectedGame)}
-                  className={`rounded-lg transition-colors flex items-center justify-center shadow-lg ${selectedGame.favorite
-                      ? 'bg-yellow-600 hover:bg-yellow-700 text-white'
-                      : 'bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white'
+                  className={`group rounded-lg transition-colors flex items-center justify-center shadow-lg ${selectedGame.favorite
+                    ? 'bg-yellow-600 hover:bg-yellow-700 text-white'
+                    : 'bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white'
                     }`}
                   style={{
                     padding: `${carouselButtonSize * 0.6}px`,
@@ -512,8 +511,8 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
                     setThumbnailContextMenu({ x: e.clientX, y: e.clientY, game });
                   }}
                   className={`relative flex-shrink-0 cursor-pointer transition-all duration-300 ease-out hover:scale-105 ${isSelected
-                      ? 'z-20 opacity-100'
-                      : 'opacity-70 hover:opacity-90 z-10'
+                    ? 'z-20 opacity-100'
+                    : 'opacity-70 hover:opacity-90 z-10'
                     }`}
                   style={{
                     width: isSelected ? `${selectedGameWidth}px` : `${baseGameWidth}px`,
@@ -546,7 +545,7 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
                       <div className="absolute top-1 right-1 flex flex-col gap-1">
                         {game.favorite && (
                           <div className="w-5 h-5 bg-yellow-500 rounded-full flex items-center justify-center">
-                            <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-3 h-3 text-white group- hover:animate-gentle-bounce group-hover:animate-gentle-bounce" fill="currentColor" viewBox="0 0 24 24">
                               <path d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
                             </svg>
                           </div>
@@ -554,7 +553,7 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
 
                         {game.pinned && (
                           <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center">
-                            <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-3 h-3 text-white group- hover:animate-pin-shake group-hover:animate-pin-shake" fill="currentColor" viewBox="0 0 24 24">
                               <path d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
                             </svg>
                           </div>

@@ -35,7 +35,7 @@ export const LibraryTutorialModal: React.FC<LibraryTutorialModalProps> = ({
         {/* Title chip near top centre */}
         <div className="pointer-events-auto absolute top-6 left-1/2 -translate-x-1/2 bg-slate-900/95 border border-cyan-500/40 rounded-full px-5 py-2 flex items-center gap-2 shadow-xl">
           <div className="w-6 h-6 rounded-full bg-cyan-500/20 flex items-center justify-center">
-            <svg className="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4 text-cyan-400 group- hover:animate-gear-spin group-hover:animate-gear-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           </div>

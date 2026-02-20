@@ -903,12 +903,12 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
 
           <button
             onClick={() => onFavorite?.(game)}
-            className={`p-2 rounded transition-colors ${game.favorite ? 'text-yellow-400' : 'text-gray-300 hover:bg-gray-700'
+            className={`group p-2 rounded transition-colors ${game.favorite ? 'text-yellow-400' : 'text-gray-300 hover:bg-gray-700'
               }`}
             title="Favorite"
             style={{ fontSize: `${rightPanelButtonSize}px` }}
           >
-            <svg className="w-5 h-5" fill={game.favorite ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5 group- hover:animate-gentle-bounce group-hover:animate-gentle-bounce" fill={game.favorite ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
             </svg>
           </button>
@@ -921,10 +921,10 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
                 color: getContrastingTextColor(rightPanelButtonColors?.editColor || '#6b7280'),
                 fontSize: `${rightPanelButtonSize}px`
               }}
-              className="px-4 py-2 hover:opacity-90 text-white font-medium rounded-lg transition-colors flex items-center gap-2"
+              className="group px-4 py-2 hover:opacity-90 text-white font-medium rounded-lg transition-colors flex items-center gap-2"
               title="Edit Game"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5 group- hover:animate-edit-pen group-hover:animate-edit-pen" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
               </svg>
               Edit
@@ -947,10 +947,10 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
                 color: getContrastingTextColor(rightPanelButtonColors?.modManagerColor || '#a855f7'),
                 fontSize: `${rightPanelButtonSize}px`
               }}
-              className="px-4 py-2 hover:opacity-90 text-white font-medium rounded-lg transition-colors flex items-center gap-2"
+              className="group px-4 py-2 hover:opacity-90 text-white font-medium rounded-lg transition-colors flex items-center gap-2"
               title="Open Mod Manager"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5 group- hover:animate-gear-spin group-hover:animate-gear-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
               </svg>
               Mod Manager
@@ -965,9 +965,9 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
               color: getContrastingTextColor(rightPanelButtonColors?.playColor || '#0ea5e9'),
               fontSize: `${rightPanelButtonSize}px`
             }}
-            className="px-6 py-2 rounded-lg flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 transition-opacity text-white font-medium"
+            className="group px-6 py-2 rounded-lg flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 transition-opacity text-white font-medium"
           >
-            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5 group- hover:animate-play-pulse group-hover:animate-play-pulse" fill="currentColor" viewBox="0 0 24 24">
               <path d="M8 5v14l11-7z" />
             </svg>
             {isLaunching ? 'Launching...' : isRunning ? 'Running' : 'Play'}

@@ -218,7 +218,7 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                       <div className="flex flex-wrap gap-4 justify-center" style={{ fontSize: `${sectionTextSize}px` }}>
                         {listViewOptions.showPlaytime && game.playtime !== undefined && (
                           <span className="flex items-center gap-1 text-gray-400">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-4 h-4 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
                             {formatPlaytime(game.playtime)}
@@ -226,7 +226,7 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                         )}
                         {listViewOptions.showReleaseDate && game.releaseDate && (
                           <span className="flex items-center gap-1 text-gray-400">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-4 h-4 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                             </svg>
                             {formatDate(game.releaseDate)}
@@ -234,7 +234,7 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                         )}
                         {listViewOptions.showGenres && game.genres && game.genres.length > 0 && (
                           <span className="flex items-center gap-1 text-gray-400">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-4 h-4 group- hover:animate-edit-pen group-hover:animate-edit-pen" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
                             </svg>
                             {game.genres.slice(0, 2).join(', ')}
@@ -242,7 +242,7 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                         )}
                         {listViewOptions.showCategories && game.categories && game.categories.length > 0 && (
                           <span className="flex items-center gap-1 text-gray-400">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-4 h-4 group- hover:animate-edit-pen group-hover:animate-edit-pen" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
                             </svg>
                             {game.categories.slice(0, 2).join(', ')}
@@ -250,7 +250,7 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                         )}
                         {listViewOptions.showPlatform && game.platform && (
                           <span className="flex items-center gap-1 text-gray-400">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-4 h-4 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                             </svg>
                             {game.platform === 'steam' ? 'PC (Windows)' : game.platform}
@@ -258,7 +258,7 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                         )}
                         {listViewOptions.showLauncher && launcherLabel && (
                           <span className="flex items-center gap-1 text-gray-400">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-4 h-4 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7h16M7 7V5a2 2 0 012-2h6a2 2 0 012 2v2m-6 5v5m-4 0h8a2 2 0 002-2V7H5v8a2 2 0 002 2z" />
                             </svg>
                             {launcherLabel}
@@ -305,7 +305,7 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                       <div className="flex flex-wrap gap-4 justify-center" style={{ fontSize: `${sectionTextSize}px` }}>
                         {listViewOptions.showPlaytime && game.playtime !== undefined && (
                           <span className="flex items-center gap-1 text-gray-400">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-4 h-4 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
                             {formatPlaytime(game.playtime)}
@@ -313,7 +313,7 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                         )}
                         {listViewOptions.showReleaseDate && game.releaseDate && (
                           <span className="flex items-center gap-1 text-gray-400">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-4 h-4 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                             </svg>
                             {formatDate(game.releaseDate)}
@@ -321,7 +321,7 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                         )}
                         {listViewOptions.showGenres && game.genres && game.genres.length > 0 && (
                           <span className="flex items-center gap-1 text-gray-400">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-4 h-4 group- hover:animate-edit-pen group-hover:animate-edit-pen" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
                             </svg>
                             {game.genres.slice(0, 2).join(', ')}
@@ -329,7 +329,7 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                         )}
                         {listViewOptions.showCategories && game.categories && game.categories.length > 0 && (
                           <span className="flex items-center gap-1 text-gray-400">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-4 h-4 group- hover:animate-edit-pen group-hover:animate-edit-pen" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
                             </svg>
                             {game.categories.slice(0, 2).join(', ')}
@@ -337,7 +337,7 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                         )}
                         {listViewOptions.showPlatform && game.platform && (
                           <span className="flex items-center gap-1 text-gray-400">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-4 h-4 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                             </svg>
                             {game.platform === 'steam' ? 'PC (Windows)' : game.platform}
@@ -345,7 +345,7 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                         )}
                         {listViewOptions.showLauncher && launcherLabel && (
                           <span className="flex items-center gap-1 text-gray-400">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-4 h-4 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7h16M7 7V5a2 2 0 012-2h6a2 2 0 012 2v2m-6 5v5m-4 0h8a2 2 0 002-2V7H5v8a2 2 0 002 2z" />
                             </svg>
                             {launcherLabel}
@@ -410,7 +410,7 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                       <div className="flex flex-wrap gap-4 text-gray-400" style={{ fontSize: `${sectionTextSize}px` }}>
                         {listViewOptions.showPlaytime && game.playtime !== undefined && (
                           <span className="flex items-center gap-1">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-4 h-4 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
                             {formatPlaytime(game.playtime)}
@@ -418,7 +418,7 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                         )}
                         {listViewOptions.showReleaseDate && game.releaseDate && (
                           <span className="flex items-center gap-1">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-4 h-4 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                             </svg>
                             {formatDate(game.releaseDate)}
@@ -426,7 +426,7 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                         )}
                         {listViewOptions.showGenres && game.genres && game.genres.length > 0 && (
                           <span className="flex items-center gap-1">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-4 h-4 group- hover:animate-edit-pen group-hover:animate-edit-pen" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
                             </svg>
                             {game.genres.slice(0, 2).join(', ')}
@@ -434,7 +434,7 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                         )}
                         {listViewOptions.showCategories && game.categories && game.categories.length > 0 && (
                           <span className="flex items-center gap-1">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-4 h-4 group- hover:animate-edit-pen group-hover:animate-edit-pen" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
                             </svg>
                             {game.categories.slice(0, 2).join(', ')}
@@ -442,7 +442,7 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                         )}
                         {listViewOptions.showPlatform && game.platform && (
                           <span className="flex items-center gap-1">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-4 h-4 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                             </svg>
                             {game.platform === 'steam' ? 'PC (Windows)' : game.platform}
@@ -450,7 +450,7 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                         )}
                         {listViewOptions.showLauncher && launcherLabel && (
                           <span className="flex items-center gap-1">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-4 h-4 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7h16M7 7V5a2 2 0 012-2h6a2 2 0 012 2v2m-6 5v5m-4 0h8a2 2 0 002-2V7H5v8a2 2 0 002 2z" />
                             </svg>
                             {launcherLabel}
@@ -519,7 +519,7 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                       <div className="flex flex-wrap gap-4 text-gray-400" style={{ fontSize: `${sectionTextSize}px` }}>
                         {listViewOptions.showPlaytime && game.playtime !== undefined && (
                           <span className="flex items-center gap-1">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-4 h-4 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
                             {formatPlaytime(game.playtime)}
@@ -527,7 +527,7 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                         )}
                         {listViewOptions.showReleaseDate && game.releaseDate && (
                           <span className="flex items-center gap-1">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-4 h-4 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                             </svg>
                             {formatDate(game.releaseDate)}
@@ -535,7 +535,7 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                         )}
                         {listViewOptions.showGenres && game.genres && game.genres.length > 0 && (
                           <span className="flex items-center gap-1">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-4 h-4 group- hover:animate-edit-pen group-hover:animate-edit-pen" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
                             </svg>
                             {game.genres.slice(0, 2).join(', ')}
@@ -543,7 +543,7 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                         )}
                         {listViewOptions.showCategories && game.categories && game.categories.length > 0 && (
                           <span className="flex items-center gap-1">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-4 h-4 group- hover:animate-edit-pen group-hover:animate-edit-pen" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
                             </svg>
                             {game.categories.slice(0, 2).join(', ')}
@@ -551,7 +551,7 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                         )}
                         {listViewOptions.showPlatform && game.platform && (
                           <span className="flex items-center gap-1">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-4 h-4 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                             </svg>
                             {game.platform === 'steam' ? 'PC (Windows)' : game.platform}
@@ -559,7 +559,7 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                         )}
                         {listViewOptions.showLauncher && launcherLabel && (
                           <span className="flex items-center gap-1">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-4 h-4 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7h16M7 7V5a2 2 0 012-2h6a2 2 0 012 2v2m-6 5v5m-4 0h8a2 2 0 002-2V7H5v8a2 2 0 002 2z" />
                             </svg>
                             {launcherLabel}
