@@ -3,7 +3,7 @@ import Layout from '../layouts/Layout.astro';
 import '../styles/global.css';
 
 // Fetch latest release
-let latestVersion = "v0.3.38"; // Fallback
+let latestVersion = "v0.3.40"; // Fallback
 try {
 	const res = await fetch('https://api.github.com/repos/Lasikiewicz/onyx/releases/latest');
 	if (res.ok) {
@@ -153,7 +153,7 @@ const advancedFeatures = [
 				<div class="text-center lg:text-left space-y-8 reveal-left">
 					<a href="https://github.com/Lasikiewicz/onyx/releases/latest" target="_blank" class="inline-flex py-1 px-4 rounded-full bg-white/5 border border-white/10 text-xs font-bold tracking-widest text-slate-300 mb-4 backdrop-blur-sm shadow-xl items-center gap-2 cursor-hover hover:bg-white/10 hover:scale-105 transition-all text-decoration-none">
 						<span class="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span>
-						LATEST VERSION ({latestVersion})
+						<span id="version-tag">LATEST VERSION ({latestVersion})</span>
 					</a>
 					<h1 class="text-5xl md:text-7xl font-black tracking-tighter leading-[1.1] text-gradient">
 						The Premium Unified<br/>Game Library
@@ -605,6 +605,19 @@ const advancedFeatures = [
 				currentIdx = (currentIdx - 1 + currentGallery.length) % currentGallery.length;
 				updateImg();
 			});
+
+			// VERSION FETCH LOGIC
+			fetch('https://api.github.com/repos/Lasikiewicz/onyx/releases/latest')
+				.then(res => res.json())
+				.then(data => {
+					if (data.tag_name) {
+						const versionTag = document.getElementById('version-tag');
+						if (versionTag) {
+							versionTag.textContent = `LATEST VERSION (${data.tag_name})`;
+						}
+					}
+				})
+				.catch(err => console.error('Failed to update version dynamically:', err));
 
 		});
 	</script>

@@ -18,7 +18,7 @@ Open [https://onyxlauncher.co.uk/](https://onyxlauncher.co.uk/), click each butt
 ```bash
 cd website && npm run build
 git add -A && git commit -m "website: ..." && git push origin master
-cd website && npx wrangler pages deploy dist --project-name=onyx
+cd website && npx wrangler pages deploy dist --project-name=onyx --branch production
 ```
 
 Log in first if needed: `npx wrangler login`. If the deploy is a preview, promote it to production in the Cloudflare Pages dashboard. Live site: [onyxlauncher.co.uk](https://onyxlauncher.co.uk/), `oynx.pages.dev`.
