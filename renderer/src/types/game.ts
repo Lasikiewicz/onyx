@@ -48,7 +48,7 @@ export interface Game {
   notes?: string;
   modManagerUrl?: string;
   removeLogoTransparency?: boolean;
-  links?: Array<{ name: string; url: string }>;
+  links?: Array<{ name: string; url: string; hidden?: boolean; iconUrl?: string }>;
   actions?: Array<{ name: string; path: string; arguments?: string; workingDir?: string }>;
   scripts?: Array<{ name: string; script: string }>;
   xboxKind?: 'uwp' | 'pc';
@@ -177,6 +177,9 @@ export interface UserPreferences {
     installationDirectory: boolean;
   };
   activeGameId?: string | null;
+  linkDisplayMode?: 'icons' | 'dropdown';
+  visibleLinkTypes?: Record<string, boolean>;
+  linkDisplayOrder?: string[];
   ignoredGames?: string[];
   showCarouselDetails?: boolean;
   showCarouselLogos?: boolean;
@@ -317,7 +320,8 @@ declare global {
       searchImages: (query: string, imageType: 'boxart' | 'banner' | 'logo' | 'icon', steamAppId?: string, includeAnimated?: boolean) => Promise<{ success: boolean; error?: string; images: Array<{ gameId: number; gameName: string; images: Array<{ url: string; score: number; width: number; height: number; mime?: string; isAnimated?: boolean }> }> }>;
       searchWebImages: (query: string, imageType: 'boxart' | 'banner' | 'logo' | 'icon') => Promise<{ success: boolean; error?: string; images: Array<{ gameId: number; gameName: string; images: Array<{ url: string; score: number; width: number; height: number; mime?: string; isAnimated?: boolean; source: string }> }> }>;
       fastImageSearch?: (query: string, requestId?: number) => Promise<any[]>;
-      refreshAllMetadata: (options?: { allGames?: boolean; gameIds?: string[]; continueFromIndex?: number }) => Promise<{ success: boolean; error?: string; count: number; errors: number; unmatchedGames: Array<{ gameId: string; title: string; searchResults: any[] }>; missingBoxartGames: Array<{ gameId: string; title: string; steamAppId?: string }>; requiresBoxart?: boolean; currentGameIndex?: number; remainingGames?: number }>;
+      refreshAllMetadata: (options?: { allGames?: boolean; gameIds?: string[]; continueFromIndex?: number; linksOnly?: boolean }) => Promise<{ success: boolean; error?: string; count: number; errors: number; unmatchedGames: Array<{ gameId: string; title: string; searchResults: any[] }>; missingBoxartGames: Array<{ gameId: string; title: string; steamAppId?: string }>; requiresBoxart?: boolean; currentGameIndex?: number; remainingGames?: number }>;
+      findLinks: (gameId: string) => Promise<{ success: boolean; error?: string; links: Array<{ name: string; url: string }>; title: string }>;
       fetchAndUpdate: (gameId: string, boxartUrl: string) => Promise<{ success: boolean; error?: string }>;
       getVersion: () => Promise<string>;
       getChangelog: (version?: string) => Promise<{ success: boolean; content?: string; error?: string }>;

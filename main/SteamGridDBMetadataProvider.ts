@@ -17,7 +17,7 @@ export class SteamGridDBMetadataProvider implements MetadataProvider {
     return this.steamGridDBService !== null;
   }
 
-  async search(title: string, steamAppId?: string): Promise<GameSearchResult[]> {
+  async search(title: string, steamAppId?: string, linksOnly: boolean = false): Promise<GameSearchResult[]> {
     if (!this.steamGridDBService) {
       return [];
     }
@@ -37,7 +37,7 @@ export class SteamGridDBMetadataProvider implements MetadataProvider {
     }
   }
 
-  async getDescription(id: string): Promise<import('./MetadataProvider.js').GameDescription | null> {
+  async getDescription(id: string, linksOnly: boolean = false): Promise<import('./MetadataProvider.js').GameDescription | null> {
     // SteamGridDB doesn't provide descriptions/metadata
     // Return null to indicate this provider doesn't support descriptions
     return null;

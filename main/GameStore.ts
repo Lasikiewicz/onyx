@@ -1,4 +1,4 @@
-﻿import type Store from 'electron-store';
+import type Store from 'electron-store';
 import { SteamGame } from './SteamService.js';
 
 export interface Game {
@@ -39,7 +39,7 @@ export interface Game {
   hidden?: boolean;
   broken?: boolean;
   notes?: string;
-  links?: Array<{ name: string; url: string }>;
+  links?: Array<{ name: string; url: string; hidden?: boolean; iconUrl?: string }>;
   actions?: Array<{ name: string; path: string; arguments?: string; workingDir?: string }>;
   scripts?: Array<{ name: string; script: string }>;
   xboxKind?: 'uwp' | 'pc';

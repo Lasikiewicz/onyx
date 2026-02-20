@@ -4,13 +4,14 @@ import iconSvg from '../../../resources/icon.svg';
 import { SettingsLayout } from './settings/SettingsLayout';
 import { SettingsSidebar, SettingsTab } from './settings/SettingsSidebar';
 import { SettingsSection, SettingsToggle, SettingsInput } from './settings/SettingsComponents';
+import { LINK_DISPLAY_ORDER, DEFAULT_VISIBLE_LINK_TYPES, LINK_DISPLAY_NAME_TO_KEY, LinkIcon, BRAND_COLORS } from './GameLinks';
 
 interface OnyxSettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave?: () => void;
   // Allow both old and new tab names for compatibility during migration
-  initialTab?: 'general' | 'apis' | 'apps' | 'reset' | 'about' | 'appearance' | 'integrations' | 'launchers' | 'library' | 'advanced';
+  initialTab?: 'general' | 'apis' | 'apps' | 'reset' | 'about' | 'appearance' | 'integrations' | 'launchers' | 'library' | 'links' | 'advanced';
   onShowImportModal?: (games: Array<any>, appType?: 'steam' | 'xbox' | 'other') => void;
 }
 
@@ -35,9 +36,10 @@ interface OnyxSettings {
   startInFullscreen: boolean;
   hideMouseCursorInFullscreen: boolean;
   cursorHideTimeout: number;
+  linkDisplayMode: 'icons' | 'dropdown';
 }
 
-type TabType = 'general' | 'scanning' | 'library' | 'launchers' | 'integrations' | 'appearance' | 'advanced' | 'about'; // Keep legacy types for state compatibility, but UI will hide them
+type TabType = 'general' | 'scanning' | 'library' | 'launchers' | 'integrations' | 'links' | 'appearance' | 'advanced' | 'about'; // Keep legacy types for state compatibility, but UI will hide them
 
 interface AppConfig {
   id: string;
@@ -183,6 +185,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
     startInFullscreen: false,
     hideMouseCursorInFullscreen: true,
     cursorHideTimeout: 3000,
+    linkDisplayMode: 'icons',
   });
   const [showLogoOverBoxart, setShowLogoOverBoxart] = useState(true);
   const [logoPosition, setLogoPosition] = useState<'top' | 'middle' | 'bottom' | 'underneath'>('middle');
@@ -193,6 +196,9 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
 
   const [backgroundScanEnabled, setBackgroundScanEnabled] = useState(false);
   const [backgroundScanIntervalMinutes, setBackgroundScanIntervalMinutes] = useState(30);
+
+  const [linkVisibleTypes, setLinkVisibleTypes] = useState<Record<string, boolean>>(DEFAULT_VISIBLE_LINK_TYPES);
+  const [linkDisplayOrder, setLinkDisplayOrder] = useState<string[]>(LINK_DISPLAY_ORDER);
 
   // Load settings and version on mount
   useEffect(() => {
@@ -219,9 +225,21 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
             startInFullscreen: prefs.startInFullscreen ?? false,
             hideMouseCursorInFullscreen: prefs.hideMouseCursorInFullscreen ?? true,
             cursorHideTimeout: prefs.cursorHideTimeout ?? 3000,
+            linkDisplayMode: prefs.linkDisplayMode ?? 'icons',
           });
           setShowLogoOverBoxart(prefs.showLogoOverBoxart ?? true);
           setLogoPosition(prefs.logoPosition ?? 'middle');
+
+          if (prefs.visibleLinkTypes && Object.keys(prefs.visibleLinkTypes).length > 0) {
+            setLinkVisibleTypes(prefs.visibleLinkTypes);
+          } else {
+            setLinkVisibleTypes(DEFAULT_VISIBLE_LINK_TYPES);
+          }
+          if (prefs.linkDisplayOrder && prefs.linkDisplayOrder.length > 0) {
+            setLinkDisplayOrder(prefs.linkDisplayOrder);
+          } else {
+            setLinkDisplayOrder(LINK_DISPLAY_ORDER);
+          }
 
           // Load app version
           try {
@@ -755,6 +773,9 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
         startInFullscreen: settings.startInFullscreen,
         hideMouseCursorInFullscreen: settings.hideMouseCursorInFullscreen,
         cursorHideTimeout: settings.cursorHideTimeout,
+        linkDisplayMode: settings.linkDisplayMode,
+        visibleLinkTypes: linkVisibleTypes,
+        linkDisplayOrder: linkDisplayOrder,
       });
 
       // Save API credentials
@@ -868,7 +889,15 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
         </svg>
       ),
     },
-
+    {
+      id: 'links',
+      label: 'Link Management',
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+        </svg>
+      ),
+    },
     {
       id: 'advanced',
       label: 'Advanced',
@@ -970,6 +999,17 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                     description="Show a confirmation dialog before launching games"
                     checked={settings.confirmGameLaunch}
                     onChange={() => handleToggle('confirmGameLaunch')}
+                  />
+                </div>
+              </SettingsSection>
+
+              <SettingsSection title="Game Details">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+                  <SettingsToggle
+                    label="Show Links as Icons"
+                    description="Display official game links as individual icons instead of a dropdown list"
+                    checked={settings.linkDisplayMode === 'icons'}
+                    onChange={(checked) => setSettings({ ...settings, linkDisplayMode: checked ? 'icons' : 'dropdown' })}
                   />
                 </div>
               </SettingsSection>
@@ -1326,10 +1366,10 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                         }`}
                     >
                       <div className="flex items-center gap-2">
-                        {tab === 'steamgriddb' ? 'SteamGridDB (Mandatory)' : 
-                         tab === 'igdb' ? 'IGDB (Optional)' : 
-                         tab === 'rawg' ? 'RAWG (Optional)' :
-                         'Giant Bomb (Unavailable)'}
+                        {tab === 'steamgriddb' ? 'SteamGridDB (Mandatory)' :
+                          tab === 'igdb' ? 'IGDB (Optional)' :
+                            tab === 'rawg' ? 'RAWG (Optional)' :
+                              'Giant Bomb (Unavailable)'}
                         {((tab === 'igdb' && apiStatus.igdbConfigured) ||
                           (tab === 'steamgriddb' && apiStatus.steamGridDBConfigured) ||
                           (tab === 'rawg' && apiStatus.rawgConfigured)) && (
@@ -1509,6 +1549,76 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
             </div>
           )}
 
+          {activeTab === 'links' && (
+            <div className="space-y-6 p-6">
+              <SettingsSection
+                title="Link Management"
+                description="Choose which link types appear in game details and in what order. By default only Official Website, YouTube, Subreddit, and Discord are shown."
+              >
+                <div className="space-y-2">
+                  {linkDisplayOrder.map((displayName, index) => {
+                    const key = LINK_DISPLAY_NAME_TO_KEY[displayName] || displayName.toLowerCase().replace(/\s+/g, '');
+                    const brandColor = BRAND_COLORS[key] || BRAND_COLORS.fallback || '#374151';
+                    const isVisible = linkVisibleTypes[key] === true;
+                    return (
+                      <div
+                        key={displayName}
+                        className="flex items-center gap-3 p-3 bg-gray-800/50 border border-gray-700 rounded-lg hover:bg-gray-800 transition-colors"
+                      >
+                        <div className="flex items-center gap-2 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (index <= 0) return;
+                              const next = [...linkDisplayOrder];
+                              [next[index - 1], next[index]] = [next[index], next[index - 1]];
+                              setLinkDisplayOrder(next);
+                            }}
+                            disabled={index === 0}
+                            className="p-1 text-gray-400 hover:text-white disabled:opacity-30 rounded"
+                            title="Move up"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (index >= linkDisplayOrder.length - 1) return;
+                              const next = [...linkDisplayOrder];
+                              [next[index], next[index + 1]] = [next[index + 1], next[index]];
+                              setLinkDisplayOrder(next);
+                            }}
+                            disabled={index === linkDisplayOrder.length - 1}
+                            className="p-1 text-gray-400 hover:text-white disabled:opacity-30 rounded"
+                            title="Move down"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                          </button>
+                        </div>
+                        <div
+                          className="w-9 h-9 flex-shrink-0 flex items-center justify-center rounded text-white"
+                          style={{ backgroundColor: brandColor }}
+                        >
+                          <LinkIcon iconKey={key} className="w-[70%] h-[70%]" />
+                        </div>
+                        <span className="flex-1 text-sm font-medium text-white">{displayName}</span>
+                        <label className="flex items-center gap-2 shrink-0 cursor-pointer">
+                          <span className="text-xs text-gray-400">Show</span>
+                          <input
+                            type="checkbox"
+                            checked={isVisible}
+                            onChange={() => setLinkVisibleTypes(prev => ({ ...prev, [key]: !isVisible }))}
+                            className="w-4 h-4 rounded border-gray-600 bg-gray-700 text-blue-500 focus:ring-blue-500"
+                          />
+                        </label>
+                      </div>
+                    );
+                  })}
+                </div>
+                <p className="text-xs text-gray-500 mt-3">Changes are saved when you click Save at the bottom of the settings window.</p>
+              </SettingsSection>
+            </div>
+          )}
 
           {
             activeTab === 'advanced' && (

@@ -21,7 +21,7 @@ export class IGDBMetadataProvider implements MetadataProvider {
     return this.igdbService;
   }
 
-  async search(title: string, steamAppId?: string): Promise<GameSearchResult[]> {
+  async search(title: string, steamAppId?: string, linksOnly: boolean = false): Promise<GameSearchResult[]> {
     if (!this.igdbService) {
       return [];
     }
@@ -30,7 +30,7 @@ export class IGDBMetadataProvider implements MetadataProvider {
       // If we have a Steam App ID, try to find the specific game via external_games lookup first
       if (steamAppId) {
         console.log(`[IGDBMetadataProvider] Attempting verification via Steam App ID: ${steamAppId}`);
-        const exactMatch = await this.igdbService.getGameBySteamAppId(steamAppId);
+        const exactMatch = await this.igdbService.getGameBySteamAppId(steamAppId, linksOnly);
 
         if (exactMatch) {
           console.log(`[IGDBMetadataProvider] Found exact match via Steam ID: "${exactMatch.name}" (IGDB ID: ${exactMatch.id})`);
@@ -47,7 +47,7 @@ export class IGDBMetadataProvider implements MetadataProvider {
         }
       }
 
-      const results = await this.igdbService.searchGame(title);
+      const results = await this.igdbService.searchGame(title, linksOnly);
       return results.map((result) => ({
         id: `igdb-${result.id}`,
         title: result.name,
@@ -67,7 +67,7 @@ export class IGDBMetadataProvider implements MetadataProvider {
     }
   }
 
-  async getDescription(id: string): Promise<GameDescription | null> {
+  async getDescription(id: string, linksOnly: boolean = false): Promise<GameDescription | null> {
     if (!this.igdbService) {
       return null;
     }
@@ -80,10 +80,10 @@ export class IGDBMetadataProvider implements MetadataProvider {
       }
 
       // Search for the game by ID (IGDBService.searchGame handles numeric strings as 'where id = ...')
-      const results = await this.igdbService.searchGame(String(gameId));
+      const results = await this.igdbService.searchGame(String(gameId), linksOnly);
       if (results.length === 0) {
         // Try searching by the ID directly as a fallback
-        const allResults = await this.igdbService.searchGame(String(gameId));
+        const allResults = await this.igdbService.searchGame(String(gameId), linksOnly);
         if (allResults.length === 0) {
           return null;
         }
@@ -96,6 +96,7 @@ export class IGDBMetadataProvider implements MetadataProvider {
           rating: result.rating,
           platforms: result.platform ? [result.platform] : undefined,
           categories: result.categories,
+          links: result.links,
         };
       }
 
@@ -108,6 +109,7 @@ export class IGDBMetadataProvider implements MetadataProvider {
         rating: result.rating,
         platforms: result.platform ? [result.platform] : undefined,
         categories: result.categories,
+        links: result.links,
       };
     } catch (error: any) {
       // If authentication fails, disable IGDB service

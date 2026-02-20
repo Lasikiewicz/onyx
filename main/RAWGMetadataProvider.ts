@@ -18,7 +18,7 @@ export class RAWGMetadataProvider implements MetadataProvider {
     return this.rawgService !== null;
   }
 
-  async search(title: string, steamAppId?: string): Promise<GameSearchResult[]> {
+  async search(title: string, steamAppId?: string, linksOnly: boolean = false): Promise<GameSearchResult[]> {
     if (!this.rawgService) {
       return [];
     }
@@ -43,7 +43,7 @@ export class RAWGMetadataProvider implements MetadataProvider {
     }
   }
 
-  async getDescription(id: string): Promise<GameDescription | null> {
+  async getDescription(id: string, linksOnly: boolean = false): Promise<GameDescription | null> {
     if (!this.rawgService) {
       return null;
     }

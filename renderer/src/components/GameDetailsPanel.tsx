@@ -3,6 +3,7 @@ import { Game } from '../types/game';
 import { GameContextMenu } from './GameContextMenu';
 import { LogoResizeMenu } from './LogoResizeMenu';
 import { ImageSearchModal } from './ImageSearchModal';
+import { GameLinks, DEFAULT_VISIBLE_LINK_TYPES } from './GameLinks';
 import { getContrastingTextColor } from '../utils/colorUtils';
 
 type ViewKey = 'grid' | 'list' | 'logo';
@@ -117,6 +118,9 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
   const [detailsFontSize, setDetailsFontSize] = useState(14);
   const [detailsFontFamily, setDetailsFontFamily] = useState('system-ui');
   const [boxartWidth, setBoxartWidth] = useState(128);
+  const [linkDisplayMode, setLinkDisplayMode] = useState<'icons' | 'dropdown'>('icons');
+  const [visibleLinkTypes, setVisibleLinkTypes] = useState<Record<string, boolean>>(DEFAULT_VISIBLE_LINK_TYPES);
+  const [linkDisplayOrder, setLinkDisplayOrder] = useState<string[] | null>(null);
   const [visibleDetails, setVisibleDetails] = useState({
     releaseDate: true,
     platform: true,
@@ -164,6 +168,13 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
         if (prefs.visibleDetails) setVisibleDetails(prefs.visibleDetails);
         if (prefs.boxartWidth) setBoxartWidth(prefs.boxartWidth);
         if (prefs.descriptionHeight !== undefined) setDescriptionHeight(prefs.descriptionHeight);
+        if (prefs.linkDisplayMode) setLinkDisplayMode(prefs.linkDisplayMode);
+        if (prefs.visibleLinkTypes && Object.keys(prefs.visibleLinkTypes).length > 0) {
+          setVisibleLinkTypes(prefs.visibleLinkTypes);
+        } else {
+          setVisibleLinkTypes(DEFAULT_VISIBLE_LINK_TYPES);
+        }
+        if (prefs.linkDisplayOrder && prefs.linkDisplayOrder.length > 0) setLinkDisplayOrder(prefs.linkDisplayOrder);
       } catch (error) {
         console.error('Error loading preferences:', error);
       }
@@ -549,23 +560,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
         )}
       </div>
 
-      {/* Social Media Links */}
-      {game.links && game.links.length > 0 && (
-        <div className="flex items-center gap-1 px-6 py-3 border-b border-gray-700 flex-shrink-0 flex-wrap">
-          {game.links.map((link, index) => (
-            <a
-              key={index}
-              href={link.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="px-3 py-1.5 hover:bg-gray-700 rounded transition-colors text-gray-300 hover:text-white text-xs"
-              title={link.name}
-            >
-              {link.name}
-            </a>
-          ))}
-        </div>
-      )}
+      {/* Social media links have been moved to the bottom action bar overlay */}
 
       {/* Content */}
       <div className="flex-1" style={{ overflowY: 'auto', overflowX: 'hidden', minHeight: 0 }}>
@@ -886,94 +881,128 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
         </div>
       )}
 
-      {/* Action Buttons at Bottom */}
+      {/* Action Buttons and Links at Bottom */}
       {game && (
-        <div
-          className={`border-t border-gray-700 p-4 flex items-center gap-3 flex-shrink-0 ${rightPanelButtonLocation === 'left' ? 'justify-start' :
-            rightPanelButtonLocation === 'middle' ? 'justify-center' :
-              'justify-end'
-            }`}
-        >
-          {/* Playtime display - DISABLED (Future Feature) */}
-          {/* {steamSyncPlaytimeEnabled && game.id.startsWith('steam-') && game.playtime !== undefined && game.playtime > 0 && (
-            <div className="absolute left-4 bottom-4 text-sm text-gray-400">
-              <span className="font-medium text-gray-300">
-                {Math.floor(game.playtime / 60)}h {game.playtime % 60}m
-              </span>
-            </div>
-          )} */}
+        <div className={`border-t border-gray-700 p-4 flex items-center flex-shrink-0 w-full ${rightPanelButtonLocation === 'middle' ? 'justify-between' : 'justify-between'}`}>
+          {(() => {
+            const actionButtons = (
+              <>
+                <button
+                  onClick={() => onFavorite?.(game)}
+                  className={`group p-2 rounded transition-colors ${game.favorite ? 'text-yellow-400' : 'text-gray-300 hover:bg-gray-700'
+                    }`}
+                  title="Favorite"
+                  style={{ fontSize: `${rightPanelButtonSize}px` }}
+                >
+                  <svg className="w-5 h-5 group- hover:animate-gentle-bounce group-hover:animate-gentle-bounce" fill={game.favorite ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                  </svg>
+                </button>
 
-          <button
-            onClick={() => onFavorite?.(game)}
-            className={`group p-2 rounded transition-colors ${game.favorite ? 'text-yellow-400' : 'text-gray-300 hover:bg-gray-700'
-              }`}
-            title="Favorite"
-            style={{ fontSize: `${rightPanelButtonSize}px` }}
-          >
-            <svg className="w-5 h-5 group- hover:animate-gentle-bounce group-hover:animate-gentle-bounce" fill={game.favorite ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
-            </svg>
-          </button>
+                {onEdit && (
+                  <button
+                    onClick={() => onEdit(game)}
+                    style={{
+                      backgroundColor: rightPanelButtonColors?.editColor || '#6b7280',
+                      color: getContrastingTextColor(rightPanelButtonColors?.editColor || '#6b7280'),
+                      fontSize: `${rightPanelButtonSize}px`
+                    }}
+                    className="group px-4 py-2 hover:opacity-90 text-white font-medium rounded-lg transition-colors flex items-center gap-2"
+                    title="Edit Game"
+                  >
+                    <svg className="w-5 h-5 group- hover:animate-edit-pen group-hover:animate-edit-pen" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                    Edit
+                  </button>
+                )}
 
-          {onEdit && (
-            <button
-              onClick={() => onEdit(game)}
-              style={{
-                backgroundColor: rightPanelButtonColors?.editColor || '#6b7280',
-                color: getContrastingTextColor(rightPanelButtonColors?.editColor || '#6b7280'),
-                fontSize: `${rightPanelButtonSize}px`
-              }}
-              className="group px-4 py-2 hover:opacity-90 text-white font-medium rounded-lg transition-colors flex items-center gap-2"
-              title="Edit Game"
-            >
-              <svg className="w-5 h-5 group- hover:animate-edit-pen group-hover:animate-edit-pen" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-              </svg>
-              Edit
-            </button>
-          )}
+                {game.modManagerUrl && (
+                  <button
+                    onClick={async () => {
+                      if (game.modManagerUrl) {
+                        try {
+                          await window.electronAPI.openExternal(game.modManagerUrl);
+                        } catch (err) {
+                          console.error('Error opening mod manager:', err);
+                        }
+                      }
+                    }}
+                    style={{
+                      backgroundColor: rightPanelButtonColors?.modManagerColor || '#a855f7',
+                      color: getContrastingTextColor(rightPanelButtonColors?.modManagerColor || '#a855f7'),
+                      fontSize: `${rightPanelButtonSize}px`
+                    }}
+                    className="group px-4 py-2 hover:opacity-90 text-white font-medium rounded-lg transition-colors flex items-center gap-2"
+                    title="Open Mod Manager"
+                  >
+                    <svg className="w-5 h-5 group- hover:animate-gear-spin group-hover:animate-gear-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                    </svg>
+                    Mod Manager
+                  </button>
+                )}
 
-          {game.modManagerUrl && (
-            <button
-              onClick={async () => {
-                if (game.modManagerUrl) {
-                  try {
-                    await window.electronAPI.openExternal(game.modManagerUrl);
-                  } catch (err) {
-                    console.error('Error opening mod manager:', err);
-                  }
-                }
-              }}
-              style={{
-                backgroundColor: rightPanelButtonColors?.modManagerColor || '#a855f7',
-                color: getContrastingTextColor(rightPanelButtonColors?.modManagerColor || '#a855f7'),
-                fontSize: `${rightPanelButtonSize}px`
-              }}
-              className="group px-4 py-2 hover:opacity-90 text-white font-medium rounded-lg transition-colors flex items-center gap-2"
-              title="Open Mod Manager"
-            >
-              <svg className="w-5 h-5 group- hover:animate-gear-spin group-hover:animate-gear-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-              </svg>
-              Mod Manager
-            </button>
-          )}
+                <button
+                  onClick={() => onPlay?.(game)}
+                  disabled={isLaunching || isRunning}
+                  style={{
+                    backgroundColor: rightPanelButtonColors?.playColor || '#0ea5e9',
+                    color: getContrastingTextColor(rightPanelButtonColors?.playColor || '#0ea5e9'),
+                    fontSize: `${rightPanelButtonSize}px`
+                  }}
+                  className="group px-6 py-2 rounded-lg flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 transition-opacity text-white font-medium"
+                >
+                  <svg className="w-5 h-5 group- hover:animate-play-pulse group-hover:animate-play-pulse" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M8 5v14l11-7z" />
+                  </svg>
+                  {isLaunching ? 'Launching...' : isRunning ? 'Running' : 'Play'}
+                </button>
+              </>
+            );
 
-          <button
-            onClick={() => onPlay?.(game)}
-            disabled={isLaunching || isRunning}
-            style={{
-              backgroundColor: rightPanelButtonColors?.playColor || '#0ea5e9',
-              color: getContrastingTextColor(rightPanelButtonColors?.playColor || '#0ea5e9'),
-              fontSize: `${rightPanelButtonSize}px`
-            }}
-            className="group px-6 py-2 rounded-lg flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 transition-opacity text-white font-medium"
-          >
-            <svg className="w-5 h-5 group- hover:animate-play-pulse group-hover:animate-play-pulse" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M8 5v14l11-7z" />
-            </svg>
-            {isLaunching ? 'Launching...' : isRunning ? 'Running' : 'Play'}
-          </button>
+            const linksComponent = game && (
+              <GameLinks
+                game={game}
+                onUpdateLinks={async (newLinks) => {
+                  const updatedGame = { ...game, links: newLinks };
+                  if (onUpdateGameInState) onUpdateGameInState(updatedGame);
+                  if (onSaveGame) await onSaveGame(updatedGame);
+                }}
+                displayMode={linkDisplayMode}
+                visibleTypes={visibleLinkTypes}
+                displayOrder={linkDisplayOrder ?? undefined}
+                buttonSize={rightPanelButtonSize}
+              />
+            );
+
+            if (rightPanelButtonLocation === 'left') {
+              return (
+                <>
+                  <div className="flex items-center gap-3">{actionButtons}</div>
+                  <div className="flex items-center gap-3 px-2 flex-wrap justify-end flex-1">{linksComponent}</div>
+                </>
+              );
+            }
+
+            if (rightPanelButtonLocation === 'right') {
+              return (
+                <>
+                  <div className="flex items-center gap-3 px-2 flex-wrap justify-start flex-1">{linksComponent}</div>
+                  <div className="flex items-center gap-3 flex-shrink-0">{actionButtons}</div>
+                </>
+              );
+            }
+
+            // Middle
+            return (
+              <>
+                <div className="flex-1 flex justify-start items-center px-2 flex-wrap">{linksComponent}</div>
+                <div className="flex-none flex items-center gap-3 justify-center flex-shrink-0">{actionButtons}</div>
+                <div className="flex-1"></div>
+              </>
+            );
+          })()}
         </div>
       )}
     </div>

@@ -96,10 +96,31 @@ export function registerMetadataIPCHandlers(
         }
     });
 
-    ipcMain.handle('metadata:refreshAll', async (_event, options?: { allGames?: boolean, gameIds?: string[], continueFromIndex?: number }) => {
-        const sendProgress = (current: number, total: number, message: string, gameTitle?: string) => {
+    ipcMain.handle('metadata:findLinks', async (_event, gameId: string) => {
+        try {
+            const games = await gameStore.getLibrary();
+            const game = games.find(g => g.id === gameId);
+            if (!game) throw new Error('Game not found');
+
+            const steamAppId = game.id.startsWith('steam-') ? game.id.replace('steam-', '') : undefined;
+            // Fresh fetch to get latest links
+            const metadata = await metadataFetcher.fetchCompleteMetadata(game.title, null, steamAppId, true, true);
+
+            return {
+                success: true,
+                links: metadata.links || [],
+                title: game.title
+            };
+        } catch (error) {
+            console.error('Error in metadata:findLinks:', error);
+            return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+        }
+    });
+
+    ipcMain.handle('metadata:refreshAll', async (_event, options?: { allGames?: boolean, gameIds?: string[], continueFromIndex?: number, linksOnly?: boolean }) => {
+        const sendProgress = (current: number, total: number, message: string, gameTitle?: string, links?: Array<{ name: string, url: string }>, images?: string[]) => {
             if (winReference?.current && !winReference.current.isDestroyed()) {
-                winReference.current.webContents.send('metadata:refreshProgress', { current, total, message, gameTitle });
+                winReference.current.webContents.send('metadata:refreshProgress', { current, total, message, gameTitle, links, images });
             }
         };
 
@@ -119,12 +140,12 @@ export function registerMetadataIPCHandlers(
 
             // Filter games based on mode
             let targetGames: Game[];
-            if (options?.allGames) {
-                // Refresh ALL games - clear existing images first
-                targetGames = games;
-            } else if (options?.gameIds && options.gameIds.length > 0) {
-                // Specific game IDs
+            if (options?.gameIds && options.gameIds.length > 0) {
+                // Specific game IDs targetted - this should take precedence
                 targetGames = games.filter(g => options.gameIds?.includes(g.id));
+            } else if (options?.allGames || options?.linksOnly) {
+                // Refresh ALL games (or links for all)
+                targetGames = games;
             } else {
                 // "Missing" mode - only games missing any image (boxart, banner, logo, or icon)
                 targetGames = games.filter(game =>
@@ -151,18 +172,18 @@ export function registerMetadataIPCHandlers(
 
                 try {
                     console.log(`[MetadataRefresh] [${current}/${total}] Processing: ${game.title}`);
-                    sendProgress(current, total, `Fetching metadata...`, game.title);
+                    sendProgress(current, total, options?.linksOnly ? `Searching for links...` : `Fetching metadata...`, game.title);
 
                     // Extract Steam App ID if available
                     const steamAppId = game.id.startsWith('steam-') ? game.id.replace('steam-', '') : undefined;
 
                     // Determine which images to fetch
-                    const needsBoxart = options?.allGames || isMissingImage(game.boxArtUrl);
-                    const needsBanner = options?.allGames || isMissingImage(game.bannerUrl);
-                    const needsLogo = options?.allGames || isMissingImage(game.logoUrl);
-                    const needsIcon = options?.allGames || isMissingImage(game.iconUrl);
+                    const needsBoxart = !options?.linksOnly && (options?.allGames || isMissingImage(game.boxArtUrl));
+                    const needsBanner = !options?.linksOnly && (options?.allGames || isMissingImage(game.bannerUrl));
+                    const needsLogo = !options?.linksOnly && (options?.allGames || isMissingImage(game.logoUrl));
+                    const needsIcon = !options?.linksOnly && (options?.allGames || isMissingImage(game.iconUrl));
 
-                    if (!needsBoxart && !needsBanner && !needsLogo && !needsIcon) {
+                    if (!options?.linksOnly && !needsBoxart && !needsBanner && !needsLogo && !needsIcon) {
                         console.log(`[MetadataRefresh] [${current}/${total}] ${game.title}: All images present, skipping`);
                         successCount++;
                         continue;
@@ -171,11 +192,26 @@ export function registerMetadataIPCHandlers(
                     // Fetch metadata with timeout
                     let metadata: any = null;
                     try {
-                        metadata = await withTimeout(
-                            metadataFetcher.searchArtwork(game.title, steamAppId, options?.allGames),
-                            30000,
-                            `Metadata fetch timeout for "${game.title}"`
-                        );
+                        if (options?.linksOnly) {
+                            // Fetch directly using fetchCompleteMetadata so linksOnly flag is respected
+                            metadata = await withTimeout(
+                                metadataFetcher.fetchCompleteMetadata(
+                                    game.title,
+                                    null,
+                                    steamAppId,
+                                    true, // bypass cache
+                                    true  // linksOnly = true
+                                ),
+                                30000,
+                                `Metadata fetch timeout for "${game.title}"`
+                            );
+                        } else {
+                            metadata = await withTimeout(
+                                metadataFetcher.searchArtwork(game.title, steamAppId, options?.allGames || options?.linksOnly, !!options?.linksOnly),
+                                30000,
+                                `Metadata fetch timeout for "${game.title}"`
+                            );
+                        }
                     } catch (fetchError) {
                         console.warn(`[MetadataRefresh] [${current}/${total}] ${game.title}: Fetch failed:`, fetchError);
                     }
@@ -184,6 +220,22 @@ export function registerMetadataIPCHandlers(
                         console.log(`[MetadataRefresh] [${current}/${total}] ${game.title}: No metadata found`);
                         unmatchedGames.push({ gameId: game.id, title: game.title, searchResults: [] });
                         errorCount++;
+                        continue;
+                    }
+
+                    if (options?.linksOnly) {
+                        const fetchedLinks = metadata.links || [];
+                        // Nuke existing links and replace with fresh from IGDB
+                        const updatedGame: Game = {
+                            ...game,
+                            links: fetchedLinks,
+                        };
+                        await gameStore.saveGame(updatedGame);
+                        console.log(`[MetadataRefresh] [${current}/${total}] ${game.title}: Links replaced (${fetchedLinks.length} links)`);
+                        const linksMsg = fetchedLinks.length > 0 ? `Found: ${fetchedLinks.map((l: { name: string }) => l.name).join(', ')}` : 'No links found';
+                        sendProgress(current, total, linksMsg, game.title, fetchedLinks);
+                        // Small delay to avoid rate limiting
+                        await new Promise(resolve => setTimeout(resolve, 200));
                         continue;
                     }
 
@@ -230,6 +282,7 @@ export function registerMetadataIPCHandlers(
                         developers: metadata.developers || game.developers,
                         publishers: metadata.publishers || game.publishers,
                         ageRating: metadata.ageRating || game.ageRating,
+                        links: metadata.links || game.links,
                     };
 
                     await gameStore.saveGame(updatedGame);
@@ -245,6 +298,15 @@ export function registerMetadataIPCHandlers(
 
                     console.log(`[MetadataRefresh] [${current}/${total}] ${game.title}: Updated successfully`);
                     successCount++;
+
+                    const assetsFound: string[] = [];
+                    if (metadata.boxArtUrl) assetsFound.push('Box Art');
+                    if (metadata.bannerUrl) assetsFound.push('Banner');
+                    if (metadata.logoUrl) assetsFound.push('Logo');
+                    if (metadata.iconUrl) assetsFound.push('Icon');
+                    if (metadata.links && metadata.links.length > 0) assetsFound.push(`${metadata.links.length} Links`);
+
+                    sendProgress(current, total, 'Updated metadata and assets', game.title, metadata.links, assetsFound);
 
                     // Small delay to avoid rate limiting
                     await new Promise(resolve => setTimeout(resolve, 200));
@@ -708,6 +770,7 @@ export function registerMetadataIPCHandlers(
                     developers: finalMetadata.developers || existingGame.developers,
                     publishers: finalMetadata.publishers || existingGame.publishers,
                     ageRating: finalMetadata.ageRating || existingGame.ageRating,
+                    links: finalMetadata.links || existingGame.links,
                 };
                 await gameStore.saveGame(updatedGame);
             }

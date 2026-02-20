@@ -22,6 +22,7 @@ export interface GameDescription {
   rating?: number;
   platforms?: string[];
   categories?: string[];
+  links?: Array<{ name: string; url: string }>;
 }
 
 export interface GameArtwork {
@@ -68,14 +69,14 @@ export interface MetadataProvider {
    * @param steamAppId Optional Steam App ID to help with matching
    * @returns Array of search results
    */
-  search(title: string, steamAppId?: string): Promise<GameSearchResult[]>;
+  search(title: string, steamAppId?: string, linksOnly?: boolean): Promise<GameSearchResult[]>;
 
   /**
    * Get game description and metadata by ID
    * @param id Provider-specific game ID
    * @returns Game description and metadata
    */
-  getDescription(id: string): Promise<GameDescription | null>;
+  getDescription(id: string, linksOnly?: boolean): Promise<GameDescription | null>;
 
   /**
    * Get game artwork/images by ID

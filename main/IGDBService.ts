@@ -33,6 +33,12 @@ export interface IGDBGame {
   external_games?: Array<{
     category: number;
     uid: string;
+    url?: string;
+  }>;
+  websites?: Array<{
+    category: number;
+    url: string;
+    trusted: boolean;
   }>;
 }
 
@@ -51,6 +57,7 @@ export interface IGDBGameResult {
   ageRating?: string;
   categories?: string[];
   steamAppId?: string;
+  links?: Array<{ name: string; url: string }>;
 }
 
 interface AccessTokenCache {
@@ -276,28 +283,139 @@ export class IGDBService {
       .trim();
   }
 
+  /** IGDB website category enum → display name (covers all known categories so no link is dropped) */
+  private static readonly WEBSITE_CATEGORY_MAP: Record<number, string> = {
+    1: 'Official Website',
+    2: 'Community Wiki',
+    3: 'Wikipedia',
+    4: 'Facebook',
+    5: 'Twitter',
+    6: 'Twitch',
+    8: 'Instagram',
+    9: 'YouTube',
+    10: 'iPhone',
+    11: 'iPad',
+    12: 'Android',
+    13: 'Steam',
+    14: 'Subreddit',
+    15: 'Itch.io',
+    16: 'Epic',
+    17: 'GOG',
+    18: 'Discord',
+    19: 'Google Play',
+    20: 'Amazon Store',
+    21: 'Xbox',
+  };
+
+  /** IGDB external_games category → store name */
+  private static readonly EXTERNAL_GAME_CATEGORY_MAP: Record<number, { name: string; urlTemplate?: (uid: string) => string }> = {
+    1: { name: 'Steam', urlTemplate: (uid) => `https://store.steampowered.com/app/${uid}` },
+    5: { name: 'GOG', urlTemplate: (uid) => `https://www.gog.com/game/${uid}` },
+    8: { name: 'PlayStation', urlTemplate: (uid) => `https://store.playstation.com/en-us/product/${uid}` },
+    11: { name: 'Xbox', urlTemplate: (uid) => `https://www.microsoft.com/store/apps/${uid}` },
+    26: { name: 'Epic', urlTemplate: (uid) => `https://store.epicgames.com/p/${uid}` },
+  };
+
+  /** Infer link name from URL when website category is unknown */
+  private inferLinkNameFromUrl(url: string): string {
+    const u = url.toLowerCase();
+    if (u.includes('steam') || u.includes('steampowered')) return 'Steam';
+    if (u.includes('epicgames') || u.includes('epicgames.com')) return 'Epic';
+    if (u.includes('xbox') || u.includes('microsoft.com/store')) return 'Xbox';
+    if (u.includes('playstation') || u.includes('store.playstation')) return 'PlayStation';
+    if (u.includes('reddit')) return 'Subreddit';
+    if (u.includes('discord')) return 'Discord';
+    if (u.includes('wikipedia')) return 'Wikipedia';
+    if (u.includes('fandom') || u.includes('wiki')) return 'Community Wiki';
+    if (u.includes('youtube') || u.includes('youtu.be')) return 'YouTube';
+    if (u.includes('twitch')) return 'Twitch';
+    if (u.includes('twitter') || u.includes('x.com')) return 'Twitter';
+    if (u.includes('facebook')) return 'Facebook';
+    if (u.includes('instagram')) return 'Instagram';
+    if (u.includes('gog.com')) return 'GOG';
+    if (u.includes('amazon.')) return 'Amazon Store';
+    return 'Official Website';
+  }
+
+  private buildLinksFromGame(game: IGDBGame): Array<{ name: string; url: string }> {
+    const links: Array<{ name: string; url: string }> = [];
+
+    if (game.websites) {
+      for (const w of game.websites) {
+        if (!w?.url) continue;
+        const url = w.url.startsWith('http') ? w.url : `https://${w.url}`;
+        let name = IGDBService.WEBSITE_CATEGORY_MAP[w.category] ?? this.inferLinkNameFromUrl(url);
+        // Override misclassified store URLs (e.g. IGDB often tags Amazon as "Official Website")
+        if (name === 'Official Website') name = this.inferLinkNameFromUrl(url);
+        links.push({ name, url });
+      }
+    }
+
+    if (game.external_games) {
+      for (const ext of game.external_games) {
+        const meta = IGDBService.EXTERNAL_GAME_CATEGORY_MAP[ext.category];
+        const url = ext.url || (meta?.urlTemplate && ext.uid ? meta.urlTemplate(ext.uid) : null);
+        const name = meta?.name ?? (ext.url ? this.inferLinkNameFromUrl(ext.url) : null);
+        if (name && url) links.push({ name, url });
+      }
+    }
+
+    // Dedupe by exact URL first
+    const seenUrl = new Set<string>();
+    const byUrl = links.filter((l) => {
+      const key = l.url.toLowerCase().replace(/\/+$/, '');
+      if (seenUrl.has(key)) return false;
+      seenUrl.add(key);
+      return true;
+    });
+
+    // Only allow these 14 link types; all others (Amazon, GOG, Itch.io, etc.) are ignored. At most one per type.
+    const allowedNames = new Set([
+      'Official Website', 'Community Wiki', 'Wikipedia', 'Facebook', 'Twitter', 'Twitch', 'Instagram',
+      'YouTube', 'Subreddit', 'Discord', 'Steam', 'Epic', 'Xbox', 'PlayStation'
+    ]);
+    const linkOrder = [
+      'Official Website', 'YouTube', 'Subreddit', 'Discord', 'Community Wiki', 'Wikipedia',
+      'Facebook', 'Twitter', 'Twitch', 'Instagram', 'Steam', 'Epic', 'Xbox', 'PlayStation'
+    ];
+    const orderIndex = new Map(linkOrder.map((name, i) => [name.toLowerCase(), i]));
+    const seenType = new Set<string>();
+    const filtered = byUrl.filter((l) => {
+      if (!allowedNames.has(l.name)) return false;
+      const key = l.name.toLowerCase();
+      if (seenType.has(key)) return false;
+      seenType.add(key);
+      return true;
+    });
+    filtered.sort((a, b) => {
+      const ia = orderIndex.get(a.name.toLowerCase()) ?? 999;
+      const ib = orderIndex.get(b.name.toLowerCase()) ?? 999;
+      return ia - ib;
+    });
+    return filtered;
+  }
+
   /**
    * Search for games using IGDB API with rate limiting and retry logic
    */
-  async searchGame(query: string): Promise<IGDBGameResult[]> {
+  async searchGame(query: string, linksOnly: boolean = false): Promise<IGDBGameResult[]> {
     return this.queueRequest(async () => {
       return this.retryRequest(async () => {
         try {
           const accessToken = await this.getAccessToken();
 
           // Build the query string with all required fields
-          // Note: game_logos is not a valid field on IGDB games endpoint
-          const fields = 'name, summary, cover.url, screenshots.url, artworks.url, rating, first_release_date, genres.name, platforms.name, age_ratings, category, external_games.category, external_games.uid';
+          const fields = linksOnly
+            ? 'id, name, websites.*, external_games.*'
+            : 'id, name, summary, cover.url, screenshots.url, artworks.url, rating, first_release_date, genres.name, platforms.name, age_ratings, category, external_games.*, websites.*';
 
           // Check if query is a numeric ID (for direct game ID lookups)
           let queryBody: string;
           if (/^\d+$/.test(query)) {
-            // Numeric ID query - use WHERE syntax instead of search
             queryBody = `fields ${fields};
 where id = ${query};
 limit 1;`;
           } else {
-            // Text search query - use search syntax
             const sanitizedQuery = this.sanitizeQuery(query);
             queryBody = `fields ${fields};
 search "${sanitizedQuery}";
@@ -314,392 +432,174 @@ limit 10;`;
             },
           });
 
-          // Collect all age rating IDs to fetch in one batch
-          const ageRatingIds: number[] = [];
-          response.data.forEach((game) => {
-            if (game.age_ratings) {
-              game.age_ratings.forEach((ar) => {
-                if (typeof ar === 'number') {
-                  ageRatingIds.push(ar);
-                } else if (typeof ar === 'object' && ar !== null && 'id' in ar) {
-                  ageRatingIds.push((ar as any).id);
-                }
-              });
-            }
-          });
-
-          // Fetch age rating details if we have any
+          // Collect all age rating IDs for batch fetch (skip for linksOnly)
           const ageRatingMap: Map<number, { rating: number; category: number }> = new Map();
-          if (ageRatingIds.length > 0) {
-            try {
-              const uniqueIds = [...new Set(ageRatingIds)];
-              const ageRatingQuery = `fields rating, category;
-where id = (${uniqueIds.join(',')});
-limit 50;`;
-
-              const ageRatingResponse = await this.queueRequest(async () => {
-                return this.retryRequest(async () => {
-                  return await this.axiosInstance.post<Array<{ id: number; rating: number; category: number }>>(
-                    '/age_ratings',
-                    ageRatingQuery,
-                    {
-                      headers: {
-                        'Client-ID': this.clientId,
-                        'Authorization': `Bearer ${accessToken}`,
-                        'Content-Type': 'text/plain',
-                      },
-                    }
-                  );
+          if (!linksOnly) {
+            const ageRatingIds: number[] = [];
+            response.data.forEach((game) => {
+              if (game.age_ratings) {
+                game.age_ratings.forEach((ar) => {
+                  if (typeof ar === 'number') ageRatingIds.push(ar);
+                  else if (typeof ar === 'object' && ar !== null && 'id' in ar) ageRatingIds.push((ar as any).id);
                 });
-              });
+              }
+            });
 
-              ageRatingResponse.data.forEach((ar) => {
-                ageRatingMap.set(ar.id, { rating: ar.rating, category: ar.category });
-              });
-            } catch (error) {
-              console.warn('Failed to fetch age rating details:', error);
+            if (ageRatingIds.length > 0) {
+              try {
+                const uniqueIds = [...new Set(ageRatingIds)];
+                const ageRatingQuery = `fields rating, category; where id = (${uniqueIds.join(',')}); limit 50;`;
+                const ageRatingResponse = await this.queueRequest(async () => {
+                  return this.retryRequest(async () => {
+                    return await this.axiosInstance.post<Array<{ id: number; rating: number; category: number }>>(
+                      '/age_ratings',
+                      ageRatingQuery,
+                      {
+                        headers: {
+                          'Client-ID': this.clientId,
+                          'Authorization': `Bearer ${accessToken}`,
+                          'Content-Type': 'text/plain',
+                        },
+                      }
+                    );
+                  });
+                });
+                ageRatingResponse.data.forEach((ar) => ageRatingMap.set(ar.id, { rating: ar.rating, category: ar.category }));
+              } catch (error) {
+                console.warn('Failed to fetch age rating details:', error);
+              }
             }
           }
 
-          // Transform the results
-          const results: IGDBGameResult[] = response.data.map((game) => {
+          // Transform results
+          return response.data.map((game) => {
             const result: IGDBGameResult = {
               id: game.id,
               name: game.name,
               summary: game.summary,
               rating: game.rating,
               releaseDate: game.first_release_date,
-              genres: game.genres?.map((g) => {
-                if (typeof g === 'string') return g;
-                return g.name || '';
-              }).filter((name) => name),
+              genres: game.genres?.map((g) => (typeof g === 'string' ? g : g.name || '')).filter(Boolean),
             };
 
-            // Extract platform names
+            // Platforms
             if (game.platforms && game.platforms.length > 0) {
               const platformNames = game.platforms
-                .map((p) => {
-                  if (typeof p === 'string') return p;
-                  if (typeof p === 'object' && p !== null && 'name' in p) return p.name || '';
-                  return '';
-                })
-                .filter((name) => name);
-              if (platformNames.length > 0) {
-                result.platform = platformNames.join(', ');
-              }
+                .map((p) => (typeof p === 'string' ? p : typeof p === 'object' && p !== null && 'name' in p ? p.name || '' : ''))
+                .filter(Boolean);
+              if (platformNames.length > 0) result.platform = platformNames.join(', ');
             }
 
-            // Extract age rating from the map we fetched - only use PEGI ratings
-            if (game.age_ratings && game.age_ratings.length > 0) {
-              // Try to find the first valid PEGI rating
+            // Age Rating (PEGI Only)
+            if (!linksOnly && game.age_ratings) {
               for (const ar of game.age_ratings) {
-                let ageRatingId: number | undefined;
-                if (typeof ar === 'number') {
-                  ageRatingId = ar;
-                } else if (typeof ar === 'object' && ar !== null && 'id' in ar) {
-                  ageRatingId = (ar as any).id;
-                }
-
+                const ageRatingId = typeof ar === 'number' ? ar : (ar as any).id;
                 if (ageRatingId && ageRatingMap.has(ageRatingId)) {
-                  const ageRatingData = ageRatingMap.get(ageRatingId)!;
-                  const category = ageRatingData.category;
-                  const rating = ageRatingData.rating;
-
-                  // IGDB age ratings: category 1 = ESRB, category 2 = PEGI
-                  // Only use PEGI ratings (category 2)
-                  if (category === 2) {
-                    // PEGI ratings
-                    const pegiRatings: { [key: number]: string } = {
-                      1: 'PEGI 3',
-                      2: 'PEGI 7',
-                      3: 'PEGI 12',
-                      4: 'PEGI 16',
-                      5: 'PEGI 18',
-                    };
-                    result.ageRating = pegiRatings[rating] || `PEGI ${rating}`;
-                    break; // Use the first valid PEGI rating found
+                  const arData = ageRatingMap.get(ageRatingId)!;
+                  if (arData.category === 2) { // 2 = PEGI
+                    const pegiRatings: Record<number, string> = { 1: 'PEGI 3', 2: 'PEGI 7', 3: 'PEGI 12', 4: 'PEGI 16', 5: 'PEGI 18' };
+                    result.ageRating = pegiRatings[arData.rating] || `PEGI ${arData.rating}`;
+                    break;
                   }
                 }
               }
             }
 
-            // Extract categories (game categories like main game, DLC, expansion, etc.)
-            if (game.category !== undefined && game.category !== null) {
-              const categoryMap: { [key: number]: string } = {
-                0: 'Main Game',
-                1: 'DLC/Add-on',
-                2: 'Expansion',
-                3: 'Bundle',
-                4: 'Standalone Expansion',
-                5: 'Mod',
-                6: 'Episode',
-                7: 'Season',
-                8: 'Remake',
-                9: 'Remaster',
-                10: 'Expanded Game',
-                11: 'Port',
-                12: 'Fork',
-                13: 'Pack',
-                14: 'Update',
-              };
+            // Category
+            if (game.category !== undefined) {
+              const categoryMap: Record<number, string> = { 0: 'Main Game', 1: 'DLC/Add-on', 2: 'Expansion', 3: 'Bundle', 4: 'Standalone Expansion', 5: 'Mod', 8: 'Remake', 9: 'Remaster' };
               const categoryName = categoryMap[game.category];
-              if (categoryName) {
-                result.categories = [categoryName];
-              }
-              // Don't set a default category if category value is not recognized
+              if (categoryName) result.categories = [categoryName];
             }
 
-            // Extract Steam App ID
-            if (game.external_games && game.external_games.length > 0) {
-              // Category 1 is Steam
+            // Steam ID
+            if (game.external_games) {
               const steamGame = game.external_games.find(eg => eg.category === 1);
-              if (steamGame) {
-                result.steamAppId = steamGame.uid;
-              }
-            }
-            // Don't set a default category if category is not provided
-
-            // Convert cover URL - handle both object and string formats
-            let coverUrl: string | undefined;
-            if (typeof game.cover === 'string') {
-              coverUrl = game.cover;
-            } else if (game.cover && typeof game.cover === 'object' && 'url' in game.cover) {
-              coverUrl = game.cover.url;
-            }
-            if (coverUrl) {
-              result.coverUrl = this.convertImageUrl(coverUrl, 'cover');
-              console.log(`[IGDBService] ✓ Found cover for "${game.name}": ${result.coverUrl}`);
-            } else {
-              console.log(`[IGDBService] ✗ No cover found for "${game.name}" (cover data: ${JSON.stringify(game.cover)})`);
+              if (steamGame) result.steamAppId = steamGame.uid;
             }
 
-            // Convert screenshot URLs - handle both object and string formats
-            if (game.screenshots && game.screenshots.length > 0) {
-              result.screenshotUrls = game.screenshots
-                .map((s) => {
-                  if (typeof s === 'string') return s;
-                  return s.url || '';
-                })
-                .filter((url) => url)
-                .map((url) => this.convertImageUrl(url, 'screenshot'));
+            // Images
+            if (game.cover) {
+              const url = typeof game.cover === 'string' ? game.cover : game.cover.url;
+              if (url) result.coverUrl = this.convertImageUrl(url, 'cover');
+            }
+            if (game.screenshots) {
+              result.screenshotUrls = game.screenshots.map(s => typeof s === 'string' ? s : s.url || '').filter(Boolean).map(url => this.convertImageUrl(url, 'screenshot'));
             }
 
-
+            // Links (The Core Task) - all IGDB website categories + external_games
+            const links = this.buildLinksFromGame(game);
+            if (links.length > 0) result.links = links;
 
             return result;
           });
-
-          // (Removed separate game_logos batch request that was causing 404s)
-
-          return results;
         } catch (error) {
-          console.error('Error searching IGDB:', error);
-          if (axios.isAxiosError(error)) {
-            const status = error.response?.status;
-            const statusText = error.response?.statusText || error.message;
-
-            // For 429 errors, let retry logic handle it
-            if (status === 429) {
-              throw error; // Will be caught by retryRequest
-            }
-
-            if (status === 400) {
-              console.error('[IGDBService] 400 Bad Request details:', error.response?.data);
-            }
-            throw new Error(`IGDB API error: ${status} ${statusText} - ${JSON.stringify(error.response?.data)}`);
-          }
-          throw error;
+          console.error('[IGDBService] Error:', error);
+          if (axios.isAxiosError(error) && error.response?.status === 429) throw error;
+          return [];
         }
       });
     });
   }
 
-  /**
-   * Fast search for games - bypasses queue and rate limiting for immediate results.
-   * Optimized for single interactive queries (like manual image search).
-   * Returns all image types at once: cover, screenshots, artworks, logos.
-   */
-  async fastSearchGame(query: string): Promise<IGDBGameResult[]> {
+  async fastSearchGame(query: string, linksOnly: boolean = false): Promise<IGDBGameResult[]> {
     try {
       const accessToken = await this.getAccessToken();
+      const fields = linksOnly
+        ? 'name, websites.*, external_games.*'
+        : 'name, summary, cover.url, screenshots.url, artworks.url, rating, first_release_date, genres.name, platforms.name, age_ratings, category, external_games.*, websites.*';
 
-      // Build the query string with all required fields
-      // Temporarily removed game_logos.url and artworks.url to fix 400 Bad Request error
-      // const fields = 'name, summary, cover.url, screenshots.url, artworks.url, game_logos.url, rating, first_release_date, genres.name, platforms.name, age_ratings, category, external_games.category, external_games.uid';
-      const fields = 'name, summary, cover.url, screenshots.url, rating, first_release_date, genres.name, platforms.name, age_ratings, category, external_games.category, external_games.uid';
-
-      // Check if query is a numeric ID (for direct game ID lookups)
       let queryBody: string;
       if (/^\d+$/.test(query)) {
-        queryBody = `fields ${fields};
-where id = ${query};
-limit 1;`;
+        queryBody = `fields ${fields}; where id = ${query}; limit 1;`;
       } else {
         const sanitizedQuery = this.sanitizeQuery(query);
-        queryBody = `fields ${fields};
-search "${sanitizedQuery}";
-limit 10;`;
+        queryBody = `fields ${fields}; search "${sanitizedQuery}"; limit 10;`;
       }
 
-      console.log(`[IGDBService.fastSearchGame] Sending FAST query to /games:`, queryBody);
-      const startTime = Date.now();
-
       const response = await this.axiosInstance.post<IGDBGame[]>('/games', queryBody, {
-        headers: {
-          'Client-ID': this.clientId,
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'text/plain',
-        },
+        headers: { 'Client-ID': this.clientId, 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'text/plain' },
       });
 
-      console.log(`[IGDBService.fastSearchGame] Response received in ${Date.now() - startTime}ms, ${response.data.length} games`);
-
-      // Transform the results
-      const results: IGDBGameResult[] = response.data.map((game) => {
+      return response.data.map(game => {
         const result: IGDBGameResult = {
           id: game.id,
           name: game.name,
           summary: game.summary,
           rating: game.rating,
           releaseDate: game.first_release_date,
-          genres: game.genres?.map((g) => {
-            if (typeof g === 'string') return g;
-            return g.name || '';
-          }).filter((name) => name),
+          genres: game.genres?.map(g => typeof g === 'string' ? g : g.name || '').filter(Boolean),
         };
+        // Reuse mapping logic (simplified for fast search)
+        if (game.cover) result.coverUrl = this.convertImageUrl(typeof game.cover === 'string' ? game.cover : game.cover.url || '', 'cover');
 
-        // Extract platform names
-        if (game.platforms && game.platforms.length > 0) {
-          const platformNames = game.platforms
-            .map((p) => {
-              if (typeof p === 'string') return p;
-              if (typeof p === 'object' && p !== null && 'name' in p) return p.name || '';
-              return '';
-            })
-            .filter((name) => name);
-          if (platformNames.length > 0) {
-            result.platform = platformNames.join(', ');
-          }
-        }
-
-        // Extract Steam App ID
-        if (game.external_games && game.external_games.length > 0) {
-          const steamGame = game.external_games.find(eg => eg.category === 1);
-          if (steamGame) {
-            result.steamAppId = steamGame.uid;
-          }
-        }
-
-        // Convert cover URL
-        let coverUrl: string | undefined;
-        if (typeof game.cover === 'string') {
-          coverUrl = game.cover;
-        } else if (game.cover && typeof game.cover === 'object' && 'url' in game.cover) {
-          coverUrl = game.cover.url;
-        }
-        if (coverUrl) {
-          result.coverUrl = this.convertImageUrl(coverUrl, 'cover');
-        }
-
-        // Convert screenshot URLs
-        if (game.screenshots && game.screenshots.length > 0) {
-          result.screenshotUrls = game.screenshots
-            .map((s) => {
-              if (typeof s === 'string') return s;
-              return s.url || '';
-            })
-            .filter((url) => url)
-            .map((url) => this.convertImageUrl(url, 'screenshot'));
-        }
-
-        // Convert artwork URLs
-        if (game.artworks && game.artworks.length > 0) {
-          result.artworkUrls = game.artworks
-            .map((a) => {
-              if (typeof a === 'string') return a;
-              return a.url || '';
-            })
-            .filter((url) => url)
-            .map((url) => this.convertImageUrl(url, 'screenshot')); // Use screenshot size (1080p) for artworks
-        }
-
-        // Convert game logo - picking the first one
-        if (game.game_logos && game.game_logos.length > 0) {
-          const logo = game.game_logos[0];
-          let logoUrl = '';
-          if (typeof logo === 'string') {
-            logoUrl = logo;
-          } else if (logo && typeof logo === 'object' && 'url' in logo) {
-            logoUrl = logo.url || '';
-          }
-
-          if (logoUrl) {
-            result.logoUrl = this.convertImageUrl(logoUrl, 'logo');
-          }
-        }
-
+        const links = this.buildLinksFromGame(game);
+        if (links.length > 0) result.links = links;
         return result;
       });
-
-      return results;
     } catch (error) {
       console.error('[IGDBService.fastSearchGame] Error:', error);
-      if (axios.isAxiosError(error)) {
-        const status = error.response?.status;
-        if (status === 401 || status === 403) {
-          throw new Error('IGDB credentials are invalid. Please check your API credentials.');
-        }
-        if (status === 429) {
-          throw new Error('IGDB rate limit reached. Please try again in a moment.');
-        }
-      }
-      throw error;
+      return [];
     }
   }
-  /**
-   * Search for a game by Steam App ID
-   */
-  async getGameBySteamAppId(steamAppId: string): Promise<IGDBGameResult | null> {
+
+  async getGameBySteamAppId(steamAppId: string, linksOnly: boolean = false): Promise<IGDBGameResult | null> {
     return this.queueRequest(async () => {
       return this.retryRequest(async () => {
         try {
           const accessToken = await this.getAccessToken();
+          const query = `fields game; where uid = "${steamAppId}" & category = 1; limit 1;`;
+          const response = await this.axiosInstance.post<Array<{ game: number }>>('/external_games', query, {
+            headers: { 'Client-ID': this.clientId, 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'text/plain' },
+          });
 
-          // Query the external_games endpoint to find the IGDB game ID
-          const externalGamesQuery = `fields game; where uid = "${steamAppId}" & category = 1; limit 1;`;
-
-          console.log(`[IGDBService] Looking up Steam App ID ${steamAppId}`);
-
-          const externalResponse = await this.axiosInstance.post<Array<{ id: number; game: number }>>(
-            '/external_games',
-            externalGamesQuery,
-            {
-              headers: {
-                'Client-ID': this.clientId,
-                'Authorization': `Bearer ${accessToken}`,
-                'Content-Type': 'text/plain',
-              },
-            }
-          );
-
-          if (externalResponse.data.length === 0 || !externalResponse.data[0].game) {
-            console.log(`[IGDBService] No IGDB game found for Steam App ID ${steamAppId}`);
-            return null;
-          }
-
-          const gameId = externalResponse.data[0].game;
-          console.log(`[IGDBService] Found IGDB Game ID ${gameId} for Steam App ID ${steamAppId}`);
-
-          // Now fetch the full game details using the found game ID
-          const results = await this.searchGame(String(gameId));
+          if (response.data.length === 0 || !response.data[0].game) return null;
+          const results = await this.searchGame(String(response.data[0].game), linksOnly);
           return results.length > 0 ? results[0] : null;
-
         } catch (error) {
-          console.error(`[IGDBService] Error looking up Steam App ID ${steamAppId}:`, error);
-          if (axios.isAxiosError(error) && error.response?.status === 429) {
-            throw error; // Let retry logic handle rate limits
-          }
-          return null; // Return null for other errors to allow fallback to title search
+          console.error('[IGDBService] Steam ID lookup error:', error);
+          if (axios.isAxiosError(error) && error.response?.status === 429) throw error;
+          return null;
         }
       });
     });

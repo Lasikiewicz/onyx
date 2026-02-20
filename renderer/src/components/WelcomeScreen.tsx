@@ -219,7 +219,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onScanGames, onAdd
                     <div className="space-y-6 mb-8">
                         <div className="p-4 bg-gray-800/50 border border-gray-700 rounded-xl">
                             <h4 className="text-sm font-semibold text-white mb-2">IGDB (Twitch)</h4>
-                            <p className="text-xs text-gray-400 mb-3">Provides release dates, genres, and descriptions. Helps match and identify games.</p>
+                            <p className="text-xs text-gray-400 mb-3">Provides release dates, genres, descriptions, and official game links. Helps match and identify games.</p>
                             <ol className="text-xs text-gray-300 list-decimal list-inside space-y-1 mb-3">
                                 <li>Open the <button type="button" onClick={() => window.electronAPI?.openExternal('https://dev.twitch.tv/console')} className="text-blue-400 hover:text-blue-300 underline">Twitch Developer Console</button></li>
                                 <li>Register your application (e.g. name it &quot;Onyx&quot;, category &quot;Game Integration&quot;)</li>
@@ -379,7 +379,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onScanGames, onAdd
                                 </svg>
                             </div>
                             <h3 className="text-2xl font-semibold text-white mb-2">Configure APIs</h3>
-                            <p className="text-gray-400 text-sm mb-2">IGDB credentials are required to continue.</p>
+                            <p className="text-gray-400 text-sm mb-2">IGDB credentials are required for fetching game links and metadata.</p>
                             <span className="text-xs px-2 py-1 bg-red-900/50 text-red-300 rounded border border-red-800">Setup Required</span>
                         </button>
                     ) : (

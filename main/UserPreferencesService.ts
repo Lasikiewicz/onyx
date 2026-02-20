@@ -111,6 +111,9 @@ export interface UserPreferences {
     criticScore: boolean;
     installationDirectory: boolean;
   };
+  linkDisplayMode?: 'icons' | 'dropdown';
+  visibleLinkTypes?: Record<string, boolean>;
+  linkDisplayOrder?: string[];
   ignoredGames?: string[]; // Array of game IDs to always ignore
   hasSeenPostImportTutorial?: boolean;
   windowState?: {
@@ -247,6 +250,8 @@ export class UserPreferencesService {
               criticScore: true,
               installationDirectory: true,
             },
+            linkDisplayMode: 'icons',
+            visibleLinkTypes: {},
             ignoredGames: [],
             windowState: undefined,
             storeMetadataLocally: true, // Default to local storage
@@ -368,6 +373,8 @@ export class UserPreferencesService {
         criticScore: true,
         installationDirectory: true,
       },
+      linkDisplayMode: 'icons',
+      visibleLinkTypes: {},
       ignoredGames: [],
       windowState: undefined,
       storeMetadataLocally: true, // Default to local storage
@@ -453,6 +460,8 @@ export class UserPreferencesService {
         criticScore: true,
         installationDirectory: true,
       },
+      linkDisplayMode: 'icons',
+      visibleLinkTypes: {},
       ignoredGames: [],
       windowState: undefined,
       storeMetadataLocally: true, // Default to local storage
@@ -544,6 +553,8 @@ export class UserPreferencesService {
         criticScore: true,
         installationDirectory: true,
       },
+      linkDisplayMode: 'icons',
+      visibleLinkTypes: {},
       ignoredGames: [],
       windowState: undefined,
       storeMetadataLocally: true, // Default to local storage

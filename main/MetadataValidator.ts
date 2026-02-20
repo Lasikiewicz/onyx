@@ -1,6 +1,11 @@
 import { GameMetadata } from './MetadataFetcherService.js';
 import { GameSearchResult } from './MetadataProvider.js';
 
+export interface ValidateMetadataOptions {
+  /** When true, skip requiring image fields (used for links-only fetches) */
+  linksOnly?: boolean;
+}
+
 /**
  * Validates that fetched metadata matches the expected game
  */
@@ -10,12 +15,15 @@ export class MetadataValidator {
    */
   validateMetadata(
     metadata: GameMetadata,
-    expectedGame: GameSearchResult
+    expectedGame: GameSearchResult,
+    options?: ValidateMetadataOptions
   ): boolean {
-    // Check if metadata has required fields
-    if (!metadata.boxArtUrl && !metadata.bannerUrl) {
-      console.warn('[MetadataValidator] Missing required image fields');
-      return false;
+    // When fetching links only, we don't have image fields – that's expected
+    if (!options?.linksOnly) {
+      if (!metadata.boxArtUrl && !metadata.bannerUrl) {
+        console.warn('[MetadataValidator] Missing required image fields');
+        return false;
+      }
     }
 
     // Check if title matches (fuzzy)
@@ -38,15 +46,16 @@ export class MetadataValidator {
       }
     }
 
-    // Check data quality
-    if (metadata.boxArtUrl && !this.isValidUrl(metadata.boxArtUrl)) {
-      console.warn('[MetadataValidator] Invalid boxArtUrl');
-      return false;
-    }
-
-    if (metadata.bannerUrl && !this.isValidUrl(metadata.bannerUrl)) {
-      console.warn('[MetadataValidator] Invalid bannerUrl');
-      return false;
+    // Check data quality (skip when links-only, no images expected)
+    if (!options?.linksOnly) {
+      if (metadata.boxArtUrl && !this.isValidUrl(metadata.boxArtUrl)) {
+        console.warn('[MetadataValidator] Invalid boxArtUrl');
+        return false;
+      }
+      if (metadata.bannerUrl && !this.isValidUrl(metadata.bannerUrl)) {
+        console.warn('[MetadataValidator] Invalid bannerUrl');
+        return false;
+      }
     }
 
     return true;

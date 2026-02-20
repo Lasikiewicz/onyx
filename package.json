@@ -20,6 +20,8 @@
     "test:credentials:service-mock": "node scripts/test-credentials-service-mock.js",
     "test:suspend:service-mock": "node scripts/test-suspend-service-mock.js",
     "generate-icons": "node scripts/generate-icons.js",
+    "download-link-icons": "node scripts/download-uxwing-link-icons.js",
+    "download-simple-icons": "node scripts/download-simple-icons.js",
     "prebuild": "npm run validate-icons",
     "predist": "npm run generate-icons && npm run validate-icons",
     "increment-build": "node scripts/increment-build.js",

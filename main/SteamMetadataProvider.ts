@@ -105,7 +105,7 @@ export class SteamMetadataProvider implements MetadataProvider {
     }
   }
 
-  async search(title: string, steamAppId?: string): Promise<GameSearchResult[]> {
+  async search(title: string, steamAppId?: string, linksOnly: boolean = false): Promise<GameSearchResult[]> {
     if (!this.steamService || !steamAppId) {
       return [];
     }
@@ -247,7 +247,7 @@ export class SteamMetadataProvider implements MetadataProvider {
     }
   }
 
-  async getDescription(id: string): Promise<import('./MetadataProvider.js').GameDescription | null> {
+  async getDescription(id: string, linksOnly: boolean = false): Promise<import('./MetadataProvider.js').GameDescription | null> {
     // Extract Steam App ID
     const match = id.match(/^steam-(.+)$/);
     if (!match) {
@@ -365,6 +365,16 @@ export class SteamMetadataProvider implements MetadataProvider {
             description.platforms = platforms;
           }
         }
+
+        // Links
+        const links: Array<{ name: string; url: string }> = [];
+        // Add Steam Store link
+        links.push({ name: 'Steam Store', url: `https://store.steampowered.com/app/${steamAppId}/` });
+        // Add official website if available
+        if (gameData.website) {
+          links.push({ name: 'Official Website', url: gameData.website });
+        }
+        description.links = links;
 
         return Object.keys(description).length > 0 ? description : null;
       }, 3, 2000); // 3 retries with 2s base delay

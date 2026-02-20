@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Game } from '../types/game';
 import { ConfirmationDialog } from './ConfirmationDialog';
 import { MatchFixDialog } from './MatchFixDialog';
 import { RefreshMetadataDialog } from './RefreshMetadataDialog';
 import { BoxartFixDialog } from './BoxartFixDialog';
 import { ImageContextMenu } from './ImageContextMenu';
+import { LinkIcon, inferLinkKey, BRAND_COLORS, getLinkIconSearchQuery } from './GameLinks';
 
 interface GameManagerProps {
   isOpen: boolean;
@@ -14,7 +15,7 @@ interface GameManagerProps {
   onDeleteGame?: (gameId: string) => Promise<void>;
   onReloadLibrary?: () => Promise<void>;
   initialGameId?: string | null;
-  initialTab?: 'metadata' | 'images' | 'modManager';
+  initialTab?: 'metadata' | 'images' | 'links' | 'modManager';
 }
 
 interface IGDBGameResult {
@@ -72,20 +73,19 @@ export const GameManager: React.FC<GameManagerProps> = ({
   const [metadataSearchResults, setMetadataSearchResults] = useState<any[]>([]);
   const [isSearchingMetadata, setIsSearchingMetadata] = useState(false);
   const [isApplyingMetadata, setIsApplyingMetadata] = useState(false);
-  const [activeTab, setActiveTab] = useState<'images' | 'metadata' | 'modManager'>(initialTab);
+  const [activeTab, setActiveTab] = useState<'images' | 'metadata' | 'links' | 'modManager'>(initialTab);
   const [activeImageSearchTab, setActiveImageSearchTab] = useState<'all' | 'boxart' | 'banner' | 'alternativeBanner' | 'logo' | 'icon'>('all');
   const [showRefreshDialog, setShowRefreshDialog] = useState(false);
   const [showRefreshConfirm, setShowRefreshConfirm] = useState(false);
-  const [refreshMode, setRefreshMode] = useState<'all' | 'missing' | null>(null);
-  const [refreshProgress, setRefreshProgress] = useState<{ current: number; total: number; message: string; gameTitle?: string } | null>(null);
+  const [refreshMode, setRefreshMode] = useState<'all' | 'missing' | 'links' | null>(null);
+  const [refreshProgress, setRefreshProgress] = useState<{ current: number; total: number; message: string; gameTitle?: string; links?: Array<{ name: string; url: string }>; images?: string[]; mode?: 'all' | 'missing' | 'links' } | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; type: 'boxart' | 'banner' | 'alternativeBanner' | 'logo' | 'icon' } | null>(null);
   const [showMatchFix, setShowMatchFix] = useState(false);
-  const [steamAppIdInput, setSteamAppIdInput] = useState('');
-  const [isSteamAppIdInputFocused, setIsSteamAppIdInputFocused] = useState(false);
+
   const [unmatchedGames, setUnmatchedGames] = useState<Array<{ gameId: string; title: string; searchResults: any[] }>>([]);
   const [showBoxartFix, setShowBoxartFix] = useState(false);
   const [missingBoxartGames, setMissingBoxartGames] = useState<Array<{ gameId: string; title: string; steamAppId?: string }>>([]);
-  const [refreshState, setRefreshState] = useState<{ mode: 'all' | 'missing' | null; continueFromIndex?: number } | null>(null);
+  const [refreshState, setRefreshState] = useState<{ mode: 'all' | 'missing' | 'links' | null; continueFromIndex?: number } | null>(null);
   const [shouldSelectFirstGameAfterRefresh, setShouldSelectFirstGameAfterRefresh] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -95,6 +95,10 @@ export const GameManager: React.FC<GameManagerProps> = ({
   const [gameListView, setGameListView] = useState<'boxart' | 'icon' | 'text'>('boxart');
   const [newCategoryInput, setNewCategoryInput] = useState('');
   const [showAnimatedImages, setShowAnimatedImages] = useState(false);
+  const [isRefreshingLinks, setIsRefreshingLinks] = useState(false);
+  const [foundLinks, setFoundLinks] = useState<Array<{ name: string; url: string }> | null>(null);
+  const [linkIconPopupIndex, setLinkIconPopupIndex] = useState<number | null>(null);
+  const linkIconFileInputRef = useRef<HTMLInputElement>(null);
 
   // Refs to track current state for async IPC events
   const selectedGameIdRef = React.useRef(selectedGameId);
@@ -155,20 +159,14 @@ export const GameManager: React.FC<GameManagerProps> = ({
     savePreferences();
   }, [gameListView]);
 
-  // Get all unique categories from all games for suggestions
-  const allCategories = useMemo(() => {
-    const categories = new Set<string>();
-    games.forEach(game => {
-      game.categories?.forEach(cat => categories.add(cat));
-    });
-    return Array.from(categories).sort();
-  }, [games]);
+
 
   // Helper function to handle refresh with continuation support
-  const handleRefreshMetadata = async (mode: 'all' | 'missing', continueFromIndex: number = 0) => {
+  const handleRefreshMetadata = async (mode: 'all' | 'missing' | 'links', continueFromIndex: number = 0) => {
     try {
       const result = await window.electronAPI.refreshAllMetadata({
         allGames: mode === 'all',
+        linksOnly: mode === 'links',
         continueFromIndex: continueFromIndex
       });
 
@@ -275,18 +273,17 @@ export const GameManager: React.FC<GameManagerProps> = ({
     }
   }, [selectedGame?.boxArtUrl, selectedGame?.bannerUrl, selectedGame?.logoUrl, selectedGame?.id]);
 
-  // Update steamAppIdInput when editedGame changes (but not while user is typing)
-  useEffect(() => {
-    if (editedGame && !isSteamAppIdInputFocused) {
-      const appIdMatch = editedGame.id.match(/^steam-(.+)$/);
-      setSteamAppIdInput(appIdMatch ? appIdMatch[1] : '');
-    }
-  }, [editedGame?.id, isSteamAppIdInputFocused]);
+
 
   // Listen for refresh progress updates
   useEffect(() => {
-    const handleProgress = (_event: any, progress: { current: number; total: number; message: string; gameTitle?: string }) => {
-      setRefreshProgress(progress);
+    const handleProgress = (_event: any, progress: { current: number; total: number; message: string; gameTitle?: string; links?: any[]; images?: string[] }) => {
+      setRefreshProgress(prev => ({
+        ...progress,
+        mode: prev?.mode || (progress.message?.toLowerCase().includes('links') ? 'links' : 'all'),
+        links: progress.links,
+        images: progress.images
+      }));
     };
 
     const removeMetadataProgress = window.electronAPI?.on && window.electronAPI.on('metadata:refreshProgress', handleProgress);
@@ -1304,8 +1301,8 @@ export const GameManager: React.FC<GameManagerProps> = ({
       setShowFixMatch(false);
       setMetadataSearchResults([]);
       setMetadataSearchQuery('');
-      setSteamAppIdInput((game.id.startsWith('steam-') ? game.id.replace('steam-', '') : ''));
-
+      setIsRefreshingLinks(false);
+      setFoundLinks(null);
       // Update localGames if game was found in games prop but not localGames
       if (!localGames.find(g => g.id === gameId)) {
         setLocalGames(prevGames => [...prevGames, game]);
@@ -1442,7 +1439,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
 
       if (results.length > 0) {
         // Get the current game's Steam App ID if available
-        const currentSteamAppId = steamAppIdInput || (expandedGame?.id.startsWith('steam-') ? expandedGame.id.replace('steam-', '') : undefined);
+        const currentSteamAppId = expandedGame?.id.startsWith('steam-') ? expandedGame.id.replace('steam-', '') : undefined;
 
         // Show all results from all sources - let user choose
         const steamResults = results.filter((result: any) => result.source === 'steam');
@@ -1656,10 +1653,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
 
         setEditedGame(updatedGame);
 
-        // Update the Steam App ID input to show the App ID if we have one
-        if (steamAppId) {
-          setSteamAppIdInput(steamAppId);
-        }
+
 
         // Save the game immediately - pass old game to handle ID changes and prevent duplicates
         await onSaveGame(updatedGame, expandedGame);
@@ -1712,12 +1706,12 @@ export const GameManager: React.FC<GameManagerProps> = ({
             <button
               onClick={() => setShowRefreshDialog(true)}
               className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors flex items-center gap-2"
-              title="Refresh all metadata and images"
+              title="Manage metadata and images"
             >
               <svg className="w-4 h-4 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </svg>
-              Refresh Metadata
+              Manage Metadata
             </button>
             <button
               onClick={onClose}
@@ -1836,6 +1830,15 @@ export const GameManager: React.FC<GameManagerProps> = ({
                       }`}
                   >
                     Images
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('links')}
+                    className={`flex-1 px-6 py-3 text-sm font-medium transition-colors ${activeTab === 'links'
+                      ? 'bg-gray-800 text-white border-b-2 border-blue-500'
+                      : 'text-gray-400 hover:text-gray-300 hover:bg-gray-800/50'
+                      }`}
+                  >
+                    Links
                   </button>
                   <button
                     onClick={() => setActiveTab('modManager')}
@@ -2114,7 +2117,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
                                 <div className="mt-3">
                                   <div className="flex items-center justify-between mb-2">
                                     <h4 className="text-sm font-medium text-gray-300">
-                                      <span className="text-green-400">⚡</span> Quick Results - Click to see images:
+                                      <span className="text-green-400">âš¡</span> Quick Results - Click to see images:
                                     </h4>
                                     <button
                                       type="button"
@@ -2159,7 +2162,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
                                         <div className="flex-1 min-w-0">
                                           <div className="font-medium text-white truncate">{game.name}</div>
                                           <div className="text-xs text-gray-400">
-                                            {game.releaseDate ? new Date(game.releaseDate * 1000).getFullYear() : 'Unknown Year'} • {game.source || 'Unknown Source'}
+                                            {game.releaseDate ? new Date(game.releaseDate * 1000).getFullYear() : 'Unknown Year'} â€¢ {game.source || 'Unknown Source'}
                                           </div>
                                         </div>
                                         <div className="text-xs px-2 py-1 bg-gray-700 rounded text-gray-300 group-hover:bg-green-600 group-hover:text-white transition-colors">
@@ -2715,6 +2718,24 @@ export const GameManager: React.FC<GameManagerProps> = ({
                           <div className="flex-1">
                             <label className="block text-xs font-medium text-gray-400 mb-1">Title</label>
                             <div className="flex gap-2">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const newLockedFields = { ...editedGame.lockedFields };
+                                  newLockedFields.title = !newLockedFields.title;
+                                  setEditedGame({ ...editedGame, lockedFields: newLockedFields });
+                                }}
+                                className={`flex items-center justify-center p-1.5 rounded transition-colors ${editedGame.lockedFields?.title ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30' : 'bg-gray-700 text-gray-400 hover:bg-gray-600 hover:text-white'}`}
+                                title={editedGame.lockedFields?.title ? "Unlock Title" : "Lock Title"}
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  {editedGame.lockedFields?.title ? (
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                  ) : (
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" />
+                                  )}
+                                </svg>
+                              </button>
                               <input
                                 type="text"
                                 value={showFixMatch ? metadataSearchQuery : editedGame.title}
@@ -2732,7 +2753,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
                                 }}
                                 placeholder={showFixMatch ? "Enter game title to search..." : ""}
                                 className="flex-1 px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                disabled={showFixMatch && isSearchingMetadata}
+                                disabled={(showFixMatch && isSearchingMetadata) || editedGame.lockedFields?.title}
                               />
                               {showFixMatch && (
                                 <button
@@ -2826,64 +2847,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
                             </div>
                           </div>
 
-                          {/* Steam App ID */}
-                          <div className="w-full lg:w-1/3">
-                            <label className="block text-xs font-medium text-gray-400 mb-1">Steam App ID</label>
-                            <div className="flex gap-2">
-                              <input
-                                type="text"
-                                value={steamAppIdInput}
-                                onChange={(e) => {
-                                  // Only update the input value - don't update game ID yet
-                                  setSteamAppIdInput(e.target.value);
-                                }}
-                                onBlur={(e) => {
-                                  setIsSteamAppIdInputFocused(false);
-                                  // Update game ID when user finishes typing
-                                  const value = e.target.value.trim();
-                                  if (value && /^\d+$/.test(value)) {
-                                    const newGameId = `steam-${value}`;
-                                    setEditedGame({
-                                      ...editedGame,
-                                      id: newGameId,
-                                      platform: 'steam'
-                                    });
-                                  } else if (value === '') {
-                                    // If cleared, convert to custom game ID
-                                    const newGameId = `custom-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-                                    setEditedGame({
-                                      ...editedGame,
-                                      id: newGameId,
-                                      platform: editedGame.platform === 'steam' ? 'other' : editedGame.platform
-                                    });
-                                  }
-                                }}
-                                onFocus={() => {
-                                  setIsSteamAppIdInputFocused(true);
-                                }}
-                                onKeyDown={(e) => {
-                                  // Update game ID when user presses Enter
-                                  if (e.key === 'Enter') {
-                                    e.currentTarget.blur(); // This will trigger onBlur
-                                  }
-                                }}
-                                placeholder="Steam App ID"
-                                className="flex-1 px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                              />
-                              <button
-                                onClick={() => {
-                                  window.electronAPI.openExternal(`https://steamdb.info/search/?q=${encodeURIComponent(editedGame.title)}`);
-                                }}
-                                className="px-4 py-1.5 text-sm bg-purple-600 hover:bg-purple-700 text-white rounded transition-colors flex items-center gap-2"
-                                title="Search on steamdb.info"
-                              >
-                                <svg className="w-4 h-4 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                                </svg>
-                                SteamDB
-                              </button>
-                            </div>
-                          </div>
+
                         </div>
 
                         {/* Fix Match Results */}
@@ -2943,7 +2907,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
                                               <span className="text-xs text-gray-500">App ID: {result.steamAppId}</span>
                                             )}
                                             {displayDate && (
-                                              <span className="text-xs text-gray-400">��� {displayDate}</span>
+                                              <span className="text-xs text-gray-400">ï¿½ï¿½ï¿½ {displayDate}</span>
                                             )}
                                           </div>
                                         </div>
@@ -2964,33 +2928,40 @@ export const GameManager: React.FC<GameManagerProps> = ({
                           </div>
                         )}
 
-                        {/* Categories - refined single line layout */}
-                        <div>
-                          <label className="block text-xs font-medium text-gray-400 mb-1">Categories</label>
-                          <div className="flex items-center gap-2">
-                            {/* Input Area (Tags + Input) */}
-                            <div className="flex-1 flex items-center gap-2 p-1.5 bg-gray-800/50 rounded border border-gray-700 overflow-x-auto whitespace-nowrap min-h-[38px] scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent">
-                              {/* Existing Tags */}
-                              {editedGame.categories?.map((category, index) => (
-                                <span key={index} className="flex-shrink-0 inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-medium bg-blue-900/30 text-blue-200 border border-blue-700/30 rounded-full group hover:border-blue-500/50 transition-colors">
-                                  {category}
-                                  <button
-                                    onClick={() => {
-                                      const newCategories = [...(editedGame.categories || [])];
-                                      newCategories.splice(index, 1);
-                                      setEditedGame({ ...editedGame, categories: newCategories });
-                                    }}
-                                    className="ml-0.5 text-blue-400 hover:text-white focus:outline-none rounded-full p-0.5 hover:bg-blue-800/50 transition-colors"
-                                    title="Remove category"
-                                  >
-                                    <svg className="w-3 h-3 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                    </svg>
-                                  </button>
-                                </span>
-                              ))}
+                        {/* Description and Categories Row */}
+                        <div className="flex flex-col lg:flex-row gap-4">
+                          {/* Description */}
+                          <div className="flex-1">
+                            <label className="block text-xs font-medium text-gray-400 mb-1">Description</label>
+                            <textarea
+                              value={editedGame.description || ''}
+                              onChange={(e) => setEditedGame({ ...editedGame, description: e.target.value })}
+                              className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                              rows={4}
+                            />
+                          </div>
 
-                              {/* Input Field */}
+                          {/* Categories - vertical scroll layout */}
+                          <div className="w-full lg:w-[35%] flex flex-col">
+                            <label className="block text-xs font-medium text-gray-400 mb-1">Categories</label>
+                            <div className="flex-1 p-2 bg-gray-800/50 rounded border border-gray-700 flex flex-col gap-2 max-h-[104px] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent">
+                              <div className="flex flex-wrap gap-1">
+                                {editedGame.categories?.map((category, index) => (
+                                  <span key={index} className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium bg-blue-900/30 text-blue-200 border border-blue-700/30 rounded-full group hover:border-blue-500/50 transition-colors">
+                                    {category}
+                                    <button
+                                      onClick={() => {
+                                        const newCategories = [...(editedGame.categories || [])];
+                                        newCategories.splice(index, 1);
+                                        setEditedGame({ ...editedGame, categories: newCategories });
+                                      }}
+                                      className="ml-0.5 text-blue-400 hover:text-white focus:outline-none rounded-full"
+                                    >
+                                      &times;
+                                    </button>
+                                  </span>
+                                ))}
+                              </div>
                               <input
                                 type="text"
                                 value={newCategoryInput}
@@ -3011,234 +2982,122 @@ export const GameManager: React.FC<GameManagerProps> = ({
                                     }
                                   }
                                 }}
-                                placeholder={(!editedGame.categories || editedGame.categories.length === 0) ? "Add category..." : ""}
-                                className="min-w-[100px] flex-1 bg-transparent border-none text-sm text-white focus:outline-none placeholder-gray-500 py-0.5"
+                                placeholder="Add category..."
+                                className="w-full bg-transparent border-none text-xs text-white focus:outline-none placeholder-gray-500"
                               />
-                            </div>
-
-                            {/* Suggestions - Right Side */}
-                            <div className="flex items-center gap-2 max-w-[30%] overflow-x-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent py-1">
-                              {allCategories
-                                .filter(cat => !editedGame.categories?.includes(cat))
-                                .slice(0, 5) // Show top 5 unused categories
-                                .map((cat, idx) => (
-                                  <button
-                                    key={idx}
-                                    onClick={() => {
-                                      const currentCategories = editedGame.categories || [];
-                                      setEditedGame({
-                                        ...editedGame,
-                                        categories: [...currentCategories, cat]
-                                      });
-                                    }}
-                                    className="flex-shrink-0 px-2.5 py-1 text-xs font-medium bg-gray-700/50 hover:bg-gray-600 text-gray-300 border border-gray-600 rounded-full transition-colors whitespace-nowrap"
-                                  >
-                                    + {cat}
-                                  </button>
-                                ))}
                             </div>
                           </div>
                         </div>
 
-                        {/* Description */}
-                        <div>
-                          <label className="block text-xs font-medium text-gray-400 mb-1">Description</label>
-                          <textarea
-                            value={editedGame.description || ''}
-                            onChange={(e) => setEditedGame({ ...editedGame, description: e.target.value })}
-                            className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                            rows={3}
-                          />
-                        </div>
-
-                        {/* Metadata Grid - 4 Columns */}
-                        <div className="grid grid-cols-4 gap-3">
+                        {/* Metadata Grid - 5 Columns */}
+                        <div className="grid grid-cols-5 gap-2">
                           {/* Platform */}
                           {editedGame.platform && editedGame.platform !== 'other' && (
                             <div>
-                              <label className="block text-xs font-medium text-gray-400 mb-1">Platform</label>
+                              <label className="block text-[10px] uppercase tracking-wider font-semibold text-gray-500 mb-0.5">Platform</label>
                               <input
                                 type="text"
                                 value={editedGame.platform}
                                 onChange={(e) => setEditedGame({ ...editedGame, platform: e.target.value })}
-                                className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                className="w-full px-2 py-1 text-xs bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
                               />
                             </div>
                           )}
 
+
+
                           <div>
-                            <label className="block text-xs font-medium text-gray-400 mb-1">Release Date</label>
+                            <label className="block text-[10px] uppercase tracking-wider font-semibold text-gray-500 mb-0.5">Release Date</label>
                             <input
                               type="text"
                               value={editedGame.releaseDate || ''}
                               onChange={(e) => setEditedGame({ ...editedGame, releaseDate: e.target.value })}
                               placeholder="YYYY-MM-DD"
-                              className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                              className="w-full px-2 py-1 text-xs bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
                             />
                           </div>
                           <div>
-                            <label className="block text-xs font-medium text-gray-400 mb-1">Age Rating</label>
+                            <label className="block text-[10px] uppercase tracking-wider font-semibold text-gray-500 mb-0.5">Age Rating</label>
                             <input
                               type="text"
                               value={editedGame.ageRating || ''}
                               onChange={(e) => setEditedGame({ ...editedGame, ageRating: e.target.value })}
-                              className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                              className="w-full px-2 py-1 text-xs bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
                             />
                           </div>
                           <div>
-                            <label className="block text-xs font-medium text-gray-400 mb-1">Series</label>
+                            <label className="block text-[10px] uppercase tracking-wider font-semibold text-gray-500 mb-0.5">Series</label>
                             <input
                               type="text"
                               value={editedGame.series || ''}
                               onChange={(e) => setEditedGame({ ...editedGame, series: e.target.value })}
-                              className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                              className="w-full px-2 py-1 text-xs bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
                             />
                           </div>
                           <div>
-                            <label className="block text-xs font-medium text-gray-400 mb-1">Genres</label>
+                            <label className="block text-[10px] uppercase tracking-wider font-semibold text-gray-500 mb-0.5">Genres</label>
                             <input
                               type="text"
                               value={editedGame.genres?.join(', ') || ''}
                               onChange={(e) => setEditedGame({ ...editedGame, genres: e.target.value.split(',').map(g => g.trim()).filter(g => g) })}
-                              className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                              className="w-full px-2 py-1 text-xs bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
                             />
                           </div>
                           <div>
-                            <label className="block text-xs font-medium text-gray-400 mb-1">Developers</label>
+                            <label className="block text-[10px] uppercase tracking-wider font-semibold text-gray-500 mb-0.5">Developers</label>
                             <input
                               type="text"
                               value={editedGame.developers?.join(', ') || ''}
                               onChange={(e) => setEditedGame({ ...editedGame, developers: e.target.value.split(',').map(d => d.trim()).filter(d => d) })}
-                              className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                              className="w-full px-2 py-1 text-xs bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
                             />
                           </div>
                           <div>
-                            <label className="block text-xs font-medium text-gray-400 mb-1">Publishers</label>
+                            <label className="block text-[10px] uppercase tracking-wider font-semibold text-gray-500 mb-0.5">Publishers</label>
                             <input
                               type="text"
                               value={editedGame.publishers?.join(', ') || ''}
                               onChange={(e) => setEditedGame({ ...editedGame, publishers: e.target.value.split(',').map(p => p.trim()).filter(p => p) })}
-                              className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                              className="w-full px-2 py-1 text-xs bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
                             />
                           </div>
                           <div>
-                            <label className="block text-xs font-medium text-gray-400 mb-1">Tags</label>
-                            <input
-                              type="text"
-                              value={editedGame.tags?.join(', ') || ''}
-                              onChange={(e) => setEditedGame({ ...editedGame, tags: e.target.value.split(',').map(t => t.trim()).filter(t => t) })}
-                              className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-medium text-gray-400 mb-1">Region</label>
-                            <input
-                              type="text"
-                              value={editedGame.region || ''}
-                              onChange={(e) => setEditedGame({ ...editedGame, region: e.target.value })}
-                              className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-medium text-gray-400 mb-1">User Score</label>
-                            <input
-                              type="number"
-                              value={editedGame.userScore ?? ''}
-                              onChange={(e) => setEditedGame({ ...editedGame, userScore: e.target.value ? Number(e.target.value) : undefined })}
-                              className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-medium text-gray-400 mb-1">Critic Score</label>
-                            <input
-                              type="number"
-                              value={editedGame.criticScore ?? ''}
-                              onChange={(e) => setEditedGame({ ...editedGame, criticScore: e.target.value ? Number(e.target.value) : undefined })}
-                              className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-medium text-gray-400 mb-1">Community Score</label>
-                            <input
-                              type="number"
-                              value={editedGame.communityScore ?? ''}
-                              onChange={(e) => setEditedGame({ ...editedGame, communityScore: e.target.value ? Number(e.target.value) : undefined })}
-                              className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-medium text-gray-400 mb-1">Install Directory</label>
-                            <input
-                              type="text"
-                              value={editedGame.installationDirectory || ''}
-                              onChange={(e) => setEditedGame({ ...editedGame, installationDirectory: e.target.value })}
-                              className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-medium text-gray-400 mb-1">Executable Path</label>
-                            <input
-                              type="text"
-                              value={editedGame.exePath || ''}
-                              onChange={(e) => setEditedGame({ ...editedGame, exePath: e.target.value })}
-                              className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-medium text-gray-400 mb-1">Install Size</label>
-                            <input
-                              type="text"
-                              value={editedGame.installSize ? `${Math.round(editedGame.installSize / 1024 / 1024 / 1024 * 100) / 100} GB` : ''}
-                              readOnly
-                              className="w-full px-3 py-1.5 text-sm bg-gray-800/50 border border-gray-600 rounded text-gray-400"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-medium text-gray-400 mb-1">Last Played</label>
-                            <input
-                              type="text"
-                              value={editedGame.lastPlayed || ''}
-                              readOnly
-                              className="w-full px-3 py-1.5 text-sm bg-gray-800/50 border border-gray-600 rounded text-gray-400"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-medium text-gray-400 mb-1">Play Count</label>
-                            <input
-                              type="number"
-                              value={editedGame.playCount ?? ''}
-                              onChange={(e) => setEditedGame({ ...editedGame, playCount: e.target.value ? Number(e.target.value) : undefined })}
-                              className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-medium text-gray-400 mb-1">Completion Status</label>
-                            <input
-                              type="text"
-                              value={editedGame.completionStatus || ''}
-                              onChange={(e) => setEditedGame({ ...editedGame, completionStatus: e.target.value })}
-                              className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-medium text-gray-400 mb-1">Source</label>
+                            <label className="block text-[10px] uppercase tracking-wider font-semibold text-gray-500 mb-0.5">Source</label>
                             <input
                               type="text"
                               value={editedGame.source || ''}
                               onChange={(e) => setEditedGame({ ...editedGame, source: e.target.value })}
-                              className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                              className="w-full px-2 py-1 text-xs bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
                             />
                           </div>
-                          {/* Notes - Span 4 columns */}
-                          <div className="col-span-4">
-                            <label className="block text-xs font-medium text-gray-400 mb-1">Notes</label>
-                            <textarea
-                              value={editedGame.notes || ''}
-                              onChange={(e) => setEditedGame({ ...editedGame, notes: e.target.value })}
-                              className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                              rows={2}
+                          <div className="col-span-2">
+                            <label className="block text-[10px] uppercase tracking-wider font-semibold text-gray-500 mb-0.5">Install Directory</label>
+                            <input
+                              type="text"
+                              value={editedGame.installationDirectory || ''}
+                              onChange={(e) => setEditedGame({ ...editedGame, installationDirectory: e.target.value })}
+                              className="w-full px-2 py-1 text-xs bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
                             />
                           </div>
+                          <div className="col-span-2">
+                            <label className="block text-[10px] uppercase tracking-wider font-semibold text-gray-500 mb-0.5">Executable Path</label>
+                            <input
+                              type="text"
+                              value={editedGame.exePath || ''}
+                              onChange={(e) => setEditedGame({ ...editedGame, exePath: e.target.value })}
+                              className="w-full px-2 py-1 text-xs bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] uppercase tracking-wider font-semibold text-gray-500 mb-0.5">Install Size</label>
+                            <input
+                              type="text"
+                              value={editedGame.installSize ? `${Math.round(editedGame.installSize / 1024 / 1024 / 1024 * 100) / 100} GB` : ''}
+                              readOnly
+                              className="w-full px-2 py-1 text-xs bg-gray-800/50 border border-gray-600 rounded text-gray-400"
+                            />
+                          </div>
+
                         </div>
 
                         {/* Action Buttons */}
@@ -3278,6 +3137,192 @@ export const GameManager: React.FC<GameManagerProps> = ({
                             </button>
                           )}
                         </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {activeTab === 'links' && editedGame && (
+                    <div className="p-4 h-full overflow-y-auto flex flex-col">
+                      <div className="flex items-center justify-between mb-4">
+                        <label className="block text-xs font-semibold uppercase tracking-wider text-gray-400">Official Links</label>
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              if (!editedGame) return;
+                              setIsRefreshingLinks(true);
+                              setFoundLinks(null);
+                              setError(null);
+                              try {
+                                const result = await window.electronAPI.findLinks(editedGame.id);
+                                if (result.success) {
+                                  setFoundLinks(result.links);
+                                } else {
+                                  setError(result.error || 'Failed to find links');
+                                }
+                              } catch (error) {
+                                console.error('Failed to refresh links:', error);
+                                setError('An unexpected error occurred while searching for links');
+                              } finally {
+                                setIsRefreshingLinks(false);
+                              }
+                            }}
+                            disabled={isRefreshingLinks}
+                            className="text-xs text-green-400 hover:text-green-300 font-medium px-3 py-1.5 bg-green-500/10 hover:bg-green-500/20 rounded transition-colors disabled:opacity-50 flex items-center gap-2"
+                          >
+                            <svg className={`w-4 h-4 ${isRefreshingLinks ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
+                            {isRefreshingLinks ? 'Searching...' : 'Refresh Links'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditedGame(prev => ({
+                                ...prev!,
+                                links: [...(prev!.links || []), { name: '', url: '' }]
+                              }));
+                            }}
+                            className="text-xs text-blue-400 hover:text-blue-300 font-medium px-3 py-1.5 bg-blue-500/10 hover:bg-blue-500/20 rounded transition-colors"
+                          >
+                            + Add Link
+                          </button>
+                        </div>
+                      </div>
+                      <div className="space-y-2 flex-1 min-h-0 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent">
+                        {isRefreshingLinks ? (
+                          <div className="flex flex-col items-center justify-center py-8 gap-3">
+                            <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                            <div className="text-sm text-gray-400">Searching for Links...</div>
+                          </div>
+                        ) : foundLinks ? (
+                          <div className="bg-blue-500/5 border border-blue-500/20 rounded-lg p-3 space-y-3">
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-semibold text-blue-400 uppercase tracking-wider">Found Links</span>
+                              <div className="flex gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setEditedGame(prev => ({
+                                      ...prev!,
+                                      links: [...(prev!.links || []), ...foundLinks]
+                                    }));
+                                    setFoundLinks(null);
+                                  }}
+                                  className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded transition-colors"
+                                >
+                                  Apply All
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setFoundLinks(null)}
+                                  className="text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 px-2 py-1 rounded transition-colors"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
+                            <div className="space-y-1.5">
+                              {foundLinks.map((link, idx) => (
+                                <div key={idx} className="flex items-center justify-between text-xs bg-gray-800/50 px-2 py-1.5 rounded">
+                                  <span className="text-gray-300 font-medium truncate">{link.name}</span>
+                                  <span className="text-gray-500 truncate ml-2 max-w-[200px]">{link.url}</span>
+                                </div>
+                              ))}
+                              {foundLinks.length === 0 && <div className="text-xs text-gray-500 italic py-2">No new links found.</div>}
+                            </div>
+                          </div>
+                        ) : !editedGame.links || editedGame.links.length === 0 ? (
+                          <div className="text-sm text-gray-500 italic py-6">No links added. Use Refresh Links to fetch from IGDB or add manually.</div>
+                        ) : (
+                          <div className="space-y-2">
+                            {editedGame.links.map((link, idx) => {
+                              const iconKey = inferLinkKey(link.url, link.name);
+                              const brandColor = (BRAND_COLORS[iconKey] || BRAND_COLORS.fallback) ?? '#374151';
+                              return (
+                                <div key={idx} className="flex gap-2 items-center">
+                                  <button
+                                    type="button"
+                                    onClick={() => setLinkIconPopupIndex(idx)}
+                                    title="Change icon"
+                                    className="w-9 h-9 flex-shrink-0 flex items-center justify-center rounded text-white border border-gray-600 hover:border-gray-500 transition-colors"
+                                    style={{ backgroundColor: brandColor }}
+                                  >
+                                    <LinkIcon iconKey={iconKey} className="w-[70%] h-[70%]" customIconUrl={link.iconUrl} />
+                                  </button>
+                                  <input
+                                    type="text"
+                                    value={link.name}
+                                    onChange={(e) => {
+                                      const newLinks = [...editedGame.links!];
+                                      newLinks[idx] = { ...newLinks[idx], name: e.target.value };
+                                      setEditedGame({ ...editedGame, links: newLinks });
+                                    }}
+                                    placeholder="Label (e.g. Steam)"
+                                    className="w-28 px-2 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                  />
+                                  <input
+                                    type="text"
+                                    value={link.url}
+                                    onChange={(e) => {
+                                      const newLinks = [...editedGame.links!];
+                                      newLinks[idx] = { ...newLinks[idx], url: e.target.value };
+                                      setEditedGame({ ...editedGame, links: newLinks });
+                                    }}
+                                    placeholder="URL"
+                                    className="flex-1 px-2 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const newLinks = [...editedGame.links!];
+                                      newLinks.splice(idx, 1);
+                                      setEditedGame({ ...editedGame, links: newLinks });
+                                    }}
+                                    className="px-3 py-1.5 text-xs text-red-400 hover:text-red-300 bg-red-500/10 hover:bg-red-500/20 rounded transition-colors shrink-0"
+                                  >
+                                    Remove
+                                  </button>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex gap-2 pt-4 mt-4 border-t border-gray-700 flex-shrink-0">
+                        <button
+                          onClick={handleSave}
+                          disabled={isSaving}
+                          className="flex-1 px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors disabled:opacity-50"
+                        >
+                          {isSaving ? 'Saving...' : 'Save'}
+                        </button>
+                        <button
+                          onClick={() => {
+                            setExpandedGameId(null);
+                            setEditedGame(null);
+                            setShowFixMatch(false);
+                            setSelectedGameId(null);
+                            setMetadataSearchResults([]);
+                            setMetadataSearchQuery('');
+                            setIsSearchingMetadata(false);
+                          }}
+                          className="px-4 py-2 text-sm bg-gray-600 hover:bg-gray-700 text-white rounded transition-colors"
+                        >
+                          Cancel
+                        </button>
+                        {onDeleteGame && (
+                          <button
+                            onClick={() => setShowDeleteConfirm(true)}
+                            disabled={isDeleting}
+                            className="px-4 py-2 text-sm bg-red-600 hover:bg-red-700 text-white rounded transition-colors disabled:opacity-50 flex items-center gap-2"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                            Delete
+                          </button>
+                        )}
                       </div>
                     </div>
                   )}
@@ -3364,6 +3409,11 @@ export const GameManager: React.FC<GameManagerProps> = ({
           setRefreshMode('missing');
           setShowRefreshConfirm(true);
         }}
+        onSelectLinksOnly={() => {
+          setShowRefreshDialog(false);
+          setRefreshMode('links');
+          setShowRefreshConfirm(true);
+        }}
         onCancel={() => {
           setShowRefreshDialog(false);
         }}
@@ -3372,17 +3422,21 @@ export const GameManager: React.FC<GameManagerProps> = ({
       {/* Refresh Metadata Confirmation Dialog */}
       <ConfirmationDialog
         isOpen={showRefreshConfirm}
-        title={refreshMode === 'all' ? 'Refresh All Games' : 'Refresh Missing Images Only'}
+        title={refreshMode === 'all' ? 'Refresh all metadata for all games' : refreshMode === 'links' ? 'Refresh all Links' : 'Search for missing images only'}
         message={refreshMode === 'all'
-          ? 'This will remove all existing metadata and images for every game in your library and fetch fresh data from online sources.'
-          : 'This will refresh metadata and images only for games that are missing box art or banner images. Games with existing images will be left unchanged.'}
-        note="This action cannot be undone. All cached images for selected games will be deleted and metadata will be re-fetched from online sources."
+          ? 'This is the nuclear option. It will remove all stored metadata and pull everything fresh: metadata, images, icons, link icons.'
+          : refreshMode === 'links'
+            ? 'This will nuke all links from all games and add them fresh from IGDB.'
+            : 'This will only search for missing images (all image types). No existing metadata or images will be changed.'}
+        note={refreshMode === 'all'
+          ? "This action is intensive. All cached images will be replaced and metadata re-fetched from scratch."
+          : "This action is safe and only updates the specific fields selected."}
         confirmText="Continue"
         cancelText="Cancel"
         variant="danger"
         onConfirm={async () => {
           setShowRefreshConfirm(false);
-          setRefreshProgress({ current: 0, total: 0, message: 'Starting...' });
+          setRefreshProgress({ current: 0, total: 0, message: 'Starting...', mode: refreshMode || 'all' });
           setRefreshState({ mode: refreshMode || 'all' });
           try {
             setError(null);
@@ -3413,13 +3467,30 @@ export const GameManager: React.FC<GameManagerProps> = ({
               transition: 'opacity 0.3s ease-out'
             }}
           >
-            <div className="bg-gray-800 rounded-lg shadow-xl border border-gray-700 w-full max-w-md p-6">
-              <h3 className="text-xl font-semibold text-white mb-4">Refreshing Metadata</h3>
+            <div className={`bg-gray-800 rounded-lg shadow-xl border ${refreshProgress.mode === 'links' ? 'border-purple-500/50' : 'border-gray-700'} w-full max-w-md p-6 overflow-hidden`}>
+              <div className="flex items-center gap-3 mb-4">
+                {refreshProgress.mode === 'links' ? (
+                  <div className="w-8 h-8 rounded-lg bg-purple-600/20 flex items-center justify-center">
+                    <svg className="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                    </svg>
+                  </div>
+                ) : (
+                  <div className="w-8 h-8 rounded-lg bg-blue-600/20 flex items-center justify-center">
+                    <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                  </div>
+                )}
+                <h3 className="text-xl font-semibold text-white">
+                  {refreshProgress.mode === 'links' ? 'Refreshing Links' : 'Refreshing Metadata'}
+                </h3>
+              </div>
 
               {/* Progress Bar */}
               <div className="w-full bg-gray-700 rounded-full h-3 mb-4 overflow-hidden">
                 <div
-                  className="bg-blue-600 h-full transition-all duration-300 ease-out rounded-full"
+                  className={`${refreshProgress.mode === 'links' ? 'bg-purple-600' : 'bg-blue-600'} h-full transition-all duration-300 ease-out rounded-full`}
                   style={{
                     width: refreshProgress.total > 0
                       ? `${(refreshProgress.current / refreshProgress.total) * 100}%`
@@ -3429,34 +3500,74 @@ export const GameManager: React.FC<GameManagerProps> = ({
               </div>
 
               {/* Progress Text */}
-              <div className="text-sm text-gray-300 mb-2">
-                {refreshProgress.total > 0 ? (
-                  <span>
-                    {refreshProgress.current} of {refreshProgress.total} games
-                  </span>
-                ) : (
-                  <span>Preparing...</span>
-                )}
+              <div className="flex justify-between items-center mb-1">
+                <div className="text-sm text-gray-300">
+                  {refreshProgress.total > 0 ? (
+                    <span>
+                      {refreshProgress.current} of {refreshProgress.total} games
+                    </span>
+                  ) : (
+                    <span>Preparing...</span>
+                  )}
+                </div>
+                <div className="text-[10px] text-gray-500 font-mono">
+                  {refreshProgress.total > 0 ? `${Math.round((refreshProgress.current / refreshProgress.total) * 100)}%` : '0%'}
+                </div>
               </div>
 
               {/* Current Status Message */}
-              <div className="text-sm text-gray-400 min-h-[40px]">
+              <div className="text-sm text-gray-400 min-h-[20px] mb-2">
                 {refreshProgress.message}
               </div>
 
-              {/* Current Game Title */}
-              {refreshProgress.gameTitle && (
-                <div className="text-xs text-gray-500 mt-2 italic">
-                  {refreshProgress.gameTitle}
-                </div>
-              )}
+              {/* Current Game Details */}
+              <div className="bg-gray-900/50 rounded-lg p-3 border border-gray-700/50">
+                {refreshProgress.gameTitle ? (
+                  <div className="text-sm text-white font-medium mb-1 truncate">
+                    {refreshProgress.gameTitle}
+                  </div>
+                ) : (
+                  <div className="text-xs text-gray-500 italic">Waiting for discovery...</div>
+                )}
+
+                {refreshProgress.mode === 'links' && refreshProgress.links && refreshProgress.links.length > 0 ? (
+                  <div className="flex flex-wrap gap-1.5 mt-2">
+                    {refreshProgress.links.map((link, idx) => (
+                      <span key={idx} className="text-[10px] bg-purple-500/10 text-purple-400 border border-purple-500/20 px-1.5 py-0.5 rounded">
+                        {link.name}
+                      </span>
+                    ))}
+                  </div>
+                ) : refreshProgress.mode !== 'links' && refreshProgress.images && refreshProgress.images.length > 0 ? (
+                  <div className="flex flex-wrap gap-1.5 mt-2">
+                    {refreshProgress.images.map((asset, idx) => (
+                      <span key={idx} className="text-[10px] bg-blue-500/10 text-blue-400 border border-blue-500/20 px-1.5 py-0.5 rounded">
+                        {asset}
+                      </span>
+                    ))}
+                  </div>
+                ) : refreshProgress.gameTitle && !refreshProgress.message.includes('Searching') && !refreshProgress.message.includes('Fetching') ? (
+                  <div className="text-[10px] text-gray-500 italic mt-1">No new {refreshProgress.mode === 'links' ? 'links' : 'assets'} found for this game.</div>
+                ) : null}
+              </div>
 
               {/* Show completion message if done */}
               {refreshProgress.total > 0 && refreshProgress.current >= refreshProgress.total && (
                 <div className="mt-4 pt-4 border-t border-gray-700">
-                  <div className="text-sm text-green-400 font-medium">
-                    ԣ� Refresh completed!
+                  <div className="text-sm text-green-400 font-medium flex items-center gap-2">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                    Refresh completed!
                   </div>
+                  {refreshProgress.mode === 'links' && (
+                    <div className="mt-4 flex justify-end">
+                      <button
+                        onClick={() => setRefreshProgress(null)}
+                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded transition-colors"
+                      >
+                        Finish
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -3635,6 +3746,85 @@ export const GameManager: React.FC<GameManagerProps> = ({
           }}
         />
       )}
+
+      {/* Link icon change popup */}
+      {linkIconPopupIndex !== null && editedGame?.links?.[linkIconPopupIndex] && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60" onClick={() => setLinkIconPopupIndex(null)}>
+          <div className="bg-gray-900 border border-gray-700 rounded-xl shadow-2xl p-4 w-[320px] max-w-[90vw]" onClick={e => e.stopPropagation()}>
+            <h3 className="text-sm font-semibold text-gray-200 mb-3">Change icon for &quot;{editedGame.links[linkIconPopupIndex].name || 'Link'}&quot;</h3>
+            <div className="flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  const query = getLinkIconSearchQuery(editedGame.links![linkIconPopupIndex].name);
+                  window.electronAPI.openExternal(`https://www.google.com/search?q=${query}`);
+                  setLinkIconPopupIndex(null);
+                }}
+                className="w-full px-3 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center justify-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                Search for icon in browser
+              </button>
+              <button
+                type="button"
+                onClick={() => linkIconFileInputRef.current?.click()}
+                className="w-full px-3 py-2 text-sm bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors flex items-center justify-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                </svg>
+                Upload SVG icon
+              </button>
+              {editedGame.links[linkIconPopupIndex].iconUrl && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const newLinks = [...editedGame.links!];
+                    newLinks[linkIconPopupIndex] = { ...newLinks[linkIconPopupIndex], iconUrl: undefined };
+                    setEditedGame({ ...editedGame, links: newLinks });
+                    setLinkIconPopupIndex(null);
+                  }}
+                  className="w-full px-3 py-2 text-sm text-gray-300 hover:text-white bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors"
+                >
+                  Remove custom icon
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setLinkIconPopupIndex(null)}
+                className="w-full px-3 py-2 text-sm text-gray-400 hover:text-gray-200 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      <input
+        ref={linkIconFileInputRef}
+        type="file"
+        accept=".svg"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (!file || linkIconPopupIndex === null || !editedGame?.links?.[linkIconPopupIndex]) {
+            e.target.value = '';
+            return;
+          }
+          const reader = new FileReader();
+          reader.onload = () => {
+            const dataUrl = reader.result as string;
+            const newLinks = [...editedGame.links!];
+            newLinks[linkIconPopupIndex] = { ...newLinks[linkIconPopupIndex], iconUrl: dataUrl };
+            setEditedGame({ ...editedGame, links: newLinks });
+            setLinkIconPopupIndex(null);
+          };
+          reader.readAsDataURL(file);
+          e.target.value = '';
+        }}
+      />
     </div >
   );
 };

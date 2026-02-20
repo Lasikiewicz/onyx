@@ -145,7 +145,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   minimizeWindow: () => ipcRenderer.invoke('app:minimizeWindow'),
   restoreWindow: () => ipcRenderer.invoke('app:restoreWindow'),
   // Refresh all metadata
-  refreshAllMetadata: (options?: { allGames?: boolean; gameIds?: string[] }) => ipcRenderer.invoke('metadata:refreshAll', options),
+  refreshAllMetadata: (options?: { allGames?: boolean; gameIds?: string[]; continueFromIndex?: number; linksOnly?: boolean }) => ipcRenderer.invoke('metadata:refreshAll', options),
+  findLinks: (gameId: string) => ipcRenderer.invoke('metadata:findLinks', gameId),
   maximizeWindow: () => ipcRenderer.invoke('app:maximizeWindow'),
   closeWindow: () => ipcRenderer.invoke('app:closeWindow'),
   // App reset method

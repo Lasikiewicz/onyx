@@ -42,6 +42,7 @@ export interface GameMetadata {
   logoResolution?: { width: number; height: number };
   heroResolution?: { width: number; height: number };
   iconResolution?: { width: number; height: number };
+  links?: Array<{ name: string; url: string }>;
 }
 
 export interface IGDBConfig {
@@ -363,6 +364,18 @@ export class MetadataFetcherService {
       Object.assign(merged, steamDesc);
     }
 
+    // Helper to normalize URLs for comparison (handle trailing slashes and common prefixes uniformly)
+    const normalizeUrl = (u: string) => {
+      try {
+        const urlObj = new URL(u);
+        const host = urlObj.hostname.toLowerCase().replace(/^www\./, '');
+        const path = urlObj.pathname.replace(/\/+$/, '');
+        return host + path;
+      } catch {
+        return u.toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/+$/, '');
+      }
+    };
+
     // Layer other descriptions for missing fields
     for (const desc of descriptions) {
       if (!desc) continue;
@@ -385,6 +398,29 @@ export class MetadataFetcherService {
       if (desc.platforms && desc.platforms.length > 0) {
         merged.platforms = Array.from(new Set([...(merged.platforms || []), ...desc.platforms]));
       }
+
+      if (desc.links && desc.links.length > 0) {
+        // Merge links, ensuring no duplicate URLs (normalized)
+        const existingNormalizedUrls = new Set((merged.links || []).map(l => normalizeUrl(l.url)));
+        const newLinks = desc.links.filter(l => !existingNormalizedUrls.has(normalizeUrl(l.url)));
+        if (newLinks.length > 0) {
+          merged.links = [...(merged.links || []), ...newLinks];
+        }
+      }
+    }
+
+    // Sort links by default order (same as IGDB link order)
+    if (merged.links && merged.links.length > 0) {
+      const linkOrder = [
+        'Official Website', 'YouTube', 'Subreddit', 'Discord', 'Community Wiki', 'Wikipedia',
+        'Facebook', 'Twitter', 'Twitch', 'Instagram', 'Steam', 'Epic', 'Xbox', 'PlayStation'
+      ];
+      const orderIndex = new Map(linkOrder.map((name, i) => [name.toLowerCase(), i]));
+      merged.links.sort((a, b) => {
+        const ia = orderIndex.get((a.name || '').toLowerCase()) ?? 999;
+        const ib = orderIndex.get((b.name || '').toLowerCase()) ?? 999;
+        return ia - ib;
+      });
     }
 
     // Clean up age rating to keep only PEGI if present (as per original logic requirement)
@@ -565,16 +601,23 @@ export class MetadataFetcherService {
    * Get complete game metadata from official store ONLY (Steam, Epic, GOG, etc.)
    * No search needed - we already have platform IDs from game scanning
    */
-  async searchArtwork(title: string, steamAppId?: string, bypassCache: boolean = false): Promise<GameMetadata> {
-    console.log(`[MetadataFetcher.searchArtwork] Starting for "${title}" (steamAppId: ${steamAppId}, bypassCache: ${bypassCache})`);
+  async searchArtwork(title: string, steamAppId?: string, bypassCache: boolean = false, linksOnly: boolean = false): Promise<GameMetadata> {
+    console.log(`[MetadataFetcher.searchArtwork] Starting for "${title}" (steamAppId: ${steamAppId}, bypassCache: ${bypassCache}, linksOnly: ${linksOnly})`);
 
     // Use Steam App ID if available, otherwise fallback to title-based search across all providers
-    const artworkResult = await this.fetchCompleteMetadata(title, null, steamAppId, bypassCache);
-    console.log(`[MetadataFetcher.searchArtwork] Complete metadata result for "${title}":`, {
-      boxArtUrl: artworkResult.boxArtUrl ? 'present' : 'missing',
-      logoUrl: artworkResult.logoUrl ? 'present' : 'missing',
-      bannerUrl: artworkResult.bannerUrl ? 'present' : 'missing',
-    });
+    const artworkResult = await this.fetchCompleteMetadata(title, null, steamAppId, bypassCache, linksOnly);
+    if (linksOnly) {
+      console.log(`[MetadataFetcher.searchArtwork] Links search complete for "${title}":`, {
+        linksCount: (artworkResult.links || []).length
+      });
+    } else {
+      console.log(`[MetadataFetcher.searchArtwork] Complete metadata result for "${title}":`, {
+        boxArtUrl: artworkResult.boxArtUrl ? 'present' : 'missing',
+        logoUrl: artworkResult.logoUrl ? 'present' : 'missing',
+        bannerUrl: artworkResult.bannerUrl ? 'present' : 'missing',
+        linksCount: (artworkResult.links || []).length
+      });
+    }
     return artworkResult;
   }
 
@@ -585,7 +628,8 @@ export class MetadataFetcherService {
     gameTitle: string,
     matchedGame?: GameSearchResult | null,
     steamAppId?: string,
-    bypassCache: boolean = false
+    bypassCache: boolean = false,
+    linksOnly: boolean = false
   ): Promise<GameMetadata> {
     const rateLimiter = getRateLimitCoordinator();
     const cache = getMetadataCache();
@@ -618,19 +662,22 @@ export class MetadataFetcherService {
       console.log(`[MetadataFetcher] Bypassing cache for ${gameTitle}`);
     }
 
-    const artworkMetadata = await rateLimiter.queueRequest("artwork", async () =>
-      withRetry(() => this.fetchArtworkForGame(effectiveMatch, steamAppId), { maxRetries: 3, delay: 1000 })
-    );
+    let artworkMetadata: GameMetadata = this.getEmptyMetadata();
+    if (!linksOnly) {
+      artworkMetadata = await rateLimiter.queueRequest("artwork", async () =>
+        withRetry(() => this.fetchArtworkForGame(effectiveMatch, steamAppId), { maxRetries: 3, delay: 1000 })
+      );
+    }
 
     await new Promise(resolve => setTimeout(resolve, 200));
 
     const textMetadata = await rateLimiter.queueRequest("description", async () =>
-      withRetry(() => this.fetchDescriptionForGame(effectiveMatch, steamAppId), { maxRetries: 3, delay: 1000 })
+      withRetry(() => this.fetchDescriptionForGame(effectiveMatch, steamAppId, linksOnly), { maxRetries: 3, delay: 1000 })
     );
 
     const mergedMetadata: GameMetadata = { ...artworkMetadata, ...textMetadata };
 
-    if (!validator.validateMetadata(mergedMetadata, effectiveMatch)) {
+    if (!validator.validateMetadata(mergedMetadata, effectiveMatch, { linksOnly })) {
       console.warn(`[MetadataFetcher] Metadata validation failed for ${gameTitle}`);
     }
 
@@ -862,7 +909,8 @@ export class MetadataFetcherService {
    */
   private async fetchDescriptionForGame(
     matchedGame: GameSearchResult,
-    steamAppId?: string
+    steamAppId?: string,
+    linksOnly: boolean = false
   ): Promise<Partial<GameMetadata>> {
     let steamAppIdToUse = steamAppId || matchedGame.steamAppId;
     const descriptions: (GameDescription | null)[] = [];
@@ -875,45 +923,50 @@ export class MetadataFetcherService {
 
     const providersToTry: Array<() => Promise<GameDescription | null>> = [];
 
-    // 1. Steam Provider
-    if (this.steamProvider?.isAvailable()) {
+    // 1. Steam Provider - Skip if we only want links (user explicitly requested IGDB only)
+    if (!linksOnly && this.steamProvider?.isAvailable()) {
       if (isValidSteamAppId(steamAppIdToUse)) {
-        providersToTry.push(() => this.steamProvider!.getDescription(`steam-${steamAppIdToUse}`));
+        providersToTry.push(() => this.steamProvider!.getDescription(`steam-${steamAppIdToUse}`, linksOnly));
       } else {
         providersToTry.push(async () => {
           const results = await this.steamProvider!.searchGames(matchedGame.title);
           if (results.length > 0) {
             steamAppIdToUse = results[0].steamAppId;
-            return this.steamProvider!.getDescription(`steam-${steamAppIdToUse}`);
+            return this.steamProvider!.getDescription(`steam-${steamAppIdToUse}`, linksOnly);
           }
           return null;
         });
       }
     }
 
-    // 2. Fallback Providers (IGDB, RAWG) - ONLY use if we didn't find a Steam App ID
-    if (!steamAppIdToUse) {
-      if (this.igdbProvider?.isAvailable()) {
-        providersToTry.push(async () => {
-          if (matchedGame.source === 'igdb') {
-            return this.igdbProvider!.getDescription(matchedGame.id);
-          }
-          const results = await this.igdbProvider!.search(matchedGame.title);
-          return results.length > 0 ? this.igdbProvider!.getDescription(results[0].id) : null;
-        });
-      }
+    // 2. Fallback Providers (IGDB, RAWG)
+    // Always use IGDB for links, even if Steam ID found
+    if (this.igdbProvider?.isAvailable()) {
+      providersToTry.push(async () => {
+        if (matchedGame.source === 'igdb') {
+          return this.igdbProvider!.getDescription(matchedGame.id, linksOnly);
+        }
+        // Pass steamAppIdToUse so the IGDB provider can perform a precise exact-match lookup 
+        // to find the exact IGDB item corresponding to this Steam title.
+        const results = await this.igdbProvider!.search(matchedGame.title, steamAppIdToUse, linksOnly);
+        if (results.length === 0) return null;
+        // Prefer exact title match so we get the main game entry (with full links), not a DLC/variant that may have few links
+        const searchTitle = (matchedGame.title || '').trim().toLowerCase();
+        const exact = results.find((r) => (r.title || '').trim().toLowerCase() === searchTitle);
+        const best = exact ?? results[0];
+        return this.igdbProvider!.getDescription(best.id, linksOnly);
+      });
+    }
 
-      if (this.rawgProvider?.isAvailable()) {
-        providersToTry.push(async () => {
-          if (matchedGame.source === 'rawg') {
-            return this.rawgProvider!.getDescription(matchedGame.id);
-          }
-          const results = await this.rawgProvider!.search(matchedGame.title);
-          return results.length > 0 ? this.rawgProvider!.getDescription(results[0].id) : null;
-        });
-      }
-    } else {
-      console.log(`[fetchDescriptionForGame] Skipping IGDB/RAWG because valid Steam App ID ${steamAppIdToUse} is available.`);
+    // Skip RAWG if linksOnly is requested
+    if (!linksOnly && this.rawgProvider?.isAvailable()) {
+      providersToTry.push(async () => {
+        if (matchedGame.source === 'rawg') {
+          return this.rawgProvider!.getDescription(matchedGame.id, linksOnly);
+        }
+        const results = await this.rawgProvider!.search(matchedGame.title, steamAppIdToUse, linksOnly);
+        return results.length > 0 ? this.rawgProvider!.getDescription(results[0].id, linksOnly) : null;
+      });
     }
 
     const results = await Promise.all(providersToTry.map(p => p()));
@@ -933,6 +986,7 @@ export class MetadataFetcherService {
       rating: mergedDescription.rating,
       platforms: mergedDescription.platforms,
       categories: mergedDescription.categories,
+      links: mergedDescription.links,
     };
   }
 
@@ -966,6 +1020,7 @@ export class MetadataFetcherService {
       rating: mergedDescription.rating,
       platforms: mergedDescription.platforms,
       categories: mergedDescription.categories,
+      links: mergedDescription.links,
     };
   }
 
