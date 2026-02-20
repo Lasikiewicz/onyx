@@ -139,6 +139,8 @@ export interface UserPreferences {
   isViewFlippedByView?: Record<'grid' | 'list' | 'logo' | 'carousel' | 'coverflow', boolean>;
   coverFlowCoverSize?: number;
   coverFlowReflection?: number;
+  coverFlowVerticalOffset?: number;
+  coverFlowSideOpacity?: number;
   coverFlowShowButtons?: boolean;
   coverFlowButtonPosition?: 'left' | 'middle' | 'right';
   coverFlowButtonColors?: { playColor?: string; editColor?: string; modManagerColor?: string };
@@ -266,6 +268,13 @@ export class UserPreferencesService {
             gridButtonColors: { playColor: '#0ea5e9', editColor: '#6b7280', modManagerColor: '#a855f7' },
             listButtonColors: { playColor: '#0ea5e9', editColor: '#6b7280', modManagerColor: '#a855f7' },
             logoButtonColors: { playColor: '#0ea5e9', editColor: '#6b7280', modManagerColor: '#a855f7' },
+            coverFlowCoverSize: 300,
+            coverFlowReflection: 60,
+            coverFlowVerticalOffset: 0,
+            coverFlowSideOpacity: 100,
+            coverFlowShowButtons: true,
+            coverFlowButtonPosition: 'middle',
+            coverFlowButtonColors: { playColor: '#0ea5e9', editColor: '#6b7280', modManagerColor: '#a855f7' },
           },
         },
       });

@@ -19,9 +19,11 @@ interface LibraryCoverFlowProps {
   activeGameId?: string | null;
   coverSize?: number; // size of the center cover (width in px)
   reflectionStrength?: number; // 0–1, scales reflection opacity
+  verticalOffset?: number; // vertical offset in px
   showButtons?: boolean;
   buttonPosition?: 'left' | 'middle' | 'right';
   buttonColors?: { playColor?: string; editColor?: string; modManagerColor?: string };
+  sideOpacity?: number;
   onEmptySpaceRightClick?: (x: number, y: number) => void;
 }
 
@@ -57,9 +59,11 @@ export const LibraryCoverFlow: React.FC<LibraryCoverFlowProps> = ({
   activeGameId,
   coverSize = 300,
   reflectionStrength = 0.6,
+  verticalOffset = 0,
   showButtons = true,
   buttonPosition = 'middle',
   buttonColors = {},
+  sideOpacity = 100,
   onEditImages,
   onEditCategories,
   onFixMatch,
@@ -84,6 +88,10 @@ export const LibraryCoverFlow: React.FC<LibraryCoverFlowProps> = ({
 
   const validSelectedIndex = Math.max(0, Math.min(selectedIndex, games.length - 1));
   const selectedGame = games.length > 0 ? games[validSelectedIndex] : null;
+
+  // Notify parent when selection settles
+  const onGameClickRef = React.useRef(onGameClick);
+  onGameClickRef.current = onGameClick;
 
   const requestSelection = React.useCallback(
     (targetIndex: number) => {
@@ -122,6 +130,10 @@ export const LibraryCoverFlow: React.FC<LibraryCoverFlowProps> = ({
           setSelectedIndex(targetIndex);
           setScrollOffset(0);
           scrollPositionRef.current = targetIndex;
+
+          if (games[targetIndex]) {
+            onGameClickRef.current?.(games[targetIndex]);
+          }
         }
       };
       animationRef.current = requestAnimationFrame(animate);
@@ -147,16 +159,6 @@ export const LibraryCoverFlow: React.FC<LibraryCoverFlowProps> = ({
     });
   }, [activeGameId, games]);
 
-  // Notify parent when selection settles (so background transitions current → target without in-betweens)
-  const prevIndexRef = React.useRef(validSelectedIndex);
-  const onGameClickRef = React.useRef(onGameClick);
-  onGameClickRef.current = onGameClick;
-  useEffect(() => {
-    if (!isAnimatingRef.current && selectedGame && prevIndexRef.current !== validSelectedIndex) {
-      prevIndexRef.current = validSelectedIndex;
-      onGameClickRef.current?.(selectedGame);
-    }
-  }, [validSelectedIndex, selectedGame]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -355,7 +357,8 @@ export const LibraryCoverFlow: React.FC<LibraryCoverFlowProps> = ({
           const z = absPos > 0.5 ? Z_OFF_CENTER : -Z_CENTER_FALLOFF * absPos;
 
           const scale = isCenter ? SCALE_CENTER : Math.max(SCALE_MIN, SCALE_CENTER - absPos * SCALE_FALLOFF);
-          const opacity = isCenter ? 1 : Math.max(OPACITY_MIN, 1 - absPos * OPACITY_FALLOFF);
+          const baseOpacity = isCenter ? 1 : Math.max(OPACITY_MIN, 1 - absPos * OPACITY_FALLOFF);
+          const opacity = isCenter ? 1 : baseOpacity * (sideOpacity / 100);
           const brightness = isCenter ? 1 : BRIGHTNESS_OFF_CENTER;
           // Base reflection opacity by position (centre fully opaque, sides gently fade)
           const baseReflectionOpacity = isCenter ? 1 : Math.max(0.25, 0.85 - absPos * 0.25);
@@ -375,7 +378,7 @@ export const LibraryCoverFlow: React.FC<LibraryCoverFlowProps> = ({
               style={{
                 left: '50%',
                 transformStyle: 'preserve-3d',
-                transform: `translateX(${xOffset - width / 2}px) translateZ(${z}px) rotateY(${rotateY}deg)`,
+                transform: `translateX(${xOffset - width / 2}px) translateY(${verticalOffset}px) translateZ(${z}px) rotateY(${rotateY}deg)`,
                 zIndex,
                 opacity,
                 willChange: 'transform',

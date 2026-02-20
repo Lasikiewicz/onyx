@@ -139,6 +139,10 @@ interface RightClickMenuProps {
   onCoverFlowCoverSizeChange?: (size: number) => void;
   coverFlowReflection?: number;
   onCoverFlowReflectionChange?: (value: number) => void;
+  coverFlowVerticalOffset?: number;
+  onCoverFlowVerticalOffsetChange?: (value: number) => void;
+  coverFlowSideOpacity?: number;
+  onCoverFlowSideOpacityChange?: (value: number) => void;
   coverFlowShowButtons?: boolean;
   onCoverFlowShowButtonsChange?: (show: boolean) => void;
   coverFlowButtonPosition?: 'left' | 'middle' | 'right';
@@ -241,6 +245,10 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
   onCoverFlowCoverSizeChange,
   coverFlowReflection = 60,
   onCoverFlowReflectionChange,
+  coverFlowVerticalOffset = 0,
+  onCoverFlowVerticalOffsetChange,
+  coverFlowSideOpacity = 100,
+  onCoverFlowSideOpacityChange,
   coverFlowShowButtons = true,
   onCoverFlowShowButtonsChange,
   coverFlowButtonPosition = 'middle',
@@ -425,6 +433,13 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
       if (defaults.carouselDescriptionSize !== undefined) onCarouselDescriptionSizeChange?.(defaults.carouselDescriptionSize);
       if (defaults.carouselDescriptionAlignment !== undefined) onCarouselDescriptionAlignmentChange?.(defaults.carouselDescriptionAlignment);
       if (defaults.carouselButtonAlignment !== undefined) onCarouselButtonAlignmentChange?.(defaults.carouselButtonAlignment);
+    } else if (mode === 'coverflow') {
+      if (defaults.coverFlowCoverSize !== undefined) onCoverFlowCoverSizeChange?.(defaults.coverFlowCoverSize);
+      if (defaults.coverFlowReflection !== undefined) onCoverFlowReflectionChange?.(defaults.coverFlowReflection);
+      if (defaults.coverFlowVerticalOffset !== undefined) onCoverFlowVerticalOffsetChange?.(defaults.coverFlowVerticalOffset);
+      if (defaults.coverFlowSideOpacity !== undefined) onCoverFlowSideOpacityChange?.(defaults.coverFlowSideOpacity);
+      if (defaults.coverFlowShowButtons !== undefined) onCoverFlowShowButtonsChange?.(defaults.coverFlowShowButtons);
+      if (defaults.backgroundBrightness !== undefined) onBackgroundBrightnessChange?.(defaults.backgroundBrightness);
     }
 
     // Apply right panel defaults (shared by all view modes in the JSON)
@@ -546,6 +561,17 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
         carouselDescriptionAlignment,
         carouselButtonSize,
         carouselButtonAlignment,
+        carouselLogoAlignment,
+      };
+    } else if (mode === 'coverflow') {
+      return {
+        coverFlowCoverSize,
+        coverFlowReflection,
+        coverFlowVerticalOffset,
+        coverFlowSideOpacity,
+        coverFlowShowButtons,
+        coverFlowButtonPosition,
+        backgroundBrightness,
       };
     }
 
@@ -601,6 +627,12 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
     if (settings.carouselDescriptionAlignment !== undefined && onCarouselDescriptionAlignmentChange) onCarouselDescriptionAlignmentChange(settings.carouselDescriptionAlignment);
     if (settings.carouselButtonAlignment !== undefined && onCarouselButtonAlignmentChange) onCarouselButtonAlignmentChange(settings.carouselButtonAlignment);
     if (settings.carouselLogoAlignment !== undefined && onCarouselLogoAlignmentChange) onCarouselLogoAlignmentChange(settings.carouselLogoAlignment);
+    if (settings.coverFlowCoverSize !== undefined && onCoverFlowCoverSizeChange) onCoverFlowCoverSizeChange(settings.coverFlowCoverSize);
+    if (settings.coverFlowReflection !== undefined && onCoverFlowReflectionChange) onCoverFlowReflectionChange(settings.coverFlowReflection);
+    if (settings.coverFlowVerticalOffset !== undefined && onCoverFlowVerticalOffsetChange) onCoverFlowVerticalOffsetChange(settings.coverFlowVerticalOffset);
+    if (settings.coverFlowSideOpacity !== undefined && onCoverFlowSideOpacityChange) onCoverFlowSideOpacityChange(settings.coverFlowSideOpacity);
+    if (settings.coverFlowShowButtons !== undefined && onCoverFlowShowButtonsChange) onCoverFlowShowButtonsChange(settings.coverFlowShowButtons);
+    if (settings.coverFlowButtonPosition !== undefined && onCoverFlowButtonPositionChange) onCoverFlowButtonPositionChange(settings.coverFlowButtonPosition);
     if (settings.listViewOptions !== undefined && onListViewOptionsChange) onListViewOptionsChange(settings.listViewOptions);
     if (settings.rightPanelBoxartPosition !== undefined && onRightPanelBoxartPositionChange) onRightPanelBoxartPositionChange(settings.rightPanelBoxartPosition);
     if (settings.rightPanelBoxartSize !== undefined && onRightPanelBoxartSizeChange) onRightPanelBoxartSizeChange(settings.rightPanelBoxartSize);
@@ -1252,6 +1284,48 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
               <div className="flex justify-between text-xs text-gray-500 mt-1">
                 <span>0%</span>
                 <span className="font-medium text-gray-300">{coverFlowReflection}%</span>
+                <span>100%</span>
+              </div>
+            </div>
+          )}
+          {onCoverFlowVerticalOffsetChange && (
+            <div className="px-3 py-2 bg-gray-700/30 rounded-md">
+              <label className="block text-xs text-gray-400 mb-1 font-semibold">Boxart vertical position</label>
+              <input
+                type="range"
+                min="-500"
+                max="500"
+                step="5"
+                value={coverFlowVerticalOffset}
+                onChange={(e) => onCoverFlowVerticalOffsetChange(Number(e.target.value))}
+                className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider accent-blue-600"
+              />
+              <div className="flex justify-between text-xs text-gray-500 mt-1">
+                <span>{coverFlowVerticalOffset > 0 ? `+${coverFlowVerticalOffset}px` : `${coverFlowVerticalOffset}px`}</span>
+                <button
+                  onClick={() => onCoverFlowVerticalOffsetChange(0)}
+                  className="text-blue-400 hover:text-blue-300 transition-colors cursor-pointer"
+                >
+                  Reset
+                </button>
+              </div>
+            </div>
+          )}
+          {onCoverFlowSideOpacityChange && (
+            <div className="px-3 py-2 bg-gray-700/30 rounded-md">
+              <label className="block text-xs text-gray-400 mb-1 font-semibold">Side boxart opacity</label>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                step="5"
+                value={coverFlowSideOpacity}
+                onChange={(e) => onCoverFlowSideOpacityChange(Number(e.target.value))}
+                className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider accent-blue-600"
+              />
+              <div className="flex justify-between text-xs text-gray-500 mt-1">
+                <span>0%</span>
+                <span className="font-medium text-gray-300">{coverFlowSideOpacity}%</span>
                 <span>100%</span>
               </div>
             </div>
@@ -2105,10 +2179,10 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                         else if (viewMode === 'logo') onLogoButtonColorsChange?.(defaults);
                         else onRightPanelButtonColorsChange?.(defaults);
                         window.electronAPI.savePreferences({
-                          [viewMode === 'grid' ? 'gridButtonColors' : 
-                           viewMode === 'list' ? 'listButtonColors' :
-                           viewMode === 'logo' ? 'logoButtonColors' :
-                           'rightPanelButtonColors']: defaults
+                          [viewMode === 'grid' ? 'gridButtonColors' :
+                            viewMode === 'list' ? 'listButtonColors' :
+                              viewMode === 'logo' ? 'logoButtonColors' :
+                                'rightPanelButtonColors']: defaults
                         });
                       }}
                       className="px-2 py-1 text-xs rounded bg-gray-600 hover:bg-gray-500 text-gray-300 border border-gray-500 transition-colors"

@@ -33,10 +33,10 @@ import { areAPIsConfigured } from './utils/apiValidation';
 function App() {
   // Main App Component
   const { games, loading, error, reorderGames, addCustomGame, loadLibrary, deleteGame, updateGameInState } = useGameLibrary();
-  
+
   // Initialize fullscreen and gamepad support
   useFullscreen();
-  
+
   const [activeGameId, setActiveGameId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [launchingGameId, setLaunchingGameId] = useState<string | null>(null);
@@ -161,6 +161,8 @@ function App() {
   // Cover Flow (simplified menu)
   const [coverFlowCoverSize, setCoverFlowCoverSize] = useState(300);
   const [coverFlowReflection, setCoverFlowReflection] = useState(60);
+  const [coverFlowVerticalOffset, setCoverFlowVerticalOffset] = useState(0);
+  const [coverFlowSideOpacity, setCoverFlowSideOpacity] = useState(100);
   const [coverFlowShowButtons, setCoverFlowShowButtons] = useState(true);
   const [coverFlowButtonPosition, setCoverFlowButtonPosition] = useState<'left' | 'middle' | 'right'>('middle');
   const [coverFlowButtonColors, setCoverFlowButtonColors] = useState<{ playColor?: string; editColor?: string; modManagerColor?: string }>({ playColor: '#0ea5e9', editColor: '#6b7280', modManagerColor: '#a855f7' });
@@ -319,6 +321,8 @@ function App() {
           if (prefs.logoButtonColors !== undefined) setLogoButtonColors(prefs.logoButtonColors);
           if (prefs.coverFlowCoverSize !== undefined) setCoverFlowCoverSize(prefs.coverFlowCoverSize);
           if (prefs.coverFlowReflection !== undefined) setCoverFlowReflection(prefs.coverFlowReflection);
+          if (prefs.coverFlowVerticalOffset !== undefined) setCoverFlowVerticalOffset(prefs.coverFlowVerticalOffset);
+          if (prefs.coverFlowSideOpacity !== undefined) setCoverFlowSideOpacity(prefs.coverFlowSideOpacity);
           if (prefs.coverFlowShowButtons !== undefined) setCoverFlowShowButtons(prefs.coverFlowShowButtons);
           if (prefs.coverFlowButtonPosition !== undefined) setCoverFlowButtonPosition(prefs.coverFlowButtonPosition);
           if (prefs.coverFlowButtonColors !== undefined) setCoverFlowButtonColors(prefs.coverFlowButtonColors);
@@ -1646,7 +1650,7 @@ function App() {
   // Get background image from active game - use alternative banner if enabled
   const backgroundImageUrl = (activeGame?.useAlternativeBackground && activeGame?.alternativeBannerUrl)
     ? activeGame.alternativeBannerUrl
-    : activeGame?.bannerUrl || activeGame?.boxArtUrl || '';
+    : activeGame?.heroUrl || activeGame?.bannerUrl || activeGame?.boxArtUrl || '';
 
   // Check if this is an Alpha build
   const isAlphaBuild = __BUILD_PROFILE__ === 'alpha' || (typeof process !== 'undefined' && process.env?.NODE_ENV === 'development');
@@ -1662,8 +1666,9 @@ function App() {
             backgroundImage: `url(${backgroundImageUrl})`,
             backgroundSize: 'cover',
             backgroundPosition: 'center',
+            backgroundRepeat: 'no-repeat',
             filter: `blur(${backgroundBlur}px) brightness(${currentBackgroundBrightness})`,
-            transform: 'scale(1.1)', // Slight scale to avoid edges
+            transform: backgroundBlur > 0 ? `scale(${1 + (backgroundBlur * 0.002)})` : 'none',
             zIndex: 0,
             transition: 'opacity 600ms ease-in-out',
             animation: 'fadeIn 600ms ease-in-out',
@@ -1894,6 +1899,8 @@ function App() {
                           activeGameId={activeGameId}
                           coverSize={coverFlowCoverSize}
                           reflectionStrength={coverFlowReflection / 100}
+                          verticalOffset={coverFlowVerticalOffset}
+                          sideOpacity={coverFlowSideOpacity}
                           showButtons={coverFlowShowButtons}
                           buttonPosition={coverFlowButtonPosition}
                           buttonColors={coverFlowButtonColors}
@@ -2087,9 +2094,9 @@ function App() {
               isViewFlipped={isViewFlippedByView[viewMode]}
               rightPanelButtonColors={
                 viewMode === 'grid' ? gridButtonColors :
-                viewMode === 'list' ? listButtonColors :
-                viewMode === 'logo' ? logoButtonColors :
-                rightPanelButtonColors
+                  viewMode === 'list' ? listButtonColors :
+                    viewMode === 'logo' ? logoButtonColors :
+                      rightPanelButtonColors
               }
             />
           )}
@@ -2586,6 +2593,16 @@ function App() {
           onCoverFlowReflectionChange={(value) => {
             setCoverFlowReflection(value);
             window.electronAPI.savePreferences({ coverFlowReflection: value });
+          }}
+          coverFlowVerticalOffset={coverFlowVerticalOffset}
+          onCoverFlowVerticalOffsetChange={(value: number) => {
+            setCoverFlowVerticalOffset(value);
+            window.electronAPI.savePreferences({ coverFlowVerticalOffset: value } as any);
+          }}
+          coverFlowSideOpacity={coverFlowSideOpacity}
+          onCoverFlowSideOpacityChange={(value: number) => {
+            setCoverFlowSideOpacity(value);
+            window.electronAPI.savePreferences({ coverFlowSideOpacity: value } as any);
           }}
           coverFlowShowButtons={coverFlowShowButtons}
           onCoverFlowShowButtonsChange={(show) => {

@@ -222,6 +222,8 @@ export interface UserPreferences {
   logoButtonColors?: { playColor?: string; editColor?: string; modManagerColor?: string };
   coverFlowCoverSize?: number;
   coverFlowReflection?: number;
+  coverFlowVerticalOffset?: number;
+  coverFlowSideOpacity?: number;
   coverFlowShowButtons?: boolean;
   coverFlowButtonPosition?: 'left' | 'middle' | 'right';
   coverFlowButtonColors?: { playColor?: string; editColor?: string; modManagerColor?: string };

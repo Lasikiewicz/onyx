@@ -338,7 +338,9 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
   }
 
   // Banner should be the background, box art goes on the right side
-  const backgroundImageUrl = game.bannerUrl || game.boxArtUrl || '';
+  const backgroundImageUrl = game.useAlternativeBackground && game.alternativeBannerUrl
+    ? game.alternativeBannerUrl
+    : game.heroUrl || game.bannerUrl || game.boxArtUrl || '';
   const formatDate = (dateString?: string) => {
     if (!dateString) return '';
     try {
