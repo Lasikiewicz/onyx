@@ -4,6 +4,14 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.3.41] - 2026-02-20
+
+- Game details: Link icons are now packaged locally (Simple Icons); no CDN dependency. Icons are centered in their badges.
+- Settings: New "Link Management" page to set default visibility and order of link types (Official Website, YouTube, Steam, etc.).
+- Game details: By default only Official Website, YouTube, Subreddit, and Discord are shown; other link types are hidden until enabled in Link Management.
+- Game Manager: "Refresh Metadata" renamed to "Manage Metadata" with options: Refresh all metadata (nuclear), Search for missing images only, Refresh all Links (nuke and re-fetch from IGDB).
+- Game Manager Links tab: Icons shown next to each link; click icon to search for or upload a custom SVG.
+
 ## [0.3.40] - 2026-02-21
 
 - Game Importer: Enhanced Battle.net game detection with Windows Registry fallback.
