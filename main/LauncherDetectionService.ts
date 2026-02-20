@@ -33,7 +33,7 @@ export class LauncherDetectionService {
         encoding: 'utf-8',
         stdio: ['pipe', 'pipe', 'ignore'],
       });
-      
+
       // Parse the registry output
       const match = result.match(new RegExp(`${valueName}\\s+REG_[^\\s]+\\s+(.+)`));
       if (match && match[1]) {
@@ -349,6 +349,50 @@ export class LauncherDetectionService {
   }
 
   /**
+   * Detect Battle.net
+   */
+  private detectBattle(): DetectedLauncher | null {
+    // Try registry first
+    const registryPath = this.readRegistryValue(
+      'HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Battle.net',
+      'InstallLocation'
+    ) || this.readRegistryValue(
+      'HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Battle.net',
+      'InstallLocation'
+    );
+
+    if (registryPath && this.checkPath(registryPath)) {
+      return {
+        id: 'battle',
+        name: 'Battle.net',
+        path: registryPath,
+        detected: true,
+        detectionMethod: 'registry',
+      };
+    }
+
+    // Try default paths
+    const defaultPaths = [
+      'C:\\Program Files (x86)\\Battle.net',
+      'C:\\Program Files\\Battle.net',
+    ];
+
+    for (const path of defaultPaths) {
+      if (this.checkPath(path)) {
+        return {
+          id: 'battle',
+          name: 'Battle.net',
+          path: path,
+          detected: true,
+          detectionMethod: 'path',
+        };
+      }
+    }
+
+    return null;
+  }
+
+  /**
    * Detect all installed launchers
    */
   async detectAllLaunchers(): Promise<DetectedLauncher[]> {
@@ -365,6 +409,7 @@ export class LauncherDetectionService {
       () => this.detectEA(),
       () => this.detectXbox(),
       () => this.detectUbisoft(),
+      () => this.detectBattle(),
     ];
 
     for (const detector of detectors) {
@@ -402,6 +447,8 @@ export class LauncherDetectionService {
         return this.detectXbox();
       case 'ubisoft':
         return this.detectUbisoft();
+      case 'battle':
+        return this.detectBattle();
       default:
         return null;
     }

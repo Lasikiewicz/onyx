@@ -5,6 +5,7 @@ import { MetadataFetcherService } from './MetadataFetcherService.js';
 import { GameFilteringService } from './GameFilteringService.js';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, sep, dirname } from 'node:path';
+import { execSync } from 'node:child_process';
 
 export interface ScannedGameResult {
   uuid: string;
@@ -69,7 +70,13 @@ export class ImportService {
 
       const enabledConfigs = Object.values(configs).filter(
         (config: any) => {
-          const isEnabled = config.enabled && config.path && existsSync(config.path);
+          // Some launchers (like Battle.net, Epic) can find games globally via Registry/ProgramData
+          // so we don't strictly require the configured path to exist as long as they are enabled.
+          const isEnabled = config.enabled && (
+            (config.path && existsSync(config.path)) ||
+            config.id === 'battle' ||
+            config.id === 'epic'
+          );
           if (!isEnabled) {
             console.log(`[ImportService] Skipping ${config.id}: enabled=${config.enabled}, path=${config.path}, exists=${config.path ? existsSync(config.path) : false}`);
           }
@@ -158,6 +165,26 @@ export class ImportService {
             console.error(`[ImportService] Error scanning manual folder ${folder}:`, error);
             progressCallback?.(`Error scanning ${folder}: ${error instanceof Error ? error.message : 'Unknown error'}`);
           }
+        }
+      }
+
+      // Auto-detect Battle.net games via registry if not already configured
+      // This ensures Blizzard games are found even if the user hasn't enabled Battle.net in Configure Apps
+      const battleAlreadyScanned = enabledConfigs.some((c: any) => c.id === 'battle');
+      if (!battleAlreadyScanned && process.platform === 'win32') {
+        try {
+          progressCallback?.('Auto-detecting Battle.net games...');
+          console.log('[ImportService] Battle.net not configured, running auto-detection via registry...');
+          const battleGames = await this.scanBattle('');
+          if (battleGames.length > 0) {
+            progressCallback?.(`Found ${battleGames.length} Battle.net game${battleGames.length !== 1 ? 's' : ''} (auto-detected)`);
+            battleGames.forEach(game => {
+              progressCallback?.(`Found: ${game.title}`);
+            });
+            results.push(...battleGames);
+          }
+        } catch (error) {
+          console.warn('[ImportService] Battle.net auto-detection failed:', error);
         }
       }
 
@@ -1435,91 +1462,134 @@ export class ImportService {
       console.log(`[Battle.net] Starting scan with path: ${battlePath}`);
       const results: ScannedGameResult[] = [];
 
-      if (!existsSync(battlePath)) {
-        console.warn(`[Battle.net] Path does not exist: ${battlePath}`);
-        return results;
-      }
-
-      // 1. Check if the provided path is actually a game folder itself (common Blizzard structure)
-      if (existsSync(join(battlePath, '.build.info'))) {
-        console.log(`[Battle.net] Provided path looks like a Blizzard game folder: ${battlePath}`);
-        const scanned = await this.scanGenericGamesFolder(battlePath, 'battle');
-        results.push(...scanned);
-      }
-
-      // 2. Battle.net games are typically ONLY in the Games subdirectory
-      // Don't scan the root path to avoid picking up the launcher itself
-      const gamesPath = join(battlePath, 'Games');
-
-      if (existsSync(gamesPath)) {
-        console.log(`[Battle.net] Scanning games directory: ${gamesPath}`);
-        const scanned = await this.scanGenericGamesFolder(gamesPath, 'battle');
-        results.push(...scanned);
+      if (!battlePath || !existsSync(battlePath)) {
+        console.warn(`[Battle.net] Configured path does not exist or is empty: "${battlePath}". Will still attempt registry scan.`);
       } else {
-        console.log(`[Battle.net] Games directory not found at: ${gamesPath}`);
-      }
+        // 1. Check if the provided path is actually a game folder itself (common Blizzard structure)
+        if (existsSync(join(battlePath, '.build.info'))) {
+          console.log(`[Battle.net] Provided path looks like a Blizzard game folder: ${battlePath}`);
+          const scanned = await this.scanGenericGamesFolder(battlePath, 'battle', false);
+          results.push(...scanned);
+        } else {
+          // 2. Battle.net games are typically ONLY in the Games subdirectory
+          // Don't scan the root path to avoid picking up the launcher itself
+          const gamesPath = join(battlePath, 'Games');
 
-      // 3. Improved check: If the path provided is the Battle.net launcher folder, check the parent
-      // Many users point to "C:\\Program Files (x86)\\Battle.net" but games are in "C:\\Program Files (x86)"
-      const isLauncherDir = existsSync(join(battlePath, 'Battle.net.exe')) ||
-        battlePath.toLowerCase().endsWith('battle.net') ||
-        battlePath.toLowerCase().endsWith('battlenet');
+          if (existsSync(gamesPath)) {
+            console.log(`[Battle.net] Scanning games directory: ${gamesPath}`);
+            const scanned = await this.scanGenericGamesFolder(gamesPath, 'battle');
+            results.push(...scanned);
+          } else {
+            console.log(`[Battle.net] Games directory not found at: ${gamesPath}`);
+          }
 
-      if (isLauncherDir) {
-        const parentDir = dirname(battlePath);
-        if (existsSync(parentDir) && parentDir !== battlePath) {
-          console.log(`[Battle.net] Detected launcher directory, also scanning parent: ${parentDir}`);
-          try {
-            const parentEntries = readdirSync(parentDir, { withFileTypes: true });
-            for (const entry of parentEntries) {
-              if (entry.isDirectory()) {
-                const dirName = entry.name.toLowerCase();
-                // Skip the launcher itself and other system folders
-                if (dirName === 'battle.net' || dirName === 'battlenet' || dirName === 'blizzard' || dirName === 'common') continue;
+          // 3. Improved check: If the path provided is the Battle.net launcher folder, check the parent
+          // Many users point to "C:\\Program Files (x86)\\Battle.net" but games are in "C:\\Program Files (x86)"
+          const isLauncherDir = existsSync(join(battlePath, 'Battle.net.exe')) ||
+            battlePath.toLowerCase().endsWith('battle.net') ||
+            battlePath.toLowerCase().endsWith('battlenet');
 
-                const potentialGamePath = join(parentDir, entry.name);
-                // Check if it's a Blizzard game (has .build.info)
-                if (existsSync(join(potentialGamePath, '.build.info'))) {
-                  // Avoid duplicate if already found
-                  if (results.some(r => r.installPath === potentialGamePath)) continue;
+          if (isLauncherDir) {
+            const parentDir = dirname(battlePath);
+            if (existsSync(parentDir) && parentDir !== battlePath) {
+              console.log(`[Battle.net] Detected launcher directory, also scanning parent: ${parentDir}`);
+              try {
+                const parentEntries = readdirSync(parentDir, { withFileTypes: true });
+                for (const entry of parentEntries) {
+                  if (entry.isDirectory()) {
+                    const dirName = entry.name.toLowerCase();
+                    // Skip the launcher itself and other system folders
+                    if (dirName === 'battle.net' || dirName === 'battlenet' || dirName === 'blizzard' || dirName === 'common') continue;
 
-                  console.log(`[Battle.net] Found Blizzard game via .build.info in parent: ${entry.name}`);
-                  const scanned = await this.scanGenericGamesFolder(potentialGamePath, 'battle');
-                  results.push(...scanned);
+                    const potentialGamePath = join(parentDir, entry.name);
+                    // Check if it's a Blizzard game (has .build.info)
+                    if (existsSync(join(potentialGamePath, '.build.info'))) {
+                      // Avoid duplicate if already found
+                      if (results.some(r => r.installPath === potentialGamePath)) continue;
+
+                      console.log(`[Battle.net] Found Blizzard game via .build.info in parent: ${entry.name}`);
+                      const scanned = await this.scanGenericGamesFolder(potentialGamePath, 'battle', false);
+                      results.push(...scanned);
+                    }
+                  }
                 }
+              } catch (err) {
+                console.warn(`[Battle.net] Could not scan parent directory ${parentDir}:`, err);
               }
             }
-          } catch (err) {
-            console.warn(`[Battle.net] Could not scan parent directory ${parentDir}:`, err);
-          }
-        }
-      }
-
-      // 4. Additional check for subdirectories (existing logic)
-      const entries = readdirSync(battlePath, { withFileTypes: true });
-      for (const entry of entries) {
-        if (entry.isDirectory()) {
-          const dirName = entry.name.toLowerCase();
-
-          // Skip already handled and irrelevant folders
-          if (dirName === 'battle.net' ||
-            dirName === 'battlenet' ||
-            dirName === 'launcher' ||
-            dirName === 'blizzard' ||
-            dirName === 'system' ||
-            dirName === 'cache' ||
-            dirName === 'logs' ||
-            dirName === 'temp' ||
-            dirName === 'games') {
-            continue;
           }
 
-          const potentialGamePath = join(battlePath, entry.name);
-          // Avoid duplicate
-          if (results.some(r => r.installPath === potentialGamePath)) continue;
+          // 4. Additional check for subdirectories (existing logic)
+          const entries = readdirSync(battlePath, { withFileTypes: true });
+          for (const entry of entries) {
+            if (entry.isDirectory()) {
+              const dirName = entry.name.toLowerCase();
 
-          const scanned = await this.scanGenericGamesFolder(potentialGamePath, 'battle');
-          results.push(...scanned);
+              // Skip already handled and irrelevant folders
+              if (dirName === 'battle.net' ||
+                dirName === 'battlenet' ||
+                dirName === 'launcher' ||
+                dirName === 'blizzard' ||
+                dirName === 'system' ||
+                dirName === 'cache' ||
+                dirName === 'logs' ||
+                dirName === 'temp' ||
+                dirName === 'games') {
+                continue;
+              }
+
+              const potentialGamePath = join(battlePath, entry.name);
+              // Avoid duplicate
+              if (results.some(r => r.installPath === potentialGamePath)) continue;
+
+              const scanned = await this.scanGenericGamesFolder(potentialGamePath, 'battle', false);
+              results.push(...scanned);
+            }
+          }
+        } // End of inner else
+      } // End of outer else
+
+      // 5. Query Windows Registry for ANY Blizzard games installed anywhere
+      if (typeof process !== 'undefined' && process.platform === 'win32') {
+        try {
+          console.log(`[Battle.net] Checking registry for installed games...`);
+          const keysToSearch = [
+            'HKLM:\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall',
+            'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall'
+          ];
+
+          for (const baseKey of keysToSearch) {
+            try {
+              // Get all keys where Publisher is Blizzard Entertainment or Battle.net
+              // Use -EncodedCommand to avoid $_ being consumed by cmd.exe shell
+              const psScript = `Get-ItemProperty '${baseKey}\\*' -ErrorAction SilentlyContinue | Where-Object { $_.Publisher -match 'Blizzard' -or $_.Publisher -match 'Battle.net' -or $_.UninstallString -match 'Blizzard Uninstaller' } | Select-Object DisplayName, InstallLocation | ConvertTo-Json -Compress`;
+              const encodedCmd = Buffer.from(psScript, 'utf16le').toString('base64');
+              const output = execSync(`powershell -NoProfile -NonInteractive -EncodedCommand ${encodedCmd}`, { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] }).trim();
+
+              if (output) {
+                const gamesArr = output.startsWith('[') ? JSON.parse(output) : [JSON.parse(output)];
+                for (const game of gamesArr) {
+                  if (game.DisplayName && game.InstallLocation) {
+                    const name = game.DisplayName;
+                    const path = game.InstallLocation;
+
+                    // Skip the launcher itself
+                    if (name === 'Battle.net' || path.toLowerCase().includes('battle.net')) continue;
+
+                    if (!results.some(r => r.installPath === path) && existsSync(path)) {
+                      console.log(`[Battle.net] Found game via registry: ${name} at ${path}`);
+                      const scanned = await this.scanGenericGamesFolder(path, 'battle', false);
+                      results.push(...scanned);
+                    }
+                  }
+                }
+              }
+            } catch (e) {
+              // Ignore if registry read fails
+            }
+          }
+        } catch (err) {
+          console.warn(`[Battle.net] Registry scan failed:`, err);
         }
       }
 
@@ -1589,7 +1659,7 @@ export class ImportService {
    * Generic method to scan a games folder for any launcher
    * Recursively scans all subdirectories and creates a game entry for each folder containing a valid executable
    */
-  private async scanGenericGamesFolder(gamesPath: string, source: 'ea' | 'battle' | 'humble' | 'itch'): Promise<ScannedGameResult[]> {
+  private async scanGenericGamesFolder(gamesPath: string, source: 'ea' | 'battle' | 'humble' | 'itch', isLibraryRoot: boolean = true): Promise<ScannedGameResult[]> {
     const results: ScannedGameResult[] = [];
 
     try {
@@ -1632,8 +1702,21 @@ export class ImportService {
       const gamesByFolder = new Map<string, string[]>();
 
       for (const exePath of gameExes) {
-        const exeDir = dirname(exePath);
-        const normalizedDir = exeDir.replace(/\\/g, sep).replace(/\/\//g, '/');
+        let gameDir: string;
+
+        if (isLibraryRoot) {
+          const relativePath = exePath.substring(gamesPath.length);
+          const parts = relativePath.split(/[/\\]/).filter(Boolean);
+          if (parts.length > 0) {
+            gameDir = join(gamesPath, parts[0]);
+          } else {
+            gameDir = gamesPath;
+          }
+        } else {
+          gameDir = gamesPath;
+        }
+
+        const normalizedDir = gameDir.replace(/\\/g, sep).replace(/\/\//g, '/');
 
         // Skip known non-game directories
         const dirName = normalizedDir.split(sep).pop()?.toLowerCase() || '';

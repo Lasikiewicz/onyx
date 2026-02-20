@@ -4,6 +4,12 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.3.40] - 2026-02-21
+
+- Game Importer: Enhanced Battle.net game detection with Windows Registry fallback.
+- Game Importer: Battle.net games are now auto-detected even if the launcher is not explicitly configured/enabled.
+- Bug Fix: Resolved issue where PowerShell registry queries failed due to shell variable interpolation.
+
 ## [0.3.39] - 2026-02-20
 
 - Cover Flow: Added boxart vertical position slider to the right-click menu.
