@@ -9,6 +9,7 @@ import { RightClickMenu } from './components/RightClickMenu';
 import { GameContextMenu } from './components/GameContextMenu';
 import { AddGameModal } from './components/AddGameModal';
 import { GameDetailsPanel } from './components/GameDetailsPanel';
+import { LINK_DISPLAY_ORDER, DEFAULT_VISIBLE_LINK_TYPES } from './components/GameLinks';
 import { GameMetadataEditor } from './components/GameMetadataEditor';
 import { SteamConfigModal } from './components/SteamConfigModal';
 import { CategoriesEditor } from './components/CategoriesEditor';
@@ -137,6 +138,10 @@ function App() {
     showLogos: false,
     titleTextSize: 18,
   };
+  // Link management (source of truth from Settings; respected by all views)
+  const [linkDisplayOrder, setLinkDisplayOrder] = useState<string[]>(LINK_DISPLAY_ORDER);
+  const [visibleLinkTypes, setVisibleLinkTypes] = useState<Record<string, boolean>>(DEFAULT_VISIBLE_LINK_TYPES);
+
   // Right panel (GameDetailsPanel) settings
   const [rightPanelLogoSize, setRightPanelLogoSize] = useState(100);
   const [rightPanelBoxartPosition, setRightPanelBoxartPosition] = useState<'left' | 'right' | 'none'>('right');
@@ -367,6 +372,8 @@ function App() {
           }
 
           if (prefs.confirmGameLaunch !== undefined) setConfirmGameLaunch(prefs.confirmGameLaunch);
+          if (prefs.linkDisplayOrder && prefs.linkDisplayOrder.length > 0) setLinkDisplayOrder(prefs.linkDisplayOrder);
+          if (prefs.visibleLinkTypes && Object.keys(prefs.visibleLinkTypes).length > 0) setVisibleLinkTypes(prefs.visibleLinkTypes);
 
           // Handle default startup page
           if (prefs.defaultStartupPage) {
@@ -2098,6 +2105,8 @@ function App() {
                     viewMode === 'logo' ? logoButtonColors :
                       rightPanelButtonColors
               }
+              linkDisplayOrder={linkDisplayOrder}
+              visibleLinkTypes={visibleLinkTypes}
             />
           )}
         </div>
@@ -2187,6 +2196,12 @@ function App() {
 
             if (prefs.confirmGameLaunch !== undefined) {
               setConfirmGameLaunch(prefs.confirmGameLaunch);
+            }
+            if (prefs.linkDisplayOrder && prefs.linkDisplayOrder.length > 0) {
+              setLinkDisplayOrder(prefs.linkDisplayOrder);
+            }
+            if (prefs.visibleLinkTypes && Object.keys(prefs.visibleLinkTypes).length > 0) {
+              setVisibleLinkTypes(prefs.visibleLinkTypes);
             }
 
             // Reload library if app configs were saved

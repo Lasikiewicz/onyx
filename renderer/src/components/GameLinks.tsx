@@ -63,7 +63,7 @@ function sortLinksByDisplayOrder(
     });
 }
 
-// Packaged link icons (Simple Icons, CC0-1.0) in public/link-icons. Run: node scripts/download-simple-icons.js
+// Default link icons: from files/icons, copied to renderer/public/link-icons (globe, wiki, twitter, etc.)
 function getLinkIconsBase(): string {
     if (typeof window === 'undefined') return './';
     try {
@@ -208,28 +208,33 @@ const FallbackIcon = (
 );
 
 
-/** Renders official brand icon from Simple Icons CDN, or custom iconUrl; inline fallback on error */
+/** Renders official brand icon from Simple Icons CDN, or custom iconUrl; inline fallback on error.
+ * darkBackground: true = white icon (default), false = dark icon. */
 export function LinkIcon({
     iconKey,
     className = 'w-[85%] h-[85%]',
-    customIconUrl
-}: { iconKey: string; className?: string; customIconUrl?: string | null }) {
+    customIconUrl,
+    darkBackground = true
+}: { iconKey: string; className?: string; customIconUrl?: string | null; darkBackground?: boolean }) {
     const [useFallback, setUseFallback] = useState(false);
     const defaultUrl = getDefaultIconUrl(iconKey);
     const url = (customIconUrl && customIconUrl.trim()) ? customIconUrl : defaultUrl;
     const inlineIcon = LinkIcons[iconKey] || FallbackIcon;
     const isCustom = !!(customIconUrl && customIconUrl.trim());
+    const iconColorClass = darkBackground ? 'text-white' : 'text-gray-800';
+    const iconColorStyle = darkBackground ? { color: '#ffffff' } : { color: 'rgb(31 41 55)' };
+    const imgFilter = isCustom ? undefined : darkBackground ? 'brightness(0) invert(1)' : 'brightness(0)';
 
     if (useFallback || !url) {
-        return <span className={`flex items-center justify-center ${className}`}>{inlineIcon}</span>;
+        return <span className={`flex items-center justify-center ${iconColorClass} ${className}`} style={iconColorStyle}>{inlineIcon}</span>;
     }
     return (
-        <span className={`flex items-center justify-center ${className}`}>
+        <span className={`flex items-center justify-center ${iconColorClass} ${className}`} style={iconColorStyle}>
             <img
                 src={url}
                 alt=""
                 className="object-contain object-center max-w-full max-h-full w-full h-full"
-                style={!isCustom ? { filter: 'brightness(0) invert(1)' } : undefined}
+                style={{ ...(imgFilter ? { filter: imgFilter } : {}) }}
                 onError={() => setUseFallback(true)}
             />
         </span>
@@ -253,13 +258,13 @@ export const inferLinkKey = (url: string, name: string): string => {
     if (urlLower.includes('fandom') || urlLower.includes('wiki') || nameLower.includes('wiki')) return 'wiki';
     if (urlLower.includes('youtube')) return 'youtube';
     if (urlLower.includes('twitch')) return 'twitch';
+    if (urlLower.includes('xbox') || nameLower.includes('xbox')) return 'xbox';
+    if (urlLower.includes('playstation') || nameLower.includes('playstation')) return 'playstation';
     if (urlLower.includes('twitter.com') || urlLower.includes('x.com')) return 'twitter';
     if (urlLower.includes('facebook')) return 'facebook';
     if (urlLower.includes('instagram')) return 'instagram';
     if (urlLower.includes('epicgames')) return 'epic';
     if (urlLower.includes('gog')) return 'gog';
-    if (urlLower.includes('xbox')) return 'xbox';
-    if (urlLower.includes('playstation')) return 'playstation';
     if (urlLower.includes('official') || nameLower.includes('official') || nameLower.includes('website')) return 'website';
 
     if (nameLower.includes('steam')) return 'steam';
@@ -267,6 +272,9 @@ export const inferLinkKey = (url: string, name: string): string => {
     if (nameLower.includes('discord')) return 'discord';
     if (nameLower.includes('wikipedia')) return 'wikipedia';
     if (nameLower.includes('youtube')) return 'youtube';
+    if (nameLower.includes('xbox')) return 'xbox';
+    if (nameLower.includes('playstation')) return 'playstation';
+    if (nameLower.includes('twitter')) return 'twitter';
 
     return 'fallback';
 };
@@ -282,7 +290,28 @@ export const GameLinks: React.FC<GameLinksProps> = ({
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const [contextMenu, setContextMenu] = useState<{ x: number, y: number } | null>(null);
     const [showHidden, setShowHidden] = useState(false);
+    const [upArrowPopoverRect, setUpArrowPopoverRect] = useState<{ right: number; bottom: number } | null>(null);
+    const [iconsWhite, setIconsWhite] = useState(true);
     const menuRef = useRef<HTMLDivElement>(null);
+    const upArrowButtonRef = useRef<HTMLButtonElement>(null);
+    const upArrowPopoverRef = useRef<HTMLDivElement>(null);
+    const darkBg = iconsWhite;
+
+    // Close up-arrow popover when clicking outside (it's portaled to body)
+    useEffect(() => {
+        if (!showHidden) return;
+        const onMouseDown = (e: MouseEvent) => {
+            const target = e.target as Node;
+            if (
+                upArrowButtonRef.current?.contains(target) ||
+                upArrowPopoverRef.current?.contains(target)
+            ) return;
+            setShowHidden(false);
+            setUpArrowPopoverRect(null);
+        };
+        document.addEventListener('mousedown', onMouseDown);
+        return () => document.removeEventListener('mousedown', onMouseDown);
+    }, [showHidden]);
 
     const links = sortLinksByDisplayOrder(game.links || [], displayOrder);
 
@@ -300,21 +329,33 @@ export const GameLinks: React.FC<GameLinksProps> = ({
 
     if (!links || links.length === 0) return null;
 
-    // Filter by visibleTypes: show only when explicitly true (when visibleTypes provided)
+    // Filter by visibleTypes: show on bar only when explicitly true (when visibleTypes provided)
     const visibleByTypeLinks = links.filter(link => {
         if (!visibleTypes || Object.keys(visibleTypes).length === 0) return true;
         const key = inferLinkKey(link.url, link.name);
         return visibleTypes[key] === true;
     });
 
-    // Process links: separate hidden
+    // Process links: on-bar vs not on bar (for up-arrow popover)
     const processedLinks = visibleByTypeLinks.map((l) => {
         const originalIndex = links.findIndex(orig => orig.url === l.url && orig.name === l.name);
         return { ...l, originalIndex };
     });
 
     const visibleLinks = processedLinks.filter(l => !l.hidden);
-    const hiddenLinks = processedLinks.filter(l => l.hidden);
+
+    // Links not on the bar: hidden by default (Settings) OR user-hidden (right-click). These show in the up-arrow popover.
+    const linksNotOnBar = links
+        .map((l, idx) => ({ ...l, originalIndex: idx }))
+        .filter(l => {
+            if (!visibleTypes || Object.keys(visibleTypes).length === 0) return !!l.hidden;
+            const key = inferLinkKey(l.url, l.name);
+            const visibleByType = visibleTypes[key] === true;
+            return !visibleByType || !!l.hidden;
+        });
+
+    // All links with originalIndex for the right-click menu (includes hidden-by-default so user can open, reorder, hide)
+    const allLinksForContextMenu = links.map((l, idx) => ({ ...l, originalIndex: idx }));
 
     const handleOpenLink = (e: React.MouseEvent, url: string) => {
         e.preventDefault();
@@ -325,24 +366,13 @@ export const GameLinks: React.FC<GameLinksProps> = ({
     const handleContextMenu = (e: React.MouseEvent) => {
         e.preventDefault();
         e.stopPropagation();
-
-        const menuWidth = 280;
-        const rowHeight = 44;
-        const headerHeight = 36;
-        const padding = 16;
-        const maxVisibleHeight = Math.min(links.length * rowHeight + headerHeight + padding, 400);
-
+        const menuWidth = 320;
         let x = e.clientX;
-        let y = e.clientY - maxVisibleHeight - 10;
-
-        if (y < 10) {
-            y = 10;
-        }
-
-        if (x + menuWidth > window.innerWidth) {
-            x = window.innerWidth - menuWidth - 10;
-        }
-
+        let y = e.clientY;
+        if (x + menuWidth > window.innerWidth) x = window.innerWidth - menuWidth - 10;
+        if (x < 10) x = 10;
+        if (y < 10) y = 10;
+        if (y > window.innerHeight - 20) y = window.innerHeight - 20;
         setContextMenu({ x, y });
     };
 
@@ -387,7 +417,6 @@ export const GameLinks: React.FC<GameLinksProps> = ({
                     <div className="absolute bottom-full left-0 mb-2 w-48 bg-gray-900 border border-white/10 rounded-lg shadow-2xl overflow-hidden py-1 z-[100] animate-in fade-in slide-in-from-bottom-2 duration-200">
                         {visibleLinks.map((link, idx) => {
                             const iconKey = inferLinkKey(link.url, link.name);
-                            const brandColor = BRAND_COLORS[iconKey] || BRAND_COLORS.fallback;
 
                             return (
                                 <button
@@ -395,11 +424,8 @@ export const GameLinks: React.FC<GameLinksProps> = ({
                                     onClick={(e) => handleOpenLink(e, link.url)}
                                     className="w-full px-4 py-2 hover:bg-white/10 flex items-center gap-3 text-gray-200 hover:text-white transition-colors text-left"
                                 >
-                                    <div
-                                        className="w-5 h-5 flex-shrink-0 flex items-center justify-center rounded text-white shadow-sm"
-                                        style={{ backgroundColor: brandColor }}
-                                    >
-                                        <LinkIcon iconKey={iconKey} className="w-[85%] h-[85%]" customIconUrl={(link as { iconUrl?: string }).iconUrl} />
+                                    <div className="w-5 h-5 flex-shrink-0 flex items-center justify-center rounded text-white shadow-sm">
+                                        <LinkIcon iconKey={iconKey} className="w-[85%] h-[85%]" customIconUrl={(link as { iconUrl?: string }).iconUrl} darkBackground={darkBg} />
                                     </div>
                                     <span className="text-sm truncate">{link.name}</span>
                                 </button>
@@ -415,7 +441,6 @@ export const GameLinks: React.FC<GameLinksProps> = ({
         <div className="flex items-center gap-2 relative">
             {visibleLinks.map((link, idx) => {
                 const iconKey = inferLinkKey(link.url, link.name);
-                const brandColor = BRAND_COLORS[iconKey] || BRAND_COLORS.fallback;
 
                 return (
                     <button
@@ -426,57 +451,80 @@ export const GameLinks: React.FC<GameLinksProps> = ({
                         title={link.name}
                         style={{
                             width: `${buttonSize * 2.8}px`,
-                            height: `${buttonSize * 2.8}px`,
-                            backgroundColor: brandColor
+                            height: `${buttonSize * 2.8}px`
                         }}
                     >
                         <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
                         <div className="w-full h-full relative z-10 flex items-center justify-center text-white drop-shadow-md">
-                            <LinkIcon iconKey={iconKey} className="w-[85%] h-[85%]" customIconUrl={(link as { iconUrl?: string }).iconUrl} />
+                            <LinkIcon iconKey={iconKey} className="w-[85%] h-[85%]" customIconUrl={(link as { iconUrl?: string }).iconUrl} darkBackground={darkBg} />
                         </div>
                     </button>
                 );
             })}
 
-            {hiddenLinks.length > 0 && (
+            {linksNotOnBar.length > 0 && (
                 <div className="relative">
                     <button
-                        onClick={(e) => { e.stopPropagation(); setShowHidden(!showHidden); }}
+                        ref={upArrowButtonRef}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            if (showHidden) {
+                                setShowHidden(false);
+                                setUpArrowPopoverRect(null);
+                            } else {
+                                const rect = upArrowButtonRef.current?.getBoundingClientRect();
+                                if (rect) {
+                                    setUpArrowPopoverRect({
+                                        right: window.innerWidth - rect.right,
+                                        bottom: window.innerHeight - rect.top + 8,
+                                    });
+                                }
+                                setShowHidden(true);
+                            }
+                        }}
                         className={`text-gray-500 hover:text-white hover:bg-white/10 rounded-xl transition-all duration-300 ${showHidden ? 'rotate-180 bg-white/5 text-blue-400' : ''} border border-transparent hover:border-white/10 flex items-center justify-center`}
-                        title="Show hidden links"
+                        title="Show more links"
                         style={{ width: `${buttonSize * 2.8}px`, height: `${buttonSize * 2.8}px` }}
                     >
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-[45%] h-[45%]">
-                            <path d="M18 15l-6-6-6 6" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
+                        <img src={getLinkIconsBase() + 'up-fill.svg'} alt="" className="w-[50%] h-[50%] object-contain opacity-80" style={{ filter: darkBg ? 'brightness(0) invert(1)' : 'brightness(0)' }} />
                     </button>
 
-                    {showHidden && (
-                        <div className="absolute bottom-full right-0 mb-2 p-1.5 bg-gray-900/95 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl z-[100] flex flex-wrap gap-1.5 min-w-[44px] max-w-[220px] animate-in fade-in slide-in-from-bottom-2 duration-300">
-                            {hiddenLinks.map((link, idx) => {
+                    {showHidden && upArrowPopoverRect && createPortal(
+                        <div
+                            ref={upArrowPopoverRef}
+                            className="fixed p-2 bg-gray-900/95 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl flex flex-col gap-1 min-w-[180px] max-w-[260px] max-h-[70vh] overflow-y-auto custom-scrollbar animate-in fade-in slide-in-from-bottom-2 duration-300"
+                            style={{
+                                right: upArrowPopoverRect.right,
+                                bottom: upArrowPopoverRect.bottom,
+                                zIndex: 99999,
+                            }}
+                        >
+                            {linksNotOnBar.map((link, idx) => {
                                 const iconKey = inferLinkKey(link.url, link.name);
-                                const brandColor = BRAND_COLORS[iconKey] || BRAND_COLORS.fallback;
 
                                 return (
                                     <button
                                         key={idx}
-                                        onClick={(e) => handleOpenLink(e, link.url)}
-                                        onContextMenu={(e) => handleContextMenu(e)}
-                                        className="group rounded-xl transition-all duration-300 hover:scale-110 flex items-center justify-center overflow-hidden border border-white/5 opacity-50 hover:opacity-100"
-                                        title={`${link.name} (Hidden)`}
-                                        style={{
-                                            width: `${buttonSize * 2.4}px`,
-                                            height: `${buttonSize * 2.4}px`,
-                                            backgroundColor: brandColor
+                                        onClick={(e) => {
+                                            handleOpenLink(e, link.url);
+                                            setShowHidden(false);
+                                            setUpArrowPopoverRect(null);
                                         }}
+                                        onContextMenu={(e) => handleContextMenu(e)}
+                                        className="group rounded-lg transition-all duration-200 hover:bg-white/10 flex items-center gap-2 p-2 text-left border border-white/5 opacity-80 hover:opacity-100"
+                                        title={link.hidden ? `${link.name} (Hidden)` : link.name}
                                     >
-                                        <div className="w-full h-full flex items-center justify-center text-white grayscale group-hover:grayscale-0 transition-all">
-                                            <LinkIcon iconKey={iconKey} className="w-[85%] h-[85%]" customIconUrl={(link as { iconUrl?: string }).iconUrl} />
+                                        <div className="w-6 h-6 flex-shrink-0 flex items-center justify-center text-white grayscale group-hover:grayscale-0 transition-all">
+                                            <LinkIcon iconKey={iconKey} className="w-[85%] h-[85%]" customIconUrl={(link as { iconUrl?: string }).iconUrl} darkBackground={darkBg} />
                                         </div>
+                                        <span className="text-sm text-gray-200 group-hover:text-white truncate flex-1 min-w-0">
+                                            {link.name}
+                                        </span>
                                     </button>
                                 );
                             })}
-                        </div>
+                        </div>,
+                        document.body
                     )}
                 </div>
             )}
@@ -487,36 +535,48 @@ export const GameLinks: React.FC<GameLinksProps> = ({
                     ref={menuRef}
                     onContextMenu={(e) => e.preventDefault()}
                     onClick={(e) => e.stopPropagation()}
-                    className="fixed z-[99999] w-[280px] bg-gray-950/98 backdrop-blur-3xl border border-white/10 rounded-2xl shadow-2xl py-2 flex flex-col animate-in fade-in zoom-in-95 duration-150 ring-1 ring-white/5"
-                    style={{ left: contextMenu.x, top: contextMenu.y, maxHeight: '400px' }}
+                    className="fixed z-[99999] w-[320px] max-h-[90vh] bg-gray-950/98 backdrop-blur-3xl border border-white/10 rounded-2xl shadow-2xl py-2 flex flex-col animate-in fade-in zoom-in-95 duration-150 ring-1 ring-white/5"
+                    style={{ left: contextMenu.x, top: contextMenu.y, transform: 'translateY(-100%)' }}
                 >
-                    <div className="px-4 pb-2 text-[10px] uppercase tracking-[0.1em] font-black text-gray-400 border-b border-white/5 mb-1 flex items-center justify-between shrink-0">
+                    <div className="px-3 pb-2 text-[10px] uppercase tracking-[0.1em] font-black text-gray-400 border-b border-white/5 mb-2 flex items-center justify-between shrink-0">
                         <span>Link Management</span>
-                        <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></div>
+                        <label className="flex items-center gap-2 cursor-pointer text-gray-400 hover:text-white transition-colors">
+                            <span className="text-xs normal-case font-normal">Icons:</span>
+                            <button
+                                type="button"
+                                onClick={() => setIconsWhite(true)}
+                                className={`px-2 py-0.5 rounded text-xs ${iconsWhite ? 'bg-white/20 text-white' : 'text-gray-500 hover:text-gray-300'}`}
+                            >
+                                White
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setIconsWhite(false)}
+                                className={`px-2 py-0.5 rounded text-xs ${!iconsWhite ? 'bg-white/20 text-white' : 'text-gray-500 hover:text-gray-300'}`}
+                            >
+                                Black
+                            </button>
+                        </label>
                     </div>
 
-                    <div className="overflow-y-auto overflow-x-hidden flex-1 custom-scrollbar">
-                        {processedLinks.map((link, idx) => {
+                    <div className="overflow-x-hidden overflow-y-auto flex-1 custom-scrollbar min-h-0 px-2">
+                        <div className="flex flex-col gap-0.5">
+                        {allLinksForContextMenu.map((link, idx) => {
                             const iconKey = inferLinkKey(link.url, link.name);
-                            const brandColor = BRAND_COLORS[iconKey] || BRAND_COLORS.fallback;
-
                             return (
-                                <div key={idx} className={`group flex items-center gap-2 px-3 py-2 hover:bg-white/5 transition-colors ${link.hidden ? 'opacity-50' : ''}`}>
+                                <div key={idx} className={`group flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-white/5 transition-colors ${link.hidden ? 'opacity-50' : ''}`}>
                                     {/* Link Info */}
                                     <button
                                         onClick={(e) => {
                                             handleOpenLink(e, link.url);
-                                            setContextMenu(null); // explicitly close on open
+                                            setContextMenu(null);
                                         }}
-                                        className="flex-1 flex items-center gap-3 min-w-0"
+                                        className="flex-1 flex items-center gap-2 min-w-0 text-left"
                                     >
-                                        <div
-                                            className="w-5 h-5 flex-shrink-0 flex items-center justify-center rounded text-white shadow-sm grayscale group-hover:grayscale-0 transition-all"
-                                            style={{ backgroundColor: brandColor }}
-                                        >
-                                            <LinkIcon iconKey={iconKey} className="w-[85%] h-[85%]" customIconUrl={(link as { iconUrl?: string }).iconUrl} />
+                                        <div className="w-5 h-5 flex-shrink-0 flex items-center justify-center rounded shadow-sm grayscale group-hover:grayscale-0 transition-all">
+                                            <LinkIcon iconKey={iconKey} className="w-[85%] h-[85%]" customIconUrl={(link as { iconUrl?: string }).iconUrl} darkBackground={darkBg} />
                                         </div>
-                                        <span className="text-sm text-gray-300 group-hover:text-white truncate font-medium">
+                                        <span className="text-sm text-gray-300 group-hover:text-white font-medium">
                                             {link.name}
                                         </span>
                                     </button>
@@ -570,7 +630,11 @@ export const GameLinks: React.FC<GameLinksProps> = ({
                                 </div>
                             );
                         })}
+                        </div>
                     </div>
+                    <p className="px-3 py-2 mt-1 border-t border-white/5 text-xs text-gray-300 shrink-0">
+                        To fix a wrong URL, edit in Game Manager → Links tab.
+                    </p>
                 </div>, document.body
             )}
         </div>

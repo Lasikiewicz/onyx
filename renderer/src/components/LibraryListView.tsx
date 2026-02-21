@@ -367,7 +367,7 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                       style={{
                         width: `${tileHeight}px`,
                         height: `${tileHeight}px`,
-                        backgroundColor: game.iconUrl ? 'transparent' : '#374151',
+                        backgroundColor: 'transparent',
                       }}
                     >
                       {game.iconUrl ? (
@@ -378,9 +378,8 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                           onError={(e) => {
                             const target = e.target as HTMLImageElement;
                             target.style.display = 'none';
-                            // Make parent show background and letter if image fails
+                            // Show letter if image fails (no background)
                             if (target.parentElement) {
-                              target.parentElement.style.backgroundColor = '#374151';
                               const letter = document.createElement('span');
                               letter.className = 'text-white font-bold text-4xl select-none';
                               letter.innerText = game.title.charAt(0).toUpperCase();

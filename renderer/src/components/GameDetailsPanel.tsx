@@ -44,6 +44,9 @@ interface GameDetailsPanelProps {
   isViewFlipped?: boolean;
   // Button colors
   rightPanelButtonColors?: { playColor?: string; editColor?: string; modManagerColor?: string };
+  // Link management (source of truth from Settings when provided by App)
+  linkDisplayOrder?: string[] | null;
+  visibleLinkTypes?: Record<string, boolean>;
 }
 
 export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
@@ -80,6 +83,8 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
   onDescriptionWidthChange,
   isViewFlipped = false,
   rightPanelButtonColors,
+  linkDisplayOrder: linkDisplayOrderFromProps,
+  visibleLinkTypes: visibleLinkTypesFromProps,
 }) => {
   const defaultPanelWidths: Record<ViewKey, number> = { grid: 800, list: 800, logo: 800 };
   const [panelWidths, setPanelWidths] = useState<Record<ViewKey, number>>(defaultPanelWidths);
@@ -969,8 +974,8 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
                   if (onSaveGame) await onSaveGame(updatedGame);
                 }}
                 displayMode={linkDisplayMode}
-                visibleTypes={visibleLinkTypes}
-                displayOrder={linkDisplayOrder ?? undefined}
+                visibleTypes={visibleLinkTypesFromProps ?? visibleLinkTypes}
+                displayOrder={linkDisplayOrderFromProps ?? linkDisplayOrder ?? undefined}
                 buttonSize={rightPanelButtonSize}
               />
             );

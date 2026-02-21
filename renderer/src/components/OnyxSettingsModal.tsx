@@ -4,7 +4,7 @@ import iconSvg from '../../../resources/icon.svg';
 import { SettingsLayout } from './settings/SettingsLayout';
 import { SettingsSidebar, SettingsTab } from './settings/SettingsSidebar';
 import { SettingsSection, SettingsToggle, SettingsInput } from './settings/SettingsComponents';
-import { LINK_DISPLAY_ORDER, DEFAULT_VISIBLE_LINK_TYPES, LINK_DISPLAY_NAME_TO_KEY, LinkIcon, BRAND_COLORS } from './GameLinks';
+import { LINK_DISPLAY_ORDER, DEFAULT_VISIBLE_LINK_TYPES, LINK_DISPLAY_NAME_TO_KEY, LinkIcon } from './GameLinks';
 
 interface OnyxSettingsModalProps {
   isOpen: boolean;
@@ -1553,19 +1553,19 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
             <div className="space-y-6 p-6">
               <SettingsSection
                 title="Link Management"
-                description="Choose which link types appear in game details and in what order. By default only Official Website, YouTube, Subreddit, and Discord are shown."
+                description="Choose which link types appear on the game bar and in what order. Hidden-by-default links still appear in the right-click icon menu."
               >
-                <div className="space-y-2">
+                <div className="space-y-1">
                   {linkDisplayOrder.map((displayName, index) => {
                     const key = LINK_DISPLAY_NAME_TO_KEY[displayName] || displayName.toLowerCase().replace(/\s+/g, '');
-                    const brandColor = BRAND_COLORS[key] || BRAND_COLORS.fallback || '#374151';
                     const isVisible = linkVisibleTypes[key] === true;
+                    const hiddenByDefault = !isVisible;
                     return (
                       <div
                         key={displayName}
-                        className="flex items-center gap-3 p-3 bg-gray-800/50 border border-gray-700 rounded-lg hover:bg-gray-800 transition-colors"
+                        className="flex items-center gap-2 py-1.5 px-2 rounded-lg hover:bg-gray-800/50 transition-colors"
                       >
-                        <div className="flex items-center gap-2 shrink-0">
+                        <div className="flex items-center gap-0.5 shrink-0">
                           <button
                             type="button"
                             onClick={() => {
@@ -1578,7 +1578,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                             className="p-1 text-gray-400 hover:text-white disabled:opacity-30 rounded"
                             title="Move up"
                           >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
                           </button>
                           <button
                             type="button"
@@ -1592,30 +1592,27 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                             className="p-1 text-gray-400 hover:text-white disabled:opacity-30 rounded"
                             title="Move down"
                           >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                           </button>
                         </div>
-                        <div
-                          className="w-9 h-9 flex-shrink-0 flex items-center justify-center rounded text-white"
-                          style={{ backgroundColor: brandColor }}
-                        >
-                          <LinkIcon iconKey={key} className="w-[70%] h-[70%]" />
+                        <div className="w-6 h-6 flex-shrink-0 flex items-center justify-center rounded text-white">
+                          <LinkIcon iconKey={key} className="w-[70%] h-[70%]" darkBackground={true} />
                         </div>
-                        <span className="flex-1 text-sm font-medium text-white">{displayName}</span>
-                        <label className="flex items-center gap-2 shrink-0 cursor-pointer">
-                          <span className="text-xs text-gray-400">Show</span>
+                        <span className="flex-1 text-sm text-white truncate">{displayName}</span>
+                        <label className="flex items-center gap-1.5 shrink-0 cursor-pointer">
+                          <span className="text-xs text-gray-400">Hidden by default</span>
                           <input
                             type="checkbox"
-                            checked={isVisible}
+                            checked={hiddenByDefault}
                             onChange={() => setLinkVisibleTypes(prev => ({ ...prev, [key]: !isVisible }))}
-                            className="w-4 h-4 rounded border-gray-600 bg-gray-700 text-blue-500 focus:ring-blue-500"
+                            className="w-3.5 h-3.5 rounded border-gray-600 bg-gray-700 text-blue-500 focus:ring-blue-500"
                           />
                         </label>
                       </div>
                     );
                   })}
                 </div>
-                <p className="text-xs text-gray-500 mt-3">Changes are saved when you click Save at the bottom of the settings window.</p>
+                <p className="text-xs text-gray-500 mt-2">Changes are saved when you click Save. Hidden-by-default links still appear when you right-click the link icons.</p>
               </SettingsSection>
             </div>
           )}
@@ -1916,9 +1913,12 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                     No ads, no bloat—just games.
                   </p>
                   {/* API Credits */}
-                  <div className="pt-4 border-t border-slate-700/50 mt-4">
+                  <div className="pt-4 border-t border-slate-700/50 mt-4 space-y-1">
                     <p className="text-xs text-slate-500">
                       Powered by <span className="text-slate-400 font-medium">IGDB</span>, <span className="text-slate-400 font-medium">SteamGridDB</span>, and <span className="text-slate-400 font-medium">RAWG.io</span>
+                    </p>
+                    <p className="text-xs text-slate-500">
+                      Link icons by <a href="https://allsvgicons.com" target="_blank" rel="noopener noreferrer" className="text-slate-400 font-medium hover:text-sky-400 transition-colors">allsvgicons.com</a>
                     </p>
                   </div>
                 </div>

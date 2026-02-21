@@ -5,7 +5,7 @@ import { MatchFixDialog } from './MatchFixDialog';
 import { RefreshMetadataDialog } from './RefreshMetadataDialog';
 import { BoxartFixDialog } from './BoxartFixDialog';
 import { ImageContextMenu } from './ImageContextMenu';
-import { LinkIcon, inferLinkKey, BRAND_COLORS, getLinkIconSearchQuery } from './GameLinks';
+import { LinkIcon, inferLinkKey, getLinkIconSearchQuery } from './GameLinks';
 
 interface GameManagerProps {
   isOpen: boolean;
@@ -1782,7 +1782,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
                       />
                     )}
                     {gameListView === 'icon' && (
-                      <div className="w-10 h-10 flex-shrink-0 bg-gray-900 rounded p-1 flex items-center justify-center border border-gray-700">
+                      <div className="w-10 h-10 flex-shrink-0 rounded p-1 flex items-center justify-center border border-gray-700">
                         {game.iconUrl ? (
                           <img
                             src={game.iconUrl}
@@ -3238,7 +3238,6 @@ export const GameManager: React.FC<GameManagerProps> = ({
                           <div className="space-y-2">
                             {editedGame.links.map((link, idx) => {
                               const iconKey = inferLinkKey(link.url, link.name);
-                              const brandColor = (BRAND_COLORS[iconKey] || BRAND_COLORS.fallback) ?? '#374151';
                               return (
                                 <div key={idx} className="flex gap-2 items-center">
                                   <button
@@ -3246,7 +3245,6 @@ export const GameManager: React.FC<GameManagerProps> = ({
                                     onClick={() => setLinkIconPopupIndex(idx)}
                                     title="Change icon"
                                     className="w-9 h-9 flex-shrink-0 flex items-center justify-center rounded text-white border border-gray-600 hover:border-gray-500 transition-colors"
-                                    style={{ backgroundColor: brandColor }}
                                   >
                                     <LinkIcon iconKey={iconKey} className="w-[70%] h-[70%]" customIconUrl={link.iconUrl} />
                                   </button>
