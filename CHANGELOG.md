@@ -4,6 +4,12 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.3.47] - 2026-02-21
+
+- Security: Added API credential validation check for IGDB, RAWG, SteamGridDB, and Giant Bomb before starting a scan in the importer.
+- Fix: Resolved issue with game banners and background images not updating correctly when changed in the Game Manager.
+- Importer: Reset importer state after successful import for a clean start next session.
+
 ## [0.3.46] - 2026-02-21
 
 - Game Importer: Allow switching tabs (Metadata, Images, Links, Mod Manager) and viewing discovered content while a scan is in progress.
