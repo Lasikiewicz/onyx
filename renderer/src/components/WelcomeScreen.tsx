@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { areAPIsConfigured } from '../utils/apiValidation';
 
-type SetupStep = 'welcome' | 'steamgriddb' | 'otherAPIs' | 'otherFolders';
+type SetupStep = 'welcome' | 'steamgriddb' | 'otherFolders';
 
 /** Consistent size for all setup step panels (bigger popup, same across flow) */
 const STEP_PANEL_CLASS = 'max-w-3xl w-full bg-gray-900/60 border border-gray-700/50 rounded-3xl p-12 backdrop-blur-xl shadow-2xl text-left';
+/** Nearly full-screen panel for API Keys step (padding on all sides, content can scroll inside) */
+const STEP_PANEL_API_KEYS_CLASS = 'w-full max-h-[calc(100vh-4rem)] bg-gray-900/60 border border-gray-700/50 rounded-3xl p-12 backdrop-blur-xl shadow-2xl text-left overflow-auto';
+const STEP_WRAPPER_API_KEYS_CLASS = 'flex flex-col items-center justify-center min-h-full px-4 py-8 animate-in fade-in zoom-in duration-500';
 const STEP_WRAPPER_CLASS = 'flex flex-col items-center justify-center min-h-full px-6 py-12 animate-in fade-in zoom-in duration-500';
 
 interface WelcomeScreenProps {
@@ -25,7 +28,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onScanGames, onAdd
     const [igdbClientId, setIgdbClientId] = useState('');
     const [igdbClientSecret, setIgdbClientSecret] = useState('');
     const [rawgApiKey, setRawgApiKey] = useState('');
-    const [savingOtherApis, setSavingOtherApis] = useState(false);
+    const [giantBombApiKey, setGiantBombApiKey] = useState('');
     const [addedFolders, setAddedFolders] = useState<{ path: string; categories: string[] }[]>([]);
     const [customCategories, setCustomCategories] = useState<string[]>([]);
     const [newCategoryName, setNewCategoryName] = useState('');
@@ -43,57 +46,38 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onScanGames, onAdd
     }, []);
 
     useEffect(() => {
-        if ((setupStep === 'steamgriddb' || setupStep === 'otherAPIs') && window.electronAPI.getAPICredentials) {
+        if (setupStep === 'steamgriddb' && window.electronAPI.getAPICredentials) {
             window.electronAPI.getAPICredentials().then(creds => {
-                if (setupStep === 'steamgriddb' && creds.steamGridDBApiKey) setSteamGridDbKey(creds.steamGridDBApiKey);
-                if (setupStep === 'otherAPIs') {
-                    if (creds.igdbClientId) setIgdbClientId(creds.igdbClientId);
-                    if (creds.igdbClientSecret) setIgdbClientSecret(creds.igdbClientSecret);
-                    if (creds.rawgApiKey) setRawgApiKey(creds.rawgApiKey);
-                }
+                if (creds.steamGridDBApiKey) setSteamGridDbKey(creds.steamGridDBApiKey);
+                if (creds.igdbClientId) setIgdbClientId(creds.igdbClientId);
+                if (creds.igdbClientSecret) setIgdbClientSecret(creds.igdbClientSecret);
+                if (creds.rawgApiKey) setRawgApiKey(creds.rawgApiKey);
+                if (creds.giantBombApiKey) setGiantBombApiKey(creds.giantBombApiKey);
             });
         }
     }, [setupStep]);
 
-    const handleSteamGridDbContinue = async () => {
+    const handleApisContinue = async () => {
         setSavingKey(true);
         try {
             const creds = await window.electronAPI.getAPICredentials();
             await window.electronAPI.saveAPICredentials({
                 ...creds,
-                steamGridDBApiKey: steamGridDbKey.trim() || undefined
-            });
-            setSetupStep('otherAPIs');
-        } catch (err) {
-            console.error('Error saving SteamGridDB key:', err);
-        } finally {
-            setSavingKey(false);
-        }
-    };
-
-    const handleSteamGridDbSkip = () => {
-        setSetupStep('otherAPIs');
-    };
-
-    const handleOtherApisContinue = async () => {
-        setSavingOtherApis(true);
-        try {
-            const creds = await window.electronAPI.getAPICredentials();
-            await window.electronAPI.saveAPICredentials({
-                ...creds,
+                steamGridDBApiKey: steamGridDbKey.trim() || undefined,
                 igdbClientId: igdbClientId.trim() || undefined,
                 igdbClientSecret: igdbClientSecret.trim() || undefined,
-                rawgApiKey: rawgApiKey.trim() || undefined
+                rawgApiKey: rawgApiKey.trim() || undefined,
+                giantBombApiKey: giantBombApiKey.trim() || undefined
             });
             setSetupStep('otherFolders');
         } catch (err) {
             console.error('Error saving API credentials:', err);
         } finally {
-            setSavingOtherApis(false);
+            setSavingKey(false);
         }
     };
 
-    const handleOtherApisSkip = () => {
+    const handleApisSkip = () => {
         setSetupStep('otherFolders');
     };
 
@@ -143,55 +127,187 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onScanGames, onAdd
         setNewCategoryName('');
     };
 
-    // Step: SteamGridDB API key
+    // Step: SteamGridDB + IGDB (Twitch) + RAWG on one page
     if (setupStep === 'steamgriddb') {
         return (
-            <div className={STEP_WRAPPER_CLASS}>
-                <div className={STEP_PANEL_CLASS}>
-                    <div className="w-20 h-20 bg-blue-500/20 rounded-2xl flex items-center justify-center mb-8">
-                        <svg className="w-10 h-10 text-blue-400 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
-                        </svg>
+            <div className={`${STEP_WRAPPER_API_KEYS_CLASS} overflow-auto`}>
+                <div className={STEP_PANEL_API_KEYS_CLASS}>
+                    {/* Title: key icon + API Keys */}
+                    <div className="flex items-center gap-4 mb-2">
+                        <div className="w-14 h-14 bg-blue-500/20 rounded-2xl flex items-center justify-center shrink-0">
+                            <svg className="w-8 h-8 text-blue-400 animate-slow-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                            </svg>
+                        </div>
+                        <h2 className="text-3xl font-bold text-white">API Keys</h2>
                     </div>
-                    <h2 className="text-3xl font-bold text-white mb-2">SteamGridDB API Key</h2>
-                    <p className="text-gray-400 mb-6">
-                        Onyx uses SteamGridDB to fetch high-quality box art, logos, and banners when importing games. Without a key we can still find and import games from Steam, Xbox, Epic, and other launchers, but artwork may be limited.
+                    <p className="text-sm text-gray-400 mb-6 leading-relaxed">
+                        API keys let Onyx fetch richer data when you import games.
+                        You can skip this and add keys later in Settings if you prefer but this is not recommended.
                     </p>
-                    <div className="mb-6">
-                        <label className="block text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">API Key (optional)</label>
-                        <input
-                            type="password"
-                            value={steamGridDbKey}
-                            onChange={e => setSteamGridDbKey(e.target.value)}
-                            placeholder="Paste your SteamGridDB API key here"
-                            className="w-full px-4 py-3 bg-gray-800 border border-gray-600 rounded-xl text-white placeholder-gray-500 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
-                        />
+
+                    {/* SteamGridDB and IGDB beside each other; key row at bottom of each card */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6 items-stretch">
+                        {/* SteamGridDB (Highly Recommended) */}
+                        <div className="p-4 bg-gray-800/50 border border-gray-700 rounded-xl flex flex-col min-h-0">
+                            <div className="flex items-center gap-2 mb-4 flex-wrap">
+                                <h4 className="text-sm font-semibold text-white">SteamGridDB</h4>
+                                <span className="px-2 py-0.5 text-sm font-semibold rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30">Highly Recommended for high quality artwork</span>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 flex-1 min-h-0 content-start">
+                                <div className="md:col-span-2 p-3 bg-blue-900/10 border border-blue-500/20 rounded-lg">
+                                    <h4 className="text-sm font-semibold text-white mb-2">How to get a key</h4>
+                                    <ol className="space-y-1 list-decimal list-inside text-gray-300 text-sm">
+                                        <li>Open the <button type="button" onClick={() => window.electronAPI?.openExternal('https://www.steamgriddb.com/profile/preferences/api')} className="text-blue-400 hover:text-blue-300 underline">SteamGridDB API page</button></li>
+                                        <li>Log in and click <span className="font-medium text-white">Generate API Key</span></li>
+                                        <li>Copy the key and paste it below. You can also add it later in Settings → APIs.</li>
+                                    </ol>
+                                </div>
+                                <div className="md:col-span-1">
+                                    <p className="text-sm text-gray-400 mb-1 leading-relaxed">SteamGridDB is used for</p>
+                                    <ul className="text-sm text-gray-400 list-disc list-inside space-y-0.5 leading-relaxed">
+                                        <li>High-quality artwork</li>
+                                        <li>Box art</li>
+                                        <li>Logos</li>
+                                        <li>Banners</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-3 pt-4 mt-auto">
+                                <label className="text-sm text-gray-400 shrink-0">API Key (optional)</label>
+                                <input
+                                    type="password"
+                                    value={steamGridDbKey}
+                                    onChange={e => setSteamGridDbKey(e.target.value)}
+                                    placeholder="Paste your SteamGridDB API key here"
+                                    className="flex-1 min-w-0 px-4 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white text-sm placeholder-gray-500 focus:border-blue-500 outline-none"
+                                />
+                            </div>
+                        </div>
+
+                        {/* IGDB (Twitch) (Highly Recommended) */}
+                        <div className="p-4 bg-gray-800/50 border border-gray-700 rounded-xl flex flex-col min-h-0">
+                            <div className="flex items-center gap-2 mb-4 flex-wrap">
+                                <h4 className="text-sm font-semibold text-white">IGDB (Twitch)</h4>
+                                <span className="px-2 py-0.5 text-sm font-semibold rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30">Highly Recommended for the links icons to work</span>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 flex-1 min-h-0 content-start">
+                                <div className="md:col-span-2 p-3 bg-blue-900/10 border border-blue-500/20 rounded-lg">
+                                    <h4 className="text-sm font-semibold text-white mb-2">How to get a key</h4>
+                                    <ol className="space-y-1 list-decimal list-inside text-gray-300 text-sm">
+                                        <li>Open the <button type="button" onClick={() => window.electronAPI?.openExternal('https://dev.twitch.tv/console')} className="text-blue-400 hover:text-blue-300 underline">Twitch Developer Console</button></li>
+                                        <li>Register your application (e.g. name it &quot;Onyx&quot;, category &quot;Game Integration&quot;)</li>
+                                        <li>Copy <strong className="text-white">Client ID</strong> and create a <strong className="text-white">Client Secret</strong> under Manage. Paste both below.</li>
+                                    </ol>
+                                </div>
+                                <div className="md:col-span-1">
+                                    <p className="text-sm text-gray-400 mb-1 leading-relaxed">IGDB (Twitch) is used for</p>
+                                    <ul className="text-sm text-gray-400 list-disc list-inside space-y-0.5 leading-relaxed">
+                                        <li>Official game links</li>
+                                        <li>Release dates</li>
+                                        <li>Genres</li>
+                                        <li>Descriptions</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-3 pt-4 mt-auto">
+                                <label className="text-sm text-gray-400 shrink-0">Client ID &amp; Client Secret</label>
+                                <div className="flex-1 min-w-0 grid grid-cols-2 gap-3">
+                                    <input type="text" value={igdbClientId} onChange={e => setIgdbClientId(e.target.value)} placeholder="IGDB Client ID" className="w-full px-4 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white text-sm placeholder-gray-500 focus:border-blue-500 outline-none" />
+                                    <input type="password" value={igdbClientSecret} onChange={e => setIgdbClientSecret(e.target.value)} placeholder="IGDB Client Secret" className="w-full px-4 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white text-sm placeholder-gray-500 focus:border-blue-500 outline-none" />
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <div className="p-4 bg-blue-900/10 border border-blue-500/20 rounded-xl mb-8">
-                        <h4 className="text-sm font-semibold text-white mb-2">How to get a key</h4>
-                        <ol className="space-y-1 list-decimal list-inside text-gray-300 text-sm">
-                            <li>Open the <button type="button" onClick={() => window.electronAPI?.openExternal('https://www.steamgriddb.com/profile/preferences/api')} className="text-blue-400 hover:text-blue-300 underline">SteamGridDB API page</button></li>
-                            <li>Log in and click <span className="font-medium text-white">Generate API Key</span></li>
-                            <li>Copy the key and paste it above. You can also add it later in Settings → APIs.</li>
-                        </ol>
+
+                    {/* RAWG and GiantBomb — same layout as SteamGridDB/IGDB */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8 items-stretch">
+                        {/* RAWG (optional) */}
+                        <div className="p-4 bg-gray-800/50 border border-gray-700 rounded-xl flex flex-col min-h-0">
+                            <div className="flex items-center gap-2 mb-4">
+                                <h4 className="text-sm font-semibold text-white">RAWG (optional)</h4>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 flex-1 min-h-0 content-start">
+                                <div className="md:col-span-2 p-3 bg-blue-900/10 border border-blue-500/20 rounded-lg">
+                                    <h4 className="text-sm font-semibold text-white mb-2">How to get a key</h4>
+                                    <ol className="space-y-1 list-decimal list-inside text-gray-300 text-sm">
+                                        <li>Sign up at <button type="button" onClick={() => window.electronAPI?.openExternal('https://rawg.io/apidocs')} className="text-blue-400 hover:text-blue-300 underline">RAWG API</button></li>
+                                        <li>Get your API key from your profile and paste it below</li>
+                                    </ol>
+                                </div>
+                                <div className="md:col-span-1">
+                                    <p className="text-sm text-gray-400 mb-1 leading-relaxed">RAWG is used for</p>
+                                    <ul className="text-sm text-gray-400 list-disc list-inside space-y-0.5 leading-relaxed">
+                                        <li>Metadata</li>
+                                        <li>Artwork</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-3 pt-4 mt-auto">
+                                <label className="text-sm text-gray-400 shrink-0">RAWG API Key</label>
+                                <input type="password" value={rawgApiKey} onChange={e => setRawgApiKey(e.target.value)} placeholder="RAWG API Key" className="flex-1 min-w-0 px-4 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white text-sm placeholder-gray-500 focus:border-blue-500 outline-none" />
+                            </div>
+                        </div>
+
+                        {/* GiantBomb (optional) — API unavailable overlay on top */}
+                        <div className="relative p-4 bg-gray-800/50 border border-gray-700 rounded-xl flex flex-col min-h-0">
+                            {/* Overlay: covers the section */}
+                            <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-gray-900/85 p-4">
+                                <div className="p-4 rounded-lg border border-red-500/40 bg-red-950/40 flex gap-3 max-w-md">
+                                    <svg className="w-6 h-6 text-red-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                    </svg>
+                                    <div>
+                                        <p className="text-sm font-semibold text-red-400">API Currently Unavailable</p>
+                                        <p className="text-sm text-gray-300 mt-1">
+                                            Giant Bomb is rebuilding their API infrastructure after becoming independent from Fandom. The API is temporarily offline while they migrate their tech stack.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-2 mb-4">
+                                <h4 className="text-sm font-semibold text-white">GiantBomb (optional)</h4>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 flex-1 min-h-0 content-start">
+                                <div className="md:col-span-2 p-3 bg-blue-900/10 border border-blue-500/20 rounded-lg">
+                                    <h4 className="text-sm font-semibold text-white mb-2">How to get a key</h4>
+                                    <ol className="space-y-1 list-decimal list-inside text-gray-300 text-sm">
+                                        <li>Visit the <button type="button" onClick={() => window.electronAPI?.openExternal('https://www.giantbomb.com/api/')} className="text-blue-400 hover:text-blue-300 underline">Giant Bomb API</button> page</li>
+                                        <li>Log in and generate an API key, then paste it below</li>
+                                    </ol>
+                                </div>
+                                <div className="md:col-span-1">
+                                    <p className="text-sm text-gray-400 mb-1 leading-relaxed">GiantBomb is used for</p>
+                                    <ul className="text-sm text-gray-400 list-disc list-inside space-y-0.5 leading-relaxed">
+                                        <li>Metadata</li>
+                                        <li>Artwork</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-3 pt-4 mt-auto">
+                                <label className="text-sm text-gray-400 shrink-0">GiantBomb API Key</label>
+                                <input type="password" value={giantBombApiKey} onChange={e => setGiantBombApiKey(e.target.value)} placeholder="GiantBomb API Key (when available)" className="flex-1 min-w-0 px-4 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white text-sm placeholder-gray-500 focus:border-blue-500 outline-none" />
+                            </div>
+                        </div>
                     </div>
+
                     <div className="flex gap-4">
                         <button
                             onClick={() => setSetupStep('welcome')}
-                            className="flex-1 px-6 py-4 bg-gray-800 hover:bg-gray-700 text-white font-semibold rounded-2xl transition-all"
+                            className="flex-1 px-6 py-2 bg-gray-800 hover:bg-gray-700 text-white font-semibold rounded-2xl transition-all"
                         >
                             Back
                         </button>
                         <button
-                            onClick={handleSteamGridDbSkip}
-                            className="flex-1 px-6 py-4 bg-gray-700 hover:bg-gray-600 text-white font-semibold rounded-2xl transition-all"
+                            onClick={handleApisSkip}
+                            className="flex-1 px-6 py-2 bg-gray-700 hover:bg-gray-600 text-white font-semibold rounded-2xl transition-all"
                         >
                             Skip
                         </button>
                         <button
-                            onClick={handleSteamGridDbContinue}
+                            onClick={handleApisContinue}
                             disabled={savingKey}
-                            className="flex-1 px-6 py-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-2xl transition-all shadow-lg shadow-blue-600/20 disabled:opacity-50"
+                            className="flex-1 px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-2xl transition-all shadow-lg shadow-blue-600/20 disabled:opacity-50"
                         >
                             {savingKey ? 'Saving…' : 'Continue'}
                         </button>
@@ -201,98 +317,31 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onScanGames, onAdd
         );
     }
 
-    // Step: Other API keys (optional)
-    if (setupStep === 'otherAPIs') {
-        return (
-            <div className={`${STEP_WRAPPER_CLASS} overflow-auto`}>
-                <div className={STEP_PANEL_CLASS}>
-                    <div className="w-20 h-20 bg-amber-500/20 rounded-2xl flex items-center justify-center mb-8">
-                        <svg className="w-10 h-10 text-amber-400 group- hover:animate-gear-spin group-hover:animate-gear-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                        </svg>
-                    </div>
-                    <h2 className="text-3xl font-bold text-white mb-2">Other API Keys (optional)</h2>
-                    <p className="text-gray-400 mb-6">
-                        Adding more API keys improves game metadata and artwork. You can skip this and add them later in Settings if you prefer.
-                    </p>
-
-                    <div className="space-y-6 mb-8">
-                        <div className="p-4 bg-gray-800/50 border border-gray-700 rounded-xl">
-                            <h4 className="text-sm font-semibold text-white mb-2">IGDB (Twitch)</h4>
-                            <p className="text-xs text-gray-400 mb-3">Provides release dates, genres, descriptions, and official game links. Helps match and identify games.</p>
-                            <ol className="text-xs text-gray-300 list-decimal list-inside space-y-1 mb-3">
-                                <li>Open the <button type="button" onClick={() => window.electronAPI?.openExternal('https://dev.twitch.tv/console')} className="text-blue-400 hover:text-blue-300 underline">Twitch Developer Console</button></li>
-                                <li>Register your application (e.g. name it &quot;Onyx&quot;, category &quot;Game Integration&quot;)</li>
-                                <li>Copy <strong className="text-white">Client ID</strong> and create a <strong className="text-white">Client Secret</strong> under Manage</li>
-                            </ol>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                <input type="text" value={igdbClientId} onChange={e => setIgdbClientId(e.target.value)} placeholder="IGDB Client ID" className="w-full px-4 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white text-sm placeholder-gray-500 focus:border-blue-500 outline-none" />
-                                <input type="password" value={igdbClientSecret} onChange={e => setIgdbClientSecret(e.target.value)} placeholder="IGDB Client Secret" className="w-full px-4 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white text-sm placeholder-gray-500 focus:border-blue-500 outline-none" />
-                            </div>
-                        </div>
-                        <div className="p-4 bg-gray-800/50 border border-gray-700 rounded-xl">
-                            <h4 className="text-sm font-semibold text-white mb-2">RAWG</h4>
-                            <p className="text-xs text-gray-400 mb-3">Optional extra source for metadata and artwork.</p>
-                            <ol className="text-xs text-gray-300 list-decimal list-inside space-y-1 mb-3">
-                                <li>Sign up at <button type="button" onClick={() => window.electronAPI?.openExternal('https://rawg.io/apidocs')} className="text-blue-400 hover:text-blue-300 underline">RAWG API</button></li>
-                                <li>Get your API key from your profile and paste it below</li>
-                            </ol>
-                            <input type="password" value={rawgApiKey} onChange={e => setRawgApiKey(e.target.value)} placeholder="RAWG API Key" className="w-full px-4 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white text-sm placeholder-gray-500 focus:border-blue-500 outline-none" />
-                        </div>
-                    </div>
-
-                    <div className="flex gap-4">
-                        <button onClick={() => setSetupStep('steamgriddb')} className="flex-1 px-6 py-4 bg-gray-800 hover:bg-gray-700 text-white font-semibold rounded-2xl transition-all">Back</button>
-                        <button onClick={handleOtherApisSkip} className="flex-1 px-6 py-4 bg-gray-700 hover:bg-gray-600 text-white font-semibold rounded-2xl transition-all">Skip</button>
-                        <button onClick={handleOtherApisContinue} disabled={savingOtherApis} className="flex-1 px-6 py-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-2xl transition-all shadow-lg shadow-blue-600/20 disabled:opacity-50">{savingOtherApis ? 'Saving…' : 'Continue'}</button>
-                    </div>
-                </div>
-            </div>
-        );
-    }
-
-    // Step: Other folders
+    // Step: Other folders — same size and font sizes as API Keys step
     if (setupStep === 'otherFolders') {
         return (
-            <div className={`${STEP_WRAPPER_CLASS} overflow-auto`}>
-                <div className={STEP_PANEL_CLASS}>
-                    <div className="w-20 h-20 bg-blue-500/20 rounded-2xl flex items-center justify-center mb-8">
-                        <svg className="w-10 h-10 text-blue-400 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
-                        </svg>
+            <div className={`${STEP_WRAPPER_API_KEYS_CLASS} overflow-auto`}>
+                <div className={STEP_PANEL_API_KEYS_CLASS}>
+                    <div className="flex items-center gap-4 mb-2">
+                        <div className="w-14 h-14 bg-blue-500/20 rounded-2xl flex items-center justify-center shrink-0">
+                            <svg className="w-8 h-8 text-blue-400 animate-slow-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                            </svg>
+                        </div>
+                        <h2 className="text-3xl font-bold text-white">Games in other folders?</h2>
                     </div>
-                    <h2 className="text-3xl font-bold text-white mb-2">Games in other folders?</h2>
-                    <p className="text-gray-400 mb-4">
+                    <p className="text-sm text-gray-400 mb-4 leading-relaxed">
                         When you run the scan, Onyx will automatically look for games in common locations, including Steam, Xbox, Epic, GOG, Ubisoft, and other launchers, so you don&apos;t have to add those manually.
                     </p>
-                    <p className="text-gray-400 mb-6">
+                    <p className="text-sm text-gray-400 mb-6 leading-relaxed">
                         If you keep games in custom folders (e.g. a separate drive or a non-standard path), add them below so we can monitor and import from them too.
                     </p>
 
                     <div className="mb-6">
                         <label className="block text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Auto-assign categories</label>
-                        <p className="text-xs text-gray-500 mb-3">
+                        <p className="text-sm text-gray-500 mb-3 leading-relaxed">
                             For each folder you add, choose one or more categories (e.g. <strong className="text-gray-400">Games</strong>, <strong className="text-gray-400">Apps</strong>, <strong className="text-gray-400">VR</strong>). Every game we find in that folder will be tagged with these categories so you can filter and organize your library. You can change this later in Settings.
                         </p>
-                        <div className="flex flex-wrap items-center gap-2 mb-4">
-                            <input
-                                type="text"
-                                value={newCategoryName}
-                                onChange={e => setNewCategoryName(e.target.value)}
-                                onKeyDown={e => e.key === 'Enter' && handleAddCustomCategory()}
-                                placeholder="New category name"
-                                className="px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white text-sm placeholder-gray-500 focus:border-blue-500 outline-none w-40"
-                            />
-                            <button
-                                type="button"
-                                onClick={handleAddCustomCategory}
-                                disabled={!newCategoryName.trim()}
-                                className="px-4 py-2 bg-gray-700 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-all flex items-center gap-1.5"
-                            >
-                                <svg className="w-4 h-4 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-                                Add category
-                            </button>
-                        </div>
                         {addedFolders.length === 0 ? (
                             <button
                                 onClick={handleAddFolderToSetup}
@@ -303,10 +352,13 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onScanGames, onAdd
                             </button>
                         ) : (
                             <div className="space-y-3">
-                                {addedFolders.map(({ path, categories }) => (
-                                    <div key={path} className="flex flex-col gap-2 p-4 bg-gray-800/50 border border-gray-700 rounded-xl">
-                                        <div className="flex items-center justify-between gap-2">
-                                            <span className="text-sm text-gray-300 truncate" title={path}>{path.split(/[/\\]/).pop() || path}</span>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                                    {addedFolders.map(({ path, categories }) => (
+                                        <div key={path} className="flex flex-col gap-2 p-4 bg-gray-800/50 border border-gray-700 rounded-xl">
+                                            <div className="flex items-start justify-between gap-2">
+                                                <div className="min-w-0 flex-1">
+                                                    <p className="text-sm text-gray-300 break-all" title={path}>{path}</p>
+                                                </div>
                                             <button
                                                 type="button"
                                                 onClick={() => removeAddedFolder(path)}
@@ -330,8 +382,28 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onScanGames, onAdd
                                                 );
                                             })}
                                         </div>
-                                    </div>
-                                ))}
+                                        <div className="flex flex-wrap items-center gap-2 pt-1">
+                                            <input
+                                                type="text"
+                                                value={newCategoryName}
+                                                onChange={e => setNewCategoryName(e.target.value)}
+                                                onKeyDown={e => e.key === 'Enter' && handleAddCustomCategory()}
+                                                placeholder="New category name"
+                                                className="px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white text-sm placeholder-gray-500 focus:border-blue-500 outline-none w-40"
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={handleAddCustomCategory}
+                                                disabled={!newCategoryName.trim()}
+                                                className="px-4 py-2 bg-gray-700 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-all flex items-center gap-1.5"
+                                            >
+                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                                                Add category
+                                            </button>
+                                        </div>
+                                        </div>
+                                    ))}
+                                </div>
                                 <button
                                     onClick={handleAddFolderToSetup}
                                     className="w-full px-4 py-3 border border-dashed border-gray-600 hover:border-blue-500 rounded-xl text-gray-400 hover:text-blue-400 transition-all flex items-center justify-center gap-2 text-sm"
@@ -344,8 +416,8 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onScanGames, onAdd
                     </div>
 
                     <div className="flex gap-4">
-                        <button onClick={() => setSetupStep('otherAPIs')} className="flex-1 px-6 py-4 bg-gray-800 hover:bg-gray-700 text-white font-semibold rounded-2xl transition-all">Back</button>
-                        <button onClick={handleOtherFoldersDone} className="flex-1 px-6 py-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-2xl transition-all shadow-lg shadow-blue-600/20">Done, start scan</button>
+                        <button onClick={() => setSetupStep('steamgriddb')} className="flex-1 px-6 py-2 bg-gray-800 hover:bg-gray-700 text-white font-semibold rounded-2xl transition-all">Back</button>
+                        <button onClick={handleOtherFoldersDone} className="flex-1 px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-2xl transition-all shadow-lg shadow-blue-600/20">Done, start scan</button>
                     </div>
                 </div>
             </div>

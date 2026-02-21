@@ -59,6 +59,19 @@
   }
 }
 
+@keyframes slowSpin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-slow-spin {
+  animation: slowSpin 8s linear infinite;
+}
+
 /* Animation Classes */
 .game-transition-fade {
   animation: fadeIn 500ms ease-out;
