@@ -3,12 +3,9 @@ import { areAPIsConfigured } from '../utils/apiValidation';
 
 type SetupStep = 'welcome' | 'steamgriddb' | 'otherFolders';
 
-/** Consistent size for all setup step panels (bigger popup, same across flow) */
-const STEP_PANEL_CLASS = 'max-w-3xl w-full bg-gray-900/60 border border-gray-700/50 rounded-3xl p-12 backdrop-blur-xl shadow-2xl text-left';
-/** Nearly full-screen panel for API Keys step (padding on all sides, content can scroll inside) */
+/** Nearly full-screen panel for API Keys and Other Folders steps (padding on all sides, content can scroll inside) */
 const STEP_PANEL_API_KEYS_CLASS = 'w-full max-h-[calc(100vh-4rem)] bg-gray-900/60 border border-gray-700/50 rounded-3xl p-12 backdrop-blur-xl shadow-2xl text-left overflow-auto';
 const STEP_WRAPPER_API_KEYS_CLASS = 'flex flex-col items-center justify-center min-h-full px-4 py-8 animate-in fade-in zoom-in duration-500';
-const STEP_WRAPPER_CLASS = 'flex flex-col items-center justify-center min-h-full px-6 py-12 animate-in fade-in zoom-in duration-500';
 
 interface WelcomeScreenProps {
     onScanGames: () => void;
