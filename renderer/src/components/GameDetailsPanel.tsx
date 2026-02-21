@@ -348,10 +348,9 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
     );
   }
 
-  // Banner should be the background, box art goes on the right side
-  const backgroundImageUrl = game.useAlternativeBackground && game.alternativeBannerUrl
-    ? game.alternativeBannerUrl
-    : game.heroUrl || game.bannerUrl || game.boxArtUrl || '';
+  // Banner at top of panel always uses primary artwork (hero/banner/boxArt).
+  // Alternative Background toggle only affects the full-page backdrop in App.tsx.
+  const backgroundImageUrl = game.heroUrl || game.bannerUrl || game.boxArtUrl || '';
   const formatDate = (dateString?: string) => {
     if (!dateString) return '';
     try {
