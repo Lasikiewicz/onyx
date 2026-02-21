@@ -158,8 +158,9 @@ const giantBombService: GiantBombService | null = null;
 const metadataFetcher = new MetadataFetcherService(igdbService, steamService, rawgService, steamGridDBService, giantBombService);
 const importService = new ImportService(steamService, xboxService, appConfigService, metadataFetcher);
 
-// Update credentials asynchronously
-apiCredentialsService.getCredentials().then(creds => {
+/** Refresh metadata fetcher with current API credentials. Call after saving credentials so Start scan uses all added APIs. */
+async function refreshMetadataServices(): Promise<void> {
+  const creds = await apiCredentialsService.getCredentials();
   let newIgdbService: IGDBService | null = null;
   let newSteamGridDBService: SteamGridDBService | null = null;
   let newRawgService: RAWGService | null = null;
@@ -168,28 +169,25 @@ apiCredentialsService.getCredentials().then(creds => {
   if (creds.igdbClientId && creds.igdbClientSecret) {
     newIgdbService = new IGDBService(creds.igdbClientId, creds.igdbClientSecret);
   }
-
   if (creds.steamGridDBApiKey) {
     newSteamGridDBService = new SteamGridDBService(creds.steamGridDBApiKey);
   }
-
   if (creds.rawgApiKey) {
     newRawgService = new RAWGService(creds.rawgApiKey);
   }
-
   if (creds.giantBombApiKey) {
     newGiantBombService = new GiantBombService(creds.giantBombApiKey);
   }
 
-  // Refresh providers in fetcher
-  // Always update, even if null (to disable if credentials are removed)
   metadataFetcher.setIGDBService(newIgdbService);
   metadataFetcher.setSteamGridDBService(newSteamGridDBService);
   metadataFetcher.setRAWGService(newRawgService);
   metadataFetcher.setGiantBombService(newGiantBombService);
+  console.log('[App] Metadata services refreshed with saved credentials');
+}
 
-  console.log('[App] Metadata services initialized with saved credentials');
-}).catch(err => console.error('[App] Failed to load credentials for metadata services:', err));
+// Initialize metadata services at startup
+refreshMetadataServices().catch(err => console.error('[App] Failed to load credentials for metadata services:', err));
 
 // Placeholder for late-initialized services
 let processSuspendService: ProcessSuspendService | null = null;
@@ -254,6 +252,7 @@ registerAppIPCHandlers(
   apiCredentialsService,
   steamAuthService,
   bugReportService,
+  refreshMetadataServices,
   {
     createTray: () => {
       if (!tray) createTray();

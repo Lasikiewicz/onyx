@@ -7,6 +7,7 @@ description: Onyx AI Agent Guide - Critical Rules & Project Context
 ## ⚠️ MANDATORY GIT RULES - NON-NEGOTIABLE
 
 **Agent CAN push to git when following established workflows below. CRITICAL requirements:**
+- ✅ **Run `npm run scan:secrets` before any git push** - If it fails, fix (remove/rotate secrets) and re-run until it passes. Never push with hardcoded secrets.
 - ✅ **ALWAYS use terminal commands** (`git commit -m "..."`, `git push`, etc.) - NEVER use Cursor's Source Control / commit UI
 - ✅ **NEVER add Co-authored-by or Cursor branding** - The `commit-msg` hook strips these automatically, but don't add them in the first place
 - ✅ **Terminal commits use your git config** (your name/email) as author - this is why we use terminal, not Cursor UI
@@ -19,18 +20,21 @@ description: Onyx AI Agent Guide - Critical Rules & Project Context
 ## 🔄 RELEASE WORKFLOW (Strict Protocol)
 
 **SIMPLE SUMMARY — do not confuse branches:**
-- **Push to git** = run `npm run build`, fix any issues, then push local master to remote master.
-- **Force to Alpha** = force **remote master** → **remote develop**. This updates the build number (increment version, changelog, commit, push master, then force master to develop). Triggers Onyx Alpha build. There is no branch named "alpha".
+- **Push to git** = run `npm run build` and `npm run scan:secrets`, fix any issues, then push local master to remote master.
+- **Force to Alpha** = force **remote master** → **remote develop**. This updates the build number (increment version, changelog, run scan:secrets, commit, push master, then force master to develop). Triggers Onyx Alpha build. There is no branch named "alpha".
 - **Force to Main** = force **remote develop** → **remote main**. Same build number as the alpha. Triggers Onyx (Production) build. Source is always **origin/develop**, never master.
 
 ### 1. "Push to git" / "Push to git master"
-**Always run the build first and fix any issues, then push local master to remote master.** Does NOT trigger CI app build.
+**Always run the build and secrets scan first; fix any issues, then push local master to remote master.** Does NOT trigger CI app build.
 
 1. Run `npm run build`. If it fails, fix build or type errors (and fix any lint issues if reported), then run `npm run build` again until it succeeds.
-2. Commit and push.
+2. Run `npm run scan:secrets`. If it fails, remove or fix hardcoded secrets (or use env vars), then re-run until it passes.
+3. Commit and push.
 ```bash
 npm run build
 # If build fails: fix errors (TypeScript, lint, etc.), then re-run npm run build. Repeat until success.
+npm run scan:secrets
+# If scan fails: remove/fix hardcoded secrets, then re-run. Repeat until success.
 git add -A
 git commit -m "[Summary]"
 git push origin master
@@ -41,10 +45,13 @@ git push origin master
 
 1. Run `npm run increment-build`, then read `version` from `package.json`.
 2. Add a brief changelog: edit [CHANGELOG.md](CHANGELOG.md) — new `## [X.Y.Z] - YYYY-MM-DD` with a short list of changes.
-3. Commit message **must** be: `<version> <changes>` (e.g. `0.3.15 Flip view and menu layout`).
+3. Run `npm run scan:secrets`. If it fails, fix and re-run until it passes.
+4. Commit message **must** be: `<version> <changes>` (e.g. `0.3.15 Flip view and menu layout`).
 ```bash
 npm run increment-build
 # Edit CHANGELOG.md, then:
+npm run scan:secrets
+# If scan fails: fix and re-run until success.
 git add package.json CHANGELOG.md
 git commit -m "<version> <changes>"
 git push origin master
@@ -66,8 +73,11 @@ Result: remote **main** = remote **develop**. CI builds Production from main.
    ```bash
    cd website && npm run build
    ```
-2. Commit and push to master (if there are uncommitted changes):
+2. Run `npm run scan:secrets`. If it fails, fix and re-run until it passes.
+3. Commit and push to master (if there are uncommitted changes):
    ```bash
+   npm run scan:secrets
+   # If scan fails: fix and re-run until success.
    git add -A
    git commit -m "[Summary — e.g. website: ...]"
    git push origin master

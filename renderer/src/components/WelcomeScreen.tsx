@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { areAPIsConfigured } from '../utils/apiValidation';
 
-type SetupStep = 'welcome' | 'steamgriddb' | 'otherFolders';
+type SetupStep = 'welcome' | 'steamgriddb' | 'otherFolders' | 'overview';
 
 /** Nearly full-screen panel for API Keys and Other Folders steps (padding on all sides, content can scroll inside) */
 const STEP_PANEL_API_KEYS_CLASS = 'w-full max-h-[calc(100vh-4rem)] bg-gray-900/60 border border-gray-700/50 rounded-3xl p-12 backdrop-blur-xl shadow-2xl text-left overflow-auto';
@@ -29,6 +29,9 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onScanGames, onAdd
     const [addedFolders, setAddedFolders] = useState<{ path: string; categories: string[] }[]>([]);
     const [customCategories, setCustomCategories] = useState<string[]>([]);
     const [newCategoryName, setNewCategoryName] = useState('');
+    const [overviewApis, setOverviewApis] = useState<{ steamGridDB: boolean; igdb: boolean; rawg: boolean; giantBomb: boolean } | null>(null);
+    const [overviewKeyInputs, setOverviewKeyInputs] = useState<{ steamGridDB: string; igdbClientId: string; igdbClientSecret: string; rawg: string }>({ steamGridDB: '', igdbClientId: '', igdbClientSecret: '', rawg: '' });
+    const [savingOverviewKey, setSavingOverviewKey] = useState<string | null>(null);
 
     useEffect(() => {
         const checkAPIs = async () => {
@@ -50,6 +53,20 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onScanGames, onAdd
                 if (creds.igdbClientSecret) setIgdbClientSecret(creds.igdbClientSecret);
                 if (creds.rawgApiKey) setRawgApiKey(creds.rawgApiKey);
                 if (creds.giantBombApiKey) setGiantBombApiKey(creds.giantBombApiKey);
+            });
+        }
+    }, [setupStep]);
+
+    useEffect(() => {
+        if (setupStep === 'overview' && window.electronAPI.getAPICredentials) {
+            setOverviewApis(null);
+            window.electronAPI.getAPICredentials().then(creds => {
+                setOverviewApis({
+                    steamGridDB: !!(creds.steamGridDBApiKey?.trim()),
+                    igdb: !!(creds.igdbClientId?.trim() && creds.igdbClientSecret?.trim()),
+                    rawg: !!(creds.rawgApiKey?.trim()),
+                    giantBomb: !!(creds.giantBombApiKey?.trim())
+                });
             });
         }
     }, [setupStep]);
@@ -91,6 +108,43 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onScanGames, onAdd
 
     const removeAddedFolder = (path: string) => {
         setAddedFolders(prev => prev.filter(f => f.path !== path));
+    };
+
+    const handleOtherFoldersNext = () => {
+        setSetupStep('overview');
+    };
+
+    const saveOverviewApiKey = async (api: 'steamGridDB' | 'igdb' | 'rawg') => {
+        if (!window.electronAPI.getAPICredentials || !window.electronAPI.saveAPICredentials) return;
+        setSavingOverviewKey(api);
+        try {
+            const creds = await window.electronAPI.getAPICredentials();
+            if (api === 'steamGridDB') {
+                await window.electronAPI.saveAPICredentials({ ...creds, steamGridDBApiKey: overviewKeyInputs.steamGridDB.trim() || undefined });
+                setOverviewKeyInputs(prev => ({ ...prev, steamGridDB: '' }));
+            } else if (api === 'igdb') {
+                await window.electronAPI.saveAPICredentials({
+                    ...creds,
+                    igdbClientId: overviewKeyInputs.igdbClientId.trim() || undefined,
+                    igdbClientSecret: overviewKeyInputs.igdbClientSecret.trim() || undefined
+                });
+                setOverviewKeyInputs(prev => ({ ...prev, igdbClientId: '', igdbClientSecret: '' }));
+            } else if (api === 'rawg') {
+                await window.electronAPI.saveAPICredentials({ ...creds, rawgApiKey: overviewKeyInputs.rawg.trim() || undefined });
+                setOverviewKeyInputs(prev => ({ ...prev, rawg: '' }));
+            }
+            const next = await window.electronAPI.getAPICredentials();
+            setOverviewApis({
+                steamGridDB: !!(next.steamGridDBApiKey?.trim()),
+                igdb: !!(next.igdbClientId?.trim() && next.igdbClientSecret?.trim()),
+                rawg: !!(next.rawgApiKey?.trim()),
+                giantBomb: !!(next.giantBombApiKey?.trim())
+            });
+        } catch (err) {
+            console.error('Error saving API key:', err);
+        } finally {
+            setSavingOverviewKey(null);
+        }
     };
 
     const handleOtherFoldersDone = async () => {
@@ -414,7 +468,191 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onScanGames, onAdd
 
                     <div className="flex gap-4">
                         <button onClick={() => setSetupStep('steamgriddb')} className="flex-1 px-6 py-2 bg-gray-800 hover:bg-gray-700 text-white font-semibold rounded-2xl transition-all">Back</button>
-                        <button onClick={handleOtherFoldersDone} className="flex-1 px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-2xl transition-all shadow-lg shadow-blue-600/20">Done, start scan</button>
+                        <button onClick={handleOtherFoldersNext} className="flex-1 px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-2xl transition-all shadow-lg shadow-blue-600/20">Next</button>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    // Step: Overview — checklist of selected options before starting scan
+    if (setupStep === 'overview') {
+        return (
+            <div className={`${STEP_WRAPPER_API_KEYS_CLASS} overflow-auto`}>
+                <div className={STEP_PANEL_API_KEYS_CLASS}>
+                    <div className="flex items-center gap-4 mb-2">
+                        <div className="w-14 h-14 bg-green-500/20 rounded-2xl flex items-center justify-center shrink-0">
+                            <svg className="w-8 h-8 text-green-400 animate-slow-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                            </svg>
+                        </div>
+                        <h2 className="text-3xl font-bold text-white">Overview</h2>
+                    </div>
+                    <p className="text-sm text-gray-400 mb-6 leading-relaxed">
+                        Here’s what will be used for your first scan. You can go back to change anything.
+                    </p>
+
+                    <div className="space-y-6">
+                        <div>
+                            <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">APIs added</h3>
+                            {overviewApis === null ? (
+                                <p className="text-gray-500 text-sm">Loading…</p>
+                            ) : (
+                                <div className="grid grid-cols-4 gap-3">
+                                    {[
+                                        { key: 'steamGridDB' as const, label: 'SteamGridDB' },
+                                        { key: 'igdb' as const, label: 'IGDB (Twitch)' },
+                                        { key: 'rawg' as const, label: 'RAWG' },
+                                        { key: 'giantBomb' as const, label: 'Giant Bomb' }
+                                    ].map(({ key, label }) => {
+                                        const isAdded = overviewApis[key];
+                                        const isGiantBomb = key === 'giantBomb';
+                                        const saving = savingOverviewKey === key || (key === 'igdb' && savingOverviewKey === 'igdb');
+                                        const tile = (
+                                            <div
+                                                key={key}
+                                                className={`relative flex flex-col gap-2 p-3 rounded-xl border min-h-0 ${isAdded ? 'bg-gray-800/50 border-gray-700' : 'bg-gray-800/30 border-gray-700/70'}`}
+                                            >
+                                                <div className="flex items-center justify-center gap-1.5">
+                                                    {isAdded ? <span className="text-green-400 text-lg">✓</span> : <span className="text-gray-500 text-lg">○</span>}
+                                                    <span className={`text-sm text-center font-medium ${isAdded ? 'text-gray-300' : 'text-gray-500'}`}>{label}</span>
+                                                </div>
+                                                {isAdded ? (
+                                                    <p className="text-xs text-green-400/90 text-center">Good to go</p>
+                                                ) : isGiantBomb ? (
+                                                    <div className="mt-1">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setSetupStep('steamgriddb')}
+                                                            className="text-xs font-medium text-blue-400 hover:text-blue-300 underline"
+                                                        >
+                                                            Add key
+                                                        </button>
+                                                    </div>
+                                                ) : key === 'steamGridDB' ? (
+                                                    <div className="mt-1 space-y-2">
+                                                        <input
+                                                            type="password"
+                                                            value={overviewKeyInputs.steamGridDB}
+                                                            onChange={e => setOverviewKeyInputs(prev => ({ ...prev, steamGridDB: e.target.value }))}
+                                                            placeholder="API key"
+                                                            className="w-full px-2 py-1.5 bg-gray-800 border border-gray-600 rounded-lg text-white text-xs placeholder-gray-500 focus:border-blue-500 outline-none"
+                                                        />
+                                                        <button
+                                                            type="button"
+                                                            disabled={!overviewKeyInputs.steamGridDB.trim() || saving}
+                                                            onClick={() => saveOverviewApiKey('steamGridDB')}
+                                                            className="w-full py-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 rounded-lg transition-all"
+                                                        >
+                                                            {saving ? 'Saving…' : 'Save'}
+                                                        </button>
+                                                    </div>
+                                                ) : key === 'igdb' ? (
+                                                    <div className="mt-1 space-y-2">
+                                                        <input
+                                                            type="text"
+                                                            value={overviewKeyInputs.igdbClientId}
+                                                            onChange={e => setOverviewKeyInputs(prev => ({ ...prev, igdbClientId: e.target.value }))}
+                                                            placeholder="Client ID"
+                                                            className="w-full px-2 py-1.5 bg-gray-800 border border-gray-600 rounded-lg text-white text-xs placeholder-gray-500 focus:border-blue-500 outline-none"
+                                                        />
+                                                        <input
+                                                            type="password"
+                                                            value={overviewKeyInputs.igdbClientSecret}
+                                                            onChange={e => setOverviewKeyInputs(prev => ({ ...prev, igdbClientSecret: e.target.value }))}
+                                                            placeholder="Client Secret"
+                                                            className="w-full px-2 py-1.5 bg-gray-800 border border-gray-600 rounded-lg text-white text-xs placeholder-gray-500 focus:border-blue-500 outline-none"
+                                                        />
+                                                        <button
+                                                            type="button"
+                                                            disabled={!overviewKeyInputs.igdbClientId.trim() || !overviewKeyInputs.igdbClientSecret.trim() || saving}
+                                                            onClick={() => saveOverviewApiKey('igdb')}
+                                                            className="w-full py-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 rounded-lg transition-all"
+                                                        >
+                                                            {saving ? 'Saving…' : 'Save'}
+                                                        </button>
+                                                    </div>
+                                                ) : (
+                                                    <div className="mt-1 space-y-2">
+                                                        <input
+                                                            type="password"
+                                                            value={overviewKeyInputs.rawg}
+                                                            onChange={e => setOverviewKeyInputs(prev => ({ ...prev, rawg: e.target.value }))}
+                                                            placeholder="API key"
+                                                            className="w-full px-2 py-1.5 bg-gray-800 border border-gray-600 rounded-lg text-white text-xs placeholder-gray-500 focus:border-blue-500 outline-none"
+                                                        />
+                                                        <button
+                                                            type="button"
+                                                            disabled={!overviewKeyInputs.rawg.trim() || saving}
+                                                            onClick={() => saveOverviewApiKey('rawg')}
+                                                            className="w-full py-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 rounded-lg transition-all"
+                                                        >
+                                                            {saving ? 'Saving…' : 'Save'}
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                        if (isGiantBomb) {
+                                            return (
+                                                <div key={key} className="relative">
+                                                    {tile}
+                                                    <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-gray-900/90">
+                                                        <span className="text-sm font-semibold text-red-400">Currently Unavailable</span>
+                                                    </div>
+                                                </div>
+                                            );
+                                        }
+                                        return tile;
+                                    })}
+                                </div>
+                            )}
+                        </div>
+
+                        <div>
+                            <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Custom folders</h3>
+                            {addedFolders.length === 0 ? (
+                                <p className="text-sm text-gray-500">No custom folders added.</p>
+                            ) : (
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                                    {addedFolders.map(({ path, categories }) => (
+                                        <div key={path} className="flex flex-col gap-2 p-4 bg-gray-800/50 border border-gray-700 rounded-xl">
+                                            <p className="text-sm text-gray-300 break-all" title={path}>{path}</p>
+                                            {categories.length > 0 && (
+                                                <div className="flex flex-wrap gap-2">
+                                                    {categories.map(cat => (
+                                                        <span key={cat} className="px-3 py-1.5 rounded-lg text-sm font-medium bg-blue-600/20 text-blue-300 border border-blue-500/30">
+                                                            {cat}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="mt-8 p-6 bg-gray-800/50 border border-gray-700 rounded-2xl">
+                        <div className="flex items-start gap-3 mb-4">
+                            <div className="w-10 h-10 rounded-xl bg-green-500/20 flex items-center justify-center shrink-0">
+                                <svg className="w-5 h-5 text-green-400 animate-slow-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                </svg>
+                            </div>
+                            <div className="min-w-0 flex-1">
+                                <h3 className="text-lg font-semibold text-white">Ready to scan</h3>
+                                <p className="text-sm text-gray-400 mt-1 leading-relaxed">
+                                    Start scan will search all configured locations for your games, fetch metadata and artwork from your APIs, and build your library.
+                                    <span className="block mt-1">It may take a few minutes or longer depending on how many games you have.</span>
+                                </p>
+                            </div>
+                        </div>
+                        <div className="flex gap-3 pt-4 border-t border-gray-700">
+                            <button onClick={() => setSetupStep('otherFolders')} className="flex-1 px-6 py-2.5 bg-gray-700 hover:bg-gray-600 text-white font-semibold rounded-xl transition-all">Back</button>
+                            <button onClick={handleOtherFoldersDone} className="flex-1 px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-all shadow-lg shadow-blue-600/20">Start scan</button>
+                        </div>
                     </div>
                 </div>
             </div>

@@ -182,6 +182,7 @@ export function registerAppIPCHandlers(
     apiCredentialsService: APICredentialsService,
     steamAuthService: SteamAuthService,
     bugReportService: BugReportService,
+    refreshMetadataServices?: () => Promise<void>,
     trayControls?: { createTray: () => void; destroyTray: () => void }
 ) {
     // System Tray & Startup Handlers
@@ -462,6 +463,9 @@ export function registerAppIPCHandlers(
 
     ipcMain.handle('api:saveCredentials', async (_event, credentials) => {
         await apiCredentialsService.saveCredentials(credentials);
+        if (refreshMetadataServices) {
+            await refreshMetadataServices();
+        }
         return { success: true };
     });
 

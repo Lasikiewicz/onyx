@@ -344,7 +344,7 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
                 setSelectedId(uuid);
             }
 
-            // Fetch metadata with progress updates
+            // Fetch full metadata (artwork, icons, logos, links) from all configured APIs; bypassCache so we use current credentials
             setScanProgress(`Fetching metadata for ${scanned.title}...`);
             setGameProcessingStates(prev => new Map(prev).set(scanned.title, { status: 'Fetching metadata...', progress: '25%' }));
             let metadata: any = {};
@@ -377,6 +377,7 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
                 logoUrl: metadata?.logoUrl || '',
                 heroUrl: metadata?.heroUrl || '',
                 iconUrl: metadata?.iconUrl || '',
+                links: metadata?.links?.length ? metadata.links : undefined,
                 ageRating: metadata?.ageRating || '',
                 rating: metadata?.rating,
                 status: 'ambiguous',
@@ -500,6 +501,7 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
                     logoUrl: staged.logoUrl,
                     heroUrl: staged.heroUrl,
                     iconUrl: staged.iconUrl,
+                    links: staged.links,
                     description: staged.description,
                     releaseDate: staged.releaseDate,
                     genres: staged.genres,
