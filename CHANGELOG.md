@@ -4,6 +4,10 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.3.45] - 2026-02-21
+
+- Game Importer: Disable editing (metadata, images, Save) while scan is in progress; show notification explaining why to avoid app hang.
+
 ## [0.3.44] - 2026-02-21
 
 - Welcome: New Overview step after “Games in other folders” with checklist of APIs and custom folders; “Next” opens overview, “Start scan” runs from there.
