@@ -4,6 +4,13 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.3.44] - 2026-02-21
+
+- Welcome: New Overview step after “Games in other folders” with checklist of APIs and custom folders; “Next” opens overview, “Start scan” runs from there.
+- Welcome: Overview shows “Good to go” for added APIs; missing APIs get inline key input and Save; Giant Bomb shows “Currently Unavailable” overlay.
+- Welcome: Ready to scan section improved (icon animation, copy, layout); metadata services refresh when API credentials are saved so Start scan uses all added APIs.
+- Importer: Full metadata (artwork, icons, logos, links) from all configured APIs; links saved with games.
+
 ## [0.3.43] - 2026-02-21
 
 - Security: Removed test script that contained hardcoded credentials (fixes secret scan).
