@@ -4,6 +4,11 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.3.42] - 2026-02-21
+
+- Game details: Up-arrow “more links” popover is now top-level (portaled) so it no longer clips; Link Management context menu footer text is easier to read.
+- Link bar and Settings: Link order and visibility from Link Management are the source of truth; up-arrow shows titles and icons; right-click shows all links and “fix wrong URL” note.
+
 ## [0.3.41] - 2026-02-20
 
 - Game details: Link icons are now packaged locally (Simple Icons); no CDN dependency. Icons are centered in their badges.
