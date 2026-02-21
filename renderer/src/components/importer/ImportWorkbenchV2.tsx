@@ -695,6 +695,8 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
                                 isStaged={true}
                                 onSave={async (updatedGame) => handleUpdateGame(updatedGame as StagedGame)}
                                 allCategories={Array.from(new Set(queue.flatMap(g => g.categories || [])))}
+                                editingDisabled={isScanning}
+                                editingDisabledReason="Editing is disabled while the scan is in progress. Please wait for the scan to complete to avoid the app hanging."
                             />
                         ) : (
                             <div className="flex-1 flex flex-col items-center justify-center text-gray-400 gap-6 p-8">

@@ -15,6 +15,9 @@ interface GamePropertiesPanelProps {
     onDelete?: () => void;
     allCategories?: string[];
     isStaged?: boolean;
+    /** When true, all editing is disabled and a reason notice is shown (e.g. during scan). */
+    editingDisabled?: boolean;
+    editingDisabledReason?: string;
 }
 
 export const GamePropertiesPanel: React.FC<GamePropertiesPanelProps> = ({
@@ -23,7 +26,9 @@ export const GamePropertiesPanel: React.FC<GamePropertiesPanelProps> = ({
     onCancel,
     onDelete,
     allCategories: _allCategories = [],
-    isStaged = false
+    isStaged = false,
+    editingDisabled = false,
+    editingDisabledReason
 }) => {
     const [activeTab, setActiveTab] = useState<'metadata' | 'images' | 'modManager'>('metadata');
     const [editedFields, setEditedFields] = useState<EditableGameFields>(() => toEditableFields(game));
@@ -445,13 +450,20 @@ export const GamePropertiesPanel: React.FC<GamePropertiesPanelProps> = ({
         <div className="flex flex-col h-full bg-gray-900 text-white rounded-lg shadow-xl overflow-hidden border border-gray-800">
             {/* Tabs */}
             <div className="flex items-center px-4 border-b border-gray-700 bg-gray-800/50">
-                <button onClick={() => setActiveTab('metadata')} className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'metadata' ? 'border-primary-500 text-white' : 'border-transparent text-gray-400 hover:text-gray-200'}`}>Metadata</button>
-                <button onClick={() => setActiveTab('images')} className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'images' ? 'border-primary-500 text-white' : 'border-transparent text-gray-400 hover:text-gray-200'}`}>Images</button>
-                {!isStaged && <button onClick={() => setActiveTab('modManager')} className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'modManager' ? 'border-primary-500 text-white' : 'border-transparent text-gray-400 hover:text-gray-200'}`}>Mod Manager</button>}
+                <button onClick={() => setActiveTab('metadata')} disabled={editingDisabled} className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'metadata' ? 'border-primary-500 text-white' : 'border-transparent text-gray-400 hover:text-gray-200'} disabled:opacity-60 disabled:cursor-not-allowed`}>Metadata</button>
+                <button onClick={() => setActiveTab('images')} disabled={editingDisabled} className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'images' ? 'border-primary-500 text-white' : 'border-transparent text-gray-400 hover:text-gray-200'} disabled:opacity-60 disabled:cursor-not-allowed`}>Images</button>
+                {!isStaged && <button onClick={() => setActiveTab('modManager')} disabled={editingDisabled} className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'modManager' ? 'border-primary-500 text-white' : 'border-transparent text-gray-400 hover:text-gray-200'} disabled:opacity-60 disabled:cursor-not-allowed`}>Mod Manager</button>}
             </div>
 
+            {editingDisabled && (
+                <div className="px-4 py-3 bg-amber-500/20 border-b border-amber-500/30 text-amber-200 text-sm flex items-center gap-2 shrink-0">
+                    <span className="inline-block w-5 h-5 rounded-full bg-amber-500/50 flex items-center justify-center text-amber-900 font-bold" title="Scan in progress">!</span>
+                    <span>{editingDisabledReason ?? 'Editing is disabled. Please wait for the current operation to finish.'}</span>
+                </div>
+            )}
+
             {/* Content */}
-            <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
+            <div className={`flex-1 overflow-y-auto p-4 custom-scrollbar ${editingDisabled ? 'pointer-events-none opacity-60' : ''}`}>
                 {activeTab === 'metadata' && (
                     <div className="space-y-4">
                         {renderImageStrip()}
@@ -1080,19 +1092,19 @@ export const GamePropertiesPanel: React.FC<GamePropertiesPanelProps> = ({
             </div>
 
             {/* Footer */}
-            <div className="p-4 border-t border-gray-800 bg-gray-800/30 flex justify-between items-center gap-2">
+            <div className={`p-4 border-t border-gray-800 bg-gray-800/30 flex justify-between items-center gap-2 shrink-0 ${editingDisabled ? 'pointer-events-none opacity-60' : ''}`}>
                 <div>
                     {error && <span className="text-red-400 text-xs">{error}</span>}
                     {success && <span className="text-green-400 text-xs">{success}</span>}
                 </div>
                 <div className="flex gap-2">
                     {onDelete && !isStaged && (
-                        <button onClick={onDelete} className="px-3 py-1.5 bg-red-900/50 hover:bg-red-800 text-red-300 text-sm rounded border border-red-800">
+                        <button onClick={onDelete} disabled={editingDisabled} className="px-3 py-1.5 bg-red-900/50 hover:bg-red-800 text-red-300 text-sm rounded border border-red-800 disabled:opacity-50 disabled:cursor-not-allowed">
                             Delete
                         </button>
                     )}
-                    {onCancel && <button onClick={onCancel} className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-white text-sm rounded">Cancel</button>}
-                    <button onClick={handleSave} disabled={isSaving} className="px-4 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded shadow-lg transition-all disabled:opacity-50">
+                    {onCancel && <button onClick={onCancel} disabled={editingDisabled} className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-white text-sm rounded disabled:opacity-50 disabled:cursor-not-allowed">Cancel</button>}
+                    <button onClick={handleSave} disabled={isSaving || editingDisabled} className="px-4 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed">
                         {isSaving ? 'Saving...' : 'Save Changes'}
                     </button>
                 </div>
