@@ -4,6 +4,10 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.3.43] - 2026-02-21
+
+- Security: Removed test script that contained hardcoded credentials (fixes secret scan).
+
 ## [0.3.42] - 2026-02-21
 
 - Game details: Up-arrow “more links” popover is now top-level (portaled) so it no longer clips; Link Management context menu footer text is easier to read.
