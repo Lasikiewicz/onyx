@@ -80,8 +80,10 @@ export function useGameLibrary() {
         useAlternativeBackground: game.useAlternativeBackground ?? true,
         boxArtUrl: addCacheBuster(convertFileUrlToLocalProtocol(game.boxArtUrl), timestamp),
         bannerUrl: addCacheBuster(convertFileUrlToLocalProtocol(game.bannerUrl), timestamp),
+        alternativeBannerUrl: game.alternativeBannerUrl ? addCacheBuster(convertFileUrlToLocalProtocol(game.alternativeBannerUrl), timestamp) : game.alternativeBannerUrl,
         logoUrl: game.logoUrl ? addCacheBuster(convertFileUrlToLocalProtocol(game.logoUrl), timestamp) : game.logoUrl,
         heroUrl: game.heroUrl ? addCacheBuster(convertFileUrlToLocalProtocol(game.heroUrl), timestamp) : game.heroUrl,
+        iconUrl: game.iconUrl ? addCacheBuster(convertFileUrlToLocalProtocol(game.iconUrl), timestamp) : game.iconUrl,
       }));
       setGames(convertedGames);
     } catch (err) {
@@ -100,8 +102,10 @@ export function useGameLibrary() {
       ...updatedGame,
       boxArtUrl: updatedGame.boxArtUrl ? convertFileUrlToLocalProtocol(updatedGame.boxArtUrl) : updatedGame.boxArtUrl,
       bannerUrl: updatedGame.bannerUrl ? convertFileUrlToLocalProtocol(updatedGame.bannerUrl) : updatedGame.bannerUrl,
+      alternativeBannerUrl: updatedGame.alternativeBannerUrl ? convertFileUrlToLocalProtocol(updatedGame.alternativeBannerUrl) : updatedGame.alternativeBannerUrl,
       logoUrl: updatedGame.logoUrl ? convertFileUrlToLocalProtocol(updatedGame.logoUrl) : updatedGame.logoUrl,
       heroUrl: updatedGame.heroUrl ? convertFileUrlToLocalProtocol(updatedGame.heroUrl) : updatedGame.heroUrl,
+      iconUrl: updatedGame.iconUrl ? convertFileUrlToLocalProtocol(updatedGame.iconUrl) : updatedGame.iconUrl,
     };
     setGames(prevGames =>
       prevGames.map(g => g.id === updatedGame.id ? gameWithConvertedUrls : g)

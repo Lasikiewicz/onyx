@@ -1191,6 +1191,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
       updatedGame.logoUrl = editedGame.logoUrl || selectedGame.logoUrl || updatedGame.logoUrl;
     } else if (type === 'banner') {
       updatedGame.bannerUrl = imageUrl;
+      updatedGame.heroUrl = imageUrl;
       // Preserve other image types
       updatedGame.boxArtUrl = editedGame.boxArtUrl || selectedGame.boxArtUrl || updatedGame.boxArtUrl;
       updatedGame.logoUrl = editedGame.logoUrl || selectedGame.logoUrl || updatedGame.logoUrl;
@@ -1630,25 +1631,26 @@ export const GameManager: React.FC<GameManagerProps> = ({
 
         // Update the edited game with all metadata and images
         const updatedGame: Game = {
-          ...editedGame,
+          ...editedGame!,
           id: newGameId,
           platform: finalPlatform,
           title: gameTitle,
-          description: finalDescription || editedGame.description,
-          genres: finalGenres.length > 0 ? finalGenres : editedGame.genres,
-          releaseDate: finalReleaseDate || editedGame.releaseDate,
-          developers: finalDevelopers.length > 0 ? finalDevelopers : editedGame.developers,
-          publishers: finalPublishers.length > 0 ? finalPublishers : editedGame.publishers,
-          ageRating: finalAgeRating || editedGame.ageRating,
-          userScore: finalRating ? Math.round(finalRating) : editedGame.userScore,
-          boxArtUrl: metadata.boxArtUrl || editedGame.boxArtUrl || '',
-          bannerUrl: metadata.bannerUrl || editedGame.bannerUrl || '',
-          alternativeBannerUrl: metadata.alternativeBannerUrl || editedGame.alternativeBannerUrl || '',
+          description: finalDescription || editedGame!.description,
+          genres: finalGenres.length > 0 ? finalGenres : editedGame!.genres,
+          releaseDate: finalReleaseDate || editedGame!.releaseDate,
+          developers: finalDevelopers.length > 0 ? finalDevelopers : editedGame!.developers,
+          publishers: finalPublishers.length > 0 ? finalPublishers : editedGame!.publishers,
+          ageRating: finalAgeRating || editedGame!.ageRating,
+          userScore: finalRating ? Math.round(finalRating) : editedGame!.userScore,
+          boxArtUrl: metadata.boxArtUrl || editedGame!.boxArtUrl || '',
+          bannerUrl: metadata.bannerUrl || editedGame!.bannerUrl || '',
+          alternativeBannerUrl: metadata.alternativeBannerUrl || editedGame!.alternativeBannerUrl || '',
           useAlternativeBackground: true,
-          logoUrl: metadata.logoUrl || editedGame.logoUrl,
-          heroUrl: metadata.heroUrl || editedGame.heroUrl,
-          iconUrl: metadata.iconUrl || editedGame.iconUrl,
-          screenshots: metadata.screenshots || editedGame.screenshots || [],
+          logoUrl: metadata.logoUrl || editedGame!.logoUrl,
+          heroUrl: metadata.heroUrl || editedGame!.heroUrl,
+          iconUrl: metadata.iconUrl || editedGame!.iconUrl,
+          screenshots: metadata.screenshots || editedGame!.screenshots || [],
+          links: metadata.links || editedGame!.links || [],
         };
 
         setEditedGame(updatedGame);

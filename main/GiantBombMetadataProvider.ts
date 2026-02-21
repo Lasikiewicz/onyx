@@ -17,6 +17,11 @@ export class GiantBombMetadataProvider implements MetadataProvider {
     return this.giantBombService !== null;
   }
 
+  async validateCredentials(): Promise<boolean> {
+    if (!this.giantBombService) return false;
+    return this.giantBombService.validateCredentials();
+  }
+
   async search(title: string, steamAppId?: string, linksOnly: boolean = false): Promise<GameSearchResult[]> {
     if (!this.giantBombService) {
       return [];

@@ -114,6 +114,33 @@ export class MetadataFetcherService {
   }
 
   /**
+   * Validate credentials for all providers that require them
+   * @returns Record of provider names and their validation status
+   */
+  async validateAllProviders(): Promise<Record<string, boolean>> {
+    const results: Record<string, boolean> = {};
+
+    const validationPromises = this.providers.map(async (provider) => {
+      if (provider.validateCredentials) {
+        try {
+          const isValid = await provider.validateCredentials();
+          results[provider.name] = isValid;
+        } catch (error) {
+          console.error(`[MetadataFetcherService] Validation failed for ${provider.name}:`, error);
+          results[provider.name] = false;
+        }
+      } else {
+        // Provider doesn't need credentials or doesn't support validation
+        // Steam provider is generally always valid if service is available
+        results[provider.name] = provider.isAvailable();
+      }
+    });
+
+    await Promise.all(validationPromises);
+    return results;
+  }
+
+  /**
    * Set IGDB service
    * If null is passed, IGDB provider will be completely removed and won't be used at all
    */

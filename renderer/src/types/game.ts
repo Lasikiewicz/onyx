@@ -262,6 +262,7 @@ declare global {
       scanFolderForExecutables: (folderPath: string) => Promise<ExecutableFile[]>;
       searchArtwork: (title: string, steamAppId?: string, bypassCache?: boolean) => Promise<GameMetadata | null>;
       fetchGameDescription: (steamGameId: string) => Promise<{ success: boolean; description?: string; summary?: string; releaseDate?: string; genres?: string[]; developers?: string[]; publishers?: string[]; ageRating?: string; rating?: number; platforms?: string[]; categories?: string[]; error?: string }>;
+      validateMetadataProviders: () => Promise<Record<string, boolean>>;
       fetchAndUpdateMetadata: (gameId: string, title: string) => Promise<{ success: boolean; metadata: GameMetadata | null }>;
       setIGDBConfig: (config: { clientId: string; accessToken: string }) => Promise<boolean>;
       setMockMode: (enabled: boolean) => Promise<boolean>;

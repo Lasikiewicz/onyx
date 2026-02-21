@@ -95,7 +95,7 @@ function migrateAlphaUserDataFromOnyx(): void {
   // Skip if current already has our store files (fresh install or already migrated)
   if (existsSync(path.join(current, 'game-library.json')) || existsSync(path.join(current, 'user-preferences.json'))) {
     try {
-      fsPromises.writeFile(marker, '').catch(() => {});
+      fsPromises.writeFile(marker, '').catch(() => { });
     } catch {
       // ignore
     }
@@ -117,7 +117,7 @@ function migrateAlphaUserDataFromOnyx(): void {
       }
     }
     copyRecursive(legacy, current);
-    fsPromises.writeFile(marker, '').catch(() => {});
+    fsPromises.writeFile(marker, '').catch(() => { });
     console.log('[Alpha] Migrated userData from Onyx to Onyx Alpha.');
   } catch (err) {
     console.error('[Alpha] Migration from Onyx userData failed:', err);
@@ -1101,7 +1101,7 @@ app.whenReady().then(async () => {
       let imageType: string | null = null;
 
       // Check if it's the new simple format: {gameId}-{imageType}
-      const simpleMatch = decodedUrlPath.match(/^([^-]+(?:-[^-]+)*?)-(boxart|banner|logo|hero)$/);
+      const simpleMatch = decodedUrlPath.match(/^([^-]+(?:-[^-]+)*?)-(boxart|banner|alternativeBanner|logo|hero|icon|screenshot-\d+)$/);
       if (simpleMatch) {
         gameId = simpleMatch[1];
         imageType = simpleMatch[2];
@@ -1119,7 +1119,7 @@ app.whenReady().then(async () => {
               imageType = parts[3] || 'boxart';
             } else {
               // Try to find image type in filename
-              const typeMatch = filename.match(/-?(boxart|banner|logo|hero)-?/);
+              const typeMatch = filename.match(/-?(boxart|banner|alternativeBanner|logo|hero|icon|screenshot-\d+)-?/);
               if (typeMatch) {
                 imageType = typeMatch[1];
                 gameId = filename.substring(0, filename.indexOf('-' + imageType));
@@ -1417,7 +1417,7 @@ app.whenReady().then(async () => {
                   if (matching.length === 0 && filename.includes('-')) {
                     const parts = filename.split('-');
                     if (parts.length >= 2) {
-                      const imageType = parts[1]; // boxart, banner, logo, hero
+                      const imageType = parts[1]; // boxart, banner, alternativeBanner, logo, hero, icon
                       const gameIdPart = parts[0];
                       matching = cacheFiles.filter(f =>
                         f.startsWith(gameIdPart + '-') && f.includes('-' + imageType + '-')

@@ -13,6 +13,16 @@ export function registerMetadataIPCHandlers(
     userPreferencesService: UserPreferencesService,
     winReference?: { readonly current: BrowserWindow | null }
 ) {
+    // Validation Handlers
+    ipcMain.handle('metadata:validateProviders', async () => {
+        try {
+            return await metadataFetcher.validateAllProviders();
+        } catch (error) {
+            console.error('Error in metadata:validateProviders handler:', error);
+            return {};
+        }
+    });
+
     // Search Artwork Handlers
     ipcMain.handle('metadata:searchArtwork', async (_event, title: string, steamAppId?: string, bypassCache?: boolean) => {
         try {

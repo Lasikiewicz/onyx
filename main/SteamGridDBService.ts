@@ -60,6 +60,30 @@ export class SteamGridDBService {
   }
 
   /**
+   * Validate API key by attempting a simple request
+   */
+  async validateCredentials(): Promise<boolean> {
+    if (!this.isAvailable()) return false;
+    try {
+      const response = await fetch(`${this.baseUrl}/grids/vertical/game/1`, {
+        headers: {
+          'Authorization': `Bearer ${this.apiKey}`,
+        },
+      });
+      // 401 means invalid key
+      if (response.status === 401) {
+        console.warn('[SteamGridDBService] Invalid API key');
+        return false;
+      }
+      // Any other success status (even 404 for non-existent game) means key is accepted
+      return response.status < 500;
+    } catch (error: any) {
+      console.error('[SteamGridDBService] Credential validation error:', error.message);
+      return false;
+    }
+  }
+
+  /**
    * Update API key after initialization
    */
   public setApiKey(apiKey: string): void {

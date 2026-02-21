@@ -77,6 +77,30 @@ export class GiantBombService {
   }
 
   /**
+   * Validate API key by attempting a simple request
+   */
+  async validateCredentials(): Promise<boolean> {
+    try {
+      const response = await this.axiosInstance.get('/games', {
+        params: {
+          limit: 1,
+          field_list: 'id',
+        },
+      });
+      return response.status === 200 && response.data?.status_code === 1;
+    } catch (error: any) {
+      if (axios.isAxiosError(error)) {
+        if (error.response?.status === 401 || error.response?.status === 403) {
+          console.warn('[GiantBombService] Invalid API key');
+          return false;
+        }
+      }
+      console.error('[GiantBombService] Credential validation error:', error.message);
+      return false;
+    }
+  }
+
+  /**
    * Search for games by title
    */
   async searchGame(title: string): Promise<GiantBombGameResult[]> {

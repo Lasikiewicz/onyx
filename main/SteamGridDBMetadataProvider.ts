@@ -17,6 +17,11 @@ export class SteamGridDBMetadataProvider implements MetadataProvider {
     return this.steamGridDBService !== null;
   }
 
+  async validateCredentials(): Promise<boolean> {
+    if (!this.steamGridDBService) return false;
+    return this.steamGridDBService.validateCredentials();
+  }
+
   async search(title: string, steamAppId?: string, linksOnly: boolean = false): Promise<GameSearchResult[]> {
     if (!this.steamGridDBService) {
       return [];

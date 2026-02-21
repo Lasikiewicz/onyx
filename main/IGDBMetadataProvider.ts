@@ -21,6 +21,11 @@ export class IGDBMetadataProvider implements MetadataProvider {
     return this.igdbService;
   }
 
+  async validateCredentials(): Promise<boolean> {
+    if (!this.igdbService) return false;
+    return this.igdbService.validateCredentials();
+  }
+
   async search(title: string, steamAppId?: string, linksOnly: boolean = false): Promise<GameSearchResult[]> {
     if (!this.igdbService) {
       return [];

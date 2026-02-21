@@ -10,9 +10,12 @@ export interface Game {
   launchArgs?: string;  // Command-line arguments for exe launch
   boxArtUrl: string;
   bannerUrl: string;
+  alternativeBannerUrl?: string;
+  useAlternativeBackground?: boolean;
   logoUrl?: string;
   heroUrl?: string;
   iconUrl?: string;
+  screenshots?: string[];
   description?: string;
   genres?: string[];
   developers?: string[];
@@ -161,7 +164,7 @@ export class GameStore {
    */
   async mergeSteamGames(
     steamGames: SteamGame[],
-    imageCacheService?: { cacheImages: (urls: { boxArtUrl?: string; bannerUrl?: string; logoUrl?: string; heroUrl?: string }, gameId: string) => Promise<{ boxArtUrl?: string; bannerUrl?: string; logoUrl?: string; heroUrl?: string }> },
+    imageCacheService?: { cacheImages: (urls: { boxArtUrl?: string; bannerUrl?: string; alternativeBannerUrl?: string; logoUrl?: string; heroUrl?: string; iconUrl?: string; screenshots?: string[] }, gameId: string) => Promise<{ boxArtUrl?: string; bannerUrl?: string; alternativeBannerUrl?: string; logoUrl?: string; heroUrl?: string; iconUrl?: string; screenshots?: string[] }> },
     shouldCacheImages: boolean = false
   ): Promise<void> {
     const store = await this.ensureStore();
@@ -261,7 +264,10 @@ export class GameStore {
     boxArtUrl: string,
     bannerUrl: string,
     logoUrl?: string,
-    heroUrl?: string
+    heroUrl?: string,
+    alternativeBannerUrl?: string,
+    iconUrl?: string,
+    screenshots?: string[]
   ): Promise<boolean> {
     const store = await this.ensureStore();
     const games = await this.getLibrary();
@@ -275,6 +281,15 @@ export class GameStore {
       }
       if (heroUrl !== undefined) {
         games[gameIndex].heroUrl = heroUrl;
+      }
+      if (alternativeBannerUrl !== undefined) {
+        games[gameIndex].alternativeBannerUrl = alternativeBannerUrl;
+      }
+      if (iconUrl !== undefined) {
+        games[gameIndex].iconUrl = iconUrl;
+      }
+      if (screenshots !== undefined) {
+        games[gameIndex].screenshots = screenshots;
       }
       (store as any).set('games', games);
       return true;

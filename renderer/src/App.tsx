@@ -2378,8 +2378,10 @@ function App() {
           const isImageUpdate = oldGame && (
             game.boxArtUrl !== oldGame.boxArtUrl ||
             game.bannerUrl !== oldGame.bannerUrl ||
+            game.alternativeBannerUrl !== oldGame.alternativeBannerUrl ||
             game.logoUrl !== oldGame.logoUrl ||
-            game.heroUrl !== oldGame.heroUrl
+            game.heroUrl !== oldGame.heroUrl ||
+            game.iconUrl !== oldGame.iconUrl
           );
 
           if (isImageUpdate) {

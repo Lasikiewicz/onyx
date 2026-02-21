@@ -145,6 +145,28 @@ export class RAWGService {
   }
 
   /**
+   * Validate API key by attempting a simple request
+   */
+  async validateCredentials(): Promise<boolean> {
+    try {
+      // Small request to check if key is valid
+      const response = await this.axiosInstance.get('/platforms', {
+        params: {
+          page_size: 1,
+        },
+      });
+      return response.status === 200;
+    } catch (error: any) {
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        console.warn('[RAWGService] Invalid API key');
+        return false;
+      }
+      console.error('[RAWGService] Credential validation error:', error.message);
+      return false;
+    }
+  }
+
+  /**
    * Update API key after initialization
    */
   public setApiKey(apiKey: string): void {

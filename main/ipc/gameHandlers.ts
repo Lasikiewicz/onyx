@@ -102,20 +102,20 @@ export function registerGameIPCHandlers(
                 const validatedGame = { ...game };
                 let needsUpdate = false;
 
-                const imageTypes = ['boxart', 'banner', 'logo', 'hero'] as const;
+                const imageTypes = ['boxart', 'banner', 'alternativeBanner', 'logo', 'hero', 'icon'] as const;
                 for (const type of imageTypes) {
-                    const urlKey = type === 'boxart' ? 'boxArtUrl' : type === 'banner' ? 'bannerUrl' : type === 'logo' ? 'logoUrl' : 'heroUrl';
-                    const url = validatedGame[urlKey];
+                    const urlKey = type === 'boxart' ? 'boxArtUrl' : type === 'banner' ? 'bannerUrl' : type === 'alternativeBanner' ? 'alternativeBannerUrl' : type === 'logo' ? 'logoUrl' : type === 'hero' ? 'heroUrl' : 'iconUrl';
+                    const url = (validatedGame as any)[urlKey];
 
                     if (url?.startsWith('onyx-local://')) {
                         const fixed = await imageCacheService.cacheImage(url, game.id, type);
                         if (fixed && fixed !== url && fixed !== '') {
-                            validatedGame[urlKey] = fixed;
+                            (validatedGame as any)[urlKey] = fixed;
                             needsUpdate = true;
                         } else if (!fixed || fixed === '') {
                             const foundFile = await imageCacheService.findCachedImage(game.id, type);
                             if (foundFile) {
-                                validatedGame[urlKey] = foundFile;
+                                (validatedGame as any)[urlKey] = foundFile;
                                 needsUpdate = true;
                             }
                         }
@@ -128,7 +128,10 @@ export function registerGameIPCHandlers(
                         validatedGame.boxArtUrl || '',
                         validatedGame.bannerUrl || '',
                         validatedGame.logoUrl,
-                        validatedGame.heroUrl
+                        validatedGame.heroUrl,
+                        validatedGame.alternativeBannerUrl,
+                        validatedGame.iconUrl,
+                        validatedGame.screenshots
                     );
                 }
 
@@ -151,16 +154,20 @@ export function registerGameIPCHandlers(
             const cachedImages = await imageCacheService.cacheImages({
                 boxArtUrl: game.boxArtUrl,
                 bannerUrl: game.bannerUrl,
+                alternativeBannerUrl: game.alternativeBannerUrl,
                 logoUrl: game.logoUrl,
                 heroUrl: game.heroUrl,
+                iconUrl: game.iconUrl,
             }, game.id);
 
             const gameWithCachedImages: Game = {
                 ...game,
                 boxArtUrl: cachedImages.boxArtUrl || game.boxArtUrl,
                 bannerUrl: cachedImages.bannerUrl || game.bannerUrl,
+                alternativeBannerUrl: cachedImages.alternativeBannerUrl || game.alternativeBannerUrl,
                 logoUrl: cachedImages.logoUrl || game.logoUrl,
                 heroUrl: cachedImages.heroUrl || game.heroUrl,
+                iconUrl: cachedImages.iconUrl || game.iconUrl,
             };
 
             await gameStore.saveGame(gameWithCachedImages);

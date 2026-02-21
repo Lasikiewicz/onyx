@@ -41,6 +41,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Metadata fetcher methods
   searchArtwork: (title: string, steamAppId?: string, bypassCache?: boolean) => ipcRenderer.invoke('metadata:searchArtwork', title, steamAppId, bypassCache),
   fetchGameDescription: (steamGameId: string) => ipcRenderer.invoke('metadata:fetchGameDescription', steamGameId),
+  validateMetadataProviders: () => ipcRenderer.invoke('metadata:validateProviders'),
 
   fetchAndUpdateMetadata: (gameId: string, title: string) => ipcRenderer.invoke('metadata:fetchAndUpdate', gameId, title),
 

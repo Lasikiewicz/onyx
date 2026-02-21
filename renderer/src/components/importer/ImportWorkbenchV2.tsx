@@ -178,11 +178,33 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
     const handleScanAll = async () => {
         setIsScanning(true);
         setError(null);
-        setScanProgress('Starting scan...');
         setCurrentlyProcessingGame(null);
         setGameProcessingStates(new Map());
         setScanStats({ found: 0, processed: 0 });
         setQueue([]); // Clear existing queue
+
+        // Quick API check before starting
+        setScanProgress('Verifying API credentials...');
+        try {
+            const validation = await window.electronAPI.validateMetadataProviders();
+            const providersWithCreds = ['igdb', 'rawg', 'steamgriddb', 'giantbomb'];
+            const invalidProviders = Object.entries(validation)
+                .filter(([name, isValid]) => !isValid && providersWithCreds.includes(name))
+                .map(([name]) => name.toUpperCase());
+
+            if (invalidProviders.length > 0) {
+                setScanProgress(`Warning: API keys for ${invalidProviders.join(', ')} appear to be invalid or expired. Metadata quality may be reduced.`);
+                // Give user a moment to read the warning
+                await new Promise(resolve => setTimeout(resolve, 3500));
+            } else {
+                setScanProgress('API credentials verified.');
+                await new Promise(resolve => setTimeout(resolve, 800));
+            }
+        } catch (err) {
+            console.warn('Failed to validate API credentials:', err);
+        }
+
+        setScanProgress('Starting scan...');
 
         try {
             const results = await window.electronAPI.scanAllSources();
@@ -505,6 +527,7 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
             await onImport(gamesToImport, (current, total, phase, detail) => {
                 setImportProgress({ current, total, phase, detail: detail ?? '' });
             });
+            setQueue([]); // Clear queue for a fresh start next time
             onClose();
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Import failed');

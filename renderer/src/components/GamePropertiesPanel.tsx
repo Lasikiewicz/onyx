@@ -132,38 +132,52 @@ export const GamePropertiesPanel = forwardRef<GamePropertiesPanelHandle, GamePro
         previousStateRef.current = { ...editedFields };
 
         try {
+            let metadata: any = null;
+
             if (!isStaged && 'id' in game) {
                 // Use existing API for real games
-                await window.electronAPI.fetchAndUpdateByProviderId((game as Game).id, result.id, result.source);
-                setSuccess("Match fixed!");
-                setShowFixMatch(false);
-                setCanUndo(true);
-                // Trigger parent reload
-                const merged = mergeIntoGame(game as Game, editedFields);
-                if (onSave) onSave(merged);
+                const response = await window.electronAPI.fetchAndUpdateByProviderId((game as Game).id, result.id, result.source);
+                if (response.success) {
+                    metadata = response.metadata;
+                } else {
+                    throw new Error(response.error || "Failed to fetch metadata");
+                }
             } else {
                 // For Staged / Import: Fetch Metadata and Apply to Local State
-                const metadata = await window.electronAPI.searchArtwork(result.title, result.steamAppId);
-                if (metadata) {
-                    const newFields = {
-                        ...editedFields,
-                        title: metadata.title || editedFields.title,
-                        description: metadata.description || editedFields.description,
-                        releaseDate: metadata.releaseDate || editedFields.releaseDate,
-                        genres: metadata.genres || editedFields.genres,
-                        developers: metadata.developers || editedFields.developers,
-                        publishers: metadata.publishers || editedFields.publishers,
-                        categories: metadata.categories || editedFields.categories,
-                        boxArtUrl: metadata.boxArtUrl || editedFields.boxArtUrl,
-                        bannerUrl: metadata.bannerUrl || editedFields.bannerUrl,
-                        logoUrl: metadata.logoUrl || editedFields.logoUrl,
-                        heroUrl: metadata.heroUrl || editedFields.heroUrl,
-                        iconUrl: metadata.iconUrl || editedFields.iconUrl,
-                    };
-                    setEditedFields(newFields);
-                    setShowFixMatch(false);
-                    setCanUndo(true);
+                metadata = await window.electronAPI.searchArtwork(result.title, result.steamAppId);
+            }
 
+            if (metadata) {
+                const newFields = {
+                    ...editedFields,
+                    title: metadata.title || editedFields.title,
+                    description: metadata.description || editedFields.description,
+                    releaseDate: metadata.releaseDate || editedFields.releaseDate,
+                    genres: metadata.genres || editedFields.genres,
+                    developers: metadata.developers || editedFields.developers,
+                    publishers: metadata.publishers || editedFields.publishers,
+                    categories: metadata.categories || editedFields.categories,
+                    boxArtUrl: metadata.boxArtUrl || editedFields.boxArtUrl,
+                    bannerUrl: metadata.bannerUrl || editedFields.bannerUrl,
+                    alternativeBannerUrl: metadata.alternativeBannerUrl || editedFields.alternativeBannerUrl,
+                    logoUrl: metadata.logoUrl || editedFields.logoUrl,
+                    heroUrl: metadata.heroUrl || editedFields.heroUrl,
+                    iconUrl: metadata.iconUrl || editedFields.iconUrl,
+                    links: metadata.links || editedFields.links,
+                    screenshots: metadata.screenshots || editedFields.screenshots,
+                    ageRating: metadata.ageRating || editedFields.ageRating,
+                };
+
+                setEditedFields(newFields);
+                setShowFixMatch(false);
+                setCanUndo(true);
+
+                if (!isStaged && 'id' in game) {
+                    // Trigger parent reload with updated fields
+                    const merged = mergeIntoGame(game as Game, newFields);
+                    if (onSave) onSave(merged);
+                    setSuccess("Match fixed!");
+                } else {
                     // Auto-save/update parent for Staged games to simulate "re-import"
                     if (isStaged) {
                         const merged = mergeIntoStagedGame(game as StagedGame, newFields);
@@ -175,7 +189,7 @@ export const GamePropertiesPanel = forwardRef<GamePropertiesPanelHandle, GamePro
                 }
             }
         } catch (err) {
-            setError("Failed to apply match");
+            setError(err instanceof Error ? err.message : "Failed to apply match");
             previousStateRef.current = null;
         }
     };

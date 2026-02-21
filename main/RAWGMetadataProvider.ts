@@ -18,6 +18,11 @@ export class RAWGMetadataProvider implements MetadataProvider {
     return this.rawgService !== null;
   }
 
+  async validateCredentials(): Promise<boolean> {
+    if (!this.rawgService) return false;
+    return this.rawgService.validateCredentials();
+  }
+
   async search(title: string, steamAppId?: string, linksOnly: boolean = false): Promise<GameSearchResult[]> {
     if (!this.rawgService) {
       return [];

@@ -92,4 +92,9 @@ export interface MetadataProvider {
    * @returns Install information
    */
   getInstallInfo?(id: string): Promise<GameInstallInfo | null>;
+
+  /**
+   * Validate API credentials if the provider uses them
+   */
+  validateCredentials?(): Promise<boolean>;
 }

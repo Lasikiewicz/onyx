@@ -142,7 +142,7 @@ export class ImageCacheService {
       try {
         // Extract gameId and imageType from URL: onyx-local://{gameId}-{imageType}
         const urlPath = url.replace('onyx-local://', '').replace('onyx-local:///', '');
-        const match = urlPath.match(/^([^-]+(?:-[^-]+)*?)-(boxart|banner|logo|hero|screenshot-\d+)$/);
+        const match = urlPath.match(/^([^-]+(?:-[^-]+)*?)-(boxart|banner|alternativeBanner|logo|hero|icon|screenshot-\d+)$/);
 
         if (match) {
           const gameIdFromUrl = match[1];
@@ -311,10 +311,10 @@ export class ImageCacheService {
    * Cache multiple images
    */
   async cacheImages(
-    urls: { boxArtUrl?: string; bannerUrl?: string; logoUrl?: string; heroUrl?: string; iconUrl?: string; screenshots?: string[] },
+    urls: { boxArtUrl?: string; bannerUrl?: string; alternativeBannerUrl?: string; logoUrl?: string; heroUrl?: string; iconUrl?: string; screenshots?: string[] },
     gameId: string
-  ): Promise<{ boxArtUrl?: string; bannerUrl?: string; logoUrl?: string; heroUrl?: string; iconUrl?: string; screenshots?: string[] }> {
-    const results: { boxArtUrl?: string; bannerUrl?: string; logoUrl?: string; heroUrl?: string; iconUrl?: string; screenshots?: string[] } = {};
+  ): Promise<{ boxArtUrl?: string; bannerUrl?: string; alternativeBannerUrl?: string; logoUrl?: string; heroUrl?: string; iconUrl?: string; screenshots?: string[] }> {
+    const results: { boxArtUrl?: string; bannerUrl?: string; alternativeBannerUrl?: string; logoUrl?: string; heroUrl?: string; iconUrl?: string; screenshots?: string[] } = {};
 
     const promises: Promise<void>[] = [];
 
@@ -330,6 +330,14 @@ export class ImageCacheService {
       promises.push(
         this.cacheImage(urls.bannerUrl, gameId, 'banner').then((path) => {
           results.bannerUrl = path;
+        })
+      );
+    }
+
+    if (urls.alternativeBannerUrl) {
+      promises.push(
+        this.cacheImage(urls.alternativeBannerUrl, gameId, 'alternativeBanner').then((path) => {
+          results.alternativeBannerUrl = path;
         })
       );
     }
