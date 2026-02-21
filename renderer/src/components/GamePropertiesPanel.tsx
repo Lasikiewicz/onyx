@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import { Game } from '../types/game';
 import { StagedGame } from '../types/importer';
 import {
@@ -7,6 +7,12 @@ import {
     mergeIntoGame,
     mergeIntoStagedGame
 } from '../types/EditableGame';
+import { LinkIcon, inferLinkKey } from './GameLinks';
+
+export interface GamePropertiesPanelHandle {
+    /** Flush current edits to parent and return the merged game (e.g. before Import). */
+    saveToParent: () => Promise<Game | StagedGame | undefined>;
+}
 
 interface GamePropertiesPanelProps {
     game: Game | StagedGame;
@@ -20,7 +26,7 @@ interface GamePropertiesPanelProps {
     editingDisabledReason?: string;
 }
 
-export const GamePropertiesPanel: React.FC<GamePropertiesPanelProps> = ({
+export const GamePropertiesPanel = forwardRef<GamePropertiesPanelHandle, GamePropertiesPanelProps>(({
     game,
     onSave,
     onCancel,
@@ -29,8 +35,8 @@ export const GamePropertiesPanel: React.FC<GamePropertiesPanelProps> = ({
     isStaged = false,
     editingDisabled = false,
     editingDisabledReason
-}) => {
-    const [activeTab, setActiveTab] = useState<'metadata' | 'images' | 'modManager'>('metadata');
+}, ref) => {
+    const [activeTab, setActiveTab] = useState<'metadata' | 'images' | 'links' | 'modManager'>('metadata');
     const [editedFields, setEditedFields] = useState<EditableGameFields>(() => toEditableFields(game));
 
     // Undo state: store previous state before Fix Match
@@ -393,66 +399,88 @@ export const GamePropertiesPanel: React.FC<GamePropertiesPanelProps> = ({
         }
     };
 
-    // Render Image Strip (matching GameManager dimensions)
-    const renderImageStrip = () => (
-        <div className="flex gap-2 mb-4 items-start p-2 bg-gray-900/95 rounded-lg border border-gray-800">
-            {(['boxart', 'logo', 'banner', 'alternativeBanner', 'icon'] as const).map(type => {
-                const fieldMap = { boxart: 'boxArtUrl', logo: 'logoUrl', banner: 'bannerUrl', alternativeBanner: 'alternativeBannerUrl', icon: 'iconUrl' } as const;
-                const val = editedFields[fieldMap[type]];
-                const label = type === 'alternativeBanner' ? 'Alt Banner' : type.charAt(0).toUpperCase() + type.slice(1);
+    // Expose save so parent can flush edits before Import
+    useImperativeHandle(ref, () => ({
+        saveToParent: async () => {
+            const merged = isStaged
+                ? mergeIntoStagedGame(game as StagedGame, editedFields)
+                : mergeIntoGame(game as Game, editedFields);
+            if (onSave) await onSave(merged);
+            return merged;
+        },
+    }), [game, isStaged, editedFields, onSave]);
 
-                // Match GameManager dimensions exactly
-                const sizeClasses =
-                    type === 'boxart' ? 'h-36 w-auto aspect-[2/3]' :
-                        type === 'logo' ? 'h-36 w-56' :
-                            type === 'banner' ? 'h-36 flex-1' :
-                                type === 'alternativeBanner' ? 'h-36 flex-1' :
-                                    'h-36 w-36'; // icon
+    // Render Image Strip (compact for metadata tab, full for images tab - matches Game Manager)
+    const renderImageStrip = (compact?: boolean) => {
+        const sizeClasses = compact
+            ? {
+                boxart: 'h-24 w-auto aspect-[2/3]',
+                logo: 'h-24 w-36',
+                banner: 'h-24 flex-1',
+                alternativeBanner: 'h-24 flex-1',
+                icon: 'h-24 w-24',
+            }
+            : {
+                boxart: 'h-36 w-auto aspect-[2/3]',
+                logo: 'h-36 w-56',
+                banner: 'h-36 flex-1',
+                alternativeBanner: 'h-36 flex-1',
+                icon: 'h-36 w-36',
+            };
+        return (
+            <div className={`flex gap-2 ${compact ? 'mb-6 p-3 bg-gray-900/50 rounded-lg border border-gray-800' : 'mb-4 items-start p-2 bg-gray-900/95 rounded-lg border border-gray-800'}`}>
+                {(['boxart', 'logo', 'banner', 'alternativeBanner', 'icon'] as const).map(type => {
+                    const fieldMap = { boxart: 'boxArtUrl', logo: 'logoUrl', banner: 'bannerUrl', alternativeBanner: 'alternativeBannerUrl', icon: 'iconUrl' } as const;
+                    const val = editedFields[fieldMap[type]];
+                    const label = type === 'alternativeBanner' ? 'Alt Banner' : type.charAt(0).toUpperCase() + type.slice(1);
+                    const sizeClass = sizeClasses[type];
 
-                return (
-                    <div
-                        key={type}
-                        onClick={() => {
-                            setActiveTab('images');
-                            setActiveImageSearchTab(type);
-                            setImageSearchQuery(editedFields.title);
-                            handleSearchImages(type);
-                        }}
-                        className={`${sizeClasses} relative group cursor-pointer border border-gray-700 rounded-lg overflow-hidden bg-gray-800 hover:border-green-500 transition-colors flex-shrink-0`}
-                    >
-                        {val && !failedImageUrls.has(val) ? (
-                            type === 'boxart' || type === 'banner' || type === 'alternativeBanner' ? (
-                                <img src={val} className="w-full h-full object-cover" alt={label} onError={() => { setFailedImageUrls(prev => new Set(prev).add(val)); updateField(fieldMap[type], ''); }} />
+                    return (
+                        <div
+                            key={type}
+                            onClick={() => {
+                                setActiveTab('images');
+                                setActiveImageSearchTab(type);
+                                if (!editingDisabled) {
+                                    setImageSearchQuery(editedFields.title);
+                                    handleSearchImages(type);
+                                }
+                            }}
+                            className={`${sizeClass} relative group cursor-pointer border border-gray-700 rounded-lg overflow-hidden bg-gray-800 hover:border-green-500 transition-colors flex-shrink-0`}
+                        >
+                            {val && !failedImageUrls.has(val) ? (
+                                type === 'boxart' || type === 'banner' || type === 'alternativeBanner' ? (
+                                    <img src={val} className="w-full h-full object-cover" alt={label} onError={() => { if (!editingDisabled) { setFailedImageUrls(prev => new Set(prev).add(val)); updateField(fieldMap[type], ''); } }} />
+                                ) : (
+                                    <div className="w-full h-full p-2 flex items-center justify-center">
+                                        <img src={val} className="max-w-full max-h-full object-contain" alt={label} onError={() => { if (!editingDisabled) { setFailedImageUrls(prev => new Set(prev).add(val)); updateField(fieldMap[type], ''); } }} />
+                                    </div>
+                                )
                             ) : (
-                                <div className="w-full h-full p-2 flex items-center justify-center">
-                                    <img src={val} className="max-w-full max-h-full object-contain" alt={label} onError={() => { setFailedImageUrls(prev => new Set(prev).add(val)); updateField(fieldMap[type], ''); }} />
+                                <div className="w-full h-full flex items-center justify-center">
+                                    <span className={`text-gray-600 text-center p-1 ${type === 'icon' ? 'text-[10px]' : 'text-[8px]'}`}>
+                                        {type === 'boxart' ? 'Boxart' : type === 'icon' ? 'Icon' : type === 'alternativeBanner' ? 'Alt Banner' : type === 'logo' ? 'Logo' : 'Banner'}
+                                    </span>
                                 </div>
-                            )
-                        ) : (
-                            <div className="w-full h-full flex items-center justify-center">
-                                <span className={`text-gray-600 text-center p-1 ${type === 'icon' ? 'text-[10px]' : 'text-xs'}`}>
-                                    {type === 'boxart' ? 'Boxart' : type === 'icon' ? 'Click to search for icon' : type === 'alternativeBanner' ? 'Click to search for Alt Banner' : `Click to search for ${type}`}
-                                </span>
+                            )}
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                <span className="text-[10px] text-white font-medium">{editingDisabled ? 'View' : 'Edit'}</span>
                             </div>
-                        )}
-                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                            <span className={`text-white font-medium ${type === 'icon' ? 'text-[10px]' : 'text-xs'}`}>
-                                {type === 'icon' ? 'Edit Icon' : type === 'logo' ? 'Edit Logo' : type === 'banner' ? 'Edit Banner' : type === 'alternativeBanner' ? 'Edit Alt Banner' : 'Edit'}
-                            </span>
                         </div>
-                    </div>
-                );
-            })}
-        </div>
-    );
+                    );
+                })}
+            </div>
+        );
+    };
 
     return (
         <div className="flex flex-col h-full bg-gray-900 text-white rounded-lg shadow-xl overflow-hidden border border-gray-800">
-            {/* Tabs */}
-            <div className="flex items-center px-4 border-b border-gray-700 bg-gray-800/50">
-                <button onClick={() => setActiveTab('metadata')} disabled={editingDisabled} className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'metadata' ? 'border-primary-500 text-white' : 'border-transparent text-gray-400 hover:text-gray-200'} disabled:opacity-60 disabled:cursor-not-allowed`}>Metadata</button>
-                <button onClick={() => setActiveTab('images')} disabled={editingDisabled} className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'images' ? 'border-primary-500 text-white' : 'border-transparent text-gray-400 hover:text-gray-200'} disabled:opacity-60 disabled:cursor-not-allowed`}>Images</button>
-                {!isStaged && <button onClick={() => setActiveTab('modManager')} disabled={editingDisabled} className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'modManager' ? 'border-primary-500 text-white' : 'border-transparent text-gray-400 hover:text-gray-200'} disabled:opacity-60 disabled:cursor-not-allowed`}>Mod Manager</button>}
+            {/* Tabs - same style as Game Manager */}
+            <div className="flex border-b border-gray-800 flex-shrink-0">
+                <button onClick={() => setActiveTab('metadata')} className={`flex-1 px-6 py-3 text-sm font-medium transition-colors ${activeTab === 'metadata' ? 'bg-gray-800 text-white border-b-2 border-blue-500' : 'text-gray-400 hover:text-gray-300 hover:bg-gray-800/50'}`}>Metadata</button>
+                <button onClick={() => setActiveTab('images')} className={`flex-1 px-6 py-3 text-sm font-medium transition-colors ${activeTab === 'images' ? 'bg-gray-800 text-white border-b-2 border-blue-500' : 'text-gray-400 hover:text-gray-300 hover:bg-gray-800/50'}`}>Images</button>
+                <button onClick={() => setActiveTab('links')} className={`flex-1 px-6 py-3 text-sm font-medium transition-colors ${activeTab === 'links' ? 'bg-gray-800 text-white border-b-2 border-blue-500' : 'text-gray-400 hover:text-gray-300 hover:bg-gray-800/50'}`}>Links</button>
+                <button onClick={() => setActiveTab('modManager')} className={`flex-1 px-6 py-3 text-sm font-medium transition-colors ${activeTab === 'modManager' ? 'bg-gray-800 text-white border-b-2 border-blue-500' : 'text-gray-400 hover:text-gray-300 hover:bg-gray-800/50'}`}>Mod Manager</button>
             </div>
 
             {editingDisabled && (
@@ -463,203 +491,201 @@ export const GamePropertiesPanel: React.FC<GamePropertiesPanelProps> = ({
             )}
 
             {/* Content */}
-            <div className={`flex-1 overflow-y-auto p-4 custom-scrollbar ${editingDisabled ? 'pointer-events-none opacity-60' : ''}`}>
+            <div className={`flex-1 overflow-y-auto p-4 custom-scrollbar`}>
                 {activeTab === 'metadata' && (
                     <div className="space-y-4">
-                        {renderImageStrip()}
+                        {/* Compact image strip - same as Game Manager */}
+                        {renderImageStrip(true)}
 
-                        {/* Title / Fix Match */}
+                        {/* Title row with Fix Match - compact */}
                         <div>
-                            <div className="flex justify-between items-center mb-1">
-                                <label className="text-xs font-medium text-gray-400">Title</label>
-                                <div className="flex gap-2">
-                                    {canUndo && (
-                                        <button onClick={handleUndo} className="text-xs text-yellow-400 hover:text-yellow-300">
-                                            Undo
-                                        </button>
-                                    )}
-                                    <button onClick={() => {
-                                        setShowFixMatch(!showFixMatch);
-                                        if (!showFixMatch) setMetadataSearchQuery(editedFields.title);
-                                    }} className="text-xs text-blue-400 hover:text-blue-300">
-                                        {showFixMatch ? 'Cancel Fix' : 'Fix Match'}
+                            <label className="block text-xs font-medium text-gray-400 mb-1">Title</label>
+                            <div className="flex gap-2">
+                                {canUndo && (
+                                    <button onClick={handleUndo} disabled={editingDisabled} className="px-2 py-1.5 text-xs text-yellow-400 hover:text-yellow-300 bg-gray-700 rounded disabled:opacity-50">
+                                        Undo
                                     </button>
-                                </div>
-                            </div>
-                            {!showFixMatch ? (
+                                )}
                                 <input
                                     type="text"
-                                    value={editedFields.title}
-                                    onChange={(e) => updateField('title', e.target.value)}
-                                    className="w-full bg-gray-800 border border-gray-700 rounded p-2 text-sm focus:border-blue-500 focus:outline-none"
+                                    value={!showFixMatch ? editedFields.title : metadataSearchQuery}
+                                    onChange={(e) => showFixMatch ? setMetadataSearchQuery(e.target.value) : updateField('title', e.target.value)}
+                                    onKeyDown={(e) => showFixMatch && e.key === 'Enter' && handleFixMatchSearch()}
+                                    placeholder={showFixMatch ? 'Enter game title to search...' : ''}
+                                    className="flex-1 px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
+                                    disabled={editingDisabled || (showFixMatch && isSearchingMetadata)}
                                 />
-                            ) : (
-                                <div className="space-y-2 animate-in fade-in zoom-in-95 duration-200">
-                                    <div className="flex gap-2">
-                                        <input
-                                            type="text"
-                                            value={metadataSearchQuery}
-                                            onChange={(e) => setMetadataSearchQuery(e.target.value)}
-                                            onKeyDown={(e) => e.key === 'Enter' && handleFixMatchSearch()}
-                                            className="flex-1 bg-gray-800 border border-gray-700 rounded p-2 text-sm"
-                                            placeholder="Search..."
-                                            autoFocus
-                                        />
-                                        <button onClick={handleFixMatchSearch} className="bg-blue-600 px-3 rounded text-sm disabled:opacity-50" disabled={isSearchingMetadata}>Search</button>
+                                {showFixMatch && (
+                                    <button onClick={handleFixMatchSearch} disabled={editingDisabled || isSearchingMetadata} className="px-4 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors disabled:opacity-50 flex items-center gap-2">
+                                        {isSearchingMetadata ? (
+                                            <><span className="animate-pulse">Searching...</span></>
+                                        ) : (
+                                            'Search'
+                                        )}
+                                    </button>
+                                )}
+                                <button
+                                    onClick={() => { setShowFixMatch(!showFixMatch); if (!showFixMatch) setMetadataSearchQuery(editedFields.title); }}
+                                    disabled={editingDisabled}
+                                    className="px-3 py-1.5 text-sm bg-purple-600 hover:bg-purple-700 text-white rounded transition-colors flex items-center gap-1.5 disabled:opacity-50"
+                                >
+                                    {showFixMatch ? 'Hide' : 'Fix Match'}
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Fix Match results */}
+                        {showFixMatch && metadataSearchResults.length > 0 && (
+                            <div className="max-h-48 overflow-y-auto bg-gray-800 rounded border border-gray-700">
+                                {metadataSearchResults.map((r) => (
+                                    <div key={r.id} onClick={() => !editingDisabled && handleApplyMatch(r)} className={`p-2 hover:bg-gray-700 cursor-pointer border-b border-gray-700 last:border-0 ${editingDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                                        <div className="font-medium text-sm text-white">{r.title || r.name}</div>
+                                        <div className="text-xs text-gray-400">{r.year} • {r.platform || r.source}</div>
                                     </div>
-                                    {metadataSearchResults.length > 0 && (
-                                        <div className="max-h-48 overflow-y-auto bg-gray-800 rounded border border-gray-700">
-                                            {metadataSearchResults.map((r) => (
-                                                <div key={r.id} onClick={() => handleApplyMatch(r)} className="p-2 hover:bg-gray-700 cursor-pointer border-b border-gray-700 last:border-0">
-                                                    <div className="font-medium text-sm text-white">{r.title || r.name}</div>
-                                                    <div className="text-xs text-gray-400">{r.year} • {r.platform || r.source}</div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Description */}
-                        <div>
-                            <label className="text-xs font-medium text-gray-400 mb-1 block">Description</label>
-                            <textarea
-                                value={editedFields.description || ''}
-                                onChange={(e) => updateField('description', e.target.value)}
-                                className="w-full bg-gray-800 border border-gray-700 rounded p-2 text-sm min-h-[100px]"
-                            />
-                        </div>
-
-                        {/* Categories */}
-                        <div>
-                            <label className="text-xs font-medium text-gray-400 mb-1 block">Categories</label>
-                            <div className="flex flex-wrap gap-2 p-2 bg-gray-800 rounded border border-gray-700">
-                                {editedFields.categories?.map(cat => (
-                                    <span key={cat} className="bg-blue-900/50 text-blue-200 px-2 py-0.5 rounded text-xs flex items-center gap-1 border border-blue-800">
-                                        {cat}
-                                        <button onClick={() => updateField('categories', (editedFields.categories || []).filter(c => c !== cat))} className="hover:text-white">×</button>
-                                    </span>
                                 ))}
-                                <input
-                                    value={newCategoryInput}
-                                    onChange={(e) => setNewCategoryInput(e.target.value)}
-                                    onKeyDown={(e) => {
-                                        if (e.key === 'Enter' && newCategoryInput.trim()) {
-                                            e.preventDefault();
-                                            const cat = newCategoryInput.trim();
-                                            if (!(editedFields.categories || []).includes(cat)) {
-                                                updateField('categories', [...(editedFields.categories || []), cat]);
-                                            }
-                                            setNewCategoryInput('');
-                                        }
-                                    }}
-                                    className="bg-transparent outline-none text-sm min-w-[50px] flex-1 text-white"
-                                    placeholder="Add..."
+                            </div>
+                        )}
+
+                        {/* Description + Categories row - compact like Game Manager */}
+                        <div className="flex flex-col lg:flex-row gap-4">
+                            <div className="flex-1">
+                                <label className="block text-xs font-medium text-gray-400 mb-1">Description</label>
+                                <textarea
+                                    value={editedFields.description || ''}
+                                    onChange={(e) => updateField('description', e.target.value)}
+                                    className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
+                                    disabled={editingDisabled}
+                                    rows={4}
                                 />
                             </div>
-                        </div>
-
-                        {/* Genres */}
-                        <div>
-                            <label className="text-xs font-medium text-gray-400 mb-1 block">Genres</label>
-                            <div className="text-sm text-gray-300 bg-gray-800 border border-gray-700 rounded p-2">
-                                {editedFields.genres?.join(', ') || <span className="text-gray-500 italic">None</span>}
+                            <div className="w-full lg:w-[35%] flex flex-col">
+                                <label className="block text-xs font-medium text-gray-400 mb-1">Categories</label>
+                                <div className="p-2 bg-gray-800/50 rounded border border-gray-700 flex flex-col gap-2 max-h-[104px] overflow-y-auto">
+                                    <div className="flex flex-wrap gap-1">
+                                        {editedFields.categories?.map(cat => (
+                                            <span key={cat} className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium bg-blue-900/30 text-blue-200 border border-blue-700/30 rounded-full">
+                                                {cat}
+                                                <button onClick={() => !editingDisabled && updateField('categories', (editedFields.categories || []).filter(c => c !== cat))} disabled={editingDisabled} className="ml-0.5 text-blue-400 hover:text-white disabled:opacity-50">×</button>
+                                            </span>
+                                        ))}
+                                    </div>
+                                    <input
+                                        value={newCategoryInput}
+                                        onChange={(e) => setNewCategoryInput(e.target.value)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter' && newCategoryInput.trim()) {
+                                                e.preventDefault();
+                                                const cat = newCategoryInput.trim();
+                                                if (!(editedFields.categories || []).includes(cat)) {
+                                                    updateField('categories', [...(editedFields.categories || []), cat]);
+                                                    setNewCategoryInput('');
+                                                }
+                                            }
+                                        }}
+                                        placeholder="Add category..."
+                                        disabled={editingDisabled}
+                                        className="w-full bg-transparent border-none text-xs text-white focus:outline-none placeholder-gray-500 disabled:opacity-50"
+                                    />
+                                </div>
                             </div>
                         </div>
 
-                        {/* Grid Fields */}
-                        <div className="grid grid-cols-2 gap-3">
+                        {/* Metadata grid - 5 columns, compact uppercase labels (Game Manager style) */}
+                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
                             <div>
-                                <label className="text-xs font-medium text-gray-400 mb-1 block">Release Date</label>
+                                <label className="block text-[10px] uppercase tracking-wider font-semibold text-gray-500 mb-0.5">Release Date</label>
                                 <input
                                     type="text"
                                     value={editedFields.releaseDate || ''}
                                     onChange={(e) => updateField('releaseDate', e.target.value)}
-                                    className="w-full bg-gray-800 border border-gray-700 rounded p-2 text-sm"
                                     placeholder="YYYY-MM-DD"
+                                    disabled={editingDisabled}
+                                    className="w-full px-2 py-1 text-xs bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
                                 />
                             </div>
                             <div>
-                                <label className="text-xs font-medium text-gray-400 mb-1 block">Age Rating</label>
+                                <label className="block text-[10px] uppercase tracking-wider font-semibold text-gray-500 mb-0.5">Age Rating</label>
                                 <input
                                     type="text"
                                     value={editedFields.ageRating || ''}
                                     onChange={(e) => updateField('ageRating', e.target.value)}
-                                    className="w-full bg-gray-800 border border-gray-700 rounded p-2 text-sm"
+                                    disabled={editingDisabled}
+                                    className="w-full px-2 py-1 text-xs bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
                                 />
                             </div>
-                        </div>
-
-                        {/* Developers / Publishers */}
-                        <div className="grid grid-cols-2 gap-3">
                             <div>
-                                <label className="text-xs font-medium text-gray-400 mb-1 block">Developers</label>
-                                <div className="text-sm text-gray-300 bg-gray-800 border border-gray-700 rounded p-2 truncate">
-                                    {editedFields.developers?.join(', ') || <span className="text-gray-500 italic">Unknown</span>}
-                                </div>
+                                <label className="block text-[10px] uppercase tracking-wider font-semibold text-gray-500 mb-0.5">Genres</label>
+                                <input
+                                    type="text"
+                                    value={editedFields.genres?.join(', ') || ''}
+                                    onChange={(e) => updateField('genres', e.target.value.split(',').map(g => g.trim()).filter(Boolean))}
+                                    disabled={editingDisabled}
+                                    className="w-full px-2 py-1 text-xs bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
+                                />
                             </div>
                             <div>
-                                <label className="text-xs font-medium text-gray-400 mb-1 block">Publishers</label>
-                                <div className="text-sm text-gray-300 bg-gray-800 border border-gray-700 rounded p-2 truncate">
-                                    {editedFields.publishers?.join(', ') || <span className="text-gray-500 italic">Unknown</span>}
-                                </div>
+                                <label className="block text-[10px] uppercase tracking-wider font-semibold text-gray-500 mb-0.5">Developers</label>
+                                <input
+                                    type="text"
+                                    value={editedFields.developers?.join(', ') || ''}
+                                    onChange={(e) => updateField('developers', e.target.value.split(',').map(d => d.trim()).filter(Boolean))}
+                                    disabled={editingDisabled}
+                                    className="w-full px-2 py-1 text-xs bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
+                                />
                             </div>
+                            <div>
+                                <label className="block text-[10px] uppercase tracking-wider font-semibold text-gray-500 mb-0.5">Publishers</label>
+                                <input
+                                    type="text"
+                                    value={editedFields.publishers?.join(', ') || ''}
+                                    onChange={(e) => updateField('publishers', e.target.value.split(',').map(p => p.trim()).filter(Boolean))}
+                                    disabled={editingDisabled}
+                                    className="w-full px-2 py-1 text-xs bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
+                                />
+                            </div>
+                            {isStaged && (game as StagedGame).source !== undefined && (
+                                <div>
+                                    <label className="block text-[10px] uppercase tracking-wider font-semibold text-gray-500 mb-0.5">Source</label>
+                                    <input
+                                        type="text"
+                                        value={(game as StagedGame).source ?? ''}
+                                        readOnly
+                                        className="w-full px-2 py-1 text-xs bg-gray-800/50 border border-gray-600 rounded text-gray-400"
+                                    />
+                                </div>
+                            )}
+                            {isStaged && (
+                                <>
+                                    <div className="col-span-2">
+                                        <label className="block text-[10px] uppercase tracking-wider font-semibold text-gray-500 mb-0.5">Install Directory</label>
+                                        <input
+                                            type="text"
+                                            value={editedFields.installPath ?? (game as StagedGame).installPath ?? ''}
+                                            onChange={(e) => updateField('installPath', e.target.value)}
+                                            disabled={editingDisabled}
+                                            className="w-full px-2 py-1 text-xs bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
+                                        />
+                                    </div>
+                                    <div className="col-span-2">
+                                        <label className="block text-[10px] uppercase tracking-wider font-semibold text-gray-500 mb-0.5">Executable Path</label>
+                                        <input
+                                            type="text"
+                                            value={editedFields.exePath ?? (game as StagedGame).exePath ?? ''}
+                                            onChange={(e) => updateField('exePath', e.target.value)}
+                                            disabled={editingDisabled}
+                                            className="w-full px-2 py-1 text-xs bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
+                                        />
+                                    </div>
+                                </>
+                            )}
                         </div>
                     </div>
                 )}
 
                 {activeTab === 'images' && (
                     <div>
-                        {/* Image Preview Strip - Same as GameManager */}
-                        <div className="p-2 space-y-2 flex-shrink-0 bg-gray-900/95 border-b border-gray-800 mb-4">
-                            <div className="flex gap-2 mb-1 items-start">
-                                {(['boxart', 'logo', 'banner', 'alternativeBanner', 'icon'] as const).map(type => {
-                                    const fieldMap = { boxart: 'boxArtUrl', logo: 'logoUrl', banner: 'bannerUrl', alternativeBanner: 'alternativeBannerUrl', icon: 'iconUrl' } as const;
-                                    const val = editedFields[fieldMap[type]];
-
-                                    const sizeClasses =
-                                        type === 'boxart' ? 'h-36 w-auto aspect-[2/3]' :
-                                            type === 'logo' ? 'h-36 w-56' :
-                                                type === 'banner' ? 'h-36 flex-1' :
-                                                    type === 'alternativeBanner' ? 'h-36 flex-1' :
-                                                        'h-36 w-36';
-
-                                    return (
-                                        <div
-                                            key={type}
-                                            onClick={() => {
-                                                setActiveImageSearchTab(type);
-                                                setImageSearchQuery(editedFields.title);
-                                                handleSearchImages(type);
-                                            }}
-                                            className={`${sizeClasses} relative group cursor-pointer border border-gray-700 rounded-lg overflow-hidden bg-gray-800 hover:border-green-500 transition-colors flex-shrink-0`}
-                                        >
-                                            {val && !failedImageUrls.has(val) ? (
-                                                type === 'boxart' || type === 'banner' || type === 'alternativeBanner' ? (
-                                                    <img src={val} className="w-full h-full object-cover" alt={type} onError={() => { setFailedImageUrls(prev => new Set(prev).add(val)); updateField(fieldMap[type], ''); }} />
-                                                ) : (
-                                                    <div className="w-full h-full p-2 flex items-center justify-center">
-                                                        <img src={val} className="max-w-full max-h-full object-contain" alt={type} onError={() => { setFailedImageUrls(prev => new Set(prev).add(val)); updateField(fieldMap[type], ''); }} />
-                                                    </div>
-                                                )
-                                            ) : (
-                                                <div className="w-full h-full flex items-center justify-center">
-                                                    <span className={`text-gray-600 text-center p-1 ${type === 'icon' ? 'text-[10px]' : type === 'boxart' ? 'text-[8px]' : 'text-xs'}`}>
-                                                        {type === 'boxart' ? 'Boxart' : type === 'icon' ? 'Click to search for icon' : type === 'alternativeBanner' ? 'Click to search for Alt Banner' : `Click to search for ${type}`}
-                                                    </span>
-                                                </div>
-                                            )}
-                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                                <span className={`text-white font-medium ${type === 'icon' ? 'text-[10px]' : type === 'boxart' ? 'text-[10px]' : 'text-xs'}`}>
-                                                    {type === 'icon' ? 'Edit Icon' : type === 'logo' ? 'Edit Logo' : type === 'banner' ? 'Edit Banner' : type === 'alternativeBanner' ? 'Edit Alt Banner' : 'Edit'}
-                                                </span>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        </div>
+                        {/* Image strip - full size, same as Game Manager Images tab */}
+                        {renderImageStrip(false)}
 
                         {/* Search Input */}
                         <div className="flex gap-2 mb-4 sticky top-0 bg-gray-900 z-10 py-2">
@@ -674,7 +700,7 @@ export const GamePropertiesPanel: React.FC<GamePropertiesPanelProps> = ({
                             {/* Quick All Button */}
                             <button
                                 onClick={handleFastSearch}
-                                disabled={isFastSearching || isSearchingImages}
+                                disabled={editingDisabled || isFastSearching || isSearchingImages}
                                 className="px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white font-bold rounded transition-all shadow-lg shadow-green-500/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                                 title="Quick search all image types at once"
                             >
@@ -697,7 +723,7 @@ export const GamePropertiesPanel: React.FC<GamePropertiesPanelProps> = ({
                             </button>
                             <button
                                 onClick={() => activeImageSearchTab === 'all' ? handleFastSearch() : handleSearchImages(activeImageSearchTab)}
-                                disabled={isSearchingImages}
+                                disabled={editingDisabled || isSearchingImages}
                                 className="bg-purple-600 px-4 rounded text-sm hover:bg-purple-700 disabled:opacity-50"
                             >
                                 Search
@@ -706,19 +732,19 @@ export const GamePropertiesPanel: React.FC<GamePropertiesPanelProps> = ({
                                 onClick={() => {
                                     setSteamGridDBResults({ boxart: [], banner: [], alternativeBanner: [], logo: [], icon: [] });
                                     setFastSearchResults([]);
-
                                 }}
-                                className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded transition-colors"
-                                disabled={isSearchingImages}
+                                className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded transition-colors disabled:opacity-50"
+                                disabled={editingDisabled || isSearchingImages}
                             >
                                 Clear
                             </button>
                             <button
                                 onClick={() => setShowAnimatedImages(!showAnimatedImages)}
+                                disabled={editingDisabled}
                                 className={`px-3 py-2 rounded border transition-colors flex items-center gap-2 ${showAnimatedImages
                                     ? 'bg-blue-600/20 border-blue-500 text-blue-400'
                                     : 'bg-gray-700 border-gray-600 text-gray-400 hover:bg-gray-600'
-                                    }`}
+                                    } disabled:opacity-50`}
                                 title="Include animated images (GIF/WebP) in search results"
                             >
                                 <svg className="w-4 h-4 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -750,8 +776,8 @@ export const GamePropertiesPanel: React.FC<GamePropertiesPanelProps> = ({
                                     {fastSearchResults.map((result: any) => (
                                         <div
                                             key={result.id}
-                                            onClick={() => handleSelectFastGame(result)}
-                                            className="flex items-center gap-2 p-2 bg-gray-800 rounded border border-gray-700 hover:border-green-500 cursor-pointer transition-colors"
+                                            onClick={() => !editingDisabled && handleSelectFastGame(result)}
+                                            className={`flex items-center gap-2 p-2 bg-gray-800 rounded border border-gray-700 hover:border-green-500 cursor-pointer transition-colors ${editingDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
                                         >
                                             {result.coverUrl && (
                                                 <img src={result.coverUrl} alt="" className="w-10 h-14 object-cover rounded" />
@@ -813,8 +839,8 @@ export const GamePropertiesPanel: React.FC<GamePropertiesPanelProps> = ({
                                                 return (
                                                     <div
                                                         key={`all-boxart-${idx}`}
-                                                        onClick={() => applyImage('boxart', url)}
-                                                        className="group cursor-pointer"
+                                                        onClick={() => !editingDisabled && applyImage('boxart', url)}
+                                                        className={`group cursor-pointer ${editingDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
                                                     >
                                                         <div className="aspect-[2/3] rounded overflow-hidden border border-gray-700 bg-gray-800 group-hover:border-green-500 transition-all relative">
                                                             <img
@@ -850,8 +876,8 @@ export const GamePropertiesPanel: React.FC<GamePropertiesPanelProps> = ({
                                                 return (
                                                     <div
                                                         key={`all-logo-${idx}`}
-                                                        onClick={() => applyImage('logo', url)}
-                                                        className="group cursor-pointer flex items-center justify-center p-3 rounded bg-gray-800/50 border border-gray-700 hover:border-green-500 hover:bg-gray-800 transition-all aspect-video"
+                                                        onClick={() => !editingDisabled && applyImage('logo', url)}
+                                                        className={`group cursor-pointer flex items-center justify-center p-3 rounded bg-gray-800/50 border border-gray-700 hover:border-green-500 hover:bg-gray-800 transition-all aspect-video ${editingDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
                                                     >
                                                         <img src={url} alt="Logo" className="max-w-full max-h-full object-contain" />
                                                     </div>
@@ -874,8 +900,8 @@ export const GamePropertiesPanel: React.FC<GamePropertiesPanelProps> = ({
                                                 return (
                                                     <div
                                                         key={`all-banner-${idx}`}
-                                                        onClick={() => applyImage('banner', url)}
-                                                        className="group cursor-pointer"
+                                                        onClick={() => !editingDisabled && applyImage('banner', url)}
+                                                        className={`group cursor-pointer ${editingDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
                                                     >
                                                         <div className="aspect-video rounded overflow-hidden border border-gray-700 bg-gray-800 group-hover:border-green-500 transition-all relative">
                                                             <img
@@ -911,8 +937,8 @@ export const GamePropertiesPanel: React.FC<GamePropertiesPanelProps> = ({
                                                 return (
                                                     <div
                                                         key={`all-icon-${idx}`}
-                                                        onClick={() => applyImage('icon', url)}
-                                                        className="group cursor-pointer flex items-center justify-center p-2 rounded bg-gray-800/50 border border-gray-700 hover:border-green-500 hover:bg-gray-800 transition-all aspect-square"
+                                                        onClick={() => !editingDisabled && applyImage('icon', url)}
+                                                        className={`group cursor-pointer flex items-center justify-center p-2 rounded bg-gray-800/50 border border-gray-700 hover:border-green-500 hover:bg-gray-800 transition-all aspect-square ${editingDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
                                                     >
                                                         <img src={url} alt="Icon" className="w-full h-full object-contain" />
                                                     </div>
@@ -932,8 +958,8 @@ export const GamePropertiesPanel: React.FC<GamePropertiesPanelProps> = ({
                                     return (
                                         <div
                                             key={`boxart-${idx}`}
-                                            onClick={() => applyImage('boxart', url)}
-                                            className="group cursor-pointer"
+                                            onClick={() => !editingDisabled && applyImage('boxart', url)}
+                                            className={`group cursor-pointer ${editingDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
                                         >
                                             <div className="aspect-[2/3] rounded overflow-hidden border border-gray-700 bg-gray-800 group-hover:border-green-500 transition-all relative">
                                                 <img
@@ -966,8 +992,8 @@ export const GamePropertiesPanel: React.FC<GamePropertiesPanelProps> = ({
                                     return (
                                         <div
                                             key={`logo-${idx}`}
-                                            onClick={() => applyImage('logo', url)}
-                                            className="group cursor-pointer flex items-center justify-center p-3 rounded bg-gray-800/50 border border-gray-700 hover:border-green-500 hover:bg-gray-800 transition-all aspect-video"
+                                            onClick={() => !editingDisabled && applyImage('logo', url)}
+                                            className={`group cursor-pointer flex items-center justify-center p-3 rounded bg-gray-800/50 border border-gray-700 hover:border-green-500 hover:bg-gray-800 transition-all aspect-video ${editingDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
                                         >
                                             <img src={url} alt="Logo" className="max-w-full max-h-full object-contain" />
                                         </div>
@@ -987,8 +1013,8 @@ export const GamePropertiesPanel: React.FC<GamePropertiesPanelProps> = ({
                                     return (
                                         <div
                                             key={`banner-${idx}`}
-                                            onClick={() => applyImage('banner', url)}
-                                            className="group cursor-pointer"
+                                            onClick={() => !editingDisabled && applyImage('banner', url)}
+                                            className={`group cursor-pointer ${editingDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
                                         >
                                             <div className="aspect-video rounded overflow-hidden border border-gray-700 bg-gray-800 group-hover:border-green-500 transition-all relative">
                                                 <img
@@ -1021,8 +1047,8 @@ export const GamePropertiesPanel: React.FC<GamePropertiesPanelProps> = ({
                                     return (
                                         <div
                                             key={`alt-banner-${idx}`}
-                                            onClick={() => applyImage('alternativeBanner', url)}
-                                            className="group cursor-pointer"
+                                            onClick={() => !editingDisabled && applyImage('alternativeBanner', url)}
+                                            className={`group cursor-pointer ${editingDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
                                         >
                                             <div className="aspect-video rounded overflow-hidden border border-gray-700 bg-gray-800 group-hover:border-green-500 transition-all relative">
                                                 <img
@@ -1055,8 +1081,8 @@ export const GamePropertiesPanel: React.FC<GamePropertiesPanelProps> = ({
                                     return (
                                         <div
                                             key={`icon-${idx}`}
-                                            onClick={() => applyImage('icon', url)}
-                                            className="group cursor-pointer flex items-center justify-center p-2 rounded bg-gray-800/50 border border-gray-700 hover:border-green-500 hover:bg-gray-800 transition-all aspect-square"
+                                            onClick={() => !editingDisabled && applyImage('icon', url)}
+                                            className={`group cursor-pointer flex items-center justify-center p-2 rounded bg-gray-800/50 border border-gray-700 hover:border-green-500 hover:bg-gray-800 transition-all aspect-square ${editingDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
                                         >
                                             <img src={url} alt="Icon" className="w-full h-full object-contain" />
                                         </div>
@@ -1072,43 +1098,110 @@ export const GamePropertiesPanel: React.FC<GamePropertiesPanelProps> = ({
                     </div>
                 )}
 
-                {activeTab === 'modManager' && !isStaged && (
+                {activeTab === 'links' && (
                     <div className="space-y-4">
-                        <div>
-                            <label className="text-xs font-medium text-gray-400 mb-1 block">Mod Manager URL</label>
-                            <input
-                                type="text"
-                                value={(game as Game).modManagerUrl || ''}
-                                onChange={() => {
-                                    // Mod manager is on the original game, not editable fields
-                                    // This would need special handling if we want to edit it
-                                }}
-                                className="w-full bg-gray-800 border border-gray-700 rounded p-2 text-sm"
-                                placeholder="https://..."
-                            />
+                        <div className="flex items-center justify-between">
+                            <label className="block text-xs font-semibold uppercase tracking-wider text-gray-400">Links</label>
+                            <button
+                                type="button"
+                                onClick={() => updateField('links', [...(editedFields.links || []), { name: '', url: '' }])}
+                                disabled={editingDisabled}
+                                className="text-xs text-blue-400 hover:text-blue-300 font-medium px-3 py-1.5 bg-blue-500/10 hover:bg-blue-500/20 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                + Add Link
+                            </button>
                         </div>
+                        {!editedFields.links || editedFields.links.length === 0 ? (
+                            <p className="text-sm text-gray-500 italic py-4">No links. Add links manually or they may be filled when you fix metadata match.</p>
+                        ) : (
+                            <div className="space-y-2">
+                                {(editedFields.links || []).map((link, idx) => (
+                                    <div key={idx} className="flex gap-2 items-center">
+                                        <div className="w-9 h-9 flex-shrink-0 flex items-center justify-center rounded border border-gray-600 bg-gray-800">
+                                            <LinkIcon iconKey={inferLinkKey(link.url, link.name)} className="w-[70%] h-[70%]" customIconUrl={link.iconUrl} />
+                                        </div>
+                                        <input
+                                            type="text"
+                                            value={link.name}
+                                            onChange={(e) => {
+                                                const next = [...(editedFields.links || [])];
+                                                next[idx] = { ...next[idx], name: e.target.value };
+                                                updateField('links', next);
+                                            }}
+                                            placeholder="Label (e.g. Steam)"
+                                            disabled={editingDisabled}
+                                            className="w-28 px-2 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
+                                        />
+                                        <input
+                                            type="text"
+                                            value={link.url}
+                                            onChange={(e) => {
+                                                const next = [...(editedFields.links || [])];
+                                                next[idx] = { ...next[idx], url: e.target.value };
+                                                updateField('links', next);
+                                            }}
+                                            placeholder="URL"
+                                            disabled={editingDisabled}
+                                            className="flex-1 px-2 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => updateField('links', (editedFields.links || []).filter((_, i) => i !== idx))}
+                                            disabled={editingDisabled}
+                                            className="px-3 py-1.5 text-xs text-red-400 hover:text-red-300 bg-red-500/10 hover:bg-red-500/20 rounded shrink-0 disabled:opacity-50"
+                                        >
+                                            Remove
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {activeTab === 'modManager' && (
+                    <div className="space-y-4">
+                        {isStaged ? (
+                            <p className="text-sm text-gray-400 py-4">Mod manager can be configured after importing this game (in Game Manager → Mod Manager tab).</p>
+                        ) : (
+                            <>
+                                <div>
+                                    <label className="text-xs font-medium text-gray-400 mb-1 block">Mod Manager Link</label>
+                                    <input
+                                        type="text"
+                                        value={(game as Game).modManagerUrl || ''}
+                                        readOnly
+                                        className="w-full bg-gray-800 border border-gray-700 rounded p-2 text-sm text-gray-400"
+                                        placeholder="Configure in Game Manager"
+                                    />
+                                    <p className="text-xs text-gray-500 mt-2">Edit the mod manager URL in Game Manager.</p>
+                                </div>
+                            </>
+                        )}
                     </div>
                 )}
             </div>
 
-            {/* Footer */}
-            <div className={`p-4 border-t border-gray-800 bg-gray-800/30 flex justify-between items-center gap-2 shrink-0 ${editingDisabled ? 'pointer-events-none opacity-60' : ''}`}>
+            {/* Footer - same order and style as Game Manager */}
+            <div className={`p-4 border-t border-gray-800 bg-gray-800/30 flex justify-between items-center gap-2 shrink-0`}>
                 <div>
                     {error && <span className="text-red-400 text-xs">{error}</span>}
                     {success && <span className="text-green-400 text-xs">{success}</span>}
                 </div>
                 <div className="flex gap-2">
+                    <button onClick={handleSave} disabled={isSaving || editingDisabled} className="flex-1 px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                        {isSaving ? 'Saving...' : 'Save'}
+                    </button>
+                    {onCancel && <button onClick={onCancel} disabled={editingDisabled} className="px-4 py-2 text-sm bg-gray-600 hover:bg-gray-700 text-white rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed">Cancel</button>}
                     {onDelete && !isStaged && (
-                        <button onClick={onDelete} disabled={editingDisabled} className="px-3 py-1.5 bg-red-900/50 hover:bg-red-800 text-red-300 text-sm rounded border border-red-800 disabled:opacity-50 disabled:cursor-not-allowed">
+                        <button onClick={onDelete} disabled={editingDisabled} className="px-4 py-2 text-sm bg-red-600 hover:bg-red-700 text-white rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                             Delete
                         </button>
                     )}
-                    {onCancel && <button onClick={onCancel} disabled={editingDisabled} className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-white text-sm rounded disabled:opacity-50 disabled:cursor-not-allowed">Cancel</button>}
-                    <button onClick={handleSave} disabled={isSaving || editingDisabled} className="px-4 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed">
-                        {isSaving ? 'Saving...' : 'Save Changes'}
-                    </button>
                 </div>
             </div>
         </div >
     );
-};
+});
+GamePropertiesPanel.displayName = 'GamePropertiesPanel';

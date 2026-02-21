@@ -5,7 +5,7 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { StagedGame, ImportStatus, ImportSource } from '../../types/importer';
 import { Game } from '../../types/game';
-import { GamePropertiesPanel } from '../GamePropertiesPanel';
+import { GamePropertiesPanel, GamePropertiesPanelHandle } from '../GamePropertiesPanel';
 
 export type ImportProgressCallback = (current: number, total: number, phase: string, detail?: string) => void;
 
@@ -65,6 +65,7 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
 
     // Refs
     const hasAutoScanned = useRef(false);
+    const panelRef = useRef<GamePropertiesPanelHandle>(null);
 
     // Get selected game from queue
     const selectedGame = useMemo(() => queue.find(g => g.uuid === selectedId) || null, [queue, selectedId]);
@@ -89,34 +90,15 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
 
     // --- Effects ---
 
-    // Reset state on open
-    useEffect(() => {
-        if (isOpen) {
-            // Only reset if we are not currently receiving pre-scanned games (which will be handled by the next effect)
-            // Or even if we are, clearing first ensures no old state remains.
-            setQueue([]);
-            setSelectedId(null);
-            setIsScanning(false);
-            setIsImporting(false);
-            setImportProgress(null);
-            setError(null);
-            setScanProgress('');
-            setShowIgnored(false);
-            setCurrentlyProcessingGame(null);
-            setGameProcessingStates(new Map());
-            setScanStats({ found: 0, processed: 0 });
-            hasAutoScanned.current = false;
-        }
-    }, [isOpen]);
+    // Do NOT reset queue on open: if user closes importer while scan runs, reopening should show games waiting for import.
 
-    // Auto-scan on open
+    // Auto-scan only when opening with empty queue (first time or after user cleared). Do not restart scan on reopen.
     useEffect(() => {
-        if (isOpen && autoStartScan && !hasAutoScanned.current && !preScannedGames) {
+        if (isOpen && autoStartScan && queue.length === 0 && !preScannedGames?.length && !hasAutoScanned.current) {
             hasAutoScanned.current = true;
             setTimeout(() => handleScanAll(), 300);
         }
-        if (!isOpen) hasAutoScanned.current = false;
-    }, [isOpen, autoStartScan, preScannedGames]);
+    }, [isOpen, autoStartScan, queue.length, preScannedGames?.length]);
 
     // Process pre-scanned games
     useEffect(() => {
@@ -474,7 +456,13 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
         setError(null);
 
         try {
-            const gamesToImport: Game[] = visibleGames.map(staged => {
+            // Flush current panel edits to queue and get merged game so import uses latest data
+            const updatedGame = await panelRef.current?.saveToParent?.() as StagedGame | undefined;
+            const listToImport = selectedId && updatedGame
+                ? visibleGames.map(staged => staged.uuid === selectedId ? updatedGame : staged)
+                : visibleGames;
+
+            const gamesToImport: Game[] = listToImport.map(staged => {
                 let gameId: string;
                 let launcherSource: string;
 
@@ -655,14 +643,16 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
                                                     <>
                                                         <button
                                                             onClick={(e) => { e.stopPropagation(); handleSkipGame(game); }}
-                                                            className="text-gray-500 hover:text-gray-300 text-xs px-1"
+                                                            disabled={isScanning}
+                                                            className="text-gray-500 hover:text-gray-300 text-xs px-1 disabled:opacity-30 disabled:cursor-not-allowed"
                                                             title="Skip"
                                                         >
                                                             ↷
                                                         </button>
                                                         <button
                                                             onClick={(e) => { e.stopPropagation(); handleIgnoreGame(game); }}
-                                                            className="text-red-500 hover:text-red-300 text-xs px-1"
+                                                            disabled={isScanning}
+                                                            className="text-red-500 hover:text-red-300 text-xs px-1 disabled:opacity-30 disabled:cursor-not-allowed"
                                                             title="Ignore"
                                                         >
                                                             ×
@@ -691,6 +681,7 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
                     <div className="flex-1 flex flex-col overflow-hidden">
                         {selectedGame ? (
                             <GamePropertiesPanel
+                                ref={panelRef}
                                 game={selectedGame}
                                 isStaged={true}
                                 onSave={async (updatedGame) => handleUpdateGame(updatedGame as StagedGame)}

@@ -22,6 +22,9 @@ export interface EditableGameFields {
   iconUrl?: string;
   screenshots?: string[];
   platform?: string;
+  exePath?: string;
+  installPath?: string;
+  links?: Array<{ name: string; url: string; hidden?: boolean; iconUrl?: string }>;
   lockedFields?: {
     title?: boolean;
     boxArtUrl?: boolean;
@@ -61,6 +64,9 @@ export function toEditableFields(source: Game | StagedGame): EditableGameFields 
     iconUrl: (source as Game).iconUrl,
     screenshots: source.screenshots,
     platform: (source as any).platform,
+    exePath: (source as any).exePath,
+    installPath: (source as StagedGame).installPath,
+    links: (source as Game).links ?? (source as StagedGame).links,
     lockedFields: source.lockedFields,
   };
 }
@@ -86,6 +92,8 @@ export function mergeIntoGame(original: Game, edited: EditableGameFields): Game 
     heroUrl: edited.heroUrl,
     iconUrl: edited.iconUrl,
     screenshots: edited.screenshots,
+    exePath: edited.exePath ?? original.exePath,
+    links: edited.links ?? original.links,
     lockedFields: edited.lockedFields,
   };
 }
@@ -111,6 +119,9 @@ export function mergeIntoStagedGame(original: StagedGame, edited: EditableGameFi
     heroUrl: edited.heroUrl,
     screenshots: edited.screenshots,
     platform: edited.platform,
+    exePath: edited.exePath ?? original.exePath,
+    installPath: edited.installPath ?? (original as StagedGame).installPath,
+    links: edited.links ?? original.links,
     lockedFields: edited.lockedFields,
   };
 }
