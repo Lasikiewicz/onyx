@@ -4,6 +4,11 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.3.46] - 2026-02-21
+
+- Game Importer: Allow switching tabs (Metadata, Images, Links, Mod Manager) and viewing discovered content while a scan is in progress.
+- Game Importer: Selectively disable only interactive inputs and action buttons during scan to prevent race conditions while keeping the UI responsive for viewing.
+
 ## [0.3.45] - 2026-02-21
 
 - Game Importer: Disable editing (metadata, images, Save) while scan is in progress; show notification explaining why to avoid app hang.
