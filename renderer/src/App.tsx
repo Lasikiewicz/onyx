@@ -2249,9 +2249,11 @@ function App() {
         preScannedGames={scannedSteamGames && scannedSteamGames.length > 0 ? scannedSteamGames : undefined}
         onImport={async (games, onProgress) => {
           try {
-            onProgress?.(0, games.length, 'Saving games', 'Saving to library...');
-            await Promise.all(games.map(game => window.electronAPI.saveGame(game)));
-            onProgress?.(games.length, games.length, 'Saving games', 'Done');
+            for (let i = 0; i < games.length; i++) {
+              const game = games[i];
+              onProgress?.(i + 1, games.length, 'Saving games', `Saving ${game.title}...`);
+              await window.electronAPI.saveGame(game);
+            }
 
             // Only fetch artwork for games that don't already have it (e.g. already fetched in importer)
             const gamesNeedingArtwork = games.filter(

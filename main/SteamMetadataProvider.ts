@@ -137,12 +137,18 @@ export class SteamMetadataProvider implements MetadataProvider {
       'Call of Duty Black Ops 7': 'Call of Duty®: Black Ops 7',
 
       // Tony Hawk's games
-      "Tony Hawk's- Pro Skater- 3 + 4_1": "Tony Hawk's™ Pro Skater™ 3 + 4",
-      "Tony Hawk's Pro Skater 3 + 4": "Tony Hawk's™ Pro Skater™ 3 + 4",
+      "Tony Hawk's- Pro Skater- 3 + 4_1": "Tony Hawk's™ Pro Skater™ 1 + 2",
+      "Tony Hawk's- Pro Skater- 3 + 4": "Tony Hawk's™ Pro Skater™ 1 + 2",
+      "Tony Hawk's Pro Skater 3 + 4_1": "Tony Hawk's™ Pro Skater™ 1 + 2",
+      "Tony Hawk's Pro Skater 3 + 4": "Tony Hawk's™ Pro Skater™ 1 + 2",
 
       // Other trademark symbols
       'Assassins Creed Mirage': "Assassin's Creed® Mirage",
       'Assassins Creed mirage': "Assassin's Creed® Mirage",
+
+      'afop': 'Avatar: Frontiers of Pandora™',
+      'Avatar Frontiers of Pandora': 'Avatar: Frontiers of Pandora™',
+      'TheDarksideDetectivehsD4J': 'The Darkside Detective',
     };
 
     // Check for exact match first
@@ -290,6 +296,13 @@ export class SteamMetadataProvider implements MetadataProvider {
         // Extract text metadata from Steam Store API
         const description: import('./MetadataProvider.js').GameDescription = {};
 
+        // Title
+        if (gameData.name) {
+          description.title = gameData.name;
+        }
+
+        description.source = this.name;
+
         // Description/Summary
         if (gameData.short_description) {
           description.description = gameData.short_description;
@@ -375,6 +388,17 @@ export class SteamMetadataProvider implements MetadataProvider {
           links.push({ name: 'Official Website', url: gameData.website });
         }
         description.links = links;
+
+        // Auto-categorize as VR if "VR" or "Virtual Reality" is mentioned
+        const vrKeywords = ['vr', 'virtual reality'];
+        const isVR = (description.categories || []).some(c => vrKeywords.includes(c.toLowerCase())) ||
+          (description.genres || []).some(g => vrKeywords.includes(g.toLowerCase())) ||
+          (description.description || '').toLowerCase().includes('virtual reality') ||
+          (description.summary || '').toLowerCase().includes('virtual reality');
+
+        if (isVR && !description.categories?.some(c => c === 'VR')) {
+          description.categories = [...(description.categories || []), 'VR'];
+        }
 
         return Object.keys(description).length > 0 ? description : null;
       }, 3, 2000); // 3 retries with 2s base delay

@@ -21,6 +21,7 @@ export interface ScannedGameResult {
   xboxKind?: 'uwp' | 'pc';
   title: string;
   status: 'pending' | 'scanning' | 'matched' | 'ambiguous' | 'ready' | 'error';
+  categories?: string[];
   isDownloading?: boolean;
   error?: string;
 }
@@ -207,17 +208,25 @@ export class ImportService {
       const steamGames = this.steamService.scanSteamGames();
       console.log(`[ImportService] scanSteam found ${steamGames.length} games`);
 
-      return steamGames.map((game: SteamGame) => ({
-        uuid: `steam-${game.appId}-${Date.now()}`,
-        source: 'steam' as const,
-        originalName: game.name,
-        installPath: game.installDir,
-        exePath: undefined, // Steam games use steam:// protocol
-        appId: game.appId,
-        title: game.name,
-        status: 'ready' as const, // Steam games with AppID are ready
-        isDownloading: false, // Steam Service already filters for installed games
-      }));
+      return steamGames.map((game: SteamGame) => {
+        const categories: string[] = [];
+        if (game.name.toLowerCase().includes('steamvr')) {
+          categories.push('VR');
+        }
+
+        return {
+          uuid: `steam-${game.appId}-${Date.now()}`,
+          source: 'steam' as const,
+          originalName: game.name,
+          installPath: game.installDir.replace(/\\/g, '/'),
+          exePath: undefined, // Steam games use steam:// protocol
+          appId: game.appId,
+          title: game.name,
+          categories,
+          status: 'ready' as const, // Steam games with AppID are ready
+          isDownloading: false, // Steam Service already filters for installed games
+        };
+      });
     } catch (error) {
       console.error('Error scanning Steam:', error);
       return [];
@@ -248,8 +257,8 @@ export class ImportService {
           uuid: `${game.id}-${Date.now()}`,
           source: 'xbox' as const,
           originalName: game.name,
-          installPath: installPath,
-          exePath: exePath,
+          installPath: installPath.replace(/\\/g, '/'),
+          exePath: exePath?.replace(/\\/g, '/'),
           appId: game.appId,
           packageFamilyName: game.packageFamilyName,
           appUserModelId: game.appUserModelId,
@@ -331,8 +340,8 @@ export class ImportService {
                 uuid: `epic-${appId}-${Date.now()}`,
                 source: 'epic' as const,
                 originalName: appName,
-                installPath: installLocation,
-                exePath: exePath,
+                installPath: installLocation.replace(/\\/g, '/'),
+                exePath: exePath?.replace(/\\/g, '/'),
                 appId: appId,
                 title: appName,
                 status: 'ambiguous' as const, // Epic games need metadata matching
@@ -407,8 +416,8 @@ export class ImportService {
                 uuid: `epic-${entry}-${Date.now()}`,
                 source: 'epic' as const,
                 originalName: entry,
-                installPath: gamePath,
-                exePath: mainExe,
+                installPath: gamePath.replace(/\\/g, '/'),
+                exePath: mainExe.replace(/\\/g, '/'),
                 appId: undefined,
                 title: entry,
                 status: 'ambiguous' as const, // Epic games need metadata matching
@@ -635,8 +644,8 @@ export class ImportService {
             uuid: `gog-${gameDir}-${Date.now()}`,
             source: 'gog' as const,
             originalName: gameTitle,
-            installPath: gameDir,
-            exePath: mainExe,
+            installPath: gameDir.replace(/\\/g, '/'),
+            exePath: mainExe?.replace(/\\/g, '/'),
             launchArgs: launchArgs,
             appId: infoFile ? infoFile.replace(/\D+/g, '') : undefined,
             title: gameTitle,
@@ -742,8 +751,8 @@ export class ImportService {
             uuid: `manual-${gameDir}-${Date.now()}`,
             source: 'manual_folder' as const,
             originalName: title,
-            installPath: gameDir,
-            exePath: finalExe,
+            installPath: gameDir.replace(/\\/g, '/'),
+            exePath: finalExe?.replace(/\\/g, '/'),
             launchArgs: launchArgs,
             appId: appId,
             title: finalTitle,

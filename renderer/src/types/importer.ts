@@ -1,4 +1,4 @@
-export type ImportStatus = 'pending' | 'scanning' | 'matched' | 'ambiguous' | 'ready' | 'error';
+export type ImportStatus = 'pending' | 'scanning' | 'matched' | 'ambiguous' | 'ready' | 'error' | 'Duplicate - skipped';
 export type ImportSource = 'steam' | 'epic' | 'gog' | 'xbox' | 'ubisoft' | 'rockstar' | 'ea' | 'battle' | 'manual_file' | 'manual_folder';
 
 export interface StagedGame {

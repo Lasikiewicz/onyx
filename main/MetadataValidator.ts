@@ -18,44 +18,27 @@ export class MetadataValidator {
     expectedGame: GameSearchResult,
     options?: ValidateMetadataOptions
   ): boolean {
-    // When fetching links only, we don't have image fields – that's expected
-    if (!options?.linksOnly) {
-      if (!metadata.boxArtUrl && !metadata.bannerUrl) {
-        console.warn('[MetadataValidator] Missing required image fields');
-        return false;
-      }
-    }
-
     // Check if title matches (fuzzy)
-    if (expectedGame.title) {
+    if (expectedGame.title && metadata.title) {
       const similarity = this.calculateSimilarity(
-        this.normalizeTitle(metadata.description || ''),
+        this.normalizeTitle(metadata.title),
         this.normalizeTitle(expectedGame.title)
       );
 
-      // If we have a description, check if it mentions the game title
-      if (metadata.description) {
-        const descriptionLower = metadata.description.toLowerCase();
-        const titleLower = expectedGame.title.toLowerCase();
-        
-        // Check if title appears in description (common pattern)
-        if (!descriptionLower.includes(titleLower) && similarity < 0.3) {
-          console.warn(`[MetadataValidator] Title mismatch: expected "${expectedGame.title}", description doesn't match`);
-          // Don't fail validation for this, but log it
-        }
+      // Log if titles are very different but don't fail validation yet
+      if (similarity < 0.3) {
+        console.warn(`[MetadataValidator] Title mismatch: expected "${expectedGame.title}", found "${metadata.title}" (similarity: ${similarity.toFixed(2)})`);
       }
     }
 
-    // Check data quality (skip when links-only, no images expected)
-    if (!options?.linksOnly) {
-      if (metadata.boxArtUrl && !this.isValidUrl(metadata.boxArtUrl)) {
-        console.warn('[MetadataValidator] Invalid boxArtUrl');
-        return false;
-      }
-      if (metadata.bannerUrl && !this.isValidUrl(metadata.bannerUrl)) {
-        console.warn('[MetadataValidator] Invalid bannerUrl');
-        return false;
-      }
+    // Check data quality for URLs if present
+    if (metadata.boxArtUrl && !this.isValidUrl(metadata.boxArtUrl)) {
+      console.warn('[MetadataValidator] Invalid boxArtUrl');
+      return false;
+    }
+    if (metadata.bannerUrl && !this.isValidUrl(metadata.bannerUrl)) {
+      console.warn('[MetadataValidator] Invalid bannerUrl');
+      return false;
     }
 
     return true;

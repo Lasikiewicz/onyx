@@ -115,6 +115,7 @@ export class IGDBMetadataProvider implements MetadataProvider {
         platforms: result.platform ? [result.platform] : undefined,
         categories: result.categories,
         links: result.links,
+        source: this.name,
       };
     } catch (error: any) {
       // If authentication fails, disable IGDB service

@@ -24,6 +24,7 @@ export interface GameMetadata {
   heroUrl?: string;
   iconUrl?: string;
   screenshots?: string[];
+  title?: string;
   description?: string;
   summary?: string;
   releaseDate?: string;
@@ -407,6 +408,7 @@ export class MetadataFetcherService {
     for (const desc of descriptions) {
       if (!desc) continue;
 
+      if (!merged.title) merged.title = desc.title;
       if (!merged.description) merged.description = desc.description;
       if (!merged.summary) merged.summary = desc.summary;
       if (!merged.releaseDate) merged.releaseDate = desc.releaseDate;
@@ -424,6 +426,10 @@ export class MetadataFetcherService {
       }
       if (desc.platforms && desc.platforms.length > 0) {
         merged.platforms = Array.from(new Set([...(merged.platforms || []), ...desc.platforms]));
+      }
+
+      if (desc.categories && desc.categories.length > 0) {
+        merged.categories = Array.from(new Set([...(merged.categories || []), ...desc.categories]));
       }
 
       if (desc.links && desc.links.length > 0) {
@@ -1037,6 +1043,7 @@ export class MetadataFetcherService {
     const mergedDescription = this.mergeDescriptions(descriptionResults, steamAppId);
 
     return {
+      title: mergedDescription.title,
       description: mergedDescription.description,
       summary: mergedDescription.summary,
       releaseDate: mergedDescription.releaseDate,

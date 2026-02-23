@@ -583,24 +583,68 @@ export const GamePropertiesPanel = forwardRef<GamePropertiesPanelHandle, GamePro
                                             </span>
                                         ))}
                                     </div>
-                                    <input
-                                        value={newCategoryInput}
-                                        onChange={(e) => setNewCategoryInput(e.target.value)}
-                                        onKeyDown={(e) => {
-                                            if (e.key === 'Enter' && newCategoryInput.trim()) {
-                                                e.preventDefault();
-                                                const cat = newCategoryInput.trim();
-                                                if (!(editedFields.categories || []).includes(cat)) {
-                                                    updateField('categories', [...(editedFields.categories || []), cat]);
-                                                    setNewCategoryInput('');
+                                    <div className="relative">
+                                        <input
+                                            value={newCategoryInput}
+                                            onChange={(e) => setNewCategoryInput(e.target.value)}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter' && newCategoryInput.trim()) {
+                                                    e.preventDefault();
+                                                    const cat = newCategoryInput.trim();
+                                                    if (!(editedFields.categories || []).includes(cat)) {
+                                                        updateField('categories', [...(editedFields.categories || []), cat]);
+                                                        setNewCategoryInput('');
+                                                    }
                                                 }
-                                            }
-                                        }}
-                                        placeholder="Add category..."
-                                        disabled={editingDisabled}
-                                        className="w-full bg-transparent border-none text-xs text-white focus:outline-none placeholder-gray-500 disabled:opacity-50"
-                                    />
+                                            }}
+                                            placeholder="Add category..."
+                                            disabled={editingDisabled}
+                                            className="w-full bg-transparent border-none text-xs text-white focus:outline-none placeholder-gray-500 disabled:opacity-50"
+                                        />
+                                        {newCategoryInput.trim() && _allCategories.filter(c => c.toLowerCase().includes(newCategoryInput.toLowerCase()) && !(editedFields.categories || []).includes(c)).length > 0 && (
+                                            <div className="absolute z-10 w-full mt-1 bg-gray-800 border border-gray-700 rounded shadow-xl max-h-32 overflow-y-auto">
+                                                {_allCategories
+                                                    .filter(c => c.toLowerCase().includes(newCategoryInput.toLowerCase()) && !(editedFields.categories || []).includes(c))
+                                                    .map(cat => (
+                                                        <div
+                                                            key={cat}
+                                                            onClick={() => {
+                                                                updateField('categories', [...(editedFields.categories || []), cat]);
+                                                                setNewCategoryInput('');
+                                                            }}
+                                                            className="px-2 py-1.5 text-xs text-white hover:bg-blue-600 cursor-pointer border-b border-gray-700/50 last:border-0"
+                                                        >
+                                                            {cat}
+                                                        </div>
+                                                    ))
+                                                }
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
+                                {/* Suggested categories for quick selection */}
+                                {(_allCategories.length > 0) && (
+                                    <div className="mt-2">
+                                        <p className="text-[10px] uppercase font-bold text-gray-500 mb-1">Quick Add</p>
+                                        <div className="flex flex-wrap gap-1 max-h-20 overflow-y-auto custom-scrollbar">
+                                            {_allCategories
+                                                .filter(c => !(editedFields.categories || []).includes(c))
+                                                .slice(0, 20)
+                                                .map(cat => (
+                                                    <button
+                                                        key={cat}
+                                                        type="button"
+                                                        onClick={() => updateField('categories', [...(editedFields.categories || []), cat])}
+                                                        disabled={editingDisabled}
+                                                        className="px-2 py-0.5 text-[10px] bg-gray-800/80 hover:bg-gray-700 text-gray-400 hover:text-white rounded border border-gray-700 hover:border-gray-500 transition-colors disabled:opacity-50"
+                                                    >
+                                                        + {cat}
+                                                    </button>
+                                                ))
+                                            }
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
 
@@ -662,7 +706,7 @@ export const GamePropertiesPanel = forwardRef<GamePropertiesPanelHandle, GamePro
                                     <label className="block text-[10px] uppercase tracking-wider font-semibold text-gray-500 mb-0.5">Source</label>
                                     <input
                                         type="text"
-                                        value={(game as StagedGame).source ?? ''}
+                                        value={(game as StagedGame).source ? (game as StagedGame).source.charAt(0).toUpperCase() + (game as StagedGame).source.slice(1) : ''}
                                         readOnly
                                         className="w-full px-2 py-1 text-xs bg-gray-800/50 border border-gray-600 rounded text-gray-400"
                                     />

@@ -39,7 +39,7 @@ export interface EditableGameFields {
 /**
  * Discriminated union for the panel to know which mode it's operating in.
  */
-export type EditableGame = 
+export type EditableGame =
   | { isStaged: true; game: StagedGame }
   | { isStaged: false; game: Game };
 
@@ -61,7 +61,7 @@ export function toEditableFields(source: Game | StagedGame): EditableGameFields 
     alternativeBannerUrl: (source as any).alternativeBannerUrl,
     logoUrl: source.logoUrl,
     heroUrl: source.heroUrl,
-    iconUrl: (source as Game).iconUrl,
+    iconUrl: source.iconUrl,
     screenshots: source.screenshots,
     platform: (source as any).platform,
     exePath: (source as any).exePath,
@@ -117,6 +117,7 @@ export function mergeIntoStagedGame(original: StagedGame, edited: EditableGameFi
     alternativeBannerUrl: edited.alternativeBannerUrl,
     logoUrl: edited.logoUrl,
     heroUrl: edited.heroUrl,
+    iconUrl: edited.iconUrl,
     screenshots: edited.screenshots,
     platform: edited.platform,
     exePath: edited.exePath ?? original.exePath,

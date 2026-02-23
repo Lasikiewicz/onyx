@@ -11,6 +11,7 @@ export interface GameSearchResult {
 }
 
 export interface GameDescription {
+  title?: string;
   description?: string;
   summary?: string;
   source?: string;

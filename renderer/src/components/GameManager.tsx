@@ -1034,7 +1034,12 @@ export const GameManager: React.FC<GameManagerProps> = ({
     if (!showImageSearch) {
       setShowImageSearch({ type: 'boxart', gameId: selectedGame!.id });
     }
-    setActiveImageSearchTab('all');
+
+    if (showImageSearch?.type) {
+      setActiveImageSearchTab(showImageSearch.type as any);
+    } else {
+      setActiveImageSearchTab('all');
+    }
 
     try {
       console.log(`[FastSearch] Fetching images for ${gameResult.name}...`);
@@ -2119,7 +2124,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
                                 <div className="mt-3">
                                   <div className="flex items-center justify-between mb-2">
                                     <h4 className="text-sm font-medium text-gray-300">
-                                      <span className="text-green-400">âš¡</span> Quick Results - Click to see images:
+                                      <span className="text-green-400">⚡</span> Quick Results - Click to see images:
                                     </h4>
                                     <button
                                       type="button"
@@ -2164,7 +2169,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
                                         <div className="flex-1 min-w-0">
                                           <div className="font-medium text-white truncate">{game.name}</div>
                                           <div className="text-xs text-gray-400">
-                                            {game.releaseDate ? new Date(game.releaseDate * 1000).getFullYear() : 'Unknown Year'} â€¢ {game.source || 'Unknown Source'}
+                                            {game.releaseDate ? new Date(game.releaseDate * 1000).getFullYear() : 'Unknown Year'} • {game.source || 'Unknown Source'}
                                           </div>
                                         </div>
                                         <div className="text-xs px-2 py-1 bg-gray-700 rounded text-gray-300 group-hover:bg-green-600 group-hover:text-white transition-colors">
@@ -2583,6 +2588,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
                             setShowImageSearch({ type: 'boxart', gameId: selectedGame.id });
                             setActiveImageSearchTab('boxart');
                             setImageSearchQuery(selectedGame.title);
+                            handleSearchImages('boxart');
                           }}
                           className="h-24 w-auto aspect-[2/3] relative group cursor-pointer border border-gray-700 rounded-lg overflow-hidden bg-gray-800 hover:border-green-500 transition-colors flex-shrink-0"
                         >
@@ -2609,6 +2615,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
                             setShowImageSearch({ type: 'logo', gameId: selectedGame.id });
                             setActiveImageSearchTab('logo');
                             setImageSearchQuery(selectedGame.title);
+                            handleSearchImages('logo');
                           }}
                           className="h-24 w-36 relative group cursor-pointer border border-gray-700 rounded-lg overflow-hidden bg-gray-800 hover:border-green-500 transition-colors flex-shrink-0"
                         >
@@ -2639,6 +2646,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
                               setShowImageSearch({ type: 'banner', gameId: selectedGame.id });
                               setActiveImageSearchTab('banner');
                               setImageSearchQuery(selectedGame.title);
+                              handleSearchImages('banner');
                             }}
                             className="flex-1 relative group cursor-pointer border border-gray-700 rounded-lg overflow-hidden bg-gray-800 hover:border-green-500 transition-colors"
                           >
@@ -2665,6 +2673,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
                               setShowImageSearch({ type: 'alternativeBanner', gameId: selectedGame.id });
                               setActiveImageSearchTab('alternativeBanner');
                               setImageSearchQuery(selectedGame.title);
+                              handleSearchImages('alternativeBanner');
                             }}
                             className="flex-1 relative group cursor-pointer border border-gray-700 rounded-lg overflow-hidden bg-gray-800 hover:border-green-500 transition-colors"
                           >
@@ -2692,6 +2701,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
                             setShowImageSearch({ type: 'icon', gameId: selectedGame.id });
                             setActiveImageSearchTab('icon');
                             setImageSearchQuery(selectedGame.title);
+                            handleSearchImages('icon');
                           }}
                           className="h-24 w-24 relative group cursor-pointer border border-gray-700 rounded-lg overflow-hidden bg-gray-800 hover:border-green-500 transition-colors flex-shrink-0"
                         >

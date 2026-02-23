@@ -37,7 +37,7 @@ const SOURCE_LABELS: Record<ImportSource, string> = {
     ea: '🔶 EA',
     battle: '⚔️ Battle.net',
     manual_file: '📁 Manual File',
-    manual_folder: '📂 Manual Folder',
+    manual_folder: '📂 Game',
 };
 
 export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
@@ -61,10 +61,11 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
     // New state for real-time scanning
     const [currentlyProcessingGame, setCurrentlyProcessingGame] = useState<string | null>(null);
     const [gameProcessingStates, setGameProcessingStates] = useState<Map<string, { status: string; progress?: string }>>(new Map());
-    const [scanStats, setScanStats] = useState({ found: 0, processed: 0 });
+    const [scanStats, setScanStats] = useState({ found: 0, processed: 0, skipped: 0 });
 
     // Refs
     const hasAutoScanned = useRef(false);
+    const sidebarRef = useRef<HTMLDivElement>(null);
     const panelRef = useRef<GamePropertiesPanelHandle>(null);
 
     // Get selected game from queue
@@ -180,7 +181,7 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
         setError(null);
         setCurrentlyProcessingGame(null);
         setGameProcessingStates(new Map());
-        setScanStats({ found: 0, processed: 0 });
+        setScanStats({ found: 0, processed: 0, skipped: 0 });
         setQueue([]); // Clear existing queue
 
         // Quick API check before starting
@@ -239,25 +240,39 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
     // Auto-scroll to bottom when queue changes
     useEffect(() => {
         // Only scroll if we're adding items (scanning)
-        if (isScanning && queue.length > 0) {
-            const container = document.querySelector('.overflow-y-auto.h-full');
-            if (container) {
-                container.scrollTop = container.scrollHeight;
-            }
+        if (isScanning && queue.length > 0 && sidebarRef.current) {
+            sidebarRef.current.scrollTop = sidebarRef.current.scrollHeight;
         }
     }, [queue.length, isScanning]);
 
     const processScannedGames = async (scannedGames: any[]) => {
+        if (!scannedGames || scannedGames.length === 0) return;
+
+        // Ensure total count is set for progress display
+        setScanStats(prev => ({ ...prev, found: Math.max(prev.found, scannedGames.length) }));
+
+        // Track paths added during THIS scan to avoid intra-scan duplicates (e.g. registry + folder scan)
+        const currentScanPaths = new Set<string>();
+
         const existingIds = new Set(existingLibrary.map(g => g.id));
         const existingTitles = new Set(existingLibrary.map(g => g.title.toLowerCase().trim()));
+        const normalizePath = (p: string | undefined | null) => {
+            if (!p) return '';
+            return p.toLowerCase()
+                .trim()
+                .replace(/\\/g, '/')          // Standardize separators
+                .replace(/\/+$/, '')          // Remove trailing slashes
+                .replace(/\/\/+/g, '/');      // Remove double slashes
+        };
+
         const existingInstallPaths = new Set(
             existingLibrary
-                .map(g => g.installationDirectory?.toLowerCase().trim())
+                .map(g => normalizePath(g.installationDirectory))
                 .filter(Boolean)
         );
         const existingExePaths = new Set(
             existingLibrary
-                .map(g => g.exePath?.toLowerCase().trim())
+                .map(g => normalizePath(g.exePath))
                 .filter(Boolean)
         );
         let firstGameUuid: string | null = null;
@@ -267,6 +282,7 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
 
             // Update current processing game for real-time feedback
             setCurrentlyProcessingGame(scanned.title);
+            // Increment processed count
             setScanStats(prev => ({ ...prev, processed: i + 1 }));
 
             // Skip duplicates with progress feedback
@@ -281,33 +297,54 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
                 if (idPatterns.some(id => existingIds.has(id))) {
                     console.log(`[Importer] Skipping duplicate by app ID: ${scanned.title} (${scanned.appId})`);
                     setGameProcessingStates(prev => new Map(prev).set(scanned.title, { status: 'Duplicate - skipped' }));
+                    setScanStats(prev => ({ ...prev, skipped: prev.skipped + 1 }));
                     continue;
                 }
             }
 
             if (scanned.installPath) {
-                const normalizedPath = scanned.installPath.toLowerCase().trim();
-                if (existingInstallPaths.has(normalizedPath)) {
-                    console.log(`[Importer] Skipping duplicate by install path: ${scanned.title}`);
+                const normalizedInstall = normalizePath(scanned.installPath);
+                if (normalizedInstall && (existingInstallPaths.has(normalizedInstall) || currentScanPaths.has(normalizedInstall))) {
+                    console.log(`[Importer] Skipping duplicate by install path: ${scanned.title} (${scanned.installPath})`);
                     setGameProcessingStates(prev => new Map(prev).set(scanned.title, { status: 'Duplicate - skipped' }));
+                    setScanStats(prev => ({ ...prev, skipped: prev.skipped + 1 }));
                     continue;
                 }
+                if (normalizedInstall) currentScanPaths.add(normalizedInstall);
             }
 
             if (scanned.exePath) {
-                const normalizedExe = scanned.exePath.toLowerCase().trim();
-                if (existingExePaths.has(normalizedExe)) {
-                    console.log(`[Importer] Skipping duplicate by exe path: ${scanned.title}`);
+                const normalizedExe = normalizePath(scanned.exePath);
+                if (normalizedExe && (existingExePaths.has(normalizedExe) || currentScanPaths.has(normalizedExe))) {
+                    console.log(`[Importer] Skipping duplicate by exe path: ${scanned.title} (${scanned.exePath})`);
                     setGameProcessingStates(prev => new Map(prev).set(scanned.title, { status: 'Duplicate - skipped' }));
+                    setScanStats(prev => ({ ...prev, skipped: prev.skipped + 1 }));
                     continue;
                 }
+                if (normalizedExe) currentScanPaths.add(normalizedExe);
             }
 
             const normalizedTitle = (scanned.title || scanned.name || '').toLowerCase().trim();
             if (normalizedTitle && existingTitles.has(normalizedTitle)) {
                 console.log(`[Importer] Skipping duplicate by title: ${scanned.title}`);
                 setGameProcessingStates(prev => new Map(prev).set(scanned.title, { status: 'Duplicate - skipped' }));
+                setScanStats(prev => ({ ...prev, skipped: prev.skipped + 1 }));
                 continue;
+            }
+
+            const titleMappings: Record<string, string> = {
+                'afop': 'Avatar: Frontiers of Pandora™',
+                'avatar frontiers of pandora': 'Avatar: Frontiers of Pandora™',
+            };
+
+            let cleanScannedTitle = scanned.title
+                .replace(/_\d+$/, '')        // Remove _1, _2 suffixes
+                .replace(/hs\w+$/, '')      // Remove Epic internal suffixes like hsD4J
+                .trim();
+
+            const lowerTitle = cleanScannedTitle.toLowerCase();
+            if (titleMappings[lowerTitle]) {
+                cleanScannedTitle = titleMappings[lowerTitle];
             }
 
             const uuid = `${scanned.source}-${scanned.appId || Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -321,7 +358,7 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
                 installPath: scanned.installPath,
                 exePath: scanned.exePath,
                 appId: scanned.appId,
-                title: scanned.title,
+                title: cleanScannedTitle,
                 description: '',
                 releaseDate: '',
                 genres: [],
@@ -348,7 +385,24 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
                 setSelectedId(uuid);
             }
 
-            // Fetch full metadata (artwork, icons, logos, links) from all configured APIs; bypassCache so we use current credentials
+            // Quick match pass to get official title as soon as possible
+            setScanProgress(`Identifying ${scanned.title}...`);
+            setGameProcessingStates(prev => new Map(prev).set(scanned.title, { status: 'Identifying...', progress: '15%' }));
+            try {
+                const matchResponse = await window.electronAPI.searchAndMatch(scanned);
+                if (matchResponse.success && matchResponse.match?.title) {
+                    const officialTitle = matchResponse.match.title;
+                    console.log(`[Importer] Identified "${scanned.title}" as official title: "${officialTitle}"`);
+                    // Update the stub in the queue immediately
+                    setQueue(prev => prev.map(game =>
+                        game.uuid === uuid ? { ...game, title: officialTitle } : game
+                    ));
+                }
+            } catch (err) {
+                console.warn(`Identification failed for ${scanned.title}:`, err);
+            }
+
+            // Fetch full metadata (artwork, icons, logos, links)
             setScanProgress(`Fetching metadata for ${scanned.title}...`);
             setGameProcessingStates(prev => new Map(prev).set(scanned.title, { status: 'Fetching metadata...', progress: '25%' }));
             let metadata: any = {};
@@ -357,7 +411,7 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
                 setGameProcessingStates(prev => new Map(prev).set(scanned.title, { status: 'Metadata complete', progress: '75%' }));
             } catch (err) {
                 console.warn(`Failed to fetch metadata for ${scanned.title}:`, err);
-                setGameProcessingStates(prev => new Map(prev).set(scanned.title, { status: 'Metadata failed - using basic info', progress: '50%' }));
+                setGameProcessingStates(prev => new Map(prev).set(scanned.title, { status: 'Metadata failed', progress: '50%' }));
             }
 
             // Update the stub game with full metadata
@@ -368,7 +422,7 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
                 installPath: scanned.installPath,
                 exePath: scanned.exePath,
                 appId: scanned.appId,
-                title: metadata?.title || scanned.title,
+                title: metadata?.title || cleanScannedTitle || scanned.title,
                 description: metadata?.description || '',
                 releaseDate: metadata?.releaseDate || '',
                 genres: metadata?.genres || [],
@@ -390,9 +444,16 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
             };
 
             // Auto-categorize
+            if (scanned.categories) {
+                if (!fullyProcessedGame.categories) fullyProcessedGame.categories = [];
+                fullyProcessedGame.categories.push(...scanned.categories);
+            }
+
             if (fullyProcessedGame.genres?.includes('Utilities')) {
                 if (!fullyProcessedGame.categories) fullyProcessedGame.categories = [];
-                fullyProcessedGame.categories.push('Apps');
+                if (!fullyProcessedGame.categories.includes('Apps')) {
+                    fullyProcessedGame.categories.push('Apps');
+                }
             }
 
             const titleLower = fullyProcessedGame.title.toLowerCase();
@@ -407,7 +468,7 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
             if (scanned.source === 'manual_folder') {
                 if (!fullyProcessedGame.categories) fullyProcessedGame.categories = [];
                 if (fullyProcessedGame.categories.length === 0) {
-                    fullyProcessedGame.categories.push('Games');
+                    fullyProcessedGame.categories.push('Game');
                 }
             }
 
@@ -580,8 +641,10 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
                                     {scanProgress || (currentlyProcessingGame ? `Processing: ${currentlyProcessingGame}` : '')}
                                 </span>
                             )}
-                            <span className="text-gray-500 shrink-0">Found: {scanStats.found}</span>
-                            <span className="text-gray-500 shrink-0">Processed: {scanStats.processed}</span>
+                            <span className="text-gray-400 shrink-0">
+                                {queue.length} {queue.length === 1 ? 'game' : 'games'} discovered
+                                {scanStats.found > 0 && ` (${Math.round((scanStats.processed / scanStats.found) * 100)}%)`}
+                            </span>
                         </div>
                     )}
                     <div className="flex items-center gap-3 ml-auto shrink-0">
@@ -601,7 +664,7 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
                 {/* Main Content */}
                 <div className="flex flex-1 overflow-hidden">
                     {/* Sidebar - Game List */}
-                    <div className="w-[300px] lg:w-[350px] border-r border-gray-800 bg-gray-900/50 overflow-y-auto">
+                    <div ref={sidebarRef} className="w-[300px] lg:w-[350px] border-r border-gray-800 bg-gray-900/50 overflow-y-auto">
                         {Object.entries(groupedGames).map(([source, games]) => {
                             if (!games || games.length === 0) return null;
                             return (
