@@ -6,6 +6,8 @@ import { UserPreferencesService } from '../UserPreferencesService.js';
 import { withTimeout } from '../RetryUtils.js';
 import { ScannedGameResult } from '../ImportService.js';
 
+let activeImageSearchRequestId: number | undefined;
+
 export function registerMetadataIPCHandlers(
     metadataFetcher: MetadataFetcherService,
     imageCacheService: ImageCacheService,
@@ -583,8 +585,18 @@ export function registerMetadataIPCHandlers(
     });
 
     ipcMain.handle('metadata:fetchGameImages', async (event, gameName: string, steamAppId?: string, igdbId?: number, includeAnimated?: boolean, requestId?: number, gameId?: string) => {
+        // Track this request as the active one; previous requests will detect they're stale
+        activeImageSearchRequestId = requestId;
+
+        const isStale = () => requestId !== undefined && activeImageSearchRequestId !== requestId;
+        const sendProviderStatus = (currentProvider: string, remaining: string[]) => {
+            if (event.sender && !event.sender.isDestroyed()) {
+                event.sender.send('metadata:imageSearchProviderStatus', { currentProvider, remaining, requestId });
+            }
+        };
+
         try {
-            console.log(`[fetchGameImages] Searching for images for "${gameName}" (steamAppId: ${steamAppId})`);
+            console.log(`[fetchGameImages] Searching for images for "${gameName}" (steamAppId: ${steamAppId}, requestId: ${requestId})`);
             const results: any[] = [];
 
             const mapArtworkToImages = (artwork: any, source: string, name: string): any[] => {
@@ -606,20 +618,28 @@ export function registerMetadataIPCHandlers(
             };
 
             // 1. Fetch from SteamGridDB (Full list)
+            sendProviderStatus('SteamGridDB', ['Auto-Match', 'IGDB', 'RAWG']);
             const sgdbImages = await searchSGDB(gameName, steamAppId, 'all', includeAnimated);
             if (sgdbImages.length > 0) {
                 results.push(...sgdbImages);
-                // Emit event for progressive loading
-                event.sender.send('metadata:gameImagesFound', { images: sgdbImages, query: gameName, gameId, requestId });
+                if (!event.sender.isDestroyed()) {
+                    event.sender.send('metadata:gameImagesFound', { images: sgdbImages, query: gameName, gameId, requestId });
+                }
+            }
+
+            // Abort if request is stale (user changed game or closed)
+            if (isStale()) {
+                console.log(`[fetchGameImages] Request ${requestId} is stale after SteamGridDB, aborting`);
+                sendProviderStatus('', []);
+                return { success: true, images: results, aborted: true };
             }
 
             // 2. Try to fetch standard metadata (Steam/IGDB auto-match) as fallback/addition
+            sendProviderStatus('Auto-Match', ['IGDB', 'RAWG']);
             try {
                 const metadata = await metadataFetcher.searchArtwork(gameName, steamAppId);
                 const autoMatchImages: any[] = [];
 
-                // Only add if not effectively a duplicate (logic skipped for simplicity, UI handles dedupe often)
-                // But identifying keys differ (url vs id).
                 if (metadata.boxArtUrl) autoMatchImages.push({ type: 'boxart', url: metadata.boxArtUrl, source: 'Auto-Match', name: gameName });
                 if (metadata.bannerUrl) autoMatchImages.push({ type: 'banner', url: metadata.bannerUrl, source: 'Auto-Match', name: gameName });
                 if (metadata.logoUrl) autoMatchImages.push({ type: 'logo', url: metadata.logoUrl, source: 'Auto-Match', name: gameName });
@@ -628,14 +648,22 @@ export function registerMetadataIPCHandlers(
 
                 if (autoMatchImages.length > 0) {
                     results.push(...autoMatchImages);
-                    // Emit event for progressive loading
-                    event.sender.send('metadata:gameImagesFound', { images: autoMatchImages, query: gameName, gameId, requestId });
+                    if (!event.sender.isDestroyed()) {
+                        event.sender.send('metadata:gameImagesFound', { images: autoMatchImages, query: gameName, gameId, requestId });
+                    }
                 }
             } catch (err) {
                 console.warn('Auto-match fallback failed:', err);
             }
 
+            if (isStale()) {
+                console.log(`[fetchGameImages] Request ${requestId} is stale after Auto-Match, aborting`);
+                sendProviderStatus('', []);
+                return { success: true, images: results, aborted: true };
+            }
+
             // 3. Fetch provider-specific artwork (IGDB, RAWG) for clearer attribution
+            sendProviderStatus('IGDB', ['RAWG']);
             try {
                 const igdbProvider = metadataFetcher.getIGDBProvider();
                 if (igdbProvider?.isAvailable()) {
@@ -652,7 +680,9 @@ export function registerMetadataIPCHandlers(
                         const igdbImages = mapArtworkToImages(igdbArtwork, 'IGDB', gameName);
                         if (igdbImages.length > 0) {
                             results.push(...igdbImages);
-                            event.sender.send('metadata:gameImagesFound', { images: igdbImages, query: gameName, gameId, requestId });
+                            if (!event.sender.isDestroyed()) {
+                                event.sender.send('metadata:gameImagesFound', { images: igdbImages, query: gameName, gameId, requestId });
+                            }
                         }
                     }
                 }
@@ -660,6 +690,13 @@ export function registerMetadataIPCHandlers(
                 console.warn('IGDB provider fetch failed:', err);
             }
 
+            if (isStale()) {
+                console.log(`[fetchGameImages] Request ${requestId} is stale after IGDB, aborting`);
+                sendProviderStatus('', []);
+                return { success: true, images: results, aborted: true };
+            }
+
+            sendProviderStatus('RAWG', []);
             try {
                 const rawgProvider = metadataFetcher.getRAWGProvider();
                 if (rawgProvider?.isAvailable()) {
@@ -671,13 +708,18 @@ export function registerMetadataIPCHandlers(
                         const rawgImages = mapArtworkToImages(rawgArtwork, 'RAWG', gameName);
                         if (rawgImages.length > 0) {
                             results.push(...rawgImages);
-                            event.sender.send('metadata:gameImagesFound', { images: rawgImages, query: gameName, gameId, requestId });
+                            if (!event.sender.isDestroyed()) {
+                                event.sender.send('metadata:gameImagesFound', { images: rawgImages, query: gameName, gameId, requestId });
+                            }
                         }
                     }
                 }
             } catch (err) {
                 console.warn('RAWG provider fetch failed:', err);
             }
+
+            // Send final "complete" status
+            sendProviderStatus('', []);
 
             return { success: true, images: results };
         } catch (error) {

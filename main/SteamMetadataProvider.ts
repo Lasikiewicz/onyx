@@ -172,7 +172,7 @@ export class SteamMetadataProvider implements MetadataProvider {
 
   /**
    * Search Steam Store by game title (for non-Steam games)
-   * Returns array of matching games with their Steam App IDs
+   * Uses the fast storesearch API which returns titles + IDs in a single call
    */
   async searchGames(title: string): Promise<GameSearchResult[]> {
     try {
@@ -180,75 +180,53 @@ export class SteamMetadataProvider implements MetadataProvider {
       const normalizedTitle = this.normalizeGameTitleForSteamSearch(title);
       console.log(`[Steam searchGames] Searching Steam Store for "${normalizedTitle}" (original: "${title}")`);
 
-      // Use the Steam Store search API - similar to how SteamDB.info does it
-      const searchUrl = `https://store.steampowered.com/search/?term=${encodeURIComponent(normalizedTitle)}&category1=998`;
+      // Use the Steam Store Search API — returns titles + IDs in a single fast call
+      const searchUrl = `https://store.steampowered.com/api/storesearch/?term=${encodeURIComponent(normalizedTitle)}&l=english&cc=US`;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+
       const response = await fetch(searchUrl, {
+        signal: controller.signal,
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
         }
       });
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
         console.warn(`[Steam searchGames] Search returned status ${response.status}`);
         return [];
       }
 
-      const html = await response.text();
-      const appIds: string[] = [];
+      const data = await response.json() as any;
+      const items = data?.items;
 
-      // Parse App IDs from search results
-      const appIdMatches = html.match(/data-ds-appid=["'](\d+)["']/g);
-      if (appIdMatches) {
-        for (const match of appIdMatches) {
-          const appIdMatch = match.match(/(\d+)/);
-          if (appIdMatch && appIdMatch[1]) {
-            appIds.push(appIdMatch[1]);
-          }
-        }
-      }
-
-      if (appIds.length === 0) {
+      if (!items || !Array.isArray(items) || items.length === 0) {
         console.log(`[Steam searchGames] No results found for "${title}"`);
         return [];
       }
 
-      // Remove duplicates and limit to first 20
-      const uniqueAppIds = [...new Set(appIds)].slice(0, 20);
-      console.log(`[Steam searchGames] Found ${uniqueAppIds.length} matches for "${title}"`);
+      // Limit to first 10 results (more than enough for matching)
+      const limitedItems = items.slice(0, 10);
+      console.log(`[Steam searchGames] Found ${limitedItems.length} matches for "${title}"`);
 
-      // Fetch game details for each App ID
-      const results: GameSearchResult[] = [];
-      for (const appId of uniqueAppIds) {
-        try {
-          const storeApiUrl = `https://store.steampowered.com/api/appdetails?appids=${appId}&l=english`;
-          const detailResponse = await fetch(storeApiUrl);
-
-          if (detailResponse.ok) {
-            const data = await detailResponse.json() as Record<string, any>;
-            const appData = data[appId];
-
-            if (appData && appData.success && appData.data) {
-              results.push({
-                id: `steam-${appId}`,
-                title: appData.data.name,
-                source: this.name,
-                externalId: appId,
-                steamAppId: appId,
-              });
-            }
-          }
-        } catch (err) {
-          console.warn(`[Steam searchGames] Error fetching details for app ${appId}:`, err);
-        }
-
-        // Rate limiting - wait 500ms between requests
-        await new Promise(resolve => setTimeout(resolve, 500));
-      }
+      const results: GameSearchResult[] = limitedItems
+        .filter((item: any) => item.id && item.name)
+        .map((item: any) => ({
+          id: `steam-${item.id}`,
+          title: item.name,
+          source: this.name,
+          externalId: String(item.id),
+          steamAppId: String(item.id),
+        }));
 
       return results;
-    } catch (error) {
-      console.warn(`[Steam searchGames] Error searching for "${title}":`, error);
+    } catch (error: any) {
+      if (error?.name === 'AbortError') {
+        console.warn(`[Steam searchGames] Search timed out for "${title}"`);
+      } else {
+        console.warn(`[Steam searchGames] Error searching for "${title}":`, error);
+      }
       return [];
     }
   }

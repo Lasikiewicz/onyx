@@ -98,6 +98,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
   const [isRefreshingLinks, setIsRefreshingLinks] = useState(false);
   const [foundLinks, setFoundLinks] = useState<Array<{ name: string; url: string }> | null>(null);
   const [linkIconPopupIndex, setLinkIconPopupIndex] = useState<number | null>(null);
+  const [imageSearchProviderStatus, setImageSearchProviderStatus] = useState<{ currentProvider: string; remaining: string[] } | null>(null);
   const linkIconFileInputRef = useRef<HTMLInputElement>(null);
 
   // Refs to track current state for async IPC events
@@ -328,6 +329,10 @@ export const GameManager: React.FC<GameManagerProps> = ({
       setFastSearchResults([]);
       setActiveImageSearchTab('all');
       setImageSearchQuery('');
+      setImageSearchProviderStatus(null);
+      // Invalidate in-flight image search requests so backend aborts between providers
+      fastSearchActiveRunIdRef.current = ++fastSearchRunIdRef.current;
+      imageSearchRunIdRef.current++;
     }
   }, [selectedGame?.id]);
 
@@ -412,6 +417,10 @@ export const GameManager: React.FC<GameManagerProps> = ({
       setMetadataSearchResults([]);
       setActiveTab(initialTab);
       setSelectedGameId(null);
+      setImageSearchProviderStatus(null);
+      // Invalidate in-flight image search requests so backend aborts
+      fastSearchActiveRunIdRef.current = ++fastSearchRunIdRef.current;
+      imageSearchRunIdRef.current++;
     }
   }, [isOpen, initialTab]);
 
@@ -1006,6 +1015,27 @@ export const GameManager: React.FC<GameManagerProps> = ({
     const removeListener = window.electronAPI?.on && window.electronAPI.on('metadata:gameImagesFound', handleImagesFound);
     return () => {
       if (typeof removeListener === 'function') removeListener();
+    };
+  }, []);
+
+  // Listen for provider status updates during image search
+  useEffect(() => {
+    const handleProviderStatus = (_event: any, data: any) => {
+      // Discard events from stale requests
+      if (data.requestId !== undefined && data.requestId !== fastSearchActiveRunIdRef.current) {
+        return;
+      }
+      if (data.currentProvider) {
+        setImageSearchProviderStatus({ currentProvider: data.currentProvider, remaining: data.remaining || [] });
+      } else {
+        // Empty provider = search complete
+        setImageSearchProviderStatus(null);
+      }
+    };
+
+    const removeProviderListener = window.electronAPI?.on && window.electronAPI.on('metadata:imageSearchProviderStatus', handleProviderStatus);
+    return () => {
+      if (typeof removeProviderListener === 'function') removeProviderListener();
     };
   }, []);
 
@@ -2255,6 +2285,21 @@ export const GameManager: React.FC<GameManagerProps> = ({
                                 New Search
                               </button>
                             </div>
+                            {/* Provider progress indicator */}
+                            {isSearchingImages && imageSearchProviderStatus && imageSearchProviderStatus.currentProvider && (
+                              <div className="flex items-center gap-2 px-1 pb-2 text-xs text-gray-400">
+                                <svg className="w-3 h-3 animate-spin text-green-400" fill="none" viewBox="0 0 24 24">
+                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                <span>
+                                  Searching <span className="text-green-400 font-medium">{imageSearchProviderStatus.currentProvider}</span>
+                                  {imageSearchProviderStatus.remaining.length > 0 && (
+                                    <span className="text-gray-500"> · Remaining: {imageSearchProviderStatus.remaining.join(', ')}</span>
+                                  )}
+                                </span>
+                              </div>
+                            )}
                           </div>
                         )}
 

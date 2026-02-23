@@ -685,14 +685,14 @@ export class MetadataFetcherService {
     let artworkMetadata: GameMetadata = this.getEmptyMetadata();
     if (!linksOnly) {
       artworkMetadata = await rateLimiter.queueRequest("artwork", async () =>
-        withRetry(() => this.fetchArtworkForGame(effectiveMatch, steamAppId), { maxRetries: 3, delay: 1000 })
+        withRetry(() => this.fetchArtworkForGame(effectiveMatch, steamAppId), { maxRetries: 1, delay: 1000 })
       );
     }
 
     await new Promise(resolve => setTimeout(resolve, 200));
 
     const textMetadata = await rateLimiter.queueRequest("description", async () =>
-      withRetry(() => this.fetchDescriptionForGame(effectiveMatch, steamAppId, linksOnly), { maxRetries: 3, delay: 1000 })
+      withRetry(() => this.fetchDescriptionForGame(effectiveMatch, steamAppId, linksOnly), { maxRetries: 1, delay: 1000 })
     );
 
     const mergedMetadata: GameMetadata = { ...artworkMetadata, ...textMetadata };
@@ -707,8 +707,12 @@ export class MetadataFetcherService {
 
   /**
    * Fetch artwork for a matched game
-   * Priority 1: Official Store API (Steam) - try searching by title for non-Steam games
-   * Priority 2: IGDB fallback
+   * Priority 1: Official Store API (Steam) + SteamGridDB (run in parallel)
+   * Priority 2: Giant Bomb + RAWG (run in parallel)
+   * Fallback: IGDB (only if primary providers didn't produce boxArt)
+   * 
+   * IGDB is primarily used for links/descriptions (in fetchDescriptionForGame),
+   * NOT artwork. It's only tried here as a last resort.
    */
   private async fetchArtworkForGame(
     matchedGame: GameSearchResult,
@@ -736,12 +740,45 @@ export class MetadataFetcherService {
       } else {
         console.log(`[fetchArtworkForGame] Searching Steam by title for "${matchedGame.title}"`);
         try {
-          const steamResults = await this.steamProvider.searchGames(matchedGame.title);
+          let steamResults = await this.steamProvider.searchGames(matchedGame.title);
+
+          // If no results, try variant searches (handles "Clover Pit" vs "CloverPit" mismatches)
+          if (steamResults.length === 0) {
+            const variants: string[] = [];
+            // Try without spaces (e.g., "Clover Pit" -> "CloverPit")
+            const noSpaces = matchedGame.title.replace(/\s+/g, '');
+            if (noSpaces !== matchedGame.title) {
+              variants.push(noSpaces);
+            }
+            // Try with CamelCase split (e.g., "CloverPit" -> "Clover Pit")
+            const camelSplit = matchedGame.title.replace(/([a-z])([A-Z])/g, '$1 $2');
+            if (camelSplit !== matchedGame.title && !variants.includes(camelSplit)) {
+              variants.push(camelSplit);
+            }
+            // Try without special characters like hyphens and colons
+            const noSpecial = matchedGame.title.replace(/[-:'"]/g, ' ').replace(/\s+/g, ' ').trim();
+            if (noSpecial !== matchedGame.title && !variants.includes(noSpecial)) {
+              variants.push(noSpecial);
+            }
+
+            for (const variant of variants) {
+              console.log(`[fetchArtworkForGame] Retrying Steam search with variant: "${variant}"`);
+              steamResults = await this.steamProvider.searchGames(variant);
+              if (steamResults.length > 0) break;
+            }
+          }
+
           if (steamResults.length > 0) {
             // 1. Try to find an exact title match (case-insensitive)
             let bestMatch = steamResults.find(r => r.title.toLowerCase() === matchedGame.title.toLowerCase());
 
-            // 2. If no exact match, prefer results that don't look like demos
+            // 2. Also check without spaces (handles "CloverPit" vs "Clover Pit")
+            if (!bestMatch) {
+              const titleNoSpaces = matchedGame.title.replace(/\s+/g, '').toLowerCase();
+              bestMatch = steamResults.find(r => r.title.replace(/\s+/g, '').toLowerCase() === titleNoSpaces);
+            }
+
+            // 3. If no exact match, prefer results that don't look like demos
             if (!bestMatch) {
               bestMatch = steamResults.find(r => !/\bdemo\b/i.test(r.title)) || steamResults[0];
             }
@@ -826,40 +863,7 @@ export class MetadataFetcherService {
       }
     }
 
-    // 4. IGDB Provider - Always include for broader coverage
-    if (this.igdbProvider?.isAvailable()) {
-      console.log(`[fetchArtworkForGame] Adding IGDB provider for "${matchedGame.title}"`);
-      if (matchedGame.source === 'igdb') {
-        artworkPromises.push({
-          promise: withTimeout(
-            this.igdbProvider.getArtwork(matchedGame.id, resolvedSteamAppId),
-            15000,
-            "IGDB Artwork Timeout"
-          ).catch((err: any) => {
-            console.warn(`[fetchArtworkForGame] IGDB timeout/error: ${err.message}`);
-            return null;
-          }),
-          source: "igdb"
-        });
-      } else {
-        artworkPromises.push({
-          promise: withTimeout(
-            (async () => {
-              const results = await this.igdbProvider!.search(matchedGame.title, resolvedSteamAppId);
-              return results.length > 0 ? this.igdbProvider!.getArtwork(results[0].id, resolvedSteamAppId) : null;
-            })(),
-            15000,
-            "IGDB Search/Artwork Timeout"
-          ).catch((err: any) => {
-            console.warn(`[fetchArtworkForGame] IGDB search timeout/error: ${err.message}`);
-            return null;
-          }),
-          source: "igdb"
-        });
-      }
-    }
-
-    // 4. RAWG Provider - Always include for broader coverage
+    // 4. RAWG Provider
     if (this.rawgProvider?.isAvailable()) {
       console.log(`[fetchArtworkForGame] Adding RAWG provider for "${matchedGame.title}"`);
       if (matchedGame.source === 'rawg') {
@@ -892,22 +896,56 @@ export class MetadataFetcherService {
       }
     }
 
-
-    if (artworkPromises.length === 0) {
+    if (artworkPromises.length === 0 && !this.igdbProvider?.isAvailable()) {
       console.warn(`[fetchArtworkForGame] No metadata providers available for "${matchedGame.title}"`);
       return this.getEmptyMetadata();
     }
 
-    // Run all promises and take the best from each
-    const artworkResults = await Promise.allSettled(artworkPromises.map(item => item.promise));
-    const artworkWithSources = artworkResults
-      .map((result, index) => {
-        if (result.status === "fulfilled" && result.value) {
-          return { artwork: result.value, source: artworkPromises[index].source };
+    // Run primary providers (Steam, SteamGridDB, GiantBomb, RAWG) in parallel
+    let artworkWithSources: Array<{ artwork: GameArtwork; source: string }> = [];
+    if (artworkPromises.length > 0) {
+      const artworkResults = await Promise.allSettled(artworkPromises.map(item => item.promise));
+      artworkWithSources = artworkResults
+        .map((result, index) => {
+          if (result.status === "fulfilled" && result.value) {
+            return { artwork: result.value, source: artworkPromises[index].source };
+          }
+          return null;
+        })
+        .filter((item): item is { artwork: GameArtwork; source: string } => item !== null);
+    }
+
+    // 5. IGDB Fallback - Only try if primary providers didn't produce boxArt
+    const hasBoxArt = artworkWithSources.some(a => a.artwork.boxArtUrl);
+    if (!hasBoxArt && this.igdbProvider?.isAvailable()) {
+      console.log(`[fetchArtworkForGame] Primary providers had no boxArt, falling back to IGDB for "${matchedGame.title}"`);
+      try {
+        let igdbArtwork: GameArtwork | null = null;
+        if (matchedGame.source === 'igdb') {
+          igdbArtwork = await withTimeout(
+            this.igdbProvider.getArtwork(matchedGame.id, resolvedSteamAppId),
+            15000,
+            "IGDB Artwork Timeout"
+          );
+        } else {
+          igdbArtwork = await withTimeout(
+            (async () => {
+              const results = await this.igdbProvider!.search(matchedGame.title, resolvedSteamAppId);
+              return results.length > 0 ? this.igdbProvider!.getArtwork(results[0].id, resolvedSteamAppId) : null;
+            })(),
+            15000,
+            "IGDB Search/Artwork Timeout"
+          );
         }
-        return null;
-      })
-      .filter((item): item is { artwork: GameArtwork; source: string } => item !== null);
+        if (igdbArtwork) {
+          artworkWithSources.push({ artwork: igdbArtwork, source: "igdb" });
+        }
+      } catch (err: any) {
+        console.warn(`[fetchArtworkForGame] IGDB fallback timeout/error: ${err.message}`);
+      }
+    } else if (hasBoxArt) {
+      console.log(`[fetchArtworkForGame] Skipping IGDB artwork - primary providers already have boxArt for "${matchedGame.title}"`);
+    }
 
     const mergedArtwork = artworkWithSources.length > 0 ? this.mergeArtwork(artworkWithSources) : ({} as GameArtwork);
 
@@ -960,21 +998,32 @@ export class MetadataFetcherService {
     }
 
     // 2. Fallback Providers (IGDB, RAWG)
-    // Always use IGDB for links, even if Steam ID found
+    // Always use IGDB for links, even if Steam ID found — but with a strict timeout
     if (this.igdbProvider?.isAvailable()) {
       providersToTry.push(async () => {
-        if (matchedGame.source === 'igdb') {
-          return this.igdbProvider!.getDescription(matchedGame.id, linksOnly);
+        try {
+          return await withTimeout(
+            (async () => {
+              if (matchedGame.source === 'igdb') {
+                return this.igdbProvider!.getDescription(matchedGame.id, linksOnly);
+              }
+              // Pass steamAppIdToUse so the IGDB provider can perform a precise exact-match lookup 
+              // to find the exact IGDB item corresponding to this Steam title.
+              const results = await this.igdbProvider!.search(matchedGame.title, steamAppIdToUse, linksOnly);
+              if (results.length === 0) return null;
+              // Prefer exact title match so we get the main game entry (with full links), not a DLC/variant that may have few links
+              const searchTitle = (matchedGame.title || '').trim().toLowerCase();
+              const exact = results.find((r) => (r.title || '').trim().toLowerCase() === searchTitle);
+              const best = exact ?? results[0];
+              return this.igdbProvider!.getDescription(best.id, linksOnly);
+            })(),
+            15000,
+            `IGDB description timeout for "${matchedGame.title}"`
+          );
+        } catch (err: any) {
+          console.warn(`[fetchDescriptionForGame] IGDB timed out/failed for "${matchedGame.title}": ${err.message}`);
+          return null;
         }
-        // Pass steamAppIdToUse so the IGDB provider can perform a precise exact-match lookup 
-        // to find the exact IGDB item corresponding to this Steam title.
-        const results = await this.igdbProvider!.search(matchedGame.title, steamAppIdToUse, linksOnly);
-        if (results.length === 0) return null;
-        // Prefer exact title match so we get the main game entry (with full links), not a DLC/variant that may have few links
-        const searchTitle = (matchedGame.title || '').trim().toLowerCase();
-        const exact = results.find((r) => (r.title || '').trim().toLowerCase() === searchTitle);
-        const best = exact ?? results[0];
-        return this.igdbProvider!.getDescription(best.id, linksOnly);
       });
     }
 
