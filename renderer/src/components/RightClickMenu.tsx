@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import type { Game } from '../types/game';
-import { CustomDefaultsModal } from './CustomDefaultsModal';
+import { CustomDefaultsManager } from './CustomDefaultsManager';
 import { ConfirmationDialog } from './ConfirmationDialog';
 import { MenuSliderRow } from './MenuSliderRow';
 
@@ -150,6 +150,7 @@ interface RightClickMenuProps {
   onCoverFlowButtonPositionChange?: (pos: 'left' | 'middle' | 'right') => void;
   coverFlowButtonColors?: { playColor?: string; editColor?: string; modManagerColor?: string };
   onCoverFlowButtonColorsChange?: (colors: { playColor?: string; editColor?: string; modManagerColor?: string }) => void;
+  onSettingsImported?: () => void;
 }
 
 export const RightClickMenu: React.FC<RightClickMenuProps> = ({
@@ -204,7 +205,7 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
   // Right panel (GameDetailsPanel) specific props
   rightPanelBoxartPosition = 'right',
   onRightPanelBoxartPositionChange,
-  rightPanelLogoSize = 95,
+  rightPanelLogoSize: _rightPanelLogoSize = 95,
   onRightPanelLogoSizeChange,
   rightPanelBoxartSize = 120,
   onRightPanelBoxartSizeChange,
@@ -256,16 +257,13 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
   onCoverFlowButtonPositionChange,
   coverFlowButtonColors,
   onCoverFlowButtonColorsChange,
+  onSettingsImported,
 }) => {
   const menuRef = useRef<HTMLDivElement>(null);
 
   // State for Custom Defaults Modal
   const [showCustomDefaultsModal, setShowCustomDefaultsModal] = React.useState(false);
-  const [hasCustomDefaults, setHasCustomDefaults] = React.useState(false);
-  const [screenResolution, setScreenResolution] = React.useState('1080p');
-  const [saveFeedback, setSaveFeedback] = React.useState<{ type: 'current' | 'all'; show: boolean }>({ type: 'current', show: false });
-  const [restoreFeedback, setRestoreFeedback] = React.useState<{ type: 'current' | 'all'; show: boolean }>({ type: 'current', show: false });
-  const feedbackTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+  const [screenResolution, setScreenResolution] = React.useState<'720p' | '1080p' | '1440p' | '4K'>('1080p');
 
   // State for Reset Confirmation Dialog
   const [showResetConfirmation, setShowResetConfirmation] = React.useState(false);
@@ -274,14 +272,6 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
 
   // State for Per-Game Override Clear Confirmation
   const [showClearPerGameConfirm, setShowClearPerGameConfirm] = React.useState(false);
-
-  const showFeedback = (setState: (s: any) => void, type: 'current' | 'all') => {
-    setState({ type, show: true });
-    if (feedbackTimeoutRef.current) clearTimeout(feedbackTimeoutRef.current);
-    feedbackTimeoutRef.current = setTimeout(() => {
-      setState({ type, show: false });
-    }, 2000);
-  };
 
   // Detect screen resolution
   React.useEffect(() => {
@@ -519,10 +509,6 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
   // Check for custom defaults and load baseline defaults when opening the menu
   React.useEffect(() => {
     const initialize = async () => {
-      // Check for custom defaults
-      const exists = await window.electronAPI.hasCustomDefaults?.();
-      setHasCustomDefaults(exists || false);
-
       // Load baseline defaults
       const baseline = await window.electronAPI.getBaselineDefaults?.();
       if (baseline) {
@@ -536,249 +522,7 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
     setShowCustomDefaultsModal(true);
   };
 
-  const gatherSettingsForViewMode = (mode: string) => {
-    // Gather common right panel settings
-    const rightPanelSettings = {
-      rightPanelBoxartPosition,
-      rightPanelBoxartSize,
-      rightPanelTextSize,
-      rightPanelButtonSize,
-      rightPanelButtonLocation,
-      detailsPanelOpacity,
-    };
-
-    const getRightPanelLogoSize = (m: string) => {
-      if (activeGame) {
-        if (m === 'grid') return localLogoSizes.grid;
-        if (m === 'list') return localLogoSizes.list;
-        if (m === 'logo') return localLogoSizes.logo;
-        if (m === 'carousel') return localLogoSizes.carousel;
-      }
-      return rightPanelLogoSize;
-    };
-
-    // Return view-specific settings
-    if (mode === 'grid') {
-      return {
-        gridSize,
-        showLogoOverBoxart,
-        gameTilePadding,
-        panelWidth,
-        fanartHeight,
-        descriptionWidth,
-        backgroundBlur,
-        backgroundBrightness,
-        logoSize: activeGame ? localLogoSizes.grid : logoSize,
-        rightPanelLogoSize: activeGame ? localLogoSizes.grid : rightPanelLogoSize,
-        ...rightPanelSettings,
-      };
-    } else if (mode === 'list') {
-      return {
-        panelWidth,
-        backgroundBlur,
-        backgroundBrightness,
-        fanartHeight,
-        descriptionWidth,
-        listViewOptions,
-        rightPanelLogoSize: activeGame ? localLogoSizes.list : rightPanelLogoSize,
-        ...rightPanelSettings,
-      };
-    } else if (mode === 'logo') {
-      return {
-        logoSize: activeGame ? localLogoSizes.logo : logoSize,
-        gameTilePadding,
-        logoBackgroundOpacity,
-        backgroundBlur,
-        backgroundBrightness,
-        panelWidth,
-        fanartHeight,
-        descriptionWidth,
-        rightPanelLogoSize: activeGame ? localLogoSizes.logo : rightPanelLogoSize,
-        ...rightPanelSettings,
-      };
-    } else if (mode === 'carousel') {
-      return {
-        showCarouselDetails,
-        detailsBarSize,
-        selectedBoxArtSize,
-        gameTilePadding,
-        backgroundBlur,
-        backgroundBrightness,
-        carouselLogoSize: activeGame ? localLogoSizes.carousel : carouselLogoSize,
-        rightPanelLogoSize: activeGame ? localLogoSizes.carousel : rightPanelLogoSize,
-        showCarouselLogos,
-        carouselDescriptionSize,
-        carouselDescriptionAlignment,
-        carouselButtonSize,
-        carouselButtonAlignment,
-        carouselLogoAlignment,
-      };
-    } else if (mode === 'coverflow') {
-      return {
-        coverFlowCoverSize,
-        coverFlowReflection,
-        coverFlowVerticalOffset,
-        coverFlowSideOpacity,
-        coverFlowShowButtons,
-        coverFlowButtonPosition,
-        backgroundBrightness,
-      };
-    }
-
-    // Fallback: return all settings if view mode is unknown
-    return {
-      panelWidth,
-      gridSize,
-      logoSize,
-      listSize,
-      gameTilePadding,
-      backgroundBlur,
-      backgroundBrightness,
-      selectedBoxArtSize,
-      showLogoOverBoxart,
-      logoBackgroundOpacity,
-      showCarouselDetails,
-      showCarouselLogos,
-      detailsBarSize,
-      carouselLogoSize,
-      carouselButtonSize,
-      carouselDescriptionSize,
-      carouselDescriptionAlignment,
-      carouselButtonAlignment,
-      listViewOptions,
-      rightPanelLogoSize: getRightPanelLogoSize(viewMode),
-      ...rightPanelSettings,
-    };
-  };
-
-  const gatherCurrentSettings = () => gatherSettingsForViewMode(viewMode);
-
-  const applySettings = (settings: any) => {
-    if (settings.panelWidth !== undefined) {
-      // This would need to be passed through as a prop callback if we want to support it
-      // For now, panelWidth is only saved/restored in the modal state
-    }
-    if (settings.gridSize !== undefined && onGridSizeChange) onGridSizeChange(settings.gridSize);
-    if (settings.logoSize !== undefined && onLogoSizeChange) onLogoSizeChange(settings.logoSize);
-    if (settings.listSize !== undefined && onListSizeChange) onListSizeChange(settings.listSize);
-    if (settings.gameTilePadding !== undefined && onGameTilePaddingChange) onGameTilePaddingChange(settings.gameTilePadding);
-    if (settings.backgroundBlur !== undefined && onBackgroundBlurChange) onBackgroundBlurChange(settings.backgroundBlur);
-    if (settings.backgroundBrightness !== undefined && onBackgroundBrightnessChange) onBackgroundBrightnessChange(settings.backgroundBrightness);
-    if (settings.selectedBoxArtSize !== undefined && onSelectedBoxArtSizeChange) onSelectedBoxArtSizeChange(settings.selectedBoxArtSize);
-    if (settings.showLogoOverBoxart !== undefined && onShowLogoOverBoxartChange) onShowLogoOverBoxartChange(settings.showLogoOverBoxart);
-    if (settings.logoPosition !== undefined && onLogoPositionChange) onLogoPositionChange(settings.logoPosition);
-    if (settings.logoBackgroundOpacity !== undefined && onLogoBackgroundOpacityChange) onLogoBackgroundOpacityChange(settings.logoBackgroundOpacity);
-    if (settings.showCarouselDetails !== undefined && onShowCarouselDetailsChange) onShowCarouselDetailsChange(settings.showCarouselDetails);
-    if (settings.showCarouselLogos !== undefined && onShowCarouselLogosChange) onShowCarouselLogosChange(settings.showCarouselLogos);
-    if (settings.detailsBarSize !== undefined && onDetailsBarSizeChange) onDetailsBarSizeChange(settings.detailsBarSize);
-    if (settings.carouselLogoSize !== undefined && onCarouselLogoSizeChange) onCarouselLogoSizeChange(settings.carouselLogoSize);
-    if (settings.carouselButtonSize !== undefined && onCarouselButtonSizeChange) onCarouselButtonSizeChange(settings.carouselButtonSize);
-    if (settings.carouselDescriptionSize !== undefined && onCarouselDescriptionSizeChange) onCarouselDescriptionSizeChange(settings.carouselDescriptionSize);
-    if (settings.carouselDescriptionAlignment !== undefined && onCarouselDescriptionAlignmentChange) onCarouselDescriptionAlignmentChange(settings.carouselDescriptionAlignment);
-    if (settings.carouselButtonAlignment !== undefined && onCarouselButtonAlignmentChange) onCarouselButtonAlignmentChange(settings.carouselButtonAlignment);
-    if (settings.carouselLogoAlignment !== undefined && onCarouselLogoAlignmentChange) onCarouselLogoAlignmentChange(settings.carouselLogoAlignment);
-    if (settings.coverFlowCoverSize !== undefined && onCoverFlowCoverSizeChange) onCoverFlowCoverSizeChange(settings.coverFlowCoverSize);
-    if (settings.coverFlowReflection !== undefined && onCoverFlowReflectionChange) onCoverFlowReflectionChange(settings.coverFlowReflection);
-    if (settings.coverFlowVerticalOffset !== undefined && onCoverFlowVerticalOffsetChange) onCoverFlowVerticalOffsetChange(settings.coverFlowVerticalOffset);
-    if (settings.coverFlowSideOpacity !== undefined && onCoverFlowSideOpacityChange) onCoverFlowSideOpacityChange(settings.coverFlowSideOpacity);
-    if (settings.coverFlowShowButtons !== undefined && onCoverFlowShowButtonsChange) onCoverFlowShowButtonsChange(settings.coverFlowShowButtons);
-    if (settings.coverFlowButtonPosition !== undefined && onCoverFlowButtonPositionChange) onCoverFlowButtonPositionChange(settings.coverFlowButtonPosition);
-    if (settings.listViewOptions !== undefined && onListViewOptionsChange) onListViewOptionsChange(settings.listViewOptions);
-    if (settings.rightPanelBoxartPosition !== undefined && onRightPanelBoxartPositionChange) onRightPanelBoxartPositionChange(settings.rightPanelBoxartPosition);
-    if (settings.rightPanelBoxartSize !== undefined && onRightPanelBoxartSizeChange) onRightPanelBoxartSizeChange(settings.rightPanelBoxartSize);
-    if (settings.rightPanelTextSize !== undefined && onRightPanelTextSizeChange) onRightPanelTextSizeChange(settings.rightPanelTextSize);
-    if (settings.rightPanelButtonSize !== undefined && onRightPanelButtonSizeChange) onRightPanelButtonSizeChange(settings.rightPanelButtonSize);
-    if (settings.rightPanelButtonLocation !== undefined && onRightPanelButtonLocationChange) onRightPanelButtonLocationChange(settings.rightPanelButtonLocation);
-    if (settings.detailsPanelOpacity !== undefined && onDetailsPanelOpacityChange) onDetailsPanelOpacityChange(settings.detailsPanelOpacity);
-    if (settings.rightPanelLogoSize !== undefined && onRightPanelLogoSizeChange) onRightPanelLogoSizeChange(settings.rightPanelLogoSize);
-  };
-
-  const handleSaveCurrentView = async () => {
-    const currentSettings = { [viewMode]: gatherCurrentSettings() };
-    const result = await window.electronAPI.saveCustomDefaults?.(currentSettings, screenResolution);
-    if (result?.success) {
-      setHasCustomDefaults(true);
-      showFeedback(setSaveFeedback, 'current');
-    }
-  };
-
-  const handleSaveAllViews = async () => {
-    const modes: ('grid' | 'list' | 'logo' | 'carousel' | 'coverflow')[] = ['grid', 'list', 'logo', 'carousel', 'coverflow'];
-    const allSettings = modes.reduce((acc, mode) => {
-      acc[mode] = gatherSettingsForViewMode(mode);
-      return acc;
-    }, {} as Record<string, any>);
-
-    const result = await window.electronAPI.saveCustomDefaults?.(allSettings, screenResolution);
-    if (result?.success) {
-      setHasCustomDefaults(true);
-      showFeedback(setSaveFeedback, 'all');
-    }
-  };
-
-  const handleRestoreCurrentView = async () => {
-    const result = await window.electronAPI.restoreCustomDefaults?.({ viewMode, scope: 'current', resolution: screenResolution });
-    if (result?.success && result.defaults) {
-      applySettings(result.defaults);
-      showFeedback(setRestoreFeedback, 'current');
-    }
-  };
-
-  const handleRestoreAllViews = async () => {
-    const result = await window.electronAPI.restoreCustomDefaults?.({ viewMode, scope: 'all', resolution: screenResolution });
-    if (result?.success && result.defaults) {
-      // Even though we loaded all views, only apply the current view's settings
-      // This restores all to memory but only applies what's relevant now
-      const currentViewSettings = result.defaults[viewMode];
-      if (currentViewSettings) {
-        applySettings(currentViewSettings);
-      }
-      showFeedback(setRestoreFeedback, 'all');
-    }
-  };
-
-  const handleExportCurrentView = async () => {
-    const overrideSettings = gatherCurrentSettings();
-
-    await window.electronAPI.exportCustomDefaults?.({
-      viewMode,
-      scope: 'current',
-      resolution: screenResolution,
-      overrideSettings
-    });
-    // Successfully exported or cancelled - keep modal open
-  };
-
-  const handleExportAllViews = async () => {
-    // Gather overrides for all views if an active game is selected
-    const allOverrides: any = {};
-    if (activeGame) {
-      const modes: ('grid' | 'list' | 'logo' | 'carousel' | 'coverflow')[] = ['grid', 'list', 'logo', 'carousel', 'coverflow'];
-      modes.forEach(mode => {
-        allOverrides[mode] = gatherSettingsForViewMode(mode);
-      });
-    }
-
-    await window.electronAPI.exportCustomDefaults?.({
-      viewMode,
-      scope: 'all',
-      resolution: screenResolution,
-      overrideSettings: activeGame ? allOverrides : undefined
-    });
-    // Successfully exported or cancelled - keep modal open
-  };
-
-  const handleImportSettings = async () => {
-    const result = await window.electronAPI.importCustomDefaults?.();
-    if (result?.success && result.data) {
-      setHasCustomDefaults(true);
-      // Optionally apply the imported settings immediately
-      if (result.data[viewMode]) {
-        applySettings(result.data[viewMode]);
-      }
-    }
-  };
-
+  // Handle Reset View (now integrated with CustomDefaultsManager)
   const getSizeLabel = () => {
     if (viewMode === 'grid') return 'Boxart Size';
     if (viewMode === 'logo') return 'Logo Size';
@@ -2299,22 +2043,18 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
         </>
       )}
 
-      {/* Custom Defaults Modal */}
-      <CustomDefaultsModal
+      {/* Custom Defaults Manager */}
+      <CustomDefaultsManager
         isOpen={showCustomDefaultsModal}
         onClose={() => setShowCustomDefaultsModal(false)}
-        viewMode={viewMode}
-        resolution={screenResolution}
-        hasCustomDefaults={hasCustomDefaults}
-        onSaveCurrentView={handleSaveCurrentView}
-        onSaveAllViews={handleSaveAllViews}
-        onRestoreCurrentView={handleRestoreCurrentView}
-        onRestoreAllViews={handleRestoreAllViews}
-        onExportCurrentView={handleExportCurrentView}
-        onExportAllViews={handleExportAllViews}
-        onImportSettings={handleImportSettings}
-        saveFeedback={saveFeedback}
-        restoreFeedback={restoreFeedback}
+        currentViewMode={viewMode}
+        currentResolution={screenResolution}
+        activeGameId={activeGame?.id}
+        onSettingsChange={() => {
+          // Callback for when settings are imported - refresh the view if needed
+          // The manager doesn't pass settings back; import directly updates preferences
+          onSettingsImported?.();
+        }}
       />
 
       {/* Reset Confirmation Dialog */}

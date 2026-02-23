@@ -651,6 +651,81 @@ export function registerAppIPCHandlers(
         return await userPreferencesService.getBaselineDefaults();
     });
 
+    // New Custom Defaults Manager Handlers
+    ipcMain.handle('customDefaults:getPerGameCount', async () => {
+        return await userPreferencesService.getPerGameSettingsCount();
+    });
+
+    ipcMain.handle('customDefaults:getSavedList', async () => {
+        return await userPreferencesService.getSavedDefaultsList();
+    });
+
+    ipcMain.handle('customDefaults:delete', async (_event, options: { resolution: string; viewMode: string }) => {
+        await userPreferencesService.deleteCustomDefault(options as any);
+        return { success: true };
+    });
+
+    ipcMain.handle('customDefaults:validate', async (_event, data: any) => {
+        return await userPreferencesService.validateImportFile(data);
+    });
+
+    ipcMain.handle('customDefaults:exportSelective', async (_event, options: { resolutions: string[]; viewModes: string[]; includePerGameSettings: boolean; currentResolution: string }) => {
+        try {
+            const exportData = await userPreferencesService.exportCustomDefaultsSelective(options as any);
+            
+            const defaultFileName = `onyx-custom-defaults-${options.resolutions.join('-')}-${new Date().toISOString().slice(0, 10)}.json`;
+            const saveResult = await dialog.showSaveDialog({
+                title: 'Export Custom Defaults',
+                defaultPath: path.join(app.getPath('documents'), defaultFileName),
+                filters: [{ name: 'JSON Files', extensions: ['json'] }],
+            });
+
+            if (saveResult.canceled || !saveResult.filePath) {
+                return { success: false, cancelled: true };
+            }
+
+            await writeFile(saveResult.filePath, JSON.stringify(exportData, null, 2), 'utf-8');
+            return { success: true, filePath: saveResult.filePath };
+        } catch (error) {
+            return { success: false, error: error instanceof Error ? error.message : String(error) };
+        }
+    });
+
+    ipcMain.handle('customDefaults:importSelective', async (_event, options: { data?: any; includePerGameSettings: boolean; mergeStrategy: 'overwrite' | 'keep' }) => {
+        try {
+            let importedJson: any;
+
+            if (options.data) {
+                // Data provided directly from UI
+                importedJson = options.data;
+            } else {
+                // Open file dialog to select file
+                const openResult = await dialog.showOpenDialog({
+                    title: 'Import Custom Defaults',
+                    properties: ['openFile'],
+                    filters: [{ name: 'JSON Files', extensions: ['json'] }],
+                });
+
+                if (openResult.canceled || !openResult.filePaths[0]) {
+                    return { success: false, cancelled: true };
+                }
+
+                const importedText = await readFile(openResult.filePaths[0], 'utf-8');
+                importedJson = JSON.parse(importedText);
+            }
+
+            await userPreferencesService.importCustomDefaultsSelective({
+                data: importedJson,
+                includePerGameSettings: options.includePerGameSettings,
+                mergeStrategy: options.mergeStrategy,
+            });
+
+            return { success: true };
+        } catch (error) {
+            return { success: false, error: error instanceof Error ? error.message : String(error) };
+        }
+    });
+
     // Bug Report Handlers
     ipcMain.handle('bugReport:generate', async (_event, description: string) => {
         return await bugReportService.generateBugReport(description);

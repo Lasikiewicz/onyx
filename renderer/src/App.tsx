@@ -265,8 +265,134 @@ function App() {
   const currentResolutionRef = useRef<string>(window.screen.height >= 2160 ? '4K' : window.screen.height >= 1440 ? '1440p' : window.screen.height >= 1080 ? '1080p' : '720p');
   const baselineDefaultsRef = useRef<any>(null);
 
+  const applyPreferences = (prefs: any, options?: { markInitialLoad?: boolean }) => {
+    if (prefs.gridSize) setGridSize(prefs.gridSize);
+    if (prefs.logoSize) setLogoSize(prefs.logoSize);
+    if (prefs.pinnedCategories) setPinnedCategories(prefs.pinnedCategories);
+    if (prefs.hideVRTitles !== undefined) setHideVRTitles(prefs.hideVRTitles);
+    if (prefs.hideAppsTitles !== undefined) setHideAppsTitles(prefs.hideAppsTitles);
+    if (prefs.hideGameTitles !== undefined) setHideGameTitles(prefs.hideGameTitles);
+    if (prefs.gameTilePadding !== undefined) setGameTilePadding(prefs.gameTilePadding);
+    if (prefs.showCategoriesInGameListByView !== undefined) setShowCategoriesByView(prefs.showCategoriesInGameListByView);
+    if (prefs.categoriesPositionByView !== undefined) setCategoriesPositionByView(prefs.categoriesPositionByView);
+    if (prefs.categoriesAlignmentByView !== undefined) setCategoriesAlignmentByView(prefs.categoriesAlignmentByView);
+    if (prefs.categoriesSizeByView !== undefined) setCategoriesSizeByView(prefs.categoriesSizeByView);
+    if (prefs.showLogoOverBoxart !== undefined) setShowLogoOverBoxart(prefs.showLogoOverBoxart);
+    if (prefs.logoPosition !== undefined) setLogoPosition(prefs.logoPosition);
+    if (prefs.logoBackgroundColor !== undefined) setLogoBackgroundColor(prefs.logoBackgroundColor);
+    if (prefs.logoBackgroundOpacity !== undefined) setLogoBackgroundOpacity(prefs.logoBackgroundOpacity);
+    if (prefs.backgroundBlur !== undefined) setBackgroundBlur(prefs.backgroundBlur);
+    if (prefs.backgroundBrightnessByView !== undefined) {
+      setBackgroundBrightnessByView({
+        grid: prefs.backgroundBrightnessByView.grid ?? 0.3,
+        list: prefs.backgroundBrightnessByView.list ?? 0.3,
+        logo: prefs.backgroundBrightnessByView.logo ?? 0.3,
+        carousel: prefs.backgroundBrightnessByView.carousel ?? 0.3,
+        coverflow: prefs.backgroundBrightnessByView.coverflow ?? 0.3,
+      });
+    }
+    if (prefs.showCarouselDetails !== undefined) setShowCarouselDetails(prefs.showCarouselDetails);
+    if (prefs.showCarouselLogos !== undefined) setShowCarouselLogos(prefs.showCarouselLogos);
+    if (prefs.detailsBarSize !== undefined) setDetailsBarSize(prefs.detailsBarSize);
+    if (prefs.carouselLogoSize !== undefined) setCarouselLogoSize(prefs.carouselLogoSize);
+    if (prefs.carouselButtonSize !== undefined) setCarouselButtonSize(prefs.carouselButtonSize);
+    if (prefs.carouselDescriptionSize !== undefined) setCarouselDescriptionSize(prefs.carouselDescriptionSize);
+    // Right panel settings
+    if (prefs.rightPanelLogoSize !== undefined) setRightPanelLogoSize(prefs.rightPanelLogoSize);
+    if (prefs.rightPanelBoxartPosition !== undefined) setRightPanelBoxartPosition(prefs.rightPanelBoxartPosition);
+    if (prefs.rightPanelBoxartSize !== undefined) setRightPanelBoxartSize(prefs.rightPanelBoxartSize);
+    if (prefs.rightPanelTextSize !== undefined) setRightPanelTextSize(prefs.rightPanelTextSize);
+    if (prefs.rightPanelButtonSize !== undefined) setRightPanelButtonSize(prefs.rightPanelButtonSize);
+    if (prefs.rightPanelButtonLocation !== undefined) setRightPanelButtonLocation(prefs.rightPanelButtonLocation);
+    if (prefs.detailsPanelOpacity !== undefined) setDetailsPanelOpacity(prefs.detailsPanelOpacity);
+    if (prefs.rightPanelButtonColors !== undefined) setRightPanelButtonColors(prefs.rightPanelButtonColors);
+    if (prefs.carouselButtonColors !== undefined) setCarouselButtonColors(prefs.carouselButtonColors);
+    if (prefs.gridButtonColors !== undefined) setGridButtonColors(prefs.gridButtonColors);
+    if (prefs.listButtonColors !== undefined) setListButtonColors(prefs.listButtonColors);
+    if (prefs.logoButtonColors !== undefined) setLogoButtonColors(prefs.logoButtonColors);
+    if (prefs.coverFlowCoverSize !== undefined) setCoverFlowCoverSize(prefs.coverFlowCoverSize);
+    if (prefs.coverFlowReflection !== undefined) setCoverFlowReflection(prefs.coverFlowReflection);
+    if (prefs.coverFlowVerticalOffset !== undefined) setCoverFlowVerticalOffset(prefs.coverFlowVerticalOffset);
+    if (prefs.coverFlowSideOpacity !== undefined) setCoverFlowSideOpacity(prefs.coverFlowSideOpacity);
+    if (prefs.coverFlowShowButtons !== undefined) setCoverFlowShowButtons(prefs.coverFlowShowButtons);
+    if (prefs.coverFlowButtonPosition !== undefined) setCoverFlowButtonPosition(prefs.coverFlowButtonPosition);
+    if (prefs.coverFlowButtonColors !== undefined) setCoverFlowButtonColors(prefs.coverFlowButtonColors);
+    if (prefs.isViewFlippedByView !== undefined) {
+      const defaultFlipped = { grid: false, list: false, logo: false, carousel: false, coverflow: false };
+      setIsViewFlippedByView({ ...defaultFlipped, ...prefs.isViewFlippedByView });
+    }
+    // Top bar positions
+    if (prefs.topBarPositions) setTopBarPositions({ ...topBarPositions, ...prefs.topBarPositions });
+    if (prefs.viewMode) setViewMode(prefs.viewMode);
+    if (prefs.backgroundMode) setBackgroundMode(prefs.backgroundMode as 'image' | 'color');
+    if (prefs.backgroundColor) setBackgroundColor(prefs.backgroundColor);
+    if (prefs.listViewOptions) {
+      setListViewOptions({ ...defaultListViewOptions, ...prefs.listViewOptions });
+    } else {
+      setListViewOptions(defaultListViewOptions);
+    }
+    if (prefs.listViewSize) setListViewSize(prefs.listViewSize);
+    // Load divider settings per view
+    if (prefs.fanartHeightByView) {
+      setFanartHeightByView({ ...fanartHeightByView, ...prefs.fanartHeightByView });
+    }
+    if (prefs.descriptionWidthByView) {
+      setDescriptionWidthByView({ ...descriptionWidthByView, ...prefs.descriptionWidthByView });
+    }
+    if (prefs.panelWidthByView) {
+      setPanelWidthByViewState({ ...panelWidthByViewState, ...prefs.panelWidthByView });
+    }
+    // Set initial panelWidth based on current view
+    const savedPanelWidth = (prefs.panelWidthByView && prefs.viewMode ? prefs.panelWidthByView[prefs.viewMode as 'grid' | 'list' | 'logo' | 'carousel' | 'coverflow'] : undefined) ?? prefs.panelWidth;
+    if (savedPanelWidth) setPanelWidth(savedPanelWidth);
+    if (prefs.autoSizeToFit !== undefined) setAutoSizeToFit(prefs.autoSizeToFit);
+    // Restore active game selection if it exists
+    if (prefs.activeGameId) {
+      setActiveGameId(prefs.activeGameId);
+    }
+    if (prefs.isFirstLaunch && baselineDefaultsRef.current) {
+      console.log(`[App] First launch detected. Applying baseline defaults for ${currentResolutionRef.current}.`);
+      applyBaselineDefaults(currentResolutionRef.current);
+      // Save preference change to set isFirstLaunch to false
+      window.electronAPI.savePreferences({ isFirstLaunch: false });
+    }
+
+    if (prefs.confirmGameLaunch !== undefined) setConfirmGameLaunch(prefs.confirmGameLaunch);
+    if (prefs.linkDisplayOrder && prefs.linkDisplayOrder.length > 0) setLinkDisplayOrder(prefs.linkDisplayOrder);
+    if (prefs.visibleLinkTypes && Object.keys(prefs.visibleLinkTypes).length > 0) setVisibleLinkTypes(prefs.visibleLinkTypes);
+
+    // Handle default startup page
+    if (prefs.defaultStartupPage) {
+      if (prefs.defaultStartupPage === 'favorites') {
+        setSelectedCategory('favorites');
+      } else if (prefs.defaultStartupPage === 'recent') {
+        // "Recent" page usually implies sort by last played
+        setSortBy('lastPlayed');
+      } else {
+        // 'library' is default, ensure defaults
+        setSelectedCategory(null);
+      }
+    }
+
+    // Keep current resolution in sync with actual screen height
+    const actualResKey = window.screen.height >= 2160 ? '4K' : window.screen.height >= 1440 ? '1440p' : window.screen.height >= 1080 ? '1080p' : '720p';
+    currentResolutionRef.current = actualResKey;
+    if (prefs.currentResolution !== actualResKey) {
+      window.electronAPI.savePreferences({ currentResolution: actualResKey });
+    }
+
+    if (options?.markInitialLoad) {
+      setIsInitialLoad(false);
+    }
+  };
+
   // Clamp padding in carousel without overwriting the saved preference
   const carouselGameTilePadding = (viewMode === 'carousel' || viewMode === 'coverflow') && gameTilePadding > 3 ? 1 : gameTilePadding;
+
+  const refreshPreferences = async () => {
+    const prefs = await window.electronAPI.getPreferences();
+    applyPreferences(prefs);
+  };
 
   // Load preferences and baseline defaults on mount
   useEffect(() => {
@@ -280,115 +406,7 @@ function App() {
       const loadPreferences = async () => {
         try {
           const prefs = await window.electronAPI.getPreferences();
-          if (prefs.gridSize) setGridSize(prefs.gridSize);
-          if (prefs.logoSize) setLogoSize(prefs.logoSize);
-          if (prefs.pinnedCategories) setPinnedCategories(prefs.pinnedCategories);
-          if (prefs.hideVRTitles !== undefined) setHideVRTitles(prefs.hideVRTitles);
-          if (prefs.hideAppsTitles !== undefined) setHideAppsTitles(prefs.hideAppsTitles);
-          if (prefs.hideGameTitles !== undefined) setHideGameTitles(prefs.hideGameTitles);
-          if (prefs.gameTilePadding !== undefined) setGameTilePadding(prefs.gameTilePadding);
-          if (prefs.showCategoriesInGameListByView !== undefined) setShowCategoriesByView(prefs.showCategoriesInGameListByView);
-          if (prefs.categoriesPositionByView !== undefined) setCategoriesPositionByView(prefs.categoriesPositionByView);
-          if (prefs.categoriesAlignmentByView !== undefined) setCategoriesAlignmentByView(prefs.categoriesAlignmentByView);
-          if (prefs.categoriesSizeByView !== undefined) setCategoriesSizeByView(prefs.categoriesSizeByView);
-          if (prefs.showLogoOverBoxart !== undefined) setShowLogoOverBoxart(prefs.showLogoOverBoxart);
-          if (prefs.logoPosition !== undefined) setLogoPosition(prefs.logoPosition);
-          if (prefs.logoBackgroundColor !== undefined) setLogoBackgroundColor(prefs.logoBackgroundColor);
-          if (prefs.logoBackgroundOpacity !== undefined) setLogoBackgroundOpacity(prefs.logoBackgroundOpacity);
-          if (prefs.backgroundBlur !== undefined) setBackgroundBlur(prefs.backgroundBlur);
-          if (prefs.backgroundBrightnessByView !== undefined) {
-            setBackgroundBrightnessByView({
-              grid: prefs.backgroundBrightnessByView.grid ?? 0.3,
-              list: prefs.backgroundBrightnessByView.list ?? 0.3,
-              logo: prefs.backgroundBrightnessByView.logo ?? 0.3,
-              carousel: prefs.backgroundBrightnessByView.carousel ?? 0.3,
-              coverflow: prefs.backgroundBrightnessByView.coverflow ?? 0.3,
-            });
-          }
-          if (prefs.showCarouselDetails !== undefined) setShowCarouselDetails(prefs.showCarouselDetails);
-          if (prefs.showCarouselLogos !== undefined) setShowCarouselLogos(prefs.showCarouselLogos);
-          if (prefs.detailsBarSize !== undefined) setDetailsBarSize(prefs.detailsBarSize);
-          if (prefs.carouselLogoSize !== undefined) setCarouselLogoSize(prefs.carouselLogoSize);
-          if (prefs.carouselButtonSize !== undefined) setCarouselButtonSize(prefs.carouselButtonSize);
-          if (prefs.carouselDescriptionSize !== undefined) setCarouselDescriptionSize(prefs.carouselDescriptionSize);
-          // Right panel settings
-          if (prefs.rightPanelLogoSize !== undefined) setRightPanelLogoSize(prefs.rightPanelLogoSize);
-          if (prefs.rightPanelBoxartPosition !== undefined) setRightPanelBoxartPosition(prefs.rightPanelBoxartPosition);
-          if (prefs.rightPanelBoxartSize !== undefined) setRightPanelBoxartSize(prefs.rightPanelBoxartSize);
-          if (prefs.rightPanelTextSize !== undefined) setRightPanelTextSize(prefs.rightPanelTextSize);
-          if (prefs.rightPanelButtonSize !== undefined) setRightPanelButtonSize(prefs.rightPanelButtonSize);
-          if (prefs.rightPanelButtonLocation !== undefined) setRightPanelButtonLocation(prefs.rightPanelButtonLocation);
-          if (prefs.detailsPanelOpacity !== undefined) setDetailsPanelOpacity(prefs.detailsPanelOpacity);
-          if (prefs.rightPanelButtonColors !== undefined) setRightPanelButtonColors(prefs.rightPanelButtonColors);
-          if (prefs.carouselButtonColors !== undefined) setCarouselButtonColors(prefs.carouselButtonColors);
-          if (prefs.gridButtonColors !== undefined) setGridButtonColors(prefs.gridButtonColors);
-          if (prefs.listButtonColors !== undefined) setListButtonColors(prefs.listButtonColors);
-          if (prefs.logoButtonColors !== undefined) setLogoButtonColors(prefs.logoButtonColors);
-          if (prefs.coverFlowCoverSize !== undefined) setCoverFlowCoverSize(prefs.coverFlowCoverSize);
-          if (prefs.coverFlowReflection !== undefined) setCoverFlowReflection(prefs.coverFlowReflection);
-          if (prefs.coverFlowVerticalOffset !== undefined) setCoverFlowVerticalOffset(prefs.coverFlowVerticalOffset);
-          if (prefs.coverFlowSideOpacity !== undefined) setCoverFlowSideOpacity(prefs.coverFlowSideOpacity);
-          if (prefs.coverFlowShowButtons !== undefined) setCoverFlowShowButtons(prefs.coverFlowShowButtons);
-          if (prefs.coverFlowButtonPosition !== undefined) setCoverFlowButtonPosition(prefs.coverFlowButtonPosition);
-          if (prefs.coverFlowButtonColors !== undefined) setCoverFlowButtonColors(prefs.coverFlowButtonColors);
-          if (prefs.isViewFlippedByView !== undefined) {
-            const defaultFlipped = { grid: false, list: false, logo: false, carousel: false, coverflow: false };
-            setIsViewFlippedByView({ ...defaultFlipped, ...prefs.isViewFlippedByView });
-          }
-          // Top bar positions
-          if (prefs.topBarPositions) setTopBarPositions({ ...topBarPositions, ...prefs.topBarPositions });
-          if (prefs.viewMode) setViewMode(prefs.viewMode);
-          if (prefs.backgroundMode) setBackgroundMode(prefs.backgroundMode as 'image' | 'color');
-          if (prefs.backgroundColor) setBackgroundColor(prefs.backgroundColor);
-          if (prefs.listViewOptions) {
-            setListViewOptions({ ...defaultListViewOptions, ...prefs.listViewOptions });
-          } else {
-            setListViewOptions(defaultListViewOptions);
-          }
-          if (prefs.listViewSize) setListViewSize(prefs.listViewSize);
-          // Load divider settings per view
-          if (prefs.fanartHeightByView) {
-            setFanartHeightByView({ ...fanartHeightByView, ...prefs.fanartHeightByView });
-          }
-          if (prefs.descriptionWidthByView) {
-            setDescriptionWidthByView({ ...descriptionWidthByView, ...prefs.descriptionWidthByView });
-          }
-          if (prefs.panelWidthByView) {
-            setPanelWidthByViewState({ ...panelWidthByViewState, ...prefs.panelWidthByView });
-          }
-          // Set initial panelWidth based on current view
-          const savedPanelWidth = (prefs.panelWidthByView && prefs.viewMode ? prefs.panelWidthByView[prefs.viewMode as 'grid' | 'list' | 'logo' | 'carousel' | 'coverflow'] : undefined) ?? prefs.panelWidth;
-          if (savedPanelWidth) setPanelWidth(savedPanelWidth);
-          if (prefs.autoSizeToFit !== undefined) setAutoSizeToFit(prefs.autoSizeToFit);
-          // Restore active game selection if it exists
-          if (prefs.activeGameId) {
-            setActiveGameId(prefs.activeGameId);
-          }
-          if (prefs.isFirstLaunch && baselineDefaultsRef.current) {
-            console.log(`[App] First launch detected. Applying baseline defaults for ${currentResolutionRef.current}.`);
-            applyBaselineDefaults(currentResolutionRef.current);
-            // Save preference change to set isFirstLaunch to false
-            window.electronAPI.savePreferences({ isFirstLaunch: false });
-          }
-
-          if (prefs.confirmGameLaunch !== undefined) setConfirmGameLaunch(prefs.confirmGameLaunch);
-          if (prefs.linkDisplayOrder && prefs.linkDisplayOrder.length > 0) setLinkDisplayOrder(prefs.linkDisplayOrder);
-          if (prefs.visibleLinkTypes && Object.keys(prefs.visibleLinkTypes).length > 0) setVisibleLinkTypes(prefs.visibleLinkTypes);
-
-          // Handle default startup page
-          if (prefs.defaultStartupPage) {
-            if (prefs.defaultStartupPage === 'favorites') {
-              setSelectedCategory('favorites');
-            } else if (prefs.defaultStartupPage === 'recent') {
-              // "Recent" page usually implies sort by last played
-              setSortBy('lastPlayed');
-            } else {
-              // 'library' is default, ensure defaults
-              setSelectedCategory(null);
-            }
-          }
-
-          setIsInitialLoad(false);
+          applyPreferences(prefs, { markInitialLoad: true });
         } catch (error) {
           console.error('Error loading preferences:', error);
           setIsInitialLoad(false);
@@ -504,6 +522,7 @@ function App() {
         console.log(`[App] Resolution change detected: ${currentResolutionRef.current} -> ${newResKey}. Auto-applying baseline defaults.`);
         currentResolutionRef.current = newResKey;
         applyBaselineDefaults(newResKey);
+        window.electronAPI.savePreferences({ currentResolution: newResKey });
       }
     };
 
@@ -514,6 +533,7 @@ function App() {
 
   // Save grid size when it changes (but not when auto-size is enabled)
   useEffect(() => {
+    if (isInitialLoad) return;
     if (autoSizeToFit) return; // Don't save when auto-size is calculating
 
     const saveGridSize = async () => {
@@ -526,10 +546,11 @@ function App() {
     // Debounce saves
     const timeoutId = setTimeout(saveGridSize, 500);
     return () => clearTimeout(timeoutId);
-  }, [gridSize, autoSizeToFit]);
+  }, [gridSize, autoSizeToFit, isInitialLoad]);
 
   // Save logo size when it changes
   useEffect(() => {
+    if (isInitialLoad) return;
     const saveLogoSize = async () => {
       try {
         await window.electronAPI.savePreferences({ logoSize });
@@ -540,10 +561,11 @@ function App() {
     // Debounce saves
     const timeoutId = setTimeout(saveLogoSize, 500);
     return () => clearTimeout(timeoutId);
-  }, [logoSize]);
+  }, [logoSize, isInitialLoad]);
 
   // Save pinned categories when they change
   useEffect(() => {
+    if (isInitialLoad) return;
     const savePinnedCategories = async () => {
       try {
         await window.electronAPI.savePreferences({ pinnedCategories });
@@ -554,10 +576,11 @@ function App() {
     // Debounce saves
     const timeoutId = setTimeout(savePinnedCategories, 300);
     return () => clearTimeout(timeoutId);
-  }, [pinnedCategories]);
+  }, [pinnedCategories, isInitialLoad]);
 
   // Save hideVRTitles when it changes
   useEffect(() => {
+    if (isInitialLoad) return;
     const saveHideVRTitles = async () => {
       try {
         await window.electronAPI.savePreferences({ hideVRTitles });
@@ -568,10 +591,11 @@ function App() {
     // Debounce saves
     const timeoutId = setTimeout(saveHideVRTitles, 300);
     return () => clearTimeout(timeoutId);
-  }, [hideVRTitles]);
+  }, [hideVRTitles, isInitialLoad]);
 
   // Save hideAppsTitles when it changes
   useEffect(() => {
+    if (isInitialLoad) return;
     const saveHideAppsTitles = async () => {
       try {
         await window.electronAPI.savePreferences({ hideAppsTitles });
@@ -582,7 +606,7 @@ function App() {
     // Debounce saves
     const timeoutId = setTimeout(saveHideAppsTitles, 300);
     return () => clearTimeout(timeoutId);
-  }, [hideAppsTitles]);
+  }, [hideAppsTitles, isInitialLoad]);
 
   // Save appearance preferences when they change (but skip initial load)
   useEffect(() => {
@@ -612,6 +636,7 @@ function App() {
 
   // Save activeGameId when it changes
   useEffect(() => {
+    if (isInitialLoad) return;
     const saveActiveGameId = async () => {
       try {
         await window.electronAPI.savePreferences({ activeGameId });
@@ -622,7 +647,7 @@ function App() {
     // Debounce saves
     const timeoutId = setTimeout(saveActiveGameId, 300);
     return () => clearTimeout(timeoutId);
-  }, [activeGameId]);
+  }, [activeGameId, isInitialLoad]);
 
   // Restore active game selection after games are loaded
   useEffect(() => {
@@ -2638,6 +2663,7 @@ function App() {
             setCoverFlowButtonColors(colors);
             window.electronAPI.savePreferences({ coverFlowButtonColors: colors });
           }}
+          onSettingsImported={refreshPreferences}
         />
       )}
 

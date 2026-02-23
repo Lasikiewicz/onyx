@@ -118,6 +118,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   exportCustomDefaults: (options: { viewMode: string; scope: string; resolution?: string; overrideSettings?: any }) => ipcRenderer.invoke('customDefaults:export', options),
   importCustomDefaults: () => ipcRenderer.invoke('customDefaults:import'),
   getBaselineDefaults: () => ipcRenderer.invoke('customDefaults:getBaseline'),
+  // New Custom Defaults Manager methods
+  getPerGameSettingsCount: () => ipcRenderer.invoke('customDefaults:getPerGameCount'),
+  getSavedDefaultsList: () => ipcRenderer.invoke('customDefaults:getSavedList'),
+  deleteCustomDefault: (options: { resolution: string; viewMode: string }) => ipcRenderer.invoke('customDefaults:delete', options),
+  validateImportFile: (data: any) => ipcRenderer.invoke('customDefaults:validate', data),
+  exportCustomDefaultsSelective: (options: { resolutions: string[]; viewModes: string[]; includePerGameSettings: boolean; currentResolution: string }) => ipcRenderer.invoke('customDefaults:exportSelective', options),
+  importCustomDefaultsSelective: (options: { data?: any; includePerGameSettings: boolean; mergeStrategy: 'overwrite' | 'keep' }) => ipcRenderer.invoke('customDefaults:importSelective', options),
   // App control methods
   requestExit: () => ipcRenderer.invoke('app:requestExit'),
   exit: () => ipcRenderer.invoke('app:exit'),

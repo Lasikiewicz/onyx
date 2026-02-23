@@ -1086,8 +1086,12 @@ export class UserPreferencesService {
       },
     };
 
-    merged.sections = this.buildReadableSections(merged);
-    merged.currentResolution = fromSections.currentResolution || await this.getCurrentResolution();
+    if (preferences?.sections && Object.keys(preferences.sections).length > 0) {
+      merged.sections = preferences.sections;
+    } else {
+      merged.sections = this.buildReadableSections(merged);
+    }
+    merged.currentResolution = preferences?.currentResolution || fromSections.currentResolution || await this.getCurrentResolution();
 
     return merged;
   }
@@ -1150,7 +1154,23 @@ export class UserPreferencesService {
   async savePreferences(preferences: Partial<UserPreferences>): Promise<void> {
     const store = await this.ensureStore();
     const current = await this.normalizePreferences(store.get('preferences', this.createDefaultPreferences()));
-    const merged = await this.normalizePreferences({ ...current, ...preferences });
+    const baseSections = preferences.sections ?? current.sections;
+    const mergedInput: Partial<UserPreferences> = {
+      ...current,
+      ...preferences,
+      // Only normalize from sections when explicitly provided to avoid overwriting fresh updates.
+      sections: preferences.sections ? preferences.sections : undefined,
+      currentResolution: preferences.currentResolution ?? current.currentResolution,
+    };
+    const merged = await this.normalizePreferences(mergedInput);
+
+    // Update current resolution sections from merged values so UI changes persist
+    const resolutionKey = merged.currentResolution || await this.getCurrentResolution();
+    const rebuiltSections = this.buildReadableSections(merged);
+    merged.sections = {
+      ...(baseSections || {}),
+      [resolutionKey]: rebuiltSections[resolutionKey],
+    };
     
     // Strip duplicate fields before saving to disk (sections are the source of truth)
     const forStorage = this.stripDuplicateFieldsForStorage(merged);
@@ -1225,5 +1245,316 @@ export class UserPreferencesService {
     }
 
     return byResolution[options.viewMode] || null;
+  }
+
+  /**
+   * Get count of per-game settings across all view modes
+   */
+  async getPerGameSettingsCount(): Promise<number> {
+    const preferences = await this.getPreferences();
+    const perGameByView = preferences.perGameViewCustomByView || {};
+    
+    let count = 0;
+    for (const viewMode of ['grid', 'list', 'logo', 'carousel', 'coverflow']) {
+      const gameSettings = perGameByView[viewMode as ViewMode] || {};
+      count += Object.keys(gameSettings).length;
+    }
+    
+    return count;
+  }
+
+  /**
+   * Get list of all saved defaults with metadata
+   */
+  async getSavedDefaultsList(): Promise<Array<{
+    resolution: ResolutionKey;
+    viewMode: ViewMode;
+    lastModified?: string;
+    hasPerGameSettings: boolean;
+  }>> {
+    const customDefaults = await this.getCustomDefaults();
+    const list: Array<{
+      resolution: ResolutionKey;
+      viewMode: ViewMode;
+      lastModified?: string;
+      hasPerGameSettings: boolean;
+    }> = [];
+
+    const resolutions: ResolutionKey[] = ['720p', '1080p', '1440p', '4K'];
+    const viewModes: ViewMode[] = ['grid', 'list', 'logo', 'carousel', 'coverflow'];
+
+    for (const resolution of resolutions) {
+      const byResolution = customDefaults[resolution] || {};
+      for (const viewMode of viewModes) {
+        if (byResolution[viewMode]) {
+          list.push({
+            resolution,
+            viewMode,
+            hasPerGameSettings: false, // TODO: Track per-game settings per resolution/view
+          });
+        }
+      }
+    }
+
+    return list;
+  }
+
+  /**
+   * Delete a specific custom default
+   */
+  async deleteCustomDefault(options: { resolution: ResolutionKey; viewMode: ViewMode }): Promise<void> {
+    const store = await this.ensureStore();
+    const current = this.normalizeCustomDefaults(store.get('customDefaults', {}));
+    
+    const resolutionDefaults = current[options.resolution];
+    if (resolutionDefaults && resolutionDefaults[options.viewMode]) {
+      delete resolutionDefaults[options.viewMode];
+      
+      // Clean up empty resolution objects
+      if (Object.keys(resolutionDefaults).length === 0) {
+        delete current[options.resolution];
+      }
+      
+      store.set('customDefaults', current);
+    }
+  }
+
+  /**
+   * Validate an import file and return metadata about its contents
+   */
+  async validateImportFile(data: any): Promise<{
+    valid: boolean;
+    resolutions?: ResolutionKey[];
+    viewModes?: ViewMode[];
+    perGameSettingsCount?: number;
+    hasConflicts?: boolean;
+    conflictDetails?: Array<{ resolution: ResolutionKey; viewMode: ViewMode }>;
+    error?: string;
+  }> {
+    try {
+      // Check if data has the expected structure
+      const importedCustomDefaults = data?.customDefaults || data;
+      
+      if (!importedCustomDefaults || typeof importedCustomDefaults !== 'object') {
+        return { valid: false, error: 'Invalid file format: missing customDefaults' };
+      }
+
+      const resolutions: ResolutionKey[] = [];
+      const viewModes = new Set<ViewMode>();
+      let perGameSettingsCount = 0;
+      const conflictDetails: Array<{ resolution: ResolutionKey; viewMode: ViewMode }> = [];
+
+      // Parse resolutions and view modes
+      const validResolutions: ResolutionKey[] = ['720p', '1080p', '1440p', '4K'];
+      const validViewModes: ViewMode[] = ['grid', 'list', 'logo', 'carousel', 'coverflow'];
+
+      for (const resolution of validResolutions) {
+        const byResolution = importedCustomDefaults[resolution];
+        if (byResolution && typeof byResolution === 'object') {
+          resolutions.push(resolution);
+          
+          for (const viewMode of validViewModes) {
+            if (byResolution[viewMode]) {
+              viewModes.add(viewMode);
+            }
+          }
+        }
+      }
+
+      // Count per-game settings if present
+      if (data?.perGameViewCustomByView) {
+        for (const viewMode of validViewModes) {
+          const gameSettings = data.perGameViewCustomByView[viewMode] || {};
+          perGameSettingsCount += Object.keys(gameSettings).length;
+        }
+      }
+
+      // Check for conflicts with existing saved defaults
+      const existingDefaults = await this.getCustomDefaults();
+      for (const resolution of resolutions) {
+        const byResolution = importedCustomDefaults[resolution];
+        if (byResolution && existingDefaults[resolution]) {
+          for (const viewMode of validViewModes) {
+            if (byResolution[viewMode] && existingDefaults[resolution][viewMode]) {
+              conflictDetails.push({ resolution, viewMode: viewMode as ViewMode });
+            }
+          }
+        }
+      }
+
+      return {
+        valid: true,
+        resolutions,
+        viewModes: Array.from(viewModes),
+        perGameSettingsCount,
+        hasConflicts: conflictDetails.length > 0,
+        conflictDetails,
+      };
+    } catch (error) {
+      return { valid: false, error: String(error) };
+    }
+  }
+
+  /**
+   * Export custom defaults selectively
+   */
+  async exportCustomDefaultsSelective(options: {
+    resolutions: ResolutionKey[];
+    viewModes: ViewMode[];
+    includePerGameSettings: boolean;
+    currentResolution: ResolutionKey;
+  }): Promise<{
+    customDefaults: Partial<CustomDefaultsByResolution>;
+    perGameViewCustomByView?: any;
+  }> {
+    const preferences = await this.getPreferences();
+    const allCustomDefaults = await this.getCustomDefaults();
+    const exportData: Partial<CustomDefaultsByResolution> = {};
+
+    const viewSectionKey: Record<ViewMode, 'gridView' | 'listView' | 'logoView' | 'carouselView' | 'coverflowView'> = {
+      grid: 'gridView',
+      list: 'listView',
+      logo: 'logoView',
+      carousel: 'carouselView',
+      coverflow: 'coverflowView',
+    };
+
+    // Export selected resolutions and view modes
+    for (const resolution of options.resolutions) {
+      const filteredByView: Partial<Record<ViewMode, Record<string, any>>> = {};
+      const sectionByResolution = preferences.sections?.[resolution];
+      const defaultsByResolution = allCustomDefaults[resolution] || {};
+
+      for (const viewMode of options.viewModes) {
+        const sectionKey = viewSectionKey[viewMode];
+        const section = sectionByResolution?.[sectionKey] as { settings?: Record<string, any> } | undefined;
+        const sectionSettings = section?.settings;
+
+        if (sectionSettings && typeof sectionSettings === 'object') {
+          filteredByView[viewMode] = sectionSettings;
+        } else if (defaultsByResolution[viewMode]) {
+          filteredByView[viewMode] = defaultsByResolution[viewMode] as Record<string, any>;
+        }
+      }
+
+      if (Object.keys(filteredByView).length > 0) {
+        exportData[resolution] = filteredByView;
+      }
+    }
+
+    // Include per-game settings if requested
+    let perGameSettings: any = undefined;
+    if (options.includePerGameSettings) {
+      perGameSettings = preferences.perGameViewCustomByView || {};
+    }
+
+    return {
+      customDefaults: exportData,
+      ...(perGameSettings && { perGameViewCustomByView: perGameSettings }),
+    };
+  }
+
+  /**
+   * Import custom defaults selectively
+   */
+  async importCustomDefaultsSelective(options: {
+    data: any;
+    includePerGameSettings: boolean;
+    mergeStrategy: 'overwrite' | 'keep';
+  }): Promise<void> {
+    const store = await this.ensureStore();
+    const importedCustomDefaults = options.data?.customDefaults || options.data;
+    
+    if (!importedCustomDefaults || typeof importedCustomDefaults !== 'object') {
+      throw new Error('Invalid import data format');
+    }
+
+    const current = this.normalizeCustomDefaults(store.get('customDefaults', {}));
+    const merged = { ...current };
+    const currentPreferences = await this.getPreferences();
+
+    const viewSectionKey: Record<ViewMode, 'gridView' | 'listView' | 'logoView' | 'carouselView' | 'coverflowView'> = {
+      grid: 'gridView',
+      list: 'listView',
+      logo: 'logoView',
+      carousel: 'carouselView',
+      coverflow: 'coverflowView',
+    };
+
+    // Merge custom defaults based on strategy
+    const validResolutions: ResolutionKey[] = ['720p', '1080p', '1440p', '4K'];
+    const validViewModes: ViewMode[] = ['grid', 'list', 'logo', 'carousel', 'coverflow'];
+
+    const mergedSections: NonNullable<UserPreferences['sections']> = {
+      ...(currentPreferences.sections || {}),
+    } as NonNullable<UserPreferences['sections']>;
+
+    for (const resolution of validResolutions) {
+      const importedByResolution = importedCustomDefaults[resolution];
+      if (importedByResolution && typeof importedByResolution === 'object') {
+        if (!merged[resolution]) {
+          merged[resolution] = {};
+        }
+
+        const existingResolutionSections = (mergedSections[resolution] || {}) as NonNullable<UserPreferences['sections']>[ResolutionKey];
+
+        for (const viewMode of validViewModes) {
+          const importedViewSettings = importedByResolution[viewMode];
+          if (importedViewSettings) {
+            if (options.mergeStrategy === 'overwrite' || !merged[resolution][viewMode]) {
+              merged[resolution][viewMode] = importedViewSettings;
+            }
+
+            const sectionKey = viewSectionKey[viewMode];
+            const existingSection = (existingResolutionSections as any)[sectionKey] || {};
+            const existingSettings = existingSection.settings;
+
+            if (options.mergeStrategy === 'overwrite' || !existingSettings) {
+              (existingResolutionSections as any)[sectionKey] = {
+                ...existingSection,
+                settings: importedViewSettings,
+              };
+            }
+          }
+        }
+
+        mergedSections[resolution] = existingResolutionSections as NonNullable<UserPreferences['sections']>[ResolutionKey];
+      }
+    }
+
+    store.set('customDefaults', merged);
+
+    // Import per-game settings if requested
+    if (options.includePerGameSettings && options.data?.perGameViewCustomByView) {
+      const importedPerGame = options.data.perGameViewCustomByView;
+      
+      const mergedPerGame = {
+        ...currentPreferences.perGameViewCustomByView,
+      };
+
+      for (const viewMode of validViewModes) {
+        if (importedPerGame[viewMode]) {
+          if (options.mergeStrategy === 'overwrite') {
+            mergedPerGame[viewMode] = {
+              ...mergedPerGame[viewMode],
+              ...importedPerGame[viewMode],
+            };
+          } else {
+            // Keep existing, only add new games
+            mergedPerGame[viewMode] = {
+              ...importedPerGame[viewMode],
+              ...mergedPerGame[viewMode],
+            };
+          }
+        }
+      }
+
+      await this.savePreferences({
+        sections: mergedSections,
+        perGameViewCustomByView: mergedPerGame,
+      });
+    } else {
+      await this.savePreferences({ sections: mergedSections });
+    }
   }
 }

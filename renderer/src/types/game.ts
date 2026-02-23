@@ -240,6 +240,7 @@ export interface UserPreferences {
   coverFlowShowButtons?: boolean;
   coverFlowButtonPosition?: 'left' | 'middle' | 'right';
   coverFlowButtonColors?: { playColor?: string; editColor?: string; modManagerColor?: string };
+  currentResolution?: '720p' | '1080p' | '1440p' | '4K';
 }
 
 export type UpdateStatus = 'checking' | 'available' | 'not-available' | 'downloading' | 'downloaded' | 'error';
@@ -384,6 +385,13 @@ declare global {
       exportCustomDefaults?: (options: { viewMode: string; scope: string; resolution?: string; overrideSettings?: any }) => Promise<{ success: boolean; filePath?: string; cancelled?: boolean; error?: string }>;
       importCustomDefaults?: () => Promise<{ success: boolean; data?: any; cancelled?: boolean; error?: string }>;
       getBaselineDefaults?: () => Promise<any>;
+      // New Custom Defaults Manager methods
+      getPerGameSettingsCount?: () => Promise<number>;
+      getSavedDefaultsList?: () => Promise<Array<{ resolution: string; viewMode: string; lastModified: string; hasPerGameSettings: boolean }>>;
+      deleteCustomDefault?: (options: { resolution: string; viewMode: string }) => Promise<{ success: boolean; error?: string }>;
+      validateImportFile?: (data: any) => Promise<{ valid: boolean; resolutions: string[]; viewModes: string[]; perGameSettingsCount: number; hasConflicts: boolean; conflictDetails: Array<{ resolution: string; viewMode: string }>; error?: string }>;
+      exportCustomDefaultsSelective?: (options: { resolutions: string[]; viewModes: string[]; includePerGameSettings: boolean; currentResolution: string }) => Promise<{ success: boolean; filePath?: string; cancelled?: boolean; error?: string }>;
+      importCustomDefaultsSelective?: (options: { data?: any; includePerGameSettings: boolean; mergeStrategy: 'overwrite' | 'keep' }) => Promise<{ success: boolean; cancelled?: boolean; error?: string }>;
     };
   }
 }
