@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import type { Game } from '../types/game';
 import { CustomDefaultsModal } from './CustomDefaultsModal';
 import { ConfirmationDialog } from './ConfirmationDialog';
+import { MenuSliderRow } from './MenuSliderRow';
 
 interface RightClickMenuProps {
   x: number;
@@ -752,6 +753,110 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
   const sizeRange = getSizeRange();
   const paddingRange = getPaddingRange();
 
+  const sliderDefaults = {
+    gridSize: 120,
+    logoSize: 100,
+    listSize: 128,
+    detailsBarSize: 14,
+    selectedBoxArtSize: 25,
+    gameTilePadding: 3,
+    backgroundBlur: 40,
+    backgroundBrightnessPercent: 30,
+    carouselLogoSize: 100,
+    carouselDescriptionSize: 18,
+    carouselButtonSize: 14,
+    categoriesTopSize: 12,
+    logoBackgroundOpacity: 100,
+    listTileHeight: 128,
+    listBoxartSize: 96,
+    listLogoSize: 96,
+    listTitleTextSize: 18,
+    listSectionTextSize: 14,
+    panelWidth: 800,
+    fanartHeight: 320,
+    descriptionWidth: 50,
+    perGameLogoSize: 100,
+    rightPanelBoxartSize: 120,
+    rightPanelTextSize: 14,
+    rightPanelButtonSize: 14,
+    detailsPanelOpacity: 80,
+    coverFlowCoverSize: 300,
+    coverFlowReflection: 60,
+    coverFlowVerticalOffset: 0,
+    coverFlowSideOpacity: 100,
+  };
+
+  const defaultButtonColors = {
+    playColor: '#0ea5e9',
+    editColor: '#6b7280',
+    modManagerColor: '#a855f7',
+  };
+
+  const resolveButtonColors = (colors?: { playColor?: string; editColor?: string; modManagerColor?: string }) => ({
+    playColor: colors?.playColor || defaultButtonColors.playColor,
+    editColor: colors?.editColor || defaultButtonColors.editColor,
+    modManagerColor: colors?.modManagerColor || defaultButtonColors.modManagerColor,
+  });
+
+  const renderButtonColorsEditor = ({
+    title,
+    colors,
+    onChange,
+    onReset,
+    containerClassName = 'px-3 py-2 bg-gray-700/30 rounded-md',
+  }: {
+    title: string;
+    colors?: { playColor?: string; editColor?: string; modManagerColor?: string };
+    onChange?: (colors: { playColor?: string; editColor?: string; modManagerColor?: string }) => void;
+    onReset?: () => void;
+    containerClassName?: string;
+  }) => {
+    const resolvedColors = resolveButtonColors(colors);
+    const colorItems: Array<{
+      key: 'playColor' | 'editColor' | 'modManagerColor';
+      label: string;
+      title: string;
+    }> = [
+        { key: 'playColor', label: 'Play', title: 'Play button color' },
+        { key: 'editColor', label: 'Edit', title: 'Edit button color' },
+        { key: 'modManagerColor', label: 'Mod Mgr', title: 'Mod Manager button color' },
+      ];
+
+    return (
+      <div className={containerClassName}>
+        <div className="flex items-center justify-between mb-2">
+          <label className="block text-xs text-gray-400 font-semibold">{title}</label>
+          {onReset && (
+            <button
+              onClick={onReset}
+              className="px-2 py-1 text-xs rounded bg-gray-600 hover:bg-gray-500 text-gray-300 border border-gray-500 transition-colors"
+              title="Reset to defaults"
+            >
+              Reset
+            </button>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          {colorItems.map((item) => (
+            <div key={item.key} className="flex-1 min-w-0 flex items-center justify-between gap-2">
+              <div className="text-[11px] text-gray-300">{item.label}</div>
+              <input
+                type="color"
+                value={resolvedColors[item.key]}
+                onChange={(e) => onChange?.({
+                  ...resolvedColors,
+                  [item.key]: e.target.value,
+                })}
+                className="color-chip-input w-7 h-5 rounded cursor-pointer"
+                title={item.title}
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
   const handleShowCarouselDetailsToggle = () => {
     onShowCarouselDetailsChange?.(!showCarouselDetails);
   };
@@ -818,93 +923,114 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
         minWidth: viewMode === 'list' ? '900px' : '620px'
       }}
     >
+      {/* Top Action Row */}
+      <div className="px-3 pt-2 pb-1">
+        <div className="flex items-center justify-between">
+          <div>
+            {viewMode !== 'coverflow' && (
+              <button
+                onClick={() => {
+                  onViewFlipChange?.(!isViewFlipped);
+                  onClose();
+                }}
+                className="px-2 py-1 text-[11px] rounded transition-colors bg-gray-700 text-gray-300 hover:bg-gray-600 border border-gray-600 font-medium flex items-center gap-1"
+                title={viewMode === 'carousel' ? 'Flip the view - swap carousel and details sections' : 'Flip the view - swap left and right sections'}
+              >
+                <svg className="w-3 h-3 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                </svg>
+                Flip View
+              </button>
+            )}
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={handleResetToDefaults}
+              className="px-2 py-1 text-[11px] rounded transition-colors bg-gray-700 text-gray-300 hover:bg-gray-600 border border-gray-600 font-medium"
+              title="Reset view settings to defaults for your resolution"
+            >
+              Reset
+            </button>
+            <button
+              onClick={handleOpenCustomDefaultsModal}
+              className="px-2 py-1 text-[11px] rounded transition-colors bg-blue-700 text-gray-300 hover:bg-blue-600 border border-blue-600 font-medium"
+              title="Save or restore your custom defaults"
+            >
+              Defaults
+            </button>
+          </div>
+        </div>
+      </div>
+
       {/* View Mode Toggle Buttons - Single Row */}
-      <div className="px-3 py-3 grid grid-cols-5 gap-2">
+      <div className="px-3 py-1 grid grid-cols-5 gap-1.5">
         <button
           onClick={() => handleViewModeChange('grid')}
-          className={`px-3 py-2 text-sm rounded transition-colors flex flex-col items-center gap-1 font-medium ${viewMode === 'grid'
+          className={`px-2 py-1.5 text-xs rounded transition-colors flex flex-col items-center gap-0.5 font-medium ${viewMode === 'grid'
             ? 'bg-blue-600/40 text-white border border-blue-500'
             : 'bg-gray-700 text-gray-300 hover:bg-gray-600 border border-gray-600'
             }`}
           title="Grid View"
         >
-          <svg className="w-5 h-5 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-4 h-4 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
           </svg>
           Grid
         </button>
         <button
           onClick={() => handleViewModeChange('list')}
-          className={`px-3 py-2 text-sm rounded transition-colors flex flex-col items-center gap-1 font-medium ${viewMode === 'list'
+          className={`px-2 py-1.5 text-xs rounded transition-colors flex flex-col items-center gap-0.5 font-medium ${viewMode === 'list'
             ? 'bg-blue-600/40 text-white border border-blue-500'
             : 'bg-gray-700 text-gray-300 hover:bg-gray-600 border border-gray-600'
             }`}
           title="List View"
         >
-          <svg className="w-5 h-5 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-4 h-4 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
           </svg>
           List
         </button>
         <button
           onClick={() => handleViewModeChange('logo')}
-          className={`px-3 py-2 text-sm rounded transition-colors flex flex-col items-center gap-1 font-medium ${viewMode === 'logo'
+          className={`px-2 py-1.5 text-xs rounded transition-colors flex flex-col items-center gap-0.5 font-medium ${viewMode === 'logo'
             ? 'bg-blue-600/40 text-white border border-blue-500'
             : 'bg-gray-700 text-gray-300 hover:bg-gray-600 border border-gray-600'
             }`}
           title="Logo View"
         >
-          <svg className="w-5 h-5 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-4 h-4 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
           </svg>
           Logo
         </button>
         <button
           onClick={() => handleViewModeChange('carousel')}
-          className={`px-3 py-2 text-sm rounded transition-colors flex flex-col items-center gap-1 font-medium ${viewMode === 'carousel'
+          className={`px-2 py-1.5 text-xs rounded transition-colors flex flex-col items-center gap-0.5 font-medium ${viewMode === 'carousel'
             ? 'bg-blue-600/40 text-white border border-blue-500'
             : 'bg-gray-700 text-gray-300 hover:bg-gray-600 border border-gray-600'
             }`}
           title="Carousel View"
         >
-          <svg className="w-5 h-5 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-4 h-4 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
           </svg>
           Carousel
         </button>
         <button
           onClick={() => handleViewModeChange('coverflow')}
-          className={`px-3 py-2 text-sm rounded transition-colors flex flex-col items-center gap-1 font-medium ${viewMode === 'coverflow'
+          className={`px-2 py-1.5 text-xs rounded transition-colors flex flex-col items-center gap-0.5 font-medium ${viewMode === 'coverflow'
             ? 'bg-blue-600/40 text-white border border-blue-500'
             : 'bg-gray-700 text-gray-300 hover:bg-gray-600 border border-gray-600'
             }`}
           title="Cover Flow View"
         >
-          <svg className="w-5 h-5 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-4 h-4 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h3v12H4V6zM10.5 4h3v16h-3V4zM17 6h3v12h-3V6z" />
           </svg>
           Cover Flow
         </button>
       </div>
-
-      {/* Flip View Option - not shown in Cover Flow */}
-      {viewMode !== 'coverflow' && (
-        <div className="px-3 py-2 border-t border-gray-700">
-          <button
-            onClick={() => {
-              onViewFlipChange?.(!isViewFlipped);
-              onClose();
-            }}
-            className="w-full px-4 py-2 text-sm rounded transition-colors bg-gray-700 text-gray-300 hover:bg-gray-600 border border-gray-600 font-medium flex items-center justify-center gap-2"
-            title={viewMode === 'carousel' ? 'Flip the view - swap carousel and details sections' : 'Flip the view - swap left and right sections'}
-          >
-            <svg className="w-4 h-4 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-            </svg>
-            Flip View
-          </button>
-        </div>
-      )}
 
       {/* Carousel Settings - in two columns */}
       {viewMode === 'carousel' && (
@@ -937,99 +1063,89 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                   {/* Details Bar Size - only show when details are enabled */}
                   {showCarouselDetails && onDetailsBarSizeChange && (
                     <>
-                      <label className="block text-xs text-gray-400 mb-1 font-semibold">Details Bar Size</label>
-                      <input
-                        type="range"
-                        min="10"
-                        max="24"
-                        step="1"
+                      <MenuSliderRow
+                        label="Details Bar Size"
+                        min={10}
+                        max={24}
+                        step={1}
                         value={detailsBarSize}
-                        onChange={(e) => onDetailsBarSizeChange(Number(e.target.value))}
-                        className="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer slider accent-blue-600"
+                        defaultValue={sliderDefaults.detailsBarSize}
+                        onChange={onDetailsBarSizeChange}
+                        onReset={() => onDetailsBarSizeChange(sliderDefaults.detailsBarSize)}
+                        formatValue={(value) => `${value}px`}
+                        minLabel="10px"
+                        maxLabel="24px"
                       />
-                      <div className="flex justify-between text-xs text-gray-500 mt-1">
-                        <span>10px</span>
-                        <span className="font-medium text-gray-300">{detailsBarSize}px</span>
-                        <span>24px</span>
-                      </div>
                     </>
                   )}
                 </div>
 
                 {/* Selected Box Art Size */}
                 <div className="px-3 py-2 bg-gray-700/30 rounded-md">
-                  <label className="block text-xs text-gray-400 mb-1 font-semibold">Selected Box Art Size</label>
-                  <input
-                    type="range"
-                    min="5"
-                    max="30"
-                    step="0.5"
+                  <MenuSliderRow
+                    label="Selected Box Art Size"
+                    min={5}
+                    max={30}
+                    step={0.5}
                     value={selectedBoxArtSize}
-                    onChange={(e) => onSelectedBoxArtSizeChange?.(Number(e.target.value))}
-                    className="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer slider accent-blue-600"
+                    defaultValue={sliderDefaults.selectedBoxArtSize}
+                    onChange={(value) => onSelectedBoxArtSizeChange?.(value)}
+                    onReset={() => onSelectedBoxArtSizeChange?.(sliderDefaults.selectedBoxArtSize)}
+                    formatValue={(value) => `${value}vw`}
+                    minLabel="5vw"
+                    maxLabel="30vw"
                   />
-                  <div className="flex justify-between text-xs text-gray-500 mt-1">
-                    <span>5vw</span>
-                    <span className="font-medium text-gray-300">{selectedBoxArtSize}vw</span>
-                    <span>30vw</span>
-                  </div>
                 </div>
 
                 {/* Game Tile Padding - for Carousel */}
                 <div className="px-3 py-2 bg-gray-700/30 rounded-md">
-                  <label className="block text-xs text-gray-400 mb-1 font-semibold">Game Tile Padding</label>
-                  <input
-                    type="range"
-                    min="0"
-                    max="3"
-                    step="1"
+                  <MenuSliderRow
+                    label="Game Tile Padding"
+                    min={0}
+                    max={3}
+                    step={1}
                     value={gameTilePadding}
-                    onChange={(e) => onGameTilePaddingChange?.(Number(e.target.value))}
-                    className="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer slider accent-blue-600"
+                    defaultValue={sliderDefaults.gameTilePadding}
+                    onChange={(value) => onGameTilePaddingChange?.(value)}
+                    onReset={() => onGameTilePaddingChange?.(sliderDefaults.gameTilePadding)}
+                    formatValue={(value) => `${value}px`}
+                    minLabel="0px"
+                    maxLabel="3px"
                   />
-                  <div className="flex justify-between text-xs text-gray-500 mt-1">
-                    <span>0px</span>
-                    <span className="font-medium text-gray-300">{gameTilePadding}px</span>
-                    <span>3px</span>
-                  </div>
                 </div>
 
                 {/* Background Blur Amount - for Carousel */}
                 <div className="px-3 py-2 bg-gray-700/30 rounded-md">
-                  <label className="block text-xs text-gray-400 mb-1 font-semibold">Background Blur Amount</label>
-                  <input
-                    type="range"
-                    min="0"
-                    max="100"
-                    step="1"
+                  <MenuSliderRow
+                    label="Background Blur Amount"
+                    min={0}
+                    max={100}
+                    step={1}
                     value={backgroundBlur}
-                    onChange={(e) => onBackgroundBlurChange?.(Number(e.target.value))}
-                    className="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer slider accent-blue-600"
+                    defaultValue={0}
+                    onChange={(value) => onBackgroundBlurChange?.(value)}
+                    onReset={() => onBackgroundBlurChange?.(0)}
+                    formatValue={(value) => `${value}px`}
+                    minLabel="0px"
+                    maxLabel="100px"
                   />
-                  <div className="flex justify-between text-xs text-gray-500 mt-1">
-                    <span>0px</span>
-                    <span className="font-medium text-gray-300">{backgroundBlur}px</span>
-                    <span>100px</span>
-                  </div>
                 </div>
 
                 {/* Background Brightness - for Carousel */}
                 <div className="px-3 py-2 bg-gray-700/30 rounded-md">
-                  <label className="block text-xs text-gray-400 mb-1 font-semibold">Background Brightness</label>
-                  <input
-                    type="range"
-                    min="0"
-                    max="100"
-                    step="1"
+                  <MenuSliderRow
+                    label="Background Brightness"
+                    min={0}
+                    max={100}
+                    step={1}
                     value={Math.round(backgroundBrightness * 100)}
-                    onChange={(e) => onBackgroundBrightnessChange?.(Number(e.target.value) / 100)}
-                    className="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer slider accent-blue-600"
+                    defaultValue={sliderDefaults.backgroundBrightnessPercent}
+                    onChange={(value) => onBackgroundBrightnessChange?.(value / 100)}
+                    onReset={() => onBackgroundBrightnessChange?.(sliderDefaults.backgroundBrightnessPercent / 100)}
+                    formatValue={(value) => `${value}%`}
+                    minLabel="0%"
+                    maxLabel="100%"
                   />
-                  <div className="flex justify-between text-xs text-gray-500 mt-1">
-                    <span>0%</span>
-                    <span className="font-medium text-gray-300">{Math.round(backgroundBrightness * 100)}%</span>
-                    <span>100%</span>
-                  </div>
                 </div>
               </div>
 
@@ -1038,21 +1154,20 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                 {/* Per-Game Logo Size Control for Carousel */}
                 {activeGame && (
                   <div className="px-3 py-2 bg-gray-700/30 rounded-md">
-                    <label className="block text-xs text-gray-400 mb-2 font-semibold">Game Logo Size</label>
-                    <input
-                      type="range"
-                      min="50"
-                      max="600"
-                      step="5"
+                    <MenuSliderRow
+                      label="Game Logo Size"
+                      min={50}
+                      max={600}
+                      step={5}
                       value={localLogoSizes.carousel}
-                      onChange={(e) => handlePerGameLogoSizeChange('carousel', Number(e.target.value))}
-                      className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider accent-blue-600"
+                      defaultValue={sliderDefaults.perGameLogoSize}
+                      onChange={(value) => handlePerGameLogoSizeChange('carousel', value)}
+                      onReset={() => handlePerGameLogoSizeChange('carousel', sliderDefaults.perGameLogoSize)}
+                      formatValue={(value) => `${value}px`}
+                      minLabel="50px"
+                      maxLabel="600px"
+                      sliderClassName="h-2"
                     />
-                    <div className="flex justify-between text-xs text-gray-500 mt-1">
-                      <span>50px</span>
-                      <span className="font-medium text-gray-300">{localLogoSizes.carousel}px</span>
-                      <span>600px</span>
-                    </div>
                   </div>
                 )}
 
@@ -1076,21 +1191,19 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                   {/* Logo Size - only show when logos are enabled AND no per-game override */}
                   {showCarouselLogos && !activeGame && onCarouselLogoSizeChange && (
                     <>
-                      <label className="block text-xs text-gray-400 mb-1 font-semibold">Logo Size</label>
-                      <input
-                        type="range"
-                        min="50"
-                        max="600"
-                        step="5"
+                      <MenuSliderRow
+                        label="Logo Size"
+                        min={50}
+                        max={600}
+                        step={5}
                         value={carouselLogoSize}
-                        onChange={(e) => onCarouselLogoSizeChange(Number(e.target.value))}
-                        className="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer slider accent-blue-600"
+                        defaultValue={sliderDefaults.carouselLogoSize}
+                        onChange={onCarouselLogoSizeChange}
+                        onReset={() => onCarouselLogoSizeChange(sliderDefaults.carouselLogoSize)}
+                        formatValue={(value) => `${value}px`}
+                        minLabel="50px"
+                        maxLabel="600px"
                       />
-                      <div className="flex justify-between text-xs text-gray-500 mt-1">
-                        <span>50px</span>
-                        <span className="font-medium text-gray-300">{carouselLogoSize}px</span>
-                        <span>600px</span>
-                      </div>
                     </>
                   )}
 
@@ -1118,21 +1231,19 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
 
                 {/* Description Text Size */}
                 <div className="px-3 py-2 bg-gray-700/30 rounded-md">
-                  <label className="block text-xs text-gray-400 mb-1 font-semibold">Description Text Size</label>
-                  <input
-                    type="range"
-                    min="12"
-                    max="28"
-                    step="1"
+                  <MenuSliderRow
+                    label="Description Text Size"
+                    min={12}
+                    max={28}
+                    step={1}
                     value={carouselDescriptionSize}
-                    onChange={(e) => onCarouselDescriptionSizeChange?.(Number(e.target.value))}
-                    className="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer slider accent-blue-600"
+                    defaultValue={sliderDefaults.carouselDescriptionSize}
+                    onChange={(value) => onCarouselDescriptionSizeChange?.(value)}
+                    onReset={() => onCarouselDescriptionSizeChange?.(sliderDefaults.carouselDescriptionSize)}
+                    formatValue={(value) => `${value}px`}
+                    minLabel="12px"
+                    maxLabel="28px"
                   />
-                  <div className="flex justify-between text-xs text-gray-500 mt-1">
-                    <span>12px</span>
-                    <span className="font-medium text-gray-300">{carouselDescriptionSize}px</span>
-                    <span>28px</span>
-                  </div>
                 </div>
 
                 {/* Description Text Alignment */}
@@ -1156,72 +1267,31 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
 
                 {/* Button Size */}
                 <div className="px-3 py-2 bg-gray-700/30 rounded-md">
-                  <label className="block text-xs text-gray-400 mb-1 font-semibold">Button Size</label>
-                  <input
-                    type="range"
-                    min="10"
-                    max="24"
-                    step="1"
+                  <MenuSliderRow
+                    label="Button Size"
+                    min={10}
+                    max={24}
+                    step={1}
                     value={carouselButtonSize}
-                    onChange={(e) => onCarouselButtonSizeChange?.(Number(e.target.value))}
-                    className="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer slider accent-blue-600"
+                    defaultValue={sliderDefaults.carouselButtonSize}
+                    onChange={(value) => onCarouselButtonSizeChange?.(value)}
+                    onReset={() => onCarouselButtonSizeChange?.(sliderDefaults.carouselButtonSize)}
+                    formatValue={(value) => `${value}px`}
+                    minLabel="10px"
+                    maxLabel="24px"
                   />
-                  <div className="flex justify-between text-xs text-gray-500 mt-1">
-                    <span>10px</span>
-                    <span className="font-medium text-gray-300">{carouselButtonSize}px</span>
-                    <span>24px</span>
-                  </div>
                 </div>
 
                 {/* Button Colors */}
-                <div className="px-3 py-2 bg-gray-700/30 rounded-md">
-                  <label className="block text-xs text-gray-400 mb-2 font-semibold">Button Colors</label>
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <label className="text-xs text-gray-300 w-12">Play:</label>
-                      <input
-                        type="color"
-                        value={carouselButtonColors?.playColor || '#0ea5e9'}
-                        onChange={(e) => onCarouselButtonColorsChange?.({ ...carouselButtonColors, playColor: e.target.value })}
-                        className="w-12 h-8 rounded cursor-pointer"
-                        title="Play button color"
-                      />
-                      <span className="text-xs text-gray-400">{carouselButtonColors?.playColor || '#0ea5e9'}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <label className="text-xs text-gray-300 w-12">Edit:</label>
-                      <input
-                        type="color"
-                        value={carouselButtonColors?.editColor || '#6b7280'}
-                        onChange={(e) => onCarouselButtonColorsChange?.({ ...carouselButtonColors, editColor: e.target.value })}
-                        className="w-12 h-8 rounded cursor-pointer"
-                        title="Edit button color"
-                      />
-                      <span className="text-xs text-gray-400">{carouselButtonColors?.editColor || '#6b7280'}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <label className="text-xs text-gray-300 w-16">Mod Mgr:</label>
-                      <input
-                        type="color"
-                        value={carouselButtonColors?.modManagerColor || '#a855f7'}
-                        onChange={(e) => onCarouselButtonColorsChange?.({ ...carouselButtonColors, modManagerColor: e.target.value })}
-                        className="w-12 h-8 rounded cursor-pointer"
-                        title="Mod Manager button color"
-                      />
-                      <span className="text-xs text-gray-400">{carouselButtonColors?.modManagerColor || '#a855f7'}</span>
-                    </div>
-                    <button
-                      onClick={() => {
-                        const defaults = { playColor: '#0ea5e9', editColor: '#6b7280', modManagerColor: '#a855f7' };
-                        onCarouselButtonColorsChange?.(defaults);
-                        window.electronAPI.savePreferences({ carouselButtonColors: defaults });
-                      }}
-                      className="w-full px-2 py-1 text-xs bg-gray-600 hover:bg-gray-500 text-white rounded transition-colors"
-                    >
-                      Reset
-                    </button>
-                  </div>
-                </div>
+                {renderButtonColorsEditor({
+                  title: 'Button Colors',
+                  colors: carouselButtonColors,
+                  onChange: onCarouselButtonColorsChange,
+                  onReset: () => {
+                    onCarouselButtonColorsChange?.(defaultButtonColors);
+                    window.electronAPI.savePreferences({ carouselButtonColors: defaultButtonColors });
+                  },
+                })}
 
                 {/* Button Alignment */}
                 <div className="px-3 py-2 bg-gray-700/30 rounded-md">
@@ -1252,101 +1322,92 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
         <div className="px-2 py-2 space-y-3">
           {onCoverFlowCoverSizeChange && (
             <div className="px-3 py-2 bg-gray-700/30 rounded-md">
-              <label className="block text-xs text-gray-400 mb-1 font-semibold">Boxart size</label>
-              <input
-                type="range"
-                min="150"
-                max="450"
-                step="10"
+              <MenuSliderRow
+                label="Boxart size"
+                min={150}
+                max={450}
+                step={10}
                 value={coverFlowCoverSize}
-                onChange={(e) => onCoverFlowCoverSizeChange(Number(e.target.value))}
-                className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider accent-blue-600"
+                defaultValue={sliderDefaults.coverFlowCoverSize}
+                onChange={onCoverFlowCoverSizeChange}
+                onReset={() => onCoverFlowCoverSizeChange(sliderDefaults.coverFlowCoverSize)}
+                formatValue={(value) => `${value}px`}
+                minLabel="150px"
+                maxLabel="450px"
+                sliderClassName="h-2"
               />
-              <div className="flex justify-between text-xs text-gray-500 mt-1">
-                <span>150px</span>
-                <span className="font-medium text-gray-300">{coverFlowCoverSize}px</span>
-                <span>450px</span>
-              </div>
             </div>
           )}
           {onCoverFlowReflectionChange && (
             <div className="px-3 py-2 bg-gray-700/30 rounded-md">
-              <label className="block text-xs text-gray-400 mb-1 font-semibold">Reflection transparency</label>
-              <input
-                type="range"
-                min="0"
-                max="100"
-                step="5"
+              <MenuSliderRow
+                label="Reflection transparency"
+                min={0}
+                max={100}
+                step={5}
                 value={coverFlowReflection}
-                onChange={(e) => onCoverFlowReflectionChange(Number(e.target.value))}
-                className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider accent-blue-600"
+                defaultValue={sliderDefaults.coverFlowReflection}
+                onChange={onCoverFlowReflectionChange}
+                onReset={() => onCoverFlowReflectionChange(sliderDefaults.coverFlowReflection)}
+                formatValue={(value) => `${value}%`}
+                minLabel="0%"
+                maxLabel="100%"
+                sliderClassName="h-2"
               />
-              <div className="flex justify-between text-xs text-gray-500 mt-1">
-                <span>0%</span>
-                <span className="font-medium text-gray-300">{coverFlowReflection}%</span>
-                <span>100%</span>
-              </div>
             </div>
           )}
           {onCoverFlowVerticalOffsetChange && (
             <div className="px-3 py-2 bg-gray-700/30 rounded-md">
-              <label className="block text-xs text-gray-400 mb-1 font-semibold">Boxart vertical position</label>
-              <input
-                type="range"
-                min="-500"
-                max="500"
-                step="5"
+              <MenuSliderRow
+                label="Boxart vertical position"
+                min={-500}
+                max={500}
+                step={5}
                 value={coverFlowVerticalOffset}
-                onChange={(e) => onCoverFlowVerticalOffsetChange(Number(e.target.value))}
-                className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider accent-blue-600"
+                defaultValue={sliderDefaults.coverFlowVerticalOffset}
+                onChange={onCoverFlowVerticalOffsetChange}
+                onReset={() => onCoverFlowVerticalOffsetChange(sliderDefaults.coverFlowVerticalOffset)}
+                formatValue={(value) => value > 0 ? `+${value}px` : `${value}px`}
+                minLabel="-500px"
+                maxLabel="500px"
+                sliderClassName="h-2"
               />
-              <div className="flex justify-between text-xs text-gray-500 mt-1">
-                <span>{coverFlowVerticalOffset > 0 ? `+${coverFlowVerticalOffset}px` : `${coverFlowVerticalOffset}px`}</span>
-                <button
-                  onClick={() => onCoverFlowVerticalOffsetChange(0)}
-                  className="text-blue-400 hover:text-blue-300 transition-colors cursor-pointer"
-                >
-                  Reset
-                </button>
-              </div>
             </div>
           )}
           {onCoverFlowSideOpacityChange && (
             <div className="px-3 py-2 bg-gray-700/30 rounded-md">
-              <label className="block text-xs text-gray-400 mb-1 font-semibold">Side boxart opacity</label>
-              <input
-                type="range"
-                min="0"
-                max="100"
-                step="5"
+              <MenuSliderRow
+                label="Side boxart opacity"
+                min={0}
+                max={100}
+                step={5}
                 value={coverFlowSideOpacity}
-                onChange={(e) => onCoverFlowSideOpacityChange(Number(e.target.value))}
-                className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider accent-blue-600"
+                defaultValue={sliderDefaults.coverFlowSideOpacity}
+                onChange={onCoverFlowSideOpacityChange}
+                onReset={() => onCoverFlowSideOpacityChange(sliderDefaults.coverFlowSideOpacity)}
+                formatValue={(value) => `${value}%`}
+                minLabel="0%"
+                maxLabel="100%"
+                sliderClassName="h-2"
               />
-              <div className="flex justify-between text-xs text-gray-500 mt-1">
-                <span>0%</span>
-                <span className="font-medium text-gray-300">{coverFlowSideOpacity}%</span>
-                <span>100%</span>
-              </div>
             </div>
           )}
           {onBackgroundBrightnessChange && (
             <div className="px-3 py-2 bg-gray-700/30 rounded-md">
-              <label className="block text-xs text-gray-400 mb-1 font-semibold">Background brightness</label>
-              <input
-                type="range"
-                min="0"
-                max="100"
-                step="5"
+              <MenuSliderRow
+                label="Background brightness"
+                min={0}
+                max={100}
+                step={5}
                 value={Math.round((backgroundBrightness ?? 0) * 100)}
-                onChange={(e) => onBackgroundBrightnessChange(Number(e.target.value) / 100)}
-                className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider accent-blue-600"
+                defaultValue={sliderDefaults.backgroundBrightnessPercent}
+                onChange={(value) => onBackgroundBrightnessChange(value / 100)}
+                onReset={() => onBackgroundBrightnessChange(sliderDefaults.backgroundBrightnessPercent / 100)}
+                formatValue={(value) => `${value}%`}
+                minLabel="0%"
+                maxLabel="100%"
+                sliderClassName="h-2"
               />
-              <div className="flex justify-between text-xs text-gray-500 mt-1">
-                <span>0%</span>
-                <span className="font-medium text-gray-300">{Math.round((backgroundBrightness ?? 0) * 100)}%</span>
-                <span>100%</span>
-              </div>
             </div>
           )}
           <div className="px-3 py-2 bg-gray-700/30 rounded-md space-y-3">
@@ -1378,38 +1439,15 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                   </div>
                 </div>
                 {onCoverFlowButtonColorsChange && (
-                  <div className="space-y-2 pt-2 border-t border-white/5">
-                    <label className="block text-xs text-gray-400 font-semibold">Button colours</label>
-                    <div className="flex flex-wrap gap-2">
-                      <div className="flex items-center gap-1">
-                        <span className="text-xs text-gray-400">Play</span>
-                        <input
-                          type="color"
-                          value={coverFlowButtonColors?.playColor ?? '#0ea5e9'}
-                          onChange={(e) => onCoverFlowButtonColorsChange({ ...coverFlowButtonColors, playColor: e.target.value })}
-                          className="w-6 h-6 rounded cursor-pointer border border-gray-500"
-                        />
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <span className="text-xs text-gray-400">Edit</span>
-                        <input
-                          type="color"
-                          value={coverFlowButtonColors?.editColor ?? '#6b7280'}
-                          onChange={(e) => onCoverFlowButtonColorsChange({ ...coverFlowButtonColors, editColor: e.target.value })}
-                          className="w-6 h-6 rounded cursor-pointer border border-gray-500"
-                        />
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <span className="text-xs text-gray-400">Mod Mgr</span>
-                        <input
-                          type="color"
-                          value={coverFlowButtonColors?.modManagerColor ?? '#a855f7'}
-                          onChange={(e) => onCoverFlowButtonColorsChange({ ...coverFlowButtonColors, modManagerColor: e.target.value })}
-                          className="w-6 h-6 rounded cursor-pointer border border-gray-500"
-                        />
-                      </div>
-                    </div>
-                  </div>
+                  <>
+                    {renderButtonColorsEditor({
+                      title: 'Button Colours',
+                      colors: coverFlowButtonColors,
+                      onChange: onCoverFlowButtonColorsChange,
+                      onReset: () => onCoverFlowButtonColorsChange(defaultButtonColors),
+                      containerClassName: 'space-y-2 pt-2 border-t border-white/5',
+                    })}
+                  </>
                 )}
               </>
             )}
@@ -1502,21 +1540,20 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
 
                         {/* Text Size */}
                         <div>
-                          <label className="block text-xs text-gray-400 mb-1 font-semibold">Categories Size</label>
-                          <input
-                            type="range"
-                            min="10"
-                            max="24"
-                            step="1"
+                          <MenuSliderRow
+                            label="Categories Size"
+                            min={10}
+                            max={24}
+                            step={1}
                             value={categoriesTopSize}
-                            onChange={(e) => onCategoriesTopSizeChange?.(Number(e.target.value))}
-                            className="w-full h-1.5 bg-gray-600 rounded-lg appearance-none cursor-pointer slider accent-blue-600"
+                            defaultValue={sliderDefaults.categoriesTopSize}
+                            onChange={(value) => onCategoriesTopSizeChange?.(value)}
+                            onReset={() => onCategoriesTopSizeChange?.(sliderDefaults.categoriesTopSize)}
+                            formatValue={(value) => `${value}px`}
+                            minLabel="10px"
+                            maxLabel="24px"
+                            sliderClassName="h-1.5"
                           />
-                          <div className="flex justify-between text-xs text-gray-500 mt-1">
-                            <span>10px</span>
-                            <span className="font-medium text-gray-300">{categoriesTopSize}px</span>
-                            <span>24px</span>
-                          </div>
                         </div>
                       </div>
                     )}
@@ -1526,21 +1563,20 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                 {/* Size control per view */}
                 {((viewMode === 'grid' && onGridSizeChange) || (viewMode === 'logo' && onLogoSizeChange)) && (
                   <div className="px-3 py-2 bg-gray-700/30 rounded-md">
-                    <label className="block text-xs text-gray-400 mb-1 font-semibold">{getSizeLabel()}</label>
-                    <input
-                      type="range"
+                    <MenuSliderRow
+                      label={getSizeLabel()}
                       min={sizeRange.min}
                       max={sizeRange.max}
-                      step="1"
+                      step={1}
                       value={sizeValue}
-                      onChange={(e) => handleSizeChange(Number(e.target.value))}
-                      className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider accent-blue-600"
+                      defaultValue={viewMode === 'grid' ? sliderDefaults.gridSize : sliderDefaults.logoSize}
+                      onChange={handleSizeChange}
+                      onReset={() => handleSizeChange(viewMode === 'grid' ? sliderDefaults.gridSize : sliderDefaults.logoSize)}
+                      formatValue={(value) => `${value}px`}
+                      minLabel={`${sizeRange.min}px`}
+                      maxLabel={`${sizeRange.max}px`}
+                      sliderClassName="h-2"
                     />
-                    <div className="flex justify-between text-xs text-gray-500 mt-1">
-                      <span>{sizeRange.min}px</span>
-                      <span className="font-medium text-gray-300">{sizeValue}px</span>
-                      <span>{sizeRange.max}px</span>
-                    </div>
                   </div>
                 )}
 
@@ -1610,42 +1646,38 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                 {/* Game Tile Padding - only for grid and logo views */}
                 {viewMode !== 'list' && (
                   <div className="px-3 py-2 bg-gray-700/30 rounded-md">
-                    <label className="block text-xs text-gray-400 mb-1 font-semibold">{paddingLabel}</label>
-                    <input
-                      type="range"
+                    <MenuSliderRow
+                      label={paddingLabel}
                       min={paddingRange.min}
                       max={paddingRange.max}
-                      step="1"
+                      step={1}
                       value={gameTilePadding}
-                      onChange={(e) => onGameTilePaddingChange?.(Number(e.target.value))}
-                      className="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer slider accent-blue-600"
+                      defaultValue={sliderDefaults.gameTilePadding}
+                      onChange={(value) => onGameTilePaddingChange?.(value)}
+                      onReset={() => onGameTilePaddingChange?.(sliderDefaults.gameTilePadding)}
+                      formatValue={(value) => `${value}px`}
+                      minLabel={`${paddingRange.min}px`}
+                      maxLabel={`${paddingRange.max}px`}
                     />
-                    <div className="flex justify-between text-xs text-gray-500 mt-1">
-                      <span>{paddingRange.min}px</span>
-                      <span className="font-medium text-gray-300">{gameTilePadding}px</span>
-                      <span>{paddingRange.max}px</span>
-                    </div>
                   </div>
                 )}
 
                 {/* Logo tile background transparency (Logo view) */}
                 {viewMode === 'logo' && (
                   <div className="px-3 py-2 bg-gray-700/30 rounded-md">
-                    <label className="block text-xs text-gray-400 mb-1 font-semibold">Logo Tile Background Transparency</label>
-                    <input
-                      type="range"
-                      min="0"
-                      max="100"
-                      step="1"
+                    <MenuSliderRow
+                      label="Logo Tile Background Transparency"
+                      min={0}
+                      max={100}
+                      step={1}
                       value={logoBackgroundOpacity}
-                      onChange={(e) => onLogoBackgroundOpacityChange?.(Number(e.target.value))}
-                      className="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer slider accent-blue-600"
+                      defaultValue={sliderDefaults.logoBackgroundOpacity}
+                      onChange={(value) => onLogoBackgroundOpacityChange?.(value)}
+                      onReset={() => onLogoBackgroundOpacityChange?.(sliderDefaults.logoBackgroundOpacity)}
+                      formatValue={(value) => `${value}%`}
+                      minLabel="0%"
+                      maxLabel="100%"
                     />
-                    <div className="flex justify-between text-xs text-gray-500 mt-1">
-                      <span>0%</span>
-                      <span className="font-medium text-gray-300">{logoBackgroundOpacity}%</span>
-                      <span>100%</span>
-                    </div>
                   </div>
                 )}
 
@@ -1654,24 +1686,25 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                   <>
                     {/* Tile Height control - always visible */}
                     <div className="px-3 py-2 bg-gray-700/30 rounded-md">
-                      <label className="block text-xs text-gray-400 mb-1 font-semibold">Tile Height</label>
-                      <input
-                        type="range"
+                      <MenuSliderRow
+                        label="Tile Height"
                         min={10}
                         max={300}
-                        step="1"
+                        step={1}
                         value={listViewOptions.tileHeight ?? 128}
-                        onChange={(e) => onListViewOptionsChange?.({
+                        defaultValue={sliderDefaults.listTileHeight}
+                        onChange={(value) => onListViewOptionsChange?.({
                           ...listViewOptions,
-                          tileHeight: Number(e.target.value),
+                          tileHeight: value,
                         })}
-                        className="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer slider accent-blue-600"
+                        onReset={() => onListViewOptionsChange?.({
+                          ...listViewOptions,
+                          tileHeight: sliderDefaults.listTileHeight,
+                        })}
+                        formatValue={(value) => `${value}px`}
+                        minLabel="10px"
+                        maxLabel="300px"
                       />
-                      <div className="flex justify-between text-xs text-gray-500 mt-1">
-                        <span>10px</span>
-                        <span className="font-medium text-gray-300">{listViewOptions.tileHeight ?? 128}px</span>
-                        <span>300px</span>
-                      </div>
                     </div>
 
                     {/* Display Mode controls */}
@@ -1743,72 +1776,75 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                       {/* Boxart Size - only for Boxart + Title mode */}
                       {(listViewOptions.displayMode === 'boxart-title' || !listViewOptions.displayMode) && (
                         <div className="pt-2">
-                          <label className="block text-xs text-gray-400 mb-1 font-semibold">Boxart Size</label>
-                          <input
-                            type="range"
+                          <MenuSliderRow
+                            label="Boxart Size"
                             min={30}
                             max={200}
-                            step="1"
-                            value={listViewOptions.boxartSize ?? 96}
-                            onChange={(e) => onListViewOptionsChange?.({
+                            step={1}
+                            value={listViewOptions.boxartSize ?? sliderDefaults.listBoxartSize}
+                            defaultValue={sliderDefaults.listBoxartSize}
+                            onChange={(value) => onListViewOptionsChange?.({
                               ...listViewOptions,
-                              boxartSize: Number(e.target.value),
+                              boxartSize: value,
                             })}
-                            className="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer slider accent-blue-600"
+                            onReset={() => onListViewOptionsChange?.({
+                              ...listViewOptions,
+                              boxartSize: sliderDefaults.listBoxartSize,
+                            })}
+                            formatValue={(value) => `${value}px`}
+                            minLabel="30px"
+                            maxLabel="200px"
                           />
-                          <div className="flex justify-between text-xs text-gray-500 mt-1">
-                            <span>30px</span>
-                            <span className="font-medium text-gray-300">{listViewOptions.boxartSize ?? 96}px</span>
-                            <span>200px</span>
-                          </div>
                         </div>
                       )}
 
                       {/* Logo Size - only for Logo + Title mode */}
                       {listViewOptions.displayMode === 'logo-title' && (
                         <div className="pt-2">
-                          <label className="block text-xs text-gray-400 mb-1 font-semibold">Logo Size</label>
-                          <input
-                            type="range"
+                          <MenuSliderRow
+                            label="Logo Size"
                             min={30}
                             max={200}
-                            step="1"
-                            value={listViewOptions.logoSize ?? 96}
-                            onChange={(e) => onListViewOptionsChange?.({
+                            step={1}
+                            value={listViewOptions.logoSize ?? sliderDefaults.listLogoSize}
+                            defaultValue={sliderDefaults.listLogoSize}
+                            onChange={(value) => onListViewOptionsChange?.({
                               ...listViewOptions,
-                              logoSize: Number(e.target.value),
+                              logoSize: value,
                             })}
-                            className="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer slider accent-blue-600"
+                            onReset={() => onListViewOptionsChange?.({
+                              ...listViewOptions,
+                              logoSize: sliderDefaults.listLogoSize,
+                            })}
+                            formatValue={(value) => `${value}px`}
+                            minLabel="30px"
+                            maxLabel="200px"
                           />
-                          <div className="flex justify-between text-xs text-gray-500 mt-1">
-                            <span>30px</span>
-                            <span className="font-medium text-gray-300">{listViewOptions.logoSize ?? 96}px</span>
-                            <span>200px</span>
-                          </div>
                         </div>
                       )}
 
                       {/* Title Text Size - for all modes except Logo Only */}
                       {listViewOptions.displayMode !== 'logo-only' && (
                         <div>
-                          <label className="block text-xs text-gray-400 mb-1 font-semibold">Title Text Size</label>
-                          <input
-                            type="range"
+                          <MenuSliderRow
+                            label="Title Text Size"
                             min={12}
                             max={32}
-                            step="1"
-                            value={listViewOptions.titleTextSize ?? 18}
-                            onChange={(e) => onListViewOptionsChange?.({
+                            step={1}
+                            value={listViewOptions.titleTextSize ?? sliderDefaults.listTitleTextSize}
+                            defaultValue={sliderDefaults.listTitleTextSize}
+                            onChange={(value) => onListViewOptionsChange?.({
                               ...listViewOptions,
-                              titleTextSize: Number(e.target.value),
+                              titleTextSize: value,
                             })}
-                            className="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer slider accent-blue-600"
+                            onReset={() => onListViewOptionsChange?.({
+                              ...listViewOptions,
+                              titleTextSize: sliderDefaults.listTitleTextSize,
+                            })}
+                            formatValue={(value) => `${value}px`}
+                            minLabel="12px"
+                            maxLabel="32px"
                           />
-                          <div className="flex justify-between text-xs text-gray-500 mt-1">
-                            <span>12px</span>
-                            <span className="font-medium text-gray-300">{listViewOptions.titleTextSize ?? 18}px</span>
-                            <span>32px</span>
-                          </div>
                         </div>
                       )}
                     </div>
@@ -1848,24 +1884,25 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                       })}
 
                       <div className="pt-2">
-                        <label className="block text-xs text-gray-400 mb-1 font-semibold">Section Text Size</label>
-                        <input
-                          type="range"
+                        <MenuSliderRow
+                          label="Section Text Size"
                           min={10}
                           max={18}
-                          step="1"
-                          value={listViewOptions.sectionTextSize ?? 14}
-                          onChange={(e) => onListViewOptionsChange?.({
+                          step={1}
+                          value={listViewOptions.sectionTextSize ?? sliderDefaults.listSectionTextSize}
+                          defaultValue={sliderDefaults.listSectionTextSize}
+                          onChange={(value) => onListViewOptionsChange?.({
                             ...listViewOptions,
-                            sectionTextSize: Number(e.target.value),
+                            sectionTextSize: value,
                           })}
-                          className="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer slider accent-blue-600"
+                          onReset={() => onListViewOptionsChange?.({
+                            ...listViewOptions,
+                            sectionTextSize: sliderDefaults.listSectionTextSize,
+                          })}
+                          formatValue={(value) => `${value}px`}
+                          minLabel="10px"
+                          maxLabel="18px"
                         />
-                        <div className="flex justify-between text-xs text-gray-500 mt-1">
-                          <span>10px</span>
-                          <span className="font-medium text-gray-300">{listViewOptions.sectionTextSize ?? 14}px</span>
-                          <span>18px</span>
-                        </div>
                       </div>
                     </div>
                   </>
@@ -1873,40 +1910,36 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
 
                 {/* Background Blur Amount */}
                 <div className="px-3 py-2 bg-gray-700/30 rounded-md">
-                  <label className="block text-xs text-gray-400 mb-1 font-semibold">Background Blur Amount</label>
-                  <input
-                    type="range"
-                    min="0"
-                    max="100"
-                    step="1"
+                  <MenuSliderRow
+                    label="Background Blur Amount"
+                    min={0}
+                    max={100}
+                    step={1}
                     value={backgroundBlur}
-                    onChange={(e) => onBackgroundBlurChange?.(Number(e.target.value))}
-                    className="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer slider accent-blue-600"
+                    defaultValue={sliderDefaults.backgroundBlur}
+                    onChange={(value) => onBackgroundBlurChange?.(value)}
+                    onReset={() => onBackgroundBlurChange?.(sliderDefaults.backgroundBlur)}
+                    formatValue={(value) => `${value}px`}
+                    minLabel="0px"
+                    maxLabel="100px"
                   />
-                  <div className="flex justify-between text-xs text-gray-500 mt-1">
-                    <span>0px</span>
-                    <span className="font-medium text-gray-300">{backgroundBlur}px</span>
-                    <span>100px</span>
-                  </div>
                 </div>
 
                 {/* Background Brightness */}
                 <div className="px-3 py-2 bg-gray-700/30 rounded-md">
-                  <label className="block text-xs text-gray-400 mb-1 font-semibold">Background Brightness</label>
-                  <input
-                    type="range"
-                    min="0"
-                    max="100"
-                    step="1"
+                  <MenuSliderRow
+                    label="Background Brightness"
+                    min={0}
+                    max={100}
+                    step={1}
                     value={Math.round(backgroundBrightness * 100)}
-                    onChange={(e) => onBackgroundBrightnessChange?.(Number(e.target.value) / 100)}
-                    className="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer slider accent-blue-600"
+                    defaultValue={sliderDefaults.backgroundBrightnessPercent}
+                    onChange={(value) => onBackgroundBrightnessChange?.(value / 100)}
+                    onReset={() => onBackgroundBrightnessChange?.(sliderDefaults.backgroundBrightnessPercent / 100)}
+                    formatValue={(value) => `${value}%`}
+                    minLabel="0%"
+                    maxLabel="100%"
                   />
-                  <div className="flex justify-between text-xs text-gray-500 mt-1">
-                    <span>0%</span>
-                    <span className="font-medium text-gray-300">{Math.round(backgroundBrightness * 100)}%</span>
-                    <span>100%</span>
-                  </div>
                 </div>
               </div>
 
@@ -1914,59 +1947,53 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
               <div className="space-y-2">
                 {/* Right Panel Width Control */}
                 <div className="px-3 py-2 bg-gray-700/30 rounded-md">
-                  <label className="block text-xs text-gray-400 font-semibold mb-2">Right Panel Width</label>
-                  <input
-                    type="range"
-                    min="400"
+                  <MenuSliderRow
+                    label="Right Panel Width"
+                    min={400}
                     max={Math.floor(window.innerWidth * 0.75)}
-                    step="10"
+                    step={10}
                     value={panelWidth}
-                    onChange={(e) => onPanelWidthChange?.(Number(e.target.value))}
-                    className="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer slider accent-blue-600"
+                    defaultValue={sliderDefaults.panelWidth}
+                    onChange={(value) => onPanelWidthChange?.(value)}
+                    onReset={() => onPanelWidthChange?.(sliderDefaults.panelWidth)}
+                    formatValue={(value) => `${value}px`}
+                    minLabel="400px"
+                    maxLabel={`${Math.floor(window.innerWidth * 0.75)}px`}
                   />
-                  <div className="flex justify-between text-xs text-gray-500 mt-1">
-                    <span>400px</span>
-                    <span className="font-medium text-gray-300">{panelWidth}px</span>
-                    <span>{Math.floor(window.innerWidth * 0.75)}px</span>
-                  </div>
                 </div>
 
                 {/* Banner Height Control */}
                 <div className="px-3 py-2 bg-gray-700/30 rounded-md">
-                  <label className="block text-xs text-gray-400 font-semibold mb-2">Banner Height</label>
-                  <input
-                    type="range"
-                    min="150"
-                    max="500"
-                    step="10"
+                  <MenuSliderRow
+                    label="Banner Height"
+                    min={150}
+                    max={500}
+                    step={10}
                     value={fanartHeight}
-                    onChange={(e) => onFanartHeightChange?.(Number(e.target.value))}
-                    className="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer slider accent-blue-600"
+                    defaultValue={sliderDefaults.fanartHeight}
+                    onChange={(value) => onFanartHeightChange?.(value)}
+                    onReset={() => onFanartHeightChange?.(sliderDefaults.fanartHeight)}
+                    formatValue={(value) => `${value}px`}
+                    minLabel="150px"
+                    maxLabel="500px"
                   />
-                  <div className="flex justify-between text-xs text-gray-500 mt-1">
-                    <span>150px</span>
-                    <span className="font-medium text-gray-300">{fanartHeight}px</span>
-                    <span>500px</span>
-                  </div>
                 </div>
 
                 {/* Description Width Control */}
                 <div className="px-3 py-2 bg-gray-700/30 rounded-md">
-                  <label className="block text-xs text-gray-400 font-semibold mb-2">Description Width</label>
-                  <input
-                    type="range"
-                    min="20"
-                    max="80"
-                    step="1"
+                  <MenuSliderRow
+                    label="Description Width"
+                    min={20}
+                    max={80}
+                    step={1}
                     value={descriptionWidth}
-                    onChange={(e) => onDescriptionWidthChange?.(Number(e.target.value))}
-                    className="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer slider accent-blue-600"
+                    defaultValue={sliderDefaults.descriptionWidth}
+                    onChange={(value) => onDescriptionWidthChange?.(value)}
+                    onReset={() => onDescriptionWidthChange?.(sliderDefaults.descriptionWidth)}
+                    formatValue={(value) => `${value}%`}
+                    minLabel="20%"
+                    maxLabel="80%"
                   />
-                  <div className="flex justify-between text-xs text-gray-500 mt-1">
-                    <span>20%</span>
-                    <span className="font-medium text-gray-300">{descriptionWidth}%</span>
-                    <span>80%</span>
-                  </div>
                 </div>
               </div>
 
@@ -1975,68 +2002,58 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                 {/* Per-Game Logo Size Control - Top of Game Details, only for current view */}
                 {activeGame && (
                   <div className="px-3 py-2 bg-gray-700/30 rounded-md">
-                    <label className="block text-xs text-gray-400 mb-2 font-semibold">
-                      {activeGame.logoUrl ? 'Game Logo Size' : 'Title Size'}
-                    </label>
-
                     {/* Grid View */}
                     {viewMode === 'grid' && (
-                      <div>
-                        <input
-                          type="range"
-                          min="50"
-                          max="600"
-                          step="5"
-                          value={localLogoSizes.grid}
-                          onChange={(e) => handlePerGameLogoSizeChange('grid', Number(e.target.value))}
-                          className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider accent-blue-600"
-                        />
-                        <div className="flex justify-between text-xs text-gray-500 mt-1">
-                          <span>50px</span>
-                          <span className="font-medium text-gray-300">{localLogoSizes.grid}px</span>
-                          <span>600px</span>
-                        </div>
-                      </div>
+                      <MenuSliderRow
+                        label={activeGame.logoUrl ? 'Game Logo Size' : 'Title Size'}
+                        min={50}
+                        max={600}
+                        step={5}
+                        value={localLogoSizes.grid}
+                        defaultValue={sliderDefaults.perGameLogoSize}
+                        onChange={(value) => handlePerGameLogoSizeChange('grid', value)}
+                        onReset={() => handlePerGameLogoSizeChange('grid', sliderDefaults.perGameLogoSize)}
+                        formatValue={(value) => `${value}px`}
+                        minLabel="50px"
+                        maxLabel="600px"
+                        sliderClassName="h-2"
+                      />
                     )}
 
                     {/* List View */}
                     {viewMode === 'list' && (
-                      <div>
-                        <input
-                          type="range"
-                          min="50"
-                          max="600"
-                          step="5"
-                          value={localLogoSizes.list}
-                          onChange={(e) => handlePerGameLogoSizeChange('list', Number(e.target.value))}
-                          className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider accent-blue-600"
-                        />
-                        <div className="flex justify-between text-xs text-gray-500 mt-1">
-                          <span>50px</span>
-                          <span className="font-medium text-gray-300">{localLogoSizes.list}px</span>
-                          <span>600px</span>
-                        </div>
-                      </div>
+                      <MenuSliderRow
+                        label={activeGame.logoUrl ? 'Game Logo Size' : 'Title Size'}
+                        min={50}
+                        max={600}
+                        step={5}
+                        value={localLogoSizes.list}
+                        defaultValue={sliderDefaults.perGameLogoSize}
+                        onChange={(value) => handlePerGameLogoSizeChange('list', value)}
+                        onReset={() => handlePerGameLogoSizeChange('list', sliderDefaults.perGameLogoSize)}
+                        formatValue={(value) => `${value}px`}
+                        minLabel="50px"
+                        maxLabel="600px"
+                        sliderClassName="h-2"
+                      />
                     )}
 
                     {/* Logo View */}
                     {viewMode === 'logo' && (
-                      <div>
-                        <input
-                          type="range"
-                          min="50"
-                          max="600"
-                          step="5"
-                          value={localLogoSizes.logo}
-                          onChange={(e) => handlePerGameLogoSizeChange('logo', Number(e.target.value))}
-                          className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider accent-blue-600"
-                        />
-                        <div className="flex justify-between text-xs text-gray-500 mt-1">
-                          <span>50px</span>
-                          <span className="font-medium text-gray-300">{localLogoSizes.logo}px</span>
-                          <span>600px</span>
-                        </div>
-                      </div>
+                      <MenuSliderRow
+                        label={activeGame.logoUrl ? 'Game Logo Size' : 'Title Size'}
+                        min={50}
+                        max={600}
+                        step={5}
+                        value={localLogoSizes.logo}
+                        defaultValue={sliderDefaults.perGameLogoSize}
+                        onChange={(value) => handlePerGameLogoSizeChange('logo', value)}
+                        onReset={() => handlePerGameLogoSizeChange('logo', sliderDefaults.perGameLogoSize)}
+                        formatValue={(value) => `${value}px`}
+                        minLabel="50px"
+                        maxLabel="600px"
+                        sliderClassName="h-2"
+                      />
                     )}
                   </div>
                 )}
@@ -2076,61 +2093,55 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
 
                   {(rightPanelBoxartPosition === 'left' || rightPanelBoxartPosition === 'right') && (
                     <>
-                      <label className="block text-xs text-gray-400 mb-1 font-semibold">Resize Boxart</label>
-                      <input
-                        type="range"
-                        min="80"
-                        max="200"
-                        step="5"
+                      <MenuSliderRow
+                        label="Resize Boxart"
+                        min={80}
+                        max={200}
+                        step={5}
                         value={rightPanelBoxartSize}
-                        onChange={(e) => onRightPanelBoxartSizeChange?.(Number(e.target.value))}
-                        className="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer slider accent-blue-600"
+                        defaultValue={sliderDefaults.rightPanelBoxartSize}
+                        onChange={(value) => onRightPanelBoxartSizeChange?.(value)}
+                        onReset={() => onRightPanelBoxartSizeChange?.(sliderDefaults.rightPanelBoxartSize)}
+                        formatValue={(value) => `${value}px`}
+                        minLabel="80px"
+                        maxLabel="200px"
                       />
-                      <div className="flex justify-between text-xs text-gray-500 mt-1">
-                        <span>80px</span>
-                        <span className="font-medium text-gray-300">{rightPanelBoxartSize}px</span>
-                        <span>200px</span>
-                      </div>
                     </>
                   )}
                 </div>
 
                 {/* Text Size */}
                 <div className="px-3 py-2 bg-gray-700/30 rounded-md">
-                  <label className="block text-xs text-gray-400 mb-1 font-semibold">Text Size</label>
-                  <input
-                    type="range"
-                    min="10"
-                    max="24"
-                    step="1"
+                  <MenuSliderRow
+                    label="Text Size"
+                    min={10}
+                    max={24}
+                    step={1}
                     value={rightPanelTextSize}
-                    onChange={(e) => onRightPanelTextSizeChange?.(Number(e.target.value))}
-                    className="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer slider accent-blue-600"
+                    defaultValue={sliderDefaults.rightPanelTextSize}
+                    onChange={(value) => onRightPanelTextSizeChange?.(value)}
+                    onReset={() => onRightPanelTextSizeChange?.(sliderDefaults.rightPanelTextSize)}
+                    formatValue={(value) => `${value}px`}
+                    minLabel="10px"
+                    maxLabel="24px"
                   />
-                  <div className="flex justify-between text-xs text-gray-500 mt-1">
-                    <span>10px</span>
-                    <span className="font-medium text-gray-300">{rightPanelTextSize}px</span>
-                    <span>24px</span>
-                  </div>
                 </div>
 
                 {/* Button Size */}
                 <div className="px-3 py-2 bg-gray-700/30 rounded-md">
-                  <label className="block text-xs text-gray-400 mb-1 font-semibold">Button Size</label>
-                  <input
-                    type="range"
-                    min="10"
-                    max="24"
-                    step="1"
+                  <MenuSliderRow
+                    label="Button Size"
+                    min={10}
+                    max={24}
+                    step={1}
                     value={rightPanelButtonSize}
-                    onChange={(e) => onRightPanelButtonSizeChange?.(Number(e.target.value))}
-                    className="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer slider accent-blue-600"
+                    defaultValue={sliderDefaults.rightPanelButtonSize}
+                    onChange={(value) => onRightPanelButtonSizeChange?.(value)}
+                    onReset={() => onRightPanelButtonSizeChange?.(sliderDefaults.rightPanelButtonSize)}
+                    formatValue={(value) => `${value}px`}
+                    minLabel="10px"
+                    maxLabel="24px"
                   />
-                  <div className="flex justify-between text-xs text-gray-500 mt-1">
-                    <span>10px</span>
-                    <span className="font-medium text-gray-300">{rightPanelButtonSize}px</span>
-                    <span>24px</span>
-                  </div>
                 </div>
 
                 {/* Button Location */}
@@ -2168,128 +2179,46 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                 </div>
 
                 {/* Button Colors - View Specific */}
-                <div className="px-3 py-2 bg-gray-700/30 rounded-md">
-                  <div className="flex items-center justify-between mb-2">
-                    <label className="block text-xs text-gray-400 font-semibold">Button Colors</label>
-                    <button
-                      onClick={() => {
-                        const defaults = { playColor: '#0ea5e9', editColor: '#6b7280', modManagerColor: '#a855f7' };
-                        if (viewMode === 'grid') onGridButtonColorsChange?.(defaults);
-                        else if (viewMode === 'list') onListButtonColorsChange?.(defaults);
-                        else if (viewMode === 'logo') onLogoButtonColorsChange?.(defaults);
-                        else onRightPanelButtonColorsChange?.(defaults);
-                        window.electronAPI.savePreferences({
-                          [viewMode === 'grid' ? 'gridButtonColors' :
-                            viewMode === 'list' ? 'listButtonColors' :
-                              viewMode === 'logo' ? 'logoButtonColors' :
-                                'rightPanelButtonColors']: defaults
-                        });
-                      }}
-                      className="px-2 py-1 text-xs rounded bg-gray-600 hover:bg-gray-500 text-gray-300 border border-gray-500 transition-colors"
-                      title="Reset to defaults"
-                    >
-                      Reset
-                    </button>
-                  </div>
-                  <div className="space-y-2">
-                    {(() => {
-                      const getColors = () => {
-                        if (viewMode === 'grid') return { colors: gridButtonColors, handler: onGridButtonColorsChange };
-                        if (viewMode === 'list') return { colors: listButtonColors, handler: onListButtonColorsChange };
-                        if (viewMode === 'logo') return { colors: logoButtonColors, handler: onLogoButtonColorsChange };
-                        return { colors: rightPanelButtonColors, handler: onRightPanelButtonColorsChange };
-                      };
-                      const { colors, handler } = getColors();
-                      return (
-                        <>
-                          <div className="flex items-center gap-2">
-                            <label className="text-xs text-gray-300 w-12">Play:</label>
-                            <input
-                              type="color"
-                              value={colors?.playColor || '#0ea5e9'}
-                              onChange={(e) => handler?.({ ...colors, playColor: e.target.value })}
-                              className="w-12 h-8 rounded cursor-pointer"
-                              title="Play button color"
-                            />
-                            <span className="text-xs text-gray-400">{colors?.playColor || '#0ea5e9'}</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <label className="text-xs text-gray-300 w-12">Edit:</label>
-                            <input
-                              type="color"
-                              value={colors?.editColor || '#6b7280'}
-                              onChange={(e) => handler?.({ ...colors, editColor: e.target.value })}
-                              className="w-12 h-8 rounded cursor-pointer"
-                              title="Edit button color"
-                            />
-                            <span className="text-xs text-gray-400">{colors?.editColor || '#6b7280'}</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <label className="text-xs text-gray-300 w-12">Mod Mgr:</label>
-                            <input
-                              type="color"
-                              value={colors?.modManagerColor || '#a855f7'}
-                              onChange={(e) => handler?.({ ...colors, modManagerColor: e.target.value })}
-                              className="w-12 h-8 rounded cursor-pointer"
-                              title="Mod Manager button color"
-                            />
-                            <span className="text-xs text-gray-400">{colors?.modManagerColor || '#a855f7'}</span>
-                          </div>
-                        </>
-                      );
-                    })()}
-                  </div>
-                </div>
+                {(() => {
+                  const getColors = () => {
+                    if (viewMode === 'grid') return { colors: gridButtonColors, handler: onGridButtonColorsChange, preferenceKey: 'gridButtonColors' };
+                    if (viewMode === 'list') return { colors: listButtonColors, handler: onListButtonColorsChange, preferenceKey: 'listButtonColors' };
+                    if (viewMode === 'logo') return { colors: logoButtonColors, handler: onLogoButtonColorsChange, preferenceKey: 'logoButtonColors' };
+                    return { colors: rightPanelButtonColors, handler: onRightPanelButtonColorsChange, preferenceKey: 'rightPanelButtonColors' };
+                  };
+                  const { colors, handler, preferenceKey } = getColors();
+                  return renderButtonColorsEditor({
+                    title: 'Button Colors',
+                    colors,
+                    onChange: handler,
+                    onReset: () => {
+                      handler?.(defaultButtonColors);
+                      window.electronAPI.savePreferences({ [preferenceKey]: defaultButtonColors });
+                    },
+                  });
+                })()}
 
                 {/* Details View Transparency */}
                 <div className="px-3 py-2 bg-gray-700/30 rounded-md">
-                  <label className="block text-xs text-gray-400 mb-1 font-semibold">Details View Transparency</label>
-                  <input
-                    type="range"
-                    min="0"
-                    max="100"
-                    step="1"
+                  <MenuSliderRow
+                    label="Details View Transparency"
+                    min={0}
+                    max={100}
+                    step={1}
                     value={detailsPanelOpacity}
-                    onChange={(e) => onDetailsPanelOpacityChange?.(Number(e.target.value))}
-                    className="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer slider accent-blue-600"
+                    defaultValue={sliderDefaults.detailsPanelOpacity}
+                    onChange={(value) => onDetailsPanelOpacityChange?.(value)}
+                    onReset={() => onDetailsPanelOpacityChange?.(sliderDefaults.detailsPanelOpacity)}
+                    formatValue={(value) => `${value}%`}
+                    minLabel="0%"
+                    maxLabel="100%"
                   />
-                  <div className="flex justify-between text-xs text-gray-500 mt-1">
-                    <span>0%</span>
-                    <span className="font-medium text-gray-300">{detailsPanelOpacity}%</span>
-                    <span>100%</span>
-                  </div>
                 </div>
               </div>
             </div>
           </div>
         </>
       )}
-
-      {/* Defaults Buttons - Bottom */}
-      <div className="px-3 py-2 border-t border-gray-700 mt-2">
-        <div className="grid grid-cols-2 gap-2">
-          <button
-            onClick={handleResetToDefaults}
-            className="px-4 py-2 text-sm rounded transition-colors bg-gray-700 text-gray-300 hover:bg-gray-600 border border-gray-600 font-medium"
-            title="Reset view settings to defaults for your resolution"
-          >
-            <svg className="w-4 h-4 inline-block mr-2 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
-            Reset to Defaults
-          </button>
-          <button
-            onClick={handleOpenCustomDefaultsModal}
-            className="px-4 py-2 text-sm rounded transition-colors bg-blue-700 text-gray-300 hover:bg-blue-600 border border-blue-600 font-medium"
-            title="Save or restore your custom defaults"
-          >
-            <svg className="w-4 h-4 inline-block mr-2 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
-            </svg>
-            Custom Defaults
-          </button>
-        </div>
-      </div>
 
       {/* Custom Defaults Modal */}
       <CustomDefaultsModal

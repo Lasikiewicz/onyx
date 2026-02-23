@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react';
+import { MenuSliderRow } from './MenuSliderRow';
 
 interface TextStyleContextMenuProps {
   x?: number;
@@ -25,6 +26,8 @@ const FONT_FAMILIES = [
   { value: 'serif', label: 'Serif' },
   { value: 'monospace', label: 'Monospace' },
 ];
+
+const DEFAULT_FONT_SIZE = 18;
 
 export const TextStyleContextMenu: React.FC<TextStyleContextMenuProps> = ({
   x = 0,
@@ -102,20 +105,19 @@ export const TextStyleContextMenu: React.FC<TextStyleContextMenuProps> = ({
         
         {/* Font Size */}
         <div className="px-3 mb-4">
-          <label className="block text-xs text-gray-400 mb-2">Font Size</label>
-          <input
-            type="range"
-            min="8"
-            max="48"
+          <MenuSliderRow
+            label="Font Size"
+            min={8}
+            max={48}
             value={fontSize}
-            onChange={(e) => onFontSizeChange(Number(e.target.value))}
-            className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider"
+            defaultValue={DEFAULT_FONT_SIZE}
+            onChange={onFontSizeChange}
+            onReset={() => onFontSizeChange(DEFAULT_FONT_SIZE)}
+            formatValue={(value) => `${value}px`}
+            minLabel="8px"
+            maxLabel="48px"
+            sliderClassName="h-2"
           />
-          <div className="flex justify-between text-xs text-gray-500 mt-1">
-            <span>8px</span>
-            <span className="font-medium text-gray-300">{fontSize}px</span>
-            <span>48px</span>
-          </div>
         </div>
 
         {/* Font Family */}

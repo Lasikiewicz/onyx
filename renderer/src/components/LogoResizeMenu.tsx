@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Game } from '../types/game';
+import { MenuSliderRow } from './MenuSliderRow';
 
 interface LogoResizeMenuProps {
   game: Game;
@@ -24,6 +25,7 @@ export const LogoResizeMenu: React.FC<LogoResizeMenuProps> = ({
   const [logoSize, setLogoSize] = useState<number>(game.logoSizePerViewMode?.carousel || rightPanelLogoSize);
   const [isSaving, setIsSaving] = useState(false);
   const [menuPos, setMenuPos] = useState({ x, y });
+  const defaultLogoSize = game.logoSizePerViewMode?.carousel || rightPanelLogoSize;
   const dragRef = useRef<{ isDragging: boolean; offsetX: number; offsetY: number }>({
     isDragging: false,
     offsetX: 0,
@@ -136,21 +138,21 @@ export const LogoResizeMenu: React.FC<LogoResizeMenuProps> = ({
         Resize Logo
       </div>
       <div className="space-y-4">
-        <input
-          type="range"
-          min="50"
-          max="600"
-          step="10"
+        <MenuSliderRow
+          label="Logo Size"
+          min={50}
+          max={600}
+          step={10}
           value={logoSize}
-          onChange={(e) => handleSliderChange(Number(e.target.value))}
+          defaultValue={defaultLogoSize}
+          onChange={handleSliderChange}
+          onReset={() => handleSliderChange(defaultLogoSize)}
+          formatValue={(value) => `${value}px`}
+          minLabel="50px"
+          maxLabel="600px"
+          sliderClassName="h-3"
           disabled={isSaving}
-          className="w-full h-3 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-blue-500"
         />
-        <div className="flex justify-between items-center text-xs text-gray-400">
-          <span>50px</span>
-          <span className="font-medium text-gray-300">{logoSize}px</span>
-          <span>400px</span>
-        </div>
       </div>
     </div>
   );
