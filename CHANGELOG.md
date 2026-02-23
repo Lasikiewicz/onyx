@@ -4,6 +4,13 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.3.49] - 2026-02-23
+
+- Documentation: Updated setup instructions for IGDB API to include the required OAuth Redirect URL (http://localhost).
+- UI: Added IGDB redirect URL registration steps to the Integrations tab in Settings and the initial Welcome flow.
+- Importer: Improved game identification and metadata fetching for "afop" (Avatar: Frontiers of Pandora) and other mapped titles.
+- Importer: Centralized title normalization to ensure consistent game matching across all metadata providers.
+
 ## [0.3.48] - 2026-02-23
 
 - Importer: Fixed game title cleaning (e.g., mapping "AFOP" to "Avatar: Frontiers of Pandora™") to display official names instantly.
