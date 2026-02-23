@@ -4,6 +4,15 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.3.51] - 2026-02-23
+
+- Importer: Replaced slow Steam HTML scraping search (20+ API calls per game, 20-30s) with fast storesearch API (~200ms per game).
+- Importer: IGDB now only used as artwork fallback when Steam and SteamGridDB don't produce boxArt; still used for links/descriptions.
+- Importer: Added 15s timeout to IGDB description/link calls to prevent indefinite hangs.
+- Importer: Reduced metadata retry count from 3 to 1 to prevent timeout multiplication.
+- Importer: Relaxed "ready" criteria to boxArt-only (banner and description no longer required).
+- Importer: Added variant title search for non-Steam games (handles CamelCase/space mismatches like "CloverPit" vs "Clover Pit").
+
 ## [0.3.50] - 2026-02-23
 
 - Importer: Fixed bug where cancelling the importer confirmation dialog would not cancel background game scan requests.
