@@ -260,7 +260,8 @@ export class SteamGridDBService {
    */
   async getVerticalGrids(gameId: number, includeAnimated: boolean = true): Promise<SteamGridDBImage[]> {
     try {
-      const response = await fetch(`${this.baseUrl}/grids/vertical/game/${gameId}`, {
+      const url = includeAnimated ? `${this.baseUrl}/grids/vertical/game/${gameId}?types=static,animated` : `${this.baseUrl}/grids/vertical/game/${gameId}?types=static`;
+      const response = await fetch(url, {
         headers: {
           'Authorization': `Bearer ${this.apiKey}`,
         },
@@ -299,7 +300,8 @@ export class SteamGridDBService {
    */
   async getCapsules(gameId: number, includeAnimated: boolean = true): Promise<SteamGridDBImage[]> {
     try {
-      const response = await fetch(`${this.baseUrl}/grids/game/${gameId}`, {
+      const url = includeAnimated ? `${this.baseUrl}/grids/game/${gameId}?types=static,animated` : `${this.baseUrl}/grids/game/${gameId}?types=static`;
+      const response = await fetch(url, {
         headers: {
           'Authorization': `Bearer ${this.apiKey}`,
         },
@@ -330,9 +332,10 @@ export class SteamGridDBService {
   /**
    * Get heroes (1920x1080) for a game
    */
-  async getHeroes(gameId: number): Promise<SteamGridDBImage[]> {
+  async getHeroes(gameId: number, includeAnimated: boolean = true): Promise<SteamGridDBImage[]> {
     try {
-      const response = await fetch(`${this.baseUrl}/heroes/game/${gameId}`, {
+      const url = includeAnimated ? `${this.baseUrl}/heroes/game/${gameId}?types=static,animated` : `${this.baseUrl}/heroes/game/${gameId}?types=static`;
+      const response = await fetch(url, {
         headers: {
           'Authorization': `Bearer ${this.apiKey}`,
         },
@@ -426,14 +429,34 @@ export class SteamGridDBService {
 
       const validGrids = capsules.filter(filterImage).sort((a, b) => b.score - a.score);
       const verticalGrids = validGrids.filter(img => img.width < img.height);
-      const horizontalGrids = validGrids.filter(img => img.width > img.height);
+      const horizontalGrids = validGrids.filter(img => img.width > img.height)
+        .sort((a, b) => {
+          const noTextStyles = ['alternate', 'no_logo'];
+          const aNoText = a.style && noTextStyles.includes(a.style) ? 1 : 0;
+          const bNoText = b.style && noTextStyles.includes(b.style) ? 1 : 0;
+          if (aNoText !== bNoText) return bNoText - aNoText;
+          return b.score - a.score;
+        });
 
       const bestCapsule = verticalGrids[0] || validGrids[0];
       const bestAlternativeBanner = horizontalGrids[0];
 
-      const bestHero = heroes
+      const sortedHeroes = heroes
         .filter(filterImage)
-        .sort((a, b) => b.score - a.score)[0];
+        .sort((a, b) => {
+          const aAnimated = a.mime === 'image/webp' || a.mime === 'image/gif' ? 1 : 0;
+          const bAnimated = b.mime === 'image/webp' || b.mime === 'image/gif' ? 1 : 0;
+          if (aAnimated !== bAnimated) return bAnimated - aAnimated;
+
+          const noTextStyles = ['alternate', 'blurred'];
+          const aNoText = a.style && noTextStyles.includes(a.style) ? 1 : 0;
+          const bNoText = b.style && noTextStyles.includes(b.style) ? 1 : 0;
+          if (aNoText !== bNoText) return bNoText - aNoText;
+
+          return b.score - a.score;
+        });
+
+      const bestHero = sortedHeroes[0];
 
       const bestLogo = logos
         .filter(filterImage)
@@ -446,7 +469,7 @@ export class SteamGridDBService {
       return {
         boxArtUrl: bestCapsule?.url || '',
         bannerUrl: bestHero?.url || '',
-        alternativeBannerUrl: bestAlternativeBanner?.url || bestHero?.url || '',
+        alternativeBannerUrl: sortedHeroes.length > 1 ? sortedHeroes[1].url : (bestHero?.url || ''),
         logoUrl: bestLogo?.url || '',
         heroUrl: bestHero?.url || '',
         iconUrl: bestIcon?.url || '',

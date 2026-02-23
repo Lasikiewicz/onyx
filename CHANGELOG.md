@@ -4,6 +4,13 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.4.0] - 2026-02-23
+
+- "**The Animated Update**"
+- Feature: Added animated image preferences (boxart and banners) globally and to the onboarding screens.
+- Feature: SteamGridDB sorting strictly enforces animated preferences.
+- Polish: Fixed animation stuttering in the Game Details panel background.
+
 ## [0.3.54] - 2026-02-23
 
 - UI: Fixed custom import dialog not refreshing settings to reflect imported preferences until next app restart.

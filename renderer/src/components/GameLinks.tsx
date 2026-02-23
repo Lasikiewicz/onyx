@@ -117,6 +117,25 @@ export const BRAND_COLORS: Record<string, string> = {
     fallback: '#374151',
 };
 
+/** Map icon key to its hover animation class. */
+const ICON_HOVER_ANIMATIONS: Record<string, string> = {
+    website: 'group-hover:animate-link-globe-spin',
+    youtube: 'group-hover:animate-play-pulse',
+    reddit: 'group-hover:animate-gentle-bounce',
+    discord: 'group-hover:animate-wobble',
+    wiki: 'group-hover:animate-float',
+    wikipedia: 'group-hover:animate-float',
+    steam: 'group-hover:animate-gear-spin',
+    epic: 'group-hover:animate-link-bounce-in',
+    xbox: 'group-hover:animate-link-bounce-in',
+    playstation: 'group-hover:animate-link-bounce-in',
+    twitter: 'group-hover:animate-wobble',
+    facebook: 'group-hover:animate-gentle-bounce',
+    twitch: 'group-hover:animate-play-pulse',
+    instagram: 'group-hover:animate-wobble',
+    fallback: 'group-hover:animate-gentle-bounce',
+};
+
 // Official icons for major platforms as simple currentColor SVGs
 const LinkIcons: Record<string, React.ReactNode> = {
     steam: (
@@ -455,7 +474,7 @@ export const GameLinks: React.FC<GameLinksProps> = ({
                         }}
                     >
                         <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
-                        <div className="w-full h-full relative z-10 flex items-center justify-center text-white drop-shadow-md">
+                        <div className={`w-full h-full relative z-10 flex items-center justify-center text-white drop-shadow-md transition-all duration-300 group-hover:drop-shadow-[0_0_6px_rgba(255,255,255,0.4)] ${ICON_HOVER_ANIMATIONS[iconKey] || ICON_HOVER_ANIMATIONS.fallback}`}>
                             <LinkIcon iconKey={iconKey} className="w-[85%] h-[85%]" customIconUrl={(link as { iconUrl?: string }).iconUrl} darkBackground={darkBg} />
                         </div>
                     </button>
@@ -514,7 +533,7 @@ export const GameLinks: React.FC<GameLinksProps> = ({
                                         className="group rounded-lg transition-all duration-200 hover:bg-white/10 flex items-center gap-2 p-2 text-left border border-white/5 opacity-80 hover:opacity-100"
                                         title={link.hidden ? `${link.name} (Hidden)` : link.name}
                                     >
-                                        <div className="w-6 h-6 flex-shrink-0 flex items-center justify-center text-white grayscale group-hover:grayscale-0 transition-all">
+                                        <div className={`w-6 h-6 flex-shrink-0 flex items-center justify-center text-white grayscale group-hover:grayscale-0 transition-all ${ICON_HOVER_ANIMATIONS[iconKey] || ICON_HOVER_ANIMATIONS.fallback}`}>
                                             <LinkIcon iconKey={iconKey} className="w-[85%] h-[85%]" customIconUrl={(link as { iconUrl?: string }).iconUrl} darkBackground={darkBg} />
                                         </div>
                                         <span className="text-sm text-gray-200 group-hover:text-white truncate flex-1 min-w-0">
@@ -561,75 +580,75 @@ export const GameLinks: React.FC<GameLinksProps> = ({
 
                     <div className="overflow-x-hidden overflow-y-auto flex-1 custom-scrollbar min-h-0 px-2">
                         <div className="flex flex-col gap-0.5">
-                        {allLinksForContextMenu.map((link, idx) => {
-                            const iconKey = inferLinkKey(link.url, link.name);
-                            return (
-                                <div key={idx} className={`group flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-white/5 transition-colors ${link.hidden ? 'opacity-50' : ''}`}>
-                                    {/* Link Info */}
-                                    <button
-                                        onClick={(e) => {
-                                            handleOpenLink(e, link.url);
-                                            setContextMenu(null);
-                                        }}
-                                        className="flex-1 flex items-center gap-2 min-w-0 text-left"
-                                    >
-                                        <div className="w-5 h-5 flex-shrink-0 flex items-center justify-center rounded shadow-sm grayscale group-hover:grayscale-0 transition-all">
-                                            <LinkIcon iconKey={iconKey} className="w-[85%] h-[85%]" customIconUrl={(link as { iconUrl?: string }).iconUrl} darkBackground={darkBg} />
+                            {allLinksForContextMenu.map((link, idx) => {
+                                const iconKey = inferLinkKey(link.url, link.name);
+                                return (
+                                    <div key={idx} className={`group flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-white/5 transition-colors ${link.hidden ? 'opacity-50' : ''}`}>
+                                        {/* Link Info */}
+                                        <button
+                                            onClick={(e) => {
+                                                handleOpenLink(e, link.url);
+                                                setContextMenu(null);
+                                            }}
+                                            className="flex-1 flex items-center gap-2 min-w-0 text-left"
+                                        >
+                                            <div className="w-5 h-5 flex-shrink-0 flex items-center justify-center rounded shadow-sm grayscale group-hover:grayscale-0 transition-all">
+                                                <LinkIcon iconKey={iconKey} className="w-[85%] h-[85%]" customIconUrl={(link as { iconUrl?: string }).iconUrl} darkBackground={darkBg} />
+                                            </div>
+                                            <span className="text-sm text-gray-300 group-hover:text-white font-medium">
+                                                {link.name}
+                                            </span>
+                                        </button>
+
+                                        {/* Action Buttons */}
+                                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            {/* Priority Up */}
+                                            <button
+                                                onClick={() => moveLink(link.originalIndex, 'left')}
+                                                disabled={link.originalIndex === 0}
+                                                className="p-1 text-gray-500 hover:text-white hover:bg-white/10 rounded transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                                                title="Move Priority Up"
+                                            >
+                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 15l7-7 7 7" />
+                                                </svg>
+                                            </button>
+
+                                            {/* Priority Down */}
+                                            <button
+                                                onClick={() => moveLink(link.originalIndex, 'right')}
+                                                disabled={link.originalIndex === links.length - 1}
+                                                className="p-1 text-gray-500 hover:text-white hover:bg-white/10 rounded transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                                                title="Move Priority Down"
+                                            >
+                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
+                                                </svg>
+                                            </button>
+
+                                            <div className="w-px h-4 bg-white/10 mx-0.5"></div>
+
+                                            {/* Toggle Hidden */}
+                                            <button
+                                                onClick={() => toggleHideLink(link.originalIndex)}
+                                                className="p-1 text-gray-500 hover:text-white hover:bg-white/10 rounded transition-colors"
+                                                title={link.hidden ? "Show Link" : "Hide Link"}
+                                            >
+                                                {link.hidden ? (
+                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                                    </svg>
+                                                ) : (
+                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.956 9.956 0 0112 5c4.478 0 8.268-2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                                                    </svg>
+                                                )}
+                                            </button>
                                         </div>
-                                        <span className="text-sm text-gray-300 group-hover:text-white font-medium">
-                                            {link.name}
-                                        </span>
-                                    </button>
-
-                                    {/* Action Buttons */}
-                                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        {/* Priority Up */}
-                                        <button
-                                            onClick={() => moveLink(link.originalIndex, 'left')}
-                                            disabled={link.originalIndex === 0}
-                                            className="p-1 text-gray-500 hover:text-white hover:bg-white/10 rounded transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                                            title="Move Priority Up"
-                                        >
-                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 15l7-7 7 7" />
-                                            </svg>
-                                        </button>
-
-                                        {/* Priority Down */}
-                                        <button
-                                            onClick={() => moveLink(link.originalIndex, 'right')}
-                                            disabled={link.originalIndex === links.length - 1}
-                                            className="p-1 text-gray-500 hover:text-white hover:bg-white/10 rounded transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                                            title="Move Priority Down"
-                                        >
-                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
-                                            </svg>
-                                        </button>
-
-                                        <div className="w-px h-4 bg-white/10 mx-0.5"></div>
-
-                                        {/* Toggle Hidden */}
-                                        <button
-                                            onClick={() => toggleHideLink(link.originalIndex)}
-                                            className="p-1 text-gray-500 hover:text-white hover:bg-white/10 rounded transition-colors"
-                                            title={link.hidden ? "Show Link" : "Hide Link"}
-                                        >
-                                            {link.hidden ? (
-                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                                </svg>
-                                            ) : (
-                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.956 9.956 0 0112 5c4.478 0 8.268-2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-                                                </svg>
-                                            )}
-                                        </button>
                                     </div>
-                                </div>
-                            );
-                        })}
+                                );
+                            })}
                         </div>
                     </div>
                     <p className="px-3 py-2 mt-1 border-t border-white/5 text-xs text-gray-300 shrink-0">

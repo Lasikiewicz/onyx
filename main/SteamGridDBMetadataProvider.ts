@@ -48,7 +48,7 @@ export class SteamGridDBMetadataProvider implements MetadataProvider {
     return null;
   }
 
-  async getArtwork(id: string, steamAppId?: string): Promise<GameArtwork | null> {
+  async getArtwork(id: string, steamAppId?: string, preferAnimatedBoxart: boolean = true, preferAnimatedBanner: boolean = true): Promise<GameArtwork | null> {
     if (!this.steamGridDBService) {
       return null;
     }
@@ -80,17 +80,57 @@ export class SteamGridDBMetadataProvider implements MetadataProvider {
       const validGrids = capsules.filter(filterImage).sort((a, b) => b.score - a.score);
 
       // Vertical grids (boxart) are typically 600x900 or 342x482 (width < height)
-      const verticalGrids = validGrids.filter(img => img.width < img.height);
+      const verticalGrids = validGrids.filter(img => img.width < img.height)
+        .sort((a, b) => {
+          if (preferAnimatedBoxart) {
+            const aAnimated = a.mime === 'image/webp' || a.mime === 'image/gif' ? 1 : 0;
+            const bAnimated = b.mime === 'image/webp' || b.mime === 'image/gif' ? 1 : 0;
+            if (aAnimated !== bAnimated) return bAnimated - aAnimated; // animated first
+          } else {
+            const aAnimated = a.mime === 'image/webp' || a.mime === 'image/gif' ? 1 : 0;
+            const bAnimated = b.mime === 'image/webp' || b.mime === 'image/gif' ? 1 : 0;
+            if (aAnimated !== bAnimated) return aAnimated - bAnimated; // static first
+          }
+          return b.score - a.score;
+        });
 
       // Horizontal grids (alternative banners) are typically 460x215 or 920x430 (width > height)
-      const horizontalGrids = validGrids.filter(img => img.width > img.height);
+      // Prefer banners without text overlaid (alternate/no_logo styles) — they look cleaner as backgrounds
+      const horizontalGrids = validGrids.filter(img => img.width > img.height)
+        .sort((a, b) => {
+          const noTextStyles = ['alternate', 'no_logo'];
+          const aNoText = a.style && noTextStyles.includes(a.style) ? 1 : 0;
+          const bNoText = b.style && noTextStyles.includes(b.style) ? 1 : 0;
+          if (aNoText !== bNoText) return bNoText - aNoText; // no-text first
+          return b.score - a.score; // then by score
+        });
 
       const bestCapsule = verticalGrids[0] || validGrids[0];
-      const bestAlternativeBanner = horizontalGrids[0];
+      const bestAlternativeBanner = horizontalGrids[0]; // Kept just in case we still want horizontal grids somewhere, but we won't use it for alternativeBannerUrl
 
-      const bestHero = heroes
+      // Heroes: prefer animated (if option active), then no text/logo overlaid (alternate style = no text for heroes)
+      const sortedHeroes = heroes
         .filter(filterImage)
-        .sort((a, b) => b.score - a.score)[0];
+        .sort((a, b) => {
+          if (preferAnimatedBanner) {
+            const aAnimated = a.mime === 'image/webp' || a.mime === 'image/gif' ? 1 : 0;
+            const bAnimated = b.mime === 'image/webp' || b.mime === 'image/gif' ? 1 : 0;
+            if (aAnimated !== bAnimated) return bAnimated - aAnimated; // animated first
+          } else {
+            const aAnimated = a.mime === 'image/webp' || a.mime === 'image/gif' ? 1 : 0;
+            const bAnimated = b.mime === 'image/webp' || b.mime === 'image/gif' ? 1 : 0;
+            if (aAnimated !== bAnimated) return aAnimated - bAnimated; // static first
+          }
+
+          const noTextStyles = ['alternate', 'blurred'];
+          const aNoText = a.style && noTextStyles.includes(a.style) ? 1 : 0;
+          const bNoText = b.style && noTextStyles.includes(b.style) ? 1 : 0;
+          if (aNoText !== bNoText) return bNoText - aNoText;
+
+          return b.score - a.score;
+        });
+
+      const bestHero = sortedHeroes[0];
 
       const bestLogo = logos
         .filter(filterImage)
@@ -103,7 +143,7 @@ export class SteamGridDBMetadataProvider implements MetadataProvider {
       const result = {
         boxArtUrl: bestCapsule?.url,
         bannerUrl: bestHero?.url,
-        alternativeBannerUrl: bestAlternativeBanner?.url || bestHero?.url,
+        alternativeBannerUrl: sortedHeroes.length > 1 ? sortedHeroes[1].url : bestHero?.url,
         logoUrl: bestLogo?.url,
         heroUrl: bestHero?.url,
         iconUrl: bestIcon?.url,

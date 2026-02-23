@@ -129,6 +129,8 @@ export interface UserPreferences {
     isFullscreen?: boolean;
   };
   storeMetadataLocally?: boolean; // Store metadata and images locally by default
+  preferAnimatedBoxart?: boolean; // Prefer animated cover art when importing
+  preferAnimatedBanner?: boolean; // Prefer animated heroes/banners when importing
   enableSuspendFeature?: boolean; // Enable suspend/resume functionality
   suspendShortcut?: string; // Keyboard shortcut for suspend/resume (e.g., "Ctrl+Shift+S")
   // Fullscreen settings
@@ -335,6 +337,8 @@ export class UserPreferencesService {
       ignoredGames: [],
       windowState: undefined,
       storeMetadataLocally: true,
+      preferAnimatedBoxart: true,
+      preferAnimatedBanner: true,
       enableSuspendFeature: false,
       suspendShortcut: 'Ctrl+Shift+S',
       startInFullscreen: false,
@@ -376,7 +380,7 @@ export class UserPreferencesService {
 
   private buildReadableSections(preferences: UserPreferences): NonNullable<UserPreferences['sections']> {
     const byView = preferences.perGameViewCustomByView || {};
-    
+
     // Helper to create view section for a specific resolution
     const createGridViewSection = () => ({
       '// Grid View Settings': '═══════════════════════════════════════════════',
@@ -948,7 +952,7 @@ export class UserPreferencesService {
       carousel: viewSections.carouselView?.gamesCustomSettings || {},
       coverflow: viewSections.coverflowView?.gamesCustomSettings || {},
     };
-    
+
     extracted.perGameViewCustomByView = perGameCustom;
     extracted.currentResolution = resolution;
 
@@ -957,16 +961,16 @@ export class UserPreferencesService {
 
   private stripDuplicateFieldsForStorage(preferences: UserPreferences): UserPreferences {
     // Create a copy without the fields that are duplicated in sections
-    const { 
+    const {
       // Grid view duplicates
-      gridSize, 
+      gridSize,
       gameTilePadding,
       showLogoOverBoxart,
       gridDescriptionSize,
       gridButtonSize,
       gridButtonLocation,
       gridButtonColors,
-      
+
       // Per-view duplicates (stored individually in each view's settings)
       panelWidth,
       panelWidthByView,
@@ -975,12 +979,12 @@ export class UserPreferencesService {
       descriptionHeight,
       descriptionWidthByView,
       backgroundBrightnessByView,
-      
+
       // List view duplicates
       listViewSize,
       listViewOptions,
       listButtonColors,
-      
+
       // Logo view duplicates
       logoSize,
       logoPosition,
@@ -989,7 +993,7 @@ export class UserPreferencesService {
       logoHeight,
       autoSizeToFit,
       logoButtonColors,
-      
+
       // Carousel view duplicates
       showCarouselDetails,
       showCarouselLogos,
@@ -1001,7 +1005,7 @@ export class UserPreferencesService {
       carouselButtonAlignment,
       carouselLogoAlignment,
       carouselButtonColors,
-      
+
       // Coverflow view duplicates
       coverFlowCoverSize,
       coverFlowReflection,
@@ -1010,16 +1014,16 @@ export class UserPreferencesService {
       coverFlowShowButtons,
       coverFlowButtonPosition,
       coverFlowButtonColors,
-      
+
       // Per-game custom settings (now in sections)
       perGameViewCustomByView,
-      
+
       // Per-view category settings (now in each view's section)
       showCategoriesInGameListByView,
       categoriesPositionByView,
       categoriesAlignmentByView,
       categoriesSizeByView,
-      
+
       // Right panel/details panel settings (now in each view's section)
       rightPanelLogoSize,
       rightPanelBoxartPosition,
@@ -1029,8 +1033,8 @@ export class UserPreferencesService {
       rightPanelButtonLocation,
       rightPanelButtonColors,
       detailsPanelOpacity,
-      
-      ...rest 
+
+      ...rest
     } = preferences;
 
     // Keep only non-duplicated fields and sections
@@ -1143,7 +1147,7 @@ export class UserPreferencesService {
     // Only save the cleaned version without duplicates
     const forStorage = this.stripDuplicateFieldsForStorage(normalized);
     store.set('preferences', forStorage);
-    
+
     // But return the full normalized version for app use
     return normalized;
   }
@@ -1171,7 +1175,7 @@ export class UserPreferencesService {
       ...(baseSections || {}),
       [resolutionKey]: rebuiltSections[resolutionKey],
     };
-    
+
     // Strip duplicate fields before saving to disk (sections are the source of truth)
     const forStorage = this.stripDuplicateFieldsForStorage(merged);
     store.set('preferences', forStorage);
@@ -1253,13 +1257,13 @@ export class UserPreferencesService {
   async getPerGameSettingsCount(): Promise<number> {
     const preferences = await this.getPreferences();
     const perGameByView = preferences.perGameViewCustomByView || {};
-    
+
     let count = 0;
     for (const viewMode of ['grid', 'list', 'logo', 'carousel', 'coverflow']) {
       const gameSettings = perGameByView[viewMode as ViewMode] || {};
       count += Object.keys(gameSettings).length;
     }
-    
+
     return count;
   }
 
@@ -1305,16 +1309,16 @@ export class UserPreferencesService {
   async deleteCustomDefault(options: { resolution: ResolutionKey; viewMode: ViewMode }): Promise<void> {
     const store = await this.ensureStore();
     const current = this.normalizeCustomDefaults(store.get('customDefaults', {}));
-    
+
     const resolutionDefaults = current[options.resolution];
     if (resolutionDefaults && resolutionDefaults[options.viewMode]) {
       delete resolutionDefaults[options.viewMode];
-      
+
       // Clean up empty resolution objects
       if (Object.keys(resolutionDefaults).length === 0) {
         delete current[options.resolution];
       }
-      
+
       store.set('customDefaults', current);
     }
   }
@@ -1334,7 +1338,7 @@ export class UserPreferencesService {
     try {
       // Check if data has the expected structure
       const importedCustomDefaults = data?.customDefaults || data;
-      
+
       if (!importedCustomDefaults || typeof importedCustomDefaults !== 'object') {
         return { valid: false, error: 'Invalid file format: missing customDefaults' };
       }
@@ -1352,7 +1356,7 @@ export class UserPreferencesService {
         const byResolution = importedCustomDefaults[resolution];
         if (byResolution && typeof byResolution === 'object') {
           resolutions.push(resolution);
-          
+
           for (const viewMode of validViewModes) {
             if (byResolution[viewMode]) {
               viewModes.add(viewMode);
@@ -1464,7 +1468,7 @@ export class UserPreferencesService {
   }): Promise<void> {
     const store = await this.ensureStore();
     const importedCustomDefaults = options.data?.customDefaults || options.data;
-    
+
     if (!importedCustomDefaults || typeof importedCustomDefaults !== 'object') {
       throw new Error('Invalid import data format');
     }
@@ -1527,7 +1531,7 @@ export class UserPreferencesService {
     // Import per-game settings if requested
     if (options.includePerGameSettings && options.data?.perGameViewCustomByView) {
       const importedPerGame = options.data.perGameViewCustomByView;
-      
+
       const mergedPerGame = {
         ...currentPreferences.perGameViewCustomByView,
       };

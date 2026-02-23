@@ -454,9 +454,9 @@ export class SteamMetadataProvider implements MetadataProvider {
         artwork.bannerResolution = { width: 1920, height: 620 }; // Standard Steam hero size
         artwork.heroResolution = { width: 1920, height: 620 };
         // When we have the hero, use header as alternative banner if it exists (different aspect ratio)
-        if (headerResponse?.ok && headerUrl !== bannerUrl) {
-          artwork.alternativeBannerUrl = headerUrl;
-        }
+        // NOTE: Deliberately NOT using header.jpg as alternative banner because it always has the
+        // game title text burned into the image. Alternative banners should be clean/text-free
+        // backgrounds. SteamGridDB horizontal grids are a better source for this.
       } else if (headerResponse?.ok) {
         // Fallback to header if hero is not available
         artwork.bannerUrl = headerUrl;

@@ -189,6 +189,8 @@ export function registerGameIPCHandlers(
 
     ipcMain.handle('gameStore:deleteGame', async (_event, gameId: string) => {
         try {
+            // Clean up cached images before deleting the game
+            await imageCacheService.deleteAllGameImages(gameId);
             await gameStore.deleteGame(gameId);
             return true;
         } catch (error) {

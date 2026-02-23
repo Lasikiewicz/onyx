@@ -65,6 +65,16 @@ export default {
           '25%': { transform: 'translateY(-3px) scale(1.2) rotate(-15deg)' },
           '50%': { transform: 'translateY(0) scale(1.15) rotate(15deg)' },
           '75%': { transform: 'translateY(-3px) scale(1.2) rotate(-15deg)' },
+        },
+        'link-globe-spin': {
+          '0%': { transform: 'rotateY(0deg) scale(1.15)' },
+          '100%': { transform: 'rotateY(360deg) scale(1.15)' },
+        },
+        'link-bounce-in': {
+          '0%, 100%': { transform: 'scale(1) translateY(0)' },
+          '40%': { transform: 'scale(1.2) translateY(-3px)' },
+          '60%': { transform: 'scale(0.95) translateY(1px)' },
+          '80%': { transform: 'scale(1.1) translateY(-1px)' },
         }
       },
       animation: {
@@ -79,6 +89,8 @@ export default {
         'edit-image': 'edit-image 2.5s ease-in-out infinite',
         'gear-spin': 'gear-spin 3s linear infinite',
         'pin-shake': 'pin-shake 0.8s ease-in-out infinite',
+        'link-globe-spin': 'link-globe-spin 2s linear infinite',
+        'link-bounce-in': 'link-bounce-in 0.6s ease-in-out',
       },
     },
   },

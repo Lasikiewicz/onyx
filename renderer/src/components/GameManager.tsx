@@ -3260,10 +3260,15 @@ export const GameManager: React.FC<GameManagerProps> = ({
                                 <button
                                   type="button"
                                   onClick={() => {
-                                    setEditedGame(prev => ({
-                                      ...prev!,
-                                      links: [...(prev!.links || []), ...foundLinks]
-                                    }));
+                                    setEditedGame(prev => {
+                                      const existing = prev!.links || [];
+                                      const existingTypes = new Set(existing.map(l => (l.name || '').toLowerCase()));
+                                      const deduped = foundLinks.filter(l => !existingTypes.has((l.name || '').toLowerCase()));
+                                      return {
+                                        ...prev!,
+                                        links: [...existing, ...deduped]
+                                      };
+                                    });
                                     setFoundLinks(null);
                                   }}
                                   className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded transition-colors"

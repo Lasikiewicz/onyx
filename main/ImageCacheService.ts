@@ -442,6 +442,39 @@ export class ImageCacheService {
   }
 
   /**
+   * Delete ALL cached images for a game (all image types)
+   * Used when a game is deleted from the library
+   */
+  async deleteAllGameImages(gameId: string): Promise<void> {
+    try {
+      this.ensureInitialized();
+      const safeGameId = gameId.replace(/[<>:"/\\|?*]/g, '_');
+      const { readdirSync, unlinkSync } = require('node:fs');
+      const files = readdirSync(this.cacheDir) as string[];
+      const prefix = `${safeGameId}-`;
+      let deletedCount = 0;
+
+      for (const file of files) {
+        if (file.startsWith(prefix)) {
+          try {
+            unlinkSync(path.join(this.cacheDir, file));
+            deletedCount++;
+          } catch (e) {
+            // Best effort
+          }
+        }
+      }
+
+      if (deletedCount > 0) {
+        console.log(`[ImageCache] Deleted ${deletedCount} cached images for game: ${gameId}`);
+      }
+    } catch (error) {
+      console.error(`Error deleting all cached images for ${gameId}:`, error);
+      // Don't throw - deletion is best effort
+    }
+  }
+
+  /**
    * Clear all cached images
    */
   async clearCache(): Promise<void> {

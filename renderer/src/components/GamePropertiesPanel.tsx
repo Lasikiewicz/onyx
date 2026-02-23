@@ -65,7 +65,6 @@ export const GamePropertiesPanel = forwardRef<GamePropertiesPanelHandle, GamePro
     const [isFastSearching, setIsFastSearching] = useState(false);
     const [fastSearchResults, setFastSearchResults] = useState<any[]>([]);
 
-    const [showAnimatedImages, setShowAnimatedImages] = useState(false);
     const [failedImageUrls, setFailedImageUrls] = useState<Set<string>>(new Set());
 
     const fastSearchRunIdRef = useRef(0);
@@ -76,7 +75,6 @@ export const GamePropertiesPanel = forwardRef<GamePropertiesPanelHandle, GamePro
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
     const [newCategoryInput, setNewCategoryInput] = useState('');
-    const [isSaving, setIsSaving] = useState(false);
 
     useEffect(() => {
         setEditedFields(toEditableFields(game));
@@ -210,15 +208,16 @@ export const GamePropertiesPanel = forwardRef<GamePropertiesPanelHandle, GamePro
             query,
             gameId: (game as any).id,
             steamAppId: (game as any).appId || (game as any).steamAppId,
-            showAnimatedImages,
+            showAnimatedImages: false,
             timestamp: new Date().toISOString()
         });
 
         try {
-            const steamAppId = (game as any).appId || (game as any).steamAppId;
-            // For alternativeBanner, search using 'banner' type since both use the same source
-            const searchType = type === 'alternativeBanner' ? 'banner' : type;
-            const response = await window.electronAPI.searchImages(query, searchType, steamAppId);
+            // Only use appId if it's a numeric Steam App ID - Xbox/Epic IDs like 'AppARCRaidersShipping' must NOT be sent to SGDB
+            const rawAppId = (game as any).appId || (game as any).steamAppId;
+            const steamAppId = rawAppId && /^\d+$/.test(String(rawAppId)) ? String(rawAppId) : undefined;
+            // Pass the actual type directly - backend handles alternativeBanner by fetching heroes
+            const response = await window.electronAPI.searchImages(query, type, steamAppId);
             if (response.success && response.images) {
                 const flattened = response.images.flatMap(r => r.images || []);
                 setSteamGridDBResults(prev => ({ ...prev, [type]: flattened }));
@@ -337,7 +336,7 @@ export const GamePropertiesPanel = forwardRef<GamePropertiesPanelHandle, GamePro
             resultName: gameResult.name,
             resultSource: gameResult.source,
             gameId: (game as any).id,
-            showAnimatedImages,
+            showAnimatedImages: false,
             timestamp: new Date().toISOString()
         });
 
@@ -346,7 +345,9 @@ export const GamePropertiesPanel = forwardRef<GamePropertiesPanelHandle, GamePro
         setError(null);
 
         try {
-            const steamAppId = (game as any).appId || (game as any).steamAppId;
+            // Only use appId if it's a numeric Steam App ID - Xbox/Epic IDs must NOT be sent to SGDB
+            const rawAppId = (game as any).appId || (game as any).steamAppId;
+            const steamAppId = rawAppId && /^\d+$/.test(String(rawAppId)) ? String(rawAppId) : undefined;
             const igdbIdParam = (() => {
                 if (gameResult.source !== 'igdb') return undefined;
                 if (typeof gameResult.id === 'number' && Number.isFinite(gameResult.id)) return gameResult.id;
@@ -361,7 +362,7 @@ export const GamePropertiesPanel = forwardRef<GamePropertiesPanelHandle, GamePro
                 gameResult.name,
                 steamAppId,
                 igdbIdParam,
-                showAnimatedImages,
+                false,
                 fastSearchActiveRunIdRef.current
             );
 
@@ -396,22 +397,6 @@ export const GamePropertiesPanel = forwardRef<GamePropertiesPanelHandle, GamePro
         }
     };
 
-    // Save Handler
-    const handleSave = async () => {
-        setIsSaving(true);
-        try {
-            const merged = isStaged
-                ? mergeIntoStagedGame(game as StagedGame, editedFields)
-                : mergeIntoGame(game as Game, editedFields);
-            await onSave(merged);
-            setSuccess("Saved successfully");
-            setTimeout(() => setSuccess(null), 2000);
-        } catch (err) {
-            setError("Failed to save");
-        } finally {
-            setIsSaving(false);
-        }
-    };
 
     // Expose save so parent can flush edits before Import
     useImperativeHandle(ref, () => ({
@@ -780,38 +765,6 @@ export const GamePropertiesPanel = forwardRef<GamePropertiesPanelHandle, GamePro
                                         <span>Quick All</span>
                                     </>
                                 )}
-                            </button>
-                            <button
-                                onClick={() => activeImageSearchTab === 'all' ? handleFastSearch() : handleSearchImages(activeImageSearchTab)}
-                                disabled={editingDisabled || isSearchingImages}
-                                className="bg-purple-600 px-4 rounded text-sm hover:bg-purple-700 disabled:opacity-50"
-                            >
-                                Search
-                            </button>
-                            <button
-                                onClick={() => {
-                                    setSteamGridDBResults({ boxart: [], banner: [], alternativeBanner: [], logo: [], icon: [] });
-                                    setFastSearchResults([]);
-                                }}
-                                className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded transition-colors disabled:opacity-50"
-                                disabled={editingDisabled || isSearchingImages}
-                            >
-                                Clear
-                            </button>
-                            <button
-                                onClick={() => setShowAnimatedImages(!showAnimatedImages)}
-                                disabled={editingDisabled}
-                                className={`px-3 py-2 rounded border transition-colors flex items-center gap-2 ${showAnimatedImages
-                                    ? 'bg-blue-600/20 border-blue-500 text-blue-400'
-                                    : 'bg-gray-700 border-gray-600 text-gray-400 hover:bg-gray-600'
-                                    } disabled:opacity-50`}
-                                title="Include animated images (GIF/WebP) in search results"
-                            >
-                                <svg className="w-4 h-4 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                                {showAnimatedImages ? 'Animated' : 'Static'}
                             </button>
                         </div>
 
@@ -1249,9 +1202,6 @@ export const GamePropertiesPanel = forwardRef<GamePropertiesPanelHandle, GamePro
                     {success && <span className="text-green-400 text-xs">{success}</span>}
                 </div>
                 <div className="flex gap-2">
-                    <button onClick={handleSave} disabled={isSaving || editingDisabled} className="flex-1 px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-                        {isSaving ? 'Saving...' : 'Save'}
-                    </button>
                     {onCancel && <button onClick={onCancel} disabled={editingDisabled} className="px-4 py-2 text-sm bg-gray-600 hover:bg-gray-700 text-white rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed">Cancel</button>}
                     {onDelete && !isStaged && (
                         <button onClick={onDelete} disabled={editingDisabled} className="px-4 py-2 text-sm bg-red-600 hover:bg-red-700 text-white rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2">

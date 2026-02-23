@@ -309,11 +309,11 @@ export class MetadataFetcherService {
       merged.heroResolution = heroes[0].resolution;
     }
 
-    // 1. Primary Priority: Use alternativeBannerUrl supplied directly by providers
-    // This correctly captures horizontal graphical grids from SGDB or Steam headers
+    // 1. Primary Priority: Use alternativeBannerUrl supplied directly by SteamGridDB only
+    // Steam headers always have text burned in, so they should never be used as alt banners
     const altFromProviders = sortByPriority(
       artworkArray
-        .filter(item => item.artwork?.alternativeBannerUrl)
+        .filter(item => item.artwork?.alternativeBannerUrl && item.source === 'steamgriddb')
         .map(item => ({ url: item.artwork!.alternativeBannerUrl!, resolution: undefined as undefined, source: item.source })),
       getBannerPriority
     );
@@ -327,10 +327,11 @@ export class MetadataFetcherService {
       }
     }
 
-    // 2. Fallback: If no provider-supplied alternative banner, try using secondary heroes
+    // 2. Fallback: If no provider-supplied alternative banner, try using secondary heroes from SGDB only
     if (!merged.alternativeBannerUrl && heroes.length > 0) {
+      const sgdbHeroes = heroes.filter(h => h.source === 'steamgriddb');
       const effectivePrimaryUrl = merged.bannerUrl || heroes[0].url;
-      const heroCandidates = heroes.filter(h => h.url !== effectivePrimaryUrl);
+      const heroCandidates = sgdbHeroes.filter(h => h.url !== effectivePrimaryUrl);
 
       if (heroCandidates.length > 0) {
         // Variety Heuristic: Skip the very first candidate if possible
@@ -338,14 +339,7 @@ export class MetadataFetcherService {
       }
     }
 
-    // 3. Fallback: Secondary Banners (Steam/IGDB)
-    if (!merged.alternativeBannerUrl && banners.length > 1) {
-      const effectivePrimaryUrl = merged.bannerUrl || banners[0].url;
-      const bannerCandidates = banners.filter(b => b.url !== effectivePrimaryUrl);
-      if (bannerCandidates.length > 0) {
-        merged.alternativeBannerUrl = bannerCandidates.length > 1 ? bannerCandidates[1].url : bannerCandidates[0].url;
-      }
-    }
+    // NOTE: No further fallback to Steam/IGDB banners - alt banners should always be clean community images from SGDB
 
     const allScreenshots = artworkArray
       .filter(item => item.artwork?.screenshots && item.artwork.screenshots.length > 0)
@@ -438,6 +432,15 @@ export class MetadataFetcherService {
         const ia = orderIndex.get((a.name || '').toLowerCase()) ?? 999;
         const ib = orderIndex.get((b.name || '').toLowerCase()) ?? 999;
         return ia - ib;
+      });
+
+      // Deduplicate by link type name — keep only the first link per type
+      const seenType = new Set<string>();
+      merged.links = merged.links.filter((l) => {
+        const key = (l.name || '').toLowerCase();
+        if (seenType.has(key)) return false;
+        seenType.add(key);
+        return true;
       });
     }
 
@@ -620,11 +623,11 @@ export class MetadataFetcherService {
    * Get complete game metadata from official store ONLY (Steam, Epic, GOG, etc.)
    * No search needed - we already have platform IDs from game scanning
    */
-  async searchArtwork(title: string, steamAppId?: string, bypassCache: boolean = false, linksOnly: boolean = false): Promise<GameMetadata> {
+  async searchArtwork(title: string, steamAppId?: string, bypassCache: boolean = false, linksOnly: boolean = false, preferAnimatedBoxart: boolean = true, preferAnimatedBanner: boolean = true): Promise<GameMetadata> {
     console.log(`[MetadataFetcher.searchArtwork] Starting for "${title}" (steamAppId: ${steamAppId}, bypassCache: ${bypassCache}, linksOnly: ${linksOnly})`);
 
     // Use Steam App ID if available, otherwise fallback to title-based search across all providers
-    const artworkResult = await this.fetchCompleteMetadata(title, null, steamAppId, bypassCache, linksOnly);
+    const artworkResult = await this.fetchCompleteMetadata(title, null, steamAppId, bypassCache, linksOnly, preferAnimatedBoxart, preferAnimatedBanner);
     if (linksOnly) {
       console.log(`[MetadataFetcher.searchArtwork] Links search complete for "${title}":`, {
         linksCount: (artworkResult.links || []).length
@@ -648,7 +651,9 @@ export class MetadataFetcherService {
     matchedGame?: GameSearchResult | null,
     steamAppId?: string,
     bypassCache: boolean = false,
-    linksOnly: boolean = false
+    linksOnly: boolean = false,
+    preferAnimatedBoxart: boolean = true,
+    preferAnimatedBanner: boolean = true
   ): Promise<GameMetadata> {
     const rateLimiter = getRateLimitCoordinator();
     const cache = getMetadataCache();
@@ -685,7 +690,7 @@ export class MetadataFetcherService {
     let artworkMetadata: GameMetadata = this.getEmptyMetadata();
     if (!linksOnly) {
       artworkMetadata = await rateLimiter.queueRequest("artwork", async () =>
-        withRetry(() => this.fetchArtworkForGame(effectiveMatch, steamAppId), { maxRetries: 1, delay: 1000 })
+        withRetry(() => this.fetchArtworkForGame(effectiveMatch, steamAppId, preferAnimatedBoxart, preferAnimatedBanner), { maxRetries: 1, delay: 1000 })
       );
     }
 
@@ -716,7 +721,9 @@ export class MetadataFetcherService {
    */
   private async fetchArtworkForGame(
     matchedGame: GameSearchResult,
-    steamAppId?: string
+    steamAppId?: string,
+    preferAnimatedBoxart: boolean = true,
+    preferAnimatedBanner: boolean = true
   ): Promise<GameMetadata> {
     console.log(`[fetchArtworkForGame] Fetching aggregated artwork for "${matchedGame.title}" (source: ${matchedGame.source}, id: ${matchedGame.id}, steamAppId: ${steamAppId})`);
     const artworkPromises: Array<{ promise: Promise<GameArtwork | null>; source: string }> = [];
@@ -803,7 +810,7 @@ export class MetadataFetcherService {
       if (matchedGame.source === 'steamgriddb') {
         artworkPromises.push({
           promise: withTimeout(
-            this.steamGridDBProvider.getArtwork(matchedGame.id, resolvedSteamAppId),
+            this.steamGridDBProvider.getArtwork(matchedGame.id, resolvedSteamAppId, preferAnimatedBoxart, preferAnimatedBanner),
             15000,
             "SteamGridDB Artwork Timeout"
           ).catch((err: any) => {
@@ -817,7 +824,7 @@ export class MetadataFetcherService {
           promise: withTimeout(
             (async () => {
               const results = await this.steamGridDBProvider!.search(matchedGame.title, resolvedSteamAppId);
-              return results.length > 0 ? this.steamGridDBProvider!.getArtwork(results[0].id, resolvedSteamAppId) : null;
+              return results.length > 0 ? this.steamGridDBProvider!.getArtwork(results[0].id, resolvedSteamAppId, preferAnimatedBoxart, preferAnimatedBanner) : null;
             })(),
             15000,
             "SteamGridDB Search/Artwork Timeout"

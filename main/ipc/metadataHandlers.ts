@@ -28,8 +28,12 @@ export function registerMetadataIPCHandlers(
     // Search Artwork Handlers
     ipcMain.handle('metadata:searchArtwork', async (_event, title: string, steamAppId?: string, bypassCache?: boolean) => {
         try {
+            const prefs = await userPreferencesService.getPreferences();
+            const preferAnimatedBoxart = prefs.preferAnimatedBoxart ?? true;
+            const preferAnimatedBanner = prefs.preferAnimatedBanner ?? true;
+
             return await withTimeout(
-                metadataFetcher.searchArtwork(title, steamAppId, bypassCache),
+                metadataFetcher.searchArtwork(title, steamAppId, bypassCache, false, preferAnimatedBoxart, preferAnimatedBanner),
                 60000,
                 `Artwork fetch timeout for "${title}"`
             );
@@ -397,7 +401,8 @@ export function registerMetadataIPCHandlers(
             }
 
             // Fallback to title search if no specific match found
-            return await metadataFetcher.searchArtwork(query);
+            const prefs = await userPreferencesService.getPreferences();
+            return await metadataFetcher.searchArtwork(query, undefined, false, false, prefs.preferAnimatedBoxart ?? true, prefs.preferAnimatedBanner ?? true);
         } catch (error) {
             console.error('Error in metadata:fastImageSearch handler:', error);
             // Return empty metadata object rather than crashing or undefined
@@ -413,7 +418,10 @@ export function registerMetadataIPCHandlers(
         try {
             // First find the game ID in SGDB
             let gameId: number | null = null;
-            if (steamAppId) {
+            // Only use steamAppId for SGDB lookup if it's actually a numeric Steam App ID
+            // Xbox/Epic IDs (e.g. 'AppARCRaidersShipping') must NOT be sent to SGDB
+            const isValidSteamId = steamAppId && /^\d+$/.test(String(steamAppId));
+            if (isValidSteamId) {
                 // Try to resolve by Steam ID first (more accurate)
                 // Note: The provider wrapper might not expose a direct "getGameBySteamId", 
                 // so we might have to use search or rely on internal logic. 
@@ -470,11 +478,18 @@ export function registerMetadataIPCHandlers(
                     images.push(...grids.map((g: any) => ({ ...g, type: 'boxart', source: 'SteamGridDB' })));
                 }
                 if (imageType === 'banner' || imageType === 'hero' || imageType === 'all') {
-                    const heroes = await rawService.getHeroes(gameId);
+                    const heroes = await rawService.getHeroes(gameId, includeAnimated);
                     images.push(...heroes.map((g: any) => ({ ...g, type: 'hero', source: 'SteamGridDB' })));
+                    // Also add heroes as alternativeBanner so they appear in the Alt Banner tab
+                    images.push(...heroes.map((g: any) => ({ ...g, type: 'alternativeBanner', source: 'SteamGridDB' })));
+                }
+                if (imageType === 'alternativeBanner') {
+                    // Dedicated alt banner search: fetch heroes (these are the wide banner-style images)
+                    const heroes = await rawService.getHeroes(gameId, includeAnimated);
+                    images.push(...heroes.map((g: any) => ({ ...g, type: 'alternativeBanner', source: 'SteamGridDB' })));
                 }
                 if (imageType === 'logo' || imageType === 'all') {
-                    const logos = await rawService.getLogos(gameId);
+                    const logos = await rawService.getLogos(gameId); // SGDB logos don't have animated variants via standard types yet, but doesn't hurt if we added it, but let's stick to true/false params if we want. Actually let's just use includeAnimated everywhere.
                     images.push(...logos.map((g: any) => ({ ...g, type: 'logo', source: 'SteamGridDB' })));
                 }
                 if (imageType === 'icon' || imageType === 'all') {
@@ -493,8 +508,8 @@ export function registerMetadataIPCHandlers(
         try {
             const allImages: any[] = [];
 
-            // 1. Fetch from SteamGridDB (existing behavior)
-            const sgdbImages = await searchSGDB(query, steamAppId, imageType, false);
+            // 1. Fetch from SteamGridDB (manual search always permits animated)
+            const sgdbImages = await searchSGDB(query, steamAppId, imageType, true);
             allImages.push(...sgdbImages);
 
             // 2. Fetch from IGDB/RAWG via metadata fetcher
@@ -637,7 +652,8 @@ export function registerMetadataIPCHandlers(
             // 2. Try to fetch standard metadata (Steam/IGDB auto-match) as fallback/addition
             sendProviderStatus('Auto-Match', ['IGDB', 'RAWG']);
             try {
-                const metadata = await metadataFetcher.searchArtwork(gameName, steamAppId);
+                const prefs = await userPreferencesService.getPreferences();
+                const metadata = await metadataFetcher.searchArtwork(gameName, steamAppId, false, false, prefs.preferAnimatedBoxart ?? true, prefs.preferAnimatedBanner ?? true);
                 const autoMatchImages: any[] = [];
 
                 if (metadata.boxArtUrl) autoMatchImages.push({ type: 'boxart', url: metadata.boxArtUrl, source: 'Auto-Match', name: gameName });

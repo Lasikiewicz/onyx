@@ -80,12 +80,13 @@ export interface MetadataProvider {
   getDescription(id: string, linksOnly?: boolean): Promise<GameDescription | null>;
 
   /**
-   * Get game artwork/images by ID
    * @param id Provider-specific game ID
    * @param steamAppId Optional Steam App ID for better matching
+   * @param preferAnimatedBoxart Whether to prefer animated artwork (boxart)
+   * @param preferAnimatedBanner Whether to prefer animated banners/heroes
    * @returns Game artwork with resolution information
    */
-  getArtwork(id: string, steamAppId?: string): Promise<GameArtwork | null>;
+  getArtwork(id: string, steamAppId?: string, preferAnimatedBoxart?: boolean, preferAnimatedBanner?: boolean): Promise<GameArtwork | null>;
 
   /**
    * Get game install information (if applicable)

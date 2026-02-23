@@ -413,8 +413,8 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
                 target.src = ''; // Clear src to prevent retries
               }}
             />
-            {/* Blurred background for logo area */}
-            {game.logoUrl && (
+            {/* Blurred background for logo area - Disabled if animated to prevent glitches */}
+            {game.logoUrl && !/\.(gif|webp)(\?|$)/i.test(backgroundImageUrl) && (
               <div
                 className={`absolute bottom-0 z-10 ${rightPanelBoxartPosition === 'left' ? 'right-6' :
                   rightPanelBoxartPosition === 'right' ? 'left-6' :
