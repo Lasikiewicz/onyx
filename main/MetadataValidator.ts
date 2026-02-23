@@ -1,6 +1,8 @@
 import { GameMetadata } from './MetadataFetcherService.js';
 import { GameSearchResult } from './MetadataProvider.js';
 
+import { getGameMatcher } from './GameMatcher.js';
+
 export interface ValidateMetadataOptions {
   /** When true, skip requiring image fields (used for links-only fetches) */
   linksOnly?: boolean;
@@ -48,11 +50,7 @@ export class MetadataValidator {
    * Normalize title for comparison
    */
   private normalizeTitle(title: string): string {
-    return title
-      .toLowerCase()
-      .trim()
-      .replace(/[^\w\s]/g, '')
-      .replace(/\s+/g, ' ');
+    return getGameMatcher().normalizeTitle(title);
   }
 
   /**

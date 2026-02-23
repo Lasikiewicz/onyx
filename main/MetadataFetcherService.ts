@@ -495,8 +495,8 @@ export class MetadataFetcherService {
       return [];
     }
 
-    // Check if title is a Steam App ID (numeric)
-    const query = steamAppId || title;
+    const matcher = getGameMatcher();
+    const query = steamAppId || matcher.normalizeTitle(title);
     const isSteamId = /^\d+$/.test(query);
 
     const allResults: GameSearchResult[] = [];
@@ -668,8 +668,9 @@ export class MetadataFetcherService {
     const cache = getMetadataCache();
     const validator = getMetadataValidator();
 
+    const matcher = getGameMatcher();
     // Clean title for search/matching if it's a demo
-    const cleanTitle = this.stripDemoSuffix(gameTitle);
+    const { stripped: cleanTitle } = matcher.stripDemoIndicator(gameTitle);
 
     const effectiveMatch: GameSearchResult = matchedGame || {
       id: steamAppId ? `steam-${steamAppId}` : cleanTitle,

@@ -333,8 +333,20 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
             }
 
             const titleMappings: Record<string, string> = {
-                'afop': 'Avatar: Frontiers of Pandora™',
-                'avatar frontiers of pandora': 'Avatar: Frontiers of Pandora™',
+                'afop': 'Avatar: Frontiers of Pandora',
+                'avatar frontiers of pandora': 'Avatar: Frontiers of Pandora',
+                'ac odyssey': "Assassin's Creed Odyssey",
+                'ac valhalla': "Assassin's Creed Valhalla",
+                'ac origins': "Assassin's Creed Origins",
+                'ac mirage': "Assassin's Creed Mirage",
+                'ac unity': "Assassin's Creed Unity",
+                'ac syndicate': "Assassin's Creed Syndicate",
+                'ac black flag': "Assassin's Creed IV Black Flag",
+                'ac rogue': "Assassin's Creed Rogue",
+                'ac liberty': "Assassin's Creed Liberation",
+                'ac 3': "Assassin's Creed III",
+                'ac 2': "Assassin's Creed II",
+                'ac': "Assassin's Creed",
             };
 
             let cleanScannedTitle = scanned.title
@@ -346,6 +358,9 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
             if (titleMappings[lowerTitle]) {
                 cleanScannedTitle = titleMappings[lowerTitle];
             }
+
+            // Important: Update the source object's title so subsequent API calls use the mapped title
+            scanned.title = cleanScannedTitle;
 
             const uuid = `${scanned.source}-${scanned.appId || Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
             if (!firstGameUuid) firstGameUuid = uuid;
@@ -388,8 +403,9 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
             // Quick match pass to get official title as soon as possible
             setScanProgress(`Identifying ${scanned.title}...`);
             setGameProcessingStates(prev => new Map(prev).set(scanned.title, { status: 'Identifying...', progress: '15%' }));
+            let matchResponse: any = null;
             try {
-                const matchResponse = await window.electronAPI.searchAndMatch(scanned);
+                matchResponse = await window.electronAPI.searchAndMatch(scanned);
                 if (matchResponse.success && matchResponse.match?.title) {
                     const officialTitle = matchResponse.match.title;
                     console.log(`[Importer] Identified "${scanned.title}" as official title: "${officialTitle}"`);
@@ -403,11 +419,12 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
             }
 
             // Fetch full metadata (artwork, icons, logos, links)
-            setScanProgress(`Fetching metadata for ${scanned.title}...`);
+            const searchTitle = matchResponse?.match?.title || scanned.title;
+            setScanProgress(`Fetching metadata for ${searchTitle}...`);
             setGameProcessingStates(prev => new Map(prev).set(scanned.title, { status: 'Fetching metadata...', progress: '25%' }));
             let metadata: any = {};
             try {
-                metadata = await window.electronAPI.searchArtwork(scanned.title, scanned.appId, true);
+                metadata = await window.electronAPI.searchArtwork(searchTitle, scanned.appId, true);
                 setGameProcessingStates(prev => new Map(prev).set(scanned.title, { status: 'Metadata complete', progress: '75%' }));
             } catch (err) {
                 console.warn(`Failed to fetch metadata for ${scanned.title}:`, err);

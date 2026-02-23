@@ -1478,7 +1478,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                     <ol className="space-y-3 list-decimal list-inside text-gray-300 text-sm pl-2">
                       <li>Log in to the <button onClick={() => window.electronAPI?.openExternal('https://dev.twitch.tv/console')} className="text-blue-400 hover:text-blue-300 underline">Twitch Developer Console</button></li>
                       <li>Click <span className="font-semibold text-white">"Register Your Application"</span></li>
-                      <li>Name it (e.g. "Onyx") and set Category to <span className="font-semibold text-white">"Game Integration"</span></li>
+                      <li>Name it (e.g. "Onyx"), set Category to <span className="font-semibold text-white">"Game Integration"</span>, and set OAuth Redirect URL to <code className="bg-gray-800/50 px-1.5 py-0.5 rounded text-blue-300">http://localhost</code></li>
                       <li>Click <span className="font-semibold text-white">"Create"</span>, then <span className="font-semibold text-white">"Manage"</span></li>
                       <li>Copy the <strong className="text-white">Client ID</strong></li>
                       <li>Click <span className="font-semibold text-white">"New Secret"</span> to generate a <strong className="text-white">Client Secret</strong></li>

@@ -156,7 +156,7 @@ export class GameMatcher {
   /**
    * Normalize title for comparison
    */
-  private normalizeTitle(title: string): string {
+  public normalizeTitle(title: string): string {
     let normalized = title.toLowerCase().trim();
 
     // Special cases for specific games (Item 5 & 6)

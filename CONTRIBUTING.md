@@ -15,7 +15,7 @@ Onyx is an **Electron application**. It does not run in a normal browser; use `n
 
 Onyx does **not** ship with any API keys. To use metadata features (game info, artwork), you must obtain your own keys and configure them in the app (Settings > APIs) or via environment variables. See [.env.example](.env.example) and the README for:
 
-- IGDB (Client ID + Client Secret)
+- IGDB (Client ID + Client Secret; use `http://localhost` as the OAuth Redirect URL)
 - RAWG (API Key)
 - SteamGridDB (API Key)
 

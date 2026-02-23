@@ -87,7 +87,7 @@ This overwrites the `main` branch with `develop`, triggering an automatic Produc
 2. Set up API credentials (optional, for game metadata and artwork):
    - Copy `.env.example` to `.env`
    - Add keys for the services you want (IGDB, RAWG, SteamGridDB). See [.env.example](.env.example) and the **Third-party services (APIs)** section below.
-   - Example (IGDB only): get credentials from https://api.igdb.com/ and add `IGDB_CLIENT_ID` and `IGDB_CLIENT_SECRET` to `.env`.
+   - Example (IGDB only): get credentials from the [Twitch Developer Console](https://dev.twitch.tv/console/apps/create) (use `http://localhost` as the OAuth Redirect URL) and add `IGDB_CLIENT_ID` and `IGDB_CLIENT_SECRET` to `.env`.
    ```env
    IGDB_CLIENT_ID=your_client_id_here
    IGDB_CLIENT_SECRET=your_client_secret_here
