@@ -4,6 +4,12 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.3.50] - 2026-02-23
+
+- Importer: Fixed bug where cancelling the importer confirmation dialog would not cancel background game scan requests.
+- Importer: Fixed game matching issue where titles identified correctly could be bypassed by an inaccurate zero-confidence match.
+- Importer: Fixed bug where Xbox applications (with Windows App IDs) would incorrectly pass their App IDs to IGDB breaking the metadata matching for games like "FINAL FANTASY".
+
 ## [0.3.49] - 2026-02-23
 
 - Documentation: Updated setup instructions for IGDB API to include the required OAuth Redirect URL (http://localhost).
