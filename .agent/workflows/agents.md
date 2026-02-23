@@ -226,7 +226,7 @@ Before ANY git operations:
 - Uses local state (`localLogoSize`) for instant UI feedback
 
 ### Default Logo Sizes (New Games)
-- **Status**: Updated to more usable defaults (Grid/List/Logo: 200px, Carousel: 300px)
+- **Status**: Defaults are currently 100px for Grid/List/Logo/Carousel when no per-game override exists
 - **Files**: `renderer/src/components/RightClickMenu.tsx` (hardcoded fallbacks when no per-game override exists)
 
 ## 📚 QUICK REFERENCE

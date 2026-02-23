@@ -262,7 +262,7 @@ function App() {
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [autoSizeToFit, setAutoSizeToFit] = useState(false);
   const gridContainerRef = useRef<HTMLDivElement>(null);
-  const currentResolutionRef = useRef<string>(window.screen.height >= 1440 ? '1440p' : '1080p');
+  const currentResolutionRef = useRef<string>(window.screen.height >= 2160 ? '4K' : window.screen.height >= 1440 ? '1440p' : window.screen.height >= 1080 ? '1080p' : '720p');
   const baselineDefaultsRef = useRef<any>(null);
 
   // Clamp padding in carousel without overwriting the saved preference
@@ -498,7 +498,7 @@ function App() {
   useEffect(() => {
     const handleResize = () => {
       const height = window.screen.height;
-      const newResKey = height >= 1440 ? '1440p' : '1080p';
+      const newResKey = height >= 2160 ? '4K' : height >= 1440 ? '1440p' : height >= 1080 ? '1080p' : '720p';
 
       if (newResKey !== currentResolutionRef.current) {
         console.log(`[App] Resolution change detected: ${currentResolutionRef.current} -> ${newResKey}. Auto-applying baseline defaults.`);

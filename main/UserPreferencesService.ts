@@ -166,12 +166,36 @@ export interface UserPreferences {
   };
   perGameViewSizeOverridesMigrated?: boolean;
   sections?: {
-    gridView?: Record<string, any>;
-    listView?: Record<string, any>;
-    logoView?: Record<string, any>;
-    carouselView?: Record<string, any>;
-    coverflowView?: Record<string, any>;
+    '720p'?: {
+      gridView?: Record<string, any>;
+      listView?: Record<string, any>;
+      logoView?: Record<string, any>;
+      carouselView?: Record<string, any>;
+      coverflowView?: Record<string, any>;
+    };
+    '1080p'?: {
+      gridView?: Record<string, any>;
+      listView?: Record<string, any>;
+      logoView?: Record<string, any>;
+      carouselView?: Record<string, any>;
+      coverflowView?: Record<string, any>;
+    };
+    '1440p'?: {
+      gridView?: Record<string, any>;
+      listView?: Record<string, any>;
+      logoView?: Record<string, any>;
+      carouselView?: Record<string, any>;
+      coverflowView?: Record<string, any>;
+    };
+    '4K'?: {
+      gridView?: Record<string, any>;
+      listView?: Record<string, any>;
+      logoView?: Record<string, any>;
+      carouselView?: Record<string, any>;
+      coverflowView?: Record<string, any>;
+    };
   };
+  currentResolution?: ResolutionKey;
 }
 
 type ViewMode = 'grid' | 'list' | 'logo' | 'carousel' | 'coverflow';
@@ -352,245 +376,281 @@ export class UserPreferencesService {
 
   private buildReadableSections(preferences: UserPreferences): NonNullable<UserPreferences['sections']> {
     const byView = preferences.perGameViewCustomByView || {};
+    
+    // Helper to create view section for a specific resolution
+    const createGridViewSection = () => ({
+      '// Grid View Settings': '═══════════════════════════════════════════════',
+      '// Description': 'Grid View displays games in a grid of boxart tiles',
+      settings: {
+        '// Boxart Size': 'Size of game boxart tiles in the grid (50-200)',
+        gridSize: preferences.gridSize,
+        '// Tile Padding': 'Spacing between game tiles in pixels',
+        gameTilePadding: preferences.gameTilePadding,
+        '// Details Panel Width': 'Width of the right-side details panel',
+        panelWidth: preferences.panelWidthByView?.grid,
+        '// Fanart Height': 'Height of the background fanart area',
+        fanartHeight: preferences.fanartHeightByView?.grid,
+        '// Description Width': 'Percentage of panel width for description text (0-100)',
+        descriptionWidth: preferences.descriptionWidthByView?.grid,
+        '// Background Brightness': 'Brightness/darkness of background image (0.0-1.0)',
+        backgroundBrightness: preferences.backgroundBrightnessByView?.grid,
+        '// Show Logo Over Boxart': 'Display game logo on top of boxart tile',
+        showLogoOverBoxart: preferences.showLogoOverBoxart,
+        '// ── Grid-Specific Settings ──': '',
+        '// Description Size': 'Font size for description text in grid tiles',
+        gridDescriptionSize: preferences.gridDescriptionSize,
+        '// Button Size': 'Size of action buttons on grid tiles',
+        gridButtonSize: preferences.gridButtonSize,
+        '// Button Location': 'Position of buttons on tiles (left/right)',
+        gridButtonLocation: preferences.gridButtonLocation,
+        '// Button Colors': 'Colors for play/edit/mod manager buttons',
+        gridButtonColors: preferences.gridButtonColors,
+        '// ── Categories Display ──': '',
+        '// Show Categories': 'Display category badges on game tiles',
+        showCategories: preferences.showCategoriesInGameListByView?.grid,
+        '// Categories Position': 'Position of category badges (top/bottom)',
+        categoriesPosition: preferences.categoriesPositionByView?.grid,
+        '// Categories Alignment': 'Horizontal alignment of categories (left/center/right)',
+        categoriesAlignment: preferences.categoriesAlignmentByView?.grid,
+        '// Categories Size': 'Font size for category text',
+        categoriesSize: preferences.categoriesSizeByView?.grid,
+        '// ── Details Panel ──': '',
+        '// Details Panel Logo Size': 'Size of logo in details panel (50-200)',
+        rightPanelLogoSize: preferences.rightPanelLogoSize,
+        '// Details Panel Boxart Position': 'Position of boxart in panel (left/right)',
+        rightPanelBoxartPosition: preferences.rightPanelBoxartPosition,
+        '// Details Panel Boxart Size': 'Size of boxart in details panel',
+        rightPanelBoxartSize: preferences.rightPanelBoxartSize,
+        '// Details Panel Text Size': 'Font size for details panel text',
+        rightPanelTextSize: preferences.rightPanelTextSize,
+        '// Details Panel Button Size': 'Size of buttons in details panel',
+        rightPanelButtonSize: preferences.rightPanelButtonSize,
+        '// Details Panel Button Location': 'Position of buttons (left/right)',
+        rightPanelButtonLocation: preferences.rightPanelButtonLocation,
+        '// Details Panel Button Colors': 'Colors for details panel buttons',
+        rightPanelButtonColors: preferences.rightPanelButtonColors,
+        '// Details Panel Opacity': 'Transparency of details panel overlay (0-100)',
+        detailsPanelOpacity: preferences.detailsPanelOpacity,
+      },
+      '// Per-Game Custom Settings': '═══════════════════════════════════════════',
+      '// Per-Game Description': 'Custom Grid View settings for specific games (logo sizes, etc.)',
+      gamesCustomSettings: byView.grid || {},
+    });
+
+    const createListViewSection = () => ({
+      '// List View Settings': '════════════════════════════════════════════════',
+      '// Description': 'List View displays games as rows with boxart/logo + info',
+      settings: {
+        '// List Row Size': 'Height of each game row in List View',
+        listViewSize: preferences.listViewSize,
+        '// Details Panel Width': 'Width of the right-side details panel',
+        panelWidth: preferences.panelWidthByView?.list,
+        '// Fanart Height': 'Height of the background fanart area',
+        fanartHeight: preferences.fanartHeightByView?.list,
+        '// Description Width': 'Percentage of panel width for description text (0-100)',
+        descriptionWidth: preferences.descriptionWidthByView?.list,
+        '// Background Brightness': 'Brightness/darkness of background image (0.0-1.0)',
+        backgroundBrightness: preferences.backgroundBrightnessByView?.list,
+        '// List Display Options': 'Control which info columns are shown in List View',
+        listViewOptions: preferences.listViewOptions,
+        '// ── List-Specific Settings ──': '',
+        '// Button Colors': 'Colors for play/edit/mod manager buttons',
+        listButtonColors: preferences.listButtonColors,
+        '// ── Categories Display ──': '',
+        '// Show Categories': 'Display category badges in list rows',
+        showCategories: preferences.showCategoriesInGameListByView?.list,
+        '// Categories Position': 'Position of category badges (top/bottom)',
+        categoriesPosition: preferences.categoriesPositionByView?.list,
+        '// Categories Alignment': 'Horizontal alignment of categories (left/center/right)',
+        categoriesAlignment: preferences.categoriesAlignmentByView?.list,
+        '// Categories Size': 'Font size for category text',
+        categoriesSize: preferences.categoriesSizeByView?.list,
+        '// ── Details Panel ──': '',
+        '// Details Panel Logo Size': 'Size of logo in details panel (50-200)',
+        rightPanelLogoSize: preferences.rightPanelLogoSize,
+        '// Details Panel Boxart Position': 'Position of boxart in panel (left/right)',
+        rightPanelBoxartPosition: preferences.rightPanelBoxartPosition,
+        '// Details Panel Boxart Size': 'Size of boxart in details panel',
+        rightPanelBoxartSize: preferences.rightPanelBoxartSize,
+        '// Details Panel Text Size': 'Font size for details panel text',
+        rightPanelTextSize: preferences.rightPanelTextSize,
+        '// Details Panel Button Size': 'Size of buttons in details panel',
+        rightPanelButtonSize: preferences.rightPanelButtonSize,
+        '// Details Panel Button Location': 'Position of buttons (left/right)',
+        rightPanelButtonLocation: preferences.rightPanelButtonLocation,
+        '// Details Panel Button Colors': 'Colors for details panel buttons',
+        rightPanelButtonColors: preferences.rightPanelButtonColors,
+        '// Details Panel Opacity': 'Transparency of details panel overlay (0-100)',
+        detailsPanelOpacity: preferences.detailsPanelOpacity,
+      },
+      '// Per-Game Custom Settings': '═══════════════════════════════════════════',
+      '// Per-Game Description': 'Custom List View settings for specific games (logo sizes, etc.)',
+      gamesCustomSettings: byView.list || {},
+    });
+
+    const createLogoViewSection = () => ({
+      '// Logo View Settings': '════════════════════════════════════════════════',
+      '// Description': 'Logo View displays games as large logos on backgrounds',
+      settings: {
+        '// Logo Size': 'Size of game logos in Logo View (50-200)',
+        logoSize: preferences.logoSize,
+        '// Logo Position': 'Vertical position of logo on background',
+        logoPosition: preferences.logoPosition,
+        '// Logo Background Opacity': 'Opacity of overlay behind logo (0.0-1.0)',
+        logoBackgroundOpacity: preferences.logoBackgroundOpacity,
+        '// Details Panel Width': 'Width of the right-side details panel',
+        panelWidth: preferences.panelWidthByView?.logo,
+        '// Fanart Height': 'Height of the background fanart area',
+        fanartHeight: preferences.fanartHeightByView?.logo,
+        '// Description Width': 'Percentage of panel width for description text (0-100)',
+        descriptionWidth: preferences.descriptionWidthByView?.logo,
+        '// Background Brightness': 'Brightness/darkness of background image (0.0-1.0)',
+        backgroundBrightness: preferences.backgroundBrightnessByView?.logo,
+        '// ── Logo-Specific Settings ──': '',
+        '// Logo Height': 'Maximum height for logos',
+        logoHeight: preferences.logoHeight,
+        '// Auto Size To Fit': 'Automatically adjust logo size to fit screen',
+        autoSizeToFit: preferences.autoSizeToFit,
+        '// Button Colors': 'Colors for play/edit/mod manager buttons',
+        logoButtonColors: preferences.logoButtonColors,
+        '// ── Categories Display ──': '',
+        '// Show Categories': 'Display category badges in logo view',
+        showCategories: preferences.showCategoriesInGameListByView?.logo,
+        '// Categories Position': 'Position of category badges (top/bottom)',
+        categoriesPosition: preferences.categoriesPositionByView?.logo,
+        '// Categories Alignment': 'Horizontal alignment of categories (left/center/right)',
+        categoriesAlignment: preferences.categoriesAlignmentByView?.logo,
+        '// Categories Size': 'Font size for category text',
+        categoriesSize: preferences.categoriesSizeByView?.logo,
+        '// ── Details Panel ──': '',
+        '// Details Panel Logo Size': 'Size of logo in details panel (50-200)',
+        rightPanelLogoSize: preferences.rightPanelLogoSize,
+        '// Details Panel Boxart Position': 'Position of boxart in panel (left/right)',
+        rightPanelBoxartPosition: preferences.rightPanelBoxartPosition,
+        '// Details Panel Boxart Size': 'Size of boxart in details panel',
+        rightPanelBoxartSize: preferences.rightPanelBoxartSize,
+        '// Details Panel Text Size': 'Font size for details panel text',
+        rightPanelTextSize: preferences.rightPanelTextSize,
+        '// Details Panel Button Size': 'Size of buttons in details panel',
+        rightPanelButtonSize: preferences.rightPanelButtonSize,
+        '// Details Panel Button Location': 'Position of buttons (left/right)',
+        rightPanelButtonLocation: preferences.rightPanelButtonLocation,
+        '// Details Panel Button Colors': 'Colors for details panel buttons',
+        rightPanelButtonColors: preferences.rightPanelButtonColors,
+        '// Details Panel Opacity': 'Transparency of details panel overlay (0-100)',
+        detailsPanelOpacity: preferences.detailsPanelOpacity,
+      },
+      '// Per-Game Custom Settings': '═══════════════════════════════════════════',
+      '// Per-Game Description': 'Custom Logo View settings for specific games (logo sizes, etc.)',
+      gamesCustomSettings: byView.logo || {},
+    });
+
+    const createCarouselViewSection = () => ({
+      '// Carousel View Settings': '══════════════════════════════════════════════',
+      '// Description': 'Carousel View displays games in a horizontal scrolling carousel',
+      settings: {
+        '// Show Details Bar': 'Display game info/buttons below carousel',
+        showCarouselDetails: preferences.showCarouselDetails,
+        '// Show Logos': 'Display game logos on carousel tiles',
+        showCarouselLogos: preferences.showCarouselLogos,
+        '// Details Bar Size': 'Height of details bar when shown',
+        detailsBarSize: preferences.detailsBarSize,
+        '// Carousel Logo Size': 'Size of logos on carousel tiles (50-200)',
+        carouselLogoSize: preferences.carouselLogoSize,
+        '// Button Size': 'Size of action buttons',
+        carouselButtonSize: preferences.carouselButtonSize,
+        '// Description Text Size': 'Font size for game description text',
+        carouselDescriptionSize: preferences.carouselDescriptionSize,
+        '// Description Alignment': 'Text alignment for description (left/center/right)',
+        carouselDescriptionAlignment: preferences.carouselDescriptionAlignment,
+        '// Button Alignment': 'Alignment for action buttons (left/center/right)',
+        carouselButtonAlignment: preferences.carouselButtonAlignment,
+        '// Logo Alignment': 'Alignment for logos (left/center/right)',
+        carouselLogoAlignment: preferences.carouselLogoAlignment,
+        '// Background Brightness': 'Brightness/darkness of background image (0.0-1.0)',
+        backgroundBrightness: preferences.backgroundBrightnessByView?.carousel,
+        '// ── Carousel-Specific Settings ──': '',
+        '// Button Colors': 'Colors for play/edit/mod manager buttons',
+        carouselButtonColors: preferences.carouselButtonColors,
+        '// ── Details Panel ──': '',
+        '// Details Panel Logo Size': 'Size of logo in details panel (50-200)',
+        rightPanelLogoSize: preferences.rightPanelLogoSize,
+        '// Details Panel Boxart Position': 'Position of boxart in panel (left/right)',
+        rightPanelBoxartPosition: preferences.rightPanelBoxartPosition,
+        '// Details Panel Boxart Size': 'Size of boxart in details panel',
+        rightPanelBoxartSize: preferences.rightPanelBoxartSize,
+        '// Details Panel Text Size': 'Font size for details panel text',
+        rightPanelTextSize: preferences.rightPanelTextSize,
+        '// Details Panel Button Size': 'Size of buttons in details panel',
+        rightPanelButtonSize: preferences.rightPanelButtonSize,
+        '// Details Panel Button Location': 'Position of buttons (left/right)',
+        rightPanelButtonLocation: preferences.rightPanelButtonLocation,
+        '// Details Panel Button Colors': 'Colors for details panel buttons',
+        rightPanelButtonColors: preferences.rightPanelButtonColors,
+        '// Details Panel Opacity': 'Transparency of details panel overlay (0-100)',
+        detailsPanelOpacity: preferences.detailsPanelOpacity,
+      },
+      '// Per-Game Custom Settings': '═══════════════════════════════════════════',
+      '// Per-Game Description': 'Custom Carousel View settings for specific games (logo sizes, etc.)',
+      gamesCustomSettings: byView.carousel || {},
+    });
+
+    const createCoverflowViewSection = () => ({
+      '// Coverflow View Settings': '════════════════════════════════════════════',
+      '// Description': 'Coverflow View displays games in a 3D flowing cover showcase',
+      settings: {
+        '// Cover Size': 'Size of cover images in coverflow (50-300)',
+        coverFlowCoverSize: preferences.coverFlowCoverSize,
+        '// Show Reflection': 'Display reflection effect below covers',
+        coverFlowReflection: preferences.coverFlowReflection,
+        '// Vertical Offset': 'Vertical position adjustment for covers',
+        coverFlowVerticalOffset: preferences.coverFlowVerticalOffset,
+        '// Side Cover Opacity': 'Opacity of non-selected side covers (0.0-1.0)',
+        coverFlowSideOpacity: preferences.coverFlowSideOpacity,
+        '// Show Buttons': 'Display action buttons with coverflow',
+        coverFlowShowButtons: preferences.coverFlowShowButtons,
+        '// Button Position': 'Position of action buttons (left/middle/right)',
+        coverFlowButtonPosition: preferences.coverFlowButtonPosition,
+        '// Background Brightness': 'Brightness/darkness of background image (0.0-1.0)',
+        backgroundBrightness: preferences.backgroundBrightnessByView?.coverflow,
+        '// ── Coverflow-Specific Settings ──': '',
+        '// Button Colors': 'Colors for play/edit/mod manager buttons',
+        coverFlowButtonColors: preferences.coverFlowButtonColors,
+      },
+      '// Per-Game Custom Settings': '═══════════════════════════════════════════',
+      '// Per-Game Description': 'Custom Coverflow View settings for specific games',
+      gamesCustomSettings: byView.coverflow || {},
+    });
+
+    // Create resolution-nested sections
     return {
-      gridView: {
-        '// Grid View Settings': '═══════════════════════════════════════════════',
-        '// Description': 'Grid View displays games in a grid of boxart tiles',
-        settings: {
-          '// Boxart Size': 'Size of game boxart tiles in the grid (50-200)',
-          gridSize: preferences.gridSize,
-          '// Tile Padding': 'Spacing between game tiles in pixels',
-          gameTilePadding: preferences.gameTilePadding,
-          '// Details Panel Width': 'Width of the right-side details panel',
-          panelWidth: preferences.panelWidthByView?.grid,
-          '// Fanart Height': 'Height of the background fanart area',
-          fanartHeight: preferences.fanartHeightByView?.grid,
-          '// Description Width': 'Percentage of panel width for description text (0-100)',
-          descriptionWidth: preferences.descriptionWidthByView?.grid,
-          '// Background Brightness': 'Brightness/darkness of background image (0.0-1.0)',
-          backgroundBrightness: preferences.backgroundBrightnessByView?.grid,
-          '// Show Logo Over Boxart': 'Display game logo on top of boxart tile',
-          showLogoOverBoxart: preferences.showLogoOverBoxart,
-          '// ── Grid-Specific Settings ──': '',
-          '// Description Size': 'Font size for description text in grid tiles',
-          gridDescriptionSize: preferences.gridDescriptionSize,
-          '// Button Size': 'Size of action buttons on grid tiles',
-          gridButtonSize: preferences.gridButtonSize,
-          '// Button Location': 'Position of buttons on tiles (left/right)',
-          gridButtonLocation: preferences.gridButtonLocation,
-          '// Button Colors': 'Colors for play/edit/mod manager buttons',
-          gridButtonColors: preferences.gridButtonColors,
-          '// ── Categories Display ──': '',
-          '// Show Categories': 'Display category badges on game tiles',
-          showCategories: preferences.showCategoriesInGameListByView?.grid,
-          '// Categories Position': 'Position of category badges (top/bottom)',
-          categoriesPosition: preferences.categoriesPositionByView?.grid,
-          '// Categories Alignment': 'Horizontal alignment of categories (left/center/right)',
-          categoriesAlignment: preferences.categoriesAlignmentByView?.grid,
-          '// Categories Size': 'Font size for category text',
-          categoriesSize: preferences.categoriesSizeByView?.grid,
-          '// ── Details Panel ──': '',
-          '// Details Panel Logo Size': 'Size of logo in details panel (50-200)',
-          rightPanelLogoSize: preferences.rightPanelLogoSize,
-          '// Details Panel Boxart Position': 'Position of boxart in panel (left/right)',
-          rightPanelBoxartPosition: preferences.rightPanelBoxartPosition,
-          '// Details Panel Boxart Size': 'Size of boxart in details panel',
-          rightPanelBoxartSize: preferences.rightPanelBoxartSize,
-          '// Details Panel Text Size': 'Font size for details panel text',
-          rightPanelTextSize: preferences.rightPanelTextSize,
-          '// Details Panel Button Size': 'Size of buttons in details panel',
-          rightPanelButtonSize: preferences.rightPanelButtonSize,
-          '// Details Panel Button Location': 'Position of buttons (left/right)',
-          rightPanelButtonLocation: preferences.rightPanelButtonLocation,
-          '// Details Panel Button Colors': 'Colors for details panel buttons',
-          rightPanelButtonColors: preferences.rightPanelButtonColors,
-          '// Details Panel Opacity': 'Transparency of details panel overlay (0-100)',
-          detailsPanelOpacity: preferences.detailsPanelOpacity,
-        },
-        '// Per-Game Custom Settings': '═══════════════════════════════════════════',
-        '// Per-Game Description': 'Custom Grid View settings for specific games (logo sizes, etc.)',
-        gamesCustomSettings: byView.grid || {},
+      '720p': {
+        gridView: createGridViewSection(),
+        listView: createListViewSection(),
+        logoView: createLogoViewSection(),
+        carouselView: createCarouselViewSection(),
+        coverflowView: createCoverflowViewSection(),
       },
-      listView: {
-        '// List View Settings': '════════════════════════════════════════════════',
-        '// Description': 'List View displays games as rows with boxart/logo + info',
-        settings: {
-          '// List Row Size': 'Height of each game row in List View',
-          listViewSize: preferences.listViewSize,
-          '// Details Panel Width': 'Width of the right-side details panel',
-          panelWidth: preferences.panelWidthByView?.list,
-          '// Fanart Height': 'Height of the background fanart area',
-          fanartHeight: preferences.fanartHeightByView?.list,
-          '// Description Width': 'Percentage of panel width for description text (0-100)',
-          descriptionWidth: preferences.descriptionWidthByView?.list,
-          '// Background Brightness': 'Brightness/darkness of background image (0.0-1.0)',
-          backgroundBrightness: preferences.backgroundBrightnessByView?.list,
-          '// List Display Options': 'Control which info columns are shown in List View',
-          listViewOptions: preferences.listViewOptions,
-          '// ── List-Specific Settings ──': '',
-          '// Button Colors': 'Colors for play/edit/mod manager buttons',
-          listButtonColors: preferences.listButtonColors,
-          '// ── Categories Display ──': '',
-          '// Show Categories': 'Display category badges in list rows',
-          showCategories: preferences.showCategoriesInGameListByView?.list,
-          '// Categories Position': 'Position of category badges (top/bottom)',
-          categoriesPosition: preferences.categoriesPositionByView?.list,
-          '// Categories Alignment': 'Horizontal alignment of categories (left/center/right)',
-          categoriesAlignment: preferences.categoriesAlignmentByView?.list,
-          '// Categories Size': 'Font size for category text',
-          categoriesSize: preferences.categoriesSizeByView?.list,
-          '// ── Details Panel ──': '',
-          '// Details Panel Logo Size': 'Size of logo in details panel (50-200)',
-          rightPanelLogoSize: preferences.rightPanelLogoSize,
-          '// Details Panel Boxart Position': 'Position of boxart in panel (left/right)',
-          rightPanelBoxartPosition: preferences.rightPanelBoxartPosition,
-          '// Details Panel Boxart Size': 'Size of boxart in details panel',
-          rightPanelBoxartSize: preferences.rightPanelBoxartSize,
-          '// Details Panel Text Size': 'Font size for details panel text',
-          rightPanelTextSize: preferences.rightPanelTextSize,
-          '// Details Panel Button Size': 'Size of buttons in details panel',
-          rightPanelButtonSize: preferences.rightPanelButtonSize,
-          '// Details Panel Button Location': 'Position of buttons (left/right)',
-          rightPanelButtonLocation: preferences.rightPanelButtonLocation,
-          '// Details Panel Button Colors': 'Colors for details panel buttons',
-          rightPanelButtonColors: preferences.rightPanelButtonColors,
-          '// Details Panel Opacity': 'Transparency of details panel overlay (0-100)',
-          detailsPanelOpacity: preferences.detailsPanelOpacity,
-        },
-        '// Per-Game Custom Settings': '═══════════════════════════════════════════',
-        '// Per-Game Description': 'Custom List View settings for specific games (logo sizes, etc.)',
-        gamesCustomSettings: byView.list || {},
+      '1080p': {
+        gridView: createGridViewSection(),
+        listView: createListViewSection(),
+        logoView: createLogoViewSection(),
+        carouselView: createCarouselViewSection(),
+        coverflowView: createCoverflowViewSection(),
       },
-      logoView: {
-        '// Logo View Settings': '════════════════════════════════════════════════',
-        '// Description': 'Logo View displays games as large logos on backgrounds',
-        settings: {
-          '// Logo Size': 'Size of game logos in Logo View (50-200)',
-          logoSize: preferences.logoSize,
-          '// Logo Position': 'Vertical position of logo on background',
-          logoPosition: preferences.logoPosition,
-          '// Logo Background Opacity': 'Opacity of overlay behind logo (0.0-1.0)',
-          logoBackgroundOpacity: preferences.logoBackgroundOpacity,
-          '// Details Panel Width': 'Width of the right-side details panel',
-          panelWidth: preferences.panelWidthByView?.logo,
-          '// Fanart Height': 'Height of the background fanart area',
-          fanartHeight: preferences.fanartHeightByView?.logo,
-          '// Description Width': 'Percentage of panel width for description text (0-100)',
-          descriptionWidth: preferences.descriptionWidthByView?.logo,
-          '// Background Brightness': 'Brightness/darkness of background image (0.0-1.0)',
-          backgroundBrightness: preferences.backgroundBrightnessByView?.logo,
-          '// ── Logo-Specific Settings ──': '',
-          '// Logo Height': 'Maximum height for logos',
-          logoHeight: preferences.logoHeight,
-          '// Auto Size To Fit': 'Automatically adjust logo size to fit screen',
-          autoSizeToFit: preferences.autoSizeToFit,
-          '// Button Colors': 'Colors for play/edit/mod manager buttons',
-          logoButtonColors: preferences.logoButtonColors,
-          '// ── Categories Display ──': '',
-          '// Show Categories': 'Display category badges in logo view',
-          showCategories: preferences.showCategoriesInGameListByView?.logo,
-          '// Categories Position': 'Position of category badges (top/bottom)',
-          categoriesPosition: preferences.categoriesPositionByView?.logo,
-          '// Categories Alignment': 'Horizontal alignment of categories (left/center/right)',
-          categoriesAlignment: preferences.categoriesAlignmentByView?.logo,
-          '// Categories Size': 'Font size for category text',
-          categoriesSize: preferences.categoriesSizeByView?.logo,
-          '// ── Details Panel ──': '',
-          '// Details Panel Logo Size': 'Size of logo in details panel (50-200)',
-          rightPanelLogoSize: preferences.rightPanelLogoSize,
-          '// Details Panel Boxart Position': 'Position of boxart in panel (left/right)',
-          rightPanelBoxartPosition: preferences.rightPanelBoxartPosition,
-          '// Details Panel Boxart Size': 'Size of boxart in details panel',
-          rightPanelBoxartSize: preferences.rightPanelBoxartSize,
-          '// Details Panel Text Size': 'Font size for details panel text',
-          rightPanelTextSize: preferences.rightPanelTextSize,
-          '// Details Panel Button Size': 'Size of buttons in details panel',
-          rightPanelButtonSize: preferences.rightPanelButtonSize,
-          '// Details Panel Button Location': 'Position of buttons (left/right)',
-          rightPanelButtonLocation: preferences.rightPanelButtonLocation,
-          '// Details Panel Button Colors': 'Colors for details panel buttons',
-          rightPanelButtonColors: preferences.rightPanelButtonColors,
-          '// Details Panel Opacity': 'Transparency of details panel overlay (0-100)',
-          detailsPanelOpacity: preferences.detailsPanelOpacity,
-        },
-        '// Per-Game Custom Settings': '═══════════════════════════════════════════',
-        '// Per-Game Description': 'Custom Logo View settings for specific games (logo sizes, etc.)',
-        gamesCustomSettings: byView.logo || {},
+      '1440p': {
+        gridView: createGridViewSection(),
+        listView: createListViewSection(),
+        logoView: createLogoViewSection(),
+        carouselView: createCarouselViewSection(),
+        coverflowView: createCoverflowViewSection(),
       },
-      carouselView: {
-        '// Carousel View Settings': '══════════════════════════════════════════════',
-        '// Description': 'Carousel View displays games in a horizontal scrolling carousel',
-        settings: {
-          '// Show Details Bar': 'Display game info/buttons below carousel',
-          showCarouselDetails: preferences.showCarouselDetails,
-          '// Show Logos': 'Display game logos on carousel tiles',
-          showCarouselLogos: preferences.showCarouselLogos,
-          '// Details Bar Size': 'Height of details bar when shown',
-          detailsBarSize: preferences.detailsBarSize,
-          '// Carousel Logo Size': 'Size of logos on carousel tiles (50-200)',
-          carouselLogoSize: preferences.carouselLogoSize,
-          '// Button Size': 'Size of action buttons',
-          carouselButtonSize: preferences.carouselButtonSize,
-          '// Description Text Size': 'Font size for game description text',
-          carouselDescriptionSize: preferences.carouselDescriptionSize,
-          '// Description Alignment': 'Text alignment for description (left/center/right)',
-          carouselDescriptionAlignment: preferences.carouselDescriptionAlignment,
-          '// Button Alignment': 'Alignment for action buttons (left/center/right)',
-          carouselButtonAlignment: preferences.carouselButtonAlignment,
-          '// Logo Alignment': 'Alignment for logos (left/center/right)',
-          carouselLogoAlignment: preferences.carouselLogoAlignment,
-          '// Background Brightness': 'Brightness/darkness of background image (0.0-1.0)',
-          backgroundBrightness: preferences.backgroundBrightnessByView?.carousel,
-          '// ── Carousel-Specific Settings ──': '',
-          '// Button Colors': 'Colors for play/edit/mod manager buttons',
-          carouselButtonColors: preferences.carouselButtonColors,
-          '// ── Details Panel ──': '',
-          '// Details Panel Logo Size': 'Size of logo in details panel (50-200)',
-          rightPanelLogoSize: preferences.rightPanelLogoSize,
-          '// Details Panel Boxart Position': 'Position of boxart in panel (left/right)',
-          rightPanelBoxartPosition: preferences.rightPanelBoxartPosition,
-          '// Details Panel Boxart Size': 'Size of boxart in details panel',
-          rightPanelBoxartSize: preferences.rightPanelBoxartSize,
-          '// Details Panel Text Size': 'Font size for details panel text',
-          rightPanelTextSize: preferences.rightPanelTextSize,
-          '// Details Panel Button Size': 'Size of buttons in details panel',
-          rightPanelButtonSize: preferences.rightPanelButtonSize,
-          '// Details Panel Button Location': 'Position of buttons (left/right)',
-          rightPanelButtonLocation: preferences.rightPanelButtonLocation,
-          '// Details Panel Button Colors': 'Colors for details panel buttons',
-          rightPanelButtonColors: preferences.rightPanelButtonColors,
-          '// Details Panel Opacity': 'Transparency of details panel overlay (0-100)',
-          detailsPanelOpacity: preferences.detailsPanelOpacity,
-        },
-        '// Per-Game Custom Settings': '═══════════════════════════════════════════',
-        '// Per-Game Description': 'Custom Carousel View settings for specific games (logo sizes, etc.)',
-        gamesCustomSettings: byView.carousel || {},
-      },
-      coverflowView: {
-        '// Coverflow View Settings': '════════════════════════════════════════════',
-        '// Description': 'Coverflow View displays games in a 3D flowing cover showcase',
-        settings: {
-          '// Cover Size': 'Size of cover images in coverflow (50-300)',
-          coverFlowCoverSize: preferences.coverFlowCoverSize,
-          '// Show Reflection': 'Display reflection effect below covers',
-          coverFlowReflection: preferences.coverFlowReflection,
-          '// Vertical Offset': 'Vertical position adjustment for covers',
-          coverFlowVerticalOffset: preferences.coverFlowVerticalOffset,
-          '// Side Cover Opacity': 'Opacity of non-selected side covers (0.0-1.0)',
-          coverFlowSideOpacity: preferences.coverFlowSideOpacity,
-          '// Show Buttons': 'Display action buttons with coverflow',
-          coverFlowShowButtons: preferences.coverFlowShowButtons,
-          '// Button Position': 'Position of action buttons (left/middle/right)',
-          coverFlowButtonPosition: preferences.coverFlowButtonPosition,
-          '// Background Brightness': 'Brightness/darkness of background image (0.0-1.0)',
-          backgroundBrightness: preferences.backgroundBrightnessByView?.coverflow,
-          '// ── Coverflow-Specific Settings ──': '',
-          '// Button Colors': 'Colors for play/edit/mod manager buttons',
-          coverFlowButtonColors: preferences.coverFlowButtonColors,
-        },
-        '// Per-Game Custom Settings': '═══════════════════════════════════════════',
-        '// Per-Game Description': 'Custom Coverflow View settings for specific games',
-        gamesCustomSettings: byView.coverflow || {},
+      '4K': {
+        gridView: createGridViewSection(),
+        listView: createListViewSection(),
+        logoView: createLogoViewSection(),
+        carouselView: createCarouselViewSection(),
+        coverflowView: createCoverflowViewSection(),
       },
     };
   }
@@ -699,12 +759,46 @@ export class UserPreferencesService {
     return '1080p';
   }
 
-  private extractFromSections(sections: NonNullable<UserPreferences['sections']>): Partial<UserPreferences> {
+  /**
+   * Detect the current screen resolution category based on the primary display
+   */
+  private async getCurrentResolution(): Promise<ResolutionKey> {
+    try {
+      const { screen } = await import('electron');
+      const primaryDisplay = screen.getPrimaryDisplay();
+      const { height } = primaryDisplay.bounds;
+
+      if (height >= 2160) return '4K';
+      if (height >= 1440) return '1440p';
+      if (height >= 1080) return '1080p';
+      return '720p';
+    } catch (error) {
+      console.warn('Failed to detect screen resolution, defaulting to 1080p:', error);
+      return '1080p';
+    }
+  }
+
+  private async extractFromSections(sections: NonNullable<UserPreferences['sections']>, currentResolution?: ResolutionKey): Promise<Partial<UserPreferences>> {
     const extracted: Partial<UserPreferences> = {};
 
+    // Determine which resolution to extract from
+    const resolution = currentResolution || await this.getCurrentResolution();
+    const resolutionSections = sections[resolution];
+
+    if (!resolutionSections) {
+      // Fallback for backward compatibility - try 1080p
+      console.warn(`No sections found for resolution ${resolution}, falling back to 1080p`);
+      const fallbackSections = sections['1080p'];
+      if (!fallbackSections) {
+        return extracted;
+      }
+    }
+
+    const viewSections = resolutionSections || sections['1080p'] || {};
+
     // Extract from gridView
-    if (sections.gridView?.settings) {
-      const gridSettings = sections.gridView.settings;
+    if (viewSections.gridView?.settings) {
+      const gridSettings = viewSections.gridView.settings;
       if (gridSettings.gridSize !== undefined) extracted.gridSize = gridSettings.gridSize;
       if (gridSettings.gameTilePadding !== undefined) extracted.gameTilePadding = gridSettings.gameTilePadding;
       if (gridSettings.showLogoOverBoxart !== undefined) extracted.showLogoOverBoxart = gridSettings.showLogoOverBoxart;
@@ -747,8 +841,8 @@ export class UserPreferencesService {
     }
 
     // Extract from listView
-    if (sections.listView?.settings) {
-      const listSettings = sections.listView.settings;
+    if (viewSections.listView?.settings) {
+      const listSettings = viewSections.listView.settings;
       if (listSettings.listViewSize !== undefined) extracted.listViewSize = listSettings.listViewSize;
       if (listSettings.listViewOptions !== undefined) extracted.listViewOptions = listSettings.listViewOptions;
       if (listSettings.listButtonColors !== undefined) extracted.listButtonColors = listSettings.listButtonColors;
@@ -779,8 +873,8 @@ export class UserPreferencesService {
     }
 
     // Extract from logoView
-    if (sections.logoView?.settings) {
-      const logoSettings = sections.logoView.settings;
+    if (viewSections.logoView?.settings) {
+      const logoSettings = viewSections.logoView.settings;
       if (logoSettings.logoSize !== undefined) extracted.logoSize = logoSettings.logoSize;
       if (logoSettings.logoPosition !== undefined) extracted.logoPosition = logoSettings.logoPosition;
       if (logoSettings.logoBackgroundOpacity !== undefined) extracted.logoBackgroundOpacity = logoSettings.logoBackgroundOpacity;
@@ -814,8 +908,8 @@ export class UserPreferencesService {
     }
 
     // Extract from carouselView
-    if (sections.carouselView?.settings) {
-      const carouselSettings = sections.carouselView.settings;
+    if (viewSections.carouselView?.settings) {
+      const carouselSettings = viewSections.carouselView.settings;
       if (carouselSettings.showCarouselDetails !== undefined) extracted.showCarouselDetails = carouselSettings.showCarouselDetails;
       if (carouselSettings.showCarouselLogos !== undefined) extracted.showCarouselLogos = carouselSettings.showCarouselLogos;
       if (carouselSettings.detailsBarSize !== undefined) extracted.detailsBarSize = carouselSettings.detailsBarSize;
@@ -832,8 +926,8 @@ export class UserPreferencesService {
     }
 
     // Extract from coverflowView
-    if (sections.coverflowView?.settings) {
-      const coverflowSettings = sections.coverflowView.settings;
+    if (viewSections.coverflowView?.settings) {
+      const coverflowSettings = viewSections.coverflowView.settings;
       if (coverflowSettings.coverFlowCoverSize !== undefined) extracted.coverFlowCoverSize = coverflowSettings.coverFlowCoverSize;
       if (coverflowSettings.coverFlowReflection !== undefined) extracted.coverFlowReflection = coverflowSettings.coverFlowReflection;
       if (coverflowSettings.coverFlowVerticalOffset !== undefined) extracted.coverFlowVerticalOffset = coverflowSettings.coverFlowVerticalOffset;
@@ -848,14 +942,15 @@ export class UserPreferencesService {
 
     // Extract per-game custom settings
     const perGameCustom: NonNullable<UserPreferences['perGameViewCustomByView']> = {
-      grid: sections.gridView?.gamesCustomSettings || {},
-      list: sections.listView?.gamesCustomSettings || {},
-      logo: sections.logoView?.gamesCustomSettings || {},
-      carousel: sections.carouselView?.gamesCustomSettings || {},
-      coverflow: sections.coverflowView?.gamesCustomSettings || {},
+      grid: viewSections.gridView?.gamesCustomSettings || {},
+      list: viewSections.listView?.gamesCustomSettings || {},
+      logo: viewSections.logoView?.gamesCustomSettings || {},
+      carousel: viewSections.carouselView?.gamesCustomSettings || {},
+      coverflow: viewSections.coverflowView?.gamesCustomSettings || {},
     };
     
     extracted.perGameViewCustomByView = perGameCustom;
+    extracted.currentResolution = resolution;
 
     return extracted;
   }
@@ -942,13 +1037,13 @@ export class UserPreferencesService {
     return rest as UserPreferences;
   }
 
-  private normalizePreferences(preferences?: Partial<UserPreferences>): UserPreferences {
+  private async normalizePreferences(preferences?: Partial<UserPreferences>): Promise<UserPreferences> {
     const defaults = this.createDefaultPreferences();
 
     // If sections exist, extract values from them first (sections are canonical)
     let fromSections: Partial<UserPreferences> = {};
     if (preferences?.sections) {
-      fromSections = this.extractFromSections(preferences.sections);
+      fromSections = await this.extractFromSections(preferences.sections, preferences.currentResolution);
     }
 
     const merged: UserPreferences = {
@@ -992,6 +1087,7 @@ export class UserPreferencesService {
     };
 
     merged.sections = this.buildReadableSections(merged);
+    merged.currentResolution = fromSections.currentResolution || await this.getCurrentResolution();
 
     return merged;
   }
@@ -1033,7 +1129,7 @@ export class UserPreferencesService {
   async getPreferences(): Promise<UserPreferences> {
     const store = await this.ensureStore();
     const current = store.get('preferences', this.createDefaultPreferences()) as Partial<UserPreferences>;
-    const normalized = this.normalizePreferences(current);
+    const normalized = await this.normalizePreferences(current);
     const currentSchemaVersion = store.get('schemaVersion', 0) as number;
 
     if (currentSchemaVersion !== this.schemaVersion) {
@@ -1053,8 +1149,8 @@ export class UserPreferencesService {
    */
   async savePreferences(preferences: Partial<UserPreferences>): Promise<void> {
     const store = await this.ensureStore();
-    const current = this.normalizePreferences(store.get('preferences', this.createDefaultPreferences()));
-    const merged = this.normalizePreferences({ ...current, ...preferences });
+    const current = await this.normalizePreferences(store.get('preferences', this.createDefaultPreferences()));
+    const merged = await this.normalizePreferences({ ...current, ...preferences });
     
     // Strip duplicate fields before saving to disk (sections are the source of truth)
     const forStorage = this.stripDuplicateFieldsForStorage(merged);
