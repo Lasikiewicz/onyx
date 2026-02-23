@@ -4,6 +4,14 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.3.48] - 2026-02-23
+
+- Importer: Fixed game title cleaning (e.g., mapping "AFOP" to "Avatar: Frontiers of Pandora™") to display official names instantly.
+- Importer: Simplified discovery progress to show actual games found instead of raw scanner counts.
+- Importer: Fixed duplicate detection to prevent skipping valid games when local path data is missing.
+- Importer: Added an "Identifying" pass to update game titles faster during scans.
+- Fix: Resolved metadata validation bugs that caused official titles to be discarded.
+
 ## [0.3.47] - 2026-02-21
 
 - Security: Added API credential validation check for IGDB, RAWG, SteamGridDB, and Giant Bomb before starting a scan in the importer.
