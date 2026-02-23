@@ -1,8 +1,8 @@
-import { app, ipcMain, session, BrowserWindow, shell } from 'electron';
+import { app, ipcMain, session, BrowserWindow, shell, dialog } from 'electron';
 import path from 'node:path';
 import https from 'node:https';
 import { existsSync, unlinkSync, rmSync, mkdirSync } from 'node:fs';
-import { readFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 import { execFile } from 'node:child_process';
 import { GameStore } from '../GameStore.js';
 import { ImageCacheService } from '../ImageCacheService.js';
@@ -547,10 +547,108 @@ export function registerAppIPCHandlers(
         return { success: true };
     });
 
-    // Custom Defaults Handlers (Placeholders)
-    ipcMain.handle('customDefaults:has', () => false);
+    // Custom Defaults Handlers
+    ipcMain.handle('customDefaults:has', async () => {
+        return await userPreferencesService.hasCustomDefaults();
+    });
+
+    ipcMain.handle('customDefaults:save', async (_event, settings: Record<string, any>, resolution?: string) => {
+        await userPreferencesService.saveCustomDefaults(settings || {}, resolution);
+        return { success: true };
+    });
+
+    ipcMain.handle('customDefaults:restore', async (_event, options: { viewMode: 'grid' | 'list' | 'logo' | 'carousel' | 'coverflow'; scope: 'current' | 'all'; resolution?: string }) => {
+        const defaults = await userPreferencesService.restoreCustomDefaults(options);
+        return { success: true, defaults };
+    });
+
+    ipcMain.handle('customDefaults:export', async (_event, options: { viewMode: 'grid' | 'list' | 'logo' | 'carousel' | 'coverflow'; scope: 'current' | 'all'; resolution?: string; overrideSettings?: any }) => {
+        try {
+            const resolution = options.resolution || '1080p';
+            const customDefaults = await userPreferencesService.getCustomDefaults();
+            const byResolution = customDefaults[resolution as keyof typeof customDefaults] || {};
+
+            const payload: any = {
+                version: 1,
+                exportedAt: new Date().toISOString(),
+                resolution,
+                scope: options.scope,
+                customDefaults: {},
+            };
+
+            if (options.scope === 'all') {
+                payload.customDefaults = {
+                    [resolution]: {
+                        ...byResolution,
+                        ...(options.overrideSettings && typeof options.overrideSettings === 'object' ? options.overrideSettings : {}),
+                    },
+                };
+            } else {
+                const mode = options.viewMode;
+                payload.customDefaults = {
+                    [resolution]: {
+                        [mode]: options.overrideSettings && typeof options.overrideSettings === 'object'
+                            ? options.overrideSettings
+                            : (byResolution as any)[mode] || {},
+                    },
+                };
+            }
+
+            const defaultFileName = `onyx-custom-defaults-${resolution}-${options.scope}-${new Date().toISOString().slice(0, 10)}.json`;
+            const saveResult = await dialog.showSaveDialog({
+                title: 'Export Custom Defaults',
+                defaultPath: path.join(app.getPath('documents'), defaultFileName),
+                filters: [{ name: 'JSON Files', extensions: ['json'] }],
+            });
+
+            if (saveResult.canceled || !saveResult.filePath) {
+                return { success: false, cancelled: true };
+            }
+
+            await writeFile(saveResult.filePath, JSON.stringify(payload, null, 2), 'utf-8');
+            return { success: true, filePath: saveResult.filePath };
+        } catch (error) {
+            return { success: false, error: error instanceof Error ? error.message : String(error) };
+        }
+    });
+
+    ipcMain.handle('customDefaults:import', async () => {
+        try {
+            const openResult = await dialog.showOpenDialog({
+                title: 'Import Custom Defaults',
+                properties: ['openFile'],
+                filters: [{ name: 'JSON Files', extensions: ['json'] }],
+            });
+
+            if (openResult.canceled || !openResult.filePaths[0]) {
+                return { success: false, cancelled: true };
+            }
+
+            const importedText = await readFile(openResult.filePaths[0], 'utf-8');
+            const importedJson = JSON.parse(importedText);
+            const importedCustomDefaults = importedJson?.customDefaults && typeof importedJson.customDefaults === 'object'
+                ? importedJson.customDefaults
+                : importedJson;
+
+            if (!importedCustomDefaults || typeof importedCustomDefaults !== 'object') {
+                return { success: false, error: 'Invalid custom defaults file format' };
+            }
+
+            const existing = await userPreferencesService.getCustomDefaults();
+            const merged = {
+                ...existing,
+                ...importedCustomDefaults,
+            };
+
+            await userPreferencesService.setCustomDefaults(merged);
+            return { success: true, data: importedCustomDefaults };
+        } catch (error) {
+            return { success: false, error: error instanceof Error ? error.message : String(error) };
+        }
+    });
+
     ipcMain.handle('customDefaults:getBaseline', async () => {
-        return (await userPreferencesService.getPreferences());
+        return await userPreferencesService.getBaselineDefaults();
     });
 
     // Bug Report Handlers

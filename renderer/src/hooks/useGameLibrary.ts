@@ -71,12 +71,51 @@ export function useGameLibrary() {
     try {
       setLoading(true);
       setError(null);
+      let prefs = await window.electronAPI.getPreferences();
+
+      if (!prefs.perGameViewSizeOverridesMigrated) {
+        const migrationResult = await window.electronAPI.migratePerGameViewSizeOverrides();
+        if (migrationResult?.success) {
+          const mergedOverrides = {
+            ...(prefs.perGameViewSizeOverrides || {}),
+            ...(migrationResult.overrides || {}),
+          };
+          const libraryForNames = await window.electronAPI.getLibrary();
+          const nameById = new Map(libraryForNames.map((game) => [game.id, game.title]));
+          const perViewCustomByView: any = { grid: {}, list: {}, logo: {}, carousel: {}, coverflow: {} };
+          Object.entries(mergedOverrides).forEach(([gameId, viewMap]) => {
+            const gameName = nameById.get(gameId);
+            Object.entries(viewMap || {}).forEach(([viewKey, value]) => {
+              if (typeof value === 'number' && perViewCustomByView[viewKey]) {
+                perViewCustomByView[viewKey][gameId] = { gameName, size: value };
+              }
+            });
+          });
+          await window.electronAPI.savePreferences({
+            perGameViewSizeOverrides: mergedOverrides,
+            perGameViewCustomByView: perViewCustomByView,
+            perGameViewSizeOverridesMigrated: true,
+          });
+          prefs = {
+            ...prefs,
+            perGameViewSizeOverrides: mergedOverrides,
+            perGameViewCustomByView: perViewCustomByView,
+            perGameViewSizeOverridesMigrated: true,
+          };
+        }
+      }
+
       const library = await window.electronAPI.getLibrary();
+      const perGameOverrides = prefs.perGameViewSizeOverrides || {};
       // Convert file:// URLs to onyx-local:// when loading (for backward compatibility)
       // Add cache-busting timestamp to force fresh image loads
       const timestamp = Date.now();
       const convertedGames = library.map(game => ({
         ...game,
+        logoSizePerViewMode: {
+          ...(game.logoSizePerViewMode || {}),
+          ...(perGameOverrides[game.id] || {}),
+        },
         useAlternativeBackground: game.useAlternativeBackground ?? true,
         boxArtUrl: addCacheBuster(convertFileUrlToLocalProtocol(game.boxArtUrl), timestamp),
         bannerUrl: addCacheBuster(convertFileUrlToLocalProtocol(game.bannerUrl), timestamp),

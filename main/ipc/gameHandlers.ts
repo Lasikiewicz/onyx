@@ -196,6 +196,15 @@ export function registerGameIPCHandlers(
         }
     });
 
+    ipcMain.handle('gameStore:migratePerGameViewSizeOverrides', async () => {
+        try {
+            const overrides = await gameStore.migratePerGameViewSizeOverrides();
+            return { success: true, overrides };
+        } catch (error) {
+            return { success: false, error: error instanceof Error ? error.message : 'Unknown error', overrides: {} };
+        }
+    });
+
     ipcMain.handle('gameStore:addCustomGame', async (_event, gameData: { title: string; exePath: string }) => {
         try {
             await gameStore.saveGame({

@@ -25,6 +25,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   syncSteamPlaytime: () => ipcRenderer.invoke('steam:syncPlaytime'),
   // GameStore methods
   getLibrary: () => ipcRenderer.invoke('gameStore:getLibrary'),
+  migratePerGameViewSizeOverrides: () => ipcRenderer.invoke('gameStore:migratePerGameViewSizeOverrides'),
   saveGame: (game: any, oldGame?: any) => ipcRenderer.invoke('gameStore:saveGame', game, oldGame),
   deleteCachedImage: (gameId: string, imageType: 'boxart' | 'banner' | 'alternativeBanner' | 'logo' | 'hero' | 'icon') => ipcRenderer.invoke('imageCache:deleteImage', gameId, imageType),
   reorderGames: (games: any[]) => ipcRenderer.invoke('gameStore:reorderGames', games),
@@ -112,8 +113,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   savePreferences: (preferences: Partial<UserPreferences>) => ipcRenderer.invoke('preferences:save', preferences),
   // Custom defaults methods
   hasCustomDefaults: () => ipcRenderer.invoke('customDefaults:has'),
-  saveCustomDefaults: (settings: any) => ipcRenderer.invoke('customDefaults:save', settings),
-  restoreCustomDefaults: (options: { viewMode: string; scope: string }) => ipcRenderer.invoke('customDefaults:restore', options),
+  saveCustomDefaults: (settings: any, resolution?: string) => ipcRenderer.invoke('customDefaults:save', settings, resolution),
+  restoreCustomDefaults: (options: { viewMode: string; scope: string; resolution?: string }) => ipcRenderer.invoke('customDefaults:restore', options),
   exportCustomDefaults: (options: { viewMode: string; scope: string; resolution?: string; overrideSettings?: any }) => ipcRenderer.invoke('customDefaults:export', options),
   importCustomDefaults: () => ipcRenderer.invoke('customDefaults:import'),
   getBaselineDefaults: () => ipcRenderer.invoke('customDefaults:getBaseline'),

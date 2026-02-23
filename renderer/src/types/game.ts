@@ -123,6 +123,16 @@ export interface UserPreferences {
   confirmGameLaunch?: boolean;
   restoreAfterLaunch?: boolean;
   defaultStartupPage?: 'library' | 'recent' | 'favorites';
+  perGameViewSizeOverrides?: Record<string, { grid?: number; list?: number; logo?: number; carousel?: number; coverflow?: number }>;
+  perGameViewCustomByView?: {
+    grid?: Record<string, { gameName?: string; size: number }>;
+    list?: Record<string, { gameName?: string; size: number }>;
+    logo?: Record<string, { gameName?: string; size: number }>;
+    carousel?: Record<string, { gameName?: string; size: number }>;
+    coverflow?: Record<string, { gameName?: string; size: number }>;
+  };
+  perGameViewSizeOverridesMigrated?: boolean;
+  sections?: Record<string, any>;
   hideVRTitles?: boolean;
   hideAppsTitles?: boolean;
   hideGameTitles?: boolean;
@@ -251,6 +261,7 @@ declare global {
       setSteamPath: (path: string) => Promise<{ success: boolean; error?: string }>;
       scanGamesWithPath: (path?: string, autoMerge?: boolean) => Promise<{ success: boolean; error?: string; games: import('./steam').SteamGame[] }>;
       getLibrary: () => Promise<Game[]>;
+      migratePerGameViewSizeOverrides: () => Promise<{ success: boolean; overrides: Record<string, { grid?: number; list?: number; logo?: number; carousel?: number; coverflow?: number }>; error?: string }>;
       saveGame: (game: Game, oldGame?: Game) => Promise<boolean>;
       deleteCachedImage: (gameId: string, imageType: 'boxart' | 'banner' | 'logo' | 'hero' | 'icon') => Promise<{ success: boolean; error?: string }>;
       reorderGames: (games: Game[]) => Promise<boolean>;
@@ -368,8 +379,8 @@ declare global {
       generateBugReport: (userDescription: string) => Promise<{ success: boolean; filePath?: string; error?: string }>;
       getBugReportLogsDirectory: () => Promise<{ success: boolean; path?: string; error?: string }>;
       hasCustomDefaults?: () => Promise<boolean>;
-      saveCustomDefaults?: (settings: any) => Promise<{ success: boolean; error?: string }>;
-      restoreCustomDefaults?: (options: { viewMode: string; scope: string }) => Promise<any>;
+      saveCustomDefaults?: (settings: any, resolution?: string) => Promise<{ success: boolean; error?: string }>;
+      restoreCustomDefaults?: (options: { viewMode: string; scope: string; resolution?: string }) => Promise<any>;
       exportCustomDefaults?: (options: { viewMode: string; scope: string; resolution?: string; overrideSettings?: any }) => Promise<{ success: boolean; filePath?: string; cancelled?: boolean; error?: string }>;
       importCustomDefaults?: () => Promise<{ success: boolean; data?: any; cancelled?: boolean; error?: string }>;
       getBaselineDefaults?: () => Promise<any>;

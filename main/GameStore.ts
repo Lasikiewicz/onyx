@@ -13,6 +13,13 @@ export interface Game {
   alternativeBannerUrl?: string;
   useAlternativeBackground?: boolean;
   logoUrl?: string;
+  logoSizePerViewMode?: {
+    carousel?: number;
+    coverflow?: number;
+    grid?: number;
+    logo?: number;
+    list?: number;
+  };
   heroUrl?: string;
   iconUrl?: string;
   screenshots?: string[];
@@ -95,6 +102,40 @@ export class GameStore {
   async getLibrary(): Promise<Game[]> {
     const store = await this.ensureStore();
     return (store as any).get('games', []);
+  }
+
+  async migratePerGameViewSizeOverrides(): Promise<Record<string, { grid?: number; list?: number; logo?: number; carousel?: number; coverflow?: number }>> {
+    const store = await this.ensureStore();
+    const games = await this.getLibrary();
+
+    const overrides: Record<string, { grid?: number; list?: number; logo?: number; carousel?: number; coverflow?: number }> = {};
+    let changed = false;
+
+    const migratedGames = games.map((game) => {
+      if (!game.logoSizePerViewMode || typeof game.logoSizePerViewMode !== 'object') {
+        return game;
+      }
+
+      const hasValues = Object.values(game.logoSizePerViewMode).some((value) => typeof value === 'number');
+      if (!hasValues) {
+        return game;
+      }
+
+      overrides[game.id] = {
+        ...(overrides[game.id] || {}),
+        ...game.logoSizePerViewMode,
+      };
+
+      const { logoSizePerViewMode, ...rest } = game;
+      changed = true;
+      return rest as Game;
+    });
+
+    if (changed) {
+      (store as any).set('games', migratedGames);
+    }
+
+    return overrides;
   }
 
   /**

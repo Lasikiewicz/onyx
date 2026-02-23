@@ -272,6 +272,9 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
   const [resetResolution, setResetResolution] = React.useState('');
   const [baselineDefaults, setBaselineDefaults] = React.useState<any>(null);
 
+  // State for Per-Game Override Clear Confirmation
+  const [showClearPerGameConfirm, setShowClearPerGameConfirm] = React.useState(false);
+
   const showFeedback = (setState: (s: any) => void, type: 'current' | 'all') => {
     setState({ type, show: true });
     if (feedbackTimeoutRef.current) clearTimeout(feedbackTimeoutRef.current);
@@ -380,7 +383,7 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
   const handleResetToDefaults = () => {
     // Get current screen resolution
     const screenHeight = window.screen.height;
-    const resKey = screenHeight >= 1440 ? '1440p' : '1080p';
+    const resKey = screenHeight >= 2160 ? '4K' : screenHeight >= 1440 ? '1440p' : screenHeight >= 1080 ? '1080p' : '720p';
 
     // Store resolution and show confirmation dialog
     setResetResolution(resKey);
@@ -463,6 +466,52 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
     const modes: ('grid' | 'list' | 'logo' | 'carousel' | 'coverflow')[] = ['grid', 'list', 'logo', 'carousel', 'coverflow'];
     modes.forEach(mode => applyDefaultsForView(mode, resetResolution));
 
+    // If there's an active game, show dialog to ask about clearing per-game overrides
+    if (activeGame && onActiveGameChange) {
+      setShowClearPerGameConfirm(true);
+      // Dialog will handle the rest via handleClearPerGameOverrides
+    } else {
+      setShowResetConfirmation(false);
+      onClose();
+    }
+  };
+
+  const handleClearPerGameOverrides = async () => {
+    if (!activeGame || !onActiveGameChange) return;
+
+    const { logoSizePerViewMode, ...restOfGame } = activeGame;
+    const updatedGame = restOfGame as Game;
+    setLocalLogoSizes({ grid: 100, list: 100, logo: 100, carousel: 100 });
+    onActiveGameChange(updatedGame);
+
+    try {
+      await window.electronAPI.saveGame(updatedGame);
+      const prefs = await window.electronAPI.getPreferences();
+      const currentMap = { ...(prefs.perGameViewSizeOverrides || {}) };
+      delete currentMap[activeGame.id];
+      const perViewCustom = { ...(prefs.perGameViewCustomByView || {}) } as any;
+      ['grid', 'list', 'logo', 'carousel', 'coverflow'].forEach((mode) => {
+        if (perViewCustom[mode]) {
+          const updated = { ...perViewCustom[mode] };
+          delete updated[activeGame.id];
+          perViewCustom[mode] = updated;
+        }
+      });
+      await window.electronAPI.savePreferences({
+        perGameViewSizeOverrides: currentMap,
+        perGameViewCustomByView: perViewCustom,
+      });
+    } catch (error) {
+      console.error('Failed to clear per-game logo size overrides:', error);
+    }
+
+    setShowClearPerGameConfirm(false);
+    setShowResetConfirmation(false);
+    onClose();
+  };
+
+  const handleSkipClearPerGameOverrides = () => {
+    setShowClearPerGameConfirm(false);
     setShowResetConfirmation(false);
     onClose();
   };
@@ -646,7 +695,7 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
 
   const handleSaveCurrentView = async () => {
     const currentSettings = { [viewMode]: gatherCurrentSettings() };
-    const result = await window.electronAPI.saveCustomDefaults?.(currentSettings);
+    const result = await window.electronAPI.saveCustomDefaults?.(currentSettings, screenResolution);
     if (result?.success) {
       setHasCustomDefaults(true);
       showFeedback(setSaveFeedback, 'current');
@@ -654,9 +703,13 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
   };
 
   const handleSaveAllViews = async () => {
-    // Don't re-gather from UI - just confirm all views have been saved individually
-    // The export will use what's already been saved in the store
-    const result = await window.electronAPI.saveCustomDefaults?.({});
+    const modes: ('grid' | 'list' | 'logo' | 'carousel' | 'coverflow')[] = ['grid', 'list', 'logo', 'carousel', 'coverflow'];
+    const allSettings = modes.reduce((acc, mode) => {
+      acc[mode] = gatherSettingsForViewMode(mode);
+      return acc;
+    }, {} as Record<string, any>);
+
+    const result = await window.electronAPI.saveCustomDefaults?.(allSettings, screenResolution);
     if (result?.success) {
       setHasCustomDefaults(true);
       showFeedback(setSaveFeedback, 'all');
@@ -664,7 +717,7 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
   };
 
   const handleRestoreCurrentView = async () => {
-    const result = await window.electronAPI.restoreCustomDefaults?.({ viewMode, scope: 'current' });
+    const result = await window.electronAPI.restoreCustomDefaults?.({ viewMode, scope: 'current', resolution: screenResolution });
     if (result?.success && result.defaults) {
       applySettings(result.defaults);
       showFeedback(setRestoreFeedback, 'current');
@@ -672,7 +725,7 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
   };
 
   const handleRestoreAllViews = async () => {
-    const result = await window.electronAPI.restoreCustomDefaults?.({ viewMode, scope: 'all' });
+    const result = await window.electronAPI.restoreCustomDefaults?.({ viewMode, scope: 'all', resolution: screenResolution });
     if (result?.success && result.defaults) {
       // Even though we loaded all views, only apply the current view's settings
       // This restores all to memory but only applies what's relevant now
@@ -905,10 +958,36 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
       clearTimeout(saveTimeoutRef.current);
     }
 
-    saveTimeoutRef.current = setTimeout(() => {
-      window.electronAPI.saveGame(updatedGame).catch((error) => {
-        console.error('Failed to save game:', error);
-      });
+    saveTimeoutRef.current = setTimeout(async () => {
+      try {
+        await window.electronAPI.saveGame(updatedGame);
+        const prefs = await window.electronAPI.getPreferences();
+        const currentMap = prefs.perGameViewSizeOverrides || {};
+        const gameMap = currentMap[activeGame.id] || {};
+        const perViewCustom = prefs.perGameViewCustomByView || {};
+        const currentViewCustom = (perViewCustom as any)[viewModeType] || {};
+        await window.electronAPI.savePreferences({
+          perGameViewSizeOverrides: {
+            ...currentMap,
+            [activeGame.id]: {
+              ...gameMap,
+              [viewModeType]: size,
+            },
+          },
+          perGameViewCustomByView: {
+            ...perViewCustom,
+            [viewModeType]: {
+              ...currentViewCustom,
+              [activeGame.id]: {
+                gameName: activeGame.title,
+                size,
+              },
+            },
+          },
+        });
+      } catch (error) {
+        console.error('Failed to save per-game logo size override:', error);
+      }
       saveTimeoutRef.current = null;
     }, 500); // Save 500ms after user stops moving slider
   };
@@ -2250,6 +2329,19 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
         onSecondaryAction={handleResetAllViews}
         onConfirm={handleResetCurrentView}
         onCancel={() => setShowResetConfirmation(false)}
+        variant="default"
+      />
+
+      {/* Clear Per-Game Override Confirmation Dialog */}
+      <ConfirmationDialog
+        isOpen={showClearPerGameConfirm}
+        title="Clear Per-Game Overrides"
+        message={`Also clear per-game logo size overrides for ${activeGame?.title || 'this game'}?`}
+        note="This will remove any custom logo sizes you've set specifically for this game across all views."
+        confirmText="Clear Overrides"
+        cancelText="Keep Overrides"
+        onConfirm={handleClearPerGameOverrides}
+        onCancel={handleSkipClearPerGameOverrides}
         variant="default"
       />
 
