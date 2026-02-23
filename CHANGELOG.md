@@ -4,6 +4,12 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.3.53] - 2026-02-23
+
+- UI: Refined right-click menu with compact top action controls and cleaner view/header spacing.
+- UI: Standardized slider controls across menu contexts with in-title current values and per-slider reset actions.
+- UI: Improved button color editors to use a compact single-row layout and streamlined color chips.
+
 ## [0.3.52] - 2026-02-23
 
 - UI: Set default game logo size to 100px across all views (Grid, List, Logo, Carousel, Right Panel).
