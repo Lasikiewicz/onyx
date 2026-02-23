@@ -4,6 +4,12 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.3.54] - 2026-02-23
+
+- UI: Fixed custom import dialog not refreshing settings to reflect imported preferences until next app restart.
+- UI: Improved custom defaults import preview layout with side-by-side section display and grid-based conflict options.
+- UI: Added currentResolution property to UserPreferences type to track resolution-aware preferences across sessions.
+
 ## [0.3.53] - 2026-02-23
 
 - UI: Refined right-click menu with compact top action controls and cleaner view/header spacing.
