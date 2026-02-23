@@ -1,1 +1,2 @@
-- Add support for changing the play / edit icon colours in all view types
+- Compact right click menu
+- Universal right click menu settings

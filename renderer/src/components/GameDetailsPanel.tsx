@@ -68,7 +68,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
   onUpdateGameInState,
   onRightClick,
   viewMode,
-  rightPanelLogoSize = 200,
+  rightPanelLogoSize = 100,
   rightPanelBoxartPosition = 'right',
   rightPanelBoxartSize = 300,
   rightPanelTextSize = 14,

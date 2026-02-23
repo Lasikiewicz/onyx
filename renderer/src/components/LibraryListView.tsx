@@ -111,7 +111,7 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
   const sectionTextSize = listViewOptions.sectionTextSize ?? 14;
   const tileHeight = listViewOptions.tileHeight ?? listViewSize; // Use tileHeight or fallback to listViewSize
   const boxartSize = listViewOptions.boxartSize ?? 96;
-  const logoSizeForList = listViewOptions.logoSize ?? 96;
+  const logoSizeForList = listViewOptions.logoSize ?? 100;
 
   // Determine what to show based on display mode
   const showBoxart = displayMode === 'boxart-title';
@@ -196,9 +196,8 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                 onContextMenu={(e) => handleGameElementContextMenu(e, game)}
                 tabIndex={0}
                 onFocus={() => setFocusedIndex(index)}
-                className={`p-3 bg-gray-800/40 backdrop-blur-md border border-white/5 rounded-xl transition-all duration-300 hover:bg-gray-700/60 hover:border-cyan-400/30 cursor-pointer group outline-none ${
-                  index === focusedIndex ? 'ring-2 ring-blue-500 ring-offset-2 ring-offset-slate-900' : ''
-                } ${displayMode === 'logo-only' || displayMode === 'title-only' ? 'flex flex-col items-center' : 'flex items-center gap-4'
+                className={`p-3 bg-gray-800/40 backdrop-blur-md border border-white/5 rounded-xl transition-all duration-300 hover:bg-gray-700/60 hover:border-cyan-400/30 cursor-pointer group outline-none ${index === focusedIndex ? 'ring-2 ring-blue-500 ring-offset-2 ring-offset-slate-900' : ''
+                  } ${displayMode === 'logo-only' || displayMode === 'title-only' ? 'flex flex-col items-center' : 'flex items-center gap-4'
                   }`}
               >
                 {displayMode === 'title-only' ? (

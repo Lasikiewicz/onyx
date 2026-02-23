@@ -100,7 +100,7 @@ function App() {
   const [isAPISettingsOpen, setIsAPISettingsOpen] = useState(false);
   const [isBugReportOpen, setIsBugReportOpen] = useState(false);
   const [gridSize, setGridSize] = useState(120);
-  const [logoSize, setLogoSize] = useState(120);
+  const [logoSize, setLogoSize] = useState(100);
   const [pinnedCategories, setPinnedCategories] = useState<string[]>([]);
   const [hideVRTitles, setHideVRTitles] = useState(true);
   const [hideAppsTitles, setHideAppsTitles] = useState(true);

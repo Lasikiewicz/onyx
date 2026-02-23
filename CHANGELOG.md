@@ -4,6 +4,11 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.3.52] - 2026-02-23
+
+- UI: Set default game logo size to 100px across all views (Grid, List, Logo, Carousel, Right Panel).
+- UI: Updated various component fallbacks and preference defaults to maintain consistent 100px sizing for new games.
+
 ## [0.3.51] - 2026-02-23
 
 - Importer: Replaced slow Steam HTML scraping search (20+ API calls per game, 20-30s) with fast storesearch API (~200ms per game).

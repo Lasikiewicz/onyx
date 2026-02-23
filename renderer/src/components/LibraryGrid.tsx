@@ -53,7 +53,7 @@ export const LibraryGrid: React.FC<LibraryGridProps> = ({
   onGameClick,
   onEdit,
   gridSize = 120,
-  logoSize = 120,
+  logoSize = 100,
   gameTilePadding = 3,
   hideGameTitles = false,
   showLogoOverBoxart = true,

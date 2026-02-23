@@ -48,7 +48,7 @@ export const GameCard: React.FC<GameCardProps> = ({ game, hideTitle = false, sho
     return `rgba(${r}, ${g}, ${b}, ${alpha})`;
   };
 
-  const cardBackground = viewMode === 'logo' ? { backgroundColor: toRgba(logoBackgroundColor, logoBackgroundOpacity) } : 
+  const cardBackground = viewMode === 'logo' ? { backgroundColor: toRgba(logoBackgroundColor, logoBackgroundOpacity) } :
     undefined;
 
   return (
@@ -105,8 +105,8 @@ export const GameCard: React.FC<GameCardProps> = ({ game, hideTitle = false, sho
         {/* Logo - position based on settings (overlaid on boxart) */}
         {game.logoUrl && showLogoOverBoxart && logoPosition !== 'underneath' && (
           <div className={`absolute inset-0 flex p-4 pointer-events-none ${logoPosition === 'top' ? 'items-start' :
-              logoPosition === 'bottom' ? 'items-end' :
-                'items-center'
+            logoPosition === 'bottom' ? 'items-end' :
+              'items-center'
             } justify-center`}>
             <img
               key={game.logoUrl}
@@ -151,7 +151,7 @@ export const GameCard: React.FC<GameCardProps> = ({ game, hideTitle = false, sho
             alt={`${game.title} Logo`}
             style={{
               maxWidth: '100%',
-              maxHeight: `${game.logoSizePerViewMode?.[viewMode as keyof typeof game.logoSizePerViewMode] || 200}px`,
+              maxHeight: `${game.logoSizePerViewMode?.[viewMode as keyof typeof game.logoSizePerViewMode] || 100}px`,
               objectFit: 'contain',
               ...(game.removeLogoTransparency ? {
                 backgroundColor: 'rgba(0, 0, 0, 0.5)',
