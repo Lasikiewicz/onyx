@@ -706,7 +706,9 @@ export const GamePropertiesPanel = forwardRef<GamePropertiesPanelHandle, GamePro
                                     <label className="block text-[10px] uppercase tracking-wider font-semibold text-gray-500 mb-0.5">Source</label>
                                     <input
                                         type="text"
-                                        value={(game as StagedGame).source ? (game as StagedGame).source.charAt(0).toUpperCase() + (game as StagedGame).source.slice(1) : ''}
+                                        value={(game as StagedGame).source ? (
+                                            (game as StagedGame).source!.charAt(0).toUpperCase() + (game as StagedGame).source!.slice(1)
+                                        ) : ''}
                                         readOnly
                                         className="w-full px-2 py-1 text-xs bg-gray-800/50 border border-gray-600 rounded text-gray-400"
                                     />

@@ -40,6 +40,7 @@ export interface SteamGridDBImage {
 export interface SteamGridDBMetadata {
   boxArtUrl: string;
   bannerUrl: string;
+  alternativeBannerUrl?: string;
   logoUrl?: string;
   heroUrl?: string;
   iconUrl?: string;
@@ -423,9 +424,12 @@ export class SteamGridDBService {
       // Sort by score (highest first) and filter out NSFW/humor/epilepsy content
       const filterImage = (img: SteamGridDBImage) => !img.nsfw && !img.humor && !img.epilepsy;
 
-      const bestCapsule = capsules
-        .filter(filterImage)
-        .sort((a, b) => b.score - a.score)[0];
+      const validGrids = capsules.filter(filterImage).sort((a, b) => b.score - a.score);
+      const verticalGrids = validGrids.filter(img => img.width < img.height);
+      const horizontalGrids = validGrids.filter(img => img.width > img.height);
+
+      const bestCapsule = verticalGrids[0] || validGrids[0];
+      const bestAlternativeBanner = horizontalGrids[0];
 
       const bestHero = heroes
         .filter(filterImage)
@@ -442,6 +446,7 @@ export class SteamGridDBService {
       return {
         boxArtUrl: bestCapsule?.url || '',
         bannerUrl: bestHero?.url || '',
+        alternativeBannerUrl: bestAlternativeBanner?.url || bestHero?.url || '',
         logoUrl: bestLogo?.url || '',
         heroUrl: bestHero?.url || '',
         iconUrl: bestIcon?.url || '',

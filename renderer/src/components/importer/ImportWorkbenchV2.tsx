@@ -6,6 +6,7 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { StagedGame, ImportStatus, ImportSource } from '../../types/importer';
 import { Game } from '../../types/game';
 import { GamePropertiesPanel, GamePropertiesPanelHandle } from '../GamePropertiesPanel';
+import { ConfirmationDialog } from '../ConfirmationDialog';
 
 export type ImportProgressCallback = (current: number, total: number, phase: string, detail?: string) => void;
 
@@ -57,6 +58,7 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
     const [error, setError] = useState<string | null>(null);
     const [scanProgress, setScanProgress] = useState('');
     const [showIgnored, setShowIgnored] = useState(false);
+    const [showCloseConfirm, setShowCloseConfirm] = useState(false);
 
     // New state for real-time scanning
     const [currentlyProcessingGame, setCurrentlyProcessingGame] = useState<string | null>(null);
@@ -78,7 +80,7 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
 
     // Group games by source
     const groupedGames = useMemo(() => {
-        const groups: Partial<Record<ImportSource, StagedGame[]>> = {};
+        const groups: Record<string, StagedGame[]> = {};
         visibleGames.forEach(game => {
             if (!groups[game.source]) groups[game.source] = [];
             groups[game.source]!.push(game);
@@ -175,6 +177,14 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
     }, [isOpen]);
 
     // --- Handlers ---
+
+    const handleCloseClick = () => {
+        if (isScanning || queue.length > 0) {
+            setShowCloseConfirm(true);
+        } else {
+            onClose();
+        }
+    };
 
     const handleScanAll = async () => {
         setIsScanning(true);
@@ -420,11 +430,12 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
 
             // Fetch full metadata (artwork, icons, logos, links)
             const searchTitle = matchResponse?.match?.title || scanned.title;
+            const steamAppIdToPass = scanned.source === 'steam' ? scanned.appId : undefined;
             setScanProgress(`Fetching metadata for ${searchTitle}...`);
             setGameProcessingStates(prev => new Map(prev).set(scanned.title, { status: 'Fetching metadata...', progress: '25%' }));
             let metadata: any = {};
             try {
-                metadata = await window.electronAPI.searchArtwork(searchTitle, scanned.appId, true);
+                metadata = await window.electronAPI.searchArtwork(searchTitle, steamAppIdToPass, true);
                 setGameProcessingStates(prev => new Map(prev).set(scanned.title, { status: 'Metadata complete', progress: '75%' }));
             } catch (err) {
                 console.warn(`Failed to fetch metadata for ${scanned.title}:`, err);
@@ -672,7 +683,7 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
                         >
                             {showIgnored ? 'Show Active' : 'Show Ignored'}
                         </button>
-                        <button onClick={onClose} className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg text-sm font-medium">
+                        <button onClick={handleCloseClick} className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg text-sm font-medium">
                             Close
                         </button>
                     </div>
@@ -885,6 +896,23 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
                     </div>
                 )}
             </div>
+
+            <ConfirmationDialog
+                isOpen={showCloseConfirm}
+                title="Discard Changes?"
+                message={isScanning ? "A scan is currently in progress. If you close the importer, the scan and any changes you've made to imported games will be lost." : "You have imported games that haven't been saved. Closing this window will discard them."}
+                confirmText="Discard and Close"
+                cancelText="Cancel"
+                variant="danger"
+                onConfirm={() => {
+                    if (isScanning && window.electronAPI.cancelScanAllSources) {
+                        window.electronAPI.cancelScanAllSources().catch(console.error);
+                    }
+                    setShowCloseConfirm(false);
+                    onClose();
+                }}
+                onCancel={() => setShowCloseConfirm(false)}
+            />
         </div>
     );
 };

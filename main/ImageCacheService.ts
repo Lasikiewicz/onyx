@@ -23,17 +23,18 @@ export class ImageCacheService {
     // Store images in a more accessible location with better permissions
     // On Windows, use AppData\Local instead of AppData\Roaming for better permissions
     // On Linux/Mac, use a cache directory in the home folder
+    const appName = app.name || 'Onyx';
     if (process.platform === 'win32') {
-      // Windows: Use AppData\Local\onyx-launcher\images
-      // This is typically C:\Users\<user>\AppData\Local\onyx-launcher\images
+      // Windows: Use AppData\Local\appName\images
+      // This is typically C:\Users\<user>\AppData\Local\appName\images
       const localAppData = process.env.LOCALAPPDATA || path.join(homedir(), 'AppData', 'Local');
-      this.cacheDir = path.join(localAppData, 'onyx-launcher', 'images');
+      this.cacheDir = path.join(localAppData, appName, 'images');
     } else if (process.platform === 'darwin') {
-      // macOS: Use ~/Library/Caches/onyx-launcher/images
-      this.cacheDir = path.join(homedir(), 'Library', 'Caches', 'onyx-launcher', 'images');
+      // macOS: Use ~/Library/Caches/appName/images
+      this.cacheDir = path.join(homedir(), 'Library', 'Caches', appName, 'images');
     } else {
-      // Linux: Use ~/.cache/onyx-launcher/images
-      this.cacheDir = path.join(homedir(), '.cache', 'onyx-launcher', 'images');
+      // Linux: Use ~/.cache/appName/images
+      this.cacheDir = path.join(homedir(), '.cache', appName, 'images');
     }
     console.log(`[ImageCache] Cache directory set to: ${this.cacheDir}`);
   }

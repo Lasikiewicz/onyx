@@ -9,7 +9,7 @@ import { execSync } from 'node:child_process';
 
 export interface ScannedGameResult {
   uuid: string;
-  source: 'steam' | 'epic' | 'gog' | 'xbox' | 'ubisoft' | 'rockstar' | 'ea' | 'battle' | 'humble' | 'itch' | 'manual_file' | 'manual_folder';
+  source: string;
   originalName: string;
   installPath: string;
   exePath?: string;
@@ -36,6 +36,7 @@ export class ImportService {
   private appConfigService: AppConfigService;
   private metadataFetcher: MetadataFetcherService;
   private gameFilteringService: GameFilteringService;
+  private isScanCancelled: boolean = false;
 
   constructor(
     steamService: SteamService,
@@ -51,11 +52,20 @@ export class ImportService {
   }
 
   /**
+   * Cancels the ongoing scan process
+   */
+  cancelScanAllSources(): void {
+    console.log('[ImportService] Cancelling scan...');
+    this.isScanCancelled = true;
+  }
+
+  /**
    * Scan all configured sources in parallel
    * Scans all enabled app locations from Onyx Settings > Apps
    * Returns a simplified structure that the frontend can convert to StagedGame
    */
   async scanAllSources(progressCallback?: (message: string) => void): Promise<ScannedGameResult[]> {
+    this.isScanCancelled = false;
     const results: ScannedGameResult[] = [];
 
     try {
@@ -90,6 +100,12 @@ export class ImportService {
 
       // Scan all sources sequentially to show progress
       for (let i = 0; i < enabledConfigs.length; i++) {
+        if (this.isScanCancelled) {
+          console.log('[ImportService] Scan cancelled by user (during apps config limit)');
+          progressCallback?.('Scan cancelled by user.');
+          return results;
+        }
+
         const config: any = enabledConfigs[i];
         const appName = this.getAppDisplayName(config.id);
 
@@ -141,14 +157,23 @@ export class ImportService {
       }
 
       // Scan manual folders
-      const manualFolders = await this.appConfigService.getManualFolders();
-      if (manualFolders.length > 0) {
-        progressCallback?.(`Scanning ${manualFolders.length} manual folder${manualFolders.length !== 1 ? 's' : ''}...`);
-        for (const folder of manualFolders) {
+      const manualFolderConfigs = await this.appConfigService.getManualFolderConfigs();
+      const enabledManualFolders = Object.values(manualFolderConfigs).filter(c => c.enabled !== false);
+
+      if (enabledManualFolders.length > 0) {
+        progressCallback?.(`Scanning ${enabledManualFolders.length} manual folder${enabledManualFolders.length !== 1 ? 's' : ''}...`);
+        for (const config of enabledManualFolders) {
+          if (this.isScanCancelled) {
+            console.log('[ImportService] Scan cancelled by user (during manual folders)');
+            progressCallback?.('Scan cancelled by user.');
+            return results;
+          }
+
+          const folder = config.path;
           try {
             if (existsSync(folder)) {
               progressCallback?.(`Scanning manual root ${folder} (subfolders = game names)...`);
-              const folderGames = this.scanManualFolder(folder);
+              const folderGames = this.scanManualFolder(folder, config.autoCategory, config.name);
               if (folderGames.length > 0) {
                 progressCallback?.(`Found ${folderGames.length} game${folderGames.length !== 1 ? 's' : ''} in ${folder}`);
                 folderGames.forEach(game => {
@@ -172,7 +197,7 @@ export class ImportService {
       // Auto-detect Battle.net games via registry if not already configured
       // This ensures Blizzard games are found even if the user hasn't enabled Battle.net in Configure Apps
       const battleAlreadyScanned = enabledConfigs.some((c: any) => c.id === 'battle');
-      if (!battleAlreadyScanned && process.platform === 'win32') {
+      if (!this.isScanCancelled && !battleAlreadyScanned && process.platform === 'win32') {
         try {
           progressCallback?.('Auto-detecting Battle.net games...');
           console.log('[ImportService] Battle.net not configured, running auto-detection via registry...');
@@ -670,7 +695,7 @@ export class ImportService {
    * Scan manual root folder where each immediate subfolder is treated as a game.
    * Game title = subfolder name. Picks the first viable executable under that subfolder.
    */
-  private scanManualFolder(rootPath: string): ScannedGameResult[] {
+  private scanManualFolder(rootPath: string, autoCategory?: string[], folderName?: string): ScannedGameResult[] {
     const results: ScannedGameResult[] = [];
 
     try {
@@ -749,13 +774,14 @@ export class ImportService {
 
           results.push({
             uuid: `manual-${gameDir}-${Date.now()}`,
-            source: 'manual_folder' as const,
+            source: folderName || 'Manual Folder',
             originalName: title,
             installPath: gameDir.replace(/\\/g, '/'),
             exePath: finalExe?.replace(/\\/g, '/'),
             launchArgs: launchArgs,
             appId: appId,
             title: finalTitle,
+            categories: autoCategory,
             status: 'ambiguous' as const,
           });
         } catch (err) {
@@ -1386,7 +1412,7 @@ export class ImportService {
           if (normalizedGameDirForCheck.startsWith(normalizedFolderPath) || normalizedGameDirForCheck === normalizedFolderPath) {
             const gameResult = {
               uuid: `manual_folder-${gameDir}-${Date.now()}`,
-              source: 'manual_folder' as const,
+              source: 'Manual Folder',
               originalName: folderName,
               installPath: gameDir,
               exePath: mainExe,

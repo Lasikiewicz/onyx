@@ -172,13 +172,13 @@ export function registerScanningHandlers(
     ipcMain.handle('import:scanAllSources', async () => {
         try {
             console.log('[ImportService] Starting manual scan from Game Importer...');
-            
+
             // Enhanced progress callback to send detailed real-time updates
             const scannedResults = await importService.scanAllSources((message) => {
                 if (winReference.current && !winReference.current.isDestroyed()) {
                     // Send basic progress
                     winReference.current.webContents.send('import:scanProgress', { message });
-                    
+
                     // Send real-time game discovery events
                     if (message.includes('Found:')) {
                         const gameName = message.replace('Found:', '').trim();
@@ -187,7 +187,7 @@ export function registerScanningHandlers(
                             status: 'Discovered',
                             progress: '0%'
                         });
-                        
+
                         // Simulate processing steps for discovered games
                         setTimeout(() => {
                             if (winReference.current && !winReference.current.isDestroyed()) {
@@ -198,7 +198,7 @@ export function registerScanningHandlers(
                                 });
                             }
                         }, 200);
-                        
+
                         setTimeout(() => {
                             if (winReference.current && !winReference.current.isDestroyed()) {
                                 winReference.current.webContents.send('import:gameProcessingUpdate', {
@@ -208,7 +208,7 @@ export function registerScanningHandlers(
                                 });
                             }
                         }, 800);
-                        
+
                         setTimeout(() => {
                             if (winReference.current && !winReference.current.isDestroyed()) {
                                 winReference.current.webContents.send('import:gameProcessingUpdate', {
@@ -235,6 +235,18 @@ export function registerScanningHandlers(
                 error: error instanceof Error ? error.message : 'Unknown error',
                 games: []
             };
+        }
+    });
+
+    // Handle manual scan all sources request from the Game Importer
+    ipcMain.handle('import:cancelScan', async () => {
+        try {
+            console.log('[ImportService] Received cancel scan request from renderer');
+            importService.cancelScanAllSources();
+            return { success: true };
+        } catch (error) {
+            console.error('[ImportService] Error cancelling scan:', error);
+            return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
         }
     });
 

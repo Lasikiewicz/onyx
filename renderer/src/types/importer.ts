@@ -3,7 +3,7 @@ export type ImportSource = 'steam' | 'epic' | 'gog' | 'xbox' | 'ubisoft' | 'rock
 
 export interface StagedGame {
   uuid: string; // Temporary unique ID for the UI list
-  source: ImportSource;
+  source: string;
 
   // File System Info
   originalName: string; // e.g. "Doom Eternal" or "doom_eternal.exe"

@@ -1,10 +1,14 @@
 # Fix Call of Duty Black Ops 7 launch properties
 # This script updates the game library JSON to add the proper Xbox launch properties
 
-$libraryPath = "$env:APPDATA\onyx-launcher\game-library.json"
+$libraryPath = ""
 
-if (!(Test-Path $libraryPath)) {
-    Write-Error "Game library not found at: $libraryPath"
+if (Test-Path "$env:APPDATA\Onyx Alpha\game-library.json") {
+    $libraryPath = "$env:APPDATA\Onyx Alpha\game-library.json"
+} elseif (Test-Path "$env:APPDATA\Onyx\game-library.json") {
+    $libraryPath = "$env:APPDATA\Onyx\game-library.json"
+} else {
+    Write-Error "Game library not found in APPDATA for Onyx or Onyx Alpha"
     exit 1
 }
 

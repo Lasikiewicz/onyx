@@ -77,9 +77,16 @@ export class SteamGridDBMetadataProvider implements MetadataProvider {
       // Filter and sort images by score (highest first), excluding NSFW/humor/epilepsy
       const filterImage = (img: SteamGridDBImage) => !img.nsfw && !img.humor && !img.epilepsy;
 
-      const bestCapsule = capsules
-        .filter(filterImage)
-        .sort((a, b) => b.score - a.score)[0];
+      const validGrids = capsules.filter(filterImage).sort((a, b) => b.score - a.score);
+
+      // Vertical grids (boxart) are typically 600x900 or 342x482 (width < height)
+      const verticalGrids = validGrids.filter(img => img.width < img.height);
+
+      // Horizontal grids (alternative banners) are typically 460x215 or 920x430 (width > height)
+      const horizontalGrids = validGrids.filter(img => img.width > img.height);
+
+      const bestCapsule = verticalGrids[0] || validGrids[0];
+      const bestAlternativeBanner = horizontalGrids[0];
 
       const bestHero = heroes
         .filter(filterImage)
@@ -96,6 +103,7 @@ export class SteamGridDBMetadataProvider implements MetadataProvider {
       const result = {
         boxArtUrl: bestCapsule?.url,
         bannerUrl: bestHero?.url,
+        alternativeBannerUrl: bestAlternativeBanner?.url || bestHero?.url,
         logoUrl: bestLogo?.url,
         heroUrl: bestHero?.url,
         iconUrl: bestIcon?.url,

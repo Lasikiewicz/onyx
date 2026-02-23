@@ -307,58 +307,43 @@ export class MetadataFetcherService {
     if (heroes.length > 0) {
       merged.heroUrl = heroes[0].url;
       merged.heroResolution = heroes[0].resolution;
+    }
 
-      // Strictly use Heroes for Alt Banner (User Request)
-      // Determine the effective primary banner URL currently set (or about to be set)
+    // 1. Primary Priority: Use alternativeBannerUrl supplied directly by providers
+    // This correctly captures horizontal graphical grids from SGDB or Steam headers
+    const altFromProviders = sortByPriority(
+      artworkArray
+        .filter(item => item.artwork?.alternativeBannerUrl)
+        .map(item => ({ url: item.artwork!.alternativeBannerUrl!, resolution: undefined as undefined, source: item.source })),
+      getBannerPriority
+    );
+
+    if (altFromProviders.length > 0) {
+      const primary = merged.bannerUrl || merged.heroUrl || "";
+      // Find the best alternative that isn't the primary banner
+      const alt = altFromProviders.find(a => a.url !== primary);
+      if (alt) {
+        merged.alternativeBannerUrl = alt.url;
+      }
+    }
+
+    // 2. Fallback: If no provider-supplied alternative banner, try using secondary heroes
+    if (!merged.alternativeBannerUrl && heroes.length > 0) {
       const effectivePrimaryUrl = merged.bannerUrl || heroes[0].url;
-
-      // 1. Try Heroes (SteamGridDB) - PREFERRED
       const heroCandidates = heroes.filter(h => h.url !== effectivePrimaryUrl);
-      let altUrl = '';
 
       if (heroCandidates.length > 0) {
-        // Variety Heuristic: Skip the very first candidate if possible,
-        // as it's often very similar to the primary (just a minor variant).
-        // Try index 1, fallback to 0.
-        altUrl = heroCandidates.length > 1 ? heroCandidates[1].url : heroCandidates[0].url;
-      }
-
-      // 2. Fallback to Banners (Steam/IGDB) - Fixes "missing"
-      if (!altUrl && banners.length > 0) {
-        const bannerCandidates = banners.filter(b => b.url !== effectivePrimaryUrl);
-        if (bannerCandidates.length > 0) {
-          altUrl = bannerCandidates.length > 1 ? bannerCandidates[1].url : bannerCandidates[0].url;
-        }
-      }
-
-      if (altUrl) {
-        merged.alternativeBannerUrl = altUrl;
+        // Variety Heuristic: Skip the very first candidate if possible
+        merged.alternativeBannerUrl = heroCandidates.length > 1 ? heroCandidates[1].url : heroCandidates[0].url;
       }
     }
 
-    // When no heroes (e.g. Steam-only or providers without hero art), use a second banner as alternative if available
+    // 3. Fallback: Secondary Banners (Steam/IGDB)
     if (!merged.alternativeBannerUrl && banners.length > 1) {
-      const effectivePrimary = merged.bannerUrl || banners[0].url;
-      const secondBanner = banners.find(b => b.url !== effectivePrimary) || banners[1];
-      if (secondBanner && secondBanner.url !== effectivePrimary) {
-        merged.alternativeBannerUrl = secondBanner.url;
-      }
-    }
-
-    // Use alternativeBannerUrl supplied directly by a provider (e.g. Steam header when hero is primary)
-    if (!merged.alternativeBannerUrl) {
-      const altFromProviders = sortByPriority(
-        artworkArray
-          .filter(item => item.artwork?.alternativeBannerUrl)
-          .map(item => ({ url: item.artwork!.alternativeBannerUrl!, resolution: undefined as undefined, source: item.source })),
-        getBannerPriority
-      );
-      if (altFromProviders.length > 0) {
-        const primary = merged.bannerUrl || merged.heroUrl;
-        const alt = altFromProviders[0].url;
-        if (alt !== primary) {
-          merged.alternativeBannerUrl = alt;
-        }
+      const effectivePrimaryUrl = merged.bannerUrl || banners[0].url;
+      const bannerCandidates = banners.filter(b => b.url !== effectivePrimaryUrl);
+      if (bannerCandidates.length > 0) {
+        merged.alternativeBannerUrl = bannerCandidates.length > 1 ? bannerCandidates[1].url : bannerCandidates[0].url;
       }
     }
 
@@ -582,7 +567,8 @@ export class MetadataFetcherService {
 
     console.log(`[searchAndMatchGame] Matching for "${scannedGame.title}" with query "${query}" (isDemo: ${isDemo})`);
 
-    const searchResults = await this.searchGames(query, scannedGame.appId);
+    const steamAppId = scannedGame.source === 'steam' ? scannedGame.appId : undefined;
+    const searchResults = await this.searchGames(query, steamAppId);
 
     if (searchResults.length === 0) {
       return { match: null, confidence: 0, reasons: ["no results found"], allResults: [] };

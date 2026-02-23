@@ -150,7 +150,12 @@ export class GameMatcher {
     // Sort by confidence (highest first)
     scoredResults.sort((a, b) => b.confidence - a.confidence);
 
-    return scoredResults[0];
+    // Only return a match if we have at least some confidence
+    if (scoredResults[0].confidence > 0) {
+      return scoredResults[0];
+    }
+
+    return null;
   }
 
   /**

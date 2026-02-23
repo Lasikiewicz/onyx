@@ -1151,14 +1151,15 @@ app.whenReady().then(async () => {
 
       // Get cache directory
       const { homedir } = require('node:os');
+      const appName = app.name || 'Onyx';
       let cacheDir: string;
       if (process.platform === 'win32') {
         const localAppData = process.env.LOCALAPPDATA || path.join(homedir(), 'AppData', 'Local');
-        cacheDir = path.join(localAppData, 'onyx-launcher', 'images');
+        cacheDir = path.join(localAppData, appName, 'images');
       } else if (process.platform === 'darwin') {
-        cacheDir = path.join(homedir(), 'Library', 'Caches', 'onyx-launcher', 'images');
+        cacheDir = path.join(homedir(), 'Library', 'Caches', appName, 'images');
       } else {
-        cacheDir = path.join(homedir(), '.cache', 'onyx-launcher', 'images');
+        cacheDir = path.join(homedir(), '.cache', appName, 'images');
       }
 
       if (gameId && imageType && existsSync(cacheDir)) {
@@ -1383,14 +1384,15 @@ app.whenReady().then(async () => {
             // Check if it's the image cache directory - check both old and new locations
             const oldCacheDir = path.join(app.getPath('userData'), 'cache', 'images');
             const { homedir } = require('node:os');
+            const appName = app.name || 'Onyx';
             let newCacheDir: string;
             if (process.platform === 'win32') {
               const localAppData = process.env.LOCALAPPDATA || path.join(homedir(), 'AppData', 'Local');
-              newCacheDir = path.join(localAppData, 'onyx-launcher', 'images');
+              newCacheDir = path.join(localAppData, appName, 'images');
             } else if (process.platform === 'darwin') {
-              newCacheDir = path.join(homedir(), 'Library', 'Caches', 'onyx-launcher', 'images');
+              newCacheDir = path.join(homedir(), 'Library', 'Caches', appName, 'images');
             } else {
-              newCacheDir = path.join(homedir(), '.cache', 'onyx-launcher', 'images');
+              newCacheDir = path.join(homedir(), '.cache', appName, 'images');
             }
 
             // Check both cache locations for any matching files
