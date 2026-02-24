@@ -4,6 +4,12 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.4.1] - 2026-02-24
+
+- Feature: Added alternative background options to Carousel and Cover Flow views.
+- Feature: Added background blur amount slider to Cover Flow view settings.
+- Fix: Improved game removal logic with a new confirmation dialog for missing games.
+
 ## [0.4.0] - 2026-02-23
 
 - "**The Animated Update**"
