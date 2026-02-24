@@ -450,8 +450,23 @@ export function registerAppIPCHandlers(
             const result = await shell.openPath(userDataPath);
             return { success: result === '', error: result || undefined };
         } else if (existsSync(pathOrType)) {
-            const result = await shell.openPath(pathOrType);
-            return { success: result === '', error: result || undefined };
+            // Security check: Only allow paths within userData or cache directory
+            const resolvedPath = path.resolve(pathOrType);
+            const userDataPath = path.resolve(app.getPath('userData'));
+            const cacheDir = path.resolve(imageCacheService.getCacheDir());
+
+            const allowedPaths = [userDataPath, cacheDir];
+            const isAllowed = allowedPaths.some(allowed =>
+                resolvedPath === allowed || resolvedPath.startsWith(allowed + path.sep)
+            );
+
+            if (isAllowed) {
+                const result = await shell.openPath(pathOrType);
+                return { success: result === '', error: result || undefined };
+            } else {
+                console.warn(`[Security] Blocked access to unsafe path: ${pathOrType}`);
+                return { success: false, error: 'Access denied' };
+            }
         }
         return { success: false, error: 'Path not found' };
     });
