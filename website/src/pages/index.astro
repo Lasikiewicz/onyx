@@ -43,6 +43,8 @@ const collectionViews = [
 	},
 ];
 
+const backgroundImages = collectionViews.map(view => view.images[0]);
+
 const managementTools = [
 	{ 
 		title: 'Metadata Mastery', 
@@ -90,7 +92,7 @@ const advancedFeatures = [
 				<a href="#top" class="flex items-center gap-3 flex-shrink-0 text-inherit hover:scale-110 transition-transform cursor-hover">
 					<div class="relative group">
 						<div class="absolute inset-0 bg-sky-400 blur-md opacity-0 group-hover:opacity-50 transition-opacity"></div>
-						<img src="/logo.svg" alt="Onyx Logo" class="w-10 h-10 relative z-10 animate-float" />
+						<img src="/logo.svg" alt="Onyx Logo" class="w-10 h-10 relative z-10 animate-rotate" />
 					</div>
 					<span class="text-2xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-white to-gray-400">Onyx</span>
 				</a>
@@ -144,8 +146,15 @@ const advancedFeatures = [
 
 		<!-- Hero Section -->
 		<section class="relative min-h-screen flex items-center justify-center overflow-hidden px-8 md:px-24">
-			<div class="absolute inset-0 z-0 opacity-30 transform scale-110 blur-[60px] animate-pulse" style="animation-duration: 10s;">
-				<img src="/Screenshots/Carousel View.png" class="w-full h-full object-cover" />
+			<!-- Transitioning Hero Background -->
+			<div class="absolute inset-0 z-0 overflow-hidden">
+				{backgroundImages.map((img, idx) => (
+					<div class={`absolute inset-0 transition-opacity duration-[3000ms] ease-in-out hero-bg-img ${idx === 0 ? 'opacity-100' : 'opacity-0'}`}>
+						<img src={img} alt="" class="w-full h-full object-cover blur-[2px] scale-115 will-change-transform" />
+					</div>
+				))}
+				<!-- Dark Overlay for Readability -->
+				<div class="absolute inset-0 bg-black/60"></div>
 			</div>
 			
 			<div class="relative z-10 w-full max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 items-center gap-16">
@@ -195,7 +204,7 @@ const advancedFeatures = [
 		</section>
 
 		<!-- Why Onyx -->
-		<section class="relative z-10 py-32 px-8 md:px-24 border-t border-white/5 bg-gradient-to-b from-transparent to-black/50">
+		<section class="relative z-10 py-12 px-8 md:px-24 border-t border-white/5 bg-gradient-to-b from-transparent to-black/50">
 			<div class="max-w-5xl mx-auto text-center space-y-12 reveal-up">
 				<h2 class="text-4xl md:text-6xl font-black tracking-tighter leading-none text-white drop-shadow-2xl">
 					Why another launcher...
@@ -552,6 +561,30 @@ const advancedFeatures = [
 					images[index].classList.add('opacity-100');
 				}, 4000); // 4 seconds interval
 			});
+
+			// HERO PARALLAX
+			const heroImgElements = document.querySelectorAll('.hero-bg-img img');
+			window.addEventListener('scroll', () => {
+				const scrollY = window.scrollY;
+				heroImgElements.forEach(img => {
+					// Use 0.3 factor for a subtle parallax feel
+					// @ts-ignore
+					img.style.transform = `translateY(${scrollY * 0.3}px) scale(1.15)`;
+				});
+			}, { passive: true });
+
+			// HERO BACKGROUND TRANSITION
+			const heroBackgrounds = document.querySelectorAll('.hero-bg-img');
+			if (heroBackgrounds.length > 1) {
+				let heroIdx = 0;
+				setInterval(() => {
+					heroBackgrounds[heroIdx].classList.remove('opacity-100');
+					heroBackgrounds[heroIdx].classList.add('opacity-0');
+					heroIdx = (heroIdx + 1) % heroBackgrounds.length;
+					heroBackgrounds[heroIdx].classList.remove('opacity-0');
+					heroBackgrounds[heroIdx].classList.add('opacity-100');
+				}, 6000); // 6 seconds for hero bg transition
+			}
 
 			// LIGHTBOX LOGIC
 			const lightbox = document.getElementById('lightbox');

@@ -142,6 +142,16 @@ body {
     animation: float-element 6s ease-in-out infinite;
 }
 
+/* Rotate Animation */
+@keyframes rotate-slow {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.animate-rotate {
+    animation: rotate-slow 12s linear infinite;
+}
+
 /* Ambient Orbs */
 .ambient-orb {
     position: absolute;
