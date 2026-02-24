@@ -1,11 +1,11 @@
 @import "tailwindcss";
 
 @theme {
-    --color-onyx-deep: #050505;
-    --color-onyx-glass: rgba(20, 20, 30, 0.4);
-    --color-onyx-accent: #0ea5e9;
-    --color-onyx-purple: #8b5cf6;
-    --color-onyx-pink: #ec4899;
+    --color-onyx-deep: #0f172a;
+    --color-onyx-glass: rgba(30, 41, 59, 0.4);
+    --color-onyx-accent: #38bdf8;
+    --color-onyx-purple: #38bdf8;
+    --color-onyx-accent: #38bdf8;
     --color-onyx-grey: #374151;
 }
 
@@ -27,7 +27,7 @@ body {
 /* Magnetic & Glow Button Base */
 .onyx-btn-play {
     position: relative;
-    background: linear-gradient(135deg, #2563eb, #8b5cf6);
+    background: linear-gradient(135deg, #0284c7, #38bdf8);
     color: white;
     font-weight: 800;
     padding: 0.75rem 2rem;
@@ -40,14 +40,14 @@ body {
     overflow: hidden;
     z-index: 1;
     border: 1px solid rgba(255,255,255,0.1);
-    box-shadow: 0 0 20px rgba(37, 99, 235, 0.3);
+    box-shadow: 0 0 20px rgba(2, 132, 199, 0.3);
 }
 
 .onyx-btn-play::before {
     content: '';
     position: absolute;
     inset: 0;
-    background: linear-gradient(135deg, #0ea5e9, #ec4899);
+    background: linear-gradient(135deg, #38bdf8, #38bdf8);
     z-index: -1;
     opacity: 0;
     transition: opacity 0.4s ease;
@@ -55,7 +55,7 @@ body {
 
 .onyx-btn-play:hover {
     transform: scale(1.05) translateY(-5px);
-    box-shadow: 0 15px 30px rgba(139, 92, 246, 0.5);
+    box-shadow: 0 15px 30px rgba(56, 189, 248, 0.5);
     letter-spacing: 0.05em;
 }
 
@@ -64,13 +64,13 @@ body {
 }
 
 .onyx-text-glow {
-    text-shadow: 0 0 20px rgba(14, 165, 233, 0.6), 0 0 40px rgba(139, 92, 246, 0.4);
+    text-shadow: 0 0 20px rgba(56, 189, 248, 0.6), 0 0 40px rgba(56, 189, 248, 0.4);
 }
 
 /* Dynamic Navbar */
 .onyx-nav-thin {
     border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-    background: rgba(5, 5, 5, 0.6);
+    background: rgba(15, 23, 42, 0.6);
     backdrop-filter: blur(16px);
     transition: all 0.3s ease;
 }
@@ -117,7 +117,7 @@ body {
 
 /* Gradient Text */
 .text-gradient {
-    background: linear-gradient(to right, #0ea5e9, #a855f7, #ec4899);
+    background: linear-gradient(to right, #38bdf8, #ffffff, #38bdf8);
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
@@ -153,9 +153,9 @@ body {
     pointer-events: none;
 }
 
-.orb-1 { width: 400px; height: 400px; background: rgba(14, 165, 233, 0.4); top: -100px; left: -100px; }
-.orb-2 { width: 500px; height: 500px; background: rgba(139, 92, 246, 0.3); bottom: -200px; right: -100px; animation-direction: reverse; animation-duration: 25s; }
-.orb-3 { width: 300px; height: 300px; background: rgba(236, 72, 153, 0.2); top: 50%; left: 50%; transform: translate(-50%, -50%); animation-duration: 30s; }
+.orb-1 { width: 400px; height: 400px; background: rgba(56, 189, 248, 0.4); top: -100px; left: -100px; }
+.orb-2 { width: 500px; height: 500px; background: rgba(56, 189, 248, 0.3); bottom: -200px; right: -100px; animation-direction: reverse; animation-duration: 25s; }
+.orb-3 { width: 300px; height: 300px; background: rgba(56, 189, 248, 0.2); top: 50%; left: 50%; transform: translate(-50%, -50%); animation-duration: 30s; }
 
 @keyframes orbit {
     0% { transform: rotate(0deg) translateX(100px) rotate(0deg); }
@@ -173,7 +173,7 @@ body {
 }
 
 .glass-panel {
-    background: rgba(20, 20, 30, 0.4);
+    background: rgba(30, 41, 59, 0.4);
     backdrop-filter: blur(20px);
     border: 1px solid rgba(255,255,255,0.1);
     box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
@@ -186,7 +186,7 @@ body {
     left: 0;
     width: 20px;
     height: 20px;
-    border: 2px solid #0ea5e9;
+    border: 2px solid #38bdf8;
     border-radius: 50%;
     pointer-events: none;
     z-index: 9999;
@@ -198,8 +198,8 @@ body {
 #custom-cursor.hovering {
     width: 50px;
     height: 50px;
-    background-color: rgba(14, 165, 233, 0.5);
-    border-color: rgba(236, 72, 153, 0.8);
+    background-color: rgba(56, 189, 248, 0.5);
+    border-color: rgba(56, 189, 248, 0.8);
 }
 
 /* Links hovering */
