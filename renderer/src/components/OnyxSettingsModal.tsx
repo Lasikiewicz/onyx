@@ -153,19 +153,16 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
     giantBombApiKey: '',
   });
   const [activeAPITab, setActiveAPITab] = useState<APITabType>('steamgriddb');
-  // const [isLoadingAPI, setIsLoadingAPI] = useState(false);
-  // const [apiSaveStatus, setApiSaveStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
+
   const [apps, setApps] = useState<AppConfig[]>([]);
   const [isLoadingApps, setIsLoadingApps] = useState(false);
   const [scanningAppId, setScanningAppId] = useState<string | null>(null);
-  // const [newlyEnabledApps, setNewlyEnabledApps] = useState<Set<string>>(new Set());
-  // const [steamAuthState, setSteamAuthState] = useState<{ authenticated: boolean; steamId?: string; username?: string }>({ authenticated: false });
-  // const [isAuthenticating, setIsAuthenticating] = useState(false);
+
   const [manualFolders, setManualFolders] = useState<string[]>([]);
   const [manualFolderConfigs, setManualFolderConfigs] = useState<Record<string, { id: string; name: string; path: string; enabled: boolean; autoCategory?: string[] }>>({});
   const [editingAppId, setEditingAppId] = useState<string | null>(null);
   const [editingManualFolderId, setEditingManualFolderId] = useState<string | null>(null);
-  // const [isImporting, setIsImporting] = useState(false);
+
   const [settings, setSettings] = useState<OnyxSettings>({
     minimizeToTray: false,
     showSystemTrayIcon: true,
@@ -411,7 +408,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
           );
 
           setApps(initializedApps);
-          // setNewlyEnabledApps(new Set());
+
         } catch (err) {
           console.error('Error loading app configs:', err);
         } finally {
@@ -420,7 +417,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
       };
       loadAppConfigs();
 
-      // loadSteamAuth removed (unused)
+
     }
   }, [isOpen]);
 
@@ -429,21 +426,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
     setSettings(newSettings);
   };
 
-  // const handleSelectChange = (key: keyof OnyxSettings, value: any) => {
-  //   setSettings({ ...settings, [key]: value });
-  // };
 
-  // const handlePaddingChange = (value: number) => {
-  //   setSettings({ ...settings, gameTilePadding: value });
-  // };
-
-  // const handleRestoreDefaults = () => {
-  //   setSettings({
-  //     ...settings,
-  //     hideGameTitles: false,
-  //     gameTilePadding: 16,
-  //   });
-  // };
 
   const handleAPIInputChange = (key: keyof APICredentials, value: string) => {
     setApiCredentials((prev) => {
@@ -465,12 +448,10 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
 
       return updated;
     });
-    // setApiSaveStatus('idle');
+
   };
 
-  // handleAPISave removed (unused)
 
-  // handleOpenIGDB removed (unused)
 
   const handleToggleAppEnabled = (appId: string) => {
     setApps((prev) => {
@@ -490,9 +471,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
     );
   };
 
-  // handleToggleAutoAdd removed (unused)
 
-  // handleToggleSyncPlaytime removed (unused)
 
   const handleUpdateAppCategory = (appId: string, categories: string[]) => {
     setApps((prev) =>
@@ -500,35 +479,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
     );
   };
 
-  // handleSteamAuthenticate removed (unused)
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any
-  // const _handleSteamImportAll = async (): Promise<any> => {
-  //   const steamApp = apps.find(a => a.id === 'steam');
-  //   if (!steamApp || !steamApp.path) {
-  //     alert('Please configure Steam path first');
-  //     return;
-  //   }
-  //
-  //   // setIsImporting(true);
-  //   try {
-  //     if (!window.electronAPI.importAllSteamGames) return;
-  //     const result = await window.electronAPI.importAllSteamGames(steamApp.path);
-  //     if (result.success) {
-  //       alert(`Successfully imported ${result.importedCount} Steam games!`);
-  //       if (onSave) {
-  //         await onSave();
-  //       }
-  //     } else {
-  //       alert(result.error || 'Failed to import Steam games');
-  //     }
-  //   } catch (err) {
-  //     console.error('Error importing Steam games:', err);
-  //     alert('Failed to import Steam games');
-  //   } finally {
-  //     // setIsImporting(false);
-  //   }
-  // };
 
   const handleBrowseApp = async (appId: string) => {
     try {
@@ -650,7 +601,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
           }
         }
       }
-      // setNewlyEnabledApps removed (unused)
+
     } catch (err) {
       console.error('Error scanning app:', err);
     } finally {
