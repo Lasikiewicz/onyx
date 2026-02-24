@@ -453,17 +453,14 @@ export class GameStore {
   }
 
   /**
-   * Check for missing games and remove them from the store
+   * Get a list of games that are missing from the disk
    * @param steamService - Optional SteamService to check if Steam games are still installed
-   * @returns Number of games removed
+   * @returns Array of missing games
    */
-  async removeMissingGames(steamService?: { scanSteamGames: () => Array<{ appId: string }> }): Promise<number> {
-    const store = await this.ensureStore();
+  async getMissingGames(steamService?: { scanSteamGames: () => Array<{ appId: string }> }): Promise<Game[]> {
     const games = await this.getLibrary();
     const { existsSync } = require('node:fs');
-
-    let removedCount = 0;
-    const gamesToKeep: Game[] = [];
+    const missingGames: Game[] = [];
 
     // Get list of installed Steam games if SteamService is provided
     let installedSteamAppIds: Set<string> | null = null;
@@ -474,7 +471,6 @@ export class GameStore {
         console.log(`[GameStore] Found ${installedSteamAppIds.size} installed Steam games`);
       } catch (error) {
         console.warn('[GameStore] Could not scan Steam games:', error);
-        // Continue without Steam checking if scan fails
       }
     }
 
@@ -493,8 +489,7 @@ export class GameStore {
             }
           }
         } else {
-          // If we can't check Steam, skip this game (don't remove it)
-          gamesToKeep.push(game);
+          // If we can't check Steam, don't mark as missing
           continue;
         }
       } else {
@@ -525,23 +520,37 @@ export class GameStore {
           }
         } else {
           // If no paths to check (e.g., custom game with no exePath), keep it
-          gamesToKeep.push(game);
           continue;
         }
       }
 
       if (isMissing) {
-        removedCount++;
-      } else {
-        gamesToKeep.push(game);
+        missingGames.push(game);
       }
     }
 
-    if (removedCount > 0) {
-      console.log(`[GameStore] Removing ${removedCount} missing game(s) from library`);
+    return missingGames;
+  }
+
+  /**
+   * Check for missing games and remove them from the store
+   * @param steamService - Optional SteamService to check if Steam games are still installed
+   * @returns Number of games removed
+   */
+  async removeMissingGames(steamService?: { scanSteamGames: () => Array<{ appId: string }> }): Promise<number> {
+    const missingGames = await this.getMissingGames(steamService);
+
+    if (missingGames.length > 0) {
+      const store = await this.ensureStore();
+      const games = await this.getLibrary();
+      const missingIds = new Set(missingGames.map(g => g.id));
+      const gamesToKeep = games.filter(g => !missingIds.has(g.id));
+
+      console.log(`[GameStore] Removing ${missingGames.length} missing game(s) from library`);
       (store as any).set('games', gamesToKeep);
     }
 
-    return removedCount;
+    return missingGames.length;
   }
 }
+

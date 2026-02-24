@@ -250,6 +250,67 @@ export function registerScanningHandlers(
         }
     });
 
+    // Handle getting list of missing games without removing them
+    ipcMain.handle('scan:getMissingGames', async () => {
+        try {
+            console.log('[BackgroundScan] Getting list of missing games...');
+
+            // Scan all sources to get current state
+            const scannedResults = await importService.scanAllSources();
+            const existingLibrary = await gameStore.getLibrary();
+
+            // Get app configs to check which sources are enabled
+            const appConfigs = await appConfigService.getAppConfigs();
+            const isSteamEnabled = appConfigs['steam']?.enabled;
+
+            // Create set of scanned Steam IDs for efficient lookup
+            const scannedSteamIds = new Set<string>();
+            if (isSteamEnabled) {
+                scannedResults.forEach(g => {
+                    if (g.source === 'steam' && g.appId) {
+                        scannedSteamIds.add(`steam-${g.appId}`);
+                    }
+                });
+            }
+
+            const missingGames = existingLibrary.filter(game => {
+                // Special handling for Steam games (check against scan results instead of file system)
+                if (game.source === 'steam') {
+                    if (!isSteamEnabled) return false; // Skip if scanning disabled
+                    return !scannedSteamIds.has(game.id);
+                }
+
+                // Skip games without exe paths (like some Steam games that launch via protocol)
+                if (!game.exePath || game.exePath.trim() === '') {
+                    return false;
+                }
+
+                // Check if the exe file still exists
+                return !existsSync(game.exePath);
+            });
+
+            console.log(`[BackgroundScan] Found ${missingGames.length} missing games during manual scan`);
+
+            return {
+                success: true,
+                games: missingGames.map(g => ({
+                    id: g.id,
+                    title: g.title,
+                    exePath: g.exePath,
+                    platform: g.platform,
+                    source: g.source
+                }))
+            };
+        } catch (error) {
+            console.error('[BackgroundScan] Error getting missing games:', error);
+            return {
+                success: false,
+                error: error instanceof Error ? error.message : 'Unknown error',
+                games: []
+            };
+        }
+    });
+
     // Handle removal of missing games
     ipcMain.handle('scan:removeMissingGames', async (_event, gameIds: string[]) => {
         try {

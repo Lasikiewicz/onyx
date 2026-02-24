@@ -33,6 +33,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   deleteGame: (gameId: string) => ipcRenderer.invoke('gameStore:deleteGame', gameId),
   removeWinGDKGames: () => ipcRenderer.invoke('gameStore:removeWinGDKGames'),
   removeMissingGames: (gameIds: string[]) => ipcRenderer.invoke('scan:removeMissingGames', gameIds),
+  getMissingGames: () => ipcRenderer.invoke('scan:getMissingGames'),
   // Dialog methods
   showOpenDialog: () => ipcRenderer.invoke('dialog:showOpenDialog'),
   showFolderDialog: () => ipcRenderer.invoke('dialog:showFolderDialog'),

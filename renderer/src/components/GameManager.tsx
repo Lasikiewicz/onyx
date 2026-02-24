@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Game } from '../types/game';
+import { Game, MissingGame } from '../types/game';
 import { ConfirmationDialog } from './ConfirmationDialog';
 import { MatchFixDialog } from './MatchFixDialog';
 import { RefreshMetadataDialog } from './RefreshMetadataDialog';
 import { BoxartFixDialog } from './BoxartFixDialog';
+import { RemoveDeletedGamesDialog } from './RemoveDeletedGamesDialog';
 import { ImageContextMenu } from './ImageContextMenu';
 import { LinkIcon, inferLinkKey, getLinkIconSearchQuery } from './GameLinks';
 
@@ -81,6 +82,9 @@ export const GameManager: React.FC<GameManagerProps> = ({
   const [refreshProgress, setRefreshProgress] = useState<{ current: number; total: number; message: string; gameTitle?: string; links?: Array<{ name: string; url: string }>; images?: string[]; mode?: 'all' | 'missing' | 'links' } | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; type: 'boxart' | 'banner' | 'alternativeBanner' | 'logo' | 'icon' } | null>(null);
   const [showMatchFix, setShowMatchFix] = useState(false);
+  const [showRemoveDeletedDialog, setShowRemoveDeletedDialog] = useState(false);
+  const [missingGames, setMissingGames] = useState<MissingGame[]>([]);
+  const [isScanningMissingGames, setIsScanningMissingGames] = useState(false);
 
   const [unmatchedGames, setUnmatchedGames] = useState<Array<{ gameId: string; title: string; searchResults: any[] }>>([]);
   const [showBoxartFix, setShowBoxartFix] = useState(false);
@@ -242,6 +246,42 @@ export const GameManager: React.FC<GameManagerProps> = ({
       }, 2000);
     }
   };
+
+  const handleOpenRemoveDialog = async () => {
+    setShowRemoveDeletedDialog(true);
+    setIsScanningMissingGames(true);
+    try {
+      const result = await window.electronAPI.getMissingGames();
+      if (result.success) {
+        setMissingGames(result.games);
+      } else {
+        setError(result.error || 'Failed to scan for missing games');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to scan for missing games');
+    } finally {
+      setIsScanningMissingGames(false);
+    }
+  };
+
+  const handleRemoveMissingGames = async (gameIds: string[]) => {
+    try {
+      const result = await window.electronAPI.removeMissingGames(gameIds);
+      if (result.success) {
+        setSuccess(`Successfully removed ${result.removedCount} game(s)`);
+        setShowRemoveDeletedDialog(false);
+        if (onReloadLibrary) {
+          await onReloadLibrary();
+        }
+      } else {
+        setError(result.error || 'Failed to remove missing games');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to remove missing games');
+    }
+  };
+
+
 
   // Maintain local games state to prevent refresh issues
   const [localGames, setLocalGames] = useState<Game[]>(games);
@@ -1742,19 +1782,29 @@ export const GameManager: React.FC<GameManagerProps> = ({
           <div className="flex items-center gap-2">
             <button
               onClick={() => setShowRefreshDialog(true)}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors flex items-center gap-2"
+              className="group px-3 py-1.5 bg-slate-800/40 hover:bg-slate-700/60 border border-white/5 hover:border-blue-500/30 text-slate-300 hover:text-white rounded-lg transition-all flex items-center gap-2 text-sm font-medium"
               title="Manage metadata and images"
             >
-              <svg className="w-4 h-4 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-4 h-4 text-blue-400 group-hover:animate-wobble transition-all duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </svg>
               Manage Metadata
             </button>
             <button
-              onClick={onClose}
-              className="p-2 hover:bg-gray-700 rounded transition-colors"
+              onClick={handleOpenRemoveDialog}
+              className="group px-3 py-1.5 bg-slate-800/40 hover:bg-slate-700/60 border border-white/5 hover:border-red-500/30 text-slate-300 hover:text-white rounded-lg transition-all flex items-center gap-2 text-sm font-medium"
+              title="Remove games that are no longer installed"
             >
-              <svg className="w-5 h-5 text-gray-300 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-4 h-4 text-red-500 group-hover:animate-wobble transition-all duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+              Remove Deleted
+            </button>
+            <button
+              onClick={onClose}
+              className="group p-1.5 hover:bg-slate-700/60 border border-transparent hover:border-white/5 rounded-lg transition-all"
+            >
+              <svg className="w-5 h-5 text-gray-400 group-hover:text-white group-hover:animate-wobble transition-all duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
@@ -3806,6 +3856,14 @@ export const GameManager: React.FC<GameManagerProps> = ({
           }}
         />
       )}
+
+      <RemoveDeletedGamesDialog
+        isOpen={showRemoveDeletedDialog}
+        missingGames={missingGames}
+        isScanning={isScanningMissingGames}
+        onRemove={handleRemoveMissingGames}
+        onCancel={() => setShowRemoveDeletedDialog(false)}
+      />
 
       {/* Link icon change popup */}
       {linkIconPopupIndex !== null && editedGame?.links?.[linkIconPopupIndex] && (

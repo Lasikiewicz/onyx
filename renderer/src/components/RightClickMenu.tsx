@@ -976,21 +976,35 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
               <div className="space-y-2">
                 {/* Per-Game Logo Size Control for Carousel */}
                 {activeGame && (
-                  <div className="px-3 py-2 bg-gray-700/30 rounded-md">
-                    <MenuSliderRow
-                      label="Game Logo Size"
-                      min={50}
-                      max={600}
-                      step={5}
-                      value={localLogoSizes.carousel}
-                      defaultValue={sliderDefaults.perGameLogoSize}
-                      onChange={(value) => handlePerGameLogoSizeChange('carousel', value)}
-                      onReset={() => handlePerGameLogoSizeChange('carousel', sliderDefaults.perGameLogoSize)}
-                      formatValue={(value) => `${value}px`}
-                      minLabel="50px"
-                      maxLabel="600px"
-                      sliderClassName="h-2"
-                    />
+                  <div className="px-3 py-2 bg-gray-700/30 rounded-md space-y-3">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs text-gray-300 font-medium">Alternative Background</label>
+                      <button
+                        onClick={handleAlternativeBackgroundToggle}
+                        className={`relative inline-flex h-3.5 w-7 items-center rounded-full transition-all ${activeGame?.useAlternativeBackground ? 'bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]' : 'bg-gray-600'}`}
+                      >
+                        <span
+                          className={`inline-block h-2.5 w-2.5 transform rounded-full bg-white transition-all shadow-sm ${activeGame?.useAlternativeBackground ? 'translate-x-[14px]' : 'translate-x-0.5'}`}
+                        />
+                      </button>
+                    </div>
+
+                    <div className="pt-3 border-t border-white/5">
+                      <MenuSliderRow
+                        label="Game Logo Size"
+                        min={50}
+                        max={600}
+                        step={5}
+                        value={localLogoSizes.carousel}
+                        defaultValue={sliderDefaults.perGameLogoSize}
+                        onChange={(value) => handlePerGameLogoSizeChange('carousel', value)}
+                        onReset={() => handlePerGameLogoSizeChange('carousel', sliderDefaults.perGameLogoSize)}
+                        formatValue={(value) => `${value}px`}
+                        minLabel="50px"
+                        maxLabel="600px"
+                        sliderClassName="h-2"
+                      />
+                    </div>
                   </div>
                 )}
 
@@ -1215,8 +1229,26 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
               />
             </div>
           )}
-          {onBackgroundBrightnessChange && (
+          {onBackgroundBlurChange && (
             <div className="px-3 py-2 bg-gray-700/30 rounded-md">
+              <MenuSliderRow
+                label="Background Blur Amount"
+                min={0}
+                max={100}
+                step={1}
+                value={backgroundBlur}
+                defaultValue={sliderDefaults.backgroundBlur}
+                onChange={onBackgroundBlurChange}
+                onReset={() => onBackgroundBlurChange(sliderDefaults.backgroundBlur)}
+                formatValue={(value) => `${value}px`}
+                minLabel="0px"
+                maxLabel="100px"
+                sliderClassName="h-2"
+              />
+            </div>
+          )}
+          {onBackgroundBrightnessChange && (
+            <div className="px-3 py-2 bg-gray-700/30 rounded-md space-y-3">
               <MenuSliderRow
                 label="Background brightness"
                 min={0}
@@ -1231,6 +1263,20 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                 maxLabel="100%"
                 sliderClassName="h-2"
               />
+
+              {activeGame && (
+                <div className="flex items-center justify-between pt-3 border-t border-white/5">
+                  <label className="text-xs text-gray-300 font-medium">Alternative Background</label>
+                  <button
+                    onClick={handleAlternativeBackgroundToggle}
+                    className={`relative inline-flex h-3.5 w-7 items-center rounded-full transition-all ${activeGame?.useAlternativeBackground ? 'bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]' : 'bg-gray-600'}`}
+                  >
+                    <span
+                      className={`inline-block h-2.5 w-2.5 transform rounded-full bg-white transition-all shadow-sm ${activeGame?.useAlternativeBackground ? 'translate-x-[14px]' : 'translate-x-0.5'}`}
+                    />
+                  </button>
+                </div>
+              )}
             </div>
           )}
           <div className="px-3 py-2 bg-gray-700/30 rounded-md space-y-3">
