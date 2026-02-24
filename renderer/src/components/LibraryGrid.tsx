@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   DndContext,
   closestCenter,
@@ -157,6 +157,12 @@ export const LibraryGrid: React.FC<LibraryGridProps> = ({
     }
   };
 
+  const handleFocusItem = useCallback((index: number) => {
+    setFocusedIndex(index);
+  }, []);
+
+  const itemIds = useMemo(() => items.map((g) => g.id), [items]);
+
   return (
     <div className="w-full h-full flex flex-col">
       {/* Grid Container */}
@@ -178,7 +184,7 @@ export const LibraryGrid: React.FC<LibraryGridProps> = ({
           collisionDetection={closestCenter}
           onDragEnd={handleDragEnd}
         >
-          <SortableContext items={items.map((g) => g.id)} strategy={rectSortingStrategy}>
+          <SortableContext items={itemIds} strategy={rectSortingStrategy}>
             <div
               className="grid"
               style={{
@@ -216,7 +222,8 @@ export const LibraryGrid: React.FC<LibraryGridProps> = ({
                   logoBackgroundOpacity={logoBackgroundOpacity}
                   tabIndex={0}
                   isFocused={index === focusedIndex}
-                  onFocus={() => setFocusedIndex(index)}
+                  onFocusItem={handleFocusItem}
+                  index={index}
                 />
               ))}
             </div>

@@ -21,9 +21,11 @@ interface SortableGameCardProps {
   tabIndex?: number;
   isFocused?: boolean;
   onFocus?: () => void;
+  onFocusItem?: (index: number) => void;
+  index?: number;
 }
 
-export const SortableGameCard: React.FC<SortableGameCardProps> = ({ game, onPlay, onClick, onEdit, hideTitle = false, showLogoOverBoxart = true, logoPosition = 'middle', useLogoInsteadOfBoxart = false, descriptionSize = 14, onContextMenu, viewMode, logoBackgroundColor, logoBackgroundOpacity, tabIndex, isFocused, onFocus }) => {
+const SortableGameCardComponent: React.FC<SortableGameCardProps> = ({ game, onPlay, onClick, onEdit, hideTitle = false, showLogoOverBoxart = true, logoPosition = 'middle', useLogoInsteadOfBoxart = false, descriptionSize = 14, onContextMenu, viewMode, logoBackgroundColor, logoBackgroundOpacity, tabIndex, isFocused, onFocus, onFocusItem, index }) => {
   const {
     attributes,
     listeners,
@@ -70,6 +72,18 @@ export const SortableGameCard: React.FC<SortableGameCardProps> = ({ game, onPlay
     onContextMenu: handleContextMenu,
   };
 
+  const handleFocus = React.useCallback(
+    (_: React.FocusEvent<HTMLDivElement>) => {
+      // We don't need to prevent default or stop propagation here
+      // just notify the parent about focus
+      if (onFocus) onFocus();
+      if (index !== undefined && onFocusItem) {
+        onFocusItem(index);
+      }
+    },
+    [onFocus, onFocusItem, index]
+  );
+
   return (
     <div
       ref={setNodeRef}
@@ -78,7 +92,7 @@ export const SortableGameCard: React.FC<SortableGameCardProps> = ({ game, onPlay
       {...mergedListeners}
       onClick={handleClick}
       onDoubleClick={handleDoubleClick}
-      onFocus={onFocus}
+      onFocus={handleFocus}
       tabIndex={tabIndex}
       className={`cursor-pointer outline-none transition-all duration-200 ${isFocused ? 'rounded-xl animate-breathing-scale z-10' : ''}`}
       data-game-card
@@ -87,3 +101,5 @@ export const SortableGameCard: React.FC<SortableGameCardProps> = ({ game, onPlay
     </div>
   );
 };
+
+export const SortableGameCard = React.memo(SortableGameCardComponent);
