@@ -14,6 +14,8 @@
     "validate-icons": "node scripts/validate-icons.js",
     "scan:secrets": "node scripts/secret-scan.js",
     "check:no-raw-ipc": "node scripts/check-no-raw-ipc.js",
+    "test": "vitest run --root .",
+    "test:watch": "vitest --root .",
     "test:steam:short-circuit": "node scripts/test-steam-short-circuit.js",
     "test:credentials": "node scripts/test-credentials-migration.js",
     "test:credentials:mock": "node scripts/test-credentials-migration-mock.js",
@@ -66,16 +68,17 @@
     "tailwindcss": "^3.3.6",
     "typescript": "^5.3.3",
     "vite": "^5.0.8",
+    "vitest": "^4.0.18",
     "wait-on": "^7.2.0"
   },
   "dependencies": {
-    "electron-updater": "^6.3.9",
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "axios": "^1.13.2",
     "dotenv": "^17.2.3",
     "electron-store": "^11.0.2",
+    "electron-updater": "^6.3.9",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
   },
