@@ -106,6 +106,35 @@ export interface MissingGame {
   source?: string;
 }
 
+export interface IGDBGameResult {
+  id: number;
+  name: string;
+  title?: string;
+  coverUrl?: string;
+  screenshotUrls?: string[];
+  logoUrl?: string;
+  bannerUrl?: string;
+  summary?: string;
+  releaseDate?: number;
+  genres?: string[];
+  rating?: number;
+  platform?: string;
+  ageRating?: string;
+  categories?: string[];
+}
+
+export interface FastSearchGame {
+  id: number;
+  name: string;
+  coverUrl: string;
+  bannerUrl: string;
+  logoUrl: string;
+  screenshotUrls: string[];
+  steamAppId?: string;
+  releaseDate?: number;
+  source: string;
+}
+
 export interface UserPreferences {
   gridSize?: number;
   logoSize?: number;
