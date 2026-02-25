@@ -537,7 +537,7 @@ export class SteamMetadataProvider implements MetadataProvider {
       const steamAppId = match[1];
 
       // Scan Steam games to find install info
-      const steamGames = this.steamService.scanSteamGames();
+      const steamGames = await this.steamService.scanSteamGames();
       const game = steamGames.find(g => g.appId === steamAppId);
 
       if (!game) {

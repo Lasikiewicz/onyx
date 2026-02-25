@@ -457,7 +457,7 @@ export class GameStore {
    * @param steamService - Optional SteamService to check if Steam games are still installed
    * @returns Array of missing games
    */
-  async getMissingGames(steamService?: { scanSteamGames: () => Array<{ appId: string }> }): Promise<Game[]> {
+  async getMissingGames(steamService?: { scanSteamGames: () => Promise<Array<{ appId: string }>> }): Promise<Game[]> {
     const games = await this.getLibrary();
     const { existsSync } = require('node:fs');
     const missingGames: Game[] = [];
@@ -466,7 +466,7 @@ export class GameStore {
     let installedSteamAppIds: Set<string> | null = null;
     if (steamService) {
       try {
-        const steamGames = steamService.scanSteamGames();
+        const steamGames = await steamService.scanSteamGames();
         installedSteamAppIds = new Set(steamGames.map(g => g.appId));
         console.log(`[GameStore] Found ${installedSteamAppIds.size} installed Steam games`);
       } catch (error) {
@@ -537,7 +537,7 @@ export class GameStore {
    * @param steamService - Optional SteamService to check if Steam games are still installed
    * @returns Number of games removed
    */
-  async removeMissingGames(steamService?: { scanSteamGames: () => Array<{ appId: string }> }): Promise<number> {
+  async removeMissingGames(steamService?: { scanSteamGames: () => Promise<Array<{ appId: string }>> }): Promise<number> {
     const missingGames = await this.getMissingGames(steamService);
 
     if (missingGames.length > 0) {

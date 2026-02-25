@@ -46,9 +46,6 @@ describe('GameMatcher', () => {
       id: '100',
       title: 'Test Game',
       source: 'igdb',
-      matchScore: 0,
-      imageUrl: '',
-      provider: 'igdb'
     };
 
     it('gives high score for exact title match', () => {
@@ -59,7 +56,7 @@ describe('GameMatcher', () => {
 
     it('gives bonus for Steam App ID match', () => {
       const scanned = { ...baseScanned, appId: '12345', source: 'steam' };
-      const candidate = { ...baseCandidate, steamAppId: 12345, source: 'steam' };
+      const candidate = { ...baseCandidate, steamAppId: '12345', source: 'steam' };
 
       const result = matcher.calculateMatchScore(scanned, candidate);
       expect(result.confidence).toBeGreaterThan(0.8); // 0.5 (title) + 0.4 (appId) + 0.1 (source) + 0.1 (provider) -> capped at 1.0
@@ -68,7 +65,7 @@ describe('GameMatcher', () => {
 
     it('penalizes Steam App ID mismatch', () => {
       const scanned = { ...baseScanned, appId: '12345', source: 'steam' };
-      const candidate = { ...baseCandidate, steamAppId: 67890, source: 'steam' };
+      const candidate = { ...baseCandidate, steamAppId: '67890', source: 'steam' };
 
       const result = matcher.calculateMatchScore(scanned, candidate);
       // 0.5 (title) - 0.2 (appId mismatch) + 0.1 (source) + 0.1 (provider) = 0.5

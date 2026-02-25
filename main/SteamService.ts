@@ -1,4 +1,5 @@
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
+import { readFile, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { platform } from 'node:os';
 import axios from 'axios';
@@ -260,7 +261,7 @@ export class SteamService {
   /**
    * Scan a single Steam library folder for installed games
    */
-  private scanLibraryFolder(libraryPath: string): SteamGame[] {
+  private async scanLibraryFolder(libraryPath: string): Promise<SteamGame[]> {
     const steamappsPath = join(libraryPath, 'steamapps');
 
     if (!existsSync(steamappsPath)) {
@@ -271,7 +272,7 @@ export class SteamService {
     const games: SteamGame[] = [];
 
     try {
-      const files = readdirSync(steamappsPath);
+      const files = await readdir(steamappsPath);
       const acfFiles = files.filter(file => file.endsWith('.acf'));
 
       console.log(`Scanning ${steamappsPath}`);
@@ -283,63 +284,70 @@ export class SteamService {
         console.log(`Files found: ${files.slice(0, 10).join(', ')}${files.length > 10 ? '...' : ''}`);
       }
 
-      for (const acfFile of acfFiles) {
-        const acfPath = join(steamappsPath, acfFile);
+      // Process ACF files in batches to avoid EMFILE issues with large libraries
+      const BATCH_SIZE = 50;
+      for (let i = 0; i < acfFiles.length; i += BATCH_SIZE) {
+        const batch = acfFiles.slice(i, i + BATCH_SIZE);
+        const promises = batch.map(async (acfFile) => {
+          const acfPath = join(steamappsPath, acfFile);
 
-        try {
-          const content = readFileSync(acfPath, 'utf-8');
+          try {
+            const content = await readFile(acfPath, 'utf-8');
 
-          // Debug: log first few lines of problematic files
-          if (content.length < 100) {
-            console.warn(`ACF file ${acfFile} is very small (${content.length} bytes)`);
-          }
-
-          const gameInfo = this.parseACF(content);
-
-          if (gameInfo) {
-            // Skip excluded app IDs (redistributables, tools, etc.)
-            if (this.EXCLUDED_STEAM_APPIDS.has(gameInfo.appId)) {
-              console.log(`⊘ Skipped (excluded): ${gameInfo.name} (AppID: ${gameInfo.appId})`);
-              continue;
+            // Debug: log first few lines of problematic files
+            if (content.length < 100) {
+              console.warn(`ACF file ${acfFile} is very small (${content.length} bytes)`);
             }
 
-            games.push({
-              appId: gameInfo.appId,
-              name: gameInfo.name,
-              installDir: gameInfo.installDir,
-              libraryPath: libraryPath,
-              stateFlags: gameInfo.stateFlags,
-              isFullyInstalled: gameInfo.isFullyInstalled,
-            });
-            console.log(`✓ Parsed: ${gameInfo.name} (AppID: ${gameInfo.appId})`);
-          } else {
-            // Try to extract appid from filename as fallback
-            const appIdMatch = acfFile.match(/appmanifest_(\d+)\.acf/);
-            if (appIdMatch) {
-              const appId = appIdMatch[1];
-              const parsed = this.parseVDF(content);
-              const appState = parsed.AppState || parsed.appstate || parsed;
-              const name = appState?.name || appState?.Name || `Steam Game ${appId}`;
-              // Skip excluded app IDs in fallback path too (redistributables, tools, etc.)
-              if (this.EXCLUDED_STEAM_APPIDS.has(appId)) {
-                console.log(`⊘ Skipped (excluded): ${name} (AppID: ${appId})`);
-                continue;
+            const gameInfo = this.parseACF(content);
+
+            if (gameInfo) {
+              // Skip excluded app IDs (redistributables, tools, etc.)
+              if (this.EXCLUDED_STEAM_APPIDS.has(gameInfo.appId)) {
+                console.log(`⊘ Skipped (excluded): ${gameInfo.name} (AppID: ${gameInfo.appId})`);
+                return;
               }
 
               games.push({
-                appId: appId,
-                name: String(name),
-                installDir: appState?.installdir || appState?.InstallDir || name,
+                appId: gameInfo.appId,
+                name: gameInfo.name,
+                installDir: gameInfo.installDir,
                 libraryPath: libraryPath,
+                stateFlags: gameInfo.stateFlags,
+                isFullyInstalled: gameInfo.isFullyInstalled,
               });
-              console.log(`✓ Parsed (fallback): ${name} (AppID: ${appId})`);
+              console.log(`✓ Parsed: ${gameInfo.name} (AppID: ${gameInfo.appId})`);
             } else {
-              console.warn(`✗ Failed to parse ACF file: ${acfFile}`);
+              // Try to extract appid from filename as fallback
+              const appIdMatch = acfFile.match(/appmanifest_(\d+)\.acf/);
+              if (appIdMatch) {
+                const appId = appIdMatch[1];
+                const parsed = this.parseVDF(content);
+                const appState = parsed.AppState || parsed.appstate || parsed;
+                const name = appState?.name || appState?.Name || `Steam Game ${appId}`;
+                // Skip excluded app IDs in fallback path too (redistributables, tools, etc.)
+                if (this.EXCLUDED_STEAM_APPIDS.has(appId)) {
+                  console.log(`⊘ Skipped (excluded): ${name} (AppID: ${appId})`);
+                  return;
+                }
+
+                games.push({
+                  appId: appId,
+                  name: String(name),
+                  installDir: appState?.installdir || appState?.InstallDir || name,
+                  libraryPath: libraryPath,
+                });
+                console.log(`✓ Parsed (fallback): ${name} (AppID: ${appId})`);
+              } else {
+                console.warn(`✗ Failed to parse ACF file: ${acfFile}`);
+              }
             }
+          } catch (error) {
+            console.error(`✗ Error reading ACF file ${acfFile}:`, error);
           }
-        } catch (error) {
-          console.error(`✗ Error reading ACF file ${acfFile}:`, error);
-        }
+        });
+
+        await Promise.all(promises);
       }
     } catch (error) {
       console.error(`Error scanning library folder ${libraryPath}:`, error);
@@ -351,7 +359,7 @@ export class SteamService {
   /**
    * Scan all Steam libraries for installed games
    */
-  public scanSteamGames(): SteamGame[] {
+  public async scanSteamGames(): Promise<SteamGame[]> {
     try {
       const steamPath = this.getSteamPath();
       console.log(`Scanning Steam games from: ${steamPath}`);
@@ -361,10 +369,15 @@ export class SteamService {
 
       const allGames: SteamGame[] = [];
 
-      for (const library of libraries) {
+      const libraryPromises = libraries.map(async (library) => {
         console.log(`Scanning library: ${library}`);
-        const games = this.scanLibraryFolder(library);
+        const games = await this.scanLibraryFolder(library);
         console.log(`Found ${games.length} games in ${library}`);
+        return games;
+      });
+
+      const results = await Promise.all(libraryPromises);
+      for (const games of results) {
         allGames.push(...games);
       }
 

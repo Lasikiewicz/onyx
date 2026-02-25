@@ -28,7 +28,7 @@ export function registerGameIPCHandlers(
                 return [];
             }
 
-            return steamService.scanSteamGames();
+            return await steamService.scanSteamGames();
         } catch (error) {
             console.error('Error in steam:scanGames handler:', error);
             return [];
@@ -50,7 +50,7 @@ export function registerGameIPCHandlers(
 
     ipcMain.handle('steam:scanGamesWithPath', async (_event, scanPath?: string, autoMerge: boolean = false) => {
         try {
-            const games = steamService.scanSteamGames();
+            const games = await steamService.scanSteamGames();
             if (autoMerge) {
                 await gameStore.mergeSteamGames(games, imageCacheService, true);
             }
@@ -62,7 +62,7 @@ export function registerGameIPCHandlers(
     });
 
     ipcMain.handle('steam:importAllGames', async (_event, scanPath?: string) => {
-        const games = steamService.scanSteamGames();
+        const games = await steamService.scanSteamGames();
         await gameStore.mergeSteamGames(games, imageCacheService, true);
         return { success: true, count: games.length };
     });
