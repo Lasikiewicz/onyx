@@ -1,6 +1,6 @@
 import { app } from 'electron';
 import path from 'node:path';
-import { mkdirSync, existsSync, writeFileSync, readFileSync } from 'node:fs';
+import { mkdirSync, existsSync, writeFileSync, readFileSync, promises as fsPromises } from 'node:fs';
 import { promisify } from 'node:util';
 import https from 'node:https';
 import http from 'node:http';
@@ -251,8 +251,7 @@ export class ImageCacheService {
 
         // Copy file to cache
         console.log(`[ImageCache] Copying local image: ${filePath} -> ${filename}`);
-        const imageData = readFileSync(filePath);
-        writeFileSync(localPath, imageData);
+        await fsPromises.copyFile(filePath, localPath);
         console.log(`[ImageCache] Cached local image: ${filename}`);
 
         // Return simple URL format: onyx-local://{gameId}-{imageType}
@@ -295,7 +294,7 @@ export class ImageCacheService {
       const imageData = await this.downloadImage(url);
 
       // Save to disk
-      writeFileSync(localPath, imageData);
+      await fsPromises.writeFile(localPath, imageData);
       console.log(`[ImageCache] Cached: ${filename}`);
 
       // Return simple URL format: onyx-local://{gameId}-{imageType}
