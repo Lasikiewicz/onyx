@@ -293,12 +293,15 @@ export class LauncherService {
 
       // Try as URL first
       try {
-        if (modManagerUrl.startsWith('http://') || modManagerUrl.startsWith('https://') || modManagerUrl.includes('://')) {
+        // SECURITY: Only allow http and https protocols for openExternal to prevent
+        // arbitrary code execution via file:// or other dangerous schemes.
+        const parsedUrl = new URL(modManagerUrl);
+        if (parsedUrl.protocol === 'http:' || parsedUrl.protocol === 'https:') {
           await shell.openExternal(modManagerUrl);
           return { success: true };
         }
       } catch (e) {
-        // Not a URL, continue to file path check
+        // Not a valid URL, or not http/https - continue to file path check
       }
 
       const { existsSync } = require('node:fs');
