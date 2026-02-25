@@ -153,7 +153,6 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
     giantBombApiKey: '',
   });
   const [activeAPITab, setActiveAPITab] = useState<APITabType>('steamgriddb');
-
   const [apps, setApps] = useState<AppConfig[]>([]);
   const [isLoadingApps, setIsLoadingApps] = useState(false);
   const [scanningAppId, setScanningAppId] = useState<string | null>(null);
