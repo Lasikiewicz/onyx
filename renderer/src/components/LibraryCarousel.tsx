@@ -211,6 +211,16 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
     };
   }, [games, validSelectedIndex, selectedGame, onGameClick, onPlay, showDetailsBarResizer, logoContextMenu, thumbnailContextMenu]);
 
+  // Virtualization
+  const buffer = 50;
+  const startIndex = Math.max(0, validSelectedIndex - buffer);
+  const endIndex = Math.min(games.length, validSelectedIndex + buffer);
+
+  const spacerWidth = startIndex * (baseGameWidth + gameTilePadding * 2) +
+    (startIndex > 0 ? (startIndex - 1) * gameTilePadding : 0);
+
+  const visibleGames = games.slice(startIndex, endIndex);
+
   if (games.length === 0) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -498,16 +508,26 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
               transform: `translateX(${carouselOffset}px)`,
             }}
           >
-            {/* Render all games in sequence */}
-            {games.map((game, index) => {
-              const isSelected = index === validSelectedIndex;
+            {/* Render visible games with spacer */}
+            {startIndex > 0 && (
+              <div
+                style={{
+                  width: `${spacerWidth}px`,
+                  flexShrink: 0,
+                  height: '1px'
+                }}
+              />
+            )}
+            {visibleGames.map((game, i) => {
+              const originalIndex = startIndex + i;
+              const isSelected = originalIndex === validSelectedIndex;
 
               return (
                 <div
                   key={game.id}
                   data-game-element="true"
                   data-game-card="true"
-                  onClick={() => handleGameSelect(index)}
+                  onClick={() => handleGameSelect(originalIndex)}
                   onContextMenu={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
