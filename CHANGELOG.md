@@ -4,6 +4,11 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.4.3] - 2026-02-25
+
+- Cleanup: Removed unused variables in LibraryListView and OnyxSettingsModal.
+- Performance: Switched ImageCacheService file operations to async I/O.
+
 ## [0.4.2] - 2026-02-25
 
 - Security: Fix path traversal vulnerability in onyx-local protocol handler.
