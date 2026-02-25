@@ -227,13 +227,15 @@ export class LauncherService {
         }
       }
 
-      // Quote the executable path for the shell if it hasn't been already
-      const quotedExePath = game.exePath.startsWith('"') ? game.exePath : `"${game.exePath}"`;
+      // Ensure the executable path is not quoted for spawn (without shell)
+      let exePath = game.exePath;
+      if (exePath.startsWith('"') && exePath.endsWith('"')) {
+        exePath = exePath.slice(1, -1);
+      }
 
-      const child = spawn(quotedExePath, args, {
+      const child = spawn(exePath, args, {
         detached: true,
         stdio: 'ignore',
-        shell: true,  // Required on Windows for paths with spaces
         cwd: workingDir,  // Set working directory
       });
 
