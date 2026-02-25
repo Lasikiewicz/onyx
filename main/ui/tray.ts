@@ -1,4 +1,6 @@
 import { app, Menu, Tray, BrowserWindow, ipcMain, screen, nativeImage } from 'electron';
+import path from 'node:path';
+import { existsSync, statSync } from 'node:fs';
 import { GameStore, Game } from '../GameStore.js';
 import { LauncherService } from '../LauncherService.js';
 import { UserPreferencesService } from '../UserPreferencesService.js';
@@ -32,6 +34,196 @@ export class TrayService {
 
     setTray(tray: Tray | null) {
         this.tray = tray;
+    }
+
+    public hasTray(): boolean {
+        return this.tray !== null;
+    }
+
+    public init(): void {
+        // System tray icons work better with ICO on Windows, PNG on other platforms
+        let iconPath: string;
+        let icon: Electron.NativeImage;
+
+        try {
+            if (app.isPackaged) {
+                // In packaged app, prefer ICO for Windows system tray (best Windows support)
+                if (process.platform === 'win32') {
+                    // Try ICO first on Windows (best for system tray)
+                    const icoPath = path.join(process.resourcesPath, 'icon.ico');
+                    const pngPath = path.join(process.resourcesPath, 'icon.png');
+
+                    if (existsSync(icoPath)) {
+                        iconPath = icoPath;
+                    } else if (existsSync(pngPath)) {
+                        iconPath = pngPath;
+                    } else {
+                        throw new Error('No icon file found');
+                    }
+                } else {
+                    // On other platforms, prefer PNG
+                    const pngPath = path.join(process.resourcesPath, 'icon.png');
+                    const svgPath = path.join(process.resourcesPath, 'icon.svg');
+
+                    if (existsSync(pngPath)) {
+                        iconPath = pngPath;
+                    } else if (existsSync(svgPath)) {
+                        iconPath = svgPath;
+                    } else {
+                        throw new Error('No icon file found');
+                    }
+                }
+            } else {
+                // In development, prefer ICO on Windows, PNG on other platforms
+                if (process.platform === 'win32') {
+                    const icoPath = path.join(__dirname, '../../build/icon.ico');
+                    const pngPath = path.join(__dirname, '../../resources/icon.png');
+
+                    if (existsSync(icoPath)) {
+                        iconPath = icoPath;
+                    } else if (existsSync(pngPath)) {
+                        iconPath = pngPath;
+                    } else {
+                        throw new Error('No icon file found');
+                    }
+                } else {
+                    const pngPath = path.join(__dirname, '../../resources/icon.png');
+                    const svgPath = path.join(__dirname, '../../resources/icon.svg');
+
+                    if (existsSync(pngPath)) {
+                        iconPath = pngPath;
+                    } else if (existsSync(svgPath)) {
+                        iconPath = svgPath;
+                    } else {
+                        throw new Error('No icon file found');
+                    }
+                }
+            }
+
+            console.log('Loading tray icon from:', iconPath);
+            console.log('Icon file exists:', existsSync(iconPath));
+
+            // Load the icon
+            icon = nativeImage.createFromPath(iconPath);
+
+            // Check if icon is empty (common issue with SVG on Windows)
+            if (icon.isEmpty()) {
+                console.error('Icon loaded but is empty, trying fallback...');
+                console.error('Icon path:', iconPath);
+                console.error('File size:', existsSync(iconPath) ? statSync(iconPath).size : 'N/A');
+                throw new Error('Icon loaded but is empty');
+            }
+
+            console.log('Icon loaded successfully, size:', icon.getSize());
+
+            // For Windows, use appropriate size (16x16 is standard, but 32x32 works better for high DPI)
+            // Note: On Windows, ICO files contain multiple sizes, so we might not need to resize
+            if (process.platform === 'win32' && iconPath.endsWith('.ico')) {
+                // For ICO files on Windows, use directly without resize (ICO contains multiple sizes)
+                this.tray = new Tray(icon);
+            } else {
+                const size = process.platform === 'darwin' ? 22 : (process.platform === 'win32' ? 32 : 16);
+                const resizedIcon = icon.resize({ width: size, height: size, quality: 'best' });
+
+                // Verify resized icon is not empty
+                if (resizedIcon.isEmpty()) {
+                    console.error('Resized icon is empty, trying without resize...');
+                    // Try using the original icon without resize
+                    if (!icon.isEmpty()) {
+                        this.tray = new Tray(icon);
+                    } else {
+                        throw new Error('Resized icon is empty');
+                    }
+                } else {
+                    this.tray = new Tray(resizedIcon);
+                }
+            }
+
+            console.log('Tray icon created successfully');
+        } catch (error) {
+            console.error('Error creating tray icon:', error);
+            // Try to create a fallback icon from the original
+            try {
+                // Last resort: try to load icon directly without resize
+                const fallbackPath = app.isPackaged
+                    ? (process.platform === 'win32'
+                        ? (existsSync(path.join(process.resourcesPath, 'icon.ico'))
+                            ? path.join(process.resourcesPath, 'icon.ico')
+                            : path.join(process.resourcesPath, 'icon.png'))
+                        : path.join(process.resourcesPath, 'icon.png'))
+                    : (process.platform === 'win32'
+                        ? (existsSync(path.join(__dirname, '../../build/icon.ico'))
+                            ? path.join(__dirname, '../../build/icon.ico')
+                            : path.join(__dirname, '../../resources/icon.png'))
+                        : path.join(__dirname, '../../resources/icon.png'));
+
+                console.log('Trying fallback icon from:', fallbackPath);
+
+                if (existsSync(fallbackPath)) {
+                    icon = nativeImage.createFromPath(fallbackPath);
+                    if (!icon.isEmpty()) {
+                        // Try a smaller resize for tray
+                        const smallIcon = icon.resize({ width: 16, height: 16, quality: 'best' });
+                        if (!smallIcon.isEmpty()) {
+                            this.tray = new Tray(smallIcon);
+                            console.log('Fallback tray icon created successfully');
+                        } else {
+                            this.tray = new Tray(icon);
+                            console.log('Fallback tray icon created (without resize)');
+                        }
+                    } else {
+                        throw new Error('Fallback icon is empty');
+                    }
+                } else {
+                    throw new Error('No fallback icon available');
+                }
+            } catch (fallbackError) {
+                console.error('Fallback icon creation failed:', fallbackError);
+                // Last resort: create empty icon (will show as blank, but app won't crash)
+                // This should not happen if icon files are properly included
+                icon = nativeImage.createEmpty();
+                this.tray = new Tray(icon);
+                console.error('WARNING: Tray icon is empty. Please ensure icon.png exists in resources/');
+            }
+        }
+
+        if (this.tray) {
+            this.tray.setToolTip('Onyx');
+            this.updateTrayMenu();
+
+            // Update context menu on right-click to refresh recent games
+            this.tray.on('right-click', () => {
+                console.log('[Tray Menu] Right-click detected, refreshing menu...');
+                if (process.platform === 'win32') {
+                    this.showCustomTrayMenu().catch((err) => {
+                        console.error('[Tray Menu] Failed to show custom tray menu:', err);
+                        this.updateTrayMenu();
+                    });
+                    return;
+                }
+                this.updateTrayMenu();
+            });
+
+            this.tray.on('click', () => {
+                if (this.win) {
+                    if (this.win.isVisible()) {
+                        this.win.hide();
+                    } else {
+                        this.win.show();
+                        this.win.focus();
+                    }
+                } else {
+                    this.createWindow();
+                }
+            });
+        }
+    }
+
+    public destroy(): void {
+        if (this.tray) {
+            this.tray.destroy();
+            this.tray = null;
+        }
     }
 
     private registerTrayMenuIpc() {
@@ -647,4 +839,3 @@ export class TrayService {
         }
     }
 }
-
