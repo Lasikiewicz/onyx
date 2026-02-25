@@ -1147,12 +1147,29 @@ function App() {
   // Poll for game process for Steam games
   const pollForGameProcess = (gameId: string) => {
     let pollCount = 0;
-    const maxPolls = 30; // Poll for up to 60 seconds (30 * 2s)
+    const maxPolls = 60; // Poll for up to 120 seconds (60 * 2s) to allow for slow launchers/shader compilation
 
     const checkInterval = setInterval(async () => {
       pollCount++;
 
-      // After max polls, assume game closed
+      // Try to find the process ID for this game
+      try {
+        const game = games.find(g => g.id === gameId);
+        // Only check if we have an installation directory (populated by new scans)
+        if (game?.installationDirectory) {
+          const pid = await window.electronAPI.findPidByInstallDir(game.installationDirectory);
+          if (pid) {
+            console.log(`[App] Found process for Steam game ${game.title || gameId}: PID ${pid}`);
+            clearInterval(checkInterval);
+            monitorGameProcess(gameId, pid);
+            return;
+          }
+        }
+      } catch (error) {
+        console.error('[App] Error finding Steam process:', error);
+      }
+
+      // After max polls, assume game closed (or never started/found)
       if (pollCount > maxPolls) {
         clearInterval(checkInterval);
         setRunningGames(prev => {
@@ -1174,9 +1191,6 @@ function App() {
         }
         return;
       }
-
-      // For now, just keep it running for a reasonable time
-      // TODO: Implement actual process checking for Steam games
     }, 2000);
   };
 

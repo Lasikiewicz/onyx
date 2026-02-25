@@ -361,6 +361,7 @@ declare global {
       getMissingGames: () => Promise<{ success: boolean; games: MissingGame[]; error?: string }>;
       openPath: (pathOrType: string) => Promise<{ success: boolean; error?: string }>;
       checkProcessExists: (pid: number) => Promise<boolean>;
+      findPidByInstallDir: (installDir: string) => Promise<number | null>;
       suspend: {
         getRunningGames: () => Promise<Array<{ gameId: string; title: string; pid: number; status: 'running' | 'suspended'; exePath?: string }>>;
         suspendGame: (gameId: string) => Promise<{ success: boolean; error?: string }>;

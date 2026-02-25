@@ -258,6 +258,95 @@ export function registerAppIPCHandlers(
         }
     });
 
+    // Find PID by checking if process runs from installation directory
+    ipcMain.handle('process:findPidByInstallDir', async (_event, installDir: string) => {
+        if (!installDir) return null;
+
+        const normalizedInstallDir = path.normalize(installDir).toLowerCase();
+
+        return await new Promise<number | null>((resolve) => {
+            try {
+                if (process.platform === 'win32') {
+                    // Windows: Use wmic to get ProcessId and ExecutablePath
+                    execFile('wmic', ['process', 'get', 'ProcessId,ExecutablePath', '/FORMAT:CSV'], (error, stdout) => {
+                        if (error) {
+                            console.error('[ProcessFind] wmic error:', error);
+                            resolve(null);
+                            return;
+                        }
+
+                        const lines = stdout.trim().split('\n');
+                        // Skip header (Node,ExecutablePath,ProcessId)
+                        // CSV format: Node,ExecutablePath,ProcessId
+                        // Note: wmic CSV output often has empty lines or weird formatting
+                        for (const line of lines) {
+                            const trimmed = line.trim();
+                            if (!trimmed || trimmed.startsWith('Node,')) continue;
+
+                            const parts = trimmed.split(',');
+                            if (parts.length >= 3) {
+                                // wmic output might contain commas in path, so careful parsing needed
+                                // Last part is PID, first is Node. Everything in between is path?
+                                // Actually wmic CSV usually puts quotes if needed, or simple commas.
+                                // But ExecutablePath is usually just a path.
+                                // However, safer way: last token is PID.
+                                const pidStr = parts[parts.length - 1];
+                                const pid = parseInt(pidStr, 10);
+
+                                // Reconstruct path (everything between first and last comma)
+                                const exePath = parts.slice(1, parts.length - 1).join(',');
+
+                                if (exePath && !isNaN(pid)) {
+                                    const normalizedPath = path.normalize(exePath).toLowerCase();
+                                    if (normalizedPath.startsWith(normalizedInstallDir)) {
+                                        resolve(pid);
+                                        return;
+                                    }
+                                }
+                            }
+                        }
+                        resolve(null);
+                    });
+                } else {
+                    // POSIX (macOS/Linux): Use ps
+                    execFile('ps', ['-ax', '-o', 'pid,args'], (error, stdout) => {
+                        if (error) {
+                            console.error('[ProcessFind] ps error:', error);
+                            resolve(null);
+                            return;
+                        }
+
+                        const lines = stdout.trim().split('\n');
+                        // Skip header (PID ARGS)
+                        for (let i = 1; i < lines.length; i++) {
+                            const line = lines[i].trim();
+                            if (!line) continue;
+
+                            // Split by whitespace to get PID (first column)
+                            const match = line.match(/^(\d+)\s+(.+)$/);
+                            if (match) {
+                                const pid = parseInt(match[1], 10);
+                                const args = match[2]; // Full command line
+
+                                // Check if command path starts with install dir
+                                // We look at args (command line) which usually starts with executable path
+                                // Or we can look for the path anywhere in the command
+                                if (args.toLowerCase().includes(normalizedInstallDir)) {
+                                    resolve(pid);
+                                    return;
+                                }
+                            }
+                        }
+                        resolve(null);
+                    });
+                }
+            } catch (error) {
+                console.error('[ProcessFind] Unexpected error:', error);
+                resolve(null);
+            }
+        });
+    });
+
     ipcMain.handle('app:minimizeToTray', async () => {
         if (winReference.current) winReference.current.hide();
         return { success: true };

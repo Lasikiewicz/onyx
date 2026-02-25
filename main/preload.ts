@@ -135,6 +135,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Process monitoring
   checkProcessExists: (pid: number) => ipcRenderer.invoke('process:checkExists', pid),
+  findPidByInstallDir: (installDir: string) => ipcRenderer.invoke('process:findPidByInstallDir', installDir),
   // API credentials methods
   getAPICredentials: () => ipcRenderer.invoke('api:getCredentials'),
   saveAPICredentials: (credentials: { igdbClientId?: string; igdbClientSecret?: string; steamGridDBApiKey?: string; rawgApiKey?: string; giantBombApiKey?: string }) => ipcRenderer.invoke('api:saveCredentials', credentials),

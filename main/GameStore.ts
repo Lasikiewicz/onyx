@@ -1,4 +1,5 @@
 import type Store from 'electron-store';
+import { join } from 'node:path';
 import { SteamGame } from './SteamService.js';
 
 export interface Game {
@@ -239,6 +240,8 @@ export class GameStore {
           bannerUrl = cached.bannerUrl || bannerUrl;
         }
 
+        const installationDirectory = join(steamGame.libraryPath, 'steamapps', 'common', steamGame.installDir);
+
         const updatedGame: Game = {
           ...existingGame, // Preserve all existing fields
           // Only update title if not locked
@@ -247,6 +250,8 @@ export class GameStore {
           bannerUrl,
           // Preserve playtime if it exists (don't overwrite with undefined)
           playtime: existingGame.playtime !== undefined ? existingGame.playtime : undefined,
+          // Update installation directory (using existing if present for backward compatibility, or new one)
+          installationDirectory: existingGame.installationDirectory || installationDirectory,
         };
         gamesMap.set(gameId, updatedGame);
       } else if (!existingGame) {
@@ -261,11 +266,14 @@ export class GameStore {
           bannerUrl = cached.bannerUrl || bannerUrl;
         }
 
+        const installationDirectory = join(steamGame.libraryPath, 'steamapps', 'common', steamGame.installDir);
+
         const game: Game = {
           id: gameId,
           title: steamGame.name,
           platform: 'steam',
           exePath: '', // Steam games don't have direct exe paths, would need to construct from installDir
+          installationDirectory,
           boxArtUrl,
           bannerUrl,
         };
