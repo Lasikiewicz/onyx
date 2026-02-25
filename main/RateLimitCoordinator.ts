@@ -76,8 +76,9 @@ export class RateLimitCoordinator {
         this.serviceLastRequestTime.set(queuedRequest.service, Date.now());
 
         try {
-          const result = await queuedRequest.execute();
-          queuedRequest.resolve(result);
+          queuedRequest.execute()
+            .then((result) => queuedRequest.resolve(result))
+            .catch((error) => queuedRequest.reject(error));
         } catch (error) {
           queuedRequest.reject(error);
         }
