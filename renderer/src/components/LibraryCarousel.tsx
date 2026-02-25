@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Game } from '../types/game';
 import { GameContextMenu } from './GameContextMenu';
 import { getContrastingTextColor } from '../utils/colorUtils';
+import { calculateVirtualWindow, calculateLeftSpacerWidth } from '../utils/virtualization';
 
 interface LibraryCarouselProps {
   games: Game[];
@@ -156,6 +157,23 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
   React.useEffect(() => {
     setCarouselOffset(calculateOffset(validSelectedIndex));
   }, [validSelectedIndex]);
+
+  // Virtualization calculations
+  const { startIndex, endIndex } = React.useMemo(() => {
+    // Buffer size depends on screen width, but using safe defaults covers most cases
+    // 20 items * 100px = 2000px, enough for most screens
+    const bufferLeft = 20;
+    const bufferRight = 30;
+    return calculateVirtualWindow(validSelectedIndex, games.length, { bufferLeft, bufferRight });
+  }, [validSelectedIndex, games.length]);
+
+  const leftSpacerWidth = React.useMemo(() => {
+    return calculateLeftSpacerWidth(startIndex, baseGameWidth, gameTilePadding);
+  }, [startIndex, baseGameWidth, gameTilePadding]);
+
+  const visibleGames = React.useMemo(() => {
+    return games.slice(startIndex, endIndex);
+  }, [games, startIndex, endIndex]);
 
   // Handle keyboard navigation
   React.useEffect(() => {
@@ -495,8 +513,21 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
               transform: `translateX(${carouselOffset}px)`,
             }}
           >
-            {/* Render all games in sequence */}
-            {games.map((game, index) => {
+            {/* Spacer for virtualized items */}
+            {startIndex > 0 && (
+              <div
+                style={{
+                  width: `${leftSpacerWidth}px`,
+                  flexShrink: 0,
+                  height: `${baseGameHeight}px`, // Maintain height to prevent layout shifts
+                  // Margins are not needed as spacer calculation assumes 0 margins, and gap handles spacing
+                }}
+              />
+            )}
+
+            {/* Render visible games */}
+            {visibleGames.map((game, i) => {
+              const index = startIndex + i;
               const isSelected = index === validSelectedIndex;
 
               return (
