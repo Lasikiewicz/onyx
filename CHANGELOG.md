@@ -4,6 +4,13 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.4.4] - 2026-02-25
+
+- Fix: Expanded onyx-local protocol support for .ico and .avif.
+- Internal: Standardized ESM loading via dynamicImport helper.
+- Security: Case-insensitive path validation for Windows protocol handler.
+- Test: Added vitest-based unit tests for core services.
+
 ## [0.4.3] - 2026-02-25
 
 - Cleanup: Removed unused variables in LibraryListView and OnyxSettingsModal.
