@@ -1068,7 +1068,9 @@ export class MetadataFetcherService {
 
   /**
    * Get metadata only (descriptions, genres, etc.) without fetching artwork/images
-   * Uses Official Store ONLY (Steam for Steam games, etc.)
+   * Strategy:
+   * 1. Official Store API (Steam) for Steam games
+   * 2. IGDB fallback for everything else (Epic, GOG, Xbox, etc.)
    */
   async searchMetadataOnly(providerId: string, providerSource: string, steamAppId?: string, gameTitle?: string): Promise<Partial<GameMetadata>> {
     const descriptionPromises: Promise<GameDescription | null>[] = [];
@@ -1078,9 +1080,31 @@ export class MetadataFetcherService {
       console.log(`[searchMetadataOnly] Fetching from Steam for app ${steamAppId}`);
       descriptionPromises.push(this.steamProvider.getDescription(`steam-${steamAppId}`));
     }
-    // TODO: Add Epic, GOG, Xbox providers here when implemented
-    // if (epicGameId && this.epicProvider?.isAvailable()) { ... }
-    // if (gogGameId && this.gogProvider?.isAvailable()) { ... }
+
+    // IGDB FALLBACK - For non-Steam games (Epic, GOG, Xbox, etc.) or explicitly requested IGDB
+    if (providerSource !== 'steam' && this.igdbProvider?.isAvailable()) {
+      if (providerSource === 'igdb') {
+        // Direct IGDB lookup if the ID is known to be an IGDB ID
+        descriptionPromises.push(this.igdbProvider.getDescription(providerId));
+      } else if (gameTitle) {
+        // For other sources (Epic, GOG, etc.), we don't have a direct ID mapping to IGDB,
+        // so we must search by title to find the corresponding IGDB entry.
+        const igdbPromise = (async () => {
+          try {
+            console.log(`[searchMetadataOnly] Searching IGDB for "${gameTitle}" (source: ${providerSource})`);
+            const results = await this.igdbProvider!.search(gameTitle, steamAppId);
+            if (results.length > 0) {
+              // Use the first match
+              return this.igdbProvider!.getDescription(results[0].id);
+            }
+          } catch (e) {
+            console.warn(`[searchMetadataOnly] IGDB fallback failed for ${gameTitle}:`, e);
+          }
+          return null;
+        })();
+        descriptionPromises.push(igdbPromise);
+      }
+    }
 
     const descriptionResults = await Promise.all(descriptionPromises);
     const mergedDescription = this.mergeDescriptions(descriptionResults, steamAppId);
