@@ -4,6 +4,14 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.4.2] - 2026-02-25
+
+- Security: Fix path traversal vulnerability in onyx-local protocol handler.
+- Security: Restrict file execution in app:openPath IPC handler to trusted directories.
+- Test: Add comprehensive GameMatcher unit tests using vitest.
+- Fix: Exclude test files from production TypeScript build.
+- UI: Performance improvements to LibraryGrid and SortableGameCard components.
+
 ## [0.4.1] - 2026-02-24
 
 - Feature: Added alternative background options to Carousel and Cover Flow views.
