@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import {
   DndContext,
   closestCenter,
@@ -84,6 +84,14 @@ export const LibraryGrid: React.FC<LibraryGridProps> = ({
       },
     })
   );
+
+  // Memoize item IDs for SortableContext to prevent unnecessary re-renders
+  const itemIds = useMemo(() => items.map((g) => g.id), [items]);
+
+  // Memoize focus callback to keep child props stable
+  const handleFocusItem = useCallback((index: number) => {
+    setFocusedIndex(index);
+  }, []);
 
   // Handle keyboard navigation for gamepad support
   useEffect(() => {
@@ -178,7 +186,7 @@ export const LibraryGrid: React.FC<LibraryGridProps> = ({
           collisionDetection={closestCenter}
           onDragEnd={handleDragEnd}
         >
-          <SortableContext items={items.map((g) => g.id)} strategy={rectSortingStrategy}>
+          <SortableContext items={itemIds} strategy={rectSortingStrategy}>
             <div
               className="grid"
               style={{
@@ -216,7 +224,8 @@ export const LibraryGrid: React.FC<LibraryGridProps> = ({
                   logoBackgroundOpacity={logoBackgroundOpacity}
                   tabIndex={0}
                   isFocused={index === focusedIndex}
-                  onFocus={() => setFocusedIndex(index)}
+                  index={index}
+                  onFocusItem={handleFocusItem}
                 />
               ))}
             </div>

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Game } from '../types/game';
@@ -21,9 +21,30 @@ interface SortableGameCardProps {
   tabIndex?: number;
   isFocused?: boolean;
   onFocus?: () => void;
+  index?: number;
+  onFocusItem?: (index: number) => void;
 }
 
-export const SortableGameCard: React.FC<SortableGameCardProps> = ({ game, onPlay, onClick, onEdit, hideTitle = false, showLogoOverBoxart = true, logoPosition = 'middle', useLogoInsteadOfBoxart = false, descriptionSize = 14, onContextMenu, viewMode, logoBackgroundColor, logoBackgroundOpacity, tabIndex, isFocused, onFocus }) => {
+const SortableGameCardComponent: React.FC<SortableGameCardProps> = ({
+  game,
+  onPlay,
+  onClick,
+  onEdit,
+  hideTitle = false,
+  showLogoOverBoxart = true,
+  logoPosition = 'middle',
+  useLogoInsteadOfBoxart = false,
+  descriptionSize = 14,
+  onContextMenu,
+  viewMode,
+  logoBackgroundColor,
+  logoBackgroundOpacity,
+  tabIndex,
+  isFocused,
+  onFocus,
+  index,
+  onFocusItem
+}) => {
   const {
     attributes,
     listeners,
@@ -41,28 +62,36 @@ export const SortableGameCard: React.FC<SortableGameCardProps> = ({ game, onPlay
 
   // Handle click - only fire if not currently dragging
   // The activationConstraint (8px) in LibraryGrid ensures clicks without movement work
-  const handleClick = () => {
+  const handleClick = useCallback(() => {
     // Prevent click if we're dragging
     if (!isDragging && onClick) {
       onClick(game);
     }
-  };
+  }, [isDragging, onClick, game]);
 
   // Handle double-click to launch game
-  const handleDoubleClick = () => {
+  const handleDoubleClick = useCallback(() => {
     if (!isDragging && onPlay) {
       onPlay(game);
     }
-  };
+  }, [isDragging, onPlay, game]);
+
+  // Handle focus
+  const handleFocus = useCallback(() => {
+    if (onFocus) onFocus();
+    if (index !== undefined && onFocusItem) {
+      onFocusItem(index);
+    }
+  }, [onFocus, onFocusItem, index]);
 
   // Handle context menu
-  const handleContextMenu = (e: React.MouseEvent) => {
+  const handleContextMenu = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     if (onContextMenu) {
       onContextMenu(game, e.clientX, e.clientY);
     }
-  };
+  }, [onContextMenu, game]);
 
   // Merge listeners with context menu handler
   const mergedListeners = {
@@ -78,12 +107,26 @@ export const SortableGameCard: React.FC<SortableGameCardProps> = ({ game, onPlay
       {...mergedListeners}
       onClick={handleClick}
       onDoubleClick={handleDoubleClick}
-      onFocus={onFocus}
+      onFocus={handleFocus}
       tabIndex={tabIndex}
       className={`cursor-pointer outline-none transition-all duration-200 ${isFocused ? 'rounded-xl animate-breathing-scale z-10' : ''}`}
       data-game-card
     >
-      <GameCard game={game} onPlay={onPlay} onEdit={onEdit} hideTitle={hideTitle} showLogoOverBoxart={showLogoOverBoxart} logoPosition={logoPosition} useLogoInsteadOfBoxart={useLogoInsteadOfBoxart} descriptionSize={descriptionSize} viewMode={viewMode} logoBackgroundColor={logoBackgroundColor} logoBackgroundOpacity={logoBackgroundOpacity} />
+      <GameCard
+        game={game}
+        onPlay={onPlay}
+        onEdit={onEdit}
+        hideTitle={hideTitle}
+        showLogoOverBoxart={showLogoOverBoxart}
+        logoPosition={logoPosition}
+        useLogoInsteadOfBoxart={useLogoInsteadOfBoxart}
+        descriptionSize={descriptionSize}
+        viewMode={viewMode}
+        logoBackgroundColor={logoBackgroundColor}
+        logoBackgroundOpacity={logoBackgroundOpacity}
+      />
     </div>
   );
 };
+
+export const SortableGameCard = React.memo(SortableGameCardComponent);

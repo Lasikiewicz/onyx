@@ -2,7 +2,9 @@
   "compilerOptions": {
     "target": "ES2020",
     "module": "CommonJS",
-    "lib": ["ES2020"],
+    "lib": [
+      "ES2020"
+    ],
     "moduleResolution": "Node",
     "strict": true,
     "esModuleInterop": true,
@@ -17,6 +19,13 @@
     "noEmit": false,
     "composite": true
   },
-  "include": ["**/*.ts"],
-  "exclude": ["node_modules", "preload.ts"]
+  "include": [
+    "**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "preload.ts",
+    "**/*.test.ts",
+    "**/*.spec.ts"
+  ]
 }
