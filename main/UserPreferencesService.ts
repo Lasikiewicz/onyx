@@ -1291,10 +1291,14 @@ export class UserPreferencesService {
       const byResolution = customDefaults[resolution] || {};
       for (const viewMode of viewModes) {
         if (byResolution[viewMode]) {
+          const modeSettings = byResolution[viewMode] as any;
+          const gameSettings = modeSettings.gamesCustomSettings;
+          const hasPerGameSettings = gameSettings && typeof gameSettings === 'object' && Object.keys(gameSettings).length > 0;
+
           list.push({
             resolution,
             viewMode,
-            hasPerGameSettings: false, // TODO: Track per-game settings per resolution/view
+            hasPerGameSettings: !!hasPerGameSettings,
           });
         }
       }
