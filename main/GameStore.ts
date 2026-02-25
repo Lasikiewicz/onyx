@@ -72,6 +72,9 @@ interface StoreSchema {
 export class GameStore {
   private store: Store<StoreSchema> | null = null;
   private storePromise: Promise<Store<StoreSchema>>;
+  private gamesCache: Game[] | null = null;
+  private saveTimeout: NodeJS.Timeout | null = null;
+  private readonly SAVE_DELAY = 2000; // 2 seconds debounce
 
   constructor() {
     // Use dynamic import for ES module
@@ -100,8 +103,43 @@ export class GameStore {
    * Get all games from the store
    */
   async getLibrary(): Promise<Game[]> {
+    if (this.gamesCache) {
+      return this.gamesCache;
+    }
     const store = await this.ensureStore();
-    return (store as any).get('games', []);
+    this.gamesCache = (store as any).get('games', []);
+    return this.gamesCache!;
+  }
+
+  private scheduleSave() {
+    if (this.saveTimeout) {
+      clearTimeout(this.saveTimeout);
+    }
+    this.saveTimeout = setTimeout(() => this.persistGames(), this.SAVE_DELAY);
+  }
+
+  private async persistGames() {
+    if (!this.gamesCache) return;
+    try {
+      const store = await this.ensureStore();
+      (store as any).set('games', this.gamesCache);
+      console.log(`[GameStore] Persisted ${this.gamesCache.length} games to disk`);
+    } catch (error) {
+      console.error('[GameStore] Error persisting games:', error);
+    } finally {
+      this.saveTimeout = null;
+    }
+  }
+
+  /**
+   * Force immediate save of pending changes.
+   * Call this on app exit.
+   */
+  async flush(): Promise<void> {
+    if (this.saveTimeout) {
+      clearTimeout(this.saveTimeout);
+      await this.persistGames();
+    }
   }
 
   async migratePerGameViewSizeOverrides(): Promise<Record<string, { grid?: number; list?: number; logo?: number; carousel?: number; coverflow?: number }>> {
@@ -132,7 +170,8 @@ export class GameStore {
     });
 
     if (changed) {
-      (store as any).set('games', migratedGames);
+      this.gamesCache = migratedGames;
+      this.scheduleSave();
     }
 
     return overrides;
@@ -170,7 +209,7 @@ export class GameStore {
       console.log(`Added new game: ${gameToSave.title} (${gameToSave.id})`);
     }
 
-    (store as any).set('games', games);
+    this.scheduleSave();
     console.log(`Total games in store: ${games.length}`);
   }
 
@@ -192,7 +231,8 @@ export class GameStore {
       gamesMap.set(game.id, game);
     });
 
-    (store as any).set('games', Array.from(gamesMap.values()));
+    this.gamesCache = Array.from(gamesMap.values());
+    this.scheduleSave();
   }
 
   /**
@@ -275,7 +315,8 @@ export class GameStore {
     }
 
     const finalGames = Array.from(gamesMap.values());
-    (store as any).set('games', finalGames);
+    this.gamesCache = finalGames;
+    this.scheduleSave();
     console.log(`Merged ${steamGames.length} Steam games, total games: ${finalGames.length}`);
   }
 
@@ -286,15 +327,17 @@ export class GameStore {
     const store = await this.ensureStore();
     const games = await this.getLibrary();
     const filteredGames = games.filter(g => g.id !== gameId);
-    (store as any).set('games', filteredGames);
+    this.gamesCache = filteredGames;
+    this.scheduleSave();
   }
 
   /**
    * Clear all games from the store
    */
   async clearLibrary(): Promise<void> {
-    const store = await this.ensureStore();
-    (store as any).set('games', []);
+    await this.ensureStore();
+    this.gamesCache = [];
+    this.scheduleSave();
   }
 
   /**
@@ -332,7 +375,7 @@ export class GameStore {
       if (screenshots !== undefined) {
         games[gameIndex].screenshots = screenshots;
       }
-      (store as any).set('games', games);
+      this.scheduleSave();
       return true;
     }
 
@@ -401,7 +444,7 @@ export class GameStore {
 
     if (clearedCount > 0) {
       console.log(`[GameStore] Cleared ${clearedCount} broken onyx-local:// URLs`);
-      (store as any).set('games', games);
+      this.scheduleSave();
     }
 
     return clearedCount;
@@ -448,8 +491,9 @@ export class GameStore {
    * Reorder games in the store according to the provided order
    */
   async reorderGames(reorderedGames: Game[]): Promise<void> {
-    const store = await this.ensureStore();
-    (store as any).set('games', reorderedGames);
+    await this.ensureStore();
+    this.gamesCache = reorderedGames;
+    this.scheduleSave();
   }
 
   /**
@@ -547,7 +591,8 @@ export class GameStore {
       const gamesToKeep = games.filter(g => !missingIds.has(g.id));
 
       console.log(`[GameStore] Removing ${missingGames.length} missing game(s) from library`);
-      (store as any).set('games', gamesToKeep);
+      this.gamesCache = gamesToKeep;
+      this.scheduleSave();
     }
 
     return missingGames.length;

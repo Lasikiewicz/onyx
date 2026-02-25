@@ -1873,8 +1873,23 @@ app.whenReady().then(async () => {
 });
 
 // Cleanup global shortcuts and background scan on app quit
-app.on('will-quit', () => {
+let isQuitting = false;
+app.on('will-quit', async (e) => {
+  if (isQuitting) return;
+  e.preventDefault();
+
+  console.log('[App] Preparing to quit...');
   unregisterSuspendShortcut();
   stopBackgroundScan();
+
+  try {
+    await gameStore.flush();
+    console.log('[App] Game store flushed.');
+  } catch (err) {
+    console.error('[App] Error flushing game store:', err);
+  }
+
+  isQuitting = true;
+  app.quit();
 });
 
