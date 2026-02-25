@@ -53,6 +53,8 @@
     "url": "https://github.com/Lasikiewicz/onyx/issues"
   },
   "devDependencies": {
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
     "@types/node": "^20.10.0",
     "@types/react": "^18.2.43",
     "@types/react-dom": "^18.2.17",
@@ -62,6 +64,7 @@
     "cross-env": "^7.0.3",
     "electron": "^28.0.0",
     "electron-builder": "^26.0.12",
+    "jsdom": "^28.1.0",
     "png2icons": "^2.0.1",
     "postcss": "^8.4.32",
     "sharp": "^0.34.5",
@@ -75,12 +78,16 @@
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
+    "@types/react-virtualized-auto-sizer": "^1.0.4",
+    "@types/react-window": "^1.8.8",
     "axios": "^1.13.2",
     "dotenv": "^17.2.3",
     "electron-store": "^11.0.2",
     "electron-updater": "^6.3.9",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react-dom": "^18.2.0",
+    "react-virtualized-auto-sizer": "^2.0.3",
+    "react-window": "^2.2.7"
   },
   "optionalDependencies": {
     "keytar": "^7.7.0"

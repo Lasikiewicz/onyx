@@ -6,14 +6,19 @@ import {
   useSensor,
   useSensors,
   DragEndEvent,
+  DragStartEvent,
+  DragOverlay,
 } from '@dnd-kit/core';
 import {
   arrayMove,
   SortableContext,
   rectSortingStrategy,
 } from '@dnd-kit/sortable';
+import { Grid, GridImperativeAPI, CellComponentProps } from 'react-window';
+import { AutoSizer } from 'react-virtualized-auto-sizer';
 import { Game } from '../types/game';
 import { SortableGameCard } from './SortableGameCard';
+import { GameCard } from './GameCard';
 
 interface LibraryGridProps {
   games: Game[];
@@ -46,6 +51,54 @@ interface LibraryGridProps {
   viewMode?: 'grid' | 'logo';
 }
 
+interface ItemData {
+  items: Game[];
+  columnCount: number;
+  cardWidth: number;
+  cardHeight: number;
+  focusedIndex: number;
+  setFocusedIndex: (index: number) => void;
+  [key: string]: any;
+}
+
+const CellComponent = (props: CellComponentProps<ItemData> & ItemData) => {
+  const {
+    columnIndex,
+    rowIndex,
+    style,
+    items,
+    columnCount,
+    cardWidth,
+    cardHeight,
+    focusedIndex,
+    setFocusedIndex,
+    ...otherProps
+  } = props;
+
+  const index = rowIndex * columnCount + columnIndex;
+
+  // Don't render if index is out of bounds
+  if (index >= items.length) {
+    return null;
+  }
+
+  const game = items[index];
+
+  return (
+    <div style={style}>
+      <div style={{ width: cardWidth, height: cardHeight }}>
+        <SortableGameCard
+          key={game.id}
+          game={game}
+          isFocused={index === focusedIndex}
+          onFocus={() => setFocusedIndex(index)}
+          {...otherProps}
+        />
+      </div>
+    </div>
+  );
+};
+
 export const LibraryGrid: React.FC<LibraryGridProps> = ({
   games,
   onReorder,
@@ -59,7 +112,6 @@ export const LibraryGrid: React.FC<LibraryGridProps> = ({
   showLogoOverBoxart = true,
   logoPosition = 'middle',
   useLogosInsteadOfBoxart = false,
-  autoSizeToFit = false,
   descriptionSize = 14,
   onGameContextMenu,
   onEmptySpaceClick,
@@ -68,13 +120,15 @@ export const LibraryGrid: React.FC<LibraryGridProps> = ({
   logoBackgroundOpacity = 100,
 }) => {
   const [items, setItems] = useState<Game[]>(games);
+  const [activeId, setActiveId] = useState<string | null>(null);
 
   // Update items when games prop changes
   useEffect(() => {
     setItems(games);
   }, [games]);
 
-  const gridRef = useRef<HTMLDivElement>(null);
+  const gridRef = useRef<GridImperativeAPI>(null);
+  const columnCountRef = useRef<number>(1);
   const [focusedIndex, setFocusedIndex] = useState<number>(-1);
 
   const sensors = useSensors(
@@ -90,19 +144,7 @@ export const LibraryGrid: React.FC<LibraryGridProps> = ({
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!gridRef.current || items.length === 0) return;
 
-      const cards = Array.from(gridRef.current.querySelectorAll('[data-game-card]'));
-      if (cards.length === 0) return;
-
-      // Calculate grid columns based on current layout
-      const gridElement = gridRef.current.querySelector('.grid') as HTMLElement;
-      if (!gridElement) return;
-
-      const firstCard = cards[0] as HTMLElement;
-      const gridWidth = gridElement.offsetWidth;
-      const cardWidth = firstCard.offsetWidth;
-      const gap = gameTilePadding;
-      const columns = Math.floor((gridWidth + gap) / (cardWidth + gap));
-
+      const columns = columnCountRef.current;
       let newIndex = focusedIndex;
 
       switch (e.key) {
@@ -134,15 +176,22 @@ export const LibraryGrid: React.FC<LibraryGridProps> = ({
 
       if (newIndex !== focusedIndex) {
         setFocusedIndex(newIndex);
-        (cards[newIndex] as HTMLElement)?.focus();
+        const rowIndex = Math.floor(newIndex / columns);
+        const columnIndex = newIndex % columns;
+        gridRef.current.scrollToCell({ rowIndex, columnIndex });
       }
     };
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [items, focusedIndex, gameTilePadding, onGameClick]);
+  }, [items, focusedIndex, onGameClick]);
+
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveId(event.active.id as string);
+  };
 
   const handleDragEnd = async (event: DragEndEvent) => {
+    setActiveId(null);
     const { active, over } = event;
 
     if (over && active.id !== over.id) {
@@ -157,12 +206,18 @@ export const LibraryGrid: React.FC<LibraryGridProps> = ({
     }
   };
 
+  const activeGame = activeId ? items.find((item) => item.id === activeId) : null;
+
+  // Calculate dimensions for DragOverlay
+  const cardWidth = useLogosInsteadOfBoxart ? logoSize : gridSize;
+  const aspectRatio = useLogosInsteadOfBoxart ? (9/16) : 1.5;
+  const cardHeight = cardWidth * aspectRatio;
+
   return (
     <div className="w-full h-full flex flex-col">
       {/* Grid Container */}
       <div
-        ref={gridRef}
-        className="flex-1 overflow-y-auto"
+        className="flex-1 w-full h-full overflow-hidden"
         onContextMenu={(e) => {
           // Right click on empty space in grid - check if target is not a game card
           const target = e.target as HTMLElement;
@@ -176,51 +231,77 @@ export const LibraryGrid: React.FC<LibraryGridProps> = ({
         <DndContext
           sensors={sensors}
           collisionDetection={closestCenter}
+          onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
         >
-          <SortableContext items={items.map((g) => g.id)} strategy={rectSortingStrategy}>
-            <div
-              className="grid"
-              style={{
-                gridTemplateColumns: autoSizeToFit
-                  ? `repeat(auto-fill, ${useLogosInsteadOfBoxart ? logoSize : gridSize}px)`
-                  : `repeat(auto-fit, ${useLogosInsteadOfBoxart ? logoSize : gridSize}px)`,
-                gap: `${gameTilePadding}px`,
-                justifyContent: 'start',
-              }}
-              onContextMenu={(e) => {
-                // Right click on empty space in grid itself
-                const target = e.target as HTMLElement;
-                if (!target.closest('[data-game-card]')) {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  onEmptySpaceClick?.(e.clientX, e.clientY);
-                }
-              }}
-            >
-              {items.map((game, index) => (
-                <SortableGameCard
-                  key={game.id}
-                  game={game}
-                  onPlay={onPlay}
-                  onClick={onGameClick}
-                  onEdit={onEdit}
-                  hideTitle={hideGameTitles}
-                  showLogoOverBoxart={showLogoOverBoxart}
-                  logoPosition={logoPosition}
-                  useLogoInsteadOfBoxart={useLogosInsteadOfBoxart}
-                  descriptionSize={descriptionSize}
-                  onContextMenu={onGameContextMenu}
-                  viewMode={viewMode}
-                  logoBackgroundColor={logoBackgroundColor}
-                  logoBackgroundOpacity={logoBackgroundOpacity}
-                  tabIndex={0}
-                  isFocused={index === focusedIndex}
-                  onFocus={() => setFocusedIndex(index)}
+          <AutoSizer renderProp={({ height, width }) => {
+              if (width === undefined || height === undefined) {
+                return null;
+              }
+
+              const columnWidth = cardWidth + gameTilePadding;
+              const rowHeight = cardHeight + gameTilePadding;
+
+              // Ensure we have at least 1 column
+              const columnCount = Math.max(1, Math.floor(width / columnWidth));
+              const rowCount = Math.ceil(items.length / columnCount);
+
+              columnCountRef.current = columnCount;
+
+              return (
+                <SortableContext items={items.map((g) => g.id)} strategy={rectSortingStrategy}>
+                  <Grid
+                    gridRef={gridRef}
+                    columnCount={columnCount}
+                    columnWidth={columnWidth}
+                    rowCount={rowCount}
+                    rowHeight={rowHeight}
+                    style={{ height, width }}
+                    cellProps={{
+                      items,
+                      columnCount,
+                      cardWidth,
+                      cardHeight,
+                      focusedIndex,
+                      setFocusedIndex,
+                      onPlay,
+                      onClick: onGameClick,
+                      onEdit,
+                      hideTitle: hideGameTitles,
+                      showLogoOverBoxart,
+                      logoPosition,
+                      useLogoInsteadOfBoxart: useLogosInsteadOfBoxart,
+                      descriptionSize,
+                      onContextMenu: onGameContextMenu,
+                      viewMode,
+                      logoBackgroundColor,
+                      logoBackgroundOpacity,
+                      tabIndex: 0,
+                    }}
+                    cellComponent={CellComponent}
+                  />
+                </SortableContext>
+              );
+            }}
+          />
+
+          <DragOverlay>
+            {activeGame ? (
+              <div style={{ width: cardWidth, height: cardHeight }}>
+                <GameCard
+                    game={activeGame}
+                    hideTitle={hideGameTitles}
+                    showLogoOverBoxart={showLogoOverBoxart}
+                    logoPosition={logoPosition}
+                    useLogoInsteadOfBoxart={useLogosInsteadOfBoxart}
+                    descriptionSize={descriptionSize}
+                    viewMode={viewMode}
+                    logoBackgroundColor={logoBackgroundColor}
+                    logoBackgroundOpacity={logoBackgroundOpacity}
                 />
-              ))}
-            </div>
-          </SortableContext>
+              </div>
+            ) : null}
+          </DragOverlay>
         </DndContext>
       </div>
     </div>
