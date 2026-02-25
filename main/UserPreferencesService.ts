@@ -201,9 +201,17 @@ export interface UserPreferences {
 }
 
 type ViewMode = 'grid' | 'list' | 'logo' | 'carousel' | 'coverflow';
-type ResolutionKey = '720p' | '1080p' | '1440p' | '4K';
+export type ResolutionKey = '720p' | '1080p' | '1440p' | '4K';
 type BaselineDefaults = Record<ResolutionKey, Record<ViewMode, Record<string, any>>>;
 type CustomDefaultsByResolution = Partial<Record<ResolutionKey, Partial<Record<ViewMode, Record<string, any>>>>>;
+
+export function normalizeResolutionKey(value?: string): ResolutionKey {
+  const normalized = (value || '1080p').toLowerCase();
+  if (normalized === '4k') return '4K';
+  if (normalized === '1440p') return '1440p';
+  if (normalized === '720p') return '720p';
+  return '1080p';
+}
 
 interface UserPreferencesSchema {
   preferences: UserPreferences;
@@ -755,14 +763,6 @@ export class UserPreferencesService {
     };
   }
 
-  private normalizeResolutionKey(value?: string): ResolutionKey {
-    const normalized = (value || '1080p').toLowerCase();
-    if (normalized === '4k') return '4K';
-    if (normalized === '1440p') return '1440p';
-    if (normalized === '720p') return '720p';
-    return '1080p';
-  }
-
   /**
    * Detect the current screen resolution category based on the primary display
    */
@@ -1216,7 +1216,7 @@ export class UserPreferencesService {
 
     const store = await this.ensureStore();
     const current = this.normalizeCustomDefaults(store.get('customDefaults', {}));
-    const resolutionKey = this.normalizeResolutionKey(resolution);
+    const resolutionKey = normalizeResolutionKey(resolution);
     const viewModes: ViewMode[] = ['grid', 'list', 'logo', 'carousel', 'coverflow'];
 
     const nextForResolution: Partial<Record<ViewMode, Record<string, any>>> = {
@@ -1241,7 +1241,7 @@ export class UserPreferencesService {
 
   async restoreCustomDefaults(options: { viewMode: ViewMode; scope: 'current' | 'all'; resolution?: string }): Promise<any> {
     const customDefaults = await this.getCustomDefaults();
-    const resolutionKey = this.normalizeResolutionKey(options.resolution);
+    const resolutionKey = normalizeResolutionKey(options.resolution);
     const byResolution = customDefaults[resolutionKey] || {};
 
     if (options.scope === 'all') {
