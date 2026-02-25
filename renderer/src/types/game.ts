@@ -295,6 +295,7 @@ declare global {
       fetchAndUpdateByProviderId: (gameId: string, providerId: string, providerSource: string) => Promise<{ success: boolean; error?: string; metadata: GameMetadata | null }>;
       fetchMetadataOnlyByProviderId: (gameId: string, providerId: string, providerSource: string) => Promise<{ success: boolean; error?: string; metadata: Partial<GameMetadata> | null }>;
       launchGame: (gameId: string) => Promise<{ success: boolean; error?: string; pid?: number }>;
+      launchModManager: (gameId: string) => Promise<{ success: boolean; error?: string }>;
       getAppConfigs: () => Promise<Record<string, { id: string; name: string; enabled: boolean; path: string; autoAdd?: boolean; syncPlaytime?: boolean }>>;
       getAppConfig: (appId: string) => Promise<{ id: string; name: string; enabled: boolean; path: string; autoAdd?: boolean; syncPlaytime?: boolean } | null>;
       saveAppConfig: (config: { id: string; name: string; enabled: boolean; path: string; autoAdd?: boolean }) => Promise<{ success: boolean; error?: string }>;

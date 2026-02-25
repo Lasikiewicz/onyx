@@ -112,7 +112,7 @@ export const GameContextMenu: React.FC<GameContextMenuProps> = ({
   const handleModManager = async () => {
     if (game.modManagerUrl) {
       try {
-        await window.electronAPI.openExternal(game.modManagerUrl);
+        await window.electronAPI.launchModManager(game.id);
       } catch (err) {
         console.error('Error opening mod manager:', err);
       }

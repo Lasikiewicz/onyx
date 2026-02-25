@@ -427,8 +427,19 @@ export function registerAppIPCHandlers(
     };
 
     ipcMain.handle('app:openExternal', async (_event, url) => {
-        await shell.openExternal(url);
-        return { success: true };
+        try {
+            const parsedUrl = new URL(url);
+            const allowedProtocols = ['http:', 'https:', 'mailto:'];
+            if (allowedProtocols.includes(parsedUrl.protocol)) {
+                await shell.openExternal(url);
+                return { success: true };
+            }
+            console.warn(`[Security] Blocked access to unsafe protocol: ${parsedUrl.protocol}`);
+            return { success: false, error: 'Protocol not allowed' };
+        } catch (error) {
+            console.error('[Security] Invalid URL passed to openExternal:', url);
+            return { success: false, error: 'Invalid URL' };
+        }
     });
 
     ipcMain.handle('app:openPath', async (_event, pathOrType) => {

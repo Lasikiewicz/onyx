@@ -301,7 +301,7 @@ export const LibraryCoverFlow: React.FC<LibraryCoverFlowProps> = ({
               type="button"
               onClick={async (e) => {
                 e.stopPropagation();
-                if (selectedGame.modManagerUrl) await window.electronAPI?.openExternal(selectedGame.modManagerUrl);
+                if (selectedGame.modManagerUrl) await window.electronAPI?.launchModManager(selectedGame.id);
               }}
               className="px-3 py-1.5 rounded text-white text-sm font-medium shadow-lg hover:opacity-90 transition-opacity"
               style={{ backgroundColor: modColor }}

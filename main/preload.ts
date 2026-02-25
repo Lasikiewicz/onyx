@@ -59,6 +59,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   fetchMetadataOnlyByProviderId: (gameId: string, providerId: string, providerSource: string) => ipcRenderer.invoke('metadata:fetchMetadataOnlyByProviderId', gameId, providerId, providerSource),
   // Launcher methods
   launchGame: (gameId: string) => ipcRenderer.invoke('launcher:launchGame', gameId),
+  launchModManager: (gameId: string) => ipcRenderer.invoke('launcher:launchModManager', gameId),
   // App config methods
   getAppConfigs: () => ipcRenderer.invoke('appConfig:getAll'),
   getAppConfig: (appId: string) => ipcRenderer.invoke('appConfig:get', appId),

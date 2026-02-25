@@ -926,7 +926,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
                     onClick={async () => {
                       if (game.modManagerUrl) {
                         try {
-                          await window.electronAPI.openExternal(game.modManagerUrl);
+                    await window.electronAPI.launchModManager(game.id);
                         } catch (err) {
                           console.error('Error opening mod manager:', err);
                         }

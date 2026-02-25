@@ -1,4 +1,5 @@
 import { spawn } from 'child_process';
+import { existsSync } from 'node:fs';
 import { shell } from 'electron';
 import { GameStore, Game } from './GameStore.js';
 
@@ -22,6 +23,51 @@ export class LauncherService {
    * For non-launcher games: executes the .exe file using child_process.spawn
    * Returns PID for non-Steam games for process tracking
    */
+  async launchModManager(gameId: string): Promise<{ success: boolean; error?: string }> {
+    try {
+      const games = await this.gameStore.getLibrary();
+      const game = games.find(g => g.id === gameId);
+
+      if (!game) {
+        return { success: false, error: `Game with ID ${gameId} not found` };
+      }
+
+      if (!game.modManagerUrl) {
+        return { success: false, error: 'Mod Manager not configured for this game' };
+      }
+
+      const urlOrPath = game.modManagerUrl;
+      console.log(`[LauncherService] Launching Mod Manager for ${game.title}: ${urlOrPath}`);
+
+      // Check if it's a web URL
+      try {
+        const parsedUrl = new URL(urlOrPath);
+        if (['http:', 'https:'].includes(parsedUrl.protocol)) {
+          await shell.openExternal(urlOrPath);
+          return { success: true };
+        }
+      } catch {
+        // Not a valid URL, treat as file path
+      }
+
+      // Treat as file path
+      if (existsSync(urlOrPath)) {
+        // Use shell.openPath to launch the executable or open the file
+        const error = await shell.openPath(urlOrPath);
+        if (error) {
+          return { success: false, error: `Failed to open Mod Manager: ${error}` };
+        }
+        return { success: true };
+      }
+
+      return { success: false, error: 'Mod Manager path not found' };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error('Error launching Mod Manager:', errorMessage);
+      return { success: false, error: errorMessage };
+    }
+  }
+
   async launchGame(gameId: string): Promise<{ success: boolean; error?: string; pid?: number }> {
     try {
       const games = await this.gameStore.getLibrary();

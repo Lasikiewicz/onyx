@@ -49,6 +49,7 @@ export interface Game {
   hidden?: boolean;
   broken?: boolean;
   notes?: string;
+  modManagerUrl?: string;
   links?: Array<{ name: string; url: string; hidden?: boolean; iconUrl?: string }>;
   actions?: Array<{ name: string; path: string; arguments?: string; workingDir?: string }>;
   scripts?: Array<{ name: string; script: string }>;

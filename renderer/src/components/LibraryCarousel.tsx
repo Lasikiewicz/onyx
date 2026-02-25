@@ -409,7 +409,7 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
                     onClick={async () => {
                       if (selectedGame.modManagerUrl) {
                         try {
-                          await window.electronAPI.openExternal(selectedGame.modManagerUrl);
+                          await window.electronAPI.launchModManager(selectedGame.id);
                         } catch (err) {
                           console.error('Error opening mod manager:', err);
                         }

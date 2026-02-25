@@ -27,6 +27,16 @@ export function registerLauncherIPCHandlers(
         }
     });
 
+    ipcMain.handle('launcher:launchModManager', async (_event, gameId: string) => {
+        try {
+            console.log(`[Launcher] Launching Mod Manager for game: ${gameId}`);
+            return await launcherService.launchModManager(gameId);
+        } catch (error) {
+            console.error('Error in launcher:launchModManager handler:', error);
+            return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+        }
+    });
+
     ipcMain.handle('launcher:detectAll', async () => {
         try {
             console.log('[Launcher] Detecting all launchers...');
