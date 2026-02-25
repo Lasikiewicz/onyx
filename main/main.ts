@@ -1248,11 +1248,7 @@ app.whenReady().then(async () => {
           console.log(`[onyx-local] Could not parse URL: ${urlPath}`);
           console.log(`[onyx-local] Parsed: gameId="${gameId}", imageType="${imageType}"`);
         }
-        // Return 404 for unparseable URLs
-        return new Response(null, {
-          status: 404,
-          headers: { 'Cache-Control': 'no-store' }
-        });
+        // Fall through to fallback logic
       }
 
       // Fallback: try old format decoding
@@ -1364,6 +1360,16 @@ app.whenReady().then(async () => {
 
       // Normalize the path to resolve any .. or . segments
       finalPath = path.normalize(finalPath);
+
+      // SECURITY: Ensure path is within cache directory to prevent traversal attacks
+      if (!finalPath.startsWith(cacheDir)) {
+        console.error(`[onyx-local] ⛔ BLOCKED Path Traversal Attempt: ${finalPath}`);
+        return new Response(null, {
+          status: 403,
+          statusText: 'Forbidden',
+          headers: { 'X-Security-Reason': 'Path Traversal Detected' }
+        });
+      }
 
       // Verify file exists
       if (!existsSync(finalPath)) {
