@@ -211,17 +211,17 @@ interface UserPreferencesSchema {
   schemaVersion?: number;
 }
 
+import { dynamicImport } from './dynamicImport.js';
+
 export class UserPreferencesService {
   private store: any = null;
   private storePromise: Promise<any>;
   private readonly schemaVersion = 1;
 
   constructor() {
-    // Use dynamic import for ES module
-    // eslint-disable-next-line @typescript-eslint/no-implied-eval
-    this.storePromise = (new Function('return import("electron-store")')() as Promise<typeof import('electron-store')>).then((StoreModule) => {
-      const Store = StoreModule.default;
-      this.store = new Store<UserPreferencesSchema>({
+    this.storePromise = dynamicImport<any>('electron-store').then((StoreModule) => {
+      const Store = StoreModule.default as any;
+      this.store = new Store({
         name: 'user-preferences',
         defaults: {
           preferences: this.createDefaultPreferences(),
@@ -1276,7 +1276,9 @@ export class UserPreferencesService {
     lastModified?: string;
     hasPerGameSettings: boolean;
   }>> {
+    const preferences = await this.getPreferences();
     const customDefaults = await this.getCustomDefaults();
+    const perGameByView = preferences.perGameViewCustomByView || {};
     const list: Array<{
       resolution: ResolutionKey;
       viewMode: ViewMode;
@@ -1291,10 +1293,11 @@ export class UserPreferencesService {
       const byResolution = customDefaults[resolution] || {};
       for (const viewMode of viewModes) {
         if (byResolution[viewMode]) {
+          const gameSettings = perGameByView[viewMode as ViewMode] || {};
           list.push({
             resolution,
             viewMode,
-            hasPerGameSettings: false, // TODO: Track per-game settings per resolution/view
+            hasPerGameSettings: Object.keys(gameSettings).length > 0,
           });
         }
       }

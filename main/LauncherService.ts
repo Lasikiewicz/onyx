@@ -1,4 +1,5 @@
-import { spawn } from 'child_process';
+import { spawn, execFile } from 'child_process';
+import { dirname } from 'path';
 import { shell } from 'electron';
 import { GameStore, Game } from './GameStore.js';
 
@@ -44,6 +45,19 @@ export class LauncherService {
         // Update lastPlayed timestamp
         game.lastPlayed = new Date().toISOString();
         await this.gameStore.saveGame(game);
+
+        // For Steam games, we need to wait a moment and then try to find the process
+        // since we launch via protocol, we don't get a PID back immediately.
+        console.log(`[LauncherService] Steam game launched via protocol. Attempting to detect PID for: ${game.title}`);
+
+        // Wait 5 seconds for the game to start before attempting to find PID
+        let pid: number | undefined;
+        setTimeout(async () => {
+          pid = await this.getActiveSteamProcessId(game);
+          if (pid) {
+            console.log(`[LauncherService] Detected Steam game PID: ${pid}`);
+          }
+        }, 5000);
 
         return { success: true };
       }
@@ -144,11 +158,9 @@ export class LauncherService {
           const child = spawn('explorer.exe', [launchUri], {
             detached: true,
             stdio: 'ignore',
+            shell: false,
           });
           child.unref();
-          child.on('error', (error) => {
-            console.error(`Failed to launch Xbox game via explorer: ${error.message}`);
-          });
 
           // Update lastPlayed timestamp
           game.lastPlayed = new Date().toISOString();
@@ -202,13 +214,10 @@ export class LauncherService {
         return { success: false, error: 'Executable path not set for this game' };
       }
 
-      // Use spawn to execute the game
-      // On Windows, we need to use shell: true for paths with spaces
-      // When using shell: true, the command/path must be quoted if it contains spaces
-      const { dirname } = require('path');
+      // Use execFile to execute the game
       const workingDir = dirname(game.exePath);
 
-      console.log(`[LauncherService] Spawning exe: ${game.exePath}`);
+      console.log(`[LauncherService] Executing exe: ${game.exePath}`);
       console.log(`[LauncherService] Working directory: ${workingDir}`);
       if (game.launchArgs) {
         console.log(`[LauncherService] Launch arguments: ${game.launchArgs}`);
@@ -227,14 +236,18 @@ export class LauncherService {
         }
       }
 
-      // Quote the executable path for the shell if it hasn't been already
-      const quotedExePath = game.exePath.startsWith('"') ? game.exePath : `"${game.exePath}"`;
+      // Ensure the executable path is NOT quoted for spawn/execFile when NOT using shell: true.
+      // Quoting is only needed when a path with spaces is passed to a shell (cmd/sh).
+      let exePath = game.exePath;
+      if (exePath.startsWith('"') && exePath.endsWith('"')) {
+        exePath = exePath.slice(1, -1);
+      }
 
-      const child = spawn(quotedExePath, args, {
+      const child = spawn(exePath, args, {
         detached: true,
         stdio: 'ignore',
-        shell: true,  // Required on Windows for paths with spaces
-        cwd: workingDir,  // Set working directory
+        shell: false, // Security: Disable shell to prevent command injection via launchArgs
+        cwd: workingDir,
       });
 
       // Unref the child process so it doesn't keep the Electron app alive
@@ -255,6 +268,105 @@ export class LauncherService {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       console.error('Error launching game:', errorMessage);
       return { success: false, error: errorMessage };
+    }
+  }
+
+  /**
+   * Launch the configured mod manager for a game
+   * Supports web URLs and local file paths
+   */
+  async launchModManager(gameId: string): Promise<{ success: boolean; error?: string }> {
+    try {
+      const games = await this.gameStore.getLibrary();
+      const game = games.find(g => g.id === gameId);
+
+      if (!game) {
+        return { success: false, error: `Game with ID ${gameId} not found` };
+      }
+
+      const modManagerUrl = game.modManagerUrl;
+      if (!modManagerUrl) {
+        return { success: false, error: 'Mod manager not configured for this game' };
+      }
+
+      console.log(`[LauncherService] Launching mod manager for ${game.title}: ${modManagerUrl}`);
+
+      // Try as URL first
+      try {
+        if (modManagerUrl.startsWith('http://') || modManagerUrl.startsWith('https://') || modManagerUrl.includes('://')) {
+          await shell.openExternal(modManagerUrl);
+          return { success: true };
+        }
+      } catch (e) {
+        // Not a URL, continue to file path check
+      }
+
+      const { existsSync } = require('node:fs');
+      if (existsSync(modManagerUrl)) {
+        const error = await shell.openPath(modManagerUrl);
+        return { success: error === '', error: error || undefined };
+      }
+
+      return { success: false, error: 'Mod manager path or URL is invalid or not found' };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error('Error launching mod manager:', errorMessage);
+      return { success: false, error: errorMessage };
+    }
+  }
+
+  /**
+   * Attempt to find a running process for a Steam game by matching its installation directory.
+   * This is used for Steam games launched via protocol since they don't return a PID.
+   */
+  private async getActiveSteamProcessId(game: Game): Promise<number | undefined> {
+    if (process.platform !== 'win32' || !game.installationDirectory) {
+      return undefined;
+    }
+
+    try {
+      // Use wmic to find processes that might be the game
+      // We look for processes where the executable path contains the game's installation directory
+      // This is a heuristic but fairly reliable for Steam games.
+      const normalizedInstallDir = game.installationDirectory.replace(/\//g, '\\').toLowerCase();
+
+      return new Promise<number | undefined>((resolve) => {
+        execFile('wmic', ['process', 'where', 'NOT ExecutablePath IS NULL', 'get', 'ExecutablePath,ProcessId'], (error, stdout) => {
+          if (error) {
+            console.error('[LauncherService] wmic error:', error);
+            resolve(undefined);
+            return;
+          }
+
+          const lines = stdout.split('\n').filter(line => line.trim().length > 0);
+          // Skip header
+          for (let i = 1; i < lines.length; i++) {
+            const line = lines[i].trim();
+            const lastSpaceIndex = line.lastIndexOf(' ');
+            if (lastSpaceIndex === -1) continue;
+
+            const exePath = line.substring(0, lastSpaceIndex).trim().toLowerCase();
+            const pidStr = line.substring(lastSpaceIndex).trim();
+            const pid = parseInt(pidStr, 10);
+
+            if (exePath.includes(normalizedInstallDir)) {
+              // Extra check: skip common helpers/overlay processes if possible
+              const exeName = exePath.split('\\').pop() || '';
+              if (!exeName.includes('steamhelper') &&
+                !exeName.includes('overlay') &&
+                !exeName.includes('crashreport') &&
+                !exeName.includes('launcher')) {
+                resolve(pid);
+                return;
+              }
+            }
+          }
+          resolve(undefined);
+        });
+      });
+    } catch (error) {
+      console.error('[LauncherService] Failed to detect Steam game process:', error);
+      return undefined;
     }
   }
 }

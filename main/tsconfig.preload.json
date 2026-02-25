@@ -5,6 +5,10 @@
     "outDir": "../dist-electron",
     "rootDir": "."
   },
-  "include": ["preload.ts", "UserPreferencesService.ts"],
+  "include": [
+    "preload.ts",
+    "UserPreferencesService.ts",
+    "dynamicImport.ts"
+  ],
   "exclude": []
 }

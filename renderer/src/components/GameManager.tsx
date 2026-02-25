@@ -3465,6 +3465,25 @@ export const GameManager: React.FC<GameManagerProps> = ({
                             >
                               Browse
                             </button>
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                if (editedGame.id) {
+                                  try {
+                                    const result = await window.electronAPI.launchModManager(editedGame.id);
+                                    if (!result.success && result.error) {
+                                      console.error('Error launching mod manager:', result.error);
+                                    }
+                                  } catch (err) {
+                                    console.error('Error opening mod manager:', err);
+                                  }
+                                }
+                              }}
+                              className="px-4 py-1.5 text-sm bg-purple-600 hover:bg-purple-700 text-white rounded transition-colors"
+                              title="Test Launch Mod Manager"
+                            >
+                              Launch
+                            </button>
                           </div>
                           <p className="text-xs text-gray-500 mt-2">
                             Enter the URL or path to your mod manager. This will appear in the game's context menu and bottom bar.

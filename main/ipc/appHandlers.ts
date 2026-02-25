@@ -427,8 +427,32 @@ export function registerAppIPCHandlers(
     };
 
     ipcMain.handle('app:openExternal', async (_event, url) => {
-        await shell.openExternal(url);
-        return { success: true };
+        try {
+            const parsedUrl = new URL(url);
+            const allowedProtocols = [
+                'http:',
+                'https:',
+                'steam:',
+                'epic:',
+                'goggalaxy:',
+                'uplay:',
+                'origin:',
+                'origin2:',
+                'com.epicgames.launcher:',
+                'battlenet:'
+            ];
+
+            if (!allowedProtocols.includes(parsedUrl.protocol)) {
+                console.warn(`[Security] Blocked attempt to open unsafe external URL: ${url}`);
+                return { success: false, error: 'Disallowed protocol' };
+            }
+
+            await shell.openExternal(url);
+            return { success: true };
+        } catch (error) {
+            console.error(`[Security] Invalid URL passed to openExternal: ${url}`);
+            return { success: false, error: 'Invalid URL' };
+        }
     });
 
     ipcMain.handle('app:openPath', async (_event, pathOrType) => {
@@ -687,7 +711,7 @@ export function registerAppIPCHandlers(
     ipcMain.handle('customDefaults:exportSelective', async (_event, options: { resolutions: string[]; viewModes: string[]; includePerGameSettings: boolean; currentResolution: string }) => {
         try {
             const exportData = await userPreferencesService.exportCustomDefaultsSelective(options as any);
-            
+
             const defaultFileName = `onyx-custom-defaults-${options.resolutions.join('-')}-${new Date().toISOString().slice(0, 10)}.json`;
             const saveResult = await dialog.showSaveDialog({
                 title: 'Export Custom Defaults',

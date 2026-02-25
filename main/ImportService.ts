@@ -230,7 +230,7 @@ export class ImportService {
     try {
       console.log(`[ImportService] scanSteam called with path: ${steamPath}`);
       this.steamService.setSteamPath(steamPath);
-      const steamGames = this.steamService.scanSteamGames();
+      const steamGames = await this.steamService.scanSteamGames();
       console.log(`[ImportService] scanSteam found ${steamGames.length} games`);
 
       return steamGames.map((game: SteamGame) => {

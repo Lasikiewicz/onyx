@@ -61,6 +61,8 @@ export const GameCard: React.FC<GameCardProps> = ({ game, hideTitle = false, sho
             src={imageToShow}
             alt={imageAlt}
             className={imageClass}
+            loading="lazy"
+            style={{ contentVisibility: 'auto' }}
             onError={(e) => {
               const target = e.target as HTMLImageElement;
               // Prevent infinite retry loops - mark as handled immediately

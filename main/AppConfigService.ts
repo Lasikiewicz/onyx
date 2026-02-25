@@ -27,16 +27,17 @@ interface AppConfigsSchema {
   manualFolderConfigs?: Record<string, ManualFolderConfig>; // New format with custom names
 }
 
+import { dynamicImport } from './dynamicImport.js';
+
 export class AppConfigService {
   private store: any = null;
   private storePromise: Promise<any>;
 
   constructor() {
     // Use dynamic import for ES module
-    // eslint-disable-next-line @typescript-eslint/no-implied-eval
-    this.storePromise = (new Function('return import("electron-store")')() as Promise<typeof import('electron-store')>).then((StoreModule) => {
-      const Store = StoreModule.default;
-      this.store = new Store<AppConfigsSchema>({
+    this.storePromise = dynamicImport<any>('electron-store').then((StoreModule) => {
+      const Store = StoreModule.default as any;
+      this.store = new Store({
         name: 'app-configs',
         defaults: {
           apps: {},
@@ -91,11 +92,11 @@ export class AppConfigService {
   async saveAppConfigs(configs: AppConfig[]): Promise<void> {
     const store = await this.ensureStore();
     const apps = store.get('apps', {});
-    
+
     for (const config of configs) {
       apps[config.id] = config;
     }
-    
+
     store.set('apps', apps);
   }
 
@@ -192,7 +193,7 @@ export class AppConfigService {
     // Migrate to new format if needed
     const existingConfigs = await this.getManualFolderConfigs();
     const existingPaths = new Set(Object.values(existingConfigs).map(c => c.path));
-    
+
     // Add any new folders as configs
     for (const folderPath of folders) {
       if (!existingPaths.has(folderPath)) {
@@ -206,14 +207,14 @@ export class AppConfigService {
         });
       }
     }
-    
+
     // Remove configs for folders that are no longer in the list
     for (const [id, config] of Object.entries(existingConfigs)) {
       if (!folders.includes(config.path)) {
         await this.deleteManualFolderConfig(id);
       }
     }
-    
+
     // Also save legacy format for backward compatibility
     store.set('manualFolders', folders);
   }
@@ -224,7 +225,7 @@ export class AppConfigService {
   async getManualFolderConfigs(): Promise<Record<string, ManualFolderConfig>> {
     const store = await this.ensureStore();
     const configs = store.get('manualFolderConfigs', {});
-    
+
     // Migrate legacy format if needed
     const legacyFolders = store.get('manualFolders', []) as string[];
     if (legacyFolders.length > 0 && Object.keys(configs).length === 0) {
@@ -242,7 +243,7 @@ export class AppConfigService {
       store.set('manualFolderConfigs', migratedConfigs);
       return migratedConfigs;
     }
-    
+
     return configs;
   }
 
@@ -254,7 +255,7 @@ export class AppConfigService {
     const configs = await this.getManualFolderConfigs();
     configs[config.id] = config;
     store.set('manualFolderConfigs', configs);
-    
+
     // Update legacy format for backward compatibility
     const paths = Object.values(configs).filter(c => c.enabled).map(c => c.path);
     store.set('manualFolders', paths);
@@ -268,7 +269,7 @@ export class AppConfigService {
     const configs = await this.getManualFolderConfigs();
     delete configs[folderId];
     store.set('manualFolderConfigs', configs);
-    
+
     // Update legacy format for backward compatibility
     const paths = Object.values(configs).filter(c => c.enabled).map(c => c.path);
     store.set('manualFolders', paths);

@@ -81,6 +81,20 @@ import { initAppUpdateService, checkForUpdates } from './AppUpdateService.js';
 // Load environment variables
 dotenv.config();
 
+// Register onyx-local protocol as privileged to allow fetch and CORS
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: 'onyx-local',
+    privileges: {
+      standard: true,
+      secure: true,
+      supportFetchAPI: true,
+      corsEnabled: true,
+      stream: true
+    }
+  }
+]);
+
 /**
  * One-time migration for alpha builds: copy userData from legacy "Onyx" folder to "Onyx Alpha".
  * Alpha 0.3.5 (bug) used app name "Onyx" so data lived in appData/Onyx; 0.3.6+ correctly use "Onyx Alpha".
@@ -1165,7 +1179,7 @@ app.whenReady().then(async () => {
       if (gameId && imageType && existsSync(cacheDir)) {
         // Try to find file: {gameId}-{imageType}.{ext}
         const safeGameId = gameId.replace(/[<>:"/\\|?*]/g, '_');
-        const extensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.webm'];
+        const extensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.webm', '.ico', '.avif'];
 
         for (const ext of extensions) {
           const filename = `${safeGameId}-${imageType}${ext}`;
@@ -1186,6 +1200,8 @@ app.whenReady().then(async () => {
               else if (ext === '.gif') mimeType = 'image/gif';
               else if (ext === '.webp') mimeType = 'image/webp';
               else if (ext === '.webm') mimeType = 'video/webm';
+              else if (ext === '.ico') mimeType = 'image/x-icon';
+              else if (ext === '.avif') mimeType = 'image/avif';
 
               // Only log successful loads occasionally to avoid spam
               const successCount = failedUrlCounts.get(requestUrl + '_success') || 0;
@@ -1361,9 +1377,14 @@ app.whenReady().then(async () => {
       // Normalize the path to resolve any .. or . segments
       finalPath = path.normalize(finalPath);
 
-      // SECURITY: Ensure path is within cache directory to prevent traversal attacks
-      if (!finalPath.startsWith(cacheDir)) {
-        console.error(`[onyx-local] ⛔ BLOCKED Path Traversal Attempt: ${finalPath}`);
+      // SECURITY: Ensure path is within cache directory or is a valid absolute path to prevent traversal attacks
+      const isTraversed = process.platform === 'win32'
+        ? !finalPath.toLowerCase().startsWith(cacheDir.toLowerCase()) && !finalPath.toLowerCase().startsWith(app.getPath('userData').toLowerCase())
+        : !finalPath.startsWith(cacheDir) && !finalPath.startsWith(app.getPath('userData'));
+
+      if (isTraversed) {
+        console.error(`[onyx-local] ⛔ BLOCKED Path Traversal Attempt or unauthorized access: ${finalPath}`);
+        console.error(`[onyx-local] Authorized: ${cacheDir} or ${app.getPath('userData')}`);
         return new Response(null, {
           status: 403,
           statusText: 'Forbidden',
@@ -1876,5 +1897,6 @@ app.whenReady().then(async () => {
 app.on('will-quit', () => {
   unregisterSuspendShortcut();
   stopBackgroundScan();
+  gameStore.flushSync();
 });
 

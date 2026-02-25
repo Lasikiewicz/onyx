@@ -12,6 +12,8 @@ interface SteamAuthSchema {
   auth: SteamAuthState;
 }
 
+import { dynamicImport } from './dynamicImport.js';
+
 export class SteamAuthService {
   private store: any = null;
   private storePromise: Promise<any>;
@@ -19,10 +21,9 @@ export class SteamAuthService {
 
   constructor() {
     // Use dynamic import for ES module
-    // eslint-disable-next-line @typescript-eslint/no-implied-eval
-    this.storePromise = (new Function('return import("electron-store")')() as Promise<typeof import('electron-store')>).then((StoreModule) => {
-      const Store = StoreModule.default;
-      this.store = new Store<SteamAuthSchema>({
+    this.storePromise = dynamicImport<any>('electron-store').then((StoreModule) => {
+      const Store = StoreModule.default as any;
+      this.store = new Store({
         name: 'steam-auth',
         defaults: {
           auth: {
@@ -92,7 +93,7 @@ export class SteamAuthService {
         // We use a custom return URL that we'll intercept
         const returnUrl = 'https://onyx-launcher.app/auth/steam';
         const realm = 'https://onyx-launcher.app';
-        
+
         const steamOpenIdUrl = new URL('https://steamcommunity.com/openid/login');
         steamOpenIdUrl.searchParams.set('openid.ns', 'http://specs.openid.net/auth/2.0');
         steamOpenIdUrl.searchParams.set('openid.mode', 'checkid_setup');
@@ -127,35 +128,35 @@ export class SteamAuthService {
         // Listen for navigation to capture the authentication response
         this.authWindow.webContents.on('will-navigate', async (event, navigationUrl) => {
           if (authCompleted) return;
-          
+
           // Check if this is our return URL
           if (navigationUrl.startsWith(returnUrl) || navigationUrl.includes('openid.mode=id_res')) {
             event.preventDefault();
             authCompleted = true;
-            
+
             try {
               // Parse the URL to extract OpenID parameters
               const url = new URL(navigationUrl);
               const claimedId = url.searchParams.get('openid.claimed_id') || url.searchParams.get('openid.identity');
-              
+
               if (claimedId) {
                 // Steam ID is in the format: https://steamcommunity.com/openid/id/76561198000000000
                 const steamIdMatch = claimedId.match(/\/id\/(\d+)$/);
                 if (steamIdMatch) {
                   const steamId = steamIdMatch[1];
-                  
+
                   // Try to get username from Steam profile (public API, no key needed for basic info)
                   let username = 'Steam User';
                   try {
                     // Use Steam's public profile API
                     const profileUrl = `https://steamcommunity.com/profiles/${steamId}/?xml=1`;
-                    const response = await axios.get(profileUrl, { 
+                    const response = await axios.get(profileUrl, {
                       timeout: 5000,
                       headers: {
                         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
                       }
                     });
-                    
+
                     // Parse XML response to get username
                     const xmlMatch = response.data.match(/<steamID><!\[CDATA\[(.*?)\]\]><\/steamID>/);
                     if (xmlMatch) {
@@ -205,22 +206,22 @@ export class SteamAuthService {
         // Also listen for did-navigate-in-page for single-page app redirects
         this.authWindow.webContents.on('did-navigate-in-page', async (event, navigationUrl, isMainFrame) => {
           if (authCompleted || !isMainFrame) return;
-          
+
           if (navigationUrl.includes('openid.mode=id_res') || navigationUrl.includes('onyx-launcher.app/auth/steam')) {
             try {
               const url = new URL(navigationUrl);
               const claimedId = url.searchParams.get('openid.claimed_id') || url.searchParams.get('openid.identity');
-              
+
               if (claimedId) {
                 const steamIdMatch = claimedId.match(/\/id\/(\d+)$/);
                 if (steamIdMatch) {
                   authCompleted = true;
                   const steamId = steamIdMatch[1];
-                  
+
                   let username = 'Steam User';
                   try {
                     const profileUrl = `https://steamcommunity.com/profiles/${steamId}/?xml=1`;
-                    const response = await axios.get(profileUrl, { 
+                    const response = await axios.get(profileUrl, {
                       timeout: 5000,
                       headers: {
                         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
@@ -258,23 +259,23 @@ export class SteamAuthService {
         // Check URL after page finishes loading (in case redirect happens after load)
         this.authWindow.webContents.on('did-finish-load', async () => {
           if (authCompleted) return;
-          
+
           try {
             const currentUrl = this.authWindow?.webContents.getURL();
             if (currentUrl && (currentUrl.includes('openid.mode=id_res') || currentUrl.includes('onyx-launcher.app/auth/steam'))) {
               const url = new URL(currentUrl);
               const claimedId = url.searchParams.get('openid.claimed_id') || url.searchParams.get('openid.identity');
-              
+
               if (claimedId) {
                 const steamIdMatch = claimedId.match(/\/id\/(\d+)$/);
                 if (steamIdMatch) {
                   authCompleted = true;
                   const steamId = steamIdMatch[1];
-                  
+
                   let username = 'Steam User';
                   try {
                     const profileUrl = `https://steamcommunity.com/profiles/${steamId}/?xml=1`;
-                    const response = await axios.get(profileUrl, { 
+                    const response = await axios.get(profileUrl, {
                       timeout: 5000,
                       headers: {
                         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'

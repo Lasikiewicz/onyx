@@ -1,6 +1,7 @@
-import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { platform } from 'node:os';
+import { readFile, readdir, access } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
 import axios from 'axios';
 
 export interface SteamGame {
@@ -155,20 +156,22 @@ export class SteamService {
   /**
    * Read and parse libraryfolders.vdf to find all Steam library locations
    */
-  private getLibraryFolders(): string[] {
+  private async getLibraryFolders(): Promise<string[]> {
     const steamPath = this.getSteamPath();
     const libraryFoldersPath = join(steamPath, 'steamapps', 'libraryfolders.vdf');
 
     const libraries: string[] = [steamPath]; // Always include main Steam path
 
-    if (!existsSync(libraryFoldersPath)) {
+    try {
+      await access(libraryFoldersPath);
+    } catch {
       console.warn(`libraryfolders.vdf not found at ${libraryFoldersPath}, using default Steam path only`);
       console.log(`Will scan: ${steamPath}`);
       return libraries;
     }
 
     try {
-      const content = readFileSync(libraryFoldersPath, 'utf-8');
+      const content = await readFile(libraryFoldersPath, 'utf-8');
       const parsed = this.parseVDF(content);
 
       // libraryfolders.vdf structure can be:
@@ -180,9 +183,14 @@ export class SteamService {
           // Skip non-numeric keys and special keys
           if (key !== 'TimeNextStatsReport' && key !== 'contentstatsid' && folders[key]?.path) {
             const libraryPath = folders[key].path.replace(/\\\\/g, '\\').replace(/\//g, '\\');
-            if (existsSync(libraryPath) && !libraries.includes(libraryPath)) {
-              libraries.push(libraryPath);
-              console.log(`Found additional Steam library: ${libraryPath}`);
+            try {
+              await access(libraryPath);
+              if (!libraries.includes(libraryPath)) {
+                libraries.push(libraryPath);
+                console.log(`Found additional Steam library: ${libraryPath}`);
+              }
+            } catch {
+              // Path doesn't exist or is inaccessible
             }
           }
         }
@@ -260,10 +268,12 @@ export class SteamService {
   /**
    * Scan a single Steam library folder for installed games
    */
-  private scanLibraryFolder(libraryPath: string): SteamGame[] {
+  private async scanLibraryFolder(libraryPath: string): Promise<SteamGame[]> {
     const steamappsPath = join(libraryPath, 'steamapps');
 
-    if (!existsSync(steamappsPath)) {
+    try {
+      await access(steamappsPath);
+    } catch {
       console.warn(`Steamapps folder not found: ${steamappsPath}`);
       return [];
     }
@@ -271,7 +281,7 @@ export class SteamService {
     const games: SteamGame[] = [];
 
     try {
-      const files = readdirSync(steamappsPath);
+      const files = await readdir(steamappsPath);
       const acfFiles = files.filter(file => file.endsWith('.acf'));
 
       console.log(`Scanning ${steamappsPath}`);
@@ -287,7 +297,7 @@ export class SteamService {
         const acfPath = join(steamappsPath, acfFile);
 
         try {
-          const content = readFileSync(acfPath, 'utf-8');
+          const content = await readFile(acfPath, 'utf-8');
 
           // Debug: log first few lines of problematic files
           if (content.length < 100) {
@@ -351,22 +361,22 @@ export class SteamService {
   /**
    * Scan all Steam libraries for installed games
    */
-  public scanSteamGames(): SteamGame[] {
+  public async scanSteamGames(): Promise<SteamGame[]> {
     try {
       const steamPath = this.getSteamPath();
       console.log(`Scanning Steam games from: ${steamPath}`);
 
-      const libraries = this.getLibraryFolders();
+      const libraries = await this.getLibraryFolders();
       console.log(`Found ${libraries.length} Steam library folder(s)`);
 
-      const allGames: SteamGame[] = [];
+      const allGamesResults: SteamGame[][] = await Promise.all(
+        libraries.map(library => {
+          console.log(`Scheduling scan for library: ${library}`);
+          return this.scanLibraryFolder(library);
+        })
+      );
 
-      for (const library of libraries) {
-        console.log(`Scanning library: ${library}`);
-        const games = this.scanLibraryFolder(library);
-        console.log(`Found ${games.length} games in ${library}`);
-        allGames.push(...games);
-      }
+      const allGames = allGamesResults.flat();
 
       // Remove duplicates (same appId might appear in multiple libraries)
       const uniqueGames = Array.from(

@@ -407,9 +407,12 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
                 {selectedGame.modManagerUrl && (
                   <button
                     onClick={async () => {
-                      if (selectedGame.modManagerUrl) {
+                      if (selectedGame.id) {
                         try {
-                          await window.electronAPI.openExternal(selectedGame.modManagerUrl);
+                          const result = await window.electronAPI.launchModManager(selectedGame.id);
+                          if (!result.success && result.error) {
+                            console.error('Error launching mod manager:', result.error);
+                          }
                         } catch (err) {
                           console.error('Error opening mod manager:', err);
                         }
@@ -519,6 +522,8 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
                     height: isSelected ? `${selectedGameHeight}px` : `${baseGameHeight}px`,
                     marginLeft: `${gameTilePadding}px`,
                     marginRight: `${gameTilePadding}px`,
+                    contentVisibility: 'auto',
+                    containIntrinsicSize: `${isSelected ? selectedGameWidth : baseGameWidth}px ${isSelected ? selectedGameHeight : baseGameHeight}px`
                   }}
                 >
                   <div className="w-full h-full relative overflow-hidden rounded-lg shadow-lg bg-gray-700">

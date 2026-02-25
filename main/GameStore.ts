@@ -49,6 +49,7 @@ export interface Game {
   hidden?: boolean;
   broken?: boolean;
   notes?: string;
+  modManagerUrl?: string;
   links?: Array<{ name: string; url: string; hidden?: boolean; iconUrl?: string }>;
   actions?: Array<{ name: string; path: string; arguments?: string; workingDir?: string }>;
   scripts?: Array<{ name: string; script: string }>;
@@ -69,23 +70,25 @@ interface StoreSchema {
   games: Game[];
 }
 
+import { dynamicImport } from './dynamicImport.js';
+
 export class GameStore {
   private store: Store<StoreSchema> | null = null;
   private storePromise: Promise<Store<StoreSchema>>;
+  private gamesCache: Game[] | null = null;
+  private saveTimeout: NodeJS.Timeout | null = null;
+  private readonly SAVE_DELAY = 2000;
 
   constructor() {
-    // Use dynamic import for ES module
-    // TypeScript will compile this to require() in CommonJS, so we use eval to preserve dynamic import
-    // eslint-disable-next-line @typescript-eslint/no-implied-eval
-    this.storePromise = (new Function('return import("electron-store")')() as Promise<typeof import('electron-store')>).then((StoreModule) => {
-      const Store = StoreModule.default;
-      this.store = new Store<StoreSchema>({
+    this.storePromise = dynamicImport<any>('electron-store').then((StoreModule) => {
+      const Store = StoreModule.default as any;
+      this.store = new Store({
         name: 'game-library',
         defaults: {
           games: [],
         },
-      });
-      return this.store;
+      }) as Store<StoreSchema>;
+      return this.store!;
     });
   }
 
@@ -100,8 +103,61 @@ export class GameStore {
    * Get all games from the store
    */
   async getLibrary(): Promise<Game[]> {
+    if (this.gamesCache) {
+      return [...this.gamesCache];
+    }
     const store = await this.ensureStore();
     return (store as any).get('games', []);
+  }
+
+  /**
+   * Schedule a debounced save to disk
+   */
+  private scheduleSave(games: Game[]): void {
+    this.gamesCache = games;
+    if (this.saveTimeout) {
+      clearTimeout(this.saveTimeout);
+    }
+
+    this.saveTimeout = setTimeout(async () => {
+      await this.flush();
+    }, this.SAVE_DELAY);
+  }
+
+  /**
+   * Immediately flush any pending saves to disk
+   */
+  async flush(): Promise<void> {
+    if (this.saveTimeout) {
+      clearTimeout(this.saveTimeout);
+      this.saveTimeout = null;
+    }
+
+    if (this.gamesCache) {
+      const store = await this.ensureStore();
+      const gamesToSave = this.gamesCache;
+      this.gamesCache = null; // Clear cache before setting to avoid race conditions
+      (store as any).set('games', gamesToSave);
+      console.log(`[GameStore] Library flushed to disk (${gamesToSave.length} games)`);
+    }
+  }
+
+  /**
+   * Synchronously flush any pending saves to disk. 
+   * Only works if the store is already initialized.
+   */
+  flushSync(): void {
+    if (this.saveTimeout) {
+      clearTimeout(this.saveTimeout);
+      this.saveTimeout = null;
+    }
+
+    if (this.gamesCache && this.store) {
+      const gamesToSave = this.gamesCache;
+      this.gamesCache = null;
+      (this.store as any).set('games', gamesToSave);
+      console.log(`[GameStore] Library flushed to disk [SYNC] (${gamesToSave.length} games)`);
+    }
   }
 
   async migratePerGameViewSizeOverrides(): Promise<Record<string, { grid?: number; list?: number; logo?: number; carousel?: number; coverflow?: number }>> {
@@ -170,8 +226,8 @@ export class GameStore {
       console.log(`Added new game: ${gameToSave.title} (${gameToSave.id})`);
     }
 
-    (store as any).set('games', games);
-    console.log(`Total games in store: ${games.length}`);
+    this.scheduleSave(games);
+    console.log(`Total games in memory: ${games.length}`);
   }
 
   /**
@@ -192,7 +248,7 @@ export class GameStore {
       gamesMap.set(game.id, game);
     });
 
-    (store as any).set('games', Array.from(gamesMap.values()));
+    this.scheduleSave(Array.from(gamesMap.values()));
   }
 
   /**
@@ -275,7 +331,7 @@ export class GameStore {
     }
 
     const finalGames = Array.from(gamesMap.values());
-    (store as any).set('games', finalGames);
+    this.scheduleSave(finalGames);
     console.log(`Merged ${steamGames.length} Steam games, total games: ${finalGames.length}`);
   }
 
@@ -286,7 +342,7 @@ export class GameStore {
     const store = await this.ensureStore();
     const games = await this.getLibrary();
     const filteredGames = games.filter(g => g.id !== gameId);
-    (store as any).set('games', filteredGames);
+    this.scheduleSave(filteredGames);
   }
 
   /**
@@ -294,7 +350,7 @@ export class GameStore {
    */
   async clearLibrary(): Promise<void> {
     const store = await this.ensureStore();
-    (store as any).set('games', []);
+    this.scheduleSave([]);
   }
 
   /**
@@ -332,7 +388,7 @@ export class GameStore {
       if (screenshots !== undefined) {
         games[gameIndex].screenshots = screenshots;
       }
-      (store as any).set('games', games);
+      this.scheduleSave(games);
       return true;
     }
 
@@ -401,7 +457,7 @@ export class GameStore {
 
     if (clearedCount > 0) {
       console.log(`[GameStore] Cleared ${clearedCount} broken onyx-local:// URLs`);
-      (store as any).set('games', games);
+      this.scheduleSave(games);
     }
 
     return clearedCount;
@@ -432,7 +488,7 @@ export class GameStore {
 
     // Simple format: onyx-local://gameId-type
     // The protocol handler looks for files like: {gameId}-{type}.{ext}
-    const extensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.webm'];
+    const extensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.webm', '.ico', '.avif'];
     for (const ext of extensions) {
       const filePath = path.join(cacheDir, `${urlPart}${ext}`);
       if (require('node:fs').existsSync(filePath)) {
@@ -449,7 +505,7 @@ export class GameStore {
    */
   async reorderGames(reorderedGames: Game[]): Promise<void> {
     const store = await this.ensureStore();
-    (store as any).set('games', reorderedGames);
+    this.scheduleSave(reorderedGames);
   }
 
   /**
@@ -457,7 +513,7 @@ export class GameStore {
    * @param steamService - Optional SteamService to check if Steam games are still installed
    * @returns Array of missing games
    */
-  async getMissingGames(steamService?: { scanSteamGames: () => Array<{ appId: string }> }): Promise<Game[]> {
+  async getMissingGames(steamService?: { scanSteamGames: () => Promise<Array<{ appId: string }>> }): Promise<Game[]> {
     const games = await this.getLibrary();
     const { existsSync } = require('node:fs');
     const missingGames: Game[] = [];
@@ -466,7 +522,7 @@ export class GameStore {
     let installedSteamAppIds: Set<string> | null = null;
     if (steamService) {
       try {
-        const steamGames = steamService.scanSteamGames();
+        const steamGames = await steamService.scanSteamGames();
         installedSteamAppIds = new Set(steamGames.map(g => g.appId));
         console.log(`[GameStore] Found ${installedSteamAppIds.size} installed Steam games`);
       } catch (error) {
@@ -537,7 +593,7 @@ export class GameStore {
    * @param steamService - Optional SteamService to check if Steam games are still installed
    * @returns Number of games removed
    */
-  async removeMissingGames(steamService?: { scanSteamGames: () => Array<{ appId: string }> }): Promise<number> {
+  async removeMissingGames(steamService?: { scanSteamGames: () => Promise<Array<{ appId: string }>> }): Promise<number> {
     const missingGames = await this.getMissingGames(steamService);
 
     if (missingGames.length > 0) {
@@ -547,7 +603,7 @@ export class GameStore {
       const gamesToKeep = games.filter(g => !missingIds.has(g.id));
 
       console.log(`[GameStore] Removing ${missingGames.length} missing game(s) from library`);
-      (store as any).set('games', gamesToKeep);
+      this.scheduleSave(gamesToKeep);
     }
 
     return missingGames.length;

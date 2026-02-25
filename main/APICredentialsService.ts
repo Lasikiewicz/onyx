@@ -10,6 +10,8 @@ interface APICredentialsSchema {
   credentials: APICredentials;
 }
 
+import { dynamicImport } from './dynamicImport.js';
+
 const SERVICE_NAME = 'onyx-api-credentials';
 const ACCOUNT_KEYS = {
   IGDB_CLIENT_ID: 'igdbClientId',
@@ -52,11 +54,10 @@ export class APICredentialsService {
     }
 
     // Use dynamic import for ES module
-    // eslint-disable-next-line @typescript-eslint/no-implied-eval
-    this.storePromise = (new Function('return import("electron-store")')() as Promise<typeof import('electron-store')>).then((StoreModule) => {
-      const Store = StoreModule.default;
+    this.storePromise = dynamicImport<any>('electron-store').then((StoreModule) => {
+      const Store = StoreModule.default as any;
       // Don't persist env defaults to disk - only use them as runtime fallbacks
-      this.store = new Store<APICredentialsSchema>({
+      this.store = new Store({
         name: 'api-credentials',
         projectName: 'onyx',
         defaults: {

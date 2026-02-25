@@ -207,26 +207,33 @@ export const LibraryGrid: React.FC<LibraryGridProps> = ({
               }}
             >
               {items.map((game, index) => (
-                <SortableGameCard
+                <div
                   key={game.id}
-                  game={game}
-                  onPlay={onPlay}
-                  onClick={onGameClick}
-                  onEdit={onEdit}
-                  hideTitle={hideGameTitles}
-                  showLogoOverBoxart={showLogoOverBoxart}
-                  logoPosition={logoPosition}
-                  useLogoInsteadOfBoxart={useLogosInsteadOfBoxart}
-                  descriptionSize={descriptionSize}
-                  onContextMenu={onGameContextMenu}
-                  viewMode={viewMode}
-                  logoBackgroundColor={logoBackgroundColor}
-                  logoBackgroundOpacity={logoBackgroundOpacity}
-                  tabIndex={0}
-                  isFocused={index === focusedIndex}
-                  index={index}
-                  onFocusItem={handleFocusItem}
-                />
+                  style={{
+                    contentVisibility: 'auto',
+                    containIntrinsicSize: `${useLogosInsteadOfBoxart ? logoSize : gridSize}px ${useLogosInsteadOfBoxart ? logoSize : (gridSize * 1.5)}px`
+                  }}
+                >
+                  <SortableGameCard
+                    game={game}
+                    onPlay={onPlay}
+                    onClick={onGameClick}
+                    onEdit={onEdit}
+                    hideTitle={hideGameTitles}
+                    showLogoOverBoxart={showLogoOverBoxart}
+                    logoPosition={logoPosition}
+                    useLogoInsteadOfBoxart={useLogosInsteadOfBoxart}
+                    descriptionSize={descriptionSize}
+                    onContextMenu={onGameContextMenu}
+                    viewMode={viewMode}
+                    logoBackgroundColor={logoBackgroundColor}
+                    logoBackgroundOpacity={logoBackgroundOpacity}
+                    tabIndex={0}
+                    isFocused={index === focusedIndex}
+                    index={index}
+                    onFocusItem={handleFocusItem}
+                  />
+                </div>
               ))}
             </div>
           </SortableContext>

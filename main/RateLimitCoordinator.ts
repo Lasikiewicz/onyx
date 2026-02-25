@@ -25,6 +25,9 @@ export class RateLimitCoordinator {
     ['artwork', 100],   // Artwork fetch: 100ms
     ['description', 100], // Description fetch: 100ms
   ]);
+  private activeRequestsCount = 0;
+  private serviceActiveRequests = new Map<string, number>();
+  private readonly MAX_CONCURRENT_PER_SERVICE = 2; // Allow 2 parallel requests per service
 
   /**
    * Queue a request with rate limiting
@@ -48,39 +51,61 @@ export class RateLimitCoordinator {
 
     try {
       while (this.globalQueue.length > 0) {
-        // Check global minimum interval
-        const timeSinceLastRequest = Date.now() - this.lastRequestTime;
-        if (timeSinceLastRequest < this.MIN_GLOBAL_INTERVAL) {
-          await new Promise(resolve =>
-            setTimeout(resolve, this.MIN_GLOBAL_INTERVAL - timeSinceLastRequest)
-          );
+        const now = Date.now();
+
+        // Find the first request in the queue that can be executed based on rate limits
+        let executableIndex = -1;
+
+        for (let i = 0; i < this.globalQueue.length; i++) {
+          const request = this.globalQueue[i];
+
+          // Check global minimum interval
+          const timeSinceLastRequest = now - this.lastRequestTime;
+          if (timeSinceLastRequest < this.MIN_GLOBAL_INTERVAL) continue;
+
+          // Check service-specific interval
+          const serviceInterval = this.serviceMinIntervals.get(request.service) || this.MIN_GLOBAL_INTERVAL;
+          const serviceLastTime = this.serviceLastRequestTime.get(request.service) || 0;
+          const timeSinceServiceRequest = now - serviceLastTime;
+          if (timeSinceServiceRequest < serviceInterval) continue;
+
+          // Check service-specific concurrency limit
+          const activeForService = this.serviceActiveRequests.get(request.service) || 0;
+          if (activeForService >= this.MAX_CONCURRENT_PER_SERVICE) continue;
+
+          executableIndex = i;
+          break;
         }
 
-        // Check service-specific interval
-        const request = this.globalQueue[0];
-        const serviceInterval = this.serviceMinIntervals.get(request.service) || this.MIN_GLOBAL_INTERVAL;
-        const serviceLastTime = this.serviceLastRequestTime.get(request.service) || 0;
-        const timeSinceServiceRequest = Date.now() - serviceLastTime;
-
-        if (timeSinceServiceRequest < serviceInterval) {
-          await new Promise(resolve =>
-            setTimeout(resolve, serviceInterval - timeSinceServiceRequest)
-          );
+        if (executableIndex === -1) {
+          // No requests can be executed right now, wait a bit and try again
+          await new Promise(resolve => setTimeout(resolve, 50));
+          continue;
         }
 
-        // Remove from queue and execute
-        const queuedRequest = this.globalQueue.shift();
-        if (!queuedRequest) break;
+        // Remove the executable request from the queue
+        const [queuedRequest] = this.globalQueue.splice(executableIndex, 1);
 
         this.lastRequestTime = Date.now();
         this.serviceLastRequestTime.set(queuedRequest.service, Date.now());
 
-        try {
-          const result = await queuedRequest.execute();
-          queuedRequest.resolve(result);
-        } catch (error) {
-          queuedRequest.reject(error);
-        }
+        // Track active requests for this service
+        this.activeRequestsCount++;
+        const currentActive = this.serviceActiveRequests.get(queuedRequest.service) || 0;
+        this.serviceActiveRequests.set(queuedRequest.service, currentActive + 1);
+
+        // Execute without awaiting so the loop can continue to next requests
+        queuedRequest.execute()
+          .then(result => queuedRequest.resolve(result))
+          .catch(error => queuedRequest.reject(error))
+          .finally(() => {
+            this.activeRequestsCount--;
+            const active = this.serviceActiveRequests.get(queuedRequest.service) || 1;
+            this.serviceActiveRequests.set(queuedRequest.service, active - 1);
+
+            // Trigger another queue process check
+            setImmediate(() => this.processQueue());
+          });
       }
     } finally {
       this.isProcessing = false;
