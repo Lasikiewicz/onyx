@@ -1,11 +1,11 @@
 # Onyx - Premium Unified Game Library
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE) [![Platform: Windows](https://img.shields.io/badge/Platform-Windows-0078d6?logo=windows)](https://onyxlauncher.co.uk/)
+[![License: GPLv3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE) [![Platform: Windows](https://img.shields.io/badge/Platform-Windows-0078d6?logo=windows)](https://onyxlauncher.co.uk/)
 
 A modern Electron application built with React, TypeScript, Vite, and Tailwind CSS. Onyx provides a unified interface for managing games from multiple launchers (Steam, Epic, GOG, Xbox, and more).
 
 - **Download:** [https://onyxlauncher.co.uk/](https://onyxlauncher.co.uk/) · [GitHub Releases](https://github.com/Lasikiewicz/onyx/releases) (Windows installer)
-- **Free and open source** — MIT license · [Changelog](CHANGELOG.md) / [What's new](https://github.com/Lasikiewicz/onyx/releases)
+- **Free and open source** — GPL-3.0-or-later license · [Changelog](CHANGELOG.md) / [What's new](https://github.com/Lasikiewicz/onyx/releases)
 
 ### Screenshots
 

@@ -4,6 +4,12 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.4.8] - 2026-02-26
+
+- Licensing: Switched project license from MIT to GPL-3.0-or-later.
+- Docs: Updated README badge/text and added a license decision matrix document.
+- Metadata: Updated package license field to `GPL-3.0-or-later`.
+
 ## [0.4.7] - 2026-02-26
 
 - Bug Fix: Ensured startup sequence always runs via renderer `app:ready` signal plus main-process fallback timer.
