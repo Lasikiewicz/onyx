@@ -1895,6 +1895,15 @@ app.whenReady().then(async () => {
 
   await createWindow();
 
+  // Fallback: if renderer never sends app:ready, start sequence anyway.
+  setTimeout(() => {
+    if (!startupSequenceInitiated) {
+      console.log('[Startup] app:ready not received, starting sequence via fallback');
+      startupSequenceInitiated = true;
+      runStartupSequence();
+    }
+  }, 5000);
+
   // Initialize auto-updater (only active when packaged; alpha uses prerelease channel)
   initAppUpdateService(() => win, IS_ALPHA);
 

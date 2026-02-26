@@ -685,6 +685,8 @@ function App() {
 
   // Listen to menu events
   useEffect(() => {
+    window.electronAPI.notifyAppReady?.();
+
     const cleanup1 = window.electronAPI.onMenuEvent('menu:addGame', async () => {
       const apisConfigured = await areAPIsConfigured();
       if (!apisConfigured) {

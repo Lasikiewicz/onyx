@@ -358,6 +358,7 @@ declare global {
       downloadUpdate?: () => Promise<{ success: boolean; error?: string }>;
       quitAndInstall?: () => Promise<void>;
       onUpdateStatus?: (callback: (payload: UpdateStatusPayload) => void) => () => void;
+      notifyAppReady?: () => void;
       onUpdateFound?: () => void;
       onUpdateDismissed?: () => void;
       removeWinGDKGames: () => Promise<{ success: boolean; removedCount?: number; removedGames?: Array<{ id: string; title: string; exePath?: string }>; error?: string }>;
