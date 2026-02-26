@@ -4,6 +4,11 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.4.7] - 2026-02-26
+
+- Bug Fix: Ensured startup sequence always runs via renderer `app:ready` signal plus main-process fallback timer.
+- Bug Fix: Restored reliable execution of `Update Libraries on Startup` and `Check for Updates on Startup` preferences.
+
 ## [0.4.6] - 2026-02-26
 
 - Bug Fix: Fixed AppUpdateService coordination race condition causing `updateLibrariesOnStartup` to hang waiting for update checks.
