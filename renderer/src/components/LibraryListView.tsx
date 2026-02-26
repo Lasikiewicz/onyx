@@ -284,6 +284,8 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                           src={game.logoUrl}
                           alt={game.title}
                           className="max-w-full max-h-full object-contain transition-transform duration-300 group-hover:scale-110"
+                          loading="lazy"
+                          decoding="async"
                           onError={(e) => {
                             const target = e.target as HTMLImageElement;
                             target.style.display = 'none';
@@ -372,6 +374,8 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                           src={game.iconUrl}
                           alt={game.title}
                           className="max-w-full max-h-full object-contain"
+                          loading="lazy"
+                          decoding="async"
                           onError={(e) => {
                             const target = e.target as HTMLImageElement;
                             target.style.display = 'none';
@@ -475,6 +479,8 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                           src={game.boxArtUrl}
                           alt={game.title}
                           className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+                          loading="lazy"
+                          decoding="async"
                           onError={(e) => {
                             const target = e.target as HTMLImageElement;
                             target.style.display = 'none';
@@ -487,6 +493,8 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                           alt={game.title}
                           className="w-full h-full object-contain p-2 transition-transform duration-300 group-hover:scale-110"
                           style={{ width: `${logoSizeForList}px`, height: `${Math.round(logoSizeForList * (4 / 3))}px` }}
+                          loading="lazy"
+                          decoding="async"
                           onError={(e) => {
                             const target = e.target as HTMLImageElement;
                             target.style.display = 'none';
