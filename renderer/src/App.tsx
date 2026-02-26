@@ -71,6 +71,11 @@ function App() {
   // Toast notification state
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
+  // Signal to main process that renderer is ready to receive messages
+  useEffect(() => {
+    window.electronAPI.ready?.();
+  }, []);
+
   // Update notification state
   const [updateNotification, setUpdateNotification] = useState<{
     version: string;
@@ -705,9 +710,8 @@ function App() {
 
     // Listen for new Steam games found notification
     const newGamesHandler = (_event: any, data: { count: number; games: Array<any> }) => {
-      // Always use FoundGamesModal for consistency
       if (data.games && data.games.length > 0) {
-        setFoundGames(data.games);
+        handleOpenImporterWithGames(data.games);
       }
     };
 
@@ -715,7 +719,7 @@ function App() {
     const backgroundNewGamesHandler = (_event: any, data: { count: number; games: Array<any>; bySource?: Record<string, Array<any>> }) => {
       console.log('[App] Background scan found new games:', data);
       if (data.games && data.games.length > 0) {
-        setFoundGames(data.games);
+        handleOpenImporterWithGames(data.games);
       }
     };
 
@@ -1508,6 +1512,37 @@ function App() {
       setOnyxSettingsInitialTab('apis');
       return;
     }
+
+    // Show window if it was hidden/minimized
+    window.electronAPI.showWindow?.();
+
+    // Cancel any pending startup scan to avoid UI overlap
+    window.electronAPI.cancelStartupScan?.();
+
+    // Open the workbench
+    setScannedSteamGames([]);
+    setImportAppType('steam');
+    setIsImportWorkbenchOpen(true);
+  };
+
+  // Function to open importer with pre-scanned games
+  const handleOpenImporterWithGames = (foundGames: Array<any>) => {
+    // Show window if it was hidden/minimized
+    window.electronAPI.showWindow?.();
+
+    // Close scanning overlay first for smooth transition
+    setStartupProgress(null);
+    window.electronAPI.cancelStartupScan?.();
+    setFoundGames(null);
+    setScannedSteamGames(foundGames);
+
+    // Determine app type from the games (use 'other' for mixed sources)
+    const sources = new Set(foundGames.map((g: any) => g.source));
+    const appType = sources.size === 1 && sources.has('steam') ? 'steam' :
+      sources.size === 1 && sources.has('xbox') ? 'xbox' : 'other';
+
+    setImportAppType(appType);
+    setAutoStartScan(true); // Enable auto-scan
     setIsImportWorkbenchOpen(true);
   };
 
@@ -2014,6 +2049,7 @@ function App() {
                   ) : (
                     <WelcomeScreen
                       onScanGames={() => {
+                        window.electronAPI.cancelStartupScan?.();
                         setAutoStartScan(true);
                         setIsImportWorkbenchOpen(true);
                       }}

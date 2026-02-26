@@ -267,6 +267,8 @@ declare global {
     electronAPI: {
       on?: (channel: string, callback: (...args: any[]) => void) => (() => void) | undefined;
       off?: (channel: string, callback: (...args: any[]) => void) => void;
+      showWindow: () => void;
+      ready: () => void;
       scanSteamGames: () => Promise<import('./steam').SteamGame[]>;
       getSteamPath: () => Promise<string | null>;
       setSteamPath: (path: string) => Promise<{ success: boolean; error?: string }>;
@@ -340,6 +342,7 @@ declare global {
       resetApp: () => Promise<{ success: boolean; error?: string }>;
       clearGameLibrary: () => Promise<{ success: boolean; error?: string }>;
       cancelScanAllSources: () => Promise<{ success: boolean; error?: string }>;
+      cancelStartupScan: () => Promise<{ success: boolean; error?: string }>;
       scanAllSources: () => Promise<{ success: boolean; error?: string; games: Array<{ uuid: string; source: string; originalName: string; installPath: string; exePath?: string; appId?: string; packageFamilyName?: string; appUserModelId?: string; launchUri?: string; xboxKind?: 'uwp' | 'pc'; title: string; status: 'pending' | 'scanning' | 'matched' | 'ambiguous' | 'ready' | 'error'; error?: string }> }>;
       scanFolder: (folderPath: string) => Promise<{ success: boolean; error?: string; games: Array<{ uuid: string; source: string; originalName: string; installPath: string; exePath?: string; appId?: string; packageFamilyName?: string; appUserModelId?: string; launchUri?: string; xboxKind?: 'uwp' | 'pc'; title: string; status: 'pending' | 'scanning' | 'matched' | 'ambiguous' | 'ready' | 'error'; error?: string }> }>;
       searchImages: (query: string, imageType: 'boxart' | 'banner' | 'logo' | 'icon' | 'alternativeBanner', steamAppId?: string, includeAnimated?: boolean) => Promise<{ success: boolean; error?: string; images: Array<{ gameId: number; gameName: string; images: Array<{ url: string; score: number; width: number; height: number; mime?: string; isAnimated?: boolean }> }> }>;

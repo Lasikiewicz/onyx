@@ -53,7 +53,7 @@ export const UpdateLibraryModal: React.FC<UpdateLibraryModalProps> = ({
     try {
       const configs = await window.electronAPI.getAppConfigs();
       const hasConfiguredApps = Object.values(configs).some((config: any) => config.enabled && config.path);
-      
+
       if (!hasConfiguredApps) {
         setMode('wizard');
       } else {
@@ -69,7 +69,7 @@ export const UpdateLibraryModal: React.FC<UpdateLibraryModalProps> = ({
     try {
       const savedConfigs = await window.electronAPI.getAppConfigs();
       const defaultApps = getDefaultApps();
-      
+
       const initializedApps: AppConfig[] = defaultApps.map((app) => {
         const savedConfig = savedConfigs[app.id];
         return {
@@ -101,7 +101,7 @@ export const UpdateLibraryModal: React.FC<UpdateLibraryModalProps> = ({
     try {
       const detected = await window.electronAPI.detectLaunchers();
       const results = new Map<string, { detected: boolean; path: string }>();
-      
+
       detected.forEach((launcher) => {
         results.set(launcher.id, {
           detected: launcher.detected,
@@ -209,14 +209,21 @@ export const UpdateLibraryModal: React.FC<UpdateLibraryModalProps> = ({
       // Check which games are new (not in existing library)
       const existingLibrary = await window.electronAPI.getLibrary();
       const existingGameIds = new Set(existingLibrary.map(g => g.id));
-      
+
       const newGamesList = allScannedGames.filter(game => !existingGameIds.has(game.id));
-      
+
       setNewGames(newGamesList);
       setSelectedGames(new Set(newGamesList.map(g => g.id))); // Select all by default
-      
+
       if (newGamesList.length > 0) {
-        setMode('results');
+        if (onShowImportModal) {
+          // If we have an onShowImportModal prop (passed from App.tsx), use it to open the full importer
+          // with the newly discovered games. This provides the best UX.
+          onShowImportModal(newGamesList, 'other');
+          onClose(); // Close this modal as the importer is now opening
+        } else {
+          setMode('results');
+        }
       } else {
         setIsScanning(false);
         // Show message that no new games were found
@@ -230,7 +237,7 @@ export const UpdateLibraryModal: React.FC<UpdateLibraryModalProps> = ({
 
   const handleImportSelected = async () => {
     const gamesToImport = newGames.filter(game => selectedGames.has(game.id));
-    
+
     if (gamesToImport.length === 0) {
       return;
     }
@@ -281,9 +288,9 @@ export const UpdateLibraryModal: React.FC<UpdateLibraryModalProps> = ({
   return (
     <>
       <div className="fixed inset-0 bg-black/50 z-50" onClick={onClose} />
-      
+
       <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
-        <div 
+        <div
           className="bg-gray-800 rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] border border-gray-700 flex flex-col"
           onClick={(e) => e.stopPropagation()}
         >
@@ -291,14 +298,14 @@ export const UpdateLibraryModal: React.FC<UpdateLibraryModalProps> = ({
           <div className="px-6 py-4 border-b border-gray-700 flex items-center justify-between">
             <div>
               <h2 className="text-xl font-semibold text-white">
-                {mode === 'wizard' ? 'Welcome! Let\'s Set Up Your Libraries' : 
-                 mode === 'scan' ? 'Update Library' : 
-                 'New Games Found'}
+                {mode === 'wizard' ? 'Welcome! Let\'s Set Up Your Libraries' :
+                  mode === 'scan' ? 'Update Library' :
+                    'New Games Found'}
               </h2>
               <p className="text-sm text-gray-400 mt-1">
                 {mode === 'wizard' ? 'We\'ll help you find and configure your game launchers' :
-                 mode === 'scan' ? 'Scan all enabled libraries for new games' :
-                 `Found ${newGames.length} new ${newGames.length === 1 ? 'game' : 'games'}`}
+                  mode === 'scan' ? 'Scan all enabled libraries for new games' :
+                    `Found ${newGames.length} new ${newGames.length === 1 ? 'game' : 'games'}`}
               </p>
             </div>
             <button
@@ -318,7 +325,7 @@ export const UpdateLibraryModal: React.FC<UpdateLibraryModalProps> = ({
                 <div className="bg-blue-900/20 border border-blue-700 rounded-lg p-4">
                   <h3 className="text-lg font-semibold text-white mb-2">Auto-Detect Launchers</h3>
                   <p className="text-sm text-gray-300 mb-4">
-                    We can automatically detect installed game launchers on your system. 
+                    We can automatically detect installed game launchers on your system.
                     Click the button below to scan for Steam, Epic Games, GOG Galaxy, and more.
                   </p>
                   <button
@@ -397,8 +404,8 @@ export const UpdateLibraryModal: React.FC<UpdateLibraryModalProps> = ({
                             enabled: true,
                             path: detectionResults.get(app.id)!.path,
                           }));
-                        
-                        Promise.all(configs.map(config => 
+
+                        Promise.all(configs.map(config =>
                           window.electronAPI.saveAppConfig(config)
                         )).then(() => {
                           setMode('scan');

@@ -610,8 +610,9 @@ async function createWindow() {
   // Load saved window state
   let windowState: { x?: number; y?: number; width?: number; height?: number; isMaximized?: boolean; isFullscreen?: boolean } | undefined;
   let isFirstLaunch = true;
+  let prefs: UserPreferences | undefined;
   try {
-    const prefs = await userPreferencesService.getPreferences();
+    prefs = await userPreferencesService.getPreferences();
     windowState = prefs.windowState;
     isFirstLaunch = prefs.isFirstLaunch !== false;
   } catch (error) {
@@ -650,24 +651,41 @@ async function createWindow() {
     show: false,
   });
 
-  // Restore maximized state if previously maximized (for non-first-launch)
-  if (!isFirstLaunch && windowState?.isMaximized) {
-    win.maximize();
-  }
+  // Determine if we should start hidden (respecting preferences, CLI flags and login settings)
+  const loginSettings = app.getLoginItemSettings();
+  const hasHiddenFlag = process.argv.includes('--hidden') || loginSettings.wasOpenedAsHidden;
+  const isStartedAtLogin = loginSettings.wasOpenedAtLogin || hasHiddenFlag;
+  const shouldStartHidden = prefs ? (prefs.startClosedToTray || prefs.startMinimized || hasHiddenFlag || (prefs.startWithComputer && isStartedAtLogin)) : false;
 
-  // Restore fullscreen state if previously in fullscreen (for non-first-launch)
-  if (!isFirstLaunch && windowState?.isFullscreen) {
-    win.setFullScreen(true);
-  }
+  if (!shouldStartHidden) {
+    // Restore maximized state if previously maximized (for non-first-launch)
+    if (!isFirstLaunch && windowState?.isMaximized) {
+      win.maximize();
+    }
 
-  // Apply startInFullscreen preference if enabled
-  try {
-    const prefs = await userPreferencesService.getPreferences();
-    if (prefs.startInFullscreen && !win.isFullScreen()) {
+    // Restore fullscreen state if previously in fullscreen (for non-first-launch)
+    if (!isFirstLaunch && windowState?.isFullscreen) {
       win.setFullScreen(true);
     }
-  } catch (error) {
-    console.error('Error applying startInFullscreen preference:', error);
+
+    // Apply startInFullscreen preference if enabled
+    if (prefs?.startInFullscreen && !win.isFullScreen()) {
+      win.setFullScreen(true);
+    }
+  } else {
+    // If starting hidden, defer maximize/fullscreen until first show to avoid premature window display on Windows
+    // Electron's maximize() and setFullScreen(true) automatically show the window on Windows.
+    win.once('show', () => {
+      if ((!isFirstLaunch && windowState?.isMaximized) || isFirstLaunch) {
+        win?.maximize();
+      }
+      if (!isFirstLaunch && windowState?.isFullscreen) {
+        win?.setFullScreen(true);
+      }
+      if (prefs?.startInFullscreen && !win?.isFullScreen()) {
+        win?.setFullScreen(true);
+      }
+    });
   }
 
   // Handle first launch: Maximize and set resolution-optimized defaults
@@ -677,7 +695,9 @@ async function createWindow() {
     const primaryDisplay = screen.getPrimaryDisplay();
     const { width, height } = primaryDisplay.bounds;
 
-    win.maximize();
+    if (!shouldStartHidden) {
+      win.maximize();
+    }
 
     // Define optimized defaults based on resolution
     let optimizedPrefs: Partial<UserPreferences> = {
@@ -817,9 +837,10 @@ async function createWindow() {
     // Check if we should show the window or start closed to tray
     try {
       const prefs = await userPreferencesService.getPreferences();
-      // Also respect a one-off --hidden CLI flag (used by Windows "start minimized"/login items)
-      const hasHiddenFlag = process.argv.includes('--hidden');
-      const shouldStartHidden = prefs.startClosedToTray || prefs.startMinimized || hasHiddenFlag;
+      const loginSettings = app.getLoginItemSettings();
+      const hasHiddenFlag = process.argv.includes('--hidden') || loginSettings.wasOpenedAsHidden;
+      const isStartedAtLogin = loginSettings.wasOpenedAtLogin || hasHiddenFlag;
+      const shouldStartHidden = prefs.startClosedToTray || prefs.startMinimized || hasHiddenFlag || (prefs.startWithComputer && isStartedAtLogin);
 
       if (!shouldStartHidden) {
         win?.show();
@@ -1717,49 +1738,73 @@ app.whenReady().then(async () => {
   initAppUpdateService(() => win, IS_ALPHA);
 
   // Coordinate update check and startup scan
-  (async () => {
-    let updateFound = false;
-    let updateCheckComplete = false;
-    let updateDismissed = false;
-    let startupScanResolve: (() => void) | null = null;
-    let updateStatusReceived = false;
+  let startupScanCancelled = false;
+  let updateCheckComplete = false;
+  let updateFound = false;
+  let updateDismissed = false;
+  let startupScanResolve: (() => void) | null = null;
+  let updateStatusReceived = false;
 
-    // Set up callbacks for update found/dismissed events
-    const updateFoundCallback = () => {
-      updateFound = true;
-      console.log('[StartupScan] Update found - pausing startup scan');
-    };
-
-    const updateDismissedCallback = () => {
-      updateDismissed = true;
-      console.log('[StartupScan] Update dismissed - resuming startup scan');
-      if (startupScanResolve) {
-        startupScanResolve();
-        startupScanResolve = null;
-      }
-    };
-
-    // Listen for update status to know when check completes
-    const updateStatusListener = (_event: any, payload: { status: string; version?: string; error?: string }) => {
-      if (payload.status === 'available' || payload.status === 'not-available' || payload.status === 'error') {
-        updateStatusReceived = true;
-        if (payload.status === 'available') {
-          updateFound = true;
-        }
-        console.log(`[AppUpdate] Update check completed - status: ${payload.status}`);
-      }
-    };
-
-    // Register IPC listener for update status
-    ipcMain.on('app:update-status', updateStatusListener);
-
-    // Register callbacks (set via global from appHandlers)
-    if ((global as any).__updateFoundCallback) {
-      (global as any).__updateFoundCallback(updateFoundCallback);
+  // Handle show window request from renderer
+  ipcMain.on('app:show-window', () => {
+    if (win) {
+      if (win.isMinimized()) win.restore();
+      win.show();
+      win.focus();
     }
-    if ((global as any).__updateDismissedCallback) {
-      (global as any).__updateDismissedCallback(updateDismissedCallback);
+  });
+
+  // Handle cancellation from renderer
+  ipcMain.handle('startup:cancel-scan', () => {
+    startupScanCancelled = true;
+    console.log('[StartupScan] Startup scan cancelled by user (likely manually opened importer)');
+    if (startupScanResolve) {
+      startupScanResolve();
+      startupScanResolve = null;
     }
+  });
+
+  // Set up callbacks for update found/dismissed events
+  const updateFoundCallback = () => {
+    updateFound = true;
+    console.log('[StartupScan] Update found - pausing startup scan');
+  };
+
+  const updateDismissedCallback = () => {
+    updateDismissed = true;
+    console.log('[StartupScan] Update dismissed - resuming startup scan');
+    if (startupScanResolve) {
+      startupScanResolve();
+      startupScanResolve = null;
+    }
+  };
+
+  // Listen for update status to know when check completes
+  const updateStatusListener = (_event: any, payload: { status: string; version?: string; error?: string }) => {
+    if (payload.status === 'available' || payload.status === 'not-available' || payload.status === 'error') {
+      updateStatusReceived = true;
+      if (payload.status === 'available') {
+        updateFound = true;
+      }
+      console.log(`[AppUpdate] Update check completed - status: ${payload.status}`);
+    }
+  };
+
+  // Register IPC listener for update status
+  ipcMain.on('app:update-status', updateStatusListener);
+
+  // Register callbacks (set via global from appHandlers)
+  if ((global as any).__updateFoundCallback) {
+    (global as any).__updateFoundCallback(updateFoundCallback);
+  }
+  if ((global as any).__updateDismissedCallback) {
+    (global as any).__updateDismissedCallback(updateDismissedCallback);
+  }
+
+  // Define the startup sequence function
+  const runStartupSequence = async () => {
+    if (startupScanCancelled) return;
+    console.log('[Startup] Starting sequence...');
 
     // Check for updates on startup if preference is enabled (packaged app only)
     const checkForUpdatesOnStartup = async () => {
@@ -1771,13 +1816,11 @@ app.whenReady().then(async () => {
         const prefs = await userPreferencesService.getPreferences();
         if (prefs.checkForUpdatesOnStartup !== false) {
           console.log('[AppUpdate] Checking for updates on startup...');
-          // Wait for renderer to be ready and register listeners
-          await new Promise(resolve => setTimeout(resolve, 4000));
           checkForUpdates();
           // Wait for update status to be received (max 20 seconds)
           let waited = 0;
           const maxWait = 20000;
-          const checkInterval = 500;
+          const checkInterval = 200;
           while (waited < maxWait && !updateStatusReceived) {
             await new Promise(resolve => setTimeout(resolve, checkInterval));
             waited += checkInterval;
@@ -1793,7 +1836,6 @@ app.whenReady().then(async () => {
         console.error('[AppUpdate] Startup check preference error:', err);
         updateCheckComplete = true;
       } finally {
-        // Clean up listener
         ipcMain.removeListener('app:update-status', updateStatusListener);
       }
     };
@@ -1809,15 +1851,15 @@ app.whenReady().then(async () => {
 
         console.log('[StartupScan] Update Libraries on Startup is enabled');
 
-        // Wait for renderer to be ready (React app to mount and register listeners)
-        console.log('[StartupScan] Waiting for renderer to be ready...');
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        if (startupScanCancelled) return;
 
         // Wait for update check to complete BEFORE starting scan
         console.log('[StartupScan] Waiting for update check to complete...');
-        while (!updateCheckComplete) {
-          await new Promise(resolve => setTimeout(resolve, 500));
+        while (!updateCheckComplete && !startupScanCancelled) {
+          await new Promise(resolve => setTimeout(resolve, 100));
         }
+
+        if (startupScanCancelled) return;
         console.log('[StartupScan] Update check completed, proceeding with scan...');
 
         // If update was found, wait for user to dismiss it
@@ -1835,15 +1877,17 @@ app.whenReady().then(async () => {
           });
         }
 
+        if (startupScanCancelled) return;
+
         // Send initial progress message
         if (win && !win.isDestroyed()) {
-          console.log('[StartupScan] Sending initial progress message to renderer');
           win.webContents.send('startup:progress', { message: 'Initializing library scan...' });
         }
 
-        // Small additional delay
-        await new Promise(resolve => setTimeout(resolve, 300));
+        await new Promise(resolve => setTimeout(resolve, 50));
         console.log('[StartupScan] Performing startup scan for new games...');
+
+        if (startupScanCancelled) return;
 
         // Send progress message that scan is starting
         if (win && !win.isDestroyed()) {
@@ -1854,15 +1898,7 @@ app.whenReady().then(async () => {
         await performBackgroundScan(true);
         const scanDuration = Date.now() - scanStartTime;
 
-        // Ensure the modal is visible for at least 2 seconds total
-        // If scan was very quick, add a delay so users see the modal
-        const minDisplayTime = 2000;
-        const totalElapsed = Date.now() - scanStartTime;
-        if (totalElapsed < minDisplayTime) {
-          await new Promise(resolve => setTimeout(resolve, minDisplayTime - totalElapsed));
-        }
-
-        // Send completion message
+        // Final status message
         if (win && !win.isDestroyed()) {
           win.webContents.send('startup:progress', { message: 'Scan complete' });
         }
@@ -1870,21 +1906,23 @@ app.whenReady().then(async () => {
         console.log(`[StartupScan] Startup scan completed in ${scanDuration}ms`);
       } catch (error) {
         console.error('[StartupScan] Error during startup scan:', error);
-        // Send error message to UI
         if (win && !win.isDestroyed()) {
           win.webContents.send('startup:progress', { message: 'Error during scan' });
         }
-        // Keep error visible for 3 seconds
-        await new Promise(resolve => setTimeout(resolve, 3000));
       }
     };
 
-    // Run update check and startup scan in parallel (scan will wait for update check)
+    // Run update check and startup scan
     await Promise.all([
       checkForUpdatesOnStartup(),
       performStartupScan()
     ]);
-  })();
+  };
+
+  // Listen for renderer ready signal
+  ipcMain.on('app:ready', () => {
+    runStartupSequence();
+  });
 
   // Initialize background scan interval if enabled
   const backgroundScanEnabled = await appConfigService.getBackgroundScanEnabled();
