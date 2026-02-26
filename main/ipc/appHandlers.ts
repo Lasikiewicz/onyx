@@ -12,6 +12,7 @@ import { APICredentialsService } from '../APICredentialsService.js';
 import { SteamAuthService } from '../SteamAuthService.js';
 import { BugReportService } from '../BugReportService.js';
 import { checkForUpdates as doCheckForUpdates, downloadUpdate as doDownloadUpdate, quitAndInstall as doQuitAndInstall } from '../AppUpdateService.js';
+import { isSafeExternalUrl } from '../SecurityUtils.js';
 
 const GITHUB_OWNER = 'Lasikiewicz';
 const GITHUB_REPO = 'onyx';
@@ -471,21 +472,7 @@ export function registerAppIPCHandlers(
 
     ipcMain.handle('app:openExternal', async (_event, url) => {
         try {
-            const parsedUrl = new URL(url);
-            const allowedProtocols = [
-                'http:',
-                'https:',
-                'steam:',
-                'epic:',
-                'goggalaxy:',
-                'uplay:',
-                'origin:',
-                'origin2:',
-                'com.epicgames.launcher:',
-                'battlenet:'
-            ];
-
-            if (!allowedProtocols.includes(parsedUrl.protocol)) {
+            if (!isSafeExternalUrl(url)) {
                 console.warn(`[Security] Blocked attempt to open unsafe external URL: ${url}`);
                 return { success: false, error: 'Disallowed protocol' };
             }
