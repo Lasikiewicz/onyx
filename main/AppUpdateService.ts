@@ -58,6 +58,21 @@ let getWin: (() => BrowserWindow | null) | null = null;
 let pendingAlphaUpdate: AlphaUpdateInfo | null = null;
 let downloadedAlphaPath: string | null = null;
 
+let statusListeners: Array<(payload: UpdateStatusPayload) => void> = [];
+
+/**
+ * Adds a listener for update status changes.
+ * Used for coordination between update checks and other startup tasks in the main process.
+ */
+export function addUpdateStatusListener(
+  listener: (payload: UpdateStatusPayload) => void
+): () => void {
+  statusListeners.push(listener);
+  return () => {
+    statusListeners = statusListeners.filter((l) => l !== listener);
+  };
+}
+
 /**
  * Alpha builds: electron-updater uses the releases Atom feed and picks the *first* entry.
  * The feed order can put alpha-v0.3.6 before alpha-v0.3.7, so 0.3.6 never sees 0.3.7.
@@ -69,6 +84,8 @@ async function checkForUpdatesAlpha(): Promise<void> {
     if (win && !win.isDestroyed() && win.webContents) {
       win.webContents.send('app:update-status', payload);
     }
+    // Also notify main process listeners
+    statusListeners.forEach((l) => l(payload));
   };
 
   send({ status: 'checking' });
@@ -172,6 +189,8 @@ export function initAppUpdateService(
     if (win && !win.isDestroyed() && win.webContents) {
       win.webContents.send('app:update-status', payload);
     }
+    // Also notify main process listeners
+    statusListeners.forEach((l) => l(payload));
   };
 
   autoUpdater.on('checking-for-update', () => send({ status: 'checking' }));
@@ -212,6 +231,8 @@ export function downloadUpdate(): Promise<string[] | null> {
       if (win && !win.isDestroyed() && win.webContents) {
         win.webContents.send('app:update-status', payload);
       }
+      // Also notify main process listeners
+      statusListeners.forEach((l) => l(payload));
     };
     const url = pendingAlphaUpdate.downloadUrl;
     const filename = path.basename(new URL(url).pathname) || `Onyx.Alpha.Setup.${pendingAlphaUpdate.version}.exe`;
@@ -225,7 +246,7 @@ export function downloadUpdate(): Promise<string[] | null> {
       req.on('response', (response) => {
         if (response.statusCode && response.statusCode >= 400) {
           out.close();
-          fs.unlink(destPath, () => {});
+          fs.unlink(destPath, () => { });
           send({ status: 'error', error: `Download failed: ${response.statusCode}` });
           resolve(null);
           return;
@@ -241,7 +262,7 @@ export function downloadUpdate(): Promise<string[] | null> {
       });
       req.on('error', (err) => {
         out.close();
-        fs.unlink(destPath, () => {});
+        fs.unlink(destPath, () => { });
         send({ status: 'error', error: err.message });
         resolve(null);
       });

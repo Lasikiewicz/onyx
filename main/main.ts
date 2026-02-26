@@ -76,7 +76,7 @@ import { registerSuspendHandlers } from './ipc/suspendHandlers.js';
 import { registerLauncherIPCHandlers } from './ipc/launcherHandlers.js';
 import { TrayService } from './ui/tray.js';
 import { withTimeout } from './RetryUtils.js';
-import { initAppUpdateService, checkForUpdates } from './AppUpdateService.js';
+import { initAppUpdateService, checkForUpdates, addUpdateStatusListener } from './AppUpdateService.js';
 
 // Load environment variables
 dotenv.config();
@@ -1732,39 +1732,27 @@ app.whenReady().then(async () => {
   // }
 
   createMenu();
-  await createWindow();
 
-  // Initialize auto-updater (only active when packaged; alpha uses prerelease channel)
-  initAppUpdateService(() => win, IS_ALPHA);
-
-  // Coordinate update check and startup scan
+  // --- Startup Sequence Coordination & Update Handling ---
   let startupScanCancelled = false;
   let updateCheckComplete = false;
   let updateFound = false;
   let updateDismissed = false;
   let startupScanResolve: (() => void) | null = null;
   let updateStatusReceived = false;
+  let startupSequenceInitiated = false;
 
-  // Handle show window request from renderer
-  ipcMain.on('app:show-window', () => {
-    if (win) {
-      if (win.isMinimized()) win.restore();
-      win.show();
-      win.focus();
+  // Listen for update status directly from the service (fixes coordination issues)
+  addUpdateStatusListener((payload) => {
+    if (payload.status === 'available' || payload.status === 'not-available' || payload.status === 'error') {
+      updateStatusReceived = true;
+      if (payload.status === 'available') {
+        updateFound = true;
+      }
+      console.log(`[AppUpdate] Update check completed - status: ${payload.status}`);
     }
   });
 
-  // Handle cancellation from renderer
-  ipcMain.handle('startup:cancel-scan', () => {
-    startupScanCancelled = true;
-    console.log('[StartupScan] Startup scan cancelled by user (likely manually opened importer)');
-    if (startupScanResolve) {
-      startupScanResolve();
-      startupScanResolve = null;
-    }
-  });
-
-  // Set up callbacks for update found/dismissed events
   const updateFoundCallback = () => {
     updateFound = true;
     console.log('[StartupScan] Update found - pausing startup scan');
@@ -1779,68 +1767,70 @@ app.whenReady().then(async () => {
     }
   };
 
-  // Listen for update status to know when check completes
-  const updateStatusListener = (_event: any, payload: { status: string; version?: string; error?: string }) => {
-    if (payload.status === 'available' || payload.status === 'not-available' || payload.status === 'error') {
-      updateStatusReceived = true;
-      if (payload.status === 'available') {
-        updateFound = true;
-      }
-      console.log(`[AppUpdate] Update check completed - status: ${payload.status}`);
+  // Register IPC listeners BEFORE creating the window to avoid missing signals from the renderer
+  ipcMain.on('app:ready', () => {
+    if (!startupSequenceInitiated) {
+      startupSequenceInitiated = true;
+      runStartupSequence();
     }
-  };
+  });
 
-  // Register IPC listener for update status
-  ipcMain.on('app:update-status', updateStatusListener);
+  ipcMain.on('app:show-window', () => {
+    if (win) {
+      if (win.isMinimized()) win.restore();
+      win.show();
+      win.focus();
+    }
+  });
 
-  // Register callbacks (set via global from appHandlers)
-  if ((global as any).__updateFoundCallback) {
-    (global as any).__updateFoundCallback(updateFoundCallback);
-  }
-  if ((global as any).__updateDismissedCallback) {
-    (global as any).__updateDismissedCallback(updateDismissedCallback);
-  }
+  // Coordination messages from renderer
+  ipcMain.on('app:update-found', updateFoundCallback);
+  ipcMain.on('app:update-dismissed', updateDismissedCallback);
+
+  ipcMain.handle('startup:cancel-scan', () => {
+    startupScanCancelled = true;
+    console.log('[StartupScan] Startup scan cancelled by user action');
+    if (startupScanResolve) {
+      startupScanResolve();
+      startupScanResolve = null;
+    }
+  });
 
   // Define the startup sequence function
   const runStartupSequence = async () => {
-    if (startupScanCancelled) return;
     console.log('[Startup] Starting sequence...');
 
-    // Check for updates on startup if preference is enabled (packaged app only)
+    // 1. Check for updates on startup if preference is enabled (packaged app only)
     const checkForUpdatesOnStartup = async () => {
       try {
         if (!app.isPackaged) {
           updateCheckComplete = true;
           return;
         }
+
         const prefs = await userPreferencesService.getPreferences();
         if (prefs.checkForUpdatesOnStartup !== false) {
           console.log('[AppUpdate] Checking for updates on startup...');
           checkForUpdates();
-          // Wait for update status to be received (max 20 seconds)
+
+          // Wait for update status (max 10 seconds for startup check)
           let waited = 0;
-          const maxWait = 20000;
-          const checkInterval = 200;
-          while (waited < maxWait && !updateStatusReceived) {
-            await new Promise(resolve => setTimeout(resolve, checkInterval));
-            waited += checkInterval;
+          while (waited < 10000 && !updateStatusReceived) {
+            await new Promise(resolve => setTimeout(resolve, 200));
+            waited += 200;
           }
           if (!updateStatusReceived) {
-            console.log('[AppUpdate] Update check timeout - proceeding anyway');
+            console.log('[AppUpdate] Update status check timed out - proceeding');
           }
-        } else {
-          console.log('[AppUpdate] Update check disabled in preferences');
         }
-        updateCheckComplete = true;
-      } catch (err) {
-        console.error('[AppUpdate] Startup check preference error:', err);
-        updateCheckComplete = true;
+      } catch (error) {
+        console.error('[AppUpdate] Error in startup update check:', error);
       } finally {
-        ipcMain.removeListener('app:update-status', updateStatusListener);
+        updateCheckComplete = true;
       }
     };
 
-    // Perform startup scan if enabled in preferences
+    // 2. Perform library scan if enabled in preferences
     const performStartupScan = async () => {
       try {
         const prefs = await userPreferencesService.getPreferences();
@@ -1851,8 +1841,6 @@ app.whenReady().then(async () => {
 
         console.log('[StartupScan] Update Libraries on Startup is enabled');
 
-        if (startupScanCancelled) return;
-
         // Wait for update check to complete BEFORE starting scan
         console.log('[StartupScan] Waiting for update check to complete...');
         while (!updateCheckComplete && !startupScanCancelled) {
@@ -1860,50 +1848,36 @@ app.whenReady().then(async () => {
         }
 
         if (startupScanCancelled) return;
-        console.log('[StartupScan] Update check completed, proceeding with scan...');
 
-        // If update was found, wait for user to dismiss it
+        // If an update was found, wait for user to dismiss it or for it to be ignored
         if (updateFound && !updateDismissed) {
-          console.log('[StartupScan] Update found - waiting for user to dismiss update notification');
-          await new Promise<void>((resolve) => {
+          console.log('[StartupScan] Update found, waiting for user interaction...');
+          await new Promise<void>(resolve => {
             startupScanResolve = resolve;
-            // Also check periodically if update was dismissed
-            const checkInterval = setInterval(() => {
-              if (updateDismissed) {
-                clearInterval(checkInterval);
+            // Also timeout after 15 seconds if user does nothing
+            setTimeout(() => {
+              if (startupScanResolve === resolve) {
+                console.log('[StartupScan] Interaction timeout, proceeding with scan');
                 resolve();
+                startupScanResolve = null;
               }
-            }, 500);
+            }, 15000);
           });
         }
 
         if (startupScanCancelled) return;
 
-        // Send initial progress message
+        console.log('[StartupScan] Starting background library scan...');
         if (win && !win.isDestroyed()) {
-          win.webContents.send('startup:progress', { message: 'Initializing library scan...' });
+          win.webContents.send('startup:progress', { message: 'Checking for new games...' });
         }
 
-        await new Promise(resolve => setTimeout(resolve, 50));
-        console.log('[StartupScan] Performing startup scan for new games...');
-
-        if (startupScanCancelled) return;
-
-        // Send progress message that scan is starting
-        if (win && !win.isDestroyed()) {
-          win.webContents.send('startup:progress', { message: 'Starting library scan...' });
-        }
-
-        const scanStartTime = Date.now();
+        // Use the built-in background scan mechanism which handled notifications
         await performBackgroundScan(true);
-        const scanDuration = Date.now() - scanStartTime;
 
-        // Final status message
         if (win && !win.isDestroyed()) {
           win.webContents.send('startup:progress', { message: 'Scan complete' });
         }
-
-        console.log(`[StartupScan] Startup scan completed in ${scanDuration}ms`);
       } catch (error) {
         console.error('[StartupScan] Error during startup scan:', error);
         if (win && !win.isDestroyed()) {
@@ -1912,17 +1886,17 @@ app.whenReady().then(async () => {
       }
     };
 
-    // Run update check and startup scan
+    // Run update check and scan
     await Promise.all([
       checkForUpdatesOnStartup(),
       performStartupScan()
     ]);
   };
 
-  // Listen for renderer ready signal
-  ipcMain.on('app:ready', () => {
-    runStartupSequence();
-  });
+  await createWindow();
+
+  // Initialize auto-updater (only active when packaged; alpha uses prerelease channel)
+  initAppUpdateService(() => win, IS_ALPHA);
 
   // Initialize background scan interval if enabled
   const backgroundScanEnabled = await appConfigService.getBackgroundScanEnabled();
