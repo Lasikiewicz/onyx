@@ -4,6 +4,13 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.4.5] - 2026-02-26
+
+- Performance: Optimized startup sequence with immediate update checks and parallel library scans.
+- UI: Improved "Start Minimized" behavior on Windows to ensure the app stays in the tray when configured.
+- Importer: Redirected one-click scans to the full Game Importer workbench for enhanced editing capabilities.
+- Importer: Automatic background scans now open the Game Importer when new games are detected.
+
 ## [0.4.4] - 2026-02-25
 
 - Fix: Expanded onyx-local protocol support for .ico and .avif.
