@@ -1940,6 +1940,30 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                     </button>
                   </div>
                 </div>
+
+                <p className="pt-3 border-t border-gray-700/50 text-xs text-gray-400">
+                  Suspend/Resume integration thanks to{' '}
+                  <a
+                    href="https://nyrna.merritt.codes/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={async (event) => {
+                      event.preventDefault();
+                      try {
+                        if (window.electronAPI?.openExternal) {
+                          await window.electronAPI.openExternal('https://nyrna.merritt.codes/');
+                        } else {
+                          window.open('https://nyrna.merritt.codes/', '_blank', 'noopener,noreferrer');
+                        }
+                      } catch (error) {
+                        console.error('Failed to open Nyrna link:', error);
+                      }
+                    }}
+                    className="text-gray-300 font-medium hover:text-sky-400 transition-colors"
+                  >
+                    Nyrna
+                  </a>
+                </p>
               </SettingsSection>
             </div>
           )}
