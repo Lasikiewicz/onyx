@@ -287,4 +287,4 @@ The configuration automatically adjusts:
 
 ## License
 
-MIT — see [LICENSE](LICENSE) for the full text.
+GPL-3.0-or-later — see [LICENSE](LICENSE) for the full text.

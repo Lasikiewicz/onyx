@@ -90,6 +90,15 @@ jobs:
         shell: pwsh
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create source tarball
+        id: source_bundle
+        run: |
+          $tag = "${{ steps.build_profile.outputs.tag_prefix }}${{ steps.version.outputs.version }}"
+          $sourceTarball = "release/onyx-source-$tag.tar.gz"
+          git archive --format=tar.gz --output=$sourceTarball HEAD
+          echo "source_tarball=$sourceTarball" >> $env:GITHUB_OUTPUT
+        shell: pwsh
       
       - name: Create Release
         uses: softprops/action-gh-release@v1
@@ -97,9 +106,15 @@ jobs:
           tag_name: ${{ steps.build_profile.outputs.tag_prefix }}${{ steps.version.outputs.version }}
           name: ${{ steps.build_profile.outputs.profile == 'alpha' && 'Onyx Alpha' || 'Onyx' }} ${{ steps.version.outputs.version }}
           prerelease: ${{ steps.build_profile.outputs.is_prerelease }}
+          body: |
+            ## GPL Source & Notice
+            - Corresponding source is available via GitHub tag source links and attached source tarball.
+            - Nyrna integration provenance: [docs/NYRNA_PROVENANCE.md](https://github.com/${{ github.repository }}/blob/master/docs/NYRNA_PROVENANCE.md)
+            - License: GPL-3.0-or-later
           files: |
             release/*Setup*.exe
             release/*.blockmap
             release/latest.yml
+            ${{ steps.source_bundle.outputs.source_tarball }}
           draft: false
           token: ${{ secrets.GITHUB_TOKEN }}

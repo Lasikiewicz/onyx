@@ -192,16 +192,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onUpdateDismissed: () => ipcRenderer.send('app:update-dismissed'),
   // Open path/folder
   openPath: (pathOrType: string) => ipcRenderer.invoke('app:openPath', pathOrType),
-  // Suspend service methods - FEATURE DISABLED
-  // These methods intentionally return a disabled response to keep the feature inert.
+  restartAsAdmin: () => ipcRenderer.invoke('app:restartAsAdmin'),
+  // Suspend service methods
   suspend: {
-    getRunningGames: async () => ({ success: false, enabled: false, error: 'Suspend feature is disabled' }),
-    suspendGame: async () => ({ success: false, enabled: false, error: 'Suspend feature is disabled' }),
-    resumeGame: async () => ({ success: false, enabled: false, error: 'Suspend feature is disabled' }),
-    getFeatureEnabled: async () => ({ enabled: false }),
-    setFeatureEnabled: async () => ({ success: false, error: 'Feature is disabled' }),
-    getShortcut: async () => ({ success: false, error: 'Feature is disabled' }),
-    setShortcut: async () => ({ success: false, error: 'Feature is disabled' }),
+    getRunningGames: () => ipcRenderer.invoke('suspend:getRunningGames'),
+    suspendGame: (gameId: string) => ipcRenderer.invoke('suspend:suspendGame', gameId),
+    resumeGame: (gameId: string) => ipcRenderer.invoke('suspend:resumeGame', gameId),
+    getFeatureEnabled: () => ipcRenderer.invoke('suspend:getFeatureEnabled'),
+    setFeatureEnabled: (enabled: boolean) => ipcRenderer.invoke('suspend:setFeatureEnabled', enabled),
+    getShortcut: () => ipcRenderer.invoke('suspend:getShortcut'),
+    setShortcut: (shortcut: string) => ipcRenderer.invoke('suspend:setShortcut', shortcut),
   },
   // Background scanning control
   scanning: {

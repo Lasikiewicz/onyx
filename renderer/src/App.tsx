@@ -1077,6 +1077,34 @@ function App() {
   const launchGame = async (game: Game) => {
     setLaunchingGameId(game.id);
     try {
+      try {
+        const suspendEnabled = await window.electronAPI.suspend.getFeatureEnabled();
+        if (suspendEnabled) {
+          const trackedGames = await window.electronAPI.suspend.getRunningGames();
+          const trackedGame = trackedGames.find((entry) => entry.gameId === game.id);
+
+          if (trackedGame?.status === 'suspended') {
+            const resumeResult = await window.electronAPI.suspend.resumeGame(game.id);
+            setLaunchingGameId(null);
+
+            if (!resumeResult.success) {
+              alert(`Failed to resume game: ${resumeResult.error || 'Unknown error'}`);
+              return;
+            }
+
+            setRunningGames((prev) => new Set(prev).add(game.id));
+            return;
+          }
+
+          if (trackedGame?.status === 'running') {
+            setLaunchingGameId(null);
+            return;
+          }
+        }
+      } catch (suspendLookupError) {
+        console.warn('Suspend state lookup failed before launch, continuing with normal launch flow:', suspendLookupError);
+      }
+
       const result = await window.electronAPI.launchGame(game.id);
       if (!result.success) {
         console.error('Failed to launch game:', result.error);

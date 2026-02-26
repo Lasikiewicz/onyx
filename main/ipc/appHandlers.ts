@@ -173,6 +173,8 @@ const fetchChangelogFromGithub = async (version?: string): Promise<string | null
     return null;
 };
 
+const escapeForPowerShellSingleQuoted = (value: string) => value.replace(/'/g, "''");
+
 export function registerAppIPCHandlers(
     winReference: { current: BrowserWindow | null },
     gameStore: GameStore,
@@ -325,6 +327,47 @@ export function registerAppIPCHandlers(
     ipcMain.handle('app:toggleDevTools', async () => {
         if (winReference.current) winReference.current.webContents.toggleDevTools();
         return { success: !!winReference.current };
+    });
+
+    ipcMain.handle('app:restartAsAdmin', async () => {
+        if (process.platform !== 'win32') {
+            return { success: false, error: 'Administrator relaunch is only supported on Windows.' };
+        }
+
+        try {
+            const executablePath = process.execPath;
+            const args = process.argv.slice(1);
+            const escapedExe = escapeForPowerShellSingleQuoted(executablePath);
+            const escapedArgs = args
+                .map((arg) => `'${escapeForPowerShellSingleQuoted(arg)}'`)
+                .join(', ');
+
+            const script = escapedArgs.length > 0
+                ? `Start-Process -FilePath '${escapedExe}' -ArgumentList @(${escapedArgs}) -Verb RunAs`
+                : `Start-Process -FilePath '${escapedExe}' -Verb RunAs`;
+
+            await new Promise<void>((resolve, reject) => {
+                execFile('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', script], (error) => {
+                    if (error) {
+                        reject(error);
+                        return;
+                    }
+                    resolve();
+                });
+            });
+
+            setTimeout(() => {
+                app.quit();
+            }, 100);
+
+            return { success: true };
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            if (message.toLowerCase().includes('canceled') || message.toLowerCase().includes('cancelled')) {
+                return { success: false, error: 'UAC prompt was cancelled.' };
+            }
+            return { success: false, error: `Failed to restart as administrator: ${message}` };
+        }
     });
 
     // Preferences Handlers

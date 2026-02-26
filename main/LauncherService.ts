@@ -166,7 +166,9 @@ export class LauncherService {
           game.lastPlayed = new Date().toISOString();
           await this.gameStore.saveGame(game);
 
-          return { success: true, pid: child.pid };
+          // Do not return explorer PID here: explorer exits quickly and is not the actual game process.
+          // Returning it causes renderer/background tracking to mark the game as stopped almost immediately.
+          return { success: true };
         }
 
         // Fallback to executable launch for PC installs
@@ -261,6 +263,12 @@ export class LauncherService {
       // Update lastPlayed timestamp
       game.lastPlayed = new Date().toISOString();
       await this.gameStore.saveGame(game);
+
+      // For Xbox launches, avoid returning transient launcher/bootstrap PIDs.
+      // ProcessSuspendService and discovery logic will track the real game process.
+      if (isXbox) {
+        return { success: true };
+      }
 
       // Return PID for process tracking (if available)
       return { success: true, pid: child.pid };

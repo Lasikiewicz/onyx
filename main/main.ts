@@ -206,6 +206,24 @@ refreshMetadataServices().catch(err => console.error('[App] Failed to load crede
 // Placeholder for late-initialized services
 let processSuspendService: ProcessSuspendService | null = null;
 
+async function initializeSuspendService(): Promise<void> {
+  if (process.platform !== 'win32') {
+    processSuspendService = null;
+    return;
+  }
+
+  if (!processSuspendService) {
+    const service = new ProcessSuspendService();
+    if (!service.isEnabled()) {
+      processSuspendService = null;
+      return;
+    }
+    processSuspendService = service;
+    processSuspendService.startProcessMonitoring(5000);
+    console.log('[Suspend] Process suspend service initialized');
+  }
+}
+
 // Hardware acceleration check
 userPreferencesService.getPreferences().then(prefs => {
   if (prefs.enableHardwareAcceleration === false) {
@@ -279,9 +297,9 @@ registerAppIPCHandlers(
     }
   }
 );
-registerLauncherIPCHandlers(launcherService, launcherDetectionService, trayService);
+registerLauncherIPCHandlers(launcherService, launcherDetectionService, trayService, gameStore, () => processSuspendService);
 const { performBackgroundScan, startBackgroundScan, stopBackgroundScan } = registerScanningHandlers({ get current() { return win; } }, gameStore, appConfigService, importService, metadataFetcher, imageCacheService);
-const { registerSuspendShortcut, unregisterSuspendShortcut } = registerSuspendHandlers(processSuspendService);
+const { unregisterSuspendShortcut, syncSuspendShortcutState } = registerSuspendHandlers(() => processSuspendService, userPreferencesService, gameStore);
 
 // Create application menu
 function createMenu() {
@@ -1719,17 +1737,8 @@ app.whenReady().then(async () => {
     createTray();
   }
 
-  // DISABLED: Suspend feature (Future Feature)
-  // Always register IPC handlers (they check if service is available)
-  // registerSuspendIPCHandlers();
-
-  // Initialize suspend service if enabled
-  // await initializeSuspendService();
-
-  // Register shortcut if service is enabled
-  // if (processSuspendService) {
-  //   await registerSuspendShortcut();
-  // }
+  await initializeSuspendService();
+  await syncSuspendShortcutState();
 
   createMenu();
 
@@ -1917,6 +1926,7 @@ app.whenReady().then(async () => {
 // Cleanup global shortcuts and background scan on app quit
 app.on('will-quit', () => {
   unregisterSuspendShortcut();
+  processSuspendService?.cleanup();
   stopBackgroundScan();
   gameStore.flushSync();
 });

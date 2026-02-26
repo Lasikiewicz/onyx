@@ -4,6 +4,12 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.5.0] - 2026-02-26
+
+- Suspend/Resume: Added dedicated Settings tab and improved launch tracking for launcher/protocol games.
+- About: Updated credit line to link Nyrna directly from the About section.
+- Release: Version bump to 0.5.0.
+
 ## [0.4.8] - 2026-02-26
 
 - Licensing: Switched project license from MIT to GPL-3.0-or-later.

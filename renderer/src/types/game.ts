@@ -128,6 +128,8 @@ export interface UserPreferences {
   updateLibrariesOnStartup?: boolean;
   checkForUpdatesOnStartup?: boolean;
   minimizeOnGameLaunch?: boolean;
+  enableSuspendFeature?: boolean;
+  suspendShortcut?: string;
   enableHardwareAcceleration?: boolean;
   closeToTray?: boolean;
   confirmGameLaunch?: boolean;
@@ -365,6 +367,7 @@ declare global {
       removeMissingGames: (gameIds: string[]) => Promise<{ success: boolean; removedCount: number; error?: string }>;
       getMissingGames: () => Promise<{ success: boolean; games: MissingGame[]; error?: string }>;
       openPath: (pathOrType: string) => Promise<{ success: boolean; error?: string }>;
+      restartAsAdmin?: () => Promise<{ success: boolean; error?: string }>;
       checkProcessExists: (pid: number) => Promise<boolean>;
       suspend: {
         getRunningGames: () => Promise<Array<{ gameId: string; title: string; pid: number; status: 'running' | 'suspended'; exePath?: string }>>;

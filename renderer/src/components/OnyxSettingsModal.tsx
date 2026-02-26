@@ -11,7 +11,7 @@ interface OnyxSettingsModalProps {
   onClose: () => void;
   onSave?: () => void;
   // Allow both old and new tab names for compatibility during migration
-  initialTab?: 'general' | 'apis' | 'apps' | 'reset' | 'about' | 'appearance' | 'integrations' | 'launchers' | 'library' | 'links' | 'advanced';
+  initialTab?: 'general' | 'apis' | 'apps' | 'reset' | 'about' | 'appearance' | 'integrations' | 'launchers' | 'library' | 'links' | 'advanced' | 'suspend';
   onShowImportModal?: (games: Array<any>, appType?: 'steam' | 'xbox' | 'other') => void;
 }
 
@@ -37,9 +37,11 @@ interface OnyxSettings {
   hideMouseCursorInFullscreen: boolean;
   cursorHideTimeout: number;
   linkDisplayMode: 'icons' | 'dropdown';
+  enableSuspendFeature: boolean;
+  suspendShortcut: string;
 }
 
-type TabType = 'general' | 'scanning' | 'library' | 'launchers' | 'integrations' | 'links' | 'appearance' | 'advanced' | 'about'; // Keep legacy types for state compatibility, but UI will hide them
+type TabType = 'general' | 'scanning' | 'library' | 'launchers' | 'integrations' | 'links' | 'appearance' | 'advanced' | 'suspend' | 'about'; // Keep legacy types for state compatibility, but UI will hide them
 
 interface AppConfig {
   id: string;
@@ -182,6 +184,8 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
     hideMouseCursorInFullscreen: true,
     cursorHideTimeout: 3000,
     linkDisplayMode: 'icons',
+    enableSuspendFeature: false,
+    suspendShortcut: 'Ctrl+Shift+S',
   });
   const [showLogoOverBoxart, setShowLogoOverBoxart] = useState(true);
   const [logoPosition, setLogoPosition] = useState<'top' | 'middle' | 'bottom' | 'underneath'>('middle');
@@ -195,6 +199,8 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
 
   const [linkVisibleTypes, setLinkVisibleTypes] = useState<Record<string, boolean>>(DEFAULT_VISIBLE_LINK_TYPES);
   const [linkDisplayOrder, setLinkDisplayOrder] = useState<string[]>(LINK_DISPLAY_ORDER);
+  const [isCapturingSuspendShortcut, setIsCapturingSuspendShortcut] = useState(false);
+  const [suspendShortcutCaptureError, setSuspendShortcutCaptureError] = useState<string | null>(null);
 
   // Load settings and version on mount
   useEffect(() => {
@@ -222,6 +228,8 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
             hideMouseCursorInFullscreen: prefs.hideMouseCursorInFullscreen ?? true,
             cursorHideTimeout: prefs.cursorHideTimeout ?? 3000,
             linkDisplayMode: prefs.linkDisplayMode ?? 'icons',
+            enableSuspendFeature: prefs.enableSuspendFeature ?? false,
+            suspendShortcut: prefs.suspendShortcut ?? 'Ctrl+Shift+S',
           });
           setShowLogoOverBoxart(prefs.showLogoOverBoxart ?? true);
           setLogoPosition(prefs.logoPosition ?? 'middle');
@@ -424,6 +432,71 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
     const newSettings = { ...settings, [key]: !settings[key] };
     setSettings(newSettings);
   };
+
+  const formatSuspendShortcutFromEvent = (event: KeyboardEvent): string | null => {
+    const disallowedKeys = ['Control', 'Shift', 'Alt', 'Meta'];
+    if (disallowedKeys.includes(event.key)) {
+      return null;
+    }
+
+    const modifiers: string[] = [];
+    if (event.ctrlKey) modifiers.push('Ctrl');
+    if (event.altKey) modifiers.push('Alt');
+    if (event.shiftKey) modifiers.push('Shift');
+    if (event.metaKey) modifiers.push('Super');
+
+    let key = event.key;
+    if (key.length === 1) {
+      key = key.toUpperCase();
+    } else {
+      const keyAliases: Record<string, string> = {
+        ' ': 'Space',
+        ArrowUp: 'Up',
+        ArrowDown: 'Down',
+        ArrowLeft: 'Left',
+        ArrowRight: 'Right',
+        Escape: 'Esc',
+      };
+      key = keyAliases[key] || key;
+    }
+
+    return [...modifiers, key].join('+');
+  };
+
+  useEffect(() => {
+    if (!isCapturingSuspendShortcut) {
+      return;
+    }
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      if (event.key === 'Escape') {
+        setIsCapturingSuspendShortcut(false);
+        setSuspendShortcutCaptureError(null);
+        return;
+      }
+
+      const shortcut = formatSuspendShortcutFromEvent(event);
+      if (!shortcut) {
+        setSuspendShortcutCaptureError('Press a non-modifier key with optional modifiers (Ctrl, Alt, Shift).');
+        return;
+      }
+
+      setSettings((prev) => ({
+        ...prev,
+        suspendShortcut: shortcut,
+      }));
+      setSuspendShortcutCaptureError(null);
+      setIsCapturingSuspendShortcut(false);
+    };
+
+    window.addEventListener('keydown', onKeyDown, true);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown, true);
+    };
+  }, [isCapturingSuspendShortcut]);
 
 
 
@@ -724,9 +797,21 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
         hideMouseCursorInFullscreen: settings.hideMouseCursorInFullscreen,
         cursorHideTimeout: settings.cursorHideTimeout,
         linkDisplayMode: settings.linkDisplayMode,
+        enableSuspendFeature: settings.enableSuspendFeature,
+        suspendShortcut: settings.suspendShortcut,
         visibleLinkTypes: linkVisibleTypes,
         linkDisplayOrder: linkDisplayOrder,
       });
+
+      const suspendShortcutResult = await window.electronAPI.suspend.setShortcut(settings.suspendShortcut);
+      if (!suspendShortcutResult.success) {
+        throw new Error(suspendShortcutResult.error || 'Failed to set suspend shortcut');
+      }
+
+      const suspendEnabledResult = await window.electronAPI.suspend.setFeatureEnabled(settings.enableSuspendFeature);
+      if (!suspendEnabledResult.success) {
+        throw new Error(suspendEnabledResult.error || 'Failed to apply suspend feature setting');
+      }
 
       // Save API credentials
       await window.electronAPI.saveAPICredentials({
@@ -854,6 +939,15 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
       icon: (
         <svg className="w-5 h-5 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+        </svg>
+      ),
+    },
+    {
+      id: 'suspend',
+      label: 'Suspend/Resume',
+      icon: (
+        <svg className="w-5 h-5 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 9v6m4-6v6M5 7h14a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2V9a2 2 0 012-2z" />
         </svg>
       ),
     },
@@ -1768,6 +1862,88 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
             )
           }
 
+          {activeTab === 'suspend' && (
+            <div className="space-y-6 p-6">
+              <SettingsSection
+                title="Suspend/Resume (Experimental)"
+                description="Windows-only process suspend controls adapted for Nyrna-style workflows. May require running Onyx as Administrator for some games."
+              >
+                <SettingsToggle
+                  label="Enable Suspend/Resume Feature"
+                  description="Allows pausing and resuming tracked running games from Onyx."
+                  checked={settings.enableSuspendFeature}
+                  onChange={(checked) => setSettings({ ...settings, enableSuspendFeature: checked })}
+                />
+                <SettingsInput
+                  label="Suspend Toggle Shortcut"
+                  description="Global shortcut used to toggle between suspend/resume for tracked games."
+                  value={settings.suspendShortcut}
+                  onChange={(value) => setSettings({ ...settings, suspendShortcut: value })}
+                  placeholder="Ctrl+Shift+S"
+                  disabled={true}
+                />
+
+                <div className={`bg-gray-800/40 border border-gray-700/50 rounded-lg p-3 ${!settings.enableSuspendFeature ? 'opacity-50 pointer-events-none' : ''}`}>
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-gray-200 text-sm font-medium">Shortcut Capture</p>
+                      <p className="text-gray-400 text-xs mt-0.5">
+                        {isCapturingSuspendShortcut
+                          ? 'Press your preferred key combination now (Esc to cancel).'
+                          : `Current: ${settings.suspendShortcut}`}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSuspendShortcutCaptureError(null);
+                        setIsCapturingSuspendShortcut(true);
+                      }}
+                      className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded transition-colors"
+                    >
+                      {isCapturingSuspendShortcut ? 'Listening…' : 'Set Shortcut'}
+                    </button>
+                  </div>
+                  {suspendShortcutCaptureError && (
+                    <p className="text-xs text-red-400 mt-2">{suspendShortcutCaptureError}</p>
+                  )}
+                </div>
+
+                <div className={`bg-gray-800/40 border border-gray-700/50 rounded-lg p-3 ${!settings.enableSuspendFeature ? 'opacity-50 pointer-events-none' : ''}`}>
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-gray-200 text-sm font-medium">Administrator Access</p>
+                      <p className="text-gray-400 text-xs mt-0.5">
+                        Some games require elevation for process suspend/resume to work.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          if (!window.electronAPI.restartAsAdmin) {
+                            alert('Restart-as-admin is not available in this build.');
+                            return;
+                          }
+
+                          const result = await window.electronAPI.restartAsAdmin();
+                          if (!result.success) {
+                            alert(result.error || 'Failed to restart as administrator.');
+                          }
+                        } catch (error) {
+                          alert(`Failed to restart as administrator: ${error instanceof Error ? error.message : 'Unknown error'}`);
+                        }
+                      }}
+                      className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs rounded transition-colors"
+                    >
+                      Restart as Administrator
+                    </button>
+                  </div>
+                </div>
+              </SettingsSection>
+            </div>
+          )}
+
           {/* DISABLED: Suspend feature (Future Feature) */}
 
 
@@ -1869,6 +2045,35 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                     </p>
                     <p className="text-xs text-slate-500">
                       Link icons by <a href="https://allsvgicons.com" target="_blank" rel="noopener noreferrer" className="text-slate-400 font-medium hover:text-sky-400 transition-colors">allsvgicons.com</a>
+                    </p>
+                  </div>
+
+                  <div className="pt-4 border-t border-slate-700/50 mt-4 space-y-2 text-xs text-slate-500">
+                    <p>
+                      Licensed under <span className="text-slate-300 font-medium">GNU GPL v3.0-or-later</span>. You can review the license text in this repository.
+                    </p>
+                    <p>
+                      Suspend/Resume integration thanks to{' '}
+                      <a
+                        href="https://nyrna.merritt.codes/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={async (event) => {
+                          event.preventDefault();
+                          try {
+                            if (window.electronAPI?.openExternal) {
+                              await window.electronAPI.openExternal('https://nyrna.merritt.codes/');
+                            } else {
+                              window.open('https://nyrna.merritt.codes/', '_blank', 'noopener,noreferrer');
+                            }
+                          } catch (error) {
+                            console.error('Failed to open Nyrna link:', error);
+                          }
+                        }}
+                        className="text-slate-300 font-medium hover:text-sky-400 transition-colors"
+                      >
+                        Nyrna
+                      </a>
                     </p>
                   </div>
                 </div>

@@ -2,16 +2,55 @@ import { ipcMain } from 'electron';
 import { LauncherService } from '../LauncherService.js';
 import { LauncherDetectionService } from '../LauncherDetectionService.js';
 import { TrayService } from '../ui/tray.js';
+import { GameStore } from '../GameStore.js';
+import { ProcessSuspendService } from '../ProcessSuspendService.js';
 
 export function registerLauncherIPCHandlers(
     launcherService: LauncherService,
     launcherDetectionService: LauncherDetectionService,
-    trayService: TrayService | null
+    trayService: TrayService | null,
+    gameStore: GameStore,
+    getProcessSuspendService: () => ProcessSuspendService | null,
 ) {
     ipcMain.handle('launcher:launchGame', async (_event, gameId: string) => {
         try {
             console.log(`[Launcher] Launching game: ${gameId}`);
+            const processSuspendService = getProcessSuspendService();
+            let baselinePids: number[] = [];
+
+            if (processSuspendService?.isEnabled()) {
+                try {
+                    const baselineProcesses = await processSuspendService.getAllProcesses();
+                    baselinePids = baselineProcesses.map((processInfo) => processInfo.pid);
+                } catch (error) {
+                    console.error('[Launcher] Failed to capture pre-launch process baseline:', error);
+                }
+            }
+
             const result = await launcherService.launchGame(gameId);
+
+            if (result.success) {
+                if (processSuspendService?.isEnabled()) {
+                    try {
+                        const library = await gameStore.getLibrary();
+                        const game = library.find((item) => item.id === gameId);
+                        if (game) {
+                            processSuspendService.startLaunchTrackingSession({
+                                gameId,
+                                title: game.title,
+                                exePath: game.exePath,
+                                installationDirectory: game.installationDirectory,
+                                platform: game.platform,
+                                source: game.source,
+                                knownPid: result.pid,
+                                baselinePids,
+                            });
+                        }
+                    } catch (error) {
+                        console.error('[Launcher] Failed to wire launched game into suspend tracking:', error);
+                    }
+                }
+            }
 
             // Update tray menu to refresh Recently Played list
             if (result.success && trayService) {
