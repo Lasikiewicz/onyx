@@ -224,8 +224,9 @@ export const MenuBar: React.FC<MenuBarProps> = ({
           setIsFilterDropdownOpen(false);
           setIsLauncherDropdownOpen(false);
         }}
-        className="px-3 py-1.5 bg-gray-700/20 hover:bg-gray-700/40 border border-gray-600/30 rounded text-sm text-gray-300 hover:text-white transition-colors"
+        className="px-3 py-1.5 bg-gray-700/20 hover:bg-gray-700/40 border border-gray-600/30 rounded text-sm text-gray-300 hover:text-white transition-colors focus-visible:ring-2 focus-visible:ring-blue-500 focus:outline-none"
         title="Sort by"
+        aria-label="Sort by options"
       >
         Sort by
       </button>
@@ -266,11 +267,12 @@ export const MenuBar: React.FC<MenuBarProps> = ({
             setIsFilterDropdownOpen(false);
             setIsSortDropdownOpen(false);
           }}
-          className={`px-3 py-1.5 bg-gray-700/20 hover:bg-gray-700/40 border border-gray-600/30 rounded text-sm transition-colors ${selectedLauncher
+          className={`px-3 py-1.5 bg-gray-700/20 hover:bg-gray-700/40 border border-gray-600/30 rounded text-sm transition-colors focus-visible:ring-2 focus-visible:ring-blue-500 focus:outline-none ${selectedLauncher
             ? 'bg-blue-600/30 text-blue-300 border-blue-500/30'
             : 'text-gray-300 hover:text-white'
             }`}
           title="Launcher"
+          aria-label="Filter by launcher"
         >
           {selectedLauncher
             ? (selectedLauncher === 'steam' ? 'Steam' :
@@ -351,13 +353,14 @@ export const MenuBar: React.FC<MenuBarProps> = ({
             setIsLauncherDropdownOpen(false);
             setCategorySearchQuery('');
           }}
-          className={`px-3 py-1.5 bg-gray-700/20 hover:bg-gray-700/40 border border-gray-600/30 rounded text-sm transition-all flex items-center gap-2 ${selectedCategory && selectedCategory !== 'favorites' && selectedCategory !== 'hidden'
+          className={`px-3 py-1.5 bg-gray-700/20 hover:bg-gray-700/40 border border-gray-600/30 rounded text-sm transition-all flex items-center gap-2 focus-visible:ring-2 focus-visible:ring-blue-500 focus:outline-none ${selectedCategory && selectedCategory !== 'favorites' && selectedCategory !== 'hidden'
             ? 'bg-blue-600/30 text-blue-300 border-blue-500/30'
             : 'text-gray-300 hover:text-white'
             }`}
           title="Categories"
+          aria-label="Filter by category"
         >
-          <svg className="w-4 h-4 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-4 h-4 group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 12h.01M7 17h.01M17 7h.01M17 12h.01M17 17h.01M12 7h.01M12 12h.01M12 17h.01" />
           </svg>
           <span className="max-w-[120px] truncate">
@@ -390,7 +393,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
                     placeholder="Search categories..."
                     className="w-full bg-black/40 border border-white/10 rounded-lg px-8 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-blue-500/50 transition-all"
                   />
-                  <svg className="w-3.5 h-3.5 text-gray-500 absolute left-2.5 top-1/2 transform -translate-y-1/2 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-3.5 h-3.5 text-gray-500 absolute left-2.5 top-1/2 transform -translate-y-1/2 group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
                 </div>
@@ -411,7 +414,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
                     }`}
                 >
                   <div className="flex items-center gap-3">
-                    <svg className="w-4 h-4 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-4 h-4 group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
                     </svg>
                     <span>All Games</span>
@@ -436,7 +439,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
                       }`}
                   >
                     <div className="flex items-center gap-3">
-                      <svg className="w-4 h-4 text-yellow-500 group- hover:animate-gentle-bounce group-hover:animate-gentle-bounce" fill="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-4 h-4 text-yellow-500 group-hover:animate-gentle-bounce" fill="currentColor" viewBox="0 0 24 24">
                         <path d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
                       </svg>
                       <span>Favorites</span>
@@ -489,7 +492,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
                               }`}
                             title={isPinned ? 'Unpin category' : 'Pin category'}
                           >
-                            <svg className="w-3.5 h-3.5 group- hover:animate-pin-shake group-hover:animate-pin-shake" fill={isPinned ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-3.5 h-3.5 group-hover:animate-pin-shake" fill={isPinned ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
                             </svg>
                           </button>
@@ -517,7 +520,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
                     className="w-full flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-white/5 text-xs text-gray-400 transition-colors"
                   >
                     <div className="flex items-center gap-2">
-                      <svg className="w-3.5 h-3.5 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-3.5 h-3.5 group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                       </svg>
@@ -534,7 +537,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
                     className="w-full flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-white/5 text-xs text-gray-400 transition-colors"
                   >
                     <div className="flex items-center gap-2">
-                      <svg className="w-3.5 h-3.5 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-3.5 h-3.5 group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
                       </svg>
                       <span>Hide Apps Titles</span>
@@ -558,7 +561,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
                   >
                     <div className="flex-1 flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <svg className="w-3.5 h-3.5 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-3.5 h-3.5 group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.736m0 0L21 21" />
                         </svg>
                         <span>{selectedCategory === 'hidden' ? 'Showing Hidden Games' : 'Show Hidden Games'}</span>
@@ -629,10 +632,11 @@ export const MenuBar: React.FC<MenuBarProps> = ({
                 console.error('Error toggling DevTools:', error);
               }
             }}
-            className="p-1.5 hover:bg-gray-700/40 rounded transition-colors flex items-center justify-center"
+            className="p-1.5 hover:bg-gray-700/40 rounded transition-colors flex items-center justify-center focus-visible:ring-2 focus-visible:ring-blue-500 focus:outline-none"
             title="Toggle Console"
+            aria-label="Toggle Console"
           >
-            <svg className="w-4 h-4 text-gray-300 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4 text-gray-300 group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
             </svg>
           </button>
@@ -643,10 +647,11 @@ export const MenuBar: React.FC<MenuBarProps> = ({
             onClick={() => {
               onBugReport();
             }}
-            className="p-1.5 hover:bg-gray-700/40 rounded transition-colors flex items-center justify-center"
+            className="p-1.5 hover:bg-gray-700/40 rounded transition-colors flex items-center justify-center focus-visible:ring-2 focus-visible:ring-blue-500 focus:outline-none"
             title="Report a Bug"
+            aria-label="Report a Bug"
           >
-            <svg className="w-4 h-4 text-yellow-400 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4 text-yellow-400 group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>
           </button>
@@ -677,8 +682,9 @@ export const MenuBar: React.FC<MenuBarProps> = ({
                 setIsFilterDropdownOpen(false);
                 setIsSortDropdownOpen(false);
               }}
-              className="group p-1.5 hover:bg-gray-700/40 rounded transition-colors flex items-center justify-center"
+              className="group p-1.5 hover:bg-gray-700/40 rounded transition-colors flex items-center justify-center focus-visible:ring-2 focus-visible:ring-blue-500 focus:outline-none"
               title="Onyx Settings"
+              aria-label="Onyx Settings"
             >
               <svg className="w-6 h-6 hover:animate-wobble group-hover:animate-wobble"
                 viewBox="0 0 512 512"
@@ -722,7 +728,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
                     }}
                     className="group w-full flex items-center gap-3 px-4 py-2.5 text-left text-gray-200 hover:bg-gray-700 rounded transition-colors whitespace-nowrap"
                   >
-                    <svg className="w-5 h-5 flex-shrink-0 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-5 h-5 flex-shrink-0 group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                     </svg>
                     <span className="flex-1">Game Importer</span>
@@ -737,7 +743,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
                     }}
                     className="group w-full flex items-center gap-3 px-4 py-2.5 text-left text-gray-200 hover:bg-gray-700 rounded transition-colors whitespace-nowrap"
                   >
-                    <svg className="w-5 h-5 flex-shrink-0 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-5 h-5 flex-shrink-0 group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
                     </svg>
                     <span className="flex-1">Game Manager</span>
@@ -785,7 +791,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
                   }}
                   className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-slate-300 hover:bg-rose-500/10 hover:text-rose-400 rounded transition-colors whitespace-nowrap"
                 >
-                  <svg className="w-5 h-5 text-rose-500 flex-shrink-0 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5 text-rose-500 flex-shrink-0 group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
                   </svg>
                   <span className="flex-1">Support Onyx</span>
@@ -808,7 +814,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
                   }}
                   className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-slate-300 hover:bg-blue-500/10 hover:text-blue-400 rounded transition-colors whitespace-nowrap"
                 >
-                  <svg className="w-5 h-5 text-blue-500 flex-shrink-0 group- hover:animate-wobble group-hover:animate-wobble" fill="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5 text-blue-500 flex-shrink-0 group-hover:animate-wobble" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                   </svg>
                   <span className="flex-1">Join Discord</span>
@@ -822,7 +828,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
                     }}
                     className="group w-full flex items-center gap-3 px-4 py-2.5 text-left text-gray-200 hover:bg-gray-700 rounded transition-colors whitespace-nowrap"
                   >
-                    <svg className="w-5 h-5 flex-shrink-0 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-5 h-5 flex-shrink-0 group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                     </svg>
                     <span className="flex-1">Quick tips</span>
@@ -837,7 +843,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
                     }}
                     className="group w-full flex items-center gap-3 px-4 py-2.5 text-left text-gray-200 hover:bg-gray-700 rounded transition-colors whitespace-nowrap"
                   >
-                    <svg className="w-5 h-5 flex-shrink-0 group- hover:animate-gear-spin group-hover:animate-gear-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-5 h-5 flex-shrink-0 group-hover:animate-gear-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                     <span className="flex-1">About</span>
@@ -852,7 +858,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
                     }}
                     className="group w-full flex items-center gap-3 px-4 py-2.5 text-left text-red-400 hover:bg-gray-700 rounded transition-colors whitespace-nowrap"
                   >
-                    <svg className="w-5 h-5 flex-shrink-0 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-5 h-5 flex-shrink-0 group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                     </svg>
                     <span className="flex-1">Exit</span>
@@ -879,7 +885,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
               }`}
             title="Favorites"
           >
-            <svg className="w-3 h-3 text-yellow-400 group- hover:animate-gentle-bounce group-hover:animate-gentle-bounce" fill="currentColor" viewBox="0 0 24 24">
+            <svg className="w-3 h-3 text-yellow-400 group-hover:animate-gentle-bounce" fill="currentColor" viewBox="0 0 24 24">
               <path d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363 1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
             </svg>
             <span>Favorites</span>
