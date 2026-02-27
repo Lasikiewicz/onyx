@@ -712,12 +712,12 @@ export class ImageCacheService {
    */
   async optimizeExistingCache(
     onProgress?: (data: { phase: string; current: number; total: number; fileName: string; status?: string; originalBytes?: number; optimizedBytes?: number }) => void,
-    options?: { webpOnly?: boolean }
+    options?: { webpOnly?: boolean; optimizationPerformance?: OptimizationPerformanceProfile }
   ): Promise<{ optimized: number; skipped: number; failed: number }> {
     const result = { optimized: 0, skipped: 0, failed: 0 };
     try {
       this.ensureInitialized();
-      const { readdirSync, unlinkSync } = require('node:fs');
+      const { readdirSync } = require('node:fs');
       const files = readdirSync(this.cacheDir) as string[];
       const extList = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.webm', '.ico', '.avif'];
       const typeSuffix = '(boxart|banner|alternativeBanner|logo|hero|icon|screenshot-\\d+)';
@@ -745,30 +745,65 @@ export class ImageCacheService {
 
       const total = toProcess.length;
       onProgress?.({ phase: 'scan', current: 0, total, fileName: '' });
-
-      for (let i = 0; i < toProcess.length; i++) {
-        const { file, gameId, imageType, sourceExt } = toProcess[i];
-        onProgress?.({ phase: 'optimize', current: i + 1, total, fileName: file, status: 'processing' });
-        const filePath = path.join(this.cacheDir, file);
-        try {
-          const rawData = await fsPromises.readFile(filePath);
-          const { data: optimizedData, ext: outExt } = await this.optimizeImage(rawData, imageType, sourceExt);
-          const outFilename = `${gameId}-${imageType}${outExt}`;
-          const outPath = path.join(this.cacheDir, outFilename);
-
-          if (outPath !== filePath) {
-            if (existsSync(outPath)) await fsPromises.unlink(outPath);
-            unlinkSync(filePath);
-          }
-          await fsPromises.writeFile(outPath, optimizedData);
-          result.optimized++;
-          onProgress?.({ phase: 'optimize', current: i + 1, total, fileName: file, status: 'ok', originalBytes: rawData.length, optimizedBytes: optimizedData.length });
-        } catch (err) {
-          console.warn(`[ImageCache] Optimize failed for ${file}:`, (err as Error).message);
-          result.failed++;
-          onProgress?.({ phase: 'optimize', current: i + 1, total, fileName: file, status: 'fail' });
-        }
+      if (total === 0) {
+        return result;
       }
+
+      const limits = PROFILE_LIMITS[options?.optimizationPerformance ?? 'balanced'] ?? PROFILE_LIMITS.balanced;
+      const cpuCount = cpus().length || 2;
+      const availableWorkers = Math.max(1, cpuCount - limits.reserveCores);
+      const maxConcurrent = Math.max(1, Math.min(limits.maxImageWorkers, availableWorkers));
+
+      const groups = Array.from(
+        toProcess.reduce((map, entry) => {
+          const key = `${entry.gameId}:${entry.imageType}`;
+          const bucket = map.get(key);
+          if (bucket) {
+            bucket.push(entry);
+          } else {
+            map.set(key, [entry]);
+          }
+          return map;
+        }, new Map<string, typeof toProcess>())
+      ).map(([, entries]) => entries);
+
+      let nextGroupIndex = 0;
+      let startedCount = 0;
+
+      const runWorker = async () => {
+        while (nextGroupIndex < groups.length) {
+          const group = groups[nextGroupIndex++];
+          for (const entry of group) {
+            const { file, gameId, imageType, sourceExt } = entry;
+            const current = ++startedCount;
+            onProgress?.({ phase: 'optimize', current, total, fileName: file, status: 'processing' });
+            const filePath = path.join(this.cacheDir, file);
+            try {
+              const rawData = await fsPromises.readFile(filePath);
+              const { data: optimizedData, ext: outExt } = await this.optimizeImage(rawData, imageType, sourceExt);
+              const outFilename = `${gameId}-${imageType}${outExt}`;
+              const outPath = path.join(this.cacheDir, outFilename);
+
+              if (outPath !== filePath) {
+                if (existsSync(outPath)) await fsPromises.unlink(outPath);
+                await fsPromises.unlink(filePath);
+              }
+              await fsPromises.writeFile(outPath, optimizedData);
+              result.optimized++;
+              onProgress?.({ phase: 'optimize', current, total, fileName: file, status: 'ok', originalBytes: rawData.length, optimizedBytes: optimizedData.length });
+            } catch (err) {
+              console.warn(`[ImageCache] Optimize failed for ${file}:`, (err as Error).message);
+              result.failed++;
+              onProgress?.({ phase: 'optimize', current, total, fileName: file, status: 'fail' });
+            }
+          }
+        }
+      };
+
+      const workerCount = Math.min(maxConcurrent, groups.length);
+      await Promise.all(
+        Array.from({ length: workerCount }, () => runWorker())
+      );
 
       if (result.optimized > 0 || result.failed > 0) {
         console.log(`[ImageCache] Optimize existing: ${result.optimized} optimized, ${result.skipped} skipped, ${result.failed} failed`);

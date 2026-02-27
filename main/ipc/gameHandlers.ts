@@ -293,6 +293,7 @@ export function registerGameIPCHandlers(
                     }))
                 );
             }
+            const optimizationPerformance = (await userPreferencesService?.getPreferences())?.optimizationPerformance;
             const result = await imageCacheService.optimizeExistingCache((data) => {
                 if (runId && optimizationController) {
                     const phase =
@@ -306,7 +307,10 @@ export function registerGameIPCHandlers(
                     });
                 }
                 event.sender.send('imageCache:optimizeProgress', data);
-            }, options);
+            }, {
+                ...options,
+                optimizationPerformance,
+            });
             if (runId && optimizationController) optimizationController.finishRun(runId);
             return { success: true, ...result };
         } catch (error) {

@@ -513,17 +513,17 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onScanGames, onAdd
                         </div>
                         <h2 className="text-3xl font-bold text-white">Overview</h2>
                     </div>
-                    <p className="text-sm text-gray-400 mb-6 leading-relaxed">
+                    <p className="text-sm text-gray-400 mb-4 leading-relaxed">
                         Here’s what will be used for your first scan. You can go back to change anything.
                     </p>
 
-                    <div className="space-y-6">
+                    <div className="space-y-4">
                         <div>
-                            <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">APIs added</h3>
+                            <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">APIs added</h3>
                             {overviewApis === null ? (
                                 <p className="text-gray-500 text-sm">Loading…</p>
                             ) : (
-                                <div className="grid grid-cols-4 gap-3">
+                                <div className="grid grid-cols-4 gap-2.5">
                                     {[
                                         { key: 'steamGridDB' as const, label: 'SteamGridDB' },
                                         { key: 'igdb' as const, label: 'IGDB (Twitch)' },
@@ -536,7 +536,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onScanGames, onAdd
                                         const tile = (
                                             <div
                                                 key={key}
-                                                className={`relative flex flex-col gap-2 p-3 rounded-xl border min-h-0 ${isAdded ? 'bg-gray-800/50 border-gray-700' : 'bg-gray-800/30 border-gray-700/70'}`}
+                                                className={`relative flex flex-col gap-1.5 p-2.5 rounded-xl border min-h-0 ${isAdded ? 'bg-gray-800/50 border-gray-700' : 'bg-gray-800/30 border-gray-700/70'}`}
                                             >
                                                 <div className="flex items-center justify-center gap-1.5">
                                                     {isAdded ? <span className="text-green-400 text-lg">✓</span> : <span className="text-gray-500 text-lg">○</span>}
@@ -555,64 +555,66 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onScanGames, onAdd
                                                         </button>
                                                     </div>
                                                 ) : key === 'steamGridDB' ? (
-                                                    <div className="mt-1 space-y-2">
+                                                    <div className="mt-1 flex items-end gap-1.5">
                                                         <input
                                                             type="password"
                                                             value={overviewKeyInputs.steamGridDB}
                                                             onChange={e => setOverviewKeyInputs(prev => ({ ...prev, steamGridDB: e.target.value }))}
                                                             placeholder="API key"
-                                                            className="w-full px-2 py-1.5 bg-gray-800 border border-gray-600 rounded-lg text-white text-xs placeholder-gray-500 focus:border-blue-500 outline-none"
+                                                            className="min-w-0 flex-1 px-2 py-1 bg-gray-800 border border-gray-600 rounded-lg text-white text-xs placeholder-gray-500 focus:border-blue-500 outline-none"
                                                         />
                                                         <button
                                                             type="button"
                                                             disabled={!overviewKeyInputs.steamGridDB.trim() || saving}
                                                             onClick={() => saveOverviewApiKey('steamGridDB')}
-                                                            className="w-full py-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 rounded-lg transition-all"
+                                                            className="shrink-0 px-2.5 py-1 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 rounded-lg transition-all"
                                                         >
-                                                            {saving ? 'Saving…' : 'Save'}
+                                                            {saving ? 'Saving…' : 'Save key'}
                                                         </button>
                                                     </div>
                                                 ) : key === 'igdb' ? (
-                                                    <div className="mt-1 space-y-2">
-                                                        <input
-                                                            type="text"
-                                                            value={overviewKeyInputs.igdbClientId}
-                                                            onChange={e => setOverviewKeyInputs(prev => ({ ...prev, igdbClientId: e.target.value }))}
-                                                            placeholder="Client ID"
-                                                            className="w-full px-2 py-1.5 bg-gray-800 border border-gray-600 rounded-lg text-white text-xs placeholder-gray-500 focus:border-blue-500 outline-none"
-                                                        />
-                                                        <input
-                                                            type="password"
-                                                            value={overviewKeyInputs.igdbClientSecret}
-                                                            onChange={e => setOverviewKeyInputs(prev => ({ ...prev, igdbClientSecret: e.target.value }))}
-                                                            placeholder="Client Secret"
-                                                            className="w-full px-2 py-1.5 bg-gray-800 border border-gray-600 rounded-lg text-white text-xs placeholder-gray-500 focus:border-blue-500 outline-none"
-                                                        />
+                                                    <div className="mt-1 grid grid-cols-[1fr_auto] items-end gap-1.5">
+                                                        <div className="space-y-1.5">
+                                                            <input
+                                                                type="text"
+                                                                value={overviewKeyInputs.igdbClientId}
+                                                                onChange={e => setOverviewKeyInputs(prev => ({ ...prev, igdbClientId: e.target.value }))}
+                                                                placeholder="Client ID"
+                                                                className="w-full px-2 py-1 bg-gray-800 border border-gray-600 rounded-lg text-white text-xs placeholder-gray-500 focus:border-blue-500 outline-none"
+                                                            />
+                                                            <input
+                                                                type="password"
+                                                                value={overviewKeyInputs.igdbClientSecret}
+                                                                onChange={e => setOverviewKeyInputs(prev => ({ ...prev, igdbClientSecret: e.target.value }))}
+                                                                placeholder="Client Secret"
+                                                                className="w-full px-2 py-1 bg-gray-800 border border-gray-600 rounded-lg text-white text-xs placeholder-gray-500 focus:border-blue-500 outline-none"
+                                                            />
+                                                        </div>
                                                         <button
                                                             type="button"
                                                             disabled={!overviewKeyInputs.igdbClientId.trim() || !overviewKeyInputs.igdbClientSecret.trim() || saving}
                                                             onClick={() => saveOverviewApiKey('igdb')}
-                                                            className="w-full py-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 rounded-lg transition-all"
+                                                            className="shrink-0 px-2.5 py-1 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 rounded-lg transition-all"
                                                         >
-                                                            {saving ? 'Saving…' : 'Save'}
+                                                            {saving ? 'Saving…' : 'Save key'}
                                                         </button>
                                                     </div>
                                                 ) : (
-                                                    <div className="mt-1 space-y-2">
+                                                    <div className="mt-1 flex items-end gap-1.5">
                                                         <input
                                                             type="password"
                                                             value={overviewKeyInputs.rawg}
                                                             onChange={e => setOverviewKeyInputs(prev => ({ ...prev, rawg: e.target.value }))}
                                                             placeholder="API key"
-                                                            className="w-full px-2 py-1.5 bg-gray-800 border border-gray-600 rounded-lg text-white text-xs placeholder-gray-500 focus:border-blue-500 outline-none"
+                                                            className="min-w-0 flex-1 px-2 py-1 bg-gray-800 border border-gray-600 rounded-lg text-white text-xs placeholder-gray-500 focus:border-blue-500 outline-none"
                                                         />
                                                         <button
                                                             type="button"
                                                             disabled={!overviewKeyInputs.rawg.trim() || saving}
                                                             onClick={() => saveOverviewApiKey('rawg')}
-                                                            className="w-full py-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 rounded-lg transition-all"
+                                                            className="shrink-0 px-2.5 py-1 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 rounded-lg transition-all"
                                                         >
-                                                            {saving ? 'Saving…' : 'Save'}
+                                                            {saving ? 'Saving…' : 'Save key'}
                                                         </button>
                                                     </div>
                                                 )}
@@ -635,18 +637,18 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onScanGames, onAdd
                         </div>
 
                         <div>
-                            <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Custom folders</h3>
+                            <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">Custom folders</h3>
                             {addedFolders.length === 0 ? (
                                 <p className="text-sm text-gray-500">No custom folders added.</p>
                             ) : (
-                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
                                     {addedFolders.map(({ path, categories }) => (
-                                        <div key={path} className="flex flex-col gap-2 p-4 bg-gray-800/50 border border-gray-700 rounded-xl">
-                                            <p className="text-sm text-gray-300 break-all" title={path}>{path}</p>
+                                        <div key={path} className="flex flex-col gap-1.5 p-2.5 bg-gray-800/50 border border-gray-700 rounded-xl">
+                                            <p className="text-xs text-gray-300 break-all" title={path}>{path}</p>
                                             {categories.length > 0 && (
-                                                <div className="flex flex-wrap gap-2">
+                                                <div className="flex flex-wrap gap-1.5">
                                                     {categories.map(cat => (
-                                                        <span key={cat} className="px-3 py-1.5 rounded-lg text-sm font-medium bg-blue-600/20 text-blue-300 border border-blue-500/30">
+                                                        <span key={cat} className="px-2 py-1 rounded-lg text-xs font-medium bg-blue-600/20 text-blue-300 border border-blue-500/30">
                                                             {cat}
                                                         </span>
                                                     ))}
@@ -659,9 +661,12 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onScanGames, onAdd
                         </div>
 
                         <div>
-                            <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Animation Preferences</h3>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <label className="flex items-center gap-3 p-4 bg-gray-800/50 hover:bg-gray-800 border border-gray-700 hover:border-blue-500/50 rounded-xl cursor-pointer transition-colors group select-none">
+                            <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">Animation Preferences</h3>
+                            <p className="text-xs text-amber-400 mb-2 leading-relaxed">
+                                Animated images can take longer to optimize. Optimization runs in the background and may continue for a while after your scan starts.
+                            </p>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <label className="flex items-center gap-3 p-3 bg-gray-800/50 hover:bg-gray-800 border border-gray-700 hover:border-blue-500/50 rounded-xl cursor-pointer transition-colors group select-none">
                                     <div className="relative flex items-center shrink-0">
                                         <input
                                             type="checkbox"
@@ -679,7 +684,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onScanGames, onAdd
                                     </div>
                                 </label>
 
-                                <label className="flex items-center gap-3 p-4 bg-gray-800/50 hover:bg-gray-800 border border-gray-700 hover:border-blue-500/50 rounded-xl cursor-pointer transition-colors group select-none">
+                                <label className="flex items-center gap-3 p-3 bg-gray-800/50 hover:bg-gray-800 border border-gray-700 hover:border-blue-500/50 rounded-xl cursor-pointer transition-colors group select-none">
                                     <div className="relative flex items-center shrink-0">
                                         <input
                                             type="checkbox"
@@ -700,11 +705,11 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onScanGames, onAdd
                         </div>
 
                         <div>
-                            <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Optimization Performance (Required)</h3>
-                            <p className="text-sm text-gray-500 mb-3 leading-relaxed">
+                            <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">Optimization Performance (Required)</h3>
+                            <p className="text-sm text-gray-500 mb-2 leading-relaxed">
                                 Choose how aggressive image optimization should be. Lower settings reduce CPU load and keep your PC more responsive while scanning.
                             </p>
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                                 {[
                                     {
                                         value: 'low' as const,
@@ -728,7 +733,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onScanGames, onAdd
                                             key={option.value}
                                             type="button"
                                             onClick={() => setOptimizationPerformance(option.value)}
-                                            className={`text-left p-4 rounded-xl border transition-all ${selected
+                                            className={`text-left p-3 rounded-xl border transition-all ${selected
                                                 ? 'bg-blue-600/20 border-blue-500/60 text-white'
                                                 : 'bg-gray-800/50 border-gray-700 text-gray-300 hover:border-blue-500/40'
                                                 }`}
@@ -745,8 +750,8 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onScanGames, onAdd
                         </div>
                     </div>
 
-                    <div className="mt-8 p-6 bg-gray-800/50 border border-gray-700 rounded-2xl">
-                        <div className="flex items-start gap-3 mb-4">
+                    <div className="mt-6 p-4 bg-gray-800/50 border border-gray-700 rounded-2xl">
+                        <div className="flex items-start gap-3 mb-3">
                             <div className="w-10 h-10 rounded-xl bg-green-500/20 flex items-center justify-center shrink-0">
                                 <svg className="w-5 h-5 text-green-400 animate-slow-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -755,12 +760,12 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onScanGames, onAdd
                             <div className="min-w-0 flex-1">
                                 <h3 className="text-lg font-semibold text-white">Ready to scan</h3>
                                 <p className="text-sm text-gray-400 mt-1 leading-relaxed">
-                                    Start scan will search all configured locations for your games, fetch metadata and artwork from your APIs, and build your library.
+                                    Start scan searches all configured locations, fetches metadata and artwork from your APIs, and builds your library. It then starts optimizing images (including animated images) in the background, which can take a while.
                                     <span className="block mt-1">It may take a few minutes or longer depending on how many games you have.</span>
                                 </p>
                             </div>
                         </div>
-                        <div className="flex gap-3 pt-4 border-t border-gray-700">
+                        <div className="flex gap-3 pt-3 border-t border-gray-700">
                             <button onClick={() => setSetupStep('otherFolders')} className="flex-1 px-6 py-2.5 bg-gray-700 hover:bg-gray-600 text-white font-semibold rounded-xl transition-all">Back</button>
                             <button
                                 onClick={handleOtherFoldersDone}
