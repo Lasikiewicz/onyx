@@ -4,6 +4,12 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.5.2] - 2026-02-26
+
+- Feature: Background image optimization queue for import and metadata refresh; optional "Optimize images in background" in Settings (Advanced).
+- UI: Navbar "Optimizing images (N%)" indicator on the right (click for details); detail modal shows current game and per-image progress.
+- Release: Version bump to 0.5.2.
+
 ## [0.5.1] - 2026-02-26
 
 - Settings: Added the Nyrna credit link at the bottom of Suspend/Resume (Experimental).
