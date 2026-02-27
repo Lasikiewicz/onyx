@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import iconPng from '../../../resources/icon.png';
 import iconSvg from '../../../resources/icon.svg';
 import { SettingsLayout } from './settings/SettingsLayout';
@@ -39,6 +39,7 @@ interface OnyxSettings {
   linkDisplayMode: 'icons' | 'dropdown';
   enableSuspendFeature: boolean;
   suspendShortcut: string;
+  optimizeImagesInBackground?: boolean;
 }
 
 type TabType = 'general' | 'scanning' | 'library' | 'launchers' | 'integrations' | 'links' | 'appearance' | 'advanced' | 'suspend' | 'about'; // Keep legacy types for state compatibility, but UI will hide them
@@ -186,6 +187,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
     linkDisplayMode: 'icons',
     enableSuspendFeature: false,
     suspendShortcut: 'Ctrl+Shift+S',
+    optimizeImagesInBackground: true,
   });
   const [showLogoOverBoxart, setShowLogoOverBoxart] = useState(true);
   const [logoPosition, setLogoPosition] = useState<'top' | 'middle' | 'bottom' | 'underneath'>('middle');
@@ -201,6 +203,30 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
   const [linkDisplayOrder, setLinkDisplayOrder] = useState<string[]>(LINK_DISPLAY_ORDER);
   const [isCapturingSuspendShortcut, setIsCapturingSuspendShortcut] = useState(false);
   const [suspendShortcutCaptureError, setSuspendShortcutCaptureError] = useState<string | null>(null);
+  const [imageCacheOptimizing, setImageCacheOptimizing] = useState(false);
+  const [imageCacheOptimizeResult, setImageCacheOptimizeResult] = useState<{ optimized: number; skipped: number; failed: number } | null>(null);
+  const [optimizeProgressLog, setOptimizeProgressLog] = useState<Array<{ phase: string; current: number; total: number; fileName: string; status?: string; originalBytes?: number; optimizedBytes?: number }>>([]);
+  const [folderPaths, setFolderPaths] = useState<{ cacheDir: string; appDataPath: string } | null>(null);
+  const [optimizeWebpOnly, setOptimizeWebpOnly] = useState(false);
+  const optimizeLogScrollRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll optimization log to show latest entry
+  useEffect(() => {
+    const el = optimizeLogScrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [optimizeProgressLog, imageCacheOptimizeResult]);
+
+  // Load folder paths when Advanced tab is shown
+  useEffect(() => {
+    if (!isOpen || activeTab !== 'advanced') return;
+    let cancelled = false;
+    window.electronAPI.getFolderPaths?.().then((paths) => {
+      if (!cancelled) setFolderPaths(paths);
+    }).catch(() => {
+      if (!cancelled) setFolderPaths(null);
+    });
+    return () => { cancelled = true; };
+  }, [isOpen, activeTab]);
 
   // Load settings and version on mount
   useEffect(() => {
@@ -230,6 +256,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
             linkDisplayMode: prefs.linkDisplayMode ?? 'icons',
             enableSuspendFeature: prefs.enableSuspendFeature ?? false,
             suspendShortcut: prefs.suspendShortcut ?? 'Ctrl+Shift+S',
+            optimizeImagesInBackground: prefs.optimizeImagesInBackground !== false,
           });
           setShowLogoOverBoxart(prefs.showLogoOverBoxart ?? true);
           setLogoPosition(prefs.logoPosition ?? 'middle');
@@ -341,8 +368,6 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
       else setActiveTab(initialTab as TabType);
     }
   }, [isOpen, initialTab]);
-
-
 
   // Load app configs and manual folders on mount
   useEffect(() => {
@@ -799,6 +824,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
         linkDisplayMode: settings.linkDisplayMode,
         enableSuspendFeature: settings.enableSuspendFeature,
         suspendShortcut: settings.suspendShortcut,
+        optimizeImagesInBackground: settings.optimizeImagesInBackground,
         visibleLinkTypes: linkVisibleTypes,
         linkDisplayOrder: linkDisplayOrder,
       });
@@ -1674,39 +1700,140 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                 {/* System Folders */}
                 <div className="space-y-4">
                   <h4 className="text-base font-medium text-white">System Folders</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  <div className="grid grid-cols-1 gap-3">
                     {/* Image Cache Folder */}
-                    <div className="flex items-center justify-between p-3 bg-gray-700/30 rounded-lg border border-gray-600 hover:bg-gray-700/50 transition-colors">
-                      <div className="flex-1 min-w-0 pr-3">
-                        <h4 className="text-xs font-medium text-white mb-0.5">Image Cache</h4>
-                        <p className="text-xs text-gray-500 font-mono truncate">Cache Directory</p>
-                      </div>
-                      <button
-                        onClick={async () => {
-                          try {
-                            if (window.electronAPI.openPath) {
-                              await window.electronAPI.openPath('cache');
-                            } else {
-                              alert('Open folder functionality not available');
+                    <div className="p-3 bg-gray-700/30 rounded-lg border border-gray-600 hover:bg-gray-700/50 transition-colors space-y-3 w-full">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <h4 className="text-xs font-medium text-white mb-0.5">Image Cache</h4>
+                          <p className="text-xs text-gray-500 font-mono truncate" title={folderPaths?.cacheDir ?? ''}>
+                            {folderPaths?.cacheDir ?? '…'}
+                          </p>
+                        </div>
+                        <button
+                          onClick={async () => {
+                            try {
+                              if (window.electronAPI.openPath) {
+                                await window.electronAPI.openPath('cache');
+                              } else {
+                                alert('Open folder functionality not available');
+                              }
+                            } catch (err) {
+                              console.error('Error opening folder:', err);
                             }
-                          } catch (err) {
-                            console.error('Error opening folder:', err);
-                          }
-                        }}
-                        className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded transition-colors flex items-center gap-1.5 flex-shrink-0"
-                      >
-                        <svg className="w-3.5 h-3.5 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                        </svg>
-                        Open
-                      </button>
+                          }}
+                          className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded transition-colors flex items-center gap-1.5 flex-shrink-0"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                          </svg>
+                          Open
+                        </button>
+                      </div>
+                      <div className="flex flex-col gap-2">
+                        <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={optimizeWebpOnly}
+                            onChange={(e) => setOptimizeWebpOnly(e.target.checked)}
+                            disabled={imageCacheOptimizing}
+                            className="rounded border-gray-500 bg-gray-700 text-amber-500 focus:ring-amber-500"
+                          />
+                          Optimize WebP only
+                        </label>
+                        <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={settings.optimizeImagesInBackground !== false}
+                            onChange={(e) => setSettings((prev) => ({ ...prev, optimizeImagesInBackground: e.target.checked }))}
+                            className="rounded border-gray-500 bg-gray-700 text-blue-500 focus:ring-blue-500"
+                          />
+                          Optimize images in background (import and refresh)
+                        </label>
+                        <div className="flex items-center gap-2 flex-wrap">
+                        <button
+                          onClick={async () => {
+                            if (!window.electronAPI.optimizeImageCache || imageCacheOptimizing) return;
+                            setImageCacheOptimizeResult(null);
+                            setOptimizeProgressLog([]);
+                            setImageCacheOptimizing(true);
+                            const unsub = window.electronAPI.onOptimizeProgress?.((data) => {
+                              setOptimizeProgressLog((prev) => [...prev, data]);
+                            });
+                            try {
+                              const res = await window.electronAPI.optimizeImageCache(optimizeWebpOnly ? { webpOnly: true } : undefined);
+                              if (res.success && res.optimized !== undefined) {
+                                setImageCacheOptimizeResult({ optimized: res.optimized, skipped: res.skipped ?? 0, failed: res.failed ?? 0 });
+                              } else {
+                                setImageCacheOptimizeResult({ optimized: 0, skipped: 0, failed: 0 });
+                              }
+                            } catch {
+                              setImageCacheOptimizeResult({ optimized: 0, skipped: 0, failed: 0 });
+                            } finally {
+                              setImageCacheOptimizing(false);
+                              unsub?.();
+                            }
+                          }}
+                          disabled={imageCacheOptimizing}
+                          className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white text-xs rounded transition-colors flex items-center gap-1.5"
+                        >
+                          {imageCacheOptimizing ? (
+                            <>Optimizing…</>
+                          ) : (
+                            <>Optimize existing cache</>
+                          )}
+                        </button>
+                        {imageCacheOptimizeResult && (
+                          <span className="text-xs text-gray-400">
+                            {imageCacheOptimizeResult.optimized} optimized, {imageCacheOptimizeResult.skipped} skipped, {imageCacheOptimizeResult.failed} failed
+                          </span>
+                        )}
+                        </div>
+                      </div>
+                      {(optimizeProgressLog.length > 0 || imageCacheOptimizing) && (
+                        <div ref={optimizeLogScrollRef} className="mt-2 p-3 bg-gray-800/60 rounded border border-gray-600 font-mono text-xs text-gray-300 min-h-48 max-h-80 overflow-y-auto">
+                          {imageCacheOptimizing && optimizeProgressLog.length === 0 && (
+                            <div>Starting…</div>
+                          )}
+                          {optimizeProgressLog[0]?.phase === 'scan' && optimizeProgressLog[0].total > 0 && (
+                            <div>Scanning… {optimizeProgressLog[0].total} file(s) to process.</div>
+                          )}
+                          {optimizeProgressLog
+                            .filter((e) => e.phase === 'optimize' && e.fileName)
+                            .map((e, i) => {
+                              const fmt = (n: number) => n >= 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(1)} MB` : `${(n / 1024).toFixed(0)} KB`;
+                              const sizeStr = e.originalBytes != null
+                                ? e.optimizedBytes != null
+                                  ? `${fmt(e.originalBytes)} → ${fmt(e.optimizedBytes)}`
+                                  : `${fmt(e.originalBytes)} (failed)`
+                                : '';
+                              return (
+                                <div key={i} className="flex items-baseline gap-2 min-w-0">
+                                  <span className="shrink-0">[{e.current}/{e.total}]</span>
+                                  <span className="truncate">{e.fileName}</span>
+                                  {sizeStr && <span className="text-gray-500 shrink-0">{sizeStr}</span>}
+                                  {e.status === 'processing' && <span className="text-amber-400 shrink-0">processing…</span>}
+                                  {e.status === 'ok' && <span className="text-green-400 shrink-0">✓</span>}
+                                  {e.status === 'fail' && <span className="text-red-400 shrink-0">failed</span>}
+                                </div>
+                              );
+                            })}
+                          {imageCacheOptimizeResult && (
+                            <div className="text-gray-400 mt-1 border-t border-gray-600 pt-1">
+                              Done. {imageCacheOptimizeResult.optimized} optimized, {imageCacheOptimizeResult.skipped} skipped, {imageCacheOptimizeResult.failed} failed.
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
 
                     {/* App Data Folder */}
-                    <div className="flex items-center justify-between p-3 bg-gray-700/30 rounded-lg border border-gray-600 hover:bg-gray-700/50 transition-colors">
-                      <div className="flex-1 min-w-0 pr-3">
+                    <div className="flex items-center justify-between p-3 bg-gray-700/30 rounded-lg border border-gray-600 hover:bg-gray-700/50 transition-colors w-full gap-2">
+                      <div className="flex-1 min-w-0">
                         <h4 className="text-xs font-medium text-white mb-0.5">Application Data</h4>
-                        <p className="text-xs text-gray-500 font-mono truncate">Config Directory</p>
+                        <p className="text-xs text-gray-500 font-mono truncate" title={folderPaths?.appDataPath ?? ''}>
+                          {folderPaths?.appDataPath ?? '…'}
+                        </p>
                       </div>
                       <button
                         onClick={async () => {

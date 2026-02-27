@@ -5,15 +5,19 @@ import { GameStore, Game } from '../GameStore.js';
 import { UserPreferencesService } from '../UserPreferencesService.js';
 import { withTimeout } from '../RetryUtils.js';
 import { ScannedGameResult } from '../ImportService.js';
+import type { ImageQueueItem } from '../ImageOptimizationQueue.js';
 
 let activeImageSearchRequestId: number | undefined;
+
+export type ImageQueue = { add: (gameId: string, gameTitle: string, urls: ImageQueueItem['urls']) => void };
 
 export function registerMetadataIPCHandlers(
     metadataFetcher: MetadataFetcherService,
     imageCacheService: ImageCacheService,
     gameStore: GameStore,
     userPreferencesService: UserPreferencesService,
-    winReference?: { readonly current: BrowserWindow | null }
+    winReference?: { readonly current: BrowserWindow | null },
+    imageQueue?: ImageQueue
 ) {
     // Validation Handlers
     ipcMain.handle('metadata:validateProviders', async () => {
@@ -134,9 +138,17 @@ export function registerMetadataIPCHandlers(
     });
 
     ipcMain.handle('metadata:refreshAll', async (_event, options?: { allGames?: boolean, gameIds?: string[], continueFromIndex?: number, linksOnly?: boolean }) => {
-        const sendProgress = (current: number, total: number, message: string, gameTitle?: string, links?: Array<{ name: string, url: string }>, images?: string[]) => {
+        const sendProgress = (
+            current: number,
+            total: number,
+            message: string,
+            gameTitle?: string,
+            links?: Array<{ name: string, url: string }>,
+            images?: string[],
+            imageProgress?: { index: number; total: number; imageType: string; phase: string }
+        ) => {
             if (winReference?.current && !winReference.current.isDestroyed()) {
-                winReference.current.webContents.send('metadata:refreshProgress', { current, total, message, gameTitle, links, images });
+                winReference.current.webContents.send('metadata:refreshProgress', { current, total, message, gameTitle, links, images, imageProgress });
             }
         };
 
@@ -144,6 +156,7 @@ export function registerMetadataIPCHandlers(
             const games = await gameStore.getLibrary();
             const prefs = await userPreferencesService.getPreferences();
             const shouldCacheLocally = prefs.storeMetadataLocally !== false;
+            const optimizeInBackground = (prefs.optimizeImagesInBackground !== false) && imageQueue;
 
             // Helper to check if an image URL is missing or invalid
             const isMissingImage = (url: string | undefined): boolean => {
@@ -262,16 +275,19 @@ export function registerMetadataIPCHandlers(
                     let updatedIcon = needsIcon && metadata.iconUrl ? metadata.iconUrl : game.iconUrl;
                     let updatedHero = metadata.heroUrl || game.heroUrl;
 
-                    // Cache images locally if preference is enabled
-                    if (shouldCacheLocally) {
+                    // Cache images locally if preference is enabled (download + optimize)
+                    if (shouldCacheLocally && !optimizeInBackground) {
                         try {
+                            sendProgress(current, total, `Caching and optimizing images...`, game.title);
                             const cachedImages = await imageCacheService.cacheImages({
                                 boxArtUrl: updatedBoxArt,
                                 bannerUrl: updatedBanner,
                                 logoUrl: updatedLogo,
                                 heroUrl: updatedHero,
                                 iconUrl: updatedIcon
-                            }, game.id);
+                            }, game.id, (img) => {
+                                sendProgress(current, total, `Caching and optimizing images...`, game.title, undefined, undefined, img);
+                            });
 
                             if (cachedImages.boxArtUrl) updatedBoxArt = cachedImages.boxArtUrl;
                             if (cachedImages.bannerUrl) updatedBanner = cachedImages.bannerUrl;
@@ -281,9 +297,18 @@ export function registerMetadataIPCHandlers(
                         } catch (cacheError) {
                             console.warn(`[MetadataRefresh] [${current}/${total}] ${game.title}: Cache failed:`, cacheError);
                         }
+                    } else if (shouldCacheLocally && optimizeInBackground) {
+                        // Save with remote URLs; queue will cache and update game in background
+                        imageQueue!.add(game.id, game.title, {
+                            boxArtUrl: updatedBoxArt,
+                            bannerUrl: updatedBanner,
+                            logoUrl: updatedLogo,
+                            heroUrl: updatedHero,
+                            iconUrl: updatedIcon
+                        });
                     }
 
-                    // Update game in store
+                    // Update game in store (remote URLs when background optimize; cached URLs otherwise)
                     const updatedGame: Game = {
                         ...game,
                         boxArtUrl: updatedBoxArt || game.boxArtUrl,

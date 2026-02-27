@@ -141,13 +141,38 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
 
   // Track game changes for transitions
   const [currentGameId, setCurrentGameId] = useState<string | null>(game?.id || null);
+  // Track image ready state for preloading
+  // Track image loaded state for animation deferral
+  const [imageLoaded, setImageLoaded] = useState<Record<string, boolean>>({});
+  
   // Detect game changes
   useEffect(() => {
     if (game?.id !== currentGameId) {
       setCurrentGameId(game?.id || null);
+      // Reset image loaded state when game changes
+      setImageLoaded({});
     }
   }, [game?.id, currentGameId]);
 
+  // Preload current game images so they are decoded before <img> mounts (faster first paint)
+  useEffect(() => {
+    if (!game) return;
+    const bgUrl = game.heroUrl || game.bannerUrl || game.boxArtUrl || '';
+    const urls = [bgUrl, game.logoUrl, game.boxArtUrl].filter(Boolean) as string[];
+    const images: HTMLImageElement[] = [];
+    const animatedRe = /\.(gif|webp|apng)(\?|$)/i;
+    for (const url of urls) {
+      const img = new Image();
+      images.push(img);
+      img.src = url;
+      if (!animatedRe.test(url) && img.decode) {
+        img.decode().catch(() => {});
+      }
+    }
+    return () => {
+      for (const img of images) img.src = '';
+    };
+  }, [game?.id, game?.heroUrl, game?.bannerUrl, game?.boxArtUrl, game?.logoUrl]);
 
   // Load preferences on mount
   useEffect(() => {
@@ -356,6 +381,10 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
   // Banner at top of panel always uses primary artwork (hero/banner/boxArt).
   // Alternative Background toggle only affects the full-page backdrop in App.tsx.
   const backgroundImageUrl = game.heroUrl || game.bannerUrl || game.boxArtUrl || '';
+  
+  // Helper function to detect animated images
+  const isAnimatedImage = (url: string) => /\.(gif|webp|apng)(\?|$)/i.test(url);
+  
   const formatDate = (dateString?: string) => {
     if (!dateString) return '';
     try {
@@ -402,8 +431,17 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
               key={backgroundImageUrl}
               src={backgroundImageUrl}
               alt={game.title}
-              className="w-full h-full object-cover cursor-pointer game-image-transition"
-              style={{ height: `${fanartHeight}px` }}
+              className={`w-full h-full object-cover cursor-pointer ${imageLoaded[`bg-${game.id}`] ? (isAnimatedImage(backgroundImageUrl) ? 'game-image-transition-fast' : 'game-image-transition') : ''}`}
+              style={{ 
+                height: `${fanartHeight}px`,
+                ...(isAnimatedImage(backgroundImageUrl) ? {
+                  willChange: 'transform',
+                  contain: 'layout style paint',
+                } : {})
+              }}
+              onLoad={() => {
+                setImageLoaded(prev => ({ ...prev, [`bg-${game.id}`]: true }));
+              }}
               onError={(e) => {
                 const target = e.target as HTMLImageElement;
                 // Prevent infinite retry loop
@@ -414,7 +452,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
               }}
             />
             {/* Blurred background for logo area - Disabled if animated to prevent glitches */}
-            {game.logoUrl && !/\.(gif|webp)(\?|$)/i.test(backgroundImageUrl) && (
+            {game.logoUrl && !/\.(gif|webp|apng)(\?|$)/i.test(backgroundImageUrl) && (
               <div
                 className={`absolute bottom-0 z-10 ${rightPanelBoxartPosition === 'left' ? 'right-6' :
                   rightPanelBoxartPosition === 'right' ? 'left-6' :
@@ -470,16 +508,22 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
                 key={game.logoUrl}
                 src={game.logoUrl}
                 alt={game.title}
-                className="max-w-full max-h-full object-contain cursor-pointer drop-shadow-2xl game-logo-transition"
+                className={`max-w-full max-h-full object-contain cursor-pointer drop-shadow-2xl ${imageLoaded[`logo-${game.id}`] ? (isAnimatedImage(game.logoUrl) ? 'game-logo-transition-fast' : 'game-logo-transition') : ''}`}
                 style={{
                   maxHeight: `${localLogoSize !== undefined ? localLogoSize : (game.logoSizePerViewMode?.[viewMode] || game.logoSizePerViewMode?.carousel || rightPanelLogoSize)}px`,
                   display: 'block',
                   contain: 'layout style paint',
+                  ...(isAnimatedImage(game.logoUrl) ? {
+                    willChange: 'transform',
+                  } : {}),
                   ...(game.removeLogoTransparency ? {
                     backgroundColor: 'rgba(0, 0, 0, 0.5)',
                     padding: '8px',
                     borderRadius: '4px'
                   } : {})
+                }}
+                onLoad={() => {
+                  setImageLoaded(prev => ({ ...prev, [`logo-${game.id}`]: true }));
                 }}
                 onError={(e) => {
                   const target = e.target as HTMLImageElement;
@@ -518,8 +562,17 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
                 key={game.boxArtUrl}
                 src={game.boxArtUrl}
                 alt={game.title}
-                className="aspect-[2/3] object-cover rounded border border-gray-600 shadow-lg cursor-pointer game-image-transition"
-                style={{ width: `${rightPanelBoxartSize}px` }}
+                className={`aspect-[2/3] object-cover rounded border border-gray-600 shadow-lg cursor-pointer ${imageLoaded[`boxart-${game.id}`] ? (isAnimatedImage(game.boxArtUrl) ? 'game-image-transition-fast' : 'game-image-transition') : ''}`}
+                style={{ 
+                  width: `${rightPanelBoxartSize}px`,
+                  ...(isAnimatedImage(game.boxArtUrl) ? {
+                    willChange: 'transform',
+                    contain: 'layout style paint',
+                  } : {})
+                }}
+                onLoad={() => {
+                  setImageLoaded(prev => ({ ...prev, [`boxart-${game.id}`]: true }));
+                }}
                 onError={(e) => {
                   const target = e.target as HTMLImageElement;
                   // Prevent infinite retry loop

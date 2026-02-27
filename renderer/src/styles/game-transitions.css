@@ -122,6 +122,15 @@
   animation: fadeInScale 500ms ease-out;
 }
 
+/* Fast image transitions for animated images (GIF, WebP, APNG) */
+.game-image-transition-fast {
+  animation: fadeIn 200ms ease-out;
+}
+
+.game-logo-transition-fast {
+  animation: fadeInScale 250ms ease-out;
+}
+
 /* Game card transitions */
 .game-card-transition {
   transition: all 250ms ease-out;

@@ -4,8 +4,9 @@ import path from 'node:path';
 export default defineConfig({
     test: {
         globals: true,
-        environment: 'node',
-        include: ['main/**/*.{test,spec}.ts'],
+        environment: 'jsdom',
+        include: ['main/**/*.{test,spec}.ts', 'renderer/**/*.{test,spec}.tsx'],
+        setupFiles: ['./vitest.setup.ts'],
     },
     resolve: {
         alias: {

@@ -79,7 +79,12 @@ export const GameManager: React.FC<GameManagerProps> = ({
   const [showRefreshDialog, setShowRefreshDialog] = useState(false);
   const [showRefreshConfirm, setShowRefreshConfirm] = useState(false);
   const [refreshMode, setRefreshMode] = useState<'all' | 'missing' | 'links' | null>(null);
-  const [refreshProgress, setRefreshProgress] = useState<{ current: number; total: number; message: string; gameTitle?: string; links?: Array<{ name: string; url: string }>; images?: string[]; mode?: 'all' | 'missing' | 'links' } | null>(null);
+  const [refreshProgress, setRefreshProgress] = useState<{
+    current: number; total: number; message: string; gameTitle?: string;
+    links?: Array<{ name: string; url: string }>; images?: string[];
+    imageProgress?: { index: number; total: number; imageType: string; phase: string };
+    mode?: 'all' | 'missing' | 'links';
+  } | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; type: 'boxart' | 'banner' | 'alternativeBanner' | 'logo' | 'icon' } | null>(null);
   const [showMatchFix, setShowMatchFix] = useState(false);
   const [showRemoveDeletedDialog, setShowRemoveDeletedDialog] = useState(false);
@@ -318,12 +323,17 @@ export const GameManager: React.FC<GameManagerProps> = ({
 
   // Listen for refresh progress updates
   useEffect(() => {
-    const handleProgress = (_event: any, progress: { current: number; total: number; message: string; gameTitle?: string; links?: any[]; images?: string[] }) => {
+    const handleProgress = (_event: any, progress: {
+      current: number; total: number; message: string; gameTitle?: string;
+      links?: any[]; images?: string[];
+      imageProgress?: { index: number; total: number; imageType: string; phase: string };
+    }) => {
       setRefreshProgress(prev => ({
         ...progress,
         mode: prev?.mode || (progress.message?.toLowerCase().includes('links') ? 'links' : 'all'),
         links: progress.links,
-        images: progress.images
+        images: progress.images,
+        imageProgress: progress.imageProgress
       }));
     };
 
@@ -3648,6 +3658,24 @@ export const GameManager: React.FC<GameManagerProps> = ({
               <div className="text-sm text-gray-400 min-h-[20px] mb-2">
                 {refreshProgress.message}
               </div>
+
+              {/* Per-image progress when caching/optimizing */}
+              {refreshProgress.imageProgress && refreshProgress.imageProgress.total > 0 && (
+                <div className="mb-3 space-y-1.5">
+                  <div className="flex justify-between text-xs text-gray-500">
+                    <span>Image {refreshProgress.imageProgress.index} of {refreshProgress.imageProgress.total}: {refreshProgress.imageProgress.imageType}</span>
+                    <span className="capitalize">{refreshProgress.imageProgress.phase === 'done' ? 'Done' : refreshProgress.imageProgress.phase}…</span>
+                  </div>
+                  <div className="w-full bg-gray-700 rounded-full h-2 overflow-hidden">
+                    <div
+                      className="bg-blue-500 h-full transition-all duration-200 ease-out rounded-full"
+                      style={{
+                        width: `${((refreshProgress.imageProgress.phase === 'done' ? refreshProgress.imageProgress.index : refreshProgress.imageProgress.index - 1) / refreshProgress.imageProgress.total) * 100}%`
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
 
               {/* Current Game Details */}
               <div className="bg-gray-900/50 rounded-lg p-3 border border-gray-700/50">

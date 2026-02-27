@@ -149,6 +149,8 @@ export const MenuBar: React.FC<MenuBarProps> = ({
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [topBarContextMenu, setTopBarContextMenu] = useState<{ x: number; y: number } | null>(null);
   const [categorySearchQuery, setCategorySearchQuery] = useState('');
+  const [imageQueueStatus, setImageQueueStatus] = useState<{ queued: number; completed: number; currentGameTitle?: string; imageIndex?: number; imageTotal?: number; imageType?: string; phase?: string } | null>(null);
+  const [showImageQueueDetail, setShowImageQueueDetail] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -201,6 +203,13 @@ export const MenuBar: React.FC<MenuBarProps> = ({
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
+  }, []);
+
+  // Image optimization queue status (background import/refresh)
+  useEffect(() => {
+    window.electronAPI.getImageQueueStatus?.().then((s) => setImageQueueStatus(s)).catch(() => {});
+    const unsub = window.electronAPI.onImageQueueStatus?.(setImageQueueStatus);
+    return () => { unsub?.(); };
   }, []);
 
   // Create element renderers for configurable items
@@ -929,8 +938,8 @@ export const MenuBar: React.FC<MenuBarProps> = ({
         </div>
       )}
 
-      {/* Right section - with spacing to avoid window controls */}
-      {elementsByPosition.right.length > 0 && (
+      {/* Right section - optimizing indicator + positioned elements; mr-32 keeps clear of window controls */}
+      {(elementsByPosition.right.length > 0 || (imageQueueStatus && (imageQueueStatus.queued > 0 || imageQueueStatus.currentGameTitle))) && (
         <div
           className="flex items-center gap-2 mr-32"
           style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
@@ -941,6 +950,31 @@ export const MenuBar: React.FC<MenuBarProps> = ({
           }}
         >
           {elementsByPosition.right}
+          {/* Optimizing images indicator (click for details) */}
+          {imageQueueStatus && (imageQueueStatus.queued > 0 || imageQueueStatus.currentGameTitle) && (
+            <button
+              type="button"
+              onClick={() => setShowImageQueueDetail(true)}
+              className="flex items-center gap-2 px-2.5 py-1 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 text-xs hover:bg-amber-500/30 transition-colors"
+              title="Click for details"
+            >
+              <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              <span>
+                Optimizing images
+                {(() => {
+                  const total = imageQueueStatus.completed + (imageQueueStatus.currentGameTitle ? 1 : 0) + imageQueueStatus.queued;
+                  const currentFraction = imageQueueStatus.currentGameTitle && (imageQueueStatus.imageTotal ?? 0) > 0
+                    ? (imageQueueStatus.imageIndex ?? 0) / imageQueueStatus.imageTotal!
+                    : 0;
+                  const done = imageQueueStatus.completed + (imageQueueStatus.currentGameTitle ? currentFraction : 0);
+                  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+                  return ` (${pct}%)`;
+                })()}
+              </span>
+            </button>
+          )}
         </div>
       )}
 
@@ -956,6 +990,71 @@ export const MenuBar: React.FC<MenuBarProps> = ({
             setTopBarContextMenu(null);
           }}
         />
+      )}
+
+      {/* Image optimization queue detail modal */}
+      {showImageQueueDetail && imageQueueStatus && (
+        <div
+          className="fixed inset-0 z-[100] flex items-start justify-center pt-14"
+          style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+          onClick={() => setShowImageQueueDetail(false)}
+        >
+          <div
+            className="bg-gray-800 border border-gray-600 rounded-lg shadow-xl min-w-[320px] max-w-[90vw] p-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-medium text-white">Background image optimization</h3>
+              <button
+                type="button"
+                onClick={() => setShowImageQueueDetail(false)}
+                className="p-1 rounded hover:bg-gray-700 text-gray-400 hover:text-white"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <div className="space-y-2 text-xs text-gray-300">
+              <div className="flex justify-between">
+                <span>Games: {imageQueueStatus.completed} done, {imageQueueStatus.queued} queued</span>
+                {(() => {
+                  const total = imageQueueStatus.completed + (imageQueueStatus.currentGameTitle ? 1 : 0) + imageQueueStatus.queued;
+                  const currentFraction = imageQueueStatus.currentGameTitle && (imageQueueStatus.imageTotal ?? 0) > 0
+                    ? (imageQueueStatus.imageIndex ?? 0) / imageQueueStatus.imageTotal!
+                    : 0;
+                  const done = imageQueueStatus.completed + (imageQueueStatus.currentGameTitle ? currentFraction : 0);
+                  return total > 0 ? <span>{Math.round((done / total) * 100)}%</span> : null;
+                })()}
+              </div>
+              <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-amber-500/80 transition-all duration-300"
+                  style={{
+                    width: (() => {
+                      const total = imageQueueStatus.completed + (imageQueueStatus.currentGameTitle ? 1 : 0) + imageQueueStatus.queued;
+                      const currentFraction = imageQueueStatus.currentGameTitle && (imageQueueStatus.imageTotal ?? 0) > 0
+                        ? (imageQueueStatus.imageIndex ?? 0) / imageQueueStatus.imageTotal!
+                        : 0;
+                      const done = imageQueueStatus.completed + (imageQueueStatus.currentGameTitle ? currentFraction : 0);
+                      return total > 0 ? `${(done / total) * 100}%` : '0%';
+                    })()
+                  }}
+                />
+              </div>
+              {imageQueueStatus.currentGameTitle && (
+                <>
+                  <p className="text-white font-medium truncate" title={imageQueueStatus.currentGameTitle}>{imageQueueStatus.currentGameTitle}</p>
+                  {imageQueueStatus.imageTotal != null && imageQueueStatus.imageTotal > 0 && (
+                    <p className="text-gray-400">
+                      Image {(imageQueueStatus.imageIndex ?? 0) + 1} of {imageQueueStatus.imageTotal}
+                      {imageQueueStatus.imageType && ` · ${imageQueueStatus.imageType}`}
+                      {imageQueueStatus.phase && ` · ${imageQueueStatus.phase === 'downloading' ? 'Downloading…' : imageQueueStatus.phase === 'optimizing' ? 'Optimizing…' : 'Done'}`}
+                    </p>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        </div>
       )}
 
     </div>

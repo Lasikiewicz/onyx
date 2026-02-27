@@ -77,6 +77,7 @@ import { registerLauncherIPCHandlers } from './ipc/launcherHandlers.js';
 import { TrayService } from './ui/tray.js';
 import { withTimeout } from './RetryUtils.js';
 import { initAppUpdateService, checkForUpdates, addUpdateStatusListener } from './AppUpdateService.js';
+import { createImageOptimizationQueue } from './ImageOptimizationQueue.js';
 
 // Load environment variables
 dotenv.config();
@@ -273,8 +274,13 @@ if (launchGameArg) {
 
 // Register IPC Handlers
 
-registerGameIPCHandlers(steamService, xboxService, gameStore, imageCacheService);
-registerMetadataIPCHandlers(metadataFetcher, imageCacheService, gameStore, userPreferencesService, { get current() { return win; } });
+const imageQueue = createImageOptimizationQueue(imageCacheService, gameStore, (status) => {
+  if (win && !win.isDestroyed()) win.webContents.send('imageQueue:status', status);
+});
+ipcMain.handle('imageQueue:getStatus', () => imageQueue.getStatus());
+
+registerGameIPCHandlers(steamService, xboxService, gameStore, imageCacheService, userPreferencesService, imageQueue);
+registerMetadataIPCHandlers(metadataFetcher, imageCacheService, gameStore, userPreferencesService, { get current() { return win; } }, imageQueue);
 registerAppIPCHandlers(
   { get current() { return win; } },
   gameStore,
@@ -1154,10 +1160,12 @@ app.whenReady().then(async () => {
       let imageType: string | null = null;
 
       // Check if it's the new simple format: {gameId}-{imageType}
-      const simpleMatch = decodedUrlPath.match(/^([^-]+(?:-[^-]+)*?)-(boxart|banner|alternativeBanner|logo|hero|icon|screenshot-\d+)$/);
+      // Use case-insensitive match so URLs lowercased by the browser (e.g. alternativebanner) still work
+      const simpleMatch = decodedUrlPath.match(/^([^-]+(?:-[^-]+)*?)-(boxart|banner|alternativebanner|alternativeBanner|logo|hero|icon|screenshot-\d+)$/i);
       if (simpleMatch) {
         gameId = simpleMatch[1];
-        imageType = simpleMatch[2];
+        const rawType = simpleMatch[2].toLowerCase();
+        imageType = rawType === 'alternativebanner' ? 'alternativeBanner' : rawType;
       } else {
         // Old format - try to decode and extract
         try {

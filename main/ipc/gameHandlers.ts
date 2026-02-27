@@ -5,12 +5,18 @@ import { SteamService } from '../SteamService.js';
 import { XboxService } from '../XboxService.js';
 import { GameStore, Game } from '../GameStore.js';
 import { ImageCacheService } from '../ImageCacheService.js';
+import type { UserPreferencesService, UserPreferences } from '../UserPreferencesService.js';
+import type { ImageQueueItem } from '../ImageOptimizationQueue.js';
+
+type ImageQueue = { add: (gameId: string, gameTitle: string, urls: ImageQueueItem['urls']) => void };
 
 export function registerGameIPCHandlers(
     steamService: SteamService,
     xboxService: XboxService,
     gameStore: GameStore,
-    imageCacheService: ImageCacheService
+    imageCacheService: ImageCacheService,
+    userPreferencesService?: UserPreferencesService,
+    imageQueue?: ImageQueue
 ) {
     // Steam Service Handlers
     ipcMain.handle('steam:scanGames', async () => {
@@ -151,6 +157,24 @@ export function registerGameIPCHandlers(
                 await gameStore.deleteGame(oldGame.id);
             }
 
+            const prefs: Partial<Pick<UserPreferences, 'optimizeImagesInBackground'>> = userPreferencesService
+                ? await userPreferencesService.getPreferences()
+                : {};
+            const optimizeInBackground = (prefs.optimizeImagesInBackground !== false) && imageQueue;
+
+            if (optimizeInBackground) {
+                await gameStore.saveGame(game);
+                imageQueue!.add(game.id, game.title, {
+                    boxArtUrl: game.boxArtUrl,
+                    bannerUrl: game.bannerUrl,
+                    alternativeBannerUrl: game.alternativeBannerUrl,
+                    logoUrl: game.logoUrl,
+                    heroUrl: game.heroUrl,
+                    iconUrl: game.iconUrl,
+                });
+                return true;
+            }
+
             const cachedImages = await imageCacheService.cacheImages({
                 boxArtUrl: game.boxArtUrl,
                 bannerUrl: game.bannerUrl,
@@ -238,6 +262,19 @@ export function registerGameIPCHandlers(
             return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
         }
     });
+
+    ipcMain.handle('imageCache:optimizeExisting', async (event, options?: { webpOnly?: boolean }) => {
+        try {
+            const result = await imageCacheService.optimizeExistingCache((data) => {
+                event.sender.send('imageCache:optimizeProgress', data);
+            }, options);
+            return { success: true, ...result };
+        } catch (error) {
+            return { success: false, error: error instanceof Error ? error.message : 'Unknown error', optimized: 0, skipped: 0, failed: 0 };
+        }
+    });
+
+    ipcMain.handle('imageCache:getFfmpegStatus', () => ImageCacheService.getFfmpegStatus());
 
     // Dialog Handlers (Moved here for convenience if no uiHandlers.ts exists yet)
     ipcMain.handle('dialog:showOpenDialog', async () => {

@@ -129,6 +129,7 @@ export interface UserPreferences {
     isFullscreen?: boolean;
   };
   storeMetadataLocally?: boolean; // Store metadata and images locally by default
+  optimizeImagesInBackground?: boolean; // When true, cache/optimize images in background and show progress in navbar
   preferAnimatedBoxart?: boolean; // Prefer animated cover art when importing
   preferAnimatedBanner?: boolean; // Prefer animated heroes/banners when importing
   enableSuspendFeature?: boolean; // Enable suspend/resume functionality
@@ -337,6 +338,7 @@ export class UserPreferencesService {
       ignoredGames: [],
       windowState: undefined,
       storeMetadataLocally: true,
+      optimizeImagesInBackground: true,
       preferAnimatedBoxart: true,
       preferAnimatedBanner: true,
       enableSuspendFeature: false,

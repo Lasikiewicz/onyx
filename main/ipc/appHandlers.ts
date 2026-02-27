@@ -538,6 +538,11 @@ export function registerAppIPCHandlers(
         return { success: false, error: 'Path not found' };
     });
 
+    ipcMain.handle('app:getFolderPaths', () => ({
+        cacheDir: imageCacheService.getCacheDir(),
+        appDataPath: app.getPath('userData'),
+    }));
+
     // API Credentials Handlers
     ipcMain.handle('api:getCredentials', async () => {
         return await apiCredentialsService.getCredentials();

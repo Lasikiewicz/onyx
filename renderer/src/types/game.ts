@@ -253,6 +253,8 @@ export interface UserPreferences {
   coverFlowButtonPosition?: 'left' | 'middle' | 'right';
   coverFlowButtonColors?: { playColor?: string; editColor?: string; modManagerColor?: string };
   currentResolution?: '720p' | '1080p' | '1440p' | '4K';
+  storeMetadataLocally?: boolean;
+  optimizeImagesInBackground?: boolean;
 }
 
 export type UpdateStatus = 'checking' | 'available' | 'not-available' | 'downloading' | 'downloaded' | 'error';
@@ -279,6 +281,11 @@ declare global {
       migratePerGameViewSizeOverrides: () => Promise<{ success: boolean; overrides: Record<string, { grid?: number; list?: number; logo?: number; carousel?: number; coverflow?: number }>; error?: string }>;
       saveGame: (game: Game, oldGame?: Game) => Promise<boolean>;
       deleteCachedImage: (gameId: string, imageType: 'boxart' | 'banner' | 'logo' | 'hero' | 'icon') => Promise<{ success: boolean; error?: string }>;
+      optimizeImageCache: (options?: { webpOnly?: boolean }) => Promise<{ success: boolean; error?: string; optimized?: number; skipped?: number; failed?: number }>;
+      onOptimizeProgress: (callback: (data: { phase: string; current: number; total: number; fileName: string; status?: string; originalBytes?: number; optimizedBytes?: number }) => void) => () => void;
+      getFfmpegStatus: () => Promise<{ available: boolean; source: 'bundled' | 'system' | null }>;
+      getImageQueueStatus: () => Promise<{ queued: number; completed: number; currentGameTitle?: string; imageIndex?: number; imageTotal?: number; imageType?: string; phase?: string }>;
+      onImageQueueStatus: (callback: (status: { queued: number; completed: number; currentGameTitle?: string; imageIndex?: number; imageTotal?: number; imageType?: string; phase?: string }) => void) => () => void;
       reorderGames: (games: Game[]) => Promise<boolean>;
       addCustomGame: (gameData: { title: string; exePath: string }) => Promise<Game | null>;
       deleteGame: (gameId: string) => Promise<boolean>;
@@ -367,6 +374,7 @@ declare global {
       removeMissingGames: (gameIds: string[]) => Promise<{ success: boolean; removedCount: number; error?: string }>;
       getMissingGames: () => Promise<{ success: boolean; games: MissingGame[]; error?: string }>;
       openPath: (pathOrType: string) => Promise<{ success: boolean; error?: string }>;
+      getFolderPaths?: () => Promise<{ cacheDir: string; appDataPath: string }>;
       restartAsAdmin?: () => Promise<{ success: boolean; error?: string }>;
       checkProcessExists: (pid: number) => Promise<boolean>;
       suspend: {

@@ -55,7 +55,7 @@ const config = {
     }
   ],
   asar: true,
-  asarUnpack: [],
+  asarUnpack: ['**/node_modules/ffmpeg-static/**'],
   compression: 'maximum',
   nsis: {
     oneClick: false,

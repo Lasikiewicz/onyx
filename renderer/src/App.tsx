@@ -1749,6 +1749,67 @@ function App() {
     ? activeGame.alternativeBannerUrl
     : activeGame?.heroUrl || activeGame?.bannerUrl || activeGame?.boxArtUrl || '';
 
+  // Detect if background image is animated (GIF, WebP, APNG)
+  const isAnimatedBackground = useMemo(() => {
+    if (!backgroundImageUrl) return false;
+    return /\.(gif|webp|apng)(\?|$)/i.test(backgroundImageUrl);
+  }, [backgroundImageUrl]);
+
+  // Optimize blur for animated backgrounds to reduce compositing cost
+  const optimizedBackgroundBlur = isAnimatedBackground ? Math.min(backgroundBlur, 10) : backgroundBlur;
+
+  // Preload background images before switching
+  useEffect(() => {
+    if (!backgroundImageUrl) return;
+
+    const img = new Image();
+    img.src = backgroundImageUrl;
+
+    // For static images, use decode() API for better performance
+    if (!isAnimatedBackground && img.decode) {
+      img.decode().catch(() => {
+        // Ignore decode errors, image will load normally
+      });
+    }
+
+    // Cleanup
+    return () => {
+      img.src = '';
+    };
+  }, [backgroundImageUrl, isAnimatedBackground]);
+
+  // Preload images for adjacent games so switching is instant
+  useEffect(() => {
+    if (!activeGameId || filteredGames.length === 0) return;
+    const idx = filteredGames.findIndex((g) => g.id === activeGameId);
+    if (idx < 0) return;
+    const prevGame = idx > 0 ? filteredGames[idx - 1] : null;
+    const nextGame = idx < filteredGames.length - 1 ? filteredGames[idx + 1] : null;
+    const toPreload: Array<{ url: string; isAnimated: boolean }> = [];
+    for (const game of [prevGame, nextGame]) {
+      if (!game) continue;
+      const bgUrl = (game.useAlternativeBackground && game.alternativeBannerUrl) ? game.alternativeBannerUrl : game.heroUrl || game.bannerUrl || game.boxArtUrl || '';
+      if (bgUrl) toPreload.push({ url: bgUrl, isAnimated: /\.(gif|webp|apng)(\?|$)/i.test(bgUrl) });
+      if (game.logoUrl) toPreload.push({ url: game.logoUrl, isAnimated: /\.(gif|webp|apng)(\?|$)/i.test(game.logoUrl) });
+      if (game.boxArtUrl) toPreload.push({ url: game.boxArtUrl, isAnimated: /\.(gif|webp|apng)(\?|$)/i.test(game.boxArtUrl) });
+    }
+    const images: HTMLImageElement[] = [];
+    for (const { url, isAnimated } of toPreload) {
+      if (!url) continue;
+      const img = new Image();
+      images.push(img);
+      img.src = url;
+      if (!isAnimated && img.decode) {
+        img.decode().catch(() => {});
+      }
+    }
+    return () => {
+      for (const img of images) {
+        img.src = '';
+      }
+    };
+  }, [activeGameId, filteredGames]);
+
   // Check if this is an Alpha build
   const isAlphaBuild = __BUILD_PROFILE__ === 'alpha' || (typeof process !== 'undefined' && process.env?.NODE_ENV === 'development');
 
@@ -1764,11 +1825,16 @@ function App() {
             backgroundSize: 'cover',
             backgroundPosition: 'center',
             backgroundRepeat: 'no-repeat',
-            filter: `blur(${backgroundBlur}px) brightness(${currentBackgroundBrightness})`,
-            transform: backgroundBlur > 0 ? `scale(${1 + (backgroundBlur * 0.002)})` : 'none',
+            filter: `blur(${optimizedBackgroundBlur}px) brightness(${currentBackgroundBrightness})`,
+            transform: optimizedBackgroundBlur > 0 ? `scale(${1 + (optimizedBackgroundBlur * 0.002)})` : 'none',
             zIndex: 0,
             transition: 'opacity 600ms ease-in-out',
             animation: 'fadeIn 600ms ease-in-out',
+            // Performance optimizations for animated backgrounds
+            ...(isAnimatedBackground && {
+              willChange: 'transform',
+              contain: 'layout style paint',
+            }),
           }}
         />
       ) : (
