@@ -219,9 +219,21 @@ export const MenuBar: React.FC<MenuBarProps> = ({
         type="text"
         value={searchQuery}
         onChange={(e) => onSearchChange?.(e.target.value)}
-        placeholder="Q Search"
-        className="w-full px-3 py-1 bg-gray-700/20 border border-gray-600/30 rounded text-sm text-gray-300 placeholder-gray-500 hover:bg-gray-700/30 hover:border-gray-600/50 focus:outline-none focus:ring-1 focus:ring-blue-500/50 focus:bg-gray-700/40 focus:text-white transition-colors"
+        placeholder="Search"
+        aria-label="Search games"
+        className="w-full pl-3 pr-8 py-1 bg-gray-700/20 border border-gray-600/30 rounded text-sm text-gray-300 placeholder-gray-500 hover:bg-gray-700/30 hover:border-gray-600/50 focus:outline-none focus:ring-1 focus:ring-blue-500/50 focus:bg-gray-700/40 focus:text-white transition-colors"
       />
+      {searchQuery && (
+        <button
+          onClick={() => onSearchChange?.('')}
+          className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-white transition-colors"
+          aria-label="Clear search"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      )}
     </div>
   );
 
