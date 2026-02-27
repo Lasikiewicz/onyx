@@ -151,11 +151,12 @@ const fetchChangelogFromGithub = async (version?: string): Promise<string | null
     const normalized = version ? normalizeVersion(version) : '';
     const refCandidates = Array.from(new Set([
         defaultBranch,
+        'master',
+        'develop',
+        'main',
+        'release',
         normalized ? `v${normalized}` : null,
         normalized || null,
-        'main',
-        'master',
-        'release'
     ].filter((ref): ref is string => Boolean(ref && ref.trim()))));
 
     for (const ref of refCandidates) {
