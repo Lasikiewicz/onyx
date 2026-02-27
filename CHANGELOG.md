@@ -4,6 +4,11 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.5.5] - 2026-02-27
+
+- Onboarding: Compacted Overview layout, improved API key-entry actions, and clarified scan/optimization messaging.
+- Optimization: Improved existing cache optimization concurrency handling and performance profile usage during runs.
+
 ## [0.5.4] - 2026-02-27
 
 - Update: Prioritized `CHANGELOG.md` content over GitHub release body text so the update modal shows real changelog entries.
