@@ -23,6 +23,7 @@ description: Onyx AI Agent Guide - Critical Rules & Project Context
 - **Push to git** = run `npm run build` and `npm run scan:secrets`, fix any issues, then push local master to remote master.
 - **Force to Alpha** = force **remote master** → **remote develop**. This updates the build number (increment version, changelog, run scan:secrets, commit, push master, then force master to develop). Triggers Onyx Alpha build. There is no branch named "alpha".
 - **Force to Main** = force **remote develop** → **remote main**. Same build number as the alpha. Triggers Onyx (Production) build. Source is always **origin/develop**, never master.
+- **Push website live** = build website, run `npm run scan:secrets`, push `master`, then deploy to Cloudflare Pages **production branch** (not preview).
 
 
 ### 1. "Push to git" / "Push to git master"
@@ -83,11 +84,14 @@ Result: remote **main** = remote **develop**. CI builds Production from main.
    git commit -m "[Summary — e.g. website: ...]"
    git push origin master
    ```
-3. Deploy the built site to Cloudflare:
+3. Deploy the built site to Cloudflare **production branch** (never preview):
    ```bash
-   cd website && npx wrangler pages deploy dist --project-name=onyx
+  cd website && npx wrangler pages deploy dist --project-name=onyx --branch=main
    ```
-   If the deploy is a preview, promote it to production in the Cloudflare Pages dashboard.
+  Notes:
+  - `--branch=main` targets the Pages production branch for this project.
+  - If production branch changes in Cloudflare, update this command to match exactly.
+  - Do **not** treat `*.pages.dev` preview URLs as "live" when this workflow is requested.
 
 ### 5. Auto-update (In-app updates)
 
