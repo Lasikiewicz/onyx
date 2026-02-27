@@ -63,6 +63,7 @@
     "cross-env": "^7.0.3",
     "electron": "^28.0.0",
     "electron-builder": "^26.0.12",
+    "fast-check": "^4.5.3",
     "png2icons": "^2.0.1",
     "postcss": "^8.4.32",
     "sharp": "^0.34.5",

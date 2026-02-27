@@ -13,6 +13,19 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Game } from '../types/game';
 import * as fc from 'fast-check';
 
+type GeneratedAnimatedTestGame = {
+  id: string;
+  title: string;
+  boxArtUrl?: string;
+  bannerUrl?: string;
+  heroUrl?: string;
+  alternativeBannerUrl?: string;
+  logoUrl?: string;
+  description?: string;
+  platform: string;
+  releaseDate?: string;
+};
+
 // Mock electron API
 const mockElectronAPI = {
   getPreferences: vi.fn().mockResolvedValue({}),
@@ -130,8 +143,8 @@ describe('Bug Condition Exploration: Animated Images Cause Switching Delays', ()
       logoUrl: fc.option(staticImageUrlArb, { nil: undefined }),
       description: fc.option(fc.string({ maxLength: 200 }), { nil: undefined }),
       platform: fc.constantFrom('steam', 'epic', 'gog', 'xbox'),
-      releaseDate: fc.option(fc.date().map(d => d.toISOString()), { nil: undefined }),
-    }).filter(game => 
+      releaseDate: fc.option(fc.date().map((d: Date) => d.toISOString()), { nil: undefined }),
+    }).filter((game: GeneratedAnimatedTestGame) => 
       // Ensure at least one animated image is present
       game.boxArtUrl !== undefined || 
       game.bannerUrl !== undefined || 
@@ -141,7 +154,7 @@ describe('Bug Condition Exploration: Animated Images Cause Switching Delays', ()
 
     // Run property-based test
     fc.assert(
-      fc.property(gameWithAnimatedImagesArb, (game) => {
+      fc.property(gameWithAnimatedImagesArb, (game: GeneratedAnimatedTestGame) => {
         const { duration, hasStutter } = simulateGameSwitch(game as Game);
 
         // Log counterexample details for debugging

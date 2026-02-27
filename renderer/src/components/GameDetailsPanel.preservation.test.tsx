@@ -11,6 +11,20 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Game } from '../types/game';
 import * as fc from 'fast-check';
 
+type GeneratedTestGame = {
+  id: string;
+  title: string;
+  exePath: string;
+  boxArtUrl: string;
+  bannerUrl: string;
+  heroUrl?: string;
+  alternativeBannerUrl?: string;
+  logoUrl?: string;
+  description?: string;
+  platform: string;
+  releaseDate?: string;
+};
+
 // Mock electron API
 const mockElectronAPI = {
   getPreferences: vi.fn().mockResolvedValue({}),
@@ -137,15 +151,15 @@ describe('Preservation Properties: Static Image Performance Unchanged', () => {
       logoUrl: fc.option(staticImageUrlArb, { nil: undefined }),
       description: fc.option(fc.string({ maxLength: 200 }), { nil: undefined }),
       platform: fc.constantFrom('steam', 'epic', 'gog', 'xbox'),
-      releaseDate: fc.option(fc.date().map(d => d.toISOString()), { nil: undefined }),
-    }).filter(game => 
+      releaseDate: fc.option(fc.date().map((d: Date) => d.toISOString()), { nil: undefined }),
+    }).filter((game: GeneratedTestGame) => 
       // Ensure NO animated images are present
       !hasAnimatedImages(game as Game)
     );
 
     // Run property-based test
     fc.assert(
-      fc.property(gameWithStaticImagesArb, (game) => {
+      fc.property(gameWithStaticImagesArb, (game: GeneratedTestGame) => {
         const { duration, hasStutter } = simulateGameSwitch(game as Game);
 
         // Log success cases for verification
@@ -185,7 +199,7 @@ describe('Preservation Properties: Static Image Performance Unchanged', () => {
     });
 
     fc.assert(
-      fc.property(gameWithNoImagesArb, (game) => {
+      fc.property(gameWithNoImagesArb, (game: GeneratedTestGame) => {
         const { duration, hasStutter } = simulateGameSwitch(game as Game);
 
         console.log(`✓ No image switch: ${duration.toFixed(2)}ms (${game.title})`);
@@ -230,7 +244,7 @@ describe('Preservation Properties: Static Image Performance Unchanged', () => {
     });
 
     fc.assert(
-      fc.property(gameWithErrorProneImagesArb, (game) => {
+      fc.property(gameWithErrorProneImagesArb, (game: GeneratedTestGame) => {
         const boxArtError = simulateImageLoadError(game.boxArtUrl);
         const bannerError = simulateImageLoadError(game.bannerUrl);
 
@@ -275,7 +289,7 @@ describe('Preservation Properties: Static Image Performance Unchanged', () => {
     });
 
     fc.assert(
-      fc.property(gameWithStaticImagesArb, (game) => {
+      fc.property(gameWithStaticImagesArb, (game: GeneratedTestGame) => {
         const { duration, hasStutter } = simulateGameSwitch(game as Game);
 
         // CSS animations should complete smoothly without blocking (fadeInScale is 500ms)
