@@ -78,6 +78,14 @@ import { TrayService } from './ui/tray.js';
 import { withTimeout } from './RetryUtils.js';
 import { initAppUpdateService, checkForUpdates, addUpdateStatusListener } from './AppUpdateService.js';
 import { createImageOptimizationQueue } from './ImageOptimizationQueue.js';
+import {
+  onStatusChange as onOptimizationStatusChange,
+  getStatus as getOptimizationStatus,
+  startRun as optimizationStartRun,
+  addJobs as optimizationAddJobs,
+  updateJob as optimizationUpdateJob,
+  finishRun as optimizationFinishRun,
+} from './ImageOptimizationController.js';
 
 // Load environment variables
 dotenv.config();
@@ -144,6 +152,7 @@ migrateAlphaUserDataFromOnyx();
 let win: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let trayService: TrayService | null = null;
+let isAppQuitting = false;
 
 // Initialize services early to be available everywhere
 const steamService = new SteamService();
@@ -274,12 +283,24 @@ if (launchGameArg) {
 
 // Register IPC Handlers
 
-const imageQueue = createImageOptimizationQueue(imageCacheService, gameStore, (status) => {
-  if (win && !win.isDestroyed()) win.webContents.send('imageQueue:status', status);
+const imageQueue = createImageOptimizationQueue(imageCacheService, gameStore, undefined, {
+  getOptimizationPerformance: async () => {
+    const prefs = await userPreferencesService.getPreferences();
+    return prefs.optimizationPerformance;
+  },
+});
+onOptimizationStatusChange((status) => {
+  if (win && !win.isDestroyed()) win.webContents.send('optimization:status', status);
 });
 ipcMain.handle('imageQueue:getStatus', () => imageQueue.getStatus());
+ipcMain.handle('optimization:getStatus', () => getOptimizationStatus());
 
-registerGameIPCHandlers(steamService, xboxService, gameStore, imageCacheService, userPreferencesService, imageQueue);
+registerGameIPCHandlers(steamService, xboxService, gameStore, imageCacheService, userPreferencesService, imageQueue, {
+  startRun: optimizationStartRun,
+  addJobs: optimizationAddJobs,
+  updateJob: optimizationUpdateJob,
+  finishRun: optimizationFinishRun,
+});
 registerMetadataIPCHandlers(metadataFetcher, imageCacheService, gameStore, userPreferencesService, { get current() { return win; } }, imageQueue);
 registerAppIPCHandlers(
   { get current() { return win; } },
@@ -820,6 +841,7 @@ async function createWindow() {
 
   // Handle window close based on preferences
   win.on('close', async (event) => {
+    if (isAppQuitting) return;
     try {
       // Save window state before closing
       if (win) {
@@ -843,6 +865,11 @@ async function createWindow() {
       // Check closeToTray (fallback to minimizeToTray if closeToTray is undefined for backward compatibility)
       if (prefs.closeToTray !== false) {
         // If closeToTray is true or undefined (default), minimize
+        try {
+          imageQueue.cancelAll();
+        } catch (error) {
+          console.warn('[Close] Failed to cancel image optimization queue:', error);
+        }
         event.preventDefault();
         win?.hide();
         return;
@@ -1932,6 +1959,15 @@ app.whenReady().then(async () => {
 });
 
 // Cleanup global shortcuts and background scan on app quit
+app.on('before-quit', () => {
+  isAppQuitting = true;
+  try {
+    imageQueue.cancelAll();
+  } catch (error) {
+    console.warn('[Shutdown] Failed to cancel image optimization queue:', error);
+  }
+});
+
 app.on('will-quit', () => {
   unregisterSuspendShortcut();
   processSuspendService?.cleanup();

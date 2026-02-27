@@ -28,19 +28,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   migratePerGameViewSizeOverrides: () => ipcRenderer.invoke('gameStore:migratePerGameViewSizeOverrides'),
   saveGame: (game: any, oldGame?: any) => ipcRenderer.invoke('gameStore:saveGame', game, oldGame),
   deleteCachedImage: (gameId: string, imageType: 'boxart' | 'banner' | 'alternativeBanner' | 'logo' | 'hero' | 'icon') => ipcRenderer.invoke('imageCache:deleteImage', gameId, imageType),
-  optimizeImageCache: (options?: { webpOnly?: boolean }) => ipcRenderer.invoke('imageCache:optimizeExisting', options),
-  onOptimizeProgress: (callback: (data: { phase: string; current: number; total: number; fileName: string; status?: string }) => void) => {
-    const fn = (_: unknown, data: { phase: string; current: number; total: number; fileName: string; status?: string }) => callback(data);
-    ipcRenderer.on('imageCache:optimizeProgress', fn);
-    return () => ipcRenderer.removeListener('imageCache:optimizeProgress', fn);
-  },
-  getFfmpegStatus: () => ipcRenderer.invoke('imageCache:getFfmpegStatus'),
-  getImageQueueStatus: () => ipcRenderer.invoke('imageQueue:getStatus'),
-  onImageQueueStatus: (callback: (status: { queued: number; completed: number; currentGameTitle?: string; imageIndex?: number; imageTotal?: number; imageType?: string; phase?: string }) => void) => {
-    const fn = (_: unknown, status: { queued: number; completed: number; currentGameTitle?: string; imageIndex?: number; imageTotal?: number; imageType?: string; phase?: string }) => callback(status);
-    ipcRenderer.on('imageQueue:status', fn);
-    return () => ipcRenderer.removeListener('imageQueue:status', fn);
-  },
   reorderGames: (games: any[]) => ipcRenderer.invoke('gameStore:reorderGames', games),
   addCustomGame: (gameData: { title: string; exePath: string }) => ipcRenderer.invoke('gameStore:addCustomGame', gameData),
   deleteGame: (gameId: string) => ipcRenderer.invoke('gameStore:deleteGame', gameId),
@@ -103,12 +90,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
       'startup:progress',
       'scan:missing-games',
       'metadata:refreshProgress',
-      'metadata:imageSearchProviderStatus',
       'gameStore:libraryUpdated',
       'metadata:gameImagesFound',
       'metadata:fastSearchProgress',
       'app:update-status',
-      'imageQueue:status',
     ]);
     if (!allowedChannels.has(channel)) {
       console.warn(`Attempt to register to unauthorized IPC channel: ${channel}`);
@@ -145,6 +130,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // App control methods
   requestExit: () => ipcRenderer.invoke('app:requestExit'),
   exit: () => ipcRenderer.invoke('app:exit'),
+  // Unified optimization status methods
+  optimization: {
+    getStatus: () => ipcRenderer.invoke('optimization:getStatus'),
+    onStatus: (callback: (status: any) => void) => {
+      const handler = (_event: any, status: any) => callback(status);
+      ipcRenderer.on('optimization:status', handler);
+      return () => ipcRenderer.removeListener('optimization:status', handler);
+    },
+  },
   minimizeToTray: () => ipcRenderer.invoke('app:minimizeToTray'),
   applySystemTraySettings: (settings: { showSystemTrayIcon: boolean; minimizeToTray: boolean }) => ipcRenderer.invoke('app:applySystemTraySettings', settings),
   applyStartupSettings: (settings: { startWithComputer: boolean; startMinimized: boolean; startClosedToTray: boolean }) => ipcRenderer.invoke('app:applyStartupSettings', settings),
@@ -207,7 +201,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onUpdateDismissed: () => ipcRenderer.send('app:update-dismissed'),
   // Open path/folder
   openPath: (pathOrType: string) => ipcRenderer.invoke('app:openPath', pathOrType),
-  getFolderPaths: () => ipcRenderer.invoke('app:getFolderPaths') as Promise<{ cacheDir: string; appDataPath: string }>,
   restartAsAdmin: () => ipcRenderer.invoke('app:restartAsAdmin'),
   // Suspend service methods
   suspend: {

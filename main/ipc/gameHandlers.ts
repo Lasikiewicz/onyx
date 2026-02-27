@@ -7,8 +7,16 @@ import { GameStore, Game } from '../GameStore.js';
 import { ImageCacheService } from '../ImageCacheService.js';
 import type { UserPreferencesService, UserPreferences } from '../UserPreferencesService.js';
 import type { ImageQueueItem } from '../ImageOptimizationQueue.js';
+import type { ImageJobStatus } from '../ImageOptimizationController.js';
 
 type ImageQueue = { add: (gameId: string, gameTitle: string, urls: ImageQueueItem['urls']) => void };
+
+export type OptimizationControllerAPI = {
+    startRun: (mode: 'importer' | 'cache') => string;
+    addJobs: (runId: string, jobs: (Omit<ImageJobStatus, 'jobId'> & { jobId?: string })[]) => void;
+    updateJob: (runId: string, jobId: string, patch: Partial<Pick<ImageJobStatus, 'phase' | 'fileName' | 'originalBytes' | 'optimizedBytes' | 'error'>>) => void;
+    finishRun: (runId: string) => void;
+};
 
 export function registerGameIPCHandlers(
     steamService: SteamService,
@@ -16,7 +24,8 @@ export function registerGameIPCHandlers(
     gameStore: GameStore,
     imageCacheService: ImageCacheService,
     userPreferencesService?: UserPreferencesService,
-    imageQueue?: ImageQueue
+    imageQueue?: ImageQueue,
+    optimizationController?: OptimizationControllerAPI
 ) {
     // Steam Service Handlers
     ipcMain.handle('steam:scanGames', async () => {
@@ -265,9 +274,40 @@ export function registerGameIPCHandlers(
 
     ipcMain.handle('imageCache:optimizeExisting', async (event, options?: { webpOnly?: boolean }) => {
         try {
+            const runId = optimizationController?.startRun('cache') ?? null;
+            if (runId && optimizationController) {
+                const toProcess = imageCacheService.listFilesToOptimize(options);
+                const games = await gameStore.getLibrary();
+                const titleByGameId: Record<string, string> = Object.fromEntries(games.map((g) => [g.id, g.title]));
+                optimizationController.addJobs(
+                    runId,
+                    toProcess.map((p) => ({
+                        jobId: p.file,
+                        gameId: p.gameId,
+                        gameTitle: titleByGameId[p.gameId] ?? p.gameId,
+                        imageType: p.imageType,
+                        source: 'cache' as const,
+                        phase: 'queued' as const,
+                        fileName: p.file,
+                        sourceExt: p.file.includes('.') ? p.file.split('.').pop()?.toUpperCase() : undefined,
+                    }))
+                );
+            }
             const result = await imageCacheService.optimizeExistingCache((data) => {
+                if (runId && optimizationController) {
+                    const phase =
+                        data.status === 'ok' ? 'done' : data.status === 'fail' ? 'failed' : 'optimizing';
+                    optimizationController.updateJob(runId, data.fileName, {
+                        phase,
+                        fileName: data.fileName,
+                        originalBytes: data.originalBytes,
+                        optimizedBytes: data.optimizedBytes,
+                        error: data.status === 'fail' ? 'Optimization failed' : undefined,
+                    });
+                }
                 event.sender.send('imageCache:optimizeProgress', data);
             }, options);
+            if (runId && optimizationController) optimizationController.finishRun(runId);
             return { success: true, ...result };
         } catch (error) {
             return { success: false, error: error instanceof Error ? error.message : 'Unknown error', optimized: 0, skipped: 0, failed: 0 };

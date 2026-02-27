@@ -130,6 +130,7 @@ export interface UserPreferences {
   };
   storeMetadataLocally?: boolean; // Store metadata and images locally by default
   optimizeImagesInBackground?: boolean; // When true, cache/optimize images in background and show progress in navbar
+  optimizationPerformance?: 'low' | 'balanced' | 'high'; // CPU usage profile for image optimization
   preferAnimatedBoxart?: boolean; // Prefer animated cover art when importing
   preferAnimatedBanner?: boolean; // Prefer animated heroes/banners when importing
   enableSuspendFeature?: boolean; // Enable suspend/resume functionality

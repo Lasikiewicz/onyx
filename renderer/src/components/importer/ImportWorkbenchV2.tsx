@@ -147,6 +147,7 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
     const hasAutoScanned = useRef(false);
     const sidebarRef = useRef<HTMLDivElement>(null);
     const panelRef = useRef<GamePropertiesPanelHandle>(null);
+    const gameRowRefs = useRef<Record<string, HTMLDivElement | null>>({});
     const abortScanRef = useRef(false);
 
     // Get selected game from queue
@@ -183,6 +184,24 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
                 .catch(console.error);
         }
     }, [isOpen]);
+
+    // While scanning, keep the currently processing game in view in the sidebar
+    useEffect(() => {
+        if (!isScanning || !currentlyProcessingGame) return;
+        const sidebar = sidebarRef.current;
+        if (!sidebar) return;
+        const row = gameRowRefs.current[currentlyProcessingGame];
+        if (!row) return;
+
+        const rowTop = row.offsetTop;
+        const rowBottom = rowTop + row.offsetHeight;
+        const viewTop = sidebar.scrollTop;
+        const viewBottom = viewTop + sidebar.clientHeight;
+
+        if (rowTop < viewTop || rowBottom > viewBottom) {
+            sidebar.scrollTop = rowTop - sidebar.clientHeight / 2 + row.offsetHeight / 2;
+        }
+    }, [isScanning, currentlyProcessingGame]);
 
     // Do NOT reset queue on open: if user closes importer while scan runs, reopening should show games waiting for import.
 
@@ -851,6 +870,11 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
                                     {games.map(game => (
                                         <div
                                             key={game.uuid}
+                                            ref={(el) => {
+                                                if (!el) return;
+                                                // Use title as key since currentlyProcessingGame is title-based
+                                                gameRowRefs.current[game.title] = el;
+                                            }}
                                             onClick={() => setSelectedId(game.uuid)}
                                             className={`px-4 py-3 flex items-center gap-3 cursor-pointer border-b border-gray-800/50 transition-colors ${selectedId === game.uuid ? 'bg-blue-900/30 border-l-2 border-l-blue-500' : 'hover:bg-gray-800/50'
                                                 }`}

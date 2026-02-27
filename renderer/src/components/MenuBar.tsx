@@ -19,6 +19,7 @@ import { CSS } from '@dnd-kit/utilities';
 import iconPng from '../../../resources/icon.png';
 import iconSvg from '../../../resources/icon.svg';
 import { TopBarContextMenu, TopBarPositions } from './TopBarContextMenu';
+import type { OptimizationStatus } from '../types/optimization';
 
 interface MenuBarProps {
   onScanFolder?: () => void;
@@ -149,7 +150,11 @@ export const MenuBar: React.FC<MenuBarProps> = ({
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [topBarContextMenu, setTopBarContextMenu] = useState<{ x: number; y: number } | null>(null);
   const [categorySearchQuery, setCategorySearchQuery] = useState('');
-  const [imageQueueStatus, setImageQueueStatus] = useState<{ queued: number; completed: number; currentGameTitle?: string; imageIndex?: number; imageTotal?: number; imageType?: string; phase?: string } | null>(null);
+  const [optimizationStatus, setOptimizationStatus] = useState<OptimizationStatus | null>(null);
+  const processingLogRef = useRef<HTMLDivElement | null>(null);
+  const completedLogRef = useRef<HTMLDivElement | null>(null);
+  const activeProcessingRowRef = useRef<HTMLDivElement | null>(null);
+  const hasOptimizationActivity = optimizationStatus?.hasActivity ?? false;
   const [showImageQueueDetail, setShowImageQueueDetail] = useState(false);
 
   const sensors = useSensors(
@@ -205,12 +210,35 @@ export const MenuBar: React.FC<MenuBarProps> = ({
     };
   }, []);
 
-  // Image optimization queue status (background import/refresh)
+  // Unified optimization status (importer and cache optimize)
   useEffect(() => {
-    window.electronAPI.getImageQueueStatus?.().then((s) => setImageQueueStatus(s)).catch(() => {});
-    const unsub = window.electronAPI.onImageQueueStatus?.(setImageQueueStatus);
-    return () => { unsub?.(); };
+    window.electronAPI.optimization?.getStatus?.()
+      .then((s: unknown) => setOptimizationStatus(s as OptimizationStatus))
+      .catch(() => {});
+
+    const unsub = window.electronAPI.optimization?.onStatus?.((status: unknown) => {
+      const s = status as OptimizationStatus;
+      setOptimizationStatus(s);
+      if (!s.hasActivity) setShowImageQueueDetail(false);
+    });
+    return () => unsub?.();
   }, []);
+
+  // Auto-follow each column independently while detail modal is open
+  useEffect(() => {
+    if (!showImageQueueDetail) return;
+
+    const activeRow = activeProcessingRowRef.current;
+    if (activeRow) {
+      activeRow.scrollIntoView({ block: 'nearest' });
+    } else {
+      const processingEl = processingLogRef.current;
+      if (processingEl) processingEl.scrollTop = processingEl.scrollHeight;
+    }
+
+    const completedEl = completedLogRef.current;
+    if (completedEl) completedEl.scrollTop = 0;
+  }, [optimizationStatus?.jobs, showImageQueueDetail]);
 
   // Create element renderers for configurable items
   const renderSearchBar = () => (
@@ -939,7 +967,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
       )}
 
       {/* Right section - optimizing indicator + positioned elements; mr-32 keeps clear of window controls */}
-      {(elementsByPosition.right.length > 0 || (imageQueueStatus && (imageQueueStatus.queued > 0 || imageQueueStatus.currentGameTitle))) && (
+      {(elementsByPosition.right.length > 0 || hasOptimizationActivity) && (
         <div
           className="flex items-center gap-2 mr-32"
           style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
@@ -951,7 +979,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
         >
           {elementsByPosition.right}
           {/* Optimizing images indicator (click for details) */}
-          {imageQueueStatus && (imageQueueStatus.queued > 0 || imageQueueStatus.currentGameTitle) && (
+          {hasOptimizationActivity && (
             <button
               type="button"
               onClick={() => setShowImageQueueDetail(true)}
@@ -963,13 +991,9 @@ export const MenuBar: React.FC<MenuBarProps> = ({
               </svg>
               <span>
                 Optimizing images
-                {(() => {
-                  const total = imageQueueStatus.completed + (imageQueueStatus.currentGameTitle ? 1 : 0) + imageQueueStatus.queued;
-                  const currentFraction = imageQueueStatus.currentGameTitle && (imageQueueStatus.imageTotal ?? 0) > 0
-                    ? (imageQueueStatus.imageIndex ?? 0) / imageQueueStatus.imageTotal!
-                    : 0;
-                  const done = imageQueueStatus.completed + (imageQueueStatus.currentGameTitle ? currentFraction : 0);
-                  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+                {optimizationStatus && (() => {
+                  const total = optimizationStatus.imagesDone + optimizationStatus.imagesQueued;
+                  const pct = total > 0 ? Math.round((optimizationStatus.imagesDone / total) * 100) : 0;
                   return ` (${pct}%)`;
                 })()}
               </span>
@@ -992,15 +1016,15 @@ export const MenuBar: React.FC<MenuBarProps> = ({
         />
       )}
 
-      {/* Image optimization queue detail modal */}
-      {showImageQueueDetail && imageQueueStatus && (
+      {/* Image optimization queue/detail modal (unified importer + cache) */}
+      {showImageQueueDetail && hasOptimizationActivity && optimizationStatus && (
         <div
-          className="fixed inset-0 z-[100] flex items-start justify-center pt-14"
+          className="fixed inset-0 z-[100] flex items-center justify-center px-4"
           style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
           onClick={() => setShowImageQueueDetail(false)}
         >
           <div
-            className="bg-gray-800 border border-gray-600 rounded-lg shadow-xl min-w-[320px] max-w-[90vw] p-4"
+            className="bg-gray-800 border border-gray-600 rounded-lg shadow-xl w-full max-w-[108rem] max-h-[94vh] p-6"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-3">
@@ -1013,44 +1037,152 @@ export const MenuBar: React.FC<MenuBarProps> = ({
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
             </div>
-            <div className="space-y-2 text-xs text-gray-300">
+            <div className="space-y-2 text-sm text-gray-300">
               <div className="flex justify-between">
-                <span>Games: {imageQueueStatus.completed} done, {imageQueueStatus.queued} queued</span>
-                {(() => {
-                  const total = imageQueueStatus.completed + (imageQueueStatus.currentGameTitle ? 1 : 0) + imageQueueStatus.queued;
-                  const currentFraction = imageQueueStatus.currentGameTitle && (imageQueueStatus.imageTotal ?? 0) > 0
-                    ? (imageQueueStatus.imageIndex ?? 0) / imageQueueStatus.imageTotal!
-                    : 0;
-                  const done = imageQueueStatus.completed + (imageQueueStatus.currentGameTitle ? currentFraction : 0);
-                  return total > 0 ? <span>{Math.round((done / total) * 100)}%</span> : null;
-                })()}
+                <span>
+                  Games: {optimizationStatus.gamesDone} done, {optimizationStatus.gamesQueued} queued · Images: {optimizationStatus.imagesDone} done, {optimizationStatus.imagesQueued} queued
+                </span>
+                <span>
+                  {(() => {
+                    const total = optimizationStatus.imagesDone + optimizationStatus.imagesQueued;
+                    return total > 0 ? `${Math.round((optimizationStatus.imagesDone / total) * 100)}%` : '0%';
+                  })()}
+                </span>
               </div>
               <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
                 <div
                   className="h-full bg-amber-500/80 transition-all duration-300"
                   style={{
                     width: (() => {
-                      const total = imageQueueStatus.completed + (imageQueueStatus.currentGameTitle ? 1 : 0) + imageQueueStatus.queued;
-                      const currentFraction = imageQueueStatus.currentGameTitle && (imageQueueStatus.imageTotal ?? 0) > 0
-                        ? (imageQueueStatus.imageIndex ?? 0) / imageQueueStatus.imageTotal!
-                        : 0;
-                      const done = imageQueueStatus.completed + (imageQueueStatus.currentGameTitle ? currentFraction : 0);
-                      return total > 0 ? `${(done / total) * 100}%` : '0%';
-                    })()
+                      const total = optimizationStatus.imagesDone + optimizationStatus.imagesQueued;
+                      return total > 0 ? `${(optimizationStatus.imagesDone / total) * 100}%` : '0%';
+                    })(),
                   }}
                 />
               </div>
-              {imageQueueStatus.currentGameTitle && (
-                <>
-                  <p className="text-white font-medium truncate" title={imageQueueStatus.currentGameTitle}>{imageQueueStatus.currentGameTitle}</p>
-                  {imageQueueStatus.imageTotal != null && imageQueueStatus.imageTotal > 0 && (
-                    <p className="text-gray-400">
-                      Image {(imageQueueStatus.imageIndex ?? 0) + 1} of {imageQueueStatus.imageTotal}
-                      {imageQueueStatus.imageType && ` · ${imageQueueStatus.imageType}`}
-                      {imageQueueStatus.phase && ` · ${imageQueueStatus.phase === 'downloading' ? 'Downloading…' : imageQueueStatus.phase === 'optimizing' ? 'Optimizing…' : 'Done'}`}
-                    </p>
-                  )}
-                </>
+              {optimizationStatus.jobs.length > 0 && (
+                <div className="mt-3 pt-2 border-t border-gray-700/70 font-mono text-[12px] text-gray-300">
+                  {(() => {
+                    const orderedTypes = ['boxart', 'banner', 'alternativeBanner', 'logo', 'hero', 'icon'];
+                    const jobs = optimizationStatus.jobs;
+                    const latestByGameAndType = new Map<string, Map<string, typeof jobs[0]>>();
+                    for (const j of jobs) {
+                      const game = j.gameTitle || j.gameId;
+                      const type = (j.imageType || '').toLowerCase();
+                      if (!type) continue;
+                      if (!latestByGameAndType.has(game)) {
+                        latestByGameAndType.set(game, new Map());
+                      }
+                      latestByGameAndType.get(game)!.set(type, j);
+                    }
+                    const games = Array.from(latestByGameAndType.keys());
+                    const sortedGames = [...games].sort((a, b) => {
+                      const aEntries = Array.from(latestByGameAndType.get(a)?.values() ?? []);
+                      const bEntries = Array.from(latestByGameAndType.get(b)?.values() ?? []);
+                      const aLatest = aEntries.reduce((m, e) => Math.max(m, e.updatedAt ?? 0), 0);
+                      const bLatest = bEntries.reduce((m, e) => Math.max(m, e.updatedAt ?? 0), 0);
+                      return bLatest - aLatest;
+                    });
+                    const fmtSize = (n?: number) => {
+                      if (n == null) return '';
+                      return n >= 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(1)} MB` : `${(n / 1024).toFixed(0)} KB`;
+                    };
+                    const processingRows: JSX.Element[] = [];
+                    const doneRows: JSX.Element[] = [];
+                    let activeProcessingKey: string | null = null;
+
+                    sortedGames.forEach((game) => {
+                      const typeMap = latestByGameAndType.get(game)!;
+                      const entries = Array.from(typeMap.values()).sort((a, b) => {
+                        const ia = orderedTypes.indexOf((a.imageType || '').toLowerCase());
+                        const ib = orderedTypes.indexOf((b.imageType || '').toLowerCase());
+                        return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
+                      });
+                      const doneEntries = entries.filter(e => e.phase === 'done' || e.phase === 'failed');
+                      const processingEntries = entries.filter(e => e.phase !== 'done' && e.phase !== 'failed');
+                      const sortedProcessingEntries = [...processingEntries].sort((a, b) => {
+                        const aActive = a.phase === 'downloading' || a.phase === 'optimizing';
+                        const bActive = b.phase === 'downloading' || b.phase === 'optimizing';
+                        if (aActive !== bActive) return aActive ? -1 : 1;
+                        return (b.updatedAt ?? 0) - (a.updatedAt ?? 0);
+                      });
+                      const sortedDoneEntries = [...doneEntries].sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0));
+
+                      if (processingEntries.length > 0) {
+                        processingRows.push(
+                          <p key={`${game}-processing-header`} className="text-white font-medium truncate mb-1" title={game}>
+                            {game} · Images: {doneEntries.length} done, {processingEntries.length} queued
+                          </p>
+                        );
+                        sortedProcessingEntries.forEach((entry, idx) => {
+                          const origStr = entry.originalBytes != null ? fmtSize(entry.originalBytes) : '';
+                          const ext = entry.fileName ? entry.fileName.split('.').pop() : undefined;
+                          const normalizedType = entry.imageType === 'alternativeBanner' ? 'alternativeBanner' : entry.imageType;
+                          const displayExt = (ext ? ext.toUpperCase() : entry.sourceExt || 'UNKNOWN');
+                          const typeLabel = normalizedType ? `${normalizedType} (${displayExt})` : `(${displayExt})`;
+                          const rowKey = `${game}-processing-${entry.imageType}-${idx}`;
+                          const isActive = entry.phase === 'downloading' || entry.phase === 'optimizing';
+                          if (!activeProcessingKey && isActive) activeProcessingKey = rowKey;
+                          processingRows.push(
+                            <div
+                              key={rowKey}
+                              ref={(el) => {
+                                if (activeProcessingKey === rowKey) activeProcessingRowRef.current = el;
+                              }}
+                              className="truncate min-w-0"
+                              title={`${game} · ${typeLabel} · ${entry.fileName || '-'} ${origStr ? `Original - ${origStr}` : ''}`}
+                            >
+                              {game} · {typeLabel} · {entry.fileName || '-'} {origStr ? <>Original - {origStr} → <span className="text-amber-300 animate-pulse">Processing</span></> : 'Queued'}
+                            </div>
+                          );
+                        });
+                        processingRows.push(<div key={`${game}-processing-spacer`} className="h-2" />);
+                      }
+                      if (doneEntries.length > 0) {
+                        doneRows.push(
+                          <p key={`${game}-done-header`} className="text-white font-medium truncate mb-1" title={game}>
+                            {game} · Images: {doneEntries.length} done
+                          </p>
+                        );
+                        sortedDoneEntries.forEach((entry, idx) => {
+                          const origStr = entry.originalBytes != null ? fmtSize(entry.originalBytes) : '';
+                          const optStr = entry.optimizedBytes != null ? fmtSize(entry.optimizedBytes) : '';
+                          const ext = entry.fileName ? entry.fileName.split('.').pop() : undefined;
+                          const normalizedType = entry.imageType === 'alternativeBanner' ? 'alternativeBanner' : entry.imageType;
+                          const displayExt = (ext ? ext.toUpperCase() : entry.sourceExt || 'UNKNOWN');
+                          const typeLabel = normalizedType ? `${normalizedType} (${displayExt})` : `(${displayExt})`;
+                          const isFailed = entry.phase === 'failed';
+                          doneRows.push(
+                            <div key={`${game}-done-${entry.imageType}-${idx}`} className="truncate min-w-0" title={`${game} · ${typeLabel} · ${entry.fileName || '-'}`}>
+                              {game} · {typeLabel} · {entry.fileName || '-'} {isFailed ? (
+                                <>{origStr ? `Original - ${origStr} ` : ''}(failed){entry.error ? `: ${entry.error}` : ''}</>
+                              ) : (
+                                <>{origStr && optStr && <>Original - {origStr} → Optimized - {optStr}</>}</>
+                              )}
+                            </div>
+                          );
+                        });
+                        doneRows.push(<div key={`${game}-done-spacer`} className="h-2" />);
+                      }
+                    });
+                    return (
+                      <div className="flex gap-8">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-gray-400 font-semibold mb-1">Processing / queued</p>
+                          <div ref={processingLogRef} className="max-h-[68vh] overflow-y-auto pr-2">
+                            {processingRows.length > 0 ? processingRows : <p className="text-gray-500">None</p>}
+                          </div>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-gray-400 font-semibold mb-1">Completed</p>
+                          <div ref={completedLogRef} className="max-h-[68vh] overflow-y-auto pr-2">
+                            {doneRows.length > 0 ? doneRows : <p className="text-gray-500">None</p>}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
               )}
             </div>
           </div>

@@ -255,6 +255,7 @@ export interface UserPreferences {
   currentResolution?: '720p' | '1080p' | '1440p' | '4K';
   storeMetadataLocally?: boolean;
   optimizeImagesInBackground?: boolean;
+  optimizationPerformance?: 'low' | 'balanced' | 'high';
 }
 
 export type UpdateStatus = 'checking' | 'available' | 'not-available' | 'downloading' | 'downloaded' | 'error';
@@ -284,8 +285,12 @@ declare global {
       optimizeImageCache: (options?: { webpOnly?: boolean }) => Promise<{ success: boolean; error?: string; optimized?: number; skipped?: number; failed?: number }>;
       onOptimizeProgress: (callback: (data: { phase: string; current: number; total: number; fileName: string; status?: string; originalBytes?: number; optimizedBytes?: number }) => void) => () => void;
       getFfmpegStatus: () => Promise<{ available: boolean; source: 'bundled' | 'system' | null }>;
-      getImageQueueStatus: () => Promise<{ queued: number; completed: number; currentGameTitle?: string; imageIndex?: number; imageTotal?: number; imageType?: string; phase?: string }>;
-      onImageQueueStatus: (callback: (status: { queued: number; completed: number; currentGameTitle?: string; imageIndex?: number; imageTotal?: number; imageType?: string; phase?: string }) => void) => () => void;
+      getImageQueueStatus: () => Promise<{ queued: number; completed: number; imagesQueued?: number; imagesCompleted?: number; currentGameTitle?: string; imageIndex?: number; imageTotal?: number; imageType?: string; phase?: string; currentFileName?: string; originalBytes?: number; optimizedBytes?: number; imageJobs?: { gameId: string; gameTitle: string; imageType: string; phase: 'queued' | 'downloading' | 'optimizing' | 'done'; fileName?: string; originalBytes?: number; optimizedBytes?: number }[] }>;
+      onImageQueueStatus: (callback: (status: { queued: number; completed: number; imagesQueued?: number; imagesCompleted?: number; currentGameTitle?: string; imageIndex?: number; imageTotal?: number; imageType?: string; phase?: string; currentFileName?: string; originalBytes?: number; optimizedBytes?: number; imageJobs?: { gameId: string; gameTitle: string; imageType: string; phase: 'queued' | 'downloading' | 'optimizing' | 'done'; fileName?: string; originalBytes?: number; optimizedBytes?: number }[] }) => void) => () => void;
+      optimization?: {
+        getStatus: () => Promise<import('./optimization').OptimizationStatus>;
+        onStatus: (callback: (status: import('./optimization').OptimizationStatus) => void) => () => void;
+      };
       reorderGames: (games: Game[]) => Promise<boolean>;
       addCustomGame: (gameData: { title: string; exePath: string }) => Promise<Game | null>;
       deleteGame: (gameId: string) => Promise<boolean>;

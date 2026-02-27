@@ -5,7 +5,7 @@ import { promisify } from 'node:util';
 import https from 'node:https';
 import http from 'node:http';
 import { URL } from 'node:url';
-import { homedir, tmpdir } from 'node:os';
+import { homedir, tmpdir, cpus } from 'node:os';
 import { spawnSync } from 'node:child_process';
 
 /** Resolve path to ffmpeg binary (bundled or system). Fixes asar path for Electron. */
@@ -35,8 +35,8 @@ const DEFAULT_MAX_DIMENSION = 800;
 
 /** Max fps for animated cache (drops frames to reduce size). */
 const ANIMATED_MAX_FPS = 15;
-/** Quality for animated WebP when using Sharp (0–100, lossy). 85 = good balance of size vs quality. */
-const WEBP_ANIMATED_QUALITY = 85;
+/** Quality for animated WebP when using Sharp (0–100, lossy). */
+const WEBP_ANIMATED_QUALITY = 80;
 
 /** Detect animated image format by magic bytes (URL extension can lie). */
 function getAnimatedContentFormat(buffer: Buffer): '.gif' | '.webp' | '.webm' | null {
@@ -49,6 +49,13 @@ function getAnimatedContentFormat(buffer: Buffer): '.gif' | '.webp' | '.webm' | 
 const JPEG_QUALITY = 85;
 const WEBP_QUALITY = 85;
 const PNG_COMPRESSION = 6;
+
+type OptimizationPerformanceProfile = 'low' | 'balanced' | 'high';
+const PROFILE_LIMITS: Record<OptimizationPerformanceProfile, { reserveCores: number; maxImageWorkers: number }> = {
+  low: { reserveCores: 4, maxImageWorkers: 1 },
+  balanced: { reserveCores: 2, maxImageWorkers: 2 },
+  high: { reserveCores: 1, maxImageWorkers: 3 },
+};
 
 export interface CachedImage {
   localPath: string;
@@ -305,7 +312,10 @@ export class ImageCacheService {
     url: string,
     gameId: string,
     imageType: 'boxart' | 'banner' | 'logo' | 'hero' | string,
-    onProgress?: (phase: 'downloading' | 'optimizing') => void
+    onProgress?: (
+      phase: 'downloading' | 'optimizing' | 'done',
+      info?: { fileName?: string; originalBytes?: number; optimizedBytes?: number }
+    ) => void
   ): Promise<string> {
     if (!url || url.trim() === '') {
       return url;
@@ -413,7 +423,7 @@ export class ImageCacheService {
         onProgress?.('downloading');
         const rawData = await fsPromises.readFile(filePath);
         const sourceExt = path.extname(filePath) || '.jpg';
-        onProgress?.('optimizing');
+        onProgress?.('optimizing', { originalBytes: rawData.length });
         const { data: optimizedData, ext: outExt } = await this.optimizeImage(rawData, imageType, sourceExt);
         const outFilename = `${safeGameId}-${imageType}${outExt}`;
         const outPath = path.join(this.cacheDir, outFilename);
@@ -421,6 +431,12 @@ export class ImageCacheService {
         console.log(`[ImageCache] Caching local image: ${filePath} -> ${outFilename}`);
         await fsPromises.writeFile(outPath, optimizedData);
         console.log(`[ImageCache] Cached local image: ${outFilename}`);
+
+        onProgress?.('done', {
+          fileName: outFilename,
+          originalBytes: rawData.length,
+          optimizedBytes: optimizedData.length,
+        });
 
         // Return simple URL format: onyx-local://{gameId}-{imageType}
         return `onyx-local://${safeGameId}-${imageType}`;
@@ -460,13 +476,19 @@ export class ImageCacheService {
       const imageData = await this.downloadImage(url);
 
       // Optimize (resize + compress) for faster load and smaller cache
-      onProgress?.('optimizing');
+      onProgress?.('optimizing', { originalBytes: imageData.length });
       const { data: optimizedData, ext: outExt } = await this.optimizeImage(imageData, imageType, sourceExt);
       const filename = `${safeGameId}-${imageType}${outExt}`;
       const localPath = path.join(this.cacheDir, filename);
 
       await fsPromises.writeFile(localPath, optimizedData);
       console.log(`[ImageCache] Cached: ${filename}`);
+
+      onProgress?.('done', {
+        fileName: filename,
+        originalBytes: imageData.length,
+        optimizedBytes: optimizedData.length,
+      });
 
       // Return simple URL format: onyx-local://{gameId}-{imageType}
       return `onyx-local://${safeGameId}-${imageType}`;
@@ -485,7 +507,17 @@ export class ImageCacheService {
   async cacheImages(
     urls: { boxArtUrl?: string; bannerUrl?: string; alternativeBannerUrl?: string; logoUrl?: string; heroUrl?: string; iconUrl?: string; screenshots?: string[] },
     gameId: string,
-    onImageProgress?: (data: { index: number; total: number; imageType: string; phase: 'downloading' | 'optimizing' | 'done' }) => void
+    onImageProgress?: (data: {
+      index: number;
+      total: number;
+      imageType: string;
+      phase: 'downloading' | 'optimizing' | 'done';
+      fileName?: string;
+      originalBytes?: number;
+      optimizedBytes?: number;
+    }) => void,
+    shouldCancel?: () => boolean,
+    optimizationPerformance: OptimizationPerformanceProfile = 'balanced'
   ): Promise<{ boxArtUrl?: string; bannerUrl?: string; alternativeBannerUrl?: string; logoUrl?: string; heroUrl?: string; iconUrl?: string; screenshots?: string[] }> {
     const results: { boxArtUrl?: string; bannerUrl?: string; alternativeBannerUrl?: string; logoUrl?: string; heroUrl?: string; iconUrl?: string; screenshots?: string[] } = {};
     const entries: { type: string; resultKey: keyof typeof results; url: string }[] = [];
@@ -504,27 +536,110 @@ export class ImageCacheService {
 
     const total = entries.length;
     if (total === 0) return results;
+    if (shouldCancel?.()) return results;
 
     if (onImageProgress) {
-      for (let i = 0; i < entries.length; i++) {
-        const { type, resultKey, url } = entries[i];
-        const index = i + 1;
-        onImageProgress({ index, total, imageType: type, phase: 'downloading' });
-        const path = await this.cacheImage(url, gameId, type as 'boxart' | 'banner' | 'logo' | 'hero', (phase) => {
-          onImageProgress({ index, total, imageType: type, phase });
-        });
-        onImageProgress({ index, total, imageType: type, phase: 'done' });
-        if (resultKey === 'screenshots' && path && results.screenshots) {
-          results.screenshots.push(path);
-        } else if (resultKey !== 'screenshots') {
-          (results as Record<string, string>)[resultKey] = path;
+      // Process multiple images in parallel when reporting progress.
+      // Keep half the workers dedicated to non-WebP until non-WebP is exhausted,
+      // then those workers switch to WebP.
+      const limits = PROFILE_LIMITS[optimizationPerformance] ?? PROFILE_LIMITS.balanced;
+      const cpuCount = cpus().length || 2;
+      const availableWorkers = Math.max(1, cpuCount - limits.reserveCores);
+      const maxConcurrent = Math.max(1, Math.min(limits.maxImageWorkers, availableWorkers));
+
+      const nonWebpEntries: typeof entries = [];
+      const webpEntries: typeof entries = [];
+      for (const e of entries) {
+        const lower = e.url.toLowerCase();
+        if (lower.endsWith('.webp')) {
+          webpEntries.push(e);
+        } else {
+          nonWebpEntries.push(e);
         }
       }
+
+      let nonWebpIndex = 0;
+      let webpIndex = 0;
+
+      const workers: Promise<void>[] = [];
+      const workerCount = Math.min(maxConcurrent, entries.length);
+      const nonWebpWorkers = Math.min(nonWebpEntries.length, Math.max(1, Math.floor(workerCount / 2)));
+      const webpWorkers = Math.max(0, workerCount - nonWebpWorkers);
+      let completedCount = 0;
+
+      const runWorker = async (preferNonWebp: boolean) => {
+        // eslint-disable-next-line no-constant-condition
+        while (true) {
+          if (shouldCancel?.()) return;
+
+          let entry: (typeof entries)[number] | undefined;
+
+          if (preferNonWebp) {
+            if (nonWebpIndex < nonWebpEntries.length) {
+              entry = nonWebpEntries[nonWebpIndex++];
+            } else if (webpIndex < webpEntries.length) {
+              entry = webpEntries[webpIndex++];
+            } else {
+              return;
+            }
+          } else {
+            if (webpIndex < webpEntries.length) {
+              entry = webpEntries[webpIndex++];
+            } else if (nonWebpIndex < nonWebpEntries.length) {
+              entry = nonWebpEntries[nonWebpIndex++];
+            } else {
+              return;
+            }
+          }
+
+          if (!entry) return;
+          if (shouldCancel?.()) return;
+
+          const { type, resultKey, url } = entry;
+          const index = ++completedCount;
+
+          const path = await this.cacheImage(
+            url,
+            gameId,
+            type as 'boxart' | 'banner' | 'logo' | 'hero',
+            (phase, info) => {
+              onImageProgress({
+                index,
+                total,
+                imageType: type,
+                phase,
+                fileName: info?.fileName,
+                originalBytes: info?.originalBytes,
+                optimizedBytes: info?.optimizedBytes,
+              });
+            }
+          );
+
+          if (shouldCancel?.()) return;
+
+          if (resultKey === 'screenshots' && path && results.screenshots) {
+            results.screenshots.push(path);
+          } else if (resultKey !== 'screenshots' && path) {
+            (results as Record<string, string>)[resultKey] = path;
+          }
+        }
+      };
+
+      for (let i = 0; i < nonWebpWorkers; i++) {
+        workers.push(runWorker(true));
+      }
+      for (let i = 0; i < webpWorkers; i++) {
+        workers.push(runWorker(false));
+      }
+
+      await Promise.all(workers);
       return results;
     }
 
     await Promise.all(entries.map(async ({ type, resultKey, url }) => {
+      if (shouldCancel?.()) return;
       const path = await this.cacheImage(url, gameId, type as 'boxart' | 'banner' | 'logo' | 'hero');
+      if (shouldCancel?.()) return;
       if (resultKey === 'screenshots' && path && results.screenshots) {
         results.screenshots.push(path);
       } else if (resultKey !== 'screenshots') {
@@ -565,6 +680,29 @@ export class ImageCacheService {
    */
   getCacheDir(): string {
     return this.cacheDir;
+  }
+
+  /**
+   * List cache files that would be processed by optimizeExistingCache (for unified progress UI).
+   */
+  listFilesToOptimize(options?: { webpOnly?: boolean }): { file: string; gameId: string; imageType: string }[] {
+    this.ensureInitialized();
+    const { readdirSync } = require('node:fs');
+    const files = readdirSync(this.cacheDir) as string[];
+    const extList = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.webm', '.ico', '.avif'];
+    const typeSuffix = '(boxart|banner|alternativeBanner|logo|hero|icon|screenshot-\\d+)';
+    const re = new RegExp(`^(.+)-${typeSuffix}\\.(jpg|jpeg|png|gif|webp|webm|ico|avif)$`, 'i');
+    const out: { file: string; gameId: string; imageType: string }[] = [];
+    for (const file of files) {
+      const ext = path.extname(file).toLowerCase();
+      if (!extList.includes(ext)) continue;
+      const match = file.match(re);
+      if (!match) continue;
+      const sourceExt = '.' + match[3].toLowerCase();
+      if (options?.webpOnly && sourceExt !== '.webp') continue;
+      out.push({ file, gameId: match[1], imageType: match[2] });
+    }
+    return out;
   }
 
   /**

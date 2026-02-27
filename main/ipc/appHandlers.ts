@@ -538,11 +538,6 @@ export function registerAppIPCHandlers(
         return { success: false, error: 'Path not found' };
     });
 
-    ipcMain.handle('app:getFolderPaths', () => ({
-        cacheDir: imageCacheService.getCacheDir(),
-        appDataPath: app.getPath('userData'),
-    }));
-
     // API Credentials Handlers
     ipcMain.handle('api:getCredentials', async () => {
         return await apiCredentialsService.getCredentials();
@@ -823,7 +818,10 @@ export function registerAppIPCHandlers(
     });
 
     // App Control Handlers
-    ipcMain.handle('app:exit', () => app.exit(0));
+    ipcMain.handle('app:exit', () => {
+        app.quit();
+        return { success: true };
+    });
     ipcMain.handle('app:requestExit', () => {
         app.quit();
         return { success: true };

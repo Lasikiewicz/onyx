@@ -2406,94 +2406,94 @@ function App() {
         preScannedGames={scannedSteamGames && scannedSteamGames.length > 0 ? scannedSteamGames : undefined}
         onImport={async (games, onProgress) => {
           try {
+            // Save imported games first, reporting progress to the importer UI
             for (let i = 0; i < games.length; i++) {
               const game = games[i];
               onProgress?.(i + 1, games.length, 'Saving games', `Saving ${game.title}...`);
               await window.electronAPI.saveGame(game);
             }
 
-            // Only fetch artwork for games that don't already have it (e.g. already fetched in importer)
+            // Kick off artwork fetching in the background so it doesn't block the import UI
             const gamesNeedingArtwork = games.filter(
               (g) => !g.bannerUrl || !g.iconUrl || !g.alternativeBannerUrl
             );
-            const BATCH_SIZE = 5;
             if (gamesNeedingArtwork.length > 0) {
-              for (let i = 0; i < gamesNeedingArtwork.length; i += BATCH_SIZE) {
-                const batch = gamesNeedingArtwork.slice(i, i + BATCH_SIZE);
-                const firstTitle = batch[0]?.title ?? '';
-                onProgress?.(i, gamesNeedingArtwork.length, 'Fetching artwork', firstTitle);
-                console.log(`[Import] Processing batch ${i / BATCH_SIZE + 1} (${batch.length} games)`);
+              const BATCH_SIZE = 5;
+              (async () => {
+                for (let i = 0; i < gamesNeedingArtwork.length; i += BATCH_SIZE) {
+                  const batch = gamesNeedingArtwork.slice(i, i + BATCH_SIZE);
+                  console.log(`[Import] [Background] Processing artwork batch ${i / BATCH_SIZE + 1} (${batch.length} games)`);
 
-                await Promise.all(batch.map(async (game) => {
-                  try {
-                    console.log(`[Import] Fetching banners for: ${game.title}`);
+                  await Promise.all(batch.map(async (game) => {
+                    try {
+                      console.log(`[Import] [Background] Fetching banners for: ${game.title}`);
 
-                    const metadata = await window.electronAPI.searchArtwork(game.title, (game as any).appId);
+                      const metadata = await window.electronAPI.searchArtwork(game.title, (game as any).appId);
 
-                    if (metadata) {
-                      let updatedGame = { ...game };
-                      let updated = false;
+                      if (metadata) {
+                        let updatedGame = { ...game };
+                        let updated = false;
 
-                      if (metadata.bannerUrl && !game.bannerUrl) {
-                        updatedGame.bannerUrl = metadata.bannerUrl;
-                        updated = true;
-                      }
-                      if (metadata.alternativeBannerUrl && !game.alternativeBannerUrl) {
-                        updatedGame.alternativeBannerUrl = metadata.alternativeBannerUrl;
-                        updated = true;
-                      }
-                      if (metadata.iconUrl && !game.iconUrl) {
-                        updatedGame.iconUrl = metadata.iconUrl;
-                        updated = true;
-                      }
+                        if (metadata.bannerUrl && !game.bannerUrl) {
+                          updatedGame.bannerUrl = metadata.bannerUrl;
+                          updated = true;
+                        }
+                        if (metadata.alternativeBannerUrl && !game.alternativeBannerUrl) {
+                          updatedGame.alternativeBannerUrl = metadata.alternativeBannerUrl;
+                          updated = true;
+                        }
+                        if (metadata.iconUrl && !game.iconUrl) {
+                          updatedGame.iconUrl = metadata.iconUrl;
+                          updated = true;
+                        }
 
-                      try {
-                        const steamAppId = (game as any).appId;
-                        const bannerSearch = await window.electronAPI.searchImages(game.title, 'banner', steamAppId);
+                        try {
+                          const steamAppId = (game as any).appId;
+                          const bannerSearch = await window.electronAPI.searchImages(game.title, 'banner', steamAppId);
 
-                        if (bannerSearch?.success && bannerSearch.images) {
-                          const allBannerUrls: string[] = [];
+                          if (bannerSearch?.success && bannerSearch.images) {
+                            const allBannerUrls: string[] = [];
 
-                          if (Array.isArray(bannerSearch.images)) {
-                            bannerSearch.images.forEach((item: any) => {
-                              if (item.images && Array.isArray(item.images)) {
-                                item.images.forEach((img: any) => {
-                                  const url = img.url || img.bannerUrl;
+                            if (Array.isArray(bannerSearch.images)) {
+                              bannerSearch.images.forEach((item: any) => {
+                                if (item.images && Array.isArray(item.images)) {
+                                  item.images.forEach((img: any) => {
+                                    const url = img.url || img.bannerUrl;
+                                    if (url && !allBannerUrls.includes(url)) allBannerUrls.push(url);
+                                  });
+                                } else if (item.url || item.bannerUrl) {
+                                  const url = item.url || item.bannerUrl;
                                   if (url && !allBannerUrls.includes(url)) allBannerUrls.push(url);
-                                });
-                              } else if (item.url || item.bannerUrl) {
-                                const url = item.url || item.bannerUrl;
-                                if (url && !allBannerUrls.includes(url)) allBannerUrls.push(url);
-                              }
-                            });
-                          }
+                                }
+                              });
+                            }
 
-                          if (!updatedGame.bannerUrl && allBannerUrls.length > 0) {
-                            updatedGame.bannerUrl = allBannerUrls[0];
-                            updated = true;
-                          }
-                          if (allBannerUrls.length > 1) {
-                            const altUrl = allBannerUrls.find(url => url !== updatedGame.bannerUrl) || allBannerUrls[1];
-                            if (altUrl && altUrl !== updatedGame.bannerUrl) {
-                              updatedGame.alternativeBannerUrl = altUrl;
+                            if (!updatedGame.bannerUrl && allBannerUrls.length > 0) {
+                              updatedGame.bannerUrl = allBannerUrls[0];
                               updated = true;
                             }
+                            if (allBannerUrls.length > 1) {
+                              const altUrl = allBannerUrls.find(url => url !== updatedGame.bannerUrl) || allBannerUrls[1];
+                              if (altUrl && altUrl !== updatedGame.bannerUrl) {
+                                updatedGame.alternativeBannerUrl = altUrl;
+                                updated = true;
+                              }
+                            }
                           }
+                        } catch (searchErr) {
+                          console.error(`[Import] [Background] Banner search error for ${game.title}:`, searchErr);
                         }
-                      } catch (searchErr) {
-                        console.error(`[Import] Banner search error for ${game.title}:`, searchErr);
-                      }
 
-                      if (updated) {
-                        await window.electronAPI.saveGame(updatedGame);
+                        if (updated) {
+                          await window.electronAPI.saveGame(updatedGame);
+                        }
                       }
+                    } catch (err) {
+                      console.error(`[Import] [Background] Failed to fetch metadata for ${game.title}:`, err);
                     }
-                  } catch (err) {
-                    console.error(`[Import] Failed to fetch metadata for ${game.title}:`, err);
-                  }
-                }));
-                onProgress?.(i + batch.length, gamesNeedingArtwork.length, 'Fetching artwork', batch[batch.length - 1]?.title ?? '');
-              }
+                  }));
+                }
+              })().catch((err) => console.error('[Import] Background artwork task failed:', err));
             }
 
             onProgress?.(games.length, games.length, 'Finishing', 'Reloading library...');

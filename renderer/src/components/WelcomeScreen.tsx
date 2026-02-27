@@ -36,6 +36,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onScanGames, onAdd
     // Animation preferences
     const [preferAnimatedBoxart, setPreferAnimatedBoxart] = useState(true);
     const [preferAnimatedBanner, setPreferAnimatedBanner] = useState(true);
+    const [optimizationPerformance, setOptimizationPerformance] = useState<'low' | 'balanced' | 'high' | null>(null);
 
     useEffect(() => {
         const checkAPIs = async () => {
@@ -75,6 +76,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onScanGames, onAdd
             window.electronAPI.getPreferences().then((prefs: any) => {
                 setPreferAnimatedBoxart(prefs.preferAnimatedBoxart ?? true);
                 setPreferAnimatedBanner(prefs.preferAnimatedBanner ?? true);
+                setOptimizationPerformance(prefs.optimizationPerformance ?? null);
             });
         }
     }, [setupStep]);
@@ -156,11 +158,16 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onScanGames, onAdd
     };
 
     const handleOtherFoldersDone = async () => {
+        if (!optimizationPerformance) {
+            return;
+        }
+
         // Save the animated preferences
         try {
             await window.electronAPI.savePreferences({
                 preferAnimatedBoxart,
-                preferAnimatedBanner
+                preferAnimatedBanner,
+                optimizationPerformance
             });
         } catch (err) {
             console.error('Error saving animated preferences:', err);
@@ -691,6 +698,51 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onScanGames, onAdd
                                 </label>
                             </div>
                         </div>
+
+                        <div>
+                            <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Optimization Performance (Required)</h3>
+                            <p className="text-sm text-gray-500 mb-3 leading-relaxed">
+                                Choose how aggressive image optimization should be. Lower settings reduce CPU load and keep your PC more responsive while scanning.
+                            </p>
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                {[
+                                    {
+                                        value: 'low' as const,
+                                        label: 'Low CPU Usage',
+                                        desc: 'Best responsiveness, slowest optimization'
+                                    },
+                                    {
+                                        value: 'balanced' as const,
+                                        label: 'Balanced',
+                                        desc: 'Recommended for most PCs'
+                                    },
+                                    {
+                                        value: 'high' as const,
+                                        label: 'High Performance',
+                                        desc: 'Fastest optimization, higher CPU usage'
+                                    }
+                                ].map((option) => {
+                                    const selected = optimizationPerformance === option.value;
+                                    return (
+                                        <button
+                                            key={option.value}
+                                            type="button"
+                                            onClick={() => setOptimizationPerformance(option.value)}
+                                            className={`text-left p-4 rounded-xl border transition-all ${selected
+                                                ? 'bg-blue-600/20 border-blue-500/60 text-white'
+                                                : 'bg-gray-800/50 border-gray-700 text-gray-300 hover:border-blue-500/40'
+                                                }`}
+                                        >
+                                            <p className="text-sm font-semibold">{option.label}</p>
+                                            <p className="text-xs text-gray-400 mt-1">{option.desc}</p>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                            {!optimizationPerformance && (
+                                <p className="mt-3 text-sm text-amber-400">Select an optimization performance preference to continue.</p>
+                            )}
+                        </div>
                     </div>
 
                     <div className="mt-8 p-6 bg-gray-800/50 border border-gray-700 rounded-2xl">
@@ -710,7 +762,13 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onScanGames, onAdd
                         </div>
                         <div className="flex gap-3 pt-4 border-t border-gray-700">
                             <button onClick={() => setSetupStep('otherFolders')} className="flex-1 px-6 py-2.5 bg-gray-700 hover:bg-gray-600 text-white font-semibold rounded-xl transition-all">Back</button>
-                            <button onClick={handleOtherFoldersDone} className="flex-1 px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-all shadow-lg shadow-blue-600/20">Start scan</button>
+                            <button
+                                onClick={handleOtherFoldersDone}
+                                disabled={!optimizationPerformance}
+                                className="flex-1 px-6 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-600/50 disabled:cursor-not-allowed text-white font-semibold rounded-xl transition-all shadow-lg shadow-blue-600/20"
+                            >
+                                Start scan
+                            </button>
                         </div>
                     </div>
                 </div>

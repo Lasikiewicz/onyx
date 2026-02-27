@@ -24,6 +24,7 @@ description: Onyx AI Agent Guide - Critical Rules & Project Context
 - **Force to Alpha** = force **remote master** → **remote develop**. This updates the build number (increment version, changelog, run scan:secrets, commit, push master, then force master to develop). Triggers Onyx Alpha build. There is no branch named "alpha".
 - **Force to Main** = force **remote develop** → **remote main**. Same build number as the alpha. Triggers Onyx (Production) build. Source is always **origin/develop**, never master.
 
+
 ### 1. "Push to git" / "Push to git master"
 **Always run the build and secrets scan first; fix any issues, then push local master to remote master.** Does NOT trigger CI app build.
 
