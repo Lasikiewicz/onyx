@@ -385,6 +385,17 @@ export function registerAppIPCHandlers(
     ipcMain.handle('app:getName', () => app.getName());
     ipcMain.handle('app:getChangelog', async (_event, version?: string) => {
         let lastError: string | null = null;
+        // Try to fetch full CHANGELOG.md from GitHub as the primary source for versions
+        // This ensures the update modal shows actual changelog sections instead of release body text
+        try {
+            const githubChangelog = await fetchChangelogFromGithub(version);
+            if (githubChangelog) {
+                return { success: true, content: githubChangelog };
+            }
+        } catch (error) {
+            console.error('[Changelog] Fallback to local CHANGELOG.md due to GitHub error:', error);
+        }
+
         if (version) {
             try {
                 const releaseNotes = await fetchReleaseNotes(version);
@@ -394,17 +405,6 @@ export function registerAppIPCHandlers(
             } catch (error) {
                 lastError = error instanceof Error ? error.message : String(error);
             }
-        }
-
-        // Try to fetch full CHANGELOG.md from GitHub as the primary source for versions
-        // This ensures the update modal can show entries for versions newer than the current local installation
-        try {
-            const githubChangelog = await fetchChangelogFromGithub(version);
-            if (githubChangelog) {
-                return { success: true, content: githubChangelog };
-            }
-        } catch (error) {
-            console.error('[Changelog] Fallback to local CHANGELOG.md due to GitHub error:', error);
         }
 
         const candidatePaths = [
