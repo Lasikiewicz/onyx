@@ -4,6 +4,12 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.5.2] - 2026-02-27
+
+- Optimization: Restored unified optimization IPC bridge so status is visible in the renderer.
+- Optimization: Added performance profiles and onboarding/settings controls for image optimization CPU usage.
+- UI: Improved background optimization progress details and source file type visibility.
+
 ## [0.5.1] - 2026-02-26
 
 - Settings: Added the Nyrna credit link at the bottom of Suspend/Resume (Experimental).
