@@ -11,6 +11,16 @@ on:
       - 'agents.md'
       - 'brain/**'
       - '.gemini/**'
+  pull_request:
+    branches:
+      - main
+      - develop
+    paths-ignore:
+      - 'website/**'
+      - 'docs/**'
+      - 'agents.md'
+      - 'brain/**'
+      - '.gemini/**'
 
 permissions:
   contents: write
@@ -45,8 +55,9 @@ jobs:
       - name: Determine build profile
         id: build_profile
         run: |
-          $ref = "${{ github.ref }}"
-          if ($ref -eq "refs/heads/develop") {
+          # On push: use current branch; on pull_request: use PR target branch
+          $branch = "${{ github.event_name == 'push' && github.ref_name || github.base_ref }}"
+          if ($branch -eq "develop") {
             echo "profile=alpha" >> $env:GITHUB_OUTPUT
             echo "tag_prefix=alpha-v" >> $env:GITHUB_OUTPUT
             echo "is_prerelease=true" >> $env:GITHUB_OUTPUT
@@ -73,8 +84,9 @@ jobs:
           $version = (Get-Content package.json | ConvertFrom-Json).version
           echo "version=$version" >> $env:GITHUB_OUTPUT
         shell: pwsh
-      
+
       - name: Create and push tag
+        if: github.event_name == 'push'
         run: |
           $tag = "${{ steps.build_profile.outputs.tag_prefix }}${{ steps.version.outputs.version }}"
           git config user.name "github-actions[bot]"
@@ -84,6 +96,7 @@ jobs:
         shell: pwsh
       
       - name: Delete old release
+        if: github.event_name == 'push'
         run: |
           $tag = "${{ steps.build_profile.outputs.tag_prefix }}${{ steps.version.outputs.version }}"
           gh release delete $tag -y || true
@@ -92,6 +105,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create source tarball
+        if: github.event_name == 'push'
         id: source_bundle
         run: |
           $tag = "${{ steps.build_profile.outputs.tag_prefix }}${{ steps.version.outputs.version }}"
@@ -101,6 +115,7 @@ jobs:
         shell: pwsh
       
       - name: Create Release
+        if: github.event_name == 'push'
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ steps.build_profile.outputs.tag_prefix }}${{ steps.version.outputs.version }}
