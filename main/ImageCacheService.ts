@@ -62,6 +62,18 @@ export class ImageCacheService {
   private cacheDir: string;
   private initialized: boolean = false;
 
+  /**
+   * Helper to check if a file exists asynchronously
+   */
+  private async fileExists(filePath: string): Promise<boolean> {
+    try {
+      await fsPromises.access(filePath);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   constructor() {
     // Store images in a more accessible location with better permissions
     // On Windows, use AppData\Local instead of AppData\Roaming for better permissions
@@ -85,12 +97,12 @@ export class ImageCacheService {
   /**
    * Initialize the cache directory
    */
-  private ensureInitialized(): void {
+  private async ensureInitialized(): Promise<void> {
     if (this.initialized) return;
 
     try {
-      if (!existsSync(this.cacheDir)) {
-        mkdirSync(this.cacheDir, { recursive: true });
+      if (!(await this.fileExists(this.cacheDir))) {
+        await fsPromises.mkdir(this.cacheDir, { recursive: true });
         console.log(`[ImageCache] Created cache directory: ${this.cacheDir}`);
       } else {
         console.log(`[ImageCache] Using existing cache directory: ${this.cacheDir}`);
@@ -99,9 +111,8 @@ export class ImageCacheService {
       // Verify we can write to the directory
       const testFile = path.join(this.cacheDir, '.test-write');
       try {
-        writeFileSync(testFile, 'test');
-        const { unlinkSync } = require('node:fs');
-        unlinkSync(testFile);
+        await fsPromises.writeFile(testFile, 'test');
+        await fsPromises.unlink(testFile);
         console.log(`[ImageCache] Cache directory is writable: ${this.cacheDir}`);
       } catch (writeError) {
         console.error(`[ImageCache] Cache directory is not writable: ${this.cacheDir}`, writeError);
@@ -109,8 +120,8 @@ export class ImageCacheService {
         const fallbackDir = path.join(app.getPath('userData'), 'cache', 'images');
         if (fallbackDir !== this.cacheDir) {
           console.log(`[ImageCache] Attempting to use fallback directory: ${fallbackDir}`);
-          if (!existsSync(fallbackDir)) {
-            mkdirSync(fallbackDir, { recursive: true });
+          if (!(await this.fileExists(fallbackDir))) {
+            await fsPromises.mkdir(fallbackDir, { recursive: true });
           }
           this.cacheDir = fallbackDir;
         } else {
@@ -324,14 +335,14 @@ export class ImageCacheService {
           const imageTypeFromUrl = match[2];
 
           // Check if file exists in cache
-          this.ensureInitialized();
+          await this.ensureInitialized();
           const safeGameId = gameIdFromUrl.replace(/[<>:"/\\|?*]/g, '_');
           const extensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.webm', '.ico', '.avif'];
 
           for (const ext of extensions) {
             const filename = `${safeGameId}-${imageTypeFromUrl}${ext}`;
             const filePath = path.join(this.cacheDir, filename);
-            if (existsSync(filePath)) {
+            if (await this.fileExists(filePath)) {
               // File exists, return URL as-is
               return url;
             }
@@ -346,7 +357,7 @@ export class ImageCacheService {
 
           // Try to extract gameId from the URL or use the provided gameId
           // Old format might be encoded or have different structure
-          this.ensureInitialized();
+          await this.ensureInitialized();
           const safeGameId = gameId.replace(/[<>:"/\\|?*]/g, '_');
           const extensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.webm', '.ico', '.avif'];
 
@@ -354,7 +365,7 @@ export class ImageCacheService {
           for (const ext of extensions) {
             const filename = `${safeGameId}-${imageType}${ext}`;
             const filePath = path.join(this.cacheDir, filename);
-            if (existsSync(filePath)) {
+            if (await this.fileExists(filePath)) {
               // File exists! Convert to new format URL
               const newUrl = `onyx-local://${gameId}-${imageType}`;
               console.log(`[ImageCache] Converted old format URL to new format: ${newUrl}`);
@@ -373,7 +384,7 @@ export class ImageCacheService {
     }
 
     try {
-      this.ensureInitialized();
+      await this.ensureInitialized();
 
       // Handle file:// URLs by copying the file to cache
       if (url.startsWith('file://')) {
@@ -387,7 +398,7 @@ export class ImageCacheService {
         filePath = decodeURIComponent(filePath);
 
         // Check if source file exists
-        if (!existsSync(filePath)) {
+        if (!(await this.fileExists(filePath))) {
           console.warn(`Source file does not exist: ${filePath}`);
           return url;
         }
@@ -395,14 +406,13 @@ export class ImageCacheService {
         const safeGameId = gameId.replace(/[<>:"/\\|?*]/g, '_');
 
         // Delete old images for this game and image type before caching new one
-        const { unlinkSync } = require('node:fs');
         const extensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.webm', '.ico', '.avif'];
         for (const oldExt of extensions) {
           const oldFilename = `${safeGameId}-${imageType}${oldExt}`;
           const oldPath = path.join(this.cacheDir, oldFilename);
-          if (existsSync(oldPath)) {
+          if (await this.fileExists(oldPath)) {
             try {
-              unlinkSync(oldPath);
+              await fsPromises.unlink(oldPath);
               console.log(`[ImageCache] Deleted old image: ${oldFilename}`);
             } catch (deleteError) {
               console.warn(`[ImageCache] Failed to delete old image ${oldFilename}:`, deleteError);
@@ -434,19 +444,18 @@ export class ImageCacheService {
       const extensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.webm', '.ico', '.avif'];
       for (const ext of extensions) {
         const filename = `${safeGameId}-${imageType}${ext}`;
-        if (existsSync(path.join(this.cacheDir, filename))) {
+        if (await this.fileExists(path.join(this.cacheDir, filename))) {
           return `onyx-local://${safeGameId}-${imageType}`;
         }
       }
 
       // Delete any old images for this game and image type (different extension from a previous run)
-      const { unlinkSync } = require('node:fs');
       for (const oldExt of extensions) {
         const oldFilename = `${safeGameId}-${imageType}${oldExt}`;
         const oldPath = path.join(this.cacheDir, oldFilename);
-        if (existsSync(oldPath)) {
+        if (await this.fileExists(oldPath)) {
           try {
-            unlinkSync(oldPath);
+            await fsPromises.unlink(oldPath);
             console.log(`[ImageCache] Deleted old image: ${oldFilename}`);
           } catch (deleteError) {
             console.warn(`[ImageCache] Failed to delete old image ${oldFilename}:`, deleteError);
@@ -540,14 +549,14 @@ export class ImageCacheService {
    */
   async findCachedImage(gameId: string, imageType: 'boxart' | 'banner' | 'logo' | 'hero' | string): Promise<string | null> {
     try {
-      this.ensureInitialized();
+      await this.ensureInitialized();
       const safeGameId = gameId.replace(/[<>:"/\\|?*]/g, '_');
       const extensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.webm', '.ico', '.avif'];
 
       for (const ext of extensions) {
         const filename = `${safeGameId}-${imageType}${ext}`;
         const filePath = path.join(this.cacheDir, filename);
-        if (existsSync(filePath)) {
+        if (await this.fileExists(filePath)) {
           // Return the onyx-local URL format
           return `onyx-local://${safeGameId}-${imageType}`;
         }
@@ -578,9 +587,8 @@ export class ImageCacheService {
   ): Promise<{ optimized: number; skipped: number; failed: number }> {
     const result = { optimized: 0, skipped: 0, failed: 0 };
     try {
-      this.ensureInitialized();
-      const { readdirSync, unlinkSync } = require('node:fs');
-      const files = readdirSync(this.cacheDir) as string[];
+      await this.ensureInitialized();
+      const files = await fsPromises.readdir(this.cacheDir);
       const extList = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.webm', '.ico', '.avif'];
       const typeSuffix = '(boxart|banner|alternativeBanner|logo|hero|icon|screenshot-\\d+)';
       const re = new RegExp(`^(.+)-${typeSuffix}\\.(jpg|jpeg|png|gif|webp|webm|ico|avif)$`, 'i');
@@ -619,8 +627,8 @@ export class ImageCacheService {
           const outPath = path.join(this.cacheDir, outFilename);
 
           if (outPath !== filePath) {
-            if (existsSync(outPath)) await fsPromises.unlink(outPath);
-            unlinkSync(filePath);
+            if (await this.fileExists(outPath)) await fsPromises.unlink(outPath);
+            await fsPromises.unlink(filePath);
           }
           await fsPromises.writeFile(outPath, optimizedData);
           result.optimized++;
@@ -647,16 +655,15 @@ export class ImageCacheService {
    */
   async deleteCachedImage(gameId: string, imageType: 'boxart' | 'banner' | 'logo' | 'hero' | string): Promise<void> {
     try {
-      this.ensureInitialized();
+      await this.ensureInitialized();
       const safeGameId = gameId.replace(/[<>:"/\\|?*]/g, '_');
       const extensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.webm', '.ico', '.avif'];
 
       for (const ext of extensions) {
         const filename = `${safeGameId}-${imageType}${ext}`;
         const filePath = path.join(this.cacheDir, filename);
-        if (existsSync(filePath)) {
-          const { unlinkSync } = require('node:fs');
-          unlinkSync(filePath);
+        if (await this.fileExists(filePath)) {
+          await fsPromises.unlink(filePath);
           console.log(`[ImageCache] Deleted cached image: ${filename}`);
         }
       }
@@ -672,17 +679,16 @@ export class ImageCacheService {
    */
   async deleteAllGameImages(gameId: string): Promise<void> {
     try {
-      this.ensureInitialized();
+      await this.ensureInitialized();
       const safeGameId = gameId.replace(/[<>:"/\\|?*]/g, '_');
-      const { readdirSync, unlinkSync } = require('node:fs');
-      const files = readdirSync(this.cacheDir) as string[];
+      const files = await fsPromises.readdir(this.cacheDir);
       const prefix = `${safeGameId}-`;
       let deletedCount = 0;
 
       for (const file of files) {
         if (file.startsWith(prefix)) {
           try {
-            unlinkSync(path.join(this.cacheDir, file));
+            await fsPromises.unlink(path.join(this.cacheDir, file));
             deletedCount++;
           } catch (e) {
             // Best effort
@@ -704,13 +710,12 @@ export class ImageCacheService {
    */
   async clearCache(): Promise<void> {
     try {
-      if (existsSync(this.cacheDir)) {
-        const { readdirSync, unlinkSync } = require('node:fs');
-        const files = readdirSync(this.cacheDir);
+      if (await this.fileExists(this.cacheDir)) {
+        const files = await fsPromises.readdir(this.cacheDir);
         for (const file of files) {
           const ext = path.extname(file).toLowerCase();
           if (['.jpg', '.jpeg', '.png', '.gif', '.webp', '.webm'].includes(ext)) {
-            unlinkSync(path.join(this.cacheDir, file));
+            await fsPromises.unlink(path.join(this.cacheDir, file));
           }
         }
         this.initialized = false;
