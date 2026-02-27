@@ -11,21 +11,22 @@ export class GameFilteringService {
    * Get known game publishers across all platforms
    * Used to whitelist games from established publishers
    */
-  private getKnownGamePublishers(): Set<string> {
-    return new Set([
+  private static readonly KNOWN_GAME_PUBLISHERS = new Set([
       // AAA Publishers
       'ea', 'activision', 'ubisoft', '2k', 'square', 'rockstar', 'bethesda', 'capcom',
       'bandai', 'konami', 'sega', 'disney', 'warner', 'paramount', 'sony',
       'microsoft', 'xbox', 'obsidian', 'ninja', 'rare', 'inxile', 'playground',
       'coalition', 'remedy', 'compulsion', 'sloclap', 'astragon', 'blizzard',
-    ]);
+  ]);
+
+  private getKnownGamePublishers(): ReadonlySet<string> {
+    return GameFilteringService.KNOWN_GAME_PUBLISHERS;
   }
 
   /**
    * System app prefixes/folders to exclude
    */
-  private getSystemAppPatterns(): string[] {
-    return [
+  private static readonly SYSTEM_APP_PATTERNS = [
       // Windows system apps
       'microsoft.windows', 'microsoft.office', 'microsoft.edge', 'microsoft.store',
       'microsoft.skype', 'microsoft.msn', 'microsoft.weather', 'microsoft.photos',
@@ -38,14 +39,16 @@ export class GameFilteringService {
       // Third-party utilities
       'adobe', 'autodesk', 'jetbrains', 'sublimetext', 'vscode', 'visualstudio',
       'python', 'nodejs', 'git', 'docker', 'vlc', 'audacity', 'ffmpeg',
-    ];
+  ];
+
+  private getSystemAppPatterns(): readonly string[] {
+    return GameFilteringService.SYSTEM_APP_PATTERNS;
   }
 
   /**
    * Non-game keywords (in app name, folder name, or exe name)
    */
-  private getNonGameKeywords(): string[] {
-    return [
+  private static readonly NON_GAME_KEYWORDS = [
       // Media/Entertainment
       'music', 'video', 'tv', 'movie', 'media', 'photo', 'camera', 'photoeditor',
       'gallery', 'clipchamp', 'paint', 'editor', 'viewer', 'player',
@@ -96,14 +99,16 @@ export class GameFilteringService {
       'quick assist', 'snipping', 'sticky', 'hdr calibration', 'insider hub',
       'xbox', 'console', 'terminal', 'cmd', 'powershell', 'bash', 'shell',
       'photoshop', 'illustrator', 'premiere', 'after effects',
-    ];
+  ];
+
+  private getNonGameKeywords(): readonly string[] {
+    return GameFilteringService.NON_GAME_KEYWORDS;
   }
 
   /**
    * Executable filenames that are definitely not games
    */
-  private getNonGameExecutables(): Set<string> {
-    return new Set([
+  private static readonly NON_GAME_EXECUTABLES = new Set([
       'setup.exe', 'uninstall.exe', 'unins000.exe',
       'installer.exe', 'bootstrapper.exe', 'launcher.exe',
       'updater.exe', 'config.exe',
@@ -126,7 +131,10 @@ export class GameFilteringService {
       'realtek.exe', 'snipping.exe', 'stickynotes.exe',
       'hdr_calibration.exe', 'xbox_insider.exe',
       'zsync.exe', 'zsyncmake.exe',
-    ]);
+  ]);
+
+  private getNonGameExecutables(): ReadonlySet<string> {
+    return GameFilteringService.NON_GAME_EXECUTABLES;
   }
 
   /**
