@@ -4,6 +4,10 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.5.4] - 2026-02-27
+
+- Update: Prioritized `CHANGELOG.md` content over GitHub release body text so the update modal shows real changelog entries.
+
 ## [0.5.3] - 2026-02-27
 
 - CI: Added missing `fast-check` dev dependency required by property-based tests.
