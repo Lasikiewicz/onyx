@@ -4,6 +4,11 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.5.3] - 2026-02-27
+
+- CI: Added missing `fast-check` dev dependency required by property-based tests.
+- Test: Added explicit callback parameter typing in `GameDetailsPanel` tests to fix TypeScript `implicit any` errors.
+
 ## [0.5.2] - 2026-02-27
 
 - Optimization: Restored unified optimization IPC bridge so status is visible in the renderer.
