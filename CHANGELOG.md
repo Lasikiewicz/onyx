@@ -4,6 +4,11 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.5.12] - 2026-02-28
+
+- Crash reporting: Crash dumps enabled in all builds; on next launch after a crash, option to save the report, open folder, or dismiss.
+- Optimization: Hardened image pipeline (limitInputPixels, worker fallback after repeated exits, queue try/catch).
+
 ## [0.5.11] - 2026-02-28
 
 - Manage Metadata: Unified NUCLEAR / Images only / Links only / Optimizer; NUCLEAR clears library and opens importer; all options require confirmation; refresh flows run in importer.
