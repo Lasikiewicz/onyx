@@ -254,6 +254,7 @@ export function createImageOptimizationQueue(
       if (isDebugOptimizationEnabled()) debugOptimizationLog(`queue process gameId=${item.gameId} title=${item.gameTitle?.slice(0, 30)}`);
 
       try {
+        try {
         const cached = await imageCacheService.cacheImages(
           item.urls,
           item.gameId,
@@ -337,27 +338,44 @@ export function createImageOptimizationQueue(
         }
       }
 
-      if (isDebugOptimizationEnabled()) debugOptimizationLog(`queue after saveGame block gameId=${item.gameId}`);
-      completed++;
-      currentItem = null;
-      if (isDebugOptimizationEnabled()) debugOptimizationLog(`queue updateStaticCompletionStatus gameId=${item.gameId}`);
-      updateStaticCompletionStatus(); // Check if static barrier is now satisfied
-      if (isDebugOptimizationEnabled()) debugOptimizationLog(`queue emitRuntimeMetrics gameId=${item.gameId}`);
-      emitRuntimeMetrics();
+        if (isDebugOptimizationEnabled()) debugOptimizationLog(`queue after saveGame block gameId=${item.gameId}`);
+        completed++;
+        currentItem = null;
+        if (isDebugOptimizationEnabled()) debugOptimizationLog(`queue updateStaticCompletionStatus gameId=${item.gameId}`);
+        updateStaticCompletionStatus(); // Check if static barrier is now satisfied
+        if (isDebugOptimizationEnabled()) debugOptimizationLog(`queue emitRuntimeMetrics gameId=${item.gameId}`);
+        emitRuntimeMetrics();
 
-      const queuedCount = getQueuedItemsCount();
-      if (isDebugOptimizationEnabled()) debugOptimizationLog(`queue check finish gameId=${item.gameId} queuedCount=${queuedCount} activeWorkers=${activeWorkers}`);
-      if (!cancelling && queuedCount === 0 && activeWorkers === 1) {
-        if (queueRunId) {
-          if (isDebugOptimizationEnabled()) debugOptimizationLog(`queue finishRun gameId=${item.gameId}`);
-          finishRun(queueRunId);
-          queueRunId = null;
+        const queuedCount = getQueuedItemsCount();
+        if (isDebugOptimizationEnabled()) debugOptimizationLog(`queue check finish gameId=${item.gameId} queuedCount=${queuedCount} activeWorkers=${activeWorkers}`);
+        if (!cancelling && queuedCount === 0 && activeWorkers === 1) {
+          if (queueRunId) {
+            if (isDebugOptimizationEnabled()) debugOptimizationLog(`queue finishRun gameId=${item.gameId}`);
+            finishRun(queueRunId);
+            queueRunId = null;
+          }
         }
+        // Yield so IPC and UI can run; prevents main-thread starvation
+        if (isDebugOptimizationEnabled()) debugOptimizationLog(`queue setImmediate yield gameId=${item.gameId}`);
+        await new Promise<void>((resolve) => setImmediate(resolve));
+        if (isDebugOptimizationEnabled()) debugOptimizationLog(`queue loop next gameId=${item.gameId}`);
+      } catch (loopErr) {
+        // Top-level catch so release build never crashes out of the loop (e.g. from emitRuntimeMetrics)
+        currentItem = null;
+        completed++;
+        if (!cancelling) {
+          console.warn('[ImageOptimizationQueue] Loop error:', loopErr);
+        }
+        if (item && queueRunId && !cancelling) {
+          for (const { type } of imageTypesFromUrls(item.urls)) {
+            updateJobByGameAndType(queueRunId, item.gameId, type, {
+              phase: 'failed',
+              error: loopErr instanceof Error ? loopErr.message : String(loopErr),
+            });
+          }
+        }
+        emitRuntimeMetrics();
       }
-      // Yield so IPC and UI can run; prevents main-thread starvation
-      if (isDebugOptimizationEnabled()) debugOptimizationLog(`queue setImmediate yield gameId=${item.gameId}`);
-      await new Promise<void>((resolve) => setImmediate(resolve));
-      if (isDebugOptimizationEnabled()) debugOptimizationLog(`queue loop next gameId=${item.gameId}`);
     }
   }
 

@@ -324,7 +324,9 @@ export class ImageCacheService {
     try {
       const sharp = await getSharp();
       const maxDim = MAX_DIMENSION_BY_TYPE[imageType] ?? DEFAULT_MAX_DIMENSION;
-      let pipeline = sharp(imageData)
+      // limitInputPixels avoids libvips native crash on huge images (release build)
+      const limitInputPixels = 4096 * 4096;
+      let pipeline = sharp(imageData, { limitInputPixels })
         .resize(maxDim, maxDim, { fit: 'inside', withoutEnlargement: true });
       if (ext === '.jpg' || ext === '.jpeg') {
         pipeline = pipeline.jpeg({ quality: JPEG_QUALITY, mozjpeg: true });

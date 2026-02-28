@@ -363,6 +363,9 @@ declare global {
       cancelScanAllSources: () => Promise<{ success: boolean; error?: string }>;
       cancelStartupScan: () => Promise<{ success: boolean; error?: string }>;
       scanAllSources: () => Promise<{ success: boolean; error?: string; games: Array<{ uuid: string; source: string; originalName: string; installPath: string; exePath?: string; appId?: string; packageFamilyName?: string; appUserModelId?: string; launchUri?: string; xboxKind?: 'uwp' | 'pc'; title: string; status: 'pending' | 'scanning' | 'matched' | 'ambiguous' | 'ready' | 'error'; error?: string }> }>;
+      saveCrashDumps: () => Promise<{ saved?: boolean; canceled?: boolean; destDir?: string; error?: string }>;
+      openCrashDumpFolder: () => Promise<{ opened?: boolean }>;
+      dismissCrashDumps: () => Promise<{ dismissed?: boolean }>;
       scanFolder: (folderPath: string) => Promise<{ success: boolean; error?: string; games: Array<{ uuid: string; source: string; originalName: string; installPath: string; exePath?: string; appId?: string; packageFamilyName?: string; appUserModelId?: string; launchUri?: string; xboxKind?: 'uwp' | 'pc'; title: string; status: 'pending' | 'scanning' | 'matched' | 'ambiguous' | 'ready' | 'error'; error?: string }> }>;
       searchImages: (query: string, imageType: 'boxart' | 'banner' | 'logo' | 'icon' | 'alternativeBanner', steamAppId?: string, includeAnimated?: boolean) => Promise<{ success: boolean; error?: string; images: Array<{ gameId: number; gameName: string; images: Array<{ url: string; score: number; width: number; height: number; mime?: string; isAnimated?: boolean }> }> }>;
       searchWebImages: (query: string, imageType: 'boxart' | 'banner' | 'logo' | 'icon') => Promise<{ success: boolean; error?: string; images: Array<{ gameId: number; gameName: string; images: Array<{ url: string; score: number; width: number; height: number; mime?: string; isAnimated?: boolean; source: string }> }> }>;

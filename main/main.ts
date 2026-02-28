@@ -45,21 +45,47 @@ if (!gotTheLock) {
 }
 
 import path from 'node:path';
-import { readdirSync, statSync, existsSync, readFileSync, copyFileSync, mkdirSync, promises as fsPromises } from 'node:fs';
+import { readdirSync, statSync, existsSync, readFileSync, copyFileSync, mkdirSync, unlinkSync, promises as fsPromises } from 'node:fs';
 import { platform } from 'node:os';
 import dotenv from 'dotenv';
 
-// Crash dumps (local dev: write to debug-logs/crash-dumps for easy access)
-if (!app.isPackaged) {
-  try {
-    const crashDumpsDir = path.join(app.getAppPath(), 'debug-logs', 'crash-dumps');
-    app.setPath('crashDumps', crashDumpsDir);
-    crashReporter.start({ uploadToServer: false, compress: false });
-    console.log('[Crash] Dumps will be saved to:', crashDumpsDir);
-  } catch (e) {
-    console.warn('[Crash] Failed to init crash reporter:', e);
+// Crash dumps: enabled in all builds; stored under userData so packaged builds can write
+try {
+  const crashDumpsDir = path.join(app.getPath('userData'), 'crash-dumps');
+  if (!existsSync(crashDumpsDir)) {
+    mkdirSync(crashDumpsDir, { recursive: true });
   }
+  app.setPath('crashDumps', crashDumpsDir);
+  crashReporter.start({ uploadToServer: false, compress: false });
+  console.log('[Crash] Dumps will be saved to:', crashDumpsDir);
+} catch (e) {
+  console.warn('[Crash] Failed to init crash reporter:', e);
 }
+
+/** Collect crash dump file paths from the crashDumps directory (and one level of subdirs for Crashpad). */
+function getCrashDumpFilePaths(): string[] {
+  const out: string[] = [];
+  try {
+    const dir = app.getPath('crashDumps');
+    if (!existsSync(dir)) return out;
+    const collect = (d: string) => {
+      const entries = readdirSync(d, { withFileTypes: true });
+      for (const e of entries) {
+        const full = path.join(d, e.name);
+        if (e.isFile()) {
+          if (e.name.endsWith('.dmp') || e.name.endsWith('.txt')) out.push(full);
+        } else if (e.isDirectory()) {
+          collect(full);
+        }
+      }
+    };
+    collect(dir);
+  } catch (err) {
+    console.warn('[Crash] Error listing crash dumps:', err);
+  }
+  return out;
+}
+
 import { SteamService } from './SteamService.js';
 import { GameStore, type Game } from './GameStore.js';
 import { MetadataFetcherService, IGDBConfig } from './MetadataFetcherService.js';
@@ -310,6 +336,46 @@ ipcMain.handle('optimization:getStatus', () => getOptimizationStatus());
 ipcMain.handle('optimization:clearStatus', () => {
   clearOptimizationStatus();
   return { success: true };
+});
+
+// Crash dump: offer to save on next launch after a crash
+ipcMain.handle('crash:saveDumps', async () => {
+  if (!win) return { saved: false, error: 'No window' };
+  const paths = getCrashDumpFilePaths();
+  if (paths.length === 0) return { saved: false, error: 'No crash dumps found' };
+  const { canceled, filePaths } = await dialog.showOpenDialog(win, {
+    title: 'Save crash report',
+    buttonLabel: 'Select folder',
+    properties: ['openDirectory', 'createDirectory'],
+  });
+  if (canceled || !filePaths?.[0]) return { saved: false, canceled: true };
+  const destDir = filePaths[0];
+  try {
+    for (const p of paths) {
+      const name = path.basename(p);
+      copyFileSync(p, path.join(destDir, name));
+    }
+    for (const p of paths) {
+      try { unlinkSync(p); } catch (_) { /* ignore */ }
+    }
+    return { saved: true, destDir };
+  } catch (err) {
+    console.error('[Crash] Failed to save dumps:', err);
+    return { saved: false, error: err instanceof Error ? err.message : String(err) };
+  }
+});
+ipcMain.handle('crash:openDumpFolder', async () => {
+  const dir = app.getPath('crashDumps');
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+  await shell.openPath(dir);
+  return { opened: true };
+});
+ipcMain.handle('crash:dismissDumps', async () => {
+  const paths = getCrashDumpFilePaths();
+  for (const p of paths) {
+    try { unlinkSync(p); } catch (_) { /* ignore */ }
+  }
+  return { dismissed: true };
 });
 
 registerGameIPCHandlers(steamService, xboxService, gameStore, imageCacheService, userPreferencesService, imageQueue, {
@@ -917,6 +983,12 @@ async function createWindow() {
     } catch (error) {
       console.error('Error checking start preferences:', error);
       win?.show();
+    }
+
+    // If a previous run produced crash dumps, offer to save them
+    const dumpPaths = getCrashDumpFilePaths();
+    if (dumpPaths.length > 0 && win && !win.isDestroyed()) {
+      win.webContents.send('crash:dumpsAvailable', { paths: dumpPaths });
     }
   });
 

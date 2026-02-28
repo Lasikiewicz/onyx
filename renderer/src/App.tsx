@@ -28,6 +28,7 @@ import { WelcomeScreen } from './components/WelcomeScreen';
 import { MissingGamesModal } from './components/MissingGamesModal';
 import { UpdateNotificationModal } from './components/UpdateNotificationModal';
 import { LibraryTutorialModal } from './components/LibraryTutorialModal';
+import { CrashDumpModal } from './components/CrashDumpModal';
 import { Game, ExecutableFile, GameMetadata } from './types/game';
 import { areAPIsConfigured } from './utils/apiValidation';
 
@@ -87,6 +88,9 @@ function App() {
   const [changelogLoading, setChangelogLoading] = useState(false);
   const [changelogError, setChangelogError] = useState<string | null>(null);
   const [isUpdateModalTest, setIsUpdateModalTest] = useState(false);
+
+  // Crash dump from previous session (paths when main sent crash:dumpsAvailable)
+  const [crashDumpPaths, setCrashDumpPaths] = useState<string[] | null>(null);
 
   // Search and view state
   const [searchQuery, setSearchQuery] = useState('');
@@ -786,6 +790,9 @@ function App() {
       }
     };
     const removeUpdateStatus = window.electronAPI?.on && window.electronAPI.on('app:update-status', updateStatusHandler);
+    const removeCrashDumps = window.electronAPI?.on && window.electronAPI.on('crash:dumpsAvailable', (_event: unknown, payload: { paths: string[] }) => {
+      if (payload?.paths?.length) setCrashDumpPaths(payload.paths);
+    });
 
     return () => {
       cleanup1();
@@ -798,6 +805,7 @@ function App() {
       if (typeof removeStartupProgress === 'function') removeStartupProgress();
       if (typeof removeMissingGames === 'function') removeMissingGames();
       if (typeof removeUpdateStatus === 'function') removeUpdateStatus();
+      if (typeof removeCrashDumps === 'function') removeCrashDumps();
     };
   }, []);
 
@@ -2939,6 +2947,24 @@ function App() {
           }}
         />
       )}
+
+      {/* Crash dump from previous session - offer to save on next open */}
+      <CrashDumpModal
+        isOpen={crashDumpPaths !== null && crashDumpPaths.length > 0}
+        dumpCount={crashDumpPaths?.length ?? 0}
+        onSave={async () => {
+          await window.electronAPI.saveCrashDumps?.();
+          setCrashDumpPaths(null);
+        }}
+        onOpenFolder={async () => {
+          await window.electronAPI.openCrashDumpFolder?.();
+          setCrashDumpPaths(null);
+        }}
+        onDismiss={async () => {
+          await window.electronAPI.dismissCrashDumps?.();
+          setCrashDumpPaths(null);
+        }}
+      />
 
       <LibraryTutorialModal
         isOpen={showLibraryTutorial}

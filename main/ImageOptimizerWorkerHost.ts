@@ -2,6 +2,7 @@
  * Spawns and talks to the ImageOptimizer worker thread. Main process uses this to run Sharp off the main thread.
  */
 
+import { app } from 'electron';
 import { Worker } from 'node:worker_threads';
 import path from 'node:path';
 import { debugOptimizationLog, isDebugOptimizationEnabled } from './debugOptimizationLog.js';
@@ -15,6 +16,7 @@ export interface OptimizeResult {
 
 let worker: Worker | null = null;
 let workerFailed = false; // avoid repeated spawn attempts if worker never loads
+let consecutiveWorkerExits = 0; // in release, stop respawning after repeated crashes
 const pending = new Map<string, { resolve: (r: OptimizeResult) => void; reject: (e: Error) => void }>();
 let nextId = 0;
 
@@ -33,6 +35,7 @@ function getWorker(): Worker | null {
       pending.delete(msg.id);
       try {
         if (msg.type === 'result' && msg.data != null && typeof msg.ext === 'string') {
+          consecutiveWorkerExits = 0; // success: allow worker to be respawned if it exits later
           if (isDebugOptimizationEnabled()) debugOptimizationLog(`worker result id=${msg.id} outBytes=${msg.data.byteLength} ext=${msg.ext}`);
           entry.resolve({ data: Buffer.from(msg.data), ext: msg.ext });
         } else if (msg.type === 'error') {
@@ -51,9 +54,15 @@ function getWorker(): Worker | null {
     });
     worker.on('exit', (code) => {
       if (code !== 0) {
-        console.warn('[ImageOptimizerWorker] Worker exited with code', code);
+        consecutiveWorkerExits++;
+        console.warn('[ImageOptimizerWorker] Worker exited with code', code, `(consecutive exits: ${consecutiveWorkerExits})`);
         for (const [, entry] of pending) entry.reject(new Error(`Worker exited ${code}`));
         pending.clear();
+        // In release, after 2 consecutive crashes stop respawning and use main-thread Sharp only
+        if (consecutiveWorkerExits >= 2 && app.isPackaged) {
+          console.warn('[ImageOptimizerWorker] Disabling worker after repeated exits; using main-thread fallback.');
+          workerFailed = true;
+        }
       }
       worker = null;
     });

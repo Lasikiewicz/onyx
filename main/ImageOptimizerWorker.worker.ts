@@ -24,6 +24,8 @@ const WEBP_ANIMATED_QUALITY_BACKGROUND = 75;
 const ANIMATED_TARGET_FPS = 15;
 /** Skip Sharp for static images larger than this to avoid hang/OOM (bytes). */
 const STATIC_SKIP_OVER_BYTES = 15 * 1024 * 1024;
+/** Limit input pixels to avoid libvips native crash on huge images (release build). */
+const LIMIT_INPUT_PIXELS = 4096 * 4096;
 
 type OptimizeMessage = {
   type: 'optimize';
@@ -49,7 +51,7 @@ async function runStatic(
   }
   const ext = sourceExt.toLowerCase();
   const maxDim = MAX_DIMENSION_BY_TYPE[imageType] ?? DEFAULT_MAX_DIMENSION;
-  let pipeline = sharp(imageData).resize(maxDim, maxDim, { fit: 'inside', withoutEnlargement: true });
+  let pipeline = sharp(imageData, { limitInputPixels: LIMIT_INPUT_PIXELS }).resize(maxDim, maxDim, { fit: 'inside', withoutEnlargement: true });
   if (ext === '.jpg' || ext === '.jpeg') {
     pipeline = pipeline.jpeg({ quality: JPEG_QUALITY, mozjpeg: true });
     return { data: await pipeline.toBuffer(), ext: '.jpg' };

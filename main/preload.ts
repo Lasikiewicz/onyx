@@ -97,6 +97,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
       'metadata:gameImagesFound',
       'metadata:fastSearchProgress',
       'app:update-status',
+      'crash:dumpsAvailable',
     ]);
     if (!allowedChannels.has(channel)) {
       console.warn(`Attempt to register to unauthorized IPC channel: ${channel}`);
@@ -181,6 +182,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   cancelScanAllSources: () => ipcRenderer.invoke('import:cancelScan'),
   cancelStartupScan: () => ipcRenderer.invoke('startup:cancel-scan'),
   scanAllSources: () => ipcRenderer.invoke('import:scanAllSources'),
+  // Crash dumps (after a previous run crashed)
+  saveCrashDumps: () => ipcRenderer.invoke('crash:saveDumps'),
+  openCrashDumpFolder: () => ipcRenderer.invoke('crash:openDumpFolder'),
+  dismissCrashDumps: () => ipcRenderer.invoke('crash:dismissDumps'),
   scanFolder: (folderPath: string) => ipcRenderer.invoke('import:scanFolder', folderPath),
   // Image search methods
   searchImages: (query: string, imageType: 'boxart' | 'banner' | 'alternativeBanner' | 'logo' | 'icon', steamAppId?: string, includeAnimated?: boolean) => ipcRenderer.invoke('metadata:searchImages', query, imageType, steamAppId, includeAnimated),
