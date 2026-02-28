@@ -37,7 +37,16 @@ function getWorker(): Worker | null {
         if (msg.type === 'result' && msg.data != null && typeof msg.ext === 'string') {
           consecutiveWorkerExits = 0; // success: allow worker to be respawned if it exits later
           if (isDebugOptimizationEnabled()) debugOptimizationLog(`worker result id=${msg.id} outBytes=${msg.data.byteLength} ext=${msg.ext}`);
-          entry.resolve({ data: Buffer.from(msg.data), ext: msg.ext });
+          // Defer Buffer.from to next tick so this handler returns quickly and doesn't block the event loop (avoids "Not Responding")
+          const data = msg.data;
+          const ext = msg.ext;
+          setImmediate(() => {
+            try {
+              entry.resolve({ data: Buffer.from(data), ext });
+            } catch (e) {
+              entry.reject(e instanceof Error ? e : new Error(String(e)));
+            }
+          });
         } else if (msg.type === 'error') {
           if (isDebugOptimizationEnabled()) debugOptimizationLog(`worker error id=${msg.id} message=${msg.message ?? 'Worker error'}`);
           entry.reject(new Error(msg.message ?? 'Worker error'));

@@ -4,6 +4,11 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.6.0] - 2026-02-28
+
+- Release: The optimized update.
+- Optimization: Prevent duplicate image-job records from keeping stale queued items and making progress appear stuck after import.
+
 ## [0.5.13] - 2026-02-28
 
 - Crash report modal: Note that reports are only saved when the app crashes, not when it stops responding and is closed.

@@ -124,7 +124,7 @@ export function addJobs(runId: string, newJobs: (Omit<ImageJobStatus, 'jobId'> &
   if (runId !== currentRunId) return;
   for (const j of newJobs) {
     const jobId = (j as { jobId?: string }).jobId ?? `${j.gameId}:${j.imageType}`;
-    jobs.push({
+    const nextJob: ImageJobStatus = {
       jobId,
       gameId: j.gameId,
       gameTitle: j.gameTitle,
@@ -137,7 +137,14 @@ export function addJobs(runId: string, newJobs: (Omit<ImageJobStatus, 'jobId'> &
       originalBytes: j.originalBytes,
       optimizedBytes: j.optimizedBytes,
       error: j.error,
-    });
+    };
+
+    const existingIndex = jobs.findIndex((existing) => existing.jobId === jobId);
+    if (existingIndex >= 0) {
+      jobs[existingIndex] = nextJob;
+    } else {
+      jobs.push(nextJob);
+    }
   }
   emit();
 }

@@ -2552,7 +2552,6 @@ function App() {
             }
             await loadLibrary();
             setImportWorkbenchInitialMode(null);
-            setAutoStartScan(true);
             setIsImportWorkbenchOpen(true);
           } else if (mode === 'images') {
             const result = await window.electronAPI.clearAllImages?.();

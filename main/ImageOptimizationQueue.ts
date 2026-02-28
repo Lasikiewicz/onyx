@@ -17,6 +17,9 @@ import { existsSync } from 'node:fs';
 
 type OptimizationPerformanceProfile = 'low' | 'balanced' | 'high';
 
+/** Max time per game for cacheImages; stuck download/optimize won't block the barrier forever. */
+const CACHE_IMAGES_TIMEOUT_MS = 10_000;
+
 // high hardCap kept moderate to avoid import hang: too many concurrent game workers
 // exhausts resources (Sharp, file descriptors, memory) and can deadlock.
 const PROFILE_LIMITS: Record<OptimizationPerformanceProfile, { reserveCores: number; utilization: number; hardCap: number }> = {
@@ -129,8 +132,11 @@ export function createImageOptimizationQueue(
   let cpuCount = cpus().length || 2;
   let lastCpuSnapshot: CpuSnapshot | null = null;
   let allStaticComplete = false; // Guard to allow animated processing - starts false, evaluated after items queued
+  let barrierBlockedIterations = 0; // When barrier-blocked for too long, force-lift so we don't spin forever
   let startTimeout: ReturnType<typeof setTimeout> | null = null;
   const START_DELAY_MS = 600; // Defer processing so bulk import and UI getLibrary can complete before any optimizer work
+  /** After this many barrier-blocked waits, force-lift the barrier so optimization can complete (stuck static job escape). */
+  const BARRIER_STUCK_ESCAPE_ITERATIONS = 20; // 20 * 500ms = 10s
 
   const takeCpuSnapshot = (): CpuSnapshot => {
     const cpuTimes = cpus();
@@ -228,14 +234,14 @@ export function createImageOptimizationQueue(
     // Use half of available workers; Sharp runs in worker thread so main process stays responsive
     const halfWorkers = Math.max(1, Math.floor(availableWorkers / 2));
     maxGameWorkers = Math.min(maxGameWorkers, halfWorkers);
-    // Cap at 1 game at a time to avoid native crash under heavy concurrent load (saveGame + cache)
-    maxGameWorkers = Math.min(maxGameWorkers, 1);
+    // Cap at 6 games in parallel (was 1 to avoid crash; user requested 6)
+    maxGameWorkers = Math.min(maxGameWorkers, 6);
     emitRuntimeMetrics();
   };
 
   async function processNext() {
+    let barrierBlockedLoopCount = 0;
     while (true) {
-      if (isDebugOptimizationEnabled()) debugOptimizationLog(`queue loop top`);
       if (cancelling) {
         emitRuntimeMetrics();
         return;
@@ -248,56 +254,77 @@ export function createImageOptimizationQueue(
       const item = shiftNextItem();
       if (!item) {
         emitRuntimeMetrics();
-        return;
-      }
-      currentItem = item;
-      if (isDebugOptimizationEnabled()) debugOptimizationLog(`queue process gameId=${item.gameId} title=${item.gameTitle?.slice(0, 30)}`);
-
-      try {
-        try {
-        const cached = await imageCacheService.cacheImages(
-          item.urls,
-          item.gameId,
-          (img) => {
-            if (queueRunId && !cancelling) {
-              const phase =
-                img.phase === 'downloading'
-                  ? 'downloading'
-                  : img.phase === 'optimizing'
-                    ? 'optimizing'
-                    : img.phase === 'done'
-                      ? 'done'
-                      : img.phase === 'skipped'
-                        ? 'skipped'
-                        : undefined;
-              if (phase) {
-                updateJobByGameAndType(queueRunId, item.gameId, img.imageType, {
-                  phase,
-                  fileName: img.fileName,
-                  originalBytes: img.originalBytes,
-                  optimizedBytes: img.optimizedBytes,
-                });
-              }
-            }
-          },
-          () => cancelling,
-          currentProfile,
-          { fromImporterQueue: true }
-        );
-
-        if (isDebugOptimizationEnabled()) debugOptimizationLog(`queue cacheImages done gameId=${item.gameId}`);
-
-        if (cancelling) {
+        // Barrier blocked: animated items waiting for static to finish. Back off to reduce CPU.
+        if (getQueuedItemsCount() > 0) {
+          barrierBlockedIterations++;
+          if (barrierBlockedIterations >= BARRIER_STUCK_ESCAPE_ITERATIONS) {
+            // Stuck: one worker may be hung on a static job. Force-lift so others can finish animated work.
+            console.warn('[ImageOptimizationQueue] Barrier stuck for too long - forcing barrier lift so optimization can complete');
+            allStaticComplete = true;
+            barrierBlockedIterations = 0;
+          }
+          barrierBlockedLoopCount++;
+          if (isDebugOptimizationEnabled() && barrierBlockedLoopCount % 10 === 1) {
+            debugOptimizationLog(`queue barrier blocked wait ${barrierBlockedLoopCount}`);
+          }
+          await new Promise<void>((r) => setTimeout(r, 500));
           continue;
         }
+        return;
+      }
+      barrierBlockedIterations = 0;
+      barrierBlockedLoopCount = 0;
+      currentItem = item;
+      if (isDebugOptimizationEnabled()) debugOptimizationLog(`queue process gameId=${item.gameId} title=${item.gameTitle?.slice(0, 30)}`);
+      // Yield so clicks and IPC are processed before we start this game's cache (avoids "app not responding")
+      await new Promise<void>((r) => setImmediate(r));
 
-        if (isDebugOptimizationEnabled()) debugOptimizationLog(`queue getLibrary before saveGame gameId=${item.gameId}`);
-        const games = await gameStore.getLibrary();
-        const game = games.find((g) => g.id === item.gameId);
-        if (isDebugOptimizationEnabled()) debugOptimizationLog(`queue game found=${Boolean(game)} gameId=${item.gameId} librarySize=${games.length}`);
-        if (game) {
-          if (isDebugOptimizationEnabled()) debugOptimizationLog(`queue saveGame start gameId=${item.gameId}`);
-          try {
+      try {
+        const processGamePromise = (async () => {
+          const cached = await imageCacheService.cacheImages(
+            item.urls,
+            item.gameId,
+            (img) => {
+              if (queueRunId && !cancelling) {
+                const phase =
+                  img.phase === 'downloading'
+                    ? 'downloading'
+                    : img.phase === 'optimizing'
+                      ? 'optimizing'
+                      : img.phase === 'done'
+                        ? 'done'
+                        : img.phase === 'skipped'
+                          ? 'skipped'
+                          : undefined;
+                if (phase) {
+                  updateJobByGameAndType(queueRunId, item.gameId, img.imageType, {
+                    phase,
+                    fileName: img.fileName,
+                    originalBytes: img.originalBytes,
+                    optimizedBytes: img.optimizedBytes,
+                  });
+                  if (phase === 'done' || phase === 'skipped') {
+                    updateStaticCompletionStatus();
+                  }
+                }
+              }
+            },
+            () => cancelling,
+            currentProfile,
+            { fromImporterQueue: true }
+          );
+
+          if (isDebugOptimizationEnabled()) debugOptimizationLog(`queue cacheImages done gameId=${item.gameId}`);
+
+          if (cancelling) return;
+
+          if (isDebugOptimizationEnabled()) debugOptimizationLog(`queue getLibrary before saveGame gameId=${item.gameId}`);
+          await new Promise<void>((r) => setImmediate(r));
+          const games = await gameStore.getLibrary();
+          const game = games.find((g) => g.id === item.gameId);
+          if (isDebugOptimizationEnabled()) debugOptimizationLog(`queue game found=${Boolean(game)} gameId=${item.gameId} librarySize=${games.length}`);
+          if (game) {
+            if (isDebugOptimizationEnabled()) debugOptimizationLog(`queue saveGame start gameId=${item.gameId}`);
             const updated: Game = {
               ...game,
               boxArtUrl: cached.boxArtUrl ?? game.boxArtUrl,
@@ -312,15 +339,20 @@ export function createImageOptimizationQueue(
             await gameStore.flushPending();
             if (isDebugOptimizationEnabled()) debugOptimizationLog(`queue flushPending done gameId=${item.gameId}`);
             if (isDebugOptimizationEnabled()) debugOptimizationLog(`queue saveGame done gameId=${item.gameId}`);
-          } catch (saveErr) {
-            const msg = saveErr instanceof Error ? saveErr.message : String(saveErr);
-            const stack = saveErr instanceof Error ? saveErr.stack : undefined;
-            if (isDebugOptimizationEnabled()) {
-              debugOptimizationLog(`queue saveGame throw gameId=${item.gameId} error=${msg}`);
-              if (stack) debugOptimizationLog(`queue saveGame stack ${stack.split('\n').slice(0, 8).join(' | ')}`);
-            }
-            throw saveErr;
           }
+        })();
+
+        const timeoutPromise = new Promise<never>((_, reject) =>
+          setTimeout(
+            () => reject(new Error(`Game processing timed out after ${CACHE_IMAGES_TIMEOUT_MS / 1000}s`)),
+            CACHE_IMAGES_TIMEOUT_MS
+          )
+        );
+
+        await Promise.race([processGamePromise, timeoutPromise]);
+
+        if (cancelling) {
+          continue;
         }
       } catch (err) {
         const errMsg = err instanceof Error ? err.message : String(err);
@@ -329,15 +361,21 @@ export function createImageOptimizationQueue(
           console.warn('[ImageOptimizationQueue] Failed to cache images for', item.gameId, err);
         }
         if (queueRunId && !cancelling) {
-          for (const { type } of imageTypesFromUrls(item.urls)) {
-            updateJobByGameAndType(queueRunId, item.gameId, type, {
-              phase: 'failed',
-              error: errMsg,
-            });
+          // Mark ALL jobs for this game failed (we have one queue item per static/deferred batch, but
+          // jobs were added for the whole game; only marking item.urls leaves other image types stuck "queued").
+          const status = getControllerStatus();
+          if (status.runId === queueRunId) {
+            for (const j of status.jobs) {
+              if (j.gameId === item.gameId && j.phase !== 'done' && j.phase !== 'failed' && j.phase !== 'skipped') {
+                updateJobByGameAndType(queueRunId, item.gameId, j.imageType, { phase: 'failed', error: errMsg });
+              }
+            }
           }
+          updateStaticCompletionStatus();
         }
       }
 
+      try {
         if (isDebugOptimizationEnabled()) debugOptimizationLog(`queue after saveGame block gameId=${item.gameId}`);
         completed++;
         currentItem = null;
@@ -348,13 +386,9 @@ export function createImageOptimizationQueue(
 
         const queuedCount = getQueuedItemsCount();
         if (isDebugOptimizationEnabled()) debugOptimizationLog(`queue check finish gameId=${item.gameId} queuedCount=${queuedCount} activeWorkers=${activeWorkers}`);
-        if (!cancelling && queuedCount === 0 && activeWorkers === 1) {
-          if (queueRunId) {
-            if (isDebugOptimizationEnabled()) debugOptimizationLog(`queue finishRun gameId=${item.gameId}`);
-            finishRun(queueRunId);
-            queueRunId = null;
-          }
-        }
+        // Do not call finishRun here: another worker may still be running (stuck or slow). If we set
+        // queueRunId=null now, that worker's timeout catch would skip marking its jobs failed, leaving
+        // images stuck "queued". Only finishRun from .finally() when activeWorkers === 0.
         // Yield so IPC and UI can run; prevents main-thread starvation
         if (isDebugOptimizationEnabled()) debugOptimizationLog(`queue setImmediate yield gameId=${item.gameId}`);
         await new Promise<void>((resolve) => setImmediate(resolve));
@@ -367,11 +401,16 @@ export function createImageOptimizationQueue(
           console.warn('[ImageOptimizationQueue] Loop error:', loopErr);
         }
         if (item && queueRunId && !cancelling) {
-          for (const { type } of imageTypesFromUrls(item.urls)) {
-            updateJobByGameAndType(queueRunId, item.gameId, type, {
-              phase: 'failed',
-              error: loopErr instanceof Error ? loopErr.message : String(loopErr),
-            });
+          const status = getControllerStatus();
+          if (status.runId === queueRunId) {
+            for (const j of status.jobs) {
+              if (j.gameId === item.gameId && j.phase !== 'done' && j.phase !== 'failed' && j.phase !== 'skipped') {
+                updateJobByGameAndType(queueRunId, item.gameId, j.imageType, {
+                  phase: 'failed',
+                  error: loopErr instanceof Error ? loopErr.message : String(loopErr),
+                });
+              }
+            }
           }
         }
         emitRuntimeMetrics();
@@ -398,6 +437,18 @@ export function createImageOptimizationQueue(
               processing = false;
               currentItem = null;
               if (queueRunId) {
+                // Ensure no jobs stay "queued": mark any still non-terminal as failed so UI never shows finished + N queued
+                const status = getControllerStatus();
+                if (status.runId === queueRunId) {
+                  for (const j of status.jobs) {
+                    if (j.phase !== 'done' && j.phase !== 'failed' && j.phase !== 'skipped') {
+                      updateJobByGameAndType(queueRunId, j.gameId, j.imageType, {
+                        phase: 'failed',
+                        error: 'Run finished with incomplete jobs',
+                      });
+                    }
+                  }
+                }
                 finishRun(queueRunId);
                 queueRunId = null;
               }
@@ -438,20 +489,26 @@ export function createImageOptimizationQueue(
       else if (imageType === 'icon') target.iconUrl = value;
     };
 
+    // WebP is never optimized or shown in the queue; we still add to deferredUrls so it gets cached (write raw) when we process
+    const isWebp = (ext?: string) => (ext ?? '').toLowerCase().replace(/^\./, '') === 'webp';
+
     for (const entry of entries) {
       if (isKnownStaticExt(entry.sourceExt)) assignUrl(staticUrls, entry.type, entry.url);
       else assignUrl(deferredUrls, entry.type, entry.url);
     }
 
-    const newJobs = entries.map(({ type, sourceExt }) => ({
-      jobId: `${gameId}:${type}`,
-      gameId,
-      gameTitle,
-      imageType: type,
-      source: 'importer' as const,
-      phase: 'queued' as const,
-      sourceExt,
-    }));
+    // Do not create jobs for WebP — they must not appear in the optimization list or affect the static barrier
+    const newJobs = entries
+      .filter((e) => !isWebp(e.sourceExt))
+      .map(({ type, sourceExt }) => ({
+        jobId: `${gameId}:${type}`,
+        gameId,
+        gameTitle,
+        imageType: type,
+        source: 'importer' as const,
+        phase: 'queued' as const,
+        sourceExt,
+      }));
     addJobs(runId, newJobs);
     if (countUrlEntries(staticUrls) > 0) {
       staticQueue.push({ gameId, gameTitle, phase: 'static', urls: staticUrls });
