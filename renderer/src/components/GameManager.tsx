@@ -104,6 +104,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
   const [linkIconPopupIndex, setLinkIconPopupIndex] = useState<number | null>(null);
   const [imageSearchProviderStatus, setImageSearchProviderStatus] = useState<{ currentProvider: string; remaining: string[] } | null>(null);
   const linkIconFileInputRef = useRef<HTMLInputElement>(null);
+  const imageChangedGameIdsRef = useRef<Set<string>>(new Set());
 
   // Refs to track current state for async IPC events
   const selectedGameIdRef = React.useRef(selectedGameId);
@@ -461,8 +462,40 @@ export const GameManager: React.FC<GameManagerProps> = ({
       // Invalidate in-flight image search requests so backend aborts
       fastSearchActiveRunIdRef.current = ++fastSearchRunIdRef.current;
       imageSearchRunIdRef.current++;
+      imageChangedGameIdsRef.current.clear();
     }
   }, [isOpen, initialTab]);
+
+  const handleCloseManager = async () => {
+    const changedGameIds = Array.from(imageChangedGameIdsRef.current);
+    imageChangedGameIdsRef.current.clear();
+
+    if (changedGameIds.length > 0 && window.electronAPI.optimizeGames) {
+      try {
+        await window.electronAPI.optimizeGames({ gameIds: changedGameIds });
+      } catch (err) {
+        console.warn('[GameManager] Failed to queue optimization for changed images on close:', err);
+      }
+    }
+
+    onClose();
+  };
+
+  const handleOptimizeAllImages = async () => {
+    try {
+      setError(null);
+      setSuccess(null);
+      const result = await window.electronAPI.optimizeGames?.({ allGames: true });
+      if (!result?.success) {
+        setError(result?.error || 'Failed to start image optimization');
+        return;
+      }
+      setSuccess(`Queued optimization for ${result.queuedGames} game(s), ${result.queuedImages} image(s)`);
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to start image optimization');
+    }
+  };
 
   // Fetch launcher data for a game
   const handleFetchLauncherData = async (game?: Game) => {
@@ -1303,6 +1336,8 @@ export const GameManager: React.FC<GameManagerProps> = ({
       prevGames.map(g => g.id === updatedGame.id ? updatedGame : g)
     );
 
+    imageChangedGameIdsRef.current.add(updatedGame.id);
+
     // Save in background - pass old game to delete old images
     // Don't reload library - just update local state
     try {
@@ -1801,7 +1836,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
               Remove Deleted
             </button>
             <button
-              onClick={onClose}
+              onClick={handleCloseManager}
               className="group p-1.5 hover:bg-slate-700/60 border border-transparent hover:border-white/5 rounded-lg transition-all"
             >
               <svg className="w-5 h-5 text-gray-400 group-hover:text-white group-hover:animate-wobble transition-all duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -3542,6 +3577,10 @@ export const GameManager: React.FC<GameManagerProps> = ({
           setShowRefreshDialog(false);
           setRefreshMode('links');
           setShowRefreshConfirm(true);
+        }}
+        onSelectOptimizeAllImages={async () => {
+          setShowRefreshDialog(false);
+          await handleOptimizeAllImages();
         }}
         onCancel={() => {
           setShowRefreshDialog(false);

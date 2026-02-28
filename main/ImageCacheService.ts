@@ -313,7 +313,7 @@ export class ImageCacheService {
     gameId: string,
     imageType: 'boxart' | 'banner' | 'logo' | 'hero' | string,
     onProgress?: (
-      phase: 'downloading' | 'optimizing' | 'done',
+      phase: 'downloading' | 'optimizing' | 'done' | 'skipped',
       info?: { fileName?: string; originalBytes?: number; optimizedBytes?: number }
     ) => void
   ): Promise<string> {
@@ -342,7 +342,8 @@ export class ImageCacheService {
             const filename = `${safeGameId}-${imageTypeFromUrl}${ext}`;
             const filePath = path.join(this.cacheDir, filename);
             if (existsSync(filePath)) {
-              // File exists, return URL as-is
+              // File exists - emit skipped and return URL
+              onProgress?.('skipped', { fileName: filename });
               return url;
             }
           }
@@ -451,6 +452,7 @@ export class ImageCacheService {
       for (const ext of extensions) {
         const filename = `${safeGameId}-${imageType}${ext}`;
         if (existsSync(path.join(this.cacheDir, filename))) {
+          onProgress?.('skipped', { fileName: filename });
           return `onyx-local://${safeGameId}-${imageType}`;
         }
       }
@@ -511,7 +513,7 @@ export class ImageCacheService {
       index: number;
       total: number;
       imageType: string;
-      phase: 'downloading' | 'optimizing' | 'done';
+      phase: 'downloading' | 'optimizing' | 'done' | 'skipped';
       fileName?: string;
       originalBytes?: number;
       optimizedBytes?: number;
@@ -540,56 +542,45 @@ export class ImageCacheService {
 
     if (onImageProgress) {
       // Process multiple images in parallel when reporting progress.
-      // Keep half the workers dedicated to non-WebP until non-WebP is exhausted,
-      // then those workers switch to WebP.
+      // Prioritize static formats first, then defer animated formats until the end
+      // to keep queue throughput high and avoid animated files dominating early workers.
       const limits = PROFILE_LIMITS[optimizationPerformance] ?? PROFILE_LIMITS.balanced;
       const cpuCount = cpus().length || 2;
       const availableWorkers = Math.max(1, cpuCount - limits.reserveCores);
       const maxConcurrent = Math.max(1, Math.min(limits.maxImageWorkers, availableWorkers));
 
-      const nonWebpEntries: typeof entries = [];
-      const webpEntries: typeof entries = [];
+      const staticEntries: typeof entries = [];
+      const deferredEntries: typeof entries = [];
       for (const e of entries) {
         const lower = e.url.toLowerCase();
-        if (lower.endsWith('.webp')) {
-          webpEntries.push(e);
+        const isKnownStatic = /\.(jpg|jpeg|png|ico|avif)(\?|#|$)/.test(lower);
+        if (isKnownStatic) {
+          staticEntries.push(e);
         } else {
-          nonWebpEntries.push(e);
+          deferredEntries.push(e);
         }
       }
 
-      let nonWebpIndex = 0;
-      let webpIndex = 0;
+      let staticIndex = 0;
+      let deferredIndex = 0;
 
       const workers: Promise<void>[] = [];
       const workerCount = Math.min(maxConcurrent, entries.length);
-      const nonWebpWorkers = Math.min(nonWebpEntries.length, Math.max(1, Math.floor(workerCount / 2)));
-      const webpWorkers = Math.max(0, workerCount - nonWebpWorkers);
       let completedCount = 0;
 
-      const runWorker = async (preferNonWebp: boolean) => {
+      const runWorker = async () => {
         // eslint-disable-next-line no-constant-condition
         while (true) {
           if (shouldCancel?.()) return;
 
           let entry: (typeof entries)[number] | undefined;
 
-          if (preferNonWebp) {
-            if (nonWebpIndex < nonWebpEntries.length) {
-              entry = nonWebpEntries[nonWebpIndex++];
-            } else if (webpIndex < webpEntries.length) {
-              entry = webpEntries[webpIndex++];
-            } else {
-              return;
-            }
+          if (staticIndex < staticEntries.length) {
+            entry = staticEntries[staticIndex++];
+          } else if (deferredIndex < deferredEntries.length) {
+            entry = deferredEntries[deferredIndex++];
           } else {
-            if (webpIndex < webpEntries.length) {
-              entry = webpEntries[webpIndex++];
-            } else if (nonWebpIndex < nonWebpEntries.length) {
-              entry = nonWebpEntries[nonWebpIndex++];
-            } else {
-              return;
-            }
+            return;
           }
 
           if (!entry) return;
@@ -625,11 +616,8 @@ export class ImageCacheService {
         }
       };
 
-      for (let i = 0; i < nonWebpWorkers; i++) {
-        workers.push(runWorker(true));
-      }
-      for (let i = 0; i < webpWorkers; i++) {
-        workers.push(runWorker(false));
+      for (let i = 0; i < workerCount; i++) {
+        workers.push(runWorker());
       }
 
       await Promise.all(workers);

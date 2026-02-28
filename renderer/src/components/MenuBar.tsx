@@ -155,6 +155,8 @@ export const MenuBar: React.FC<MenuBarProps> = ({
   const completedLogRef = useRef<HTMLDivElement | null>(null);
   const activeProcessingRowRef = useRef<HTMLDivElement | null>(null);
   const hasOptimizationActivity = optimizationStatus?.hasActivity ?? false;
+  const hasOptimizationReport = (optimizationStatus?.jobs?.length ?? 0) > 0;
+  const showOptimizationIndicator = hasOptimizationActivity || hasOptimizationReport;
   const [showImageQueueDetail, setShowImageQueueDetail] = useState(false);
 
   const sensors = useSensors(
@@ -219,7 +221,6 @@ export const MenuBar: React.FC<MenuBarProps> = ({
     const unsub = window.electronAPI.optimization?.onStatus?.((status: unknown) => {
       const s = status as OptimizationStatus;
       setOptimizationStatus(s);
-      if (!s.hasActivity) setShowImageQueueDetail(false);
     });
     return () => unsub?.();
   }, []);
@@ -967,7 +968,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
       )}
 
       {/* Right section - optimizing indicator + positioned elements; mr-32 keeps clear of window controls */}
-      {(elementsByPosition.right.length > 0 || hasOptimizationActivity) && (
+      {(elementsByPosition.right.length > 0 || showOptimizationIndicator) && (
         <div
           className="flex items-center gap-2 mr-32"
           style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
@@ -979,7 +980,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
         >
           {elementsByPosition.right}
           {/* Optimizing images indicator (click for details) */}
-          {hasOptimizationActivity && (
+          {showOptimizationIndicator && (
             <button
               type="button"
               onClick={() => setShowImageQueueDetail(true)}
@@ -990,8 +991,8 @@ export const MenuBar: React.FC<MenuBarProps> = ({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
               <span>
-                Optimizing images
-                {optimizationStatus && (() => {
+                {hasOptimizationActivity ? 'Optimizing images' : 'Optimization report'}
+                {hasOptimizationActivity && optimizationStatus && (() => {
                   const total = optimizationStatus.imagesDone + optimizationStatus.imagesQueued;
                   const pct = total > 0 ? Math.round((optimizationStatus.imagesDone / total) * 100) : 0;
                   return ` (${pct}%)`;
@@ -1017,7 +1018,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
       )}
 
       {/* Image optimization queue/detail modal (unified importer + cache) */}
-      {showImageQueueDetail && hasOptimizationActivity && optimizationStatus && (
+      {showImageQueueDetail && showOptimizationIndicator && optimizationStatus && (
         <div
           className="fixed inset-0 z-[100] flex items-center justify-center px-4"
           style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
@@ -1029,15 +1030,39 @@ export const MenuBar: React.FC<MenuBarProps> = ({
           >
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-medium text-white">Background image optimization</h3>
-              <button
-                type="button"
-                onClick={() => setShowImageQueueDetail(false)}
-                className="p-1 rounded hover:bg-gray-700 text-gray-400 hover:text-white"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      await window.electronAPI.optimization?.clearStatus?.();
+                    } finally {
+                      setShowImageQueueDetail(false);
+                    }
+                  }}
+                  className="px-2 py-1 rounded bg-gray-700 hover:bg-gray-600 text-xs text-gray-200"
+                >
+                  Clear report
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowImageQueueDetail(false)}
+                  className="p-1 rounded hover:bg-gray-700 text-gray-400 hover:text-white"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+              </div>
             </div>
             <div className="space-y-2 text-sm text-gray-300">
+              {optimizationStatus.runtime && (
+                <div className="text-xs text-gray-400 bg-gray-900/40 border border-gray-700/70 rounded px-3 py-2">
+                  Profile: {optimizationStatus.runtime.profile ?? 'balanced'} · Workers: {optimizationStatus.runtime.activeWorkers ?? 0}/{optimizationStatus.runtime.maxWorkers ?? 0}
+                  {typeof optimizationStatus.runtime.availableWorkers === 'number' ? ` (raw capacity ${optimizationStatus.runtime.availableWorkers}, reserved ${optimizationStatus.runtime.reserveCores ?? 0}, queue worker cap ${optimizationStatus.runtime.maxWorkers ?? 0})` : ''}
+                  {typeof optimizationStatus.runtime.cpuCount === 'number' ? ` · CPUs: ${optimizationStatus.runtime.cpuCount}` : ''}
+                  {typeof optimizationStatus.runtime.systemCpuUsage === 'number' ? ` · CPU usage: ${optimizationStatus.runtime.systemCpuUsage.toFixed(0)}%` : ''}
+                  {typeof optimizationStatus.runtime.queuedGames === 'number' ? ` · Queue games: ${optimizationStatus.runtime.queuedGames}` : ''}
+                </div>
+              )}
               <div className="flex justify-between">
                 <span>
                   Games: {optimizationStatus.gamesDone} done, {optimizationStatus.gamesQueued} queued · Images: {optimizationStatus.imagesDone} done, {optimizationStatus.imagesQueued} queued
@@ -1098,8 +1123,8 @@ export const MenuBar: React.FC<MenuBarProps> = ({
                         const ib = orderedTypes.indexOf((b.imageType || '').toLowerCase());
                         return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
                       });
-                      const doneEntries = entries.filter(e => e.phase === 'done' || e.phase === 'failed');
-                      const processingEntries = entries.filter(e => e.phase !== 'done' && e.phase !== 'failed');
+                      const doneEntries = entries.filter(e => e.phase === 'done' || e.phase === 'failed' || e.phase === 'skipped');
+                      const processingEntries = entries.filter(e => e.phase !== 'done' && e.phase !== 'failed' && e.phase !== 'skipped');
                       const sortedProcessingEntries = [...processingEntries].sort((a, b) => {
                         const aActive = a.phase === 'downloading' || a.phase === 'optimizing';
                         const bActive = b.phase === 'downloading' || b.phase === 'optimizing';
@@ -1152,9 +1177,12 @@ export const MenuBar: React.FC<MenuBarProps> = ({
                           const displayExt = (ext ? ext.toUpperCase() : entry.sourceExt || 'UNKNOWN');
                           const typeLabel = normalizedType ? `${normalizedType} (${displayExt})` : `(${displayExt})`;
                           const isFailed = entry.phase === 'failed';
+                          const isSkipped = entry.phase === 'skipped';
                           doneRows.push(
-                            <div key={`${game}-done-${entry.imageType}-${idx}`} className="truncate min-w-0" title={`${game} · ${typeLabel} · ${entry.fileName || '-'}`}>
-                              {game} · {typeLabel} · {entry.fileName || '-'} {isFailed ? (
+                            <div key={`${game}-done-${entry.imageType}-${idx}`} className={`truncate min-w-0 ${isSkipped ? 'text-gray-400' : ''}`} title={`${game} · ${typeLabel} · ${entry.fileName || '-'}`}>
+                              {game} · {typeLabel} · {entry.fileName || '-'} {isSkipped ? (
+                                <span className="text-gray-400 italic">cached (skipped)</span>
+                              ) : isFailed ? (
                                 <>{origStr ? `Original - ${origStr} ` : ''}(failed){entry.error ? `: ${entry.error}` : ''}</>
                               ) : (
                                 <>{origStr && optStr && <>Original - {origStr} → Optimized - {optStr}</>}</>

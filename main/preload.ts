@@ -133,6 +133,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Unified optimization status methods
   optimization: {
     getStatus: () => ipcRenderer.invoke('optimization:getStatus'),
+    clearStatus: () => ipcRenderer.invoke('optimization:clearStatus'),
     onStatus: (callback: (status: any) => void) => {
       const handler = (_event: any, status: any) => callback(status);
       ipcRenderer.on('optimization:status', handler);
@@ -166,6 +167,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   restoreWindow: () => ipcRenderer.invoke('app:restoreWindow'),
   // Refresh all metadata
   refreshAllMetadata: (options?: { allGames?: boolean; gameIds?: string[]; continueFromIndex?: number; linksOnly?: boolean }) => ipcRenderer.invoke('metadata:refreshAll', options),
+  optimizeGames: (options?: { gameIds?: string[]; allGames?: boolean }) => ipcRenderer.invoke('imageQueue:optimizeGames', options),
   findLinks: (gameId: string) => ipcRenderer.invoke('metadata:findLinks', gameId),
   maximizeWindow: () => ipcRenderer.invoke('app:maximizeWindow'),
   closeWindow: () => ipcRenderer.invoke('app:closeWindow'),

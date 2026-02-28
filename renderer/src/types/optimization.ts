@@ -1,4 +1,4 @@
-export type ImageJobPhase = 'queued' | 'downloading' | 'optimizing' | 'done' | 'failed';
+export type ImageJobPhase = 'queued' | 'downloading' | 'optimizing' | 'done' | 'failed' | 'skipped';
 
 export interface ImageJobStatus {
   jobId: string;
@@ -26,4 +26,14 @@ export interface OptimizationStatus {
   imagesQueued: number;
   jobs: ImageJobStatus[];
   hasActivity: boolean;
+  runtime?: {
+    profile?: 'low' | 'balanced' | 'high';
+    cpuCount?: number;
+    reserveCores?: number;
+    availableWorkers?: number;
+    maxWorkers?: number;
+    activeWorkers?: number;
+    queuedGames?: number;
+    systemCpuUsage?: number;
+  };
 }

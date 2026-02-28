@@ -286,11 +286,13 @@ declare global {
       onOptimizeProgress: (callback: (data: { phase: string; current: number; total: number; fileName: string; status?: string; originalBytes?: number; optimizedBytes?: number }) => void) => () => void;
       getFfmpegStatus: () => Promise<{ available: boolean; source: 'bundled' | 'system' | null }>;
       getImageQueueStatus: () => Promise<{ queued: number; completed: number; imagesQueued?: number; imagesCompleted?: number; currentGameTitle?: string; imageIndex?: number; imageTotal?: number; imageType?: string; phase?: string; currentFileName?: string; originalBytes?: number; optimizedBytes?: number; imageJobs?: { gameId: string; gameTitle: string; imageType: string; phase: 'queued' | 'downloading' | 'optimizing' | 'done'; fileName?: string; originalBytes?: number; optimizedBytes?: number }[] }>;
-      onImageQueueStatus: (callback: (status: { queued: number; completed: number; imagesQueued?: number; imagesCompleted?: number; currentGameTitle?: string; imageIndex?: number; imageTotal?: number; imageType?: string; phase?: string; currentFileName?: string; originalBytes?: number; optimizedBytes?: number; imageJobs?: { gameId: string; gameTitle: string; imageType: string; phase: 'queued' | 'downloading' | 'optimizing' | 'done'; fileName?: string; originalBytes?: number; optimizedBytes?: number }[] }) => void) => () => void;
+       onImageQueueStatus: (callback: (status: { queued: number; completed: number; imagesQueued?: number; imagesCompleted?: number; currentGameTitle?: string; imageIndex?: number; imageTotal?: number; imageType?: string; phase?: string; currentFileName?: string; originalBytes?: number; optimizedBytes?: number; imageJobs?: { gameId: string; gameTitle: string; imageType: string; phase: 'queued' | 'downloading' | 'optimizing' | 'done' | 'failed' | 'skipped'; fileName?: string; originalBytes?: number; optimizedBytes?: number }[] }) => void) => () => void;
       optimization?: {
         getStatus: () => Promise<import('./optimization').OptimizationStatus>;
+        clearStatus: () => Promise<{ success: boolean; error?: string }>;
         onStatus: (callback: (status: import('./optimization').OptimizationStatus) => void) => () => void;
       };
+      optimizeGames: (options?: { gameIds?: string[]; allGames?: boolean }) => Promise<{ success: boolean; queuedGames: number; queuedImages: number; error?: string }>;
       reorderGames: (games: Game[]) => Promise<boolean>;
       addCustomGame: (gameData: { title: string; exePath: string }) => Promise<Game | null>;
       deleteGame: (gameId: string) => Promise<boolean>;

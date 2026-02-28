@@ -5,7 +5,7 @@
 
 export type OptimizationRunMode = 'importer' | 'cache';
 
-export type ImageJobPhase = 'queued' | 'downloading' | 'optimizing' | 'done' | 'failed';
+export type ImageJobPhase = 'queued' | 'downloading' | 'optimizing' | 'done' | 'failed' | 'skipped';
 
 export interface ImageJobStatus {
   jobId: string;
@@ -31,6 +31,16 @@ export interface OptimizationStatus {
   imagesQueued: number;
   jobs: ImageJobStatus[];
   hasActivity: boolean;
+  runtime?: {
+    profile?: 'low' | 'balanced' | 'high';
+    cpuCount?: number;
+    reserveCores?: number;
+    availableWorkers?: number;
+    maxWorkers?: number;
+    activeWorkers?: number;
+    queuedGames?: number;
+    systemCpuUsage?: number;
+  };
 }
 
 type StatusListener = (status: OptimizationStatus) => void;
@@ -39,11 +49,7 @@ const LISTENERS: Set<StatusListener> = new Set();
 let currentRunId: string | null = null;
 let currentMode: OptimizationRunMode | null = null;
 let jobs: ImageJobStatus[] = [];
-let runCompleteTimeout: ReturnType<typeof setTimeout> | null = null;
-/** When true, we keep showing the run (hasActivity) so the user can open the popup and see results. */
-let runCompleting = false;
-
-const COMPLETION_DISPLAY_MS = 8000;
+let runtime: OptimizationStatus['runtime'] = undefined;
 
 function nextRunId(): string {
   return `run-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
@@ -56,7 +62,7 @@ function computeAggregates(): { gamesDone: number; gamesQueued: number; imagesDo
   let imagesQueued = 0;
   for (const j of jobs) {
     gameSet.add(j.gameId);
-    if (j.phase === 'done' || j.phase === 'failed') {
+    if (j.phase === 'done' || j.phase === 'failed' || j.phase === 'skipped') {
       imagesDone++;
       gameDone.add(j.gameId);
     } else {
@@ -70,8 +76,7 @@ function computeAggregates(): { gamesDone: number; gamesQueued: number; imagesDo
 
 function emit() {
   const { gamesDone, gamesQueued, imagesDone, imagesQueued } = computeAggregates();
-  const hasActivity =
-    runCompleting || jobs.some((j) => j.phase !== 'done' && j.phase !== 'failed');
+  const hasActivity = jobs.some((j) => j.phase !== 'done' && j.phase !== 'failed');
   const status: OptimizationStatus = {
     mode: currentMode,
     runId: currentRunId,
@@ -81,6 +86,7 @@ function emit() {
     imagesQueued,
     jobs: [...jobs],
     hasActivity,
+    runtime,
   };
   LISTENERS.forEach((cb) => {
     try {
@@ -95,10 +101,6 @@ function emit() {
  * Start a new run. Closes any completed run and resets jobs. Returns the new runId.
  */
 export function startRun(mode: OptimizationRunMode): string {
-  if (runCompleteTimeout) {
-    clearTimeout(runCompleteTimeout);
-    runCompleteTimeout = null;
-  }
   currentRunId = nextRunId();
   currentMode = mode;
   jobs = [];
@@ -162,6 +164,7 @@ export function updateJob(
 
 /**
  * Update a job by gameId + imageType (convenience for queue). No-op if runId does not match.
+ * Finds the LATEST matching job by updatedAt timestamp to handle duplicate entries.
  */
 export function updateJobByGameAndType(
   runId: string,
@@ -169,27 +172,34 @@ export function updateJobByGameAndType(
   imageType: string,
   patch: Partial<Pick<ImageJobStatus, 'phase' | 'sourceExt' | 'fileName' | 'originalBytes' | 'optimizedBytes' | 'error'>>
 ): void {
-  const job = jobs.find((j) => j.gameId === gameId && j.imageType === imageType);
-  if (job) updateJob(runId, job.jobId, patch);
+  const latestJob = jobs
+    .filter((j) => j.gameId === gameId && j.imageType === imageType)
+    .sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0))[0];
+  if (latestJob) updateJob(runId, latestJob.jobId, patch);
 }
 
 /**
- * Mark the run as finished. Keeps the run visible (hasActivity true) for a short period
- * so the user can open the popup and see results, then clears and emits hasActivity false.
+ * Mark the run as finished. Keeps completed/failed jobs in status until explicitly cleared
+ * so users can review the full optimization report.
  */
 export function finishRun(runId: string): void {
   if (runId !== currentRunId) return;
-  if (runCompleteTimeout) clearTimeout(runCompleteTimeout);
-  runCompleting = true;
+  currentRunId = null;
+  currentMode = null;
   emit();
-  runCompleteTimeout = setTimeout(() => {
-    runCompleteTimeout = null;
-    runCompleting = false;
-    currentRunId = null;
-    currentMode = null;
-    jobs = [];
-    emit();
-  }, COMPLETION_DISPLAY_MS);
+}
+
+export function clearStatus(): void {
+  currentRunId = null;
+  currentMode = null;
+  jobs = [];
+  runtime = undefined;
+  emit();
+}
+
+export function setRuntimeMetrics(metrics: OptimizationStatus['runtime']): void {
+  runtime = metrics;
+  emit();
 }
 
 /**
@@ -197,8 +207,7 @@ export function finishRun(runId: string): void {
  */
 export function getStatus(): OptimizationStatus {
   const { gamesDone, gamesQueued, imagesDone, imagesQueued } = computeAggregates();
-  const hasActivity =
-    runCompleting || jobs.some((j) => j.phase !== 'done' && j.phase !== 'failed');
+  const hasActivity = jobs.some((j) => j.phase !== 'done' && j.phase !== 'failed');
   return {
     mode: currentMode,
     runId: currentRunId,
@@ -208,6 +217,7 @@ export function getStatus(): OptimizationStatus {
     imagesQueued,
     jobs: [...jobs],
     hasActivity,
+    runtime,
   };
 }
 

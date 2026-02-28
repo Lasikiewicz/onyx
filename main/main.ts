@@ -81,6 +81,7 @@ import { createImageOptimizationQueue } from './ImageOptimizationQueue.js';
 import {
   onStatusChange as onOptimizationStatusChange,
   getStatus as getOptimizationStatus,
+  clearStatus as clearOptimizationStatus,
   startRun as optimizationStartRun,
   addJobs as optimizationAddJobs,
   updateJob as optimizationUpdateJob,
@@ -294,6 +295,10 @@ onOptimizationStatusChange((status) => {
 });
 ipcMain.handle('imageQueue:getStatus', () => imageQueue.getStatus());
 ipcMain.handle('optimization:getStatus', () => getOptimizationStatus());
+ipcMain.handle('optimization:clearStatus', () => {
+  clearOptimizationStatus();
+  return { success: true };
+});
 
 registerGameIPCHandlers(steamService, xboxService, gameStore, imageCacheService, userPreferencesService, imageQueue, {
   startRun: optimizationStartRun,

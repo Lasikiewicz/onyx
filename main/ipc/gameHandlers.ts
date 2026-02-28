@@ -318,6 +318,50 @@ export function registerGameIPCHandlers(
         }
     });
 
+    ipcMain.handle('imageQueue:optimizeGames', async (_event, options?: { gameIds?: string[]; allGames?: boolean }) => {
+        if (!imageQueue) {
+            return { success: false, error: 'Image optimization queue is unavailable', queuedGames: 0, queuedImages: 0 };
+        }
+
+        try {
+            const library = await gameStore.getLibrary();
+            const requestedIds = new Set((options?.gameIds || []).filter(Boolean));
+            const targetGames = options?.allGames
+                ? library
+                : library.filter((game) => requestedIds.has(game.id));
+
+            let queuedGames = 0;
+            let queuedImages = 0;
+
+            for (const game of targetGames) {
+                const urls = {
+                    boxArtUrl: game.boxArtUrl,
+                    bannerUrl: game.bannerUrl,
+                    alternativeBannerUrl: game.alternativeBannerUrl,
+                    logoUrl: game.logoUrl,
+                    heroUrl: game.heroUrl,
+                    iconUrl: game.iconUrl,
+                };
+
+                const imageCount = Object.values(urls).filter((value) => Boolean(value)).length;
+                if (imageCount === 0) continue;
+
+                imageQueue.add(game.id, game.title, urls);
+                queuedGames += 1;
+                queuedImages += imageCount;
+            }
+
+            return { success: true, queuedGames, queuedImages };
+        } catch (error) {
+            return {
+                success: false,
+                error: error instanceof Error ? error.message : 'Failed to queue optimization jobs',
+                queuedGames: 0,
+                queuedImages: 0,
+            };
+        }
+    });
+
     ipcMain.handle('imageCache:getFfmpegStatus', () => ImageCacheService.getFfmpegStatus());
 
     // Dialog Handlers (Moved here for convenience if no uiHandlers.ts exists yet)

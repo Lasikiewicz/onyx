@@ -7,22 +7,30 @@ import {
   addJobs,
   updateJobByGameAndType,
   finishRun,
+  setRuntimeMetrics,
   getStatus as getControllerStatus,
 } from './ImageOptimizationController.js';
 import { cpus } from 'node:os';
 import path from 'node:path';
+import { existsSync } from 'node:fs';
 
 type OptimizationPerformanceProfile = 'low' | 'balanced' | 'high';
 
-const PROFILE_LIMITS: Record<OptimizationPerformanceProfile, { reserveCores: number; maxQueueWorkers: number }> = {
-  low: { reserveCores: 4, maxQueueWorkers: 1 },
-  balanced: { reserveCores: 2, maxQueueWorkers: 2 },
-  high: { reserveCores: 1, maxQueueWorkers: 2 },
+const PROFILE_LIMITS: Record<OptimizationPerformanceProfile, { reserveCores: number; utilization: number; hardCap: number }> = {
+  low: { reserveCores: 4, utilization: 0.25, hardCap: 2 },
+  balanced: { reserveCores: 2, utilization: 0.5, hardCap: 8 },
+  high: { reserveCores: 1, utilization: 0.75, hardCap: 32 },
+};
+
+type CpuSnapshot = {
+  idle: number;
+  total: number;
 };
 
 export interface ImageQueueItem {
   gameId: string;
   gameTitle: string;
+  phase: 'static' | 'animated';
   urls: {
     boxArtUrl?: string;
     bannerUrl?: string;
@@ -70,6 +78,31 @@ const sourceExtFromUrl = (url: string): string | undefined => {
   }
 };
 
+const CACHE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.webm', '.ico', '.avif'] as const;
+
+const inferSourceExtFromCache = (cacheDir: string, gameId: string, imageType: string): string | undefined => {
+  const safeGameId = gameId.replace(/[<>:"/\\|?*]/g, '_');
+  for (const ext of CACHE_EXTENSIONS) {
+    const filePath = path.join(cacheDir, `${safeGameId}-${imageType}${ext}`);
+    if (existsSync(filePath)) return ext.replace('.', '').toUpperCase();
+  }
+  return undefined;
+};
+
+const isKnownStaticExt = (sourceExt?: string): boolean => {
+  if (!sourceExt) return false;
+  const normalized = sourceExt.toUpperCase();
+  return normalized === 'JPG' || normalized === 'JPEG' || normalized === 'PNG' || normalized === 'ICO' || normalized === 'AVIF';
+};
+
+const countUrlEntries = (urls: ImageQueueItem['urls']): number =>
+  (urls.boxArtUrl ? 1 : 0) +
+  (urls.bannerUrl ? 1 : 0) +
+  (urls.alternativeBannerUrl ? 1 : 0) +
+  (urls.logoUrl ? 1 : 0) +
+  (urls.heroUrl ? 1 : 0) +
+  (urls.iconUrl ? 1 : 0);
+
 export function createImageOptimizationQueue(
   imageCacheService: ImageCacheService,
   gameStore: GameStore,
@@ -78,7 +111,8 @@ export function createImageOptimizationQueue(
     getOptimizationPerformance?: () => Promise<OptimizationPerformanceProfile | undefined>;
   }
 ) {
-  const queue: ImageQueueItem[] = [];
+  const staticQueue: ImageQueueItem[] = [];
+  const animatedQueue: ImageQueueItem[] = [];
   let processing = false;
   let completed = 0;
   let currentItem: ImageQueueItem | null = null;
@@ -87,6 +121,87 @@ export function createImageOptimizationQueue(
   let cancelling = false;
   let currentProfile: OptimizationPerformanceProfile = 'balanced';
   let maxGameWorkers = 1;
+  let availableWorkers = 1;
+  let reserveCores = PROFILE_LIMITS.balanced.reserveCores;
+  let cpuCount = cpus().length || 2;
+  let lastCpuSnapshot: CpuSnapshot | null = null;
+  let staticJobsTotal = 0; // Track total static jobs added
+  let staticJobsComplete = 0; // Track static jobs that reached terminal state
+  let allStaticComplete = true; // Guard to allow animated processing
+
+  const takeCpuSnapshot = (): CpuSnapshot => {
+    const cpuTimes = cpus();
+    let idle = 0;
+    let total = 0;
+    for (const cpu of cpuTimes) {
+      idle += cpu.times.idle;
+      total += cpu.times.user + cpu.times.nice + cpu.times.sys + cpu.times.idle + cpu.times.irq;
+    }
+    return { idle, total };
+  };
+
+  const getSystemCpuUsage = (): number | undefined => {
+    const next = takeCpuSnapshot();
+    if (!lastCpuSnapshot) {
+      lastCpuSnapshot = next;
+      return undefined;
+    }
+    const idleDiff = next.idle - lastCpuSnapshot.idle;
+    const totalDiff = next.total - lastCpuSnapshot.total;
+    lastCpuSnapshot = next;
+    if (totalDiff <= 0) return undefined;
+    const usage = (1 - idleDiff / totalDiff) * 100;
+    return Math.max(0, Math.min(100, usage));
+  };
+
+  const getQueuedItemsCount = () => staticQueue.length + animatedQueue.length;
+
+  const updateStaticCompletionStatus = () => {
+    // Check controller to see if all static items are terminal (done/failed/skipped)
+    const status = getControllerStatus();
+    if (!queueRunId || status.runId !== queueRunId) return; // No active run
+    
+    const staticJobs = status.jobs.filter((j) => j.source === 'importer');
+    const staticTerminal = staticJobs.filter((j) => j.phase === 'done' || j.phase === 'failed' || j.phase === 'skipped');
+    
+    allStaticComplete = staticQueue.length === 0 && staticTerminal.length === staticJobs.length && staticJobs.length > 0;
+    if (allStaticComplete) {
+      console.log('[ImageOptimizationQueue] All static jobs complete - animated barrier lifted');
+    }
+  };
+
+  const getQueuedUniqueGamesCount = () => {
+    const unique = new Set<string>();
+    staticQueue.forEach((item) => unique.add(item.gameId));
+    animatedQueue.forEach((item) => unique.add(item.gameId));
+    if (currentItem) unique.add(currentItem.gameId);
+    return unique.size;
+  };
+
+  const shiftNextItem = (): ImageQueueItem | undefined => {
+    // Enforce strict barrier: animated items only start after all static jobs globally are complete
+    if (staticQueue.length > 0) return staticQueue.shift();
+    if (animatedQueue.length > 0) {
+      // Before returning animated item, verify all static jobs are in terminal state
+      if (allStaticComplete) {
+        return animatedQueue.shift();
+      }
+    }
+    return undefined;
+  };
+
+  const emitRuntimeMetrics = () => {
+    setRuntimeMetrics({
+      profile: currentProfile,
+      cpuCount,
+      reserveCores,
+      availableWorkers,
+      maxWorkers: maxGameWorkers,
+      activeWorkers,
+      queuedGames: getQueuedUniqueGamesCount(),
+      systemCpuUsage: getSystemCpuUsage(),
+    });
+  };
 
   const refreshWorkerLimits = async () => {
     try {
@@ -96,22 +211,31 @@ export function createImageOptimizationQueue(
       currentProfile = 'balanced';
     }
 
-    const { reserveCores, maxQueueWorkers } = PROFILE_LIMITS[currentProfile];
-    const cpuCount = cpus().length || 2;
-    const availableWorkers = Math.max(1, cpuCount - reserveCores);
-    maxGameWorkers = Math.max(1, Math.min(maxQueueWorkers, availableWorkers));
+    const profileLimits = PROFILE_LIMITS[currentProfile];
+    reserveCores = profileLimits.reserveCores;
+    cpuCount = cpus().length || 2;
+    availableWorkers = Math.max(1, cpuCount - reserveCores);
+    const targetWorkers = Math.max(1, Math.floor(availableWorkers * profileLimits.utilization));
+    maxGameWorkers = Math.max(1, Math.min(profileLimits.hardCap, availableWorkers, targetWorkers));
+    emitRuntimeMetrics();
   };
 
   async function processNext() {
     while (true) {
       if (cancelling) {
+        emitRuntimeMetrics();
         return;
       }
-      if (queue.length === 0) {
+      if (getQueuedItemsCount() === 0) {
+        emitRuntimeMetrics();
         return;
       }
 
-      const item = queue.shift()!;
+      const item = shiftNextItem();
+      if (!item) {
+        emitRuntimeMetrics();
+        return;
+      }
       currentItem = item;
 
       try {
@@ -127,7 +251,9 @@ export function createImageOptimizationQueue(
                     ? 'optimizing'
                     : img.phase === 'done'
                       ? 'done'
-                      : undefined;
+                      : img.phase === 'skipped'
+                        ? 'skipped'
+                        : undefined;
               if (phase) {
                 updateJobByGameAndType(queueRunId, item.gameId, img.imageType, {
                   phase,
@@ -176,8 +302,10 @@ export function createImageOptimizationQueue(
 
       completed++;
       currentItem = null;
+      updateStaticCompletionStatus(); // Check if static barrier is now satisfied
+      emitRuntimeMetrics();
 
-      if (!cancelling && queue.length === 0 && activeWorkers === 1) {
+      if (!cancelling && getQueuedItemsCount() === 0 && activeWorkers === 1) {
         if (queueRunId) {
           finishRun(queueRunId);
           queueRunId = null;
@@ -190,22 +318,24 @@ export function createImageOptimizationQueue(
     await refreshWorkerLimits();
     if (processing && activeWorkers >= maxGameWorkers) return;
     processing = true;
-    while (activeWorkers < maxGameWorkers && queue.length > 0) {
+    while (activeWorkers < maxGameWorkers && getQueuedItemsCount() > 0) {
       activeWorkers++;
+      emitRuntimeMetrics();
       processNext()
         .catch((err) => {
           console.warn('[ImageOptimizationQueue] Worker error:', err);
         })
         .finally(() => {
           activeWorkers--;
-          if (queue.length === 0 && activeWorkers === 0) {
+          emitRuntimeMetrics();
+          if (getQueuedItemsCount() === 0 && activeWorkers === 0) {
             processing = false;
             currentItem = null;
             if (queueRunId) {
               finishRun(queueRunId);
               queueRunId = null;
             }
-          } else if (queue.length > 0) {
+          } else if (getQueuedItemsCount() > 0) {
             void scheduleWorkers();
           }
         });
@@ -216,25 +346,53 @@ export function createImageOptimizationQueue(
     if (cancelling) return;
     const runId = getCurrentRunId() ?? startRun('importer');
     queueRunId = queueRunId ?? runId;
-    const entries = imageTypesFromUrls(urls);
-    const newJobs = entries.map(({ type, url }) => ({
+    const cacheDir = imageCacheService.getCacheDir();
+    const entries = imageTypesFromUrls(urls).map(({ type, url }) => ({
+      type,
+      url,
+      sourceExt: sourceExtFromUrl(url) ?? inferSourceExtFromCache(cacheDir, gameId, type),
+    }));
+
+    const staticUrls: ImageQueueItem['urls'] = {};
+    const deferredUrls: ImageQueueItem['urls'] = {};
+    const assignUrl = (target: ImageQueueItem['urls'], imageType: string, value: string) => {
+      if (imageType === 'boxart') target.boxArtUrl = value;
+      else if (imageType === 'banner') target.bannerUrl = value;
+      else if (imageType === 'alternativeBanner') target.alternativeBannerUrl = value;
+      else if (imageType === 'logo') target.logoUrl = value;
+      else if (imageType === 'hero') target.heroUrl = value;
+      else if (imageType === 'icon') target.iconUrl = value;
+    };
+
+    for (const entry of entries) {
+      if (isKnownStaticExt(entry.sourceExt)) assignUrl(staticUrls, entry.type, entry.url);
+      else assignUrl(deferredUrls, entry.type, entry.url);
+    }
+
+    const newJobs = entries.map(({ type, sourceExt }) => ({
       jobId: `${gameId}:${type}`,
       gameId,
       gameTitle,
       imageType: type,
       source: 'importer' as const,
       phase: 'queued' as const,
-      sourceExt: sourceExtFromUrl(url),
+      sourceExt,
     }));
     addJobs(runId, newJobs);
-    queue.push({ gameId, gameTitle, urls });
+    if (countUrlEntries(staticUrls) > 0) {
+      staticQueue.push({ gameId, gameTitle, phase: 'static', urls: staticUrls });
+    }
+    if (countUrlEntries(deferredUrls) > 0) {
+      animatedQueue.push({ gameId, gameTitle, phase: 'animated', urls: deferredUrls });
+    }
+    emitRuntimeMetrics();
     void scheduleWorkers();
   }
 
   function getStatus(): ImageQueueStatus {
     const status = getControllerStatus();
     return {
-      queued: queue.length,
+      queued: getQueuedItemsCount(),
       completed,
       imagesQueued: status.imagesQueued,
       imagesCompleted: status.imagesDone,
@@ -244,13 +402,15 @@ export function createImageOptimizationQueue(
 
   function cancelAll() {
     cancelling = true;
-    queue.length = 0;
+    staticQueue.length = 0;
+    animatedQueue.length = 0;
     processing = false;
     currentItem = null;
     if (queueRunId) {
       finishRun(queueRunId);
       queueRunId = null;
     }
+    emitRuntimeMetrics();
   }
 
   return {
@@ -258,7 +418,7 @@ export function createImageOptimizationQueue(
     cancelAll,
     getStatus,
     get queued() {
-      return queue.length;
+      return getQueuedItemsCount();
     },
     get completedCount() {
       return completed;
