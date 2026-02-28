@@ -55,7 +55,10 @@ const config = {
     }
   ],
   asar: true,
-  asarUnpack: [],
+  asarUnpack: [
+    '**/ImageOptimizerWorker.worker.js',
+    '**/node_modules/sharp/**'
+  ],
   compression: 'maximum',
   nsis: {
     oneClick: false,

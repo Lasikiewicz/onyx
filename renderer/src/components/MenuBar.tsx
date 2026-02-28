@@ -1084,6 +1084,27 @@ export const MenuBar: React.FC<MenuBarProps> = ({
                   }}
                 />
               </div>
+              {optimizationStatus.jobs.some(j => j.phase === 'downloading' || j.phase === 'optimizing') && (() => {
+                const active = optimizationStatus.jobs.find(j => j.phase === 'downloading' || j.phase === 'optimizing');
+                if (!active) return null;
+                const typeLabel = active.imageType === 'alternativeBanner' ? 'alternativeBanner' : active.imageType || 'image';
+                return (
+                  <div className="mt-2">
+                    <p className="text-xs text-amber-300/90 mb-1 truncate" title={`${active.gameTitle} · ${typeLabel}`}>
+                      Current: {active.gameTitle} · {typeLabel}
+                    </p>
+                    <div className="h-1.5 bg-gray-700/80 rounded-full overflow-hidden">
+                      <div className="h-full w-1/3 bg-amber-500 rounded-full [animation:optimizer-slide_1.2s_ease-in-out_infinite]" />
+                    </div>
+                    <style>{`
+                      @keyframes optimizer-slide {
+                        0%, 100% { transform: translateX(-100%); }
+                        50% { transform: translateX(250%); }
+                      }
+                    `}</style>
+                  </div>
+                );
+              })()}
               {optimizationStatus.jobs.length > 0 && (
                 <div className="mt-3 pt-2 border-t border-gray-700/70 font-mono text-[12px] text-gray-300">
                   {(() => {
@@ -1133,10 +1154,20 @@ export const MenuBar: React.FC<MenuBarProps> = ({
                       const sortedDoneEntries = [...doneEntries].sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0));
 
                       if (processingEntries.length > 0) {
+                        const gameTotal = doneEntries.length + processingEntries.length;
+                        const gamePct = gameTotal > 0 ? (doneEntries.length / gameTotal) * 100 : 0;
                         processingRows.push(
-                          <p key={`${game}-processing-header`} className="text-white font-medium truncate mb-1" title={game}>
-                            {game} · Images: {doneEntries.length} done, {processingEntries.length} queued
-                          </p>
+                          <div key={`${game}-processing-header`} className="mb-1">
+                            <p className="text-white font-medium truncate" title={game}>
+                              {game} · {doneEntries.length}/{gameTotal} images
+                            </p>
+                            <div className="h-1 bg-gray-700/60 rounded-full overflow-hidden mt-0.5">
+                              <div
+                                className="h-full bg-amber-500/70 transition-all duration-300"
+                                style={{ width: `${gamePct}%` }}
+                              />
+                            </div>
+                          </div>
                         );
                         sortedProcessingEntries.forEach((entry, idx) => {
                           const origStr = entry.originalBytes != null ? fmtSize(entry.originalBytes) : '';

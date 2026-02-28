@@ -1962,6 +1962,32 @@ app.whenReady().then(async () => {
   if (backgroundScanEnabled) {
     await startBackgroundScan();
   }
+
+  // Dev-only: force image optimization to run on launch for crash capture (ONYX_FORCE_OPTIMIZE=1)
+  if (process.env.ONYX_FORCE_OPTIMIZE === '1' && !app.isPackaged) {
+    setTimeout(async () => {
+      try {
+        const library = await gameStore.getLibrary();
+        let queued = 0;
+        for (const game of library) {
+          const urls = {
+            boxArtUrl: game.boxArtUrl,
+            bannerUrl: game.bannerUrl,
+            alternativeBannerUrl: game.alternativeBannerUrl,
+            logoUrl: game.logoUrl,
+            heroUrl: game.heroUrl,
+            iconUrl: game.iconUrl,
+          };
+          if (Object.values(urls).filter(Boolean).length === 0) continue;
+          imageQueue.add(game.id, game.title, urls);
+          queued += 1;
+        }
+        console.log(`[Force optimize] Queued ${queued} games for image optimization`);
+      } catch (e) {
+        console.error('[Force optimize] Failed to queue:', e);
+      }
+    }, 4000);
+  }
 });
 
 // Cleanup global shortcuts and background scan on app quit

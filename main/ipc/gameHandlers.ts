@@ -109,51 +109,11 @@ export function registerGameIPCHandlers(
     });
 
     // GameStore Handlers
+    // Return library as-is. Do not validate/fix onyx-local URLs here - it caused reload to hang
+    // (hundreds of cache lookups). URL resolution happens when loading images in the UI.
     ipcMain.handle('gameStore:getLibrary', async () => {
         try {
-            const library = await gameStore.getLibrary();
-            // Validate and fix onyx-local:// URLs on the fly
-            const validatedLibrary = await Promise.all(library.map(async (game) => {
-                const validatedGame = { ...game };
-                let needsUpdate = false;
-
-                const imageTypes = ['boxart', 'banner', 'alternativeBanner', 'logo', 'hero', 'icon'] as const;
-                for (const type of imageTypes) {
-                    const urlKey = type === 'boxart' ? 'boxArtUrl' : type === 'banner' ? 'bannerUrl' : type === 'alternativeBanner' ? 'alternativeBannerUrl' : type === 'logo' ? 'logoUrl' : type === 'hero' ? 'heroUrl' : 'iconUrl';
-                    const url = (validatedGame as any)[urlKey];
-
-                    if (url?.startsWith('onyx-local://')) {
-                        const fixed = await imageCacheService.cacheImage(url, game.id, type);
-                        if (fixed && fixed !== url && fixed !== '') {
-                            (validatedGame as any)[urlKey] = fixed;
-                            needsUpdate = true;
-                        } else if (!fixed || fixed === '') {
-                            const foundFile = await imageCacheService.findCachedImage(game.id, type);
-                            if (foundFile) {
-                                (validatedGame as any)[urlKey] = foundFile;
-                                needsUpdate = true;
-                            }
-                        }
-                    }
-                }
-
-                if (needsUpdate) {
-                    await gameStore.updateGameMetadata(
-                        game.id,
-                        validatedGame.boxArtUrl || '',
-                        validatedGame.bannerUrl || '',
-                        validatedGame.logoUrl,
-                        validatedGame.heroUrl,
-                        validatedGame.alternativeBannerUrl,
-                        validatedGame.iconUrl,
-                        validatedGame.screenshots
-                    );
-                }
-
-                return validatedGame;
-            }));
-
-            return validatedLibrary;
+            return await gameStore.getLibrary();
         } catch (error) {
             console.error('Error in gameStore:getLibrary handler:', error);
             return [];

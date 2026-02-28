@@ -10,16 +10,19 @@ import {
   setRuntimeMetrics,
   getStatus as getControllerStatus,
 } from './ImageOptimizationController.js';
+import { debugOptimizationLog, isDebugOptimizationEnabled } from './debugOptimizationLog.js';
 import { cpus } from 'node:os';
 import path from 'node:path';
 import { existsSync } from 'node:fs';
 
 type OptimizationPerformanceProfile = 'low' | 'balanced' | 'high';
 
+// high hardCap kept moderate to avoid import hang: too many concurrent game workers
+// exhausts resources (Sharp, file descriptors, memory) and can deadlock.
 const PROFILE_LIMITS: Record<OptimizationPerformanceProfile, { reserveCores: number; utilization: number; hardCap: number }> = {
   low: { reserveCores: 4, utilization: 0.25, hardCap: 2 },
   balanced: { reserveCores: 2, utilization: 0.5, hardCap: 8 },
-  high: { reserveCores: 1, utilization: 0.75, hardCap: 32 },
+  high: { reserveCores: 1, utilization: 0.75, hardCap: 12 },
 };
 
 type CpuSnapshot = {
@@ -126,6 +129,8 @@ export function createImageOptimizationQueue(
   let cpuCount = cpus().length || 2;
   let lastCpuSnapshot: CpuSnapshot | null = null;
   let allStaticComplete = false; // Guard to allow animated processing - starts false, evaluated after items queued
+  let startTimeout: ReturnType<typeof setTimeout> | null = null;
+  const START_DELAY_MS = 600; // Defer processing so bulk import and UI getLibrary can complete before any optimizer work
 
   const takeCpuSnapshot = (): CpuSnapshot => {
     const cpuTimes = cpus();
@@ -213,10 +218,18 @@ export function createImageOptimizationQueue(
 
     const profileLimits = PROFILE_LIMITS[currentProfile];
     reserveCores = profileLimits.reserveCores;
-    cpuCount = cpus().length || 2;
+    const detectedCores = cpus().length;
+    cpuCount = detectedCores > 0 ? detectedCores : 2;
     availableWorkers = Math.max(1, cpuCount - reserveCores);
     const targetWorkers = Math.max(1, Math.floor(availableWorkers * profileLimits.utilization));
-    maxGameWorkers = Math.max(1, Math.min(profileLimits.hardCap, availableWorkers, targetWorkers));
+    // Cap by core count: never spawn more than 2x available cores to avoid overload
+    const coreBasedCap = Math.max(2, Math.min(profileLimits.hardCap, cpuCount * 2));
+    maxGameWorkers = Math.max(1, Math.min(coreBasedCap, availableWorkers, targetWorkers));
+    // Use half of available workers; Sharp runs in worker thread so main process stays responsive
+    const halfWorkers = Math.max(1, Math.floor(availableWorkers / 2));
+    maxGameWorkers = Math.min(maxGameWorkers, halfWorkers);
+    // Cap at 1 game at a time to avoid native crash under heavy concurrent load (saveGame + cache)
+    maxGameWorkers = Math.min(maxGameWorkers, 1);
     emitRuntimeMetrics();
   };
 
@@ -237,6 +250,7 @@ export function createImageOptimizationQueue(
         return;
       }
       currentItem = item;
+      if (isDebugOptimizationEnabled()) debugOptimizationLog(`queue process gameId=${item.gameId} title=${item.gameTitle?.slice(0, 30)}`);
 
       try {
         const cached = await imageCacheService.cacheImages(
@@ -265,8 +279,11 @@ export function createImageOptimizationQueue(
             }
           },
           () => cancelling,
-          currentProfile
+          currentProfile,
+          { fromImporterQueue: true }
         );
+
+        if (isDebugOptimizationEnabled()) debugOptimizationLog(`queue cacheImages done gameId=${item.gameId}`);
 
         if (cancelling) {
           continue;
@@ -275,6 +292,7 @@ export function createImageOptimizationQueue(
         const games = await gameStore.getLibrary();
         const game = games.find((g) => g.id === item.gameId);
         if (game) {
+          if (isDebugOptimizationEnabled()) debugOptimizationLog(`queue saveGame start gameId=${item.gameId}`);
           const updated: Game = {
             ...game,
             boxArtUrl: cached.boxArtUrl ?? game.boxArtUrl,
@@ -285,8 +303,11 @@ export function createImageOptimizationQueue(
             iconUrl: cached.iconUrl ?? game.iconUrl,
           };
           await gameStore.saveGame(updated);
+          if (isDebugOptimizationEnabled()) debugOptimizationLog(`queue saveGame done gameId=${item.gameId}`);
         }
       } catch (err) {
+        const errMsg = err instanceof Error ? err.message : String(err);
+        if (isDebugOptimizationEnabled()) debugOptimizationLog(`queue catch gameId=${item.gameId} error=${errMsg}`);
         if (!cancelling) {
           console.warn('[ImageOptimizationQueue] Failed to cache images for', item.gameId, err);
         }
@@ -294,7 +315,7 @@ export function createImageOptimizationQueue(
           for (const { type } of imageTypesFromUrls(item.urls)) {
             updateJobByGameAndType(queueRunId, item.gameId, type, {
               phase: 'failed',
-              error: err instanceof Error ? err.message : String(err),
+              error: errMsg,
             });
           }
         }
@@ -311,34 +332,42 @@ export function createImageOptimizationQueue(
           queueRunId = null;
         }
       }
+      // Yield so IPC and UI can run; prevents main-thread starvation
+      await new Promise<void>((resolve) => setImmediate(resolve));
     }
   }
 
   async function scheduleWorkers() {
-    await refreshWorkerLimits();
-    if (processing && activeWorkers >= maxGameWorkers) return;
-    processing = true;
-    while (activeWorkers < maxGameWorkers && getQueuedItemsCount() > 0) {
-      activeWorkers++;
-      emitRuntimeMetrics();
-      processNext()
-        .catch((err) => {
-          console.warn('[ImageOptimizationQueue] Worker error:', err);
-        })
-        .finally(() => {
-          activeWorkers--;
-          emitRuntimeMetrics();
-          if (getQueuedItemsCount() === 0 && activeWorkers === 0) {
-            processing = false;
-            currentItem = null;
-            if (queueRunId) {
-              finishRun(queueRunId);
-              queueRunId = null;
+    try {
+      await refreshWorkerLimits();
+      if (processing && activeWorkers >= maxGameWorkers) return;
+      processing = true;
+      while (activeWorkers < maxGameWorkers && getQueuedItemsCount() > 0) {
+        activeWorkers++;
+        emitRuntimeMetrics();
+        processNext()
+          .catch((err) => {
+            console.warn('[ImageOptimizationQueue] Worker error:', err);
+          })
+          .finally(() => {
+            activeWorkers--;
+            emitRuntimeMetrics();
+            if (getQueuedItemsCount() === 0 && activeWorkers === 0) {
+              processing = false;
+              currentItem = null;
+              if (queueRunId) {
+                finishRun(queueRunId);
+                queueRunId = null;
+              }
+            } else if (getQueuedItemsCount() > 0) {
+              void scheduleWorkers();
             }
-          } else if (getQueuedItemsCount() > 0) {
-            void scheduleWorkers();
-          }
-        });
+          });
+      }
+    } catch (err) {
+      console.warn('[ImageOptimizationQueue] scheduleWorkers error:', err);
+      processing = false;
+      emitRuntimeMetrics();
     }
   }
 
@@ -390,7 +419,12 @@ export function createImageOptimizationQueue(
     }
     updateStaticCompletionStatus(); // Evaluate initial barrier state after queueing items
     emitRuntimeMetrics();
-    void scheduleWorkers();
+    // Debounce start so bulk import can complete and UI getLibrary can run before we block main thread
+    if (startTimeout) clearTimeout(startTimeout);
+    startTimeout = setTimeout(() => {
+      startTimeout = null;
+      void scheduleWorkers();
+    }, START_DELAY_MS);
   }
 
   function getStatus(): ImageQueueStatus {
@@ -406,6 +440,10 @@ export function createImageOptimizationQueue(
 
   function cancelAll() {
     cancelling = true;
+    if (startTimeout) {
+      clearTimeout(startTimeout);
+      startTimeout = null;
+    }
     staticQueue.length = 0;
     animatedQueue.length = 0;
     allStaticComplete = false;
