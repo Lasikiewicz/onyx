@@ -53,8 +53,8 @@ const PNG_COMPRESSION = 6;
 type OptimizationPerformanceProfile = 'low' | 'balanced' | 'high';
 const PROFILE_LIMITS: Record<OptimizationPerformanceProfile, { reserveCores: number; maxImageWorkers: number }> = {
   low: { reserveCores: 4, maxImageWorkers: 1 },
-  balanced: { reserveCores: 2, maxImageWorkers: 2 },
-  high: { reserveCores: 1, maxImageWorkers: 3 },
+  balanced: { reserveCores: 2, maxImageWorkers: 1 },
+  high: { reserveCores: 1, maxImageWorkers: 2 },
 };
 
 export interface CachedImage {
