@@ -4,6 +4,11 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.5.8] - 2026-02-28
+
+- UI: Moved alpha badge, bug report, and console buttons to top right of navbar; tray tooltip shows branch (Onyx Dev / Onyx Alpha / Onyx).
+- Update: Changelog in update modal shows only version-to-version changes and strips GPL/legal notices; modal and changelog box constrained so they stay on screen.
+
 ## [0.5.7] - 2026-02-28
 
 - Importer: Fixed static/animated optimization barrier sequencing to prevent optimizer lockups during large queue runs.
