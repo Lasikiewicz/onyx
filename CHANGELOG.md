@@ -4,6 +4,12 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.5.11] - 2026-02-28
+
+- Manage Metadata: Unified NUCLEAR / Images only / Links only / Optimizer; NUCLEAR clears library and opens importer; all options require confirmation; refresh flows run in importer.
+- Onboarding: Manual folders from Settings → Libraries shown on "Games in other folders?"; add/remove/category changes sync to Settings immediately (onboarding is source of truth).
+- Onboarding: "Start scan" opens importer and starts scan; existing manual folders persist when removing in onboarding.
+
 ## [0.5.10] - 2026-02-28
 
 - Optimization: Debug logging (local dev) and crash-capture script; single-game queue cap to reduce native crash risk.
