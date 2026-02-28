@@ -159,7 +159,7 @@ async function runAnimatedWebp(imageData: Buffer, imageType: string): Promise<Bu
     imageType === 'banner' || imageType === 'alternativeBanner' || imageType === 'hero'
       ? WEBP_ANIMATED_QUALITY_BACKGROUND
       : WEBP_ANIMATED_QUALITY;
-  const out = await sharp(imageData, { animated: true, pages: -1, limitInputPixels: false })
+  const out = await sharp(imageData, { animated: true, pages: -1, limitInputPixels: LIMIT_INPUT_PIXELS })
     .resize(maxDim, maxDim, { fit: 'inside', withoutEnlargement: true })
     .webp({ quality, effort: 0 })
     .toBuffer();

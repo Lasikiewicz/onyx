@@ -86,6 +86,7 @@
     "dotenv": "^17.2.3",
     "electron-store": "^11.0.2",
     "electron-updater": "^6.3.9",
+    "ffmpeg-static": "^5.3.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
   },

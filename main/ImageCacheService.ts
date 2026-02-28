@@ -309,7 +309,26 @@ export class ImageCacheService {
           return { data, ext };
         } catch (webpErr) {
           if (isDebugOptimizationEnabled()) {
-            debugOptimizationLog(`optimizeImage animated webp fallback original: ${(webpErr as Error).message}`);
+            debugOptimizationLog(`optimizeImage animated webp worker failed, trying ffmpeg/sharp fallback: ${(webpErr as Error).message}`);
+          }
+          const ffmpegResized = await this.resizeAnimatedWithFfmpeg(imageData, '.webp', imageType);
+          if (ffmpegResized != null) {
+            if (isDebugOptimizationEnabled()) {
+              debugOptimizationLog(`optimizeImage animated webp ffmpeg fallback success outBytes=${ffmpegResized.length}`);
+            }
+            return { data: ffmpegResized, ext: '.webp' };
+          }
+
+          const sharpResized = await this.resizeAnimatedWebpWithSharp(imageData, imageType);
+          if (sharpResized != null) {
+            if (isDebugOptimizationEnabled()) {
+              debugOptimizationLog(`optimizeImage animated webp sharp fallback success outBytes=${sharpResized.length}`);
+            }
+            return { data: sharpResized, ext: '.webp' };
+          }
+
+          if (isDebugOptimizationEnabled()) {
+            debugOptimizationLog('optimizeImage animated webp fallback original (no smaller ffmpeg/sharp result)');
           }
           return { data: imageData, ext: '.webp' };
         }

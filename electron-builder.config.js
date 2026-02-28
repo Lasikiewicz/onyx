@@ -57,7 +57,8 @@ const config = {
   asar: true,
   asarUnpack: [
     '**/ImageOptimizerWorker.worker.js',
-    '**/node_modules/sharp/**'
+    '**/node_modules/sharp/**',
+    '**/node_modules/ffmpeg-static/**'
   ],
   compression: 'maximum',
   nsis: {
