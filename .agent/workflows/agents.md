@@ -16,6 +16,7 @@ description: Onyx AI Agent Guide - Critical Rules & Project Context
   - "Force to Alpha" = version bump + force master → develop
   - "Force to Main" = force develop → main (same build number as alpha)
   - "Push website live" = website deployment workflow
+- ✅ **No "alpha" in commit messages that land on main** - Commits that are merged or force-pushed to **main** become production history and can appear in release notes. Avoid the word "alpha" in those commit messages; use neutral wording instead (e.g. "develop build profile", "prerelease profile", "build profile for develop/main").
 
 ## 🔄 RELEASE WORKFLOW (Strict Protocol)
 
@@ -62,7 +63,7 @@ git push origin master:develop --force
 Result: remote **develop** = remote **master**. CI builds Alpha from develop.
 
 ### 3. "Force to Main"
-**Force remote develop → remote main. Same build number as alpha.** Triggers Onyx (Production) build. Source must be **origin/develop**, not master.
+**Force remote develop → remote main. Same build number as alpha.** Triggers Onyx (Production) build. Source must be **origin/develop**, not master. Before forcing, ensure commits on develop do not contain the word "alpha" in their messages (use "develop build profile" or "prerelease" etc. so production history stays neutral).
 ```bash
 git fetch origin develop
 git push origin origin/develop:main --force
