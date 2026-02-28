@@ -4,6 +4,12 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.6.1] - 2026-02-28
+
+- Optimization: Reprocess cached image files during "Optimize all game images" instead of skipping `onyx-local` references.
+- Optimization: Apply fast animated WebP worker settings (`quality 80`, `effort 0`, resized by image type) across optimize flows.
+- Optimization: Fix cache re-opt path to avoid deleting source files before read and improve terminal job status reporting.
+
 ## [0.6.0] - 2026-02-28
 
 - Release: The optimized update.
