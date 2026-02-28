@@ -4,6 +4,12 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.5.7] - 2026-02-28
+
+- Importer: Fixed static/animated optimization barrier sequencing to prevent optimizer lockups during large queue runs.
+- Game Manager: Restored "Optimize all game images" action in Manage Metadata for testing and operational use.
+- Optimization UI: Improved skipped/cache-hit completion visibility and runtime barrier diagnostics.
+
 ## [0.5.6] - 2026-02-27
 
 - Update: Prefer branch `CHANGELOG.md` sources before tag refs so the update modal shows actual changelog entries for version ranges.
