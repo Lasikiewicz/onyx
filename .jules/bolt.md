@@ -1,0 +1,3 @@
+## 2024-05-24 - [Avoid Redundant Allocations in Scanning Services]
+**Learning:** In highly repetitive scanning services like `GameFilteringService`, large arrays and Sets (like `KNOWN_PUBLISHERS` or `NON_GAME_EXECUTABLES`) must be defined as `private static readonly` properties. Returning them from methods inside the scanning loop causes thousands of redundant object allocations during directory tree traversals, significantly impacting garbage collection and performance.
+**Action:** Always verify that constant lists and regex patterns used in high-frequency validation loops are hoisted to static readonly properties or at least out of the method scope, especially in file system scanners.
