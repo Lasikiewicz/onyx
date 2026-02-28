@@ -15,15 +15,35 @@ interface GameCardProps {
   logoBackgroundOpacity?: number;
 }
 
-export const GameCard: React.FC<GameCardProps> = ({ game, hideTitle = false, showLogoOverBoxart = true, logoPosition = 'middle', useLogoInsteadOfBoxart = false, descriptionSize = 14, viewMode = 'grid', logoBackgroundColor = '#374151', logoBackgroundOpacity = 100 }) => {
-  const formatPlaytime = (minutes?: number) => {
-    if (!minutes) return 'Not Played';
-    if (minutes < 60) return `${minutes} minutes`;
-    const hours = Math.floor(minutes / 60);
-    const mins = minutes % 60;
-    return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
-  };
+// ⚡ Bolt Performance Optimization:
+// Extracted formatPlaytime and toRgba outside the component scope.
+// Impact: Prevents recreation of these functions on every single render for every GameCard instance.
+// Measurement: Reduces memory allocations and Garbage Collection pressure when scrolling large libraries.
+const formatPlaytime = (minutes?: number) => {
+  if (!minutes) return 'Not Played';
+  if (minutes < 60) return `${minutes} minutes`;
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
+};
 
+const toRgba = (hex: string, opacityPct: number) => {
+  const sanitized = hex.replace('#', '');
+  const bigint = parseInt(sanitized.length === 3
+    ? sanitized.split('').map((c) => c + c).join('')
+    : sanitized, 16);
+  const r = (bigint >> 16) & 255;
+  const g = (bigint >> 8) & 255;
+  const b = bigint & 255;
+  const alpha = Math.max(0, Math.min(100, opacityPct)) / 100;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+};
+
+// ⚡ Bolt Performance Optimization:
+// Wrapped GameCard with React.memo
+// Impact: Prevents unnecessary re-renders of all GameCard instances when the parent list/grid
+// state (like focusedIndex or selection) changes, but individual card props remain the same.
+export const GameCard = React.memo<GameCardProps>(({ game, hideTitle = false, showLogoOverBoxart = true, logoPosition = 'middle', useLogoInsteadOfBoxart = false, descriptionSize = 14, viewMode = 'grid', logoBackgroundColor = '#374151', logoBackgroundOpacity = 100 }) => {
   const isLogoUnderneath = game.logoUrl && showLogoOverBoxart && logoPosition === 'underneath';
 
   // Determine which image to show
@@ -35,18 +55,6 @@ export const GameCard: React.FC<GameCardProps> = ({ game, hideTitle = false, sho
 
   // Use rectangular aspect ratio for logo view
   const aspectRatio = useLogoInsteadOfBoxart ? 'aspect-[16/9]' : 'aspect-[2/3]';
-
-  const toRgba = (hex: string, opacityPct: number) => {
-    const sanitized = hex.replace('#', '');
-    const bigint = parseInt(sanitized.length === 3
-      ? sanitized.split('').map((c) => c + c).join('')
-      : sanitized, 16);
-    const r = (bigint >> 16) & 255;
-    const g = (bigint >> 8) & 255;
-    const b = bigint & 255;
-    const alpha = Math.max(0, Math.min(100, opacityPct)) / 100;
-    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-  };
 
   const cardBackground = viewMode === 'logo' ? { backgroundColor: toRgba(logoBackgroundColor, logoBackgroundOpacity) } :
     undefined;
@@ -185,4 +193,4 @@ export const GameCard: React.FC<GameCardProps> = ({ game, hideTitle = false, sho
       )}
     </div>
   );
-};
+});
