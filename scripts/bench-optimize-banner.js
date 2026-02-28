@@ -13,24 +13,44 @@ function log(msg) {
 }
 
 const INPUT = path.resolve(process.argv[2] || 'custom-1772029543687-cn5xu89-banner.webp');
-const WARMUP = 2;
-const RUNS = 5;
+const WARMUP = 0;
+const RUNS = 1;
+const MAX_RUN_MS = 120000;
+const RUN_ALTERNATIVES = false;
 
-// Same as app: ImageOptimizerWorker.worker / resizeAnimatedWebpWithSharp
+// Fast-path settings (aligned with speed-first worker strategy)
 const WEBP_ANIMATED_QUALITY = 80;
+const MAX_DIMENSION_BY_TYPE = {
+  boxart: 600,
+  logo: 400,
+  banner: 800,
+  alternativeBanner: 800,
+  hero: 800,
+  icon: 128,
+};
 
 async function runAppPipeline(imageData, imageType = 'banner') {
   log('  runAppPipeline: importing sharp...');
   const sharp = (await import('sharp')).default;
   log('  runAppPipeline: sharp loaded, setting concurrency(1)...');
   sharp.concurrency(1);
-  log('  runAppPipeline: building pipeline (animated WebP, effort 6)...');
-  const pipeline = sharp(imageData, { animated: true, pages: -1, limitInputPixels: false })
-    .webp({ quality: WEBP_ANIMATED_QUALITY, effort: 6 });
-  log('  runAppPipeline: calling toBuffer() (this can take minutes for large animated WebP; effort 6 is slow)...');
-  const out = await pipeline.toBuffer();
-  log('  runAppPipeline: toBuffer() done, output ' + out.length + ' bytes');
-  return out;
+  const maxDim = MAX_DIMENSION_BY_TYPE[imageType] || 800;
+  log('  runAppPipeline: building pipeline (animated WebP, resized, effort 0)...');
+  const pipeline = sharp(imageData, { animated: true, pages: -1, limitInputPixels: 4096 * 4096 })
+    .resize(maxDim, maxDim, { fit: 'inside', withoutEnlargement: true })
+    .webp({ quality: WEBP_ANIMATED_QUALITY, effort: 0 });
+  log('  runAppPipeline: calling toBuffer() with 2-minute cap...');
+  try {
+    const out = await Promise.race([
+      pipeline.toBuffer(),
+      new Promise((_, reject) => setTimeout(() => reject(new Error(`Timed out after ${MAX_RUN_MS / 1000}s`)), MAX_RUN_MS)),
+    ]);
+    log('  runAppPipeline: toBuffer() done, output ' + out.length + ' bytes');
+    return out;
+  } catch (err) {
+    log('  runAppPipeline: fast-fallback to original due to: ' + (err && err.message ? err.message : String(err)));
+    return imageData;
+  }
 }
 
 async function runWithLowerEffort(imageData, effort = 4) {
@@ -81,10 +101,12 @@ async function main() {
   // Timed runs - exact app pipeline
   log('App pipeline (animated WebP, quality 80, effort 6):');
   const times = [];
+  let lastOut = null;
   for (let i = 0; i < RUNS; i++) {
     log('Timed run ' + (i + 1) + '/' + RUNS + ' starting...');
     const start = performance.now();
     const out = await runAppPipeline(imageData);
+    lastOut = out;
     const elapsed = performance.now() - start;
     times.push(elapsed);
     log('  Run ' + (i + 1) + ' ' + formatMs(elapsed) + ' -> output ' + (out.length / 1024).toFixed(0) + ' KB');
@@ -94,26 +116,38 @@ async function main() {
   log('  Average: ' + formatMs(avg) + ' | Min: ' + formatMs(min));
   console.log('');
 
+  if (lastOut) {
+    const outDir = path.resolve('debug-logs', 'bench-output');
+    fs.mkdirSync(outDir, { recursive: true });
+    const outFile = path.join(outDir, path.basename(INPUT, path.extname(INPUT)) + '-optimized.webp');
+    fs.writeFileSync(outFile, lastOut);
+    log('Saved optimized output: ' + outFile);
+  }
+
   // Try lower effort (faster encode, slightly larger/same quality)
-  log('Alternative: effort 4 (faster encode):');
-  const startE4 = performance.now();
-  const outE4 = await runWithLowerEffort(imageData, 4);
-  const elapsedE4 = performance.now() - startE4;
-  log('  Time: ' + formatMs(elapsedE4) + ' | Output: ' + (outE4.length / 1024).toFixed(0) + ' KB');
-  console.log('');
+  if (RUN_ALTERNATIVES) {
+    log('Alternative: effort 4 (faster encode):');
+    const startE4 = performance.now();
+    const outE4 = await runWithLowerEffort(imageData, 4);
+    const elapsedE4 = performance.now() - startE4;
+    log('  Time: ' + formatMs(elapsedE4) + ' | Output: ' + (outE4.length / 1024).toFixed(0) + ' KB');
+    console.log('');
 
-  // Try effort 0 (fastest)
-  log('Alternative: effort 0 (fastest):');
-  const startE0 = performance.now();
-  const outE0 = await runWithLowerEffort(imageData, 0);
-  const elapsedE0 = performance.now() - startE0;
-  log('  Time: ' + formatMs(elapsedE0) + ' | Output: ' + (outE0.length / 1024).toFixed(0) + ' KB');
-  console.log('');
+    log('Alternative: effort 0 (fastest):');
+    const startE0 = performance.now();
+    const outE0 = await runWithLowerEffort(imageData, 0);
+    const elapsedE0 = performance.now() - startE0;
+    log('  Time: ' + formatMs(elapsedE0) + ' | Output: ' + (outE0.length / 1024).toFixed(0) + ' KB');
+    console.log('');
 
-  log('Summary:');
-  log('  App (effort 6): ~' + formatMs(avg) + ' per image');
-  log('  effort 4:       ~' + formatMs(elapsedE4) + ' (potential speedup for queue)');
-  log('  effort 0:       ~' + formatMs(elapsedE0) + ' (max speed, slightly larger output)');
+    log('Summary:');
+    log('  App (effort 6): ~' + formatMs(avg) + ' per image');
+    log('  effort 4:       ~' + formatMs(elapsedE4) + ' (potential speedup for queue)');
+    log('  effort 0:       ~' + formatMs(elapsedE0) + ' (max speed, slightly larger output)');
+  } else {
+    log('Summary:');
+    log('  App path completed in ~' + formatMs(avg));
+  }
   log('Done.');
 }
 

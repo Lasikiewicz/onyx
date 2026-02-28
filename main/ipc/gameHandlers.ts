@@ -27,6 +27,29 @@ export function registerGameIPCHandlers(
     imageQueue?: ImageQueue,
     optimizationController?: OptimizationControllerAPI
 ) {
+    const resolveOnyxLocalToFileUrl = (url?: string): string | undefined => {
+        if (!url || !url.startsWith('onyx-local://')) return url;
+        const urlPath = url.replace(/^onyx-local:\/\/\/?/, '').replace(/\/+$/, '');
+        const match = urlPath.match(/^([^-]+(?:-[^-]+)*?)-(boxart|banner|alternativeBanner|logo|hero|icon|screenshot-\d+)$/);
+        if (!match) return url;
+
+        const gameIdFromUrl = match[1];
+        const imageTypeFromUrl = match[2];
+        const safeGameId = gameIdFromUrl.replace(/[<>:"/\\|?*]/g, '_');
+        const cacheDir = imageCacheService.getCacheDir();
+        const extensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.webm', '.ico', '.avif'];
+
+        for (const ext of extensions) {
+            const filePath = path.join(cacheDir, `${safeGameId}-${imageTypeFromUrl}${ext}`);
+            if (existsSync(filePath)) {
+                const normalized = filePath.replace(/\\/g, '/');
+                return `file:///${encodeURI(normalized)}`;
+            }
+        }
+
+        return url;
+    };
+
     // Steam Service Handlers
     ipcMain.handle('steam:scanGames', async () => {
         try {
@@ -320,12 +343,12 @@ export function registerGameIPCHandlers(
 
             for (const game of targetGames) {
                 const urls = {
-                    boxArtUrl: game.boxArtUrl,
-                    bannerUrl: game.bannerUrl,
-                    alternativeBannerUrl: game.alternativeBannerUrl,
-                    logoUrl: game.logoUrl,
-                    heroUrl: game.heroUrl,
-                    iconUrl: game.iconUrl,
+                    boxArtUrl: resolveOnyxLocalToFileUrl(game.boxArtUrl),
+                    bannerUrl: resolveOnyxLocalToFileUrl(game.bannerUrl),
+                    alternativeBannerUrl: resolveOnyxLocalToFileUrl(game.alternativeBannerUrl),
+                    logoUrl: resolveOnyxLocalToFileUrl(game.logoUrl),
+                    heroUrl: resolveOnyxLocalToFileUrl(game.heroUrl),
+                    iconUrl: resolveOnyxLocalToFileUrl(game.iconUrl),
                 };
 
                 const imageCount = Object.values(urls).filter((value) => Boolean(value)).length;

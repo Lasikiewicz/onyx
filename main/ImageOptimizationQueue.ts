@@ -18,7 +18,7 @@ import { existsSync } from 'node:fs';
 type OptimizationPerformanceProfile = 'low' | 'balanced' | 'high';
 
 /** Max time per game for cacheImages; stuck download/optimize won't block the barrier forever. */
-const CACHE_IMAGES_TIMEOUT_MS = 10_000;
+const CACHE_IMAGES_TIMEOUT_MS = 120_000;
 
 // high hardCap kept moderate to avoid import hang: too many concurrent game workers
 // exhausts resources (Sharp, file descriptors, memory) and can deadlock.
@@ -489,17 +489,12 @@ export function createImageOptimizationQueue(
       else if (imageType === 'icon') target.iconUrl = value;
     };
 
-    // WebP is never optimized or shown in the queue; we still add to deferredUrls so it gets cached (write raw) when we process
-    const isWebp = (ext?: string) => (ext ?? '').toLowerCase().replace(/^\./, '') === 'webp';
-
     for (const entry of entries) {
       if (isKnownStaticExt(entry.sourceExt)) assignUrl(staticUrls, entry.type, entry.url);
       else assignUrl(deferredUrls, entry.type, entry.url);
     }
 
-    // Do not create jobs for WebP — they must not appear in the optimization list or affect the static barrier
     const newJobs = entries
-      .filter((e) => !isWebp(e.sourceExt))
       .map(({ type, sourceExt }) => ({
         jobId: `${gameId}:${type}`,
         gameId,

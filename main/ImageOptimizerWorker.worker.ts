@@ -159,14 +159,10 @@ async function runAnimatedWebp(imageData: Buffer, imageType: string): Promise<Bu
     imageType === 'banner' || imageType === 'alternativeBanner' || imageType === 'hero'
       ? WEBP_ANIMATED_QUALITY_BACKGROUND
       : WEBP_ANIMATED_QUALITY;
-  // limitInputPixels avoids hang/OOM on huge animated WebP (worker can still crash without it)
-  const limitInputPixels = 4096 * 4096;
-  const out = await sharp(imageData, { animated: true, pages: -1, limitInputPixels })
+  const out = await sharp(imageData, { animated: true, pages: -1, limitInputPixels: false })
     .resize(maxDim, maxDim, { fit: 'inside', withoutEnlargement: true })
-    .webp({ quality, effort: 4 })
+    .webp({ quality, effort: 0 })
     .toBuffer();
-  if (out.length >= imageData.length) return null;
-  if (out.length < imageData.length * 0.15) return null;
   // Frame-thinning disabled: causes hang on large animated WebP (many frames → heavy extract/composite).
   // Re-enable with a guard (e.g. only when metadata.pages < 60 and buffer size < 5MB).
   // const thinned = await thinWebpFrames(out, ANIMATED_TARGET_FPS, quality, sharp as SharpConstructor);
@@ -174,8 +170,8 @@ async function runAnimatedWebp(imageData: Buffer, imageType: string): Promise<Bu
   return out;
 }
 
-/** Skip processing WebP in worker to avoid hang/crash on large animated WebP. */
-const SKIP_ANIMATED_WEBP_IN_WORKER = true;
+/** Allow worker processing for animated WebP; caller enforces timeout and fallback. */
+const SKIP_ANIMATED_WEBP_IN_WORKER = false;
 
 parentPort?.on('message', async (msg: OptimizeMessage) => {
   if (msg.type !== 'optimize' || !msg.id) return;

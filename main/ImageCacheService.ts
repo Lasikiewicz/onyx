@@ -289,7 +289,8 @@ export class ImageCacheService {
 
   /**
    * Optimize image for cache: resize to display-friendly max dimensions and compress.
-   * Animated formats (gif, webm) use FFmpeg. WebP is skipped (no resize/re-encode) to avoid hang on large animated WebP.
+   * Animated formats (gif, webm, webp) use FFmpeg where possible.
+   * Animated WebP falls back to Sharp resize/re-encode when FFmpeg can't process it.
    */
   private async optimizeImage(
     imageData: Buffer,
@@ -302,18 +303,22 @@ export class ImageCacheService {
     }
     if (contentFormat !== null) {
       if (contentFormat === '.webp') {
-        if (isDebugOptimizationEnabled()) debugOptimizationLog('optimizeImage skip webp (contentFormat)');
-        return { data: imageData, ext: '.webp' };
+        if (isDebugOptimizationEnabled()) debugOptimizationLog('optimizeImage animated webp worker-fast path');
+        try {
+          const { data, ext } = await optimizeInWorker(imageData, imageType, '.webp', 'animated-webp');
+          return { data, ext };
+        } catch (webpErr) {
+          if (isDebugOptimizationEnabled()) {
+            debugOptimizationLog(`optimizeImage animated webp fallback original: ${(webpErr as Error).message}`);
+          }
+          return { data: imageData, ext: '.webp' };
+        }
       }
       if (isDebugOptimizationEnabled()) debugOptimizationLog(`optimizeImage ffmpeg contentFormat=${contentFormat}`);
       const resized = await this.resizeAnimatedWithFfmpeg(imageData, contentFormat, imageType);
       return { data: resized ?? imageData, ext: contentFormat };
     }
     const ext = sourceExt.toLowerCase();
-    if (ext === '.webp') {
-      if (isDebugOptimizationEnabled()) debugOptimizationLog('optimizeImage skip webp (ext)');
-      return { data: imageData, ext: '.webp' };
-    }
     if (ext === '.gif' || ext === '.webm') {
       if (isDebugOptimizationEnabled()) debugOptimizationLog(`optimizeImage ffmpeg ext=${ext}`);
       const resized = await this.resizeAnimatedWithFfmpeg(imageData, sourceExt, imageType);
@@ -350,6 +355,7 @@ export class ImageCacheService {
     try {
     if (isDebugOptimizationEnabled()) debugOptimizationLog(`cacheImage start gameId=${gameId} imageType=${imageType} url=${url.slice(0, 60)}...`);
     if (!url || url.trim() === '') {
+      onProgress?.('skipped');
       return url;
     }
 
@@ -383,6 +389,7 @@ export class ImageCacheService {
 
           if (isDebugOptimizationEnabled()) debugOptimizationLog(`cacheImage onyx-local return gameId=${gameId} imageType=${imageType} found=false`);
           console.warn(`[ImageCache] onyx-local file not found: ${safeGameId}-${imageTypeFromUrl}`);
+          onProgress?.('skipped');
           return '';
         } else {
           // Old format URL - try to find the file and convert to new format
@@ -409,12 +416,14 @@ export class ImageCacheService {
 
           if (isDebugOptimizationEnabled()) debugOptimizationLog(`cacheImage onyx-local old-format return gameId=${gameId} found=false`);
           console.warn(`[ImageCache] Old format URL file not found for ${safeGameId}-${imageType}`);
+          onProgress?.('skipped');
           return '';
         }
       } catch (e) {
         const errMsg = e instanceof Error ? e.message : String(e);
         if (isDebugOptimizationEnabled()) debugOptimizationLog(`cacheImage onyx-local catch gameId=${gameId} imageType=${imageType} error=${errMsg}`);
         console.error(`[ImageCache] Error processing onyx-local URL: ${url}`, e);
+        onProgress?.('skipped');
         return '';
       }
     }
@@ -437,10 +446,16 @@ export class ImageCacheService {
         // Check if source file exists
         if (!existsSync(filePath)) {
           console.warn(`Source file does not exist: ${filePath}`);
-          return url;
+          onProgress?.('skipped', { fileName: path.basename(filePath) });
+          return '';
         }
 
         const safeGameId = gameId.replace(/[<>:"/\\|?*]/g, '_');
+        const rawData = await fsPromises.readFile(filePath);
+        const sourceExt = path.extname(filePath) || '.jpg';
+        const sourceResolved = path.resolve(filePath);
+        const normalizeForCompare = (value: string) =>
+          process.platform === 'win32' ? value.toLowerCase() : value;
 
         // Delete old images for this game and image type before caching new one
         const { unlinkSync } = require('node:fs');
@@ -448,6 +463,10 @@ export class ImageCacheService {
         for (const oldExt of extensions) {
           const oldFilename = `${safeGameId}-${imageType}${oldExt}`;
           const oldPath = path.join(this.cacheDir, oldFilename);
+          const oldResolved = path.resolve(oldPath);
+          if (normalizeForCompare(oldResolved) === normalizeForCompare(sourceResolved)) {
+            continue;
+          }
           if (existsSync(oldPath)) {
             try {
               unlinkSync(oldPath);
@@ -459,18 +478,7 @@ export class ImageCacheService {
         }
 
         onProgress?.('downloading');
-        const rawData = await fsPromises.readFile(filePath);
-        const sourceExt = path.extname(filePath) || '.jpg';
         if (isDebugOptimizationEnabled()) debugOptimizationLog(`cacheImage file gameId=${gameId} imageType=${imageType} sourceExt=${sourceExt} bytes=${rawData.length}`);
-        // WebP is never run through the optimizer; copy straight to cache to avoid crashes
-        if (sourceExt.toLowerCase() === '.webp') {
-          const outFilename = `${safeGameId}-${imageType}.webp`;
-          const outPath = path.join(this.cacheDir, outFilename);
-          console.log(`[ImageCache] Caching local WebP (no optimize): ${filePath} -> ${outFilename}`);
-          await fsPromises.writeFile(outPath, rawData);
-          onProgress?.('done', { fileName: outFilename, originalBytes: rawData.length, optimizedBytes: rawData.length });
-          return `onyx-local://${safeGameId}-${imageType}`;
-        }
         onProgress?.('optimizing', { originalBytes: rawData.length });
         const { data: optimizedData, ext: outExt } = await this.optimizeImage(rawData, imageType, sourceExt);
         if (isDebugOptimizationEnabled()) debugOptimizationLog(`cacheImage file done gameId=${gameId} imageType=${imageType} outBytes=${optimizedData.length}`);
@@ -528,18 +536,6 @@ export class ImageCacheService {
       onProgress?.('downloading');
       const imageData = await this.downloadImage(url);
 
-      // WebP is never run through the optimizer; write straight to cache to avoid crashes
-      const isWebP = sourceExt.toLowerCase() === '.webp' || getAnimatedContentFormat(imageData) === '.webp';
-      if (isWebP) {
-        const filename = `${safeGameId}-${imageType}.webp`;
-        const localPath = path.join(this.cacheDir, filename);
-        if (isDebugOptimizationEnabled()) debugOptimizationLog(`cacheImage download WebP (no optimize) gameId=${gameId} imageType=${imageType} bytes=${imageData.length}`);
-        await fsPromises.writeFile(localPath, imageData);
-        console.log(`[ImageCache] Cached WebP (no optimize): ${filename}`);
-        onProgress?.('done', { fileName: filename, originalBytes: imageData.length, optimizedBytes: imageData.length });
-        return `onyx-local://${safeGameId}-${imageType}`;
-      }
-
       // Optimize (resize + compress) for faster load and smaller cache
       if (isDebugOptimizationEnabled()) debugOptimizationLog(`cacheImage download gameId=${gameId} imageType=${imageType} sourceExt=${sourceExt} bytes=${imageData.length}`);
       onProgress?.('optimizing', { originalBytes: imageData.length });
@@ -565,13 +561,15 @@ export class ImageCacheService {
       console.error(`Error caching image ${url}:`, error);
       // Return empty string if caching fails - don't return original URL
       // This prevents broken onyx-local URLs from being saved
+      onProgress?.('skipped');
       return '';
     }
     } catch (outerErr) {
       const errMsg = outerErr instanceof Error ? outerErr.message : String(outerErr);
       if (isDebugOptimizationEnabled()) debugOptimizationLog(`cacheImage outer catch gameId=${gameId} imageType=${imageType} error=${errMsg}`);
       console.error(`[ImageCache] cacheImage outer error:`, outerErr);
-      return url || '';
+      onProgress?.('skipped');
+      return '';
     }
   }
 
@@ -769,7 +767,6 @@ export class ImageCacheService {
       const match = file.match(re);
       if (!match) continue;
       const sourceExt = '.' + match[3].toLowerCase();
-      if (sourceExt === '.webp') continue; // WebP is never listed for optimize; not run through optimizer
       if (options?.webpOnly && sourceExt !== '.webp') continue;
       out.push({ file, gameId: match[1], imageType: match[2] });
     }
@@ -804,10 +801,6 @@ export class ImageCacheService {
           continue;
         }
         const sourceExt = '.' + match[3].toLowerCase();
-        if (sourceExt === '.webp') {
-          result.skipped++;
-          continue; // WebP is never run through the optimizer
-        }
         toProcess.push({
           file,
           gameId: match[1],
