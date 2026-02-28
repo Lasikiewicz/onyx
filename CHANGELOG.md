@@ -4,6 +4,11 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.5.10] - 2026-02-28
+
+- Optimization: Debug logging (local dev) and crash-capture script; single-game queue cap to reduce native crash risk.
+- Optimization: ONYX_FORCE_OPTIMIZE env to auto-start image optimization on launch for testing.
+
 ## [0.5.9] - 2026-02-28
 
 - Docs: Guideline for commit messages that land on main (keep wording neutral for production history).
