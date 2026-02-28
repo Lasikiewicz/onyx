@@ -279,6 +279,9 @@ declare global {
       setSteamPath: (path: string) => Promise<{ success: boolean; error?: string }>;
       scanGamesWithPath: (path?: string, autoMerge?: boolean) => Promise<{ success: boolean; error?: string; games: import('./steam').SteamGame[] }>;
       getLibrary: () => Promise<Game[]>;
+      clearLibrary: () => Promise<{ success: boolean; error?: string }>;
+      clearAllImages: () => Promise<{ success: boolean; error?: string }>;
+      clearAllLinks: () => Promise<{ success: boolean; error?: string }>;
       migratePerGameViewSizeOverrides: () => Promise<{ success: boolean; overrides: Record<string, { grid?: number; list?: number; logo?: number; carousel?: number; coverflow?: number }>; error?: string }>;
       saveGame: (game: Game, oldGame?: Game) => Promise<boolean>;
       deleteCachedImage: (gameId: string, imageType: 'boxart' | 'banner' | 'logo' | 'hero' | 'icon') => Promise<{ success: boolean; error?: string }>;
@@ -321,7 +324,7 @@ declare global {
       getManualFolders: () => Promise<string[]>;
       saveManualFolders: (folders: string[]) => Promise<{ success: boolean; error?: string }>;
       getManualFolderConfigs: () => Promise<Record<string, { id: string; name: string; path: string; enabled: boolean }>>;
-      saveManualFolderConfig: (config: { id: string; name: string; path: string; enabled: boolean }) => Promise<{ success: boolean; error?: string }>;
+      saveManualFolderConfig: (config: { id: string; name: string; path: string; enabled: boolean; autoCategory?: string[] }) => Promise<{ success: boolean; error?: string }>;
       deleteManualFolderConfig: (folderId: string) => Promise<{ success: boolean; error?: string }>;
       getSteamAuthState?: () => Promise<{ authenticated: boolean; steamId?: string; username?: string }>;
       authenticateSteam?: () => Promise<{ success: boolean; steamId?: string; username?: string; error?: string }>;

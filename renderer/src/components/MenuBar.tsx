@@ -58,6 +58,9 @@ interface MenuBarProps {
   topBarPositions?: TopBarPositions;
   onTopBarPositionsChange?: (positions: TopBarPositions) => void;
   showCategoriesInGameList?: boolean;
+  /** When provided, the optimizer queue modal is controlled by the parent (e.g. open from Game Manager). */
+  showImageQueueDetail?: boolean;
+  setShowImageQueueDetail?: (show: boolean) => void;
 }
 
 interface SortablePinnedCategoryProps {
@@ -133,6 +136,8 @@ export const MenuBar: React.FC<MenuBarProps> = ({
   topBarPositions = { searchBar: 'left', sortBy: 'left', launcher: 'left', categories: 'left' },
   onTopBarPositionsChange,
   showCategoriesInGameList = false,
+  showImageQueueDetail: showImageQueueDetailProp,
+  setShowImageQueueDetail: setShowImageQueueDetailProp,
   // onScanFolder, // Unused
   onUpdateLibrary,
   onGameManager,
@@ -157,7 +162,11 @@ export const MenuBar: React.FC<MenuBarProps> = ({
   const hasOptimizationActivity = optimizationStatus?.hasActivity ?? false;
   const hasOptimizationReport = (optimizationStatus?.jobs?.length ?? 0) > 0;
   const showOptimizationIndicator = hasOptimizationActivity || hasOptimizationReport;
-  const [showImageQueueDetail, setShowImageQueueDetail] = useState(false);
+  const [internalShowImageQueueDetail, setInternalShowImageQueueDetail] = useState(false);
+  const showImageQueueDetail = setShowImageQueueDetailProp !== undefined && showImageQueueDetailProp !== undefined
+    ? showImageQueueDetailProp
+    : internalShowImageQueueDetail;
+  const setShowImageQueueDetail = setShowImageQueueDetailProp ?? setInternalShowImageQueueDetail;
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -1052,16 +1061,18 @@ export const MenuBar: React.FC<MenuBarProps> = ({
               </div>
             </div>
             <div className="space-y-2 text-sm text-gray-300">
-              {optimizationStatus.runtime && (
-                <div className="text-xs text-gray-400 bg-gray-900/40 border border-gray-700/70 rounded px-3 py-2">
-                  Profile: {optimizationStatus.runtime.profile ?? 'balanced'} · Workers: {optimizationStatus.runtime.activeWorkers ?? 0}/{optimizationStatus.runtime.maxWorkers ?? 0}
+              <div className="min-h-[2.25rem] text-xs text-gray-400 bg-gray-900/40 border border-gray-700/70 rounded px-3 py-2">
+                {optimizationStatus.runtime ? (
+                  <>
+                    Profile: {optimizationStatus.runtime.profile ?? 'balanced'} · Workers: {optimizationStatus.runtime.activeWorkers ?? 0}/{optimizationStatus.runtime.maxWorkers ?? 0}
                   {typeof optimizationStatus.runtime.availableWorkers === 'number' ? ` (raw capacity ${optimizationStatus.runtime.availableWorkers}, reserved ${optimizationStatus.runtime.reserveCores ?? 0}, queue worker cap ${optimizationStatus.runtime.maxWorkers ?? 0})` : ''}
                   {typeof optimizationStatus.runtime.cpuCount === 'number' ? ` · CPUs: ${optimizationStatus.runtime.cpuCount}` : ''}
                   {typeof optimizationStatus.runtime.systemCpuUsage === 'number' ? ` · CPU usage: ${optimizationStatus.runtime.systemCpuUsage.toFixed(0)}%` : ''}
                   {typeof optimizationStatus.runtime.queuedGames === 'number' ? ` · Queue games: ${optimizationStatus.runtime.queuedGames}` : ''}
                   {typeof optimizationStatus.runtime.allStaticComplete === 'boolean' ? ` · Static barrier: ${optimizationStatus.runtime.allStaticComplete ? 'open' : 'blocked'}` : ''}
-                </div>
-              )}
+                  </>
+                ) : null}
+              </div>
               <div className="flex justify-between">
                 <span>
                   Games: {optimizationStatus.gamesDone} done, {optimizationStatus.gamesQueued} queued · Images: {optimizationStatus.imagesDone} done, {optimizationStatus.imagesQueued} queued
@@ -1084,27 +1095,32 @@ export const MenuBar: React.FC<MenuBarProps> = ({
                   }}
                 />
               </div>
-              {optimizationStatus.jobs.some(j => j.phase === 'downloading' || j.phase === 'optimizing') && (() => {
-                const active = optimizationStatus.jobs.find(j => j.phase === 'downloading' || j.phase === 'optimizing');
-                if (!active) return null;
-                const typeLabel = active.imageType === 'alternativeBanner' ? 'alternativeBanner' : active.imageType || 'image';
-                return (
-                  <div className="mt-2">
-                    <p className="text-xs text-amber-300/90 mb-1 truncate" title={`${active.gameTitle} · ${typeLabel}`}>
-                      Current: {active.gameTitle} · {typeLabel}
-                    </p>
-                    <div className="h-1.5 bg-gray-700/80 rounded-full overflow-hidden">
-                      <div className="h-full w-1/3 bg-amber-500 rounded-full [animation:optimizer-slide_1.2s_ease-in-out_infinite]" />
-                    </div>
-                    <style>{`
-                      @keyframes optimizer-slide {
-                        0%, 100% { transform: translateX(-100%); }
-                        50% { transform: translateX(250%); }
-                      }
-                    `}</style>
-                  </div>
-                );
-              })()}
+              {/* Fixed-height row so layout does not bounce when active job changes */}
+              <div className="mt-2 min-h-[2.5rem] flex flex-col justify-center">
+                {optimizationStatus.jobs.some(j => j.phase === 'downloading' || j.phase === 'optimizing') ? (() => {
+                  const active = optimizationStatus.jobs.find(j => j.phase === 'downloading' || j.phase === 'optimizing');
+                  if (!active) return <p className="text-xs text-gray-500">—</p>;
+                  const typeLabel = active.imageType === 'alternativeBanner' ? 'alternativeBanner' : active.imageType || 'image';
+                  return (
+                    <>
+                      <p className="text-xs text-amber-300/90 mb-1 truncate" title={`${active.gameTitle} · ${typeLabel}`}>
+                        Current: {active.gameTitle} · {typeLabel}
+                      </p>
+                      <div className="h-1.5 bg-gray-700/80 rounded-full overflow-hidden flex-shrink-0">
+                        <div className="h-full w-1/3 bg-amber-500 rounded-full [animation:optimizer-slide_1.2s_ease-in-out_infinite]" />
+                      </div>
+                      <style>{`
+                        @keyframes optimizer-slide {
+                          0%, 100% { transform: translateX(-100%); }
+                          50% { transform: translateX(250%); }
+                        }
+                      `}</style>
+                    </>
+                  );
+                })() : (
+                  <p className="text-xs text-gray-500">—</p>
+                )}
+              </div>
               {optimizationStatus.jobs.length > 0 && (
                 <div className="mt-3 pt-2 border-t border-gray-700/70 font-mono text-[12px] text-gray-300">
                   {(() => {

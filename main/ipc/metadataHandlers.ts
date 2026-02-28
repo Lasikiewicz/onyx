@@ -156,7 +156,6 @@ export function registerMetadataIPCHandlers(
             const games = await gameStore.getLibrary();
             const prefs = await userPreferencesService.getPreferences();
             const shouldCacheLocally = prefs.storeMetadataLocally !== false;
-            const optimizeInBackground = (prefs.optimizeImagesInBackground !== false) && imageQueue;
 
             // Helper to check if an image URL is missing or invalid
             const isMissingImage = (url: string | undefined): boolean => {
@@ -203,26 +202,35 @@ export function registerMetadataIPCHandlers(
                     console.log(`[MetadataRefresh] [${current}/${total}] Processing: ${game.title}`);
                     sendProgress(current, total, options?.linksOnly ? `Searching for links...` : `Fetching metadata...`, game.title);
 
+                    // Nuclear: remove existing cached images so we pull everything fresh (same as starting from scratch)
+                    if (options?.allGames) {
+                        try {
+                            await imageCacheService.deleteAllGameImages(game.id);
+                        } catch (deleteErr) {
+                            console.warn(`[MetadataRefresh] [${current}/${total}] ${game.title}: Clear cache failed:`, deleteErr);
+                        }
+                    }
+
                     // Extract Steam App ID if available
                     const steamAppId = game.id.startsWith('steam-') ? game.id.replace('steam-', '') : undefined;
 
-                    // Determine which images to fetch
+                    // Determine which images to fetch (nuclear = all; otherwise only missing)
                     const needsBoxart = !options?.linksOnly && (options?.allGames || isMissingImage(game.boxArtUrl));
                     const needsBanner = !options?.linksOnly && (options?.allGames || isMissingImage(game.bannerUrl));
                     const needsLogo = !options?.linksOnly && (options?.allGames || isMissingImage(game.logoUrl));
                     const needsIcon = !options?.linksOnly && (options?.allGames || isMissingImage(game.iconUrl));
 
-                    if (!options?.linksOnly && !needsBoxart && !needsBanner && !needsLogo && !needsIcon) {
+                    if (!options?.linksOnly && !options?.allGames && !needsBoxart && !needsBanner && !needsLogo && !needsIcon) {
                         console.log(`[MetadataRefresh] [${current}/${total}] ${game.title}: All images present, skipping`);
                         successCount++;
                         continue;
                     }
 
                     // Fetch metadata with timeout
+                    // Nuclear (allGames): use fetchCompleteMetadata with bypassCache, same as game importer - full metadata + images + links
                     let metadata: any = null;
                     try {
                         if (options?.linksOnly) {
-                            // Fetch directly using fetchCompleteMetadata so linksOnly flag is respected
                             metadata = await withTimeout(
                                 metadataFetcher.fetchCompleteMetadata(
                                     game.title,
@@ -234,9 +242,24 @@ export function registerMetadataIPCHandlers(
                                 30000,
                                 `Metadata fetch timeout for "${game.title}"`
                             );
+                        } else if (options?.allGames) {
+                            // Nuclear: full refresh, same as importer - bypass cache, get metadata + artwork + links
+                            metadata = await withTimeout(
+                                metadataFetcher.fetchCompleteMetadata(
+                                    game.title,
+                                    null,
+                                    steamAppId,
+                                    true,  // bypass cache
+                                    false, // linksOnly
+                                    true,  // preferAnimatedBoxart
+                                    true   // preferAnimatedBanner
+                                ),
+                                30000,
+                                `Metadata fetch timeout for "${game.title}"`
+                            );
                         } else {
                             metadata = await withTimeout(
-                                metadataFetcher.searchArtwork(game.title, steamAppId, options?.allGames || options?.linksOnly, !!options?.linksOnly),
+                                metadataFetcher.searchArtwork(game.title, steamAppId, false, false),
                                 30000,
                                 `Metadata fetch timeout for "${game.title}"`
                             );
@@ -268,62 +291,43 @@ export function registerMetadataIPCHandlers(
                         continue;
                     }
 
-                    // Prepare updated image URLs
-                    let updatedBoxArt = needsBoxart && metadata.boxArtUrl ? metadata.boxArtUrl : game.boxArtUrl;
-                    let updatedBanner = needsBanner && metadata.bannerUrl ? metadata.bannerUrl : game.bannerUrl;
-                    let updatedLogo = needsLogo && metadata.logoUrl ? metadata.logoUrl : game.logoUrl;
-                    let updatedIcon = needsIcon && metadata.iconUrl ? metadata.iconUrl : game.iconUrl;
-                    let updatedHero = metadata.heroUrl || game.heroUrl;
+                    // Prepare updated image URLs (nuclear = metadata only, no keep from game)
+                    const nuclear = !!options?.allGames;
+                    let updatedBoxArt = needsBoxart && metadata.boxArtUrl ? metadata.boxArtUrl : (nuclear ? '' : game.boxArtUrl);
+                    let updatedBanner = needsBanner && metadata.bannerUrl ? metadata.bannerUrl : (nuclear ? '' : game.bannerUrl);
+                    let updatedAlternativeBanner = (nuclear ? (metadata.alternativeBannerUrl ?? '') : (metadata.alternativeBannerUrl ?? game.alternativeBannerUrl ?? ''));
+                    let updatedLogo = needsLogo && metadata.logoUrl ? metadata.logoUrl : (nuclear ? '' : game.logoUrl);
+                    let updatedIcon = needsIcon && metadata.iconUrl ? metadata.iconUrl : (nuclear ? '' : game.iconUrl);
+                    let updatedHero = nuclear ? (metadata.heroUrl ?? '') : (metadata.heroUrl || game.heroUrl);
 
-                    // Cache images locally if preference is enabled (download + optimize)
-                    if (shouldCacheLocally && !optimizeInBackground) {
-                        try {
-                            sendProgress(current, total, `Caching and optimizing images...`, game.title);
-                            const cachedImages = await imageCacheService.cacheImages({
-                                boxArtUrl: updatedBoxArt,
-                                bannerUrl: updatedBanner,
-                                logoUrl: updatedLogo,
-                                heroUrl: updatedHero,
-                                iconUrl: updatedIcon
-                            }, game.id, (img) => {
-                                sendProgress(current, total, `Caching and optimizing images...`, game.title, undefined, undefined, img);
-                            });
-
-                            if (cachedImages.boxArtUrl) updatedBoxArt = cachedImages.boxArtUrl;
-                            if (cachedImages.bannerUrl) updatedBanner = cachedImages.bannerUrl;
-                            if (cachedImages.logoUrl) updatedLogo = cachedImages.logoUrl;
-                            if (cachedImages.heroUrl) updatedHero = cachedImages.heroUrl;
-                            if (cachedImages.iconUrl) updatedIcon = cachedImages.iconUrl;
-                        } catch (cacheError) {
-                            console.warn(`[MetadataRefresh] [${current}/${total}] ${game.title}: Cache failed:`, cacheError);
-                        }
-                    } else if (shouldCacheLocally && optimizeInBackground) {
-                        // Save with remote URLs; queue will cache and update game in background
-                        imageQueue!.add(game.id, game.title, {
+                    // Use the same pipeline everywhere: Background image optimization queue (same as importer).
+                    if (shouldCacheLocally && imageQueue) {
+                        imageQueue.add(game.id, game.title, {
                             boxArtUrl: updatedBoxArt,
                             bannerUrl: updatedBanner,
+                            alternativeBannerUrl: updatedAlternativeBanner || undefined,
                             logoUrl: updatedLogo,
                             heroUrl: updatedHero,
                             iconUrl: updatedIcon
                         });
                     }
 
-                    // Update game in store (remote URLs when background optimize; cached URLs otherwise)
+                    // Update game in store: nuclear = metadata only (remove all stored, pull fresh); otherwise merge
                     const updatedGame: Game = {
                         ...game,
-                        boxArtUrl: updatedBoxArt || game.boxArtUrl,
-                        bannerUrl: updatedBanner || game.bannerUrl,
-                        logoUrl: updatedLogo || game.logoUrl,
-                        iconUrl: updatedIcon || game.iconUrl,
-                        heroUrl: updatedHero || game.heroUrl,
-                        // Also update other metadata if available
-                        description: metadata.description || metadata.summary || game.description,
-                        genres: metadata.genres || game.genres,
-                        releaseDate: metadata.releaseDate || game.releaseDate,
-                        developers: metadata.developers || game.developers,
-                        publishers: metadata.publishers || game.publishers,
-                        ageRating: metadata.ageRating || game.ageRating,
-                        links: metadata.links || game.links,
+                        boxArtUrl: updatedBoxArt || (nuclear ? '' : game.boxArtUrl),
+                        bannerUrl: updatedBanner || (nuclear ? '' : game.bannerUrl),
+                        alternativeBannerUrl: updatedAlternativeBanner || (nuclear ? undefined : game.alternativeBannerUrl),
+                        logoUrl: updatedLogo || (nuclear ? '' : game.logoUrl),
+                        iconUrl: updatedIcon || (nuclear ? '' : game.iconUrl),
+                        heroUrl: updatedHero || (nuclear ? '' : game.heroUrl),
+                        description: nuclear ? (metadata.description || metadata.summary || '') : (metadata.description || metadata.summary || game.description),
+                        genres: nuclear ? (metadata.genres ?? []) : (metadata.genres || game.genres),
+                        releaseDate: nuclear ? (metadata.releaseDate ?? '') : (metadata.releaseDate || game.releaseDate),
+                        developers: nuclear ? (metadata.developers ?? []) : (metadata.developers || game.developers),
+                        publishers: nuclear ? (metadata.publishers ?? []) : (metadata.publishers || game.publishers),
+                        ageRating: nuclear ? (metadata.ageRating ?? '') : (metadata.ageRating || game.ageRating),
+                        links: nuclear ? (metadata.links ?? []) : (metadata.links || game.links),
                     };
 
                     await gameStore.saveGame(updatedGame);

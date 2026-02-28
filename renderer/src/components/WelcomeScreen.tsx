@@ -81,6 +81,23 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onScanGames, onAdd
         }
     }, [setupStep]);
 
+    // When entering "Games in other folders?" step, load existing manual folders from Settings → Libraries so they show (e.g. after "delete everything and start again")
+    useEffect(() => {
+        if (setupStep !== 'otherFolders' || !window.electronAPI.getManualFolderConfigs) return;
+        window.electronAPI.getManualFolderConfigs().then((configs: Record<string, { path: string; enabled?: boolean; autoCategory?: string[] }>) => {
+            if (!configs || typeof configs !== 'object') return;
+            const folders = Object.values(configs)
+                .filter((c) => c.path && c.enabled !== false)
+                .map((c) => ({
+                    path: c.path,
+                    categories: Array.isArray(c.autoCategory) && c.autoCategory.length > 0 ? c.autoCategory : ['Games'],
+                }));
+            if (folders.length > 0) {
+                setAddedFolders(folders);
+            }
+        }).catch((err) => console.warn('Failed to load existing manual folders for onboarding:', err));
+    }, [setupStep]);
+
     const handleApisContinue = async () => {
         setSavingKey(true);
         try {
@@ -108,8 +125,19 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onScanGames, onAdd
     const handleAddFolderToSetup = async () => {
         try {
             const path = await window.electronAPI.showFolderDialog();
-            if (path && !addedFolders.some(f => f.path === path)) {
-                setAddedFolders(prev => [...prev, { path, categories: ['Games'] }]);
+            if (!path || addedFolders.some(f => f.path === path)) return;
+            const next = [...addedFolders, { path, categories: ['Games'] as string[] }];
+            setAddedFolders(next);
+            // Onboarding is source of truth: persist to Settings → Libraries immediately
+            if (window.electronAPI.saveManualFolders) {
+                await window.electronAPI.saveManualFolders(next.map(f => f.path));
+            }
+            if (window.electronAPI.getManualFolderConfigs && window.electronAPI.saveManualFolderConfig) {
+                const configs = await window.electronAPI.getManualFolderConfigs() as Record<string, { id: string; name: string; path: string; enabled: boolean; autoCategory?: string[] }>;
+                const config = configs && Object.values(configs).find((c) => c.path === path);
+                if (config) {
+                    await window.electronAPI.saveManualFolderConfig({ ...config, autoCategory: ['Games'] });
+                }
             }
         } catch (err) {
             console.error('Error picking folder:', err);
@@ -117,7 +145,16 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onScanGames, onAdd
     };
 
     const removeAddedFolder = (path: string) => {
-        setAddedFolders(prev => prev.filter(f => f.path !== path));
+        setAddedFolders(prev => {
+            const next = prev.filter(f => f.path !== path);
+            // Sync to Settings → Libraries so removed folders are not scanned
+            if (window.electronAPI.saveManualFolders) {
+                window.electronAPI.saveManualFolders(next.map(f => f.path)).catch((err: unknown) =>
+                    console.warn('Failed to sync folder removal to settings', err)
+                );
+            }
+            return next;
+        });
     };
 
     const handleOtherFoldersNext = () => {
@@ -173,24 +210,44 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onScanGames, onAdd
             console.error('Error saving animated preferences:', err);
         }
 
+        // Sync manual folders list to Settings → Libraries so any removals in onboarding are persisted (scan uses this list)
+        if (window.electronAPI.saveManualFolders) {
+            try {
+                await window.electronAPI.saveManualFolders(addedFolders.map(f => f.path));
+            } catch (err) {
+                console.warn('Failed to sync manual folders to settings', err);
+            }
+        }
         for (const { path, categories } of addedFolders) {
             await onAddFolder(path, categories);
         }
         setAddedFolders([]);
-        setSetupStep('welcome');
+        // Open importer and start scan immediately (before changing step so importer is clearly the next view)
         onScanGames();
+        setSetupStep('welcome');
     };
 
     const toggleFolderCategory = (path: string, cat: string) => {
-        setAddedFolders(prev =>
-            prev.map(f => {
+        setAddedFolders(prev => {
+            const next = prev.map(f => {
                 if (f.path !== path) return f;
-                const next = f.categories.includes(cat)
+                const nextCat = f.categories.includes(cat)
                     ? f.categories.filter(c => c !== cat)
                     : [...f.categories, cat];
-                return { ...f, categories: next };
-            })
-        );
+                return { ...f, categories: nextCat };
+            });
+            // Onboarding is source of truth: persist category change to Settings → Libraries immediately
+            const updated = next.find(f => f.path === path);
+            if (updated && window.electronAPI.getManualFolderConfigs && window.electronAPI.saveManualFolderConfig) {
+                window.electronAPI.getManualFolderConfigs().then((configs: Record<string, { id: string; name: string; path: string; enabled: boolean; autoCategory?: string[] }>) => {
+                    const config = configs && Object.values(configs).find((c) => c.path === path);
+                    if (config) {
+                        window.electronAPI.saveManualFolderConfig({ ...config, autoCategory: updated.categories });
+                    }
+                }).catch((err: unknown) => console.warn('Failed to sync category change to settings', err));
+            }
+            return next;
+        });
     };
 
     const allCategories = [...AUTO_CATEGORIES, ...customCategories];

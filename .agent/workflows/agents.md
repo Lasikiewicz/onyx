@@ -221,6 +221,14 @@ Before ANY git operations:
 
 ## 🐛 KNOWN ISSUES & FIXES
 
+### Image optimization crash (repro steps)
+To reproduce the optimization crash (app may hang or exit around ~80%):
+1. **Remove all games** (clear the library).
+2. **Run the importer** (scan / add sources as needed).
+3. **Click Import** so many games are added and background image optimization runs.
+
+Logs (when running unpacked, e.g. `electron .`): `debug-logs/optimization.log`, `debug-logs/crash-context.txt`, `debug-logs/crash-dumps/`. Force optimization on launch: `ONYX_FORCE_OPTIMIZE=1` (then optimization auto-starts after a few seconds).
+
 ### Logo Flickering Fix
 - **Root Cause**: Cache buster timestamps stacking on every state update
 - **Solution**: Only add cache busters on initial `loadLibrary()`, not on `updateGameInState()`

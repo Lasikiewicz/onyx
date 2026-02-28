@@ -11,6 +11,7 @@
     "preview": "vite preview",
     "electron": "electron .",
     "optimize:capture-crash": "npm run build && node scripts/run-optimize-capture.js",
+    "crash-repro": "npm run build && node scripts/run-crash-repro.js",
     "electron:dev": "npx tsc -p main/tsconfig.json && npx tsc -p main/tsconfig.preload.json && concurrently \"npm run dev\" \"wait-on http-get://localhost:5173 && cross-env VITE_DEV_SERVER_URL=http://localhost:5173 electron .\"",
     "electron:build": "npm run build && electron .",
     "validate-icons": "node scripts/validate-icons.js",

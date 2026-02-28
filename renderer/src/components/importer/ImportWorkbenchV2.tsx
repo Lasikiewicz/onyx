@@ -10,6 +10,8 @@ import { ConfirmationDialog } from '../ConfirmationDialog';
 
 export type ImportProgressCallback = (current: number, total: number, phase: string, detail?: string) => void;
 
+export type MetadataRefreshMode = 'nuclear' | 'images' | 'links';
+
 interface ImportWorkbenchV2Props {
     isOpen: boolean;
     onClose: () => void;
@@ -26,6 +28,10 @@ interface ImportWorkbenchV2Props {
         title?: string;
         name?: string;
     }>;
+    /** When set, show the metadata refresh flow (Manage Metadata → Nuclear/Images/Links) instead of scan/import. Single source of truth. */
+    initialMode?: MetadataRefreshMode | null;
+    /** Called when the refresh flow completes so the app can reload the library. */
+    onRefreshComplete?: () => Promise<void>;
 }
 
 const SOURCE_LABELS: Record<ImportSource, string> = {
@@ -122,6 +128,8 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
     existingLibrary = [],
     autoStartScan = false,
     preScannedGames,
+    initialMode = null,
+    onRefreshComplete,
 }) => {
     // Core State
     const [queue, setQueue] = useState<StagedGame[]>([]);
@@ -142,6 +150,12 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
     const [currentlyProcessingGame, setCurrentlyProcessingGame] = useState<string | null>(null);
     const [gameProcessingStates, setGameProcessingStates] = useState<Map<string, { status: string; progress?: string }>>(new Map());
     const [scanStats, setScanStats] = useState({ found: 0, processed: 0, skipped: 0 });
+
+    // Metadata refresh mode (Manage Metadata → Nuclear / Images / Links)
+    const [refreshStarted, setRefreshStarted] = useState(false);
+    const [refreshProgress, setRefreshProgress] = useState<{ current: number; total: number; message: string; gameTitle?: string } | null>(null);
+    const [refreshDone, setRefreshDone] = useState(false);
+    const [refreshError, setRefreshError] = useState<string | null>(null);
 
     // Refs
     const hasAutoScanned = useRef(false);
@@ -205,13 +219,13 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
 
     // Do NOT reset queue on open: if user closes importer while scan runs, reopening should show games waiting for import.
 
-    // Auto-scan only when opening with empty queue (first time or after user cleared). Do not restart scan on reopen.
+    // Auto-scan only when opening with empty queue (e.g. from onboarding "Start scan"). Skip when in refresh mode (images/links).
     useEffect(() => {
-        if (isOpen && autoStartScan && queue.length === 0 && !preScannedGames?.length && !hasAutoScanned.current) {
+        if (isOpen && autoStartScan && !initialMode && queue.length === 0 && !preScannedGames?.length && !hasAutoScanned.current) {
             hasAutoScanned.current = true;
             setTimeout(() => handleScanAll(), 300);
         }
-    }, [isOpen, autoStartScan, queue.length, preScannedGames?.length]);
+    }, [isOpen, autoStartScan, initialMode, queue.length, preScannedGames?.length]);
 
     // Process pre-scanned games
     useEffect(() => {
@@ -219,6 +233,26 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
             processPreScannedGames(preScannedGames);
         }
     }, [isOpen, preScannedGames]);
+
+    // Reset refresh state when opening with a mode
+    useEffect(() => {
+        if (isOpen && initialMode) {
+            setRefreshStarted(false);
+            setRefreshProgress(null);
+            setRefreshDone(false);
+            setRefreshError(null);
+        }
+    }, [isOpen, initialMode]);
+
+    // Listen for metadata refresh progress when in refresh mode
+    useEffect(() => {
+        if (!isOpen || !initialMode || !refreshStarted) return;
+        const handleProgress = (_event: unknown, progress: { current: number; total: number; message: string; gameTitle?: string }) => {
+            setRefreshProgress(progress);
+        };
+        const remove = window.electronAPI?.on && window.electronAPI.on('metadata:refreshProgress', handleProgress);
+        return () => { if (typeof remove === 'function') remove(); };
+    }, [isOpen, initialMode, refreshStarted]);
 
     // Pause/resume background scan
     useEffect(() => {
@@ -309,6 +343,27 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
             console.error(e);
         }
     };
+
+    const handleStartMetadataRefresh = useCallback(async () => {
+        if (!initialMode) return;
+        setRefreshError(null);
+        setRefreshStarted(true);
+        setRefreshProgress({ current: 0, total: 0, message: 'Starting...' });
+        try {
+            const result = await window.electronAPI.refreshAllMetadata({
+                allGames: initialMode === 'nuclear',
+                linksOnly: initialMode === 'links',
+            });
+            if (result.success) {
+                setRefreshDone(true);
+                await onRefreshComplete?.();
+            } else {
+                setRefreshError(result.error || 'Refresh failed');
+            }
+        } catch (err) {
+            setRefreshError(err instanceof Error ? err.message : 'Refresh failed');
+        }
+    }, [initialMode, onRefreshComplete]);
 
     // --- Handlers ---
 
@@ -817,6 +872,96 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
     };
 
     if (!isOpen) return null;
+
+    // Metadata refresh mode (Manage Metadata → Nuclear / Images / Links) — single place for this flow
+    if (initialMode) {
+        const modeLabels: Record<MetadataRefreshMode, { title: string; desc: string; accent: string }> = {
+            nuclear: {
+                title: 'Refresh all metadata for all games',
+                desc: 'Removes all stored metadata and pulls everything fresh: metadata, images, icons, link icons.',
+                accent: 'blue',
+            },
+            images: {
+                title: 'Search for missing images only',
+                desc: 'Only search for missing images (all image types). No existing metadata or images will be changed.',
+                accent: 'green',
+            },
+            links: {
+                title: 'Refresh all Links',
+                desc: 'Nukes all links from all games and adds them fresh from IGDB.',
+                accent: 'purple',
+            },
+        };
+        const { title, desc, accent } = modeLabels[initialMode];
+        const borderCls = accent === 'blue' ? 'border-blue-500/50' : accent === 'green' ? 'border-green-500/50' : 'border-purple-500/50';
+        const barCls = accent === 'blue' ? 'bg-blue-600' : accent === 'green' ? 'bg-green-600' : 'bg-purple-600';
+        const iconCls = accent === 'blue' ? 'text-blue-400' : accent === 'green' ? 'text-green-400' : 'text-purple-400';
+
+        return (
+            <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-[5vh]">
+                <div className={`bg-gray-900 border ${borderCls} rounded-xl shadow-2xl w-full max-w-lg overflow-hidden`}>
+                    <div className="px-6 py-4 border-b border-gray-800 flex items-center justify-between">
+                        <h2 className="text-xl font-semibold text-white">Manage Metadata</h2>
+                        <button onClick={onClose} className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg text-sm font-medium">
+                            Close
+                        </button>
+                    </div>
+                    <div className="p-6">
+                        <h3 className="text-lg font-medium text-white mb-1">{title}</h3>
+                        <p className="text-sm text-gray-400 mb-6">{desc}</p>
+
+                        {refreshError && (
+                            <div className="mb-4 p-3 bg-red-900/30 border border-red-500/50 rounded-lg text-red-200 text-sm">
+                                {refreshError}
+                            </div>
+                        )}
+
+                        {!refreshStarted && (
+                            <button
+                                onClick={handleStartMetadataRefresh}
+                                className={`w-full py-3 rounded-lg font-medium text-white ${accent === 'blue' ? 'bg-blue-600 hover:bg-blue-700' : accent === 'green' ? 'bg-green-600 hover:bg-green-700' : 'bg-purple-600 hover:bg-purple-700'}`}
+                            >
+                                Start
+                            </button>
+                        )}
+
+                        {refreshStarted && refreshProgress && (
+                            <div className="space-y-3">
+                                <div className="w-full bg-gray-700 rounded-full h-3 overflow-hidden">
+                                    <div
+                                        className={`${barCls} h-full transition-all duration-300 rounded-full`}
+                                        style={{
+                                            width: refreshProgress.total > 0
+                                                ? `${(refreshProgress.current / refreshProgress.total) * 100}%`
+                                                : '0%',
+                                        }}
+                                    />
+                                </div>
+                                <div className="flex justify-between text-sm text-gray-300">
+                                    <span>{refreshProgress.message}</span>
+                                    {refreshProgress.total > 0 && (
+                                        <span>{refreshProgress.current} / {refreshProgress.total}</span>
+                                    )}
+                                </div>
+                                {refreshProgress.gameTitle && (
+                                    <p className="text-xs text-gray-500 truncate">{refreshProgress.gameTitle}</p>
+                                )}
+                            </div>
+                        )}
+
+                        {refreshDone && (
+                            <div className="mt-4 p-3 bg-gray-800 rounded-lg flex items-center gap-2">
+                                <span className={`w-5 h-5 rounded-full flex items-center justify-center ${iconCls}`}>
+                                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
+                                </span>
+                                <span className="text-white font-medium">Done. Library updated.</span>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-[5vh]">

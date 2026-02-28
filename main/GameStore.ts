@@ -1,5 +1,6 @@
 import type Store from 'electron-store';
 import { SteamGame } from './SteamService.js';
+import { debugOptimizationLog, isDebugOptimizationEnabled } from './debugOptimizationLog.js';
 
 export interface Game {
   id: string;
@@ -134,12 +135,26 @@ export class GameStore {
     }
 
     if (this.gamesCache) {
+      if (isDebugOptimizationEnabled()) debugOptimizationLog(`GameStore flush start games=${this.gamesCache.length}`);
       const store = await this.ensureStore();
       const gamesToSave = this.gamesCache;
       this.gamesCache = null; // Clear cache before setting to avoid race conditions
+      if (isDebugOptimizationEnabled()) debugOptimizationLog(`GameStore flush set games count=${gamesToSave.length}`);
       (store as any).set('games', gamesToSave);
+      if (isDebugOptimizationEnabled()) debugOptimizationLog(`GameStore flush done`);
       console.log(`[GameStore] Library flushed to disk (${gamesToSave.length} games)`);
     }
+  }
+
+  /**
+   * Flush any pending debounced save to disk now (e.g. after optimization queue saveGame to avoid one big delayed write).
+   */
+  async flushPending(): Promise<void> {
+    if (this.saveTimeout) {
+      clearTimeout(this.saveTimeout);
+      this.saveTimeout = null;
+    }
+    await this.flush();
   }
 
   /**
@@ -153,9 +168,11 @@ export class GameStore {
     }
 
     if (this.gamesCache && this.store) {
+      if (isDebugOptimizationEnabled()) debugOptimizationLog(`GameStore flushSync start games=${this.gamesCache.length}`);
       const gamesToSave = this.gamesCache;
       this.gamesCache = null;
       (this.store as any).set('games', gamesToSave);
+      if (isDebugOptimizationEnabled()) debugOptimizationLog(`GameStore flushSync done`);
       console.log(`[GameStore] Library flushed to disk [SYNC] (${gamesToSave.length} games)`);
     }
   }
@@ -198,6 +215,7 @@ export class GameStore {
    * Save a single game to the store
    */
   async saveGame(game: Game): Promise<void> {
+    if (isDebugOptimizationEnabled()) debugOptimizationLog(`GameStore saveGame entry gameId=${game.id} title=${game.title?.slice(0, 30) ?? ''}`);
     const store = await this.ensureStore();
     const games = await this.getLibrary();
     const existingIndex = games.findIndex(g => g.id === game.id);
@@ -227,6 +245,7 @@ export class GameStore {
     }
 
     this.scheduleSave(games);
+    if (isDebugOptimizationEnabled()) debugOptimizationLog(`GameStore saveGame scheduled gameId=${game.id} totalGames=${games.length}`);
     console.log(`Total games in memory: ${games.length}`);
   }
 

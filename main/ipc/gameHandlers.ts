@@ -120,20 +120,67 @@ export function registerGameIPCHandlers(
         }
     });
 
+    /** Clear all games and image cache (e.g. for Nuclear → re-run importer). Does not relaunch. */
+    ipcMain.handle('gameStore:clearLibrary', async () => {
+        try {
+            await gameStore.clearLibrary();
+            await imageCacheService.clearCache();
+            return { success: true };
+        } catch (error) {
+            console.error('Error in gameStore:clearLibrary handler:', error);
+            return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+        }
+    });
+
+    /** Clear all image URLs and cached images for every game (IMAGES ONLY → then open importer to re-fetch). */
+    ipcMain.handle('gameStore:clearAllImages', async () => {
+        try {
+            const games = await gameStore.getLibrary();
+            for (const game of games) {
+                await imageCacheService.deleteAllGameImages(game.id);
+                await gameStore.saveGame({
+                    ...game,
+                    boxArtUrl: '',
+                    bannerUrl: '',
+                    alternativeBannerUrl: undefined,
+                    logoUrl: '',
+                    heroUrl: '',
+                    iconUrl: '',
+                });
+            }
+            return { success: true };
+        } catch (error) {
+            console.error('Error in gameStore:clearAllImages handler:', error);
+            return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+        }
+    });
+
+    /** Clear all links for every game (LINKS ONLY → then open importer to re-fetch). */
+    ipcMain.handle('gameStore:clearAllLinks', async () => {
+        try {
+            const games = await gameStore.getLibrary();
+            for (const game of games) {
+                await gameStore.saveGame({ ...game, links: [] });
+            }
+            return { success: true };
+        } catch (error) {
+            console.error('Error in gameStore:clearAllLinks handler:', error);
+            return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+        }
+    });
+
     ipcMain.handle('gameStore:saveGame', async (_event, game: Game, oldGame?: Game) => {
         try {
             if (oldGame && oldGame.id !== game.id) {
                 await gameStore.deleteGame(oldGame.id);
             }
 
-            const prefs: Partial<Pick<UserPreferences, 'optimizeImagesInBackground'>> = userPreferencesService
-                ? await userPreferencesService.getPreferences()
-                : {};
-            const optimizeInBackground = (prefs.optimizeImagesInBackground !== false) && imageQueue;
-
-            if (optimizeInBackground) {
-                await gameStore.saveGame(game);
-                imageQueue!.add(game.id, game.title, {
+            // Use the same pipeline everywhere: Background image optimization queue (importer path).
+            // Save game first, then queue images for download/optimize; queue updates game when done.
+            await gameStore.saveGame(game);
+            const hasImageUrls = [game.boxArtUrl, game.bannerUrl, game.alternativeBannerUrl, game.logoUrl, game.heroUrl, game.iconUrl].some(Boolean);
+            if (imageQueue && hasImageUrls) {
+                imageQueue.add(game.id, game.title, {
                     boxArtUrl: game.boxArtUrl,
                     bannerUrl: game.bannerUrl,
                     alternativeBannerUrl: game.alternativeBannerUrl,
@@ -141,29 +188,7 @@ export function registerGameIPCHandlers(
                     heroUrl: game.heroUrl,
                     iconUrl: game.iconUrl,
                 });
-                return true;
             }
-
-            const cachedImages = await imageCacheService.cacheImages({
-                boxArtUrl: game.boxArtUrl,
-                bannerUrl: game.bannerUrl,
-                alternativeBannerUrl: game.alternativeBannerUrl,
-                logoUrl: game.logoUrl,
-                heroUrl: game.heroUrl,
-                iconUrl: game.iconUrl,
-            }, game.id);
-
-            const gameWithCachedImages: Game = {
-                ...game,
-                boxArtUrl: cachedImages.boxArtUrl || game.boxArtUrl,
-                bannerUrl: cachedImages.bannerUrl || game.bannerUrl,
-                alternativeBannerUrl: cachedImages.alternativeBannerUrl || game.alternativeBannerUrl,
-                logoUrl: cachedImages.logoUrl || game.logoUrl,
-                heroUrl: cachedImages.heroUrl || game.heroUrl,
-                iconUrl: cachedImages.iconUrl || game.iconUrl,
-            };
-
-            await gameStore.saveGame(gameWithCachedImages);
             return true;
         } catch (error) {
             console.error('Error in gameStore:saveGame handler:', error);

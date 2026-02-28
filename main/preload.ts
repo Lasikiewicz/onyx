@@ -25,6 +25,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   syncSteamPlaytime: () => ipcRenderer.invoke('steam:syncPlaytime'),
   // GameStore methods
   getLibrary: () => ipcRenderer.invoke('gameStore:getLibrary'),
+  clearLibrary: () => ipcRenderer.invoke('gameStore:clearLibrary'),
+  clearAllImages: () => ipcRenderer.invoke('gameStore:clearAllImages'),
+  clearAllLinks: () => ipcRenderer.invoke('gameStore:clearAllLinks'),
   migratePerGameViewSizeOverrides: () => ipcRenderer.invoke('gameStore:migratePerGameViewSizeOverrides'),
   saveGame: (game: any, oldGame?: any) => ipcRenderer.invoke('gameStore:saveGame', game, oldGame),
   deleteCachedImage: (gameId: string, imageType: 'boxart' | 'banner' | 'alternativeBanner' | 'logo' | 'hero' | 'icon') => ipcRenderer.invoke('imageCache:deleteImage', gameId, imageType),

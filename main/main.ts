@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog, Menu, protocol, Tray, nativeImage, shell, session, net, globalShortcut } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, Menu, protocol, Tray, nativeImage, shell, session, net, globalShortcut, crashReporter } from 'electron';
 
 // Early branding setup - must happen before any other modules initialize paths
 // Packaged alpha runs as OnyxAlpha.exe; detect from exec path. Dev uses BUILD_PROFILE env.
@@ -48,6 +48,18 @@ import path from 'node:path';
 import { readdirSync, statSync, existsSync, readFileSync, copyFileSync, mkdirSync, promises as fsPromises } from 'node:fs';
 import { platform } from 'node:os';
 import dotenv from 'dotenv';
+
+// Crash dumps (local dev: write to debug-logs/crash-dumps for easy access)
+if (!app.isPackaged) {
+  try {
+    const crashDumpsDir = path.join(app.getAppPath(), 'debug-logs', 'crash-dumps');
+    app.setPath('crashDumps', crashDumpsDir);
+    crashReporter.start({ uploadToServer: false, compress: false });
+    console.log('[Crash] Dumps will be saved to:', crashDumpsDir);
+  } catch (e) {
+    console.warn('[Crash] Failed to init crash reporter:', e);
+  }
+}
 import { SteamService } from './SteamService.js';
 import { GameStore, type Game } from './GameStore.js';
 import { MetadataFetcherService, IGDBConfig } from './MetadataFetcherService.js';
@@ -1987,6 +1999,48 @@ app.whenReady().then(async () => {
         console.error('[Force optimize] Failed to queue:', e);
       }
     }, 4000);
+  }
+
+  // Dev-only: full crash repro = clear library, run importer scan, then "import" all (triggers optimization)
+  if (process.env.ONYX_CRASH_REPRO === '1' && !app.isPackaged) {
+    setTimeout(async () => {
+      try {
+        console.log('[CrashRepro] Step 1: Clearing library...');
+        await gameStore.clearLibrary();
+        await gameStore.flushPending();
+        console.log('[CrashRepro] Step 2: Scanning all sources...');
+        const scanned = await importService.scanAllSources((msg) => console.log('[CrashRepro]', msg));
+        console.log(`[CrashRepro] Step 3: Importing ${scanned.length} games...`);
+        const randomId = () => Math.random().toString(36).slice(2, 10);
+        for (const s of scanned) {
+          const gameId = `custom-${Date.now()}-${randomId()}`;
+          const steamHeader = s.source === 'steam' && s.appId
+            ? `https://cdn.cloudflare.steamstatic.com/steam/apps/${s.appId}/header.jpg`
+            : '';
+          const game: Game = {
+            id: gameId,
+            title: s.title || s.originalName || 'Unknown',
+            platform: s.source || 'other',
+            exePath: s.exePath || s.installPath || '',
+            boxArtUrl: steamHeader,
+            bannerUrl: steamHeader,
+          };
+          await gameStore.saveGame(game);
+          imageQueue.add(game.id, game.title, {
+            boxArtUrl: game.boxArtUrl,
+            bannerUrl: game.bannerUrl,
+            alternativeBannerUrl: game.alternativeBannerUrl,
+            logoUrl: game.logoUrl,
+            heroUrl: game.heroUrl,
+            iconUrl: game.iconUrl,
+          });
+        }
+        await gameStore.flushPending();
+        console.log(`[CrashRepro] Queued ${scanned.length} games for optimization`);
+      } catch (e) {
+        console.error('[CrashRepro] Failed:', e);
+      }
+    }, 5000);
   }
 });
 

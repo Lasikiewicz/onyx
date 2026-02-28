@@ -235,6 +235,7 @@ export function createImageOptimizationQueue(
 
   async function processNext() {
     while (true) {
+      if (isDebugOptimizationEnabled()) debugOptimizationLog(`queue loop top`);
       if (cancelling) {
         emitRuntimeMetrics();
         return;
@@ -289,21 +290,36 @@ export function createImageOptimizationQueue(
           continue;
         }
 
+        if (isDebugOptimizationEnabled()) debugOptimizationLog(`queue getLibrary before saveGame gameId=${item.gameId}`);
         const games = await gameStore.getLibrary();
         const game = games.find((g) => g.id === item.gameId);
+        if (isDebugOptimizationEnabled()) debugOptimizationLog(`queue game found=${Boolean(game)} gameId=${item.gameId} librarySize=${games.length}`);
         if (game) {
           if (isDebugOptimizationEnabled()) debugOptimizationLog(`queue saveGame start gameId=${item.gameId}`);
-          const updated: Game = {
-            ...game,
-            boxArtUrl: cached.boxArtUrl ?? game.boxArtUrl,
-            bannerUrl: cached.bannerUrl ?? game.bannerUrl,
-            alternativeBannerUrl: cached.alternativeBannerUrl ?? game.alternativeBannerUrl,
-            logoUrl: cached.logoUrl ?? game.logoUrl,
-            heroUrl: cached.heroUrl ?? game.heroUrl,
-            iconUrl: cached.iconUrl ?? game.iconUrl,
-          };
-          await gameStore.saveGame(updated);
-          if (isDebugOptimizationEnabled()) debugOptimizationLog(`queue saveGame done gameId=${item.gameId}`);
+          try {
+            const updated: Game = {
+              ...game,
+              boxArtUrl: cached.boxArtUrl ?? game.boxArtUrl,
+              bannerUrl: cached.bannerUrl ?? game.bannerUrl,
+              alternativeBannerUrl: cached.alternativeBannerUrl ?? game.alternativeBannerUrl,
+              logoUrl: cached.logoUrl ?? game.logoUrl,
+              heroUrl: cached.heroUrl ?? game.heroUrl,
+              iconUrl: cached.iconUrl ?? game.iconUrl,
+            };
+            await gameStore.saveGame(updated);
+            if (isDebugOptimizationEnabled()) debugOptimizationLog(`queue flushPending start gameId=${item.gameId}`);
+            await gameStore.flushPending();
+            if (isDebugOptimizationEnabled()) debugOptimizationLog(`queue flushPending done gameId=${item.gameId}`);
+            if (isDebugOptimizationEnabled()) debugOptimizationLog(`queue saveGame done gameId=${item.gameId}`);
+          } catch (saveErr) {
+            const msg = saveErr instanceof Error ? saveErr.message : String(saveErr);
+            const stack = saveErr instanceof Error ? saveErr.stack : undefined;
+            if (isDebugOptimizationEnabled()) {
+              debugOptimizationLog(`queue saveGame throw gameId=${item.gameId} error=${msg}`);
+              if (stack) debugOptimizationLog(`queue saveGame stack ${stack.split('\n').slice(0, 8).join(' | ')}`);
+            }
+            throw saveErr;
+          }
         }
       } catch (err) {
         const errMsg = err instanceof Error ? err.message : String(err);
@@ -321,19 +337,27 @@ export function createImageOptimizationQueue(
         }
       }
 
+      if (isDebugOptimizationEnabled()) debugOptimizationLog(`queue after saveGame block gameId=${item.gameId}`);
       completed++;
       currentItem = null;
+      if (isDebugOptimizationEnabled()) debugOptimizationLog(`queue updateStaticCompletionStatus gameId=${item.gameId}`);
       updateStaticCompletionStatus(); // Check if static barrier is now satisfied
+      if (isDebugOptimizationEnabled()) debugOptimizationLog(`queue emitRuntimeMetrics gameId=${item.gameId}`);
       emitRuntimeMetrics();
 
-      if (!cancelling && getQueuedItemsCount() === 0 && activeWorkers === 1) {
+      const queuedCount = getQueuedItemsCount();
+      if (isDebugOptimizationEnabled()) debugOptimizationLog(`queue check finish gameId=${item.gameId} queuedCount=${queuedCount} activeWorkers=${activeWorkers}`);
+      if (!cancelling && queuedCount === 0 && activeWorkers === 1) {
         if (queueRunId) {
+          if (isDebugOptimizationEnabled()) debugOptimizationLog(`queue finishRun gameId=${item.gameId}`);
           finishRun(queueRunId);
           queueRunId = null;
         }
       }
       // Yield so IPC and UI can run; prevents main-thread starvation
+      if (isDebugOptimizationEnabled()) debugOptimizationLog(`queue setImmediate yield gameId=${item.gameId}`);
       await new Promise<void>((resolve) => setImmediate(resolve));
+      if (isDebugOptimizationEnabled()) debugOptimizationLog(`queue loop next gameId=${item.gameId}`);
     }
   }
 

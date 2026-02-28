@@ -96,9 +96,11 @@ function App() {
   const [isUpdateLibraryOpen, setIsUpdateLibraryOpen] = useState(false);
   const [isOnyxSettingsOpen, setIsOnyxSettingsOpen] = useState(false);
   const [isImportWorkbenchOpen, setIsImportWorkbenchOpen] = useState(false);
+  const [importWorkbenchInitialMode, setImportWorkbenchInitialMode] = useState<'nuclear' | 'images' | 'links' | null>(null);
   const [showLibraryTutorial, setShowLibraryTutorial] = useState(false);
   const [autoStartScan, setAutoStartScan] = useState(false);
   const [isGameManagerOpen, setIsGameManagerOpen] = useState(false);
+  const [showOptimizerModal, setShowOptimizerModal] = useState(false);
   const [gameManagerInitialGameId, setGameManagerInitialGameId] = useState<string | null>(null);
   const [gameManagerInitialTab, setGameManagerInitialTab] = useState<'images' | 'metadata' | 'modManager'>('images');
   const [onyxSettingsInitialTab, setOnyxSettingsInitialTab] = useState<'general' | 'appearance' | 'apis' | 'apps' | 'about'>('general');
@@ -1897,6 +1899,8 @@ function App() {
           launchers={allLaunchers}
           selectedLauncher={selectedLauncher}
           onLauncherChange={setSelectedLauncher}
+          showImageQueueDetail={showOptimizerModal}
+          setShowImageQueueDetail={setShowOptimizerModal}
           topBarPositions={topBarPositions}
           onTopBarPositionsChange={async (positions) => {
             setTopBarPositions(positions);
@@ -2395,8 +2399,11 @@ function App() {
       <ImportWorkbench
         isOpen={isImportWorkbenchOpen}
         autoStartScan={autoStartScan}
+        initialMode={importWorkbenchInitialMode}
+        onRefreshComplete={loadLibrary}
         onClose={() => {
           setIsImportWorkbenchOpen(false);
+          setImportWorkbenchInitialMode(null);
           setAutoStartScan(false);
           setImportWorkbenchFolderPath(undefined);
           setScannedSteamGames([]);
@@ -2527,6 +2534,39 @@ function App() {
         games={games}
         initialGameId={gameManagerInitialGameId}
         initialTab={gameManagerInitialTab}
+        onOpenImporterWithMode={async (mode) => {
+          setIsGameManagerOpen(false);
+          if (mode === 'nuclear') {
+            const result = await window.electronAPI.clearLibrary?.();
+            if (!result?.success) {
+              console.error('Failed to clear library:', result?.error);
+              return;
+            }
+            await loadLibrary();
+            setImportWorkbenchInitialMode(null);
+            setAutoStartScan(true);
+            setIsImportWorkbenchOpen(true);
+          } else if (mode === 'images') {
+            const result = await window.electronAPI.clearAllImages?.();
+            if (!result?.success) {
+              console.error('Failed to clear images:', result?.error);
+              return;
+            }
+            await loadLibrary();
+            setImportWorkbenchInitialMode('images');
+            setIsImportWorkbenchOpen(true);
+          } else if (mode === 'links') {
+            const result = await window.electronAPI.clearAllLinks?.();
+            if (!result?.success) {
+              console.error('Failed to clear links:', result?.error);
+              return;
+            }
+            await loadLibrary();
+            setImportWorkbenchInitialMode('links');
+            setIsImportWorkbenchOpen(true);
+          }
+        }}
+        onRequestOptimizer={() => setShowOptimizerModal(true)}
         onSaveGame={async (game, oldGame) => {
           // Get old game if not provided
           if (!oldGame) {

@@ -17,6 +17,10 @@ interface GameManagerProps {
   onReloadLibrary?: () => Promise<void>;
   initialGameId?: string | null;
   initialTab?: 'metadata' | 'images' | 'links' | 'modManager';
+  /** Open the Game Importer to run metadata refresh (nuclear / images only / links only). Single source of truth. */
+  onOpenImporterWithMode?: (mode: 'nuclear' | 'images' | 'links') => void;
+  /** Open the optimizer queue modal (e.g. after starting "Optimize all"). */
+  onRequestOptimizer?: () => void;
 }
 
 interface IGDBGameResult {
@@ -57,6 +61,8 @@ export const GameManager: React.FC<GameManagerProps> = ({
   onReloadLibrary,
   initialGameId = null,
   initialTab = 'metadata',
+  onOpenImporterWithMode,
+  onRequestOptimizer,
 }) => {
   const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
   const [expandedGameId, setExpandedGameId] = useState<string | null>(null);
@@ -78,7 +84,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
   const [activeImageSearchTab, setActiveImageSearchTab] = useState<'all' | 'boxart' | 'banner' | 'alternativeBanner' | 'logo' | 'icon'>('all');
   const [showRefreshDialog, setShowRefreshDialog] = useState(false);
   const [showRefreshConfirm, setShowRefreshConfirm] = useState(false);
-  const [refreshMode, setRefreshMode] = useState<'all' | 'missing' | 'links' | null>(null);
+  const [refreshMode, setRefreshMode] = useState<'nuclear' | 'images' | 'links' | 'optimizer' | null>(null);
   const [refreshProgress, setRefreshProgress] = useState<{ current: number; total: number; message: string; gameTitle?: string; links?: Array<{ name: string; url: string }>; images?: string[]; mode?: 'all' | 'missing' | 'links' } | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; type: 'boxart' | 'banner' | 'alternativeBanner' | 'logo' | 'icon' } | null>(null);
   const [showMatchFix, setShowMatchFix] = useState(false);
@@ -89,7 +95,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
   const [unmatchedGames, setUnmatchedGames] = useState<Array<{ gameId: string; title: string; searchResults: any[] }>>([]);
   const [showBoxartFix, setShowBoxartFix] = useState(false);
   const [missingBoxartGames, setMissingBoxartGames] = useState<Array<{ gameId: string; title: string; steamAppId?: string }>>([]);
-  const [refreshState, setRefreshState] = useState<{ mode: 'all' | 'missing' | 'links' | null; continueFromIndex?: number } | null>(null);
+  const [refreshState, _setRefreshState] = useState<{ mode: 'all' | 'missing' | 'links' | null; continueFromIndex?: number } | null>(null);
   const [shouldSelectFirstGameAfterRefresh, setShouldSelectFirstGameAfterRefresh] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -491,6 +497,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
         return;
       }
       setShowRefreshDialog(false);
+      onRequestOptimizer?.();
       handleCloseManager();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to start image optimization');
@@ -3565,12 +3572,12 @@ export const GameManager: React.FC<GameManagerProps> = ({
         isOpen={showRefreshDialog}
         onSelectAll={() => {
           setShowRefreshDialog(false);
-          setRefreshMode('all');
+          setRefreshMode('nuclear');
           setShowRefreshConfirm(true);
         }}
         onSelectMissing={() => {
           setShowRefreshDialog(false);
-          setRefreshMode('missing');
+          setRefreshMode('images');
           setShowRefreshConfirm(true);
         }}
         onSelectLinksOnly={() => {
@@ -3578,45 +3585,61 @@ export const GameManager: React.FC<GameManagerProps> = ({
           setRefreshMode('links');
           setShowRefreshConfirm(true);
         }}
-        onSelectOptimizeAllImages={async () => {
+        onSelectOptimizeAllImages={() => {
           setShowRefreshDialog(false);
-          await handleOptimizeAllImages();
+          setRefreshMode('optimizer');
+          setShowRefreshConfirm(true);
         }}
         onCancel={() => {
           setShowRefreshDialog(false);
         }}
       />
 
-      {/* Refresh Metadata Confirmation Dialog */}
+      {/* Manage Metadata Confirmation Dialog */}
       <ConfirmationDialog
         isOpen={showRefreshConfirm}
-        title={refreshMode === 'all' ? 'Refresh all metadata for all games' : refreshMode === 'links' ? 'Refresh all Links' : 'Search for missing images only'}
-        message={refreshMode === 'all'
-          ? 'This is the nuclear option. It will remove all stored metadata and pull everything fresh: metadata, images, icons, link icons.'
-          : refreshMode === 'links'
-            ? 'This will nuke all links from all games and add them fresh from IGDB.'
-            : 'This will only search for missing images (all image types). No existing metadata or images will be changed.'}
-        note={refreshMode === 'all'
-          ? "This action is intensive. All cached images will be replaced and metadata re-fetched from scratch."
-          : "This action is safe and only updates the specific fields selected."}
+        title={
+          refreshMode === 'nuclear' ? 'Clear everything and re-run importer' :
+          refreshMode === 'images' ? 'Clear all images and search in importer' :
+          refreshMode === 'links' ? 'Clear all links and search in importer' :
+          refreshMode === 'optimizer' ? 'Optimize all game images' : ''
+        }
+        message={
+          refreshMode === 'nuclear'
+            ? 'This will clear the entire library and image cache, then open the Game Importer to scan and import from scratch.'
+            : refreshMode === 'images'
+              ? 'This will remove all images from every game and open the Game Importer to search for images only.'
+              : refreshMode === 'links'
+                ? 'This will remove all links from every game and open the Game Importer to search for links only.'
+                : refreshMode === 'optimizer'
+                  ? 'Queue all current game images for background optimization (same pipeline as after import).'
+                  : ''
+        }
+        note={
+          refreshMode === 'nuclear'
+            ? 'Your library will be empty until you run the importer and import games again.'
+            : refreshMode === 'optimizer'
+              ? 'The optimizer panel will open so you can monitor progress.'
+              : 'The importer will open to run the selected refresh.'
+        }
         confirmText="Continue"
         cancelText="Cancel"
         variant="danger"
         onConfirm={async () => {
           setShowRefreshConfirm(false);
-          setRefreshProgress({ current: 0, total: 0, message: 'Starting...', mode: refreshMode || 'all' });
-          setRefreshState({ mode: refreshMode || 'all' });
+          const mode = refreshMode;
+          setRefreshMode(null);
+          if (!mode) return;
           try {
             setError(null);
             setSuccess(null);
-            await handleRefreshMetadata(refreshMode || 'all', 0);
+            if (mode === 'optimizer') {
+              await handleOptimizeAllImages();
+            } else {
+              onOpenImporterWithMode?.(mode);
+            }
           } catch (err) {
-            setError(err instanceof Error ? err.message : 'Failed to refresh metadata');
-            setTimeout(() => {
-              setRefreshProgress(null);
-            }, 2000);
-          } finally {
-            setRefreshMode(null);
+            setError(err instanceof Error ? err.message : 'Failed');
           }
         }}
         onCancel={() => {
