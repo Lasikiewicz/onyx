@@ -61,6 +61,9 @@ export const CrashDumpModal: React.FC<CrashDumpModalProps> = ({
             <p className="text-gray-300 mb-3">
               A crash report from the last run is available. Would you like to save it for debugging?
             </p>
+            <p className="text-sm text-gray-500 mb-2">
+              Note: Reports are only saved when the app crashes unexpectedly. If the app stopped responding and was closed by Windows, no report is generated.
+            </p>
             {dumpCount > 0 && (
               <p className="text-sm text-gray-400">
                 {dumpCount} file{dumpCount !== 1 ? 's' : ''} available.

@@ -1,6 +1,6 @@
 import { app } from 'electron';
 import path from 'node:path';
-import { mkdirSync, existsSync, writeFileSync, readFileSync, promises as fsPromises } from 'node:fs';
+import { mkdirSync, existsSync, writeFileSync, readFileSync, statSync, promises as fsPromises } from 'node:fs';
 import { promisify } from 'node:util';
 import https from 'node:https';
 import http from 'node:http';
@@ -81,7 +81,12 @@ export interface CachedImage {
 }
 
 /**
- * Service for downloading and caching images locally
+ * Service for downloading and caching images locally.
+ *
+ * Image storage: All images (downloaded and optimized) live in a single folder.
+ * There is no separate "before import" or staging location — we download (or read
+ * from disk), optimize in memory, then write to the cache dir. On Windows that is
+ * typically C:\Users\<user>\AppData\Local\Onyx\images (or "Onyx Alpha" for alpha builds).
  */
 export class ImageCacheService {
   private cacheDir: string;
@@ -211,7 +216,9 @@ export class ImageCacheService {
         imageType === 'banner' || imageType === 'alternativeBanner' || imageType === 'hero'
           ? WEBP_ANIMATED_QUALITY_BACKGROUND
           : WEBP_ANIMATED_QUALITY;
-      const out = await sharp(imageData, { animated: true, pages: -1, limitInputPixels: false })
+      // limitInputPixels avoids hang/OOM on huge animated WebP (same as static path)
+      const limitInputPixels = 4096 * 4096;
+      const out = await sharp(imageData, { animated: true, pages: -1, limitInputPixels })
         .resize(maxDim, maxDim, { fit: 'inside', withoutEnlargement: true })
         .webp({ quality, effort: 4 })
         .toBuffer();
@@ -847,6 +854,12 @@ export class ImageCacheService {
             onProgress?.({ phase: 'optimize', current, total, fileName: file, status: 'processing' });
             const filePath = path.join(this.cacheDir, file);
             try {
+              const stat = statSync(filePath);
+              if (stat.size > 15 * 1024 * 1024) {
+                result.skipped++;
+                onProgress?.({ phase: 'optimize', current, total, fileName: file, status: 'skipped (too large)' });
+                continue;
+              }
               const rawData = await fsPromises.readFile(filePath);
               const { data: optimizedData, ext: outExt } = await this.optimizeImage(rawData, imageType, sourceExt);
               const outFilename = `${gameId}-${imageType}${outExt}`;
