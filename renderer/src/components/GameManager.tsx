@@ -490,8 +490,8 @@ export const GameManager: React.FC<GameManagerProps> = ({
         setError(result?.error || 'Failed to start image optimization');
         return;
       }
-      setSuccess(`Queued optimization for ${result.queuedGames} game(s), ${result.queuedImages} image(s)`);
-      setTimeout(() => setSuccess(null), 3000);
+      setShowRefreshDialog(false);
+      handleCloseManager();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to start image optimization');
     }

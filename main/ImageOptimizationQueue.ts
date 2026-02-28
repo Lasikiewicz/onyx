@@ -125,9 +125,7 @@ export function createImageOptimizationQueue(
   let reserveCores = PROFILE_LIMITS.balanced.reserveCores;
   let cpuCount = cpus().length || 2;
   let lastCpuSnapshot: CpuSnapshot | null = null;
-  let staticJobsTotal = 0; // Track total static jobs added
-  let staticJobsComplete = 0; // Track static jobs that reached terminal state
-  let allStaticComplete = true; // Guard to allow animated processing
+  let allStaticComplete = false; // Guard to allow animated processing - starts false, evaluated after items queued
 
   const takeCpuSnapshot = (): CpuSnapshot => {
     const cpuTimes = cpus();
@@ -386,6 +384,7 @@ export function createImageOptimizationQueue(
     if (countUrlEntries(deferredUrls) > 0) {
       animatedQueue.push({ gameId, gameTitle, phase: 'animated', urls: deferredUrls });
     }
+    updateStaticCompletionStatus(); // Evaluate initial barrier state after queueing items
     emitRuntimeMetrics();
     void scheduleWorkers();
   }
