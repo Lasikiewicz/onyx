@@ -1061,6 +1061,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
                   {typeof optimizationStatus.runtime.cpuCount === 'number' ? ` · CPUs: ${optimizationStatus.runtime.cpuCount}` : ''}
                   {typeof optimizationStatus.runtime.systemCpuUsage === 'number' ? ` · CPU usage: ${optimizationStatus.runtime.systemCpuUsage.toFixed(0)}%` : ''}
                   {typeof optimizationStatus.runtime.queuedGames === 'number' ? ` · Queue games: ${optimizationStatus.runtime.queuedGames}` : ''}
+                  {typeof optimizationStatus.runtime.allStaticComplete === 'boolean' ? ` · Static barrier: ${optimizationStatus.runtime.allStaticComplete ? 'open' : 'blocked'}` : ''}
                 </div>
               )}
               <div className="flex justify-between">

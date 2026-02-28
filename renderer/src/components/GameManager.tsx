@@ -481,6 +481,22 @@ export const GameManager: React.FC<GameManagerProps> = ({
     onClose();
   };
 
+  const handleOptimizeAllImages = async () => {
+    try {
+      setError(null);
+      setSuccess(null);
+      const result = await window.electronAPI.optimizeGames?.({ allGames: true });
+      if (!result?.success) {
+        setError(result?.error || 'Failed to start image optimization');
+        return;
+      }
+      setShowRefreshDialog(false);
+      handleCloseManager();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to start image optimization');
+    }
+  };
+
   // Fetch launcher data for a game
   const handleFetchLauncherData = async (game?: Game) => {
     const targetGame = game || selectedGame;
@@ -3561,6 +3577,10 @@ export const GameManager: React.FC<GameManagerProps> = ({
           setShowRefreshDialog(false);
           setRefreshMode('links');
           setShowRefreshConfirm(true);
+        }}
+        onSelectOptimizeAllImages={async () => {
+          setShowRefreshDialog(false);
+          await handleOptimizeAllImages();
         }}
         onCancel={() => {
           setShowRefreshDialog(false);

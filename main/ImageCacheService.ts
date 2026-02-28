@@ -368,6 +368,7 @@ export class ImageCacheService {
             if (existsSync(filePath)) {
               // File exists! Convert to new format URL
               const newUrl = `onyx-local://${gameId}-${imageType}`;
+              onProgress?.('skipped', { fileName: filename });
               console.log(`[ImageCache] Converted old format URL to new format: ${newUrl}`);
               return newUrl;
             }
@@ -563,64 +564,65 @@ export class ImageCacheService {
 
       let staticIndex = 0;
       let deferredIndex = 0;
-
-      const workers: Promise<void>[] = [];
-      const workerCount = Math.min(maxConcurrent, entries.length);
       let completedCount = 0;
 
-      const runWorker = async () => {
-        // eslint-disable-next-line no-constant-condition
-        while (true) {
-          if (shouldCancel?.()) return;
+      const runBatch = async (batchEntries: typeof entries, getNext: () => (typeof entries)[number] | undefined) => {
+        if (batchEntries.length === 0) return;
+        const workerCount = Math.min(maxConcurrent, batchEntries.length);
+        const workers: Promise<void>[] = [];
 
-          let entry: (typeof entries)[number] | undefined;
+        const runWorker = async () => {
+          // eslint-disable-next-line no-constant-condition
+          while (true) {
+            if (shouldCancel?.()) return;
 
-          if (staticIndex < staticEntries.length) {
-            entry = staticEntries[staticIndex++];
-          } else if (deferredIndex < deferredEntries.length) {
-            entry = deferredEntries[deferredIndex++];
-          } else {
-            return;
-          }
-
-          if (!entry) return;
-          if (shouldCancel?.()) return;
-
-          const { type, resultKey, url } = entry;
-          const index = ++completedCount;
-
-          const path = await this.cacheImage(
-            url,
-            gameId,
-            type as 'boxart' | 'banner' | 'logo' | 'hero',
-            (phase, info) => {
-              onImageProgress({
-                index,
-                total,
-                imageType: type,
-                phase,
-                fileName: info?.fileName,
-                originalBytes: info?.originalBytes,
-                optimizedBytes: info?.optimizedBytes,
-              });
+            const entry = getNext();
+            if (!entry) {
+              return;
             }
-          );
+            if (shouldCancel?.()) return;
 
-          if (shouldCancel?.()) return;
+            const { type, resultKey, url } = entry;
+            const index = ++completedCount;
 
-          if (resultKey === 'screenshots' && path && results.screenshots) {
-            results.screenshots.push(path);
-          } else if (resultKey !== 'screenshots' && path) {
-            (results as Record<string, string>)[resultKey] = path;
+            const path = await this.cacheImage(
+              url,
+              gameId,
+              type as 'boxart' | 'banner' | 'logo' | 'hero',
+              (phase, info) => {
+                onImageProgress({
+                  index,
+                  total,
+                  imageType: type,
+                  phase,
+                  fileName: info?.fileName,
+                  originalBytes: info?.originalBytes,
+                  optimizedBytes: info?.optimizedBytes,
+                });
+              }
+            );
+
+            if (shouldCancel?.()) return;
+
+            if (resultKey === 'screenshots' && path && results.screenshots) {
+              results.screenshots.push(path);
+            } else if (resultKey !== 'screenshots' && path) {
+              (results as Record<string, string>)[resultKey] = path;
+            }
           }
+        };
+
+        for (let i = 0; i < workerCount; i++) {
+          workers.push(runWorker());
         }
+
+        await Promise.all(workers);
       };
 
-      for (let i = 0; i < workerCount; i++) {
-        workers.push(runWorker());
-      }
+      // Strict per-game barrier: complete all static work before any deferred/animated starts.
+      await runBatch(staticEntries, () => (staticIndex < staticEntries.length ? staticEntries[staticIndex++] : undefined));
+      await runBatch(deferredEntries, () => (deferredIndex < deferredEntries.length ? deferredEntries[deferredIndex++] : undefined));
 
-      await Promise.all(workers);
       return results;
     }
 

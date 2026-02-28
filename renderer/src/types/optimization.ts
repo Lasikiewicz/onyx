@@ -34,6 +34,7 @@ export interface OptimizationStatus {
     maxWorkers?: number;
     activeWorkers?: number;
     queuedGames?: number;
+    allStaticComplete?: boolean;
     systemCpuUsage?: number;
   };
 }

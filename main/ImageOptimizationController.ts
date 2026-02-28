@@ -39,6 +39,7 @@ export interface OptimizationStatus {
     maxWorkers?: number;
     activeWorkers?: number;
     queuedGames?: number;
+    allStaticComplete?: boolean;
     systemCpuUsage?: number;
   };
 }
@@ -76,7 +77,7 @@ function computeAggregates(): { gamesDone: number; gamesQueued: number; imagesDo
 
 function emit() {
   const { gamesDone, gamesQueued, imagesDone, imagesQueued } = computeAggregates();
-  const hasActivity = jobs.some((j) => j.phase !== 'done' && j.phase !== 'failed');
+  const hasActivity = jobs.some((j) => j.phase !== 'done' && j.phase !== 'failed' && j.phase !== 'skipped');
   const status: OptimizationStatus = {
     mode: currentMode,
     runId: currentRunId,
@@ -207,7 +208,7 @@ export function setRuntimeMetrics(metrics: OptimizationStatus['runtime']): void 
  */
 export function getStatus(): OptimizationStatus {
   const { gamesDone, gamesQueued, imagesDone, imagesQueued } = computeAggregates();
-  const hasActivity = jobs.some((j) => j.phase !== 'done' && j.phase !== 'failed');
+  const hasActivity = jobs.some((j) => j.phase !== 'done' && j.phase !== 'failed' && j.phase !== 'skipped');
   return {
     mode: currentMode,
     runId: currentRunId,

@@ -159,7 +159,7 @@ export function createImageOptimizationQueue(
     const status = getControllerStatus();
     if (!queueRunId || status.runId !== queueRunId) return; // No active run
     
-    const staticJobs = status.jobs.filter((j) => j.source === 'importer');
+    const staticJobs = status.jobs.filter((j) => j.source === 'importer' && isKnownStaticExt(j.sourceExt));
     const staticTerminal = staticJobs.filter((j) => j.phase === 'done' || j.phase === 'failed' || j.phase === 'skipped');
     
     // Mark complete if: no static queue items left AND (no static jobs exist OR all existing static jobs are terminal)
@@ -198,6 +198,7 @@ export function createImageOptimizationQueue(
       maxWorkers: maxGameWorkers,
       activeWorkers,
       queuedGames: getQueuedUniqueGamesCount(),
+      allStaticComplete,
       systemCpuUsage: getSystemCpuUsage(),
     });
   };
@@ -344,6 +345,9 @@ export function createImageOptimizationQueue(
   function add(gameId: string, gameTitle: string, urls: ImageQueueItem['urls']) {
     if (cancelling) return;
     const runId = getCurrentRunId() ?? startRun('importer');
+    if (!queueRunId) {
+      allStaticComplete = false;
+    }
     queueRunId = queueRunId ?? runId;
     const cacheDir = imageCacheService.getCacheDir();
     const entries = imageTypesFromUrls(urls).map(({ type, url }) => ({
@@ -404,6 +408,7 @@ export function createImageOptimizationQueue(
     cancelling = true;
     staticQueue.length = 0;
     animatedQueue.length = 0;
+    allStaticComplete = false;
     processing = false;
     currentItem = null;
     if (queueRunId) {
