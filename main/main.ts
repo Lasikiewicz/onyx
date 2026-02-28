@@ -560,7 +560,8 @@ function createTray() {
     }
   }
 
-  tray.setToolTip('Onyx');
+  const trayTooltip = IS_DEV ? 'Onyx Dev' : (IS_ALPHA ? 'Onyx Alpha' : 'Onyx');
+  tray.setToolTip(trayTooltip);
 
   if (trayService) {
     trayService.setTray(tray);

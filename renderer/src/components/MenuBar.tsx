@@ -657,44 +657,6 @@ export const MenuBar: React.FC<MenuBarProps> = ({
           setTopBarContextMenu({ x: e.clientX, y: e.clientY });
         }}
       >
-        {/* Console toggle (development mode only) */}
-        {import.meta.env.DEV && (
-          <button
-            onClick={async () => {
-              try {
-                await window.electronAPI.toggleDevTools();
-              } catch (error) {
-                console.error('Error toggling DevTools:', error);
-              }
-            }}
-            className="p-1.5 hover:bg-gray-700/40 rounded transition-colors flex items-center justify-center"
-            title="Toggle Console"
-          >
-            <svg className="w-4 h-4 text-gray-300 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-          </button>
-        )}
-        {/* Bug Report Button (development and alpha builds) */}
-        {(import.meta.env.DEV || isAlphaBuild) && onBugReport && (
-          <button
-            onClick={() => {
-              onBugReport();
-            }}
-            className="p-1.5 hover:bg-gray-700/40 rounded transition-colors flex items-center justify-center"
-            title="Report a Bug"
-          >
-            <svg className="w-4 h-4 text-yellow-400 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-            </svg>
-          </button>
-        )}
-        {/* Alpha Badge - only on alpha builds (not in dev unless built as alpha) */}
-        {__BUILD_PROFILE__ === 'alpha' && (
-          <div className="px-2 py-1 bg-yellow-500 text-black rounded font-bold text-xs uppercase tracking-wider pointer-events-none">
-            ALPHA
-          </div>
-        )}
         {/* Onyx Settings Button with Dropdown */}
         {onOnyxSettings && (
           <div
@@ -967,8 +929,8 @@ export const MenuBar: React.FC<MenuBarProps> = ({
         </div>
       )}
 
-      {/* Right section - optimizing indicator + positioned elements; mr-32 keeps clear of window controls */}
-      {(elementsByPosition.right.length > 0 || showOptimizationIndicator) && (
+      {/* Right section - console (dev), alpha/bug (develop), positioned elements, optimizing indicator; mr-32 keeps clear of window controls */}
+      {(elementsByPosition.right.length > 0 || showOptimizationIndicator || import.meta.env.DEV || (__BUILD_PROFILE__ === 'alpha' || ((import.meta.env.DEV || isAlphaBuild) && onBugReport))) && (
         <div
           className="flex items-center gap-2 mr-32"
           style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
@@ -999,6 +961,42 @@ export const MenuBar: React.FC<MenuBarProps> = ({
                 })()}
               </span>
             </button>
+          )}
+          {/* Console toggle (development mode only) - top right */}
+          {import.meta.env.DEV && (
+            <button
+              onClick={async () => {
+                try {
+                  await window.electronAPI.toggleDevTools();
+                } catch (error) {
+                  console.error('Error toggling DevTools:', error);
+                }
+              }}
+              className="p-1.5 hover:bg-gray-700/40 rounded transition-colors flex items-center justify-center"
+              title="Toggle Console"
+            >
+              <svg className="w-4 h-4 text-gray-300 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+            </button>
+          )}
+          {/* Bug Report Button (development and alpha builds) - top right */}
+          {(import.meta.env.DEV || isAlphaBuild) && onBugReport && (
+            <button
+              onClick={() => onBugReport()}
+              className="p-1.5 hover:bg-gray-700/40 rounded transition-colors flex items-center justify-center"
+              title="Report a Bug"
+            >
+              <svg className="w-4 h-4 text-yellow-400 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </button>
+          )}
+          {/* Alpha Badge - only on alpha builds (top right) */}
+          {__BUILD_PROFILE__ === 'alpha' && (
+            <div className="px-2 py-1 bg-yellow-500 text-black rounded font-bold text-xs uppercase tracking-wider pointer-events-none">
+              ALPHA
+            </div>
           )}
         </div>
       )}
