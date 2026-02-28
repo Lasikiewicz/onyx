@@ -164,7 +164,8 @@ export function createImageOptimizationQueue(
     const staticJobs = status.jobs.filter((j) => j.source === 'importer');
     const staticTerminal = staticJobs.filter((j) => j.phase === 'done' || j.phase === 'failed' || j.phase === 'skipped');
     
-    allStaticComplete = staticQueue.length === 0 && staticTerminal.length === staticJobs.length && staticJobs.length > 0;
+    // Mark complete if: no static queue items left AND (no static jobs exist OR all existing static jobs are terminal)
+    allStaticComplete = staticQueue.length === 0 && (staticJobs.length === 0 || staticTerminal.length === staticJobs.length);
     if (allStaticComplete) {
       console.log('[ImageOptimizationQueue] All static jobs complete - animated barrier lifted');
     }
