@@ -4,6 +4,10 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.5.9] - 2026-02-28
+
+- Docs: Guideline for commit messages that land on main (keep wording neutral for production history).
+
 ## [0.5.8] - 2026-02-28
 
 - UI: Moved alpha badge, bug report, and console buttons to top right of navbar; tray tooltip shows branch (Onyx Dev / Onyx Alpha / Onyx).
