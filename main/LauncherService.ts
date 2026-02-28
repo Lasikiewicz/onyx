@@ -2,6 +2,7 @@ import { spawn, execFile } from 'child_process';
 import { dirname } from 'path';
 import { shell } from 'electron';
 import { GameStore, Game } from './GameStore.js';
+import { isSafeExternalUrl } from './SecurityUtils.js';
 
 export class LauncherService {
   private gameStore: GameStore;
@@ -302,6 +303,10 @@ export class LauncherService {
       // Try as URL first
       try {
         if (modManagerUrl.startsWith('http://') || modManagerUrl.startsWith('https://') || modManagerUrl.includes('://')) {
+          if (!isSafeExternalUrl(modManagerUrl)) {
+            console.warn(`[Security] Blocked attempt to launch unsafe mod manager URL: ${modManagerUrl}`);
+            return { success: false, error: 'Disallowed protocol' };
+          }
           await shell.openExternal(modManagerUrl);
           return { success: true };
         }
