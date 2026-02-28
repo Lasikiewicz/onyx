@@ -4,6 +4,12 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.6.3] - 2026-02-28
+
+- Fix: Ensure release builds optimize WebP images identically to dev (robust fallback: worker → ffmpeg → sharp → original)
+- Fix: Bundle ffmpeg-static and update packaging config for release runtime parity
+- Fix: Patch fallback logic for animated WebP optimization (no more skipped/failed optimizations in packaged builds)
+
 ## [0.6.2] - 2026-02-28
 
 - Storage: Isolate API credential keychain entries by build profile (dev/alpha/production) with legacy fallback reads.
