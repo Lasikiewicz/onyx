@@ -4,6 +4,11 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.5.13] - 2026-02-28
+
+- Crash report modal: Note that reports are only saved when the app crashes, not when it stops responding and is closed.
+- Image cache: Document single-folder storage (no separate pre-import path); limitInputPixels for animated WebP; skip files over 15MB in optimize existing to avoid hang.
+
 ## [0.5.12] - 2026-02-28
 
 - Crash reporting: Crash dumps enabled in all builds; on next launch after a crash, option to save the report, open folder, or dismiss.
