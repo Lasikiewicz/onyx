@@ -12,6 +12,9 @@ if (process.platform === 'win32') {
   const baseId = IS_ALPHA ? 'com.lasikiewicz.onyx.alpha' : 'com.lasikiewicz.onyx';
   app.setAppUserModelId(IS_DEV ? `${baseId}.dev` : baseId);
 }
+const API_CREDENTIAL_SERVICE_NAME = IS_DEV
+  ? (IS_ALPHA ? 'onyx-alpha-dev-api-credentials' : 'onyx-dev-api-credentials')
+  : (IS_ALPHA ? 'onyx-alpha-api-credentials' : 'onyx-api-credentials');
 
 // Single instance lock - prevent multiple copies of the app from running
 const gotTheLock = app.requestSingleInstanceLock();
@@ -199,7 +202,7 @@ const gameStore = new GameStore();
 const appConfigService = new AppConfigService();
 const xboxService = new XboxService();
 const userPreferencesService = new UserPreferencesService();
-const apiCredentialsService = new APICredentialsService();
+const apiCredentialsService = new APICredentialsService(undefined, API_CREDENTIAL_SERVICE_NAME);
 const launcherDetectionService = new LauncherDetectionService();
 const steamAuthService = new SteamAuthService();
 const bugReportService = new BugReportService();
@@ -1327,18 +1330,9 @@ app.whenReady().then(async () => {
         }
       }
 
-      // Get cache directory
-      const { homedir } = require('node:os');
-      const appName = app.name || 'Onyx';
-      let cacheDir: string;
-      if (process.platform === 'win32') {
-        const localAppData = process.env.LOCALAPPDATA || path.join(homedir(), 'AppData', 'Local');
-        cacheDir = path.join(localAppData, appName, 'images');
-      } else if (process.platform === 'darwin') {
-        cacheDir = path.join(homedir(), 'Library', 'Caches', appName, 'images');
-      } else {
-        cacheDir = path.join(homedir(), '.cache', appName, 'images');
-      }
+      // Get cache directory from ImageCacheService so protocol lookup always
+      // matches the real active cache path (including fallback paths).
+      const cacheDir = imageCacheService.getCacheDir();
 
       if (gameId && imageType && existsSync(cacheDir)) {
         // Try to find file: {gameId}-{imageType}.{ext}

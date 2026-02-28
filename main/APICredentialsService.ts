@@ -12,7 +12,7 @@ interface APICredentialsSchema {
 
 import { dynamicImport } from './dynamicImport.js';
 
-const SERVICE_NAME = 'onyx-api-credentials';
+const LEGACY_SERVICE_NAME = 'onyx-api-credentials';
 const ACCOUNT_KEYS = {
   IGDB_CLIENT_ID: 'igdbClientId',
   IGDB_CLIENT_SECRET: 'igdbClientSecret',
@@ -25,6 +25,19 @@ export class APICredentialsService {
   private store: any = null;
   private storePromise: Promise<any>;
   private keytar: any = null;
+  private serviceName: string;
+  private readonly legacyServiceNames: string[];
+
+  private resolveDefaultServiceName(): string {
+    const execLower = (process.execPath || '').toLowerCase();
+    const isAlpha = execLower.includes('onyxalpha') || process.env.BUILD_PROFILE === 'alpha';
+    const isDev = process.env.NODE_ENV !== 'production' && !execLower.includes('onyx.exe') && !execLower.includes('onyxalpha.exe');
+
+    if (isAlpha && isDev) return 'onyx-alpha-dev-api-credentials';
+    if (isAlpha) return 'onyx-alpha-api-credentials';
+    if (isDev) return 'onyx-dev-api-credentials';
+    return LEGACY_SERVICE_NAME;
+  }
 
   private getEnvDefaults(): APICredentials {
     const valueOrUndefined = (val?: string) => (val && val.trim().length > 0 ? val.trim() : undefined);
@@ -39,7 +52,11 @@ export class APICredentialsService {
   }
 
   // Accept an optional injectedKeytar for testability (pass fake keytar in unit tests)
-  constructor(injectedKeytar?: any) {
+  constructor(injectedKeytar?: any, serviceNameOverride?: string) {
+    this.serviceName = serviceNameOverride || this.resolveDefaultServiceName();
+    this.legacyServiceNames = this.serviceName === LEGACY_SERVICE_NAME
+      ? []
+      : [LEGACY_SERVICE_NAME];
     // Attempt to use injected keytar first
     if (injectedKeytar) {
       this.keytar = injectedKeytar;
@@ -72,7 +89,7 @@ export class APICredentialsService {
           // Import helper lazily so tests can mock behavior easily
           // eslint-disable-next-line @typescript-eslint/no-var-requires
           const { migrateCredentials } = require('./credentialsMigrator');
-          await migrateCredentials(this.store, this.keytar, SERVICE_NAME, ACCOUNT_KEYS);
+          await migrateCredentials(this.store, this.keytar, this.serviceName, ACCOUNT_KEYS);
         } catch (err) {
           // Migration failure should not break the app; log and continue
           // eslint-disable-next-line no-console
@@ -91,15 +108,15 @@ export class APICredentialsService {
     return this.storePromise;
   }
 
-  private async readFromKeytar(): Promise<APICredentials | null> {
+  private async readFromKeytar(serviceName: string): Promise<APICredentials | null> {
     if (!this.keytar) return null;
     try {
       const [igdbClientId, igdbClientSecret, steamGridDBApiKey, rawgApiKey, giantBombApiKey] = await Promise.all([
-        this.keytar.getPassword(SERVICE_NAME, ACCOUNT_KEYS.IGDB_CLIENT_ID),
-        this.keytar.getPassword(SERVICE_NAME, ACCOUNT_KEYS.IGDB_CLIENT_SECRET),
-        this.keytar.getPassword(SERVICE_NAME, ACCOUNT_KEYS.STEAMGRID_KEY),
-        this.keytar.getPassword(SERVICE_NAME, ACCOUNT_KEYS.RAWG_KEY),
-        this.keytar.getPassword(SERVICE_NAME, ACCOUNT_KEYS.GIANTBOMB_KEY),
+        this.keytar.getPassword(serviceName, ACCOUNT_KEYS.IGDB_CLIENT_ID),
+        this.keytar.getPassword(serviceName, ACCOUNT_KEYS.IGDB_CLIENT_SECRET),
+        this.keytar.getPassword(serviceName, ACCOUNT_KEYS.STEAMGRID_KEY),
+        this.keytar.getPassword(serviceName, ACCOUNT_KEYS.RAWG_KEY),
+        this.keytar.getPassword(serviceName, ACCOUNT_KEYS.GIANTBOMB_KEY),
       ]);
       return {
         igdbClientId: igdbClientId || undefined,
@@ -125,7 +142,21 @@ export class APICredentialsService {
 
     // Prefer secure keytar storage if available
     if (this.keytar) {
-      const secure = await this.readFromKeytar();
+      let secure = await this.readFromKeytar(this.serviceName);
+
+      if (
+        (!secure || (!secure.igdbClientId && !secure.igdbClientSecret && !secure.steamGridDBApiKey && !secure.rawgApiKey && !secure.giantBombApiKey)) &&
+        this.legacyServiceNames.length > 0
+      ) {
+        for (const legacyName of this.legacyServiceNames) {
+          const legacySecure = await this.readFromKeytar(legacyName);
+          if (legacySecure && (legacySecure.igdbClientId || legacySecure.igdbClientSecret || legacySecure.steamGridDBApiKey || legacySecure.rawgApiKey || legacySecure.giantBombApiKey)) {
+            secure = legacySecure;
+            break;
+          }
+        }
+      }
+
       if (secure) {
         const rawgApiKey = secure.rawgApiKey || storedCreds.rawgApiKey || envDefaults.rawgApiKey;
         if (rawgApiKey) {
@@ -191,10 +222,10 @@ export class APICredentialsService {
       const saveOrDelete = async (account: string, value?: string) => {
         try {
           if (value && value.trim().length > 0) {
-            await this.keytar.setPassword(SERVICE_NAME, account, value.trim());
+            await this.keytar.setPassword(this.serviceName, account, value.trim());
           } else if (value === '') {
             // Only delete if specifically set to empty string (user cleared it)
-            await this.keytar.deletePassword(SERVICE_NAME, account);
+            await this.keytar.deletePassword(this.serviceName, account);
           }
         } catch (err) {
           hadKeytarError = true;
@@ -232,10 +263,11 @@ export class APICredentialsService {
     if (this.keytar) {
       try {
         await Promise.all([
-          this.keytar.deletePassword(SERVICE_NAME, ACCOUNT_KEYS.IGDB_CLIENT_ID),
-          this.keytar.deletePassword(SERVICE_NAME, ACCOUNT_KEYS.IGDB_CLIENT_SECRET),
-          this.keytar.deletePassword(SERVICE_NAME, ACCOUNT_KEYS.STEAMGRID_KEY),
-          this.keytar.deletePassword(SERVICE_NAME, ACCOUNT_KEYS.RAWG_KEY),
+          this.keytar.deletePassword(this.serviceName, ACCOUNT_KEYS.IGDB_CLIENT_ID),
+          this.keytar.deletePassword(this.serviceName, ACCOUNT_KEYS.IGDB_CLIENT_SECRET),
+          this.keytar.deletePassword(this.serviceName, ACCOUNT_KEYS.STEAMGRID_KEY),
+          this.keytar.deletePassword(this.serviceName, ACCOUNT_KEYS.RAWG_KEY),
+          this.keytar.deletePassword(this.serviceName, ACCOUNT_KEYS.GIANTBOMB_KEY),
         ]);
       } catch (err) {
         // eslint-disable-next-line no-console
