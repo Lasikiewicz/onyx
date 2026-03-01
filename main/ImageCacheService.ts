@@ -310,19 +310,33 @@ export class ImageCacheService {
     if (contentFormat !== null) {
       if (contentFormat === '.webp') {
         if (isDebugOptimizationEnabled()) debugOptimizationLog('optimizeImage animated webp worker-fast path');
+        let bestData: Buffer | null = null;
         try {
           const { data, ext } = await optimizeInWorker(imageData, imageType, '.webp', 'animated-webp');
-          return { data, ext };
+          if (data.length < imageData.length) {
+            bestData = data;
+          }
+          // If worker made a meaningful reduction, keep it; otherwise continue with ffmpeg/sharp fallback.
+          if (data.length <= Math.floor(imageData.length * 0.95)) {
+            return { data, ext };
+          }
+          if (isDebugOptimizationEnabled()) {
+            debugOptimizationLog(`optimizeImage animated webp worker result not enough reduction outBytes=${data.length}, trying ffmpeg/sharp`);
+          }
         } catch (webpErr) {
           if (isDebugOptimizationEnabled()) {
             debugOptimizationLog(`optimizeImage animated webp worker failed, trying ffmpeg/sharp fallback: ${(webpErr as Error).message}`);
           }
+        }
+
           const ffmpegResized = await this.resizeAnimatedWithFfmpeg(imageData, '.webp', imageType);
           if (ffmpegResized != null) {
             if (isDebugOptimizationEnabled()) {
               debugOptimizationLog(`optimizeImage animated webp ffmpeg fallback success outBytes=${ffmpegResized.length}`);
             }
-            return { data: ffmpegResized, ext: '.webp' };
+            if (bestData == null || ffmpegResized.length < bestData.length) {
+              bestData = ffmpegResized;
+            }
           }
 
           const sharpResized = await this.resizeAnimatedWebpWithSharp(imageData, imageType);
@@ -330,14 +344,19 @@ export class ImageCacheService {
             if (isDebugOptimizationEnabled()) {
               debugOptimizationLog(`optimizeImage animated webp sharp fallback success outBytes=${sharpResized.length}`);
             }
-            return { data: sharpResized, ext: '.webp' };
+            if (bestData == null || sharpResized.length < bestData.length) {
+              bestData = sharpResized;
+            }
+          }
+
+          if (bestData != null && bestData.length < imageData.length) {
+            return { data: bestData, ext: '.webp' };
           }
 
           if (isDebugOptimizationEnabled()) {
             debugOptimizationLog('optimizeImage animated webp fallback original (no smaller ffmpeg/sharp result)');
           }
           return { data: imageData, ext: '.webp' };
-        }
       }
       if (isDebugOptimizationEnabled()) debugOptimizationLog(`optimizeImage ffmpeg contentFormat=${contentFormat}`);
       const resized = await this.resizeAnimatedWithFfmpeg(imageData, contentFormat, imageType);
@@ -805,7 +824,7 @@ export class ImageCacheService {
    */
   async optimizeExistingCache(
     onProgress?: (data: { phase: string; current: number; total: number; fileName: string; status?: string; originalBytes?: number; optimizedBytes?: number }) => void,
-    options?: { webpOnly?: boolean; optimizationPerformance?: OptimizationPerformanceProfile }
+    options?: { webpOnly?: boolean; forceProcessOverBytes?: number; optimizationPerformance?: OptimizationPerformanceProfile }
   ): Promise<{ optimized: number; skipped: number; failed: number }> {
     const result = { optimized: 0, skipped: 0, failed: 0 };
     try {
@@ -878,13 +897,30 @@ export class ImageCacheService {
               const skipThreshold = sourceExt === '.webp'
                 ? OPTIMIZE_EXISTING_WEBP_SKIP_OVER_BYTES
                 : OPTIMIZE_EXISTING_SKIP_OVER_BYTES;
-              if (stat.size > skipThreshold) {
+              const forceProcessOverBytes = options?.forceProcessOverBytes ?? 0;
+              const shouldForceProcess = sourceExt === '.webp' && forceProcessOverBytes > 0 && stat.size > forceProcessOverBytes;
+              if (stat.size > skipThreshold && !shouldForceProcess) {
                 result.skipped++;
                 onProgress?.({ phase: 'optimize', current, total, fileName: file, status: 'skipped (too large)' });
                 continue;
               }
               const rawData = await fsPromises.readFile(filePath);
               const { data: optimizedData, ext: outExt } = await this.optimizeImage(rawData, imageType, sourceExt);
+              const noSizeGain = optimizedData.length >= rawData.length;
+              const sameExt = outExt.toLowerCase() === sourceExt.toLowerCase();
+              if (noSizeGain && sameExt) {
+                result.skipped++;
+                onProgress?.({
+                  phase: 'optimize',
+                  current,
+                  total,
+                  fileName: file,
+                  status: 'skipped (no gain)',
+                  originalBytes: rawData.length,
+                  optimizedBytes: optimizedData.length,
+                });
+                continue;
+              }
               const outFilename = `${gameId}-${imageType}${outExt}`;
               const outPath = path.join(this.cacheDir, outFilename);
 

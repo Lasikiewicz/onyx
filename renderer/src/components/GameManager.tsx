@@ -84,7 +84,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
   const [activeImageSearchTab, setActiveImageSearchTab] = useState<'all' | 'boxart' | 'banner' | 'alternativeBanner' | 'logo' | 'icon'>('all');
   const [showRefreshDialog, setShowRefreshDialog] = useState(false);
   const [showRefreshConfirm, setShowRefreshConfirm] = useState(false);
-  const [refreshMode, setRefreshMode] = useState<'nuclear' | 'images' | 'links' | 'optimizer' | null>(null);
+  const [refreshMode, setRefreshMode] = useState<'nuclear' | 'images' | 'links' | 'optimizer' | 'optimizer-animated' | null>(null);
   const [refreshProgress, setRefreshProgress] = useState<{ current: number; total: number; message: string; gameTitle?: string; links?: Array<{ name: string; url: string }>; images?: string[]; mode?: 'all' | 'missing' | 'links' } | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; type: 'boxart' | 'banner' | 'alternativeBanner' | 'logo' | 'icon' } | null>(null);
   const [showMatchFix, setShowMatchFix] = useState(false);
@@ -501,6 +501,33 @@ export const GameManager: React.FC<GameManagerProps> = ({
       handleCloseManager();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to start image optimization');
+    }
+  };
+
+  const handleOptimizeAnimatedImages = async () => {
+    try {
+      setError(null);
+      setSuccess(null);
+      if (!window.electronAPI.optimizeImageCache) {
+        setError('Animated image optimization is unavailable in this build');
+        return;
+      }
+
+      const fifteenMb = 15 * 1024 * 1024;
+      const runPromise = window.electronAPI.optimizeImageCache({
+        webpOnly: true,
+        forceProcessOverBytes: fifteenMb,
+      });
+
+      setShowRefreshDialog(false);
+      onRequestOptimizer?.();
+      handleCloseManager();
+
+      runPromise.catch((err) => {
+        console.error('[GameManager] Failed to start animated image optimization:', err);
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to start animated image optimization');
     }
   };
 
@@ -3590,6 +3617,11 @@ export const GameManager: React.FC<GameManagerProps> = ({
           setRefreshMode('optimizer');
           setShowRefreshConfirm(true);
         }}
+        onSelectOptimizeAnimatedImages={() => {
+          setShowRefreshDialog(false);
+          setRefreshMode('optimizer-animated');
+          setShowRefreshConfirm(true);
+        }}
         onCancel={() => {
           setShowRefreshDialog(false);
         }}
@@ -3602,25 +3634,28 @@ export const GameManager: React.FC<GameManagerProps> = ({
           refreshMode === 'nuclear' ? 'Clear everything and re-run importer' :
           refreshMode === 'images' ? 'Clear all images and search in importer' :
           refreshMode === 'links' ? 'Clear all links and search in importer' :
-          refreshMode === 'optimizer' ? 'Optimize all game images' : ''
+          refreshMode === 'optimizer' ? 'Optimize all game images' :
+          refreshMode === 'optimizer-animated' ? 'Optimize animated images' : ''
         }
         message={
           refreshMode === 'nuclear'
-            ? 'This will clear the entire library and image cache, then open the Game Importer to scan and import from scratch.'
+            ? 'This will clear the entire library and image cache, then open Add Games to scan and import from scratch.'
             : refreshMode === 'images'
-              ? 'This will remove all images from every game and open the Game Importer to search for images only.'
+              ? 'This will remove all images from every game and open Add Games to search for images only.'
               : refreshMode === 'links'
-                ? 'This will remove all links from every game and open the Game Importer to search for links only.'
+                ? 'This will remove all links from every game and open Add Games to search for links only.'
                 : refreshMode === 'optimizer'
                   ? 'Queue all current game images for background optimization (same pipeline as after import).'
+                  : refreshMode === 'optimizer-animated'
+                    ? 'Run a WebP-only optimization pass. Files above 15MB are force-processed and should not be skipped as oversized.'
                   : ''
         }
         note={
           refreshMode === 'nuclear'
             ? 'Your library will be empty until you run the importer and import games again.'
-            : refreshMode === 'optimizer'
+            : refreshMode === 'optimizer' || refreshMode === 'optimizer-animated'
               ? 'The optimizer panel will open so you can monitor progress.'
-              : 'The importer will open to run the selected refresh.'
+                : 'Add Games will open to run the selected refresh.'
         }
         confirmText="Continue"
         cancelText="Cancel"
@@ -3635,6 +3670,8 @@ export const GameManager: React.FC<GameManagerProps> = ({
             setSuccess(null);
             if (mode === 'optimizer') {
               await handleOptimizeAllImages();
+            } else if (mode === 'optimizer-animated') {
+              await handleOptimizeAnimatedImages();
             } else {
               onOpenImporterWithMode?.(mode);
             }

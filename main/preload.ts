@@ -171,6 +171,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   restoreWindow: () => ipcRenderer.invoke('app:restoreWindow'),
   // Refresh all metadata
   refreshAllMetadata: (options?: { allGames?: boolean; gameIds?: string[]; continueFromIndex?: number; linksOnly?: boolean }) => ipcRenderer.invoke('metadata:refreshAll', options),
+  optimizeImageCache: (options?: { webpOnly?: boolean; forceProcessOverBytes?: number }) => ipcRenderer.invoke('imageCache:optimizeExisting', options),
   optimizeGames: (options?: { gameIds?: string[]; allGames?: boolean }) => ipcRenderer.invoke('imageQueue:optimizeGames', options),
   findLinks: (gameId: string) => ipcRenderer.invoke('metadata:findLinks', gameId),
   maximizeWindow: () => ipcRenderer.invoke('app:maximizeWindow'),

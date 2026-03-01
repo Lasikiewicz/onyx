@@ -127,10 +127,10 @@ content = content.replace(
 );
 
 // Icons
-// Game Importer
+// Add Games
 content = content.replace(
-    /<svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">\s*<path strokeLinecap="round" strokeLinejoin="round" strokeWidth=\{2\} d="M4 4v5h\.582m15\.356 2A8\.001 8\.001 0 004\.582 9m0 0H9m11 11v-5h-\.581m0 0a8\.003 8\.003 0 01-15\.357-2m15\.357 2H15" \/>\s*<\/svg>\s*<span className="flex-1 font-medium transition-transform duration-300 group-hover:translate-x-1">Game Importer<\/span>/g,
-    '<svg className="w-5 h-5 flex-shrink-0 transition-transform duration-300 group-hover:scale-110 group-hover:-rotate-3 group-hover:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg><span className="flex-1 font-medium transition-transform duration-300 group-hover:translate-x-1">Game Importer</span>'
+  /<svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">\s*<path strokeLinecap="round" strokeLinejoin="round" strokeWidth=\{2\} d="M4 4v5h\.582m15\.356 2A8\.001 8\.001 0 004\.582 9m0 0H9m11 11v-5h-\.581m0 0a8\.003 8\.003 0 01-15\.357-2m15\.357 2H15" \/>\s*<\/svg>\s*<span className="flex-1 font-medium transition-transform duration-300 group-hover:translate-x-1">Add Games<\/span>/g,
+  '<svg className="w-5 h-5 flex-shrink-0 transition-transform duration-300 group-hover:scale-110 group-hover:-rotate-3 group-hover:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg><span className="flex-1 font-medium transition-transform duration-300 group-hover:translate-x-1">Add Games</span>'
 );
 // Game Manager
 content = content.replace(

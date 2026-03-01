@@ -280,7 +280,7 @@ export function registerGameIPCHandlers(
         }
     });
 
-    ipcMain.handle('imageCache:optimizeExisting', async (event, options?: { webpOnly?: boolean }) => {
+    ipcMain.handle('imageCache:optimizeExisting', async (event, options?: { webpOnly?: boolean; forceProcessOverBytes?: number }) => {
         try {
             const runId = optimizationController?.startRun('cache') ?? null;
             if (runId && optimizationController) {

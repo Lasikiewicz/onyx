@@ -6,6 +6,7 @@ interface RefreshMetadataDialogProps {
   onSelectMissing: () => void;
   onSelectLinksOnly?: () => void;
   onSelectOptimizeAllImages?: () => void;
+  onSelectOptimizeAnimatedImages?: () => void;
   onCancel: () => void;
 }
 
@@ -15,6 +16,7 @@ export const RefreshMetadataDialog: React.FC<RefreshMetadataDialogProps> = ({
   onSelectMissing,
   onSelectLinksOnly,
   onSelectOptimizeAllImages,
+  onSelectOptimizeAnimatedImages,
   onCancel,
 }) => {
   if (!isOpen) return null;
@@ -137,6 +139,30 @@ export const RefreshMetadataDialog: React.FC<RefreshMetadataDialogProps> = ({
                       <h3 className="text-lg font-semibold text-white mb-1">Optimize all game images</h3>
                       <p className="text-sm text-gray-400">
                         Queue all current game images for background optimization using the same importer optimizer pipeline.
+                      </p>
+                    </div>
+                  </div>
+                </button>
+              )}
+
+              {onSelectOptimizeAnimatedImages && (
+                <button
+                  onClick={onSelectOptimizeAnimatedImages}
+                  className="w-full text-left p-4 bg-gray-900/50 border-2 border-gray-700 rounded-lg hover:border-cyan-600 hover:bg-gray-900 transition-all group relative overflow-hidden"
+                >
+                  <div className="absolute top-0 right-0 px-2 py-0.5 bg-cyan-600/20 text-cyan-400 text-[10px] font-bold uppercase tracking-wider rounded-bl-lg border-l border-b border-cyan-600/30">
+                    WebP only
+                  </div>
+                  <div className="flex items-start gap-4">
+                    <div className="w-12 h-12 rounded-lg bg-cyan-600/20 flex items-center justify-center flex-shrink-0 group-hover:bg-cyan-600/30 transition-colors">
+                      <svg className="w-6 h-6 text-cyan-400 group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                      </svg>
+                    </div>
+                    <div className="flex-1 pr-12">
+                      <h3 className="text-lg font-semibold text-white mb-1">Optimize animated images</h3>
+                      <p className="text-sm text-gray-400">
+                        Opens the optimizer and runs a WebP-only pass. Files above 15MB are force-processed instead of skipped.
                       </p>
                     </div>
                   </div>

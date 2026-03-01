@@ -826,7 +826,7 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
 
                 {/* Header: title, scan status (when scanning), and actions */}
                 <div className="min-h-[60px] flex items-center justify-between gap-4 px-6 border-b border-gray-800 bg-gray-900/50 flex-wrap py-2">
-                    <h2 className="text-xl font-semibold text-white shrink-0">Game Importer</h2>
+                    <h2 className="text-xl font-semibold text-white shrink-0">Add Games</h2>
                     {isScanning && (
                         <div className="flex items-center gap-3 text-sm text-gray-300 flex-1 min-w-0">
                             <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-400 border-t-transparent shrink-0" />
@@ -980,7 +980,7 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
                         ) : (
                             <div className="flex-1 flex flex-col items-center justify-center text-gray-400 gap-6 p-8">
                                 <div className="text-center max-w-md space-y-2">
-                                    <h3 className="text-xl font-semibold text-white">Welcome to Game Importer</h3>
+                                    <h3 className="text-xl font-semibold text-white">Welcome to Add Games</h3>
                                     <p className="text-gray-400">
                                         Detect games installed on your system from Steam, Epic, GOG, and other launchers.
                                     </p>

@@ -285,7 +285,7 @@ declare global {
       migratePerGameViewSizeOverrides: () => Promise<{ success: boolean; overrides: Record<string, { grid?: number; list?: number; logo?: number; carousel?: number; coverflow?: number }>; error?: string }>;
       saveGame: (game: Game, oldGame?: Game) => Promise<boolean>;
       deleteCachedImage: (gameId: string, imageType: 'boxart' | 'banner' | 'logo' | 'hero' | 'icon') => Promise<{ success: boolean; error?: string }>;
-      optimizeImageCache: (options?: { webpOnly?: boolean }) => Promise<{ success: boolean; error?: string; optimized?: number; skipped?: number; failed?: number }>;
+      optimizeImageCache: (options?: { webpOnly?: boolean; forceProcessOverBytes?: number }) => Promise<{ success: boolean; error?: string; optimized?: number; skipped?: number; failed?: number }>;
       onOptimizeProgress: (callback: (data: { phase: string; current: number; total: number; fileName: string; status?: string; originalBytes?: number; optimizedBytes?: number }) => void) => () => void;
       getFfmpegStatus: () => Promise<{ available: boolean; source: 'bundled' | 'system' | null }>;
       getImageQueueStatus: () => Promise<{ queued: number; completed: number; imagesQueued?: number; imagesCompleted?: number; currentGameTitle?: string; imageIndex?: number; imageTotal?: number; imageType?: string; phase?: string; currentFileName?: string; originalBytes?: number; optimizedBytes?: number; imageJobs?: { gameId: string; gameTitle: string; imageType: string; phase: 'queued' | 'downloading' | 'optimizing' | 'done' | 'failed' | 'skipped'; fileName?: string; originalBytes?: number; optimizedBytes?: number }[] }>;
