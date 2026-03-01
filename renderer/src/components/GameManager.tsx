@@ -1868,6 +1868,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
                     onClick={() => setGameListView('boxart')}
                     className={`p-1.5 rounded transition-colors ${gameListView === 'boxart' ? 'bg-gray-600 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-700'}`}
                     title="Boxart View"
+                    aria-label="Boxart View"
                   >
                     <svg className="w-4 h-4 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>
                   </button>
@@ -1875,6 +1876,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
                     onClick={() => setGameListView('icon')}
                     className={`p-1.5 rounded transition-colors ${gameListView === 'icon' ? 'bg-gray-600 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-700'}`}
                     title="Icon View"
+                    aria-label="Icon View"
                   >
                     <svg className="w-4 h-4 group- hover:animate-gear-spin group-hover:animate-gear-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
                   </button>
@@ -1882,6 +1884,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
                     onClick={() => setGameListView('text')}
                     className={`p-1.5 rounded transition-colors ${gameListView === 'text' ? 'bg-gray-600 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-700'}`}
                     title="Text Only"
+                    aria-label="Text Only View"
                   >
                     <svg className="w-4 h-4 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" /></svg>
                   </button>
