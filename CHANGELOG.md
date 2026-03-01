@@ -4,6 +4,12 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.6.4] - 2026-03-01
+
+- Startup: Pause automatic library scan when an update prompt is active; resume only after dismiss/download completion to avoid launch stutter.
+- Website: Improve hero CTA flow for mobile users (no direct mobile download CTA; add send-link behavior and quicker value messaging).
+- Website: Improve navigation dropdown readability with a less transparent desktop dropdown panel.
+
 ## [0.6.3] - 2026-02-28
 
 - Fix: Ensure release builds optimize WebP images identically to dev (robust fallback: worker → ffmpeg → sharp → original)
