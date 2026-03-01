@@ -4,6 +4,12 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.6.5] - 2026-03-01
+
+- Release pipeline: Use the matching `CHANGELOG.md` version section as GitHub release notes body instead of a fixed notice block.
+- Website (mobile): Use a `Send Link` CTA in the header and keep desktop header CTA as `Download`.
+- Website (mobile): Hide mouse-follow hero cube and disable custom cursor on touch/coarse pointers.
+
 ## [0.6.4] - 2026-03-01
 
 - Startup: Pause automatic library scan when an update prompt is active; resume only after dismiss/download completion to avoid launch stutter.
