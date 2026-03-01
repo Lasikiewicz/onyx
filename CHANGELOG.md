@@ -4,6 +4,11 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.6.8] - 2026-03-01
+
+- Optimization: For `Optimize animated images`, oversized WebP files now use an aggressive re-encode pass instead of being skipped as no-gain.
+- Optimization UI: Completed entries now show actual skip/fail reason text instead of a generic `cached (skipped)` label.
+
 ## [0.6.7] - 2026-03-01
 
 - Optimization UI: Fixed cache optimization status mapping so skipped items no longer appear as processing.

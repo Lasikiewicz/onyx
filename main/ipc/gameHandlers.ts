@@ -344,7 +344,7 @@ export function registerGameIPCHandlers(
                     const phase =
                         statusText === 'ok'
                             ? 'done'
-                            : statusText === 'fail'
+                            : statusText === 'fail' || statusText.startsWith('fail')
                                 ? 'failed'
                                 : statusText.startsWith('skipped')
                                     ? 'skipped'
@@ -354,7 +354,12 @@ export function registerGameIPCHandlers(
                         fileName: data.fileName,
                         originalBytes: data.originalBytes,
                         optimizedBytes: data.optimizedBytes,
-                        error: data.status === 'fail' ? 'Optimization failed' : undefined,
+                        error:
+                            phase === 'failed'
+                                ? (data.status || 'Optimization failed')
+                                : phase === 'skipped'
+                                    ? (data.status || 'Skipped')
+                                    : undefined,
                     });
                 }
                 event.sender.send('imageCache:optimizeProgress', data);

@@ -51,6 +51,9 @@ const OPTIMIZE_EXISTING_SKIP_OVER_BYTES = 15 * 1024 * 1024;
 /** WebP needs a higher threshold because many animated sources are larger before optimization. */
 const OPTIMIZE_EXISTING_WEBP_SKIP_OVER_BYTES = 80 * 1024 * 1024;
 
+/** Target max size for forced oversized animated WebP re-encode in optimizeExistingCache. */
+const FORCED_OVERSIZED_WEBP_TARGET_BYTES = 15 * 1024 * 1024;
+
 /** Detect animated image format by magic bytes (URL extension can lie). */
 function getAnimatedContentFormat(buffer: Buffer): '.gif' | '.webp' | '.webm' | null {
   if (buffer.length < 12) return null;
@@ -234,6 +237,46 @@ export class ImageCacheService {
       if (out.length >= imageData.length) return null;
       if (out.length < imageData.length * 0.15) return null;
       return out;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Aggressive animated WebP recompression for oversized cache files.
+   * Tries lower quality steps and returns the best output smaller than input.
+   */
+  private async aggressivelyRecompressOversizedWebp(
+    imageData: Buffer,
+    imageType: string,
+    targetBytes: number
+  ): Promise<Buffer | null> {
+    try {
+      const sharp = await getSharp();
+      const maxDim = MAX_DIMENSION_BY_TYPE[imageType] ?? DEFAULT_MAX_DIMENSION;
+      const qualitySteps = [70, 60, 50, 40, 30];
+      let bestData: Buffer | null = null;
+
+      for (const quality of qualitySteps) {
+        try {
+          const out = await sharp(imageData, { animated: true, pages: -1, limitInputPixels: ANIMATED_WEBP_LIMIT_INPUT_PIXELS })
+            .resize(maxDim, maxDim, { fit: 'inside', withoutEnlargement: true })
+            .webp({ quality, effort: 6 })
+            .toBuffer();
+
+          if (out.length < imageData.length && (bestData == null || out.length < bestData.length)) {
+            bestData = out;
+          }
+
+          if (out.length <= targetBytes) {
+            return out;
+          }
+        } catch {
+          // Try next quality level
+        }
+      }
+
+      return bestData;
     } catch {
       return null;
     }
@@ -905,9 +948,35 @@ export class ImageCacheService {
                 continue;
               }
               const rawData = await fsPromises.readFile(filePath);
-              const { data: optimizedData, ext: outExt } = await this.optimizeImage(rawData, imageType, sourceExt);
+              let { data: optimizedData, ext: outExt } = await this.optimizeImage(rawData, imageType, sourceExt);
+
+              if (shouldForceProcess && sourceExt === '.webp') {
+                const forceTargetBytes = Math.max(1, options?.forceProcessOverBytes ?? FORCED_OVERSIZED_WEBP_TARGET_BYTES);
+                const needsAggressivePass = optimizedData.length >= rawData.length || optimizedData.length > forceTargetBytes;
+                if (needsAggressivePass) {
+                  const aggressive = await this.aggressivelyRecompressOversizedWebp(rawData, imageType, forceTargetBytes);
+                  if (aggressive != null && aggressive.length < optimizedData.length) {
+                    optimizedData = aggressive;
+                    outExt = '.webp';
+                  }
+                }
+              }
+
               const noSizeGain = optimizedData.length >= rawData.length;
               const sameExt = outExt.toLowerCase() === sourceExt.toLowerCase();
+              if (shouldForceProcess && sourceExt === '.webp' && optimizedData.length >= rawData.length) {
+                result.failed++;
+                onProgress?.({
+                  phase: 'optimize',
+                  current,
+                  total,
+                  fileName: file,
+                  status: 'fail (cannot reduce oversized webp)',
+                  originalBytes: rawData.length,
+                  optimizedBytes: optimizedData.length,
+                });
+                continue;
+              }
               if (noSizeGain && sameExt) {
                 result.skipped++;
                 onProgress?.({

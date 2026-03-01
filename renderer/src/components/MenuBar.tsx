@@ -1224,10 +1224,11 @@ export const MenuBar: React.FC<MenuBarProps> = ({
                           const typeLabel = normalizedType ? `${normalizedType} (${displayExt})` : `(${displayExt})`;
                           const isFailed = entry.phase === 'failed';
                           const isSkipped = entry.phase === 'skipped';
+                          const skipLabel = entry.error ? entry.error : 'skipped';
                           doneRows.push(
                             <div key={`${game}-done-${entry.imageType}-${idx}`} className={`truncate min-w-0 ${isSkipped ? 'text-gray-400' : ''}`} title={`${game} · ${typeLabel} · ${entry.fileName || '-'}`}>
                               {game} · {typeLabel} · {entry.fileName || '-'} {isSkipped ? (
-                                <span className="text-gray-400 italic">cached (skipped)</span>
+                                <span className="text-gray-400 italic">{skipLabel}</span>
                               ) : isFailed ? (
                                 <>{origStr ? `Original - ${origStr} ` : ''}(failed){entry.error ? `: ${entry.error}` : ''}</>
                               ) : (
