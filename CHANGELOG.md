@@ -4,6 +4,12 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.6.6] - 2026-03-01
+
+- Manage Metadata: Added `Optimize animated images` action to open the optimizer and run WebP-only optimization.
+- Optimization: WebP-only optimization now force-processes files above 15MB instead of skipping oversized files.
+- UI: Renamed `Game Importer` to `Add Games` across menu and importer surfaces.
+
 ## [0.6.5] - 2026-03-01
 
 - Release pipeline: Use the matching `CHANGELOG.md` version section as GitHub release notes body instead of a fixed notice block.
