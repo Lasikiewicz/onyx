@@ -136,6 +136,9 @@ const advancedFeatures = [
 				</div>
 				
 				<div class="flex items-center gap-6 flex-shrink-0">
+					<a data-send-link href="mailto:?subject=Onyx%20Launcher%20Download&body=Download%20Onyx%20for%20Windows:%20https%3A%2F%2Fgithub.com%2FLasikiewicz%2Fonyx%2Freleases" class="md:hidden onyx-btn-play text-xs">
+						<span>Send Link</span>
+					</a>
 					<a href="https://github.com/Lasikiewicz/onyx/releases" target="_blank" rel="noopener noreferrer" class="hidden md:inline-flex onyx-btn-play text-xs cursor-hover magnetic-btn">
 						<span>Download</span>
 						<svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
@@ -188,7 +191,7 @@ const advancedFeatures = [
 						<a href="#why-onyx" class="px-6 sm:px-10 py-3.5 sm:py-5 rounded-full border border-white/20 text-white font-bold tracking-wide sm:tracking-wider hover:bg-white/5 transition-all hover:scale-105 hover:border-onyx-accent cursor-hover w-full sm:w-auto text-center">
 							See Why Onyx
 						</a>
-						<a id="send-link-btn" href="mailto:?subject=Onyx%20Launcher%20Download&body=Download%20Onyx%20for%20Windows:%20https%3A%2F%2Fgithub.com%2FLasikiewicz%2Fonyx%2Freleases" class="md:hidden px-6 py-3.5 rounded-full border border-sky-400/35 bg-sky-500/10 text-sky-200 font-semibold tracking-wide hover:bg-sky-500/20 transition-all cursor-hover w-full text-center">
+						<a data-send-link data-status-target="send-link-status" href="mailto:?subject=Onyx%20Launcher%20Download&body=Download%20Onyx%20for%20Windows:%20https%3A%2F%2Fgithub.com%2FLasikiewicz%2Fonyx%2Freleases" class="md:hidden px-6 py-3.5 rounded-full border border-sky-400/35 bg-sky-500/10 text-sky-200 font-semibold tracking-wide hover:bg-sky-500/20 transition-all cursor-hover w-full text-center">
 							Send yourself a download link
 						</a>
 					</div>
@@ -196,7 +199,7 @@ const advancedFeatures = [
 				</div>
 
 				<!-- Visuals: 3D Mouse-Following Cube -->
-				<div class="flex justify-center xl:justify-end reveal-right perspective-container">
+				<div class="hidden md:flex justify-center xl:justify-end reveal-right perspective-container">
 					<div class="onyx-cube-wrapper">
 						<div class="onyx-cube" id="mouse-cube">
 							<div class="cube-face front"><div class="pip"></div></div>
@@ -663,36 +666,40 @@ const advancedFeatures = [
 				.catch(err => console.error('Failed to update version dynamically:', err));
 
 			// MOBILE SEND-LINK CTA: native share first, then clipboard fallback
-			const sendLinkButton = document.getElementById('send-link-btn') as HTMLAnchorElement | null;
-			const sendLinkStatus = document.getElementById('send-link-status');
+			const sendLinkButtons = document.querySelectorAll('[data-send-link]') as NodeListOf<HTMLAnchorElement>;
 			const downloadUrl = 'https://github.com/Lasikiewicz/onyx/releases';
 
-			const setSendLinkStatus = (message: string) => {
-				if (!sendLinkStatus) return;
-				sendLinkStatus.textContent = message;
-			};
+			sendLinkButtons.forEach((button) => {
+				button.addEventListener('click', async (event) => {
+					const statusTarget = button.getAttribute('data-status-target');
+					const sendLinkStatus = statusTarget ? document.getElementById(statusTarget) : null;
 
-			sendLinkButton?.addEventListener('click', async (event) => {
-				try {
-					if (navigator.share) {
-						event.preventDefault();
-						await navigator.share({
-							title: 'Onyx Launcher',
-							text: 'Download Onyx for Windows:',
-							url: downloadUrl,
-						});
-						setSendLinkStatus('Link shared.');
-						return;
-					}
+					const setSendLinkStatus = (message: string) => {
+						if (!sendLinkStatus) return;
+						sendLinkStatus.textContent = message;
+					};
 
-					if (navigator.clipboard?.writeText) {
-						event.preventDefault();
-						await navigator.clipboard.writeText(downloadUrl);
-						setSendLinkStatus('Link copied. Paste it on your PC.');
+					try {
+						if (navigator.share) {
+							event.preventDefault();
+							await navigator.share({
+								title: 'Onyx Launcher',
+								text: 'Download Onyx for Windows:',
+								url: downloadUrl,
+							});
+							setSendLinkStatus('Link shared.');
+							return;
+						}
+
+						if (navigator.clipboard?.writeText) {
+							event.preventDefault();
+							await navigator.clipboard.writeText(downloadUrl);
+							setSendLinkStatus('Link copied. Paste it on your PC.');
+						}
+					} catch {
+						setSendLinkStatus('Could not share link. Use the email option.');
 					}
-				} catch {
-					setSendLinkStatus('Could not share link. Use the email option.');
-				}
+				});
 			});
 
 		});

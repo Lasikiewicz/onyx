@@ -113,6 +113,31 @@ jobs:
           git archive --format=tar.gz --output=$sourceTarball HEAD
           echo "source_tarball=$sourceTarball" >> $env:GITHUB_OUTPUT
         shell: pwsh
+
+      - name: Prepare release notes from changelog
+        if: github.event_name == 'push'
+        run: |
+          $version = "${{ steps.version.outputs.version }}"
+          $changelog = Get-Content CHANGELOG.md -Raw
+
+          $patternWithBrackets = "(?ms)^##\s*\[$([regex]::Escape($version))\][^\r\n]*\r?\n.*?(?=^\s*##\s|\z)"
+          $patternWithoutBrackets = "(?ms)^##\s*$([regex]::Escape($version))[^\r\n]*\r?\n.*?(?=^\s*##\s|\z)"
+
+          $match = [regex]::Match($changelog, $patternWithBrackets)
+          if (-not $match.Success) {
+            $match = [regex]::Match($changelog, $patternWithoutBrackets)
+          }
+
+          if ($match.Success) {
+            $releaseNotes = $match.Value.Trim()
+          } else {
+            Write-Warning "No changelog section found for version $version. Falling back to default release notes."
+            $releaseNotes = "## $version`n`nSee CHANGELOG.md for detailed release notes."
+          }
+
+          New-Item -ItemType Directory -Path release -Force | Out-Null
+          Set-Content -Path release/release-notes.md -Value $releaseNotes -Encoding utf8
+        shell: pwsh
       
       - name: Create Release
         if: github.event_name == 'push'
@@ -121,11 +146,7 @@ jobs:
           tag_name: ${{ steps.build_profile.outputs.tag_prefix }}${{ steps.version.outputs.version }}
           name: ${{ steps.build_profile.outputs.profile == 'alpha' && 'Onyx Alpha' || 'Onyx' }} ${{ steps.version.outputs.version }}
           prerelease: ${{ steps.build_profile.outputs.is_prerelease }}
-          body: |
-            ## GPL Source & Notice
-            - Corresponding source is available via GitHub tag source links and attached source tarball.
-            - Nyrna integration provenance: [docs/NYRNA_PROVENANCE.md](https://github.com/${{ github.repository }}/blob/master/docs/NYRNA_PROVENANCE.md)
-            - License: GPL-3.0-or-later
+          body_path: release/release-notes.md
           files: |
             release/*Setup*.exe
             release/*.blockmap
