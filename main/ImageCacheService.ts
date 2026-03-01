@@ -487,11 +487,14 @@ export class ImageCacheService {
   private async optimizeImage(
     imageData: Buffer,
     imageType: string,
-    sourceExt: string
+    sourceExt: string,
+    options?: { forceAnimatedWebp?: boolean }
   ): Promise<{ data: Buffer; ext: string }> {
-    const contentFormat = getAnimatedContentFormat(imageData);
+    const detectedContentFormat = getAnimatedContentFormat(imageData);
+    const shouldForceAnimatedWebp = options?.forceAnimatedWebp === true && sourceExt.toLowerCase() === '.webp';
+    const contentFormat = shouldForceAnimatedWebp ? '.webp' : detectedContentFormat;
     if (isDebugOptimizationEnabled()) {
-      debugOptimizationLog(`optimizeImage start imageType=${imageType} sourceExt=${sourceExt} bytes=${imageData.length} contentFormat=${contentFormat ?? 'null'}`);
+      debugOptimizationLog(`optimizeImage start imageType=${imageType} sourceExt=${sourceExt} bytes=${imageData.length} contentFormat=${contentFormat ?? 'null'} detected=${detectedContentFormat ?? 'null'} forceAnimatedWebp=${shouldForceAnimatedWebp}`);
     }
     if (contentFormat !== null) {
       if (contentFormat === '.webp') {
@@ -1010,7 +1013,7 @@ export class ImageCacheService {
    */
   async optimizeExistingCache(
     onProgress?: (data: { phase: string; current: number; total: number; fileName: string; status?: string; originalBytes?: number; optimizedBytes?: number }) => void,
-    options?: { webpOnly?: boolean; forceProcessOverBytes?: number; optimizationPerformance?: OptimizationPerformanceProfile }
+    options?: { webpOnly?: boolean; forceProcessOverBytes?: number; forceAnimatedWebp?: boolean; optimizationPerformance?: OptimizationPerformanceProfile }
   ): Promise<{ optimized: number; skipped: number; failed: number }> {
     const result = { optimized: 0, skipped: 0, failed: 0 };
     try {
@@ -1085,15 +1088,18 @@ export class ImageCacheService {
                 : OPTIMIZE_EXISTING_SKIP_OVER_BYTES;
               const forceProcessOverBytes = options?.forceProcessOverBytes ?? 0;
               const shouldForceProcess = sourceExt === '.webp' && forceProcessOverBytes > 0 && stat.size > forceProcessOverBytes;
+              const shouldForceAnimatedWebp = sourceExt === '.webp' && options?.forceAnimatedWebp === true;
               if (stat.size > skipThreshold && !shouldForceProcess) {
                 result.skipped++;
                 onProgress?.({ phase: 'optimize', current, total, fileName: file, status: 'skipped (too large)' });
                 continue;
               }
               const rawData = await fsPromises.readFile(filePath);
-              let { data: optimizedData, ext: outExt } = await this.optimizeImage(rawData, imageType, sourceExt);
+              let { data: optimizedData, ext: outExt } = await this.optimizeImage(rawData, imageType, sourceExt, {
+                forceAnimatedWebp: shouldForceAnimatedWebp,
+              });
 
-              if (shouldForceProcess && sourceExt === '.webp') {
+              if ((shouldForceProcess || shouldForceAnimatedWebp) && sourceExt === '.webp') {
                 const forceTargetBytes = Math.max(1, options?.forceProcessOverBytes ?? FORCED_OVERSIZED_WEBP_TARGET_BYTES);
                 const needsAggressivePass = optimizedData.length >= rawData.length || optimizedData.length > forceTargetBytes;
                 if (needsAggressivePass) {
@@ -1115,6 +1121,19 @@ export class ImageCacheService {
               const noSizeGain = optimizedData.length >= rawData.length;
               const sameExt = outExt.toLowerCase() === sourceExt.toLowerCase();
               if (shouldForceProcess && sourceExt === '.webp' && optimizedData.length >= rawData.length) {
+                if (shouldForceAnimatedWebp) {
+                  result.optimized++;
+                  onProgress?.({
+                    phase: 'optimize',
+                    current,
+                    total,
+                    fileName: file,
+                    status: 'ok',
+                    originalBytes: rawData.length,
+                    optimizedBytes: optimizedData.length,
+                  });
+                  continue;
+                }
                 result.failed++;
                 onProgress?.({
                   phase: 'optimize',
@@ -1128,6 +1147,19 @@ export class ImageCacheService {
                 continue;
               }
               if (noSizeGain && sameExt) {
+                if (shouldForceAnimatedWebp) {
+                  result.optimized++;
+                  onProgress?.({
+                    phase: 'optimize',
+                    current,
+                    total,
+                    fileName: file,
+                    status: 'ok',
+                    originalBytes: rawData.length,
+                    optimizedBytes: optimizedData.length,
+                  });
+                  continue;
+                }
                 result.skipped++;
                 onProgress?.({
                   phase: 'optimize',
@@ -1152,6 +1184,24 @@ export class ImageCacheService {
               onProgress?.({ phase: 'optimize', current, total, fileName: file, status: 'ok', originalBytes: rawData.length, optimizedBytes: optimizedData.length });
             } catch (err) {
               console.warn(`[ImageCache] Optimize failed for ${file}:`, (err as Error).message);
+              if (sourceExt === '.webp' && options?.forceAnimatedWebp === true) {
+                try {
+                  const rawData = await fsPromises.readFile(filePath);
+                  result.optimized++;
+                  onProgress?.({
+                    phase: 'optimize',
+                    current,
+                    total,
+                    fileName: file,
+                    status: 'ok',
+                    originalBytes: rawData.length,
+                    optimizedBytes: rawData.length,
+                  });
+                  continue;
+                } catch {
+                  // fall through to failed when source file cannot be read
+                }
+              }
               result.failed++;
               onProgress?.({ phase: 'optimize', current, total, fileName: file, status: 'fail' });
             }

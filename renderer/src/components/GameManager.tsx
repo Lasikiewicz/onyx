@@ -517,6 +517,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
       const runPromise = window.electronAPI.optimizeImageCache({
         webpOnly: true,
         forceProcessOverBytes: fifteenMb,
+        forceAnimatedWebp: true,
       });
 
       setShowRefreshDialog(false);

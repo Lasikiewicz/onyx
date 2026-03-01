@@ -4,6 +4,12 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.6.11] - 2026-03-01
+
+- Optimization: `Optimize animated images` now forces animated WebP processing for all `.webp` files in this mode.
+- Optimization UI: Forced animated WebP mode now reports completion instead of skip/fail for no-gain outcomes after optimization attempts.
+- IPC/API: Added `forceAnimatedWebp` option wiring for image cache optimization between renderer, preload, and main IPC handler.
+
 ## [0.6.10] - 2026-03-01
 
 - Optimization: Fixed Alpha hangs by replacing blocking oversized WebP FFmpeg sweep calls with non-blocking async execution.

@@ -292,7 +292,7 @@ export function registerGameIPCHandlers(
         }
     });
 
-    ipcMain.handle('imageCache:optimizeExisting', async (event, options?: { webpOnly?: boolean; forceProcessOverBytes?: number }) => {
+    ipcMain.handle('imageCache:optimizeExisting', async (event, options?: { webpOnly?: boolean; forceProcessOverBytes?: number; forceAnimatedWebp?: boolean }) => {
         try {
             const runId = optimizationController?.startRun('cache') ?? null;
             const toProcess = imageCacheService.listFilesToOptimize(options);
