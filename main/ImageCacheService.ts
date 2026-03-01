@@ -58,7 +58,28 @@ const FORCED_OVERSIZED_WEBP_TARGET_BYTES = 15 * 1024 * 1024;
 function getAnimatedContentFormat(buffer: Buffer): '.gif' | '.webp' | '.webm' | null {
   if (buffer.length < 12) return null;
   if (buffer[0] === 0x47 && buffer[1] === 0x49 && buffer[2] === 0x46) return '.gif'; // GIF87a / GIF89a
-  if (buffer[0] === 0x52 && buffer[1] === 0x49 && buffer[2] === 0x46 && buffer[3] === 0x46 && buffer[8] === 0x57 && buffer[9] === 0x45 && buffer[10] === 0x42 && buffer[11] === 0x50) return '.webp'; // RIFF....WEBP
+  if (buffer[0] === 0x52 && buffer[1] === 0x49 && buffer[2] === 0x46 && buffer[3] === 0x46 && buffer[8] === 0x57 && buffer[9] === 0x45 && buffer[10] === 0x42 && buffer[11] === 0x50) {
+    // RIFF....WEBP - only return .webp here when it is actually animated.
+    // Static WebP should flow through the static optimizer path.
+    let cursor = 12;
+    while (cursor + 8 <= buffer.length) {
+      const chunkType = buffer.toString('ascii', cursor, cursor + 4);
+      const chunkSize = buffer.readUInt32LE(cursor + 4);
+      const chunkDataStart = cursor + 8;
+
+      // ANIM / ANMF chunks are definitive animation markers.
+      if (chunkType === 'ANIM' || chunkType === 'ANMF') return '.webp';
+
+      // VP8X feature flags: bit 1 indicates animation.
+      if (chunkType === 'VP8X' && chunkDataStart < buffer.length) {
+        const flags = buffer[chunkDataStart];
+        if ((flags & 0x02) !== 0) return '.webp';
+      }
+
+      const paddedSize = chunkSize + (chunkSize % 2);
+      cursor = chunkDataStart + paddedSize;
+    }
+  }
   if (buffer[0] === 0x1a && buffer[1] === 0x45 && buffer[2] === 0xdf && buffer[3] === 0xa3) return '.webm'; // EBML
   return null;
 }
@@ -254,31 +275,116 @@ export class ImageCacheService {
     try {
       const sharp = await getSharp();
       const maxDim = MAX_DIMENSION_BY_TYPE[imageType] ?? DEFAULT_MAX_DIMENSION;
-      const qualitySteps = [70, 60, 50, 40, 30];
+      const dimensionSteps = [1, 0.85, 0.7, 0.55];
+      const qualitySteps = [70, 55, 45, 35, 28, 22];
       let bestData: Buffer | null = null;
 
-      for (const quality of qualitySteps) {
-        try {
-          const out = await sharp(imageData, { animated: true, pages: -1, limitInputPixels: ANIMATED_WEBP_LIMIT_INPUT_PIXELS })
-            .resize(maxDim, maxDim, { fit: 'inside', withoutEnlargement: true })
-            .webp({ quality, effort: 6 })
-            .toBuffer();
+      for (const dimFactor of dimensionSteps) {
+        const targetDim = Math.max(240, Math.floor(maxDim * dimFactor));
+        for (const quality of qualitySteps) {
+          try {
+            const out = await sharp(imageData, { animated: true, pages: -1, limitInputPixels: false })
+              .resize(targetDim, targetDim, { fit: 'inside', withoutEnlargement: true })
+              .webp({ quality, effort: 6 })
+              .toBuffer();
 
-          if (out.length < imageData.length && (bestData == null || out.length < bestData.length)) {
-            bestData = out;
-          }
+            if (out.length < imageData.length && (bestData == null || out.length < bestData.length)) {
+              bestData = out;
+            }
 
-          if (out.length <= targetBytes) {
-            return out;
+            if (out.length <= targetBytes) {
+              return out;
+            }
+          } catch {
+            // Try next quality/dimension combination
           }
-        } catch {
-          // Try next quality level
         }
       }
 
       return bestData;
     } catch {
       return null;
+    }
+  }
+
+  /**
+   * Aggressive FFmpeg recompression for oversized animated WebP.
+   * Sweeps fps/scale/quality combinations and returns the best smaller output.
+   */
+  private async aggressivelyRecompressOversizedWebpWithFfmpeg(
+    imageData: Buffer,
+    imageType: string,
+    targetBytes: number
+  ): Promise<Buffer | null> {
+    const base = `onyx-oversized-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const tmpDir = tmpdir();
+    const inp = path.join(tmpDir, `${base}-in.webp`);
+    const outp = path.join(tmpDir, `${base}-out.webp`);
+    try {
+      await fsPromises.writeFile(inp, imageData);
+      const { path: ffmpegPath } = getFfmpegPath();
+      const maxDim = MAX_DIMENSION_BY_TYPE[imageType] ?? DEFAULT_MAX_DIMENSION;
+      const dimensionSteps = [1, 0.85, 0.7, 0.55, 0.45];
+      const fpsSteps = [15, 12, 10, 8, 6, 4];
+      const qualitySteps = [65, 50, 38, 30, 24, 18, 14];
+      let bestData: Buffer | null = null;
+
+      for (const dimFactor of dimensionSteps) {
+        const targetDim = Math.max(220, Math.floor(maxDim * dimFactor));
+        for (const fps of fpsSteps) {
+          for (const quality of qualitySteps) {
+            const vf = `fps=${fps},scale=min(${targetDim},iw):-2:flags=lanczos`;
+            const args = [
+              '-y',
+              '-i', inp,
+              '-an',
+              '-sn',
+              '-vf', vf,
+              '-c:v', 'libwebp_anim',
+              '-quality', String(quality),
+              '-compression_level', '6',
+              '-loop', '0',
+              outp,
+            ];
+
+            const result = spawnSync(ffmpegPath, args, {
+              encoding: 'utf8',
+              timeout: 120000,
+              windowsHide: true,
+            });
+
+            if (result.status !== 0 || !existsSync(outp)) {
+              continue;
+            }
+
+            const outData = await fsPromises.readFile(outp);
+            if (outData.length < imageData.length && (bestData == null || outData.length < bestData.length)) {
+              bestData = outData;
+            }
+
+            if (outData.length <= targetBytes) {
+              return outData;
+            }
+
+            try {
+              await fsPromises.unlink(outp);
+            } catch {
+              // ignore cleanup failure between attempts
+            }
+          }
+        }
+      }
+
+      return bestData;
+    } catch {
+      return null;
+    } finally {
+      try {
+        if (existsSync(inp)) await fsPromises.unlink(inp);
+        if (existsSync(outp)) await fsPromises.unlink(outp);
+      } catch {
+        // ignore
+      }
     }
   }
 
@@ -954,9 +1060,16 @@ export class ImageCacheService {
                 const forceTargetBytes = Math.max(1, options?.forceProcessOverBytes ?? FORCED_OVERSIZED_WEBP_TARGET_BYTES);
                 const needsAggressivePass = optimizedData.length >= rawData.length || optimizedData.length > forceTargetBytes;
                 if (needsAggressivePass) {
-                  const aggressive = await this.aggressivelyRecompressOversizedWebp(rawData, imageType, forceTargetBytes);
-                  if (aggressive != null && aggressive.length < optimizedData.length) {
-                    optimizedData = aggressive;
+                  const aggressiveSharp = await this.aggressivelyRecompressOversizedWebp(rawData, imageType, forceTargetBytes);
+                  const aggressiveFfmpeg = await this.aggressivelyRecompressOversizedWebpWithFfmpeg(rawData, imageType, forceTargetBytes);
+
+                  const aggressiveCandidates = [aggressiveSharp, aggressiveFfmpeg]
+                    .filter((candidate): candidate is Buffer => candidate != null)
+                    .sort((a, b) => a.length - b.length);
+
+                  const bestAggressive = aggressiveCandidates[0];
+                  if (bestAggressive != null && bestAggressive.length < optimizedData.length) {
+                    optimizedData = bestAggressive;
                     outExt = '.webp';
                   }
                 }

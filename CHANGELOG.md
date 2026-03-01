@@ -4,6 +4,11 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.6.9] - 2026-03-01
+
+- Optimization: Added aggressive FFmpeg fallback sweeps (fps/scale/quality) for oversized animated WebP files in `Optimize animated images`.
+- Optimization: Forced oversized WebP processing now picks the best result across aggressive Sharp and FFmpeg passes.
+
 ## [0.6.8] - 2026-03-01
 
 - Optimization: For `Optimize animated images`, oversized WebP files now use an aggressive re-encode pass instead of being skipped as no-gain.
