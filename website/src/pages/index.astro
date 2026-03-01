@@ -87,14 +87,14 @@ const advancedFeatures = [
 		</div>
 
 		<!-- Navigation -->
-		<nav id="navbar" class="fixed top-0 w-full z-50 px-8 py-6 onyx-nav-thin transition-all duration-300">
+		<nav id="navbar" class="fixed top-0 w-full z-50 px-4 sm:px-8 py-4 sm:py-6 onyx-nav-thin transition-all duration-300">
 			<div class="max-w-7xl mx-auto relative flex items-center justify-between">
 				<a href="#top" class="flex items-center gap-3 flex-shrink-0 text-inherit hover:scale-110 transition-transform cursor-hover">
 					<div class="relative group">
 						<div class="absolute inset-0 bg-sky-400 blur-md opacity-0 group-hover:opacity-50 transition-opacity"></div>
-						<img src="/logo.svg" alt="Onyx Logo" class="w-10 h-10 relative z-10 animate-rotate" />
+						<img src="/logo.svg" alt="Onyx Logo" class="w-8 h-8 sm:w-10 sm:h-10 relative z-10 animate-rotate" />
 					</div>
-					<span class="text-2xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-white to-gray-400">Onyx</span>
+					<span class="text-xl sm:text-2xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-white to-gray-400">Onyx</span>
 				</a>
 				
 				<div class="hidden md:flex absolute left-1/2 -translate-x-1/2 items-center gap-10">
@@ -145,7 +145,7 @@ const advancedFeatures = [
 		</nav>
 
 		<!-- Hero Section -->
-		<section class="relative min-h-screen flex items-center justify-center overflow-hidden px-8 md:px-24">
+		<section class="relative min-h-[100svh] pt-24 pb-12 sm:pb-16 flex items-center justify-center overflow-hidden px-4 sm:px-8 md:px-24">
 			<!-- Transitioning Hero Background -->
 			<div class="absolute inset-0 z-0 overflow-hidden">
 				{backgroundImages.map((img, idx) => (
@@ -157,14 +157,14 @@ const advancedFeatures = [
 				<div class="absolute inset-0 bg-black/60"></div>
 			</div>
 			
-			<div class="relative z-10 w-full max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 items-center gap-16">
+			<div class="relative z-10 w-full max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 items-center gap-8 sm:gap-12 lg:gap-16">
 				<!-- Tagline -->
-				<div class="text-center lg:text-left space-y-8 reveal-left">
-					<a href="https://github.com/Lasikiewicz/onyx/releases/latest" target="_blank" class="inline-flex py-1 px-4 rounded-full bg-white/5 border border-white/10 text-xs font-bold tracking-widest text-slate-300 mb-4 backdrop-blur-sm shadow-xl items-center gap-2 cursor-hover hover:bg-white/10 hover:scale-105 transition-all text-decoration-none">
+				<div class="text-center lg:text-left space-y-5 sm:space-y-8 reveal-left">
+					<a href="https://github.com/Lasikiewicz/onyx/releases/latest" target="_blank" class="inline-flex py-1 px-3 sm:px-4 rounded-full bg-white/5 border border-white/10 text-[10px] sm:text-xs font-bold tracking-wider sm:tracking-widest text-slate-300 mb-3 sm:mb-4 backdrop-blur-sm shadow-xl items-center gap-2 cursor-hover hover:bg-white/10 hover:scale-105 transition-all text-decoration-none">
 						<span class="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span>
 						<span id="version-tag">LATEST VERSION ({latestVersion})</span>
 					</a>
-					<h1 class="text-5xl md:text-7xl font-black tracking-tighter leading-[1.1] text-gradient">
+					<h1 class="text-4xl sm:text-5xl md:text-7xl font-black tracking-tighter leading-[1.05] sm:leading-[1.1] text-gradient">
 						One library for the<br/>games you already own
 					</h1>
 					<p class="md:hidden text-slate-300 text-lg leading-relaxed max-w-xl font-light opacity-95 mx-auto lg:mx-0">
@@ -184,11 +184,11 @@ const advancedFeatures = [
 						<span class="rounded-full border border-white/15 bg-white/5 px-3 py-1">Built for Windows</span>
 					</div>
 					
-					<div class="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-6 pt-4">
-						<a href="#why-onyx" class="px-10 py-5 rounded-full border border-white/20 text-white font-bold tracking-wider hover:bg-white/5 transition-all hover:scale-105 hover:border-onyx-accent cursor-hover w-full sm:w-auto text-center">
+					<div class="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4 sm:gap-6 pt-2 sm:pt-4">
+						<a href="#why-onyx" class="px-6 sm:px-10 py-3.5 sm:py-5 rounded-full border border-white/20 text-white font-bold tracking-wide sm:tracking-wider hover:bg-white/5 transition-all hover:scale-105 hover:border-onyx-accent cursor-hover w-full sm:w-auto text-center">
 							See Why Onyx
 						</a>
-						<a id="send-link-btn" href="mailto:?subject=Onyx%20Launcher%20Download&body=Download%20Onyx%20for%20Windows:%20https%3A%2F%2Fgithub.com%2FLasikiewicz%2Fonyx%2Freleases" class="md:hidden px-8 py-4 rounded-full border border-sky-400/35 bg-sky-500/10 text-sky-200 font-semibold tracking-wide hover:bg-sky-500/20 transition-all cursor-hover w-full text-center">
+						<a id="send-link-btn" href="mailto:?subject=Onyx%20Launcher%20Download&body=Download%20Onyx%20for%20Windows:%20https%3A%2F%2Fgithub.com%2FLasikiewicz%2Fonyx%2Freleases" class="md:hidden px-6 py-3.5 rounded-full border border-sky-400/35 bg-sky-500/10 text-sky-200 font-semibold tracking-wide hover:bg-sky-500/20 transition-all cursor-hover w-full text-center">
 							Send yourself a download link
 						</a>
 					</div>
@@ -214,28 +214,28 @@ const advancedFeatures = [
 		</section>
 
 		<!-- Why Onyx -->
-		<section id="why-onyx" class="relative z-10 py-12 px-8 md:px-24 border-t border-white/5 bg-gradient-to-b from-transparent to-black/50 scroll-mt-24">
-			<div class="max-w-5xl mx-auto text-center space-y-12 reveal-up">
-				<h2 class="text-4xl md:text-6xl font-black tracking-tighter leading-none text-white drop-shadow-2xl">
+		<section id="why-onyx" class="relative z-10 py-8 sm:py-12 px-4 sm:px-8 md:px-24 border-t border-white/5 bg-gradient-to-b from-transparent to-black/50 scroll-mt-24">
+			<div class="max-w-5xl mx-auto text-center space-y-6 sm:space-y-12 reveal-up">
+				<h2 class="text-3xl sm:text-4xl md:text-6xl font-black tracking-tighter leading-none text-white drop-shadow-2xl">
 					Why another launcher...
 				</h2>
-				<p class="text-slate-300 text-xl lg:text-2xl leading-relaxed font-light opacity-90 mx-auto max-w-4xl">
+				<p class="text-slate-300 text-base sm:text-xl lg:text-2xl leading-relaxed font-light opacity-90 mx-auto max-w-4xl">
 					So why Onyx? Your games live everywhere Steam, Epic, GOG, Xbox, Ubisoft, EA, and more. Playnite is powerful and flexible. Onyx is for players who want a cleaner, more focused experience with less setup overhead. Its single job is: <span class="text-white font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-sky-500 hover:tracking-widest transition-all duration-300 inline-block cursor-hover">one library, one place, your way.</span>
 				</p>
-				<p class="text-slate-300 text-xl lg:text-2xl leading-relaxed font-light opacity-90 mx-auto max-w-4xl mt-6">
+				<p class="text-slate-300 text-base sm:text-xl lg:text-2xl leading-relaxed font-light opacity-90 mx-auto max-w-4xl mt-4 sm:mt-6">
 					No accounts to sync, no subscription, no clutter. You add your libraries, pick your view (grid, list, logo, or carousel), and customize quickly with a right-click. It’s an open source launcher built for fast daily use, not endless configuration.
 				</p>
 			</div>
 		</section>
 
 		<!-- Features List -->
-		<div id="features" class="relative z-10 py-24 px-12">
-			<div class="max-w-7xl mx-auto space-y-40">
+		<div id="features" class="relative z-10 py-14 sm:py-24 px-4 sm:px-8 md:px-12">
+			<div class="max-w-7xl mx-auto space-y-16 sm:space-y-40">
 				{[...collectionViews, ...managementTools, ...advancedFeatures].map((item, index) => {
 					const itemId = item.title.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
 					const isEven = index % 2 === 0;
 					return (
-					<div id={itemId} class={`group/section flex flex-col lg:flex-row items-center gap-16 lg:gap-24 scroll-mt-32 `}>
+					<div id={itemId} class={`group/section flex flex-col lg:flex-row items-center gap-8 sm:gap-12 lg:gap-24 scroll-mt-32 `}>
 						<!-- Image -->
 						<div class={`w-full lg:w-3/5 tilt-card group cursor-hover ${isEven ? 'lg:order-1 reveal-left' : 'lg:order-2 reveal-right'}`}>
 							<div class="absolute inset-0 bg-gradient-to-r from-sky-400 to-sky-600 rounded-3xl blur-[40px] opacity-10 group-hover:opacity-40 transition-opacity duration-500"></div>
@@ -259,12 +259,12 @@ const advancedFeatures = [
 						</div>
 
 						<!-- Text -->
-						<div class={`w-full lg:w-2/5 space-y-8 ${isEven ? 'lg:order-2 reveal-right' : 'lg:order-1 reveal-left'}`}>
-							<h3 class="text-4xl md:text-5xl lg:text-6xl font-black tracking-tighter leading-none text-white relative inline-block group cursor-default">
+						<div class={`w-full lg:w-2/5 space-y-5 sm:space-y-8 ${isEven ? 'lg:order-2 reveal-right' : 'lg:order-1 reveal-left'}`}>
+							<h3 class="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black tracking-tighter leading-none text-white relative inline-block group cursor-default">
 								{item.title}
 								<span class="absolute -bottom-2 left-0 w-0 h-1 bg-gradient-to-r from-sky-400 to-sky-500 transition-all duration-500 group-hover/section:w-full"></span>
 							</h3>
-							<p class="text-slate-400 text-xl leading-relaxed font-light opacity-90" set:html={item.desc}></p>
+							<p class="text-slate-400 text-base sm:text-xl leading-relaxed font-light opacity-90" set:html={item.desc}></p>
 						</div>
 					</div>
 					);
@@ -273,40 +273,40 @@ const advancedFeatures = [
 		</div>
 
 		<!-- Community CTA Section -->
-		<section id="community" class="py-32 px-8 relative overflow-hidden bg-black/50 border-t border-white/5 scroll-mt-24">
-			<div class="max-w-7xl mx-auto text-center space-y-16 reveal-up">
-				<h2 class="text-5xl md:text-7xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-white to-gray-500">Get Involved</h2>
+		<section id="community" class="py-16 sm:py-32 px-4 sm:px-8 relative overflow-hidden bg-black/50 border-t border-white/5 scroll-mt-24">
+			<div class="max-w-7xl mx-auto text-center space-y-10 sm:space-y-16 reveal-up">
+				<h2 class="text-4xl sm:text-5xl md:text-7xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-white to-gray-500">Get Involved</h2>
 				
-				<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 w-full">
+				<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-8 w-full">
 					<!-- Discord -->
-					<a href="https://discord.gg/m2dgd4ZUPu" target="_blank" class="group glass-panel p-10 rounded-3xl hover:border-[#5865F2] transition-all duration-500 hover:-translate-y-2 hover:shadow-[0_20px_40px_rgba(88,101,242,0.2)] cursor-hover tilt-card">
+					<a href="https://discord.gg/m2dgd4ZUPu" target="_blank" class="group glass-panel p-6 sm:p-10 rounded-3xl hover:border-[#5865F2] transition-all duration-500 hover:-translate-y-2 hover:shadow-[0_20px_40px_rgba(88,101,242,0.2)] cursor-hover tilt-card">
 						<div class="tilt-card-inner">
-							<div class="w-16 h-16 bg-[#5865F2]/10 rounded-2xl flex items-center justify-center mb-8 mx-auto group-hover:scale-110 group-hover:bg-[#5865F2]/20 transition-all duration-300">
+							<div class="w-14 h-14 sm:w-16 sm:h-16 bg-[#5865F2]/10 rounded-2xl flex items-center justify-center mb-4 sm:mb-8 mx-auto group-hover:scale-110 group-hover:bg-[#5865F2]/20 transition-all duration-300">
 								<svg class="w-8 h-8 text-[#5865F2]" fill="currentColor" viewBox="0 0 24 24"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.419-2.157 2.419zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42.001 1.333-.956 2.419-2.157 2.419z"/></svg>
 							</div>
-							<h3 class="text-3xl font-black mb-2">Discord</h3>
+							<h3 class="text-2xl sm:text-3xl font-black mb-2">Discord</h3>
 							<p class="text-slate-400 font-light">Join the hub. Chat with devs and fellow users.</p>
 						</div>
 					</a>
 					
 					<!-- Reddit -->
-					<a href="https://www.reddit.com/r/OnyxLauncher/" target="_blank" class="group glass-panel p-10 rounded-3xl hover:border-[#FF4500] transition-all duration-500 hover:-translate-y-2 hover:shadow-[0_20px_40px_rgba(255,69,0,0.2)] cursor-hover tilt-card">
+					<a href="https://www.reddit.com/r/OnyxLauncher/" target="_blank" class="group glass-panel p-6 sm:p-10 rounded-3xl hover:border-[#FF4500] transition-all duration-500 hover:-translate-y-2 hover:shadow-[0_20px_40px_rgba(255,69,0,0.2)] cursor-hover tilt-card">
 						<div class="tilt-card-inner">
-							<div class="w-16 h-16 bg-[#FF4500]/10 rounded-2xl flex items-center justify-center mb-8 mx-auto group-hover:scale-110 group-hover:bg-[#FF4500]/20 transition-all duration-300">
+							<div class="w-14 h-14 sm:w-16 sm:h-16 bg-[#FF4500]/10 rounded-2xl flex items-center justify-center mb-4 sm:mb-8 mx-auto group-hover:scale-110 group-hover:bg-[#FF4500]/20 transition-all duration-300">
 								<svg class="w-8 h-8 text-[#FF4500]" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0zm5.01 4.744c.688 0 1.25.561 1.25 1.249a1.25 1.25 0 0 1-2.498.056l-2.597-.547-.8 3.747c1.824.07 3.48.632 4.674 1.488.308-.309.73-.491 1.207-.491.968 0 1.754.786 1.754 1.754 0 .716-.435 1.333-1.056 1.597.04.21.06.423.06.637 0 2.512-3.493 4.549-7.801 4.549-4.308 0-7.801-2.037-7.801-4.549 0-.214.021-.427.06-.637a1.756 1.756 0 0 1-1.056-1.597c0-.968.786-1.754 1.754-1.754.463 0 .875.18 1.185.472 1.202-.846 2.84-1.398 4.646-1.472l.803-3.747 2.364.523a1.25 1.25 0 0 1 0 .142zM8.477 14.126a1.21 1.21 0 1 0 0-2.418 1.21 1.21 0 0 0 0 2.418zm7.046 0a1.21 1.21 0 1 0 0-2.418 1.21 1.21 0 0 0 0 2.418zm-3.007 3.328c-.141 0-.28-.012-.417-.035-.558-.093-1.05-.386-1.395-.81a.488.488 0 0 1 .76-.61c.21.26.51.442.853.499a1.457 1.457 0 0 0 .72-.05.488.488 0 0 1 .425.877c-.287.14-.622.23-.946.23z"/></svg>
 							</div>
-							<h3 class="text-3xl font-black mb-2">Reddit</h3>
+							<h3 class="text-2xl sm:text-3xl font-black mb-2">Reddit</h3>
 							<p class="text-slate-400 font-light">Share setups, discussions and stay updated.</p>
 						</div>
 					</a>
 
 					<!-- Ko-Fi -->
-					<a href="https://ko-fi.com/oynxgilga" target="_blank" class="group glass-panel p-10 rounded-3xl hover:border-[#FF5E5B] transition-all duration-500 hover:-translate-y-2 hover:shadow-[0_20px_40px_rgba(255,94,91,0.2)] cursor-hover tilt-card sm:col-span-2 lg:col-span-1">
+					<a href="https://ko-fi.com/oynxgilga" target="_blank" class="group glass-panel p-6 sm:p-10 rounded-3xl hover:border-[#FF5E5B] transition-all duration-500 hover:-translate-y-2 hover:shadow-[0_20px_40px_rgba(255,94,91,0.2)] cursor-hover tilt-card sm:col-span-2 lg:col-span-1">
 						<div class="tilt-card-inner">
-							<div class="w-16 h-16 bg-[#FF5E5B]/10 rounded-2xl flex items-center justify-center mb-8 mx-auto group-hover:scale-110 group-hover:bg-[#FF5E5B]/20 transition-all duration-300">
+							<div class="w-14 h-14 sm:w-16 sm:h-16 bg-[#FF5E5B]/10 rounded-2xl flex items-center justify-center mb-4 sm:mb-8 mx-auto group-hover:scale-110 group-hover:bg-[#FF5E5B]/20 transition-all duration-300">
 								<svg class="w-8 h-8 text-[#FF5E5B]" fill="currentColor" viewBox="0 0 24 24"><path d="M23.881 8.948c-.773-4.085-4.859-4.593-4.859-4.593H.724c-.604 0-.679.798-.679.798s-.082 7.324-.022 11.822c.164 2.424 2.586 2.672 2.586 2.672s8.267-.023 11.966-.049c2.438-.426 2.683-2.566 2.658-3.734c4.352.24 7.422-2.831 6.649-6.916zm-11.062 3.511c-1.246 1.453-4.011 3.976-4.011 3.976s-.121.119-.31.023c-.076-.057-.108-.09-.108-.09s-2.115-2.353-3.132-3.645c-1.078-1.353.023-2.347.533-2.008c.15.111.45.318.918.64c.243.171.428.243.551.243c.125 0 .237-.089.479-.281c.517-.549 1.157-1.16 1.157-1.16s1.008-.823 1.965.176c1.053 1.096.204 1.836.204 1.836s-.19.168-.254.276zm7.261-.318c-1.127.172-1.742-.164-1.742-.164V7.123s.548-.106 1.543-.069c1.942.062 2.383 1.413 2.155 3.036c-.147 1.054-.83 2.053-1.956 2.051z"/></svg>
 							</div>
-							<h3 class="text-3xl font-black mb-2">Support Us</h3>
+							<h3 class="text-2xl sm:text-3xl font-black mb-2">Support Us</h3>
 							<p class="text-slate-400 font-light">Fuel the development via Ko-fi contributions.</p>
 						</div>
 					</a>
@@ -315,14 +315,14 @@ const advancedFeatures = [
 		</section>
 
 		<!-- Footer -->
-		<footer class="py-16 px-12 border-t border-white/10 relative bg-[#0f172a] overflow-hidden">
+		<footer class="py-10 sm:py-16 px-4 sm:px-12 border-t border-white/10 relative bg-[#0f172a] overflow-hidden">
 			<div class="absolute bottom-0 w-full h-1 bg-gradient-to-r from-sky-400 via-sky-500 to-sky-500"></div>
-			<div class="max-w-4xl mx-auto text-center space-y-12">
-				<h2 class="text-5xl lg:text-7xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-white to-gray-600">The Future of Play</h2>
-				<a href="https://github.com/Lasikiewicz/onyx/releases" target="_blank" rel="noopener noreferrer" class="onyx-btn-play !px-16 !py-6 text-2xl !rounded-full uppercase tracking-[0.2em] font-black transition-all hover:tracking-[0.3em] cursor-hover magnetic-btn inline-block">
+			<div class="max-w-4xl mx-auto text-center space-y-8 sm:space-y-12">
+				<h2 class="text-3xl sm:text-5xl lg:text-7xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-white to-gray-600">The Future of Play</h2>
+				<a href="https://github.com/Lasikiewicz/onyx/releases" target="_blank" rel="noopener noreferrer" class="onyx-btn-play !px-8 sm:!px-16 !py-4 sm:!py-6 text-base sm:text-2xl !rounded-full uppercase tracking-[0.12em] sm:tracking-[0.2em] font-black transition-all hover:tracking-[0.16em] sm:hover:tracking-[0.3em] cursor-hover magnetic-btn inline-block">
 					Download Onyx
 				</a>
-				<p class="pt-16 max-w-2xl mx-auto text-xs text-center leading-relaxed font-sans normal-case tracking-normal text-slate-600">
+				<p class="pt-8 sm:pt-16 max-w-2xl mx-auto text-xs text-center leading-relaxed font-sans normal-case tracking-normal text-slate-600">
 					Onyx is an independent project and is not affiliated with, endorsed by, or connected to Valve Corporation, Epic Games, GOG.com, or any other third-party game platforms. All trademarks, service marks, and company names are the property of their respective owners.
 				</p>
 			</div>
