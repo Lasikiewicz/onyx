@@ -161,8 +161,23 @@ const advancedFeatures = [
 			</div>
 			
 			<div class="relative z-10 w-full max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 items-center gap-8 sm:gap-12 lg:gap-16">
+				<!-- Visuals: 3D Mouse-Following Cube -->
+				<div class="flex justify-center xl:justify-end reveal-right perspective-container order-1 lg:order-2 mb-2 sm:mb-4 lg:mb-0">
+					<div class="onyx-cube-wrapper">
+						<div class="onyx-cube" id="mouse-cube">
+							<div class="cube-face front"><div class="pip"></div></div>
+							<div class="cube-face back"><div class="pip"></div></div>
+							<div class="cube-face right"><div class="pip"></div></div>
+							<div class="cube-face left"><div class="pip"></div></div>
+							<div class="cube-face top"><div class="pip"></div></div>
+							<div class="cube-face bottom"><div class="pip"></div></div>
+						</div>
+						<!-- Emerald Glow Core -->
+						<div class="cube-glow"></div>
+					</div>
+				</div>
 				<!-- Tagline -->
-				<div class="text-center lg:text-left space-y-5 sm:space-y-8 reveal-left">
+				<div class="text-center lg:text-left space-y-5 sm:space-y-8 reveal-left order-2 lg:order-1">
 					<a href="https://github.com/Lasikiewicz/onyx/releases/latest" target="_blank" class="inline-flex py-1 px-3 sm:px-4 rounded-full bg-white/5 border border-white/10 text-[10px] sm:text-xs font-bold tracking-wider sm:tracking-widest text-slate-300 mb-3 sm:mb-4 backdrop-blur-sm shadow-xl items-center gap-2 cursor-hover hover:bg-white/10 hover:scale-105 transition-all text-decoration-none">
 						<span class="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span>
 						<span id="version-tag">LATEST VERSION ({latestVersion})</span>
@@ -187,31 +202,7 @@ const advancedFeatures = [
 						<span class="rounded-full border border-white/15 bg-white/5 px-3 py-1">Built for Windows</span>
 					</div>
 					
-					<div class="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4 sm:gap-6 pt-2 sm:pt-4">
-						<a href="#why-onyx" class="px-6 sm:px-10 py-3.5 sm:py-5 rounded-full border border-white/20 text-white font-bold tracking-wide sm:tracking-wider hover:bg-white/5 transition-all hover:scale-105 hover:border-onyx-accent cursor-hover w-full sm:w-auto text-center">
-							See Why Onyx
-						</a>
-						<a data-send-link data-status-target="send-link-status" href="mailto:?subject=Onyx%20Launcher%20Download&body=Download%20Onyx%20for%20Windows:%20https%3A%2F%2Fgithub.com%2FLasikiewicz%2Fonyx%2Freleases" class="md:hidden px-6 py-3.5 rounded-full border border-sky-400/35 bg-sky-500/10 text-sky-200 font-semibold tracking-wide hover:bg-sky-500/20 transition-all cursor-hover w-full text-center">
-							Send yourself a download link
-						</a>
-					</div>
-					<p id="send-link-status" class="md:hidden text-slate-400 text-sm min-h-[1.25rem]"></p>
-				</div>
-
-				<!-- Visuals: 3D Mouse-Following Cube -->
-				<div class="hidden md:flex justify-center xl:justify-end reveal-right perspective-container">
-					<div class="onyx-cube-wrapper">
-						<div class="onyx-cube" id="mouse-cube">
-							<div class="cube-face front"><div class="pip"></div></div>
-							<div class="cube-face back"><div class="pip"></div></div>
-							<div class="cube-face right"><div class="pip"></div></div>
-							<div class="cube-face left"><div class="pip"></div></div>
-							<div class="cube-face top"><div class="pip"></div></div>
-							<div class="cube-face bottom"><div class="pip"></div></div>
-						</div>
-						<!-- Emerald Glow Core -->
-						<div class="cube-glow"></div>
-					</div>
+					
 				</div>
 			</div>
 		</section>
@@ -352,8 +343,8 @@ const advancedFeatures = [
 
 		.onyx-cube-wrapper {
 			position: relative;
-			width: 160px;
-			height: 160px;
+			width: 110px;
+			height: 110px;
 			perspective: 1000px;
 			animation: cube-float 6s ease-in-out infinite;
 		}
@@ -418,7 +409,7 @@ const advancedFeatures = [
 		.top    { transform: rotateX( 90deg) translateZ(calc(var(--cube-size, 160px) / 2)); }
 		.bottom { transform: rotateX(-90deg) translateZ(calc(var(--cube-size, 160px) / 2)); }
 
-		:root { --cube-size: 160px; }
+		:root { --cube-size: 110px; }
 		@media (min-width: 768px) { :root { --cube-size: 256px; } }
 
 		.cube-glow {
