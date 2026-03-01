@@ -721,6 +721,17 @@ export const GamePropertiesPanel = forwardRef<GamePropertiesPanelHandle, GamePro
                                             className="w-full px-2 py-1 text-xs bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
                                         />
                                     </div>
+                                    <div className="col-span-2">
+                                        <label className="block text-[10px] uppercase tracking-wider font-semibold text-gray-500 mb-0.5">Launch arguments</label>
+                                        <input
+                                            type="text"
+                                            value={editedFields.launchArgs ?? (game as any).launchArgs ?? ''}
+                                            onChange={(e) => updateField('launchArgs', e.target.value)}
+                                            disabled={editingDisabled}
+                                            placeholder="e.g. -savetouserdir"
+                                            className="w-full px-2 py-1 text-xs bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50 placeholder:text-gray-500"
+                                        />
+                                    </div>
                                 </>
                             )}
                         </div>

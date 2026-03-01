@@ -4,6 +4,12 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.6.12] - 2026-03-01
+
+- Launcher: Per-game launch arguments (e.g. `-savetouserdir`); editable in Game Manager and game properties.
+- Launcher: Right-click Uninstall opens the game’s uninstaller when present in the game folder, otherwise Windows Settings > Apps.
+- Launcher: Windows exe launch now uses shell so games with spaces in path and EACCES-prone executables launch correctly.
+
 ## [0.6.11] - 2026-03-01
 
 - Optimization: `Optimize animated images` now forces animated WebP processing for all `.webp` files in this mode.

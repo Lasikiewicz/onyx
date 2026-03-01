@@ -1,7 +1,11 @@
 import { spawn, execFile } from 'child_process';
-import { dirname } from 'path';
+import { dirname, join, normalize } from 'path';
+import { existsSync, readdirSync } from 'node:fs';
 import { shell } from 'electron';
 import { GameStore, Game } from './GameStore.js';
+
+/** Common uninstaller executable names to look for in the game folder */
+const UNINSTALLER_NAMES = ['uninstall.exe', 'Uninstall.exe', 'unins000.exe', 'unins001.exe', 'unins002.exe'];
 
 export class LauncherService {
   private gameStore: GameStore;
@@ -216,61 +220,64 @@ export class LauncherService {
         return { success: false, error: 'Executable path not set for this game' };
       }
 
-      // Use execFile to execute the game
-      const workingDir = dirname(game.exePath);
-
-      console.log(`[LauncherService] Executing exe: ${game.exePath}`);
-      console.log(`[LauncherService] Working directory: ${workingDir}`);
-      if (game.launchArgs) {
-        console.log(`[LauncherService] Launch arguments: ${game.launchArgs}`);
-      }
-
-      // Parse launch arguments if provided
-      // Use a regex that respects quoted strings to avoid splitting paths with spaces
-      const args: string[] = [];
-      if (game.launchArgs) {
-        const regex = /[^\s"]+|"([^"]*)"/g;
-        let match;
-        while ((match = regex.exec(game.launchArgs)) !== null) {
-          // If the match is quoted, match[1] will have the content without quotes
-          // Otherwise, match[0] has the unquoted word
-          args.push(match[1] !== undefined ? match[1] : match[0]);
-        }
-      }
-
-      // Ensure the executable path is NOT quoted for spawn/execFile when NOT using shell: true.
-      // Quoting is only needed when a path with spaces is passed to a shell (cmd/sh).
+      // Use normalized native paths on Windows to avoid EACCES (spawn can fail with forward slashes)
       let exePath = game.exePath;
       if (exePath.startsWith('"') && exePath.endsWith('"')) {
         exePath = exePath.slice(1, -1);
       }
+      exePath = normalize(exePath);
+      const workingDir = normalize(dirname(exePath));
 
-      const child = spawn(exePath, args, {
-        detached: true,
-        stdio: 'ignore',
-        shell: false, // Security: Disable shell to prevent command injection via launchArgs
-        cwd: workingDir,
-      });
+      console.log(`[LauncherService] Executing exe: ${exePath}`);
+      console.log(`[LauncherService] Working directory: ${workingDir}`);
 
-      // Unref the child process so it doesn't keep the Electron app alive
+      // Parse launch arguments if provided (trim so whitespace-only or leading/trailing space works)
+      const args: string[] = [];
+      const launchArgsStr = typeof game.launchArgs === 'string' ? game.launchArgs.trim() : '';
+      if (launchArgsStr) {
+        const regex = /[^\s"]+|"([^"]*)"/g;
+        let match;
+        while ((match = regex.exec(launchArgsStr)) !== null) {
+          const arg = match[1] !== undefined ? match[1] : match[0];
+          if (arg.length > 0) args.push(arg);
+        }
+        console.log(`[LauncherService] Parsed launch arguments: ${JSON.stringify(args)}`);
+      }
+
+      let child: ReturnType<typeof spawn>;
+      if (process.platform === 'win32') {
+        // On Windows, use "start" via the system shell so the game launches like a shortcut.
+        // Using shell: true avoids Node's CreateProcess argument quoting mangling paths with spaces.
+        const escapedExe = exePath.replace(/"/g, '""');
+        const argsForCmd = args.map(a => (a.includes(' ') ? `"${a.replace(/"/g, '""')}"` : a)).join(' ');
+        const startCmd = `start "" "${escapedExe}"${argsForCmd ? ' ' + argsForCmd : ''}`;
+        console.log(`[LauncherService] Using shell launch: ${startCmd}`);
+        child = spawn(startCmd, [], {
+          detached: true,
+          stdio: 'ignore',
+          shell: true,
+          cwd: workingDir,
+        });
+      } else {
+        child = spawn(exePath, args, {
+          detached: true,
+          stdio: 'ignore',
+          shell: false,
+          cwd: workingDir,
+        });
+      }
+
       child.unref();
-
-      // Check if the process started successfully
       child.on('error', (error) => {
         console.error(`Failed to launch game: ${error.message}`);
       });
 
-      // Update lastPlayed timestamp
       game.lastPlayed = new Date().toISOString();
       await this.gameStore.saveGame(game);
 
-      // For Xbox launches, avoid returning transient launcher/bootstrap PIDs.
-      // ProcessSuspendService and discovery logic will track the real game process.
       if (isXbox) {
         return { success: true };
       }
-
-      // Return PID for process tracking (if available)
       return { success: true, pid: child.pid };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -319,6 +326,51 @@ export class LauncherService {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       console.error('Error launching mod manager:', errorMessage);
+      return { success: false, error: errorMessage };
+    }
+  }
+
+  /**
+   * Open the game's uninstaller if present in the game folder; otherwise open Windows Settings > Apps.
+   */
+  async openGameUninstaller(gameId: string): Promise<{ success: boolean; error?: string; openedUninstaller?: boolean }> {
+    try {
+      const games = await this.gameStore.getLibrary();
+      const game = games.find(g => g.id === gameId);
+      if (!game) {
+        return { success: false, error: `Game with ID ${gameId} not found` };
+      }
+
+      const gameDir = game.exePath ? dirname(game.exePath) : game.installationDirectory;
+      if (!gameDir || !existsSync(gameDir)) {
+        console.log(`[LauncherService] No game folder for "${game.title}", opening Windows Settings > Apps`);
+        await shell.openExternal('ms-settings:appsfeatures');
+        return { success: true, openedUninstaller: false };
+      }
+
+      const dirEntries = readdirSync(gameDir, { withFileTypes: true });
+      const files = dirEntries.filter(e => e.isFile());
+      const lowerToName = new Map(files.map(e => [e.name.toLowerCase(), e.name]));
+
+      for (const name of UNINSTALLER_NAMES) {
+        const actualName = lowerToName.get(name.toLowerCase());
+        if (actualName) {
+          const uninstallerPath = join(gameDir, actualName);
+          console.log(`[LauncherService] Opening uninstaller: ${uninstallerPath}`);
+          const openError = await shell.openPath(uninstallerPath);
+          if (openError) {
+            return { success: false, error: openError, openedUninstaller: true };
+          }
+          return { success: true, openedUninstaller: true };
+        }
+      }
+
+      console.log(`[LauncherService] No uninstaller found in "${gameDir}", opening Windows Settings > Apps`);
+      await shell.openExternal('ms-settings:appsfeatures');
+      return { success: true, openedUninstaller: false };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error('[LauncherService] Error in openGameUninstaller:', errorMessage);
       return { success: false, error: errorMessage };
     }
   }

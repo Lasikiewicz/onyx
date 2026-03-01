@@ -31,6 +31,7 @@ interface LibraryListViewProps {
   onFixMatch?: (game: Game) => void;
   onHide?: (game: Game) => void;
   onUnhide?: (game: Game) => void;
+  onUninstall?: (game: Game) => void;
   isHiddenView?: boolean;
   hideGameTitles?: boolean;
   listViewOptions?: ListViewOptions;
@@ -50,6 +51,7 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
   onFixMatch,
   onHide,
   onUnhide,
+  onUninstall,
   isHiddenView = false,
   listViewOptions = {
     showDescription: true,
@@ -592,6 +594,7 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
           onFixMatch={onFixMatch}
           onHide={onHide}
           onUnhide={onUnhide}
+          onUninstall={onUninstall}
           isHiddenView={isHiddenView}
         />
       )}

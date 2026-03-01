@@ -1720,6 +1720,24 @@ function App() {
     showToast(`"${game.title}" has been unhidden`, 'success');
   };
 
+  const handleUninstallGame = async (game: Game) => {
+    setGameContextMenu(null);
+    try {
+      const result = await window.electronAPI.openGameUninstaller(game.id);
+      if (result.success) {
+        if (result.openedUninstaller) {
+          showToast('Uninstaller opened', 'success');
+        } else {
+          showToast('Opened Windows Settings > Apps', 'success');
+        }
+      } else if (result.error) {
+        showToast(result.error, 'error');
+      }
+    } catch (err) {
+      showToast('Failed to open uninstaller', 'error');
+    }
+  };
+
   // Handle exit with confirmation
   const handleExit = async () => {
     try {
@@ -2070,6 +2088,7 @@ function App() {
                           onFixMatch={handleFixMatch}
                           onHide={handleHideGame}
                           onUnhide={handleUnhideGame}
+                          onUninstall={handleUninstallGame}
                           isHiddenView={selectedCategory === 'hidden'}
                           activeGameId={activeGameId}
                           coverSize={coverFlowCoverSize}
@@ -2097,6 +2116,7 @@ function App() {
                           onFixMatch={handleFixMatch}
                           onHide={handleHideGame}
                           onUnhide={handleUnhideGame}
+                          onUninstall={handleUninstallGame}
                           isHiddenView={selectedCategory === 'hidden'}
                           activeGameId={activeGameId}
                           selectedBoxArtSize={selectedBoxArtSize}
@@ -2143,6 +2163,7 @@ function App() {
                           onFixMatch={handleFixMatch}
                           onHide={handleHideGame}
                           onUnhide={handleUnhideGame}
+                          onUninstall={handleUninstallGame}
                           isHiddenView={selectedCategory === 'hidden'}
                           hideGameTitles={hideGameTitles}
                           listViewOptions={listViewOptions}
@@ -2236,6 +2257,7 @@ function App() {
               onFixMatch={handleFixMatch}
               onHide={handleHideGame}
               onUnhide={handleUnhideGame}
+              onUninstall={handleUninstallGame}
               isHiddenView={selectedCategory === 'hidden'}
               onRightClick={(x, y) => {
                 setGameContextMenu(null);
@@ -2862,6 +2884,7 @@ function App() {
           onFixMatch={handleFixMatch}
           onHide={handleHideGame}
           onUnhide={handleUnhideGame}
+          onUninstall={handleUninstallGame}
           isHiddenView={selectedCategory === 'hidden'}
         />
       )}

@@ -226,6 +226,8 @@ export class GameStore {
       // Preserve favorite property as-is (true, false, or undefined)
       favorite: game.favorite,
       lockedFields: game.lockedFields ? { ...game.lockedFields } : undefined,
+      // Explicitly preserve launchArgs so it is never dropped
+      launchArgs: game.launchArgs,
     };
 
     if (existingIndex >= 0) {

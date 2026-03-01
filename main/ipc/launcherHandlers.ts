@@ -95,4 +95,13 @@ export function registerLauncherIPCHandlers(
             return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
         }
     });
+
+    ipcMain.handle('launcher:openGameUninstaller', async (_event, gameId: string) => {
+        try {
+            return await launcherService.openGameUninstaller(gameId);
+        } catch (error) {
+            console.error('Error in launcher:openGameUninstaller handler:', error);
+            return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+        }
+    });
 }

@@ -16,6 +16,7 @@ interface LibraryCarouselProps {
   onFixMatch?: (game: Game) => void;
   onHide?: (game: Game) => void;
   onUnhide?: (game: Game) => void;
+  onUninstall?: (game: Game) => void;
   isHiddenView?: boolean;
   activeGameId?: string | null;
   selectedBoxArtSize?: number;
@@ -66,6 +67,7 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
   onFixMatch,
   onHide,
   onUnhide,
+  onUninstall,
   isHiddenView = false,
   onEmptySpaceRightClick,
   isViewFlipped = false,
@@ -589,6 +591,7 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
           onFixMatch={onFixMatch}
           onHide={onHide}
           onUnhide={onUnhide}
+          onUninstall={onUninstall}
           isHiddenView={isHiddenView}
         />,
         document.body
@@ -610,6 +613,7 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
           onFixMatch={onFixMatch}
           onHide={onHide}
           onUnhide={onUnhide}
+          onUninstall={onUninstall}
           isHiddenView={isHiddenView}
         />,
         document.body

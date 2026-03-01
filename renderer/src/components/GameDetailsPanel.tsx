@@ -23,6 +23,7 @@ interface GameDetailsPanelProps {
   onFixMatch?: (game: Game) => void;
   onHide?: (game: Game) => void;
   onUnhide?: (game: Game) => void;
+  onUninstall?: (game: Game) => void;
   isHiddenView?: boolean;
   onUpdateGameInState?: (game: Game) => void;
   onRightClick?: (x: number, y: number) => void;
@@ -64,6 +65,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
   onFixMatch,
   onHide,
   onUnhide,
+  onUninstall,
   isHiddenView = false,
   onUpdateGameInState,
   onRightClick,
@@ -807,6 +809,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
           onFixMatch={onFixMatch}
           onHide={onHide}
           onUnhide={onUnhide}
+          onUninstall={onUninstall}
           isHiddenView={isHiddenView}
         />
       )}

@@ -63,6 +63,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Launcher methods
   launchGame: (gameId: string) => ipcRenderer.invoke('launcher:launchGame', gameId),
   launchModManager: (gameId: string) => ipcRenderer.invoke('launcher:launchModManager', gameId),
+  openGameUninstaller: (gameId: string) => ipcRenderer.invoke('launcher:openGameUninstaller', gameId),
   // App config methods
   getAppConfigs: () => ipcRenderer.invoke('appConfig:getAll'),
   getAppConfig: (appId: string) => ipcRenderer.invoke('appConfig:get', appId),

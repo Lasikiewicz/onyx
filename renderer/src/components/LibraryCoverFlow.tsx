@@ -15,6 +15,7 @@ interface LibraryCoverFlowProps {
   onFixMatch?: (game: Game) => void;
   onHide?: (game: Game) => void;
   onUnhide?: (game: Game) => void;
+  onUninstall?: (game: Game) => void;
   isHiddenView?: boolean;
   activeGameId?: string | null;
   coverSize?: number; // size of the center cover (width in px)
@@ -69,6 +70,7 @@ export const LibraryCoverFlow: React.FC<LibraryCoverFlowProps> = ({
   onFixMatch,
   onHide,
   onUnhide,
+  onUninstall,
   isHiddenView = false,
   onEmptySpaceRightClick,
 }) => {
@@ -522,6 +524,7 @@ export const LibraryCoverFlow: React.FC<LibraryCoverFlowProps> = ({
             onFixMatch={onFixMatch}
             onHide={onHide}
             onUnhide={onUnhide}
+            onUninstall={onUninstall}
             isHiddenView={isHiddenView}
           />,
           document.body
