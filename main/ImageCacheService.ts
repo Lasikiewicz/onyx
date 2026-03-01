@@ -44,6 +44,12 @@ const ANIMATED_TARGET_FPS = 15;
 const WEBP_ANIMATED_QUALITY = 80;
 /** Lower quality for banner/hero types: faster encode, smaller file. */
 const WEBP_ANIMATED_QUALITY_BACKGROUND = 75;
+/** Animated WebP often exceeds 16MP; allow larger inputs so we can downscale rather than keep originals. */
+const ANIMATED_WEBP_LIMIT_INPUT_PIXELS = 8192 * 8192;
+/** Skip very large files in optimizeExistingCache to avoid stalls/crashes on old assets. */
+const OPTIMIZE_EXISTING_SKIP_OVER_BYTES = 15 * 1024 * 1024;
+/** WebP needs a higher threshold because many animated sources are larger before optimization. */
+const OPTIMIZE_EXISTING_WEBP_SKIP_OVER_BYTES = 80 * 1024 * 1024;
 
 /** Detect animated image format by magic bytes (URL extension can lie). */
 function getAnimatedContentFormat(buffer: Buffer): '.gif' | '.webp' | '.webm' | null {
@@ -216,8 +222,8 @@ export class ImageCacheService {
         imageType === 'banner' || imageType === 'alternativeBanner' || imageType === 'hero'
           ? WEBP_ANIMATED_QUALITY_BACKGROUND
           : WEBP_ANIMATED_QUALITY;
-      // limitInputPixels avoids hang/OOM on huge animated WebP (same as static path)
-      const limitInputPixels = 4096 * 4096;
+      // Allow higher input pixel ceiling for animated WebP so oversized sources can still be downscaled.
+      const limitInputPixels = ANIMATED_WEBP_LIMIT_INPUT_PIXELS;
       const out = await sharp(imageData, { animated: true, pages: -1, limitInputPixels })
         .resize(maxDim, maxDim, { fit: 'inside', withoutEnlargement: true })
         .webp({ quality, effort: 4 })
@@ -869,7 +875,10 @@ export class ImageCacheService {
             const filePath = path.join(this.cacheDir, file);
             try {
               const stat = statSync(filePath);
-              if (stat.size > 15 * 1024 * 1024) {
+              const skipThreshold = sourceExt === '.webp'
+                ? OPTIMIZE_EXISTING_WEBP_SKIP_OVER_BYTES
+                : OPTIMIZE_EXISTING_SKIP_OVER_BYTES;
+              if (stat.size > skipThreshold) {
                 result.skipped++;
                 onProgress?.({ phase: 'optimize', current, total, fileName: file, status: 'skipped (too large)' });
                 continue;

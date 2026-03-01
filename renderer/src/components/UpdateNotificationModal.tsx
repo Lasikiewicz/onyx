@@ -47,8 +47,6 @@ export const UpdateNotificationModal: React.FC<UpdateNotificationModalProps> = (
     if (!changelogSource || !currentVersion) return '';
 
     const normalizeVersion = (value: string) => value.replace(/^v/i, '').trim();
-    /** Only treat as version if it looks like semver (e.g. 0.5.7, 1.0.0). Excludes "GPL Source & Notice", "Unreleased", etc. */
-    const isSemverLike = (value: string) => /^\d+\.\d+(\.\d+)?([-\w.]*)?$/i.test(normalizeVersion(value).split(/\s/)[0] ?? '');
     const toParts = (value: string) => normalizeVersion(value).split('-')[0].split('.').map(part => Number(part) || 0);
     const compareVersions = (a: string, b: string) => {
       const aParts = toParts(a);
@@ -63,39 +61,13 @@ export const UpdateNotificationModal: React.FC<UpdateNotificationModalProps> = (
       return 0;
     };
 
-    /** Remove GPL/License/legal notice subsections from a section body so only actual changes are shown. */
-    const stripLegalSubsections = (body: string): string => {
-      const lines = body.split(/\r?\n/);
-      const out: string[] = [];
-      let skip = false;
-      for (const line of lines) {
-        const isSubHeading = /^##\s+/.test(line);
-        if (isSubHeading) {
-          const lower = line.toLowerCase();
-          const isLegal = /gpl|source\s*&\s*notice|license|provenance|corresponding\s*source|legal/.test(lower);
-          skip = isLegal;
-          if (!skip) out.push(line);
-          continue;
-        }
-        if (skip) continue;
-        const trimmed = line.trim();
-        if (trimmed.startsWith('-') || trimmed.startsWith('*')) {
-          const lower = trimmed.toLowerCase();
-          if (/corresponding\s*source|license\s*:|provenance|nyrna.*provenance|gpl-3\.0/.test(lower)) continue;
-        }
-        out.push(line);
-      }
-      return out.join('\n').trim();
-    };
-
     const headerRegex = /^##\s+\[(.+?)\].*$/gm;
     const matches = [...changelogSource.matchAll(headerRegex)];
     const sections = matches.map((match, index) => {
       const startIndex = match.index ?? 0;
       const endIndex = index + 1 < matches.length ? (matches[index + 1].index ?? changelogSource.length) : changelogSource.length;
       const headerLine = match[0];
-      const rawBody = changelogSource.slice(startIndex + headerLine.length, endIndex).trim();
-      const sectionBody = stripLegalSubsections(rawBody);
+      const sectionBody = changelogSource.slice(startIndex + headerLine.length, endIndex).trim();
       return {
         version: match[1],
         header: headerLine,
@@ -107,7 +79,6 @@ export const UpdateNotificationModal: React.FC<UpdateNotificationModalProps> = (
     const baseVersion = normalizeVersion(currentVersion);
     const targetIsOlderOrEqual = compareVersions(targetVersion, baseVersion) <= 0;
     const filtered = sections.filter(section => {
-      if (!isSemverLike(section.version)) return false;
       if (section.version.toLowerCase() === 'unreleased') return false;
       if (targetIsOlderOrEqual) {
         return compareVersions(section.version, targetVersion) === 0;
@@ -124,10 +95,10 @@ export const UpdateNotificationModal: React.FC<UpdateNotificationModalProps> = (
       {/* Backdrop */}
       <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[999]" />
       
-      {/* Modal - max height and overflow so content never goes off screen */}
-      <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 overflow-y-auto">
-        <div className={`bg-gradient-to-br from-gray-900/95 to-slate-950/95 backdrop-blur-xl border border-cyan-500/40 rounded-3xl shadow-2xl w-full max-h-[90vh] flex flex-col ${showChangelog ? 'max-w-4xl' : 'max-w-md'} p-8 animate-in fade-in zoom-in duration-300`}>
-          <div className="flex flex-col items-center gap-6 min-h-0 overflow-hidden">
+      {/* Modal */}
+      <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
+        <div className={`bg-gradient-to-br from-gray-900/95 to-slate-950/95 backdrop-blur-xl border border-cyan-500/40 rounded-3xl shadow-2xl w-full ${showChangelog ? 'max-w-4xl' : 'max-w-md'} p-8 animate-in fade-in zoom-in duration-300`}>
+          <div className="flex flex-col items-center gap-6">
             {/* Icon */}
             <div className="w-16 h-16 rounded-full bg-cyan-500/20 flex items-center justify-center">
               <svg className="w-8 h-8 text-cyan-400 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -171,9 +142,9 @@ export const UpdateNotificationModal: React.FC<UpdateNotificationModalProps> = (
               </div>
             )}
 
-            {/* Changelog - constrained height and scroll so large changelogs stay on screen */}
+            {/* Changelog */}
             {showChangelog && (
-              <div className="w-full min-h-0 flex flex-col rounded-2xl bg-slate-900/60 border border-slate-700/60 p-5 max-h-[50vh] overflow-y-auto">
+              <div className="w-full rounded-2xl bg-slate-900/60 border border-slate-700/60 p-5 max-h-[55vh] overflow-y-auto">
                 <div className="flex flex-col gap-2 mb-4">
                   <span className="text-sm text-slate-400">Changes from v{currentVersion ?? '0.0.0'} to v{version}</span>
                   {isTestMode && (

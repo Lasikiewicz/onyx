@@ -104,7 +104,7 @@ const advancedFeatures = [
 							<svg class="w-4 h-4 transition-transform group-hover:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
 							<span class="absolute -bottom-1 left-0 w-0 h-0.5 bg-onyx-accent transition-all duration-300 group-hover:w-full"></span>
 						</a>
-						<div class="absolute top-full left-1/2 -translate-x-1/2 mt-4 min-w-[200px] glass-panel rounded-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-50 py-3 transform group-hover:translate-y-0 translate-y-4">
+						<div class="absolute top-full left-1/2 -translate-x-1/2 mt-4 min-w-[200px] glass-panel nav-dropdown rounded-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-50 py-3 transform group-hover:translate-y-0 translate-y-4">
 							<a href="#grid-view" class="block px-6 py-3 text-slate-300 hover:text-white hover:bg-white/10 hover:pr-4 hover:pl-8 text-sm transition-all duration-300 font-medium cursor-hover">Grid View</a>
 							<a href="#list-view" class="block px-6 py-3 text-slate-300 hover:text-white hover:bg-white/10 hover:pr-4 hover:pl-8 text-sm transition-all duration-300 font-medium cursor-hover">List View</a>
 							<a href="#logo-view" class="block px-6 py-3 text-slate-300 hover:text-white hover:bg-white/10 hover:pr-4 hover:pl-8 text-sm transition-all duration-300 font-medium cursor-hover">Logo View</a>
@@ -119,7 +119,7 @@ const advancedFeatures = [
 							<svg class="w-4 h-4 transition-transform group-hover:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
 							<span class="absolute -bottom-1 left-0 w-0 h-0.5 bg-onyx-accent transition-all duration-300 group-hover:w-full"></span>
 						</a>
-						<div class="absolute top-full left-1/2 -translate-x-1/2 mt-4 min-w-[240px] glass-panel rounded-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-50 py-3 transform group-hover:translate-y-0 translate-y-4">
+						<div class="absolute top-full left-1/2 -translate-x-1/2 mt-4 min-w-[240px] glass-panel nav-dropdown rounded-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-50 py-3 transform group-hover:translate-y-0 translate-y-4">
 							<a href="#metadata-mastery" class="block px-6 py-3 text-slate-300 hover:text-white hover:bg-white/10 hover:pr-4 hover:pl-8 text-sm transition-all duration-300 font-medium cursor-hover">Metadata Mastery</a>
 							<a href="#visual-search" class="block px-6 py-3 text-slate-300 hover:text-white hover:bg-white/10 hover:pr-4 hover:pl-8 text-sm transition-all duration-300 font-medium cursor-hover">Visual Search</a>
 							<a href="#contextual-ease" class="block px-6 py-3 text-slate-300 hover:text-white hover:bg-white/10 hover:pr-4 hover:pl-8 text-sm transition-all duration-300 font-medium cursor-hover">Contextual Ease</a>
@@ -136,7 +136,7 @@ const advancedFeatures = [
 				</div>
 				
 				<div class="flex items-center gap-6 flex-shrink-0">
-					<a href="https://github.com/Lasikiewicz/onyx/releases" target="_blank" rel="noopener noreferrer" class="onyx-btn-play text-xs cursor-hover magnetic-btn">
+					<a href="https://github.com/Lasikiewicz/onyx/releases" target="_blank" rel="noopener noreferrer" class="hidden md:inline-flex onyx-btn-play text-xs cursor-hover magnetic-btn">
 						<span>Download</span>
 						<svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
 					</a>
@@ -167,22 +167,32 @@ const advancedFeatures = [
 					<h1 class="text-5xl md:text-7xl font-black tracking-tighter leading-[1.1] text-gradient">
 						One library for the<br/>games you already own
 					</h1>
-					<p class="text-slate-400 text-xl lg:text-2xl leading-relaxed max-w-2xl font-light opacity-90 mx-auto lg:mx-0">
+					<p class="md:hidden text-slate-300 text-lg leading-relaxed max-w-xl font-light opacity-95 mx-auto lg:mx-0">
+						One clean launcher for the games you already own.
+						Import from Steam, Epic, GOG, Xbox and more in minutes.
+					</p>
+					<p class="hidden md:block text-slate-400 text-xl lg:text-2xl leading-relaxed max-w-2xl font-light opacity-90 mx-auto lg:mx-0">
 						Import your libraries from <span class="text-white font-semibold relative inline-block group">Steam<span class="absolute -bottom-1 left-0 w-full h-0.5 bg-sky-400 scale-x-0 group-hover:scale-x-100 transition-transform origin-left"></span></span>, 
 						<span class="text-white font-semibold relative inline-block group">Epic<span class="absolute -bottom-1 left-0 w-full h-0.5 bg-gray-500 scale-x-0 group-hover:scale-x-100 transition-transform origin-left"></span></span>, 
 						<span class="text-white font-semibold relative inline-block group">GOG<span class="absolute -bottom-1 left-0 w-full h-0.5 bg-sky-500 scale-x-0 group-hover:scale-x-100 transition-transform origin-left"></span></span>, 
 						<span class="text-white font-semibold relative inline-block group">Xbox<span class="absolute -bottom-1 left-0 w-full h-0.5 bg-green-500 scale-x-0 group-hover:scale-x-100 transition-transform origin-left"></span></span> and more, then launch faster from one clean library. 
 						Organize once, browse your way, and spend less time juggling launchers.
 					</p>
+					<div class="flex flex-wrap items-center justify-center lg:justify-start gap-2 sm:gap-3 text-xs sm:text-sm text-slate-300/90">
+						<span class="rounded-full border border-white/15 bg-white/5 px-3 py-1">No accounts required</span>
+						<span class="rounded-full border border-white/15 bg-white/5 px-3 py-1">Open source</span>
+						<span class="rounded-full border border-white/15 bg-white/5 px-3 py-1">Built for Windows</span>
+					</div>
 					
 					<div class="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-6 pt-4">
-						<a href="https://github.com/Lasikiewicz/onyx/releases" target="_blank" class="onyx-btn-play !px-10 !py-5 text-lg cursor-hover magnetic-btn w-full sm:w-auto">
-							Download for Windows
+						<a href="#why-onyx" class="px-10 py-5 rounded-full border border-white/20 text-white font-bold tracking-wider hover:bg-white/5 transition-all hover:scale-105 hover:border-onyx-accent cursor-hover w-full sm:w-auto text-center">
+							See Why Onyx
 						</a>
-						<a href="#features" class="px-10 py-5 rounded-full border border-white/20 text-white font-bold tracking-wider hover:bg-white/5 transition-all hover:scale-105 hover:border-onyx-accent cursor-hover w-full sm:w-auto text-center">
-							Explore Features
+						<a id="send-link-btn" href="mailto:?subject=Onyx%20Launcher%20Download&body=Download%20Onyx%20for%20Windows:%20https%3A%2F%2Fgithub.com%2FLasikiewicz%2Fonyx%2Freleases" class="md:hidden px-8 py-4 rounded-full border border-sky-400/35 bg-sky-500/10 text-sky-200 font-semibold tracking-wide hover:bg-sky-500/20 transition-all cursor-hover w-full text-center">
+							Send yourself a download link
 						</a>
 					</div>
+					<p id="send-link-status" class="md:hidden text-slate-400 text-sm min-h-[1.25rem]"></p>
 				</div>
 
 				<!-- Visuals: 3D Mouse-Following Cube -->
@@ -204,7 +214,7 @@ const advancedFeatures = [
 		</section>
 
 		<!-- Why Onyx -->
-		<section class="relative z-10 py-12 px-8 md:px-24 border-t border-white/5 bg-gradient-to-b from-transparent to-black/50">
+		<section id="why-onyx" class="relative z-10 py-12 px-8 md:px-24 border-t border-white/5 bg-gradient-to-b from-transparent to-black/50 scroll-mt-24">
 			<div class="max-w-5xl mx-auto text-center space-y-12 reveal-up">
 				<h2 class="text-4xl md:text-6xl font-black tracking-tighter leading-none text-white drop-shadow-2xl">
 					Why another launcher...
@@ -651,6 +661,39 @@ const advancedFeatures = [
 					}
 				})
 				.catch(err => console.error('Failed to update version dynamically:', err));
+
+			// MOBILE SEND-LINK CTA: native share first, then clipboard fallback
+			const sendLinkButton = document.getElementById('send-link-btn') as HTMLAnchorElement | null;
+			const sendLinkStatus = document.getElementById('send-link-status');
+			const downloadUrl = 'https://github.com/Lasikiewicz/onyx/releases';
+
+			const setSendLinkStatus = (message: string) => {
+				if (!sendLinkStatus) return;
+				sendLinkStatus.textContent = message;
+			};
+
+			sendLinkButton?.addEventListener('click', async (event) => {
+				try {
+					if (navigator.share) {
+						event.preventDefault();
+						await navigator.share({
+							title: 'Onyx Launcher',
+							text: 'Download Onyx for Windows:',
+							url: downloadUrl,
+						});
+						setSendLinkStatus('Link shared.');
+						return;
+					}
+
+					if (navigator.clipboard?.writeText) {
+						event.preventDefault();
+						await navigator.clipboard.writeText(downloadUrl);
+						setSendLinkStatus('Link copied. Paste it on your PC.');
+					}
+				} catch {
+					setSendLinkStatus('Could not share link. Use the email option.');
+				}
+			});
 
 		});
 	</script>

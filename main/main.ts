@@ -1879,6 +1879,16 @@ app.whenReady().then(async () => {
       }
       console.log(`[AppUpdate] Update check completed - status: ${payload.status}`);
     }
+
+    // If user completed the update download, allow startup scan to continue
+    // even if the modal remains visible for restart/install.
+    if (payload.status === 'downloaded') {
+      updateDismissed = true;
+      if (startupScanResolve) {
+        startupScanResolve();
+        startupScanResolve = null;
+      }
+    }
   });
 
   const updateFoundCallback = () => {
@@ -1982,14 +1992,6 @@ app.whenReady().then(async () => {
           console.log('[StartupScan] Update found, waiting for user interaction...');
           await new Promise<void>(resolve => {
             startupScanResolve = resolve;
-            // Also timeout after 15 seconds if user does nothing
-            setTimeout(() => {
-              if (startupScanResolve === resolve) {
-                console.log('[StartupScan] Interaction timeout, proceeding with scan');
-                resolve();
-                startupScanResolve = null;
-              }
-            }, 15000);
           });
         }
 
