@@ -126,6 +126,7 @@ import {
   startRun as optimizationStartRun,
   addJobs as optimizationAddJobs,
   updateJob as optimizationUpdateJob,
+  setRuntimeMetrics as optimizationSetRuntimeMetrics,
   finishRun as optimizationFinishRun,
 } from './ImageOptimizationController.js';
 
@@ -385,6 +386,7 @@ registerGameIPCHandlers(steamService, xboxService, gameStore, imageCacheService,
   startRun: optimizationStartRun,
   addJobs: optimizationAddJobs,
   updateJob: optimizationUpdateJob,
+  setRuntimeMetrics: optimizationSetRuntimeMetrics,
   finishRun: optimizationFinishRun,
 });
 registerMetadataIPCHandlers(metadataFetcher, imageCacheService, gameStore, userPreferencesService, { get current() { return win; } }, imageQueue);

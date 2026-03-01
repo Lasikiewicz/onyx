@@ -4,6 +4,11 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.6.7] - 2026-03-01
+
+- Optimization UI: Fixed cache optimization status mapping so skipped items no longer appear as processing.
+- Optimization UI: Published runtime worker/profile/CPU metrics during cache optimization so the top runtime panel is populated.
+
 ## [0.6.6] - 2026-03-01
 
 - Manage Metadata: Added `Optimize animated images` action to open the optimizer and run WebP-only optimization.

@@ -1,6 +1,7 @@
 import { ipcMain, dialog } from 'electron';
 import path from 'node:path';
 import { existsSync } from 'node:fs';
+import { cpus } from 'node:os';
 import { SteamService } from '../SteamService.js';
 import { XboxService } from '../XboxService.js';
 import { GameStore, Game } from '../GameStore.js';
@@ -15,6 +16,17 @@ export type OptimizationControllerAPI = {
     startRun: (mode: 'importer' | 'cache') => string;
     addJobs: (runId: string, jobs: (Omit<ImageJobStatus, 'jobId'> & { jobId?: string })[]) => void;
     updateJob: (runId: string, jobId: string, patch: Partial<Pick<ImageJobStatus, 'phase' | 'fileName' | 'originalBytes' | 'optimizedBytes' | 'error'>>) => void;
+    setRuntimeMetrics: (metrics: {
+        profile?: 'low' | 'balanced' | 'high';
+        cpuCount?: number;
+        reserveCores?: number;
+        availableWorkers?: number;
+        maxWorkers?: number;
+        activeWorkers?: number;
+        queuedGames?: number;
+        allStaticComplete?: boolean;
+        systemCpuUsage?: number;
+    }) => void;
     finishRun: (runId: string) => void;
 };
 
@@ -283,8 +295,15 @@ export function registerGameIPCHandlers(
     ipcMain.handle('imageCache:optimizeExisting', async (event, options?: { webpOnly?: boolean; forceProcessOverBytes?: number }) => {
         try {
             const runId = optimizationController?.startRun('cache') ?? null;
+            const toProcess = imageCacheService.listFilesToOptimize(options);
+            const optimizationPerformance = (await userPreferencesService?.getPreferences())?.optimizationPerformance ?? 'balanced';
+            const runtimeByProfile: Record<'low' | 'balanced' | 'high', { reserveCores: number; maxImageWorkers: number }> = {
+                low: { reserveCores: 4, maxImageWorkers: 1 },
+                balanced: { reserveCores: 2, maxImageWorkers: 1 },
+                high: { reserveCores: 1, maxImageWorkers: 2 },
+            };
+            const runtimeProfile = optimizationPerformance === 'low' || optimizationPerformance === 'high' ? optimizationPerformance : 'balanced';
             if (runId && optimizationController) {
-                const toProcess = imageCacheService.listFilesToOptimize(options);
                 const games = await gameStore.getLibrary();
                 const titleByGameId: Record<string, string> = Object.fromEntries(games.map((g) => [g.id, g.title]));
                 optimizationController.addJobs(
@@ -300,12 +319,36 @@ export function registerGameIPCHandlers(
                         sourceExt: p.file.includes('.') ? p.file.split('.').pop()?.toUpperCase() : undefined,
                     }))
                 );
+
+                const profileLimits = runtimeByProfile[runtimeProfile];
+                const cpuCount = cpus().length || 2;
+                const availableWorkers = Math.max(1, cpuCount - profileLimits.reserveCores);
+                const maxWorkers = Math.max(1, Math.min(profileLimits.maxImageWorkers, availableWorkers));
+                const queuedGames = new Set(toProcess.map((entry) => entry.gameId)).size;
+
+                optimizationController.setRuntimeMetrics({
+                    profile: runtimeProfile,
+                    cpuCount,
+                    reserveCores: profileLimits.reserveCores,
+                    availableWorkers,
+                    maxWorkers,
+                    activeWorkers: toProcess.length > 0 ? maxWorkers : 0,
+                    queuedGames,
+                    allStaticComplete: true,
+                });
             }
-            const optimizationPerformance = (await userPreferencesService?.getPreferences())?.optimizationPerformance;
+
             const result = await imageCacheService.optimizeExistingCache((data) => {
                 if (runId && optimizationController) {
+                    const statusText = (data.status ?? '').toLowerCase();
                     const phase =
-                        data.status === 'ok' ? 'done' : data.status === 'fail' ? 'failed' : 'optimizing';
+                        statusText === 'ok'
+                            ? 'done'
+                            : statusText === 'fail'
+                                ? 'failed'
+                                : statusText.startsWith('skipped')
+                                    ? 'skipped'
+                                    : 'optimizing';
                     optimizationController.updateJob(runId, data.fileName, {
                         phase,
                         fileName: data.fileName,
@@ -319,7 +362,24 @@ export function registerGameIPCHandlers(
                 ...options,
                 optimizationPerformance,
             });
-            if (runId && optimizationController) optimizationController.finishRun(runId);
+            if (runId && optimizationController) {
+                const profileLimits = runtimeByProfile[runtimeProfile];
+                const cpuCount = cpus().length || 2;
+                const availableWorkers = Math.max(1, cpuCount - profileLimits.reserveCores);
+                const maxWorkers = Math.max(1, Math.min(profileLimits.maxImageWorkers, availableWorkers));
+                const queuedGames = new Set(toProcess.map((entry) => entry.gameId)).size;
+                optimizationController.setRuntimeMetrics({
+                    profile: runtimeProfile,
+                    cpuCount,
+                    reserveCores: profileLimits.reserveCores,
+                    availableWorkers,
+                    maxWorkers,
+                    activeWorkers: 0,
+                    queuedGames,
+                    allStaticComplete: true,
+                });
+                optimizationController.finishRun(runId);
+            }
             return { success: true, ...result };
         } catch (error) {
             return { success: false, error: error instanceof Error ? error.message : 'Unknown error', optimized: 0, skipped: 0, failed: 0 };
