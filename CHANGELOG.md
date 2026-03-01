@@ -4,6 +4,11 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.6.10] - 2026-03-01
+
+- Optimization: Fixed Alpha hangs by replacing blocking oversized WebP FFmpeg sweep calls with non-blocking async execution.
+- Optimization: Added strict attempt/time limits to aggressive oversized WebP fallback passes to keep the app responsive.
+
 ## [0.6.9] - 2026-03-01
 
 - Optimization: Added aggressive FFmpeg fallback sweeps (fps/scale/quality) for oversized animated WebP files in `Optimize animated images`.

@@ -6,7 +6,7 @@ import https from 'node:https';
 import http from 'node:http';
 import { URL } from 'node:url';
 import { homedir, tmpdir, cpus } from 'node:os';
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { optimizeInWorker } from './ImageOptimizerWorkerHost.js';
 import { thinWebpFrames } from './thinWebpFrames.js';
 import { debugOptimizationLog, isDebugOptimizationEnabled } from './debugOptimizationLog.js';
@@ -324,15 +324,57 @@ export class ImageCacheService {
       await fsPromises.writeFile(inp, imageData);
       const { path: ffmpegPath } = getFfmpegPath();
       const maxDim = MAX_DIMENSION_BY_TYPE[imageType] ?? DEFAULT_MAX_DIMENSION;
-      const dimensionSteps = [1, 0.85, 0.7, 0.55, 0.45];
-      const fpsSteps = [15, 12, 10, 8, 6, 4];
-      const qualitySteps = [65, 50, 38, 30, 24, 18, 14];
+      const dimensionSteps = [1, 0.8, 0.65];
+      const fpsSteps = [12, 8, 6];
+      const qualitySteps = [55, 40];
+      const maxAttempts = 18;
+      const attemptTimeoutMs = 20000;
       let bestData: Buffer | null = null;
+      let attempts = 0;
+
+      const runFfmpegAttempt = async (args: string[]): Promise<boolean> => {
+        return await new Promise<boolean>((resolve) => {
+          let settled = false;
+          const child = spawn(ffmpegPath, args, {
+            windowsHide: true,
+            stdio: 'ignore',
+          });
+
+          const timer = setTimeout(() => {
+            if (settled) return;
+            settled = true;
+            try {
+              child.kill();
+            } catch {
+              // ignore
+            }
+            resolve(false);
+          }, attemptTimeoutMs);
+
+          child.on('error', () => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timer);
+            resolve(false);
+          });
+
+          child.on('close', (code) => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timer);
+            resolve(code === 0);
+          });
+        });
+      };
 
       for (const dimFactor of dimensionSteps) {
         const targetDim = Math.max(220, Math.floor(maxDim * dimFactor));
         for (const fps of fpsSteps) {
           for (const quality of qualitySteps) {
+            if (attempts >= maxAttempts) {
+              return bestData;
+            }
+            attempts++;
             const vf = `fps=${fps},scale=min(${targetDim},iw):-2:flags=lanczos`;
             const args = [
               '-y',
@@ -347,13 +389,8 @@ export class ImageCacheService {
               outp,
             ];
 
-            const result = spawnSync(ffmpegPath, args, {
-              encoding: 'utf8',
-              timeout: 120000,
-              windowsHide: true,
-            });
-
-            if (result.status !== 0 || !existsSync(outp)) {
+            const ok = await runFfmpegAttempt(args);
+            if (!ok || !existsSync(outp)) {
               continue;
             }
 
