@@ -4,6 +4,13 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.6.13] - 2026-03-02
+
+- Startup: Keep the small startup scan overlay and only open Add Games when new games are actually found or the user chooses to review them.
+- Dev tools: Add a Develop menu with initial update and scan checks to quickly test the startup and update flows in local development.
+- Updates: Add a spinning update icon and a Close button to the update-available dialog so failed downloads can be dismissed cleanly.
+- Library scan: Treat games with matching install folders as duplicates and ignore helper executables like RapidCRC when detecting new games.
+
 ## [0.6.12] - 2026-03-01
 
 - Launcher: Per-game launch arguments (e.g. `-savetouserdir`); editable in Game Manager and game properties.
