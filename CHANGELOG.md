@@ -4,6 +4,10 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.6.25] - 2026-03-02
+
+- CI: Harden workflow dependency installs with npm fetch retry settings and retry/backoff loops to reduce transient network TLS/download failures.
+
 ## [0.6.24] - 2026-03-02
 
 - Packaging: Move `sharp` to runtime dependencies so packaged Alpha/Release builds can load optimizer worker image processing modules.
