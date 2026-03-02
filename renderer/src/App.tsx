@@ -723,11 +723,18 @@ function App() {
       }
     };
 
-    // Listen for new games found from background scan (all sources)
+    // Listen for new games found from background scan (all sources) – opens importer
     const backgroundNewGamesHandler = (_event: any, data: { count: number; games: Array<any>; bySource?: Record<string, Array<any>> }) => {
       console.log('[App] Background scan found new games:', data);
-      if (data.games && data.games.length > 0) {
+      if (Array.isArray(data.games) && data.games.length > 0) {
         handleOpenImporterWithGames(data.games);
+      }
+    };
+
+    // Startup scan new games: show in overlay only (user clicks "Review in Importer"); do not auto-open importer
+    const startupNewGamesHandler = (_event: any, data: { count?: number; games?: Array<any> }) => {
+      if (Array.isArray(data.games) && data.games.length > 0) {
+        setFoundGames(data.games);
       }
     };
 
@@ -765,6 +772,7 @@ function App() {
 
     const removeSteamNewGames = window.electronAPI?.on && window.electronAPI.on('steam:newGamesFound', newGamesHandler);
     const removeBackgroundNewGames = window.electronAPI?.on && window.electronAPI.on('background:newGamesFound', backgroundNewGamesHandler);
+    const removeStartupNewGames = window.electronAPI?.on && window.electronAPI.on('startup:newGamesFound', startupNewGamesHandler);
     const removeStartupProgress = window.electronAPI?.on && window.electronAPI.on('startup:progress', startupProgressHandler);
     const removeMissingGames = window.electronAPI?.on && window.electronAPI.on('scan:missing-games', missingGamesHandler);
 
@@ -802,6 +810,7 @@ function App() {
       cleanup5();
       if (typeof removeSteamNewGames === 'function') removeSteamNewGames();
       if (typeof removeBackgroundNewGames === 'function') removeBackgroundNewGames();
+      if (typeof removeStartupNewGames === 'function') removeStartupNewGames();
       if (typeof removeStartupProgress === 'function') removeStartupProgress();
       if (typeof removeMissingGames === 'function') removeMissingGames();
       if (typeof removeUpdateStatus === 'function') removeUpdateStatus();
@@ -1885,6 +1894,13 @@ function App() {
           onScanFolder={handleScanFolder}
           onUpdateSteamLibrary={handleUpdateSteamLibrary}
           onUpdateLibrary={handleUpdateSteamLibrary}
+          onDevelopUpdateCheck={import.meta.env.DEV ? async () => {
+            const v = await window.electronAPI.getVersion?.();
+            setCurrentVersion((c) => c ?? v ?? '0.0.0');
+            setUpdateNotification({ version: '99.0.0 (test)', status: 'available' });
+            setIsUpdateModalTest(true);
+          } : undefined}
+          onDevelopScanCheck={import.meta.env.DEV ? async () => { setStartupProgress({ message: 'Checking for new games...' }); try { await window.electronAPI.runStartupScan?.(); } finally { setTimeout(() => setStartupProgress(null), 800); } } : undefined}
           onGameManager={() => setIsGameManagerOpen(true)}
           onConfigureSteam={() => setIsSteamConfigOpen(true)}
           onOnyxSettings={() => {

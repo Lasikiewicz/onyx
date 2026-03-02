@@ -1,4 +1,5 @@
 import { BrowserWindow, ipcMain } from 'electron';
+import { dirname } from 'node:path';
 import { GameStore } from '../GameStore.js';
 import { AppConfigService } from '../AppConfigService.js';
 import { ImportService } from '../ImportService.js';
@@ -17,7 +18,7 @@ export function registerScanningHandlers(
     metadataFetcher: MetadataFetcherService,
     imageCacheService: ImageCacheService
 ) {
-    const performBackgroundScan = async (skipEnabledCheck: boolean = false) => {
+    const performBackgroundScan = async (skipEnabledCheck: boolean = false, fromStartup: boolean = false) => {
         try {
             if (!skipEnabledCheck) {
                 const enabled = await appConfigService.getBackgroundScanEnabled();
@@ -49,6 +50,16 @@ export function registerScanningHandlers(
                         .filter((path): path is string => !!path)
                         .map(path => path.toLowerCase().replace(/\\/g, '/').trim())
                 );
+                const normalizeDir = (p: string) =>
+                    p.toLowerCase().replace(/\\/g, '/').trim().replace(/\/+$/, '');
+                const existingInstallDirs = new Set(
+                    existingLibrary
+                        .map(g => {
+                            const dir = g.installationDirectory || (g.exePath ? dirname(g.exePath) : '');
+                            return dir ? normalizeDir(dir) : '';
+                        })
+                        .filter(Boolean)
+                );
 
                 const newGames = scannedResults.filter(g => {
                     if (g.source === 'steam' && g.appId) {
@@ -58,13 +69,16 @@ export function registerScanningHandlers(
                         const normalized = g.exePath.toLowerCase().replace(/\\/g, '/').trim();
                         if (existingExePaths.has(normalized)) return false;
                     }
+                    const scannedInstallDir = normalizeDir(g.installPath || (g.exePath ? dirname(g.exePath) : ''));
+                    if (scannedInstallDir && existingInstallDirs.has(scannedInstallDir)) return false;
                     return true;
                 });
 
                 if (newGames.length > 0) {
                     console.log(`[BackgroundScan] Found ${newGames.length} new games to import`);
                     if (winReference.current && !winReference.current.isDestroyed()) {
-                        winReference.current.webContents.send('background:newGamesFound', {
+                        const channel = fromStartup ? 'startup:newGamesFound' : 'background:newGamesFound';
+                        winReference.current.webContents.send(channel, {
                             count: newGames.length,
                             games: newGames
                         });

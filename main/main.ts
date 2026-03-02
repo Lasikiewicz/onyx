@@ -1936,6 +1936,14 @@ app.whenReady().then(async () => {
     }
   });
 
+  // Develop menu: run the same quick scan as "Update Libraries on Startup" (shows small popup)
+  ipcMain.handle('startup:run-scan', async () => {
+    await performBackgroundScan(true);
+    if (win && !win.isDestroyed()) {
+      win.webContents.send('startup:progress', { message: 'Scan complete' });
+    }
+  });
+
   // Define the startup sequence function
   const runStartupSequence = async () => {
     console.log('[Startup] Starting sequence...');
@@ -2004,8 +2012,7 @@ app.whenReady().then(async () => {
           win.webContents.send('startup:progress', { message: 'Checking for new games...' });
         }
 
-        // Use the built-in background scan mechanism which handled notifications
-        await performBackgroundScan(true);
+        await performBackgroundScan(true, true);
 
         if (win && !win.isDestroyed()) {
           win.webContents.send('startup:progress', { message: 'Scan complete' });

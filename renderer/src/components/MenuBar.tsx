@@ -33,6 +33,10 @@ interface MenuBarProps {
   onShowLibraryTutorial?: () => void;
   onExit?: () => void;
   onBugReport?: () => void;
+  /** Development only: trigger update check (opens update found modal if available) */
+  onDevelopUpdateCheck?: () => void;
+  /** Development only: run quick scan for new/removed games (small popup) */
+  onDevelopScanCheck?: () => void;
   searchQuery?: string;
   onSearchChange?: (query: string) => void;
   selectedCategory?: string | null;
@@ -147,11 +151,15 @@ export const MenuBar: React.FC<MenuBarProps> = ({
   onShowLibraryTutorial,
   onExit,
   onBugReport,
+  onDevelopUpdateCheck,
+  onDevelopScanCheck,
 }) => {
   const [isFilterDropdownOpen, setIsFilterDropdownOpen] = useState(false);
   const [isSortDropdownOpen, setIsSortDropdownOpen] = useState(false);
   const [isLauncherDropdownOpen, setIsLauncherDropdownOpen] = useState(false);
   const [isOnyxSettingsMenuOpen, setIsOnyxSettingsMenuOpen] = useState(false);
+  const [isDevelopMenuOpen, setIsDevelopMenuOpen] = useState(false);
+  const developMenuRef = useRef<HTMLDivElement>(null);
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [topBarContextMenu, setTopBarContextMenu] = useState<{ x: number; y: number } | null>(null);
   const [categorySearchQuery, setCategorySearchQuery] = useState('');
@@ -249,6 +257,18 @@ export const MenuBar: React.FC<MenuBarProps> = ({
     const completedEl = completedLogRef.current;
     if (completedEl) completedEl.scrollTop = 0;
   }, [optimizationStatus?.jobs, showImageQueueDetail]);
+
+  // Close Develop menu on click outside
+  useEffect(() => {
+    if (!isDevelopMenuOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (developMenuRef.current && !developMenuRef.current.contains(e.target as Node)) {
+        setIsDevelopMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isDevelopMenuOpen]);
 
   // Create element renderers for configurable items
   const renderSearchBar = () => (
@@ -970,6 +990,56 @@ export const MenuBar: React.FC<MenuBarProps> = ({
                 })()}
               </span>
             </button>
+          )}
+          {/* Develop menu (local development only) - top right */}
+          {import.meta.env.DEV && (onDevelopUpdateCheck || onDevelopScanCheck) && (
+            <div className="relative" ref={developMenuRef}>
+              <button
+                type="button"
+                onClick={() => setIsDevelopMenuOpen((prev) => !prev)}
+                className="px-2 py-1 rounded text-xs font-medium bg-gray-700/40 text-gray-300 hover:bg-gray-700/60 hover:text-white border border-gray-600/40 transition-colors"
+                title="Development menu"
+              >
+                Develop
+              </button>
+              {isDevelopMenuOpen && (
+                <div
+                  className="absolute right-0 top-full mt-1 py-1 min-w-[200px] bg-gray-800 border border-gray-700 rounded-lg shadow-xl z-50"
+                  style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+                >
+                  {onDevelopUpdateCheck && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onDevelopUpdateCheck();
+                        setIsDevelopMenuOpen(false);
+                      }}
+                      className="w-full flex items-center gap-2 px-4 py-2 text-left text-gray-200 hover:bg-gray-700 rounded-none first:rounded-t-lg last:rounded-b-lg transition-colors"
+                    >
+                      <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                      <span>Initial update check</span>
+                    </button>
+                  )}
+                  {onDevelopScanCheck && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onDevelopScanCheck();
+                        setIsDevelopMenuOpen(false);
+                      }}
+                      className="w-full flex items-center gap-2 px-4 py-2 text-left text-gray-200 hover:bg-gray-700 rounded-none last:rounded-b-lg transition-colors"
+                    >
+                      <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                      </svg>
+                      <span>Initial scan check</span>
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
           )}
           {/* Console toggle (development mode only) - top right */}
           {import.meta.env.DEV && (

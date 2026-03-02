@@ -99,9 +99,14 @@ export const UpdateNotificationModal: React.FC<UpdateNotificationModalProps> = (
       <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
         <div className={`bg-gradient-to-br from-gray-900/95 to-slate-950/95 backdrop-blur-xl border border-cyan-500/40 rounded-3xl shadow-2xl w-full ${showChangelog ? 'max-w-4xl' : 'max-w-md'} p-8 animate-in fade-in zoom-in duration-300`}>
           <div className="flex flex-col items-center gap-6">
-            {/* Icon */}
+            {/* Icon - spinning when update available or downloading */}
             <div className="w-16 h-16 rounded-full bg-cyan-500/20 flex items-center justify-center">
-              <svg className="w-8 h-8 text-cyan-400 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg
+                className={`w-8 h-8 text-cyan-400 ${status === 'available' || status === 'downloading' || isDownloading ? 'animate-[spin_2s_linear_infinite]' : ''}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </svg>
             </div>
@@ -214,6 +219,15 @@ export const UpdateNotificationModal: React.FC<UpdateNotificationModalProps> = (
                     Install Later
                   </button>
                 </>
+              )}
+
+              {status === 'error' && (
+                <button
+                  onClick={onDismiss}
+                  className="w-full px-6 py-3 rounded-lg bg-slate-700/50 hover:bg-slate-600/50 text-slate-200 font-medium transition-colors border border-slate-600/50"
+                >
+                  Close
+                </button>
               )}
             </div>
           </div>

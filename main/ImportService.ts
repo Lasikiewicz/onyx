@@ -819,6 +819,7 @@ export class ImportService {
       'unins000.exe',
       'autorun.exe',
       'vc_redist.x64.exe',
+      'rapidcrc.exe',
       'gamelaunchhelper',
       'bootstrapper',
       'crashreportclient',
@@ -831,6 +832,7 @@ export class ImportService {
       'unins000',
       'autorun',
       'vc_redist.x64',
+      'rapidcrc',
     ];
 
     try {

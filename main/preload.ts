@@ -92,6 +92,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
       'steam:newGamesFound',
       'background:newGamesFound',
       'startup:progress',
+      'startup:newGamesFound',
       'scan:missing-games',
       'metadata:refreshProgress',
       'gameStore:libraryUpdated',
@@ -183,6 +184,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Import service methods
   cancelScanAllSources: () => ipcRenderer.invoke('import:cancelScan'),
   cancelStartupScan: () => ipcRenderer.invoke('startup:cancel-scan'),
+  runStartupScan: () => ipcRenderer.invoke('startup:run-scan'),
   scanAllSources: () => ipcRenderer.invoke('import:scanAllSources'),
   // Crash dumps (after a previous run crashed)
   saveCrashDumps: () => ipcRenderer.invoke('crash:saveDumps'),
