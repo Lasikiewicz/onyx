@@ -4,6 +4,10 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.6.21] - 2026-03-02
+
+- Build: Fix `MenuBar` prop mismatch in `App.tsx` by removing stale development-only props, resolving TypeScript build failure on CI.
+
 ## [0.6.20] - 2026-03-02
 
 - Optimization report: Add `Download logs` action in the background image optimization modal so diagnostic export is available in packaged builds.

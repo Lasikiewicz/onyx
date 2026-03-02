@@ -1894,13 +1894,6 @@ function App() {
           onScanFolder={handleScanFolder}
           onUpdateSteamLibrary={handleUpdateSteamLibrary}
           onUpdateLibrary={handleUpdateSteamLibrary}
-          onDevelopUpdateCheck={import.meta.env.DEV ? async () => {
-            const v = await window.electronAPI.getVersion?.();
-            setCurrentVersion((c) => c ?? v ?? '0.0.0');
-            setUpdateNotification({ version: '99.0.0 (test)', status: 'available' });
-            setIsUpdateModalTest(true);
-          } : undefined}
-          onDevelopScanCheck={import.meta.env.DEV ? async () => { setStartupProgress({ message: 'Checking for new games...' }); try { await window.electronAPI.runStartupScan?.(); } finally { setTimeout(() => setStartupProgress(null), 800); } } : undefined}
           onGameManager={() => setIsGameManagerOpen(true)}
           onConfigureSteam={() => setIsSteamConfigOpen(true)}
           onOnyxSettings={() => {
