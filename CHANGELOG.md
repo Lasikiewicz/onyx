@@ -4,6 +4,11 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.6.26] - 2026-03-02
+
+- Packaging: Unpack `detect-libc` and `@img` sharp runtime modules so packaged optimizer workers can resolve sharp dependency chain.
+- Optimization (Alpha/Release): Fix worker fallback path that kept originals when sharp dependency resolution failed in packaged builds.
+
 ## [0.6.25] - 2026-03-02
 
 - CI: Harden workflow dependency installs with npm fetch retry settings and retry/backoff loops to reduce transient network TLS/download failures.
