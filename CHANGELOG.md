@@ -4,6 +4,11 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.6.17] - 2026-03-02
+
+- Alpha: Show Download logs in optimization report when main reports alpha (getDiagnostics.isAlpha) so the button appears in packaged Alpha build.
+- UI: Show ALPHA badge only on packaged Alpha build; hide it in local develop.
+
 ## [0.6.16] - 2026-03-02
 
 - Alpha: Show Download logs button when app name includes “Alpha” (fallback if getAppProfile unavailable).
