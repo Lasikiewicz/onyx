@@ -499,7 +499,7 @@ export class ImageCacheService {
     try {
       await fsPromises.writeFile(inp, imageData);
       const { path: ffmpegPath } = getFfmpegPath();
-      const scale = `scale=min(${maxDim},iw):-2`;
+      const scale = `scale=${maxDim}:-2:force_original_aspect_ratio=decrease`;
       const vf = `fps=${ANIMATED_MAX_FPS},${scale}`;
       const quality =
         imageType === 'banner' || imageType === 'alternativeBanner' || imageType === 'hero'

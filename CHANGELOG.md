@@ -4,6 +4,11 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.6.28] - 2026-03-02
+
+- Optimization (Alpha): Fix animated FFmpeg fallback filtergraph by replacing malformed `scale=min(...,iw):-2` expression with a safe `force_original_aspect_ratio=decrease` scale filter.
+- Optimization diagnostics: Preserve FFmpeg args/exit telemetry so future filter/codec failures are directly visible in exported logs.
+
 ## [0.6.27] - 2026-03-02
 
 - Optimization diagnostics: Add startup preflight and runtime probes for worker path/availability and sharp dependency resolution chain (`sharp`, `semver`, `detect-libc`, platform `@img` package).
