@@ -4,6 +4,11 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.6.14] - 2026-03-02
+
+- Update modal: Constrain height and scroll so long changelogs do not push Install Now off screen.
+- Develop/Alpha: Add Download logs button to optimization report to capture FFmpeg path, worker availability, and full status for debugging.
+
 ## [0.6.13] - 2026-03-02
 
 - Startup: Keep the small startup scan overlay and only open Add Games when new games are actually found or the user chooses to review them.
