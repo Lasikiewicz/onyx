@@ -298,8 +298,9 @@ export class ImageCacheService {
         imageType === 'banner' || imageType === 'alternativeBanner' || imageType === 'hero'
           ? WEBP_ANIMATED_QUALITY_BACKGROUND
           : WEBP_ANIMATED_QUALITY;
-      // Allow higher input pixel ceiling for animated WebP so oversized sources can still be downscaled.
-      const limitInputPixels = ANIMATED_WEBP_LIMIT_INPUT_PIXELS;
+      // Use no explicit pixel cap here; this path is used as the robust local-style fallback
+      // when worker and/or FFmpeg cannot handle animated WebP sources.
+      const limitInputPixels = false;
       const out = await sharp(imageData, { animated: true, pages: -1, limitInputPixels })
         .resize(maxDim, maxDim, { fit: 'inside', withoutEnlargement: true })
         .webp({ quality, effort: 4 })
@@ -308,7 +309,6 @@ export class ImageCacheService {
       // const thinned = await thinWebpFrames(sharp as Parameters<typeof thinWebpFrames>[0], out, ANIMATED_TARGET_FPS, quality);
       // if (thinned != null && thinned.length < out.length) out = thinned;
       if (out.length >= imageData.length) return null;
-      if (out.length < imageData.length * 0.15) return null;
       return out;
     } catch {
       return null;
@@ -617,22 +617,17 @@ export class ImageCacheService {
           }
         }
 
-          const ffmpegResized = await this.resizeAnimatedWithFfmpeg(imageData, '.webp', imageType);
-          attemptSummary.ffmpeg = ffmpegResized.attempt;
-          if (ffmpegResized.data != null) {
-            if (isDebugOptimizationEnabled()) {
-              debugOptimizationLog(`optimizeImage animated webp ffmpeg fallback success outBytes=${ffmpegResized.data.length}`);
-            }
-            if (bestData == null || ffmpegResized.data.length < bestData.length) {
-              bestData = ffmpegResized.data;
-              bestPath = 'ffmpeg';
-            }
-          }
-
           const sharpStartedAtMs = Date.now();
           try {
             attemptSummary.sharp = { attempted: true, startedAtMs: sharpStartedAtMs };
-            const sharpResized = await this.resizeAnimatedWebpWithSharp(imageData, imageType);
+            let sharpResized = await this.resizeAnimatedWebpWithSharp(imageData, imageType);
+            if (sharpResized == null && imageData.length >= OPTIMIZE_EXISTING_SKIP_OVER_BYTES) {
+              sharpResized = await this.aggressivelyRecompressOversizedWebp(
+                imageData,
+                imageType,
+                FORCED_OVERSIZED_WEBP_TARGET_BYTES
+              );
+            }
             attemptSummary.sharp.finishedAtMs = Date.now();
             attemptSummary.sharp.durationMs = attemptSummary.sharp.finishedAtMs - sharpStartedAtMs;
             if (sharpResized != null) {
@@ -658,6 +653,18 @@ export class ImageCacheService {
               error: sharpError instanceof Error ? sharpError.message : String(sharpError),
               failureCategory: classifyErrorMessage(sharpError),
             };
+          }
+
+          const ffmpegResized = await this.resizeAnimatedWithFfmpeg(imageData, '.webp', imageType);
+          attemptSummary.ffmpeg = ffmpegResized.attempt;
+          if (ffmpegResized.data != null) {
+            if (isDebugOptimizationEnabled()) {
+              debugOptimizationLog(`optimizeImage animated webp ffmpeg fallback success outBytes=${ffmpegResized.data.length}`);
+            }
+            if (bestData == null || ffmpegResized.data.length < bestData.length) {
+              bestData = ffmpegResized.data;
+              bestPath = 'ffmpeg';
+            }
           }
 
           if (bestData != null && bestData.length < imageData.length) {

@@ -4,6 +4,11 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.6.29] - 2026-03-02
+
+- Optimization (Alpha): Use the local-working animated WebP fallback strategy by prioritizing Sharp recompression before FFmpeg when worker optimization is insufficient.
+- Optimization (Animated WebP): Remove restrictive Sharp pixel/output guards for fallback and add aggressive Sharp recompress fallback for oversized files.
+
 ## [0.6.28] - 2026-03-02
 
 - Optimization (Alpha): Fix animated FFmpeg fallback filtergraph by replacing malformed `scale=min(...,iw):-2` expression with a safe `force_original_aspect_ratio=decrease` scale filter.
