@@ -427,6 +427,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
         }}
         className="px-3 py-1.5 bg-gray-700/20 hover:bg-gray-700/40 border border-gray-600/30 rounded text-sm text-gray-300 hover:text-white transition-colors"
         title="Sort by"
+        aria-label="Sort by options"
       >
         Sort by
       </button>
@@ -472,6 +473,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
             : 'text-gray-300 hover:text-white'
             }`}
           title="Launcher"
+          aria-label="Filter by Launcher options"
         >
           {selectedLauncher
             ? (selectedLauncher === 'steam' ? 'Steam' :
@@ -557,6 +559,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
             : 'text-gray-300 hover:text-white'
             }`}
           title="Categories"
+          aria-label="Filter by categories"
         >
           <svg className="w-4 h-4 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 12h.01M7 17h.01M17 7h.01M17 12h.01M17 17h.01M12 7h.01M12 12h.01M12 17h.01" />
@@ -842,6 +845,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
               }}
               className="group p-1.5 hover:bg-gray-700/40 rounded transition-colors flex items-center justify-center"
               title="Onyx Settings"
+              aria-label="Onyx Settings menu"
             >
               <svg className="w-6 h-6 hover:animate-wobble group-hover:animate-wobble"
                 viewBox="0 0 512 512"
@@ -1041,6 +1045,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
               : 'bg-gray-700/20 text-gray-300 hover:bg-gray-700/40 hover:text-white border border-gray-600/30'
               }`}
             title="Favorites"
+            aria-label="Toggle favorites filter"
           >
             <svg className="w-4 h-4 text-yellow-400 group- hover:animate-gentle-bounce group-hover:animate-gentle-bounce" fill="currentColor" viewBox="0 0 24 24">
               <path d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363 1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
@@ -1116,6 +1121,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
               }}
               className="p-1.5 hover:bg-gray-700/40 rounded transition-colors flex items-center justify-center"
               title="Toggle Console"
+              aria-label="Toggle Developer Console"
             >
               <svg className="w-4 h-4 text-gray-300 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -1128,6 +1134,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
               onClick={() => onBugReport()}
               className="p-1.5 hover:bg-gray-700/40 rounded transition-colors flex items-center justify-center"
               title="Report a Bug"
+              aria-label="Report a Bug"
             >
               <svg className="w-4 h-4 text-yellow-400 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
@@ -1195,6 +1202,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
                   type="button"
                   onClick={() => setShowImageQueueDetail(false)}
                   className="p-1 rounded hover:bg-gray-700 text-gray-400 hover:text-white"
+                  aria-label="Close background image optimization detail menu"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
