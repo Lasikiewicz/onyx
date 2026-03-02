@@ -4,6 +4,10 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.6.16] - 2026-03-02
+
+- Alpha: Show Download logs button when app name includes “Alpha” (fallback if getAppProfile unavailable).
+
 ## [0.6.15] - 2026-03-02
 
 - Alpha: Fix Download logs button not showing in optimization report by detecting alpha at runtime (app:getAppProfile) so it appears when running OnyxAlpha.exe.
