@@ -173,13 +173,118 @@ export const MenuBar: React.FC<MenuBarProps> = ({
     try {
       const appName = await window.electronAPI.getName().catch(() => 'Onyx');
       const appVersion = await window.electronAPI.getVersion().catch(() => 'unknown');
+      const appProfile = await (window.electronAPI.getAppProfile?.() ?? Promise.resolve(undefined)).catch(() => undefined);
+      const diagnostics = await (window.electronAPI.optimization?.getDiagnostics?.() ?? Promise.resolve(undefined)).catch(() => undefined);
       const timestamp = new Date();
       const safeTimestamp = timestamp.toISOString().replace(/[:.]/g, '-');
+      const jobs = optimizationStatus.jobs ?? [];
+      const reductionPercents: number[] = [];
+      const errors = new Map<string, number>();
+
+      const perJobDecision = jobs.map((job) => {
+        const originalBytes = job.originalBytes;
+        const optimizedBytes = job.optimizedBytes;
+        const hasSizes = typeof originalBytes === 'number' && typeof optimizedBytes === 'number' && originalBytes > 0;
+        const reductionPercent = hasSizes ? Number((((originalBytes - optimizedBytes) / originalBytes) * 100).toFixed(2)) : null;
+        if (typeof reductionPercent === 'number') reductionPercents.push(reductionPercent);
+
+        let decision = 'unknown';
+        if (job.phase === 'failed') decision = 'failed';
+        else if (job.phase === 'skipped') decision = job.error?.toLowerCase().includes('cached') ? 'skipped_cached' : 'skipped';
+        else if (hasSizes && optimizedBytes < originalBytes) decision = 'optimized';
+        else if (hasSizes && optimizedBytes === originalBytes) decision = 'no_gain_kept_original';
+        else if (hasSizes && optimizedBytes > originalBytes) decision = 'larger_result_rejected';
+        else if (job.phase === 'done') decision = 'done_missing_size_metrics';
+
+        if (job.error) {
+          errors.set(job.error, (errors.get(job.error) ?? 0) + 1);
+        }
+
+        return {
+          jobId: job.jobId,
+          gameId: job.gameId,
+          gameTitle: job.gameTitle,
+          imageType: job.imageType,
+          source: job.source,
+          phase: job.phase,
+          sourceExt: job.sourceExt,
+          fileName: job.fileName,
+          originalBytes,
+          optimizedBytes,
+          reductionPercent,
+          decision,
+          error: job.error ?? null,
+          attempts: null,
+          attemptNote: 'Per-stage worker/ffmpeg/sharp attempt metrics are not captured per job in current status payload.',
+          timingsMs: null,
+        };
+      });
+
+      const sortedReductions = [...reductionPercents].sort((a, b) => a - b);
+      const avgReductionPercent = reductionPercents.length > 0
+        ? Number((reductionPercents.reduce((sum, value) => sum + value, 0) / reductionPercents.length).toFixed(2))
+        : null;
+      const medianReductionPercent = sortedReductions.length > 0
+        ? Number((sortedReductions[Math.floor(sortedReductions.length / 2)]).toFixed(2))
+        : null;
+      const optimizedCount = perJobDecision.filter((j) => j.decision === 'optimized').length;
+      const noGainCount = perJobDecision.filter((j) => j.decision === 'no_gain_kept_original').length;
+      const failedCount = perJobDecision.filter((j) => j.decision === 'failed').length;
+      const skippedCachedCount = perJobDecision.filter((j) => j.decision === 'skipped_cached').length;
+      const skippedOtherCount = perJobDecision.filter((j) => j.decision === 'skipped').length;
+      const unknownCount = perJobDecision.filter((j) => j.decision === 'unknown' || j.decision === 'done_missing_size_metrics').length;
+
+      const notes: string[] = [];
+      if (!diagnostics) {
+        notes.push('This JSON does not include worker/ffmpeg diagnostics, so it can’t prove whether alpha has worker/ffmpeg capability differences vs local dev.');
+      }
+      notes.push('Per-stage optimization attempt and timing metrics are included only when available; current importer status may not expose per-stage internals.');
+
+      const errorDigest = Array.from(errors.entries())
+        .sort((a, b) => b[1] - a[1])
+        .map(([message, count]) => ({ message, count }));
+
       const report = {
+        reportVersion: 2,
         generatedAt: timestamp.toISOString(),
         appName,
         appVersion,
+        appProfile,
         buildProfile: __BUILD_PROFILE__,
+        diagnostics: diagnostics ?? null,
+        environment: {
+          isPackaged: diagnostics?.isPackaged ?? null,
+          platform: diagnostics?.platform ?? null,
+          arch: diagnostics?.arch ?? null,
+          execPath: diagnostics?.execPath ?? null,
+          workerAvailable: diagnostics?.workerAvailable ?? null,
+          ffmpeg: diagnostics?.ffmpeg ?? null,
+          runtime: optimizationStatus.runtime ?? null,
+        },
+        settingsSnapshot: {
+          profile: optimizationStatus.runtime?.profile ?? null,
+          reserveCores: optimizationStatus.runtime?.reserveCores ?? null,
+          maxWorkers: optimizationStatus.runtime?.maxWorkers ?? null,
+        },
+        summary: {
+          totalJobs: jobs.length,
+          optimizedCount,
+          noGainKeptOriginalCount: noGainCount,
+          failedCount,
+          skippedCachedCount,
+          skippedOtherCount,
+          unknownCount,
+          avgReductionPercent,
+          medianReductionPercent,
+        },
+        cacheBehavior: {
+          skippedCachedCount,
+          skippedOtherCount,
+          completedCount: perJobDecision.filter((j) => j.phase === 'done').length,
+        },
+        errorDigest,
+        notes,
+        perJobDecision,
         status: optimizationStatus,
       };
       const content = `${JSON.stringify(report, null, 2)}\n`;

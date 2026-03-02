@@ -4,6 +4,11 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.6.22] - 2026-03-02
+
+- Optimization report: Upgrade exported diagnostics log to `reportVersion: 2` with summary metrics, per-job decision labels, cache/error digest, and environment snapshot.
+- Optimization report: Include worker/FFmpeg diagnostics payload when available and keep an explicit note when those diagnostics are missing.
+
 ## [0.6.21] - 2026-03-02
 
 - Build: Fix `MenuBar` prop mismatch in `App.tsx` by removing stale development-only props, resolving TypeScript build failure on CI.
