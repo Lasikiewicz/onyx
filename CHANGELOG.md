@@ -4,6 +4,10 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.6.18] - 2026-03-02
+
+- Optimization report: Show Download logs button in all builds (dev, Alpha, production) for diagnostics.
+
 ## [0.6.17] - 2026-03-02
 
 - Alpha: Show Download logs in optimization report when main reports alpha (getDiagnostics.isAlpha) so the button appears in packaged Alpha build.
