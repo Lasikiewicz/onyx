@@ -52,6 +52,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // External
   openExternal: (url: string) => ipcRenderer.invoke('app:openExternal', url),
+  getAppProfile: () => ipcRenderer.invoke('app:getAppProfile') as Promise<'alpha' | 'production'>,
   setIGDBConfig: (config: { clientId: string; accessToken: string }) => ipcRenderer.invoke('metadata:setIGDBConfig', config),
   setMockMode: (enabled: boolean) => ipcRenderer.invoke('metadata:setMockMode', enabled),
   searchMetadata: (gameTitle: string) => ipcRenderer.invoke('metadata:searchMetadata', gameTitle),
@@ -140,6 +141,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   optimization: {
     getStatus: () => ipcRenderer.invoke('optimization:getStatus'),
     clearStatus: () => ipcRenderer.invoke('optimization:clearStatus'),
+    getDiagnostics: () => ipcRenderer.invoke('optimization:getDiagnostics'),
     onStatus: (callback: (status: any) => void) => {
       const handler = (_event: any, status: any) => callback(status);
       ipcRenderer.on('optimization:status', handler);

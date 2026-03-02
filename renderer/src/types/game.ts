@@ -294,6 +294,19 @@ declare global {
       optimization?: {
         getStatus: () => Promise<import('./optimization').OptimizationStatus>;
         clearStatus: () => Promise<{ success: boolean; error?: string }>;
+        getDiagnostics?: () => Promise<{
+          ffmpeg: { path: string; available: boolean; source: 'bundled' | 'system' | null };
+          workerAvailable: boolean;
+          appPath: string;
+          isPackaged: boolean;
+          execPath: string;
+          platform: string;
+          arch: string;
+          nodeVersion: string;
+          versions: NodeJS.ProcessVersions;
+          cacheDir: string;
+          isAlpha?: boolean;
+        }>;
         onStatus: (callback: (status: import('./optimization').OptimizationStatus) => void) => () => void;
       };
       optimizeGames: (options?: { gameIds?: string[]; allGames?: boolean }) => Promise<{ success: boolean; queuedGames: number; queuedImages: number; error?: string }>;
@@ -344,6 +357,7 @@ declare global {
       applySystemTraySettings: (settings: { showSystemTrayIcon: boolean; minimizeToTray: boolean }) => Promise<{ success: boolean; error?: string }>;
       applyStartupSettings: (settings: { startWithComputer: boolean; startMinimized: boolean; startClosedToTray: boolean }) => Promise<{ success: boolean; error?: string }>;
       openExternal: (url: string) => Promise<{ success: boolean; error?: string }>;
+      getAppProfile?: () => Promise<'alpha' | 'production'>;
       getAPICredentials: () => Promise<{ igdbClientId?: string; igdbClientSecret?: string; steamGridDBApiKey?: string; rawgApiKey?: string; giantBombApiKey?: string }>;
       saveAPICredentials: (credentials: { igdbClientId?: string; igdbClientSecret?: string; steamGridDBApiKey?: string; rawgApiKey?: string; giantBombApiKey?: string }) => Promise<{ success: boolean; error?: string }>;
       detectLaunchers: () => Promise<Array<{ id: string; name: string; path: string; detected: boolean; detectionMethod: 'registry' | 'path' | 'none' }>>;

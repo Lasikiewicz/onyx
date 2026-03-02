@@ -1315,4 +1315,17 @@ export class ImageCacheService {
       return { available: false, source: null };
     }
   }
+
+  /**
+   * Full FFmpeg diagnostics for optimization debug logs (path, availability, source).
+   */
+  static getFfmpegDiagnostics(): { path: string; available: boolean; source: 'bundled' | 'system' | null } {
+    try {
+      const { path: ffmpegPath, source } = getFfmpegPath();
+      const result = spawnSync(ffmpegPath, ['-version'], { encoding: 'utf8', timeout: 5000, windowsHide: true });
+      return { path: ffmpegPath, available: result.status === 0, source };
+    } catch {
+      return { path: 'ffmpeg', available: false, source: null };
+    }
+  }
 }

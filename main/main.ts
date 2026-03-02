@@ -119,6 +119,7 @@ import { TrayService } from './ui/tray.js';
 import { withTimeout } from './RetryUtils.js';
 import { initAppUpdateService, checkForUpdates, addUpdateStatusListener } from './AppUpdateService.js';
 import { createImageOptimizationQueue } from './ImageOptimizationQueue.js';
+import { isWorkerAvailable } from './ImageOptimizerWorkerHost.js';
 import {
   onStatusChange as onOptimizationStatusChange,
   getStatus as getOptimizationStatus,
@@ -340,6 +341,23 @@ ipcMain.handle('optimization:getStatus', () => getOptimizationStatus());
 ipcMain.handle('optimization:clearStatus', () => {
   clearOptimizationStatus();
   return { success: true };
+});
+
+ipcMain.handle('optimization:getDiagnostics', async () => {
+  const ffmpeg = ImageCacheService.getFfmpegDiagnostics();
+  return {
+    ffmpeg: { path: ffmpeg.path, available: ffmpeg.available, source: ffmpeg.source },
+    workerAvailable: isWorkerAvailable(),
+    appPath: app.getAppPath(),
+    isPackaged: app.isPackaged,
+    execPath: process.execPath,
+    platform: process.platform,
+    arch: process.arch,
+    nodeVersion: process.version,
+    versions: process.versions,
+    cacheDir: imageCacheService.getCacheDir(),
+    isAlpha: IS_ALPHA,
+  };
 });
 
 // Crash dump: offer to save on next launch after a crash

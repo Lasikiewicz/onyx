@@ -384,6 +384,12 @@ export function registerAppIPCHandlers(
     // App Info Handlers
     ipcMain.handle('app:getVersion', () => app.getVersion());
     ipcMain.handle('app:getName', () => app.getName());
+    ipcMain.handle('app:getAppProfile', () => {
+        const isAlpha = app.isPackaged
+            ? process.execPath.toLowerCase().includes('onyxalpha')
+            : process.env.BUILD_PROFILE === 'alpha';
+        return isAlpha ? 'alpha' : 'production';
+    });
     ipcMain.handle('app:getChangelog', async (_event, version?: string) => {
         let lastError: string | null = null;
         // Try to fetch full CHANGELOG.md from GitHub as the primary source for versions

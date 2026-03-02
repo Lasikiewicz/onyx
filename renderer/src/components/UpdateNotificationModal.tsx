@@ -97,7 +97,7 @@ export const UpdateNotificationModal: React.FC<UpdateNotificationModalProps> = (
       
       {/* Modal */}
       <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
-        <div className={`bg-gradient-to-br from-gray-900/95 to-slate-950/95 backdrop-blur-xl border border-cyan-500/40 rounded-3xl shadow-2xl w-full ${showChangelog ? 'max-w-4xl' : 'max-w-md'} p-8 animate-in fade-in zoom-in duration-300`}>
+        <div className={`bg-gradient-to-br from-gray-900/95 to-slate-950/95 backdrop-blur-xl border border-cyan-500/40 rounded-3xl shadow-2xl w-full ${showChangelog ? 'max-w-4xl' : 'max-w-md'} p-8 max-h-[90vh] overflow-y-auto animate-in fade-in zoom-in duration-300`}>
           <div className="flex flex-col items-center gap-6">
             {/* Icon - spinning when update available or downloading */}
             <div className="w-16 h-16 rounded-full bg-cyan-500/20 flex items-center justify-center">

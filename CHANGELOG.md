@@ -4,44 +4,11 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [0.6.19] - 2026-03-02
+## [0.6.20] - 2026-03-02
 
-- Optimization report: Always show Download logs button in modal (no conditional) so it appears in packaged builds.
-
-## [0.6.18] - 2026-03-02
-
-- Optimization report: Show Download logs button in all builds (dev, Alpha, production) for diagnostics.
-
-## [0.6.17] - 2026-03-02
-
-- Alpha: Show Download logs in optimization report when main reports alpha (getDiagnostics.isAlpha) so the button appears in packaged Alpha build.
-- UI: Show ALPHA badge only on packaged Alpha build; hide it in local develop.
-
-## [0.6.16] - 2026-03-02
-
-- Alpha: Show Download logs button when app name includes “Alpha” (fallback if getAppProfile unavailable).
-
-## [0.6.15] - 2026-03-02
-
-- Alpha: Fix Download logs button not showing in optimization report by detecting alpha at runtime (app:getAppProfile) so it appears when running OnyxAlpha.exe.
-
-## [0.6.14] - 2026-03-02
-
-- Update modal: Constrain height and scroll so long changelogs do not push Install Now off screen.
-- Develop/Alpha: Add Download logs button to optimization report to capture FFmpeg path, worker availability, and full status for debugging.
-
-## [0.6.13] - 2026-03-02
-
-- Startup: Keep the small startup scan overlay and only open Add Games when new games are actually found or the user chooses to review them.
-- Dev tools: Add a Develop menu with initial update and scan checks to quickly test the startup and update flows in local development.
-- Updates: Add a spinning update icon and a Close button to the update-available dialog so failed downloads can be dismissed cleanly.
-- Library scan: Treat games with matching install folders as duplicates and ignore helper executables like RapidCRC when detecting new games.
-
-## [0.6.12] - 2026-03-01
-
-- Launcher: Per-game launch arguments (e.g. `-savetouserdir`); editable in Game Manager and game properties.
-- Launcher: Right-click Uninstall opens the game’s uninstaller when present in the game folder, otherwise Windows Settings > Apps.
-- Launcher: Windows exe launch now uses shell so games with spaces in path and EACCES-prone executables launch correctly.
+- Optimization report: Add `Download logs` action in the background image optimization modal so diagnostic export is available in packaged builds.
+- Optimization diagnostics: Expose runtime diagnostics IPC and app profile wiring for build/debug visibility in optimization troubleshooting.
+- Update modal: Constrain height and allow scrolling to keep changelog content accessible on smaller windows.
 
 ## [0.6.11] - 2026-03-01
 
