@@ -110,6 +110,20 @@ export interface CachedImage {
   url: string;
 }
 
+interface OptimizationAttemptSummary {
+  worker?: { attempted: boolean; outBytes?: number; error?: string };
+  ffmpeg?: { attempted: boolean; outBytes?: number; error?: string };
+  sharp?: { attempted: boolean; outBytes?: number; error?: string };
+  selectedPath?: 'worker' | 'ffmpeg' | 'sharp' | 'original';
+}
+
+interface OptimizeImageResult {
+  data: Buffer;
+  ext: string;
+  decisionReason: string;
+  attemptSummary: OptimizationAttemptSummary;
+}
+
 /**
  * Service for downloading and caching images locally.
  *
@@ -489,7 +503,8 @@ export class ImageCacheService {
     imageType: string,
     sourceExt: string,
     options?: { forceAnimatedWebp?: boolean }
-  ): Promise<{ data: Buffer; ext: string }> {
+  ): Promise<OptimizeImageResult> {
+    const attemptSummary: OptimizationAttemptSummary = {};
     const detectedContentFormat = getAnimatedContentFormat(imageData);
     const shouldForceAnimatedWebp = options?.forceAnimatedWebp === true && sourceExt.toLowerCase() === '.webp';
     const contentFormat = shouldForceAnimatedWebp ? '.webp' : detectedContentFormat;
@@ -500,74 +515,125 @@ export class ImageCacheService {
       if (contentFormat === '.webp') {
         if (isDebugOptimizationEnabled()) debugOptimizationLog('optimizeImage animated webp worker-fast path');
         let bestData: Buffer | null = null;
+        let bestPath: 'worker' | 'ffmpeg' | 'sharp' | null = null;
         try {
+          attemptSummary.worker = { attempted: true };
           const { data, ext } = await optimizeInWorker(imageData, imageType, '.webp', 'animated-webp');
+          attemptSummary.worker.outBytes = data.length;
           if (data.length < imageData.length) {
             bestData = data;
+            bestPath = 'worker';
           }
           // If worker made a meaningful reduction, keep it; otherwise continue with ffmpeg/sharp fallback.
           if (data.length <= Math.floor(imageData.length * 0.95)) {
-            return { data, ext };
+            attemptSummary.selectedPath = 'worker';
+            return { data, ext, decisionReason: 'worker_smaller', attemptSummary };
           }
           if (isDebugOptimizationEnabled()) {
             debugOptimizationLog(`optimizeImage animated webp worker result not enough reduction outBytes=${data.length}, trying ffmpeg/sharp`);
           }
         } catch (webpErr) {
+          attemptSummary.worker = { attempted: true, error: (webpErr as Error).message };
           if (isDebugOptimizationEnabled()) {
             debugOptimizationLog(`optimizeImage animated webp worker failed, trying ffmpeg/sharp fallback: ${(webpErr as Error).message}`);
           }
         }
 
+          attemptSummary.ffmpeg = { attempted: true };
           const ffmpegResized = await this.resizeAnimatedWithFfmpeg(imageData, '.webp', imageType);
           if (ffmpegResized != null) {
+            attemptSummary.ffmpeg.outBytes = ffmpegResized.length;
             if (isDebugOptimizationEnabled()) {
               debugOptimizationLog(`optimizeImage animated webp ffmpeg fallback success outBytes=${ffmpegResized.length}`);
             }
             if (bestData == null || ffmpegResized.length < bestData.length) {
               bestData = ffmpegResized;
+              bestPath = 'ffmpeg';
             }
+          } else {
+            attemptSummary.ffmpeg.error = 'no-result';
           }
 
+          attemptSummary.sharp = { attempted: true };
           const sharpResized = await this.resizeAnimatedWebpWithSharp(imageData, imageType);
           if (sharpResized != null) {
+            attemptSummary.sharp.outBytes = sharpResized.length;
             if (isDebugOptimizationEnabled()) {
               debugOptimizationLog(`optimizeImage animated webp sharp fallback success outBytes=${sharpResized.length}`);
             }
             if (bestData == null || sharpResized.length < bestData.length) {
               bestData = sharpResized;
+              bestPath = 'sharp';
             }
+          } else {
+            attemptSummary.sharp.error = 'no-result';
           }
 
           if (bestData != null && bestData.length < imageData.length) {
-            return { data: bestData, ext: '.webp' };
+            attemptSummary.selectedPath = bestPath ?? 'worker';
+            return { data: bestData, ext: '.webp', decisionReason: `${attemptSummary.selectedPath}_smaller`, attemptSummary };
           }
 
           if (isDebugOptimizationEnabled()) {
             debugOptimizationLog('optimizeImage animated webp fallback original (no smaller ffmpeg/sharp result)');
           }
-          return { data: imageData, ext: '.webp' };
+          attemptSummary.selectedPath = 'original';
+          return { data: imageData, ext: '.webp', decisionReason: 'no-gain-keep-original', attemptSummary };
       }
       if (isDebugOptimizationEnabled()) debugOptimizationLog(`optimizeImage ffmpeg contentFormat=${contentFormat}`);
+      attemptSummary.ffmpeg = { attempted: true };
       const resized = await this.resizeAnimatedWithFfmpeg(imageData, contentFormat, imageType);
-      return { data: resized ?? imageData, ext: contentFormat };
+      if (resized) attemptSummary.ffmpeg.outBytes = resized.length;
+      else attemptSummary.ffmpeg.error = 'no-result';
+      attemptSummary.selectedPath = resized && resized.length < imageData.length ? 'ffmpeg' : 'original';
+      return {
+        data: resized ?? imageData,
+        ext: contentFormat,
+        decisionReason: attemptSummary.selectedPath === 'ffmpeg' ? 'ffmpeg_smaller' : 'ffmpeg_no_gain_or_failed',
+        attemptSummary,
+      };
     }
     const ext = sourceExt.toLowerCase();
     if (ext === '.gif' || ext === '.webm') {
       if (isDebugOptimizationEnabled()) debugOptimizationLog(`optimizeImage ffmpeg ext=${ext}`);
+      attemptSummary.ffmpeg = { attempted: true };
       const resized = await this.resizeAnimatedWithFfmpeg(imageData, sourceExt, imageType);
-      return { data: resized ?? imageData, ext: sourceExt };
+      if (resized) attemptSummary.ffmpeg.outBytes = resized.length;
+      else attemptSummary.ffmpeg.error = 'no-result';
+      attemptSummary.selectedPath = resized && resized.length < imageData.length ? 'ffmpeg' : 'original';
+      return {
+        data: resized ?? imageData,
+        ext: sourceExt,
+        decisionReason: attemptSummary.selectedPath === 'ffmpeg' ? 'ffmpeg_smaller' : 'ffmpeg_no_gain_or_failed',
+        attemptSummary,
+      };
     }
     try {
       if (isDebugOptimizationEnabled()) debugOptimizationLog('optimizeImage worker mode=static');
+      attemptSummary.worker = { attempted: true };
       const { data, ext: outExt } = await optimizeInWorker(imageData, imageType, sourceExt, 'static');
+      attemptSummary.worker.outBytes = data.length;
+      attemptSummary.selectedPath = data.length < imageData.length ? 'worker' : 'original';
       if (isDebugOptimizationEnabled()) debugOptimizationLog(`optimizeImage worker done outBytes=${data.length} ext=${outExt}`);
-      return { data, ext: outExt };
+      return {
+        data,
+        ext: outExt,
+        decisionReason: attemptSummary.selectedPath === 'worker' ? 'worker_smaller' : 'worker_no_gain_keep_result',
+        attemptSummary,
+      };
     } catch (workerErr) {
       // Do not fall back to main-thread Sharp: it blocks the event loop and causes "app not responding"
       // when the user clicks. Store original so the app stays responsive.
       if (isDebugOptimizationEnabled()) debugOptimizationLog(`optimizeImage worker failed, store original: ${(workerErr as Error).message}`);
       console.warn('[ImageCache] Worker unavailable or failed, storing original (no resize):', (workerErr as Error).message);
-      return { data: imageData, ext: sourceExt.startsWith('.') ? sourceExt : `.${sourceExt}` };
+      attemptSummary.worker = { attempted: true, error: (workerErr as Error).message };
+      attemptSummary.selectedPath = 'original';
+      return {
+        data: imageData,
+        ext: sourceExt.startsWith('.') ? sourceExt : `.${sourceExt}`,
+        decisionReason: 'worker_failed_store_original',
+        attemptSummary,
+      };
     }
   }
 
@@ -582,7 +648,13 @@ export class ImageCacheService {
     imageType: 'boxart' | 'banner' | 'logo' | 'hero' | string,
     onProgress?: (
       phase: 'downloading' | 'optimizing' | 'done' | 'skipped',
-      info?: { fileName?: string; originalBytes?: number; optimizedBytes?: number }
+      info?: {
+        fileName?: string;
+        originalBytes?: number;
+        optimizedBytes?: number;
+        decisionReason?: string;
+        attemptSummary?: OptimizationAttemptSummary;
+      }
     ) => void
   ): Promise<string> {
     try {
@@ -713,7 +785,7 @@ export class ImageCacheService {
         onProgress?.('downloading');
         if (isDebugOptimizationEnabled()) debugOptimizationLog(`cacheImage file gameId=${gameId} imageType=${imageType} sourceExt=${sourceExt} bytes=${rawData.length}`);
         onProgress?.('optimizing', { originalBytes: rawData.length });
-        const { data: optimizedData, ext: outExt } = await this.optimizeImage(rawData, imageType, sourceExt);
+        const { data: optimizedData, ext: outExt, decisionReason, attemptSummary } = await this.optimizeImage(rawData, imageType, sourceExt);
         if (isDebugOptimizationEnabled()) debugOptimizationLog(`cacheImage file done gameId=${gameId} imageType=${imageType} outBytes=${optimizedData.length}`);
         const outFilename = `${safeGameId}-${imageType}${outExt}`;
         const outPath = path.join(this.cacheDir, outFilename);
@@ -728,6 +800,8 @@ export class ImageCacheService {
           fileName: outFilename,
           originalBytes: rawData.length,
           optimizedBytes: optimizedData.length,
+          decisionReason,
+          attemptSummary,
         });
 
         // Return simple URL format: onyx-local://{gameId}-{imageType}
@@ -772,7 +846,7 @@ export class ImageCacheService {
       // Optimize (resize + compress) for faster load and smaller cache
       if (isDebugOptimizationEnabled()) debugOptimizationLog(`cacheImage download gameId=${gameId} imageType=${imageType} sourceExt=${sourceExt} bytes=${imageData.length}`);
       onProgress?.('optimizing', { originalBytes: imageData.length });
-      const { data: optimizedData, ext: outExt } = await this.optimizeImage(imageData, imageType, sourceExt);
+      const { data: optimizedData, ext: outExt, decisionReason, attemptSummary } = await this.optimizeImage(imageData, imageType, sourceExt);
       if (isDebugOptimizationEnabled()) debugOptimizationLog(`cacheImage download done gameId=${gameId} imageType=${imageType} outBytes=${optimizedData.length}`);
       const filename = `${safeGameId}-${imageType}${outExt}`;
       const localPath = path.join(this.cacheDir, filename);
@@ -786,6 +860,8 @@ export class ImageCacheService {
         fileName: filename,
         originalBytes: imageData.length,
         optimizedBytes: optimizedData.length,
+        decisionReason,
+        attemptSummary,
       });
 
       // Return simple URL format: onyx-local://{gameId}-{imageType}
@@ -821,6 +897,8 @@ export class ImageCacheService {
       fileName?: string;
       originalBytes?: number;
       optimizedBytes?: number;
+      decisionReason?: string;
+      attemptSummary?: OptimizationAttemptSummary;
     }) => void,
     shouldCancel?: () => boolean,
     optimizationPerformance: OptimizationPerformanceProfile = 'balanced',
@@ -907,6 +985,8 @@ export class ImageCacheService {
                   fileName: info?.fileName,
                   originalBytes: info?.originalBytes,
                   optimizedBytes: info?.optimizedBytes,
+                  decisionReason: info?.decisionReason,
+                  attemptSummary: info?.attemptSummary,
                 });
               }
             );
@@ -1316,9 +1396,7 @@ export class ImageCacheService {
     }
   }
 
-  /**
-   * Full FFmpeg diagnostics for optimization debug logs (path, availability, source).
-   */
+  /** Full FFmpeg diagnostics for optimization debug report exports. */
   static getFfmpegDiagnostics(): { path: string; available: boolean; source: 'bundled' | 'system' | null } {
     try {
       const { path: ffmpegPath, source } = getFfmpegPath();

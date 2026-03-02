@@ -4,6 +4,11 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.6.23] - 2026-03-02
+
+- Optimization report: Add per-image stage telemetry (`decisionReason`, worker/ffmpeg/sharp attempt summary) so diagnostics can explain why originals were kept.
+- Build: Restore `openGameUninstaller` preload/renderer typing and `Game.launchArgs` renderer typing to keep production build/typecheck green.
+
 ## [0.6.22] - 2026-03-02
 
 - Optimization report: Upgrade exported diagnostics log to `reportVersion: 2` with summary metrics, per-job decision labels, cache/error digest, and environment snapshot.

@@ -4,7 +4,7 @@ export interface Game {
   sortingName?: string;
   platform: 'steam' | 'other' | string;
   exePath: string;
-  launchArgs?: string;  // Command-line arguments for exe launch (e.g. -savetouserdir)
+  launchArgs?: string;
   boxArtUrl: string;
   bannerUrl: string;
   alternativeBannerUrl?: string;
@@ -378,7 +378,6 @@ declare global {
       clearGameLibrary: () => Promise<{ success: boolean; error?: string }>;
       cancelScanAllSources: () => Promise<{ success: boolean; error?: string }>;
       cancelStartupScan: () => Promise<{ success: boolean; error?: string }>;
-      runStartupScan?: () => Promise<void>;
       scanAllSources: () => Promise<{ success: boolean; error?: string; games: Array<{ uuid: string; source: string; originalName: string; installPath: string; exePath?: string; appId?: string; packageFamilyName?: string; appUserModelId?: string; launchUri?: string; xboxKind?: 'uwp' | 'pc'; title: string; status: 'pending' | 'scanning' | 'matched' | 'ambiguous' | 'ready' | 'error'; error?: string }> }>;
       saveCrashDumps: () => Promise<{ saved?: boolean; canceled?: boolean; destDir?: string; error?: string }>;
       openCrashDumpFolder: () => Promise<{ opened?: boolean }>;

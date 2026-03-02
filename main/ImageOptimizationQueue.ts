@@ -302,6 +302,8 @@ export function createImageOptimizationQueue(
                     fileName: img.fileName,
                     originalBytes: img.originalBytes,
                     optimizedBytes: img.optimizedBytes,
+                    decisionReason: img.decisionReason,
+                    attemptSummary: img.attemptSummary,
                   });
                   if (phase === 'done' || phase === 'skipped') {
                     updateStaticCompletionStatus();

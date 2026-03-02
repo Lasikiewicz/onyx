@@ -7,6 +7,13 @@ export type OptimizationRunMode = 'importer' | 'cache';
 
 export type ImageJobPhase = 'queued' | 'downloading' | 'optimizing' | 'done' | 'failed' | 'skipped';
 
+export interface OptimizationAttemptSummary {
+  worker?: { attempted: boolean; outBytes?: number; error?: string };
+  ffmpeg?: { attempted: boolean; outBytes?: number; error?: string };
+  sharp?: { attempted: boolean; outBytes?: number; error?: string };
+  selectedPath?: 'worker' | 'ffmpeg' | 'sharp' | 'original';
+}
+
 export interface ImageJobStatus {
   jobId: string;
   gameId: string;
@@ -20,6 +27,8 @@ export interface ImageJobStatus {
   originalBytes?: number;
   optimizedBytes?: number;
   error?: string;
+  decisionReason?: string;
+  attemptSummary?: OptimizationAttemptSummary;
 }
 
 export interface OptimizationStatus {
@@ -155,7 +164,7 @@ export function addJobs(runId: string, newJobs: (Omit<ImageJobStatus, 'jobId'> &
 export function updateJob(
   runId: string,
   jobId: string,
-  patch: Partial<Pick<ImageJobStatus, 'phase' | 'sourceExt' | 'fileName' | 'originalBytes' | 'optimizedBytes' | 'error'>>
+  patch: Partial<Pick<ImageJobStatus, 'phase' | 'sourceExt' | 'fileName' | 'originalBytes' | 'optimizedBytes' | 'error' | 'decisionReason' | 'attemptSummary'>>
 ): void {
   if (runId !== currentRunId) return;
   const job = jobs.find((j) => j.jobId === jobId);
@@ -167,6 +176,8 @@ export function updateJob(
   if (patch.originalBytes !== undefined) job.originalBytes = patch.originalBytes;
   if (patch.optimizedBytes !== undefined) job.optimizedBytes = patch.optimizedBytes;
   if (patch.error !== undefined) job.error = patch.error;
+  if (patch.decisionReason !== undefined) job.decisionReason = patch.decisionReason;
+  if (patch.attemptSummary !== undefined) job.attemptSummary = patch.attemptSummary;
   emit();
 }
 
@@ -178,7 +189,7 @@ export function updateJobByGameAndType(
   runId: string,
   gameId: string,
   imageType: string,
-  patch: Partial<Pick<ImageJobStatus, 'phase' | 'sourceExt' | 'fileName' | 'originalBytes' | 'optimizedBytes' | 'error'>>
+  patch: Partial<Pick<ImageJobStatus, 'phase' | 'sourceExt' | 'fileName' | 'originalBytes' | 'optimizedBytes' | 'error' | 'decisionReason' | 'attemptSummary'>>
 ): void {
   const latestJob = jobs
     .filter((j) => j.gameId === gameId && j.imageType === imageType)

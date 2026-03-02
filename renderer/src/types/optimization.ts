@@ -1,5 +1,12 @@
 export type ImageJobPhase = 'queued' | 'downloading' | 'optimizing' | 'done' | 'failed' | 'skipped';
 
+export interface OptimizationAttemptSummary {
+  worker?: { attempted: boolean; outBytes?: number; error?: string };
+  ffmpeg?: { attempted: boolean; outBytes?: number; error?: string };
+  sharp?: { attempted: boolean; outBytes?: number; error?: string };
+  selectedPath?: 'worker' | 'ffmpeg' | 'sharp' | 'original';
+}
+
 export interface ImageJobStatus {
   jobId: string;
   gameId: string;
@@ -13,6 +20,8 @@ export interface ImageJobStatus {
   originalBytes?: number;
   optimizedBytes?: number;
   error?: string;
+  decisionReason?: string;
+  attemptSummary?: OptimizationAttemptSummary;
 }
 
 export type OptimizationRunMode = 'importer' | 'cache';

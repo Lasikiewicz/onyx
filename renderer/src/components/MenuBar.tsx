@@ -188,11 +188,11 @@ export const MenuBar: React.FC<MenuBarProps> = ({
         const reductionPercent = hasSizes ? Number((((originalBytes - optimizedBytes) / originalBytes) * 100).toFixed(2)) : null;
         if (typeof reductionPercent === 'number') reductionPercents.push(reductionPercent);
 
-        let decision = 'unknown';
+        let decision = job.decisionReason ?? 'unknown';
         if (job.phase === 'failed') decision = 'failed';
-        else if (job.phase === 'skipped') decision = job.error?.toLowerCase().includes('cached') ? 'skipped_cached' : 'skipped';
+        else if (job.phase === 'skipped') decision = job.error?.toLowerCase().includes('cached') ? 'skipped_cached' : (job.decisionReason ?? 'skipped');
         else if (hasSizes && optimizedBytes < originalBytes) decision = 'optimized';
-        else if (hasSizes && optimizedBytes === originalBytes) decision = 'no_gain_kept_original';
+        else if (hasSizes && optimizedBytes === originalBytes && !job.decisionReason) decision = 'no_gain_kept_original';
         else if (hasSizes && optimizedBytes > originalBytes) decision = 'larger_result_rejected';
         else if (job.phase === 'done') decision = 'done_missing_size_metrics';
 
@@ -214,8 +214,10 @@ export const MenuBar: React.FC<MenuBarProps> = ({
           reductionPercent,
           decision,
           error: job.error ?? null,
-          attempts: null,
-          attemptNote: 'Per-stage worker/ffmpeg/sharp attempt metrics are not captured per job in current status payload.',
+          attempts: job.attemptSummary ?? null,
+          attemptNote: job.attemptSummary
+            ? null
+            : 'Per-stage worker/ffmpeg/sharp attempt metrics are not captured per job in current status payload.',
           timingsMs: null,
         };
       });

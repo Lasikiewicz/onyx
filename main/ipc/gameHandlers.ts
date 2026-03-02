@@ -15,7 +15,7 @@ type ImageQueue = { add: (gameId: string, gameTitle: string, urls: ImageQueueIte
 export type OptimizationControllerAPI = {
     startRun: (mode: 'importer' | 'cache') => string;
     addJobs: (runId: string, jobs: (Omit<ImageJobStatus, 'jobId'> & { jobId?: string })[]) => void;
-    updateJob: (runId: string, jobId: string, patch: Partial<Pick<ImageJobStatus, 'phase' | 'fileName' | 'originalBytes' | 'optimizedBytes' | 'error'>>) => void;
+    updateJob: (runId: string, jobId: string, patch: Partial<Pick<ImageJobStatus, 'phase' | 'fileName' | 'originalBytes' | 'optimizedBytes' | 'error' | 'decisionReason' | 'attemptSummary'>>) => void;
     setRuntimeMetrics: (metrics: {
         profile?: 'low' | 'balanced' | 'high';
         cpuCount?: number;
