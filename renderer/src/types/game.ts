@@ -297,6 +297,56 @@ declare global {
         getDiagnostics?: () => Promise<{
           ffmpeg: { path: string; available: boolean; source: 'bundled' | 'system' | null };
           workerAvailable: boolean;
+          worker?: {
+            workerPath: string;
+            workerPathExists: boolean;
+            workerFailed: boolean;
+            consecutiveWorkerExits: number;
+            hasLiveWorker: boolean;
+            isPackaged: boolean;
+          };
+          sharp?: {
+            appPath: string;
+            unpackedAppPath: string;
+            unpackedNodeModulesPath: string;
+            sharpResolvedPath: string | null;
+            sharpLoadable: boolean;
+            sharpLoadError: string | null;
+            dependencyChecks: Array<{ moduleId: string; resolvedPath: string | null; loadable: boolean; error: string | null }>;
+            unpackedPresence: {
+              sharp: boolean;
+              semver: boolean;
+              detectLibc: boolean;
+              img: boolean;
+            };
+          };
+          startupDiagnostics?: {
+            collectedAt: string;
+            ffmpeg: { path: string; available: boolean; source: 'bundled' | 'system' | null };
+            worker: {
+              workerPath: string;
+              workerPathExists: boolean;
+              workerFailed: boolean;
+              consecutiveWorkerExits: number;
+              hasLiveWorker: boolean;
+              isPackaged: boolean;
+            };
+            sharp: {
+              appPath: string;
+              unpackedAppPath: string;
+              unpackedNodeModulesPath: string;
+              sharpResolvedPath: string | null;
+              sharpLoadable: boolean;
+              sharpLoadError: string | null;
+              dependencyChecks: Array<{ moduleId: string; resolvedPath: string | null; loadable: boolean; error: string | null }>;
+              unpackedPresence: {
+                sharp: boolean;
+                semver: boolean;
+                detectLibc: boolean;
+                img: boolean;
+              };
+            };
+          };
           appPath: string;
           isPackaged: boolean;
           execPath: string;

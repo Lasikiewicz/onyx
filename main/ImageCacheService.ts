@@ -7,9 +7,12 @@ import http from 'node:http';
 import { URL } from 'node:url';
 import { homedir, tmpdir, cpus } from 'node:os';
 import { spawn, spawnSync } from 'node:child_process';
+import { createRequire } from 'node:module';
 import { optimizeInWorker } from './ImageOptimizerWorkerHost.js';
 import { thinWebpFrames } from './thinWebpFrames.js';
 import { debugOptimizationLog, isDebugOptimizationEnabled } from './debugOptimizationLog.js';
+
+const runtimeRequire = createRequire(__filename);
 
 /** Resolve path to ffmpeg binary (bundled or system). Fixes asar path for Electron. */
 function getFfmpegPath(): { path: string; source: 'bundled' | 'system' } {
@@ -110,10 +113,32 @@ export interface CachedImage {
   url: string;
 }
 
+type OptimizationFailureCategory = 'module-not-found' | 'timeout' | 'process-error' | 'exception' | 'no-result' | 'no-gain';
+
+interface OptimizationStageAttempt {
+  attempted: boolean;
+  outBytes?: number;
+  error?: string;
+  durationMs?: number;
+  startedAtMs?: number;
+  finishedAtMs?: number;
+  failureCategory?: OptimizationFailureCategory;
+  args?: string[];
+  exitCode?: number | null;
+  signal?: NodeJS.Signals | null;
+  stderrTail?: string;
+  outputExists?: boolean;
+  timedOut?: boolean;
+}
+
 interface OptimizationAttemptSummary {
-  worker?: { attempted: boolean; outBytes?: number; error?: string };
-  ffmpeg?: { attempted: boolean; outBytes?: number; error?: string };
-  sharp?: { attempted: boolean; outBytes?: number; error?: string };
+  inputBytes?: number;
+  totalDurationMs?: number;
+  contentFormat?: string | null;
+  detectedContentFormat?: string | null;
+  worker?: OptimizationStageAttempt;
+  ffmpeg?: OptimizationStageAttempt;
+  sharp?: OptimizationStageAttempt;
   selectedPath?: 'worker' | 'ffmpeg' | 'sharp' | 'original';
 }
 
@@ -122,6 +147,19 @@ interface OptimizeImageResult {
   ext: string;
   decisionReason: string;
   attemptSummary: OptimizationAttemptSummary;
+}
+
+interface FfmpegResizeResult {
+  data: Buffer | null;
+  attempt: OptimizationStageAttempt;
+}
+
+function classifyErrorMessage(error: unknown): OptimizationFailureCategory {
+  const message = error instanceof Error ? error.message : String(error ?? 'unknown error');
+  const normalized = message.toLowerCase();
+  if (normalized.includes('cannot find module') || normalized.includes('module not found')) return 'module-not-found';
+  if (normalized.includes('timeout') || normalized.includes('timed out')) return 'timeout';
+  return 'exception';
 }
 
 /**
@@ -449,7 +487,9 @@ export class ImageCacheService {
     imageData: Buffer,
     sourceExt: string,
     imageType: string
-  ): Promise<Buffer | null> {
+  ): Promise<FfmpegResizeResult> {
+    const startedAtMs = Date.now();
+    const attempt: OptimizationStageAttempt = { attempted: true, startedAtMs };
     const ext = sourceExt.toLowerCase();
     const maxDim = MAX_DIMENSION_BY_TYPE[imageType] ?? DEFAULT_MAX_DIMENSION;
     const base = `onyx-${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -469,22 +509,45 @@ export class ImageCacheService {
         ext === '.webp'
           ? ['-y', '-i', inp, '-vf', vf, '-c:v', 'libwebp_anim', '-quality', String(quality), '-loop', '0', outp]
           : ['-y', '-i', inp, '-vf', vf, outp];
+      attempt.args = [ffmpegPath, ...args];
       const result = spawnSync(ffmpegPath, args, {
         encoding: 'utf8',
         timeout: 60000,
         windowsHide: true,
       });
-      if (result.status !== 0 || !existsSync(outp)) {
+      attempt.finishedAtMs = Date.now();
+      attempt.durationMs = attempt.finishedAtMs - startedAtMs;
+      attempt.exitCode = result.status;
+      attempt.signal = result.signal;
+      attempt.timedOut = result.error != null && String((result.error as Error).message ?? '').toLowerCase().includes('timed out');
+      if (typeof result.stderr === 'string' && result.stderr.length > 0) {
+        attempt.stderrTail = result.stderr.slice(-1200);
+      }
+      attempt.outputExists = existsSync(outp);
+      if (result.status !== 0 || !attempt.outputExists) {
         if (result.status !== 0 && result.stderr) {
           console.warn('[ImageCache] FFmpeg failed:', result.stderr.slice(-500));
         }
-        return null;
+        attempt.error = result.status !== 0
+          ? `ffmpeg-exit-${result.status}`
+          : (attempt.timedOut ? 'ffmpeg-timeout' : 'no-output-file');
+        attempt.failureCategory = attempt.timedOut ? 'timeout' : 'process-error';
+        return { data: null, attempt };
       }
       const outData = await fsPromises.readFile(outp);
-      if (outData.length >= imageData.length) return null;
-      return outData;
-    } catch {
-      return null;
+      attempt.outBytes = outData.length;
+      if (outData.length >= imageData.length) {
+        attempt.error = 'no-result';
+        attempt.failureCategory = 'no-gain';
+        return { data: null, attempt };
+      }
+      return { data: outData, attempt };
+    } catch (error) {
+      attempt.finishedAtMs = Date.now();
+      attempt.durationMs = attempt.finishedAtMs - startedAtMs;
+      attempt.error = error instanceof Error ? error.message : String(error);
+      attempt.failureCategory = classifyErrorMessage(error);
+      return { data: null, attempt };
     } finally {
       try {
         if (existsSync(inp)) await fsPromises.unlink(inp);
@@ -504,10 +567,14 @@ export class ImageCacheService {
     sourceExt: string,
     options?: { forceAnimatedWebp?: boolean }
   ): Promise<OptimizeImageResult> {
+    const startedAtMs = Date.now();
     const attemptSummary: OptimizationAttemptSummary = {};
     const detectedContentFormat = getAnimatedContentFormat(imageData);
     const shouldForceAnimatedWebp = options?.forceAnimatedWebp === true && sourceExt.toLowerCase() === '.webp';
     const contentFormat = shouldForceAnimatedWebp ? '.webp' : detectedContentFormat;
+    attemptSummary.inputBytes = imageData.length;
+    attemptSummary.detectedContentFormat = detectedContentFormat;
+    attemptSummary.contentFormat = contentFormat;
     if (isDebugOptimizationEnabled()) {
       debugOptimizationLog(`optimizeImage start imageType=${imageType} sourceExt=${sourceExt} bytes=${imageData.length} contentFormat=${contentFormat ?? 'null'} detected=${detectedContentFormat ?? 'null'} forceAnimatedWebp=${shouldForceAnimatedWebp}`);
     }
@@ -517,9 +584,12 @@ export class ImageCacheService {
         let bestData: Buffer | null = null;
         let bestPath: 'worker' | 'ffmpeg' | 'sharp' | null = null;
         try {
-          attemptSummary.worker = { attempted: true };
+          const workerStartedAtMs = Date.now();
+          attemptSummary.worker = { attempted: true, startedAtMs: workerStartedAtMs };
           const { data, ext } = await optimizeInWorker(imageData, imageType, '.webp', 'animated-webp');
           attemptSummary.worker.outBytes = data.length;
+          attemptSummary.worker.finishedAtMs = Date.now();
+          attemptSummary.worker.durationMs = attemptSummary.worker.finishedAtMs - workerStartedAtMs;
           if (data.length < imageData.length) {
             bestData = data;
             bestPath = 'worker';
@@ -533,44 +603,66 @@ export class ImageCacheService {
             debugOptimizationLog(`optimizeImage animated webp worker result not enough reduction outBytes=${data.length}, trying ffmpeg/sharp`);
           }
         } catch (webpErr) {
-          attemptSummary.worker = { attempted: true, error: (webpErr as Error).message };
+          const workerFinishedAtMs = Date.now();
+          attemptSummary.worker = {
+            attempted: true,
+            error: (webpErr as Error).message,
+            startedAtMs: attemptSummary.worker?.startedAtMs,
+            finishedAtMs: workerFinishedAtMs,
+            durationMs: attemptSummary.worker?.startedAtMs ? workerFinishedAtMs - attemptSummary.worker.startedAtMs : undefined,
+            failureCategory: classifyErrorMessage(webpErr),
+          };
           if (isDebugOptimizationEnabled()) {
             debugOptimizationLog(`optimizeImage animated webp worker failed, trying ffmpeg/sharp fallback: ${(webpErr as Error).message}`);
           }
         }
 
-          attemptSummary.ffmpeg = { attempted: true };
           const ffmpegResized = await this.resizeAnimatedWithFfmpeg(imageData, '.webp', imageType);
-          if (ffmpegResized != null) {
-            attemptSummary.ffmpeg.outBytes = ffmpegResized.length;
+          attemptSummary.ffmpeg = ffmpegResized.attempt;
+          if (ffmpegResized.data != null) {
             if (isDebugOptimizationEnabled()) {
-              debugOptimizationLog(`optimizeImage animated webp ffmpeg fallback success outBytes=${ffmpegResized.length}`);
+              debugOptimizationLog(`optimizeImage animated webp ffmpeg fallback success outBytes=${ffmpegResized.data.length}`);
             }
-            if (bestData == null || ffmpegResized.length < bestData.length) {
-              bestData = ffmpegResized;
+            if (bestData == null || ffmpegResized.data.length < bestData.length) {
+              bestData = ffmpegResized.data;
               bestPath = 'ffmpeg';
             }
-          } else {
-            attemptSummary.ffmpeg.error = 'no-result';
           }
 
-          attemptSummary.sharp = { attempted: true };
-          const sharpResized = await this.resizeAnimatedWebpWithSharp(imageData, imageType);
-          if (sharpResized != null) {
-            attemptSummary.sharp.outBytes = sharpResized.length;
-            if (isDebugOptimizationEnabled()) {
-              debugOptimizationLog(`optimizeImage animated webp sharp fallback success outBytes=${sharpResized.length}`);
+          const sharpStartedAtMs = Date.now();
+          try {
+            attemptSummary.sharp = { attempted: true, startedAtMs: sharpStartedAtMs };
+            const sharpResized = await this.resizeAnimatedWebpWithSharp(imageData, imageType);
+            attemptSummary.sharp.finishedAtMs = Date.now();
+            attemptSummary.sharp.durationMs = attemptSummary.sharp.finishedAtMs - sharpStartedAtMs;
+            if (sharpResized != null) {
+              attemptSummary.sharp.outBytes = sharpResized.length;
+              if (isDebugOptimizationEnabled()) {
+                debugOptimizationLog(`optimizeImage animated webp sharp fallback success outBytes=${sharpResized.length}`);
+              }
+              if (bestData == null || sharpResized.length < bestData.length) {
+                bestData = sharpResized;
+                bestPath = 'sharp';
+              }
+            } else {
+              attemptSummary.sharp.error = 'no-result';
+              attemptSummary.sharp.failureCategory = 'no-result';
             }
-            if (bestData == null || sharpResized.length < bestData.length) {
-              bestData = sharpResized;
-              bestPath = 'sharp';
-            }
-          } else {
-            attemptSummary.sharp.error = 'no-result';
+          } catch (sharpError) {
+            const sharpFinishedAtMs = Date.now();
+            attemptSummary.sharp = {
+              attempted: true,
+              startedAtMs: sharpStartedAtMs,
+              finishedAtMs: sharpFinishedAtMs,
+              durationMs: sharpFinishedAtMs - sharpStartedAtMs,
+              error: sharpError instanceof Error ? sharpError.message : String(sharpError),
+              failureCategory: classifyErrorMessage(sharpError),
+            };
           }
 
           if (bestData != null && bestData.length < imageData.length) {
             attemptSummary.selectedPath = bestPath ?? 'worker';
+            attemptSummary.totalDurationMs = Date.now() - startedAtMs;
             return { data: bestData, ext: '.webp', decisionReason: `${attemptSummary.selectedPath}_smaller`, attemptSummary };
           }
 
@@ -578,16 +670,16 @@ export class ImageCacheService {
             debugOptimizationLog('optimizeImage animated webp fallback original (no smaller ffmpeg/sharp result)');
           }
           attemptSummary.selectedPath = 'original';
+          attemptSummary.totalDurationMs = Date.now() - startedAtMs;
           return { data: imageData, ext: '.webp', decisionReason: 'no-gain-keep-original', attemptSummary };
       }
       if (isDebugOptimizationEnabled()) debugOptimizationLog(`optimizeImage ffmpeg contentFormat=${contentFormat}`);
-      attemptSummary.ffmpeg = { attempted: true };
-      const resized = await this.resizeAnimatedWithFfmpeg(imageData, contentFormat, imageType);
-      if (resized) attemptSummary.ffmpeg.outBytes = resized.length;
-      else attemptSummary.ffmpeg.error = 'no-result';
-      attemptSummary.selectedPath = resized && resized.length < imageData.length ? 'ffmpeg' : 'original';
+      const ffmpegResized = await this.resizeAnimatedWithFfmpeg(imageData, contentFormat, imageType);
+      attemptSummary.ffmpeg = ffmpegResized.attempt;
+      attemptSummary.selectedPath = ffmpegResized.data && ffmpegResized.data.length < imageData.length ? 'ffmpeg' : 'original';
+      attemptSummary.totalDurationMs = Date.now() - startedAtMs;
       return {
-        data: resized ?? imageData,
+        data: ffmpegResized.data ?? imageData,
         ext: contentFormat,
         decisionReason: attemptSummary.selectedPath === 'ffmpeg' ? 'ffmpeg_smaller' : 'ffmpeg_no_gain_or_failed',
         attemptSummary,
@@ -596,13 +688,12 @@ export class ImageCacheService {
     const ext = sourceExt.toLowerCase();
     if (ext === '.gif' || ext === '.webm') {
       if (isDebugOptimizationEnabled()) debugOptimizationLog(`optimizeImage ffmpeg ext=${ext}`);
-      attemptSummary.ffmpeg = { attempted: true };
-      const resized = await this.resizeAnimatedWithFfmpeg(imageData, sourceExt, imageType);
-      if (resized) attemptSummary.ffmpeg.outBytes = resized.length;
-      else attemptSummary.ffmpeg.error = 'no-result';
-      attemptSummary.selectedPath = resized && resized.length < imageData.length ? 'ffmpeg' : 'original';
+      const ffmpegResized = await this.resizeAnimatedWithFfmpeg(imageData, sourceExt, imageType);
+      attemptSummary.ffmpeg = ffmpegResized.attempt;
+      attemptSummary.selectedPath = ffmpegResized.data && ffmpegResized.data.length < imageData.length ? 'ffmpeg' : 'original';
+      attemptSummary.totalDurationMs = Date.now() - startedAtMs;
       return {
-        data: resized ?? imageData,
+        data: ffmpegResized.data ?? imageData,
         ext: sourceExt,
         decisionReason: attemptSummary.selectedPath === 'ffmpeg' ? 'ffmpeg_smaller' : 'ffmpeg_no_gain_or_failed',
         attemptSummary,
@@ -610,10 +701,14 @@ export class ImageCacheService {
     }
     try {
       if (isDebugOptimizationEnabled()) debugOptimizationLog('optimizeImage worker mode=static');
-      attemptSummary.worker = { attempted: true };
+      const workerStartedAtMs = Date.now();
+      attemptSummary.worker = { attempted: true, startedAtMs: workerStartedAtMs };
       const { data, ext: outExt } = await optimizeInWorker(imageData, imageType, sourceExt, 'static');
       attemptSummary.worker.outBytes = data.length;
+      attemptSummary.worker.finishedAtMs = Date.now();
+      attemptSummary.worker.durationMs = attemptSummary.worker.finishedAtMs - workerStartedAtMs;
       attemptSummary.selectedPath = data.length < imageData.length ? 'worker' : 'original';
+      attemptSummary.totalDurationMs = Date.now() - startedAtMs;
       if (isDebugOptimizationEnabled()) debugOptimizationLog(`optimizeImage worker done outBytes=${data.length} ext=${outExt}`);
       return {
         data,
@@ -626,8 +721,17 @@ export class ImageCacheService {
       // when the user clicks. Store original so the app stays responsive.
       if (isDebugOptimizationEnabled()) debugOptimizationLog(`optimizeImage worker failed, store original: ${(workerErr as Error).message}`);
       console.warn('[ImageCache] Worker unavailable or failed, storing original (no resize):', (workerErr as Error).message);
-      attemptSummary.worker = { attempted: true, error: (workerErr as Error).message };
+      const workerFinishedAtMs = Date.now();
+      attemptSummary.worker = {
+        attempted: true,
+        error: (workerErr as Error).message,
+        startedAtMs: attemptSummary.worker?.startedAtMs,
+        finishedAtMs: workerFinishedAtMs,
+        durationMs: attemptSummary.worker?.startedAtMs ? workerFinishedAtMs - attemptSummary.worker.startedAtMs : undefined,
+        failureCategory: classifyErrorMessage(workerErr),
+      };
       attemptSummary.selectedPath = 'original';
+      attemptSummary.totalDurationMs = Date.now() - startedAtMs;
       return {
         data: imageData,
         ext: sourceExt.startsWith('.') ? sourceExt : `.${sourceExt}`,
@@ -1405,5 +1509,83 @@ export class ImageCacheService {
     } catch {
       return { path: 'ffmpeg', available: false, source: null };
     }
+  }
+
+  static getSharpDiagnostics(): {
+    appPath: string;
+    unpackedAppPath: string;
+    unpackedNodeModulesPath: string;
+    sharpResolvedPath: string | null;
+    sharpLoadable: boolean;
+    sharpLoadError: string | null;
+    dependencyChecks: Array<{ moduleId: string; resolvedPath: string | null; loadable: boolean; error: string | null }>;
+    unpackedPresence: {
+      sharp: boolean;
+      semver: boolean;
+      detectLibc: boolean;
+      img: boolean;
+    };
+  } {
+    const appPath = app.getAppPath();
+    const unpackedAppPath = appPath.replace(/app\.asar([/\\]?)/g, 'app.asar.unpacked$1');
+    const unpackedNodeModulesPath = path.join(unpackedAppPath, 'node_modules');
+    const platformSharpPackage = process.platform === 'win32'
+      ? `@img/sharp-win32-${process.arch}`
+      : process.platform === 'darwin'
+        ? `@img/sharp-darwin-${process.arch}`
+        : `@img/sharp-${process.platform}-${process.arch}`;
+
+    const modulesToCheck = ['sharp', 'semver/functions/coerce', 'detect-libc', platformSharpPackage];
+    const dependencyChecks = modulesToCheck.map((moduleId) => {
+      try {
+        const resolvedPath = runtimeRequire.resolve(moduleId);
+        try {
+          runtimeRequire(moduleId);
+          return { moduleId, resolvedPath, loadable: true, error: null };
+        } catch (loadError) {
+          return {
+            moduleId,
+            resolvedPath,
+            loadable: false,
+            error: loadError instanceof Error ? loadError.message : String(loadError),
+          };
+        }
+      } catch (resolveError) {
+        return {
+          moduleId,
+          resolvedPath: null,
+          loadable: false,
+          error: resolveError instanceof Error ? resolveError.message : String(resolveError),
+        };
+      }
+    });
+
+    let sharpResolvedPath: string | null = null;
+    let sharpLoadable = false;
+    let sharpLoadError: string | null = null;
+    try {
+      sharpResolvedPath = runtimeRequire.resolve('sharp');
+      runtimeRequire('sharp');
+      sharpLoadable = true;
+    } catch (error) {
+      sharpLoadable = false;
+      sharpLoadError = error instanceof Error ? error.message : String(error);
+    }
+
+    return {
+      appPath,
+      unpackedAppPath,
+      unpackedNodeModulesPath,
+      sharpResolvedPath,
+      sharpLoadable,
+      sharpLoadError,
+      dependencyChecks,
+      unpackedPresence: {
+        sharp: existsSync(path.join(unpackedNodeModulesPath, 'sharp')),
+        semver: existsSync(path.join(unpackedNodeModulesPath, 'semver')) || existsSync(path.join(unpackedNodeModulesPath, 'sharp', 'node_modules', 'semver')),
+        detectLibc: existsSync(path.join(unpackedNodeModulesPath, 'detect-libc')),
+        img: existsSync(path.join(unpackedNodeModulesPath, '@img')),
+      },
+    };
   }
 }

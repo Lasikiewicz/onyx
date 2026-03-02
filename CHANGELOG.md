@@ -4,6 +4,13 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.6.27] - 2026-03-02
+
+- Optimization diagnostics: Add startup preflight and runtime probes for worker path/availability and sharp dependency resolution chain (`sharp`, `semver`, `detect-libc`, platform `@img` package).
+- Optimization telemetry: Expand per-stage attempt reporting with duration, failure category, and FFmpeg execution diagnostics (args, exit code, timeout, stderr tail, output existence).
+- Optimization report: Upgrade log export to `reportVersion: 3` with improved decision classification, per-stage timings, and failure-category digest.
+- Packaging/CI: Unpack `semver` for packaged worker runtime and add packaged artifact verifier to fail builds when optimizer runtime dependencies are missing.
+
 ## [0.6.26] - 2026-03-02
 
 - Packaging: Unpack `detect-libc` and `@img` sharp runtime modules so packaged optimizer workers can resolve sharp dependency chain.

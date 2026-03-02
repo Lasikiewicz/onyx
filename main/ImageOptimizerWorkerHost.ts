@@ -5,6 +5,7 @@
 import { app } from 'electron';
 import { Worker } from 'node:worker_threads';
 import path from 'node:path';
+import { existsSync } from 'node:fs';
 import { debugOptimizationLog, isDebugOptimizationEnabled } from './debugOptimizationLog.js';
 
 export type OptimizeMode = 'static' | 'animated-webp';
@@ -114,4 +115,24 @@ export function optimizeInWorker(
 
 export function isWorkerAvailable(): boolean {
   return getWorker() !== null;
+}
+
+export function getWorkerDiagnostics(): {
+  workerPath: string;
+  workerPathExists: boolean;
+  workerFailed: boolean;
+  consecutiveWorkerExits: number;
+  hasLiveWorker: boolean;
+  isPackaged: boolean;
+} {
+  let workerPath = path.join(__dirname, 'ImageOptimizerWorker.worker.js');
+  workerPath = workerPath.replace(/app\.asar([/\\])/g, 'app.asar.unpacked$1');
+  return {
+    workerPath,
+    workerPathExists: existsSync(workerPath),
+    workerFailed,
+    consecutiveWorkerExits,
+    hasLiveWorker: worker !== null,
+    isPackaged: app.isPackaged,
+  };
 }

@@ -19,13 +19,16 @@ const recentLines: string[] = [];
 function init(): boolean {
   if (logPath !== null) return enabled;
   try {
-    if (app.isPackaged) {
+    const allowPackagedLogging = process.env.ONYX_OPTIMIZATION_DEBUG === '1';
+    if (app.isPackaged && !allowPackagedLogging) {
       logPath = '';
       contextPath = null;
       enabled = false;
       return false;
     }
-    const dir = path.join(app.getAppPath(), 'debug-logs');
+    const dir = app.isPackaged
+      ? path.join(app.getPath('userData'), 'debug-logs')
+      : path.join(app.getAppPath(), 'debug-logs');
     if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
     logPath = path.join(dir, 'optimization.log');
     contextPath = path.join(dir, 'crash-context.txt');

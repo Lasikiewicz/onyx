@@ -1,9 +1,31 @@
 export type ImageJobPhase = 'queued' | 'downloading' | 'optimizing' | 'done' | 'failed' | 'skipped';
 
+type OptimizationFailureCategory = 'module-not-found' | 'timeout' | 'process-error' | 'exception' | 'no-result' | 'no-gain';
+
+export interface OptimizationStageAttempt {
+  attempted: boolean;
+  outBytes?: number;
+  error?: string;
+  durationMs?: number;
+  startedAtMs?: number;
+  finishedAtMs?: number;
+  failureCategory?: OptimizationFailureCategory;
+  args?: string[];
+  exitCode?: number | null;
+  signal?: NodeJS.Signals | null;
+  stderrTail?: string;
+  outputExists?: boolean;
+  timedOut?: boolean;
+}
+
 export interface OptimizationAttemptSummary {
-  worker?: { attempted: boolean; outBytes?: number; error?: string };
-  ffmpeg?: { attempted: boolean; outBytes?: number; error?: string };
-  sharp?: { attempted: boolean; outBytes?: number; error?: string };
+  inputBytes?: number;
+  totalDurationMs?: number;
+  contentFormat?: string | null;
+  detectedContentFormat?: string | null;
+  worker?: OptimizationStageAttempt;
+  ffmpeg?: OptimizationStageAttempt;
+  sharp?: OptimizationStageAttempt;
   selectedPath?: 'worker' | 'ffmpeg' | 'sharp' | 'original';
 }
 

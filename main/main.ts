@@ -119,7 +119,7 @@ import { TrayService } from './ui/tray.js';
 import { withTimeout } from './RetryUtils.js';
 import { initAppUpdateService, checkForUpdates, addUpdateStatusListener } from './AppUpdateService.js';
 import { createImageOptimizationQueue } from './ImageOptimizationQueue.js';
-import { isWorkerAvailable } from './ImageOptimizerWorkerHost.js';
+import { getWorkerDiagnostics, isWorkerAvailable } from './ImageOptimizerWorkerHost.js';
 import {
   onStatusChange as onOptimizationStatusChange,
   getStatus as getOptimizationStatus,
@@ -333,6 +333,15 @@ const imageQueue = createImageOptimizationQueue(imageCacheService, gameStore, un
     return prefs.optimizationPerformance;
   },
 });
+const optimizationStartupDiagnostics = {
+  collectedAt: new Date().toISOString(),
+  ffmpeg: ImageCacheService.getFfmpegDiagnostics(),
+  worker: getWorkerDiagnostics(),
+  sharp: ImageCacheService.getSharpDiagnostics(),
+};
+if (!optimizationStartupDiagnostics.sharp.sharpLoadable) {
+  console.warn('[Optimization] Sharp preflight failed at startup:', optimizationStartupDiagnostics.sharp.sharpLoadError);
+}
 onOptimizationStatusChange((status) => {
   if (win && !win.isDestroyed()) win.webContents.send('optimization:status', status);
 });
@@ -344,9 +353,14 @@ ipcMain.handle('optimization:clearStatus', () => {
 });
 ipcMain.handle('optimization:getDiagnostics', async () => {
   const ffmpeg = ImageCacheService.getFfmpegDiagnostics();
+  const worker = getWorkerDiagnostics();
+  const sharp = ImageCacheService.getSharpDiagnostics();
   return {
     ffmpeg: { path: ffmpeg.path, available: ffmpeg.available, source: ffmpeg.source },
     workerAvailable: isWorkerAvailable(),
+    worker,
+    sharp,
+    startupDiagnostics: optimizationStartupDiagnostics,
     appPath: app.getAppPath(),
     isPackaged: app.isPackaged,
     execPath: process.execPath,

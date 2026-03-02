@@ -58,6 +58,7 @@ const config = {
   asarUnpack: [
     '**/ImageOptimizerWorker.worker.js',
     '**/node_modules/sharp/**',
+    '**/node_modules/semver/**',
     '**/node_modules/detect-libc/**',
     '**/node_modules/@img/**',
     '**/node_modules/ffmpeg-static/**'

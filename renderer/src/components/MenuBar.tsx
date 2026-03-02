@@ -194,7 +194,8 @@ export const MenuBar: React.FC<MenuBarProps> = ({
         else if (hasSizes && optimizedBytes < originalBytes) decision = 'optimized';
         else if (hasSizes && optimizedBytes === originalBytes && !job.decisionReason) decision = 'no_gain_kept_original';
         else if (hasSizes && optimizedBytes > originalBytes) decision = 'larger_result_rejected';
-        else if (job.phase === 'done') decision = 'done_missing_size_metrics';
+        else if (job.phase === 'done' && job.decisionReason) decision = job.decisionReason;
+        else if (job.phase === 'done') decision = 'done_no_size_metrics';
 
         if (job.error) {
           errors.set(job.error, (errors.get(job.error) ?? 0) + 1);
@@ -215,10 +216,13 @@ export const MenuBar: React.FC<MenuBarProps> = ({
           decision,
           error: job.error ?? null,
           attempts: job.attemptSummary ?? null,
-          attemptNote: job.attemptSummary
-            ? null
-            : 'Per-stage worker/ffmpeg/sharp attempt metrics are not captured per job in current status payload.',
-          timingsMs: null,
+          attemptNote: job.attemptSummary ? null : 'Per-stage worker/ffmpeg/sharp attempt metrics unavailable for this job.',
+          timingsMs: {
+            total: job.attemptSummary?.totalDurationMs ?? null,
+            worker: job.attemptSummary?.worker?.durationMs ?? null,
+            ffmpeg: job.attemptSummary?.ffmpeg?.durationMs ?? null,
+            sharp: job.attemptSummary?.sharp?.durationMs ?? null,
+          },
         };
       });
 
@@ -234,20 +238,29 @@ export const MenuBar: React.FC<MenuBarProps> = ({
       const failedCount = perJobDecision.filter((j) => j.decision === 'failed').length;
       const skippedCachedCount = perJobDecision.filter((j) => j.decision === 'skipped_cached').length;
       const skippedOtherCount = perJobDecision.filter((j) => j.decision === 'skipped').length;
-      const unknownCount = perJobDecision.filter((j) => j.decision === 'unknown' || j.decision === 'done_missing_size_metrics').length;
+      const unknownCount = perJobDecision.filter((j) => j.decision === 'unknown' || j.decision === 'done_no_size_metrics').length;
+
+      const failureCategoryDigest = jobs.reduce<Record<string, number>>((acc, job) => {
+        const categories = [job.attemptSummary?.worker?.failureCategory, job.attemptSummary?.ffmpeg?.failureCategory, job.attemptSummary?.sharp?.failureCategory];
+        for (const category of categories) {
+          if (!category) continue;
+          acc[category] = (acc[category] ?? 0) + 1;
+        }
+        return acc;
+      }, {});
 
       const notes: string[] = [];
       if (!diagnostics) {
         notes.push('This JSON does not include worker/ffmpeg diagnostics, so it can’t prove whether alpha has worker/ffmpeg capability differences vs local dev.');
       }
-      notes.push('Per-stage optimization attempt and timing metrics are included only when available; current importer status may not expose per-stage internals.');
+      notes.push('Per-stage optimization attempt/timing fields are included when available. If a stage is null, that stage was not attempted for that job.');
 
       const errorDigest = Array.from(errors.entries())
         .sort((a, b) => b[1] - a[1])
         .map(([message, count]) => ({ message, count }));
 
       const report = {
-        reportVersion: 2,
+        reportVersion: 3,
         generatedAt: timestamp.toISOString(),
         appName,
         appVersion,
@@ -285,6 +298,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
           completedCount: perJobDecision.filter((j) => j.phase === 'done').length,
         },
         errorDigest,
+        failureCategoryDigest,
         notes,
         perJobDecision,
         status: optimizationStatus,
