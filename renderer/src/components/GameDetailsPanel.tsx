@@ -141,20 +141,8 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
     installationDirectory: true,
   });
 
-  // Track game changes for transitions
-  const [currentGameId, setCurrentGameId] = useState<string | null>(game?.id || null);
-  // Track image ready state for preloading
   // Track image loaded state for animation deferral
   const [imageLoaded, setImageLoaded] = useState<Record<string, boolean>>({});
-  
-  // Detect game changes
-  useEffect(() => {
-    if (game?.id !== currentGameId) {
-      setCurrentGameId(game?.id || null);
-      // Reset image loaded state when game changes
-      setImageLoaded({});
-    }
-  }, [game?.id, currentGameId]);
 
   // Preload current game images so they are decoded before <img> mounts (faster first paint)
   useEffect(() => {
@@ -383,6 +371,9 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
   // Banner at top of panel always uses primary artwork (hero/banner/boxArt).
   // Alternative Background toggle only affects the full-page backdrop in App.tsx.
   const backgroundImageUrl = game.heroUrl || game.bannerUrl || game.boxArtUrl || '';
+  const backgroundLoadKey = `bg:${backgroundImageUrl}`;
+  const logoLoadKey = `logo:${game.logoUrl || ''}`;
+  const boxartLoadKey = `boxart:${game.boxArtUrl || ''}`;
   
   // Helper function to detect animated images
   const isAnimatedImage = (url: string) => /\.(gif|webp|apng)(\?|$)/i.test(url);
@@ -430,10 +421,9 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
         {backgroundImageUrl && (
           <>
             <img
-              key={backgroundImageUrl}
               src={backgroundImageUrl}
               alt={game.title}
-              className={`w-full h-full object-cover cursor-pointer ${imageLoaded[`bg-${game.id}`] ? (isAnimatedImage(backgroundImageUrl) ? 'game-image-transition-fast' : 'game-image-transition') : ''}`}
+              className={`w-full h-full object-cover cursor-pointer ${imageLoaded[backgroundLoadKey] ? (isAnimatedImage(backgroundImageUrl) ? 'game-image-transition-fast' : 'game-image-transition') : ''}`}
               style={{ 
                 height: `${fanartHeight}px`,
                 ...(isAnimatedImage(backgroundImageUrl) ? {
@@ -442,7 +432,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
                 } : {})
               }}
               onLoad={() => {
-                setImageLoaded(prev => ({ ...prev, [`bg-${game.id}`]: true }));
+                setImageLoaded(prev => ({ ...prev, [backgroundLoadKey]: true }));
               }}
               onError={(e) => {
                 const target = e.target as HTMLImageElement;
@@ -507,10 +497,9 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
               style={{ pointerEvents: 'auto' }}
             >
               <img
-                key={game.logoUrl}
                 src={game.logoUrl}
                 alt={game.title}
-                className={`max-w-full max-h-full object-contain cursor-pointer drop-shadow-2xl ${imageLoaded[`logo-${game.id}`] ? (isAnimatedImage(game.logoUrl) ? 'game-logo-transition-fast' : 'game-logo-transition') : ''}`}
+                className={`max-w-full max-h-full object-contain cursor-pointer drop-shadow-2xl ${imageLoaded[logoLoadKey] ? (isAnimatedImage(game.logoUrl) ? 'game-logo-transition-fast' : 'game-logo-transition') : ''}`}
                 style={{
                   maxHeight: `${localLogoSize !== undefined ? localLogoSize : (game.logoSizePerViewMode?.[viewMode] || game.logoSizePerViewMode?.carousel || rightPanelLogoSize)}px`,
                   display: 'block',
@@ -525,7 +514,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
                   } : {})
                 }}
                 onLoad={() => {
-                  setImageLoaded(prev => ({ ...prev, [`logo-${game.id}`]: true }));
+                  setImageLoaded(prev => ({ ...prev, [logoLoadKey]: true }));
                 }}
                 onError={(e) => {
                   const target = e.target as HTMLImageElement;
@@ -561,10 +550,9 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
           >
             {game.boxArtUrl ? (
               <img
-                key={game.boxArtUrl}
                 src={game.boxArtUrl}
                 alt={game.title}
-                className={`aspect-[2/3] object-cover rounded border border-gray-600 shadow-lg cursor-pointer ${imageLoaded[`boxart-${game.id}`] ? (isAnimatedImage(game.boxArtUrl) ? 'game-image-transition-fast' : 'game-image-transition') : ''}`}
+                className={`aspect-[2/3] object-cover rounded border border-gray-600 shadow-lg cursor-pointer ${imageLoaded[boxartLoadKey] ? (isAnimatedImage(game.boxArtUrl) ? 'game-image-transition-fast' : 'game-image-transition') : ''}`}
                 style={{ 
                   width: `${rightPanelBoxartSize}px`,
                   ...(isAnimatedImage(game.boxArtUrl) ? {
@@ -573,7 +561,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
                   } : {})
                 }}
                 onLoad={() => {
-                  setImageLoaded(prev => ({ ...prev, [`boxart-${game.id}`]: true }));
+                  setImageLoaded(prev => ({ ...prev, [boxartLoadKey]: true }));
                 }}
                 onError={(e) => {
                   const target = e.target as HTMLImageElement;

@@ -4,6 +4,14 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.6.30] - 2026-03-02
+
+- Game Manager: Fix image flicker when switching games by stabilizing background/details image swap behavior and preventing animation restarts.
+- Game Manager: Auto-load missing image tabs on tab switch and prefetch other image types after a search.
+- Game Manager: Add local animated/static filter toggles with improved provider-by-provider search progress feedback.
+- UI: Move optimizer report action to the Game Manager header, remove it from the main navbar, and align category button sizing.
+- Navbar: Hide stale pinned categories (for example `Demo`) when that category has no current games.
+
 ## [0.6.29] - 2026-03-02
 
 - Optimization (Alpha): Use the local-working animated WebP fallback strategy by prioritizing Sharp recompression before FFmpeg when worker optimization is insufficient.

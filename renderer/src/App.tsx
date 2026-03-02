@@ -270,6 +270,7 @@ function App() {
   const [panelWidth, setPanelWidth] = useState(800);
   const [rightClickMenu, setRightClickMenu] = useState<{ x: number; y: number } | null>(null);
   const [gameContextMenu, setGameContextMenu] = useState<{ x: number; y: number; game: Game } | null>(null);
+  const [displayedBackgroundImageUrl, setDisplayedBackgroundImageUrl] = useState('');
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [autoSizeToFit, setAutoSizeToFit] = useState(false);
   const gridContainerRef = useRef<HTMLDivElement>(null);
@@ -1786,34 +1787,49 @@ function App() {
     ? activeGame.alternativeBannerUrl
     : activeGame?.heroUrl || activeGame?.bannerUrl || activeGame?.boxArtUrl || '';
 
-  // Detect if background image is animated (GIF, WebP, APNG)
-  const isAnimatedBackground = useMemo(() => {
-    if (!backgroundImageUrl) return false;
-    return /\.(gif|webp|apng)(\?|$)/i.test(backgroundImageUrl);
-  }, [backgroundImageUrl]);
-
-  // Optimize blur for animated backgrounds to reduce compositing cost
-  const optimizedBackgroundBlur = isAnimatedBackground ? Math.min(backgroundBlur, 10) : backgroundBlur;
-
-  // Preload background images before switching
+  // Keep previous background visible until the next background is loaded to avoid flicker.
   useEffect(() => {
-    if (!backgroundImageUrl) return;
+    if (!backgroundImageUrl) {
+      setDisplayedBackgroundImageUrl('');
+      return;
+    }
 
+    let cancelled = false;
+    let committed = false;
     const img = new Image();
+    const commit = () => {
+      if (cancelled || committed) return;
+      committed = true;
+      setDisplayedBackgroundImageUrl(backgroundImageUrl);
+    };
+
+    img.onload = commit;
+    img.onerror = commit;
     img.src = backgroundImageUrl;
 
-    // For static images, use decode() API for better performance
-    if (!isAnimatedBackground && img.decode) {
-      img.decode().catch(() => {
-        // Ignore decode errors, image will load normally
+    const isAnimated = /\.(gif|webp|apng)(\?|$)/i.test(backgroundImageUrl);
+    if (!isAnimated && img.decode) {
+      img.decode().then(commit).catch(() => {
+        // Fallback to onload/onerror paths.
       });
     }
 
-    // Cleanup
     return () => {
+      cancelled = true;
+      img.onload = null;
+      img.onerror = null;
       img.src = '';
     };
-  }, [backgroundImageUrl, isAnimatedBackground]);
+  }, [backgroundImageUrl]);
+
+  // Detect if background image is animated (GIF, WebP, APNG)
+  const isAnimatedBackground = useMemo(() => {
+    if (!displayedBackgroundImageUrl) return false;
+    return /\.(gif|webp|apng)(\?|$)/i.test(displayedBackgroundImageUrl);
+  }, [displayedBackgroundImageUrl]);
+
+  // Optimize blur for animated backgrounds to reduce compositing cost
+  const optimizedBackgroundBlur = isAnimatedBackground ? Math.min(backgroundBlur, 10) : backgroundBlur;
 
   // Preload images for adjacent games so switching is instant
   useEffect(() => {
@@ -1853,20 +1869,18 @@ function App() {
   return (
     <div className="h-screen bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-900 via-[#0f172a] to-black text-white flex flex-col overflow-hidden relative">
       {/* Background - Image or Color */}
-      {backgroundMode === 'image' && backgroundImageUrl ? (
+      {backgroundMode === 'image' && displayedBackgroundImageUrl ? (
         <div
-          key={backgroundImageUrl}
           className="fixed inset-0 pointer-events-none"
           style={{
-            backgroundImage: `url(${backgroundImageUrl})`,
+            backgroundImage: `url(${displayedBackgroundImageUrl})`,
             backgroundSize: 'cover',
             backgroundPosition: 'center',
             backgroundRepeat: 'no-repeat',
             filter: `blur(${optimizedBackgroundBlur}px) brightness(${currentBackgroundBrightness})`,
             transform: optimizedBackgroundBlur > 0 ? `scale(${1 + (optimizedBackgroundBlur * 0.002)})` : 'none',
             zIndex: 0,
-            transition: 'opacity 600ms ease-in-out',
-            animation: 'fadeIn 600ms ease-in-out',
+            transition: 'opacity 300ms linear',
             // Performance optimizations for animated backgrounds
             ...(isAnimatedBackground && {
               willChange: 'transform',
