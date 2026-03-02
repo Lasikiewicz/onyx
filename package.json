@@ -1,7 +1,7 @@
 {
   "name": "onyx-launcher",
   "productName": "Onyx",
-  "version": "0.6.23",
+  "version": "0.6.24",
   "description": "The premium unified game library.",
   "main": "dist-electron/main.js",
   "scripts": {
@@ -71,7 +71,6 @@
     "jsdom": "^28.1.0",
     "png2icons": "^2.0.1",
     "postcss": "^8.4.32",
-    "sharp": "^0.34.5",
     "tailwindcss": "^3.3.6",
     "typescript": "^5.3.3",
     "vite": "^5.0.8",
@@ -88,7 +87,8 @@
     "electron-updater": "^6.3.9",
     "ffmpeg-static": "^5.3.0",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react-dom": "^18.2.0",
+    "sharp": "^0.34.5"
   },
   "optionalDependencies": {
     "keytar": "^7.7.0"

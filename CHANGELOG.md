@@ -4,6 +4,11 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.6.24] - 2026-03-02
+
+- Packaging: Move `sharp` to runtime dependencies so packaged Alpha/Release builds can load optimizer worker image processing modules.
+- Optimization diagnostics: Preserve per-stage attempt telemetry in exported reports to confirm packaged runtime behavior.
+
 ## [0.6.23] - 2026-03-02
 
 - Optimization report: Add per-image stage telemetry (`decisionReason`, worker/ffmpeg/sharp attempt summary) so diagnostics can explain why originals were kept.
