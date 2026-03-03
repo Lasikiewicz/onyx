@@ -94,5 +94,15 @@
   },
   "optionalDependencies": {
     "keytar": "^7.7.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "electron",
+      "esbuild",
+      "ffmpeg-static",
+      "sharp",
+      "electron-winstaller",
+      "keytar"
+    ]
   }
 }

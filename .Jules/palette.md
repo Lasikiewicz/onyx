@@ -1,0 +1,4 @@
+
+## 2024-05-20 - Missing ARIA Labels on Modal Close Buttons
+**Learning:** There is a persistent pattern across various modal components (e.g., `AddGameModal`, `BugReportModal`, `ConfigureAppsModal`, `SteamGameMetadataEditor`) where icon-only close buttons lack an `aria-label`. This makes these essential controls inaccessible to screen reader users, who will just hear "button" without context. Additionally, decorative SVGs inside these buttons often lack `aria-hidden="true"` and `focusable="false"`.
+**Action:** Always ensure that icon-only interactive elements like close buttons have an explicit `aria-label="Close"`, and hide the inner SVG icons from screen readers and focus order using `aria-hidden="true"` and `focusable="false"`. I will proactively audit existing components and ensure new components follow this pattern.
