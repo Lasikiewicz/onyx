@@ -4,7 +4,7 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Pending]
+## [0.6.33] - 2026-03-03
 
 - Animation settings: Fix `.webm` pause enforcement so `Disable all animations` and per-category toggles reliably pause animated media and hold first frame when disabled.
 - Animation categories: Separate banner behavior so `Disable animated banners` controls the top Game Details banner, and rename background toggle to `Disable animated alt banners` for alternative background targeting only.
