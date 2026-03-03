@@ -136,10 +136,6 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
     const [showIgnored, setShowIgnored] = useState(false);
     const [showCloseConfirm, setShowCloseConfirm] = useState(false);
 
-    // Preferences
-    const [preferAnimatedBoxart, setPreferAnimatedBoxart] = useState(true);
-    const [preferAnimatedBanner, setPreferAnimatedBanner] = useState(true);
-
     // New state for real-time scanning
     const [currentlyProcessingGame, setCurrentlyProcessingGame] = useState<string | null>(null);
     const [gameProcessingStates, setGameProcessingStates] = useState<Map<string, { status: string; progress?: string }>>(new Map());
@@ -174,18 +170,6 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
     const readyCount = useMemo(() => visibleGames.filter(g => g.status === 'ready').length, [visibleGames]);
 
     // --- Effects ---
-
-    // Load preferences
-    useEffect(() => {
-        if (isOpen) {
-            window.electronAPI.getPreferences()
-                .then(prefs => {
-                    setPreferAnimatedBoxart(prefs.preferAnimatedBoxart ?? true);
-                    setPreferAnimatedBanner(prefs.preferAnimatedBanner ?? true);
-                })
-                .catch(console.error);
-        }
-    }, [isOpen]);
 
     // While scanning, keep the currently processing game in view in the sidebar
     useEffect(() => {
@@ -289,28 +273,6 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
     }, [isOpen]);
 
     // --- Handlers ---
-
-    const handleTogglePreferAnimatedBoxart = async () => {
-        const newValue = !preferAnimatedBoxart;
-        setPreferAnimatedBoxart(newValue);
-        try {
-            const prefs = await window.electronAPI.getPreferences();
-            await window.electronAPI.savePreferences({ ...prefs, preferAnimatedBoxart: newValue });
-        } catch (e) {
-            console.error(e);
-        }
-    };
-
-    const handleTogglePreferAnimatedBanner = async () => {
-        const newValue = !preferAnimatedBanner;
-        setPreferAnimatedBanner(newValue);
-        try {
-            const prefs = await window.electronAPI.getPreferences();
-            await window.electronAPI.savePreferences({ ...prefs, preferAnimatedBanner: newValue });
-        } catch (e) {
-            console.error(e);
-        }
-    };
 
     // --- Handlers ---
 
@@ -984,38 +946,6 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
                                     <p className="text-gray-400">
                                         Detect games installed on your system from Steam, Epic, GOG, and other launchers.
                                     </p>
-                                </div>
-
-                                <div className="flex flex-col gap-3 my-4">
-                                    <label className="flex items-center gap-3 cursor-pointer group">
-                                        <div className={`w-10 h-5 md:w-12 md:h-6 rounded-full relative transition-colors duration-300 ${preferAnimatedBoxart ? 'bg-blue-600' : 'bg-gray-700 group-hover:bg-gray-600'}`}>
-                                            <div className={`absolute top-1 left-1 bg-white w-3 h-3 md:w-4 md:h-4 rounded-full transition-transform duration-300 ${preferAnimatedBoxart ? 'translate-x-5 md:translate-x-6' : 'translate-x-0'}`} />
-                                        </div>
-                                        <span className="text-sm font-medium text-gray-300 group-hover:text-white transition-colors">
-                                            Prefer Animated Box Art
-                                        </span>
-                                        <input
-                                            type="checkbox"
-                                            className="hidden"
-                                            checked={preferAnimatedBoxart}
-                                            onChange={handleTogglePreferAnimatedBoxart}
-                                        />
-                                    </label>
-
-                                    <label className="flex items-center gap-3 cursor-pointer group">
-                                        <div className={`w-10 h-5 md:w-12 md:h-6 rounded-full relative transition-colors duration-300 ${preferAnimatedBanner ? 'bg-blue-600' : 'bg-gray-700 group-hover:bg-gray-600'}`}>
-                                            <div className={`absolute top-1 left-1 bg-white w-3 h-3 md:w-4 md:h-4 rounded-full transition-transform duration-300 ${preferAnimatedBanner ? 'translate-x-5 md:translate-x-6' : 'translate-x-0'}`} />
-                                        </div>
-                                        <span className="text-sm font-medium text-gray-300 group-hover:text-white transition-colors">
-                                            Prefer Animated Banners
-                                        </span>
-                                        <input
-                                            type="checkbox"
-                                            className="hidden"
-                                            checked={preferAnimatedBanner}
-                                            onChange={handleTogglePreferAnimatedBanner}
-                                        />
-                                    </label>
                                 </div>
 
                                 <button

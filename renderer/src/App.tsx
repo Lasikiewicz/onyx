@@ -1097,14 +1097,26 @@ function App() {
     return filtered;
   }, [games, searchQuery, activeSection, selectedCategory, selectedLauncher, sortBy, hideVRTitles, hideAppsTitles]);
 
-  // Sanitize games for display based on animation settings and overlay state. When any overlay
-  // (e.g. right-click menu) is open, strip ALL artwork URLs so nothing can animate in the views.
-  const contextMenusOpen = rightClickMenu !== null || gameContextMenu !== null;
+  // Whether any major overlay or context menu is open (settings, game manager, right-click menu, etc.)
+  const overlaysOpen =
+    isOnyxSettingsOpen ||
+    isGameManagerOpen ||
+    isImportWorkbenchOpen ||
+    showOptimizerModal ||
+    isUpdateLibraryOpen ||
+    showLibraryTutorial ||
+    isAPISettingsOpen ||
+    isBugReportOpen ||
+    rightClickMenu !== null ||
+    gameContextMenu !== null;
+
+  // Sanitize games for display based on animation settings and overlay state.
+  // During overlays, keep videos visible (they are paused via global controller below) but hide animated image formats.
   const displayGames = useMemo(() => {
-    const isAnimated = (url?: string) => !!url && /\.(gif|webp|apng)(\?|$)/i.test(url);
+    const isAnimatedUrl = (url?: string) => !!url && /\.(gif|webp|apng|webm)(\?|$)/i.test(url);
 
     if (
-      !contextMenusOpen &&
+      !overlaysOpen &&
       !disableAllAnimations &&
       !disableAnimatedBanners &&
       !disableAnimatedBoxarts &&
@@ -1115,28 +1127,43 @@ function App() {
       return filteredGames;
     }
 
-    const disableBoxart = contextMenusOpen || disableAllAnimations || disableAnimatedBoxarts;
-    const disableBanner = contextMenusOpen || disableAllAnimations || disableAnimatedBanners;
-    const disableBackground = contextMenusOpen || disableAllAnimations || disableAnimatedBackgrounds;
-    const disableIcon = contextMenusOpen || disableAllAnimations || disableAnimatedIcons;
-    const disableLogo = contextMenusOpen || disableAllAnimations || disableAnimatedLogos;
+    const disableBoxartBySettings = disableAllAnimations || disableAnimatedBoxarts;
+    const disableBannerBySettings = disableAllAnimations || disableAnimatedBanners;
+    const disableBackgroundBySettings = disableAllAnimations || disableAnimatedBackgrounds;
+    const disableIconBySettings = disableAllAnimations || disableAnimatedIcons;
+    const disableLogoBySettings = disableAllAnimations || disableAnimatedLogos;
 
     return filteredGames.map((game) => {
       const clone: Game = { ...game };
 
-      if (disableBoxart && clone.boxArtUrl && isAnimated(clone.boxArtUrl)) {
+      if (clone.boxArtUrl && (
+        (disableBoxartBySettings && (clone.boxArtIsVideo || isAnimatedUrl(clone.boxArtUrl))) ||
+        (overlaysOpen && !clone.boxArtIsVideo && isAnimatedUrl(clone.boxArtUrl))
+      )) {
         clone.boxArtUrl = '';
       }
-      if (disableBanner && clone.bannerUrl && isAnimated(clone.bannerUrl)) {
+      if (clone.bannerUrl && (
+        (disableBannerBySettings && (clone.bannerIsVideo || isAnimatedUrl(clone.bannerUrl))) ||
+        (overlaysOpen && !clone.bannerIsVideo && isAnimatedUrl(clone.bannerUrl))
+      )) {
         clone.bannerUrl = '';
       }
-      if (disableBackground && clone.heroUrl && isAnimated(clone.heroUrl)) {
+      if (clone.heroUrl && (
+        (disableBackgroundBySettings && (clone.heroIsVideo || isAnimatedUrl(clone.heroUrl))) ||
+        (overlaysOpen && !clone.heroIsVideo && isAnimatedUrl(clone.heroUrl))
+      )) {
         clone.heroUrl = '';
       }
-      if (disableIcon && clone.iconUrl && isAnimated(clone.iconUrl)) {
+      if (clone.iconUrl && (
+        (disableIconBySettings && (clone.iconIsVideo || isAnimatedUrl(clone.iconUrl))) ||
+        (overlaysOpen && !clone.iconIsVideo && isAnimatedUrl(clone.iconUrl))
+      )) {
         clone.iconUrl = '';
       }
-      if (disableLogo && clone.logoUrl && isAnimated(clone.logoUrl)) {
+      if (clone.logoUrl && (
+        (disableLogoBySettings && (clone.logoIsVideo || isAnimatedUrl(clone.logoUrl))) ||
+        (overlaysOpen && !clone.logoIsVideo && isAnimatedUrl(clone.logoUrl))
+      )) {
         clone.logoUrl = '';
       }
 
@@ -1144,7 +1171,7 @@ function App() {
     });
   }, [
     filteredGames,
-    contextMenusOpen,
+    overlaysOpen,
     disableAllAnimations,
     disableAnimatedBanners,
     disableAnimatedBoxarts,
@@ -1152,6 +1179,46 @@ function App() {
     disableAnimatedIcons,
     disableAnimatedLogos,
   ]);
+
+  // Pause all videos whenever overlays are open, and resume the ones we paused when overlays close.
+  useEffect(() => {
+    if (typeof document === 'undefined' || !document.body) return;
+
+    const pauseMarker = 'data-onyx-paused-by-overlay';
+
+    const pauseAllVideos = () => {
+      document.querySelectorAll('video').forEach((node) => {
+        const video = node as HTMLVideoElement;
+        if (!video.paused) {
+          video.setAttribute(pauseMarker, '1');
+          video.pause();
+        }
+      });
+    };
+
+    const resumeMarkedVideos = () => {
+      document.querySelectorAll(`video[${pauseMarker}="1"]`).forEach((node) => {
+        const video = node as HTMLVideoElement;
+        const playPromise = video.play();
+        if (playPromise && typeof playPromise.catch === 'function') {
+          playPromise.catch(() => { });
+        }
+        video.removeAttribute(pauseMarker);
+      });
+    };
+
+    if (overlaysOpen) {
+      pauseAllVideos();
+      const observer = new MutationObserver(() => {
+        pauseAllVideos();
+      });
+      observer.observe(document.body, { childList: true, subtree: true });
+      return () => observer.disconnect();
+    }
+
+    resumeMarkedVideos();
+    return;
+  }, [overlaysOpen]);
 
   const activeGame = activeGameId ? games.find(g => g.id === activeGameId) || null : null;
 
@@ -1863,19 +1930,12 @@ function App() {
   const backgroundImageUrl = (activeGame?.useAlternativeBackground && activeGame?.alternativeBannerUrl)
     ? activeGame.alternativeBannerUrl
     : activeGame?.heroUrl || activeGame?.bannerUrl || activeGame?.boxArtUrl || '';
-
-  // Whether any major overlay or context menu is open (settings, game manager, right-click menu, etc.)
-  const overlaysOpen =
-    isOnyxSettingsOpen ||
-    isGameManagerOpen ||
-    isImportWorkbenchOpen ||
-    showOptimizerModal ||
-    isUpdateLibraryOpen ||
-    showLibraryTutorial ||
-    isAPISettingsOpen ||
-    isBugReportOpen ||
-    rightClickMenu !== null ||
-    gameContextMenu !== null;
+  const isBackgroundVideo = !!(activeGame && backgroundImageUrl && (
+    (activeGame.useAlternativeBackground && activeGame.alternativeBannerUrl === backgroundImageUrl && activeGame.alternativeBannerIsVideo) ||
+    (activeGame.heroUrl === backgroundImageUrl && activeGame.heroIsVideo) ||
+    (activeGame.bannerUrl === backgroundImageUrl && activeGame.bannerIsVideo) ||
+    (activeGame.boxArtUrl === backgroundImageUrl && activeGame.boxArtIsVideo)
+  ));
 
   // Keep previous background visible until the next background is loaded to avoid flicker
   // for static images. For animated backgrounds (GIF/WebP/APNG), switch immediately so
@@ -1886,14 +1946,14 @@ function App() {
       return;
     }
 
-    const isAnimated = /\.(gif|webp|apng)(\?|$)/i.test(backgroundImageUrl);
+    const isAnimated = isBackgroundVideo || /\.(gif|webp|apng|webm)(\?|$)/i.test(backgroundImageUrl);
     const blockAnimatedBackground =
       overlaysOpen || disableAllAnimations || disableAnimatedBackgrounds;
 
     // If we should not run animated backgrounds, prefer a static fallback (boxart) or clear to color.
     if (blockAnimatedBackground) {
       if (isAnimated) {
-        const staticFallback = activeGame?.boxArtUrl && !/\.(gif|webp|apng)(\?|$)/i.test(activeGame.boxArtUrl)
+        const staticFallback = activeGame?.boxArtUrl && !activeGame.boxArtIsVideo && !/\.(gif|webp|apng|webm)(\?|$)/i.test(activeGame.boxArtUrl)
           ? activeGame.boxArtUrl
           : '';
         setDisplayedBackgroundImageUrl(staticFallback);
@@ -1930,13 +1990,13 @@ function App() {
       img.onerror = null;
       img.src = '';
     };
-  }, [backgroundImageUrl, disableAllAnimations, disableAnimatedBackgrounds, overlaysOpen, activeGame?.boxArtUrl]);
+  }, [backgroundImageUrl, disableAllAnimations, disableAnimatedBackgrounds, overlaysOpen, activeGame?.boxArtUrl, activeGame?.boxArtIsVideo, isBackgroundVideo]);
 
   // Detect if background image is animated (GIF, WebP, APNG)
   const isAnimatedBackground = useMemo(() => {
     if (!displayedBackgroundImageUrl) return false;
-    return /\.(gif|webp|apng)(\?|$)/i.test(displayedBackgroundImageUrl);
-  }, [displayedBackgroundImageUrl]);
+    return isBackgroundVideo || /\.(gif|webp|apng|webm)(\?|$)/i.test(displayedBackgroundImageUrl);
+  }, [displayedBackgroundImageUrl, isBackgroundVideo]);
 
   // Optimize blur for animated backgrounds to reduce compositing cost
   const optimizedBackgroundBlur = isAnimatedBackground ? Math.min(backgroundBlur, 10) : backgroundBlur;
@@ -1952,9 +2012,16 @@ function App() {
     for (const game of [prevGame, nextGame]) {
       if (!game) continue;
       const bgUrl = (game.useAlternativeBackground && game.alternativeBannerUrl) ? game.alternativeBannerUrl : game.heroUrl || game.bannerUrl || game.boxArtUrl || '';
-      if (bgUrl) toPreload.push({ url: bgUrl, isAnimated: /\.(gif|webp|apng)(\?|$)/i.test(bgUrl) });
-      if (game.logoUrl) toPreload.push({ url: game.logoUrl, isAnimated: /\.(gif|webp|apng)(\?|$)/i.test(game.logoUrl) });
-      if (game.boxArtUrl) toPreload.push({ url: game.boxArtUrl, isAnimated: /\.(gif|webp|apng)(\?|$)/i.test(game.boxArtUrl) });
+      if (bgUrl) {
+        const bgIsVideo =
+          (game.useAlternativeBackground && game.alternativeBannerUrl === bgUrl && game.alternativeBannerIsVideo) ||
+          (game.heroUrl === bgUrl && game.heroIsVideo) ||
+          (game.bannerUrl === bgUrl && game.bannerIsVideo) ||
+          (game.boxArtUrl === bgUrl && game.boxArtIsVideo);
+        toPreload.push({ url: bgUrl, isAnimated: !!bgIsVideo || /\.(gif|webp|apng|webm)(\?|$)/i.test(bgUrl) });
+      }
+      if (game.logoUrl) toPreload.push({ url: game.logoUrl, isAnimated: !!game.logoIsVideo || /\.(gif|webp|apng|webm)(\?|$)/i.test(game.logoUrl) });
+      if (game.boxArtUrl) toPreload.push({ url: game.boxArtUrl, isAnimated: !!game.boxArtIsVideo || /\.(gif|webp|apng|webm)(\?|$)/i.test(game.boxArtUrl) });
     }
     const images: HTMLImageElement[] = [];
     for (const { url, isAnimated } of toPreload) {

@@ -33,9 +33,6 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onScanGames, onAdd
     const [overviewKeyInputs, setOverviewKeyInputs] = useState<{ steamGridDB: string; igdbClientId: string; igdbClientSecret: string; rawg: string }>({ steamGridDB: '', igdbClientId: '', igdbClientSecret: '', rawg: '' });
     const [savingOverviewKey, setSavingOverviewKey] = useState<string | null>(null);
 
-    // Animation preferences
-    const [preferAnimatedBoxart, setPreferAnimatedBoxart] = useState(true);
-    const [preferAnimatedBanner, setPreferAnimatedBanner] = useState(true);
     const [optimizationPerformance, setOptimizationPerformance] = useState<'low' | 'balanced' | 'high' | null>(null);
 
     useEffect(() => {
@@ -74,8 +71,6 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onScanGames, onAdd
                 });
             });
             window.electronAPI.getPreferences().then((prefs: any) => {
-                setPreferAnimatedBoxart(prefs.preferAnimatedBoxart ?? true);
-                setPreferAnimatedBanner(prefs.preferAnimatedBanner ?? true);
                 setOptimizationPerformance(prefs.optimizationPerformance ?? null);
             });
         }
@@ -162,15 +157,13 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onScanGames, onAdd
             return;
         }
 
-        // Save the animated preferences
+        // Save onboarding preferences
         try {
             await window.electronAPI.savePreferences({
-                preferAnimatedBoxart,
-                preferAnimatedBanner,
                 optimizationPerformance
             });
         } catch (err) {
-            console.error('Error saving animated preferences:', err);
+            console.error('Error saving onboarding preferences:', err);
         }
 
         for (const { path, categories } of addedFolders) {
@@ -658,50 +651,6 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onScanGames, onAdd
                                     ))}
                                 </div>
                             )}
-                        </div>
-
-                        <div>
-                            <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">Animation Preferences</h3>
-                            <p className="text-xs text-amber-400 mb-2 leading-relaxed">
-                                Animated images can take longer to optimize. Optimization runs in the background and may continue for a while after your scan starts.
-                            </p>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                <label className="flex items-center gap-3 p-3 bg-gray-800/50 hover:bg-gray-800 border border-gray-700 hover:border-blue-500/50 rounded-xl cursor-pointer transition-colors group select-none">
-                                    <div className="relative flex items-center shrink-0">
-                                        <input
-                                            type="checkbox"
-                                            className="sr-only"
-                                            checked={preferAnimatedBoxart}
-                                            onChange={(e) => setPreferAnimatedBoxart(e.target.checked)}
-                                        />
-                                        <div className={`w-11 h-6 rounded-full transition-colors flex items-center px-0.5 ${preferAnimatedBoxart ? 'bg-blue-600' : 'bg-gray-700 group-hover:bg-gray-600'}`}>
-                                            <div className={`w-5 h-5 bg-white rounded-full shadow-sm transform transition-transform ${preferAnimatedBoxart ? 'translate-x-5' : 'translate-x-0'}`} />
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <span className="block text-sm font-medium text-gray-200">Prefer Animated Box Art</span>
-                                        <span className="block text-xs text-gray-500 mt-0.5">Prioritize GIFs and WebPs for vertical covers (if available)</span>
-                                    </div>
-                                </label>
-
-                                <label className="flex items-center gap-3 p-3 bg-gray-800/50 hover:bg-gray-800 border border-gray-700 hover:border-blue-500/50 rounded-xl cursor-pointer transition-colors group select-none">
-                                    <div className="relative flex items-center shrink-0">
-                                        <input
-                                            type="checkbox"
-                                            className="sr-only"
-                                            checked={preferAnimatedBanner}
-                                            onChange={(e) => setPreferAnimatedBanner(e.target.checked)}
-                                        />
-                                        <div className={`w-11 h-6 rounded-full transition-colors flex items-center px-0.5 ${preferAnimatedBanner ? 'bg-blue-600' : 'bg-gray-700 group-hover:bg-gray-600'}`}>
-                                            <div className={`w-5 h-5 bg-white rounded-full shadow-sm transform transition-transform ${preferAnimatedBanner ? 'translate-x-5' : 'translate-x-0'}`} />
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <span className="block text-sm font-medium text-gray-200">Prefer Animated Banners</span>
-                                        <span className="block text-xs text-gray-500 mt-0.5">Prioritize GIFs and WebPs for horizontal heroes (if available)</span>
-                                    </div>
-                                </label>
-                            </div>
                         </div>
 
                         <div>

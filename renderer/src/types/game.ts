@@ -131,8 +131,6 @@ export interface UserPreferences {
   descriptionWidth?: number;
   descriptionWidthByView?: { grid?: number; list?: number; logo?: number; };
   pinnedCategories?: string[];
-  preferAnimatedBoxart?: boolean;
-  preferAnimatedBanner?: boolean;
   disableAllAnimations?: boolean;
   // New per-type animation controls
   disableAnimatedBanners?: boolean;

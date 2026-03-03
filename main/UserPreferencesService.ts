@@ -131,8 +131,6 @@ export interface UserPreferences {
   storeMetadataLocally?: boolean; // Store metadata and images locally by default
   optimizeImagesInBackground?: boolean; // When true, cache/optimize images in background and show progress in navbar
   optimizationPerformance?: 'low' | 'balanced' | 'high'; // CPU usage profile for image optimization
-  preferAnimatedBoxart?: boolean; // Prefer animated cover art when importing
-  preferAnimatedBanner?: boolean; // Prefer animated heroes/banners when importing
   disableAllAnimations?: boolean; // Master switch to disable all UI and image animations
   // Legacy fields (kept for backward compatibility)
   disableAnimatedImages?: boolean; // Deprecated: use per-type flags instead
@@ -350,8 +348,6 @@ export class UserPreferencesService {
       windowState: undefined,
       storeMetadataLocally: true,
       optimizeImagesInBackground: true,
-      preferAnimatedBoxart: true,
-      preferAnimatedBanner: true,
       disableAllAnimations: false,
       // Legacy fields default
       disableAnimatedImages: false,

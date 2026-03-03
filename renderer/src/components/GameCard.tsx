@@ -55,7 +55,7 @@ const GameCardComponent: React.FC<GameCardProps> = ({
   disableAnimatedLogos = false,
 }) => {
 
-  const isAnimatedImage = (url: string | undefined) => !!url && /\.(gif|webp|apng)(\?|$)/i.test(url);
+  const isAnimatedImage = (url: string | undefined) => !!url && /\.(gif|webp|apng|webm)(\?|$)/i.test(url);
   const isWebmUrl = (url: string | undefined) => !!url && /\.webm(\?|$)/i.test(url);
 
   const hasLogo = game.logoUrl && (!disableAnimatedLogos || !isAnimatedImage(game.logoUrl));

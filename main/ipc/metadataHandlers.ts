@@ -32,12 +32,8 @@ export function registerMetadataIPCHandlers(
     // Search Artwork Handlers
     ipcMain.handle('metadata:searchArtwork', async (_event, title: string, steamAppId?: string, bypassCache?: boolean) => {
         try {
-            const prefs = await userPreferencesService.getPreferences();
-            const preferAnimatedBoxart = prefs.preferAnimatedBoxart ?? true;
-            const preferAnimatedBanner = prefs.preferAnimatedBanner ?? true;
-
             return await withTimeout(
-                metadataFetcher.searchArtwork(title, steamAppId, bypassCache, false, preferAnimatedBoxart, preferAnimatedBanner),
+                metadataFetcher.searchArtwork(title, steamAppId, bypassCache, false, true, true),
                 60000,
                 `Artwork fetch timeout for "${title}"`
             );
@@ -430,8 +426,7 @@ export function registerMetadataIPCHandlers(
             }
 
             // Fallback to title search if no specific match found
-            const prefs = await userPreferencesService.getPreferences();
-            return await metadataFetcher.searchArtwork(query, undefined, false, false, prefs.preferAnimatedBoxart ?? true, prefs.preferAnimatedBanner ?? true);
+            return await metadataFetcher.searchArtwork(query, undefined, false, false, true, true);
         } catch (error) {
             console.error('Error in metadata:fastImageSearch handler:', error);
             // Return empty metadata object rather than crashing or undefined
@@ -681,8 +676,7 @@ export function registerMetadataIPCHandlers(
             // 2. Try to fetch standard metadata (Steam/IGDB auto-match) as fallback/addition
             sendProviderStatus('Auto-Match', ['IGDB', 'RAWG']);
             try {
-                const prefs = await userPreferencesService.getPreferences();
-                const metadata = await metadataFetcher.searchArtwork(gameName, steamAppId, false, false, prefs.preferAnimatedBoxart ?? true, prefs.preferAnimatedBanner ?? true);
+                const metadata = await metadataFetcher.searchArtwork(gameName, steamAppId, false, false, true, true);
                 const autoMatchImages: any[] = [];
 
                 if (metadata.boxArtUrl) autoMatchImages.push({ type: 'boxart', url: metadata.boxArtUrl, source: 'Auto-Match', name: gameName });

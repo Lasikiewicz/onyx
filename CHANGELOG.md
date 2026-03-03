@@ -4,10 +4,11 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Pending]
+## [0.6.32] - 2026-03-03
 
-- Game Manager / Images: WEBM upload and display — cache uploaded WEBM via onyx-local (no file:// in UI), skip optimizer for local WEBM to avoid freeze, render WEBM as &lt;video&gt; in details panel and grid; protocol handler case-insensitive lookup; getLibrary enriches *IsVideo from cache so existing WEBM assets show.
-- WEBM playback: Fix app-wide WEBM visibility by rendering `.webm` assets as video in Game Manager/list/carousel/coverflow views, allowing required IPC channels (`metadata:imageSearchProviderStatus`, `startup:newGamesFound`), and adding CSP `media-src` support for `onyx-local:` media URLs.
+- WEBM video playback: Add app-wide support for `.webm` video assets throughout Game Manager, library views (list/carousel/coverflow), and details panel with proper `<video>` rendering and IPC/CSP fixes.
+- Add Games / Onboarding: Remove `Prefer Animated Box Art` and `Prefer Animated Banners` UI toggles and deprecate their preference keys.
+- Animation behavior: Pause `.webm` videos when right-click menus or settings overlays are open, while keeping them visible.
 - Security: Centralize external URL protocol validation with a shared whitelist for IPC and launcher flows.
 - Accessibility: Add ARIA labels and focus improvements to MenuBar, GameManager view toggles, TopBar, and related UI.
 - Performance: Optimize GameCard rendering, game filtering allocations, library carousel windowing, and animated image optimization defaults.

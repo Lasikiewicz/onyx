@@ -98,7 +98,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
   disableAnimatedBoxarts = false,
   disableAnimatedIcons: _disableAnimatedIcons = false, // currently unused placeholder for future icon-specific behavior
   disableAnimatedLogos = false,
-  overlaysOpen: _overlaysOpen = false, // not needed directly here; background/boxart handled by props above
+  overlaysOpen: _overlaysOpen = false,
 }) => {
   const defaultPanelWidths: Record<ViewKey, number> = { grid: 800, list: 800, logo: 800 };
   const [panelWidths, setPanelWidths] = useState<Record<ViewKey, number>>(defaultPanelWidths);
@@ -162,7 +162,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
     const bgUrl = game.heroUrl || game.bannerUrl || game.boxArtUrl || '';
     const urls = [bgUrl, game.logoUrl, game.boxArtUrl].filter(Boolean) as string[];
     const images: HTMLImageElement[] = [];
-    const animatedRe = /\.(gif|webp|apng)(\?|$)/i;
+    const animatedRe = /\.(gif|webp|apng|webm)(\?|$)/i;
     for (const url of urls) {
       const img = new Image();
       images.push(img);
@@ -392,8 +392,14 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
     (game.boxArtUrl === backgroundImageUrl && game.boxArtIsVideo)
   ));
   
-  // Helper function to detect animated images
-  const isAnimatedImage = (url: string) => /\.(gif|webp|apng)(\?|$)/i.test(url);
+  // Helper function to detect animated media (animated image formats + webm video)
+  const isAnimatedImage = (url: string) => /\.(gif|webp|apng|webm)(\?|$)/i.test(url);
+  const isAnimatedMedia = (url: string, isVideo?: boolean) => !!isVideo || isAnimatedImage(url);
+  const isLogoVideo = !!game.logoIsVideo;
+  const isBoxartVideo = !!game.boxArtIsVideo;
+  const disableAnimatedBackgroundsBySettings = disableAnimatedBackgrounds && !_overlaysOpen;
+  const disableAnimatedLogosBySettings = disableAnimatedLogos && !_overlaysOpen;
+  const disableAnimatedBoxartsBySettings = disableAnimatedBoxarts && !_overlaysOpen;
   
   const formatDate = (dateString?: string) => {
     if (!dateString) return '';
@@ -435,7 +441,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
         className="relative flex-shrink-0 overflow-visible"
         style={{ height: backgroundImageUrl ? `${fanartHeight}px` : 'auto', minHeight: backgroundImageUrl ? `${fanartHeight}px` : '120px' }}
       >
-        {backgroundImageUrl && (!isAnimatedImage(backgroundImageUrl) || !disableAnimatedBackgrounds) && (
+        {backgroundImageUrl && (!isAnimatedMedia(backgroundImageUrl, isBackgroundVideo) || !disableAnimatedBackgroundsBySettings) && (
           <>
             {isBackgroundVideo ? (
               <video
@@ -483,7 +489,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
               />
             )}
             {/* Blurred background for logo area - Disabled if animated to prevent glitches */}
-            {game.logoUrl && !/\.(gif|webp|apng)(\?|$)/i.test(backgroundImageUrl) && !isBackgroundVideo && (
+            {game.logoUrl && !/\.(gif|webp|apng|webm)(\?|$)/i.test(backgroundImageUrl) && !isBackgroundVideo && (
               <div
                 className={`absolute bottom-0 z-10 ${rightPanelBoxartPosition === 'left' ? 'right-6' :
                   rightPanelBoxartPosition === 'right' ? 'left-6' :
@@ -527,7 +533,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
             contain: 'layout style',
           }}
         >
-          {game.logoUrl && (!isAnimatedImage(game.logoUrl) || !disableAnimatedLogos) ? (
+          {game.logoUrl && (!isAnimatedMedia(game.logoUrl, isLogoVideo) || !disableAnimatedLogosBySettings) ? (
             <div
               onContextMenu={(e) => {
                 // Allow event to bubble up to parent to open RightClickMenu
@@ -611,7 +617,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
             className={`absolute ${rightPanelBoxartPosition === 'left' ? 'left-6' : 'right-6'} bottom-0 z-20`}
             style={{ transform: 'translateY(50%)' }}
           >
-            {game.boxArtUrl && (!isAnimatedImage(game.boxArtUrl) || !disableAnimatedBoxarts) ? (
+            {game.boxArtUrl && (!isAnimatedMedia(game.boxArtUrl, isBoxartVideo) || !disableAnimatedBoxartsBySettings) ? (
               game.boxArtIsVideo ? (
                 <video
                   src={game.boxArtUrl}
