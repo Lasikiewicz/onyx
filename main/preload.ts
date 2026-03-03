@@ -196,6 +196,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   searchWebImages: (query: string, imageType: 'boxart' | 'banner' | 'alternativeBanner' | 'logo' | 'icon') => ipcRenderer.invoke('metadata:searchWebImages', query, imageType),
   fastImageSearch: (query: string, requestId?: number) => ipcRenderer.invoke('metadata:fastImageSearch', query, requestId),
   fetchGameImages: (gameName: string, steamAppId?: string, igdbId?: number, includeAnimated?: boolean, requestId?: number, gameId?: string) => ipcRenderer.invoke('metadata:fetchGameImages', gameName, steamAppId, igdbId, includeAnimated, requestId, gameId),
+  getMetadataProviderStatus: () => ipcRenderer.invoke('metadata:getProviderStatus'),
   // App version
   getVersion: () => ipcRenderer.invoke('app:getVersion'),
   getChangelog: (version?: string) => ipcRenderer.invoke('app:getChangelog', version),

@@ -922,10 +922,8 @@ export class MetadataFetcherService {
         .filter((item): item is { artwork: GameArtwork; source: string } => item !== null);
     }
 
-    // 5. IGDB Fallback - Only try if primary providers didn't produce boxArt
-    const hasBoxArt = artworkWithSources.some(a => a.artwork.boxArtUrl);
-    if (!hasBoxArt && this.igdbProvider?.isAvailable()) {
-      console.log(`[fetchArtworkForGame] Primary providers had no boxArt, falling back to IGDB for "${matchedGame.title}"`);
+    // 5. IGDB - Always fetch when available (press kit, logos, covers) for variety even if primary providers already have boxArt
+    if (this.igdbProvider?.isAvailable()) {
       try {
         let igdbArtwork: GameArtwork | null = null;
         if (matchedGame.source === 'igdb') {
@@ -948,10 +946,8 @@ export class MetadataFetcherService {
           artworkWithSources.push({ artwork: igdbArtwork, source: "igdb" });
         }
       } catch (err: any) {
-        console.warn(`[fetchArtworkForGame] IGDB fallback timeout/error: ${err.message}`);
+        console.warn(`[fetchArtworkForGame] IGDB timeout/error: ${(err as Error).message}`);
       }
-    } else if (hasBoxArt) {
-      console.log(`[fetchArtworkForGame] Skipping IGDB artwork - primary providers already have boxArt for "${matchedGame.title}"`);
     }
 
     const mergedArtwork = artworkWithSources.length > 0 ? this.mergeArtwork(artworkWithSources) : ({} as GameArtwork);

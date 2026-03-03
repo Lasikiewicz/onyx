@@ -809,6 +809,21 @@ export function registerMetadataIPCHandlers(
         }
     });
 
+    // Expose current metadata provider availability (Steam, IGDB, RAWG, SteamGridDB, GiantBomb)
+    ipcMain.handle('metadata:getProviderStatus', async () => {
+        try {
+            const providers = metadataFetcher.getProviderStatus();
+            return { success: true, providers };
+        } catch (error) {
+            console.error('Error in metadata:getProviderStatus handler:', error);
+            return {
+                success: false,
+                error: error instanceof Error ? error.message : 'Unknown error',
+                providers: [] as Array<{ name: string; available: boolean }>
+            };
+        }
+    });
+
     // Fetch and Update by Provider ID - Used when user selects a match from search results
     ipcMain.handle('metadata:fetchAndUpdateByProviderId', async (_event, gameId: string, providerId: string, providerSource: string) => {
         try {
