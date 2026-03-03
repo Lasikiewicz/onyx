@@ -3,6 +3,7 @@ import { dirname, join, normalize } from 'path';
 import { existsSync, readdirSync } from 'node:fs';
 import { shell } from 'electron';
 import { GameStore, Game } from './GameStore.js';
+import { isSafeExternalUrl } from './SecurityUtils.js';
 
 /** Common uninstaller executable names to look for in the game folder */
 const UNINSTALLER_NAMES = ['uninstall.exe', 'Uninstall.exe', 'unins000.exe', 'unins001.exe', 'unins002.exe'];
@@ -288,7 +289,7 @@ export class LauncherService {
 
   /**
    * Launch the configured mod manager for a game
-   * Supports web URLs and local file paths
+   * Supports vetted launcher/web URLs and local file paths
    */
   async launchModManager(gameId: string): Promise<{ success: boolean; error?: string }> {
     try {
@@ -306,23 +307,26 @@ export class LauncherService {
 
       console.log(`[LauncherService] Launching mod manager for ${game.title}: ${modManagerUrl}`);
 
-      // Try as URL first
-      try {
-        if (modManagerUrl.startsWith('http://') || modManagerUrl.startsWith('https://') || modManagerUrl.includes('://')) {
+      // Prefer secure external URLs that pass the central whitelist
+      if (isSafeExternalUrl(modManagerUrl)) {
+        try {
           await shell.openExternal(modManagerUrl);
           return { success: true };
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          console.error('[LauncherService] Failed to open external mod manager URL:', message);
+          return { success: false, error: message };
         }
-      } catch (e) {
-        // Not a URL, continue to file path check
       }
 
-      const { existsSync } = require('node:fs');
+      // Fallback to local file path handling
       if (existsSync(modManagerUrl)) {
         const error = await shell.openPath(modManagerUrl);
         return { success: error === '', error: error || undefined };
       }
 
-      return { success: false, error: 'Mod manager path or URL is invalid or not found' };
+      console.warn('[LauncherService] Mod manager URL is not allowed and path does not exist:', modManagerUrl);
+      return { success: false, error: 'Mod manager path or URL is invalid, unsafe, or not found' };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       console.error('Error launching mod manager:', errorMessage);

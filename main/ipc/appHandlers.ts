@@ -11,6 +11,7 @@ import { AppConfigService } from '../AppConfigService.js';
 import { APICredentialsService } from '../APICredentialsService.js';
 import { SteamAuthService } from '../SteamAuthService.js';
 import { BugReportService } from '../BugReportService.js';
+import { isSafeExternalUrl } from '../SecurityUtils.js';
 import { checkForUpdates as doCheckForUpdates, downloadUpdate as doDownloadUpdate, quitAndInstall as doQuitAndInstall } from '../AppUpdateService.js';
 
 const GITHUB_OWNER = 'Lasikiewicz';
@@ -476,32 +477,18 @@ export function registerAppIPCHandlers(
         updateDismissedCallback = callback;
     };
 
-    ipcMain.handle('app:openExternal', async (_event, url) => {
+    ipcMain.handle('app:openExternal', async (_event, url: string) => {
+        if (!isSafeExternalUrl(url)) {
+            console.warn(`[Security] Blocked attempt to open unsafe external URL: ${url}`);
+            return { success: false, error: 'Disallowed protocol' };
+        }
+
         try {
-            const parsedUrl = new URL(url);
-            const allowedProtocols = [
-                'http:',
-                'https:',
-                'steam:',
-                'epic:',
-                'goggalaxy:',
-                'uplay:',
-                'origin:',
-                'origin2:',
-                'com.epicgames.launcher:',
-                'battlenet:'
-            ];
-
-            if (!allowedProtocols.includes(parsedUrl.protocol)) {
-                console.warn(`[Security] Blocked attempt to open unsafe external URL: ${url}`);
-                return { success: false, error: 'Disallowed protocol' };
-            }
-
             await shell.openExternal(url);
             return { success: true };
         } catch (error) {
-            console.error(`[Security] Invalid URL passed to openExternal: ${url}`);
-            return { success: false, error: 'Invalid URL' };
+            console.error(`[Security] Failed to open external URL: ${url}`, error);
+            return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
         }
     });
 

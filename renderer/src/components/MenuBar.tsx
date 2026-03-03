@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import {
   DndContext,
   closestCenter,
@@ -159,9 +160,6 @@ export const MenuBar: React.FC<MenuBarProps> = ({
   const processingLogRef = useRef<HTMLDivElement | null>(null);
   const completedLogRef = useRef<HTMLDivElement | null>(null);
   const activeProcessingRowRef = useRef<HTMLDivElement | null>(null);
-  const hasOptimizationActivity = optimizationStatus?.hasActivity ?? false;
-  const hasOptimizationReport = (optimizationStatus?.jobs?.length ?? 0) > 0;
-  const showOptimizationIndicator = hasOptimizationActivity || hasOptimizationReport;
   const [internalShowImageQueueDetail, setInternalShowImageQueueDetail] = useState(false);
   const showImageQueueDetail = setShowImageQueueDetailProp !== undefined && showImageQueueDetailProp !== undefined
     ? showImageQueueDetailProp
@@ -412,8 +410,28 @@ export const MenuBar: React.FC<MenuBarProps> = ({
         value={searchQuery}
         onChange={(e) => onSearchChange?.(e.target.value)}
         placeholder="Q Search"
-        className="w-full px-3 py-1 bg-gray-700/20 border border-gray-600/30 rounded text-sm text-gray-300 placeholder-gray-500 hover:bg-gray-700/30 hover:border-gray-600/50 focus:outline-none focus:ring-1 focus:ring-blue-500/50 focus:bg-gray-700/40 focus:text-white transition-colors"
+        aria-label="Search library"
+        className="w-full pr-7 pl-3 py-1 bg-gray-700/20 border border-gray-600/30 rounded text-sm text-gray-300 placeholder-gray-500 hover:bg-gray-700/30 hover:border-gray-600/50 focus:outline-none focus:ring-1 focus:ring-blue-500/50 focus:bg-gray-700/40 focus:text-white transition-colors"
       />
+      {searchQuery && (
+        <button
+          type="button"
+          onClick={() => onSearchChange?.('')}
+          className="absolute inset-y-0 right-1 my-auto px-1.5 flex items-center justify-center rounded hover:bg-gray-600/60 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-500"
+          aria-label="Clear search"
+        >
+          <svg
+            className="w-3.5 h-3.5 text-gray-400"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            aria-hidden="true"
+            focusable="false"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      )}
     </div>
   );
 
@@ -931,6 +949,8 @@ export const MenuBar: React.FC<MenuBarProps> = ({
                 <hr className="border-white/10 my-2" />
 
                 <button
+                  type="button"
+                  aria-label="Support Onyx on Ko-fi"
                   onClick={async () => {
                     try {
                       if (window.electronAPI && window.electronAPI.openExternal) {
@@ -956,6 +976,8 @@ export const MenuBar: React.FC<MenuBarProps> = ({
 
                 {/* Discord */}
                 <button
+                  type="button"
+                  aria-label="Join Onyx Discord"
                   onClick={async () => {
                     try {
                       if (window.electronAPI && window.electronAPI.openExternal) {
@@ -1157,10 +1179,11 @@ export const MenuBar: React.FC<MenuBarProps> = ({
         />
       )}
 
-      {/* Image optimization queue/detail modal (unified importer + cache) */}
-      {showImageQueueDetail && showOptimizationIndicator && optimizationStatus && (
+      {/* Image optimization queue/detail modal (unified importer + cache).
+          Rendered via portal so it always appears above other overlays like GameManager. */}
+      {showImageQueueDetail && optimizationStatus && createPortal(
         <div
-          className="fixed inset-0 z-[100] flex items-center justify-center px-4"
+          className="fixed inset-0 z-[1000] flex items-center justify-center px-4"
           style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
           onClick={() => setShowImageQueueDetail(false)}
         >
@@ -1401,7 +1424,8 @@ export const MenuBar: React.FC<MenuBarProps> = ({
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
     </div>

@@ -40,13 +40,13 @@ const MAX_DIMENSION_BY_TYPE: Record<string, number> = {
 const DEFAULT_MAX_DIMENSION = 800;
 
 /** Max fps for animated cache (drops frames to reduce size). */
-const ANIMATED_MAX_FPS = 15;
+const ANIMATED_MAX_FPS = 24;
 /** Target fps for Sharp-based animated WebP frame thinning. */
-const ANIMATED_TARGET_FPS = 15;
+const ANIMATED_TARGET_FPS = 24;
 /** Quality for animated WebP when using Sharp (0–100, lossy). */
-const WEBP_ANIMATED_QUALITY = 80;
+const WEBP_ANIMATED_QUALITY = 90;
 /** Lower quality for banner/hero types: faster encode, smaller file. */
-const WEBP_ANIMATED_QUALITY_BACKGROUND = 75;
+const WEBP_ANIMATED_QUALITY_BACKGROUND = 85;
 /** Animated WebP often exceeds 16MP; allow larger inputs so we can downscale rather than keep originals. */
 const ANIMATED_WEBP_LIMIT_INPUT_PIXELS = 8192 * 8192;
 /** Skip very large files in optimizeExistingCache to avoid stalls/crashes on old assets. */
@@ -1292,7 +1292,14 @@ export class ImageCacheService {
 
               if ((shouldForceProcess || shouldForceAnimatedWebp) && sourceExt === '.webp') {
                 const forceTargetBytes = Math.max(1, options?.forceProcessOverBytes ?? FORCED_OVERSIZED_WEBP_TARGET_BYTES);
-                const needsAggressivePass = optimizedData.length >= rawData.length || optimizedData.length > forceTargetBytes;
+                // Only run aggressive recompression when the initial pass failed to reduce size at all
+                // and the result is still significantly oversized. This avoids extremely expensive
+                // multi-pass attempts on very large animated WebP files that already gained from
+                // the primary optimization path.
+                const needsAggressivePass =
+                  optimizedData.length >= rawData.length &&
+                  optimizedData.length > forceTargetBytes;
+
                 if (needsAggressivePass) {
                   const aggressiveSharp = await this.aggressivelyRecompressOversizedWebp(rawData, imageType, forceTargetBytes);
                   const aggressiveFfmpeg = await this.aggressivelyRecompressOversizedWebpWithFfmpeg(rawData, imageType, forceTargetBytes);

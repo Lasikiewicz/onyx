@@ -18,10 +18,10 @@ const DEFAULT_MAX_DIMENSION = 800;
 const JPEG_QUALITY = 85;
 const WEBP_QUALITY = 85;
 const PNG_COMPRESSION = 6;
-const WEBP_ANIMATED_QUALITY = 80;
+const WEBP_ANIMATED_QUALITY = 90;
 /** Slightly lower quality for large background-type images: faster encode, smaller file, still good visually. */
-const WEBP_ANIMATED_QUALITY_BACKGROUND = 75;
-const ANIMATED_TARGET_FPS = 15;
+const WEBP_ANIMATED_QUALITY_BACKGROUND = 85;
+const ANIMATED_TARGET_FPS = 24;
 /** Skip Sharp for static images larger than this to avoid hang/OOM (bytes). */
 const STATIC_SKIP_OVER_BYTES = 15 * 1024 * 1024;
 /** Limit input pixels for static optimization to avoid libvips native crash on huge images. */

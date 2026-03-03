@@ -7,126 +7,134 @@ import { readdirSync } from 'node:fs';
  * Uses hybrid approach: publisher whitelist + system apps + keywords + size heuristics
  */
 export class GameFilteringService {
+  private static readonly KNOWN_GAME_PUBLISHERS: ReadonlySet<string> = new Set([
+    // AAA Publishers
+    'ea', 'activision', 'ubisoft', '2k', 'square', 'rockstar', 'bethesda', 'capcom',
+    'bandai', 'konami', 'sega', 'disney', 'warner', 'paramount', 'sony',
+    'microsoft', 'xbox', 'obsidian', 'ninja', 'rare', 'inxile', 'playground',
+    'coalition', 'remedy', 'compulsion', 'sloclap', 'astragon', 'blizzard',
+  ]);
+
+  private static readonly SYSTEM_APP_PATTERNS: readonly string[] = [
+    // Windows system apps
+    'microsoft.windows', 'microsoft.office', 'microsoft.edge', 'microsoft.store',
+    'microsoft.skype', 'microsoft.msn', 'microsoft.weather', 'microsoft.photos',
+    'microsoft.camera', 'microsoft.clock', 'microsoft.calculator',
+    'microsoft.messaging', 'microsoft.notes', 'microsoft.mail', 'microsoft.people',
+    'microsoft.maps', 'microsoft.net', 'microsoft.vclibs', 'microsoft.ui.xaml',
+    'microsoft.advertising', 'microsoft.services.store', 'microsoft.gamingapp',
+    'microsoft.gamingservices', 'microsoft.xboxapp', 'microsoft.xbox',
+
+    // Third-party utilities
+    'adobe', 'autodesk', 'jetbrains', 'sublimetext', 'vscode', 'visualstudio',
+    'python', 'nodejs', 'git', 'docker', 'vlc', 'audacity', 'ffmpeg',
+  ];
+
+  private static readonly NON_GAME_KEYWORDS: readonly string[] = [
+    // Media/Entertainment
+    'music', 'video', 'tv', 'movie', 'media', 'photo', 'camera', 'photoeditor',
+    'gallery', 'clipchamp', 'paint', 'editor', 'viewer', 'player',
+
+    // System/Tools
+    'settings', 'config', 'update', 'updater', 'installer', 'runtime', 'driver',
+    'service', 'services', 'keyboard', 'language', 'voice', 'assistant', 'copilot',
+    'search', 'mail', 'outlook', 'calendar', 'news', 'weather', 'maps', 'clock',
+    'calculator', 'store', 'browser', 'onedrive', 'onenote', 'teams', 'office',
+    'word', 'excel', 'powerpoint', 'access', 'publisher', 'project',
+
+    // Support/Admin
+    'support', 'help', 'feedback', 'repair', 'firmware', 'backup', 'sync',
+    'family', 'security', 'defender', 'antivirus', 'malware', 'control panel',
+    'device manager', 'task manager', 'registry', 'powershell', 'command',
+
+    // Hardware/Drivers
+    'intel', 'nvidia', 'amd', 'realtek', 'audio', 'driver', 'chipset',
+    'graphics', 'network', 'wifi', 'bluetooth', 'usb',
+
+    // Hardware Manufacturer Utilities
+    'lenovo', 'dell', 'hp', 'asus', 'msi', 'acer', 'razer', 'corsair',
+    'logitech', 'steelseries', 'apple', 'google',
+
+    // Coding/Dev Tools
+    'python', 'idle', 'node', 'npm', 'git', 'compiler', 'debugger', 'ide',
+    'visual', 'code', 'studio', 'jetbrains', 'sublime', 'atom',
+
+    // Archive/Compression
+    'winrar', 'archive', '7-zip', 'zip', 'compress', 'extract', 'rar',
+    'tar', 'gzip', 'bzip2',
+
+    // Utilities/Tools
+    'tool', 'utility', 'helper', 'launcher', 'updater', 'optimizer',
+    'cleaner', 'uninstaller', 'manager', 'monitor', 'viewer', 'converter',
+    'recorder', 'codec', 'directx', 'vcredist', 'redist', 'runtime',
+    'bootstrap', 'bootstrapper', 'gamelaunchhelper',
+
+    // Communication
+    'whatsapp', 'telegram', 'discord', 'slack', 'zoom', 'skype', 'teams',
+
+    // Game Launchers & Platforms (not actual games)
+    'battle.net', 'battlenet', 'blizzard', 'steam client', 'epic games launcher',
+    'origin', 'ea desktop', 'ubisoft connect', 'gog galaxy', 'xbox app',
+    'game bar', 'game overlay', 'game launcher', 'launcher',
+
+    // Specific Problem Cases
+    'quick assist', 'snipping', 'sticky', 'hdr calibration', 'insider hub',
+    'xbox', 'console', 'terminal', 'cmd', 'powershell', 'bash', 'shell',
+    'photoshop', 'illustrator', 'premiere', 'after effects',
+  ];
+
+  private static readonly NON_GAME_EXECUTABLES: ReadonlySet<string> = new Set([
+    'setup.exe', 'uninstall.exe', 'unins000.exe',
+    'installer.exe', 'bootstrapper.exe', 'launcher.exe',
+    'updater.exe', 'config.exe',
+    'python.exe', 'pythonw.exe', 'python3.exe',
+    'node.exe', 'npm.exe', 'npm.cmd',
+    'git.exe', 'git-bash.exe',
+    'code.exe', 'codeinsiders.exe',
+    'unity.exe', 'unitycrashhandler.exe', 'unitycrashhandler64.exe',
+    'unitycrashhandler32.exe',
+    'crashreportclient.exe', 'crashpad_handler.exe',
+    'cleanup.exe', 'directxsetup.exe', 'dxsetup.exe',
+    'vc_redist.x64.exe', 'vc_redist.x86.exe',
+    'vulkan.exe', 'dxcpl.exe',
+    // Battle.net launcher executables
+    'battlenet.exe', 'battle.net.exe', 'battlenet.overlay.runtime.exe',
+    'blizzardlauncher.exe', 'blizzard.exe', 'blizzardupdate.exe',
+    'blizzardbrowser.exe', 'blizzarderror.exe', 'blizztray.exe',
+    'gamesessionmonitor.exe',
+    'quickassist.exe', 'quickassistant.exe',
+    'realtek.exe', 'snipping.exe', 'stickynotes.exe',
+    'hdr_calibration.exe', 'xbox_insider.exe',
+    'zsync.exe', 'zsyncmake.exe',
+  ]);
+
   /**
    * Get known game publishers across all platforms
    * Used to whitelist games from established publishers
    */
-  private getKnownGamePublishers(): Set<string> {
-    return new Set([
-      // AAA Publishers
-      'ea', 'activision', 'ubisoft', '2k', 'square', 'rockstar', 'bethesda', 'capcom',
-      'bandai', 'konami', 'sega', 'disney', 'warner', 'paramount', 'sony',
-      'microsoft', 'xbox', 'obsidian', 'ninja', 'rare', 'inxile', 'playground',
-      'coalition', 'remedy', 'compulsion', 'sloclap', 'astragon', 'blizzard',
-    ]);
+  private getKnownGamePublishers(): ReadonlySet<string> {
+    return GameFilteringService.KNOWN_GAME_PUBLISHERS;
   }
 
   /**
    * System app prefixes/folders to exclude
    */
-  private getSystemAppPatterns(): string[] {
-    return [
-      // Windows system apps
-      'microsoft.windows', 'microsoft.office', 'microsoft.edge', 'microsoft.store',
-      'microsoft.skype', 'microsoft.msn', 'microsoft.weather', 'microsoft.photos',
-      'microsoft.camera', 'microsoft.clock', 'microsoft.calculator',
-      'microsoft.messaging', 'microsoft.notes', 'microsoft.mail', 'microsoft.people',
-      'microsoft.maps', 'microsoft.net', 'microsoft.vclibs', 'microsoft.ui.xaml',
-      'microsoft.advertising', 'microsoft.services.store', 'microsoft.gamingapp',
-      'microsoft.gamingservices', 'microsoft.xboxapp', 'microsoft.xbox',
-
-      // Third-party utilities
-      'adobe', 'autodesk', 'jetbrains', 'sublimetext', 'vscode', 'visualstudio',
-      'python', 'nodejs', 'git', 'docker', 'vlc', 'audacity', 'ffmpeg',
-    ];
+  private getSystemAppPatterns(): readonly string[] {
+    return GameFilteringService.SYSTEM_APP_PATTERNS;
   }
 
   /**
    * Non-game keywords (in app name, folder name, or exe name)
    */
-  private getNonGameKeywords(): string[] {
-    return [
-      // Media/Entertainment
-      'music', 'video', 'tv', 'movie', 'media', 'photo', 'camera', 'photoeditor',
-      'gallery', 'clipchamp', 'paint', 'editor', 'viewer', 'player',
-
-      // System/Tools
-      'settings', 'config', 'update', 'updater', 'installer', 'runtime', 'driver',
-      'service', 'services', 'keyboard', 'language', 'voice', 'assistant', 'copilot',
-      'search', 'mail', 'outlook', 'calendar', 'news', 'weather', 'maps', 'clock',
-      'calculator', 'store', 'browser', 'onedrive', 'onenote', 'teams', 'office',
-      'word', 'excel', 'powerpoint', 'access', 'publisher', 'project',
-
-      // Support/Admin
-      'support', 'help', 'feedback', 'repair', 'firmware', 'backup', 'sync',
-      'family', 'security', 'defender', 'antivirus', 'malware', 'control panel',
-      'device manager', 'task manager', 'registry', 'powershell', 'command',
-
-      // Hardware/Drivers
-      'intel', 'nvidia', 'amd', 'realtek', 'audio', 'driver', 'chipset',
-      'graphics', 'network', 'wifi', 'bluetooth', 'usb',
-
-      // Hardware Manufacturer Utilities
-      'lenovo', 'dell', 'hp', 'asus', 'msi', 'acer', 'razer', 'corsair',
-      'logitech', 'steelseries', 'apple', 'google',
-
-      // Coding/Dev Tools
-      'python', 'idle', 'node', 'npm', 'git', 'compiler', 'debugger', 'ide',
-      'visual', 'code', 'studio', 'jetbrains', 'sublime', 'atom',
-
-      // Archive/Compression
-      'winrar', 'archive', '7-zip', 'zip', 'compress', 'extract', 'rar',
-      'tar', 'gzip', 'bzip2',
-
-      // Utilities/Tools
-      'tool', 'utility', 'helper', 'launcher', 'updater', 'optimizer',
-      'cleaner', 'uninstaller', 'manager', 'monitor', 'viewer', 'converter',
-      'recorder', 'codec', 'directx', 'vcredist', 'redist', 'runtime',
-      'bootstrap', 'bootstrapper', 'gamelaunchhelper',
-
-      // Communication
-      'whatsapp', 'telegram', 'discord', 'slack', 'zoom', 'skype', 'teams',
-
-      // Game Launchers & Platforms (not actual games)
-      'battle.net', 'battlenet', 'blizzard', 'steam client', 'epic games launcher',
-      'origin', 'ea desktop', 'ubisoft connect', 'gog galaxy', 'xbox app',
-      'game bar', 'game overlay', 'game launcher', 'launcher',
-
-      // Specific Problem Cases
-      'quick assist', 'snipping', 'sticky', 'hdr calibration', 'insider hub',
-      'xbox', 'console', 'terminal', 'cmd', 'powershell', 'bash', 'shell',
-      'photoshop', 'illustrator', 'premiere', 'after effects',
-    ];
+  private getNonGameKeywords(): readonly string[] {
+    return GameFilteringService.NON_GAME_KEYWORDS;
   }
 
   /**
    * Executable filenames that are definitely not games
    */
-  private getNonGameExecutables(): Set<string> {
-    return new Set([
-      'setup.exe', 'uninstall.exe', 'unins000.exe',
-      'installer.exe', 'bootstrapper.exe', 'launcher.exe',
-      'updater.exe', 'config.exe',
-      'python.exe', 'pythonw.exe', 'python3.exe',
-      'node.exe', 'npm.exe', 'npm.cmd',
-      'git.exe', 'git-bash.exe',
-      'code.exe', 'codeinsiders.exe',
-      'unity.exe', 'unitycrashhandler.exe', 'unitycrashhandler64.exe',
-      'unitycrashhandler32.exe',
-      'crashreportclient.exe', 'crashpad_handler.exe',
-      'cleanup.exe', 'directxsetup.exe', 'dxsetup.exe',
-      'vc_redist.x64.exe', 'vc_redist.x86.exe',
-      'vulkan.exe', 'dxcpl.exe',
-      // Battle.net launcher executables
-      'battlenet.exe', 'battle.net.exe', 'battlenet.overlay.runtime.exe',
-      'blizzardlauncher.exe', 'blizzard.exe', 'blizzardupdate.exe',
-      'blizzardbrowser.exe', 'blizzarderror.exe', 'blizztray.exe',
-      'gamesessionmonitor.exe',
-      'quickassist.exe', 'quickassistant.exe',
-      'realtek.exe', 'snipping.exe', 'stickynotes.exe',
-      'hdr_calibration.exe', 'xbox_insider.exe',
-      'zsync.exe', 'zsyncmake.exe',
-    ]);
+  private getNonGameExecutables(): ReadonlySet<string> {
+    return GameFilteringService.NON_GAME_EXECUTABLES;
   }
 
   /**

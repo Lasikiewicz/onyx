@@ -492,86 +492,98 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
       >
         <div className="h-full flex items-end pb-4 relative">
 
-          {/* Flowing carousel container with smooth animation */}
-          <div
-            className="flex items-end transition-transform duration-700 ease-out absolute bottom-4"
-            style={{
-              gap: `${gameTilePadding}px`,
-              transform: `translateX(${carouselOffset}px)`,
-            }}
-          >
-            {/* Render all games in sequence */}
-            {games.map((game, index) => {
-              const isSelected = index === validSelectedIndex;
+          {/* Flowing carousel container with smooth animation (windowed rendering) */}
+          {(() => {
+            const WINDOW_RADIUS = 25;
+            const startIndex = Math.max(0, validSelectedIndex - WINDOW_RADIUS);
+            const endIndex = Math.min(games.length - 1, validSelectedIndex + WINDOW_RADIUS);
+            const visibleIndices: number[] = [];
+            for (let i = startIndex; i <= endIndex; i++) visibleIndices.push(i);
+            const offsetAdjustment = startIndex * (baseGameWidth + gameTilePadding * 2);
 
-              return (
-                <div
-                  key={game.id}
-                  data-game-element="true"
-                  data-game-card="true"
-                  onClick={() => handleGameSelect(index)}
-                  onContextMenu={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setThumbnailContextMenu({ x: e.clientX, y: e.clientY, game });
-                  }}
-                  className={`relative flex-shrink-0 cursor-pointer transition-all duration-300 ease-out hover:scale-105 ${isSelected
-                    ? 'z-20 opacity-100'
-                    : 'opacity-70 hover:opacity-90 z-10'
-                    }`}
-                  style={{
-                    width: isSelected ? `${selectedGameWidth}px` : `${baseGameWidth}px`,
-                    height: isSelected ? `${selectedGameHeight}px` : `${baseGameHeight}px`,
-                    marginLeft: `${gameTilePadding}px`,
-                    marginRight: `${gameTilePadding}px`,
-                    contentVisibility: 'auto',
-                    containIntrinsicSize: `${isSelected ? selectedGameWidth : baseGameWidth}px ${isSelected ? selectedGameHeight : baseGameHeight}px`
-                  }}
-                >
-                  <div className="w-full h-full relative overflow-hidden rounded-lg shadow-lg bg-gray-700">
-                    {game.boxArtUrl || game.bannerUrl ? (
-                      <img
-                        src={game.boxArtUrl || game.bannerUrl}
-                        alt={game.title}
-                        className="w-full h-full object-cover transition-transform duration-300"
-                        onError={(e) => {
-                          const target = e.target as HTMLImageElement;
-                          target.style.display = 'none';
-                        }}
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <span className="text-gray-400 text-xs text-center px-2">
-                          {game.title}
-                        </span>
-                      </div>
-                    )}
+            return (
+              <div
+                className="flex items-end transition-transform duration-700 ease-out absolute bottom-4"
+                style={{
+                  gap: `${gameTilePadding}px`,
+                  transform: `translateX(${carouselOffset + offsetAdjustment}px)`,
+                }}
+              >
+                {/* Render a window of games around the selected index */}
+                {visibleIndices.map((index) => {
+                  const game = games[index];
+                  const isSelected = index === validSelectedIndex;
 
-                    {/* Game Status Indicators */}
-                    {(game.favorite || game.pinned) && (
-                      <div className="absolute top-1 right-1 flex flex-col gap-1">
-                        {game.favorite && (
-                          <div className="w-5 h-5 bg-yellow-500 rounded-full flex items-center justify-center">
-                            <svg className="w-3 h-3 text-white group- hover:animate-gentle-bounce group-hover:animate-gentle-bounce" fill="currentColor" viewBox="0 0 24 24">
-                              <path d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
-                            </svg>
+                  return (
+                    <div
+                      key={game.id}
+                      data-game-element="true"
+                      data-game-card="true"
+                      onClick={() => handleGameSelect(index)}
+                      onContextMenu={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setThumbnailContextMenu({ x: e.clientX, y: e.clientY, game });
+                      }}
+                      className={`relative flex-shrink-0 cursor-pointer transition-all duration-300 ease-out hover:scale-105 ${isSelected
+                        ? 'z-20 opacity-100'
+                        : 'opacity-70 hover:opacity-90 z-10'
+                        }`}
+                      style={{
+                        width: isSelected ? `${selectedGameWidth}px` : `${baseGameWidth}px`,
+                        height: isSelected ? `${selectedGameHeight}px` : `${baseGameHeight}px`,
+                        marginLeft: `${gameTilePadding}px`,
+                        marginRight: `${gameTilePadding}px`,
+                        contentVisibility: 'auto',
+                        containIntrinsicSize: `${isSelected ? selectedGameWidth : baseGameWidth}px ${isSelected ? selectedGameHeight : baseGameHeight}px`
+                      }}
+                    >
+                      <div className="w-full h-full relative overflow-hidden rounded-lg shadow-lg bg-gray-700">
+                        {game.boxArtUrl || game.bannerUrl ? (
+                          <img
+                            src={game.boxArtUrl || game.bannerUrl}
+                            alt={game.title}
+                            className="w-full h-full object-cover transition-transform duration-300"
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              target.style.display = 'none';
+                            }}
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <span className="text-gray-400 text-xs text-center px-2">
+                              {game.title}
+                            </span>
                           </div>
                         )}
 
-                        {game.pinned && (
-                          <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center">
-                            <svg className="w-3 h-3 text-white group- hover:animate-pin-shake group-hover:animate-pin-shake" fill="currentColor" viewBox="0 0 24 24">
-                              <path d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
-                            </svg>
+                        {/* Game Status Indicators */}
+                        {(game.favorite || game.pinned) && (
+                          <div className="absolute top-1 right-1 flex flex-col gap-1">
+                            {game.favorite && (
+                              <div className="w-5 h-5 bg-yellow-500 rounded-full flex items-center justify-center">
+                                <svg className="w-3 h-3 text-white group- hover:animate-gentle-bounce group-hover:animate-gentle-bounce" fill="currentColor" viewBox="0 0 24 24">
+                                  <path d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976-2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                                </svg>
+                              </div>
+                            )}
+
+                            {game.pinned && (
+                              <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center">
+                                <svg className="w-3 h-3 text-white group- hover:animate-pin-shake group-hover:animate-pin-shake" fill="currentColor" viewBox="0 0 24 24">
+                                  <path d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                                </svg>
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
         </div>
       </div>
 

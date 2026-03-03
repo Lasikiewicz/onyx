@@ -421,10 +421,11 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
         {backgroundImageUrl && (
           <>
             <img
+              key={backgroundImageUrl}
               src={backgroundImageUrl}
               alt={game.title}
-              className={`w-full h-full object-cover cursor-pointer ${imageLoaded[backgroundLoadKey] ? (isAnimatedImage(backgroundImageUrl) ? 'game-image-transition-fast' : 'game-image-transition') : ''}`}
-              style={{ 
+              className="w-full h-full object-cover cursor-pointer"
+              style={{
                 height: `${fanartHeight}px`,
                 ...(isAnimatedImage(backgroundImageUrl) ? {
                   willChange: 'transform',
@@ -548,12 +549,12 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
             className={`absolute ${rightPanelBoxartPosition === 'left' ? 'left-6' : 'right-6'} bottom-0 z-20`}
             style={{ transform: 'translateY(50%)' }}
           >
-            {game.boxArtUrl ? (
+                {game.boxArtUrl ? (
               <img
                 src={game.boxArtUrl}
                 alt={game.title}
-                className={`aspect-[2/3] object-cover rounded border border-gray-600 shadow-lg cursor-pointer ${imageLoaded[boxartLoadKey] ? (isAnimatedImage(game.boxArtUrl) ? 'game-image-transition-fast' : 'game-image-transition') : ''}`}
-                style={{ 
+                className="aspect-[2/3] object-cover rounded border border-gray-600 shadow-lg cursor-pointer"
+                style={{
                   width: `${rightPanelBoxartSize}px`,
                   ...(isAnimatedImage(game.boxArtUrl) ? {
                     willChange: 'transform',

@@ -1787,10 +1787,18 @@ function App() {
     ? activeGame.alternativeBannerUrl
     : activeGame?.heroUrl || activeGame?.bannerUrl || activeGame?.boxArtUrl || '';
 
-  // Keep previous background visible until the next background is loaded to avoid flicker.
+  // Keep previous background visible until the next background is loaded to avoid flicker
+  // for static images. For animated backgrounds (GIF/WebP/APNG), switch immediately so
+  // the old image is not shown for several seconds while large animations load.
   useEffect(() => {
     if (!backgroundImageUrl) {
       setDisplayedBackgroundImageUrl('');
+      return;
+    }
+
+    const isAnimated = /\.(gif|webp|apng)(\?|$)/i.test(backgroundImageUrl);
+    if (isAnimated) {
+      setDisplayedBackgroundImageUrl(backgroundImageUrl);
       return;
     }
 
@@ -1807,8 +1815,7 @@ function App() {
     img.onerror = commit;
     img.src = backgroundImageUrl;
 
-    const isAnimated = /\.(gif|webp|apng)(\?|$)/i.test(backgroundImageUrl);
-    if (!isAnimated && img.decode) {
+    if (img.decode) {
       img.decode().then(commit).catch(() => {
         // Fallback to onload/onerror paths.
       });
