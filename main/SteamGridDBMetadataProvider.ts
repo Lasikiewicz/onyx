@@ -75,7 +75,9 @@ export class SteamGridDBMetadataProvider implements MetadataProvider {
       });
 
       // Filter and sort images by score (highest first), excluding NSFW/humor/epilepsy
-      const filterImage = (img: SteamGridDBImage) => !img.nsfw && !img.humor && !img.epilepsy;
+      // and globally excluding WEBP assets.
+      const isWebp = (img: SteamGridDBImage) => img.mime === 'image/webp' || /\.webp(\?|$)/i.test(img.url || '');
+      const filterImage = (img: SteamGridDBImage) => !img.nsfw && !img.humor && !img.epilepsy && !isWebp(img);
 
       const validGrids = capsules.filter(filterImage).sort((a, b) => b.score - a.score);
 
@@ -83,12 +85,12 @@ export class SteamGridDBMetadataProvider implements MetadataProvider {
       const verticalGrids = validGrids.filter(img => img.width < img.height)
         .sort((a, b) => {
           if (preferAnimatedBoxart) {
-            const aAnimated = a.mime === 'image/webp' || a.mime === 'image/gif' ? 1 : 0;
-            const bAnimated = b.mime === 'image/webp' || b.mime === 'image/gif' ? 1 : 0;
+            const aAnimated = a.mime === 'image/gif' ? 1 : 0;
+            const bAnimated = b.mime === 'image/gif' ? 1 : 0;
             if (aAnimated !== bAnimated) return bAnimated - aAnimated; // animated first
           } else {
-            const aAnimated = a.mime === 'image/webp' || a.mime === 'image/gif' ? 1 : 0;
-            const bAnimated = b.mime === 'image/webp' || b.mime === 'image/gif' ? 1 : 0;
+            const aAnimated = a.mime === 'image/gif' ? 1 : 0;
+            const bAnimated = b.mime === 'image/gif' ? 1 : 0;
             if (aAnimated !== bAnimated) return aAnimated - bAnimated; // static first
           }
           return b.score - a.score;
@@ -113,12 +115,12 @@ export class SteamGridDBMetadataProvider implements MetadataProvider {
         .filter(filterImage)
         .sort((a, b) => {
           if (preferAnimatedBanner) {
-            const aAnimated = a.mime === 'image/webp' || a.mime === 'image/gif' ? 1 : 0;
-            const bAnimated = b.mime === 'image/webp' || b.mime === 'image/gif' ? 1 : 0;
+            const aAnimated = a.mime === 'image/gif' ? 1 : 0;
+            const bAnimated = b.mime === 'image/gif' ? 1 : 0;
             if (aAnimated !== bAnimated) return bAnimated - aAnimated; // animated first
           } else {
-            const aAnimated = a.mime === 'image/webp' || a.mime === 'image/gif' ? 1 : 0;
-            const bAnimated = b.mime === 'image/webp' || b.mime === 'image/gif' ? 1 : 0;
+            const aAnimated = a.mime === 'image/gif' ? 1 : 0;
+            const bAnimated = b.mime === 'image/gif' ? 1 : 0;
             if (aAnimated !== bAnimated) return aAnimated - bAnimated; // static first
           }
 

@@ -286,6 +286,7 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                         (game.logoIsVideo || isWebmUrl(game.logoUrl)) ? (
                           <video
                             src={game.logoUrl}
+                            data-animation-kind="logo"
                             muted
                             loop
                             playsInline
@@ -386,6 +387,7 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                         (game.iconIsVideo || isWebmUrl(game.iconUrl)) ? (
                           <video
                             src={game.iconUrl}
+                            data-animation-kind="icon"
                             muted
                             loop
                             playsInline
@@ -501,6 +503,7 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                         (game.boxArtIsVideo || isWebmUrl(game.boxArtUrl)) ? (
                           <video
                             src={game.boxArtUrl}
+                            data-animation-kind="boxart"
                             muted
                             loop
                             playsInline
@@ -524,6 +527,7 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                         (game.logoIsVideo || isWebmUrl(game.logoUrl)) ? (
                           <video
                             src={game.logoUrl}
+                            data-animation-kind="logo"
                             muted
                             loop
                             playsInline

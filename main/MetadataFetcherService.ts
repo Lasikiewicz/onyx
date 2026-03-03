@@ -229,6 +229,23 @@ export class MetadataFetcherService {
     return resolution.width * resolution.height;
   }
 
+  private isWebpAssetUrl(url?: string): boolean {
+    return !!url && /\.webp(\?|$)/i.test(url);
+  }
+
+  private sanitizeWebpFromMetadata(metadata: GameMetadata): GameMetadata {
+    return {
+      ...metadata,
+      boxArtUrl: this.isWebpAssetUrl(metadata.boxArtUrl) ? '' : metadata.boxArtUrl,
+      bannerUrl: this.isWebpAssetUrl(metadata.bannerUrl) ? '' : metadata.bannerUrl,
+      alternativeBannerUrl: this.isWebpAssetUrl(metadata.alternativeBannerUrl) ? undefined : metadata.alternativeBannerUrl,
+      logoUrl: this.isWebpAssetUrl(metadata.logoUrl) ? undefined : metadata.logoUrl,
+      heroUrl: this.isWebpAssetUrl(metadata.heroUrl) ? undefined : metadata.heroUrl,
+      iconUrl: this.isWebpAssetUrl(metadata.iconUrl) ? undefined : metadata.iconUrl,
+      screenshots: metadata.screenshots?.filter(url => !this.isWebpAssetUrl(url)),
+    };
+  }
+
   /**
    * Merge artwork from multiple sources, prioritizing Official Store → IGDB → RAWG
    */
@@ -259,7 +276,7 @@ export class MetadataFetcherService {
 
     const boxArts = sortByPriority(
       artworkArray
-        .filter(item => item.artwork?.boxArtUrl)
+        .filter(item => item.artwork?.boxArtUrl && !this.isWebpAssetUrl(item.artwork.boxArtUrl))
         .map(item => ({ url: item.artwork!.boxArtUrl!, resolution: item.artwork!.boxArtResolution, source: item.source }))
     );
     if (boxArts.length > 0) {
@@ -269,7 +286,7 @@ export class MetadataFetcherService {
 
     const banners = sortByPriority(
       artworkArray
-        .filter(item => item.artwork?.bannerUrl)
+        .filter(item => item.artwork?.bannerUrl && !this.isWebpAssetUrl(item.artwork.bannerUrl))
         .map(item => ({ url: item.artwork!.bannerUrl!, resolution: item.artwork!.bannerResolution, source: item.source })),
       getBannerPriority
     );
@@ -280,7 +297,7 @@ export class MetadataFetcherService {
 
     const logos = sortByPriority(
       artworkArray
-        .filter(item => item.artwork?.logoUrl)
+        .filter(item => item.artwork?.logoUrl && !this.isWebpAssetUrl(item.artwork.logoUrl))
         .map(item => ({ url: item.artwork!.logoUrl!, resolution: item.artwork!.logoResolution, source: item.source }))
     );
     if (logos.length > 0) {
@@ -290,7 +307,7 @@ export class MetadataFetcherService {
 
     const icons = sortByPriority(
       artworkArray
-        .filter(item => item.artwork?.iconUrl)
+        .filter(item => item.artwork?.iconUrl && !this.isWebpAssetUrl(item.artwork.iconUrl))
         .map(item => ({ url: item.artwork!.iconUrl!, resolution: item.artwork!.iconResolution, source: item.source }))
     );
     if (icons.length > 0) {
@@ -300,7 +317,7 @@ export class MetadataFetcherService {
 
     const heroes = sortByPriority(
       artworkArray
-        .filter(item => item.artwork?.heroUrl)
+        .filter(item => item.artwork?.heroUrl && !this.isWebpAssetUrl(item.artwork.heroUrl))
         .map(item => ({ url: item.artwork!.heroUrl!, resolution: item.artwork!.heroResolution, source: item.source })),
       getBannerPriority
     );
@@ -313,7 +330,7 @@ export class MetadataFetcherService {
     // Steam headers always have text burned in, so they should never be used as alt banners
     const altFromProviders = sortByPriority(
       artworkArray
-        .filter(item => item.artwork?.alternativeBannerUrl && item.source === 'steamgriddb')
+        .filter(item => item.artwork?.alternativeBannerUrl && item.source === 'steamgriddb' && !this.isWebpAssetUrl(item.artwork.alternativeBannerUrl))
         .map(item => ({ url: item.artwork!.alternativeBannerUrl!, resolution: undefined as undefined, source: item.source })),
       getBannerPriority
     );
@@ -350,7 +367,9 @@ export class MetadataFetcherService {
       const uniqueScreenshots = new Set<string>();
       for (const item of allScreenshots) {
         for (const screenshot of item.screenshots) {
-          uniqueScreenshots.add(screenshot);
+          if (!this.isWebpAssetUrl(screenshot)) {
+            uniqueScreenshots.add(screenshot);
+          }
         }
       }
       merged.screenshots = Array.from(uniqueScreenshots);
@@ -681,7 +700,7 @@ export class MetadataFetcherService {
       const cachedMetadata = cache.get(cacheKey);
       if (cachedMetadata && validator.validateMetadata(cachedMetadata, effectiveMatch)) {
         console.log(`[MetadataFetcher] Using cached metadata for ${gameTitle}`);
-        return cachedMetadata;
+        return this.sanitizeWebpFromMetadata(cachedMetadata);
       }
     } else {
       console.log(`[MetadataFetcher] Bypassing cache for ${gameTitle}`);
@@ -700,7 +719,7 @@ export class MetadataFetcherService {
       withRetry(() => this.fetchDescriptionForGame(effectiveMatch, steamAppId, linksOnly), { maxRetries: 1, delay: 1000 })
     );
 
-    const mergedMetadata: GameMetadata = { ...artworkMetadata, ...textMetadata };
+    const mergedMetadata: GameMetadata = this.sanitizeWebpFromMetadata({ ...artworkMetadata, ...textMetadata });
 
     if (!validator.validateMetadata(mergedMetadata, effectiveMatch, { linksOnly })) {
       console.warn(`[MetadataFetcher] Metadata validation failed for ${gameTitle}`);

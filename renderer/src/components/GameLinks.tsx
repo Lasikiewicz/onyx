@@ -9,6 +9,7 @@ interface GameLinksProps {
     visibleTypes?: Record<string, boolean>;
     displayOrder?: string[];
     buttonSize?: number;
+    disableAnimatedIcons?: boolean;
 }
 
 // Default display order for game details (same as IGDB fetch order). Exported for settings.
@@ -304,7 +305,8 @@ export const GameLinks: React.FC<GameLinksProps> = ({
     displayMode = 'icons',
     visibleTypes,
     displayOrder,
-    buttonSize = 14
+    buttonSize = 14,
+    disableAnimatedIcons = false,
 }) => {
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const [contextMenu, setContextMenu] = useState<{ x: number, y: number } | null>(null);
@@ -474,7 +476,7 @@ export const GameLinks: React.FC<GameLinksProps> = ({
                         }}
                     >
                         <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
-                        <div className={`w-full h-full relative z-10 flex items-center justify-center text-white drop-shadow-md transition-all duration-300 group-hover:drop-shadow-[0_0_6px_rgba(255,255,255,0.4)] ${ICON_HOVER_ANIMATIONS[iconKey] || ICON_HOVER_ANIMATIONS.fallback}`}>
+                        <div className={`w-full h-full relative z-10 flex items-center justify-center text-white drop-shadow-md transition-all duration-300 group-hover:drop-shadow-[0_0_6px_rgba(255,255,255,0.4)] ${disableAnimatedIcons ? '' : (ICON_HOVER_ANIMATIONS[iconKey] || ICON_HOVER_ANIMATIONS.fallback)}`}>
                             <LinkIcon iconKey={iconKey} className="w-[85%] h-[85%]" customIconUrl={(link as { iconUrl?: string }).iconUrl} darkBackground={darkBg} />
                         </div>
                     </button>
@@ -533,7 +535,7 @@ export const GameLinks: React.FC<GameLinksProps> = ({
                                         className="group rounded-lg transition-all duration-200 hover:bg-white/10 flex items-center gap-2 p-2 text-left border border-white/5 opacity-80 hover:opacity-100"
                                         title={link.hidden ? `${link.name} (Hidden)` : link.name}
                                     >
-                                        <div className={`w-6 h-6 flex-shrink-0 flex items-center justify-center text-white grayscale group-hover:grayscale-0 transition-all ${ICON_HOVER_ANIMATIONS[iconKey] || ICON_HOVER_ANIMATIONS.fallback}`}>
+                                        <div className={`w-6 h-6 flex-shrink-0 flex items-center justify-center text-white grayscale group-hover:grayscale-0 transition-all ${disableAnimatedIcons ? '' : (ICON_HOVER_ANIMATIONS[iconKey] || ICON_HOVER_ANIMATIONS.fallback)}`}>
                                             <LinkIcon iconKey={iconKey} className="w-[85%] h-[85%]" customIconUrl={(link as { iconUrl?: string }).iconUrl} darkBackground={darkBg} />
                                         </div>
                                         <span className="text-sm text-gray-200 group-hover:text-white truncate flex-1 min-w-0">

@@ -169,6 +169,31 @@ html.onyx-animations-off *::after {
   animation: none !important;
   transition: none !important;
 }
+
+/* Disable SVG icon utility animations (navbar/link/etc.) while preserving other UI motion */
+html.onyx-icon-animations-off svg[class*="animate-"],
+html.onyx-icon-animations-off svg[class*="hover:animate-"],
+html.onyx-icon-animations-off svg[class*="group-hover:animate-"] {
+  animation: none !important;
+}
+
+html.onyx-icon-animations-off .hover\:animate-wobble,
+html.onyx-icon-animations-off .group-hover\:animate-wobble,
+html.onyx-icon-animations-off .hover\:animate-gear-spin,
+html.onyx-icon-animations-off .group-hover\:animate-gear-spin,
+html.onyx-icon-animations-off .hover\:animate-gentle-bounce,
+html.onyx-icon-animations-off .group-hover\:animate-gentle-bounce,
+html.onyx-icon-animations-off .hover\:animate-pin-shake,
+html.onyx-icon-animations-off .group-hover\:animate-pin-shake,
+html.onyx-icon-animations-off .hover\:animate-play-pulse,
+html.onyx-icon-animations-off .group-hover\:animate-play-pulse,
+html.onyx-icon-animations-off .hover\:animate-edit-pen,
+html.onyx-icon-animations-off .group-hover\:animate-edit-pen,
+html.onyx-icon-animations-off .group-hover\:animate-link-globe-spin,
+html.onyx-icon-animations-off .group-hover\:animate-float,
+html.onyx-icon-animations-off .group-hover\:animate-link-bounce-in {
+  animation: none !important;
+}
 @keyframes dropdownIn {
   from {
     opacity: 0;

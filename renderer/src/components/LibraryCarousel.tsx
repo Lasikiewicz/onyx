@@ -316,6 +316,7 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
                     {(selectedGame.logoIsVideo || isWebmUrl(selectedGame.logoUrl)) ? (
                       <video
                         src={selectedGame.logoUrl}
+                        data-animation-kind="logo"
                         muted
                         loop
                         playsInline
@@ -565,9 +566,11 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
                           (() => {
                             const url = game.boxArtUrl || game.bannerUrl;
                             const isVideo = (url === game.boxArtUrl && game.boxArtIsVideo) || (url === game.bannerUrl && game.bannerIsVideo) || isWebmUrl(url);
+                            const videoKind: 'boxart' | 'banner' = url === game.bannerUrl ? 'banner' : 'boxart';
                             return isVideo ? (
                               <video
                                 src={url}
+                                data-animation-kind={videoKind}
                                 muted
                                 loop
                                 playsInline

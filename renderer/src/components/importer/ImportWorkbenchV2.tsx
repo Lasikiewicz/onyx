@@ -117,6 +117,11 @@ const getSourceIcon = (source: string): React.ReactNode => {
     }
 };
 
+const sanitizeWebpArtworkUrl = (url?: string): string => {
+    if (!url) return '';
+    return /\.webp(\?|$)/i.test(url) ? '' : url;
+};
+
 export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
     isOpen,
     onClose,
@@ -576,6 +581,16 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
                 setGameProcessingStates(prev => new Map(prev).set(scanned.title, { status: 'Metadata failed', progress: '50%' }));
             }
 
+            const sanitizedMetadata = {
+                ...metadata,
+                boxArtUrl: sanitizeWebpArtworkUrl(metadata?.boxArtUrl),
+                bannerUrl: sanitizeWebpArtworkUrl(metadata?.bannerUrl),
+                alternativeBannerUrl: sanitizeWebpArtworkUrl(metadata?.alternativeBannerUrl),
+                logoUrl: sanitizeWebpArtworkUrl(metadata?.logoUrl),
+                heroUrl: sanitizeWebpArtworkUrl(metadata?.heroUrl),
+                iconUrl: sanitizeWebpArtworkUrl(metadata?.iconUrl),
+            };
+
             // Build fully processed game
             const fullyProcessedGame: StagedGame = {
                 uuid,
@@ -584,22 +599,22 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
                 installPath: scanned.installPath,
                 exePath: scanned.exePath,
                 appId: scanned.appId,
-                title: metadata?.title || cleanTitle || scanned.title,
-                description: metadata?.description || '',
-                releaseDate: metadata?.releaseDate || '',
-                genres: metadata?.genres || [],
-                developers: metadata?.developers || [],
-                publishers: metadata?.publishers || [],
+                title: sanitizedMetadata?.title || cleanTitle || scanned.title,
+                description: sanitizedMetadata?.description || '',
+                releaseDate: sanitizedMetadata?.releaseDate || '',
+                genres: sanitizedMetadata?.genres || [],
+                developers: sanitizedMetadata?.developers || [],
+                publishers: sanitizedMetadata?.publishers || [],
                 categories: [],
-                boxArtUrl: metadata?.boxArtUrl || '',
-                bannerUrl: metadata?.bannerUrl || '',
-                alternativeBannerUrl: metadata?.alternativeBannerUrl || '',
-                logoUrl: metadata?.logoUrl || '',
-                heroUrl: metadata?.heroUrl || '',
-                iconUrl: metadata?.iconUrl || '',
-                links: metadata?.links?.length ? metadata.links : undefined,
-                ageRating: metadata?.ageRating || '',
-                rating: metadata?.rating,
+                boxArtUrl: sanitizedMetadata?.boxArtUrl || '',
+                bannerUrl: sanitizedMetadata?.bannerUrl || '',
+                alternativeBannerUrl: sanitizedMetadata?.alternativeBannerUrl || '',
+                logoUrl: sanitizedMetadata?.logoUrl || '',
+                heroUrl: sanitizedMetadata?.heroUrl || '',
+                iconUrl: sanitizedMetadata?.iconUrl || '',
+                links: sanitizedMetadata?.links?.length ? sanitizedMetadata.links : undefined,
+                ageRating: sanitizedMetadata?.ageRating || '',
+                rating: sanitizedMetadata?.rating,
                 status: 'ambiguous',
                 isSelected: true,
                 isIgnored: false,

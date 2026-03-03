@@ -483,12 +483,15 @@ function App() {
     }
   }, []);
 
-  // Global animation kill-switch class
+  // Global animation kill-switch classes
   useEffect(() => {
     const root = document.documentElement;
     if (disableAllAnimations) root.classList.add('onyx-animations-off');
     else root.classList.remove('onyx-animations-off');
-  }, [disableAllAnimations]);
+
+    if (disableAllAnimations || disableAnimatedIcons) root.classList.add('onyx-icon-animations-off');
+    else root.classList.remove('onyx-icon-animations-off');
+  }, [disableAllAnimations, disableAnimatedIcons]);
 
   useEffect(() => {
     if (!updateNotification?.version) return;
@@ -1113,7 +1116,7 @@ function App() {
   // Sanitize games for display based on animation settings and overlay state.
   // During overlays, keep videos visible (they are paused via global controller below) but hide animated image formats.
   const displayGames = useMemo(() => {
-    const isAnimatedUrl = (url?: string) => !!url && /\.(gif|webp|apng|webm)(\?|$)/i.test(url);
+    const isAnimatedImageUrl = (url?: string) => !!url && /\.(gif|webp|apng)(\?|$)/i.test(url);
 
     if (
       !overlaysOpen &&
@@ -1137,32 +1140,32 @@ function App() {
       const clone: Game = { ...game };
 
       if (clone.boxArtUrl && (
-        (disableBoxartBySettings && (clone.boxArtIsVideo || isAnimatedUrl(clone.boxArtUrl))) ||
-        (overlaysOpen && !clone.boxArtIsVideo && isAnimatedUrl(clone.boxArtUrl))
+        (disableBoxartBySettings && !clone.boxArtIsVideo && isAnimatedImageUrl(clone.boxArtUrl)) ||
+        (overlaysOpen && !clone.boxArtIsVideo && isAnimatedImageUrl(clone.boxArtUrl))
       )) {
         clone.boxArtUrl = '';
       }
       if (clone.bannerUrl && (
-        (disableBannerBySettings && (clone.bannerIsVideo || isAnimatedUrl(clone.bannerUrl))) ||
-        (overlaysOpen && !clone.bannerIsVideo && isAnimatedUrl(clone.bannerUrl))
+        (disableBannerBySettings && !clone.bannerIsVideo && isAnimatedImageUrl(clone.bannerUrl)) ||
+        (overlaysOpen && !clone.bannerIsVideo && isAnimatedImageUrl(clone.bannerUrl))
       )) {
         clone.bannerUrl = '';
       }
       if (clone.heroUrl && (
-        (disableBackgroundBySettings && (clone.heroIsVideo || isAnimatedUrl(clone.heroUrl))) ||
-        (overlaysOpen && !clone.heroIsVideo && isAnimatedUrl(clone.heroUrl))
+        (disableBackgroundBySettings && !clone.heroIsVideo && isAnimatedImageUrl(clone.heroUrl)) ||
+        (overlaysOpen && !clone.heroIsVideo && isAnimatedImageUrl(clone.heroUrl))
       )) {
         clone.heroUrl = '';
       }
       if (clone.iconUrl && (
-        (disableIconBySettings && (clone.iconIsVideo || isAnimatedUrl(clone.iconUrl))) ||
-        (overlaysOpen && !clone.iconIsVideo && isAnimatedUrl(clone.iconUrl))
+        (disableIconBySettings && !clone.iconIsVideo && isAnimatedImageUrl(clone.iconUrl)) ||
+        (overlaysOpen && !clone.iconIsVideo && isAnimatedImageUrl(clone.iconUrl))
       )) {
         clone.iconUrl = '';
       }
       if (clone.logoUrl && (
-        (disableLogoBySettings && (clone.logoIsVideo || isAnimatedUrl(clone.logoUrl))) ||
-        (overlaysOpen && !clone.logoIsVideo && isAnimatedUrl(clone.logoUrl))
+        (disableLogoBySettings && !clone.logoIsVideo && isAnimatedImageUrl(clone.logoUrl)) ||
+        (overlaysOpen && !clone.logoIsVideo && isAnimatedImageUrl(clone.logoUrl))
       )) {
         clone.logoUrl = '';
       }
@@ -1180,45 +1183,108 @@ function App() {
     disableAnimatedLogos,
   ]);
 
-  // Pause all videos whenever overlays are open, and resume the ones we paused when overlays close.
+  // Pause videos based on overlay/animation policy while keeping them visible.
+  // Disabled animation categories seek to first frame for consistent static display.
   useEffect(() => {
     if (typeof document === 'undefined' || !document.body) return;
 
-    const pauseMarker = 'data-onyx-paused-by-overlay';
+    const pauseMarker = 'data-onyx-paused-by-policy';
 
-    const pauseAllVideos = () => {
-      document.querySelectorAll('video').forEach((node) => {
-        const video = node as HTMLVideoElement;
-        if (!video.paused) {
-          video.setAttribute(pauseMarker, '1');
-          video.pause();
-        }
-      });
+    const getVideoKind = (video: HTMLVideoElement): 'background' | 'banner' | 'boxart' | 'icon' | 'logo' | 'unknown' => {
+      const explicit = video.getAttribute('data-animation-kind');
+      if (explicit === 'background' || explicit === 'banner' || explicit === 'boxart' || explicit === 'icon' || explicit === 'logo') {
+        return explicit;
+      }
+      const src = (video.currentSrc || video.getAttribute('src') || '').toLowerCase();
+      if (/-(boxart)\.webm(\?|$)/i.test(src)) return 'boxart';
+      if (/-(logo)\.webm(\?|$)/i.test(src)) return 'logo';
+      if (/-(icon)\.webm(\?|$)/i.test(src)) return 'icon';
+      if (/-(hero|banner|alternativebanner)\.webm(\?|$)/i.test(src)) return 'banner';
+      return 'unknown';
     };
 
-    const resumeMarkedVideos = () => {
-      document.querySelectorAll(`video[${pauseMarker}="1"]`).forEach((node) => {
-        const video = node as HTMLVideoElement;
+    type PauseReason = 'overlay' | 'all' | 'background' | 'banner' | 'boxart' | 'icon' | 'logo' | null;
+
+    const getPauseReason = (video: HTMLVideoElement): PauseReason => {
+      if (overlaysOpen) return 'overlay';
+      if (disableAllAnimations) return 'all';
+      const kind = getVideoKind(video);
+      if (disableAnimatedBackgrounds && kind === 'background') return 'background';
+      if (disableAnimatedBanners && kind === 'banner') return 'banner';
+      if (disableAnimatedBoxarts && kind === 'boxart') return 'boxart';
+      if (disableAnimatedIcons && kind === 'icon') return 'icon';
+      if (disableAnimatedLogos && kind === 'logo') return 'logo';
+      return null;
+    };
+
+    const enforceVideoPolicy = (video: HTMLVideoElement) => {
+      const pauseReason = getPauseReason(video);
+      const shouldSeekToFirstFrame = pauseReason !== null && pauseReason !== 'overlay';
+
+      if (pauseReason !== null) {
+        if (!video.hasAttribute(pauseMarker)) {
+          // Preserve user-paused videos: only auto-resume those paused by this policy.
+          video.setAttribute(pauseMarker, '1');
+        }
+
+        if (!video.paused) {
+          video.pause();
+        }
+
+        if (shouldSeekToFirstFrame) {
+          try {
+            video.currentTime = 0;
+          } catch {
+            // ignore seek failures
+          }
+        }
+      } else if (video.hasAttribute(pauseMarker)) {
         const playPromise = video.play();
         if (playPromise && typeof playPromise.catch === 'function') {
           playPromise.catch(() => { });
         }
         video.removeAttribute(pauseMarker);
+      }
+    };
+
+    const applyPausePolicy = () => {
+      document.querySelectorAll('video').forEach((node) => {
+        enforceVideoPolicy(node as HTMLVideoElement);
       });
     };
 
-    if (overlaysOpen) {
-      pauseAllVideos();
-      const observer = new MutationObserver(() => {
-        pauseAllVideos();
-      });
-      observer.observe(document.body, { childList: true, subtree: true });
-      return () => observer.disconnect();
-    }
+    const enforceFromEventTarget = (event: Event) => {
+      const target = event.target;
+      if (target instanceof HTMLVideoElement) {
+        enforceVideoPolicy(target);
+      }
+    };
 
-    resumeMarkedVideos();
-    return;
-  }, [overlaysOpen]);
+    applyPausePolicy();
+    const observer = new MutationObserver(() => {
+      applyPausePolicy();
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+
+    document.addEventListener('play', enforceFromEventTarget, true);
+    document.addEventListener('loadeddata', enforceFromEventTarget, true);
+    document.addEventListener('canplay', enforceFromEventTarget, true);
+
+    return () => {
+      observer.disconnect();
+      document.removeEventListener('play', enforceFromEventTarget, true);
+      document.removeEventListener('loadeddata', enforceFromEventTarget, true);
+      document.removeEventListener('canplay', enforceFromEventTarget, true);
+    };
+  }, [
+    overlaysOpen,
+    disableAllAnimations,
+    disableAnimatedBackgrounds,
+    disableAnimatedBanners,
+    disableAnimatedBoxarts,
+    disableAnimatedIcons,
+    disableAnimatedLogos,
+  ]);
 
   const activeGame = activeGameId ? games.find(g => g.id === activeGameId) || null : null;
 
@@ -1930,11 +1996,20 @@ function App() {
   const backgroundImageUrl = (activeGame?.useAlternativeBackground && activeGame?.alternativeBannerUrl)
     ? activeGame.alternativeBannerUrl
     : activeGame?.heroUrl || activeGame?.bannerUrl || activeGame?.boxArtUrl || '';
+  const backgroundFromAltBanner = !!(activeGame?.useAlternativeBackground && activeGame?.alternativeBannerUrl === backgroundImageUrl);
+  const backgroundFromHero = !!(activeGame?.heroUrl === backgroundImageUrl);
+  const backgroundFromBanner = !!(activeGame?.bannerUrl === backgroundImageUrl);
+  const backgroundFromBoxart = !!(activeGame?.boxArtUrl === backgroundImageUrl);
+  const backgroundVideoKind: 'background' | 'banner' | 'boxart' = backgroundFromAltBanner
+    ? 'background'
+    : (backgroundFromHero || backgroundFromBanner)
+      ? 'banner'
+      : 'boxart';
   const isBackgroundVideo = !!(activeGame && backgroundImageUrl && (
-    (activeGame.useAlternativeBackground && activeGame.alternativeBannerUrl === backgroundImageUrl && activeGame.alternativeBannerIsVideo) ||
-    (activeGame.heroUrl === backgroundImageUrl && activeGame.heroIsVideo) ||
-    (activeGame.bannerUrl === backgroundImageUrl && activeGame.bannerIsVideo) ||
-    (activeGame.boxArtUrl === backgroundImageUrl && activeGame.boxArtIsVideo)
+    (backgroundFromAltBanner && activeGame.alternativeBannerIsVideo) ||
+    (backgroundFromHero && activeGame.heroIsVideo) ||
+    (backgroundFromBanner && activeGame.bannerIsVideo) ||
+    (backgroundFromBoxart && activeGame.boxArtIsVideo)
   ));
 
   // Keep previous background visible until the next background is loaded to avoid flicker
@@ -1948,11 +2023,16 @@ function App() {
 
     const isAnimated = isBackgroundVideo || /\.(gif|webp|apng|webm)(\?|$)/i.test(backgroundImageUrl);
     const blockAnimatedBackground =
-      overlaysOpen || disableAllAnimations || disableAnimatedBackgrounds;
+      overlaysOpen || disableAllAnimations || (disableAnimatedBackgrounds && backgroundFromAltBanner);
 
-    // If we should not run animated backgrounds, prefer a static fallback (boxart) or clear to color.
+    // If we should not run animated backgrounds, keep video backgrounds visible (they are paused via global controller)
+    // and only replace animated image formats.
     if (blockAnimatedBackground) {
       if (isAnimated) {
+        if (isBackgroundVideo) {
+          setDisplayedBackgroundImageUrl(backgroundImageUrl);
+          return;
+        }
         const staticFallback = activeGame?.boxArtUrl && !activeGame.boxArtIsVideo && !/\.(gif|webp|apng|webm)(\?|$)/i.test(activeGame.boxArtUrl)
           ? activeGame.boxArtUrl
           : '';
@@ -1990,7 +2070,7 @@ function App() {
       img.onerror = null;
       img.src = '';
     };
-  }, [backgroundImageUrl, disableAllAnimations, disableAnimatedBackgrounds, overlaysOpen, activeGame?.boxArtUrl, activeGame?.boxArtIsVideo, isBackgroundVideo]);
+  }, [backgroundImageUrl, disableAllAnimations, disableAnimatedBackgrounds, overlaysOpen, activeGame?.boxArtUrl, activeGame?.boxArtIsVideo, isBackgroundVideo, backgroundFromAltBanner]);
 
   // Detect if background image is animated (GIF, WebP, APNG)
   const isAnimatedBackground = useMemo(() => {
@@ -2048,26 +2128,49 @@ function App() {
       className="h-screen bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-900 via-[#0f172a] to-black text-white flex flex-col overflow-hidden relative"
       data-overlays-open={overlaysOpen ? 'true' : 'false'}
     >
-      {/* Background - Image or Color */}
+      {/* Background - Image/Video or Color */}
       {backgroundMode === 'image' && displayedBackgroundImageUrl ? (
-        <div
-          className="fixed inset-0 pointer-events-none"
-          style={{
-            backgroundImage: `url(${displayedBackgroundImageUrl})`,
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
-            backgroundRepeat: 'no-repeat',
-            filter: `blur(${optimizedBackgroundBlur}px) brightness(${currentBackgroundBrightness})`,
-            transform: optimizedBackgroundBlur > 0 ? `scale(${1 + (optimizedBackgroundBlur * 0.002)})` : 'none',
-            zIndex: 0,
-            transition: 'opacity 300ms linear',
-            // Performance optimizations for animated backgrounds
-            ...(isAnimatedBackground && {
-              willChange: 'transform',
-              contain: 'layout style paint',
-            }),
-          }}
-        />
+        isBackgroundVideo ? (
+          <video
+            key={displayedBackgroundImageUrl}
+            src={displayedBackgroundImageUrl}
+            data-animation-kind={backgroundVideoKind}
+            muted
+            loop
+            playsInline
+            autoPlay
+            preload="auto"
+            className="fixed inset-0 w-full h-full object-cover pointer-events-none"
+            style={{
+              filter: `blur(${optimizedBackgroundBlur}px) brightness(${currentBackgroundBrightness})`,
+              transform: optimizedBackgroundBlur > 0 ? `scale(${1 + (optimizedBackgroundBlur * 0.002)})` : 'none',
+              zIndex: 0,
+              transition: 'opacity 300ms linear',
+              ...(isAnimatedBackground && {
+                willChange: 'transform',
+                contain: 'layout style paint',
+              }),
+            }}
+          />
+        ) : (
+          <div
+            className="fixed inset-0 pointer-events-none"
+            style={{
+              backgroundImage: `url(${displayedBackgroundImageUrl})`,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+              backgroundRepeat: 'no-repeat',
+              filter: `blur(${optimizedBackgroundBlur}px) brightness(${currentBackgroundBrightness})`,
+              transform: optimizedBackgroundBlur > 0 ? `scale(${1 + (optimizedBackgroundBlur * 0.002)})` : 'none',
+              zIndex: 0,
+              transition: 'opacity 300ms linear',
+              ...(isAnimatedBackground && {
+                willChange: 'transform',
+                contain: 'layout style paint',
+              }),
+            }}
+          />
+        )
       ) : (
         <div
           className="fixed inset-0 pointer-events-none"

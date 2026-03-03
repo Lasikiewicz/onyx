@@ -23,7 +23,6 @@ interface OnyxSettings {
   startClosedToTray: boolean;
   updateLibrariesOnStartup: boolean;
   checkForUpdatesOnStartup: boolean;
-  optimizationPerformance: 'low' | 'balanced' | 'high';
   minimizeOnGameLaunch: boolean;
   hideGameTitles: boolean;
   gameTilePadding: number;
@@ -179,7 +178,6 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
     startClosedToTray: false,
     updateLibrariesOnStartup: false,
     checkForUpdatesOnStartup: true,
-    optimizationPerformance: 'balanced',
     minimizeOnGameLaunch: false,
     hideGameTitles: false,
     gameTilePadding: 16,
@@ -230,7 +228,6 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
             startClosedToTray: prefs.startClosedToTray ?? false,
             updateLibrariesOnStartup: prefs.updateLibrariesOnStartup ?? false,
             checkForUpdatesOnStartup: prefs.checkForUpdatesOnStartup ?? true,
-            optimizationPerformance: prefs.optimizationPerformance ?? 'balanced',
             minimizeOnGameLaunch: prefs.minimizeOnGameLaunch ?? false,
             hideGameTitles: prefs.hideGameTitles ?? false,
             gameTilePadding: prefs.gameTilePadding ?? 16,
@@ -804,7 +801,6 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
         startClosedToTray: settings.startClosedToTray,
         updateLibrariesOnStartup: settings.updateLibrariesOnStartup,
         checkForUpdatesOnStartup: settings.checkForUpdatesOnStartup,
-        optimizationPerformance: settings.optimizationPerformance,
         minimizeOnGameLaunch: settings.minimizeOnGameLaunch,
         hideGameTitles: settings.hideGameTitles,
         gameTilePadding: settings.gameTilePadding,
@@ -1126,8 +1122,8 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                   onChange={(checked) => setSettings(prev => ({ ...prev, disableAnimatedBoxarts: checked }))}
                 />
                 <SettingsToggle
-                  label="Disable animated backgrounds"
-                  description="Prevent full-screen background artwork from animating."
+                  label="Disable animated alt banners"
+                  description="Prevent animated alternative banner backgrounds from animating."
                   checked={settings.disableAnimatedBackgrounds}
                   disabled={settings.disableAllAnimations}
                   onChange={(checked) => setSettings(prev => ({ ...prev, disableAnimatedBackgrounds: checked }))}
@@ -1199,31 +1195,6 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                 </div>
               </SettingsSection>
 
-              <SettingsSection title="Image Optimization Performance" description="Control CPU usage during background image optimization">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  {[
-                    { value: 'low' as const, label: 'Low CPU Usage', desc: 'Most responsive, slowest optimization' },
-                    { value: 'balanced' as const, label: 'Balanced', desc: 'Recommended default' },
-                    { value: 'high' as const, label: 'High Performance', desc: 'Fastest optimization, higher CPU use' },
-                  ].map((option) => {
-                    const selected = settings.optimizationPerformance === option.value;
-                    return (
-                      <button
-                        key={option.value}
-                        type="button"
-                        onClick={() => setSettings(prev => ({ ...prev, optimizationPerformance: option.value }))}
-                        className={`text-left p-3 rounded-lg border transition-all ${selected
-                          ? 'bg-blue-600/20 border-blue-500/60 text-white'
-                          : 'bg-gray-800/40 border-gray-700 text-gray-300 hover:border-blue-500/40'
-                          }`}
-                      >
-                        <p className="text-sm font-semibold">{option.label}</p>
-                        <p className="text-xs text-gray-400 mt-1">{option.desc}</p>
-                      </button>
-                    );
-                  })}
-                </div>
-              </SettingsSection>
             </div>
           )}
           {

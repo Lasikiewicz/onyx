@@ -437,9 +437,11 @@ export const LibraryCoverFlow: React.FC<LibraryCoverFlowProps> = ({
                     const artworkUrl = game.boxArtUrl || game.bannerUrl;
                     const isVideo = (artworkUrl === game.boxArtUrl && game.boxArtIsVideo) || (artworkUrl === game.bannerUrl && game.bannerIsVideo) || isWebmUrl(artworkUrl);
                     if (isVideo && artworkUrl) {
+                      const videoKind: 'boxart' | 'banner' = artworkUrl === game.bannerUrl ? 'banner' : 'boxart';
                       return (
                         <video
                           src={artworkUrl}
+                          data-animation-kind={videoKind}
                           muted
                           loop
                           playsInline

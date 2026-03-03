@@ -93,12 +93,12 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
   rightPanelButtonColors,
   linkDisplayOrder: linkDisplayOrderFromProps,
   visibleLinkTypes: visibleLinkTypesFromProps,
-  disableAnimatedBackgrounds = false,
-  disableAnimatedBanners: _disableAnimatedBanners = false, // currently unused placeholder for future banner-specific behavior
+  disableAnimatedBackgrounds: _disableAnimatedBackgrounds = false,
+  disableAnimatedBanners = false,
   disableAnimatedBoxarts = false,
-  disableAnimatedIcons: _disableAnimatedIcons = false, // currently unused placeholder for future icon-specific behavior
+  disableAnimatedIcons = false,
   disableAnimatedLogos = false,
-  overlaysOpen: _overlaysOpen = false,
+  overlaysOpen = false,
 }) => {
   const defaultPanelWidths: Record<ViewKey, number> = { grid: 800, list: 800, logo: 800 };
   const [panelWidths, setPanelWidths] = useState<Record<ViewKey, number>>(defaultPanelWidths);
@@ -386,10 +386,16 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
   const backgroundLoadKey = `bg:${backgroundImageUrl}`;
   const logoLoadKey = `logo:${game.logoUrl || ''}`;
   const boxartLoadKey = `boxart:${game.boxArtUrl || ''}`;
+  const backgroundFromHero = game.heroUrl === backgroundImageUrl;
+  const backgroundFromBanner = game.bannerUrl === backgroundImageUrl;
+  const backgroundFromBoxart = game.boxArtUrl === backgroundImageUrl;
+  const backgroundMediaKind: 'banner' | 'boxart' = (backgroundFromHero || backgroundFromBanner)
+    ? 'banner'
+    : 'boxart';
   const isBackgroundVideo = !!(backgroundImageUrl && (
-    (game.heroUrl === backgroundImageUrl && game.heroIsVideo) ||
-    (game.bannerUrl === backgroundImageUrl && game.bannerIsVideo) ||
-    (game.boxArtUrl === backgroundImageUrl && game.boxArtIsVideo)
+    (backgroundFromHero && game.heroIsVideo) ||
+    (backgroundFromBanner && game.bannerIsVideo) ||
+    (backgroundFromBoxart && game.boxArtIsVideo)
   ));
   
   // Helper function to detect animated media (animated image formats + webm video)
@@ -397,9 +403,13 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
   const isAnimatedMedia = (url: string, isVideo?: boolean) => !!isVideo || isAnimatedImage(url);
   const isLogoVideo = !!game.logoIsVideo;
   const isBoxartVideo = !!game.boxArtIsVideo;
-  const disableAnimatedBackgroundsBySettings = disableAnimatedBackgrounds && !_overlaysOpen;
-  const disableAnimatedLogosBySettings = disableAnimatedLogos && !_overlaysOpen;
-  const disableAnimatedBoxartsBySettings = disableAnimatedBoxarts && !_overlaysOpen;
+  const disableAnimatedBannersBySettings = disableAnimatedBanners && !overlaysOpen;
+  const disableAnimatedLogosBySettings = disableAnimatedLogos && !overlaysOpen;
+  const disableAnimatedBoxartsBySettings = disableAnimatedBoxarts && !overlaysOpen;
+  const disableAnimatedIconsBySettings = disableAnimatedIcons && !overlaysOpen;
+  const shouldDisableAnimatedCurrentBackground =
+    (backgroundMediaKind === 'banner' && disableAnimatedBannersBySettings) ||
+    (backgroundMediaKind === 'boxart' && disableAnimatedBoxartsBySettings);
   
   const formatDate = (dateString?: string) => {
     if (!dateString) return '';
@@ -441,12 +451,13 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
         className="relative flex-shrink-0 overflow-visible"
         style={{ height: backgroundImageUrl ? `${fanartHeight}px` : 'auto', minHeight: backgroundImageUrl ? `${fanartHeight}px` : '120px' }}
       >
-        {backgroundImageUrl && (!isAnimatedMedia(backgroundImageUrl, isBackgroundVideo) || !disableAnimatedBackgroundsBySettings) && (
+        {backgroundImageUrl && (isBackgroundVideo || !isAnimatedMedia(backgroundImageUrl, isBackgroundVideo) || !shouldDisableAnimatedCurrentBackground) && (
           <>
             {isBackgroundVideo ? (
               <video
                 key={backgroundImageUrl}
                 src={backgroundImageUrl}
+                data-animation-kind={backgroundMediaKind}
                 muted
                 loop
                 playsInline
@@ -533,7 +544,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
             contain: 'layout style',
           }}
         >
-          {game.logoUrl && (!isAnimatedMedia(game.logoUrl, isLogoVideo) || !disableAnimatedLogosBySettings) ? (
+          {game.logoUrl && (isLogoVideo || !isAnimatedMedia(game.logoUrl, isLogoVideo) || !disableAnimatedLogosBySettings) ? (
             <div
               onContextMenu={(e) => {
                 // Allow event to bubble up to parent to open RightClickMenu
@@ -544,6 +555,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
               {game.logoIsVideo ? (
                 <video
                   src={game.logoUrl}
+                  data-animation-kind="logo"
                   muted
                   loop
                   playsInline
@@ -617,10 +629,11 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
             className={`absolute ${rightPanelBoxartPosition === 'left' ? 'left-6' : 'right-6'} bottom-0 z-20`}
             style={{ transform: 'translateY(50%)' }}
           >
-            {game.boxArtUrl && (!isAnimatedMedia(game.boxArtUrl, isBoxartVideo) || !disableAnimatedBoxartsBySettings) ? (
+            {game.boxArtUrl && (isBoxartVideo || !isAnimatedMedia(game.boxArtUrl, isBoxartVideo) || !disableAnimatedBoxartsBySettings) ? (
               game.boxArtIsVideo ? (
                 <video
                   src={game.boxArtUrl}
+                  data-animation-kind="boxart"
                   muted
                   loop
                   playsInline
@@ -1111,6 +1124,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
                 visibleTypes={visibleLinkTypesFromProps ?? visibleLinkTypes}
                 displayOrder={linkDisplayOrderFromProps ?? linkDisplayOrder ?? undefined}
                 buttonSize={rightPanelButtonSize}
+                disableAnimatedIcons={disableAnimatedIconsBySettings}
               />
             );
 

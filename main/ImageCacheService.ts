@@ -12,19 +12,10 @@ import { optimizeInWorker } from './ImageOptimizerWorkerHost.js';
 import { thinWebpFrames } from './thinWebpFrames.js';
 import { debugOptimizationLog, isDebugOptimizationEnabled } from './debugOptimizationLog.js';
 
+const FFMPEG_ENABLED = false;
 const runtimeRequire = createRequire(__filename);
 
-/** Resolve path to ffmpeg binary (bundled or system). Fixes asar path for Electron. */
 function getFfmpegPath(): { path: string; source: 'bundled' | 'system' } {
-  try {
-    const p = require('ffmpeg-static') as string;
-    if (p && typeof p === 'string') {
-      const fixed = p.replace(/app\.asar([/\\])/g, 'app.asar.unpacked$1');
-      return { path: fixed, source: 'bundled' };
-    }
-  } catch {
-    /* ffmpeg-static not installed */
-  }
   return { path: 'ffmpeg', source: 'system' };
 }
 
@@ -368,6 +359,9 @@ export class ImageCacheService {
     imageType: string,
     targetBytes: number
   ): Promise<Buffer | null> {
+    if (!FFMPEG_ENABLED) {
+      return null;
+    }
     const base = `onyx-oversized-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const tmpDir = tmpdir();
     const inp = path.join(tmpDir, `${base}-in.webp`);
@@ -488,6 +482,16 @@ export class ImageCacheService {
     sourceExt: string,
     imageType: string
   ): Promise<FfmpegResizeResult> {
+    if (!FFMPEG_ENABLED) {
+      return {
+        data: null,
+        attempt: {
+          attempted: false,
+          error: 'ffmpeg-disabled',
+          failureCategory: 'no-result',
+        },
+      };
+    }
     const startedAtMs = Date.now();
     const attempt: OptimizationStageAttempt = { attempted: true, startedAtMs };
     const ext = sourceExt.toLowerCase();
@@ -1546,24 +1550,12 @@ export class ImageCacheService {
    * Check if FFmpeg is available (bundled or on PATH). Used for Settings UI.
    */
   static getFfmpegStatus(): { available: boolean; source: 'bundled' | 'system' | null } {
-    try {
-      const { path: ffmpegPath, source } = getFfmpegPath();
-      const result = spawnSync(ffmpegPath, ['-version'], { encoding: 'utf8', timeout: 5000, windowsHide: true });
-      return { available: result.status === 0, source };
-    } catch {
-      return { available: false, source: null };
-    }
+    return { available: false, source: null };
   }
 
   /** Full FFmpeg diagnostics for optimization debug report exports. */
   static getFfmpegDiagnostics(): { path: string; available: boolean; source: 'bundled' | 'system' | null } {
-    try {
-      const { path: ffmpegPath, source } = getFfmpegPath();
-      const result = spawnSync(ffmpegPath, ['-version'], { encoding: 'utf8', timeout: 5000, windowsHide: true });
-      return { path: ffmpegPath, available: result.status === 0, source };
-    } catch {
-      return { path: 'ffmpeg', available: false, source: null };
-    }
+    return { path: '', available: false, source: null };
   }
 
   static getSharpDiagnostics(): {

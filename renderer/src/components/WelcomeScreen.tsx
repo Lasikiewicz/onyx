@@ -33,7 +33,6 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onScanGames, onAdd
     const [overviewKeyInputs, setOverviewKeyInputs] = useState<{ steamGridDB: string; igdbClientId: string; igdbClientSecret: string; rawg: string }>({ steamGridDB: '', igdbClientId: '', igdbClientSecret: '', rawg: '' });
     const [savingOverviewKey, setSavingOverviewKey] = useState<string | null>(null);
 
-    const [optimizationPerformance, setOptimizationPerformance] = useState<'low' | 'balanced' | 'high' | null>(null);
 
     useEffect(() => {
         const checkAPIs = async () => {
@@ -69,9 +68,6 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onScanGames, onAdd
                     rawg: !!(creds.rawgApiKey?.trim()),
                     giantBomb: !!(creds.giantBombApiKey?.trim())
                 });
-            });
-            window.electronAPI.getPreferences().then((prefs: any) => {
-                setOptimizationPerformance(prefs.optimizationPerformance ?? null);
             });
         }
     }, [setupStep]);
@@ -153,19 +149,6 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onScanGames, onAdd
     };
 
     const handleOtherFoldersDone = async () => {
-        if (!optimizationPerformance) {
-            return;
-        }
-
-        // Save onboarding preferences
-        try {
-            await window.electronAPI.savePreferences({
-                optimizationPerformance
-            });
-        } catch (err) {
-            console.error('Error saving onboarding preferences:', err);
-        }
-
         for (const { path, categories } of addedFolders) {
             await onAddFolder(path, categories);
         }
@@ -653,50 +636,6 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onScanGames, onAdd
                             )}
                         </div>
 
-                        <div>
-                            <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">Optimization Performance (Required)</h3>
-                            <p className="text-sm text-gray-500 mb-2 leading-relaxed">
-                                Choose how aggressive image optimization should be. Lower settings reduce CPU load and keep your PC more responsive while scanning.
-                            </p>
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                                {[
-                                    {
-                                        value: 'low' as const,
-                                        label: 'Low CPU Usage',
-                                        desc: 'Best responsiveness, slowest optimization'
-                                    },
-                                    {
-                                        value: 'balanced' as const,
-                                        label: 'Balanced',
-                                        desc: 'Recommended for most PCs'
-                                    },
-                                    {
-                                        value: 'high' as const,
-                                        label: 'High Performance',
-                                        desc: 'Fastest optimization, higher CPU usage'
-                                    }
-                                ].map((option) => {
-                                    const selected = optimizationPerformance === option.value;
-                                    return (
-                                        <button
-                                            key={option.value}
-                                            type="button"
-                                            onClick={() => setOptimizationPerformance(option.value)}
-                                            className={`text-left p-3 rounded-xl border transition-all ${selected
-                                                ? 'bg-blue-600/20 border-blue-500/60 text-white'
-                                                : 'bg-gray-800/50 border-gray-700 text-gray-300 hover:border-blue-500/40'
-                                                }`}
-                                        >
-                                            <p className="text-sm font-semibold">{option.label}</p>
-                                            <p className="text-xs text-gray-400 mt-1">{option.desc}</p>
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                            {!optimizationPerformance && (
-                                <p className="mt-3 text-sm text-amber-400">Select an optimization performance preference to continue.</p>
-                            )}
-                        </div>
                     </div>
 
                     <div className="mt-6 p-4 bg-gray-800/50 border border-gray-700 rounded-2xl">
@@ -718,8 +657,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onScanGames, onAdd
                             <button onClick={() => setSetupStep('otherFolders')} className="flex-1 px-6 py-2.5 bg-gray-700 hover:bg-gray-600 text-white font-semibold rounded-xl transition-all">Back</button>
                             <button
                                 onClick={handleOtherFoldersDone}
-                                disabled={!optimizationPerformance}
-                                className="flex-1 px-6 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-600/50 disabled:cursor-not-allowed text-white font-semibold rounded-xl transition-all shadow-lg shadow-blue-600/20"
+                                className="flex-1 px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-all shadow-lg shadow-blue-600/20"
                             >
                                 Start scan
                             </button>

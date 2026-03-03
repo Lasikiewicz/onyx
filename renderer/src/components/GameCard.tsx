@@ -77,6 +77,11 @@ const GameCardComponent: React.FC<GameCardProps> = ({
     (imageToShow === game.logoUrl && game.logoIsVideo) ||
     isWebmUrl(imageToShow)
   );
+  const mainVideoKind: 'boxart' | 'banner' | 'logo' = imageToShow === game.logoUrl
+    ? 'logo'
+    : imageToShow === game.bannerUrl
+      ? 'banner'
+      : 'boxart';
 
   // Use rectangular aspect ratio for logo view
   const aspectRatio = useLogoInsteadOfBoxart ? 'aspect-[16/9]' : 'aspect-[2/3]';
@@ -93,6 +98,7 @@ const GameCardComponent: React.FC<GameCardProps> = ({
             <video
               key={imageToShow}
               src={imageToShow}
+              data-animation-kind={mainVideoKind}
               muted
               loop
               playsInline
@@ -157,6 +163,7 @@ const GameCardComponent: React.FC<GameCardProps> = ({
               <video
                 key={game.logoUrl}
                 src={game.logoUrl}
+                data-animation-kind="logo"
                 muted
                 loop
                 playsInline
@@ -211,6 +218,7 @@ const GameCardComponent: React.FC<GameCardProps> = ({
             <video
               key={game.logoUrl}
               src={game.logoUrl}
+              data-animation-kind="logo"
               muted
               loop
               playsInline
