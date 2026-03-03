@@ -8,7 +8,7 @@ description: Onyx AI Agent Guide - Critical Rules & Project Context
 
 **Agent CAN push to git when following established workflows below. CRITICAL requirements:**
 - ✅ **Run `npm run scan:secrets` before any git push** - If it fails, fix (remove/rotate secrets) and re-run until it passes. Never push with hardcoded secrets.
-- ✅ **Update `CHANGELOG.md` for every functional / user-visible change before committing** – add or update the current version section with 1–3 concise bullets that describe what changed.
+- ✅ **Update the `Pending` section in `CHANGELOG.md` for every functional / user-visible change before committing** – ensure a top-level `## [Pending]` section exists and add 1–3 concise bullets under it that describe what changed.
 - ✅ **ALWAYS use terminal commands** (`git commit -m "..."`, `git push`, etc.) - NEVER use Cursor's Source Control / commit UI
 - ✅ **NEVER add Co-authored-by or Cursor branding** - The `commit-msg` hook strips these automatically, but don't add them in the first place
 - ✅ **Terminal commits use your git config** (your name/email) as author - this is why we use terminal, not Cursor UI
@@ -29,9 +29,9 @@ description: Onyx AI Agent Guide - Critical Rules & Project Context
 
 
 ### 1. "Push to git" / "Push to git master"
-**Always update the changelog, run the build and secrets scan first; fix any issues, then push local master to remote master.** Does NOT trigger CI app build.
+**Always update the changelog `Pending` section, run the build and secrets scan first; fix any issues, then push local master to remote master.** Does NOT trigger CI app build.
 
-1. Update `CHANGELOG.md` with at least one bullet under the current version describing the functional/user-visible change(s) in this push.
+1. Ensure `CHANGELOG.md` has a top-level `## [Pending]` section and add at least one bullet under it describing the functional/user-visible change(s) in this push.
 2. Run `npm run build`. If it fails, fix build or type errors (and fix any lint issues if reported), then run `npm run build` again until it succeeds.
 3. Run `npm run scan:secrets`. If it fails, remove or fix hardcoded secrets (or use env vars), then re-run until it passes.
 4. Commit and push.
@@ -49,7 +49,7 @@ git push origin master
 **Update build number, then force remote master → remote develop.** Triggers Onyx Alpha build from `develop`. (There is no "alpha" branch — the alpha build runs on push to `develop`.)
 
 1. Run `npm run increment-build`, then read `version` from `package.json`.
-2. Add a brief changelog: edit [CHANGELOG.md](CHANGELOG.md) — new `## [X.Y.Z] - YYYY-MM-DD` with a short list of changes.
+2. Promote the pending changes: in [CHANGELOG.md](CHANGELOG.md), change the `## [Pending]` heading to `## [X.Y.Z] - YYYY-MM-DD` (using the new version and today’s date), keeping or refining the bullet list to describe what’s in this alpha. Do not leave any `Pending` section that would be shown to users.
 3. Run `npm run scan:secrets`. If it fails, fix and re-run until it passes.
 4. Commit message **must** be: `<version> <changes>` (e.g. `0.3.15 Flip view and menu layout`).
 ```bash

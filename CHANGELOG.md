@@ -4,14 +4,16 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Pending]
+
+- Security: Centralize external URL protocol validation with a shared whitelist for IPC and launcher flows.
+- Accessibility: Add ARIA labels and focus improvements to MenuBar, GameManager view toggles, TopBar, and related UI.
+- Performance: Optimize GameCard rendering, game filtering allocations, library carousel windowing, and animated image optimization defaults.
+
 ## [0.6.31] - 2026-03-03
 
 - Crash reporting: Generate human-readable `report.txt` files for native process crashes.
 - Crash reporting: Capture unhandled JavaScript exceptions into text logs instead of silent failing.
-- Security: Centralize external URL protocol validation with a shared whitelist for IPC and launcher flows.
-- Accessibility: Add ARIA labels and focus improvements to MenuBar, GameManager view toggles, TopBar, and related UI.
-- Performance: Optimize GameCard rendering, game filtering allocations, library carousel windowing, and animated image optimization defaults.
-- Developer workflow: Update agent workflow so every functional change pushed to git also updates `CHANGELOG.md`.
 
 ## [0.6.30] - 2026-03-02
 
