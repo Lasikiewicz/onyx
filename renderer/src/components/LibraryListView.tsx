@@ -118,6 +118,7 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
   const showBoxart = displayMode === 'boxart-title';
   const showLogo = displayMode === 'logo-title' || displayMode === 'logo-only';
   const showTitle = displayMode !== 'logo-only';
+  const isWebmUrl = (url?: string) => !!url && /\.webm(\?|$)/i.test(url);
 
   const [contextMenu, setContextMenu] = useState<{ game: Game; x: number; y: number } | null>(null);
   const [focusedIndex, setFocusedIndex] = useState<number>(-1);
@@ -282,16 +283,28 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                       }}
                     >
                       {game.logoUrl ? (
-                        <img
-                          src={game.logoUrl}
-                          alt={game.title}
-                          className="max-w-full max-h-full object-contain transition-transform duration-300 group-hover:scale-110"
-                          onError={(e) => {
-                            const target = e.target as HTMLImageElement;
-                            target.style.display = 'none';
-                          }}
-                          onContextMenu={(e) => handleGameElementContextMenu(e, game)}
-                        />
+                        (game.logoIsVideo || isWebmUrl(game.logoUrl)) ? (
+                          <video
+                            src={game.logoUrl}
+                            muted
+                            loop
+                            playsInline
+                            autoPlay
+                            className="max-w-full max-h-full object-contain transition-transform duration-300 group-hover:scale-110"
+                            onContextMenu={(e) => handleGameElementContextMenu(e, game)}
+                          />
+                        ) : (
+                          <img
+                            src={game.logoUrl}
+                            alt={game.title}
+                            className="max-w-full max-h-full object-contain transition-transform duration-300 group-hover:scale-110"
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              target.style.display = 'none';
+                            }}
+                            onContextMenu={(e) => handleGameElementContextMenu(e, game)}
+                          />
+                        )
                       ) : (
                         <div className="w-full h-full bg-gray-700/50 flex items-center justify-center">
                           <span className="text-gray-300 text-xs">No Logo</span>
@@ -370,23 +383,35 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                       }}
                     >
                       {game.iconUrl ? (
-                        <img
-                          src={game.iconUrl}
-                          alt={game.title}
-                          className="max-w-full max-h-full object-contain"
-                          onError={(e) => {
-                            const target = e.target as HTMLImageElement;
-                            target.style.display = 'none';
-                            // Show letter if image fails (no background)
-                            if (target.parentElement) {
-                              const letter = document.createElement('span');
-                              letter.className = 'text-white font-bold text-4xl select-none';
-                              letter.innerText = game.title.charAt(0).toUpperCase();
-                              target.parentElement.appendChild(letter);
-                            }
-                          }}
-                          onContextMenu={(e) => handleGameElementContextMenu(e, game)}
-                        />
+                        (game.iconIsVideo || isWebmUrl(game.iconUrl)) ? (
+                          <video
+                            src={game.iconUrl}
+                            muted
+                            loop
+                            playsInline
+                            autoPlay
+                            className="max-w-full max-h-full object-contain"
+                            onContextMenu={(e) => handleGameElementContextMenu(e, game)}
+                          />
+                        ) : (
+                          <img
+                            src={game.iconUrl}
+                            alt={game.title}
+                            className="max-w-full max-h-full object-contain"
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              target.style.display = 'none';
+                              // Show letter if image fails (no background)
+                              if (target.parentElement) {
+                                const letter = document.createElement('span');
+                                letter.className = 'text-white font-bold text-4xl select-none';
+                                letter.innerText = game.title.charAt(0).toUpperCase();
+                                target.parentElement.appendChild(letter);
+                              }
+                            }}
+                            onContextMenu={(e) => handleGameElementContextMenu(e, game)}
+                          />
+                        )
                       ) : (
                         <span className="text-white font-bold text-4xl select-none">
                           {game.title.charAt(0).toUpperCase()}
@@ -473,28 +498,53 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                       }}
                     >
                       {showBoxart && game.boxArtUrl ? (
-                        <img
-                          src={game.boxArtUrl}
-                          alt={game.title}
-                          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
-                          onError={(e) => {
-                            const target = e.target as HTMLImageElement;
-                            target.style.display = 'none';
-                          }}
-                          onContextMenu={(e) => handleGameElementContextMenu(e, game)}
-                        />
+                        (game.boxArtIsVideo || isWebmUrl(game.boxArtUrl)) ? (
+                          <video
+                            src={game.boxArtUrl}
+                            muted
+                            loop
+                            playsInline
+                            autoPlay
+                            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+                            onContextMenu={(e) => handleGameElementContextMenu(e, game)}
+                          />
+                        ) : (
+                          <img
+                            src={game.boxArtUrl}
+                            alt={game.title}
+                            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              target.style.display = 'none';
+                            }}
+                            onContextMenu={(e) => handleGameElementContextMenu(e, game)}
+                          />
+                        )
                       ) : showLogo && game.logoUrl ? (
-                        <img
-                          src={game.logoUrl}
-                          alt={game.title}
-                          className="w-full h-full object-contain p-2 transition-transform duration-300 group-hover:scale-110"
-                          style={{ width: `${logoSizeForList}px`, height: `${Math.round(logoSizeForList * (4 / 3))}px` }}
-                          onError={(e) => {
-                            const target = e.target as HTMLImageElement;
-                            target.style.display = 'none';
-                          }}
-                          onContextMenu={(e) => handleGameElementContextMenu(e, game)}
-                        />
+                        (game.logoIsVideo || isWebmUrl(game.logoUrl)) ? (
+                          <video
+                            src={game.logoUrl}
+                            muted
+                            loop
+                            playsInline
+                            autoPlay
+                            className="w-full h-full object-contain p-2 transition-transform duration-300 group-hover:scale-110"
+                            style={{ width: `${logoSizeForList}px`, height: `${Math.round(logoSizeForList * (4 / 3))}px` }}
+                            onContextMenu={(e) => handleGameElementContextMenu(e, game)}
+                          />
+                        ) : (
+                          <img
+                            src={game.logoUrl}
+                            alt={game.title}
+                            className="w-full h-full object-contain p-2 transition-transform duration-300 group-hover:scale-110"
+                            style={{ width: `${logoSizeForList}px`, height: `${Math.round(logoSizeForList * (4 / 3))}px` }}
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              target.style.display = 'none';
+                            }}
+                            onContextMenu={(e) => handleGameElementContextMenu(e, game)}
+                          />
+                        )
                       ) : (
                         <div className="w-full h-full bg-gray-700/50 flex items-center justify-center">
                           <span className="text-gray-300 text-xs">No Image</span>

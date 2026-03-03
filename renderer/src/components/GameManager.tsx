@@ -135,6 +135,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
   const includeAnimatedInRequests = false;
 
   const isAnimatedAssetUrl = (url?: string) => !!url && /\.(gif|webp|apng)(\?|$)/i.test(url);
+  const isWebmAssetUrl = (url?: string) => !!url && /\.webm(\?|$)/i.test(url);
 
   type ProviderName = 'Steam Store API' | 'SteamGridDB' | 'IGDB' | 'RAWG' | 'Giant Bomb' | 'Web Search';
 
@@ -1751,7 +1752,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
       }
     }
 
-    const isV = isVideo === true;
+    const isV = isVideo === true || isWebmAssetUrl(imageUrl);
     // Update immediately for instant visual feedback
     const updatedGame = { ...editedGame };
     if (type === 'boxart') {
@@ -2469,29 +2470,51 @@ export const GameManager: React.FC<GameManagerProps> = ({
                       }`}
                   >
                     {gameListView === 'boxart' && (
-                      <img
-                        src={game.boxArtUrl || '/placeholder.png'}
-                        alt={game.title}
-                        className="w-16 h-20 object-cover rounded flex-shrink-0"
-                        onError={(e) => {
-                          const target = e.target as HTMLImageElement;
-                          target.src = '/placeholder.png';
-                          // If placeholder also fails, hide it
-                          target.onerror = () => { target.style.display = 'none'; };
-                        }}
-                      />
+                      ((game.boxArtIsVideo || isWebmAssetUrl(game.boxArtUrl)) && game.boxArtUrl ? (
+                        <video
+                          src={game.boxArtUrl}
+                          muted
+                          loop
+                          playsInline
+                          autoPlay
+                          className="w-16 h-20 object-cover rounded flex-shrink-0"
+                        />
+                      ) : (
+                        <img
+                          src={game.boxArtUrl || '/placeholder.png'}
+                          alt={game.title}
+                          className="w-16 h-20 object-cover rounded flex-shrink-0"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.src = '/placeholder.png';
+                            // If placeholder also fails, hide it
+                            target.onerror = () => { target.style.display = 'none'; };
+                          }}
+                        />
+                      ))
                     )}
                     {gameListView === 'icon' && (
                       <div className="w-10 h-10 flex-shrink-0 rounded p-1 flex items-center justify-center border border-gray-700">
                         {game.iconUrl ? (
-                          <img
-                            src={game.iconUrl}
-                            alt={game.title}
-                            className="w-full h-full object-contain"
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).style.display = 'none';
-                            }}
-                          />
+                          ((game.iconIsVideo || isWebmAssetUrl(game.iconUrl)) ? (
+                            <video
+                              src={game.iconUrl}
+                              muted
+                              loop
+                              playsInline
+                              autoPlay
+                              className="w-full h-full object-contain"
+                            />
+                          ) : (
+                            <img
+                              src={game.iconUrl}
+                              alt={game.title}
+                              className="w-full h-full object-contain"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).style.display = 'none';
+                              }}
+                            />
+                          ))
                         ) : (
                           <span className="text-[8px] text-gray-500">No Icon</span>
                         )}

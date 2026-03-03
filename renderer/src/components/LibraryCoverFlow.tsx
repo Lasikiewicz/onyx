@@ -87,6 +87,7 @@ export const LibraryCoverFlow: React.FC<LibraryCoverFlowProps> = ({
   const isDragActiveRef = React.useRef(false);
   const dragOffsetPxRef = React.useRef(0);
   const justDraggedRef = React.useRef(false);
+  const isWebmUrl = (url?: string) => !!url && /\.webm(\?|$)/i.test(url);
 
   const validSelectedIndex = Math.max(0, Math.min(selectedIndex, games.length - 1));
   const selectedGame = games.length > 0 ? games[validSelectedIndex] : null;
@@ -432,17 +433,36 @@ export const LibraryCoverFlow: React.FC<LibraryCoverFlowProps> = ({
                 }}
               >
                 {game.boxArtUrl || game.bannerUrl ? (
-                  <img
-                    src={game.boxArtUrl || game.bannerUrl}
-                    alt={game.title}
-                    className="w-full h-full object-cover"
-                    draggable={false}
-                    style={isCenter ? { filter: 'brightness(1.04) contrast(1.02)' } : { filter: `brightness(${brightness})` }}
-                    onError={(e) => {
-                      const target = e.target as HTMLImageElement;
-                      target.style.display = 'none';
-                    }}
-                  />
+                  (() => {
+                    const artworkUrl = game.boxArtUrl || game.bannerUrl;
+                    const isVideo = (artworkUrl === game.boxArtUrl && game.boxArtIsVideo) || (artworkUrl === game.bannerUrl && game.bannerIsVideo) || isWebmUrl(artworkUrl);
+                    if (isVideo && artworkUrl) {
+                      return (
+                        <video
+                          src={artworkUrl}
+                          muted
+                          loop
+                          playsInline
+                          autoPlay
+                          className="w-full h-full object-cover"
+                          style={isCenter ? { filter: 'brightness(1.04) contrast(1.02)' } : { filter: `brightness(${brightness})` }}
+                        />
+                      );
+                    }
+                    return (
+                      <img
+                        src={artworkUrl}
+                        alt={game.title}
+                        className="w-full h-full object-cover"
+                        draggable={false}
+                        style={isCenter ? { filter: 'brightness(1.04) contrast(1.02)' } : { filter: `brightness(${brightness})` }}
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.style.display = 'none';
+                        }}
+                      />
+                    );
+                  })()
                 ) : (
                   <div className="w-full h-full flex items-center justify-center bg-gray-800">
                     <span className="text-gray-500 text-sm text-center px-2">{game.title}</span>

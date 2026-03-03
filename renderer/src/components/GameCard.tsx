@@ -56,6 +56,7 @@ const GameCardComponent: React.FC<GameCardProps> = ({
 }) => {
 
   const isAnimatedImage = (url: string | undefined) => !!url && /\.(gif|webp|apng)(\?|$)/i.test(url);
+  const isWebmUrl = (url: string | undefined) => !!url && /\.webm(\?|$)/i.test(url);
 
   const hasLogo = game.logoUrl && (!disableAnimatedLogos || !isAnimatedImage(game.logoUrl));
   const isLogoUnderneath = hasLogo && showLogoOverBoxart && logoPosition === 'underneath';
@@ -73,7 +74,8 @@ const GameCardComponent: React.FC<GameCardProps> = ({
   const isVideoMain = imageToShow && (
     (imageToShow === game.boxArtUrl && game.boxArtIsVideo) ||
     (imageToShow === game.bannerUrl && game.bannerIsVideo) ||
-    (imageToShow === game.logoUrl && game.logoIsVideo)
+    (imageToShow === game.logoUrl && game.logoIsVideo) ||
+    isWebmUrl(imageToShow)
   );
 
   // Use rectangular aspect ratio for logo view
@@ -151,7 +153,7 @@ const GameCardComponent: React.FC<GameCardProps> = ({
             logoPosition === 'bottom' ? 'items-end' :
               'items-center'
             } justify-center`}>
-            {game.logoIsVideo ? (
+            {(game.logoIsVideo || isWebmUrl(game.logoUrl)) ? (
               <video
                 key={game.logoUrl}
                 src={game.logoUrl}
@@ -205,7 +207,7 @@ const GameCardComponent: React.FC<GameCardProps> = ({
       {/* Logo underneath boxart - separate flex item below the boxart */}
       {isLogoUnderneath && hasLogo && (
         <div className="bg-black/80 p-2 flex items-center justify-center flex-shrink-0 border-t border-gray-800/50">
-          {game.logoIsVideo ? (
+          {(game.logoIsVideo || isWebmUrl(game.logoUrl)) ? (
             <video
               key={game.logoUrl}
               src={game.logoUrl}

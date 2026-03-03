@@ -149,6 +149,7 @@ export function registerGameIPCHandlers(
         try {
             const games = await gameStore.getLibrary();
             try {
+                const isWebmUrl = (url?: string) => !!url && /\.webm(\?|$)/i.test(url);
                 const cacheDir = imageCacheService.getCacheDir();
                 if (existsSync(cacheDir)) {
                     const { readdirSync } = require('node:fs');
@@ -170,9 +171,15 @@ export function registerGameIPCHandlers(
                         const safeId = g.id.replace(/[<>:"/\\|?*]/g, '_').toLowerCase();
                         for (const { urlKey, flagKey, keySuffix } of entries) {
                             const url = g[urlKey];
-                            if (!url || typeof url !== 'string' || !url.startsWith('onyx-local://')) continue;
+                            if (!url || typeof url !== 'string') continue;
                             if (g[flagKey as keyof Game]) continue;
-                            if (webmKeys.has(`${safeId}-${keySuffix}`)) (g as unknown as Record<string, boolean>)[flagKey as string] = true;
+                            if (isWebmUrl(url)) {
+                                (g as unknown as Record<string, boolean>)[flagKey as string] = true;
+                                continue;
+                            }
+                            if (url.startsWith('onyx-local://') && webmKeys.has(`${safeId}-${keySuffix}`)) {
+                                (g as unknown as Record<string, boolean>)[flagKey as string] = true;
+                            }
                         }
                     }
                 }

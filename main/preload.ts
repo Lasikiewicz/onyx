@@ -94,12 +94,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
     const allowedChannels = new Set([
       'steam:newGamesFound',
       'background:newGamesFound',
+      'startup:newGamesFound',
       'startup:progress',
       'scan:missing-games',
       'metadata:refreshProgress',
       'gameStore:libraryUpdated',
       'metadata:gameImagesFound',
       'metadata:fastSearchProgress',
+      'metadata:imageSearchProviderStatus',
       'app:update-status',
       'crash:dumpsAvailable',
     ]);

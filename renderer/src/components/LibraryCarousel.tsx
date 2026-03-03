@@ -73,6 +73,7 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
   isViewFlipped = false,
   carouselButtonColors,
 }) => {
+  const isWebmUrl = (url?: string) => !!url && /\.webm(\?|$)/i.test(url);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [showDetailsBarResizer, setShowDetailsBarResizer] = useState(false);
   const [carouselOffset, setCarouselOffset] = useState(0);
@@ -312,28 +313,49 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
                 // Show logo if available
                 selectedGame.logoUrl ? (
                   <div className="relative logo-resizer-container" data-game-card="true">
-                    <img
-                      src={selectedGame.logoUrl}
-                      alt={selectedGame.title}
-                      className="drop-shadow-lg cursor-pointer hover:drop-shadow-xl transition-all duration-200 hover:scale-105"
-                      style={{
-                        width: `${selectedGame.logoSizePerViewMode?.carousel || propCarouselLogoSize}px`,
-                        maxWidth: '400px',
-                        height: 'auto'
-                      }}
-                      onContextMenu={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        setLogoContextMenu({ x: e.clientX, y: e.clientY });
-                      }}
-                      onError={(e) => {
-                        // Fallback to title if logo fails to load
-                        const target = e.target as HTMLImageElement;
-                        target.style.display = 'none';
-                        const titleElement = target.parentElement?.nextElementSibling as HTMLElement;
-                        if (titleElement) titleElement.style.display = 'block';
-                      }}
-                    />
+                    {(selectedGame.logoIsVideo || isWebmUrl(selectedGame.logoUrl)) ? (
+                      <video
+                        src={selectedGame.logoUrl}
+                        muted
+                        loop
+                        playsInline
+                        autoPlay
+                        className="drop-shadow-lg cursor-pointer hover:drop-shadow-xl transition-all duration-200 hover:scale-105"
+                        style={{
+                          width: `${selectedGame.logoSizePerViewMode?.carousel || propCarouselLogoSize}px`,
+                          maxWidth: '400px',
+                          height: 'auto'
+                        }}
+                        onContextMenu={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setLogoContextMenu({ x: e.clientX, y: e.clientY });
+                        }}
+                      />
+                    ) : (
+                      <img
+                        src={selectedGame.logoUrl}
+                        alt={selectedGame.title}
+                        className="drop-shadow-lg cursor-pointer hover:drop-shadow-xl transition-all duration-200 hover:scale-105"
+                        style={{
+                          width: `${selectedGame.logoSizePerViewMode?.carousel || propCarouselLogoSize}px`,
+                          maxWidth: '400px',
+                          height: 'auto'
+                        }}
+                        onContextMenu={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setLogoContextMenu({ x: e.clientX, y: e.clientY });
+                        }}
+                        onError={(e) => {
+                          // Fallback to title if logo fails to load
+                          const target = e.target as HTMLImageElement;
+                          target.style.display = 'none';
+                          const titleElement = target.parentElement?.nextElementSibling as HTMLElement;
+                          if (titleElement) titleElement.style.display = 'block';
+                        }}
+                      />
+                    )}
                   </div>
                 ) : (
                   // Fallback to title if no logo
@@ -542,7 +564,7 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
                         {game.boxArtUrl || game.bannerUrl ? (
                           (() => {
                             const url = game.boxArtUrl || game.bannerUrl;
-                            const isVideo = (url === game.boxArtUrl && game.boxArtIsVideo) || (url === game.bannerUrl && game.bannerIsVideo);
+                            const isVideo = (url === game.boxArtUrl && game.boxArtIsVideo) || (url === game.bannerUrl && game.bannerIsVideo) || isWebmUrl(url);
                             return isVideo ? (
                               <video
                                 src={url}
