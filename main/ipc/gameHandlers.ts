@@ -144,11 +144,42 @@ export function registerGameIPCHandlers(
     });
 
     // GameStore Handlers
-    // Return library as-is. Do not validate/fix onyx-local URLs here - it caused reload to hang
-    // (hundreds of cache lookups). URL resolution happens when loading images in the UI.
+    // Return library with *IsVideo enriched from cache so onyx-local .webm assets render as <video>.
     ipcMain.handle('gameStore:getLibrary', async () => {
         try {
-            return await gameStore.getLibrary();
+            const games = await gameStore.getLibrary();
+            try {
+                const cacheDir = imageCacheService.getCacheDir();
+                if (existsSync(cacheDir)) {
+                    const { readdirSync } = require('node:fs');
+                    const files = readdirSync(cacheDir) as string[];
+                    const webmKeys = new Set<string>();
+                    for (const f of files) {
+                        const fl = f.toLowerCase();
+                        if (fl.endsWith('.webm')) webmKeys.add(fl.slice(0, -5));
+                    }
+                    const entries: { urlKey: keyof Game; flagKey: keyof Game; keySuffix: string }[] = [
+                        { urlKey: 'boxArtUrl', flagKey: 'boxArtIsVideo', keySuffix: 'boxart' },
+                        { urlKey: 'bannerUrl', flagKey: 'bannerIsVideo', keySuffix: 'banner' },
+                        { urlKey: 'alternativeBannerUrl', flagKey: 'alternativeBannerIsVideo', keySuffix: 'alternativebanner' },
+                        { urlKey: 'logoUrl', flagKey: 'logoIsVideo', keySuffix: 'logo' },
+                        { urlKey: 'heroUrl', flagKey: 'heroIsVideo', keySuffix: 'hero' },
+                        { urlKey: 'iconUrl', flagKey: 'iconIsVideo', keySuffix: 'icon' },
+                    ];
+                    for (const g of games) {
+                        const safeId = g.id.replace(/[<>:"/\\|?*]/g, '_').toLowerCase();
+                        for (const { urlKey, flagKey, keySuffix } of entries) {
+                            const url = g[urlKey];
+                            if (!url || typeof url !== 'string' || !url.startsWith('onyx-local://')) continue;
+                            if (g[flagKey as keyof Game]) continue;
+                            if (webmKeys.has(`${safeId}-${keySuffix}`)) (g as unknown as Record<string, boolean>)[flagKey as string] = true;
+                        }
+                    }
+                }
+            } catch (enrichErr) {
+                console.warn('gameStore:getLibrary enrichment failed:', enrichErr);
+            }
+            return games;
         } catch (error) {
             console.error('Error in gameStore:getLibrary handler:', error);
             return [];
@@ -213,8 +244,10 @@ export function registerGameIPCHandlers(
             // Use the same pipeline everywhere: Background image optimization queue (importer path).
             // Save game first, then queue images for download/optimize; queue updates game when done.
             await gameStore.saveGame(game);
-            const hasImageUrls = [game.boxArtUrl, game.bannerUrl, game.alternativeBannerUrl, game.logoUrl, game.heroUrl, game.iconUrl].some(Boolean);
-            if (imageQueue && hasImageUrls) {
+            const urls = [game.boxArtUrl, game.bannerUrl, game.alternativeBannerUrl, game.logoUrl, game.heroUrl, game.iconUrl].filter(Boolean) as string[];
+            const hasImageUrls = urls.length > 0;
+            const allOnyxLocal = hasImageUrls && urls.every((u) => u.startsWith('onyx-local://'));
+            if (imageQueue && hasImageUrls && !allOnyxLocal) {
                 imageQueue.add(game.id, game.title, {
                     boxArtUrl: game.boxArtUrl,
                     bannerUrl: game.bannerUrl,
@@ -437,6 +470,16 @@ export function registerGameIPCHandlers(
 
     ipcMain.handle('imageCache:getFfmpegStatus', () => ImageCacheService.getFfmpegStatus());
 
+    /** Cache a local file (e.g. .webm) for a game and return the onyx-local URL + isVideo. Used so the renderer never sets file:// URLs that break <img>. */
+    ipcMain.handle('imageCache:cacheLocalFile', async (_event, filePath: string, gameId: string, imageType: string) => {
+        if (!filePath || !gameId || !imageType) return { url: null, isVideo: false };
+        const ext = (filePath.includes('.') ? (filePath.split('.').pop() ?? '') : '').toLowerCase();
+        const isVideo = ext === 'webm';
+        const fileUrl = 'file:///' + filePath.replace(/\\/g, '/');
+        const url = await imageCacheService.cacheImage(fileUrl, gameId, imageType as 'boxart' | 'banner' | 'logo' | 'hero' | string);
+        return { url: url && url.trim() !== '' ? url : null, isVideo };
+    });
+
     // Dialog Handlers (Moved here for convenience if no uiHandlers.ts exists yet)
     ipcMain.handle('dialog:showOpenDialog', async () => {
         const result = await dialog.showOpenDialog({ properties: ['openFile'] });
@@ -452,6 +495,18 @@ export function registerGameIPCHandlers(
         const result = await dialog.showOpenDialog({
             properties: ['openFile'],
             filters: [{ name: 'Images', extensions: ['jpg', 'png', 'gif', 'webp', 'ico', 'svg'] }]
+        });
+        return result.filePaths[0] || null;
+    });
+
+    ipcMain.handle('dialog:showImageOrWebmDialog', async () => {
+        const result = await dialog.showOpenDialog({
+            properties: ['openFile'],
+            filters: [
+                { name: 'Images & WEBM', extensions: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'ico', 'svg', 'webm'] },
+                { name: 'WEBM video', extensions: ['webm'] },
+                { name: 'Images', extensions: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'ico', 'svg'] }
+            ]
         });
         return result.filePaths[0] || null;
     });

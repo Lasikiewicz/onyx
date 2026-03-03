@@ -105,13 +105,19 @@ export const GameManager: React.FC<GameManagerProps> = ({
   const [selectedFastGame, setSelectedFastGame] = useState<FastSearchGame | null>(null);
   const [gameListView, setGameListView] = useState<'boxart' | 'icon' | 'text'>('boxart');
   const [newCategoryInput, setNewCategoryInput] = useState('');
-  const [imageAnimationFilter, setImageAnimationFilter] = useState<'all' | 'animatedOnly' | 'staticOnly'>('all');
+  // Image animation filter controls are currently disabled while WebP-based
+  // animated assets are being phased out. Keep the state for future use but
+  // default to 'all' and ignore it in filtering logic.
+  const [imageAnimationFilter] = useState<'all' | 'animatedOnly' | 'staticOnly'>('all');
   const [isRefreshingLinks, setIsRefreshingLinks] = useState(false);
   const [foundLinks, setFoundLinks] = useState<Array<{ name: string; url: string }> | null>(null);
   const [linkIconPopupIndex, setLinkIconPopupIndex] = useState<number | null>(null);
   const [, setImageSearchProviderStatus] = useState<{ currentProvider: string; remaining: string[] } | null>(null);
   const [providerProgress, setProviderProgress] = useState<Array<{ name: string; status: 'completed' | 'processing' | 'noApi' }>>([]);
   const [optimizationStatus, setOptimizationStatus] = useState<OptimizationStatus | null>(null);
+  const [showUploadWebmTypePicker, setShowUploadWebmTypePicker] = useState(false);
+  const [showUploadWebmInstructions, setShowUploadWebmInstructions] = useState(false);
+  const [uploadWebmTargetType, setUploadWebmTargetType] = useState<'boxart' | 'banner' | 'alternativeBanner' | 'logo' | 'icon' | null>(null);
   const linkIconFileInputRef = useRef<HTMLInputElement>(null);
   const imageChangedGameIdsRef = useRef<Set<string>>(new Set());
   const hasOptimizationActivity = optimizationStatus?.hasActivity ?? false;
@@ -124,7 +130,9 @@ export const GameManager: React.FC<GameManagerProps> = ({
   const fastSearchRunIdRef = React.useRef(0);
   const imageSearchRunIdRef = React.useRef(0);
   const fastSearchActiveRunIdRef = React.useRef(0);
-  const includeAnimatedInRequests = imageAnimationFilter !== 'staticOnly';
+  // Do not request animated assets from providers; we are phasing out
+  // animated WebP usage and rely on explicit WEBM uploads instead.
+  const includeAnimatedInRequests = false;
 
   const isAnimatedAssetUrl = (url?: string) => !!url && /\.(gif|webp|apng)(\?|$)/i.test(url);
 
@@ -145,10 +153,9 @@ export const GameManager: React.FC<GameManagerProps> = ({
 
   const matchesAnimationFilter = (url?: string) => {
     if (!url) return false;
-    const animated = isAnimatedAssetUrl(url);
-    if (imageAnimationFilter === 'animatedOnly') return animated;
-    if (imageAnimationFilter === 'staticOnly') return !animated;
-    return true;
+    // Completely hide animated assets (webp/gif/apng) from search results;
+    // WEBM uploads are handled via explicit "Upload WEBM" flow instead.
+    return !isAnimatedAssetUrl(url);
   };
 
   // Load provider availability (which APIs are configured) once for status row and filters
@@ -392,14 +399,22 @@ export const GameManager: React.FC<GameManagerProps> = ({
   // Update editedGame when selectedGame changes (e.g., after library reload)
   useEffect(() => {
     if (selectedGame && editedGame && selectedGame.id === editedGame.id) {
-      // Only update if the image URLs have actually changed
       const hasChanges =
         selectedGame.boxArtUrl !== editedGame.boxArtUrl ||
         selectedGame.bannerUrl !== editedGame.bannerUrl ||
         selectedGame.logoUrl !== editedGame.logoUrl;
 
       if (hasChanges) {
-        setEditedGame({ ...selectedGame });
+        setEditedGame({
+          ...selectedGame,
+          // Preserve *IsVideo from editedGame when selectedGame doesn't have them (e.g. library not yet refreshed after webm upload)
+          boxArtIsVideo: selectedGame.boxArtIsVideo ?? editedGame.boxArtIsVideo,
+          bannerIsVideo: selectedGame.bannerIsVideo ?? editedGame.bannerIsVideo,
+          alternativeBannerIsVideo: selectedGame.alternativeBannerIsVideo ?? editedGame.alternativeBannerIsVideo,
+          logoIsVideo: selectedGame.logoIsVideo ?? editedGame.logoIsVideo,
+          heroIsVideo: selectedGame.heroIsVideo ?? editedGame.heroIsVideo,
+          iconIsVideo: selectedGame.iconIsVideo ?? editedGame.iconIsVideo,
+        });
       }
     }
   }, [selectedGame?.boxArtUrl, selectedGame?.bannerUrl, selectedGame?.logoUrl, selectedGame?.id]);
@@ -1714,55 +1729,68 @@ export const GameManager: React.FC<GameManagerProps> = ({
     }
   };
 
-  // Handle image selection - update immediately and save
-  const handleSelectImage = async (imageUrl: string, type: 'boxart' | 'banner' | 'alternativeBanner' | 'logo' | 'icon') => {
+  // Handle image selection - update immediately and save. isVideo: true when the asset is .webm (render with <video>).
+  const handleSelectImage = async (imageUrl: string, type: 'boxart' | 'banner' | 'alternativeBanner' | 'logo' | 'icon', isVideo?: boolean) => {
     if (!selectedGame || !editedGame) return;
 
-    // Always try to delete old cached image from disk
-    // The image might be cached even if the URL format is different
-    // This ensures we don't leave orphaned files
-    try {
-      await window.electronAPI.deleteCachedImage(selectedGame.id, type as any);
-    } catch (err) {
-      console.warn('Error deleting old image:', err);
-      // Continue even if deletion fails - the cacheImage method will also try to clean up
+    // Globally block WebP usage for game artwork (both HTTP(S) and local paths).
+    // Users should instead download/upload WEBM variants for animated assets.
+    const lowerUrl = imageUrl.toLowerCase();
+    if (/\.(webp)(\?|$)/i.test(lowerUrl)) {
+      setError('WebP artwork is not supported. Please download the WEBM version from SteamGridDB (right-click the video > "Save video as...") and use "Upload WEBM" for this image type.');
+      return;
     }
 
+    // Delete old cached image only when the new URL is not already from our cache.
+    // When imageUrl is onyx-local we just cached it (e.g. Upload WEBM); deleting here would remove the file we just wrote.
+    if (!imageUrl.startsWith('onyx-local://')) {
+      try {
+        await window.electronAPI.deleteCachedImage(selectedGame.id, type as any);
+      } catch (err) {
+        console.warn('Error deleting old image:', err);
+      }
+    }
+
+    const isV = isVideo === true;
     // Update immediately for instant visual feedback
     const updatedGame = { ...editedGame };
     if (type === 'boxart') {
       updatedGame.boxArtUrl = imageUrl;
+      updatedGame.boxArtIsVideo = isV;
       // Preserve other image types
       updatedGame.bannerUrl = editedGame.bannerUrl || selectedGame.bannerUrl || updatedGame.bannerUrl;
       updatedGame.logoUrl = editedGame.logoUrl || selectedGame.logoUrl || updatedGame.logoUrl;
     } else if (type === 'banner') {
       updatedGame.bannerUrl = imageUrl;
       updatedGame.heroUrl = imageUrl;
+      updatedGame.bannerIsVideo = isV;
+      updatedGame.heroIsVideo = isV;
       // Preserve other image types
       updatedGame.boxArtUrl = editedGame.boxArtUrl || selectedGame.boxArtUrl || updatedGame.boxArtUrl;
       updatedGame.logoUrl = editedGame.logoUrl || selectedGame.logoUrl || updatedGame.logoUrl;
     } else if (type === 'alternativeBanner') {
       updatedGame.alternativeBannerUrl = imageUrl;
       updatedGame.useAlternativeBackground = true;
+      updatedGame.alternativeBannerIsVideo = isV;
       // Preserve other image types
       updatedGame.boxArtUrl = editedGame.boxArtUrl || selectedGame.boxArtUrl || updatedGame.boxArtUrl;
       updatedGame.bannerUrl = editedGame.bannerUrl || selectedGame.bannerUrl || updatedGame.bannerUrl;
       updatedGame.logoUrl = editedGame.logoUrl || selectedGame.logoUrl || updatedGame.logoUrl;
     } else if (type === 'logo') {
       updatedGame.logoUrl = imageUrl;
+      updatedGame.logoIsVideo = isV;
       // Preserve other image types
       updatedGame.boxArtUrl = editedGame.boxArtUrl || selectedGame.boxArtUrl || updatedGame.boxArtUrl;
       updatedGame.bannerUrl = editedGame.bannerUrl || selectedGame.bannerUrl || updatedGame.bannerUrl;
       updatedGame.iconUrl = editedGame.iconUrl || selectedGame.iconUrl || updatedGame.iconUrl;
-      // Ensure we stay on images tab when selecting logo
       setActiveTab('images');
     } else if (type === 'icon') {
       updatedGame.iconUrl = imageUrl;
+      updatedGame.iconIsVideo = isV;
       // Preserve other image types
       updatedGame.boxArtUrl = editedGame.boxArtUrl || selectedGame.boxArtUrl || updatedGame.boxArtUrl;
       updatedGame.bannerUrl = editedGame.bannerUrl || selectedGame.bannerUrl || updatedGame.bannerUrl;
       updatedGame.logoUrl = editedGame.logoUrl || selectedGame.logoUrl || updatedGame.logoUrl;
-      // Ensure we stay on images tab when selecting icon
       setActiveTab('images');
     }
 
@@ -1796,13 +1824,19 @@ export const GameManager: React.FC<GameManagerProps> = ({
     // setShowImageSearch(null);
   };
 
-  // Handle browse for local image file
+  // Handle browse for local image/WEBM file
   const handleBrowseImage = async (type: 'boxart' | 'banner' | 'alternativeBanner' | 'logo' | 'icon') => {
     if (!selectedGame || !editedGame) return;
 
     try {
       const imagePath = await window.electronAPI.showImageDialog();
       if (imagePath) {
+        // Block WebP files at selection time – require users to choose WEBM
+        // (for animated assets) or a non-WebP image format.
+        if (/\.(webp)$/i.test(imagePath)) {
+          setError('WebP files are not supported. Please save a WEBM video from SteamGridDB ("Save video as...") and select the .webm file instead.');
+          return;
+        }
         // Convert file path to file:// URL with proper encoding for special chars
         // Do NOT encode the drive letter colon (e.g. C:) as it breaks expected file URL format on Windows
         let fileUrl = imagePath;
@@ -1821,6 +1855,83 @@ export const GameManager: React.FC<GameManagerProps> = ({
     } catch (err) {
       console.error('Error browsing for image:', err);
       setError('Failed to select image file');
+    }
+  };
+
+  // Resolve effective image type for Upload WEBM (current tab or user pick when "All").
+  const getUploadWebmType = (): 'boxart' | 'banner' | 'alternativeBanner' | 'logo' | 'icon' | null => {
+    if (uploadWebmTargetType) return uploadWebmTargetType;
+    const tab = activeImageSearchTab;
+    if (tab === 'all') return null;
+    return tab as 'boxart' | 'banner' | 'alternativeBanner' | 'logo' | 'icon';
+  };
+
+  // SteamGridDB exact game page when we have Steam App ID; otherwise search URL.
+  const getSteamGridDbGameUrl = (): { url: string; isExact: boolean } => {
+    const title = editedGame?.title || selectedGame?.title || '';
+    const steamAppId = selectedGame?.id?.startsWith('steam-')
+      ? selectedGame.id.replace(/^steam-/, '')
+      : null;
+    if (steamAppId) {
+      return { url: `https://www.steamgriddb.com/game/steam/${steamAppId}`, isExact: true };
+    }
+    return {
+      url: `https://www.steamgriddb.com/search/grids?term=${encodeURIComponent(title)}`,
+      isExact: false,
+    };
+  };
+
+  const uploadWebmTypeLabel = (t: 'boxart' | 'banner' | 'alternativeBanner' | 'logo' | 'icon') =>
+    t === 'alternativeBanner' ? 'Alt Banner' : t.charAt(0).toUpperCase() + t.slice(1);
+
+  // Open Upload WEBM flow: show type picker when on "All", else show instructions then file picker.
+  const handleUploadWebmClick = () => {
+    if (!showImageSearch || !selectedGame || !editedGame) return;
+    if (activeImageSearchTab === 'all') {
+      setUploadWebmTargetType(null);
+      setShowUploadWebmTypePicker(true);
+      return;
+    }
+    const type = activeImageSearchTab as 'boxart' | 'banner' | 'alternativeBanner' | 'logo' | 'icon';
+    setUploadWebmTargetType(type);
+    setShowUploadWebmInstructions(true);
+  };
+
+  const handleUploadWebmTypePicked = (type: 'boxart' | 'banner' | 'alternativeBanner' | 'logo' | 'icon') => {
+    setShowUploadWebmTypePicker(false);
+    setUploadWebmTargetType(type);
+    setShowUploadWebmInstructions(true);
+  };
+
+  const handleUploadWebmChooseFile = async () => {
+    const type = getUploadWebmType();
+    setShowUploadWebmInstructions(false);
+    setUploadWebmTargetType(null);
+    if (!type) return;
+    const gameId = selectedGameId ?? editedGame?.id;
+    if (!gameId) {
+      setError('No game selected');
+      return;
+    }
+    try {
+      const imagePath = await (window.electronAPI as any).showImageOrWebmDialog?.();
+      if (!imagePath) return;
+      if (/\.(webp)$/i.test(imagePath)) {
+        setError('WebP files are not supported. Please choose a .webm video or another image format.');
+        return;
+      }
+      // Cache the local file in main process and get an onyx-local URL. Never put file:// in game state
+      // so the UI does not try to load it in <img> (blocked / breaks React DOM).
+      const cacheLocalFile = (window.electronAPI as any).cacheLocalFile;
+      const result = cacheLocalFile ? await cacheLocalFile(imagePath, gameId, type) : { url: null, isVideo: false };
+      if (!result?.url) {
+        setError('Failed to add file to cache. Try again.');
+        return;
+      }
+      await handleSelectImage(result.url, type, result.isVideo);
+    } catch (err) {
+      console.error('Error choosing WEBM file:', err);
+      setError('Failed to select file');
     }
   };
 
@@ -2457,18 +2568,30 @@ export const GameManager: React.FC<GameManagerProps> = ({
                             className="h-36 w-auto aspect-[2/3] relative group cursor-pointer border border-gray-700 rounded-lg overflow-hidden bg-gray-800 hover:border-green-500 transition-colors flex-shrink-0"
                           >
                             {(editedGame.boxArtUrl || selectedGame.boxArtUrl) ? (
-                              <img
-                                key={editedGame.boxArtUrl || selectedGame.boxArtUrl}
-                                src={editedGame.boxArtUrl || selectedGame.boxArtUrl}
-                                alt="Boxart"
-                                className="w-full h-full object-cover"
-                                onError={(e) => {
-                                  const target = e.target as HTMLImageElement;
-                                  target.style.display = 'none';
-                                  target.parentElement?.classList.add('flex', 'items-center', 'justify-center');
-                                  target.parentElement!.innerHTML = '<span class="text-[8px] text-gray-500 text-center p-1">No Image</span>';
-                                }}
-                              />
+                              (editedGame.boxArtIsVideo || selectedGame?.boxArtIsVideo) ? (
+                                <video
+                                  key={editedGame.boxArtUrl || selectedGame.boxArtUrl}
+                                  src={editedGame.boxArtUrl || selectedGame.boxArtUrl}
+                                  muted
+                                  loop
+                                  playsInline
+                                  autoPlay
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                <img
+                                  key={editedGame.boxArtUrl || selectedGame.boxArtUrl}
+                                  src={editedGame.boxArtUrl || selectedGame.boxArtUrl}
+                                  alt="Boxart"
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    const target = e.target as HTMLImageElement;
+                                    target.style.display = 'none';
+                                    target.parentElement?.classList.add('flex', 'items-center', 'justify-center');
+                                    target.parentElement!.innerHTML = '<span class="text-[8px] text-gray-500 text-center p-1">No Image</span>';
+                                  }}
+                                />
+                              )
                             ) : (
                               <div className="w-full h-full flex items-center justify-center">
                                 <span className="text-[8px] text-gray-600 text-center p-1">Boxart</span>
@@ -2490,12 +2613,24 @@ export const GameManager: React.FC<GameManagerProps> = ({
                           >
                             {(editedGame.logoUrl || selectedGame.logoUrl) ? (
                               <div className="w-full h-full p-2 flex items-center justify-center">
-                                <img
-                                  key={editedGame.logoUrl || selectedGame.logoUrl}
-                                  src={editedGame.logoUrl || selectedGame.logoUrl}
-                                  alt="Logo"
-                                  className="max-w-full max-h-full object-contain"
-                                />
+                                {(editedGame.logoIsVideo || selectedGame?.logoIsVideo) ? (
+                                  <video
+                                    key={editedGame.logoUrl || selectedGame.logoUrl}
+                                    src={editedGame.logoUrl || selectedGame.logoUrl}
+                                    muted
+                                    loop
+                                    playsInline
+                                    autoPlay
+                                    className="max-w-full max-h-full object-contain"
+                                  />
+                                ) : (
+                                  <img
+                                    key={editedGame.logoUrl || selectedGame.logoUrl}
+                                    src={editedGame.logoUrl || selectedGame.logoUrl}
+                                    alt="Logo"
+                                    className="max-w-full max-h-full object-contain"
+                                  />
+                                )}
                               </div>
                             ) : (
                               <div className="w-full h-full flex items-center justify-center p-2">
@@ -2519,12 +2654,24 @@ export const GameManager: React.FC<GameManagerProps> = ({
                               className="flex-1 relative group cursor-pointer border border-gray-700 rounded-lg overflow-hidden bg-gray-800 hover:border-green-500 transition-colors"
                             >
                               {(editedGame.bannerUrl || selectedGame.bannerUrl) ? (
-                                <img
-                                  key={editedGame.bannerUrl || selectedGame.bannerUrl}
-                                  src={editedGame.bannerUrl || selectedGame.bannerUrl}
-                                  alt="Banner"
-                                  className="w-full h-full object-cover"
-                                />
+                                (editedGame.bannerIsVideo || selectedGame?.bannerIsVideo) ? (
+                                  <video
+                                    key={editedGame.bannerUrl || selectedGame.bannerUrl}
+                                    src={editedGame.bannerUrl || selectedGame.bannerUrl}
+                                    muted
+                                    loop
+                                    playsInline
+                                    autoPlay
+                                    className="w-full h-full object-cover"
+                                  />
+                                ) : (
+                                  <img
+                                    key={editedGame.bannerUrl || selectedGame.bannerUrl}
+                                    src={editedGame.bannerUrl || selectedGame.bannerUrl}
+                                    alt="Banner"
+                                    className="w-full h-full object-cover"
+                                  />
+                                )
                               ) : (
                                 <div className="w-full h-full flex items-center justify-center">
                                   <span className="text-xs text-gray-600">Banner</span>
@@ -2545,12 +2692,24 @@ export const GameManager: React.FC<GameManagerProps> = ({
                               className="flex-1 relative group cursor-pointer border border-gray-700 rounded-lg overflow-hidden bg-gray-800 hover:border-green-500 transition-colors"
                             >
                               {(editedGame.alternativeBannerUrl || selectedGame.alternativeBannerUrl) ? (
-                                <img
-                                  key={editedGame.alternativeBannerUrl || selectedGame.alternativeBannerUrl}
-                                  src={editedGame.alternativeBannerUrl || selectedGame.alternativeBannerUrl}
-                                  alt="Alternative Banner"
-                                  className="w-full h-full object-cover"
-                                />
+                                (editedGame.alternativeBannerIsVideo || selectedGame?.alternativeBannerIsVideo) ? (
+                                  <video
+                                    key={editedGame.alternativeBannerUrl || selectedGame.alternativeBannerUrl}
+                                    src={editedGame.alternativeBannerUrl || selectedGame.alternativeBannerUrl}
+                                    muted
+                                    loop
+                                    playsInline
+                                    autoPlay
+                                    className="w-full h-full object-cover"
+                                  />
+                                ) : (
+                                  <img
+                                    key={editedGame.alternativeBannerUrl || selectedGame.alternativeBannerUrl}
+                                    src={editedGame.alternativeBannerUrl || selectedGame.alternativeBannerUrl}
+                                    alt="Alternative Banner"
+                                    className="w-full h-full object-cover"
+                                  />
+                                )
                               ) : (
                                 <div className="w-full h-full flex items-center justify-center">
                                   <span className="text-xs text-gray-600">Alt Banner</span>
@@ -2573,12 +2732,24 @@ export const GameManager: React.FC<GameManagerProps> = ({
                           >
                             {(editedGame.iconUrl || selectedGame.iconUrl) ? (
                               <div className="w-full h-full p-2 flex items-center justify-center">
-                                <img
-                                  key={editedGame.iconUrl || selectedGame.iconUrl}
-                                  src={editedGame.iconUrl || selectedGame.iconUrl}
-                                  alt="Icon"
-                                  className="max-w-full max-h-full object-contain"
-                                />
+                                {(editedGame.iconIsVideo || selectedGame?.iconIsVideo) ? (
+                                  <video
+                                    key={editedGame.iconUrl || selectedGame.iconUrl}
+                                    src={editedGame.iconUrl || selectedGame.iconUrl}
+                                    muted
+                                    loop
+                                    playsInline
+                                    autoPlay
+                                    className="max-w-full max-h-full object-contain"
+                                  />
+                                ) : (
+                                  <img
+                                    key={editedGame.iconUrl || selectedGame.iconUrl}
+                                    src={editedGame.iconUrl || selectedGame.iconUrl}
+                                    alt="Icon"
+                                    className="max-w-full max-h-full object-contain"
+                                  />
+                                )}
                               </div>
                             ) : (
                               <div className="w-full h-full flex items-center justify-center text-center p-1">
@@ -2642,12 +2813,16 @@ export const GameManager: React.FC<GameManagerProps> = ({
                                   onClick={() => handleBrowseImage(showImageSearch?.type as any || 'boxart')}
                                   disabled={isSearchingImages}
                                   className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded transition-colors disabled:opacity-50 flex items-center gap-2"
-                                  title="Browse for local image file"
+                                  title={
+                                    showImageSearch?.type === 'banner' || showImageSearch?.type === 'alternativeBanner'
+                                      ? 'Upload a WEBM video file for this artwork type (animated backgrounds)'
+                                      : 'Browse for a local image or WEBM file for this artwork type'
+                                  }
                                 >
                                   <svg className="w-4 h-4 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
                                   </svg>
-                                  Browse
+                                  {showImageSearch?.type === 'banner' || showImageSearch?.type === 'alternativeBanner' ? 'Upload WEBM' : 'Browse'}
                                 </button>
                                 <button
                                   onClick={() => {
@@ -2773,31 +2948,18 @@ export const GameManager: React.FC<GameManagerProps> = ({
                               </div>
                               <div className="flex items-center gap-2">
                                 <button
-                                  onClick={() => setImageAnimationFilter(prev => prev === 'animatedOnly' ? 'all' : 'animatedOnly')}
-                                  className={`text-xs px-3 py-1 rounded border transition-colors flex items-center gap-1 ${imageAnimationFilter === 'animatedOnly'
-                                    ? 'bg-purple-600/20 border-purple-500 text-purple-300'
-                                    : 'bg-gray-800 border-gray-700 text-gray-300 hover:bg-gray-700'
-                                    }`}
-                                  title="Toggle animated-only results"
+                                  onClick={handleUploadWebmClick}
+                                  className="text-xs px-3 py-1 rounded border border-emerald-500 bg-emerald-600/20 text-emerald-200 hover:bg-emerald-600/30 hover:border-emerald-400 transition-colors flex items-center gap-1"
+                                  title={
+                                    activeImageSearchTab === 'all'
+                                      ? 'Upload a WEBM file. You will choose which image type (boxart, banner, etc.) to assign it to.'
+                                      : `Upload a WEBM file for ${activeImageSearchTab === 'alternativeBanner' ? 'Alt Banner' : activeImageSearchTab.charAt(0).toUpperCase() + activeImageSearchTab.slice(1)}.`
+                                  }
                                 >
-                                  <svg className="w-3 h-3 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M16 12l-4 4m0 0l-4-4m4 4V4" />
                                   </svg>
-                                  Animated Only
-                                </button>
-                                <button
-                                  onClick={() => setImageAnimationFilter(prev => prev === 'staticOnly' ? 'all' : 'staticOnly')}
-                                  className={`text-xs px-3 py-1 rounded border transition-colors flex items-center gap-1 ${imageAnimationFilter === 'staticOnly'
-                                    ? 'bg-blue-600/20 border-blue-500 text-blue-300'
-                                    : 'bg-gray-800 border-gray-700 text-gray-300 hover:bg-gray-700'
-                                    }`}
-                                  title="Toggle static-only results"
-                                >
-                                  <svg className="w-3 h-3 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14M12 5v14" />
-                                  </svg>
-                                  Static Only
+                                  Upload WEBM
                                 </button>
                                 <button
                                   onClick={() => {
@@ -3153,11 +3315,22 @@ export const GameManager: React.FC<GameManagerProps> = ({
                           className="h-24 w-auto aspect-[2/3] relative group cursor-pointer border border-gray-700 rounded-lg overflow-hidden bg-gray-800 hover:border-green-500 transition-colors flex-shrink-0"
                         >
                           {(editedGame.boxArtUrl || selectedGame.boxArtUrl) ? (
-                            <img
-                              src={editedGame.boxArtUrl || selectedGame.boxArtUrl}
-                              alt="Boxart"
-                              className="w-full h-full object-cover"
-                            />
+                            (editedGame.boxArtIsVideo || selectedGame?.boxArtIsVideo) ? (
+                              <video
+                                src={editedGame.boxArtUrl || selectedGame.boxArtUrl}
+                                muted
+                                loop
+                                playsInline
+                                autoPlay
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <img
+                                src={editedGame.boxArtUrl || selectedGame.boxArtUrl}
+                                alt="Boxart"
+                                className="w-full h-full object-cover"
+                              />
+                            )
                           ) : (
                             <div className="w-full h-full flex items-center justify-center">
                               <span className="text-[8px] text-gray-600 text-center p-1">Boxart</span>
@@ -3178,11 +3351,22 @@ export const GameManager: React.FC<GameManagerProps> = ({
                         >
                           {(editedGame.logoUrl || selectedGame.logoUrl) ? (
                             <div className="w-full h-full p-2 flex items-center justify-center">
-                              <img
-                                src={editedGame.logoUrl || selectedGame.logoUrl}
-                                alt="Logo"
-                                className="max-w-full max-h-full object-contain"
-                              />
+                              {(editedGame.logoIsVideo || selectedGame?.logoIsVideo) ? (
+                                <video
+                                  src={editedGame.logoUrl || selectedGame.logoUrl}
+                                  muted
+                                  loop
+                                  playsInline
+                                  autoPlay
+                                  className="max-w-full max-h-full object-contain"
+                                />
+                              ) : (
+                                <img
+                                  src={editedGame.logoUrl || selectedGame.logoUrl}
+                                  alt="Logo"
+                                  className="max-w-full max-h-full object-contain"
+                                />
+                              )}
                             </div>
                           ) : (
                             <div className="w-full h-full flex items-center justify-center p-2">
@@ -3205,11 +3389,22 @@ export const GameManager: React.FC<GameManagerProps> = ({
                             className="flex-1 relative group cursor-pointer border border-gray-700 rounded-lg overflow-hidden bg-gray-800 hover:border-green-500 transition-colors"
                           >
                             {(editedGame.bannerUrl || selectedGame.bannerUrl) ? (
-                              <img
-                                src={editedGame.bannerUrl || selectedGame.bannerUrl}
-                                alt="Banner"
-                                className="w-full h-full object-cover"
-                              />
+                              (editedGame.bannerIsVideo || selectedGame?.bannerIsVideo) ? (
+                                <video
+                                  src={editedGame.bannerUrl || selectedGame.bannerUrl}
+                                  muted
+                                  loop
+                                  playsInline
+                                  autoPlay
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                <img
+                                  src={editedGame.bannerUrl || selectedGame.bannerUrl}
+                                  alt="Banner"
+                                  className="w-full h-full object-cover"
+                                />
+                              )
                             ) : (
                               <div className="w-full h-full flex items-center justify-center">
                                 <span className="text-[8px] text-gray-600">Banner</span>
@@ -3229,11 +3424,22 @@ export const GameManager: React.FC<GameManagerProps> = ({
                             className="flex-1 relative group cursor-pointer border border-gray-700 rounded-lg overflow-hidden bg-gray-800 hover:border-green-500 transition-colors"
                           >
                             {(editedGame.alternativeBannerUrl || selectedGame.alternativeBannerUrl) ? (
-                              <img
-                                src={editedGame.alternativeBannerUrl || selectedGame.alternativeBannerUrl}
-                                alt="Alt Banner"
-                                className="w-full h-full object-cover"
-                              />
+                              (editedGame.alternativeBannerIsVideo || selectedGame?.alternativeBannerIsVideo) ? (
+                                <video
+                                  src={editedGame.alternativeBannerUrl || selectedGame.alternativeBannerUrl}
+                                  muted
+                                  loop
+                                  playsInline
+                                  autoPlay
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                <img
+                                  src={editedGame.alternativeBannerUrl || selectedGame.alternativeBannerUrl}
+                                  alt="Alt Banner"
+                                  className="w-full h-full object-cover"
+                                />
+                              )
                             ) : (
                               <div className="w-full h-full flex items-center justify-center">
                                 <span className="text-[8px] text-gray-600">Alt Banner</span>
@@ -3255,11 +3461,22 @@ export const GameManager: React.FC<GameManagerProps> = ({
                         >
                           {(editedGame.iconUrl || selectedGame.iconUrl) ? (
                             <div className="w-full h-full p-2 flex items-center justify-center">
-                              <img
-                                src={editedGame.iconUrl || selectedGame.iconUrl}
-                                alt="Icon"
-                                className="max-w-full max-h-full object-contain"
-                              />
+                              {(editedGame.iconIsVideo || selectedGame?.iconIsVideo) ? (
+                                <video
+                                  src={editedGame.iconUrl || selectedGame.iconUrl}
+                                  muted
+                                  loop
+                                  playsInline
+                                  autoPlay
+                                  className="max-w-full max-h-full object-contain"
+                                />
+                              ) : (
+                                <img
+                                  src={editedGame.iconUrl || selectedGame.iconUrl}
+                                  alt="Icon"
+                                  className="max-w-full max-h-full object-contain"
+                                />
+                              )}
                             </div>
                           ) : (
                             <div className="w-full h-full flex items-center justify-center text-center p-1">
@@ -4343,6 +4560,93 @@ export const GameManager: React.FC<GameManagerProps> = ({
         onCancel={() => setShowDeleteConfirm(false)}
         variant="danger"
       />
+
+      {/* Upload WEBM: pick image type when current tab is "All" */}
+      {showUploadWebmTypePicker && (
+        <>
+          <div className="fixed inset-0 bg-black/50 z-[100] backdrop-blur-sm" onClick={() => setShowUploadWebmTypePicker(false)} />
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <div className="bg-gray-800 rounded-lg shadow-xl border border-gray-700 w-full max-w-sm" onClick={e => e.stopPropagation()}>
+              <div className="px-6 py-4 border-b border-gray-700">
+                <h2 className="text-lg font-semibold text-white">Upload WEBM</h2>
+                <p className="text-sm text-gray-400 mt-1">Which image type is this for?</p>
+              </div>
+              <div className="px-6 py-4 flex flex-wrap gap-2">
+                {(['boxart', 'logo', 'banner', 'alternativeBanner', 'icon'] as const).map((t) => (
+                  <button
+                    key={t}
+                    onClick={() => handleUploadWebmTypePicked(t)}
+                    className="px-4 py-2 text-sm bg-gray-700 hover:bg-gray-600 border border-gray-600 rounded-lg text-gray-200 hover:text-white transition-colors"
+                  >
+                    {uploadWebmTypeLabel(t)}
+                  </button>
+                ))}
+              </div>
+              <div className="px-6 py-3 border-t border-gray-700 flex justify-end">
+                <button onClick={() => setShowUploadWebmTypePicker(false)} className="px-4 py-2 text-sm text-gray-400 hover:text-white">
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Upload WEBM: themed instructions with link to SteamGridDB game page */}
+      {showUploadWebmInstructions && getUploadWebmType() && (() => {
+        const type = getUploadWebmType()!;
+        const { url: sgdbUrl, isExact } = getSteamGridDbGameUrl();
+        const title = editedGame?.title || selectedGame?.title || 'this game';
+        return (
+          <>
+            <div className="fixed inset-0 bg-black/50 z-[100] backdrop-blur-sm" onClick={() => { setShowUploadWebmInstructions(false); setUploadWebmTargetType(null); }} />
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+              <div className="bg-gray-800 rounded-lg shadow-xl border border-gray-700 w-full max-w-md" onClick={e => e.stopPropagation()}>
+                <div className="px-6 py-4 border-b border-gray-700 flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-emerald-600/20 flex items-center justify-center">
+                    <svg className="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M16 12l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                  </div>
+                  <h2 className="text-lg font-semibold text-white">Upload WEBM for {uploadWebmTypeLabel(type)}</h2>
+                </div>
+                <div className="px-6 py-4 space-y-3">
+                  <p className="text-sm text-gray-300">
+                    To use an animated WEBM for &quot;{title}&quot;:
+                  </p>
+                  <ol className="text-sm text-gray-300 list-decimal list-inside space-y-2">
+                    <li>Open the link below to go to SteamGridDB.</li>
+                    <li>Click the animated image you want (thumbnail on the grid) to open its detail page.</li>
+                    <li>On the detail page, right-click the video and choose &quot;Save video as...&quot;. Save it as a .webm file.</li>
+                    <li>Click &quot;Choose WEBM file&quot; below to select the .webm file and attach it here.</li>
+                  </ol>
+                  <div className="pt-2">
+                    <p className="text-xs text-gray-500 mb-1">{isExact ? 'Game page on SteamGridDB:' : 'Search SteamGridDB for this game:'}</p>
+                    <a
+                      href={sgdbUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => { e.preventDefault(); window.electronAPI.openExternal?.(sgdbUrl); }}
+                      className="text-sm text-emerald-400 hover:text-emerald-300 underline break-all"
+                    >
+                      {sgdbUrl}
+                    </a>
+                  </div>
+                </div>
+                <div className="px-6 py-3 border-t border-gray-700 flex justify-end gap-2">
+                  <button onClick={() => { setShowUploadWebmInstructions(false); setUploadWebmTargetType(null); }} className="px-4 py-2 text-sm text-gray-400 hover:text-white">
+                    Cancel
+                  </button>
+                  <button onClick={handleUploadWebmChooseFile} className="px-4 py-2 text-sm bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition-colors">
+                    Choose WEBM file
+                  </button>
+                </div>
+              </div>
+            </div>
+          </>
+        );
+      })()}
+
       {contextMenu && (
         <ImageContextMenu
           x={contextMenu.x}

@@ -10,6 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Accessibility: Add ARIA labels and focus improvements to MenuBar, GameManager view toggles, TopBar, and related UI.
 - Performance: Optimize GameCard rendering, game filtering allocations, library carousel windowing, and animated image optimization defaults.
 - Game Manager: Rework Images tab search to fan out across Steam Store, SteamGridDB, IGDB, RAWG, and show per-provider status with filtering and counts.
+- Animations: Add dedicated animation settings tab, global kill-switch, and pause animated backgrounds when overlays are open to reduce CPU usage.
 
 ## [0.6.31] - 2026-03-03
 

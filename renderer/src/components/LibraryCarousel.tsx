@@ -540,15 +540,30 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
                     >
                       <div className="w-full h-full relative overflow-hidden rounded-lg shadow-lg bg-gray-700">
                         {game.boxArtUrl || game.bannerUrl ? (
-                          <img
-                            src={game.boxArtUrl || game.bannerUrl}
-                            alt={game.title}
-                            className="w-full h-full object-cover transition-transform duration-300"
-                            onError={(e) => {
-                              const target = e.target as HTMLImageElement;
-                              target.style.display = 'none';
-                            }}
-                          />
+                          (() => {
+                            const url = game.boxArtUrl || game.bannerUrl;
+                            const isVideo = (url === game.boxArtUrl && game.boxArtIsVideo) || (url === game.bannerUrl && game.bannerIsVideo);
+                            return isVideo ? (
+                              <video
+                                src={url}
+                                muted
+                                loop
+                                playsInline
+                                autoPlay
+                                className="w-full h-full object-cover transition-transform duration-300"
+                              />
+                            ) : (
+                              <img
+                                src={url}
+                                alt={game.title}
+                                className="w-full h-full object-cover transition-transform duration-300"
+                                onError={(e) => {
+                                  const target = e.target as HTMLImageElement;
+                                  target.style.display = 'none';
+                                }}
+                              />
+                            );
+                          })()
                         ) : (
                           <div className="w-full h-full flex items-center justify-center">
                             <span className="text-gray-400 text-xs text-center px-2">

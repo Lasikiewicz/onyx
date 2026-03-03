@@ -1377,8 +1377,10 @@ app.whenReady().then(async () => {
         const safeGameId = gameId.replace(/[<>:"/\\|?*]/g, '_');
         const extensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.webm', '.ico', '.avif'];
 
+        const prefix = `${safeGameId}-${imageType}`;
+        const prefixLower = prefix.toLowerCase();
         for (const ext of extensions) {
-          const filename = `${safeGameId}-${imageType}${ext}`;
+          const filename = `${prefix}${ext}`;
           const filePath = path.join(cacheDir, filename);
           if (existsSync(filePath)) {
             if (count === 1) console.log(`[onyx-local] ✓ Found: ${filename}`);
@@ -1418,10 +1420,39 @@ app.whenReady().then(async () => {
           }
         }
 
+        // Case-insensitive fallback (URL may be lowercased by browser; file on disk may have different casing)
+        try {
+          const { readdirSync } = require('node:fs');
+          const files = readdirSync(cacheDir) as string[];
+          for (const f of files) {
+            const fl = f.toLowerCase();
+            const ext = extensions.find((e) => fl === prefixLower + e);
+            if (!ext) continue;
+            const filePath = path.join(cacheDir, f);
+            if (!existsSync(filePath)) continue;
+            if (count === 1) console.log(`[onyx-local] ✓ Found (case-insensitive): ${f}`);
+            if (failedUrls.has(requestUrl)) {
+              failedUrls.delete(requestUrl);
+              failedUrlCounts.delete(requestUrl);
+            }
+            const fileData = readFileSync(filePath);
+            let mimeType = 'image/jpeg';
+            if (ext === '.png') mimeType = 'image/png';
+            else if (ext === '.gif') mimeType = 'image/gif';
+            else if (ext === '.webp') mimeType = 'image/webp';
+            else if (ext === '.webm') mimeType = 'video/webm';
+            else if (ext === '.ico') mimeType = 'image/x-icon';
+            else if (ext === '.avif') mimeType = 'image/avif';
+            return new Response(fileData, { headers: { 'Content-Type': mimeType } });
+          }
+        } catch (_e) {
+          // Ignore
+        }
+
         // File not found - return 404 but don't mark as failed until we've tried a few times
         // This allows other images for the same game to still load
         if (count === 1) {
-          console.log(`[onyx-local] File not found: ${safeGameId}-${imageType}.{jpg|png|gif|webp}`);
+          console.log(`[onyx-local] File not found: ${safeGameId}-${imageType}.{jpg|png|gif|webp|webm|...}`);
           console.log(`[onyx-local] Cache dir: ${cacheDir}`);
           // List available files for this game ID to help debug
           try {

@@ -48,6 +48,12 @@ interface GameDetailsPanelProps {
   // Link management (source of truth from Settings when provided by App)
   linkDisplayOrder?: string[] | null;
   visibleLinkTypes?: Record<string, boolean>;
+  disableAnimatedBackgrounds?: boolean;
+  disableAnimatedBanners?: boolean;
+  disableAnimatedBoxarts?: boolean;
+  disableAnimatedIcons?: boolean;
+  disableAnimatedLogos?: boolean;
+  overlaysOpen?: boolean;
 }
 
 export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
@@ -87,6 +93,12 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
   rightPanelButtonColors,
   linkDisplayOrder: linkDisplayOrderFromProps,
   visibleLinkTypes: visibleLinkTypesFromProps,
+  disableAnimatedBackgrounds = false,
+  disableAnimatedBanners: _disableAnimatedBanners = false, // currently unused placeholder for future banner-specific behavior
+  disableAnimatedBoxarts = false,
+  disableAnimatedIcons: _disableAnimatedIcons = false, // currently unused placeholder for future icon-specific behavior
+  disableAnimatedLogos = false,
+  overlaysOpen: _overlaysOpen = false, // not needed directly here; background/boxart handled by props above
 }) => {
   const defaultPanelWidths: Record<ViewKey, number> = { grid: 800, list: 800, logo: 800 };
   const [panelWidths, setPanelWidths] = useState<Record<ViewKey, number>>(defaultPanelWidths);
@@ -374,6 +386,11 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
   const backgroundLoadKey = `bg:${backgroundImageUrl}`;
   const logoLoadKey = `logo:${game.logoUrl || ''}`;
   const boxartLoadKey = `boxart:${game.boxArtUrl || ''}`;
+  const isBackgroundVideo = !!(backgroundImageUrl && (
+    (game.heroUrl === backgroundImageUrl && game.heroIsVideo) ||
+    (game.bannerUrl === backgroundImageUrl && game.bannerIsVideo) ||
+    (game.boxArtUrl === backgroundImageUrl && game.boxArtIsVideo)
+  ));
   
   // Helper function to detect animated images
   const isAnimatedImage = (url: string) => /\.(gif|webp|apng)(\?|$)/i.test(url);
@@ -418,34 +435,55 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
         className="relative flex-shrink-0 overflow-visible"
         style={{ height: backgroundImageUrl ? `${fanartHeight}px` : 'auto', minHeight: backgroundImageUrl ? `${fanartHeight}px` : '120px' }}
       >
-        {backgroundImageUrl && (
+        {backgroundImageUrl && (!isAnimatedImage(backgroundImageUrl) || !disableAnimatedBackgrounds) && (
           <>
-            <img
-              key={backgroundImageUrl}
-              src={backgroundImageUrl}
-              alt={game.title}
-              className="w-full h-full object-cover cursor-pointer"
-              style={{
-                height: `${fanartHeight}px`,
-                ...(isAnimatedImage(backgroundImageUrl) ? {
-                  willChange: 'transform',
-                  contain: 'layout style paint',
-                } : {})
-              }}
-              onLoad={() => {
-                setImageLoaded(prev => ({ ...prev, [backgroundLoadKey]: true }));
-              }}
-              onError={(e) => {
-                const target = e.target as HTMLImageElement;
-                // Prevent infinite retry loop
-                if (target.dataset.errorHandled === 'true') return;
-                target.dataset.errorHandled = 'true';
-                target.style.display = 'none';
-                target.src = ''; // Clear src to prevent retries
-              }}
-            />
+            {isBackgroundVideo ? (
+              <video
+                key={backgroundImageUrl}
+                src={backgroundImageUrl}
+                muted
+                loop
+                playsInline
+                autoPlay
+                preload="auto"
+                className="w-full h-full object-cover cursor-pointer"
+                style={{ height: `${fanartHeight}px` }}
+                onLoadedData={() => {
+                  setImageLoaded(prev => ({ ...prev, [backgroundLoadKey]: true }));
+                }}
+                onError={(e) => {
+                  const v = e.currentTarget;
+                  v.style.display = 'none';
+                }}
+              />
+            ) : (
+              <img
+                key={backgroundImageUrl}
+                src={backgroundImageUrl}
+                alt={game.title}
+                className="w-full h-full object-cover cursor-pointer"
+                style={{
+                  height: `${fanartHeight}px`,
+                  ...(isAnimatedImage(backgroundImageUrl) ? {
+                    willChange: 'transform',
+                    contain: 'layout style paint',
+                  } : {})
+                }}
+                onLoad={() => {
+                  setImageLoaded(prev => ({ ...prev, [backgroundLoadKey]: true }));
+                }}
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  // Prevent infinite retry loop
+                  if (target.dataset.errorHandled === 'true') return;
+                  target.dataset.errorHandled = 'true';
+                  target.style.display = 'none';
+                  target.src = ''; // Clear src to prevent retries
+                }}
+              />
+            )}
             {/* Blurred background for logo area - Disabled if animated to prevent glitches */}
-            {game.logoUrl && !/\.(gif|webp|apng)(\?|$)/i.test(backgroundImageUrl) && (
+            {game.logoUrl && !/\.(gif|webp|apng)(\?|$)/i.test(backgroundImageUrl) && !isBackgroundVideo && (
               <div
                 className={`absolute bottom-0 z-10 ${rightPanelBoxartPosition === 'left' ? 'right-6' :
                   rightPanelBoxartPosition === 'right' ? 'left-6' :
@@ -489,7 +527,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
             contain: 'layout style',
           }}
         >
-          {game.logoUrl ? (
+          {game.logoUrl && (!isAnimatedImage(game.logoUrl) || !disableAnimatedLogos) ? (
             <div
               onContextMenu={(e) => {
                 // Allow event to bubble up to parent to open RightClickMenu
@@ -497,35 +535,59 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
               }}
               style={{ pointerEvents: 'auto' }}
             >
-              <img
-                src={game.logoUrl}
-                alt={game.title}
-                className={`max-w-full max-h-full object-contain cursor-pointer drop-shadow-2xl ${imageLoaded[logoLoadKey] ? (isAnimatedImage(game.logoUrl) ? 'game-logo-transition-fast' : 'game-logo-transition') : ''}`}
-                style={{
-                  maxHeight: `${localLogoSize !== undefined ? localLogoSize : (game.logoSizePerViewMode?.[viewMode] || game.logoSizePerViewMode?.carousel || rightPanelLogoSize)}px`,
-                  display: 'block',
-                  contain: 'layout style paint',
-                  ...(isAnimatedImage(game.logoUrl) ? {
-                    willChange: 'transform',
-                  } : {}),
-                  ...(game.removeLogoTransparency ? {
-                    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-                    padding: '8px',
-                    borderRadius: '4px'
-                  } : {})
-                }}
-                onLoad={() => {
-                  setImageLoaded(prev => ({ ...prev, [logoLoadKey]: true }));
-                }}
-                onError={(e) => {
-                  const target = e.target as HTMLImageElement;
-                  // Prevent infinite retry loop
-                  if (target.dataset.errorHandled === 'true') return;
-                  target.dataset.errorHandled = 'true';
-                  target.style.display = 'none';
-                  target.src = ''; // Clear src to prevent retries
-                }}
-              />
+              {game.logoIsVideo ? (
+                <video
+                  src={game.logoUrl}
+                  muted
+                  loop
+                  playsInline
+                  autoPlay
+                  className={`max-w-full max-h-full object-contain cursor-pointer drop-shadow-2xl ${imageLoaded[logoLoadKey] ? 'game-logo-transition-fast' : ''}`}
+                  style={{
+                    maxHeight: `${localLogoSize !== undefined ? localLogoSize : (game.logoSizePerViewMode?.[viewMode] || game.logoSizePerViewMode?.carousel || rightPanelLogoSize)}px`,
+                    display: 'block',
+                    contain: 'layout style paint',
+                    ...(game.removeLogoTransparency ? {
+                      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                      padding: '8px',
+                      borderRadius: '4px'
+                    } : {})
+                  }}
+                  onLoadedData={() => {
+                    setImageLoaded(prev => ({ ...prev, [logoLoadKey]: true }));
+                  }}
+                />
+              ) : (
+                <img
+                  src={game.logoUrl}
+                  alt={game.title}
+                  className={`max-w-full max-h-full object-contain cursor-pointer drop-shadow-2xl ${imageLoaded[logoLoadKey] ? (isAnimatedImage(game.logoUrl) ? 'game-logo-transition-fast' : 'game-logo-transition') : ''}`}
+                  style={{
+                    maxHeight: `${localLogoSize !== undefined ? localLogoSize : (game.logoSizePerViewMode?.[viewMode] || game.logoSizePerViewMode?.carousel || rightPanelLogoSize)}px`,
+                    display: 'block',
+                    contain: 'layout style paint',
+                    ...(isAnimatedImage(game.logoUrl) ? {
+                      willChange: 'transform',
+                    } : {}),
+                    ...(game.removeLogoTransparency ? {
+                      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                      padding: '8px',
+                      borderRadius: '4px'
+                    } : {})
+                  }}
+                  onLoad={() => {
+                    setImageLoaded(prev => ({ ...prev, [logoLoadKey]: true }));
+                  }}
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    // Prevent infinite retry loop
+                    if (target.dataset.errorHandled === 'true') return;
+                    target.dataset.errorHandled = 'true';
+                    target.style.display = 'none';
+                    target.src = ''; // Clear src to prevent retries
+                  }}
+                />
+              )}
             </div>
           ) : (
             <div
@@ -549,41 +611,59 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
             className={`absolute ${rightPanelBoxartPosition === 'left' ? 'left-6' : 'right-6'} bottom-0 z-20`}
             style={{ transform: 'translateY(50%)' }}
           >
-                {game.boxArtUrl ? (
-              <img
-                src={game.boxArtUrl}
-                alt={game.title}
-                className="aspect-[2/3] object-cover rounded border border-gray-600 shadow-lg cursor-pointer"
-                style={{
-                  width: `${rightPanelBoxartSize}px`,
-                  ...(isAnimatedImage(game.boxArtUrl) ? {
-                    willChange: 'transform',
-                    contain: 'layout style paint',
-                  } : {})
-                }}
-                onLoad={() => {
-                  setImageLoaded(prev => ({ ...prev, [boxartLoadKey]: true }));
-                }}
-                onError={(e) => {
-                  const target = e.target as HTMLImageElement;
-                  // Prevent infinite retry loop
-                  if (target.dataset.errorHandled === 'true') return;
+            {game.boxArtUrl && (!isAnimatedImage(game.boxArtUrl) || !disableAnimatedBoxarts) ? (
+              game.boxArtIsVideo ? (
+                <video
+                  src={game.boxArtUrl}
+                  muted
+                  loop
+                  playsInline
+                  autoPlay
+                  className="aspect-[2/3] object-cover rounded border border-gray-600 shadow-lg cursor-pointer"
+                  style={{ width: `${rightPanelBoxartSize}px` }}
+                  onLoadedData={() => {
+                    setImageLoaded(prev => ({ ...prev, [boxartLoadKey]: true }));
+                  }}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                  }}
+                />
+              ) : (
+                <img
+                  src={game.boxArtUrl}
+                  alt={game.title}
+                  className="aspect-[2/3] object-cover rounded border border-gray-600 shadow-lg cursor-pointer"
+                  style={{
+                    width: `${rightPanelBoxartSize}px`,
+                    ...(isAnimatedImage(game.boxArtUrl) ? {
+                      willChange: 'transform',
+                      contain: 'layout style paint',
+                    } : {})
+                  }}
+                  onLoad={() => {
+                    setImageLoaded(prev => ({ ...prev, [boxartLoadKey]: true }));
+                  }}
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    // Prevent infinite retry loop
+                    if (target.dataset.errorHandled === 'true') return;
 
-                  // Try banner URL as fallback (only once)
-                  if (game.bannerUrl && target.src !== game.bannerUrl && !target.dataset.fallbackAttempted) {
-                    target.dataset.fallbackAttempted = 'true';
-                    target.src = game.bannerUrl;
-                  } else {
-                    target.dataset.errorHandled = 'true';
-                    target.style.display = 'none';
-                    target.src = ''; // Clear src to prevent retries
-                  }
-                }}
-                onContextMenu={(e) => {
-                  // Allow event to bubble up to parent to open RightClickMenu
-                  e.preventDefault();
-                }}
-              />
+                    // Try banner URL as fallback (only once)
+                    if (game.bannerUrl && target.src !== game.bannerUrl && !target.dataset.fallbackAttempted) {
+                      target.dataset.fallbackAttempted = 'true';
+                      target.src = game.bannerUrl;
+                    } else {
+                      target.dataset.errorHandled = 'true';
+                      target.style.display = 'none';
+                      target.src = ''; // Clear src to prevent retries
+                    }
+                  }}
+                  onContextMenu={(e) => {
+                    // Allow event to bubble up to parent to open RightClickMenu
+                    e.preventDefault();
+                  }}
+                />
+              )
             ) : (
               <div
                 className="aspect-[2/3] bg-gray-800 rounded border border-gray-600 flex items-center justify-center text-gray-400 text-xs text-center px-2 cursor-pointer hover:bg-gray-700 transition-colors"

@@ -13,6 +13,12 @@ export interface Game {
   bannerUrl: string;
   alternativeBannerUrl?: string;
   useAlternativeBackground?: boolean;
+  boxArtIsVideo?: boolean;
+  bannerIsVideo?: boolean;
+  alternativeBannerIsVideo?: boolean;
+  logoIsVideo?: boolean;
+  heroIsVideo?: boolean;
+  iconIsVideo?: boolean;
   logoUrl?: string;
   logoSizePerViewMode?: {
     carousel?: number;

@@ -23,6 +23,8 @@ interface SortableGameCardProps {
   onFocus?: () => void;
   index?: number;
   onFocusItem?: (index: number) => void;
+  disableAnimatedBoxarts?: boolean;
+  disableAnimatedLogos?: boolean;
 }
 
 const SortableGameCardComponent: React.FC<SortableGameCardProps> = ({
@@ -43,7 +45,9 @@ const SortableGameCardComponent: React.FC<SortableGameCardProps> = ({
   isFocused,
   onFocus,
   index,
-  onFocusItem
+  onFocusItem,
+  disableAnimatedBoxarts,
+  disableAnimatedLogos,
 }) => {
   const {
     attributes,
@@ -124,6 +128,8 @@ const SortableGameCardComponent: React.FC<SortableGameCardProps> = ({
         viewMode={viewMode}
         logoBackgroundColor={logoBackgroundColor}
         logoBackgroundOpacity={logoBackgroundOpacity}
+        disableAnimatedBoxarts={disableAnimatedBoxarts}
+        disableAnimatedLogos={disableAnimatedLogos}
       />
     </div>
   );

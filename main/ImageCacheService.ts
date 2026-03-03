@@ -895,6 +895,18 @@ export class ImageCacheService {
 
         onProgress?.('downloading');
         if (isDebugOptimizationEnabled()) debugOptimizationLog(`cacheImage file gameId=${gameId} imageType=${imageType} sourceExt=${sourceExt} bytes=${rawData.length}`);
+
+        // Local .webm: copy as-is to avoid ffmpeg resize on main process (prevents UI freeze).
+        const extLower = sourceExt.toLowerCase();
+        if (extLower === '.webm') {
+          const outFilename = `${safeGameId}-${imageType}.webm`;
+          const outPath = path.join(this.cacheDir, outFilename);
+          console.log(`[ImageCache] Caching local WEBM (no optimize): ${filePath} -> ${outFilename}`);
+          await fsPromises.writeFile(outPath, rawData);
+          onProgress?.('done', { fileName: outFilename, originalBytes: rawData.length, optimizedBytes: rawData.length });
+          return `onyx-local://${safeGameId}-${imageType}`;
+        }
+
         onProgress?.('optimizing', { originalBytes: rawData.length });
         const { data: optimizedData, ext: outExt, decisionReason, attemptSummary } = await this.optimizeImage(rawData, imageType, sourceExt);
         if (isDebugOptimizationEnabled()) debugOptimizationLog(`cacheImage file done gameId=${gameId} imageType=${imageType} outBytes=${optimizedData.length}`);
@@ -1168,6 +1180,30 @@ export class ImageCacheService {
   }
 
   /**
+   * Return 'video' if the cached file for this game+type is .webm, 'image' if another image ext exists, null if none.
+   * Used so the UI can render <video> for onyx-local URLs when *IsVideo wasn't persisted (e.g. old saves).
+   */
+  getCachedAssetKind(gameId: string, imageType: string): 'video' | 'image' | null {
+    try {
+      this.ensureInitialized();
+      const safeGameId = gameId.replace(/[<>:"/\\|?*]/g, '_');
+      const prefix = `${safeGameId}-${imageType}`;
+      const { readdirSync } = require('node:fs');
+      const files = readdirSync(this.cacheDir) as string[];
+      const prefixLower = prefix.toLowerCase();
+      for (const f of files) {
+        const fl = f.toLowerCase();
+        if (!fl.startsWith(prefixLower + '.')) continue;
+        if (fl.endsWith('.webm')) return 'video';
+        if (['.jpg', '.jpeg', '.png', '.gif', '.webp', '.ico', '.avif'].some((e) => fl.endsWith(e))) return 'image';
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
    * Get the cache directory path
    */
   getCacheDir(): string {
@@ -1188,6 +1224,7 @@ export class ImageCacheService {
     for (const file of files) {
       const ext = path.extname(file).toLowerCase();
       if (!extList.includes(ext)) continue;
+      if (ext === '.webm') continue; // Never optimize .webm (uploaded as-is; avoid re-encode).
       const match = file.match(re);
       if (!match) continue;
       const sourceExt = '.' + match[3].toLowerCase();
@@ -1219,6 +1256,10 @@ export class ImageCacheService {
       for (const file of files) {
         const ext = path.extname(file).toLowerCase();
         if (!extList.includes(ext)) continue;
+        if (ext === '.webm') {
+          result.skipped++;
+          continue; // Never optimize .webm (uploaded as-is).
+        }
         const match = file.match(re);
         if (!match) {
           result.skipped++;

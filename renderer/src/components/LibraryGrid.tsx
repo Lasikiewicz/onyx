@@ -44,6 +44,9 @@ interface LibraryGridProps {
   onEmptySpaceClick?: (x: number, y: number) => void;
   descriptionSize?: number;
   viewMode?: 'grid' | 'logo';
+  // Effective animation disable flags (already combined with Disable all animations in App)
+  disableAnimatedBoxarts?: boolean;
+  disableAnimatedLogos?: boolean;
 }
 
 export const LibraryGrid: React.FC<LibraryGridProps> = ({
@@ -66,6 +69,8 @@ export const LibraryGrid: React.FC<LibraryGridProps> = ({
   viewMode = 'grid',
   logoBackgroundColor = '#374151',
   logoBackgroundOpacity = 100,
+  disableAnimatedBoxarts,
+  disableAnimatedLogos,
 }) => {
   const [items, setItems] = useState<Game[]>(games);
 
@@ -232,6 +237,8 @@ export const LibraryGrid: React.FC<LibraryGridProps> = ({
                     isFocused={index === focusedIndex}
                     index={index}
                     onFocusItem={handleFocusItem}
+                    disableAnimatedBoxarts={disableAnimatedBoxarts}
+                    disableAnimatedLogos={disableAnimatedLogos}
                   />
                 </div>
               ))}

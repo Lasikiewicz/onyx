@@ -49,6 +49,14 @@ body {
 
 }
 
+/* When any overlay/context menu is open, hide animated image formats so WebP/GIF/APNG
+   stop visually across the UI (grid, details panel, background, etc.). */
+[data-overlays-open="true"] img[src*=".webp"],
+[data-overlays-open="true"] img[src*=".gif"],
+[data-overlays-open="true"] img[src*=".apng"] {
+  visibility: hidden !important;
+}
+
 /* Modern, non-intrusive scrollbars */
 /* Webkit browsers (Chrome, Edge, Safari) */
 ::-webkit-scrollbar {

@@ -11,7 +11,7 @@ interface OnyxSettingsModalProps {
   onClose: () => void;
   onSave?: () => void;
   // Allow both old and new tab names for compatibility during migration
-  initialTab?: 'general' | 'apis' | 'apps' | 'reset' | 'about' | 'appearance' | 'integrations' | 'launchers' | 'library' | 'links' | 'advanced' | 'suspend';
+  initialTab?: 'general' | 'apis' | 'apps' | 'reset' | 'about' | 'appearance' | 'integrations' | 'launchers' | 'library' | 'links' | 'advanced' | 'suspend' | 'animations';
   onShowImportModal?: (games: Array<any>, appType?: 'steam' | 'xbox' | 'other') => void;
 }
 
@@ -33,6 +33,12 @@ interface OnyxSettings {
   confirmGameLaunch: boolean;
   restoreAfterLaunch: boolean;
   defaultStartupPage: 'library' | 'recent' | 'favorites';
+  disableAllAnimations: boolean;
+  disableAnimatedBanners: boolean;
+  disableAnimatedBoxarts: boolean;
+  disableAnimatedBackgrounds: boolean;
+  disableAnimatedIcons: boolean;
+  disableAnimatedLogos: boolean;
   // Fullscreen settings
   startInFullscreen: boolean;
   hideMouseCursorInFullscreen: boolean;
@@ -42,7 +48,7 @@ interface OnyxSettings {
   suspendShortcut: string;
 }
 
-type TabType = 'general' | 'scanning' | 'library' | 'launchers' | 'integrations' | 'links' | 'appearance' | 'advanced' | 'suspend' | 'about'; // Keep legacy types for state compatibility, but UI will hide them
+type TabType = 'general' | 'scanning' | 'library' | 'launchers' | 'integrations' | 'links' | 'appearance' | 'animations' | 'advanced' | 'suspend' | 'about'; // Keep legacy types for state compatibility, but UI will hide them
 
 interface AppConfig {
   id: string;
@@ -182,6 +188,12 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
     confirmGameLaunch: false,
     restoreAfterLaunch: false,
     defaultStartupPage: 'library',
+    disableAllAnimations: false,
+    disableAnimatedBanners: false,
+    disableAnimatedBoxarts: false,
+    disableAnimatedBackgrounds: false,
+    disableAnimatedIcons: false,
+    disableAnimatedLogos: false,
     startInFullscreen: false,
     hideMouseCursorInFullscreen: true,
     cursorHideTimeout: 3000,
@@ -227,6 +239,12 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
             confirmGameLaunch: prefs.confirmGameLaunch ?? false,
             restoreAfterLaunch: prefs.restoreAfterLaunch ?? false,
             defaultStartupPage: (prefs.defaultStartupPage as any) ?? 'library',
+            disableAllAnimations: prefs.disableAllAnimations ?? false,
+                  disableAnimatedBanners: prefs.disableAnimatedBanners ?? false,
+                  disableAnimatedBoxarts: prefs.disableAnimatedBoxarts ?? false,
+                  disableAnimatedBackgrounds: prefs.disableAnimatedBackgrounds ?? false,
+                  disableAnimatedIcons: prefs.disableAnimatedIcons ?? false,
+                  disableAnimatedLogos: prefs.disableAnimatedLogos ?? false,
             startInFullscreen: prefs.startInFullscreen ?? false,
             hideMouseCursorInFullscreen: prefs.hideMouseCursorInFullscreen ?? true,
             cursorHideTimeout: prefs.cursorHideTimeout ?? 3000,
@@ -797,6 +815,12 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
         confirmGameLaunch: settings.confirmGameLaunch,
         restoreAfterLaunch: settings.restoreAfterLaunch,
         defaultStartupPage: settings.defaultStartupPage,
+        disableAllAnimations: settings.disableAllAnimations,
+        disableAnimatedBanners: settings.disableAnimatedBanners,
+        disableAnimatedBoxarts: settings.disableAnimatedBoxarts,
+        disableAnimatedBackgrounds: settings.disableAnimatedBackgrounds,
+        disableAnimatedIcons: settings.disableAnimatedIcons,
+        disableAnimatedLogos: settings.disableAnimatedLogos,
         startInFullscreen: settings.startInFullscreen,
         hideMouseCursorInFullscreen: settings.hideMouseCursorInFullscreen,
         cursorHideTimeout: settings.cursorHideTimeout,
@@ -898,6 +922,15 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
         <svg className="w-5 h-5 group- hover:animate-gear-spin group-hover:animate-gear-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+        </svg>
+      ),
+    },
+    {
+      id: 'animations',
+      label: 'Animations',
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4h5l2 4 2-4h5l-3 8 3 8h-5l-2-4-2 4H4l3-8z" />
         </svg>
       ),
     },
@@ -1062,6 +1095,58 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                 </div>
               </SettingsSection>
 
+            </div>
+          )}
+          {activeTab === 'animations' && (
+            <div className="space-y-6 p-6">
+              <SettingsSection title="Animations" description="Control animated UI and artwork to reduce CPU usage">
+                <SettingsToggle
+                  label="Disable all animations"
+                  description="Turn off UI motion and animated artwork. Some changes may require restart."
+                  checked={settings.disableAllAnimations}
+                  onChange={(checked) => {
+                    setSettings(prev => ({
+                      ...prev,
+                      disableAllAnimations: checked,
+                    }));
+                  }}
+                />
+                <SettingsToggle
+                  label="Disable animated banners"
+                  description="Stop animated hero/banner artwork from animating."
+                  checked={settings.disableAnimatedBanners}
+                  disabled={settings.disableAllAnimations}
+                  onChange={(checked) => setSettings(prev => ({ ...prev, disableAnimatedBanners: checked }))}
+                />
+                <SettingsToggle
+                  label="Disable animated boxarts"
+                  description="Force boxart tiles to stay static even when animated versions exist."
+                  checked={settings.disableAnimatedBoxarts}
+                  disabled={settings.disableAllAnimations}
+                  onChange={(checked) => setSettings(prev => ({ ...prev, disableAnimatedBoxarts: checked }))}
+                />
+                <SettingsToggle
+                  label="Disable animated backgrounds"
+                  description="Prevent full-screen background artwork from animating."
+                  checked={settings.disableAnimatedBackgrounds}
+                  disabled={settings.disableAllAnimations}
+                  onChange={(checked) => setSettings(prev => ({ ...prev, disableAnimatedBackgrounds: checked }))}
+                />
+                <SettingsToggle
+                  label="Disable animated icons"
+                  description="Disable animations on small icon-style artwork and badges."
+                  checked={settings.disableAnimatedIcons}
+                  disabled={settings.disableAllAnimations}
+                  onChange={(checked) => setSettings(prev => ({ ...prev, disableAnimatedIcons: checked }))}
+                />
+                <SettingsToggle
+                  label="Disable animated logos"
+                  description="Disable animations on game and publisher logos."
+                  checked={settings.disableAnimatedLogos}
+                  disabled={settings.disableAllAnimations}
+                  onChange={(checked) => setSettings(prev => ({ ...prev, disableAnimatedLogos: checked }))}
+                />
+              </SettingsSection>
             </div>
           )}
           {activeTab === 'scanning' && (

@@ -133,6 +133,16 @@ export interface UserPreferences {
   optimizationPerformance?: 'low' | 'balanced' | 'high'; // CPU usage profile for image optimization
   preferAnimatedBoxart?: boolean; // Prefer animated cover art when importing
   preferAnimatedBanner?: boolean; // Prefer animated heroes/banners when importing
+  disableAllAnimations?: boolean; // Master switch to disable all UI and image animations
+  // Legacy fields (kept for backward compatibility)
+  disableAnimatedImages?: boolean; // Deprecated: use per-type flags instead
+  disableAnimatedBoxart?: boolean; // Deprecated: use disableAnimatedBoxarts instead
+  // New per-type animation controls
+  disableAnimatedBanners?: boolean;
+  disableAnimatedBoxarts?: boolean;
+  disableAnimatedBackgrounds?: boolean;
+  disableAnimatedIcons?: boolean;
+  disableAnimatedLogos?: boolean;
   enableSuspendFeature?: boolean; // Enable suspend/resume functionality
   suspendShortcut?: string; // Keyboard shortcut for suspend/resume (e.g., "Ctrl+Shift+S")
   // Fullscreen settings
@@ -342,6 +352,16 @@ export class UserPreferencesService {
       optimizeImagesInBackground: true,
       preferAnimatedBoxart: true,
       preferAnimatedBanner: true,
+      disableAllAnimations: false,
+      // Legacy fields default
+      disableAnimatedImages: false,
+      disableAnimatedBoxart: false,
+      // New per-type animation defaults
+      disableAnimatedBanners: false,
+      disableAnimatedBoxarts: false,
+      disableAnimatedBackgrounds: false,
+      disableAnimatedIcons: false,
+      disableAnimatedLogos: false,
       enableSuspendFeature: false,
       suspendShortcut: 'Ctrl+Shift+S',
       startInFullscreen: false,

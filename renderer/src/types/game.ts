@@ -9,6 +9,18 @@ export interface Game {
   bannerUrl: string;
   alternativeBannerUrl?: string;
   useAlternativeBackground?: boolean;
+  /** When true, boxArtUrl is a .webm video; render with <video> instead of <img>. */
+  boxArtIsVideo?: boolean;
+  /** When true, bannerUrl is a .webm video. */
+  bannerIsVideo?: boolean;
+  /** When true, alternativeBannerUrl is a .webm video. */
+  alternativeBannerIsVideo?: boolean;
+  /** When true, logoUrl is a .webm video. */
+  logoIsVideo?: boolean;
+  /** When true, heroUrl is a .webm video. */
+  heroIsVideo?: boolean;
+  /** When true, iconUrl is a .webm video. */
+  iconIsVideo?: boolean;
   logoUrl?: string;
   logoSize?: number;
   logoSizePerViewMode?: {
@@ -121,6 +133,13 @@ export interface UserPreferences {
   pinnedCategories?: string[];
   preferAnimatedBoxart?: boolean;
   preferAnimatedBanner?: boolean;
+  disableAllAnimations?: boolean;
+  // New per-type animation controls
+  disableAnimatedBanners?: boolean;
+  disableAnimatedBoxarts?: boolean;
+  disableAnimatedBackgrounds?: boolean;
+  disableAnimatedIcons?: boolean;
+  disableAnimatedLogos?: boolean;
   minimizeToTray?: boolean;
   showSystemTrayIcon?: boolean;
   startWithComputer?: boolean;
@@ -366,6 +385,8 @@ declare global {
       showOpenDialog: () => Promise<string | null>;
       showFolderDialog: () => Promise<string | null>;
       showImageDialog: () => Promise<string | null>;
+      showImageOrWebmDialog: () => Promise<string | null>;
+      cacheLocalFile: (filePath: string, gameId: string, imageType: string) => Promise<{ url: string | null; isVideo: boolean }>;
       scanFolderForExecutables: (folderPath: string) => Promise<ExecutableFile[]>;
       searchArtwork: (title: string, steamAppId?: string, bypassCache?: boolean) => Promise<GameMetadata | null>;
       fetchGameDescription: (steamGameId: string) => Promise<{ success: boolean; description?: string; summary?: string; releaseDate?: string; genres?: string[]; developers?: string[]; publishers?: string[]; ageRating?: string; rating?: number; platforms?: string[]; categories?: string[]; error?: string }>;

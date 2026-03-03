@@ -13,6 +13,9 @@ interface GameCardProps {
   viewMode?: 'grid' | 'logo' | 'list' | 'carousel' | 'coverflow';
   logoBackgroundColor?: string;
   logoBackgroundOpacity?: number;
+  // Effective animation disable flags for this card
+  disableAnimatedBoxarts?: boolean;
+  disableAnimatedLogos?: boolean;
 }
 
 const formatPlaytime = (minutes?: number) => {
@@ -48,16 +51,30 @@ const GameCardComponent: React.FC<GameCardProps> = ({
   viewMode = 'grid',
   logoBackgroundColor = '#374151',
   logoBackgroundOpacity = 100,
+  disableAnimatedBoxarts = false,
+  disableAnimatedLogos = false,
 }) => {
 
-  const isLogoUnderneath = game.logoUrl && showLogoOverBoxart && logoPosition === 'underneath';
+  const isAnimatedImage = (url: string | undefined) => !!url && /\.(gif|webp|apng)(\?|$)/i.test(url);
+
+  const hasLogo = game.logoUrl && (!disableAnimatedLogos || !isAnimatedImage(game.logoUrl));
+  const isLogoUnderneath = hasLogo && showLogoOverBoxart && logoPosition === 'underneath';
 
   // Determine which image to show
-  const imageToShow = useLogoInsteadOfBoxart && game.logoUrl ? game.logoUrl : (game.boxArtUrl || game.bannerUrl);
+  let imageToShow: string | undefined =
+    useLogoInsteadOfBoxart && game.logoUrl ? game.logoUrl : (game.boxArtUrl || game.bannerUrl);
+  if (imageToShow && disableAnimatedBoxarts && isAnimatedImage(imageToShow)) {
+    imageToShow = undefined;
+  }
   const imageAlt = useLogoInsteadOfBoxart && game.logoUrl ? `${game.title} Logo` : game.title;
   const imageClass = useLogoInsteadOfBoxart && game.logoUrl
     ? "w-full h-full object-contain transition-transform duration-300 group-hover:scale-110 p-4"
     : "w-full h-full object-cover transition-transform duration-300 group-hover:scale-110";
+  const isVideoMain = imageToShow && (
+    (imageToShow === game.boxArtUrl && game.boxArtIsVideo) ||
+    (imageToShow === game.bannerUrl && game.bannerIsVideo) ||
+    (imageToShow === game.logoUrl && game.logoIsVideo)
+  );
 
   // Use rectangular aspect ratio for logo view
   const aspectRatio = useLogoInsteadOfBoxart ? 'aspect-[16/9]' : 'aspect-[2/3]';
@@ -70,45 +87,58 @@ const GameCardComponent: React.FC<GameCardProps> = ({
       {/* Box art image container - takes flex-1 when logo is underneath, full height otherwise */}
       <div className={`relative ${isLogoUnderneath ? 'flex-1 min-h-0' : 'w-full h-full'}`}>
         {imageToShow ? (
-          <img
-            key={imageToShow}
-            src={imageToShow}
-            alt={imageAlt}
-            className={imageClass}
-            loading="lazy"
-            style={{ contentVisibility: 'auto' }}
-            onError={(e) => {
-              const target = e.target as HTMLImageElement;
-              // Prevent infinite retry loops - mark as handled immediately
-              if (target.dataset.errorHandled === 'true') {
-                // Already handled, stop all further processing
-                e.stopPropagation();
-                e.preventDefault();
-                return;
-              }
-
-              // Mark as handled immediately to prevent retries
-              target.dataset.errorHandled = 'true';
-
-              // Stop the error from propagating
-              e.stopPropagation();
-
-              // Fallback to bannerUrl if boxArtUrl fails (only once)
-              if (game.boxArtUrl && game.bannerUrl && target.src !== game.bannerUrl && !target.src.includes(game.bannerUrl) && !target.dataset.fallbackAttempted) {
-                target.dataset.fallbackAttempted = 'true';
-                target.src = game.bannerUrl;
-              } else {
-                // Hide the image and stop all retries
-                target.style.display = 'none';
-                target.src = ''; // Clear src to prevent any retries
-                // Only log error once per image
-                if (!target.dataset.errorLogged) {
-                  target.dataset.errorLogged = 'true';
-                  // Don't log to console to reduce spam - the protocol handler will log it
+          isVideoMain ? (
+            <video
+              key={imageToShow}
+              src={imageToShow}
+              muted
+              loop
+              playsInline
+              autoPlay
+              className={imageClass}
+              style={{ contentVisibility: 'auto' }}
+            />
+          ) : (
+            <img
+              key={imageToShow}
+              src={imageToShow}
+              alt={imageAlt}
+              className={imageClass}
+              loading="lazy"
+              style={{ contentVisibility: 'auto' }}
+              onError={(e) => {
+                const target = e.target as HTMLImageElement;
+                // Prevent infinite retry loops - mark as handled immediately
+                if (target.dataset.errorHandled === 'true') {
+                  // Already handled, stop all further processing
+                  e.stopPropagation();
+                  e.preventDefault();
+                  return;
                 }
-              }
-            }}
-          />
+
+                // Mark as handled immediately to prevent retries
+                target.dataset.errorHandled = 'true';
+
+                // Stop the error from propagating
+                e.stopPropagation();
+
+                // Fallback to bannerUrl if boxArtUrl fails (only once)
+                if (game.boxArtUrl && game.bannerUrl && target.src !== game.bannerUrl && !target.src.includes(game.bannerUrl) && !target.dataset.fallbackAttempted) {
+                  target.dataset.fallbackAttempted = 'true';
+                  target.src = game.bannerUrl;
+                } else {
+                  // Hide the image and stop all retries
+                  target.style.display = 'none';
+                  target.src = ''; // Clear src to prevent any retries
+                  // Only log error once per image
+                  if (!target.dataset.errorLogged) {
+                    target.dataset.errorLogged = 'true';
+                    // Don't log to console to reduce spam - the protocol handler will log it
+                  }
+                }
+              }}
+            />
+          )
         ) : (
           <div className="w-full h-full bg-gray-700/50 flex items-center justify-center">
             <span className="text-gray-300 text-sm">No Image</span>
@@ -116,27 +146,44 @@ const GameCardComponent: React.FC<GameCardProps> = ({
         )}
 
         {/* Logo - position based on settings (overlaid on boxart) */}
-        {game.logoUrl && showLogoOverBoxart && logoPosition !== 'underneath' && (
+        {hasLogo && showLogoOverBoxart && logoPosition !== 'underneath' && (
           <div className={`absolute inset-0 flex p-4 pointer-events-none ${logoPosition === 'top' ? 'items-start' :
             logoPosition === 'bottom' ? 'items-end' :
               'items-center'
             } justify-center`}>
-            <img
-              key={game.logoUrl}
-              src={game.logoUrl}
-              alt={`${game.title} Logo`}
-              className="max-w-full max-h-full object-contain drop-shadow-2xl"
-              style={game.removeLogoTransparency ? {
-                backgroundColor: 'rgba(0, 0, 0, 0.5)',
-                padding: '8px',
-                borderRadius: '4px'
-              } : {}}
-              onError={(e) => {
-                const target = e.target as HTMLImageElement;
-                console.error('Failed to load logo:', game.logoUrl, target.src);
-                target.style.display = 'none';
-              }}
-            />
+            {game.logoIsVideo ? (
+              <video
+                key={game.logoUrl}
+                src={game.logoUrl}
+                muted
+                loop
+                playsInline
+                autoPlay
+                className="max-w-full max-h-full object-contain drop-shadow-2xl"
+                style={game.removeLogoTransparency ? {
+                  backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                  padding: '8px',
+                  borderRadius: '4px'
+                } : {}}
+              />
+            ) : (
+              <img
+                key={game.logoUrl}
+                src={game.logoUrl}
+                alt={`${game.title} Logo`}
+                className="max-w-full max-h-full object-contain drop-shadow-2xl"
+                style={game.removeLogoTransparency ? {
+                  backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                  padding: '8px',
+                  borderRadius: '4px'
+                } : {}}
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  console.error('Failed to load logo:', game.logoUrl, target.src);
+                  target.style.display = 'none';
+                }}
+              />
+            )}
           </div>
         )}
 
@@ -156,28 +203,49 @@ const GameCardComponent: React.FC<GameCardProps> = ({
       </div>
 
       {/* Logo underneath boxart - separate flex item below the boxart */}
-      {isLogoUnderneath && (
+      {isLogoUnderneath && hasLogo && (
         <div className="bg-black/80 p-2 flex items-center justify-center flex-shrink-0 border-t border-gray-800/50">
-          <img
-            key={game.logoUrl}
-            src={game.logoUrl}
-            alt={`${game.title} Logo`}
-            style={{
-              maxWidth: '100%',
-              maxHeight: `${game.logoSizePerViewMode?.[viewMode as keyof typeof game.logoSizePerViewMode] || 100}px`,
-              objectFit: 'contain',
-              ...(game.removeLogoTransparency ? {
-                backgroundColor: 'rgba(0, 0, 0, 0.5)',
-                padding: '4px',
-                borderRadius: '4px'
-              } : {})
-            }}
-            onError={(e) => {
-              const target = e.target as HTMLImageElement;
-              console.error('Failed to load logo:', game.logoUrl, target.src);
-              target.style.display = 'none';
-            }}
-          />
+          {game.logoIsVideo ? (
+            <video
+              key={game.logoUrl}
+              src={game.logoUrl}
+              muted
+              loop
+              playsInline
+              autoPlay
+              style={{
+                maxWidth: '100%',
+                maxHeight: `${game.logoSizePerViewMode?.[viewMode as keyof typeof game.logoSizePerViewMode] || 100}px`,
+                objectFit: 'contain',
+                ...(game.removeLogoTransparency ? {
+                  backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                  padding: '4px',
+                  borderRadius: '4px'
+                } : {})
+              }}
+            />
+          ) : (
+            <img
+              key={game.logoUrl}
+              src={game.logoUrl}
+              alt={`${game.title} Logo`}
+              style={{
+                maxWidth: '100%',
+                maxHeight: `${game.logoSizePerViewMode?.[viewMode as keyof typeof game.logoSizePerViewMode] || 100}px`,
+                objectFit: 'contain',
+                ...(game.removeLogoTransparency ? {
+                  backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                  padding: '4px',
+                  borderRadius: '4px'
+                } : {})
+              }}
+              onError={(e) => {
+                const target = e.target as HTMLImageElement;
+                console.error('Failed to load logo:', game.logoUrl, target.src);
+                target.style.display = 'none';
+              }}
+            />
+          )}
         </div>
       )}
 

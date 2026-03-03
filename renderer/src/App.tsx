@@ -200,6 +200,14 @@ function App() {
     list: 50,
     logo: 50,
   });
+
+  // Animation preferences
+  const [disableAllAnimations, setDisableAllAnimations] = useState(false);
+  const [disableAnimatedBanners, setDisableAnimatedBanners] = useState(false);
+  const [disableAnimatedBoxarts, setDisableAnimatedBoxarts] = useState(false);
+  const [disableAnimatedBackgrounds, setDisableAnimatedBackgrounds] = useState(false);
+  const [disableAnimatedIcons, setDisableAnimatedIcons] = useState(false);
+  const [disableAnimatedLogos, setDisableAnimatedLogos] = useState(false);
   const [panelWidthByViewState, setPanelWidthByViewState] = useState<Record<'grid' | 'list' | 'logo' | 'carousel' | 'coverflow', number>>({
     grid: 800,
     list: 800,
@@ -329,6 +337,12 @@ function App() {
     if (prefs.coverFlowShowButtons !== undefined) setCoverFlowShowButtons(prefs.coverFlowShowButtons);
     if (prefs.coverFlowButtonPosition !== undefined) setCoverFlowButtonPosition(prefs.coverFlowButtonPosition);
     if (prefs.coverFlowButtonColors !== undefined) setCoverFlowButtonColors(prefs.coverFlowButtonColors);
+    if (prefs.disableAllAnimations !== undefined) setDisableAllAnimations(prefs.disableAllAnimations);
+    if (prefs.disableAnimatedBanners !== undefined) setDisableAnimatedBanners(prefs.disableAnimatedBanners);
+    if (prefs.disableAnimatedBoxarts !== undefined) setDisableAnimatedBoxarts(prefs.disableAnimatedBoxarts);
+    if (prefs.disableAnimatedBackgrounds !== undefined) setDisableAnimatedBackgrounds(prefs.disableAnimatedBackgrounds);
+    if (prefs.disableAnimatedIcons !== undefined) setDisableAnimatedIcons(prefs.disableAnimatedIcons);
+    if (prefs.disableAnimatedLogos !== undefined) setDisableAnimatedLogos(prefs.disableAnimatedLogos);
     if (prefs.isViewFlippedByView !== undefined) {
       const defaultFlipped = { grid: false, list: false, logo: false, carousel: false, coverflow: false };
       setIsViewFlippedByView({ ...defaultFlipped, ...prefs.isViewFlippedByView });
@@ -468,6 +482,13 @@ function App() {
       setChangelogLoading(false);
     }
   }, []);
+
+  // Global animation kill-switch class
+  useEffect(() => {
+    const root = document.documentElement;
+    if (disableAllAnimations) root.classList.add('onyx-animations-off');
+    else root.classList.remove('onyx-animations-off');
+  }, [disableAllAnimations]);
 
   useEffect(() => {
     if (!updateNotification?.version) return;
@@ -1075,6 +1096,62 @@ function App() {
 
     return filtered;
   }, [games, searchQuery, activeSection, selectedCategory, selectedLauncher, sortBy, hideVRTitles, hideAppsTitles]);
+
+  // Sanitize games for display based on animation settings and overlay state. When any overlay
+  // (e.g. right-click menu) is open, strip ALL artwork URLs so nothing can animate in the views.
+  const contextMenusOpen = rightClickMenu !== null || gameContextMenu !== null;
+  const displayGames = useMemo(() => {
+    const isAnimated = (url?: string) => !!url && /\.(gif|webp|apng)(\?|$)/i.test(url);
+
+    if (
+      !contextMenusOpen &&
+      !disableAllAnimations &&
+      !disableAnimatedBanners &&
+      !disableAnimatedBoxarts &&
+      !disableAnimatedBackgrounds &&
+      !disableAnimatedIcons &&
+      !disableAnimatedLogos
+    ) {
+      return filteredGames;
+    }
+
+    const disableBoxart = contextMenusOpen || disableAllAnimations || disableAnimatedBoxarts;
+    const disableBanner = contextMenusOpen || disableAllAnimations || disableAnimatedBanners;
+    const disableBackground = contextMenusOpen || disableAllAnimations || disableAnimatedBackgrounds;
+    const disableIcon = contextMenusOpen || disableAllAnimations || disableAnimatedIcons;
+    const disableLogo = contextMenusOpen || disableAllAnimations || disableAnimatedLogos;
+
+    return filteredGames.map((game) => {
+      const clone: Game = { ...game };
+
+      if (disableBoxart && clone.boxArtUrl && isAnimated(clone.boxArtUrl)) {
+        clone.boxArtUrl = '';
+      }
+      if (disableBanner && clone.bannerUrl && isAnimated(clone.bannerUrl)) {
+        clone.bannerUrl = '';
+      }
+      if (disableBackground && clone.heroUrl && isAnimated(clone.heroUrl)) {
+        clone.heroUrl = '';
+      }
+      if (disableIcon && clone.iconUrl && isAnimated(clone.iconUrl)) {
+        clone.iconUrl = '';
+      }
+      if (disableLogo && clone.logoUrl && isAnimated(clone.logoUrl)) {
+        clone.logoUrl = '';
+      }
+
+      return clone;
+    });
+  }, [
+    filteredGames,
+    contextMenusOpen,
+    disableAllAnimations,
+    disableAnimatedBanners,
+    disableAnimatedBoxarts,
+    disableAnimatedBackgrounds,
+    disableAnimatedIcons,
+    disableAnimatedLogos,
+  ]);
 
   const activeGame = activeGameId ? games.find(g => g.id === activeGameId) || null : null;
 
@@ -1787,6 +1864,19 @@ function App() {
     ? activeGame.alternativeBannerUrl
     : activeGame?.heroUrl || activeGame?.bannerUrl || activeGame?.boxArtUrl || '';
 
+  // Whether any major overlay or context menu is open (settings, game manager, right-click menu, etc.)
+  const overlaysOpen =
+    isOnyxSettingsOpen ||
+    isGameManagerOpen ||
+    isImportWorkbenchOpen ||
+    showOptimizerModal ||
+    isUpdateLibraryOpen ||
+    showLibraryTutorial ||
+    isAPISettingsOpen ||
+    isBugReportOpen ||
+    rightClickMenu !== null ||
+    gameContextMenu !== null;
+
   // Keep previous background visible until the next background is loaded to avoid flicker
   // for static images. For animated backgrounds (GIF/WebP/APNG), switch immediately so
   // the old image is not shown for several seconds while large animations load.
@@ -1797,7 +1887,20 @@ function App() {
     }
 
     const isAnimated = /\.(gif|webp|apng)(\?|$)/i.test(backgroundImageUrl);
-    if (isAnimated) {
+    const blockAnimatedBackground =
+      overlaysOpen || disableAllAnimations || disableAnimatedBackgrounds;
+
+    // If we should not run animated backgrounds, prefer a static fallback (boxart) or clear to color.
+    if (blockAnimatedBackground) {
+      if (isAnimated) {
+        const staticFallback = activeGame?.boxArtUrl && !/\.(gif|webp|apng)(\?|$)/i.test(activeGame.boxArtUrl)
+          ? activeGame.boxArtUrl
+          : '';
+        setDisplayedBackgroundImageUrl(staticFallback);
+        return;
+      }
+    } else if (isAnimated) {
+      // Animated backgrounds allowed and no overlays: show the animated art.
       setDisplayedBackgroundImageUrl(backgroundImageUrl);
       return;
     }
@@ -1827,7 +1930,7 @@ function App() {
       img.onerror = null;
       img.src = '';
     };
-  }, [backgroundImageUrl]);
+  }, [backgroundImageUrl, disableAllAnimations, disableAnimatedBackgrounds, overlaysOpen, activeGame?.boxArtUrl]);
 
   // Detect if background image is animated (GIF, WebP, APNG)
   const isAnimatedBackground = useMemo(() => {
@@ -1874,7 +1977,10 @@ function App() {
   const isAlphaBuild = __BUILD_PROFILE__ === 'alpha' || (typeof process !== 'undefined' && process.env?.NODE_ENV === 'development');
 
   return (
-    <div className="h-screen bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-900 via-[#0f172a] to-black text-white flex flex-col overflow-hidden relative">
+    <div
+      className="h-screen bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-900 via-[#0f172a] to-black text-white flex flex-col overflow-hidden relative"
+      data-overlays-open={overlaysOpen ? 'true' : 'false'}
+    >
       {/* Background - Image or Color */}
       {backgroundMode === 'image' && displayedBackgroundImageUrl ? (
         <div
@@ -2066,11 +2172,11 @@ function App() {
                       ))}
                     </div>
                   )}
-                  {filteredGames.length > 0 ? (
+                  {displayGames.length > 0 ? (
                     <div className={`flex-1 overflow-y-auto animate-onyx-grid-fade ${showCategoriesByView[viewMode] && viewMode !== 'carousel' && viewMode !== 'coverflow' ? ((categoriesPositionByView[viewMode] ?? 'top') === 'top' ? 'px-4 pb-4 pt-0' : 'px-4 pt-4 pb-0') : ''}`}>
                       {viewMode === 'grid' || viewMode === 'logo' ? (
                         <LibraryGrid
-                          games={filteredGames}
+                          games={displayGames}
                           onReorder={handleReorder}
                           onPlay={handlePlay}
                           onGameClick={handleGameClick}
@@ -2095,6 +2201,8 @@ function App() {
                           logoBackgroundColor={logoBackgroundColor}
                           logoBackgroundOpacity={logoBackgroundOpacity}
                           descriptionSize={gridDescriptionSize}
+                          disableAnimatedBoxarts={disableAllAnimations || disableAnimatedBoxarts}
+                          disableAnimatedLogos={disableAllAnimations || disableAnimatedLogos}
                           onGameContextMenu={(game: Game, x: number, y: number) => {
                             setRightClickMenu(null);
                             setGameContextMenu({ game, x, y });
@@ -2107,7 +2215,7 @@ function App() {
                         />
                       ) : viewMode === 'coverflow' ? (
                         <LibraryCoverFlow
-                          games={filteredGames}
+                          games={displayGames}
                           onPlay={handlePlay}
                           onGameClick={handleGameClick}
                           onEdit={handleEditGame}
@@ -2135,7 +2243,7 @@ function App() {
                         />
                       ) : viewMode === 'carousel' ? (
                         <LibraryCarousel
-                          games={filteredGames}
+                          games={displayGames}
                           onPlay={handlePlay}
                           onGameClick={handleGameClick}
                           onEdit={handleEditGame}
@@ -2182,7 +2290,7 @@ function App() {
                         />
                       ) : (
                         <LibraryListView
-                          games={filteredGames}
+                          games={displayGames}
                           onPlay={handlePlay}
                           onGameClick={handleGameClick}
                           onEdit={handleEditGame}
@@ -2274,6 +2382,12 @@ function App() {
               onSaveGame={handleSaveGame}
               onUpdateGameInState={updateGameInState}
               viewMode={viewMode}
+            disableAnimatedBackgrounds={disableAllAnimations || disableAnimatedBackgrounds || overlaysOpen}
+            disableAnimatedBanners={disableAllAnimations || disableAnimatedBanners || overlaysOpen}
+            disableAnimatedBoxarts={disableAllAnimations || disableAnimatedBoxarts || overlaysOpen}
+            disableAnimatedIcons={disableAllAnimations || disableAnimatedIcons || overlaysOpen}
+            disableAnimatedLogos={disableAllAnimations || disableAnimatedLogos || overlaysOpen}
+            overlaysOpen={overlaysOpen}
               onOpenInGameManager={(game, tab) => {
                 setGameManagerInitialGameId(game.id);
                 setGameManagerInitialTab(tab);
@@ -2417,6 +2531,24 @@ function App() {
 
             if (prefs.confirmGameLaunch !== undefined) {
               setConfirmGameLaunch(prefs.confirmGameLaunch);
+            }
+            if (prefs.disableAllAnimations !== undefined) {
+              setDisableAllAnimations(prefs.disableAllAnimations);
+            }
+            if (prefs.disableAnimatedBanners !== undefined) {
+              setDisableAnimatedBanners(prefs.disableAnimatedBanners);
+            }
+            if (prefs.disableAnimatedBoxarts !== undefined) {
+              setDisableAnimatedBoxarts(prefs.disableAnimatedBoxarts);
+            }
+            if (prefs.disableAnimatedBackgrounds !== undefined) {
+              setDisableAnimatedBackgrounds(prefs.disableAnimatedBackgrounds);
+            }
+            if (prefs.disableAnimatedIcons !== undefined) {
+              setDisableAnimatedIcons(prefs.disableAnimatedIcons);
+            }
+            if (prefs.disableAnimatedLogos !== undefined) {
+              setDisableAnimatedLogos(prefs.disableAnimatedLogos);
             }
             if (prefs.linkDisplayOrder && prefs.linkDisplayOrder.length > 0) {
               setLinkDisplayOrder(prefs.linkDisplayOrder);
