@@ -4,7 +4,7 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Pending]
+## [0.6.34] - 2026-03-03
 
 - Library performance: Prefetch game artwork on hover/focus in grid and list views to reduce first-open image delays.
 - Carousel/Coverflow performance: Warm selected and nearby game artwork so next/previous navigation displays images faster.
