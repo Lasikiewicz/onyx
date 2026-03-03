@@ -826,6 +826,7 @@ export function registerAppIPCHandlers(
             console.log('[Reset] Starting game library clearance...');
             await gameStore.clearLibrary();
             await imageCacheService.clearCache();
+            await userPreferencesService.savePreferences({ updateLibrariesOnStartup: false });
 
             const userDataPath = app.getPath('userData');
             const filesToClear = ['game-library.json', 'game-library.json.bak'];

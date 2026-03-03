@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - Animation settings: Fix `.webm` pause enforcement so `Disable all animations` and per-category toggles reliably pause animated media and hold first frame when disabled.
 - Animation categories: Separate banner behavior so `Disable animated banners` controls the top Game Details banner, and rename background toggle to `Disable animated alt banners` for alternative background targeting only.
-- Icon animations: Expand `Disable animated icons` coverage to include navbar/settings/link icon animation classes.
+- Settings behavior: Remove the `Show Links as Icons` setting from the Settings UI and automatically disable `Update Libraries on Startup` after `Remove All Games` is executed.
 
 ## [0.6.32] - 2026-03-03
 

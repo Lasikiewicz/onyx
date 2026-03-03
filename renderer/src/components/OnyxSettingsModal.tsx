@@ -1080,17 +1080,6 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                 </div>
               </SettingsSection>
 
-              <SettingsSection title="Game Details">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
-                  <SettingsToggle
-                    label="Show Links as Icons"
-                    description="Display official game links as individual icons instead of a dropdown list"
-                    checked={settings.linkDisplayMode === 'icons'}
-                    onChange={(checked) => setSettings({ ...settings, linkDisplayMode: checked ? 'icons' : 'dropdown' })}
-                  />
-                </div>
-              </SettingsSection>
-
             </div>
           )}
           {activeTab === 'animations' && (
