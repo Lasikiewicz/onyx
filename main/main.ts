@@ -51,6 +51,7 @@ import path from 'node:path';
 import { readdirSync, statSync, existsSync, readFileSync, copyFileSync, mkdirSync, unlinkSync, promises as fsPromises } from 'node:fs';
 import { platform } from 'node:os';
 import dotenv from 'dotenv';
+import { analyzeCrashDumps, setupJavaScriptErrorHandler } from './crashDumpAnalyzer.js';
 
 // Crash dumps: enabled in all builds; stored under userData so packaged builds can write
 try {
@@ -61,6 +62,10 @@ try {
   app.setPath('crashDumps', crashDumpsDir);
   crashReporter.start({ uploadToServer: false, compress: false });
   console.log('[Crash] Dumps will be saved to:', crashDumpsDir);
+
+  // Setup custom readable error handlers and dump analyzer
+  setupJavaScriptErrorHandler();
+  analyzeCrashDumps();
 } catch (e) {
   console.warn('[Crash] Failed to init crash reporter:', e);
 }
