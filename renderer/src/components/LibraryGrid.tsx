@@ -85,8 +85,33 @@ export const LibraryGrid: React.FC<LibraryGridProps> = ({
     })
   );
 
+
   // Memoize item IDs for SortableContext to prevent unnecessary re-renders
   const itemIds = useMemo(() => items.map((g) => g.id), [items]);
+
+  // Performance Optimization: Stabilize callbacks passed to SortableGameCard
+  // App.tsx passes inline functions (like onGameContextMenu) which defeats React.memo
+  // by using refs, we keep the callback identity stable while always calling the latest function.
+  const callbacksRef = useRef({ onPlay, onGameClick, onEdit, onGameContextMenu });
+  useEffect(() => {
+    callbacksRef.current = { onPlay, onGameClick, onEdit, onGameContextMenu };
+  });
+
+  const stableOnPlay = useCallback((game: Game) => {
+    callbacksRef.current.onPlay?.(game);
+  }, []);
+
+  const stableOnGameClick = useCallback((game: Game) => {
+    callbacksRef.current.onGameClick?.(game);
+  }, []);
+
+  const stableOnEdit = useCallback((game: Game) => {
+    callbacksRef.current.onEdit?.(game);
+  }, []);
+
+  const stableOnContextMenu = useCallback((game: Game, x: number, y: number) => {
+    callbacksRef.current.onGameContextMenu?.(game, x, y);
+  }, []);
 
   // Memoize focus callback to keep child props stable
   const handleFocusItem = useCallback((index: number) => {
@@ -216,15 +241,15 @@ export const LibraryGrid: React.FC<LibraryGridProps> = ({
                 >
                   <SortableGameCard
                     game={game}
-                    onPlay={onPlay}
-                    onClick={onGameClick}
-                    onEdit={onEdit}
+                    onPlay={stableOnPlay}
+                    onClick={stableOnGameClick}
+                    onEdit={stableOnEdit}
                     hideTitle={hideGameTitles}
                     showLogoOverBoxart={showLogoOverBoxart}
                     logoPosition={logoPosition}
                     useLogoInsteadOfBoxart={useLogosInsteadOfBoxart}
                     descriptionSize={descriptionSize}
-                    onContextMenu={onGameContextMenu}
+                    onContextMenu={stableOnContextMenu}
                     viewMode={viewMode}
                     logoBackgroundColor={logoBackgroundColor}
                     logoBackgroundOpacity={logoBackgroundOpacity}

@@ -1,0 +1,3 @@
+## 2024-03-03 - Fix LibraryGrid Callback Instability
+**Learning:** In a highly optimized virtualized or memoized list (like `LibraryGrid`), passing inline arrow functions from the parent (like `onGameContextMenu={(game, x, y) => ...}`) forces the list container to re-render every item, defeating `React.memo` on the child items (`SortableGameCard`). While `useCallback` inside the list component works, if the parent provides unstable callbacks, the child's `useCallback` still invalidates.
+**Action:** Use a `useRef` to hold the latest callback functions from props, and create truly stable `useCallback`s that call the functions stored in the ref. This is a powerful pattern to maintain referential equality of callbacks without stale closures.
