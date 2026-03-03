@@ -8,6 +8,7 @@ description: Onyx AI Agent Guide - Critical Rules & Project Context
 
 **Agent CAN push to git when following established workflows below. CRITICAL requirements:**
 - ✅ **Run `npm run scan:secrets` before any git push** - If it fails, fix (remove/rotate secrets) and re-run until it passes. Never push with hardcoded secrets.
+- ✅ **Update `CHANGELOG.md` for every functional / user-visible change before committing** – add or update the current version section with 1–3 concise bullets that describe what changed.
 - ✅ **ALWAYS use terminal commands** (`git commit -m "..."`, `git push`, etc.) - NEVER use Cursor's Source Control / commit UI
 - ✅ **NEVER add Co-authored-by or Cursor branding** - The `commit-msg` hook strips these automatically, but don't add them in the first place
 - ✅ **Terminal commits use your git config** (your name/email) as author - this is why we use terminal, not Cursor UI
@@ -28,11 +29,12 @@ description: Onyx AI Agent Guide - Critical Rules & Project Context
 
 
 ### 1. "Push to git" / "Push to git master"
-**Always run the build and secrets scan first; fix any issues, then push local master to remote master.** Does NOT trigger CI app build.
+**Always update the changelog, run the build and secrets scan first; fix any issues, then push local master to remote master.** Does NOT trigger CI app build.
 
-1. Run `npm run build`. If it fails, fix build or type errors (and fix any lint issues if reported), then run `npm run build` again until it succeeds.
-2. Run `npm run scan:secrets`. If it fails, remove or fix hardcoded secrets (or use env vars), then re-run until it passes.
-3. Commit and push.
+1. Update `CHANGELOG.md` with at least one bullet under the current version describing the functional/user-visible change(s) in this push.
+2. Run `npm run build`. If it fails, fix build or type errors (and fix any lint issues if reported), then run `npm run build` again until it succeeds.
+3. Run `npm run scan:secrets`. If it fails, remove or fix hardcoded secrets (or use env vars), then re-run until it passes.
+4. Commit and push.
 ```bash
 npm run build
 # If build fails: fix errors (TypeScript, lint, etc.), then re-run npm run build. Repeat until success.
