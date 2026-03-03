@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Game } from '../types/game';
 import { GameContextMenu } from './GameContextMenu';
 import { getContrastingTextColor } from '../utils/colorUtils';
+import { prefetchGameArtwork } from '../utils/imagePrefetch';
 
 interface LibraryCarouselProps {
   games: Game[];
@@ -159,6 +160,24 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
   React.useEffect(() => {
     setCarouselOffset(calculateOffset(validSelectedIndex));
   }, [validSelectedIndex]);
+
+  React.useEffect(() => {
+    if (!games.length) return;
+
+    const warmIndices = [
+      validSelectedIndex,
+      validSelectedIndex - 1,
+      validSelectedIndex + 1,
+      validSelectedIndex + 2,
+      validSelectedIndex - 2,
+    ];
+
+    warmIndices.forEach((index) => {
+      const normalized = ((index % games.length) + games.length) % games.length;
+      const game = games[normalized];
+      if (game) prefetchGameArtwork(game);
+    });
+  }, [games, validSelectedIndex]);
 
   // Handle keyboard navigation
   React.useEffect(() => {
@@ -543,6 +562,8 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
                       data-game-element="true"
                       data-game-card="true"
                       onClick={() => handleGameSelect(index)}
+                      onMouseEnter={() => prefetchGameArtwork(game)}
+                      onFocus={() => prefetchGameArtwork(game)}
                       onContextMenu={(e) => {
                         e.preventDefault();
                         e.stopPropagation();

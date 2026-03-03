@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Game } from '../types/game';
 import { GameContextMenu } from './GameContextMenu';
+import { prefetchGameArtwork } from '../utils/imagePrefetch';
 
 interface LibraryCoverFlowProps {
   games: Game[];
@@ -161,6 +162,24 @@ export const LibraryCoverFlow: React.FC<LibraryCoverFlowProps> = ({
       return index;
     });
   }, [activeGameId, games]);
+
+  useEffect(() => {
+    if (!games.length) return;
+
+    const warmIndices = [
+      validSelectedIndex,
+      validSelectedIndex - 1,
+      validSelectedIndex + 1,
+      validSelectedIndex + 2,
+      validSelectedIndex - 2,
+    ];
+
+    warmIndices.forEach((index) => {
+      const normalized = ((index % games.length) + games.length) % games.length;
+      const game = games[normalized];
+      if (game) prefetchGameArtwork(game);
+    });
+  }, [games, validSelectedIndex]);
 
 
   useEffect(() => {
@@ -395,6 +414,7 @@ export const LibraryCoverFlow: React.FC<LibraryCoverFlowProps> = ({
                 opacity,
                 willChange: 'transform',
               }}
+              onMouseEnter={() => prefetchGameArtwork(game)}
               onClick={() => {
                 if (justDraggedRef.current) {
                   justDraggedRef.current = false;

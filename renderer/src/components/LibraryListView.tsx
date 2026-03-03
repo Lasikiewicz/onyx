@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Game } from '../types/game';
 import { GameContextMenu } from './GameContextMenu';
+import { prefetchGameArtwork } from '../utils/imagePrefetch';
 
 export interface ListViewOptions {
   showDescription: boolean;
@@ -193,10 +194,14 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
               <div
                 key={game.id}
                 onClick={() => onGameClick?.(game)}
+                onMouseEnter={() => prefetchGameArtwork(game)}
                 data-game-card="true"
                 onContextMenu={(e) => handleGameElementContextMenu(e, game)}
                 tabIndex={0}
-                onFocus={() => setFocusedIndex(index)}
+                onFocus={() => {
+                  setFocusedIndex(index);
+                  prefetchGameArtwork(game);
+                }}
                 className={`p-3 bg-gray-800/40 backdrop-blur-md border border-white/5 rounded-xl transition-all duration-300 hover:bg-gray-700/60 hover:border-cyan-400/30 cursor-pointer group outline-none ${index === focusedIndex ? 'ring-2 ring-blue-500 ring-offset-2 ring-offset-slate-900' : ''
                   } ${displayMode === 'logo-only' || displayMode === 'title-only' ? 'flex flex-col items-center' : 'flex items-center gap-4'
                   }`}

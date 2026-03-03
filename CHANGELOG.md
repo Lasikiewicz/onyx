@@ -4,6 +4,12 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Pending]
+
+- Library performance: Prefetch game artwork on hover/focus in grid and list views to reduce first-open image delays.
+- Carousel/Coverflow performance: Warm selected and nearby game artwork so next/previous navigation displays images faster.
+- Asset loading: Add a shared deduplicated renderer prefetch utility for images and `.webm` metadata warming.
+
 ## [0.6.33] - 2026-03-03
 
 - Animation settings: Fix `.webm` pause enforcement so `Disable all animations` and per-category toggles reliably pause animated media and hold first frame when disabled.

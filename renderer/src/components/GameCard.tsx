@@ -1,5 +1,6 @@
 import React from 'react';
 import { Game } from '../types/game';
+import { prefetchGameArtwork } from '../utils/imagePrefetch';
 
 interface GameCardProps {
   game: Game;
@@ -89,8 +90,17 @@ const GameCardComponent: React.FC<GameCardProps> = ({
   const cardBackground = viewMode === 'logo' ? { backgroundColor: toRgba(logoBackgroundColor, logoBackgroundOpacity) } :
     undefined;
 
+  const handlePrefetch = () => {
+    prefetchGameArtwork(game);
+  };
+
   return (
-    <div className={`relative group overflow-hidden onyx-card game-card-transition ${aspectRatio} flex flex-col`} style={cardBackground}>
+    <div
+      className={`relative group overflow-hidden onyx-card game-card-transition ${aspectRatio} flex flex-col`}
+      style={cardBackground}
+      onMouseEnter={handlePrefetch}
+      onFocus={handlePrefetch}
+    >
       {/* Box art image container - takes flex-1 when logo is underneath, full height otherwise */}
       <div className={`relative ${isLogoUnderneath ? 'flex-1 min-h-0' : 'w-full h-full'}`}>
         {imageToShow ? (
