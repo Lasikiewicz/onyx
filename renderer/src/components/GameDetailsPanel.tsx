@@ -50,6 +50,18 @@ interface GameDetailsPanelProps {
   visibleLinkTypes?: Record<string, boolean>;
 }
 
+const dateFormatter = new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
+const formatDate = (dateString?: string) => {
+  if (!dateString) return '';
+  try {
+    const date = new Date(dateString);
+    return dateFormatter.format(date);
+  } catch {
+    return '';
+  }
+};
+
 export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
   game,
   onPlay,
@@ -378,16 +390,6 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
   // Helper function to detect animated images
   const isAnimatedImage = (url: string) => /\.(gif|webp|apng)(\?|$)/i.test(url);
   
-  const formatDate = (dateString?: string) => {
-    if (!dateString) return '';
-    try {
-      const date = new Date(dateString);
-      return date.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
-    } catch {
-      return '';
-    }
-  };
-
   const platformDisplay = game.platform === 'steam' ? 'PC (Windows)' : game.platform;
 
   return (

@@ -39,6 +39,49 @@ interface LibraryListViewProps {
   onEmptySpaceClick?: (x: number, y: number) => void;
 }
 
+const dateFormatter = new Intl.DateTimeFormat('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+
+const formatDate = (dateString?: string) => {
+  if (!dateString) return 'Unknown';
+  try {
+    const date = new Date(dateString);
+    return dateFormatter.format(date);
+  } catch {
+    return 'Unknown';
+  }
+};
+
+const formatPlaytime = (minutes?: number) => {
+  if (!minutes) return 'Not Played';
+  if (minutes < 60) return `${minutes} minutes`;
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
+};
+
+const launcherLookup: Record<string, string> = {
+  steam: 'Steam',
+  epic: 'Epic Games',
+  gog: 'GOG',
+  xbox: 'Xbox',
+  ubisoft: 'Ubisoft Connect',
+  uplay: 'Ubisoft Connect',
+  rockstar: 'Rockstar',
+  battlenet: 'Battle.net',
+  blizzard: 'Battle.net',
+  ea: 'EA App',
+  origin: 'Origin',
+  amazon: 'Amazon Games',
+  itch: 'itch.io',
+};
+
+const formatLauncher = (launcher?: string) => {
+  if (!launcher) return '';
+  const normalized = launcher.toLowerCase();
+  if (launcherLookup[normalized]) return launcherLookup[normalized];
+  return launcher.charAt(0).toUpperCase() + launcher.slice(1);
+};
+
 export const LibraryListView: React.FC<LibraryListViewProps> = ({
   games,
   onPlay,
@@ -67,46 +110,6 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
   listViewSize = 128,
   onEmptySpaceClick,
 }) => {
-  const formatPlaytime = (minutes?: number) => {
-    if (!minutes) return 'Not Played';
-    if (minutes < 60) return `${minutes} minutes`;
-    const hours = Math.floor(minutes / 60);
-    const mins = minutes % 60;
-    return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
-  };
-
-  const formatDate = (dateString?: string) => {
-    if (!dateString) return 'Unknown';
-    try {
-      const date = new Date(dateString);
-      return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-    } catch {
-      return 'Unknown';
-    }
-  };
-
-  const formatLauncher = (launcher?: string) => {
-    if (!launcher) return '';
-    const normalized = launcher.toLowerCase();
-    const lookup: Record<string, string> = {
-      steam: 'Steam',
-      epic: 'Epic Games',
-      gog: 'GOG',
-      xbox: 'Xbox',
-      ubisoft: 'Ubisoft Connect',
-      uplay: 'Ubisoft Connect',
-      rockstar: 'Rockstar',
-      battlenet: 'Battle.net',
-      blizzard: 'Battle.net',
-      ea: 'EA App',
-      origin: 'Origin',
-      amazon: 'Amazon Games',
-      itch: 'itch.io',
-    };
-    if (lookup[normalized]) return lookup[normalized];
-    return launcher.charAt(0).toUpperCase() + launcher.slice(1);
-  };
-
   const displayMode = listViewOptions.displayMode || 'boxart-title';
   const titleTextSize = listViewOptions.titleTextSize ?? 18;
   const sectionTextSize = listViewOptions.sectionTextSize ?? 14;
