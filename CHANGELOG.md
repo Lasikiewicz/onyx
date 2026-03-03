@@ -4,6 +4,11 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.6.31] - 2026-03-03
+
+- Crash reporting: Generate human-readable `report.txt` files for native process crashes.
+- Crash reporting: Capture unhandled JavaScript exceptions into text logs instead of silent failing.
+
 ## [0.6.30] - 2026-03-02
 
 - Game Manager: Fix image flicker when switching games by stabilizing background/details image swap behavior and preventing animation restarts.
