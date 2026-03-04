@@ -4,7 +4,7 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Pending]
+## [0.7.0] - 2026-03-04
 
 - Game Manager / uploads: Block animated PNG (APNG) local uploads with a clear error, and route regular image browsing through cache validation so rejected files are not saved.
 - Game Details links: Force icon-bar rendering in details view so Link Management visibility is respected (visible links on bar, hidden-by-default links in overflow/up-arrow menu).
