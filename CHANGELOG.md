@@ -4,6 +4,10 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Pending]
+
+- Release test: Ship a follow-up update so users on `0.7.1` can verify the new clean-format in-app update changelog rendering path.
+
 ## [0.7.1] - 2026-03-04
 
 - Updates modal: Render update changelog content in a clean release-note style (`Onyx vX.Y.Z` + `What's Changed`) when changelog bullets are available.
