@@ -43,7 +43,7 @@ interface LibraryCarouselProps {
   carouselButtonColors?: { playColor?: string; editColor?: string; modManagerColor?: string };
 }
 
-export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
+const LibraryCarouselComponent: React.FC<LibraryCarouselProps> = ({
   games,
   onPlay,
   onGameClick,
@@ -694,3 +694,4 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
     </div>
   );
 };
+export const LibraryCarousel = React.memo(LibraryCarouselComponent);

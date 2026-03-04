@@ -49,7 +49,7 @@ interface LibraryGridProps {
   disableAnimatedLogos?: boolean;
 }
 
-export const LibraryGrid: React.FC<LibraryGridProps> = ({
+const LibraryGridComponent: React.FC<LibraryGridProps> = ({
   games,
   onReorder,
   onPlay,
@@ -249,3 +249,4 @@ export const LibraryGrid: React.FC<LibraryGridProps> = ({
     </div>
   );
 };
+export const LibraryGrid = React.memo(LibraryGridComponent);

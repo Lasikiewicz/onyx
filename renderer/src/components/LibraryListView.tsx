@@ -41,7 +41,7 @@ interface LibraryListViewProps {
   onEmptySpaceClick?: (x: number, y: number) => void;
 }
 
-export const LibraryListView: React.FC<LibraryListViewProps> = ({
+const LibraryListViewComponent: React.FC<LibraryListViewProps> = ({
   games,
   onPlay,
   onGameClick,
@@ -636,3 +636,4 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
     </div>
   );
 };
+export const LibraryListView = React.memo(LibraryListViewComponent);

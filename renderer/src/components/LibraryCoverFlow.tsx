@@ -51,7 +51,7 @@ const SCROLL_DURATION_PER_STEP_MS = 420; // same speed per step (1 step or dista
 const SCROLL_EASE = (t: number) => 1 - Math.pow(1 - t, 3); // easeOutCubic
 const PIXELS_PER_INDEX = 200; // drag distance (px) per item for 1:1 feel
 
-export const LibraryCoverFlow: React.FC<LibraryCoverFlowProps> = ({
+const LibraryCoverFlowComponent: React.FC<LibraryCoverFlowProps> = ({
   games,
   onPlay,
   onGameClick,
@@ -597,3 +597,4 @@ export const LibraryCoverFlow: React.FC<LibraryCoverFlowProps> = ({
     </div>
   );
 };
+export const LibraryCoverFlow = React.memo(LibraryCoverFlowComponent);
