@@ -206,6 +206,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getChangelog: (version?: string) => ipcRenderer.invoke('app:getChangelog', version),
   // App name (for detecting Alpha builds)
   getName: () => ipcRenderer.invoke('app:getName'),
+  isPackaged: () => ipcRenderer.invoke('app:isPackaged'),
   // Auto-update (only active when packaged)
   checkForUpdates: () => ipcRenderer.invoke('app:checkForUpdates'),
   downloadUpdate: () => ipcRenderer.invoke('app:downloadUpdate'),

@@ -462,6 +462,7 @@ declare global {
       getVersion: () => Promise<string>;
       getChangelog: (version?: string) => Promise<{ success: boolean; content?: string; error?: string }>;
       getName: () => Promise<string>;
+      isPackaged?: () => Promise<boolean>;
       checkForUpdates?: () => Promise<void>;
       downloadUpdate?: () => Promise<{ success: boolean; error?: string }>;
       quitAndInstall?: () => Promise<void>;

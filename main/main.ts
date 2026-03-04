@@ -527,6 +527,17 @@ function createMenu() {
     },
   ];
 
+  if (IS_DEV) {
+    template.splice(3, 0, {
+      label: 'Develop',
+      submenu: [
+        { role: 'reload', label: 'Reload' },
+        { role: 'forceReload', label: 'Force Reload' },
+        { role: 'toggleDevTools', label: 'Toggle DevTools' },
+      ],
+    });
+  }
+
   const menu = Menu.buildFromTemplate(template);
   Menu.setApplicationMenu(menu);
 }

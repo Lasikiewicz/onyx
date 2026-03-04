@@ -110,9 +110,11 @@ function App() {
   const [onyxSettingsInitialTab, setOnyxSettingsInitialTab] = useState<'general' | 'appearance' | 'apis' | 'apps' | 'about'>('general');
   const [isAPISettingsOpen, setIsAPISettingsOpen] = useState(false);
   const [isBugReportOpen, setIsBugReportOpen] = useState(false);
+  const [forceShowInitialOnboarding, setForceShowInitialOnboarding] = useState(false);
   const [gridSize, setGridSize] = useState(120);
   const [logoSize, setLogoSize] = useState(100);
   const [pinnedCategories, setPinnedCategories] = useState<string[]>([]);
+  const autoPinOptOutRef = useRef<Set<string>>(new Set());
   const [hideVRTitles, setHideVRTitles] = useState(true);
   const [hideAppsTitles, setHideAppsTitles] = useState(true);
   const [hideGameTitles, setHideGameTitles] = useState(false);
@@ -701,8 +703,10 @@ function App() {
   const handleTogglePinCategory = (category: string) => {
     setPinnedCategories(prev => {
       if (prev.includes(category)) {
+        autoPinOptOutRef.current.add(category);
         return prev.filter(c => c !== category);
       } else {
+        autoPinOptOutRef.current.delete(category);
         return [...prev, category];
       }
     });
@@ -867,19 +871,24 @@ function App() {
     };
   }, [games]);
 
-  // Automatically pin VR and Apps categories when they exist
+  // Automatically pin all categories when they appear (default behavior)
   useEffect(() => {
-    const categoriesToAutoPin = ['VR', 'Apps'];
     setPinnedCategories(prev => {
       const updated = [...prev];
       let changed = false;
 
-      categoriesToAutoPin.forEach(category => {
-        if (allCategories.includes(category) && !prev.includes(category)) {
+      for (const category of allCategories) {
+        if (!prev.includes(category) && !autoPinOptOutRef.current.has(category)) {
           updated.push(category);
           changed = true;
         }
-      });
+      }
+
+      for (const category of Array.from(autoPinOptOutRef.current)) {
+        if (!allCategories.includes(category)) {
+          autoPinOptOutRef.current.delete(category);
+        }
+      }
 
       return changed ? updated : prev;
     });
@@ -2208,6 +2217,19 @@ function App() {
           onShowLibraryTutorial={() => setShowLibraryTutorial(true)}
           onExit={handleExit}
           onBugReport={isAlphaBuild ? () => setIsBugReportOpen(true) : undefined}
+          onForceOpenUpdateFound={() => {
+            const normalized = (currentVersion ?? '0.0.0').replace(/^v/i, '').trim();
+            const parts = normalized.split('-')[0].split('.').map((part) => Number(part) || 0);
+            const [major, minor, patch] = [parts[0] ?? 0, parts[1] ?? 0, parts[2] ?? 0];
+            const simulatedVersion = `${major}.${minor}.${patch + 1}`;
+            setIsUpdateModalTest(true);
+            setUpdateNotification({
+              version: simulatedVersion,
+              status: 'available',
+            });
+          }}
+          onForceOpenOnboarding={() => setForceShowInitialOnboarding(true)}
+          onForceCloseOnboarding={() => setForceShowInitialOnboarding(false)}
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
           selectedCategory={selectedCategory}
@@ -2342,7 +2364,7 @@ function App() {
                       ))}
                     </div>
                   )}
-                  {displayGames.length > 0 ? (
+                  {displayGames.length > 0 && !forceShowInitialOnboarding ? (
                     <div className={`flex-1 overflow-y-auto animate-onyx-grid-fade ${showCategoriesByView[viewMode] && viewMode !== 'carousel' && viewMode !== 'coverflow' ? ((categoriesPositionByView[viewMode] ?? 'top') === 'top' ? 'px-4 pb-4 pt-0' : 'px-4 pt-4 pb-0') : ''}`}>
                       {viewMode === 'grid' || viewMode === 'logo' ? (
                         <LibraryGrid
@@ -2486,12 +2508,19 @@ function App() {
                   ) : (
                     <WelcomeScreen
                       onScanGames={() => {
+                        setForceShowInitialOnboarding(false);
                         window.electronAPI.cancelStartupScan?.();
                         setAutoStartScan(true);
                         setIsImportWorkbenchOpen(true);
                       }}
-                      onAddFolder={handleAddFolder}
-                      onOpenSettings={() => setIsAPISettingsOpen(true)}
+                      onAddFolder={(path, categories) => {
+                        setForceShowInitialOnboarding(false);
+                        handleAddFolder(path, categories);
+                      }}
+                      onOpenSettings={() => {
+                        setForceShowInitialOnboarding(false);
+                        setIsAPISettingsOpen(true);
+                      }}
                     />
                   )}
                   {showCategoriesByView[viewMode] && viewMode !== 'carousel' && viewMode !== 'coverflow' && pinnedCategories.length > 0 && (categoriesPositionByView[viewMode] ?? 'top') === 'bottom' && (
@@ -2543,7 +2572,7 @@ function App() {
           </div>
 
           {/* Right Panel - Game Details (hidden in carousel/coverflow mode and when no games exist) */}
-          {viewMode !== 'carousel' && viewMode !== 'coverflow' && filteredGames.length > 0 && (
+          {viewMode !== 'carousel' && viewMode !== 'coverflow' && filteredGames.length > 0 && !forceShowInitialOnboarding && (
             <GameDetailsPanel
               game={activeGame}
               isLaunching={launchingGameId === activeGame?.id}

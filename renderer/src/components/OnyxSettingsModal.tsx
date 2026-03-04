@@ -5,6 +5,7 @@ import { SettingsLayout } from './settings/SettingsLayout';
 import { SettingsSidebar, SettingsTab } from './settings/SettingsSidebar';
 import { SettingsSection, SettingsToggle, SettingsInput } from './settings/SettingsComponents';
 import { LINK_DISPLAY_ORDER, DEFAULT_VISIBLE_LINK_TYPES, LINK_DISPLAY_NAME_TO_KEY, LinkIcon } from './GameLinks';
+import { LauncherIcon } from '../utils/launcherIcons';
 
 interface OnyxSettingsModalProps {
   isOpen: boolean;
@@ -1372,6 +1373,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                         <div key={app.id} className="bg-gray-800/40 border border-gray-700/50 rounded-lg p-3 hover:bg-gray-800/60 transition-colors">
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-3">
+                              <LauncherIcon launcher={app.id} className="w-5 h-5" />
                               <span className={`font-medium text-sm ${app.enabled ? 'text-white' : 'text-gray-500'}`}>{app.name}</span>
                             </div>
                             <div className="flex items-center gap-3">
@@ -2156,7 +2158,23 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                       Powered by <span className="text-slate-400 font-medium">IGDB</span>, <span className="text-slate-400 font-medium">SteamGridDB</span>, and <span className="text-slate-400 font-medium">RAWG.io</span>
                     </p>
                     <p className="text-xs text-slate-500">
-                      Link icons by <a href="https://allsvgicons.com" target="_blank" rel="noopener noreferrer" className="text-slate-400 font-medium hover:text-sky-400 transition-colors">allsvgicons.com</a>
+                      Link icons by{' '}
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            const result = await window.electronAPI.openExternal('https://allsvgicons.com');
+                            if (!result.success) {
+                              console.error('Failed to open external URL:', result.error);
+                            }
+                          } catch (error) {
+                            console.error('Failed to open external URL:', error);
+                          }
+                        }}
+                        className="text-slate-400 font-medium hover:text-sky-400 transition-colors underline"
+                      >
+                        allsvgicons.com
+                      </button>
                     </p>
                   </div>
 
@@ -2166,26 +2184,22 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                     </p>
                     <p>
                       Suspend/Resume integration thanks to{' '}
-                      <a
-                        href="https://nyrna.merritt.codes/"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={async (event) => {
-                          event.preventDefault();
+                      <button
+                        type="button"
+                        onClick={async () => {
                           try {
-                            if (window.electronAPI?.openExternal) {
-                              await window.electronAPI.openExternal('https://nyrna.merritt.codes/');
-                            } else {
-                              window.open('https://nyrna.merritt.codes/', '_blank', 'noopener,noreferrer');
+                            const result = await window.electronAPI.openExternal('https://nyrna.merritt.codes/');
+                            if (!result.success) {
+                              console.error('Failed to open external URL:', result.error);
                             }
                           } catch (error) {
                             console.error('Failed to open Nyrna link:', error);
                           }
                         }}
-                        className="text-slate-300 font-medium hover:text-sky-400 transition-colors"
+                        className="text-slate-300 font-medium hover:text-sky-400 transition-colors underline"
                       >
                         Nyrna
-                      </a>
+                      </button>
                     </p>
                   </div>
                 </div>

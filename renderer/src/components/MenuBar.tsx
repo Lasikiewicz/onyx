@@ -21,6 +21,7 @@ import iconPng from '../../../resources/icon.png';
 import iconSvg from '../../../resources/icon.svg';
 import { TopBarContextMenu, TopBarPositions } from './TopBarContextMenu';
 import type { OptimizationStatus } from '../types/optimization';
+import { LauncherIcon, getLauncherDisplayName } from '../utils/launcherIcons';
 
 interface MenuBarProps {
   onScanFolder?: () => void;
@@ -34,6 +35,9 @@ interface MenuBarProps {
   onShowLibraryTutorial?: () => void;
   onExit?: () => void;
   onBugReport?: () => void;
+  onForceOpenUpdateFound?: () => void;
+  onForceOpenOnboarding?: () => void;
+  onForceCloseOnboarding?: () => void;
   searchQuery?: string;
   onSearchChange?: (query: string) => void;
   selectedCategory?: string | null;
@@ -148,11 +152,16 @@ export const MenuBar: React.FC<MenuBarProps> = ({
   onShowLibraryTutorial,
   onExit,
   onBugReport,
+  onForceOpenUpdateFound,
+  onForceOpenOnboarding,
+  onForceCloseOnboarding,
 }) => {
   const [isFilterDropdownOpen, setIsFilterDropdownOpen] = useState(false);
   const [isSortDropdownOpen, setIsSortDropdownOpen] = useState(false);
   const [isLauncherDropdownOpen, setIsLauncherDropdownOpen] = useState(false);
   const [isOnyxSettingsMenuOpen, setIsOnyxSettingsMenuOpen] = useState(false);
+  const [isDevelopMenuOpen, setIsDevelopMenuOpen] = useState(false);
+  const [isPackagedRuntime, setIsPackagedRuntime] = useState<boolean | null>(null);
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [topBarContextMenu, setTopBarContextMenu] = useState<{ x: number; y: number } | null>(null);
   const [categorySearchQuery, setCategorySearchQuery] = useState('');
@@ -342,14 +351,24 @@ export const MenuBar: React.FC<MenuBarProps> = ({
     }
   };
 
-  // Check if this is an alpha build using build-time constant
-  // __BUILD_PROFILE__ is set by Vite during the build process
-  const isAlphaBuild = __BUILD_PROFILE__ === 'alpha' || import.meta.env.DEV;
-
   const filterDropdownRef = useRef<HTMLDivElement>(null);
   const sortDropdownRef = useRef<HTMLDivElement>(null);
   const launcherDropdownRef = useRef<HTMLDivElement>(null);
   const onyxSettingsMenuRef = useRef<HTMLDivElement>(null);
+  const developMenuRef = useRef<HTMLDivElement>(null);
+
+  const showDevelopMenu = import.meta.env.DEV || isPackagedRuntime === false;
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const packaged = await window.electronAPI.isPackaged?.();
+        if (typeof packaged === 'boolean') setIsPackagedRuntime(packaged);
+      } catch {
+        setIsPackagedRuntime(null);
+      }
+    })();
+  }, []);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -364,6 +383,9 @@ export const MenuBar: React.FC<MenuBarProps> = ({
       }
       if (onyxSettingsMenuRef.current && !onyxSettingsMenuRef.current.contains(event.target as Node)) {
         setIsOnyxSettingsMenuOpen(false);
+      }
+      if (developMenuRef.current && !developMenuRef.current.contains(event.target as Node)) {
+        setIsDevelopMenuOpen(false);
       }
     };
 
@@ -477,6 +499,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
 
   const renderLauncher = () => {
     if (launchers.length === 0) return null;
+    const selectedLauncherDisplayName = selectedLauncher ? getLauncherDisplayName(selectedLauncher) : 'Launcher';
     return (
       <div className="relative" ref={launcherDropdownRef}>
         <button
@@ -491,19 +514,14 @@ export const MenuBar: React.FC<MenuBarProps> = ({
             }`}
           title="Launcher"
         >
-          {selectedLauncher
-            ? (selectedLauncher === 'steam' ? 'Steam' :
-              selectedLauncher === 'epic' ? 'Epic Games' :
-                selectedLauncher === 'gog' ? 'GOG Galaxy' :
-                  selectedLauncher === 'xbox' ? 'Xbox Game Pass' :
-                    selectedLauncher === 'ea' ? 'EA App' :
-                      selectedLauncher === 'ubisoft' ? 'Ubisoft Connect' :
-                        selectedLauncher === 'battle' ? 'Battle.net' :
-                          selectedLauncher === 'humble' ? 'Humble' :
-                            selectedLauncher === 'itch' ? 'itch.io' :
-                              selectedLauncher === 'rockstar' ? 'Rockstar Games' :
-                                selectedLauncher === 'other' ? 'Other' : selectedLauncher)
-            : 'Launcher'}
+          {selectedLauncher ? (
+            <span className="flex items-center gap-2">
+              <LauncherIcon launcher={selectedLauncher} className="w-4 h-4" />
+              <span>{selectedLauncherDisplayName}</span>
+            </span>
+          ) : (
+            'Launcher'
+          )}
         </button>
         {isLauncherDropdownOpen && (
           <div className="absolute left-0 mt-1 w-48 bg-gray-800 border border-gray-700 rounded-lg shadow-xl z-50">
@@ -518,20 +536,16 @@ export const MenuBar: React.FC<MenuBarProps> = ({
                   : 'text-gray-300 hover:bg-gray-700'
                   }`}
               >
-                All Launchers
+                <span className="flex items-center gap-2">
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <rect x="2" y="6" width="20" height="12" rx="2" />
+                    <line x1="6" y1="12" x2="18" y2="12" />
+                  </svg>
+                  <span>All Launchers</span>
+                </span>
               </button>
               {launchers.map((launcher) => {
-                const displayName = launcher === 'steam' ? 'Steam' :
-                  launcher === 'epic' ? 'Epic Games' :
-                    launcher === 'gog' ? 'GOG Galaxy' :
-                      launcher === 'xbox' ? 'Xbox Game Pass' :
-                        launcher === 'ea' ? 'EA App' :
-                          launcher === 'ubisoft' ? 'Ubisoft Connect' :
-                            launcher === 'battle' ? 'Battle.net' :
-                              launcher === 'humble' ? 'Humble' :
-                                launcher === 'itch' ? 'itch.io' :
-                                  launcher === 'rockstar' ? 'Rockstar Games' :
-                                    launcher === 'other' ? 'Other' : launcher;
+                const displayName = getLauncherDisplayName(launcher);
                 const isSelected = selectedLauncher === launcher;
                 return (
                   <button
@@ -545,7 +559,10 @@ export const MenuBar: React.FC<MenuBarProps> = ({
                       : 'text-gray-300 hover:bg-gray-700'
                       }`}
                   >
-                    {displayName}
+                    <span className="flex items-center gap-2">
+                      <LauncherIcon launcher={launcher} className="w-4 h-4" />
+                      <span>{displayName}</span>
+                    </span>
                   </button>
                 );
               })}
@@ -588,7 +605,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
             {/* Search header or Title */}
             <div className="p-3 border-b border-white/5 bg-white/5 space-y-2">
               <div className="flex items-center justify-between px-1">
-                <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Filter By</span>
+                <span className="text-[10px] font-bold text-gray-300 uppercase tracking-widest">Filter By</span>
                 <button
                   onClick={() => {
                     onCategoryChange?.(null);
@@ -609,7 +626,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
                     placeholder="Search categories..."
                     className="w-full bg-black/40 border border-white/10 rounded-lg px-8 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-blue-500/50 transition-all"
                   />
-                  <svg className="w-3.5 h-3.5 text-gray-500 absolute left-2.5 top-1/2 transform -translate-y-1/2 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-3.5 h-3.5 text-gray-300 absolute left-2.5 top-1/2 transform -translate-y-1/2 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
                 </div>
@@ -626,7 +643,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
                   }}
                   className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-all flex items-center justify-between group/cat ${selectedCategory === null
                     ? 'bg-blue-600/20 text-blue-300 border border-blue-500/20 shadow-sm shadow-blue-500/10'
-                    : 'text-gray-400 hover:bg-white/5 hover:text-gray-200 border border-transparent'
+                    : 'text-gray-200 hover:bg-white/5 hover:text-white border border-transparent'
                     }`}
                 >
                   <div className="flex items-center gap-3">
@@ -636,7 +653,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
                     <span>All Games</span>
                   </div>
                   {categoryCounts['all'] !== undefined && (
-                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${selectedCategory === null ? 'bg-blue-500/30 text-blue-200' : 'bg-white/5 text-gray-500 group-hover/cat:bg-white/10'}`}>
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${selectedCategory === null ? 'bg-blue-500/30 text-blue-200' : 'bg-white/5 text-gray-300 group-hover/cat:bg-white/10'}`}>
                       {categoryCounts['all']}
                     </span>
                   )}
@@ -651,7 +668,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
                     }}
                     className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-all flex items-center justify-between group/cat ${selectedCategory === 'favorites'
                       ? 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/20 shadow-sm shadow-yellow-500/10'
-                      : 'text-gray-400 hover:bg-white/5 hover:text-gray-200 border border-transparent'
+                      : 'text-gray-200 hover:bg-white/5 hover:text-white border border-transparent'
                       }`}
                   >
                     <div className="flex items-center gap-3">
@@ -661,7 +678,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
                       <span>Favorites</span>
                     </div>
                     {categoryCounts['favorites'] !== undefined && (
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${selectedCategory === 'favorites' ? 'bg-yellow-500/30 text-yellow-200' : 'bg-white/5 text-gray-500 group-hover/cat:bg-white/10'}`}>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${selectedCategory === 'favorites' ? 'bg-yellow-500/30 text-yellow-200' : 'bg-white/5 text-gray-300 group-hover/cat:bg-white/10'}`}>
                         {categoryCounts['favorites']}
                       </span>
                     )}
@@ -672,7 +689,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
               {/* Categories */}
               {filteredCategories.length > 0 && (
                 <div className="space-y-1">
-                  <div className="px-3 py-1 text-[10px] font-bold text-gray-500 uppercase tracking-widest">Categories</div>
+                  <div className="px-3 py-1 text-[10px] font-bold text-gray-300 uppercase tracking-widest">Categories</div>
                   {filteredCategories.map((category) => {
                     const isPinned = pinnedCategories?.includes(category);
                     const isSelected = selectedCategory === category;
@@ -685,12 +702,12 @@ export const MenuBar: React.FC<MenuBarProps> = ({
                           }}
                           className={`flex-1 text-left px-3 py-2 rounded-lg text-sm transition-all truncate flex items-center justify-between group/cat ${isSelected
                             ? 'bg-blue-600/20 text-blue-300 border border-blue-500/20 shadow-sm shadow-blue-500/10'
-                            : 'text-gray-400 hover:bg-white/5 hover:text-gray-200 border border-transparent'
+                            : 'text-gray-200 hover:bg-white/5 hover:text-white border border-transparent'
                             }`}
                         >
                           <span className="truncate">{category}</span>
                           {categoryCounts[category] !== undefined && (
-                            <span className={`text-[10px] px-1.5 py-0.5 rounded-full transition-colors ${isSelected ? 'bg-blue-500/30 text-blue-200' : 'bg-white/5 text-gray-500 group-hover/cat:text-gray-400 group-hover/cat:bg-white/10'
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded-full transition-colors ${isSelected ? 'bg-blue-500/30 text-blue-200' : 'bg-white/5 text-gray-300 group-hover/cat:text-gray-200 group-hover/cat:bg-white/10'
                               }`}>
                               {categoryCounts[category]}
                             </span>
@@ -704,7 +721,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
                             }}
                             className={`p-2 rounded-lg transition-all ${isPinned
                               ? 'text-yellow-400 bg-yellow-400/10'
-                              : 'text-gray-400 hover:text-yellow-400 hover:bg-white/10 opacity-40 group-hover:opacity-100'
+                              : 'text-gray-300 hover:text-yellow-400 hover:bg-white/10 opacity-60 group-hover:opacity-100'
                               }`}
                             title={isPinned ? 'Unpin category' : 'Pin category'}
                           >
@@ -721,26 +738,26 @@ export const MenuBar: React.FC<MenuBarProps> = ({
 
               {categorySearchQuery && filteredCategories.length === 0 && (
                 <div className="p-8 text-center">
-                  <p className="text-gray-500 text-xs italic">No categories found matching "{categorySearchQuery}"</p>
+                  <p className="text-gray-300 text-xs italic">No categories found matching "{categorySearchQuery}"</p>
                 </div>
               )}
             </div>
 
             {/* Footer with Visibility Toggles */}
             <div className="p-2 border-t border-white/5 bg-black/20 space-y-1">
-              <div className="px-1 py-1 text-[10px] font-bold text-gray-600 uppercase tracking-widest">Visibility</div>
+              <div className="px-1 py-1 text-[10px] font-bold text-gray-300 uppercase tracking-widest">Visibility</div>
               <div className="grid grid-cols-1 gap-1">
                 {hasVRCategory && (
                   <button
                     onClick={() => onToggleHideVRTitles?.()}
-                    className="w-full flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-white/5 text-xs text-gray-400 transition-colors"
+                    className="w-full flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-white/5 text-xs text-gray-200 transition-colors"
                   >
                     <div className="flex items-center gap-2">
                       <svg className="w-3.5 h-3.5 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                       </svg>
-                      <span>Hide VR Titles</span>
+                      <span>Hide VR Titles from main list</span>
                     </div>
                     <div className={`w-8 h-4 rounded-full relative transition-colors ${hideVRTitles ? 'bg-blue-600' : 'bg-gray-700'}`}>
                       <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${hideVRTitles ? 'right-0.5' : 'left-0.5'}`} />
@@ -750,7 +767,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
                 {hasAppsCategory && (
                   <button
                     onClick={() => onToggleHideAppsTitles?.()}
-                    className="w-full flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-white/5 text-xs text-gray-400 transition-colors"
+                    className="w-full flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-white/5 text-xs text-gray-200 transition-colors"
                   >
                     <div className="flex items-center gap-2">
                       <svg className="w-3.5 h-3.5 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -772,7 +789,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
                     }}
                     className={`w-full text-left px-2 py-1.5 rounded-lg text-xs transition-all flex items-center gap-2 ${selectedCategory === 'hidden'
                       ? 'bg-red-900/40 text-red-300 border border-red-500/20 shadow-sm shadow-red-500/10'
-                      : 'text-gray-400 hover:bg-white/5 hover:text-red-400'
+                      : 'text-gray-200 hover:bg-white/5 hover:text-red-300'
                       }`}
                   >
                     <div className="flex-1 flex items-center justify-between">
@@ -783,7 +800,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
                         <span>{selectedCategory === 'hidden' ? 'Showing Hidden Games' : 'Show Hidden Games'}</span>
                       </div>
                       {categoryCounts['hidden'] !== undefined && (
-                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${selectedCategory === 'hidden' ? 'bg-red-500/30 text-red-200' : 'bg-white/5 text-gray-500 hover:text-red-400'}`}>
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${selectedCategory === 'hidden' ? 'bg-red-500/30 text-red-200' : 'bg-white/5 text-gray-300 hover:text-red-300'}`}>
                           {categoryCounts['hidden']}
                         </span>
                       )}
@@ -1114,8 +1131,8 @@ export const MenuBar: React.FC<MenuBarProps> = ({
         </div>
       )}
 
-      {/* Right section - console (dev), alpha/bug (develop), positioned elements, optimizing indicator; mr-32 keeps clear of window controls */}
-      {(elementsByPosition.right.length > 0 || import.meta.env.DEV || (__BUILD_PROFILE__ === 'alpha' || ((import.meta.env.DEV || isAlphaBuild) && onBugReport))) && (
+      {/* Right section - develop menu + positioned elements + alpha badge; mr-32 keeps clear of window controls */}
+      {(elementsByPosition.right.length > 0 || showDevelopMenu || __BUILD_PROFILE__ === 'alpha') && (
         <div
           className="flex items-center gap-2 mr-32"
           style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
@@ -1126,35 +1143,80 @@ export const MenuBar: React.FC<MenuBarProps> = ({
           }}
         >
           {elementsByPosition.right}
-          {/* Console toggle (development mode only) - top right */}
-          {import.meta.env.DEV && (
-            <button
-              onClick={async () => {
-                try {
-                  await window.electronAPI.toggleDevTools();
-                } catch (error) {
-                  console.error('Error toggling DevTools:', error);
-                }
-              }}
-              className="p-1.5 hover:bg-gray-700/40 rounded transition-colors flex items-center justify-center"
-              title="Toggle Console"
-            >
-              <svg className="w-4 h-4 text-gray-300 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-            </button>
-          )}
-          {/* Bug Report Button (development and alpha builds) - top right */}
-          {(import.meta.env.DEV || isAlphaBuild) && onBugReport && (
-            <button
-              onClick={() => onBugReport()}
-              className="p-1.5 hover:bg-gray-700/40 rounded transition-colors flex items-center justify-center"
-              title="Report a Bug"
-            >
-              <svg className="w-4 h-4 text-yellow-400 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-              </svg>
-            </button>
+          {showDevelopMenu && (
+            <div className="relative" ref={developMenuRef}>
+              <button
+                onClick={() => setIsDevelopMenuOpen((prev) => !prev)}
+                className="px-3 py-1.5 bg-gray-700/20 hover:bg-gray-700/40 border border-gray-600/30 rounded text-sm text-gray-300 hover:text-white transition-colors"
+                title="Develop"
+              >
+                Develop
+              </button>
+
+              {isDevelopMenuOpen && (
+                <div className="absolute right-0 mt-1 w-64 bg-gray-800 border border-gray-700 rounded-lg shadow-xl z-50">
+                  <div className="p-2 space-y-1">
+                    <button
+                      onClick={async () => {
+                        try {
+                          await window.electronAPI.toggleDevTools();
+                        } catch (error) {
+                          console.error('Error toggling DevTools:', error);
+                        }
+                        setIsDevelopMenuOpen(false);
+                      }}
+                      className="w-full text-left px-3 py-2 rounded text-sm text-gray-300 hover:bg-gray-700 whitespace-nowrap"
+                    >
+                      Toggle Console
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        onForceOpenOnboarding?.();
+                        setIsDevelopMenuOpen(false);
+                      }}
+                      className="w-full text-left px-3 py-2 rounded text-sm text-gray-300 hover:bg-gray-700 whitespace-nowrap"
+                    >
+                      Open Initial Onboarding
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        onForceCloseOnboarding?.();
+                        setIsDevelopMenuOpen(false);
+                      }}
+                      className="w-full text-left px-3 py-2 rounded text-sm text-gray-300 hover:bg-gray-700 whitespace-nowrap"
+                    >
+                      Close Initial Onboarding
+                    </button>
+
+                    <div className="my-1 border-t border-gray-700/70" />
+
+                    <button
+                      onClick={() => {
+                        onForceOpenUpdateFound?.();
+                        setIsDevelopMenuOpen(false);
+                      }}
+                      className="w-full text-left px-3 py-2 rounded text-sm text-gray-300 hover:bg-gray-700 whitespace-nowrap"
+                    >
+                      Open Update Found
+                    </button>
+
+                    {onBugReport && (
+                      <button
+                        onClick={() => {
+                          onBugReport();
+                          setIsDevelopMenuOpen(false);
+                        }}
+                        className="w-full text-left px-3 py-2 rounded text-sm text-gray-300 hover:bg-gray-700 whitespace-nowrap"
+                      >
+                        Report a Bug
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
           )}
           {/* Alpha Badge - only on alpha builds (top right) */}
           {__BUILD_PROFILE__ === 'alpha' && (

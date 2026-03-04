@@ -156,12 +156,12 @@ export const UpdateNotificationModal: React.FC<UpdateNotificationModalProps> = (
       
       {/* Modal */}
       <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
-        <div className={`bg-gradient-to-br from-gray-900/95 to-slate-950/95 backdrop-blur-xl border border-cyan-500/40 rounded-3xl shadow-2xl w-full ${showChangelog ? 'max-w-4xl' : 'max-w-md'} p-8 max-h-[90vh] overflow-y-auto animate-in fade-in zoom-in duration-300`}>
-          <div className="flex flex-col items-center gap-6">
+        <div className={`bg-gradient-to-br from-gray-900/95 to-slate-950/95 backdrop-blur-xl border border-cyan-500/40 rounded-3xl shadow-2xl w-full ${showChangelog ? 'max-w-4xl' : 'max-w-md'} p-8 h-[90vh] max-h-[90vh] animate-in fade-in zoom-in duration-300 flex flex-col`}>
+          <div className="flex flex-col items-center gap-6 flex-1 min-h-0 overflow-y-auto">
             {/* Icon - spinning when update available or downloading */}
             <div className="w-16 h-16 rounded-full bg-cyan-500/20 flex items-center justify-center">
               <svg
-                className={`w-8 h-8 text-cyan-400 ${status === 'available' || status === 'downloading' || isDownloading ? 'animate-[spin_2s_linear_infinite]' : ''}`}
+                className={`w-8 h-8 text-cyan-400 ${status !== 'error' || isDownloading ? 'animate-[spin_2s_linear_infinite]' : ''}`}
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -230,16 +230,25 @@ export const UpdateNotificationModal: React.FC<UpdateNotificationModalProps> = (
               </div>
             )}
 
-            {/* Actions */}
-            <div className="flex flex-col gap-3 w-full">
-              <button
-                onClick={() => setShowChangelog(prev => !prev)}
-                className="w-full px-6 py-3 rounded-lg bg-slate-800/70 hover:bg-slate-700/70 text-slate-100 font-medium transition-colors border border-slate-600/50"
-              >
-                {showChangelog ? 'Hide Changelog' : 'View Changelog'}
-              </button>
-              {status === 'available' && (
-                <>
+          </div>
+
+          {/* Actions */}
+          <div className="mt-4 pt-4 flex flex-col gap-3 w-full">
+            <button
+              onClick={() => setShowChangelog(prev => !prev)}
+              className="w-full px-6 py-3 rounded-lg bg-slate-800/70 hover:bg-slate-700/70 text-slate-100 font-medium transition-colors border border-slate-600/50"
+            >
+              {showChangelog ? 'Hide Changelog' : 'View Changelog'}
+            </button>
+            {status === 'available' && (
+              <>
+                <div className="grid grid-cols-2 gap-3 w-full">
+                  <button
+                    onClick={onDismiss}
+                    className="w-full px-6 py-3 rounded-lg bg-slate-700/50 hover:bg-slate-600/50 text-slate-200 font-medium transition-colors border border-slate-600/50"
+                  >
+                    Dismiss
+                  </button>
                   <button
                     onClick={handleUpdateNow}
                     disabled={isDownloading}
@@ -254,41 +263,35 @@ export const UpdateNotificationModal: React.FC<UpdateNotificationModalProps> = (
                       'Download Update'
                     )}
                   </button>
-                  <button
-                    onClick={onDismiss}
-                    className="w-full px-6 py-3 rounded-lg bg-slate-700/50 hover:bg-slate-600/50 text-slate-200 font-medium transition-colors border border-slate-600/50"
-                  >
-                    Dismiss
-                  </button>
-                </>
-              )}
+                </div>
+              </>
+            )}
 
-              {status === 'downloaded' && (
-                <>
-                  <button
-                    onClick={onInstall}
-                    className="w-full px-6 py-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-medium transition-colors"
-                  >
-                    Install Now
-                  </button>
-                  <button
-                    onClick={onDismiss}
-                    className="w-full px-6 py-3 rounded-lg bg-slate-700/50 hover:bg-slate-600/50 text-slate-200 font-medium transition-colors border border-slate-600/50"
-                  >
-                    Install Later
-                  </button>
-                </>
-              )}
-
-              {status === 'error' && (
+            {status === 'downloaded' && (
+              <div className="grid grid-cols-2 gap-3 w-full">
                 <button
                   onClick={onDismiss}
                   className="w-full px-6 py-3 rounded-lg bg-slate-700/50 hover:bg-slate-600/50 text-slate-200 font-medium transition-colors border border-slate-600/50"
                 >
-                  Close
+                  Install Later
                 </button>
-              )}
-            </div>
+                <button
+                  onClick={onInstall}
+                  className="w-full px-6 py-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-medium transition-colors"
+                >
+                  Install Now
+                </button>
+              </div>
+            )}
+
+            {status === 'error' && (
+              <button
+                onClick={onDismiss}
+                className="w-full px-6 py-3 rounded-lg bg-slate-700/50 hover:bg-slate-600/50 text-slate-200 font-medium transition-colors border border-slate-600/50"
+              >
+                Close
+              </button>
+            )}
           </div>
         </div>
       </div>

@@ -408,6 +408,7 @@ export function registerAppIPCHandlers(
             : process.env.BUILD_PROFILE === 'alpha';
         return isAlpha ? 'alpha' : 'production';
     });
+    ipcMain.handle('app:isPackaged', () => app.isPackaged);
     ipcMain.handle('app:getChangelog', async (_event, version?: string) => {
         let lastError: string | null = null;
         // Try to fetch full CHANGELOG.md from GitHub as the primary source for versions
