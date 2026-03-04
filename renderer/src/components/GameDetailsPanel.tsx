@@ -5,6 +5,7 @@ import { LogoResizeMenu } from './LogoResizeMenu';
 import { ImageSearchModal } from './ImageSearchModal';
 import { GameLinks, DEFAULT_VISIBLE_LINK_TYPES } from './GameLinks';
 import { getContrastingTextColor } from '../utils/colorUtils';
+import { LauncherIcon, getLauncherDisplayName } from '../utils/launcherIcons';
 
 type ViewKey = 'grid' | 'list' | 'logo';
 
@@ -137,7 +138,6 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
   const [detailsFontSize, setDetailsFontSize] = useState(14);
   const [detailsFontFamily, setDetailsFontFamily] = useState('system-ui');
   const [boxartWidth, setBoxartWidth] = useState(128);
-  const [linkDisplayMode, setLinkDisplayMode] = useState<'icons' | 'dropdown'>('icons');
   const [visibleLinkTypes, setVisibleLinkTypes] = useState<Record<string, boolean>>(DEFAULT_VISIBLE_LINK_TYPES);
   const [linkDisplayOrder, setLinkDisplayOrder] = useState<string[] | null>(null);
   const [visibleDetails, setVisibleDetails] = useState({
@@ -200,7 +200,6 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
         if (prefs.visibleDetails) setVisibleDetails(prefs.visibleDetails);
         if (prefs.boxartWidth) setBoxartWidth(prefs.boxartWidth);
         if (prefs.descriptionHeight !== undefined) setDescriptionHeight(prefs.descriptionHeight);
-        if (prefs.linkDisplayMode) setLinkDisplayMode(prefs.linkDisplayMode);
         if (prefs.visibleLinkTypes && Object.keys(prefs.visibleLinkTypes).length > 0) {
           setVisibleLinkTypes(prefs.visibleLinkTypes);
         } else {
@@ -421,7 +420,10 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
     }
   };
 
-  const platformDisplay = game.platform === 'steam' ? 'PC (Windows)' : game.platform;
+  const normalizedPlatform = game.platform?.trim() || '';
+  const platformDisplay = normalizedPlatform
+    ? getLauncherDisplayName(normalizedPlatform)
+    : '';
 
   return (
     <div
@@ -819,7 +821,10 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
                 {visibleDetails.platform && platformDisplay && (
                   <div>
                     <p className="text-gray-400 mb-1" style={{ fontSize: `${rightPanelTextSize - 2}px` }}>Platform</p>
-                    <p className="text-gray-200" style={{ fontSize: `${rightPanelTextSize}px` }}>{platformDisplay}</p>
+                    <div className="text-gray-200 flex items-center gap-2" style={{ fontSize: `${rightPanelTextSize}px` }}>
+                      <LauncherIcon launcher={normalizedPlatform} className="w-4 h-4" />
+                      <span>{platformDisplay}</span>
+                    </div>
                   </div>
                 )}
                 {visibleDetails.ageRating && game.ageRating && (
@@ -1120,7 +1125,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
                   if (onUpdateGameInState) onUpdateGameInState(updatedGame);
                   if (onSaveGame) await onSaveGame(updatedGame);
                 }}
-                displayMode={linkDisplayMode === 'dropdown' ? 'icons' : linkDisplayMode}
+                displayMode="icons"
                 visibleTypes={visibleLinkTypesFromProps ?? visibleLinkTypes}
                 displayOrder={linkDisplayOrderFromProps ?? linkDisplayOrder ?? undefined}
                 buttonSize={rightPanelButtonSize}

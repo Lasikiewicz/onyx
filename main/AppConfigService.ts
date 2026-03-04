@@ -16,6 +16,7 @@ interface ManualFolderConfig {
   path: string;
   enabled: boolean;
   autoCategory?: string[]; // Auto-assign categories to games found in this folder
+  icon?: string; // Optional custom icon preset id for this manual folder
 }
 
 interface AppConfigsSchema {

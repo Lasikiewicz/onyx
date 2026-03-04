@@ -7,6 +7,7 @@ import { BoxartFixDialog } from './BoxartFixDialog';
 import { RemoveDeletedGamesDialog } from './RemoveDeletedGamesDialog';
 import { ImageContextMenu } from './ImageContextMenu';
 import { LinkIcon, inferLinkKey, getLinkIconSearchQuery } from './GameLinks';
+import { LauncherIcon, getLauncherDisplayName, normalizeLauncherId } from '../utils/launcherIcons';
 import type { OptimizationStatus } from '../types/optimization';
 
 interface GameManagerProps {
@@ -2371,14 +2372,24 @@ export const GameManager: React.FC<GameManagerProps> = ({
 
   // Get launcher name
   const getLauncherName = (game: Game): string => {
-    if (game.id.startsWith('steam-')) return 'Steam';
-    if (game.id.startsWith('epic-')) return 'Epic Games';
-    if (game.id.startsWith('gog-')) return 'GOG Galaxy';
-    if (game.id.startsWith('xbox-')) return 'Xbox Game Pass';
-    if (game.id.startsWith('ubisoft-')) return 'Ubisoft Connect';
-    if (game.id.startsWith('rockstar-')) return 'Rockstar Games';
-    if (game.id.startsWith('ea-') || game.id.startsWith('origin-')) return 'EA App';
-    if (game.id.startsWith('battle-') || game.id.startsWith('battlenet-')) return 'Battle.net';
+    const fromSource = (game.source || '').trim();
+    if (fromSource && normalizeLauncherId(fromSource) !== 'other') {
+      return getLauncherDisplayName(fromSource);
+    }
+
+    const fromPlatform = (game.platform || '').trim();
+    if (fromPlatform && normalizeLauncherId(fromPlatform) !== 'other') {
+      return getLauncherDisplayName(fromPlatform);
+    }
+
+    if (game.id.startsWith('steam-')) return getLauncherDisplayName('steam');
+    if (game.id.startsWith('epic-')) return getLauncherDisplayName('epic');
+    if (game.id.startsWith('gog-')) return getLauncherDisplayName('gog');
+    if (game.id.startsWith('xbox-')) return getLauncherDisplayName('xbox');
+    if (game.id.startsWith('ubisoft-')) return getLauncherDisplayName('ubisoft');
+    if (game.id.startsWith('rockstar-')) return getLauncherDisplayName('rockstar');
+    if (game.id.startsWith('ea-') || game.id.startsWith('origin-')) return getLauncherDisplayName('ea');
+    if (game.id.startsWith('battle-') || game.id.startsWith('battlenet-')) return getLauncherDisplayName('battle');
     return 'Other';
   };
 
@@ -2550,7 +2561,10 @@ export const GameManager: React.FC<GameManagerProps> = ({
                     )}
                     <div className="flex-1 min-w-0 text-left">
                       <p className="text-sm font-medium text-white truncate">{game.title}</p>
-                      <p className="text-xs text-gray-400 mt-1">{getLauncherName(game)}</p>
+                      <p className="text-xs text-gray-400 mt-1 flex items-center gap-1.5">
+                        <LauncherIcon launcher={getLauncherName(game)} className="w-3 h-3" />
+                        <span>{getLauncherName(game)}</span>
+                      </p>
                     </div>
                   </button>
                 ))}
@@ -3823,12 +3837,17 @@ export const GameManager: React.FC<GameManagerProps> = ({
                           {editedGame.platform && editedGame.platform !== 'other' && (
                             <div>
                               <label className="block text-[10px] uppercase tracking-wider font-semibold text-gray-500 mb-0.5">Platform</label>
-                              <input
-                                type="text"
-                                value={editedGame.platform}
-                                onChange={(e) => setEditedGame({ ...editedGame, platform: e.target.value })}
-                                className="w-full px-2 py-1 text-xs bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                              />
+                              <div className="relative">
+                                <div className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-300 pointer-events-none">
+                                  <LauncherIcon launcher={editedGame.platform} className="w-3.5 h-3.5" />
+                                </div>
+                                <input
+                                  type="text"
+                                  value={getLauncherDisplayName(editedGame.platform)}
+                                  onChange={(e) => setEditedGame({ ...editedGame, platform: e.target.value })}
+                                  className="w-full pl-7 pr-2 py-1 text-xs bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                />
+                              </div>
                             </div>
                           )}
 

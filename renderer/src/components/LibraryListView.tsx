@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Game } from '../types/game';
 import { GameContextMenu } from './GameContextMenu';
 import { prefetchGameArtwork } from '../utils/imagePrefetch';
+import { LauncherIcon, getLauncherDisplayName } from '../utils/launcherIcons';
 
 export interface ListViewOptions {
   showDescription: boolean;
@@ -88,24 +89,7 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
 
   const formatLauncher = (launcher?: string) => {
     if (!launcher) return '';
-    const normalized = launcher.toLowerCase();
-    const lookup: Record<string, string> = {
-      steam: 'Steam',
-      epic: 'Epic Games',
-      gog: 'GOG',
-      xbox: 'Xbox',
-      ubisoft: 'Ubisoft Connect',
-      uplay: 'Ubisoft Connect',
-      rockstar: 'Rockstar',
-      battlenet: 'Battle.net',
-      blizzard: 'Battle.net',
-      ea: 'EA App',
-      origin: 'Origin',
-      amazon: 'Amazon Games',
-      itch: 'itch.io',
-    };
-    if (lookup[normalized]) return lookup[normalized];
-    return launcher.charAt(0).toUpperCase() + launcher.slice(1);
+    return getLauncherDisplayName(launcher);
   };
 
   const displayMode = listViewOptions.displayMode || 'boxart-title';
@@ -263,9 +247,7 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                         )}
                         {listViewOptions.showLauncher && launcherLabel && (
                           <span className="flex items-center gap-1 text-gray-400">
-                            <svg className="w-4 h-4 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7h16M7 7V5a2 2 0 012-2h6a2 2 0 012 2v2m-6 5v5m-4 0h8a2 2 0 002-2V7H5v8a2 2 0 002 2z" />
-                            </svg>
+                            <LauncherIcon launcher={launcherLabel} className="w-4 h-4" />
                             {launcherLabel}
                           </span>
                         )}
@@ -363,9 +345,7 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                         )}
                         {listViewOptions.showLauncher && launcherLabel && (
                           <span className="flex items-center gap-1 text-gray-400">
-                            <svg className="w-4 h-4 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7h16M7 7V5a2 2 0 012-2h6a2 2 0 012 2v2m-6 5v5m-4 0h8a2 2 0 002-2V7H5v8a2 2 0 002 2z" />
-                            </svg>
+                            <LauncherIcon launcher={launcherLabel} className="w-4 h-4" />
                             {launcherLabel}
                           </span>
                         )}
@@ -480,9 +460,7 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                         )}
                         {listViewOptions.showLauncher && launcherLabel && (
                           <span className="flex items-center gap-1">
-                            <svg className="w-4 h-4 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7h16M7 7V5a2 2 0 012-2h6a2 2 0 012 2v2m-6 5v5m-4 0h8a2 2 0 002-2V7H5v8a2 2 0 002 2z" />
-                            </svg>
+                            <LauncherIcon launcher={launcherLabel} className="w-4 h-4" />
                             {launcherLabel}
                           </span>
                         )}
@@ -616,9 +594,7 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                         )}
                         {listViewOptions.showLauncher && launcherLabel && (
                           <span className="flex items-center gap-1">
-                            <svg className="w-4 h-4 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7h16M7 7V5a2 2 0 012-2h6a2 2 0 012 2v2m-6 5v5m-4 0h8a2 2 0 002-2V7H5v8a2 2 0 002 2z" />
-                            </svg>
+                            <LauncherIcon launcher={launcherLabel} className="w-4 h-4" />
                             {launcherLabel}
                           </span>
                         )}

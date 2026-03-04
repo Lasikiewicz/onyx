@@ -6,6 +6,20 @@ import { SettingsSidebar, SettingsTab } from './settings/SettingsSidebar';
 import { SettingsSection, SettingsToggle, SettingsInput } from './settings/SettingsComponents';
 import { LINK_DISPLAY_ORDER, DEFAULT_VISIBLE_LINK_TYPES, LINK_DISPLAY_NAME_TO_KEY, LinkIcon } from './GameLinks';
 import { LauncherIcon } from '../utils/launcherIcons';
+import manualFolderIconBaseline from '../assets/manual-folder-icons/baseline-games.svg';
+import manualFolderIconVariant1 from '../assets/manual-folder-icons/games-variant-1.svg';
+import manualFolderIconVariant2 from '../assets/manual-folder-icons/games-variant-2.svg';
+import manualFolderIconVariant3 from '../assets/manual-folder-icons/games-variant-3.svg';
+import manualFolderIconApps16Filled from '../assets/manual-folder-icons/apps-16-filled.svg';
+import manualFolderIconAppsFilled from '../assets/manual-folder-icons/apps-filled.svg';
+import manualFolderIconAppsOutline from '../assets/manual-folder-icons/apps-outline.svg';
+import manualFolderIconBadgeVrFill from '../assets/manual-folder-icons/badge-vr-fill.svg';
+import manualFolderIconBadgeVrOutline from '../assets/manual-folder-icons/badge-vr-outline.svg';
+import manualFolderIconVrCompact from '../assets/manual-folder-icons/vr-compact.svg';
+import manualFolderIconVrBadge from '../assets/manual-folder-icons/vr-badge.svg';
+import manualFolderIconVrGogglesFilled from '../assets/manual-folder-icons/vr-goggles-filled.svg';
+import manualFolderIconVrGogglesOutline from '../assets/manual-folder-icons/vr-goggles-outline.svg';
+import manualFolderIconVrSquare from '../assets/manual-folder-icons/vr-square.svg';
 
 interface OnyxSettingsModalProps {
   isOpen: boolean;
@@ -69,6 +83,35 @@ interface APICredentials {
   steamGridDBApiKey: string;
   giantBombApiKey: string;
 }
+
+interface ManualFolderConfig {
+  id: string;
+  name: string;
+  path: string;
+  enabled: boolean;
+  autoCategory?: string[];
+  icon?: string;
+}
+
+const MANUAL_FOLDER_ICON_PRESETS: Array<{ id: string; name: string; src: string }> = [
+  { id: 'baseline-games', name: 'Baseline Games', src: manualFolderIconBaseline },
+  { id: 'games-variant-1', name: 'Games 1', src: manualFolderIconVariant1 },
+  { id: 'games-variant-2', name: 'Games 2', src: manualFolderIconVariant2 },
+  { id: 'games-variant-3', name: 'Games 3', src: manualFolderIconVariant3 },
+  { id: 'apps-16-filled', name: 'Apps 16 Filled', src: manualFolderIconApps16Filled },
+  { id: 'apps-filled', name: 'Apps Filled', src: manualFolderIconAppsFilled },
+  { id: 'apps-outline', name: 'Apps Outline', src: manualFolderIconAppsOutline },
+  { id: 'badge-vr-fill', name: 'Badge VR Filled', src: manualFolderIconBadgeVrFill },
+  { id: 'badge-vr-outline', name: 'Badge VR Outline', src: manualFolderIconBadgeVrOutline },
+  { id: 'vr-compact', name: 'VR Compact', src: manualFolderIconVrCompact },
+  { id: 'vr-badge', name: 'VR Badge', src: manualFolderIconVrBadge },
+  { id: 'vr-goggles-filled', name: 'VR Goggles Filled', src: manualFolderIconVrGogglesFilled },
+  { id: 'vr-goggles-outline', name: 'VR Goggles Outline', src: manualFolderIconVrGogglesOutline },
+  { id: 'vr-square', name: 'VR Square', src: manualFolderIconVrSquare },
+];
+
+const getManualFolderIconPreset = (iconId?: string): { id: string; name: string; src: string } | undefined =>
+  MANUAL_FOLDER_ICON_PRESETS.find(preset => preset.id === iconId);
 
 type APITabType = 'igdb' | 'rawg' | 'steamgriddb' | 'giantbomb';
 
@@ -180,7 +223,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
   const [scanningAppId, setScanningAppId] = useState<string | null>(null);
 
   const [manualFolders, setManualFolders] = useState<string[]>([]);
-  const [manualFolderConfigs, setManualFolderConfigs] = useState<Record<string, { id: string; name: string; path: string; enabled: boolean; autoCategory?: string[] }>>({});
+  const [manualFolderConfigs, setManualFolderConfigs] = useState<Record<string, ManualFolderConfig>>({});
   const [editingAppId, setEditingAppId] = useState<string | null>(null);
   const [editingManualFolderId, setEditingManualFolderId] = useState<string | null>(null);
 
@@ -678,6 +721,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
       const result = await window.electronAPI.saveManualFolderConfig(updatedConfig);
       if (result && result.success) {
         setManualFolderConfigs({ ...manualFolderConfigs, [folderId]: updatedConfig });
+        notifyManualFolderIconsUpdated();
       }
     }
   };
@@ -725,6 +769,12 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
     typedText: '',
   });
   const [isRemovingGames, setIsRemovingGames] = useState(false);
+
+  const notifyManualFolderIconsUpdated = () => {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('onyx:manual-folder-icons-updated'));
+    }
+  };
 
   const handleRemoveAllGames = async () => {
     if (removeGamesConfirmation.step === 1) {
@@ -1220,6 +1270,16 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                       Add Folder
                     </button>
                   </div>
+                  <div className="flex flex-wrap items-center gap-2 text-[11px] text-gray-400">
+                    <span>Need more icon options?</span>
+                    <button
+                      onClick={() => window.electronAPI.openExternal?.('https://allsvgicons.com')}
+                      className="text-blue-400 hover:text-blue-300 underline underline-offset-2"
+                    >
+                      allsvgicons.com
+                    </button>
+                    <span>Open an icon page, right-click the icon, then use Save As and keep the .svg format.</span>
+                  </div>
 
                   {Object.keys(manualFolderConfigs).length === 0 ? (
                     <div className="text-center py-6 bg-gray-800/30 rounded-lg border border-gray-700/50 border-dashed hover:bg-gray-800/50 transition-colors">
@@ -1227,58 +1287,89 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                     </div>
                   ) : (
                     <div className="space-y-3">
+                      <div className="grid grid-cols-[2rem_minmax(120px,1fr)_minmax(180px,2fr)_minmax(140px,1.2fr)_auto_auto] gap-3 px-1 text-[10px] uppercase tracking-wider text-gray-500 font-semibold">
+                        <span>Icon</span>
+                        <span>Name</span>
+                        <span>Path</span>
+                        <span>Category</span>
+                        <span></span>
+                        <span></span>
+                      </div>
                       {Object.values(manualFolderConfigs).map((folderConfig) => (
                         <div key={folderConfig.id} className="border border-gray-700/50 rounded-lg p-3 bg-gray-800/40 hover:bg-gray-800/60 transition-colors">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3 flex-1 min-w-0 mr-4">
-                              <input
-                                type="text"
-                                value={folderConfig.name}
-                                onChange={(e) => handleUpdateManualFolderName(folderConfig.id, e.target.value)}
-                                onBlur={() => {
-                                  const config = manualFolderConfigs[folderConfig.id];
-                                  if (config && window.electronAPI.saveManualFolderConfig) {
-                                    window.electronAPI.saveManualFolderConfig(config);
-                                  }
-                                }}
-                                className="font-medium text-white text-sm bg-transparent border-none p-0 focus:ring-0 focus:underline max-w-[150px]"
-                              />
-                              {/* Inline Categories Badges */}
-                              {folderConfig.autoCategory && folderConfig.autoCategory.length > 0 && (
-                                <div className="flex items-center gap-1.5 overflow-hidden">
+                          <div className="grid grid-cols-[2rem_minmax(120px,1fr)_minmax(180px,2fr)_minmax(140px,1.2fr)_auto_auto] gap-3 items-center">
+                            <div className="w-8 h-8 rounded border border-gray-600/60 bg-gray-900/60 flex items-center justify-center">
+                              {getManualFolderIconPreset(folderConfig.icon) ? (
+                                <img
+                                  src={getManualFolderIconPreset(folderConfig.icon)!.src}
+                                  alt={`${folderConfig.name} icon`}
+                                  className="w-4 h-4 brightness-0 invert opacity-90"
+                                />
+                              ) : (
+                                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7a2 2 0 012-2h5l2 2h7a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" />
+                                </svg>
+                              )}
+                            </div>
+
+                            <input
+                              type="text"
+                              value={folderConfig.name}
+                              onChange={(e) => handleUpdateManualFolderName(folderConfig.id, e.target.value)}
+                              onBlur={() => {
+                                const config = manualFolderConfigs[folderConfig.id];
+                                if (config && window.electronAPI.saveManualFolderConfig) {
+                                  window.electronAPI.saveManualFolderConfig(config);
+                                  notifyManualFolderIconsUpdated();
+                                }
+                              }}
+                              className="font-medium text-white text-sm bg-transparent border-none p-0 focus:ring-0 focus:underline min-w-0"
+                            />
+
+                            <div className="text-xs text-gray-300 font-mono truncate" title={folderConfig.path}>
+                              {folderConfig.path}
+                            </div>
+
+                            <div className="flex items-center gap-1.5 overflow-hidden min-w-0">
+                              {folderConfig.autoCategory && folderConfig.autoCategory.length > 0 ? (
+                                <>
                                   {folderConfig.autoCategory.slice(0, 3).map(cat => (
-                                    <span key={cat} className="px-1.5 py-0.5 rounded text-[10px] bg-gray-700 text-gray-400 border border-gray-600/50 whitespace-nowrap">
+                                    <span key={cat} className="px-1.5 py-0.5 rounded text-[10px] bg-gray-700 text-gray-300 border border-gray-600/50 whitespace-nowrap">
                                       {cat}
                                     </span>
                                   ))}
                                   {folderConfig.autoCategory.length > 3 && (
                                     <span className="text-[10px] text-gray-500">+{folderConfig.autoCategory.length - 3}</span>
                                   )}
-                                </div>
+                                </>
+                              ) : (
+                                <span className="text-[10px] text-gray-500">None</span>
                               )}
                             </div>
-                            <div className="flex items-center gap-3 flex-shrink-0">
-                              {folderConfig.enabled && (
-                                <button
-                                  onClick={() => setEditingManualFolderId(editingManualFolderId === folderConfig.id ? null : folderConfig.id)}
-                                  className={`text-xs font-medium px-2 py-1 rounded transition-colors ${editingManualFolderId === folderConfig.id ? 'text-blue-400 bg-blue-400/10' : 'text-gray-400 hover:text-white hover:bg-gray-700/50'}`}
-                                >
-                                  Edit
-                                </button>
-                              )}
+
+                            {folderConfig.enabled ? (
                               <button
-                                onClick={async () => {
-                                  const updated = { ...folderConfig, enabled: !folderConfig.enabled };
-                                  if (window.electronAPI.saveManualFolderConfig) {
-                                    await window.electronAPI.saveManualFolderConfig(updated);
-                                    setManualFolderConfigs({ ...manualFolderConfigs, [folderConfig.id]: updated });
-                                  }
-                                }}
-                                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors flex-shrink-0 focus:outline-none focus:ring-2 focus:ring-blue-500/50 ${folderConfig.enabled ? 'bg-blue-600' : 'bg-gray-600'}`}
+                                onClick={() => setEditingManualFolderId(editingManualFolderId === folderConfig.id ? null : folderConfig.id)}
+                                className={`text-xs font-medium px-2 py-1 rounded transition-colors ${editingManualFolderId === folderConfig.id ? 'text-blue-400 bg-blue-400/10' : 'text-gray-400 hover:text-white hover:bg-gray-700/50'}`}
                               >
-                                <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform shadow-sm ${folderConfig.enabled ? 'translate-x-[18px]' : 'translate-x-[3px]'}`} />
+                                Edit
                               </button>
-                            </div>
+                            ) : (
+                              <span />
+                            )}
+
+                            <button
+                              onClick={async () => {
+                                const updated = { ...folderConfig, enabled: !folderConfig.enabled };
+                                if (window.electronAPI.saveManualFolderConfig) {
+                                  await window.electronAPI.saveManualFolderConfig(updated);
+                                  setManualFolderConfigs({ ...manualFolderConfigs, [folderConfig.id]: updated });
+                                }
+                              }}
+                              className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors flex-shrink-0 focus:outline-none focus:ring-2 focus:ring-blue-500/50 ${folderConfig.enabled ? 'bg-blue-600' : 'bg-gray-600'}`}
+                            >
+                              <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform shadow-sm ${folderConfig.enabled ? 'translate-x-[18px]' : 'translate-x-[3px]'}`} />
+                            </button>
                           </div>
 
                           {editingManualFolderId === folderConfig.id && folderConfig.enabled && (
@@ -1298,6 +1389,45 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                                   >
                                     Remove
                                   </button>
+                                </div>
+                              </div>
+
+                              <div className="space-y-1">
+                                <label className="text-[10px] text-gray-500 font-semibold uppercase tracking-wider">Icon (SVG)</label>
+                                <div className="grid grid-cols-6 md:grid-cols-8 gap-2">
+                                  <button
+                                    onClick={async () => {
+                                      const updatedConfig = { ...folderConfig, icon: undefined };
+                                      setManualFolderConfigs({ ...manualFolderConfigs, [folderConfig.id]: updatedConfig });
+                                      if (window.electronAPI.saveManualFolderConfig) {
+                                        await window.electronAPI.saveManualFolderConfig(updatedConfig);
+                                        notifyManualFolderIconsUpdated();
+                                      }
+                                    }}
+                                    className={`h-9 rounded border text-[10px] transition-colors ${!folderConfig.icon ? 'border-blue-500/60 text-blue-300 bg-blue-500/10' : 'border-gray-600 text-gray-400 hover:border-gray-500'}`}
+                                  >
+                                    None
+                                  </button>
+                                  {MANUAL_FOLDER_ICON_PRESETS.map((preset) => {
+                                    const isSelected = folderConfig.icon === preset.id;
+                                    return (
+                                      <button
+                                        key={preset.id}
+                                        onClick={async () => {
+                                          const updatedConfig = { ...folderConfig, icon: preset.id };
+                                          setManualFolderConfigs({ ...manualFolderConfigs, [folderConfig.id]: updatedConfig });
+                                          if (window.electronAPI.saveManualFolderConfig) {
+                                            await window.electronAPI.saveManualFolderConfig(updatedConfig);
+                                            notifyManualFolderIconsUpdated();
+                                          }
+                                        }}
+                                        className={`h-9 rounded border flex items-center justify-center transition-colors ${isSelected ? 'border-blue-500/60 bg-blue-500/10' : 'border-gray-600 hover:border-gray-500 bg-gray-900/40'}`}
+                                        title={preset.name}
+                                      >
+                                        <img src={preset.src} alt={preset.name} className="w-4 h-4 brightness-0 invert opacity-90" />
+                                      </button>
+                                    );
+                                  })}
                                 </div>
                               </div>
 

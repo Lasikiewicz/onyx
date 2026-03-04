@@ -9,6 +9,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Update UX: Keep update modal actions pinned to the bottom, keep the update icon animating during downloaded state, and align button ordering for available/downloaded flows.
 - Dev tooling + onboarding: Add a dev-only navbar menu with actions to open update/onboarding flows, including force-open and close controls for initial onboarding.
 - Launcher UI polish: Use the new launcher icon set consistently across Settings, Navbar, and Add Games list with improved dark-theme contrast and sizing.
+- Game details and manager: Normalize launcher/platform labels (including Ubisoft/Rockstar), show launcher icons consistently, and keep details links in icon-bar mode with hidden/default links in overflow.
+- Manual folders: Add SVG icon preset assignment with allsvgicons guidance, keep edit rows collapsed by default, and apply selected folder icons across library/game surfaces.
 
 ## [0.7.5] - 2026-03-04
 

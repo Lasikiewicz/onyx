@@ -76,7 +76,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getManualFolders: () => ipcRenderer.invoke('manualFolders:get'),
   saveManualFolders: (folders: string[]) => ipcRenderer.invoke('manualFolders:save', folders),
   getManualFolderConfigs: () => ipcRenderer.invoke('manualFolders:getConfigs'),
-  saveManualFolderConfig: (config: { id: string; name: string; path: string; enabled: boolean; autoCategory?: string[] }) => ipcRenderer.invoke('manualFolders:saveConfig', config),
+  saveManualFolderConfig: (config: { id: string; name: string; path: string; enabled: boolean; autoCategory?: string[]; icon?: string }) => ipcRenderer.invoke('manualFolders:saveConfig', config),
   deleteManualFolderConfig: (folderId: string) => ipcRenderer.invoke('manualFolders:deleteConfig', folderId),
   // Xbox service methods
   scanXboxGames: (path: string, autoMerge?: boolean) => ipcRenderer.invoke('xbox:scanGames', path, autoMerge),
