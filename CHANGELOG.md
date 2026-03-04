@@ -4,7 +4,7 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Pending]
+## [0.7.7] - 2026-03-04
 
 - Onboarding / Manual folders: Added icon preset selection to the “Games in other folders?” step so folder icons can be set during setup like in Settings.
 - Game Manager metadata: Normalize and render the Source field with launcher-style display naming/icons (for example, show “Rockstar Games” consistently instead of raw source IDs).
