@@ -4,7 +4,7 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Pending]
+## [0.7.4] - 2026-03-04
 
 - Update modal: Remove markdown-style `##/###` heading tokens from changelog display and render clean plain-text section titles.
 - Update modal: Expand `Included Versions` with short per-version change summaries instead of listing versions only.
