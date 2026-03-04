@@ -9,6 +9,98 @@ import type { ImageQueueItem } from '../ImageOptimizationQueue.js';
 
 let activeImageSearchRequestId: number | undefined;
 
+const IMAGE_OR_VIDEO_CONTENT_TYPE_RE = /^(image|video)\//i;
+const LIKELY_MEDIA_EXTENSION_RE = /\.(png|jpe?g|webp|gif|bmp|avif|ico|svg|apng|webm)(\?|#|$)/i;
+
+function isRemoteHttpUrl(url: string): boolean {
+    return /^https?:\/\//i.test(url);
+}
+
+function hasLikelyMediaExtension(url: string): boolean {
+    return LIKELY_MEDIA_EXTENSION_RE.test(url);
+}
+
+async function fetchWithTimeout(url: string, method: 'HEAD' | 'GET', timeoutMs: number): Promise<Response> {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+        return await fetch(url, {
+            method,
+            redirect: 'follow',
+            signal: controller.signal,
+            headers: method === 'GET' ? { Range: 'bytes=0-0' } : undefined,
+        });
+    } finally {
+        clearTimeout(timeout);
+    }
+}
+
+function responseLooksLikeMedia(url: string, response: Response): boolean {
+    if (!response.ok && response.status !== 206) return false;
+    const contentType = (response.headers.get('content-type') || '').toLowerCase();
+    if (IMAGE_OR_VIDEO_CONTENT_TYPE_RE.test(contentType)) return true;
+    if (contentType.includes('octet-stream') && hasLikelyMediaExtension(url)) return true;
+    if (!contentType && hasLikelyMediaExtension(url)) return true;
+    return false;
+}
+
+async function validateRemoteMediaUrl(url: string): Promise<boolean> {
+    if (!url) return false;
+    if (!isRemoteHttpUrl(url)) return true;
+
+    try {
+        const headResponse = await fetchWithTimeout(url, 'HEAD', 4500);
+        if (responseLooksLikeMedia(url, headResponse)) return true;
+        if (![400, 403, 405, 406, 429, 500, 501, 502, 503, 504].includes(headResponse.status)) {
+            return false;
+        }
+    } catch {
+        // Fall through to GET probe.
+    }
+
+    try {
+        const getResponse = await fetchWithTimeout(url, 'GET', 7000);
+        return responseLooksLikeMedia(url, getResponse);
+    } catch {
+        return false;
+    }
+}
+
+function createImageUrlFilter() {
+    const cache = new Map<string, Promise<boolean>>();
+
+    const validateWithCache = (url: string): Promise<boolean> => {
+        const existing = cache.get(url);
+        if (existing) return existing;
+        const validation = validateRemoteMediaUrl(url);
+        cache.set(url, validation);
+        return validation;
+    };
+
+    return async <T extends { url?: string }>(images: T[], contextLabel: string): Promise<T[]> => {
+        if (!Array.isArray(images) || images.length === 0) return [];
+
+        const urls = [...new Set(images.map((item) => item.url).filter((url): url is string => !!url))];
+        const validity = new Map<string, boolean>();
+        await Promise.all(urls.map(async (url) => {
+            const ok = await validateWithCache(url);
+            validity.set(url, ok);
+        }));
+
+        const filtered = images.filter((item) => {
+            if (!item.url) return false;
+            return validity.get(item.url) === true;
+        });
+
+        const rejectedCount = images.length - filtered.length;
+        if (rejectedCount > 0) {
+            console.log(`[ImageSearch] Filtered ${rejectedCount} invalid image URL(s) in ${contextLabel}`);
+        }
+
+        return filtered;
+    };
+}
+
 export type ImageQueue = { add: (gameId: string, gameTitle: string, urls: ImageQueueItem['urls']) => void };
 
 export function registerMetadataIPCHandlers(
@@ -532,9 +624,11 @@ export function registerMetadataIPCHandlers(
         try {
             const allImages: any[] = [];
             const shouldIncludeAnimated = includeAnimated === true;
+            const filterImages = createImageUrlFilter();
 
             // 1. Fetch from SteamGridDB
-            const sgdbImages = await searchSGDB(query, steamAppId, imageType, shouldIncludeAnimated);
+            const sgdbImagesRaw = await searchSGDB(query, steamAppId, imageType, shouldIncludeAnimated);
+            const sgdbImages = await filterImages(sgdbImagesRaw, `metadata:searchImages:SteamGridDB:${query}`);
             allImages.push(...sgdbImages);
 
             // 2. Fetch from IGDB/RAWG via metadata fetcher
@@ -606,7 +700,8 @@ export function registerMetadataIPCHandlers(
                     });
                 }
 
-                allImages.push(...metadataImages);
+                const validatedMetadataImages = await filterImages(metadataImages, `metadata:searchImages:AutoMatch:${query}`);
+                allImages.push(...validatedMetadataImages);
             } catch (error) {
                 console.warn('Failed to fetch metadata images:', error);
             }
@@ -627,6 +722,7 @@ export function registerMetadataIPCHandlers(
     ipcMain.handle('metadata:fetchGameImages', async (event, gameName: string, steamAppId?: string, igdbId?: number, includeAnimated?: boolean, requestId?: number, gameId?: string) => {
         // Track this request as the active one; previous requests will detect they're stale
         activeImageSearchRequestId = requestId;
+        const filterImages = createImageUrlFilter();
 
         const isStale = () => requestId !== undefined && activeImageSearchRequestId !== requestId;
         const sendProviderStatus = (currentProvider: string, remaining: string[]) => {
@@ -659,7 +755,8 @@ export function registerMetadataIPCHandlers(
 
             // 1. Fetch from SteamGridDB (Full list)
             sendProviderStatus('SteamGridDB', ['Auto-Match', 'IGDB', 'RAWG']);
-            const sgdbImages = await searchSGDB(gameName, steamAppId, 'all', includeAnimated);
+            const sgdbImagesRaw = await searchSGDB(gameName, steamAppId, 'all', includeAnimated);
+            const sgdbImages = await filterImages(sgdbImagesRaw, `metadata:fetchGameImages:SteamGridDB:${gameName}`);
             if (sgdbImages.length > 0) {
                 results.push(...sgdbImages);
                 if (!event.sender.isDestroyed()) {
@@ -686,10 +783,12 @@ export function registerMetadataIPCHandlers(
                 if (metadata.iconUrl) autoMatchImages.push({ type: 'icon', url: metadata.iconUrl, source: 'Auto-Match', name: gameName });
                 if (metadata.heroUrl) autoMatchImages.push({ type: 'hero', url: metadata.heroUrl, source: 'Auto-Match', name: gameName });
 
-                if (autoMatchImages.length > 0) {
-                    results.push(...autoMatchImages);
+                const validatedAutoMatchImages = await filterImages(autoMatchImages, `metadata:fetchGameImages:AutoMatch:${gameName}`);
+
+                if (validatedAutoMatchImages.length > 0) {
+                    results.push(...validatedAutoMatchImages);
                     if (!event.sender.isDestroyed()) {
-                        event.sender.send('metadata:gameImagesFound', { images: autoMatchImages, query: gameName, gameId, requestId });
+                        event.sender.send('metadata:gameImagesFound', { images: validatedAutoMatchImages, query: gameName, gameId, requestId });
                     }
                 }
             } catch (err) {
@@ -717,7 +816,8 @@ export function registerMetadataIPCHandlers(
 
                     if (igdbResultId) {
                         const igdbArtwork = await igdbProvider.getArtwork(igdbResultId, steamAppId);
-                        const igdbImages = mapArtworkToImages(igdbArtwork, 'IGDB', gameName);
+                        const igdbImagesRaw = mapArtworkToImages(igdbArtwork, 'IGDB', gameName);
+                        const igdbImages = await filterImages(igdbImagesRaw, `metadata:fetchGameImages:IGDB:${gameName}`);
                         if (igdbImages.length > 0) {
                             results.push(...igdbImages);
                             if (!event.sender.isDestroyed()) {
@@ -745,7 +845,8 @@ export function registerMetadataIPCHandlers(
 
                     if (rawgResultId) {
                         const rawgArtwork = await rawgProvider.getArtwork(rawgResultId);
-                        const rawgImages = mapArtworkToImages(rawgArtwork, 'RAWG', gameName);
+                        const rawgImagesRaw = mapArtworkToImages(rawgArtwork, 'RAWG', gameName);
+                        const rawgImages = await filterImages(rawgImagesRaw, `metadata:fetchGameImages:RAWG:${gameName}`);
                         if (rawgImages.length > 0) {
                             results.push(...rawgImages);
                             if (!event.sender.isDestroyed()) {

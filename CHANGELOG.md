@@ -11,6 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Launcher UI polish: Use the new launcher icon set consistently across Settings, Navbar, and Add Games list with improved dark-theme contrast and sizing.
 - Game details and manager: Normalize launcher/platform labels (including Ubisoft/Rockstar), show launcher icons consistently, and keep details links in icon-bar mode with hidden/default links in overflow.
 - Manual folders: Add SVG icon preset assignment with allsvgicons guidance, keep edit rows collapsed by default, and apply selected folder icons across library/game surfaces.
+- Game Manager image search: Validate remote provider URLs before emitting results so expired or blocked artwork links are filtered out instead of rendering as broken tiles.
 
 ## [0.7.5] - 2026-03-04
 
