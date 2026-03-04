@@ -384,7 +384,7 @@ declare global {
       showFolderDialog: () => Promise<string | null>;
       showImageDialog: () => Promise<string | null>;
       showImageOrWebmDialog: () => Promise<string | null>;
-      cacheLocalFile: (filePath: string, gameId: string, imageType: string) => Promise<{ url: string | null; isVideo: boolean }>;
+      cacheLocalFile: (filePath: string, gameId: string, imageType: string) => Promise<{ url: string | null; isVideo: boolean; error?: string }>;
       scanFolderForExecutables: (folderPath: string) => Promise<ExecutableFile[]>;
       searchArtwork: (title: string, steamAppId?: string, bypassCache?: boolean) => Promise<GameMetadata | null>;
       fetchGameDescription: (steamGameId: string) => Promise<{ success: boolean; description?: string; summary?: string; releaseDate?: string; genres?: string[]; developers?: string[]; publishers?: string[]; ageRating?: string; rating?: number; platforms?: string[]; categories?: string[]; error?: string }>;

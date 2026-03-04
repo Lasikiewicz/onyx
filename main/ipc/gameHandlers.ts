@@ -1,6 +1,6 @@
 import { ipcMain, dialog } from 'electron';
 import path from 'node:path';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { cpus } from 'node:os';
 import { SteamService } from '../SteamService.js';
 import { XboxService } from '../XboxService.js';
@@ -11,6 +11,31 @@ import type { ImageQueueItem } from '../ImageOptimizationQueue.js';
 import type { ImageJobStatus } from '../ImageOptimizationController.js';
 
 type ImageQueue = { add: (gameId: string, gameTitle: string, urls: ImageQueueItem['urls']) => void };
+
+const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+
+function isAnimatedPng(buffer: Buffer): boolean {
+    if (buffer.length < 8) return false;
+    if (!buffer.subarray(0, 8).equals(PNG_SIGNATURE)) return false;
+
+    let offset = 8;
+    while (offset + 8 <= buffer.length) {
+        const chunkLength = buffer.readUInt32BE(offset);
+        const chunkTypeStart = offset + 4;
+        const chunkDataStart = offset + 8;
+        const nextChunkStart = chunkDataStart + chunkLength + 4; // +CRC
+
+        if (nextChunkStart > buffer.length) return false;
+
+        const chunkType = buffer.toString('ascii', chunkTypeStart, chunkTypeStart + 4);
+        if (chunkType === 'acTL') return true;
+        if (chunkType === 'IEND') return false;
+
+        offset = nextChunkStart;
+    }
+
+    return false;
+}
 
 export type OptimizationControllerAPI = {
     startRun: (mode: 'importer' | 'cache') => string;
@@ -479,12 +504,31 @@ export function registerGameIPCHandlers(
 
     /** Cache a local file (e.g. .webm) for a game and return the onyx-local URL + isVideo. Used so the renderer never sets file:// URLs that break <img>. */
     ipcMain.handle('imageCache:cacheLocalFile', async (_event, filePath: string, gameId: string, imageType: string) => {
-        if (!filePath || !gameId || !imageType) return { url: null, isVideo: false };
+        if (!filePath || !gameId || !imageType) return { url: null, isVideo: false, error: 'Missing file or image target.' };
         const ext = (filePath.includes('.') ? (filePath.split('.').pop() ?? '') : '').toLowerCase();
         const isVideo = ext === 'webm';
+
+        if (ext === 'png') {
+            try {
+                const fileBuffer = readFileSync(filePath);
+                if (isAnimatedPng(fileBuffer)) {
+                    return {
+                        url: null,
+                        isVideo: false,
+                        error: 'Animated PNG (APNG) files are not supported. Please use a static PNG/JPG, or upload WEBM for animated artwork.',
+                    };
+                }
+            } catch {
+                return { url: null, isVideo: false, error: 'Failed to read selected file.' };
+            }
+        }
+
         const fileUrl = 'file:///' + filePath.replace(/\\/g, '/');
         const url = await imageCacheService.cacheImage(fileUrl, gameId, imageType as 'boxart' | 'banner' | 'logo' | 'hero' | string);
-        return { url: url && url.trim() !== '' ? url : null, isVideo };
+        if (!url || url.trim() === '') {
+            return { url: null, isVideo, error: 'Failed to add file to cache. Try another file.' };
+        }
+        return { url, isVideo };
     });
 
     // Dialog Handlers (Moved here for convenience if no uiHandlers.ts exists yet)

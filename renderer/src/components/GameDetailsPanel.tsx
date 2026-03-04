@@ -1120,7 +1120,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
                   if (onUpdateGameInState) onUpdateGameInState(updatedGame);
                   if (onSaveGame) await onSaveGame(updatedGame);
                 }}
-                displayMode={linkDisplayMode}
+                displayMode={linkDisplayMode === 'dropdown' ? 'icons' : linkDisplayMode}
                 visibleTypes={visibleLinkTypesFromProps ?? visibleLinkTypes}
                 displayOrder={linkDisplayOrderFromProps ?? linkDisplayOrder ?? undefined}
                 buttonSize={rightPanelButtonSize}

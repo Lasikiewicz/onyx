@@ -1838,20 +1838,17 @@ export const GameManager: React.FC<GameManagerProps> = ({
           setError('WebP files are not supported. Please save a WEBM video from SteamGridDB ("Save video as...") and select the .webm file instead.');
           return;
         }
-        // Convert file path to file:// URL with proper encoding for special chars
-        // Do NOT encode the drive letter colon (e.g. C:) as it breaks expected file URL format on Windows
-        let fileUrl = imagePath;
-        if (!imagePath.startsWith('file://')) {
-          const normalizedPath = imagePath.replace(/\\/g, '/');
-          const parts = normalizedPath.split('/');
-          const encodedParts = parts.map((part, index) => {
-            // Don't encode the colon in the drive letter (e.g. "C:") if it's the first segment
-            if (index === 0 && part.includes(':') && part.length === 2) return part;
-            return encodeURIComponent(part);
-          });
-          fileUrl = `file:///${encodedParts.join('/')}`;
+        const cacheLocalFile = (window.electronAPI as any).cacheLocalFile;
+        const result = cacheLocalFile
+          ? await cacheLocalFile(imagePath, selectedGame.id, type)
+          : { url: null, isVideo: false, error: 'Local cache API is unavailable in this build.' };
+
+        if (!result?.url) {
+          setError(result?.error || 'Failed to add file to cache. Try another image.');
+          return;
         }
-        await handleSelectImage(fileUrl, type);
+
+        await handleSelectImage(result.url, type, result.isVideo);
       }
     } catch (err) {
       console.error('Error browsing for image:', err);
@@ -1924,9 +1921,11 @@ export const GameManager: React.FC<GameManagerProps> = ({
       // Cache the local file in main process and get an onyx-local URL. Never put file:// in game state
       // so the UI does not try to load it in <img> (blocked / breaks React DOM).
       const cacheLocalFile = (window.electronAPI as any).cacheLocalFile;
-      const result = cacheLocalFile ? await cacheLocalFile(imagePath, gameId, type) : { url: null, isVideo: false };
+      const result = cacheLocalFile
+        ? await cacheLocalFile(imagePath, gameId, type)
+        : { url: null, isVideo: false, error: 'Local cache API is unavailable in this build.' };
       if (!result?.url) {
-        setError('Failed to add file to cache. Try again.');
+        setError(result?.error || 'Failed to add file to cache. Try again.');
         return;
       }
       await handleSelectImage(result.url, type, result.isVideo);

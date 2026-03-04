@@ -31,7 +31,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   migratePerGameViewSizeOverrides: () => ipcRenderer.invoke('gameStore:migratePerGameViewSizeOverrides'),
   saveGame: (game: any, oldGame?: any) => ipcRenderer.invoke('gameStore:saveGame', game, oldGame),
   deleteCachedImage: (gameId: string, imageType: 'boxart' | 'banner' | 'alternativeBanner' | 'logo' | 'hero' | 'icon') => ipcRenderer.invoke('imageCache:deleteImage', gameId, imageType),
-  cacheLocalFile: (filePath: string, gameId: string, imageType: string) => ipcRenderer.invoke('imageCache:cacheLocalFile', filePath, gameId, imageType) as Promise<{ url: string | null; isVideo: boolean }>,
+  cacheLocalFile: (filePath: string, gameId: string, imageType: string) => ipcRenderer.invoke('imageCache:cacheLocalFile', filePath, gameId, imageType) as Promise<{ url: string | null; isVideo: boolean; error?: string }>,
   reorderGames: (games: any[]) => ipcRenderer.invoke('gameStore:reorderGames', games),
   addCustomGame: (gameData: { title: string; exePath: string }) => ipcRenderer.invoke('gameStore:addCustomGame', gameData),
   deleteGame: (gameId: string) => ipcRenderer.invoke('gameStore:deleteGame', gameId),
