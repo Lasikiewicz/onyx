@@ -190,20 +190,20 @@ export class TrayService {
         const estimatedHeight = Math.min(
             620,
             Math.max(
-                240,
+                140,
                 16 + menuItems.reduce((total, item) => {
-                    if (item.type === 'item') return total + 46;
-                    if (item.type === 'header') return total + 30;
-                    return total + 12;
+                    if (item.type === 'item') return total + 44;
+                    if (item.type === 'header') return total + 28;
+                    return total + 10;
                 }, 0)
             )
         );
         const width = 364;
-        const x = Math.min(
+        let x = Math.min(
             display.workArea.x + display.workArea.width - width - 8,
             Math.max(display.workArea.x + 8, trayBounds.x - width + trayBounds.width)
         );
-        const y = Math.min(
+        let y = Math.min(
             display.workArea.y + display.workArea.height - estimatedHeight - 8,
             Math.max(display.workArea.y + 8, trayBounds.y - estimatedHeight - 4)
         );
@@ -408,6 +408,49 @@ export class TrayService {
 </html>`;
 
         await this.trayMenuWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+
+        const measuredContentHeight = await this.trayMenuWindow.webContents.executeJavaScript(`(() => {
+            const menu = document.querySelector('.menu');
+            const scroll = document.getElementById('menu');
+            if (!menu || !scroll) return 0;
+
+            const menuStyles = getComputedStyle(menu);
+            const scrollStyles = getComputedStyle(scroll);
+
+            const borderTop = parseFloat(menuStyles.borderTopWidth || '0') || 0;
+            const borderBottom = parseFloat(menuStyles.borderBottomWidth || '0') || 0;
+            const paddingTop = parseFloat(scrollStyles.paddingTop || '0') || 0;
+            const paddingBottom = parseFloat(scrollStyles.paddingBottom || '0') || 0;
+
+            let itemsHeight = 0;
+            for (const child of Array.from(scroll.children)) {
+                const el = child;
+                const rect = el.getBoundingClientRect();
+                const styles = getComputedStyle(el);
+                const marginTop = parseFloat(styles.marginTop || '0') || 0;
+                const marginBottom = parseFloat(styles.marginBottom || '0') || 0;
+                itemsHeight += rect.height + marginTop + marginBottom;
+            }
+
+            return Math.ceil(itemsHeight + paddingTop + paddingBottom + borderTop + borderBottom);
+        })();`, true).catch(() => 0);
+
+        if (typeof measuredContentHeight === 'number' && measuredContentHeight > 0) {
+            const fittedHeight = Math.min(620, Math.max(140, measuredContentHeight));
+            if (fittedHeight !== estimatedHeight) {
+                y = Math.min(
+                    display.workArea.y + display.workArea.height - fittedHeight - 8,
+                    Math.max(display.workArea.y + 8, trayBounds.y - fittedHeight - 4)
+                );
+                x = Math.min(
+                    display.workArea.x + display.workArea.width - width - 8,
+                    Math.max(display.workArea.x + 8, trayBounds.x - width + trayBounds.width)
+                );
+
+                this.trayMenuWindow.setBounds({ x, y, width, height: fittedHeight });
+            }
+        }
+
         this.trayMenuWindow.showInactive();
         this.trayMenuWindow.focus();
     }
