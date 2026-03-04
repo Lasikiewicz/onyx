@@ -4,6 +4,12 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Pending]
+
+- Game Manager image search: Normalize and validate provider image URLs across regular and fast-search flows to reject malformed links before rendering.
+- Game Manager images tab: Track failed artwork URLs and suppress repeat rendering/retries so broken logo/icon/banner tiles stop reappearing.
+- Game Manager provider counters and filters: Count only renderable image results for more accurate per-provider totals after URL validation.
+
 ## [0.7.9] - 2026-03-04
 
 - System tray menu: Remove extra bottom gap below Exit by fitting the custom Windows tray menu height to rendered content.
