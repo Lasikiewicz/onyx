@@ -1,0 +1,3 @@
+## 2024-05-23 - Dynamic ARIA labels for toggle states
+**Learning:** Icon-only toggle buttons (like "Favorite") must have dynamic `aria-label`s that describe the action that *will* happen (e.g., "Remove from favorites" vs "Add to favorites"), and should communicate their current state using `aria-pressed`. This provides crucial context for screen reader users that visual users get from the icon state (filled vs outlined). Furthermore, SVGs within these buttons should be explicitly hidden from screen readers using `aria-hidden="true"` and `focusable="false"` to prevent redundant or confusing announcements.
+**Action:** Always provide dynamic `aria-label` and `aria-pressed` for icon-only toggle buttons, and hide their purely decorative SVGs from screen readers.
