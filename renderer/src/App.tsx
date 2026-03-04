@@ -1697,7 +1697,7 @@ function App() {
     }
   };
 
-  const handleAddFolder = async (path: string, categories: string[]) => {
+  const handleAddFolder = async (path: string, categories: string[], icon?: string) => {
     try {
       // Create config with default name (folder basename)
       const folderName = path.split(/[/\\]/).pop() || 'Manual Folder';
@@ -1710,7 +1710,8 @@ function App() {
         name: folderName,
         path: path,
         enabled: true,
-        autoCategory: categories
+        autoCategory: categories,
+        icon
       };
 
       if (window.electronAPI.saveManualFolderConfig) {
@@ -2513,9 +2514,9 @@ function App() {
                         setAutoStartScan(true);
                         setIsImportWorkbenchOpen(true);
                       }}
-                      onAddFolder={(path, categories) => {
+                      onAddFolder={(path, categories, icon) => {
                         setForceShowInitialOnboarding(false);
-                        handleAddFolder(path, categories);
+                        handleAddFolder(path, categories, icon);
                       }}
                       onOpenSettings={() => {
                         setForceShowInitialOnboarding(false);

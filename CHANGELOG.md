@@ -4,6 +4,10 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Pending]
+
+- Onboarding / Manual folders: Added icon preset selection to the “Games in other folders?” step so folder icons can be set during setup like in Settings.
+
 ## [0.7.6] - 2026-03-04
 
 - Update UX: Keep update modal actions pinned to the bottom, keep the update icon animating during downloaded state, and align button ordering for available/downloaded flows.

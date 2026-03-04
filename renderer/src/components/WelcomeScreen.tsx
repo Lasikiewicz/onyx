@@ -1,5 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { areAPIsConfigured } from '../utils/apiValidation';
+import manualFolderIconBaseline from '../assets/manual-folder-icons/baseline-games.svg';
+import manualFolderIconVariant1 from '../assets/manual-folder-icons/games-variant-1.svg';
+import manualFolderIconVariant2 from '../assets/manual-folder-icons/games-variant-2.svg';
+import manualFolderIconVariant3 from '../assets/manual-folder-icons/games-variant-3.svg';
+import manualFolderIconApps16Filled from '../assets/manual-folder-icons/apps-16-filled.svg';
+import manualFolderIconAppsFilled from '../assets/manual-folder-icons/apps-filled.svg';
+import manualFolderIconAppsOutline from '../assets/manual-folder-icons/apps-outline.svg';
+import manualFolderIconBadgeVrFill from '../assets/manual-folder-icons/badge-vr-fill.svg';
+import manualFolderIconBadgeVrOutline from '../assets/manual-folder-icons/badge-vr-outline.svg';
+import manualFolderIconVrCompact from '../assets/manual-folder-icons/vr-compact.svg';
+import manualFolderIconVrBadge from '../assets/manual-folder-icons/vr-badge.svg';
+import manualFolderIconVrGogglesFilled from '../assets/manual-folder-icons/vr-goggles-filled.svg';
+import manualFolderIconVrGogglesOutline from '../assets/manual-folder-icons/vr-goggles-outline.svg';
+import manualFolderIconVrSquare from '../assets/manual-folder-icons/vr-square.svg';
 
 type SetupStep = 'welcome' | 'steamgriddb' | 'otherFolders' | 'overview';
 
@@ -9,11 +23,31 @@ const STEP_WRAPPER_API_KEYS_CLASS = 'flex flex-col items-center justify-center m
 
 interface WelcomeScreenProps {
     onScanGames: () => void;
-    onAddFolder: (path: string, categories: string[]) => void;
+    onAddFolder: (path: string, categories: string[], icon?: string) => void;
     onOpenSettings: () => void;
 }
 
 const AUTO_CATEGORIES = ['Games', 'Apps', 'VR'] as const;
+
+const MANUAL_FOLDER_ICON_PRESETS: Array<{ id: string; name: string; src: string }> = [
+    { id: 'baseline-games', name: 'Baseline Games', src: manualFolderIconBaseline },
+    { id: 'games-variant-1', name: 'Games 1', src: manualFolderIconVariant1 },
+    { id: 'games-variant-2', name: 'Games 2', src: manualFolderIconVariant2 },
+    { id: 'games-variant-3', name: 'Games 3', src: manualFolderIconVariant3 },
+    { id: 'apps-16-filled', name: 'Apps 16 Filled', src: manualFolderIconApps16Filled },
+    { id: 'apps-filled', name: 'Apps Filled', src: manualFolderIconAppsFilled },
+    { id: 'apps-outline', name: 'Apps Outline', src: manualFolderIconAppsOutline },
+    { id: 'badge-vr-fill', name: 'Badge VR Filled', src: manualFolderIconBadgeVrFill },
+    { id: 'badge-vr-outline', name: 'Badge VR Outline', src: manualFolderIconBadgeVrOutline },
+    { id: 'vr-compact', name: 'VR Compact', src: manualFolderIconVrCompact },
+    { id: 'vr-badge', name: 'VR Badge', src: manualFolderIconVrBadge },
+    { id: 'vr-goggles-filled', name: 'VR Goggles Filled', src: manualFolderIconVrGogglesFilled },
+    { id: 'vr-goggles-outline', name: 'VR Goggles Outline', src: manualFolderIconVrGogglesOutline },
+    { id: 'vr-square', name: 'VR Square', src: manualFolderIconVrSquare },
+];
+
+const getManualFolderIconPreset = (iconId?: string): { id: string; name: string; src: string } | undefined =>
+    MANUAL_FOLDER_ICON_PRESETS.find(preset => preset.id === iconId);
 
 export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onScanGames, onAddFolder, onOpenSettings }) => {
     const [apisConfigured, setApisConfigured] = useState<boolean | null>(null);
@@ -26,7 +60,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onScanGames, onAdd
     const [igdbClientSecret, setIgdbClientSecret] = useState('');
     const [rawgApiKey, setRawgApiKey] = useState('');
     const [giantBombApiKey, setGiantBombApiKey] = useState('');
-    const [addedFolders, setAddedFolders] = useState<{ path: string; categories: string[] }[]>([]);
+    const [addedFolders, setAddedFolders] = useState<{ path: string; categories: string[]; icon?: string }[]>([]);
     const [customCategories, setCustomCategories] = useState<string[]>([]);
     const [newCategoryName, setNewCategoryName] = useState('');
     const [overviewApis, setOverviewApis] = useState<{ steamGridDB: boolean; igdb: boolean; rawg: boolean; giantBomb: boolean } | null>(null);
@@ -149,8 +183,8 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onScanGames, onAdd
     };
 
     const handleOtherFoldersDone = async () => {
-        for (const { path, categories } of addedFolders) {
-            await onAddFolder(path, categories);
+        for (const { path, categories, icon } of addedFolders) {
+            await onAddFolder(path, categories, icon);
         }
         setAddedFolders([]);
         setSetupStep('welcome');
@@ -165,6 +199,15 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onScanGames, onAdd
                     ? f.categories.filter(c => c !== cat)
                     : [...f.categories, cat];
                 return { ...f, categories: next };
+            })
+        );
+    };
+
+    const setFolderIcon = (path: string, icon?: string) => {
+        setAddedFolders(prev =>
+            prev.map(f => {
+                if (f.path !== path) return f;
+                return { ...f, icon };
             })
         );
     };
@@ -401,7 +444,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onScanGames, onAdd
                         ) : (
                             <div className="space-y-3">
                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                                    {addedFolders.map(({ path, categories }) => (
+                                    {addedFolders.map(({ path, categories, icon }) => (
                                         <div key={path} className="flex flex-col gap-2 p-4 bg-gray-800/50 border border-gray-700 rounded-xl">
                                             <div className="flex items-start justify-between gap-2">
                                                 <div className="min-w-0 flex-1">
@@ -414,6 +457,38 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onScanGames, onAdd
                                                 >
                                                     Remove
                                                 </button>
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                <label className="text-[10px] text-gray-500 font-semibold uppercase tracking-wider">Icon</label>
+                                                <div className="grid grid-cols-6 gap-2">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setFolderIcon(path, undefined)}
+                                                        className={`h-8 rounded border text-[10px] transition-colors ${!icon ? 'border-blue-500/60 text-blue-300 bg-blue-500/10' : 'border-gray-600 text-gray-400 hover:border-gray-500'}`}
+                                                    >
+                                                        None
+                                                    </button>
+                                                    {MANUAL_FOLDER_ICON_PRESETS.map((preset) => {
+                                                        const isSelected = icon === preset.id;
+                                                        return (
+                                                            <button
+                                                                key={preset.id}
+                                                                type="button"
+                                                                onClick={() => setFolderIcon(path, preset.id)}
+                                                                className={`h-8 rounded border flex items-center justify-center transition-colors ${isSelected ? 'border-blue-500/60 bg-blue-500/10' : 'border-gray-600 hover:border-gray-500 bg-gray-900/40'}`}
+                                                                title={preset.name}
+                                                            >
+                                                                <img src={preset.src} alt={preset.name} className="w-3.5 h-3.5 brightness-0 invert opacity-90" />
+                                                            </button>
+                                                        );
+                                                    })}
+                                                </div>
+                                                {icon && getManualFolderIconPreset(icon) && (
+                                                    <div className="flex items-center gap-2 text-[10px] text-gray-400">
+                                                        <span>Selected:</span>
+                                                        <span className="text-gray-300">{getManualFolderIconPreset(icon)?.name}</span>
+                                                    </div>
+                                                )}
                                             </div>
                                             <div className="flex flex-wrap gap-2">
                                                 {allCategories.map(cat => {
