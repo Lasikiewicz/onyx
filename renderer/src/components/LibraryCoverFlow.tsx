@@ -535,14 +535,37 @@ export const LibraryCoverFlow: React.FC<LibraryCoverFlowProps> = ({
                 }}
               >
                 {game.boxArtUrl || game.bannerUrl ? (
-                  <img
-                    src={game.boxArtUrl || game.bannerUrl}
-                    alt=""
-                    className="w-full h-full object-cover object-top"
-                    draggable={false}
-                    // Image visibility also follows transparency (0 = solid, 1 = invisible)
-                    style={{ opacity: 0.4 + 0.6 * (1 - reflectionStrength) }}
-                  />
+                  (() => {
+                    const artworkUrl = game.boxArtUrl || game.bannerUrl;
+                    const isVideo = (artworkUrl === game.boxArtUrl && game.boxArtIsVideo) || (artworkUrl === game.bannerUrl && game.bannerIsVideo) || isWebmUrl(artworkUrl);
+                    if (isVideo && artworkUrl) {
+                      return (
+                        <video
+                          src={artworkUrl}
+                          muted
+                          loop
+                          playsInline
+                          autoPlay
+                          className="w-full h-full object-cover object-top"
+                          style={{ opacity: 0.4 + 0.6 * (1 - reflectionStrength) }}
+                        />
+                      );
+                    }
+                    return (
+                      <img
+                        src={artworkUrl}
+                        alt=""
+                        className="w-full h-full object-cover object-top"
+                        draggable={false}
+                        // Image visibility also follows transparency (0 = solid, 1 = invisible)
+                        style={{ opacity: 0.4 + 0.6 * (1 - reflectionStrength) }}
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.style.display = 'none';
+                        }}
+                      />
+                    );
+                  })()
                 ) : null}
               </div>
             </div>
