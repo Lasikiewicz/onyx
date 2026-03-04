@@ -4,7 +4,7 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Pending]
+## [0.7.3] - 2026-03-04
 
 - Updates: Sanitize updater error text and reject HTML-like payloads so About > Check for Updates no longer shows raw red HTML/CSS blobs.
 - Changelog fetch: Validate remote `CHANGELOG.md` content and ignore non-markdown responses before falling back to release/local sources.
