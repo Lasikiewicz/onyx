@@ -4,7 +4,7 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Pending]
+## [0.7.1] - 2026-03-04
 
 - Updates modal: Render update changelog content in a clean release-note style (`Onyx vX.Y.Z` + `What's Changed`) when changelog bullets are available.
 - Release tooling: Add changelog-driven release-note generation scripts for alpha and main workflows to produce consistent GitHub release bodies.
