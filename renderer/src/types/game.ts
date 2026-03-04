@@ -456,7 +456,8 @@ declare global {
       searchWebImages: (query: string, imageType: 'boxart' | 'banner' | 'logo' | 'icon') => Promise<{ success: boolean; error?: string; images: Array<{ gameId: number; gameName: string; images: Array<{ url: string; score: number; width: number; height: number; mime?: string; isAnimated?: boolean; source: string }> }> }>;
       fastImageSearch?: (query: string, requestId?: number) => Promise<any[]>;
       getMetadataProviderStatus?: () => Promise<{ success: boolean; providers: Array<{ name: string; available: boolean }>; error?: string }>;
-      refreshAllMetadata: (options?: { allGames?: boolean; gameIds?: string[]; continueFromIndex?: number; linksOnly?: boolean }) => Promise<{ success: boolean; error?: string; count: number; errors: number; unmatchedGames: Array<{ gameId: string; title: string; searchResults: any[] }>; missingBoxartGames: Array<{ gameId: string; title: string; steamAppId?: string }>; requiresBoxart?: boolean; currentGameIndex?: number; remainingGames?: number }>;
+      refreshAllMetadata: (options?: { allGames?: boolean; gameIds?: string[]; continueFromIndex?: number; linksOnly?: boolean }) => Promise<{ success: boolean; canceled?: boolean; error?: string; count: number; errors: number; unmatchedGames: Array<{ gameId: string; title: string; searchResults: any[] }>; missingBoxartGames: Array<{ gameId: string; title: string; steamAppId?: string }>; requiresBoxart?: boolean; currentGameIndex?: number; remainingGames?: number }>;
+      cancelMetadataRefresh: () => Promise<{ success: boolean; error?: string }>;
       findLinks: (gameId: string) => Promise<{ success: boolean; error?: string; links: Array<{ name: string; url: string }>; title: string }>;
       fetchAndUpdate: (gameId: string, boxartUrl: string) => Promise<{ success: boolean; error?: string }>;
       getVersion: () => Promise<string>;

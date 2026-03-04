@@ -111,6 +111,8 @@ export function registerMetadataIPCHandlers(
     winReference?: { readonly current: BrowserWindow | null },
     imageQueue?: ImageQueue
 ) {
+    let metadataRefreshCancelRequested = false;
+
     // Validation Handlers
     ipcMain.handle('metadata:validateProviders', async () => {
         try {
@@ -226,6 +228,7 @@ export function registerMetadataIPCHandlers(
     });
 
     ipcMain.handle('metadata:refreshAll', async (_event, options?: { allGames?: boolean, gameIds?: string[], continueFromIndex?: number, linksOnly?: boolean }) => {
+        metadataRefreshCancelRequested = false;
         const sendProgress = (
             current: number,
             total: number,
@@ -276,6 +279,7 @@ export function registerMetadataIPCHandlers(
             const total = targetGames.length;
             let successCount = 0;
             let errorCount = 0;
+            let lastProcessed = startIndex;
             const unmatchedGames: Array<{ gameId: string; title: string; searchResults: any[] }> = [];
             const missingBoxartGames: Array<{ gameId: string; title: string; steamAppId?: string }> = [];
 
@@ -285,6 +289,18 @@ export function registerMetadataIPCHandlers(
             for (let i = startIndex; i < targetGames.length; i++) {
                 const game = targetGames[i];
                 const current = i + 1;
+
+                if (metadataRefreshCancelRequested) {
+                    sendProgress(lastProcessed, total, 'Refresh cancelled by user.');
+                    return {
+                        success: true,
+                        canceled: true,
+                        count: successCount,
+                        errors: errorCount,
+                        unmatchedGames,
+                        missingBoxartGames
+                    };
+                }
 
                 try {
                     console.log(`[MetadataRefresh] [${current}/${total}] Processing: ${game.title}`);
@@ -311,6 +327,7 @@ export function registerMetadataIPCHandlers(
                     if (!options?.linksOnly && !options?.allGames && !needsBoxart && !needsBanner && !needsLogo && !needsIcon) {
                         console.log(`[MetadataRefresh] [${current}/${total}] ${game.title}: All images present, skipping`);
                         successCount++;
+                        lastProcessed = current;
                         continue;
                     }
 
@@ -360,7 +377,20 @@ export function registerMetadataIPCHandlers(
                         console.log(`[MetadataRefresh] [${current}/${total}] ${game.title}: No metadata found`);
                         unmatchedGames.push({ gameId: game.id, title: game.title, searchResults: [] });
                         errorCount++;
+                        lastProcessed = current;
                         continue;
+                    }
+
+                    if (metadataRefreshCancelRequested) {
+                        sendProgress(lastProcessed, total, 'Refresh cancelled by user.');
+                        return {
+                            success: true,
+                            canceled: true,
+                            count: successCount,
+                            errors: errorCount,
+                            unmatchedGames,
+                            missingBoxartGames
+                        };
                     }
 
                     if (options?.linksOnly) {
@@ -374,6 +404,7 @@ export function registerMetadataIPCHandlers(
                         console.log(`[MetadataRefresh] [${current}/${total}] ${game.title}: Links replaced (${fetchedLinks.length} links)`);
                         const linksMsg = fetchedLinks.length > 0 ? `Found: ${fetchedLinks.map((l: { name: string }) => l.name).join(', ')}` : 'No links found';
                         sendProgress(current, total, linksMsg, game.title, fetchedLinks);
+                        lastProcessed = current;
                         // Small delay to avoid rate limiting
                         await new Promise(resolve => setTimeout(resolve, 200));
                         continue;
@@ -440,6 +471,7 @@ export function registerMetadataIPCHandlers(
                     if (metadata.links && metadata.links.length > 0) assetsFound.push(`${metadata.links.length} Links`);
 
                     sendProgress(current, total, 'Updated metadata and assets', game.title, metadata.links, assetsFound);
+                    lastProcessed = current;
 
                     // Small delay to avoid rate limiting
                     await new Promise(resolve => setTimeout(resolve, 200));
@@ -471,6 +503,11 @@ export function registerMetadataIPCHandlers(
                 missingBoxartGames: []
             };
         }
+    });
+
+    ipcMain.handle('metadata:cancelRefresh', async () => {
+        metadataRefreshCancelRequested = true;
+        return { success: true };
     });
 
     // Image Search Handlers

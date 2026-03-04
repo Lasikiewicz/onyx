@@ -88,6 +88,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
   const [showRefreshConfirm, setShowRefreshConfirm] = useState(false);
   const [refreshMode, setRefreshMode] = useState<'nuclear' | 'images' | 'links' | 'optimizer' | null>(null);
   const [refreshProgress, setRefreshProgress] = useState<{ current: number; total: number; message: string; gameTitle?: string; links?: Array<{ name: string; url: string }>; images?: string[]; mode?: 'all' | 'missing' | 'links' } | null>(null);
+  const [isCancellingRefresh, setIsCancellingRefresh] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; type: 'boxart' | 'banner' | 'alternativeBanner' | 'logo' | 'icon' } | null>(null);
   const [showMatchFix, setShowMatchFix] = useState(false);
   const [showRemoveDeletedDialog, setShowRemoveDeletedDialog] = useState(false);
@@ -280,6 +281,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
   // Helper function to handle refresh with continuation support
   const handleRefreshMetadata = async (mode: 'all' | 'missing' | 'links', continueFromIndex: number = 0) => {
     try {
+      setIsCancellingRefresh(false);
       const result = await window.electronAPI.refreshAllMetadata({
         allGames: mode === 'all',
         linksOnly: mode === 'links',
@@ -287,6 +289,12 @@ export const GameManager: React.FC<GameManagerProps> = ({
       });
 
       if (result.success) {
+        if (result.canceled) {
+          setSuccess('Metadata refresh cancelled.');
+          setRefreshProgress(null);
+          return;
+        }
+
         // Check if there are unmatched games
         if (result.unmatchedGames && result.unmatchedGames.length > 0) {
           setUnmatchedGames(result.unmatchedGames);
@@ -355,6 +363,20 @@ export const GameManager: React.FC<GameManagerProps> = ({
       setTimeout(() => {
         setRefreshProgress(null);
       }, 2000);
+    } finally {
+      setIsCancellingRefresh(false);
+    }
+  };
+
+  const handleCancelMetadataRefresh = async () => {
+    if (isCancellingRefresh) return;
+    setIsCancellingRefresh(true);
+    setRefreshProgress(prev => prev ? { ...prev, message: 'Cancelling refresh...' } : prev);
+    try {
+      await window.electronAPI.cancelMetadataRefresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to cancel metadata refresh');
+      setIsCancellingRefresh(false);
     }
   };
 
@@ -4440,6 +4462,18 @@ export const GameManager: React.FC<GameManagerProps> = ({
                   <div className="text-[10px] text-gray-500 italic mt-1">No new {refreshProgress.mode === 'links' ? 'links' : 'assets'} found for this game.</div>
                 ) : null}
               </div>
+
+              {refreshProgress.current < refreshProgress.total && !refreshProgress.message?.includes('Reloading') && (
+                <div className="mt-4 flex justify-end">
+                  <button
+                    onClick={handleCancelMetadataRefresh}
+                    disabled={isCancellingRefresh}
+                    className="px-4 py-2 bg-red-600/90 hover:bg-red-700 text-white text-sm font-medium rounded transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                    {isCancellingRefresh ? 'Cancelling...' : 'Cancel Refresh'}
+                  </button>
+                </div>
+              )}
 
               {/* Show completion message if done */}
               {refreshProgress.total > 0 && refreshProgress.current >= refreshProgress.total && (

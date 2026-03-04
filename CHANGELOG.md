@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Pending]
 
 - Update modal changelog readability: Reformat “What’s Changed” and “Included Versions” into structured multi-line bullets and show full per-version entries instead of condensed “+x more” summaries.
+- Game Manager metadata refresh: Add a Cancel action to the refresh progress modal so Missing Images/Links refresh can be stopped mid-run with clean cancellation handling.
 
 ## [0.7.7] - 2026-03-04
 
