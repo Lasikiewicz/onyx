@@ -4,7 +4,7 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Pending]
+## [0.7.5] - 2026-03-04
 
 - Coverflow: Fix broken reflection rendering when box art is a `.webm` by mirroring video artwork correctly instead of using a broken image fallback.
 
