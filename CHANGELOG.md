@@ -4,7 +4,7 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Pending]
+## [0.7.6] - 2026-03-04
 
 - Update UX: Keep update modal actions pinned to the bottom, keep the update icon animating during downloaded state, and align button ordering for available/downloaded flows.
 - Dev tooling + onboarding: Add a dev-only navbar menu with actions to open update/onboarding flows, including force-open and close controls for initial onboarding.
