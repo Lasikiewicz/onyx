@@ -21,7 +21,7 @@ description: Onyx AI Agent Guide - Critical Rules & Project Context
 - ✅ **No "alpha" in commit messages that land on main** - Commits that are merged or force-pushed to **main** become production history and can appear in release notes. Avoid the word "alpha" in those commit messages; use neutral wording instead (e.g. "develop build profile", "prerelease profile", "build profile for develop/main").
 
 ## 🔄 RELEASE WORKFLOW (Strict Protocol)
-
+push
 **SIMPLE SUMMARY — do not confuse branches:**
 - **Push to git** = run `npm run build` and `npm run scan:secrets`, fix any issues, then push local master to remote master.
 - **Force to Alpha** = force **remote master** → **remote develop**. This updates the build number (increment version, changelog, run scan:secrets, commit, push master, then force master to develop). Triggers Onyx Alpha build. There is no branch named "alpha".
@@ -309,4 +309,4 @@ Logs (when running unpacked, e.g. `electron .`): `debug-logs/optimization.log`, 
 
 ---
 
-**This is the single agent guide.** All workflow and project context lives here; do not use `docs/agents.md` for agent instructions.
+**This is the single agent guide.** All workflow and project context lives here.
