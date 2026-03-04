@@ -60,6 +60,19 @@ export class SteamGridDBService {
     this.apiKey = apiKey;
   }
 
+  private isAnimatedImage(image: SteamGridDBImage): boolean {
+    const mime = (image.mime || '').toLowerCase();
+    const url = (image.url || '').toLowerCase();
+    const notes = (image.notes || '').toLowerCase();
+    const explicitFlag = (image as any).isAnimated === true || (image as any).animated === true || (image as any).is_animated === true;
+
+    if (explicitFlag) return true;
+    if (mime.includes('webp') || mime.includes('gif') || mime.includes('apng')) return true;
+    if (/\.(webp|gif|apng)(\?|$)/i.test(url)) return true;
+    if (mime === 'image/png' && /\banimat(ed|ion)\b/i.test(notes)) return true;
+    return false;
+  }
+
   /**
    * Validate API key by attempting a simple request
    */
@@ -283,7 +296,7 @@ export class SteamGridDBService {
       // Filter by mime type if needed (animated grids are typically webp or gif)
       // But by default, include all grids (both static and animated)
       if (!includeAnimated) {
-        return grids.filter(img => !img.mime || (img.mime !== 'image/webp' && img.mime !== 'image/gif'));
+        return grids.filter((img) => !this.isAnimatedImage(img));
       }
 
       return grids;
@@ -319,7 +332,7 @@ export class SteamGridDBService {
       const grids = data.data || [];
 
       if (!includeAnimated) {
-        return grids.filter(img => !img.mime || (img.mime !== 'image/webp' && img.mime !== 'image/gif'));
+        return grids.filter((img) => !this.isAnimatedImage(img));
       }
 
       return grids;
@@ -350,7 +363,11 @@ export class SteamGridDBService {
       }
 
       const data = await response.json() as { data?: SteamGridDBImage[] };
-      return data.data || [];
+      const heroes = data.data || [];
+      if (!includeAnimated) {
+        return heroes.filter((img) => !this.isAnimatedImage(img));
+      }
+      return heroes;
     } catch (error) {
       console.warn(`[SteamGridDB] Error fetching heroes for game ${gameId}:`, error instanceof Error ? error.message : error);
       return [];

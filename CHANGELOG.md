@@ -4,6 +4,12 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Pending]
+
+- Updates: Sanitize updater error text and reject HTML-like payloads so About > Check for Updates no longer shows raw red HTML/CSS blobs.
+- Changelog fetch: Validate remote `CHANGELOG.md` content and ignore non-markdown responses before falling back to release/local sources.
+- Image search: Exclude animated assets (including APNG-like metadata cases) from search results across SteamGridDB/manual search and renderer filtering.
+
 ## [0.7.2] - 2026-03-04
 
 - Release test: Ship a follow-up update so users on `0.7.1` can verify the new clean-format in-app update changelog rendering path.

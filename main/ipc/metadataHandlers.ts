@@ -528,12 +528,13 @@ export function registerMetadataIPCHandlers(
         return [];
     };
 
-    ipcMain.handle('metadata:searchImages', async (_event, query: string, imageType: string, steamAppId?: string) => {
+    ipcMain.handle('metadata:searchImages', async (_event, query: string, imageType: string, steamAppId?: string, includeAnimated?: boolean) => {
         try {
             const allImages: any[] = [];
+            const shouldIncludeAnimated = includeAnimated === true;
 
-            // 1. Fetch from SteamGridDB (manual search always permits animated)
-            const sgdbImages = await searchSGDB(query, steamAppId, imageType, true);
+            // 1. Fetch from SteamGridDB
+            const sgdbImages = await searchSGDB(query, steamAppId, imageType, shouldIncludeAnimated);
             allImages.push(...sgdbImages);
 
             // 2. Fetch from IGDB/RAWG via metadata fetcher

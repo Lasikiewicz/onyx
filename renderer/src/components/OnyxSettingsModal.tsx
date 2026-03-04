@@ -139,6 +139,19 @@ const findExistingPath = async (defaultPaths: string[]): Promise<string> => {
   return defaultPaths[0] || '';
 };
 
+const sanitizeUpdateErrorForDisplay = (error?: string | null): string | null => {
+  if (!error) return null;
+  const trimmed = error.trim();
+  if (!trimmed) return null;
+
+  if (/<!doctype html|<html|<head|<body|<style|<script|<div|<span/i.test(trimmed)) {
+    return 'Update check failed due to an unexpected server response. Please try again.';
+  }
+
+  const singleLine = trimmed.replace(/\s+/g, ' ');
+  return singleLine.length > 220 ? `${singleLine.slice(0, 217)}...` : singleLine;
+};
+
 export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
   isOpen,
   onClose,
@@ -294,7 +307,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
     const unsubscribe = window.electronAPI.onUpdateStatus((payload) => {
       setUpdateStatus(payload.status as any);
       setUpdateVersion(payload.version ?? null);
-      setUpdateError(payload.error ?? null);
+      setUpdateError(sanitizeUpdateErrorForDisplay(payload.error ?? null));
     });
     return unsubscribe;
   }, [isOpen]);

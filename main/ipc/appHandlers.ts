@@ -98,6 +98,19 @@ const formatReleaseNotes = (version: string, body: string) => {
     return `## [${normalized}]\n\n${trimmedBody}`;
 };
 
+const isLikelyValidChangelogMarkdown = (body: string): boolean => {
+    const trimmed = body.trim();
+    if (!trimmed) return false;
+    if (/^404:\s*not found$/i.test(trimmed)) return false;
+
+    const looksLikeHtml = /<!doctype html|<html|<head|<body|<style|<script|<div|<span/i.test(trimmed);
+    if (looksLikeHtml) return false;
+
+    const hasChangelogHeader = /^#\s*changelog\b/im.test(trimmed);
+    const hasVersionSections = /^##\s*\[[^\]]+\]/m.test(trimmed);
+    return hasChangelogHeader || hasVersionSections;
+};
+
 const fetchDefaultBranch = async (): Promise<string | null> => {
     try {
         const repoUrl = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}`;
@@ -165,6 +178,10 @@ const fetchChangelogFromGithub = async (version?: string): Promise<string | null
         try {
             const response = await requestRaw(url);
             if (response.ok && response.body) {
+                if (!isLikelyValidChangelogMarkdown(response.body)) {
+                    console.warn(`[Changelog] Ignoring non-markdown content from ref "${ref}"`);
+                    continue;
+                }
                 return response.body;
             }
         } catch (error) {

@@ -18,6 +18,34 @@ export interface UpdateStatusPayload {
   error?: string;
 }
 
+function sanitizeUpdateErrorMessage(raw?: string): string | undefined {
+  if (!raw) return undefined;
+
+  const trimmed = raw.trim();
+  if (!trimmed) return undefined;
+
+  const hasHtml = /<!doctype html|<html|<head|<body|<style|<script|<div|<span/i.test(trimmed);
+  if (hasHtml) {
+    return 'Update check failed due to an unexpected server response. Please try again in a moment.';
+  }
+
+  const normalized = trimmed.replace(/\s+/g, ' ');
+
+  if (/net::err_internet_disconnected|enotfound|eai_again/i.test(normalized)) {
+    return 'Update check failed because the internet connection appears to be unavailable.';
+  }
+
+  if (/timed out|timeout/i.test(normalized)) {
+    return 'Update check timed out. Please try again.';
+  }
+
+  if (/latest\.yml|cannot find channel|cannot parse update info/i.test(normalized)) {
+    return 'Update metadata could not be read from the update server. Please try again later.';
+  }
+
+  return normalized.length > 240 ? `${normalized.slice(0, 237)}...` : normalized;
+}
+
 const GITHUB_OWNER = 'Lasikiewicz';
 const GITHUB_REPO = 'onyx';
 const GITHUB_API = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/releases`;
@@ -109,7 +137,7 @@ async function checkForUpdatesAlpha(): Promise<void> {
     });
 
     if (res.statusCode !== 200) {
-      send({ status: 'error', error: `GitHub API returned ${res.statusCode}` });
+      send({ status: 'error', error: sanitizeUpdateErrorMessage(`GitHub API returned ${res.statusCode}`) });
       return;
     }
 
@@ -142,7 +170,7 @@ async function checkForUpdatesAlpha(): Promise<void> {
       (a) => a.name.endsWith('.exe') && a.name.toLowerCase().includes('setup')
     );
     if (!exeAsset) {
-      send({ status: 'error', error: 'No Setup exe found in release' });
+      send({ status: 'error', error: sanitizeUpdateErrorMessage('No Setup exe found in release') });
       return;
     }
 
@@ -155,7 +183,7 @@ async function checkForUpdatesAlpha(): Promise<void> {
   } catch (e) {
     const err = e instanceof Error ? e : new Error(String(e));
     console.error('[AppUpdate] Alpha check failed:', err);
-    send({ status: 'error', error: err.message });
+    send({ status: 'error', error: sanitizeUpdateErrorMessage(err.message) });
   }
 }
 
@@ -201,7 +229,7 @@ export function initAppUpdateService(
   autoUpdater.on('download-progress', () => send({ status: 'downloading' }));
   autoUpdater.on('update-downloaded', () => send({ status: 'downloaded' }));
   autoUpdater.on('error', (err: Error) => {
-    send({ status: 'error', error: err?.message ?? String(err) });
+    send({ status: 'error', error: sanitizeUpdateErrorMessage(err?.message ?? String(err)) });
   });
 }
 
@@ -247,7 +275,7 @@ export function downloadUpdate(): Promise<string[] | null> {
         if (response.statusCode && response.statusCode >= 400) {
           out.close();
           fs.unlink(destPath, () => { });
-          send({ status: 'error', error: `Download failed: ${response.statusCode}` });
+          send({ status: 'error', error: sanitizeUpdateErrorMessage(`Download failed: ${response.statusCode}`) });
           resolve(null);
           return;
         }
@@ -263,7 +291,7 @@ export function downloadUpdate(): Promise<string[] | null> {
       req.on('error', (err) => {
         out.close();
         fs.unlink(destPath, () => { });
-        send({ status: 'error', error: err.message });
+        send({ status: 'error', error: sanitizeUpdateErrorMessage(err.message) });
         resolve(null);
       });
       req.end();
