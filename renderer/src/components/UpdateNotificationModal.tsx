@@ -87,7 +87,41 @@ export const UpdateNotificationModal: React.FC<UpdateNotificationModalProps> = (
     });
 
     if (filtered.length === 0) return '';
-    return filtered.map(section => [section.header, section.body].filter(Boolean).join('\n')).join('\n\n');
+
+    const bulletSet = new Set<string>();
+    const bullets: string[] = [];
+    for (const section of filtered) {
+      for (const line of section.body.split('\n')) {
+        const trimmed = line.trim();
+        if (!trimmed.startsWith('- ')) continue;
+        const bullet = trimmed.slice(2).trim();
+        if (!bullet || bulletSet.has(bullet)) continue;
+        bulletSet.add(bullet);
+        bullets.push(bullet);
+      }
+    }
+
+    if (bullets.length === 0) {
+      return filtered.map(section => [section.header, section.body].filter(Boolean).join('\n')).join('\n\n');
+    }
+
+    const lines: string[] = [];
+    lines.push(`## Onyx v${normalizeVersion(version)}`);
+    lines.push('');
+    lines.push('### ✨ What\'s Changed');
+    for (const bullet of bullets) {
+      lines.push(`- ${bullet}`);
+    }
+
+    if (filtered.length > 1) {
+      lines.push('');
+      lines.push('### 📦 Included Versions');
+      for (const section of filtered) {
+        lines.push(`- v${normalizeVersion(section.version)}`);
+      }
+    }
+
+    return lines.join('\n');
   }, [changelogSource, currentVersion, version]);
 
   return (

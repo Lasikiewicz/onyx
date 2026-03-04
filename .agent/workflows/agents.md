@@ -27,6 +27,12 @@ description: Onyx AI Agent Guide - Critical Rules & Project Context
 - **Force to Main** = force **remote develop** → **remote main**. Same build number as the alpha. Triggers Onyx (Production) build. Source is always **origin/develop**, never master.
 - **Push website live** = build website, run `npm run scan:secrets`, push `master`, then deploy to Cloudflare Pages **production branch** (not preview).
 
+**Release notes source of truth:**
+- `CHANGELOG.md` is the source of truth for both in-app changelog display and GitHub release notes.
+- Generate clean-draft GitHub release notes from changelog sections with:
+  - Alpha: `npm run release-notes:alpha -- --to <version> --out .release-notes-alpha.md`
+  - Main: `npm run release-notes:main -- --from <last-main-version> --to <version> --out .release-notes-main.md`
+
 
 ### 1. "Push to git" / "Push to git master"
 **Always update the changelog `Pending` section, run the build and secrets scan first; fix any issues, then push local master to remote master.** Does NOT trigger CI app build.
@@ -52,6 +58,7 @@ git push origin master
 2. Promote the pending changes: in [CHANGELOG.md](CHANGELOG.md), change the `## [Pending]` heading to `## [X.Y.Z] - YYYY-MM-DD` (using the new version and today’s date), keeping or refining the bullet list to describe what’s in this alpha. Do not leave any `Pending` section that would be shown to users.
 3. Run `npm run scan:secrets`. If it fails, fix and re-run until it passes.
 4. Commit message **must** be: `<version> <changes>` (e.g. `0.3.15 Flip view and menu layout`).
+5. Generate clean-draft release notes for GitHub prerelease body from this version section.
 ```bash
 npm run increment-build
 # Edit CHANGELOG.md, then:
@@ -61,6 +68,8 @@ git add package.json CHANGELOG.md
 git commit -m "<version> <changes>"
 git push origin master
 git push origin master:develop --force
+# Generate clean draft release notes (paste into GitHub prerelease body):
+npm run release-notes:alpha -- --to <version> --out .release-notes-alpha.md
 ```
 Result: remote **develop** = remote **master**. CI builds Alpha from develop.
 
@@ -69,6 +78,8 @@ Result: remote **develop** = remote **master**. CI builds Alpha from develop.
 ```bash
 git fetch origin develop
 git push origin origin/develop:main --force
+# Generate clean draft production release notes by aggregating all versions since last main release:
+npm run release-notes:main -- --from <last-main-version> --to <version> --out .release-notes-main.md
 ```
 Result: remote **main** = remote **develop**. CI builds Production from main.
 
