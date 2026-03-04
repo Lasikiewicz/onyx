@@ -4,6 +4,12 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Pending]
+
+- Update modal: Remove markdown-style `##/###` heading tokens from changelog display and render clean plain-text section titles.
+- Update modal: Expand `Included Versions` with short per-version change summaries instead of listing versions only.
+- Workflow docs: Add `Push app live` shortcut alias to run Push to git → Force to Alpha → Force to Main in sequence.
+
 ## [0.7.3] - 2026-03-04
 
 - Updates: Sanitize updater error text and reject HTML-like payloads so About > Check for Updates no longer shows raw red HTML/CSS blobs.

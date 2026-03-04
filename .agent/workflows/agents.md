@@ -16,6 +16,7 @@ description: Onyx AI Agent Guide - Critical Rules & Project Context
   - "Push to git master" / "push to git" = push to master branch
   - "Force to Alpha" = version bump + force master → develop
   - "Force to Main" = force develop → main (same build number as alpha)
+  - "Push app live" = run Push to git, then Force to Alpha, then Force to Main (full app release flow)
   - "Push website live" = website deployment workflow
 - ✅ **No "alpha" in commit messages that land on main** - Commits that are merged or force-pushed to **main** become production history and can appear in release notes. Avoid the word "alpha" in those commit messages; use neutral wording instead (e.g. "develop build profile", "prerelease profile", "build profile for develop/main").
 
@@ -25,11 +26,13 @@ description: Onyx AI Agent Guide - Critical Rules & Project Context
 - **Push to git** = run `npm run build` and `npm run scan:secrets`, fix any issues, then push local master to remote master.
 - **Force to Alpha** = force **remote master** → **remote develop**. This updates the build number (increment version, changelog, run scan:secrets, commit, push master, then force master to develop). Triggers Onyx Alpha build. There is no branch named "alpha".
 - **Force to Main** = force **remote develop** → **remote main**. Same build number as the alpha. Triggers Onyx (Production) build. Source is always **origin/develop**, never master.
+- **Push app live** = full app release flow: run **Push to git** → **Force to Alpha** → **Force to Main** in that exact order.
 - **Push website live** = build website, run `npm run scan:secrets`, push `master`, then deploy to Cloudflare Pages **production branch** (not preview).
 
 **Release notes source of truth:**
 - `CHANGELOG.md` is the source of truth for both in-app changelog display and GitHub release notes.
-- Generate clean-draft GitHub release notes from changelog sections with:
+- CI auto-publishes GitHub release bodies from the matching version section in `CHANGELOG.md` during `.github/workflows/build.yml`.
+- Local clean-draft generation is optional fallback (for manual release editing only):
   - Alpha: `npm run release-notes:alpha -- --to <version> --out .release-notes-alpha.md`
   - Main: `npm run release-notes:main -- --from <last-main-version> --to <version> --out .release-notes-main.md`
 
@@ -58,7 +61,7 @@ git push origin master
 2. Promote the pending changes: in [CHANGELOG.md](CHANGELOG.md), change the `## [Pending]` heading to `## [X.Y.Z] - YYYY-MM-DD` (using the new version and today’s date), keeping or refining the bullet list to describe what’s in this alpha. Do not leave any `Pending` section that would be shown to users.
 3. Run `npm run scan:secrets`. If it fails, fix and re-run until it passes.
 4. Commit message **must** be: `<version> <changes>` (e.g. `0.3.15 Flip view and menu layout`).
-5. Generate clean-draft release notes for GitHub prerelease body from this version section.
+5. Ensure `CHANGELOG.md` contains the final `## [X.Y.Z] - YYYY-MM-DD` section text you want published (CI uses it as the release body).
 ```bash
 npm run increment-build
 # Edit CHANGELOG.md, then:
@@ -68,7 +71,7 @@ git add package.json CHANGELOG.md
 git commit -m "<version> <changes>"
 git push origin master
 git push origin master:develop --force
-# Generate clean draft release notes (paste into GitHub prerelease body):
+# Optional manual fallback (if you need to edit release text outside CI defaults):
 npm run release-notes:alpha -- --to <version> --out .release-notes-alpha.md
 ```
 Result: remote **develop** = remote **master**. CI builds Alpha from develop.
@@ -78,12 +81,44 @@ Result: remote **develop** = remote **master**. CI builds Alpha from develop.
 ```bash
 git fetch origin develop
 git push origin origin/develop:main --force
-# Generate clean draft production release notes by aggregating all versions since last main release:
+# Optional manual fallback (if you need a hand-edited release body):
 npm run release-notes:main -- --from <last-main-version> --to <version> --out .release-notes-main.md
 ```
 Result: remote **main** = remote **develop**. CI builds Production from main.
 
-### 4. "Push website live"
+### 4. "Push app live"
+**Run the full app release flow end-to-end.** This is a shortcut alias for: **Push to git** → **Force to Alpha** → **Force to Main**.
+
+1. Complete **Push to git** (build + secrets scan + push `master`).
+2. Complete **Force to Alpha** (increment version, promote changelog section, secrets scan, commit/push, force `master` → `develop`).
+3. Complete **Force to Main** (force `origin/develop` → `main`).
+4. Verify CI release/publish jobs complete successfully for both `develop` and `main`.
+
+```bash
+# Push to git
+npm run build
+npm run scan:secrets
+git add -A
+git commit -m "[Summary]"
+git push origin master
+
+# Force to Alpha
+npm run increment-build
+# Edit CHANGELOG.md: promote Pending -> [X.Y.Z] - YYYY-MM-DD
+npm run scan:secrets
+git add package.json CHANGELOG.md
+git commit -m "<version> <changes>"
+git push origin master
+git push origin master:develop --force
+
+# Force to Main
+git fetch origin develop
+git push origin origin/develop:main --force
+```
+
+Result: remote **develop** and remote **main** are updated from the same release version and CI publishes corresponding prerelease/release artifacts (when publish steps succeed).
+
+### 5. "Push website live"
 **Only push the website to production. Do NOT merge to main (that would trigger the Electron app build).**
 1. Build the website:
    ```bash
@@ -107,7 +142,7 @@ Result: remote **main** = remote **develop**. CI builds Production from main.
   - If production branch changes in Cloudflare, update this command to match exactly.
   - Do **not** treat `*.pages.dev` preview URLs as "live" when this workflow is requested.
 
-### 5. Auto-update (In-app updates)
+### 6. Auto-update (In-app updates)
 
 **How it works:** The app uses **electron-updater** and checks **GitHub Releases** for updates. Users are only notified when a **new release is published** to the repo (same version rules: alpha sees prereleases, production sees stable releases).
 
@@ -119,7 +154,7 @@ Result: remote **main** = remote **develop**. CI builds Production from main.
   - The production build artifacts must be **published to GitHub Releases** as a **stable** (non–pre-release) release.
   - Then users running Onyx get the same update notification (startup check, Help menu, or toast).
 
-**Summary:** The workflows above trigger the builds; **publishing** those builds to GitHub Releases (with installer + `latest.yml`) is what makes the update appear in the app. If CI publishes on push to `develop`/`main` (or on tag), then Force to Alpha / Force to Main will lead to users being alerted once the release is published.
+**Summary:** The workflows above trigger the builds; **publishing** those builds to GitHub Releases (with installer + `latest.yml`) is what makes the update appear in the app. If the CI release/publish step succeeds on push to `develop`/`main` (or on tag), then Force to Alpha / Force to Main will lead to users being alerted once the release is published.
 
 ## 🚫 ELECTRON-ONLY APPLICATION
 

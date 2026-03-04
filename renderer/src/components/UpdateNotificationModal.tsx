@@ -68,10 +68,17 @@ export const UpdateNotificationModal: React.FC<UpdateNotificationModalProps> = (
       const endIndex = index + 1 < matches.length ? (matches[index + 1].index ?? changelogSource.length) : changelogSource.length;
       const headerLine = match[0];
       const sectionBody = changelogSource.slice(startIndex + headerLine.length, endIndex).trim();
+      const bullets = sectionBody
+        .split('\n')
+        .map(line => line.trim())
+        .filter(line => line.startsWith('- '))
+        .map(line => line.slice(2).trim())
+        .filter(Boolean);
       return {
         version: match[1],
         header: headerLine,
         body: sectionBody,
+        bullets,
       };
     });
 
@@ -102,22 +109,40 @@ export const UpdateNotificationModal: React.FC<UpdateNotificationModalProps> = (
     }
 
     if (bullets.length === 0) {
-      return filtered.map(section => [section.header, section.body].filter(Boolean).join('\n')).join('\n\n');
+      const lines: string[] = [];
+      lines.push(`Onyx v${normalizeVersion(version)}`);
+      lines.push('');
+      lines.push('What\'s Changed');
+      lines.push('- Internal maintenance and quality improvements.');
+      if (filtered.length > 1) {
+        lines.push('');
+        lines.push('Included Versions');
+        for (const section of filtered) {
+          lines.push(`- v${normalizeVersion(section.version)}`);
+        }
+      }
+      return lines.join('\n');
     }
 
     const lines: string[] = [];
-    lines.push(`## Onyx v${normalizeVersion(version)}`);
+    lines.push(`Onyx v${normalizeVersion(version)}`);
     lines.push('');
-    lines.push('### ✨ What\'s Changed');
+    lines.push('What\'s Changed');
     for (const bullet of bullets) {
       lines.push(`- ${bullet}`);
     }
 
     if (filtered.length > 1) {
       lines.push('');
-      lines.push('### 📦 Included Versions');
+      lines.push('Included Versions');
       for (const section of filtered) {
-        lines.push(`- v${normalizeVersion(section.version)}`);
+        const summaryBullets = section.bullets.slice(0, 2);
+        const remainderCount = Math.max(section.bullets.length - summaryBullets.length, 0);
+        const summary = summaryBullets.join(' · ');
+        const remainderSuffix = remainderCount > 0 ? ` (+${remainderCount} more)` : '';
+        lines.push(summary
+          ? `- v${normalizeVersion(section.version)} — ${summary}${remainderSuffix}`
+          : `- v${normalizeVersion(section.version)}`);
       }
     }
 
