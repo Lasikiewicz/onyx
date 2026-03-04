@@ -86,7 +86,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
   const [activeImageSearchTab, setActiveImageSearchTab] = useState<'all' | 'boxart' | 'banner' | 'alternativeBanner' | 'logo' | 'icon'>('all');
   const [showRefreshDialog, setShowRefreshDialog] = useState(false);
   const [showRefreshConfirm, setShowRefreshConfirm] = useState(false);
-  const [refreshMode, setRefreshMode] = useState<'nuclear' | 'images' | 'links' | 'optimizer' | 'optimizer-animated' | null>(null);
+  const [refreshMode, setRefreshMode] = useState<'nuclear' | 'images' | 'links' | 'optimizer' | null>(null);
   const [refreshProgress, setRefreshProgress] = useState<{ current: number; total: number; message: string; gameTitle?: string; links?: Array<{ name: string; url: string }>; images?: string[]; mode?: 'all' | 'missing' | 'links' } | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; type: 'boxart' | 'banner' | 'alternativeBanner' | 'logo' | 'icon' } | null>(null);
   const [showMatchFix, setShowMatchFix] = useState(false);
@@ -614,34 +614,6 @@ export const GameManager: React.FC<GameManagerProps> = ({
       handleCloseManager();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to start image optimization');
-    }
-  };
-
-  const handleOptimizeAnimatedImages = async () => {
-    try {
-      setError(null);
-      setSuccess(null);
-      if (!window.electronAPI.optimizeImageCache) {
-        setError('Animated image optimization is unavailable in this build');
-        return;
-      }
-
-      const fifteenMb = 15 * 1024 * 1024;
-      const runPromise = window.electronAPI.optimizeImageCache({
-        webpOnly: true,
-        forceProcessOverBytes: fifteenMb,
-        forceAnimatedWebp: true,
-      });
-
-      setShowRefreshDialog(false);
-      onRequestOptimizer?.();
-      handleCloseManager();
-
-      runPromise.catch((err) => {
-        console.error('[GameManager] Failed to start animated image optimization:', err);
-      });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to start animated image optimization');
     }
   };
 
@@ -2393,6 +2365,14 @@ export const GameManager: React.FC<GameManagerProps> = ({
     return 'Other';
   };
 
+  const getSourceDisplayName = (source: string): string => {
+    const normalized = normalizeLauncherId(source);
+    if (normalized !== 'other') {
+      return getLauncherDisplayName(source);
+    }
+    return source;
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -3910,12 +3890,17 @@ export const GameManager: React.FC<GameManagerProps> = ({
                           </div>
                           <div>
                             <label className="block text-[10px] uppercase tracking-wider font-semibold text-gray-500 mb-0.5">Source</label>
-                            <input
-                              type="text"
-                              value={editedGame.source || ''}
-                              onChange={(e) => setEditedGame({ ...editedGame, source: e.target.value })}
-                              className="w-full px-2 py-1 text-xs bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                            />
+                            <div className="relative">
+                              <div className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-300 pointer-events-none">
+                                <LauncherIcon launcher={editedGame.source || 'other'} className="w-3.5 h-3.5" />
+                              </div>
+                              <input
+                                type="text"
+                                value={getSourceDisplayName(editedGame.source || '')}
+                                onChange={(e) => setEditedGame({ ...editedGame, source: e.target.value })}
+                                className="w-full pl-7 pr-2 py-1 text-xs bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                              />
+                            </div>
                           </div>
                           <div className="col-span-2">
                             <label className="block text-[10px] uppercase tracking-wider font-semibold text-gray-500 mb-0.5">Install Directory</label>
@@ -4288,11 +4273,6 @@ export const GameManager: React.FC<GameManagerProps> = ({
           setRefreshMode('optimizer');
           setShowRefreshConfirm(true);
         }}
-        onSelectOptimizeAnimatedImages={() => {
-          setShowRefreshDialog(false);
-          setRefreshMode('optimizer-animated');
-          setShowRefreshConfirm(true);
-        }}
         onCancel={() => {
           setShowRefreshDialog(false);
         }}
@@ -4303,30 +4283,29 @@ export const GameManager: React.FC<GameManagerProps> = ({
         isOpen={showRefreshConfirm}
         title={
           refreshMode === 'nuclear' ? 'Clear everything and re-run importer' :
-          refreshMode === 'images' ? 'Clear all images and search in importer' :
-          refreshMode === 'links' ? 'Clear all links and search in importer' :
-          refreshMode === 'optimizer' ? 'Optimize all game images' :
-          refreshMode === 'optimizer-animated' ? 'Optimize animated images' : ''
+          refreshMode === 'images' ? 'Search for missing images' :
+          refreshMode === 'links' ? 'Refresh links from IGDB' :
+          refreshMode === 'optimizer' ? 'Optimize all game images' : ''
         }
         message={
           refreshMode === 'nuclear'
             ? 'This will clear the entire library and image cache, then open Add Games to scan and import from scratch.'
             : refreshMode === 'images'
-              ? 'This will remove all images from every game and open Add Games to search for images only.'
+              ? 'This will keep your existing library and metadata, and only search for missing images.'
               : refreshMode === 'links'
-                ? 'This will remove all links from every game and open Add Games to search for links only.'
+                ? 'This will refresh links from IGDB for your existing games. IGDB API credentials are required.'
                 : refreshMode === 'optimizer'
                   ? 'Queue all current game images for background optimization (same pipeline as after import).'
-                  : refreshMode === 'optimizer-animated'
-                    ? 'Run a WebP-only optimization pass. Files above 15MB are force-processed and should not be skipped as oversized.'
                   : ''
         }
         note={
           refreshMode === 'nuclear'
             ? 'Your library will be empty until you run the importer and import games again.'
-            : refreshMode === 'optimizer' || refreshMode === 'optimizer-animated'
+            : refreshMode === 'optimizer'
               ? 'The optimizer panel will open so you can monitor progress.'
-                : 'Add Games will open to run the selected refresh.'
+                : refreshMode === 'links'
+                  ? 'If IGDB is not configured, open Settings → APIs and add IGDB client ID + secret first.'
+                  : 'Progress will run here and your library will stay in place.'
         }
         confirmText="Continue"
         cancelText="Cancel"
@@ -4341,10 +4320,22 @@ export const GameManager: React.FC<GameManagerProps> = ({
             setSuccess(null);
             if (mode === 'optimizer') {
               await handleOptimizeAllImages();
-            } else if (mode === 'optimizer-animated') {
-              await handleOptimizeAnimatedImages();
-            } else {
+            } else if (mode === 'images') {
+              setRefreshProgress({ current: 0, total: localGames.length, message: 'Searching for missing images...', mode: 'missing' });
+              await handleRefreshMetadata('missing');
+            } else if (mode === 'links') {
+              const credentials = await window.electronAPI.getAPICredentials?.();
+              const hasIGDB = !!(credentials?.igdbClientId?.trim() && credentials?.igdbClientSecret?.trim());
+              if (!hasIGDB) {
+                setError('Links refresh requires IGDB credentials. Go to Settings → APIs and add IGDB client ID + secret.');
+                return;
+              }
+              setRefreshProgress({ current: 0, total: localGames.length, message: 'Refreshing links...', mode: 'links' });
+              await handleRefreshMetadata('links');
+            } else if (mode === 'nuclear') {
               onOpenImporterWithMode?.(mode);
+            } else {
+              onOpenImporterWithMode?.('nuclear');
             }
           } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed');

@@ -2935,7 +2935,8 @@ function App() {
               return;
             }
             await loadLibrary();
-            setImportWorkbenchInitialMode(null);
+            setImportWorkbenchInitialMode('nuclear');
+            setAutoStartScan(true);
             setIsImportWorkbenchOpen(true);
           } else if (mode === 'images') {
             const result = await window.electronAPI.clearAllImages?.();

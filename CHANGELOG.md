@@ -7,6 +7,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Pending]
 
 - Onboarding / Manual folders: Added icon preset selection to the “Games in other folders?” step so folder icons can be set during setup like in Settings.
+- Game Manager metadata: Normalize and render the Source field with launcher-style display naming/icons (for example, show “Rockstar Games” consistently instead of raw source IDs).
+- Game Manager / Manage Metadata: Fix action behavior so Nuclear auto-starts a fresh Add Games scan after clearing library+cache, Images only refreshes missing images in-place (no full nuke), Links only refreshes links in-place with IGDB credential requirement messaging, and remove the unused WebP-only option.
 
 ## [0.7.6] - 2026-03-04
 
