@@ -4,6 +4,10 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Pending]
+
+- Update modal changelog readability: Reformat “What’s Changed” and “Included Versions” into structured multi-line bullets and show full per-version entries instead of condensed “+x more” summaries.
+
 ## [0.7.7] - 2026-03-04
 
 - Onboarding / Manual folders: Added icon preset selection to the “Games in other folders?” step so folder icons can be set during setup like in Settings.

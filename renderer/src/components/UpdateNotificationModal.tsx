@@ -108,41 +108,61 @@ export const UpdateNotificationModal: React.FC<UpdateNotificationModalProps> = (
       }
     }
 
-    if (bullets.length === 0) {
-      const lines: string[] = [];
-      lines.push(`Onyx v${normalizeVersion(version)}`);
-      lines.push('');
-      lines.push('What\'s Changed');
-      lines.push('- Internal maintenance and quality improvements.');
-      if (filtered.length > 1) {
-        lines.push('');
-        lines.push('Included Versions');
-        for (const section of filtered) {
-          lines.push(`- v${normalizeVersion(section.version)}`);
-        }
+    const formatStructuredBullet = (line: string) => {
+      const separatorIndex = line.indexOf(':');
+      if (separatorIndex <= 0 || separatorIndex >= line.length - 1) {
+        return [`- ${line}`];
       }
-      return lines.join('\n');
-    }
+
+      const title = line.slice(0, separatorIndex).trim();
+      const detail = line.slice(separatorIndex + 1).trim();
+      if (!title || !detail) {
+        return [`- ${line}`];
+      }
+
+      return [`- ${title}:`, `  - ${detail}`];
+    };
 
     const lines: string[] = [];
     lines.push(`Onyx v${normalizeVersion(version)}`);
     lines.push('');
     lines.push('What\'s Changed');
-    for (const bullet of bullets) {
-      lines.push(`- ${bullet}`);
+
+    if (bullets.length === 0) {
+      lines.push('- Internal maintenance and quality improvements.');
+    } else {
+      for (const bullet of bullets) {
+        lines.push(...formatStructuredBullet(bullet));
+      }
     }
 
     if (filtered.length > 1) {
       lines.push('');
       lines.push('Included Versions');
       for (const section of filtered) {
-        const summaryBullets = section.bullets.slice(0, 2);
-        const remainderCount = Math.max(section.bullets.length - summaryBullets.length, 0);
-        const summary = summaryBullets.join(' · ');
-        const remainderSuffix = remainderCount > 0 ? ` (+${remainderCount} more)` : '';
-        lines.push(summary
-          ? `- v${normalizeVersion(section.version)} — ${summary}${remainderSuffix}`
-          : `- v${normalizeVersion(section.version)}`);
+        lines.push(`- v${normalizeVersion(section.version)}`);
+        if (section.bullets.length === 0) {
+          lines.push('  - Internal maintenance and quality improvements.');
+          continue;
+        }
+
+        for (const bullet of section.bullets) {
+          const separatorIndex = bullet.indexOf(':');
+          if (separatorIndex <= 0 || separatorIndex >= bullet.length - 1) {
+            lines.push(`  - ${bullet}`);
+            continue;
+          }
+
+          const title = bullet.slice(0, separatorIndex).trim();
+          const detail = bullet.slice(separatorIndex + 1).trim();
+          if (!title || !detail) {
+            lines.push(`  - ${bullet}`);
+            continue;
+          }
+
+          lines.push(`  - ${title}:`);
+          lines.push(`    - ${detail}`);
+        }
       }
     }
 
