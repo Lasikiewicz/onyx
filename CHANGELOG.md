@@ -4,7 +4,7 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Pending]
+## [0.7.8] - 2026-03-04
 
 - Update modal changelog readability: Reformat “What’s Changed” and “Included Versions” into structured multi-line bullets and show full per-version entries instead of condensed “+x more” summaries.
 - Game Manager metadata refresh: Add a Cancel action to the refresh progress modal so Missing Images/Links refresh can be stopped mid-run with clean cancellation handling.
