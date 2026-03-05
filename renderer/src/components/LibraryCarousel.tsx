@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
+import DOMPurify from 'dompurify';
 import { Game } from '../types/game';
 import { GameContextMenu } from './GameContextMenu';
 import { getContrastingTextColor } from '../utils/colorUtils';
@@ -419,7 +420,7 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
                 {/* Try HTML rendering first, fallback to plain text */}
                 {selectedGame.description.includes('<') ? (
                   <div
-                    dangerouslySetInnerHTML={{ __html: selectedGame.description }}
+                    dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(selectedGame.description) }}
                     style={{ margin: 0, padding: 0 }}
                   />
                 ) : (
