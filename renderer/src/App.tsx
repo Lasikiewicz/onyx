@@ -1018,66 +1018,52 @@ function App() {
 
   // Filter games based on search, section, and category
   const filteredGames = useMemo(() => {
-    let filtered = games;
+    const query = searchQuery.trim().toLowerCase();
 
-    // Filter by section
-    if (activeSection === 'favorites') {
-      filtered = filtered.filter(g => g.favorite);
-    } else if (activeSection === 'recent') {
-      filtered = filtered.filter(g => g.lastPlayed);
-    }
+    // Single pass filter to avoid multiple intermediate array allocations
+    let filtered = games.filter(g => {
+      // 1. Filter by section
+      if (activeSection === 'favorites' && !g.favorite) return false;
+      if (activeSection === 'recent' && !g.lastPlayed) return false;
 
-    // Filter by category or favorites
-    if (selectedCategory === 'favorites') {
-      filtered = filtered.filter(g => g.favorite === true);
-    } else if (selectedCategory === 'hidden') {
-      // Show only hidden games when "Hidden" category is selected
-      filtered = filtered.filter(g => g.hidden === true);
-    } else if (selectedCategory) {
-      filtered = filtered.filter(g =>
-        g.categories?.includes(selectedCategory)
-      );
-    }
+      // 2. Filter by category or favorites
+      if (selectedCategory === 'favorites') {
+        if (g.favorite !== true) return false;
+      } else if (selectedCategory === 'hidden') {
+        if (g.hidden !== true) return false;
+      } else if (selectedCategory) {
+        if (!g.categories?.includes(selectedCategory)) return false;
+      }
 
-    // Filter out hidden games by default (unless "Hidden" category is selected)
-    if (selectedCategory !== 'hidden') {
-      filtered = filtered.filter(g => g.hidden !== true);
-    }
+      // 3. Filter out hidden games by default (unless "Hidden" category is selected)
+      if (selectedCategory !== 'hidden' && g.hidden === true) return false;
 
-    // Filter by launcher
-    if (selectedLauncher) {
-      filtered = filtered.filter(g => {
-        const gameLauncher = getGameLauncher(g);
-        return gameLauncher === selectedLauncher;
-      });
-    }
+      // 4. Filter by launcher
+      if (selectedLauncher && getGameLauncher(g) !== selectedLauncher) return false;
 
-    // Filter out VR titles if hideVRTitles is enabled, but not if VR category is selected
-    if (hideVRTitles && selectedCategory !== 'VR' && selectedCategory !== 'Apps') {
-      filtered = filtered.filter(g =>
-        !g.categories?.includes('VR')
-      );
-    }
+      // 5. Filter out VR titles if hideVRTitles is enabled, but not if VR category is selected
+      if (hideVRTitles && selectedCategory !== 'VR' && selectedCategory !== 'Apps') {
+        if (g.categories?.includes('VR')) return false;
+      }
 
-    // Filter out Apps titles if hideAppsTitles is enabled, but not if Apps category is selected
-    if (hideAppsTitles && selectedCategory !== 'Apps' && selectedCategory !== 'VR') {
-      filtered = filtered.filter(g =>
-        !g.categories?.includes('Apps')
-      );
-    }
+      // 6. Filter out Apps titles if hideAppsTitles is enabled, but not if Apps category is selected
+      if (hideAppsTitles && selectedCategory !== 'Apps' && selectedCategory !== 'VR') {
+        if (g.categories?.includes('Apps')) return false;
+      }
 
-    // Filter by search query
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(g =>
-        g.title.toLowerCase().includes(query) ||
-        g.genres?.some(genre => genre.toLowerCase().includes(query)) ||
-        g.developers?.some(dev => dev.toLowerCase().includes(query))
-      );
-    }
+      // 7. Filter by search query
+      if (query) {
+        const titleMatch = g.title.toLowerCase().includes(query);
+        const genreMatch = g.genres?.some(genre => genre.toLowerCase().includes(query));
+        const devMatch = g.developers?.some(dev => dev.toLowerCase().includes(query));
+        if (!titleMatch && !genreMatch && !devMatch) return false;
+      }
+
+      return true;
+    });
 
     // Sort games - pinned games always appear first
-    filtered = [...filtered].sort((a, b) => {
+    filtered.sort((a, b) => {
       // First, sort by pinned status (pinned games first)
       const aPinned = a.pinned === true ? 1 : 0;
       const bPinned = b.pinned === true ? 1 : 0;
