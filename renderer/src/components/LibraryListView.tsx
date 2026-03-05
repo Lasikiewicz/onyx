@@ -41,7 +41,14 @@ interface LibraryListViewProps {
   onEmptySpaceClick?: (x: number, y: number) => void;
 }
 
-export const LibraryListView: React.FC<LibraryListViewProps> = ({
+// Cache the date formatter outside the component to avoid recreating it on every render
+const dateFormatter = new Intl.DateTimeFormat('en-US', {
+  year: 'numeric',
+  month: 'short',
+  day: 'numeric'
+});
+
+export const LibraryListViewComponent: React.FC<LibraryListViewProps> = ({
   games,
   onPlay,
   onGameClick,
@@ -81,7 +88,7 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
     if (!dateString) return 'Unknown';
     try {
       const date = new Date(dateString);
-      return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+      return dateFormatter.format(date);
     } catch {
       return 'Unknown';
     }
@@ -636,3 +643,5 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
     </div>
   );
 };
+
+export const LibraryListView = React.memo(LibraryListViewComponent);
