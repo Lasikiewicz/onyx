@@ -435,6 +435,7 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
             >
               <div className={`flex items-center gap-3 flex-wrap ${getFlexAlignment(carouselButtonAlignment)}`}>
                 <button
+                  aria-label="Play Game"
                   onClick={() => onPlay?.(selectedGame)}
                   style={{
                     backgroundColor: carouselButtonColors?.playColor || '#0ea5e9',
@@ -450,6 +451,7 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
                 {/* Mod Manager button - only show if game has modManagerUrl */}
                 {selectedGame.modManagerUrl && (
                   <button
+                    aria-label="Launch Mod Manager"
                     onClick={async () => {
                       if (selectedGame.id) {
                         try {
@@ -476,6 +478,8 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
+                      aria-hidden="true"
+                      focusable="false"
                     >
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                     </svg>
@@ -484,6 +488,7 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
                 )}
 
                 <button
+                  aria-label="Edit Game"
                   onClick={() => onEdit?.(selectedGame)}
                   style={{
                     backgroundColor: carouselButtonColors?.editColor || '#6b7280',
@@ -498,6 +503,8 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
 
                 {/* Favorite button directly after edit */}
                 <button
+                  aria-label={selectedGame.favorite ? 'Remove from favorites' : 'Add to favorites'}
+                  aria-pressed={selectedGame.favorite}
                   onClick={() => onFavorite?.(selectedGame)}
                   className={`group rounded-lg transition-colors flex items-center justify-center shadow-lg ${selectedGame.favorite
                     ? 'bg-yellow-600 hover:bg-yellow-700 text-white'
@@ -514,6 +521,8 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
                     fill={selectedGame.favorite ? 'currentColor' : 'none'}
                     stroke="currentColor"
                     viewBox="0 0 24 24"
+                    aria-hidden="true"
+                    focusable="false"
                   >
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
                   </svg>
