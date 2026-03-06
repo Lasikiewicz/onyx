@@ -472,7 +472,8 @@ export const LibraryCoverFlow: React.FC<LibraryCoverFlowProps> = ({
                       );
                     }
                     return (
-                      <img
+                      // ⚡ Bolt: native lazy loading defers off-screen images, speeding up carousel initial render
+                      <img loading="lazy" decoding="async"
                         src={artworkUrl}
                         alt={game.title}
                         className="w-full h-full object-cover"
@@ -552,7 +553,8 @@ export const LibraryCoverFlow: React.FC<LibraryCoverFlowProps> = ({
                       );
                     }
                     return (
-                      <img
+                      // ⚡ Bolt: native lazy loading defers off-screen images, speeding up carousel initial render
+                      <img loading="lazy" decoding="async"
                         src={artworkUrl}
                         alt=""
                         className="w-full h-full object-cover object-top"

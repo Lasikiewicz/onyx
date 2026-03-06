@@ -353,7 +353,8 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
                         }}
                       />
                     ) : (
-                      <img
+                      // ⚡ Bolt: native lazy loading defers off-screen images, reducing memory usage
+                      <img loading="lazy" decoding="async"
                         src={selectedGame.logoUrl}
                         alt={selectedGame.title}
                         className="drop-shadow-lg cursor-pointer hover:drop-shadow-xl transition-all duration-200 hover:scale-105"
@@ -599,7 +600,8 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
                                 className="w-full h-full object-cover transition-transform duration-300"
                               />
                             ) : (
-                              <img
+                              // ⚡ Bolt: native lazy loading defers off-screen images, reducing memory usage
+                              <img loading="lazy" decoding="async"
                                 src={url}
                                 alt={game.title}
                                 className="w-full h-full object-cover transition-transform duration-300"

@@ -1,0 +1,3 @@
+## 2024-05-18 - Native lazy loading in unvirtualized lists
+**Learning:** For rendering long, unvirtualized lists of games (like `LibraryListView`), off-screen image decoding and rendering can drastically block the main thread and increase memory footprint. While React virtualization requires architectural changes, simply leveraging Chromium's native `loading="lazy"` and `decoding="async"` attributes effectively solves the image-loading bottleneck.
+**Action:** Always add `loading="lazy"` and `decoding="async"` to `<img>` tags inside repeating lists and off-screen carousel items to defer decoding until they approach the viewport, achieving O(1) initial image load instead of O(N).
