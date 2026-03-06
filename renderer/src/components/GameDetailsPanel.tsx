@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import DOMPurify from 'dompurify';
 import { Game } from '../types/game';
 import { GameContextMenu } from './GameContextMenu';
 import { LogoResizeMenu } from './LogoResizeMenu';
@@ -761,7 +762,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
                         fontSize: `${rightPanelTextSize}px`,
                         fontFamily: descriptionFontFamily,
                       }}
-                      dangerouslySetInnerHTML={{ __html: game.description }}
+                      dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(game.description) }}
                     />
                   </div>
                 )}
