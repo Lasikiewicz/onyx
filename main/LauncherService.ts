@@ -160,6 +160,7 @@ export class LauncherService {
         // Prefer direct explorer launch for UWP/MSIX entries
         if ((xboxKind === 'uwp' || appUserModelId || launchUri) && launchUri) {
           console.log(`[LauncherService] Using explorer.exe launch with URI: ${launchUri}`);
+          // 🛡️ Sentinel: Use spawn with shell: false to prevent command injection risks via shell parsing
           const child = spawn('explorer.exe', [launchUri], {
             detached: true,
             stdio: 'ignore',
@@ -245,19 +246,20 @@ export class LauncherService {
         console.log(`[LauncherService] Parsed launch arguments: ${JSON.stringify(args)}`);
       }
 
+      // 🛡️ Sentinel: Use spawn consistently with shell: false instead of shell: true
+      // This mitigates the command injection vulnerability via cmd.exe on Windows.
+      // We explicitly pass windowsVerbatimArguments to preserve manual argument quoting
+      // to avoid Node's CreateProcess mangling paths with spaces.
       let child: ReturnType<typeof spawn>;
       if (process.platform === 'win32') {
-        // On Windows, use "start" via the system shell so the game launches like a shortcut.
-        // Using shell: true avoids Node's CreateProcess argument quoting mangling paths with spaces.
-        const escapedExe = exePath.replace(/"/g, '""');
-        const argsForCmd = args.map(a => (a.includes(' ') ? `"${a.replace(/"/g, '""')}"` : a)).join(' ');
-        const startCmd = `start "" "${escapedExe}"${argsForCmd ? ' ' + argsForCmd : ''}`;
-        console.log(`[LauncherService] Using shell launch: ${startCmd}`);
-        child = spawn(startCmd, [], {
+        const argsForCmd = args.map(a => (a.includes(' ') ? `"${a.replace(/"/g, '""')}"` : a));
+        console.log(`[LauncherService] Launching executable safely on Windows: ${exePath}`);
+        child = spawn(exePath, argsForCmd, {
           detached: true,
           stdio: 'ignore',
-          shell: true,
           cwd: workingDir,
+          shell: false,
+          windowsVerbatimArguments: true,
         });
       } else {
         child = spawn(exePath, args, {

@@ -1,0 +1,4 @@
+## 2024-05-24 - [CRITICAL] Fix command injection in game launcher
+**Vulnerability:** Command injection in `main/LauncherService.ts` when launching games on Windows. The service used `spawn(startCmd, [], { shell: true })` where `startCmd` was constructed by concatenating `exePath` and `launchArgs` with a `start ""` wrapper. Malicious executable paths or arguments could break out of quotes and execute arbitrary commands.
+**Learning:** `spawn` with `shell: true` and concatenated strings is vulnerable to shell metacharacter injection. Even if `CreateProcess` argument quoting on Windows handles spaces poorly sometimes, using a shell wrapper for an untrusted string is fundamentally unsafe.
+**Prevention:** Always use `child_process.execFile` or `spawn` with `shell: false` (passing an array of arguments) when executing local binaries based on dynamic input.
