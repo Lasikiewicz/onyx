@@ -870,8 +870,11 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                 <div className="px-3 py-2 bg-gray-700/30 rounded-md">
                   {/* Show Details Toggle */}
                   <div className="flex items-center justify-between mb-2">
-                    <label className="text-xs text-gray-400 font-medium">Show Details Across Top</label>
+                    <label className="text-xs text-gray-400 font-medium" id="carousel-details-label">Show Details Across Top</label>
                     <button
+                      role="switch"
+                      aria-checked={showCarouselDetails}
+                      aria-labelledby="carousel-details-label"
                       onClick={handleShowCarouselDetailsToggle}
                       className={`relative inline-flex h-3 w-6 items-center rounded-full transition-colors ${showCarouselDetails ? 'bg-blue-600' : 'bg-gray-600'
                         }`}
@@ -978,8 +981,11 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                 {activeGame && (
                   <div className="px-3 py-2 bg-gray-700/30 rounded-md space-y-3">
                     <div className="flex items-center justify-between">
-                      <label className="text-xs text-gray-300 font-medium">Alternative Background</label>
+                      <label className="text-xs text-gray-300 font-medium" id="carousel-alt-bg-label">Alternative Background</label>
                       <button
+                        role="switch"
+                        aria-checked={!!activeGame?.useAlternativeBackground}
+                        aria-labelledby="carousel-alt-bg-label"
                         onClick={handleAlternativeBackgroundToggle}
                         className={`relative inline-flex h-3.5 w-7 items-center rounded-full transition-all ${activeGame?.useAlternativeBackground ? 'bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]' : 'bg-gray-600'}`}
                       >
@@ -1012,8 +1018,11 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                 <div className="px-3 py-2 bg-gray-700/30 rounded-md">
                   {/* Show Game Logos Toggle */}
                   <div className="flex items-center justify-between mb-2">
-                    <label className="text-xs text-gray-400 font-medium">Show Game Logos</label>
+                    <label className="text-xs text-gray-400 font-medium" id="carousel-logos-label">Show Game Logos</label>
                     <button
+                      role="switch"
+                      aria-checked={showCarouselLogos}
+                      aria-labelledby="carousel-logos-label"
                       onClick={handleShowCarouselLogosToggle}
                       className={`relative inline-flex h-3 w-6 items-center rounded-full transition-colors ${showCarouselLogos ? 'bg-blue-600' : 'bg-gray-600'
                         }`}
@@ -1266,8 +1275,11 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
 
               {activeGame && (
                 <div className="flex items-center justify-between pt-3 border-t border-white/5">
-                  <label className="text-xs text-gray-300 font-medium">Alternative Background</label>
+                  <label className="text-xs text-gray-300 font-medium" id="coverflow-alt-bg-label">Alternative Background</label>
                   <button
+                    role="switch"
+                    aria-checked={!!activeGame?.useAlternativeBackground}
+                    aria-labelledby="coverflow-alt-bg-label"
                     onClick={handleAlternativeBackgroundToggle}
                     className={`relative inline-flex h-3.5 w-7 items-center rounded-full transition-all ${activeGame?.useAlternativeBackground ? 'bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]' : 'bg-gray-600'}`}
                   >
@@ -1281,8 +1293,11 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
           )}
           <div className="px-3 py-2 bg-gray-700/30 rounded-md space-y-3">
             <div className="flex items-center justify-between">
-              <label className="text-xs text-gray-300 font-medium">Show Buttons</label>
+              <label className="text-xs text-gray-300 font-medium" id="coverflow-show-buttons-label">Show Buttons</label>
               <button
+                role="switch"
+                aria-checked={coverFlowShowButtons}
+                aria-labelledby="coverflow-show-buttons-label"
                 onClick={() => onCoverFlowShowButtonsChange?.(!coverFlowShowButtons)}
                 className={`relative inline-flex h-3.5 w-7 items-center rounded-full transition-all ${coverFlowShowButtons ? 'bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]' : 'bg-gray-600'}`}
               >
@@ -1341,8 +1356,11 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                 {(viewMode as string) !== 'carousel' && onShowCategoriesInGameListChange && (
                   <div className="px-3 py-2 bg-gray-700/30 rounded-md space-y-3">
                     <div className="flex items-center justify-between">
-                      <label className="text-xs text-gray-300 font-medium">Show Categories</label>
+                      <label className="text-xs text-gray-300 font-medium" id="show-categories-label">Show Categories</label>
                       <button
+                        role="switch"
+                        aria-checked={showCategoriesInGameList}
+                        aria-labelledby="show-categories-label"
                         onClick={() => onShowCategoriesInGameListChange(!showCategoriesInGameList)}
                         className={`relative inline-flex h-3.5 w-7 items-center rounded-full transition-all ${showCategoriesInGameList ? 'bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]' : 'bg-gray-600'
                           }`}
@@ -1355,8 +1373,11 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                     </div>
 
                     <div className="flex items-center justify-between">
-                      <label className="text-xs text-gray-300 font-medium">Alternative Background</label>
+                      <label className="text-xs text-gray-300 font-medium" id="left-nav-alt-bg-label">Alternative Background</label>
                       <button
+                        role="switch"
+                        aria-checked={!!activeGame?.useAlternativeBackground}
+                        aria-labelledby="left-nav-alt-bg-label"
                         onClick={handleAlternativeBackgroundToggle}
                         disabled={!activeGame}
                         className={`relative inline-flex h-3.5 w-7 items-center rounded-full transition-all ${activeGame?.useAlternativeBackground ? 'bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]' : 'bg-gray-600'} ${!activeGame ? 'opacity-50 cursor-not-allowed' : ''}`}
@@ -1453,8 +1474,11 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                 {viewMode === 'grid' && (
                   <div className="px-3 py-2 bg-gray-700/30 rounded-md">
                     <div className="flex items-center justify-between mb-2">
-                      <label className="text-xs text-gray-400 font-medium">Show Logo Over Boxart</label>
+                      <label className="text-xs text-gray-400 font-medium" id="logo-over-boxart-label">Show Logo Over Boxart</label>
                       <button
+                        role="switch"
+                        aria-checked={showLogoOverBoxart}
+                        aria-labelledby="logo-over-boxart-label"
                         onClick={() => onShowLogoOverBoxartChange?.(!showLogoOverBoxart)}
                         className={`relative inline-flex h-3 w-6 items-center rounded-full transition-colors ${showLogoOverBoxart ? 'bg-blue-600' : 'bg-gray-600'
                           }`}
@@ -1734,8 +1758,11 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                         const currentValue = !!listViewOptions[key as keyof typeof listViewOptions];
                         return (
                           <div key={key} className="flex items-center justify-between text-xs">
-                            <span className="text-gray-300">{label}</span>
+                            <span className="text-gray-300" id={`listview-opt-${key}`}>{label}</span>
                             <button
+                              role="switch"
+                              aria-checked={currentValue}
+                              aria-labelledby={`listview-opt-${key}`}
                               onClick={() => onListViewOptionsChange?.({
                                 ...listViewOptions,
                                 [key]: !currentValue,
