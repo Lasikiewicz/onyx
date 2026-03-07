@@ -189,6 +189,10 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                 className={`p-3 bg-gray-800/40 backdrop-blur-md border border-white/5 rounded-xl transition-all duration-300 hover:bg-gray-700/60 hover:border-cyan-400/30 cursor-pointer group outline-none ${index === focusedIndex ? 'ring-2 ring-blue-500 ring-offset-2 ring-offset-slate-900' : ''
                   } ${displayMode === 'logo-only' || displayMode === 'title-only' ? 'flex flex-col items-center' : 'flex items-center gap-4'
                   }`}
+                style={{
+                  contentVisibility: 'auto',
+                  containIntrinsicSize: `auto ${tileHeight}px`
+                }}
               >
                 {displayMode === 'title-only' ? (
                   <>
@@ -278,6 +282,7 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                             loop
                             playsInline
                             autoPlay
+                            preload="none"
                             className="max-w-full max-h-full object-contain transition-transform duration-300 group-hover:scale-110"
                             onContextMenu={(e) => handleGameElementContextMenu(e, game)}
                           />
@@ -285,6 +290,7 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                           <img
                             src={game.logoUrl}
                             alt={game.title}
+                            loading="lazy"
                             className="max-w-full max-h-full object-contain transition-transform duration-300 group-hover:scale-110"
                             onError={(e) => {
                               const target = e.target as HTMLImageElement;
@@ -377,6 +383,7 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                             loop
                             playsInline
                             autoPlay
+                            preload="none"
                             className="max-w-full max-h-full object-contain"
                             onContextMenu={(e) => handleGameElementContextMenu(e, game)}
                           />
@@ -384,6 +391,7 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                           <img
                             src={game.iconUrl}
                             alt={game.title}
+                            loading="lazy"
                             className="max-w-full max-h-full object-contain"
                             onError={(e) => {
                               const target = e.target as HTMLImageElement;
@@ -491,6 +499,7 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                             loop
                             playsInline
                             autoPlay
+                            preload="none"
                             className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
                             onContextMenu={(e) => handleGameElementContextMenu(e, game)}
                           />
@@ -498,6 +507,7 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                           <img
                             src={game.boxArtUrl}
                             alt={game.title}
+                            loading="lazy"
                             className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
                             onError={(e) => {
                               const target = e.target as HTMLImageElement;
@@ -515,6 +525,7 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                             loop
                             playsInline
                             autoPlay
+                            preload="none"
                             className="w-full h-full object-contain p-2 transition-transform duration-300 group-hover:scale-110"
                             style={{ width: `${logoSizeForList}px`, height: `${Math.round(logoSizeForList * (4 / 3))}px` }}
                             onContextMenu={(e) => handleGameElementContextMenu(e, game)}
@@ -523,6 +534,7 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                           <img
                             src={game.logoUrl}
                             alt={game.title}
+                            loading="lazy"
                             className="w-full h-full object-contain p-2 transition-transform duration-300 group-hover:scale-110"
                             style={{ width: `${logoSizeForList}px`, height: `${Math.round(logoSizeForList * (4 / 3))}px` }}
                             onError={(e) => {

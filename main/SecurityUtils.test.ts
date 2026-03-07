@@ -1,4 +1,10 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+vi.mock('electron', () => ({
+  shell: {
+    openExternal: vi.fn(),
+  },
+}));
+
 import { ALLOWED_EXTERNAL_PROTOCOLS, isSafeExternalUrl } from './SecurityUtils.js';
 
 describe('SecurityUtils', () => {

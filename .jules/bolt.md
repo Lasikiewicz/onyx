@@ -1,0 +1,3 @@
+## 2024-05-14 - List View Native Browser Virtualization
+**Learning:** React list components that iterate over potentially hundreds or thousands of complex elements without true virtualization will cause severe memory and rendering bottlenecks due to the sheer size of the DOM tree.
+**Action:** Implemented a lightweight, native browser alternative to virtualization by using the CSS properties `content-visibility: auto` paired with a predefined `contain-intrinsic-size` directly on the item container component. This allows Chromium (Electron) to lazily calculate and skip layout/rendering for off-screen items. Paired this with native media deferred loading `loading="lazy"` on `<img />` and `preload="none"` on `<video />` for the `LibraryListView.tsx` component.
