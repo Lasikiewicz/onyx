@@ -189,6 +189,12 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                 className={`p-3 bg-gray-800/40 backdrop-blur-md border border-white/5 rounded-xl transition-all duration-300 hover:bg-gray-700/60 hover:border-cyan-400/30 cursor-pointer group outline-none ${index === focusedIndex ? 'ring-2 ring-blue-500 ring-offset-2 ring-offset-slate-900' : ''
                   } ${displayMode === 'logo-only' || displayMode === 'title-only' ? 'flex flex-col items-center' : 'flex items-center gap-4'
                   }`}
+                // Native virtualization for list items:
+                // Skips rendering off-screen elements, improving scroll performance for large libraries
+                style={{
+                  contentVisibility: 'auto',
+                  containIntrinsicSize: 'auto 150px'
+                }}
               >
                 {displayMode === 'title-only' ? (
                   <>
