@@ -189,6 +189,10 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                 className={`p-3 bg-gray-800/40 backdrop-blur-md border border-white/5 rounded-xl transition-all duration-300 hover:bg-gray-700/60 hover:border-cyan-400/30 cursor-pointer group outline-none ${index === focusedIndex ? 'ring-2 ring-blue-500 ring-offset-2 ring-offset-slate-900' : ''
                   } ${displayMode === 'logo-only' || displayMode === 'title-only' ? 'flex flex-col items-center' : 'flex items-center gap-4'
                   }`}
+                style={{
+                  contentVisibility: 'auto',
+                  containIntrinsicSize: `${tileHeight + 24}px` // approximate height based on tileHeight + padding
+                }}
               >
                 {displayMode === 'title-only' ? (
                   <>
@@ -271,7 +275,7 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                     >
                       {game.logoUrl ? (
                         (game.logoIsVideo || isWebmUrl(game.logoUrl)) ? (
-                          <video
+                          <video preload="none"
                             src={game.logoUrl}
                             data-animation-kind="logo"
                             muted
@@ -282,7 +286,7 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                             onContextMenu={(e) => handleGameElementContextMenu(e, game)}
                           />
                         ) : (
-                          <img
+                          <img loading="lazy"
                             src={game.logoUrl}
                             alt={game.title}
                             className="max-w-full max-h-full object-contain transition-transform duration-300 group-hover:scale-110"
@@ -370,7 +374,7 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                     >
                       {game.iconUrl ? (
                         (game.iconIsVideo || isWebmUrl(game.iconUrl)) ? (
-                          <video
+                          <video preload="none"
                             src={game.iconUrl}
                             data-animation-kind="icon"
                             muted
@@ -381,7 +385,7 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                             onContextMenu={(e) => handleGameElementContextMenu(e, game)}
                           />
                         ) : (
-                          <img
+                          <img loading="lazy"
                             src={game.iconUrl}
                             alt={game.title}
                             className="max-w-full max-h-full object-contain"
@@ -484,7 +488,7 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                     >
                       {showBoxart && game.boxArtUrl ? (
                         (game.boxArtIsVideo || isWebmUrl(game.boxArtUrl)) ? (
-                          <video
+                          <video preload="none"
                             src={game.boxArtUrl}
                             data-animation-kind="boxart"
                             muted
@@ -495,7 +499,7 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                             onContextMenu={(e) => handleGameElementContextMenu(e, game)}
                           />
                         ) : (
-                          <img
+                          <img loading="lazy"
                             src={game.boxArtUrl}
                             alt={game.title}
                             className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
@@ -508,7 +512,7 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                         )
                       ) : showLogo && game.logoUrl ? (
                         (game.logoIsVideo || isWebmUrl(game.logoUrl)) ? (
-                          <video
+                          <video preload="none"
                             src={game.logoUrl}
                             data-animation-kind="logo"
                             muted
@@ -520,7 +524,7 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                             onContextMenu={(e) => handleGameElementContextMenu(e, game)}
                           />
                         ) : (
-                          <img
+                          <img loading="lazy"
                             src={game.logoUrl}
                             alt={game.title}
                             className="w-full h-full object-contain p-2 transition-transform duration-300 group-hover:scale-110"
