@@ -6,6 +6,7 @@ import { ImageSearchModal } from './ImageSearchModal';
 import { GameLinks, DEFAULT_VISIBLE_LINK_TYPES } from './GameLinks';
 import { getContrastingTextColor } from '../utils/colorUtils';
 import { LauncherIcon, getLauncherDisplayName } from '../utils/launcherIcons';
+import DOMPurify from 'dompurify';
 
 type ViewKey = 'grid' | 'list' | 'logo';
 
@@ -761,7 +762,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
                         fontSize: `${rightPanelTextSize}px`,
                         fontFamily: descriptionFontFamily,
                       }}
-                      dangerouslySetInnerHTML={{ __html: game.description }}
+                      dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(game.description) }}
                     />
                   </div>
                 )}
