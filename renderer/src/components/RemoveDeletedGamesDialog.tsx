@@ -75,6 +75,7 @@ export const RemoveDeletedGamesDialog: React.FC<RemoveDeletedGamesDialogProps> =
                     <button
                         onClick={onCancel}
                         className="group p-2 hover:bg-white/5 rounded-xl transition-all"
+                        aria-label="Close"
                     >
                         <svg className="w-6 h-6 text-slate-500 group-hover:text-white transition-colors group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />

@@ -86,6 +86,7 @@ export const AddGameModal: React.FC<AddGameModalProps> = ({ isOpen, onClose, onA
               onClick={handleClose}
               disabled={isSubmitting}
               className="text-gray-400 hover:text-white transition-colors disabled:opacity-50"
+              aria-label="Close"
             >
               <svg className="w-6 h-6 group- hover:animate-wobble group-hover:animate-wobble"
                 fill="none"
