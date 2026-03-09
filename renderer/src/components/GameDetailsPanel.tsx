@@ -4,6 +4,7 @@ import { GameContextMenu } from './GameContextMenu';
 import { LogoResizeMenu } from './LogoResizeMenu';
 import { ImageSearchModal } from './ImageSearchModal';
 import { GameLinks, DEFAULT_VISIBLE_LINK_TYPES } from './GameLinks';
+import DOMPurify from 'dompurify';
 import { getContrastingTextColor } from '../utils/colorUtils';
 import { LauncherIcon, getLauncherDisplayName } from '../utils/launcherIcons';
 
@@ -761,7 +762,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
                         fontSize: `${rightPanelTextSize}px`,
                         fontFamily: descriptionFontFamily,
                       }}
-                      dangerouslySetInnerHTML={{ __html: game.description }}
+                      dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(game.description) }}
                     />
                   </div>
                 )}
