@@ -41,7 +41,35 @@ interface LibraryListViewProps {
   onEmptySpaceClick?: (x: number, y: number) => void;
 }
 
-export const LibraryListView: React.FC<LibraryListViewProps> = ({
+// ⚡ Bolt: Cache Intl.DateTimeFormat outside render loop to prevent expensive instantiation per item
+const dateFormatter = new Intl.DateTimeFormat('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+
+// ⚡ Bolt: Hoist utility functions out of render scope to prevent recreation on every render
+const formatPlaytime = (minutes?: number) => {
+  if (!minutes) return 'Not Played';
+  if (minutes < 60) return `${minutes} minutes`;
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
+};
+
+const formatDate = (dateString?: string) => {
+  if (!dateString) return 'Unknown';
+  try {
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return 'Unknown';
+    return dateFormatter.format(date);
+  } catch {
+    return 'Unknown';
+  }
+};
+
+const formatLauncher = (launcher?: string) => {
+  if (!launcher) return '';
+  return getLauncherDisplayName(launcher);
+};
+
+const LibraryListViewComponent: React.FC<LibraryListViewProps> = ({
   games,
   onPlay,
   onGameClick,
@@ -69,29 +97,6 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
   listViewSize = 128,
   onEmptySpaceClick,
 }) => {
-  const formatPlaytime = (minutes?: number) => {
-    if (!minutes) return 'Not Played';
-    if (minutes < 60) return `${minutes} minutes`;
-    const hours = Math.floor(minutes / 60);
-    const mins = minutes % 60;
-    return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
-  };
-
-  const formatDate = (dateString?: string) => {
-    if (!dateString) return 'Unknown';
-    try {
-      const date = new Date(dateString);
-      return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-    } catch {
-      return 'Unknown';
-    }
-  };
-
-  const formatLauncher = (launcher?: string) => {
-    if (!launcher) return '';
-    return getLauncherDisplayName(launcher);
-  };
-
   const displayMode = listViewOptions.displayMode || 'boxart-title';
   const titleTextSize = listViewOptions.titleTextSize ?? 18;
   const sectionTextSize = listViewOptions.sectionTextSize ?? 14;
@@ -636,3 +641,6 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
     </div>
   );
 };
+
+// ⚡ Bolt: Wrap with React.memo to prevent unnecessary re-renders when parent states change
+export const LibraryListView = React.memo(LibraryListViewComponent);
