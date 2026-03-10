@@ -4,7 +4,7 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Pending]
+## [0.7.11] - 2026-03-10
 
 - Security: Fix high severity XSS vulnerability in game descriptions and command injection in launcher service.
 - Accessibility: Improve screen reader support by adding dynamic ARIA labels to BottomBar, modal close buttons, Carousel, ConfirmationDialog, and RightClickMenu toggles.
