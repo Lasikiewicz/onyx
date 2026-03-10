@@ -282,7 +282,8 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                             onContextMenu={(e) => handleGameElementContextMenu(e, game)}
                           />
                         ) : (
-                          <img
+                          // ⚡ Bolt: Adding loading="lazy" reduces initial load time and memory usage when displaying long lists of items by deferring offscreen images
+                          <img loading="lazy"
                             src={game.logoUrl}
                             alt={game.title}
                             className="max-w-full max-h-full object-contain transition-transform duration-300 group-hover:scale-110"
@@ -381,7 +382,8 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                             onContextMenu={(e) => handleGameElementContextMenu(e, game)}
                           />
                         ) : (
-                          <img
+                          // ⚡ Bolt: Adding loading="lazy" reduces initial load time and memory usage when displaying long lists of items by deferring offscreen images
+                          <img loading="lazy"
                             src={game.iconUrl}
                             alt={game.title}
                             className="max-w-full max-h-full object-contain"
@@ -495,7 +497,8 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                             onContextMenu={(e) => handleGameElementContextMenu(e, game)}
                           />
                         ) : (
-                          <img
+                          // ⚡ Bolt: Adding loading="lazy" reduces initial load time and memory usage when displaying long lists of items by deferring offscreen images
+                          <img loading="lazy"
                             src={game.boxArtUrl}
                             alt={game.title}
                             className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
@@ -520,7 +523,8 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                             onContextMenu={(e) => handleGameElementContextMenu(e, game)}
                           />
                         ) : (
-                          <img
+                          // ⚡ Bolt: Adding loading="lazy" reduces initial load time and memory usage when displaying long lists of items by deferring offscreen images
+                          <img loading="lazy"
                             src={game.logoUrl}
                             alt={game.title}
                             className="w-full h-full object-contain p-2 transition-transform duration-300 group-hover:scale-110"

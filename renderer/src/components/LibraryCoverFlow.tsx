@@ -472,7 +472,8 @@ export const LibraryCoverFlow: React.FC<LibraryCoverFlowProps> = ({
                       );
                     }
                     return (
-                      <img
+                      // ⚡ Bolt: Adding loading="lazy" reduces initial load time and memory usage when displaying long lists of items by deferring offscreen images
+                      <img loading="lazy"
                         src={artworkUrl}
                         alt={game.title}
                         className="w-full h-full object-cover"
@@ -552,7 +553,8 @@ export const LibraryCoverFlow: React.FC<LibraryCoverFlowProps> = ({
                       );
                     }
                     return (
-                      <img
+                      // ⚡ Bolt: Adding loading="lazy" reduces initial load time and memory usage when displaying long lists of items by deferring offscreen images
+                      <img loading="lazy"
                         src={artworkUrl}
                         alt=""
                         className="w-full h-full object-cover object-top"
