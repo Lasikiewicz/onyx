@@ -4,6 +4,12 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Pending]
+
+- Security: Fix high severity XSS vulnerability in game descriptions and command injection in launcher service.
+- Accessibility: Improve screen reader support by adding dynamic ARIA labels to BottomBar, modal close buttons, Carousel, ConfirmationDialog, and RightClickMenu toggles.
+- Performance: Add native browser lazy loading to images, CSS content-visibility to list views, and optimize React rendering with `memo` and stabilized callbacks in library views.
+
 ## [0.7.10] - 2026-03-04
 
 - Game Manager image search: Normalize and validate provider image URLs across regular and fast-search flows to reject malformed links before rendering.
