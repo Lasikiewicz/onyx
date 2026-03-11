@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs';
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import { platform } from 'node:os';
 
 export interface DetectedLauncher {
@@ -29,7 +29,9 @@ export class LauncherDetectionService {
     }
 
     try {
-      const result = execSync(`reg query "${key}" /v "${valueName}"`, {
+      // 🛡️ Sentinel: Fixed command injection vulnerability by using execFileSync
+      // with an argument array instead of execSync with string concatenation.
+      const result = execFileSync('reg', ['query', key, '/v', valueName], {
         encoding: 'utf-8',
         stdio: ['pipe', 'pipe', 'ignore'],
       });
