@@ -21,6 +21,36 @@ export interface ListViewOptions {
   logoSize?: number;
 }
 
+// ⚡ Bolt Performance Optimization:
+// Cached Intl.DateTimeFormat instance to avoid expensive recreation on every render.
+// Extracted formatPlaytime, formatDate, and formatLauncher outside the component to prevent function recreation.
+// Measurement: Reduces memory allocation and speeds up list rendering by caching the formatter.
+const dateFormatter = new Intl.DateTimeFormat('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+
+const formatPlaytime = (minutes?: number) => {
+  if (!minutes) return 'Not Played';
+  if (minutes < 60) return `${minutes} minutes`;
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
+};
+
+const formatDate = (dateString?: string) => {
+  if (!dateString) return 'Unknown';
+  try {
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return 'Unknown';
+    return dateFormatter.format(date);
+  } catch {
+    return 'Unknown';
+  }
+};
+
+const formatLauncher = (launcher?: string) => {
+  if (!launcher) return '';
+  return getLauncherDisplayName(launcher);
+};
+
 interface LibraryListViewProps {
   games: Game[];
   onPlay?: (game: Game) => void;
@@ -69,29 +99,6 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
   listViewSize = 128,
   onEmptySpaceClick,
 }) => {
-  const formatPlaytime = (minutes?: number) => {
-    if (!minutes) return 'Not Played';
-    if (minutes < 60) return `${minutes} minutes`;
-    const hours = Math.floor(minutes / 60);
-    const mins = minutes % 60;
-    return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
-  };
-
-  const formatDate = (dateString?: string) => {
-    if (!dateString) return 'Unknown';
-    try {
-      const date = new Date(dateString);
-      return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-    } catch {
-      return 'Unknown';
-    }
-  };
-
-  const formatLauncher = (launcher?: string) => {
-    if (!launcher) return '';
-    return getLauncherDisplayName(launcher);
-  };
-
   const displayMode = listViewOptions.displayMode || 'boxart-title';
   const titleTextSize = listViewOptions.titleTextSize ?? 18;
   const sectionTextSize = listViewOptions.sectionTextSize ?? 14;

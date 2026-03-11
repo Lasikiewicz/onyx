@@ -58,6 +58,23 @@ interface GameDetailsPanelProps {
   overlaysOpen?: boolean;
 }
 
+// ⚡ Bolt Performance Optimization:
+// Cached Intl.DateTimeFormat instance to avoid expensive recreation on every render.
+// Extracted formatDate outside the component to prevent function recreation.
+// Measurement: Reduces memory allocation and eliminates a small synchronous delay during component updates.
+const dateFormatter = new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
+const formatDate = (dateString?: string) => {
+  if (!dateString) return '';
+  try {
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return '';
+    return dateFormatter.format(date);
+  } catch {
+    return '';
+  }
+};
+
 export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
   game,
   onPlay,
@@ -410,16 +427,6 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
   const shouldDisableAnimatedCurrentBackground =
     (backgroundMediaKind === 'banner' && disableAnimatedBannersBySettings) ||
     (backgroundMediaKind === 'boxart' && disableAnimatedBoxartsBySettings);
-  
-  const formatDate = (dateString?: string) => {
-    if (!dateString) return '';
-    try {
-      const date = new Date(dateString);
-      return date.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
-    } catch {
-      return '';
-    }
-  };
 
   const normalizedPlatform = game.platform?.trim() || '';
   const platformDisplay = normalizedPlatform
