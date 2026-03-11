@@ -1,5 +1,13 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { ALLOWED_EXTERNAL_PROTOCOLS, isSafeExternalUrl } from './SecurityUtils.js';
+
+vi.mock('electron', () => {
+  return {
+    shell: {
+      openExternal: vi.fn(),
+    },
+  };
+});
 
 describe('SecurityUtils', () => {
   it('exposes a non-empty allowed protocol whitelist', () => {

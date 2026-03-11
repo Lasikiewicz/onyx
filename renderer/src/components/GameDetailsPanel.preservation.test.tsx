@@ -151,7 +151,7 @@ describe('Preservation Properties: Static Image Performance Unchanged', () => {
       logoUrl: fc.option(staticImageUrlArb, { nil: undefined }),
       description: fc.option(fc.string({ maxLength: 200 }), { nil: undefined }),
       platform: fc.constantFrom('steam', 'epic', 'gog', 'xbox'),
-      releaseDate: fc.option(fc.date().map((d: Date) => d.toISOString()), { nil: undefined }),
+      releaseDate: fc.option(fc.date().filter((d: Date) => !isNaN(d.getTime())).map((d: Date) => d.toISOString()), { nil: undefined }),
     }).filter((game: GeneratedTestGame) => 
       // Ensure NO animated images are present
       !hasAnimatedImages(game as Game)
