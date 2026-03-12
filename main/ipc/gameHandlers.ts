@@ -6,6 +6,7 @@ import { SteamService } from '../SteamService.js';
 import { XboxService } from '../XboxService.js';
 import { GameStore, Game } from '../GameStore.js';
 import { ImageCacheService } from '../ImageCacheService.js';
+import { normalizeOnyxLocalUrl, parseOnyxLocalAssetUrl, sanitizeGameArtworkUrls } from '../artworkUrlUtils.js';
 import type { UserPreferencesService, UserPreferences } from '../UserPreferencesService.js';
 import type { ImageQueueItem } from '../ImageOptimizationQueue.js';
 import type { ImageJobStatus } from '../ImageOptimizationController.js';
@@ -66,12 +67,12 @@ export function registerGameIPCHandlers(
 ) {
     const resolveOnyxLocalToFileUrl = (url?: string): string | undefined => {
         if (!url || !url.startsWith('onyx-local://')) return url;
-        const urlPath = url.replace(/^onyx-local:\/\/\/?/, '').replace(/\/+$/, '');
-        const match = urlPath.match(/^([^-]+(?:-[^-]+)*?)-(boxart|banner|alternativeBanner|logo|hero|icon|screenshot-\d+)$/);
-        if (!match) return url;
+        const normalizedUrl = normalizeOnyxLocalUrl(url);
+        const parsedUrl = parseOnyxLocalAssetUrl(normalizedUrl);
+        if (!normalizedUrl || !parsedUrl) return normalizedUrl || url;
 
-        const gameIdFromUrl = match[1];
-        const imageTypeFromUrl = match[2];
+        const gameIdFromUrl = parsedUrl.gameId;
+        const imageTypeFromUrl = parsedUrl.imageType;
         const safeGameId = gameIdFromUrl.replace(/[<>:"/\\|?*]/g, '_');
         const cacheDir = imageCacheService.getCacheDir();
         const extensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.webm', '.ico', '.avif'];
@@ -269,24 +270,25 @@ export function registerGameIPCHandlers(
 
     ipcMain.handle('gameStore:saveGame', async (_event, game: Game, oldGame?: Game) => {
         try {
-            if (oldGame && oldGame.id !== game.id) {
+            const sanitizedGame = sanitizeGameArtworkUrls(game);
+            if (oldGame && oldGame.id !== sanitizedGame.id) {
                 await gameStore.deleteGame(oldGame.id);
             }
 
             // Use the same pipeline everywhere: Background image optimization queue (importer path).
             // Save game first, then queue images for download/optimize; queue updates game when done.
-            await gameStore.saveGame(game);
-            const urls = [game.boxArtUrl, game.bannerUrl, game.alternativeBannerUrl, game.logoUrl, game.heroUrl, game.iconUrl].filter(Boolean) as string[];
+            await gameStore.saveGame(sanitizedGame);
+            const urls = [sanitizedGame.boxArtUrl, sanitizedGame.bannerUrl, sanitizedGame.alternativeBannerUrl, sanitizedGame.logoUrl, sanitizedGame.heroUrl, sanitizedGame.iconUrl].filter(Boolean) as string[];
             const hasImageUrls = urls.length > 0;
             const allOnyxLocal = hasImageUrls && urls.every((u) => u.startsWith('onyx-local://'));
             if (imageQueue && hasImageUrls && !allOnyxLocal) {
-                imageQueue.add(game.id, game.title, {
-                    boxArtUrl: game.boxArtUrl,
-                    bannerUrl: game.bannerUrl,
-                    alternativeBannerUrl: game.alternativeBannerUrl,
-                    logoUrl: game.logoUrl,
-                    heroUrl: game.heroUrl,
-                    iconUrl: game.iconUrl,
+                imageQueue.add(sanitizedGame.id, sanitizedGame.title, {
+                    boxArtUrl: sanitizedGame.boxArtUrl,
+                    bannerUrl: sanitizedGame.bannerUrl,
+                    alternativeBannerUrl: sanitizedGame.alternativeBannerUrl,
+                    logoUrl: sanitizedGame.logoUrl,
+                    heroUrl: sanitizedGame.heroUrl,
+                    iconUrl: sanitizedGame.iconUrl,
                 });
             }
             return true;

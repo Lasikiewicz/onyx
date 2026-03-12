@@ -21,6 +21,15 @@ const GITHUB_USER_AGENT = 'OnyxApp';
 
 const normalizeVersion = (value: string) => value.replace(/^v/i, '').trim();
 
+export async function flushPendingAndRelaunch(
+    gameStore: Pick<GameStore, 'flushPending'>,
+    appControl: Pick<typeof app, 'relaunch' | 'exit'>
+): Promise<void> {
+    await gameStore.flushPending();
+    appControl.relaunch();
+    appControl.exit(0);
+}
+
 const requestRaw = (url: string, timeoutMs = 8000): Promise<{ ok: boolean; status: number; body: string | null }> => {
     return new Promise((resolve, reject) => {
         const urlObj = new URL(url);
@@ -863,8 +872,7 @@ export function registerAppIPCHandlers(
                 }
             } catch (err) { console.warn('[Reset] Could not delete custom image cache:', err); }
 
-            app.relaunch();
-            app.exit(0);
+            await flushPendingAndRelaunch(gameStore, app);
             return { success: true };
         } catch (error) {
             console.error('[Reset] Error clearing game library:', error);
@@ -916,9 +924,8 @@ export function registerAppIPCHandlers(
                 }
             } catch (err) { console.warn('[Reset] Could not delete custom image cache:', err); }
 
-            setTimeout(() => {
-                app.relaunch();
-                app.exit(0);
+            setTimeout(async () => {
+                await flushPendingAndRelaunch(gameStore, app);
             }, 1000);
 
             return { success: true };

@@ -1,6 +1,7 @@
 import type Store from 'electron-store';
 import { SteamGame } from './SteamService.js';
 import { debugOptimizationLog, isDebugOptimizationEnabled } from './debugOptimizationLog.js';
+import { normalizeOnyxLocalUrl, sanitizeGameArtworkUrls, stripTransientUrlSuffix } from './artworkUrlUtils.js';
 
 export interface Game {
   id: string;
@@ -227,14 +228,14 @@ export class GameStore {
     const existingIndex = games.findIndex(g => g.id === game.id);
 
     // Create a deep copy to ensure all properties are saved
-    const gameToSave: Game = {
+    const gameToSave: Game = sanitizeGameArtworkUrls({
       ...game,
       // Preserve favorite property as-is (true, false, or undefined)
       favorite: game.favorite,
       lockedFields: game.lockedFields ? { ...game.lockedFields } : undefined,
       // Explicitly preserve launchArgs so it is never dropped
       launchArgs: game.launchArgs,
-    };
+    });
 
     if (existingIndex >= 0) {
       // Update existing game - preserve dateAdded
@@ -398,19 +399,19 @@ export class GameStore {
     const gameIndex = games.findIndex(g => g.id === gameId);
 
     if (gameIndex >= 0) {
-      games[gameIndex].boxArtUrl = boxArtUrl;
-      games[gameIndex].bannerUrl = bannerUrl;
+      games[gameIndex].boxArtUrl = stripTransientUrlSuffix(boxArtUrl) || '';
+      games[gameIndex].bannerUrl = stripTransientUrlSuffix(bannerUrl) || '';
       if (logoUrl !== undefined) {
-        games[gameIndex].logoUrl = logoUrl;
+        games[gameIndex].logoUrl = stripTransientUrlSuffix(logoUrl);
       }
       if (heroUrl !== undefined) {
-        games[gameIndex].heroUrl = heroUrl;
+        games[gameIndex].heroUrl = stripTransientUrlSuffix(heroUrl);
       }
       if (alternativeBannerUrl !== undefined) {
-        games[gameIndex].alternativeBannerUrl = alternativeBannerUrl;
+        games[gameIndex].alternativeBannerUrl = stripTransientUrlSuffix(alternativeBannerUrl);
       }
       if (iconUrl !== undefined) {
-        games[gameIndex].iconUrl = iconUrl;
+        games[gameIndex].iconUrl = stripTransientUrlSuffix(iconUrl);
       }
       if (screenshots !== undefined) {
         games[gameIndex].screenshots = screenshots;
@@ -497,8 +498,10 @@ export class GameStore {
   private extractFilePathFromOnyxUrl(url: string, cacheDir: string): string {
     const path = require('node:path');
 
+    const normalizedUrl = normalizeOnyxLocalUrl(url) || '';
+
     // Extract the part after onyx-local://
-    let urlPart = url.replace('onyx-local://', '').replace(/\/+$/, '');
+    let urlPart = normalizedUrl.replace('onyx-local://', '');
 
     // If it looks like a full path (encoded), decode it
     if (urlPart.includes('%') || urlPart.includes('/')) {

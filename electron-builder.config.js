@@ -37,6 +37,11 @@ const config = {
     'dist-electron/**/*.js',
     '!dist-electron/**/*.d.ts',
     '!dist-electron/**/*.tsbuildinfo',
+    // Optimizer runtime dependencies (must be available at runtime)
+    'node_modules/sharp/**',
+    'node_modules/detect-libc/**',
+    'node_modules/@img/**',
+    'node_modules/semver/**',
     'package.json',
     'CHANGELOG.md'
   ],

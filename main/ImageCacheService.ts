@@ -11,6 +11,7 @@ import { createRequire } from 'node:module';
 import { optimizeInWorker } from './ImageOptimizerWorkerHost.js';
 import { thinWebpFrames } from './thinWebpFrames.js';
 import { debugOptimizationLog, isDebugOptimizationEnabled } from './debugOptimizationLog.js';
+import { normalizeOnyxLocalUrl, parseOnyxLocalAssetUrl } from './artworkUrlUtils.js';
 
 const FFMPEG_ENABLED = false;
 const runtimeRequire = createRequire(__filename);
@@ -784,13 +785,12 @@ export class ImageCacheService {
     if (url.startsWith('onyx-local://')) {
       try {
         if (isDebugOptimizationEnabled()) debugOptimizationLog(`cacheImage onyx-local check gameId=${gameId} imageType=${imageType}`);
-        // Extract gameId and imageType from URL: onyx-local://{gameId}-{imageType}
-        const urlPath = url.replace(/^onyx-local:\/\/\/?/, '').replace(/\/+$/, '');
-        const match = urlPath.match(/^([^-]+(?:-[^-]+)*?)-(boxart|banner|alternativeBanner|logo|hero|icon|screenshot-\d+)$/);
+        const normalizedUrl = normalizeOnyxLocalUrl(url) || url;
+        const parsedUrl = parseOnyxLocalAssetUrl(normalizedUrl);
 
-        if (match) {
-          const gameIdFromUrl = match[1];
-          const imageTypeFromUrl = match[2];
+        if (parsedUrl) {
+          const gameIdFromUrl = parsedUrl.gameId;
+          const imageTypeFromUrl = parsedUrl.imageType;
 
           // Check if file exists in cache
           this.ensureInitialized();
@@ -803,7 +803,7 @@ export class ImageCacheService {
             if (existsSync(filePath)) {
               onProgress?.('skipped', { fileName: filename });
               if (isDebugOptimizationEnabled()) debugOptimizationLog(`cacheImage onyx-local return gameId=${gameId} imageType=${imageType} found=true`);
-              return url;
+              return normalizedUrl;
             }
           }
 
@@ -813,7 +813,7 @@ export class ImageCacheService {
           return '';
         } else {
           // Old format URL - try to find the file and convert to new format
-          console.warn(`[ImageCache] Old format URL detected: ${url.substring(0, 50)}...`);
+          console.warn(`[ImageCache] Old format URL detected: ${normalizedUrl.substring(0, 50)}...`);
 
           // Try to extract gameId from the URL or use the provided gameId
           // Old format might be encoded or have different structure
