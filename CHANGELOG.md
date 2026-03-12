@@ -4,6 +4,10 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.7.13] - 2026-03-12
+
+- CI: Ensure pnpm is always available for electron-builder by installing it globally on Windows runners.
+
 ## [0.7.12] - 2026-03-12
 
 - CI: Use Corepack-managed pnpm for electron-builder and keep branch-based alpha/production build profiles.
