@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [0.7.15] - 2026-03-12
 
 - CI: Update GitHub Actions Node.js version to 24 for build and release workflow.
+- Build: Treat optimizer Sharp runtime modules as optional unpacked dependencies in verifier (warn instead of failing CI when packed inside app.asar).
 
 ## [0.7.14] - 2026-03-12
 

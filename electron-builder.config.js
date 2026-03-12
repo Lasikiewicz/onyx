@@ -61,11 +61,11 @@ const config = {
   ],
   asar: true,
   asarUnpack: [
-    '**/ImageOptimizerWorker.worker.js',
-    '**/node_modules/sharp/**',
-    '**/node_modules/semver/**',
-    '**/node_modules/detect-libc/**',
-    '**/node_modules/@img/**'
+    'dist-electron/ImageOptimizerWorker.worker.js',
+    'node_modules/sharp/**',
+    'node_modules/semver/**',
+    'node_modules/detect-libc/**',
+    'node_modules/@img/**'
   ],
   compression: 'maximum',
   nsis: {

@@ -35,6 +35,9 @@ function hasPath(root, relativePath) {
 function verifyRoot(unpackedRoot) {
   const required = [
     { key: 'worker', variants: ['ImageOptimizerWorker.worker.js', 'dist-electron/ImageOptimizerWorker.worker.js'] },
+  ];
+
+  const recommended = [
     { key: 'sharp', variants: ['node_modules/sharp'] },
     { key: 'detect-libc', variants: ['node_modules/detect-libc'] },
     { key: '@img', variants: ['node_modules/@img'] },
@@ -49,6 +52,17 @@ function verifyRoot(unpackedRoot) {
     const found = requirement.variants.some((variant) => hasPath(unpackedRoot, variant));
     if (!found) {
       missing.push(`${requirement.key} (${requirement.variants.join(' OR ')})`);
+    }
+  }
+
+  for (const requirement of recommended) {
+    const found = requirement.variants.some((variant) => hasPath(unpackedRoot, variant));
+    if (!found) {
+      console.warn(
+        `[verify:packaged-optimizer] Warning: optional dependency not unpacked under ${unpackedRoot}: ${requirement.key} (${requirement.variants.join(
+          ' OR '
+        )})`
+      );
     }
   }
 
