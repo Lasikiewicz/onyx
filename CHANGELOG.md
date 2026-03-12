@@ -4,7 +4,7 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Pending]
+## [0.7.15] - 2026-03-12
 
 - CI: Update GitHub Actions Node.js version to 24 for build and release workflow.
 
