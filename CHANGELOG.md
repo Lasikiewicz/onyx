@@ -4,6 +4,10 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.7.12] - 2026-03-12
+
+- CI: Use Corepack-managed pnpm for electron-builder and keep branch-based alpha/production build profiles.
+
 ## [0.7.11] - 2026-03-10
 
 - Security: Fix high severity XSS vulnerability in game descriptions and command injection in launcher service.

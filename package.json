@@ -1,7 +1,7 @@
 {
   "name": "onyx-launcher",
   "productName": "Onyx",
-  "version": "0.7.11",
+  "version": "0.7.12",
   "description": "The premium unified game library.",
   "main": "dist-electron/main.js",
   "scripts": {
@@ -58,6 +58,7 @@
   "bugs": {
     "url": "https://github.com/Lasikiewicz/onyx/issues"
   },
+  "packageManager": "pnpm@9.15.0",
   "devDependencies": {
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
