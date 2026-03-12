@@ -285,6 +285,7 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                           <img
                             src={game.logoUrl}
                             alt={game.title}
+                              loading="lazy"
                             className="max-w-full max-h-full object-contain transition-transform duration-300 group-hover:scale-110"
                             onError={(e) => {
                               const target = e.target as HTMLImageElement;
@@ -384,6 +385,7 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                           <img
                             src={game.iconUrl}
                             alt={game.title}
+                              loading="lazy"
                             className="max-w-full max-h-full object-contain"
                             onError={(e) => {
                               const target = e.target as HTMLImageElement;
@@ -498,6 +500,7 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                           <img
                             src={game.boxArtUrl}
                             alt={game.title}
+                              loading="lazy"
                             className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
                             onError={(e) => {
                               const target = e.target as HTMLImageElement;
@@ -523,6 +526,7 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                           <img
                             src={game.logoUrl}
                             alt={game.title}
+                              loading="lazy"
                             className="w-full h-full object-contain p-2 transition-transform duration-300 group-hover:scale-110"
                             style={{ width: `${logoSizeForList}px`, height: `${Math.round(logoSizeForList * (4 / 3))}px` }}
                             onError={(e) => {

@@ -1,0 +1,3 @@
+## 2026-03-12 - Native Lazy Loading over Custom Intersection Observer
+**Learning:** Found an opportunity to improve image rendering performance by utilizing the native `loading="lazy"` attribute on `<img>` tags instead of building complex custom lazy loading hooks or relying purely on `content-visibility: auto` for list items. Native lazy loading defers off-screen images optimally, drastically reducing initial bandwidth and CPU parsing overhead when rendering large lists like `LibraryListView`.
+**Action:** When working with image-heavy lists or grid components, always verify if `loading="lazy"` is applied to `<img>` tags. Combine it with container-level `contentVisibility: 'auto'` where appropriate for maximal performance.
