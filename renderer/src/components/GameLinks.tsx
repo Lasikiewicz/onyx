@@ -610,6 +610,7 @@ export const GameLinks: React.FC<GameLinksProps> = ({
                                                 disabled={link.originalIndex === 0}
                                                 className="p-1 text-gray-500 hover:text-white hover:bg-white/10 rounded transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                                                 title="Move Priority Up"
+                                                aria-label="Move Priority Up"
                                             >
                                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 15l7-7 7 7" />
@@ -622,6 +623,7 @@ export const GameLinks: React.FC<GameLinksProps> = ({
                                                 disabled={link.originalIndex === links.length - 1}
                                                 className="p-1 text-gray-500 hover:text-white hover:bg-white/10 rounded transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                                                 title="Move Priority Down"
+                                                aria-label="Move Priority Down"
                                             >
                                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
@@ -635,6 +637,7 @@ export const GameLinks: React.FC<GameLinksProps> = ({
                                                 onClick={() => toggleHideLink(link.originalIndex)}
                                                 className="p-1 text-gray-500 hover:text-white hover:bg-white/10 rounded transition-colors"
                                                 title={link.hidden ? "Show Link" : "Hide Link"}
+                                                aria-label={link.hidden ? "Show Link" : "Hide Link"}
                                             >
                                                 {link.hidden ? (
                                                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

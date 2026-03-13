@@ -92,7 +92,7 @@ export const ImageSearchModal: React.FC<ImageSearchModalProps> = ({
                             {isSearching ? 'Searching...' : 'Search'}
                         </button>
                     </div>
-                    <button onClick={onClose} className="p-2 hover:bg-gray-800 rounded-lg text-gray-400 hover:text-white text-2xl">×</button>
+                    <button onClick={onClose} aria-label="Close image search" className="p-2 hover:bg-gray-800 rounded-lg text-gray-400 hover:text-white text-2xl">×</button>
                 </div>
 
                 {/* Content */}
