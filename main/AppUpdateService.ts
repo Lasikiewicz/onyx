@@ -1,6 +1,15 @@
 import { app, net } from 'electron';
-import { autoUpdater } from 'electron-updater';
 import type { BrowserWindow } from 'electron';
+
+// electron-updater is optional in packaged builds; guard require so missing module doesn't crash startup.
+type AutoUpdater = typeof import('electron-updater')['autoUpdater'];
+let autoUpdater: AutoUpdater | null = null;
+try {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  autoUpdater = require('electron-updater').autoUpdater;
+} catch {
+  autoUpdater = null;
+}
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
@@ -199,6 +208,11 @@ export function initAppUpdateService(
     return;
   }
 
+  if (!autoUpdater) {
+    console.warn('[AppUpdate] electron-updater not available; update service disabled.');
+    return;
+  }
+
   isAlpha = isAlphaBuild;
   getWin = getWinFn;
 
@@ -236,11 +250,12 @@ export function initAppUpdateService(
 export function checkForUpdates(): void {
   const { app } = require('electron');
   if (!app.isPackaged) return;
+  if (!autoUpdater && !isAlpha) return;
   try {
     if (isAlpha) {
       checkForUpdatesAlpha();
     } else {
-      autoUpdater.checkForUpdates().catch((err) => {
+      autoUpdater!.checkForUpdates().catch((err) => {
         console.error('[AppUpdate] checkForUpdates failed:', err);
       });
     }
@@ -298,6 +313,7 @@ export function downloadUpdate(): Promise<string[] | null> {
     });
   }
 
+  if (!autoUpdater) return Promise.resolve(null);
   return autoUpdater.downloadUpdate();
 }
 
@@ -312,5 +328,7 @@ export function quitAndInstall(): void {
     return;
   }
 
-  autoUpdater.quitAndInstall(false);
+  if (autoUpdater) {
+    autoUpdater.quitAndInstall(false);
+  }
 }

@@ -10,7 +10,7 @@ interface APICredentialsSchema {
   credentials: APICredentials;
 }
 
-import { dynamicImport } from './dynamicImport.js';
+import Store from './electronStoreShim.js';
 
 const LEGACY_SERVICE_NAME = 'onyx-api-credentials';
 const ACCOUNT_KEYS = {
@@ -22,8 +22,8 @@ const ACCOUNT_KEYS = {
 };
 
 export class APICredentialsService {
-  private store: any = null;
-  private storePromise: Promise<any>;
+  private store: Store<APICredentialsSchema>;
+  private storePromise: Promise<Store<APICredentialsSchema>>;
   private keytar: any = null;
   private serviceName: string;
   private readonly legacyServiceNames: string[];
@@ -53,10 +53,9 @@ export class APICredentialsService {
 
   // Accept an optional injectedKeytar for testability (pass fake keytar in unit tests)
   constructor(injectedKeytar?: any, serviceNameOverride?: string) {
-    this.serviceName = serviceNameOverride || this.resolveDefaultServiceName();
-    this.legacyServiceNames = this.serviceName === LEGACY_SERVICE_NAME
-      ? []
-      : [LEGACY_SERVICE_NAME];
+    const resolvedServiceName = serviceNameOverride || this.resolveDefaultServiceName();
+    this.serviceName = resolvedServiceName;
+    this.legacyServiceNames = resolvedServiceName === LEGACY_SERVICE_NAME ? [] : [LEGACY_SERVICE_NAME];
     // Attempt to use injected keytar first
     if (injectedKeytar) {
       this.keytar = injectedKeytar;
@@ -70,35 +69,27 @@ export class APICredentialsService {
       }
     }
 
-    // Use dynamic import for ES module
-    this.storePromise = dynamicImport<any>('electron-store').then((StoreModule) => {
-      const Store = StoreModule.default as any;
-      // Don't persist env defaults to disk - only use them as runtime fallbacks
-      this.store = new Store({
-        name: 'api-credentials',
-        projectName: 'onyx',
-        defaults: {
-          credentials: {},
-        },
-      });
-
-      // Attempt to migrate any existing plain-text credentials into the secure store
-      // Use a testable helper so this logic can be unit tested without native keytar
-      (async () => {
-        try {
-          // Import helper lazily so tests can mock behavior easily
-          // eslint-disable-next-line @typescript-eslint/no-var-requires
-          const { migrateCredentials } = require('./credentialsMigrator');
-          await migrateCredentials(this.store, this.keytar, this.serviceName, ACCOUNT_KEYS);
-        } catch (err) {
-          // Migration failure should not break the app; log and continue
-          // eslint-disable-next-line no-console
-          console.error('Credential migration failed:', err);
-        }
-      })();
-
-      return this.store;
+    const baseStore = new Store<APICredentialsSchema>({
+      name: 'api-credentials',
+      defaults: {
+        credentials: {},
+      },
     });
+
+    this.store = baseStore;
+
+    this.storePromise = (async () => {
+      // Attempt to migrate any existing plain-text credentials into the secure store
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const { migrateCredentials } = require('./credentialsMigrator');
+        await migrateCredentials(baseStore, this.keytar, resolvedServiceName, ACCOUNT_KEYS);
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.error('Credential migration failed:', err);
+      }
+      return baseStore;
+    })();
   }
 
   private async ensureStore(): Promise<any> {

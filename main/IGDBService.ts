@@ -1,4 +1,4 @@
-import axios, { AxiosInstance } from 'axios';
+import axios, { AxiosInstance } from './axiosShim.js';
 
 export interface IGDBGame {
   id: number;
@@ -533,7 +533,7 @@ limit 10;`;
 
             return result;
           });
-        } catch (error) {
+        } catch (error: any) {
           console.error('[IGDBService] Error:', error);
           if (axios.isAxiosError(error) && error.response?.status === 429) throw error;
           return [];
@@ -577,7 +577,7 @@ limit 10;`;
         if (links.length > 0) result.links = links;
         return result;
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('[IGDBService.fastSearchGame] Error:', error);
       return [];
     }
@@ -596,7 +596,7 @@ limit 10;`;
           if (response.data.length === 0 || !response.data[0].game) return null;
           const results = await this.searchGame(String(response.data[0].game), linksOnly);
           return results.length > 0 ? results[0] : null;
-        } catch (error) {
+        } catch (error: any) {
           console.error('[IGDBService] Steam ID lookup error:', error);
           if (axios.isAxiosError(error) && error.response?.status === 429) throw error;
           return null;

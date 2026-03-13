@@ -37,11 +37,8 @@ const config = {
     'dist-electron/**/*.js',
     '!dist-electron/**/*.d.ts',
     '!dist-electron/**/*.tsbuildinfo',
-    // Optimizer runtime dependencies (must be available at runtime)
-    'node_modules/sharp/**',
-    'node_modules/detect-libc/**',
-    'node_modules/@img/**',
-    'node_modules/semver/**',
+    // Include all runtime dependencies; specific native modules are unpacked via asarUnpack
+    'node_modules/**/*',
     'package.json',
     'CHANGELOG.md'
   ],

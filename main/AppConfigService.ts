@@ -28,36 +28,27 @@ interface AppConfigsSchema {
   manualFolderConfigs?: Record<string, ManualFolderConfig>; // New format with custom names
 }
 
-import { dynamicImport } from './dynamicImport.js';
+import Store from './electronStoreShim.js';
 
 export class AppConfigService {
-  private store: any = null;
-  private storePromise: Promise<any>;
+  private store: Store<AppConfigsSchema>;
 
   constructor() {
-    // Use dynamic import for ES module
-    this.storePromise = dynamicImport<any>('electron-store').then((StoreModule) => {
-      const Store = StoreModule.default as any;
-      this.store = new Store({
-        name: 'app-configs',
-        defaults: {
-          apps: {},
-          backgroundScanEnabled: false,
-          backgroundScanIntervalMinutes: 30, // Default: 30 minutes
-          lastBackgroundScan: undefined,
-          manualFolders: [],
-          manualFolderConfigs: {},
-        },
-      });
-      return this.store;
+    this.store = new Store<AppConfigsSchema>({
+      name: 'app-configs',
+      defaults: {
+        apps: {},
+        backgroundScanEnabled: false,
+        backgroundScanIntervalMinutes: 30,
+        lastBackgroundScan: undefined,
+        manualFolders: [],
+        manualFolderConfigs: {},
+      },
     });
   }
 
-  private async ensureStore(): Promise<any> {
-    if (this.store) {
-      return this.store;
-    }
-    return this.storePromise;
+  private async ensureStore(): Promise<Store<AppConfigsSchema>> {
+    return this.store;
   }
 
   /**
@@ -73,7 +64,7 @@ export class AppConfigService {
    */
   async getAppConfig(appId: string): Promise<AppConfig | null> {
     const store = await this.ensureStore();
-    const apps = store.get('apps', {});
+    const apps = store.get('apps', {} as Record<string, AppConfig>);
     return apps[appId] || null;
   }
 
@@ -82,7 +73,7 @@ export class AppConfigService {
    */
   async saveAppConfig(config: AppConfig): Promise<void> {
     const store = await this.ensureStore();
-    const apps = store.get('apps', {});
+    const apps = store.get('apps', {} as Record<string, AppConfig>);
     apps[config.id] = config;
     store.set('apps', apps);
   }
@@ -92,7 +83,7 @@ export class AppConfigService {
    */
   async saveAppConfigs(configs: AppConfig[]): Promise<void> {
     const store = await this.ensureStore();
-    const apps = store.get('apps', {});
+    const apps = store.get('apps', {} as Record<string, AppConfig>);
 
     for (const config of configs) {
       apps[config.id] = config;
@@ -106,7 +97,7 @@ export class AppConfigService {
    */
   async deleteAppConfig(appId: string): Promise<void> {
     const store = await this.ensureStore();
-    const apps = store.get('apps', {});
+    const apps = store.get('apps', {} as Record<string, AppConfig>);
     delete apps[appId];
     store.set('apps', apps);
   }
@@ -144,7 +135,7 @@ export class AppConfigService {
    */
   async getBackgroundScanIntervalMinutes(): Promise<number> {
     const store = await this.ensureStore();
-    return store.get('backgroundScanIntervalMinutes', 30);
+    return store.get('backgroundScanIntervalMinutes', 30) ?? 30;
   }
 
   /**
@@ -162,7 +153,7 @@ export class AppConfigService {
    */
   async getLastBackgroundScan(): Promise<number | undefined> {
     const store = await this.ensureStore();
-    return store.get('lastBackgroundScan', undefined);
+    return store.get('lastBackgroundScan', undefined as number | undefined);
   }
 
   /**
@@ -225,7 +216,7 @@ export class AppConfigService {
    */
   async getManualFolderConfigs(): Promise<Record<string, ManualFolderConfig>> {
     const store = await this.ensureStore();
-    const configs = store.get('manualFolderConfigs', {});
+    const configs = store.get('manualFolderConfigs', {} as Record<string, ManualFolderConfig>) || {};
 
     // Migrate legacy format if needed
     const legacyFolders = store.get('manualFolders', []) as string[];

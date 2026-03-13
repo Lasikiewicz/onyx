@@ -1,4 +1,3 @@
-import axios, { AxiosInstance } from 'axios';
 import { getRateLimitCoordinator } from './RateLimitCoordinator.js';
 
 export interface GiantBombGame {
@@ -62,18 +61,22 @@ interface QueuedRequest<T> {
 
 export class GiantBombService {
   private apiKey: string;
-  private axiosInstance: AxiosInstance;
   private rateLimiter = getRateLimitCoordinator();
 
   constructor(apiKey: string) {
     this.apiKey = apiKey;
-    this.axiosInstance = axios.create({
-      baseURL: 'https://www.giantbomb.com/api',
-      params: {
-        api_key: this.apiKey,
-        format: 'json',
-      },
-    });
+  }
+
+  private buildUrl(endpoint: string, params: Record<string, string | number | undefined> = {}): string {
+    const url = new URL(`https://www.giantbomb.com/api${endpoint}`);
+    url.searchParams.set('api_key', this.apiKey);
+    url.searchParams.set('format', 'json');
+    for (const [key, value] of Object.entries(params)) {
+      if (value !== undefined) {
+        url.searchParams.set(key, String(value));
+      }
+    }
+    return url.toString();
   }
 
   /**
@@ -81,21 +84,19 @@ export class GiantBombService {
    */
   async validateCredentials(): Promise<boolean> {
     try {
-      const response = await this.axiosInstance.get('/games', {
-        params: {
-          limit: 1,
-          field_list: 'id',
-        },
+      const url = this.buildUrl('/games', {
+        limit: 1,
+        field_list: 'id',
       });
-      return response.status === 200 && response.data?.status_code === 1;
-    } catch (error: any) {
-      if (axios.isAxiosError(error)) {
-        if (error.response?.status === 401 || error.response?.status === 403) {
-          console.warn('[GiantBombService] Invalid API key');
-          return false;
-        }
+      const response = await fetch(url);
+      if (!response.ok) {
+        console.error('[GiantBombService] Credential validation HTTP error:', response.status);
+        return false;
       }
-      console.error('[GiantBombService] Credential validation error:', error.message);
+      const data: any = await response.json().catch(() => null);
+      return data && data.status_code === 1;
+    } catch (error: any) {
+      console.error('[GiantBombService] Credential validation error:', error?.message ?? error);
       return false;
     }
   }
@@ -106,19 +107,23 @@ export class GiantBombService {
   async searchGame(title: string): Promise<GiantBombGameResult[]> {
     return this.rateLimiter.queueRequest("giantbomb", async () => {
       try {
-        const response = await this.axiosInstance.get('/games', {
-          params: {
-            filter: `name:${title}`,
-            limit: 10,
-            field_list: 'id,name,deck,image,original_release_date,genres,platforms,developers,publishers',
-          },
+        const url = this.buildUrl('/games', {
+          filter: `name:${title}`,
+          limit: 10,
+          field_list: 'id,name,deck,image,original_release_date,genres,platforms,developers,publishers',
         });
+        const response = await fetch(url);
+        if (!response.ok) {
+          console.error('GiantBomb search HTTP error:', response.status);
+          return [];
+        }
+        const data: any = await response.json().catch(() => null);
 
-        if (!response.data?.results) {
+        if (!data?.results) {
           return [];
         }
 
-        return response.data.results.map((game: GiantBombGame) => ({
+        return (data.results as GiantBombGame[]).map((game: GiantBombGame) => ({
           id: game.id,
           name: game.name,
           summary: game.deck,
@@ -130,7 +135,7 @@ export class GiantBombService {
           publishers: game.publishers?.map(p => p.name),
         }));
       } catch (error: any) {
-        console.error('GiantBomb search error:', error.message);
+        console.error('GiantBomb search error:', error?.message ?? error);
         return [];
       }
     });
@@ -142,17 +147,21 @@ export class GiantBombService {
   async getGameDetails(gameId: number): Promise<GiantBombGameResult | null> {
     return this.rateLimiter.queueRequest("giantbomb", async () => {
       try {
-        const response = await this.axiosInstance.get(`/game/${gameId}`, {
-          params: {
-            field_list: 'id,name,deck,description,image,images,original_release_date,genres,platforms,developers,publishers',
-          },
+        const url = this.buildUrl(`/game/${gameId}`, {
+          field_list: 'id,name,deck,description,image,images,original_release_date,genres,platforms,developers,publishers',
         });
+        const response = await fetch(url);
+        if (!response.ok) {
+          console.error('GiantBomb getGameDetails HTTP error:', response.status);
+          return null;
+        }
+        const data: any = await response.json().catch(() => null);
 
-        if (!response.data?.results || response.data.results.length === 0) {
+        if (!data?.results || data.results.length === 0) {
           return null;
         }
 
-        const game = response.data.results[0] as GiantBombGame;
+        const game = data.results[0] as GiantBombGame;
 
         return {
           id: game.id,
@@ -167,7 +176,7 @@ export class GiantBombService {
           publishers: game.publishers?.map(p => p.name),
         };
       } catch (error: any) {
-        console.error('GiantBomb getGameDetails error:', error.message);
+        console.error('GiantBomb getGameDetails error:', error?.message ?? error);
         return null;
       }
     });

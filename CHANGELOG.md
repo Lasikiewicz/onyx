@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [0.7.16] - 2026-03-12
 
+- UX: Disable automatic "start hidden" behavior from preferences; only an explicit `--hidden` launch flag may start the app hidden to avoid invisible, non-interactive sessions.
+- UX: Prevent fully hidden startup when the system tray icon is disabled; "start hidden" now always means "start in tray", never invisible.
 - Alpha: Version bump only to trigger a fresh alpha build with the latest CI verifier behavior.
 
 ## [0.7.15] - 2026-03-12

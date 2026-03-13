@@ -50,7 +50,6 @@ if (!gotTheLock) {
 import path from 'node:path';
 import { readdirSync, statSync, existsSync, readFileSync, copyFileSync, mkdirSync, unlinkSync, promises as fsPromises } from 'node:fs';
 import { platform } from 'node:os';
-import dotenv from 'dotenv';
 import { analyzeCrashDumps, setupJavaScriptErrorHandler } from './crashDumpAnalyzer.js';
 
 // Crash dumps: enabled in all builds; stored under userData so packaged builds can write
@@ -136,8 +135,12 @@ import {
   finishRun as optimizationFinishRun,
 } from './ImageOptimizationController.js';
 
-// Load environment variables
-dotenv.config();
+// Load environment variables (development only; packaged builds do not rely on .env files)
+if (!app.isPackaged) {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const dotenv = require('dotenv') as typeof import('dotenv');
+  dotenv.config();
+}
 
 // Register onyx-local protocol as privileged to allow fetch and CORS
 protocol.registerSchemesAsPrivileged([
@@ -788,6 +791,10 @@ async function createWindow() {
     console.error('Error loading app icon:', error);
   }
 
+  // Default window dimensions
+  const defaultWidth = 1920;
+  const defaultHeight = 1080;
+
   // Load saved window state
   let windowState: { x?: number; y?: number; width?: number; height?: number; isMaximized?: boolean; isFullscreen?: boolean } | undefined;
   let isFirstLaunch = true;
@@ -800,9 +807,35 @@ async function createWindow() {
     console.error('Error loading window state:', error);
   }
 
-  // Default window dimensions
-  const defaultWidth = 1920;
-  const defaultHeight = 1080;
+  // Safety: if saved window state is completely off-screen (e.g. monitor layout changed),
+  // reset to defaults so the window is visible again.
+  if (windowState) {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const { screen } = require('electron') as typeof import('electron');
+      const displays = screen.getAllDisplays();
+      const rect = {
+        left: windowState.x ?? 0,
+        top: windowState.y ?? 0,
+        right: (windowState.x ?? 0) + (windowState.width ?? defaultWidth),
+        bottom: (windowState.y ?? 0) + (windowState.height ?? defaultHeight),
+      };
+      const intersectsAnyDisplay = displays.some((d) => {
+        const b = d.bounds;
+        const bRight = b.x + b.width;
+        const bBottom = b.y + b.height;
+        const overlapH = rect.left < bRight && rect.right > b.x;
+        const overlapV = rect.top < bBottom && rect.bottom > b.y;
+        return overlapH && overlapV;
+      });
+      if (!intersectsAnyDisplay) {
+        console.warn('[WindowState] Saved window bounds are off-screen; resetting to defaults.');
+        windowState = undefined;
+      }
+    } catch (e) {
+      console.warn('[WindowState] Failed to validate window bounds:', e);
+    }
+  }
 
   win = new BrowserWindow({
     width: windowState?.width ?? defaultWidth,
@@ -836,7 +869,9 @@ async function createWindow() {
   const loginSettings = app.getLoginItemSettings();
   const hasHiddenFlag = process.argv.includes('--hidden') || loginSettings.wasOpenedAsHidden;
   const isStartedAtLogin = loginSettings.wasOpenedAtLogin || hasHiddenFlag;
-  const shouldStartHidden = prefs ? (prefs.startClosedToTray || prefs.startMinimized || hasHiddenFlag || (prefs.startWithComputer && isStartedAtLogin)) : false;
+  // IMPORTANT: Do not allow automatic fully hidden startups; only an explicit --hidden flag may start hidden.
+  const wantsHiddenStart = hasHiddenFlag && (prefs ? (prefs.showSystemTrayIcon ?? true) : true);
+  const shouldStartHidden = wantsHiddenStart;
 
   if (!shouldStartHidden) {
     // Restore maximized state if previously maximized (for non-first-launch)
@@ -1021,21 +1056,9 @@ async function createWindow() {
     win?.webContents.send('main-process-message', new Date().toLocaleString());
     console.log('Window loaded, checking if electronAPI is available...');
 
-    // Check if we should show the window or start closed to tray
-    try {
-      const prefs = await userPreferencesService.getPreferences();
-      const loginSettings = app.getLoginItemSettings();
-      const hasHiddenFlag = process.argv.includes('--hidden') || loginSettings.wasOpenedAsHidden;
-      const isStartedAtLogin = loginSettings.wasOpenedAtLogin || hasHiddenFlag;
-      const shouldStartHidden = prefs.startClosedToTray || prefs.startMinimized || hasHiddenFlag || (prefs.startWithComputer && isStartedAtLogin);
-
-      if (!shouldStartHidden) {
-        win?.show();
-      }
-    } catch (error) {
-      console.error('Error checking start preferences:', error);
-      win?.show();
-    }
+    // Always show the window once content is loaded.
+    // Startup prefs / flags may still minimize later, but we never stay fully invisible.
+    win?.show();
 
     // If a previous run produced crash dumps, offer to save them
     const dumpPaths = getCrashDumpFilePaths();

@@ -2,7 +2,6 @@ import { join } from 'node:path';
 import { platform } from 'node:os';
 import { readFile, readdir, access } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
-import axios from 'axios';
 
 export interface SteamGame {
   appId: string;
@@ -405,21 +404,29 @@ export class SteamService {
       if (apiKey) {
         try {
           const apiUrl = `http://api.steampowered.com/IPlayerService/GetOwnedGames/v0001/?key=${apiKey}&steamid=${steamId}&format=json&include_appinfo=true`;
-          const response = await axios.get(apiUrl, {
-            timeout: 10000,
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 10000);
+          const response = await fetch(apiUrl, {
+            signal: controller.signal,
             headers: {
-              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-            }
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            },
           });
+          clearTimeout(timeout);
 
-          if (response.data?.response?.games) {
-            for (const game of response.data.response.games) {
-              const appId = String(game.appid);
-              const playtimeMinutes = game.playtime_forever || 0;
-              playtimeMap.set(appId, playtimeMinutes);
+          if (response.ok) {
+            const data = (await response.json()) as any;
+            if (data?.response?.games) {
+              for (const game of data.response.games) {
+                const appId = String(game.appid);
+                const playtimeMinutes = game.playtime_forever || 0;
+                playtimeMap.set(appId, playtimeMinutes);
+              }
+              console.log(`[SteamService] Fetched playtime for ${playtimeMap.size} games via Steam Web API`);
+              return playtimeMap;
             }
-            console.log(`[SteamService] Fetched playtime for ${playtimeMap.size} games via Steam Web API`);
-            return playtimeMap;
+          } else {
+            console.warn('[SteamService] Steam Web API HTTP error', response.status, response.statusText);
           }
         } catch (apiError) {
           console.warn('[SteamService] Steam Web API failed, falling back to Community API:', apiError);
@@ -429,15 +436,25 @@ export class SteamService {
       // Fallback to Steam Community API (no key required, but less reliable)
       try {
         const communityUrl = `https://steamcommunity.com/profiles/${steamId}/games/?tab=all&xml=1`;
-        const response = await axios.get(communityUrl, {
-          timeout: 10000,
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 10000);
+        const response = await fetch(communityUrl, {
+          signal: controller.signal,
           headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-          }
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          },
         });
+        clearTimeout(timeout);
+
+        if (!response.ok) {
+          if (response.status === 403) {
+            throw new Error('Steam profile is private. Please set your Steam profile to public to sync playtime.');
+          }
+          throw new Error(`HTTP ${response.status}`);
+        }
 
         // Parse XML response
-        const xmlData = response.data;
+        const xmlData = await response.text();
 
         // Extract game data from XML
         // Format: <game><appID>123456</appID><name>Game Name</name><hoursOnRecord>12.5</hoursOnRecord>...</game>
@@ -467,9 +484,8 @@ export class SteamService {
         console.log(`[SteamService] Fetched playtime for ${playtimeMap.size} games via Steam Community API`);
       } catch (communityError) {
         console.error('[SteamService] Failed to fetch playtime from Steam Community API:', communityError);
-        // Check if it's a profile privacy issue
-        if (axios.isAxiosError(communityError) && communityError.response?.status === 403) {
-          throw new Error('Steam profile is private. Please set your Steam profile to public to sync playtime.');
+        if (communityError instanceof Error && communityError.message.includes('private')) {
+          throw communityError;
         }
         throw new Error('Failed to fetch playtime data from Steam');
       }
@@ -488,15 +504,23 @@ export class SteamService {
    */
   async searchGames(query: string): Promise<Array<{ appId: string; name: string; tinyImage: string }>> {
     try {
-      const response = await axios.get(`https://store.steampowered.com/api/storesearch/?term=${encodeURIComponent(query)}&l=english&cc=US`, {
-        timeout: 10000
-      });
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10000);
+      const url = `https://store.steampowered.com/api/storesearch/?term=${encodeURIComponent(query)}&l=english&cc=US`;
+      const response = await fetch(url, { signal: controller.signal });
+      clearTimeout(timeout);
 
-      if (response.data && response.data.items) {
-        return response.data.items.map((item: any) => ({
+      if (!response.ok) {
+        console.error(`[SteamService] Store search HTTP error ${response.status} for "${query}"`);
+        return [];
+      }
+
+      const data = (await response.json()) as any;
+      if (data && data.items) {
+        return data.items.map((item: any) => ({
           appId: String(item.id),
           name: item.name,
-          tinyImage: item.tiny_image
+          tinyImage: item.tiny_image,
         }));
       }
       return [];
@@ -512,17 +536,25 @@ export class SteamService {
    */
   async getGameDetails(appId: string): Promise<{ name: string; description: string; developers: string[]; publishers: string[] } | null> {
     try {
-      const response = await axios.get(`https://store.steampowered.com/api/appdetails?appids=${appId}&l=english`, {
-        timeout: 10000
-      });
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10000);
+      const url = `https://store.steampowered.com/api/appdetails?appids=${appId}&l=english`;
+      const response = await fetch(url, { signal: controller.signal });
+      clearTimeout(timeout);
 
-      if (response.data && response.data[appId] && response.data[appId].success) {
-        const data = response.data[appId].data;
+      if (!response.ok) {
+        console.error(`[SteamService] App details HTTP error ${response.status} for app ${appId}`);
+        return null;
+      }
+
+      const data = (await response.json()) as any;
+      if (data && data[appId] && data[appId].success) {
+        const appData = data[appId].data;
         return {
-          name: data.name,
-          description: data.short_description,
-          developers: data.developers || [],
-          publishers: data.publishers || []
+          name: appData.name,
+          description: appData.short_description,
+          developers: appData.developers || [],
+          publishers: appData.publishers || [],
         };
       }
       return null;

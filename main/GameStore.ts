@@ -1,4 +1,3 @@
-import type Store from 'electron-store';
 import { SteamGame } from './SteamService.js';
 import { debugOptimizationLog, isDebugOptimizationEnabled } from './debugOptimizationLog.js';
 import { normalizeOnyxLocalUrl, sanitizeGameArtworkUrls, stripTransientUrlSuffix } from './artworkUrlUtils.js';
@@ -78,33 +77,25 @@ interface StoreSchema {
   games: Game[];
 }
 
-import { dynamicImport } from './dynamicImport.js';
+import Store from './electronStoreShim.js';
 
 export class GameStore {
-  private store: Store<StoreSchema> | null = null;
-  private storePromise: Promise<Store<StoreSchema>>;
+  private store: Store<StoreSchema>;
   private gamesCache: Game[] | null = null;
   private saveTimeout: NodeJS.Timeout | null = null;
   private readonly SAVE_DELAY = 2000;
 
   constructor() {
-    this.storePromise = dynamicImport<any>('electron-store').then((StoreModule) => {
-      const Store = StoreModule.default as any;
-      this.store = new Store({
-        name: 'game-library',
-        defaults: {
-          games: [],
-        },
-      }) as Store<StoreSchema>;
-      return this.store!;
+    this.store = new Store<StoreSchema>({
+      name: 'game-library',
+      defaults: {
+        games: [],
+      },
     });
   }
 
   private async ensureStore(): Promise<Store<StoreSchema>> {
-    if (this.store) {
-      return this.store;
-    }
-    return await this.storePromise;
+    return this.store;
   }
 
   /**

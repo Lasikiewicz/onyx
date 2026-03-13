@@ -221,33 +221,25 @@ interface UserPreferencesSchema {
   schemaVersion?: number;
 }
 
-import { dynamicImport } from './dynamicImport.js';
+import Store from './electronStoreShim.js';
 
 export class UserPreferencesService {
-  private store: any = null;
-  private storePromise: Promise<any>;
+  private store: Store<UserPreferencesSchema>;
   private readonly schemaVersion = 1;
 
   constructor() {
-    this.storePromise = dynamicImport<any>('electron-store').then((StoreModule) => {
-      const Store = StoreModule.default as any;
-      this.store = new Store({
-        name: 'user-preferences',
-        defaults: {
-          preferences: this.createDefaultPreferences(),
-          customDefaults: {},
-          schemaVersion: this.schemaVersion,
-        },
-      });
-      return this.store;
+    this.store = new Store<UserPreferencesSchema>({
+      name: 'user-preferences',
+      defaults: {
+        preferences: this.createDefaultPreferences(),
+        customDefaults: {},
+        schemaVersion: this.schemaVersion,
+      },
     });
   }
 
-  private async ensureStore(): Promise<any> {
-    if (this.store) {
-      return this.store;
-    }
-    return this.storePromise;
+  private async ensureStore(): Promise<Store<UserPreferencesSchema>> {
+    return this.store;
   }
 
   private createDefaultPreferences(): UserPreferences {

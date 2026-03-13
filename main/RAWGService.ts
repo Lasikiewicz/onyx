@@ -1,4 +1,4 @@
-import axios, { AxiosInstance } from 'axios';
+import axios, { AxiosInstance } from './axiosShim.js';
 
 export interface RAWGGame {
   id: number;
@@ -137,10 +137,7 @@ export class RAWGService {
 
   private initializeAxios() {
     this.axiosInstance = axios.create({
-      baseURL: 'https://api.rawg.io/api',
-      params: {
-        key: this.apiKey,
-      },
+      baseURL: 'https://api.rawg.io/api?key=' + encodeURIComponent(this.apiKey),
     });
   }
 

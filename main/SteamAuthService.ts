@@ -1,6 +1,5 @@
 import { BrowserWindow } from 'electron';
-import axios from 'axios';
-
+import Store from './electronStoreShim.js';
 export interface SteamAuthState {
   steamId?: string;
   username?: string;
@@ -12,34 +11,23 @@ interface SteamAuthSchema {
   auth: SteamAuthState;
 }
 
-import { dynamicImport } from './dynamicImport.js';
-
 export class SteamAuthService {
-  private store: any = null;
-  private storePromise: Promise<any>;
+  private store: Store<SteamAuthSchema>;
   private authWindow: BrowserWindow | null = null;
 
   constructor() {
-    // Use dynamic import for ES module
-    this.storePromise = dynamicImport<any>('electron-store').then((StoreModule) => {
-      const Store = StoreModule.default as any;
-      this.store = new Store({
-        name: 'steam-auth',
-        defaults: {
-          auth: {
-            authenticated: false,
-          },
+    this.store = new Store<SteamAuthSchema>({
+      name: 'steam-auth',
+      defaults: {
+        auth: {
+          authenticated: false,
         },
-      });
-      return this.store;
+      },
     });
   }
 
-  private async ensureStore(): Promise<any> {
-    if (this.store) {
-      return this.store;
-    }
-    return this.storePromise;
+  private async ensureStore(): Promise<Store<SteamAuthSchema>> {
+    return this.store;
   }
 
   /**
@@ -148,19 +136,26 @@ export class SteamAuthService {
                   // Try to get username from Steam profile (public API, no key needed for basic info)
                   let username = 'Steam User';
                   try {
-                    // Use Steam's public profile API
                     const profileUrl = `https://steamcommunity.com/profiles/${steamId}/?xml=1`;
-                    const response = await axios.get(profileUrl, {
-                      timeout: 5000,
-                      headers: {
-                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 5000);
+                    try {
+                      const response = await fetch(profileUrl, {
+                        method: 'GET',
+                        headers: {
+                          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                        },
+                        signal: controller.signal,
+                      });
+                      if (response.ok) {
+                        const text = await response.text();
+                        const xmlMatch = text.match(/<steamID><!\[CDATA\[(.*?)\]\]><\/steamID>/);
+                        if (xmlMatch) {
+                          username = xmlMatch[1];
+                        }
                       }
-                    });
-
-                    // Parse XML response to get username
-                    const xmlMatch = response.data.match(/<steamID><!\[CDATA\[(.*?)\]\]><\/steamID>/);
-                    if (xmlMatch) {
-                      username = xmlMatch[1];
+                    } finally {
+                      clearTimeout(timeoutId);
                     }
                   } catch (err) {
                     console.warn('Could not fetch Steam username, using default:', err);
@@ -221,15 +216,23 @@ export class SteamAuthService {
                   let username = 'Steam User';
                   try {
                     const profileUrl = `https://steamcommunity.com/profiles/${steamId}/?xml=1`;
-                    const response = await axios.get(profileUrl, {
-                      timeout: 5000,
-                      headers: {
-                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 5000);
+                    try {
+                      const response = await fetch(profileUrl, {
+                        method: 'GET',
+                        headers: {
+                          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                        },
+                        signal: controller.signal,
+                      });
+                      const text = await response.text();
+                      const xmlMatch = text.match(/<steamID><!\[CDATA\[(.*?)\]\]><\/steamID>/);
+                      if (xmlMatch) {
+                        username = xmlMatch[1];
                       }
-                    });
-                    const xmlMatch = response.data.match(/<steamID><!\[CDATA\[(.*?)\]\]><\/steamID>/);
-                    if (xmlMatch) {
-                      username = xmlMatch[1];
+                    } finally {
+                      clearTimeout(timeoutId);
                     }
                   } catch (err) {
                     console.warn('Could not fetch Steam username:', err);
@@ -275,15 +278,23 @@ export class SteamAuthService {
                   let username = 'Steam User';
                   try {
                     const profileUrl = `https://steamcommunity.com/profiles/${steamId}/?xml=1`;
-                    const response = await axios.get(profileUrl, {
-                      timeout: 5000,
-                      headers: {
-                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 5000);
+                    try {
+                      const response = await fetch(profileUrl, {
+                        method: 'GET',
+                        headers: {
+                          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                        },
+                        signal: controller.signal,
+                      });
+                      const text = await response.text();
+                      const xmlMatch = text.match(/<steamID><!\[CDATA\[(.*?)\]\]><\/steamID>/);
+                      if (xmlMatch) {
+                        username = xmlMatch[1];
                       }
-                    });
-                    const xmlMatch = response.data.match(/<steamID><!\[CDATA\[(.*?)\]\]><\/steamID>/);
-                    if (xmlMatch) {
-                      username = xmlMatch[1];
+                    } finally {
+                      clearTimeout(timeoutId);
                     }
                   } catch (err) {
                     console.warn('Could not fetch Steam username:', err);
