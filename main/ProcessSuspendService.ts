@@ -1,8 +1,8 @@
-import { spawn, exec } from 'child_process';
+import { spawn, execFile } from 'child_process';
 import path from 'node:path';
 import { platform } from 'node:os';
 import { promisify } from 'util';
-const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
 
 type ExecRunner = (command: string, args: string[], opts?: any) => Promise<{ stdout: string; stderr: string; code: number }>;
 
@@ -410,8 +410,7 @@ ${shouldForeground ? '[OnyxUser32]::SetForegroundWindow($hWnd) | Out-Null' : ''}
     }
 
     try {
-      const command = `powershell -Command "Get-Process -Id ${pid} -ErrorAction SilentlyContinue"`;
-      const { stdout } = await execAsync(command);
+      const { stdout } = await execFileAsync('powershell', ['-NoProfile', '-Command', `Get-Process -Id ${pid} -ErrorAction SilentlyContinue`]);
       return stdout.trim().length > 0;
     } catch {
       return false;
@@ -427,8 +426,7 @@ ${shouldForeground ? '[OnyxUser32]::SetForegroundWindow($hWnd) | Out-Null' : ''}
     }
 
     try {
-      const command = `powershell -Command "Get-Process | Select-Object Id, ProcessName, Path | ConvertTo-Json"`;
-      const { stdout } = await execAsync(command);
+      const { stdout } = await execFileAsync('powershell', ['-NoProfile', '-Command', `Get-Process | Select-Object Id, ProcessName, Path | ConvertTo-Json`]);
       const processes = JSON.parse(stdout);
 
       // Handle both single object and array
