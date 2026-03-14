@@ -41,7 +41,38 @@ interface LibraryListViewProps {
   onEmptySpaceClick?: (x: number, y: number) => void;
 }
 
-export const LibraryListView: React.FC<LibraryListViewProps> = ({
+
+// ⚡ Bolt: Cache expensive Intl.DateTimeFormat instance outside render scope
+const dateFormatter = new Intl.DateTimeFormat('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+
+// ⚡ Bolt: Extract pure formatting functions outside component to prevent recreation on every render
+const formatPlaytime = (minutes?: number) => {
+  if (!minutes) return 'Not Played';
+  if (minutes < 60) return `${minutes} minutes`;
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
+};
+
+const formatDate = (dateString?: string) => {
+  if (!dateString) return 'Unknown';
+  try {
+    const date = new Date(dateString);
+    // Only format valid dates
+    if (isNaN(date.getTime())) return 'Unknown';
+    return dateFormatter.format(date);
+  } catch {
+    return 'Unknown';
+  }
+};
+
+const formatLauncher = (launcher?: string) => {
+  if (!launcher) return '';
+  return getLauncherDisplayName(launcher);
+};
+
+// ⚡ Bolt: Wrap in React.memo to prevent unnecessary re-renders when parent state changes
+export const LibraryListView = React.memo(({
   games,
   onPlay,
   onGameClick,
@@ -68,30 +99,7 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
   },
   listViewSize = 128,
   onEmptySpaceClick,
-}) => {
-  const formatPlaytime = (minutes?: number) => {
-    if (!minutes) return 'Not Played';
-    if (minutes < 60) return `${minutes} minutes`;
-    const hours = Math.floor(minutes / 60);
-    const mins = minutes % 60;
-    return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
-  };
-
-  const formatDate = (dateString?: string) => {
-    if (!dateString) return 'Unknown';
-    try {
-      const date = new Date(dateString);
-      return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-    } catch {
-      return 'Unknown';
-    }
-  };
-
-  const formatLauncher = (launcher?: string) => {
-    if (!launcher) return '';
-    return getLauncherDisplayName(launcher);
-  };
-
+}: LibraryListViewProps) => {
   const displayMode = listViewOptions.displayMode || 'boxart-title';
   const titleTextSize = listViewOptions.titleTextSize ?? 18;
   const sectionTextSize = listViewOptions.sectionTextSize ?? 14;
@@ -189,6 +197,11 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                 className={`p-3 bg-gray-800/40 backdrop-blur-md border border-white/5 rounded-xl transition-all duration-300 hover:bg-gray-700/60 hover:border-cyan-400/30 cursor-pointer group outline-none ${index === focusedIndex ? 'ring-2 ring-blue-500 ring-offset-2 ring-offset-slate-900' : ''
                   } ${displayMode === 'logo-only' || displayMode === 'title-only' ? 'flex flex-col items-center' : 'flex items-center gap-4'
                   }`}
+                // ⚡ Bolt: Lightweight native browser virtualization for long lists
+                style={{
+                  contentVisibility: 'auto',
+                  containIntrinsicSize: `auto ${tileHeight + 24}px`
+                }}
               >
                 {displayMode === 'title-only' ? (
                   <>
@@ -635,4 +648,4 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
       )}
     </div>
   );
-};
+});
