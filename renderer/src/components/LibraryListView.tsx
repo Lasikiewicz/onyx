@@ -41,6 +41,36 @@ interface LibraryListViewProps {
   onEmptySpaceClick?: (x: number, y: number) => void;
 }
 
+const dateFormatter = new Intl.DateTimeFormat('en-US', {
+  year: 'numeric',
+  month: 'short',
+  day: 'numeric'
+});
+
+const formatDate = (dateString?: string) => {
+  if (!dateString) return 'Unknown';
+  try {
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return 'Unknown';
+    return dateFormatter.format(date);
+  } catch {
+    return 'Unknown';
+  }
+};
+
+const formatPlaytime = (minutes?: number) => {
+  if (!minutes) return 'Not Played';
+  if (minutes < 60) return `${minutes} minutes`;
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
+};
+
+const formatLauncher = (launcher?: string) => {
+  if (!launcher) return '';
+  return getLauncherDisplayName(launcher);
+};
+
 export const LibraryListView: React.FC<LibraryListViewProps> = ({
   games,
   onPlay,
@@ -69,28 +99,6 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
   listViewSize = 128,
   onEmptySpaceClick,
 }) => {
-  const formatPlaytime = (minutes?: number) => {
-    if (!minutes) return 'Not Played';
-    if (minutes < 60) return `${minutes} minutes`;
-    const hours = Math.floor(minutes / 60);
-    const mins = minutes % 60;
-    return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
-  };
-
-  const formatDate = (dateString?: string) => {
-    if (!dateString) return 'Unknown';
-    try {
-      const date = new Date(dateString);
-      return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-    } catch {
-      return 'Unknown';
-    }
-  };
-
-  const formatLauncher = (launcher?: string) => {
-    if (!launcher) return '';
-    return getLauncherDisplayName(launcher);
-  };
 
   const displayMode = listViewOptions.displayMode || 'boxart-title';
   const titleTextSize = listViewOptions.titleTextSize ?? 18;
@@ -189,6 +197,10 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                 className={`p-3 bg-gray-800/40 backdrop-blur-md border border-white/5 rounded-xl transition-all duration-300 hover:bg-gray-700/60 hover:border-cyan-400/30 cursor-pointer group outline-none ${index === focusedIndex ? 'ring-2 ring-blue-500 ring-offset-2 ring-offset-slate-900' : ''
                   } ${displayMode === 'logo-only' || displayMode === 'title-only' ? 'flex flex-col items-center' : 'flex items-center gap-4'
                   }`}
+                style={{
+                  contentVisibility: 'auto',
+                  containIntrinsicSize: `auto ${listViewOptions.tileHeight ?? listViewSize}px`
+                }}
               >
                 {displayMode === 'title-only' ? (
                   <>
@@ -285,6 +297,7 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                           <img
                             src={game.logoUrl}
                             alt={game.title}
+                            loading="lazy"
                             className="max-w-full max-h-full object-contain transition-transform duration-300 group-hover:scale-110"
                             onError={(e) => {
                               const target = e.target as HTMLImageElement;
@@ -384,6 +397,7 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                           <img
                             src={game.iconUrl}
                             alt={game.title}
+                            loading="lazy"
                             className="max-w-full max-h-full object-contain"
                             onError={(e) => {
                               const target = e.target as HTMLImageElement;
@@ -498,6 +512,7 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                           <img
                             src={game.boxArtUrl}
                             alt={game.title}
+                            loading="lazy"
                             className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
                             onError={(e) => {
                               const target = e.target as HTMLImageElement;
@@ -523,6 +538,7 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                           <img
                             src={game.logoUrl}
                             alt={game.title}
+                            loading="lazy"
                             className="w-full h-full object-contain p-2 transition-transform duration-300 group-hover:scale-110"
                             style={{ width: `${logoSizeForList}px`, height: `${Math.round(logoSizeForList * (4 / 3))}px` }}
                             onError={(e) => {
