@@ -260,6 +260,8 @@ function App() {
   const currentFanartHeight = (viewMode === 'grid' || viewMode === 'list' || viewMode === 'logo') ? fanartHeightByView[viewMode] : 320;
   const currentDescriptionWidth = (viewMode === 'grid' || viewMode === 'list' || viewMode === 'logo') ? descriptionWidthByView[viewMode] : 50;
   const currentPanelWidth = (viewMode === 'grid' || viewMode === 'list' || viewMode === 'logo') ? panelWidthByViewState[viewMode] : 800;
+  /** Always true in grid/list/logo so the right panel always has pt-4 and retains its position when "Show categories" is toggled on or off. */
+  const rightPanelNeedsTopPadding = viewMode === 'grid' || viewMode === 'list' || viewMode === 'logo';
   const currentBackgroundBrightness = backgroundBrightnessByView[viewMode] ?? 0.3;
 
   // Set background blur to 0 when switching to carousel/coverflow mode and sync divider widths when view changes
@@ -2280,9 +2282,9 @@ function App() {
           />
         )}
 
-        {/* Main Content Area */}
+        {/* Main Content Area: games list (left) and game details (right). Categories live inside the games list only. */}
         <div className={`flex-1 flex overflow-hidden relative pt-10 ${isViewFlippedByView[viewMode] ? 'flex-row-reverse' : ''}`}>
-          {/* Left Panel - Game Library (flexible width, full width in carousel/coverflow mode) */}
+          {/* Left Panel - Game Library (flexible width, full width in carousel/coverflow mode). Categories bar is inside this panel only. */}
           <div className={`flex flex-col overflow-hidden ${viewMode === 'carousel' || viewMode === 'coverflow' ? 'w-full' : 'flex-1'}`}>
             {/* Game Grid */}
             <div
@@ -2324,7 +2326,7 @@ function App() {
                 <div className="h-full flex flex-col">
                   {showCategoriesByView[viewMode] && viewMode !== 'carousel' && viewMode !== 'coverflow' && pinnedCategories.length > 0 && (categoriesPositionByView[viewMode] ?? 'top') === 'top' && (
                     <div
-                      className={`flex items-center gap-2 px-6 py-4 overflow-x-auto no-scrollbar ${(categoriesAlignmentByView[viewMode] ?? 'left') === 'center' ? 'justify-center' : (categoriesAlignmentByView[viewMode] ?? 'left') === 'right' ? 'justify-end' : 'justify-start'
+                      className={`flex items-center gap-2 px-6 py-4 overflow-x-auto no-scrollbar flex-shrink-0 ${(categoriesAlignmentByView[viewMode] ?? 'left') === 'center' ? 'justify-center' : (categoriesAlignmentByView[viewMode] ?? 'left') === 'right' ? 'justify-end' : 'justify-start'
                         }`}
                       style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
                     >
@@ -2366,7 +2368,7 @@ function App() {
                     </div>
                   )}
                   {displayGames.length > 0 && !forceShowInitialOnboarding ? (
-                    <div className={`flex-1 overflow-y-auto animate-onyx-grid-fade ${showCategoriesByView[viewMode] && viewMode !== 'carousel' && viewMode !== 'coverflow' ? ((categoriesPositionByView[viewMode] ?? 'top') === 'top' ? 'px-4 pb-4 pt-0' : 'px-4 pt-4 pb-0') : ''}`}>
+                    <div className={`flex-1 overflow-y-auto animate-onyx-grid-fade min-h-0 ${showCategoriesByView[viewMode] && viewMode !== 'carousel' && viewMode !== 'coverflow' ? ((categoriesPositionByView[viewMode] ?? 'top') === 'top' ? 'px-4 pb-4 pt-0' : 'px-4 pt-4 pb-0') : ''}`}>
                       {viewMode === 'grid' || viewMode === 'logo' ? (
                         <LibraryGrid
                           games={displayGames}
@@ -2574,6 +2576,8 @@ function App() {
 
           {/* Right Panel - Game Details (hidden in carousel/coverflow mode and when no games exist) */}
           {viewMode !== 'carousel' && viewMode !== 'coverflow' && filteredGames.length > 0 && !forceShowInitialOnboarding && (
+            <div className={rightPanelNeedsTopPadding ? 'pt-4 flex-1 flex flex-col min-h-0' : 'flex-1 flex flex-col min-h-0'}>
+              <div className="flex-1 min-h-0">
             <GameDetailsPanel
               game={activeGame}
               isLaunching={launchingGameId === activeGame?.id}
@@ -2643,6 +2647,8 @@ function App() {
               linkDisplayOrder={linkDisplayOrder}
               visibleLinkTypes={visibleLinkTypes}
             />
+              </div>
+            </div>
           )}
         </div>
       </div>
