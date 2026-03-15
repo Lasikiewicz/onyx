@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Pending]
 
+## [0.7.22] - 2026-03-15
+
+- Library view: Keep “Show Categories” inside the games list only when categories are off or at bottom, add top padding (pt-4) to the game details panel so the games list and game details content tops align.
+- Docs: Restructure main view into component docs (Menu Bar, Game Details Panel, Games List) and view-type docs (Grid, List, Logo, Carousel, Coverflow), each with unique features; remove games-view-and-details.md; update doc-map and README.
 - Tests: Fix `test:suspend:service-mock` — fake runner now rejects native NtSuspendProcess/NtResumeProcess calls (Method 1) so the cmdlet fallback path (`Suspend-Process`/`Resume-Process`) is exercised correctly.
 - Tests/Build: Fix `test:credentials:service-mock` — `electronStoreShim` no longer crashes outside Electron by guarding `app.getPath` with a try/catch and falling back to `os.tmpdir()`; test seeds credentials directly to the shim-resolved path instead of using a separate `electron-store` instance at a different location; add `clear()` method to shim.
 
