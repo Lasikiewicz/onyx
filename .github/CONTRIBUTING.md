@@ -6,7 +6,7 @@ This document covers how to get started and what to expect.
 
 ## Development setup
 
-1. **Install dependencies**: `npm install`
+1. **Install dependencies**: `npm ci`
 2. **Run the app**: `npm run electron:dev`
 
 Onyx is an **Electron application**. It does not run in a normal browser; use `npm run electron:dev` for local development. The Vite dev server and Electron are started together.
@@ -15,7 +15,7 @@ Onyx is an **Electron application**. It does not run in a normal browser; use `n
 
 Onyx does **not** ship with any API keys. To use metadata features (game info, artwork), you must obtain your own keys and configure them in the app (Settings > APIs) or via environment variables. See [../.env.example](../.env.example) and the README for:
 
-- IGDB (Client ID + Client Secret; use `http://localhost` as the OAuth Redirect URL)
+- IGDB (Client ID + Client Secret; use `http://localhost:5173` as the OAuth Redirect URL)
 - RAWG (API Key)
 - SteamGridDB (API Key)
 

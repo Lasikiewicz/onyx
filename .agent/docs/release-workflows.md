@@ -19,7 +19,7 @@ This file is the source of truth for branch promotion and release operations.
 
 ## 1) Push to git / Push to git master
 
-1. Ensure `CHANGELOG.md` has a top-level `## [Pending]` section with user-visible changes.
+1. Ensure `CHANGELOG.md` reflects current user-visible changes. Use `## [Pending]` when present, otherwise add/update the target release section.
 2. Run `npm run build` and resolve failures.
 3. Run `npm run scan:secrets` and resolve failures.
 4. Commit and push:
@@ -35,7 +35,9 @@ git push origin master
 ## 2) Force to Alpha
 
 1. Run `npm run increment-build`, then read `version` from `package.json`.
-2. Promote `## [Pending]` in `CHANGELOG.md` to `## [X.Y.Z] - YYYY-MM-DD`.
+2. Update `CHANGELOG.md` for the new release `## [X.Y.Z] - YYYY-MM-DD`:
+	- If `## [Pending]` exists, promote it.
+	- If `## [Pending]` does not exist, add the new section at the top with release bullets.
 3. Run `npm run scan:secrets`.
 4. Commit with message: `<version> <changes>`.
 5. Push and force promote:

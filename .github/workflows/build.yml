@@ -8,19 +8,16 @@ on:
     paths-ignore:
       - 'website/**'
       - 'docs/**'
-      - 'agents.md'
-      - 'brain/**'
-      - '.gemini/**'
+      - '.agent/**'
   pull_request:
     branches:
+      - master
       - main
       - develop
     paths-ignore:
       - 'website/**'
       - 'docs/**'
-      - 'agents.md'
-      - 'brain/**'
-      - '.gemini/**'
+      - '.agent/**'
 
 permissions:
   contents: write

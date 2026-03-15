@@ -15,7 +15,7 @@ Always check this map first before editing code.
 | Rule | File Area(s) | Required Doc | Scope |
 | --- | --- | --- | --- |
 | agent-workflows | `.agent/workflows/` | `.agent/workflows/agents.md` | Agent rules and operating workflow |
-| app-architecture-main | `main/`<br>`GiantBombService.js` | `.agent/docs/architecture.md` | Electron main-process architecture and services |
+| app-architecture-main | `main/` | `.agent/docs/architecture.md` | Electron main-process architecture and services |
 | app-architecture-renderer | `renderer/src/` | `.agent/docs/architecture.md` | Renderer architecture, state and IPC usage |
 | build-release-pipeline | `.github/workflows/`<br>`electron-builder.config.js`<br>`package.json`<br>`vite.config.ts`<br>`vitest.config.ts`<br>`tsconfig.json`<br>`tailwind.config.js`<br>`postcss.config.js` | `.agent/docs/architecture.md` | Build, CI/CD, and quality gates |
 | developer-automation | `scripts/`<br>`.husky/` | `.agent/docs/structure.md` | Automation scripts and commit-time guardrails |
@@ -24,7 +24,7 @@ Always check this map first before editing code.
 ## Last Sync
 
 <!-- AUTO-GENERATED:LAST_SYNC:START -->
-- Synced (UTC): 2026-03-15T19:35:01.130Z
+- Synced (UTC): 2026-03-15T19:50:45.372Z
 <!-- AUTO-GENERATED:LAST_SYNC:END -->
 
 ## Manual Update Policy

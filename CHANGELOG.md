@@ -4,6 +4,12 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Pending]
+
+- Docs: Align contributor and README setup guidance with npm-based project workflows (`npm ci`) and update IGDB OAuth redirect guidance to `http://localhost:5173`.
+- Docs: Add GiantBomb API credential documentation in README and `.env.example`, including current availability note.
+- CI/Workflow: Normalize branch trigger coverage across build and test workflows, and remove stale docs mapping references.
+
 ## [0.7.17] - 2026-03-15
 
 - Docs governance: Added structure-first documentation guardrails with automated sync/check scripts, pre-commit enforcement, and CI validation.

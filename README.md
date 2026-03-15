@@ -81,13 +81,13 @@ This overwrites the `main` branch with `develop`, triggering an automatic Produc
 
 1. Install dependencies:
    ```bash
-   npm install
+   npm ci
    ```
 
 2. Set up API credentials (optional, for game metadata and artwork):
    - Copy `.env.example` to `.env`
    - Add keys for the services you want (IGDB, RAWG, SteamGridDB). See [.env.example](.env.example) and the **Third-party services (APIs)** section below.
-   - Example (IGDB only): get credentials from the [Twitch Developer Console](https://dev.twitch.tv/console/apps/create) (use `http://localhost` as the OAuth Redirect URL) and add `IGDB_CLIENT_ID` and `IGDB_CLIENT_SECRET` to `.env`.
+   - Example (IGDB only): get credentials from the [Twitch Developer Console](https://dev.twitch.tv/console/apps/create) (use `http://localhost:5173` as the OAuth Redirect URL) and add `IGDB_CLIENT_ID` and `IGDB_CLIENT_SECRET` to `.env`.
    ```env
    IGDB_CLIENT_ID=your_client_id_here
    IGDB_CLIENT_SECRET=your_client_secret_here
@@ -121,6 +121,7 @@ Onyx uses the following third-party services for game metadata and artwork. You 
 | **IGDB**      | Game metadata   | `IGDB_CLIENT_ID`, `IGDB_CLIENT_SECRET`                             |
 | **RAWG**      | Game metadata   | `RAWG_API_KEY`                                                     |
 | **SteamGridDB** | Artwork (covers, logos, etc.) | `STEAMGRIDDB_API_KEY`                        |
+| **GiantBomb** | Game metadata + artwork | `GIANTBOMB_API_KEY` *(currently unavailable while API platform is being rebuilt)* |
 
 Do not commit real API credentials to the repository. Keys can be set in the app's Settings > APIs or via environment variables when running the app.
 

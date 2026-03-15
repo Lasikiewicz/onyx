@@ -13,8 +13,7 @@
     {
       "id": "app-architecture-main",
       "prefixes": [
-        "main/",
-        "GiantBombService.js"
+        "main/"
       ],
       "doc": ".agent/docs/architecture.md",
       "scope": "Electron main-process architecture and services"
