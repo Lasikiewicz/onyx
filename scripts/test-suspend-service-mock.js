@@ -9,11 +9,17 @@ const { execSync } = require('child_process');
 
     const { ProcessSuspendService } = require(path.join(__dirname, '..', 'dist-electron', 'ProcessSuspendService'));
 
-    // Fake runner that resolves for specific commands and records them
+    // Fake runner that records commands. Reject native NtSuspendProcess/NtResumeProcess
+    // scripts (Method 1) so the service falls through to the Suspend-Process cmdlet (Method 2).
     const commands = [];
     const fakeRunner = async (command, args = []) => {
+      const scriptArg = args.join(' ');
+      // Method 1 uses NtSuspendProcess / NtResumeProcess via Add-Type — simulate failure
+      if (scriptArg.includes('NtSuspendProcess') || scriptArg.includes('NtResumeProcess')) {
+        throw Object.assign(new Error('Command failed'), { stdout: '', stderr: 'Simulated native failure', code: 1 });
+      }
       commands.push({ command, args });
-      // simulate success
+      // simulate success for all other commands (e.g. Suspend-Process / Resume-Process cmdlets)
       return { stdout: 'ok', stderr: '', code: 0 };
     };
 

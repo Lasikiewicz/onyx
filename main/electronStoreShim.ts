@@ -1,6 +1,18 @@
-import { app } from 'electron';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import * as os from 'node:os';
+
+// `app` is only available inside Electron. Guard against plain-Node test environments.
+let appModule: { getPath: (name: string) => string } | null = null;
+try {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const electron = require('electron');
+  if (electron && electron.app && typeof electron.app.getPath === 'function') {
+    appModule = electron.app;
+  }
+} catch {
+  // Not running in Electron — appModule stays null
+}
 
 interface StoreOptions<T> {
   name?: string;
@@ -13,7 +25,7 @@ export default class Store<T = any> {
 
   constructor(options: StoreOptions<T> = {}) {
     const name = options.name || 'config';
-    const userDataDir = app.getPath('userData');
+    const userDataDir = appModule ? appModule.getPath('userData') : os.tmpdir();
     this.filePath = path.join(userDataDir, `${name}.json`);
     this.data = options.defaults && typeof options.defaults === 'object'
       ? { ...(options.defaults as any) }
@@ -61,6 +73,11 @@ export default class Store<T = any> {
       delete this.data[key];
       this.save();
     }
+  }
+
+  clear(): void {
+    this.data = {};
+    this.save();
   }
 }
 

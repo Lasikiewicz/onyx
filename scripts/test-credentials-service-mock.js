@@ -1,20 +1,26 @@
 const path = require('path');
+const fs = require('fs');
+const os = require('os');
 const assert = require('assert');
 const { execSync } = require('child_process');
 
 (async () => {
+  // Path where our electronStoreShim resolves in non-Electron (test) environments
+  const legacyStorePath = path.join(os.tmpdir(), 'api-credentials.json');
+
   try {
     // Compile main TS to make sure dist-electron is up-to-date
     execSync('npx tsc -p main/tsconfig.json', { stdio: 'inherit' });
 
     const { APICredentialsService } = require(path.join(__dirname, '..', 'dist-electron', 'APICredentialsService'));
 
-    // Create a temporary electron-store instance for test isolation (seed legacy plaintext creds)
-    const StoreModule = require('electron-store');
-    const Store = StoreModule.default || StoreModule;
-    // Seed the legacy store that APICredentialsService will read (name 'api-credentials')
-    const store = new Store({ name: 'api-credentials', projectName: 'onyx' });
-    await store.set('credentials', { igdbClientId: 'ID1', igdbClientSecret: 'SECRET1', steamGridDBApiKey: 'SG1' });
+    // Seed the legacy plaintext store that APICredentialsService's shim will read.
+    // In a non-Electron environment the shim resolves to os.tmpdir(), so we write there directly.
+    fs.writeFileSync(
+      legacyStorePath,
+      JSON.stringify({ credentials: { igdbClientId: 'ID1', igdbClientSecret: 'SECRET1', steamGridDBApiKey: 'SG1' } }, null, 2),
+      'utf8'
+    );
 
     // Fake keytar (in-memory)
     const fakeKeytar = {
@@ -49,13 +55,13 @@ const { execSync } = require('child_process');
     // After clear, nothing in keytar and no stored creds => fall back to env (undefined)
     assert.strictEqual(credsAfterClear.igdbClientId, undefined);
 
-    // Cleanup store
-    store.clear();
-
     console.log('✓ APICredentialsService mock tests passed');
     process.exit(0);
   } catch (err) {
     console.error('APICredentialsService mock test failed:', err);
     process.exit(1);
+  } finally {
+    // Cleanup: remove legacy store file written during test
+    try { fs.unlinkSync(legacyStorePath); } catch { /* ignore */ }
   }
-})();
+})();

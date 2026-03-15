@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Pending]
 
+- Tests: Fix `test:suspend:service-mock` — fake runner now rejects native NtSuspendProcess/NtResumeProcess calls (Method 1) so the cmdlet fallback path (`Suspend-Process`/`Resume-Process`) is exercised correctly.
+- Tests/Build: Fix `test:credentials:service-mock` — `electronStoreShim` no longer crashes outside Electron by guarding `app.getPath` with a try/catch and falling back to `os.tmpdir()`; test seeds credentials directly to the shim-resolved path instead of using a separate `electron-store` instance at a different location; add `clear()` method to shim.
+
 ## [0.7.21] - 2026-03-15
 
 - Game Manager / Images tab: Skip Auto-Match re-identification for known-game image requests (`gameId`/`steamAppId`/`igdbId`) and go directly to provider fetches.
