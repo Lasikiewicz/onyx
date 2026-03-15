@@ -6,7 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Pending]
 
-- No unreleased entries yet.
+- Docs/Agent: Move `agents.md` to project root (alongside `CHANGELOG.md`/`package.json`) so it is always loaded by AI tooling; update `doc-map.json` and `structure.md` references accordingly.
 
 ## [0.7.19] - 2026-03-15
 

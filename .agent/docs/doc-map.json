@@ -5,9 +5,10 @@
     {
       "id": "agent-workflows",
       "prefixes": [
+        "agents.md",
         ".agent/workflows/"
       ],
-      "doc": ".agent/workflows/agents.md",
+      "doc": "agents.md",
       "scope": "Agent rules and operating workflow"
     },
     {

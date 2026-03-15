@@ -14,7 +14,7 @@ Always check this map first before editing code.
 <!-- AUTO-GENERATED:MAP:START -->
 | Rule | File Area(s) | Required Doc(s) | Match | Scope |
 | --- | --- | --- | --- | --- |
-| agent-workflows | `.agent/workflows/` | `.agent/workflows/agents.md` | all | Agent rules and operating workflow |
+| agent-workflows | `agents.md`<br>`.agent/workflows/` | `agents.md` | all | Agent rules and operating workflow |
 | app-architecture-main | `main/` | `.agent/docs/architecture.md` | all | Electron main-process architecture and services |
 | app-architecture-renderer | `renderer/src/` | `.agent/docs/architecture.md` | all | Renderer architecture, state and IPC usage |
 | build-release-pipeline | `.github/workflows/`<br>`electron-builder.config.js`<br>`package.json`<br>`vite.config.ts`<br>`vitest.config.ts`<br>`tsconfig.json`<br>`tailwind.config.js`<br>`postcss.config.js` | `.agent/docs/architecture.md` | all | Build, CI/CD, and quality gates |
@@ -25,7 +25,7 @@ Always check this map first before editing code.
 ## Last Sync
 
 <!-- AUTO-GENERATED:LAST_SYNC:START -->
-- Synced (UTC): 2026-03-15T20:39:43.723Z
+- Synced (UTC): 2026-03-15T21:16:20.452Z
 <!-- AUTO-GENERATED:LAST_SYNC:END -->
 
 ## Manual Update Policy
@@ -33,6 +33,6 @@ Always check this map first before editing code.
 1. If you modify any code file, identify its owner doc from the ownership map above.
 2. Stage narrative doc updates in the same commit as code changes.
 3. If architecture, data flow, module responsibilities, or release pipeline changed, update `.agent/docs/architecture.md`.
-4. If workflow rules or guardrails changed, update `.agent/workflows/agents.md`.
+4. If workflow rules or guardrails changed, update `agents.md` (project root).
 5. If files under `main/` or `renderer/src/` change, stage at least one updated file from `docs/features/` to keep feature runbooks as source of truth.
 6. Every updated feature doc must satisfy `docs/features/FEATURE_DOC_STANDARD.md` (required sections and depth).
