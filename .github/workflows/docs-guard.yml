@@ -1,0 +1,78 @@
+name: Docs Guard
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  pull_request:
+    paths-ignore:
+      - 'dist/**'
+      - 'dist-electron/**'
+      - 'debug-logs/**'
+      - 'tmp/**'
+      - 'tmp_latest/**'
+      - 'tmp_latest2/**'
+      - 'tmp_latest3/**'
+  push:
+    branches:
+      - main
+      - develop
+    paths-ignore:
+      - 'dist/**'
+      - 'dist-electron/**'
+      - 'debug-logs/**'
+      - 'tmp/**'
+      - 'tmp_latest/**'
+      - 'tmp_latest2/**'
+      - 'tmp_latest3/**'
+
+jobs:
+  docs-guard:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        shell: pwsh
+        run: |
+          npm config set fetch-retries 5
+          npm config set fetch-retry-mintimeout 20000
+          npm config set fetch-retry-maxtimeout 120000
+          $maxAttempts = 3
+          for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
+            Write-Host "npm ci attempt $attempt/$maxAttempts"
+            npm ci --prefer-offline --no-audit
+            if ($LASTEXITCODE -eq 0) { exit 0 }
+            if ($attempt -lt $maxAttempts) {
+              $delay = 15 * $attempt
+              Write-Host "npm ci failed, retrying in ${delay}s..."
+              Start-Sleep -Seconds $delay
+            }
+          }
+          throw "npm ci failed after $maxAttempts attempts"
+
+      - name: Sync generated docs blocks
+        run: npm run docs:sync
+
+      - name: Check docs sync drift
+        shell: pwsh
+        run: |
+          git diff --exit-code -- .agent/docs/structure.md .agent/docs/architecture.md
+
+      - name: Validate required docs updates (pull request)
+        if: github.event_name == 'pull_request'
+        run: npm run docs:check -- --against origin/${{ github.base_ref }}
+
+      - name: Validate required docs updates (push)
+        if: github.event_name == 'push'
+        run: npm run docs:check -- --against HEAD~1

@@ -1,7 +1,7 @@
 {
   "name": "onyx-launcher",
   "productName": "Onyx",
-  "version": "0.7.16",
+  "version": "0.7.17",
   "description": "The premium unified game library.",
   "main": "dist-electron/main.js",
   "scripts": {
@@ -12,11 +12,13 @@
     "electron": "electron .",
     "optimize:capture-crash": "npm run build && node scripts/run-optimize-capture.js",
     "crash-repro": "npm run build && node scripts/run-crash-repro.js",
-    "electron:dev": "npx tsc -p main/tsconfig.json && npx tsc -p main/tsconfig.preload.json && concurrently \"npm run dev\" \"wait-on http-get://localhost:5173 && cross-env VITE_DEV_SERVER_URL=http://localhost:5173 electron .\"",
+    "electron:dev": "tsc -p main/tsconfig.json && tsc -p main/tsconfig.preload.json && concurrently \"npm run dev\" \"wait-on http-get://localhost:5173 && cross-env VITE_DEV_SERVER_URL=http://localhost:5173 electron .\"",
     "electron:build": "npm run build && electron .",
     "validate-icons": "node scripts/validate-icons.js",
     "scan:secrets": "node scripts/secret-scan.js",
     "check:no-raw-ipc": "node scripts/check-no-raw-ipc.js",
+    "docs:sync": "node scripts/docs-sync.js",
+    "docs:check": "node scripts/docs-check.js",
     "test": "vitest run --root .",
     "test:watch": "vitest --root .",
     "test:steam:short-circuit": "node scripts/test-steam-short-circuit.js",

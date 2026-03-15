@@ -4,6 +4,12 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.7.17] - 2026-03-15
+
+- Docs governance: Added structure-first documentation guardrails with automated sync/check scripts, pre-commit enforcement, and CI validation.
+- Project docs organization: Slimmed agent workflow guide, split operational/reference docs under `.agent/docs`, and moved contributor/security/code-of-conduct docs into `.github` with updated links.
+- IGDB reliability: Fixed `axiosShim` URL joining so IGDB requests preserve the `/v4` base path (preventing invalid auth errors caused by wrong endpoint routing).
+
 ## [0.7.16] - 2026-03-12
 
 - UX: Disable automatic "start hidden" behavior from preferences; only an explicit `--hidden` launch flag may start the app hidden to avoid invisible, non-interactive sessions.

@@ -1,0 +1,55 @@
+{
+  "version": 1,
+  "updatedBy": "scripts/docs-sync.js",
+  "rules": [
+    {
+      "id": "agent-workflows",
+      "prefixes": [
+        ".agent/workflows/"
+      ],
+      "doc": ".agent/workflows/agents.md",
+      "scope": "Agent rules and operating workflow"
+    },
+    {
+      "id": "app-architecture-main",
+      "prefixes": [
+        "main/",
+        "GiantBombService.js"
+      ],
+      "doc": ".agent/docs/architecture.md",
+      "scope": "Electron main-process architecture and services"
+    },
+    {
+      "id": "app-architecture-renderer",
+      "prefixes": [
+        "renderer/src/"
+      ],
+      "doc": ".agent/docs/architecture.md",
+      "scope": "Renderer architecture, state and IPC usage"
+    },
+    {
+      "id": "build-release-pipeline",
+      "prefixes": [
+        ".github/workflows/",
+        "electron-builder.config.js",
+        "package.json",
+        "vite.config.ts",
+        "vitest.config.ts",
+        "tsconfig.json",
+        "tailwind.config.js",
+        "postcss.config.js"
+      ],
+      "doc": ".agent/docs/architecture.md",
+      "scope": "Build, CI/CD, and quality gates"
+    },
+    {
+      "id": "developer-automation",
+      "prefixes": [
+        "scripts/",
+        ".husky/"
+      ],
+      "doc": ".agent/docs/structure.md",
+      "scope": "Automation scripts and commit-time guardrails"
+    }
+  ]
+}

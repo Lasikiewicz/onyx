@@ -15,7 +15,8 @@ interface GameLinksProps {
 // Default display order for game details (same as IGDB fetch order). Exported for settings.
 export const LINK_DISPLAY_ORDER = [
     'Official Website', 'YouTube', 'Subreddit', 'Discord', 'Community Wiki', 'Wikipedia',
-    'Facebook', 'Twitter', 'Twitch', 'Instagram', 'Steam', 'Epic', 'Xbox', 'PlayStation'
+    'Facebook', 'Twitter', 'Twitch', 'Instagram', 'Steam', 'GOG', 'Epic', 'Itch.io', 'Xbox', 'PlayStation',
+    'Google Play', 'Amazon Store', 'iPhone', 'iPad', 'Android'
 ];
 
 /** By default only these link types are visible; all others hidden. */
@@ -39,9 +40,16 @@ export const LINK_DISPLAY_NAME_TO_KEY: Record<string, string> = {
     'Twitch': 'twitch',
     'Instagram': 'instagram',
     'Steam': 'steam',
+    'GOG': 'gog',
     'Epic': 'epic',
+    'Itch.io': 'itch',
     'Xbox': 'xbox',
     'PlayStation': 'playstation',
+    'Google Play': 'googleplay',
+    'Amazon Store': 'amazon',
+    'iPhone': 'apple',
+    'iPad': 'apple',
+    'Android': 'android',
 };
 
 function buildLinkOrderIndex(order: string[]) {

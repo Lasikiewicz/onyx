@@ -4,6 +4,13 @@
 # Run secret scan before committing
 npm run scan:secrets
 
+# Keep docs map and architecture generated blocks synced
+npm run docs:sync
+git add .agent/docs/structure.md .agent/docs/architecture.md
+
+# Ensure required docs are updated for staged code changes
+npm run docs:check
+
 # Check for raw ipc usage in renderer
 npm run check:no-raw-ipc
 

@@ -229,6 +229,17 @@ See [docs/ICON_REQUIREMENTS.md](docs/ICON_REQUIREMENTS.md) for detailed icon req
 ### Checks (run before submitting PRs)
 - `npm run scan:secrets` - Scan for committed secrets; must pass (see [scripts/secret-scan.js](scripts/secret-scan.js))
 - `npm run check:no-raw-ipc` - Enforce no raw `window.ipcRenderer` in renderer (see [scripts/check-no-raw-ipc.js](scripts/check-no-raw-ipc.js))
+- `npm run docs:sync` - Auto-update generated documentation blocks in `.agent/docs/`
+- `npm run docs:check` - Ensure required docs are updated for staged code changes
+
+### Contributor docs guard (structure-first)
+
+Before editing code, check `.agent/docs/structure.md` to identify which documentation file owns the area you are changing.
+
+- If you change mapped files, update the mapped docs in the same commit.
+- If architecture, data flow, IPC contracts, or build/release flow changes, update `.agent/docs/architecture.md`.
+- Mapping source of truth is `.agent/docs/doc-map.json`.
+- Pre-commit and CI enforce this automatically via `docs:sync` and `docs:check`.
 
 ### Maintainer scripts (GitHub API)
 
@@ -238,7 +249,7 @@ Scripts that call the GitHub API (e.g. `create-pr.js`, `create-pr-credentials.js
 - **`GITHUB_REPOSITORY`** (optional) — `owner/repo`; default `Lasikiewicz/onyx`. Set this when running against a fork (e.g. `youruser/onyx`).
 - **`GITHUB_ISSUE_NUMBER`** (optional) — Used by `post-pr-comment.js` only; default `3`.
 
-Do not put tokens in `.env` or commit them; set them in your shell (e.g. `$env:GHTOKEN = 'ghp_xxx'` in PowerShell). See [CONTRIBUTING.md](CONTRIBUTING.md#maintainer-only-scripts) for more.
+Do not put tokens in `.env` or commit them; set them in your shell (e.g. `$env:GHTOKEN = 'ghp_xxx'` in PowerShell). See [.github/CONTRIBUTING.md](.github/CONTRIBUTING.md#maintainer-only-scripts) for more.
 
 ## Disabled Features (Security)
 
@@ -281,9 +292,9 @@ The configuration automatically adjusts:
 
 ## Contributing and community docs
 
-- **[CONTRIBUTING.md](CONTRIBUTING.md)** — How to run the app, get API keys, and submit PRs (including required checks).
-- **[CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)** — Community standards and enforcement.
-- **[SECURITY.md](SECURITY.md)** — How to report security vulnerabilities (do not open public issues for security-sensitive bugs).
+- **[.github/CONTRIBUTING.md](.github/CONTRIBUTING.md)** — How to run the app, get API keys, and submit PRs (including required checks).
+- **[.github/CODE_OF_CONDUCT.md](.github/CODE_OF_CONDUCT.md)** — Community standards and enforcement.
+- **[.github/SECURITY.md](.github/SECURITY.md)** — How to report security vulnerabilities (do not open public issues for security-sensitive bugs).
 
 ## License
 

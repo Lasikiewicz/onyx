@@ -14,7 +14,17 @@ export interface AxiosInstance {
 }
 
 function buildUrl(baseURL: string | undefined, url: string, params?: Record<string, any>): string {
-  const full = new URL(url, baseURL || undefined);
+  const isAbsoluteUrl = /^https?:\/\//i.test(url);
+
+  let full: URL;
+  if (!baseURL || isAbsoluteUrl) {
+    full = new URL(url, baseURL || undefined);
+  } else {
+    const normalizedBase = baseURL.replace(/\/+$/, '');
+    const normalizedPath = url.replace(/^\/+/, '');
+    full = new URL(`${normalizedBase}/${normalizedPath}`);
+  }
+
   if (params) {
     for (const [key, value] of Object.entries(params)) {
       if (value !== undefined && value !== null) {

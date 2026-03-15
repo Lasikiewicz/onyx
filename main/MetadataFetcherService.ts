@@ -443,8 +443,28 @@ export class MetadataFetcherService {
     // Sort links by default order (same as IGDB link order)
     if (merged.links && merged.links.length > 0) {
       const linkOrder = [
-        'Official Website', 'YouTube', 'Subreddit', 'Discord', 'Community Wiki', 'Wikipedia',
-        'Facebook', 'Twitter', 'Twitch', 'Instagram', 'Steam', 'Epic', 'Xbox', 'PlayStation'
+        'Official Website',
+        'Steam',
+        'Epic',
+        'GOG',
+        'Itch.io',
+        'Amazon',
+        'YouTube',
+        'Twitch',
+        'Discord',
+        'Subreddit',
+        'Community Wiki',
+        'Wikipedia',
+        'Facebook',
+        'Twitter',
+        'Instagram',
+        'Xbox',
+        'PlayStation',
+        'Nintendo',
+        'Google Play',
+        'iPhone',
+        'iPad',
+        'Android',
       ];
       const orderIndex = new Map(linkOrder.map((name, i) => [name.toLowerCase(), i]));
       merged.links.sort((a, b) => {

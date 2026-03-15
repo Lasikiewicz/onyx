@@ -1,5 +1,5 @@
-import { OnyxConfigManager } from './main/OnyxConfigManager.ts';
-import { IGDBService } from './main/IGDBService.ts';
+import { OnyxConfigManager } from '../main/OnyxConfigManager';
+import { IGDBService } from '../main/IGDBService';
 
 async function test() {
     const configManager = new OnyxConfigManager();

@@ -369,24 +369,21 @@ export class IGDBService {
       return true;
     });
 
-    // Only allow these 14 link types; all others (Amazon, GOG, Itch.io, etc.) are ignored. At most one per type.
-    const allowedNames = new Set([
-      'Official Website', 'Community Wiki', 'Wikipedia', 'Facebook', 'Twitter', 'Twitch', 'Instagram',
-      'YouTube', 'Subreddit', 'Discord', 'Steam', 'Epic', 'Xbox', 'PlayStation'
-    ]);
     const linkOrder = [
       'Official Website', 'YouTube', 'Subreddit', 'Discord', 'Community Wiki', 'Wikipedia',
-      'Facebook', 'Twitter', 'Twitch', 'Instagram', 'Steam', 'Epic', 'Xbox', 'PlayStation'
+      'Facebook', 'Twitter', 'Twitch', 'Instagram', 'Steam', 'GOG', 'Epic', 'Itch.io', 'Xbox', 'PlayStation',
+      'Google Play', 'Amazon Store', 'iPhone', 'iPad', 'Android'
     ];
     const orderIndex = new Map(linkOrder.map((name, i) => [name.toLowerCase(), i]));
     const seenType = new Set<string>();
+    
     const filtered = byUrl.filter((l) => {
-      if (!allowedNames.has(l.name)) return false;
       const key = l.name.toLowerCase();
       if (seenType.has(key)) return false;
       seenType.add(key);
       return true;
     });
+    
     filtered.sort((a, b) => {
       const ia = orderIndex.get(a.name.toLowerCase()) ?? 999;
       const ib = orderIndex.get(b.name.toLowerCase()) ?? 999;
