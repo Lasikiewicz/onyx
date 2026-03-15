@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Pending]
 
+- Game details panel: Resizable bottom action bar (Edit / Play / links). Drag the top edge of the bar to change its height; contents scale with the bar and the setting is persisted.
+
 ## [0.7.22] - 2026-03-15
 
 - Library view: Keep “Show Categories” inside the games list only when categories are off or at bottom, add top padding (pt-4) to the game details panel so the games list and game details content tops align.

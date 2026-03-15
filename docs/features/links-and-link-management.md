@@ -10,12 +10,19 @@ Provides a full lifecycle for game links:
 - Allow manual editing and icon customization in Game Manager.
 - Rebuild links in bulk (links-only refresh) or as part of full metadata refresh.
 
+## Related Documentation
+
+- [Game Details Panel](./main-view/components/game-details-panel.md) — right-panel link bar ([GameLinks.tsx](../../renderer/src/components/GameLinks.tsx)).
+- [Settings and preferences](./settings-and-preferences.md) — [Link Management](./settings/link-management.md) tab for visibility and ordering.
+- [Metadata matching and enrichment](./metadata-matching-and-enrichment.md) — link discovery during refresh and metadata fetch.
+- [Library import and startup scan](./library-import-and-startup-scan.md) — links attached during import.
+
 ## User-Facing Surfaces
 
 ### 1) Right Panel Link Bar (main library view)
 
 - Location: game details panel on the right side of the app.
-- Component: `GameDetailsPanel` renders `GameLinks`.
+- Component: [GameDetailsPanel.tsx](../../renderer/src/components/GameDetailsPanel.tsx) renders [GameLinks.tsx](../../renderer/src/components/GameLinks.tsx).
 - Behavior:
    - Visible links render as icon buttons.
    - Clicking opens external URL.
@@ -142,22 +149,22 @@ Provides a full lifecycle for game links:
 
 ## File Ownership Map
 
-- Renderer
-   - `renderer/src/components/importer/ImportWorkbenchV2.tsx`
-   - `renderer/src/components/GameManager.tsx`
-   - `renderer/src/components/GameLinks.tsx`
-   - `renderer/src/components/RefreshMetadataDialog.tsx`
-   - `renderer/src/components/GameDetailsPanel.tsx`
-   - `renderer/src/components/OnyxSettingsModal.tsx`
-   - `renderer/src/App.tsx`
-   - `renderer/src/components/GamePropertiesPanel.tsx`
-- Preload bridge
-   - `main/preload.ts`
-- Main process
-   - `main/ipc/metadataHandlers.ts`
-   - `main/ipc/gameHandlers.ts`
-   - `main/MetadataFetcherService.ts`
-   - `main/IGDBService.ts`
-   - `main/IGDBMetadataProvider.ts`
-   - `main/UserPreferencesService.ts`
-   - `main/GameStore.ts`
+- **Renderer**
+  - [importer/ImportWorkbenchV2.tsx](../../renderer/src/components/importer/ImportWorkbenchV2.tsx)
+  - [GameManager.tsx](../../renderer/src/components/GameManager.tsx)
+  - [GameLinks.tsx](../../renderer/src/components/GameLinks.tsx)
+  - [RefreshMetadataDialog.tsx](../../renderer/src/components/RefreshMetadataDialog.tsx)
+  - [GameDetailsPanel.tsx](../../renderer/src/components/GameDetailsPanel.tsx)
+  - [OnyxSettingsModal.tsx](../../renderer/src/components/OnyxSettingsModal.tsx)
+  - [App.tsx](../../renderer/src/App.tsx)
+  - [GamePropertiesPanel.tsx](../../renderer/src/components/GamePropertiesPanel.tsx)
+- **Preload bridge**
+  - [preload.ts](../../main/preload.ts)
+- **Main process**
+  - [ipc/metadataHandlers.ts](../../main/ipc/metadataHandlers.ts)
+  - [ipc/gameHandlers.ts](../../main/ipc/gameHandlers.ts)
+  - [MetadataFetcherService.ts](../../main/MetadataFetcherService.ts)
+  - [IGDBService.ts](../../main/IGDBService.ts)
+  - [IGDBMetadataProvider.ts](../../main/IGDBMetadataProvider.ts)
+  - [UserPreferencesService.ts](../../main/UserPreferencesService.ts)
+  - [GameStore.ts](../../main/GameStore.ts)

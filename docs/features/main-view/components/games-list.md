@@ -2,7 +2,14 @@
 
 ## What This Feature Does
 
-Left panel of the library window that shows the list of games as tiles (grid/list/logo) or full-width carousel/coverflow. Optional categories bar (All Games, Favorites, pinned categories) is confined to this panel; it does not affect the game details panel or extend above both panels.
+Left panel of the library window that shows the list of games as tiles (grid/list/logo) or full-width carousel/coverflow. Optional categories bar (All Games, Favorites, pinned categories) is confined to this panel; it does not affect the game details panel or extend above both panels. Part of the [Main View](../../main-view.md) layout.
+
+## Related Documentation
+
+- [Main View](../../main-view.md) — layout and two-panel vs full-width modes.
+- [Game Details Panel](./game-details-panel.md) — right panel; alignment with games list.
+- [Grid View](../views/grid-view.md), [List View](../views/list-view.md), [Logo View](../views/logo-view.md), [Carousel View](../views/carousel-view.md), [Coverflow View](../views/coverflow-view.md) — view-type implementations.
+- [Settings and preferences](../../settings-and-preferences.md) — categories and list options persistence.
 
 ## User-Facing Surfaces
 
@@ -11,7 +18,7 @@ Left panel of the library window that shows the list of games as tiles (grid/lis
 
 ## Settings and Toggles
 
-- Show categories in games list (per view mode); categories position (top/bottom) and alignment; categories size. Panel padding: when categories are off or at bottom, the list content has top padding; when categories are at top, the categories row is first then the scrollable list. The right panel gets matching top padding (pt-4) when the left has top padding so the two panels’ content tops align.
+- Show categories in games list (per view mode); categories position (top/bottom) and alignment; categories size. Panel padding: when categories are off or at bottom, the list content has top padding; when categories are at top, the categories row is first then the scrollable list. The right panel gets matching top padding (pt-4) when the left has top padding so the two panels’ content tops align. Configured via [RightClickMenu.tsx](../../../../renderer/src/components/RightClickMenu.tsx) and [UserPreferencesService](../../../../main/UserPreferencesService.ts).
 
 ## Confirmed End-to-End Flows
 
@@ -21,28 +28,30 @@ Left panel of the library window that shows the list of games as tiles (grid/lis
 
 ## Discovery and Data Sources
 
-- Games from library state; category and display options from preferences. Filtering by search, sort, launcher, category applied before passing to list components.
+- Games from library state ([App.tsx](../../../../renderer/src/App.tsx)); category and display options from [UserPreferencesService](../../../../main/UserPreferencesService.ts). Filtering by search, sort, launcher, category applied before passing to list components.
 
 ## Data Model and Persistence
 
-- Category visibility, position, alignment, size in preferences. List view options and view-mode-specific settings persisted.
+- Category visibility, position, alignment, size in preferences ([UserPreferencesService](../../../../main/UserPreferencesService.ts)). List view options and view-mode-specific settings persisted. See [Settings and preferences](../../settings-and-preferences.md).
 
 ## Failure Modes and Triage
 
 ### Symptom: Categories affect the game details panel or appear above both panels
 
-- Categories must be rendered only inside the games list container in `App.tsx`. Ensure there is no full-width categories row that is a sibling to both panels; categories row should be a child of the left-panel only.
+- Categories must be rendered only inside the games list container in [App.tsx](../../../../renderer/src/App.tsx). Ensure there is no full-width categories row that is a sibling to both panels; categories row should be a child of the left-panel only.
 
 ### Symptom: Game details panel higher or lower than games list when categories off
 
-- When categories are off or categories are at bottom, the left panel content has top padding. The right panel must get pt-4 via `rightPanelNeedsTopPadding` in `App.tsx` so content aligns.
+- When categories are off or categories are at bottom, the left panel content has top padding. The right panel must get pt-4 via `rightPanelNeedsTopPadding` in [App.tsx](../../../../renderer/src/App.tsx) so content aligns.
 
 ## File Ownership Map
 
-- Renderer
-  - `renderer/src/App.tsx` (games list container, categories placement, padding logic)
-  - `renderer/src/components/LibraryGrid.tsx`
-  - `renderer/src/components/LibraryListView.tsx`
-  - `renderer/src/components/LibraryCarousel.tsx`
-  - `renderer/src/components/LibraryCoverFlow.tsx`
-  - `renderer/src/components/RightClickMenu.tsx` (list/grid options including show categories)
+- **Renderer**
+  - [App.tsx](../../../../renderer/src/App.tsx) — games list container, categories placement, padding logic
+  - [LibraryGrid.tsx](../../../../renderer/src/components/LibraryGrid.tsx)
+  - [LibraryListView.tsx](../../../../renderer/src/components/LibraryListView.tsx)
+  - [LibraryCarousel.tsx](../../../../renderer/src/components/LibraryCarousel.tsx)
+  - [LibraryCoverFlow.tsx](../../../../renderer/src/components/LibraryCoverFlow.tsx)
+  - [RightClickMenu.tsx](../../../../renderer/src/components/RightClickMenu.tsx) — list/grid options including show categories
+- **Main**
+  - [UserPreferencesService.ts](../../../../main/UserPreferencesService.ts) — categories and list preferences

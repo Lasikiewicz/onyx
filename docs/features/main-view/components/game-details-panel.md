@@ -2,42 +2,63 @@
 
 ## What This Feature Does
 
-Right-hand panel in the library window (grid/list/logo modes) that shows the selected game’s artwork, logo, metadata, description, links, and action buttons (Play, Edit, etc.). Hidden in carousel and coverflow modes.
+Right-hand panel in the library window (grid/list/logo modes) that shows the selected game’s artwork, logo, metadata, description, links, and action buttons (Play, Edit, etc.). Hidden in carousel and coverflow modes. Part of the [Main View](../../main-view.md) layout.
+
+## Related Documentation
+
+- [Main View](../../main-view.md) — parent layout; when the panel is shown vs hidden.
+- [Settings and preferences](../../settings-and-preferences.md) — how preferences are stored and applied; [UserPreferencesService](../../../../main/UserPreferencesService.ts) is the persistence layer.
+- [Links and link management](../../links-and-link-management.md) — link bar in the panel and link display/order.
+- [Game launch and process tracking](../../game-launch-and-process-tracking.md) — Play button and launch flow.
 
 ## User-Facing Surfaces
 
-- Right panel: hero/banner/boxart background, logo, boxart position/size, metadata (release date, platform, genres, etc.), description (resizable width/height), link bar, Play/Edit/Mod Manager and other actions. Right-click opens context menu. Resizable panel width via left-edge drag.
+- Right panel: hero/banner/boxart background, logo, boxart position/size, metadata (release date, platform, genres, etc.), description (resizable width/height), link bar, Play/Edit/Mod Manager and other actions. Right-click opens context menu. Resizable panel width via left-edge drag. Bottom action bar (Edit, Play, links) is resizable by dragging its top edge; bar height and content scale are persisted.
 
 ## Settings and Toggles
 
-- Panel width, fanart height, description width, logo/boxart size and position, button size and location, details panel opacity, button colors (per view mode where applicable). Controlled via RightClickMenu and preferences.
+- Panel width, fanart height, description width, bottom bar height, logo/boxart size and position, button size and location, details panel opacity, button colors (per view mode where applicable).
+- **Where controlled:** Drag resizers on the panel (left edge for width; top edges of banner, description, and bottom bar for heights/width); and the **Dividers** column in the right-click context menu ([RightClickMenu.tsx](../../../../renderer/src/components/RightClickMenu.tsx) — sliders for Right Panel Width, Banner Height, Description Width, Bottom Bar Height). Persistence is via [UserPreferencesService](../../../../main/UserPreferencesService.ts); see [Settings and preferences](../../settings-and-preferences.md).
 
 ## Confirmed End-to-End Flows
 
-1. User selects a game in the games list: panel shows that game’s details; background and logo update.
-2. User resizes panel: width persisted per view mode.
-3. User clicks Play / Edit / etc.: corresponding handler in App runs (launch, open Game Manager, etc.).
+1. User selects a game in the games list: panel shows that game’s details; background and logo update. Selection and game data come from [App.tsx](../../../../renderer/src/App.tsx) state and the game object.
+2. User resizes panel (width or any divider): handlers in [GameDetailsPanel.tsx](../../../../renderer/src/components/GameDetailsPanel.tsx) update local state and call `onPanelWidthChange` / `onFanartHeightChange` / `onDescriptionWidthChange` / `onDetailsPanelBottomBarHeightChange`; [App.tsx](../../../../renderer/src/App.tsx) persists via `savePreferences`. Same preferences are applied when changing values from [RightClickMenu](../../../../renderer/src/components/RightClickMenu.tsx).
+3. User clicks Play / Edit / etc.: handlers passed from [App.tsx](../../../../renderer/src/App.tsx) run (launch, open Game Manager, etc.). See [Game launch and process tracking](../../game-launch-and-process-tracking.md).
 
 ## Discovery and Data Sources
 
-- Active game from App state. Artwork and metadata from game object. Preferences for panel dimensions and appearance.
+- **Active game:** From [App.tsx](../../../../renderer/src/App.tsx) (selected game / active game state).
+- **Artwork and metadata:** From the [game](../../../../renderer/src/types/game.ts) object (e.g. `heroUrl`, `bannerUrl`, `boxArtUrl`, `logoUrl`, `description`, `links`, metadata fields).
+- **Panel dimensions and appearance:** Read on load from preferences ([getPreferences](../../../../main/preload.ts) / [UserPreferencesService.getPreferences](../../../../main/UserPreferencesService.ts)); passed into [GameDetailsPanel](../../../../renderer/src/components/GameDetailsPanel.tsx) and [RightClickMenu](../../../../renderer/src/components/RightClickMenu.tsx) as props from [App.tsx](../../../../renderer/src/App.tsx).
 
 ## Data Model and Persistence
 
-- Panel width, fanart height, description width, and related preferences stored via UserPreferencesService.
+- Panel-related preferences are stored by [UserPreferencesService](../../../../main/UserPreferencesService.ts). Defaults and keys are defined in [UserPreferencesService.ts](../../../../main/UserPreferencesService.ts) (`createDefaultPreferences`, `UserPreferences` interface). Relevant keys include:
+  - **Panel width (per view):** `panelWidth`, `panelWidthByView` (grid/list/logo)
+  - **Banner / description / bottom bar:** `fanartHeight`, `fanartHeightByView`, `descriptionHeight`, `descriptionWidthByView`, `detailsPanelBottomBarHeight`
+  - **Right panel appearance:** `rightPanelLogoSize`, `rightPanelBoxartPosition`, `rightPanelBoxartSize`, `rightPanelTextSize`, `rightPanelButtonSize`, `rightPanelButtonLocation`, `detailsPanelOpacity`, `rightPanelButtonColors`, etc.
+- **Where read:** [App.tsx](../../../../renderer/src/App.tsx) loads preferences on mount and passes them into [GameDetailsPanel](../../../../renderer/src/components/GameDetailsPanel.tsx); [GameDetailsPanel](../../../../renderer/src/components/GameDetailsPanel.tsx) also loads/saves some keys locally when not overridden by App.
+- **Where written:** Resize and menu changes flow through [App.tsx](../../../../renderer/src/App.tsx) or [GameDetailsPanel.tsx](../../../../renderer/src/components/GameDetailsPanel.tsx) and call `savePreferences` (exposed via [preload](../../../../main/preload.ts) / [appHandlers](../../../../main/ipc/appHandlers.ts)).
 
 ## Failure Modes and Triage
 
 ### Symptom: Panel not visible in grid/list/logo
 
-- Ensure view mode is grid, list, or logo and that `filteredGames.length > 0` and not in onboarding. Panel is conditionally hidden for carousel/coverflow.
+- Ensure view mode is grid, list, or logo and that `filteredGames.length > 0` and not in onboarding. Panel is conditionally hidden for carousel/coverflow. Check layout and visibility in [App.tsx](../../../../renderer/src/App.tsx) where `GameDetailsPanel` is rendered.
 
 ### Symptom: Panel width or content not persisting
 
-- Check that resize handler calls `onPanelWidthChange` and preferences are saved; that preferences are loaded on mount and passed as props.
+- Check that resize handlers in [GameDetailsPanel.tsx](../../../../renderer/src/components/GameDetailsPanel.tsx) call `onPanelWidthChange` / `onFanartHeightChange` / `onDescriptionWidthChange` / `onDetailsPanelBottomBarHeightChange` and that [App.tsx](../../../../renderer/src/App.tsx) (or the panel’s own save effect) calls `savePreferences`; confirm preferences are loaded on mount and passed as props.
 
 ## File Ownership Map
 
-- Renderer
-  - `renderer/src/components/GameDetailsPanel.tsx`
-  - `renderer/src/App.tsx` (props, layout wrapper)
+- **Renderer**
+  - [GameDetailsPanel.tsx](../../../../renderer/src/components/GameDetailsPanel.tsx) — panel UI, resize handles, banner/description/bottom bar, links, action buttons.
+  - [App.tsx](../../../../renderer/src/App.tsx) — props, layout wrapper, preference state and persistence callbacks for the panel.
+  - [RightClickMenu.tsx](../../../../renderer/src/components/RightClickMenu.tsx) — Dividers column sliders (panel width, fanart height, description width, bottom bar height) for grid/list/logo.
+  - [GameLinks.tsx](../../../../renderer/src/components/GameLinks.tsx) — link bar in the panel (see [Links and link management](../../links-and-link-management.md)).
+- **Main**
+  - [UserPreferencesService.ts](../../../../main/UserPreferencesService.ts) — persistence for panel and divider preferences; defaults and merge logic.
+  - [preload.ts](../../../../main/preload.ts) — exposes `getPreferences` / `savePreferences` to the renderer.
+  - [ipc/appHandlers.ts](../../../../main/ipc/appHandlers.ts) — preferences get/save IPC.

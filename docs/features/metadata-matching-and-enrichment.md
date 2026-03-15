@@ -4,7 +4,12 @@
 
 Resolves game metadata (titles, identifiers, links, artwork candidates) from configured providers.
 
-For detailed links-only behavior and troubleshooting, see `docs/features/links-and-link-management.md`.
+## Related Documentation
+
+- [Links and link management](./links-and-link-management.md) — links-only behavior and troubleshooting.
+- [Image search and selection](./image-search-and-selection.md) — artwork candidates and selection flow.
+- [Settings and preferences](./settings-and-preferences.md) — [API Integrations](./settings/api-integrations.md) for provider credentials.
+- [Library import and startup scan](./library-import-and-startup-scan.md) — metadata during import.
 
 ## User-Facing Surfaces
 
@@ -24,7 +29,7 @@ For detailed links-only behavior and troubleshooting, see `docs/features/links-a
 1. Renderer requests refresh for one game or many games.
 2. Main metadata fetcher queries providers via unified provider contracts.
 3. Responses are normalized and validated.
-4. Metadata cache is updated and applied to `GameStore` records.
+4. [MetadataCache.ts](../../main/MetadataCache.ts) is updated and applied to [GameStore.ts](../../main/GameStore.ts) records.
 5. Renderer reloads/patches game state for immediate UI updates.
 
 ## Discovery and Data Sources
@@ -35,8 +40,8 @@ For detailed links-only behavior and troubleshooting, see `docs/features/links-a
 
 ## Data Model and Persistence
 
-- Game metadata is persisted into `GameStore` records.
-- Cache state is maintained separately in `MetadataCache`.
+- Game metadata is persisted into [GameStore.ts](../../main/GameStore.ts) records.
+- Cache state is maintained separately in [MetadataCache.ts](../../main/MetadataCache.ts).
 - Provider-specific identifiers, artwork URLs, descriptions, and links are normalized before persistence.
 
 ## Failure Modes and Triage
@@ -65,27 +70,22 @@ For detailed links-only behavior and troubleshooting, see `docs/features/links-a
 
 ## File Ownership Map
 
-- Main process core
-  - `main/MetadataFetcherService.ts`
-  - `main/MetadataProvider.ts`
-  - `main/MetadataCache.ts`
-  - `main/MetadataValidator.ts`
-  - `main/RateLimitCoordinator.ts`
-- Provider implementations
-  - `main/IGDBMetadataProvider.ts`
-  - `main/RAWGMetadataProvider.ts`
-  - `main/SteamGridDBMetadataProvider.ts`
-  - `main/GiantBombMetadataProvider.ts`
-  - `main/SteamMetadataProvider.ts`
-- Provider API services
-  - `main/IGDBService.ts`
-  - `main/RAWGService.ts`
-  - `main/SteamGridDBService.ts`
-  - `main/GiantBombService.ts`
-  - `main/SteamService.ts`
-  - `main/XboxService.ts`
-- Renderer
-  - `renderer/src/components/GameMetadataEditor.tsx`
-  - `renderer/src/components/MetadataSearchModal.tsx`
-  - `renderer/src/components/RefreshMetadataDialog.tsx`
-  - `renderer/src/App.tsx`
+- **Main process core**
+  - [MetadataFetcherService.ts](../../main/MetadataFetcherService.ts)
+  - [MetadataProvider.ts](../../main/MetadataProvider.ts)
+  - [MetadataCache.ts](../../main/MetadataCache.ts)
+  - [MetadataValidator.ts](../../main/MetadataValidator.ts)
+  - [RateLimitCoordinator.ts](../../main/RateLimitCoordinator.ts)
+- **Provider implementations**
+  - [IGDBMetadataProvider.ts](../../main/IGDBMetadataProvider.ts)
+  - [RAWGMetadataProvider.ts](../../main/RAWGMetadataProvider.ts)
+  - [SteamGridDBMetadataProvider.ts](../../main/SteamGridDBMetadataProvider.ts)
+  - [GiantBombMetadataProvider.ts](../../main/GiantBombMetadataProvider.ts)
+  - [SteamMetadataProvider.ts](../../main/SteamMetadataProvider.ts)
+- **Provider API services**
+  - [IGDBService.ts](../../main/IGDBService.ts), [RAWGService.ts](../../main/RAWGService.ts), [SteamGridDBService.ts](../../main/SteamGridDBService.ts), [GiantBombService.ts](../../main/GiantBombService.ts), [SteamService.ts](../../main/SteamService.ts), [XboxService.ts](../../main/XboxService.ts)
+- **Renderer**
+  - [GameMetadataEditor.tsx](../../renderer/src/components/GameMetadataEditor.tsx)
+  - [MetadataSearchModal.tsx](../../renderer/src/components/MetadataSearchModal.tsx)
+  - [RefreshMetadataDialog.tsx](../../renderer/src/components/RefreshMetadataDialog.tsx)
+  - [App.tsx](../../renderer/src/App.tsx)

@@ -32,8 +32,8 @@ Each feature document follows the same structure:
 
 ## Documentation Standard
 
-- Required structure and depth rules: [FEATURE_DOC_STANDARD.md](./FEATURE_DOC_STANDARD.md)
-- All feature documents must follow the required sections in that standard.
+- Required structure, depth, and **linking** rules: [FEATURE_DOC_STANDARD.md](./FEATURE_DOC_STANDARD.md)
+- All feature documents must follow the required sections and must link to actual source files and related feature docs so a single `.md` is enough to understand how the feature works.
 
 ## Maintenance Rule
 

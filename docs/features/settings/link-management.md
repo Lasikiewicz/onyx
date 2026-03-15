@@ -2,7 +2,12 @@
 
 ## What This Feature Does
 
-Controls how external store and information links are displayed, discovered, and refreshed across the app.
+Controls how external store and information links are displayed, discovered, and refreshed across the app. Part of [Settings and preferences](../settings-and-preferences.md).
+
+## Related Documentation
+
+- [Links and link management](../links-and-link-management.md) — runtime behavior and link bar.
+- [Settings and preferences](../settings-and-preferences.md) — parent overview.
 
 ## User-Facing Surfaces
 
@@ -25,7 +30,7 @@ Controls how external store and information links are displayed, discovered, and
 
 ## Discovery and Data Sources
 
-- This tab is the configuration surface for [../links-and-link-management.md](../links-and-link-management.md).
+- This tab is the configuration surface for [Links and link management](../links-and-link-management.md).
 - Runtime consumers include metadata fetchers, link UI, and refresh dialogs.
 
 ## Data Model and Persistence
@@ -42,10 +47,10 @@ Controls how external store and information links are displayed, discovered, and
 
 ## File Ownership Map
 
-- Renderer
-  - `renderer/src/components/OnyxSettingsModal.tsx`
-  - `renderer/src/components/GameLinks.tsx`
-  - `renderer/src/components/RefreshMetadataDialog.tsx`
-- Main process
-  - `main/UserPreferencesService.ts`
-  - `main/MetadataFetcherService.ts`
+- **Renderer**
+  - [OnyxSettingsModal.tsx](../../../renderer/src/components/OnyxSettingsModal.tsx)
+  - [GameLinks.tsx](../../../renderer/src/components/GameLinks.tsx)
+  - [RefreshMetadataDialog.tsx](../../../renderer/src/components/RefreshMetadataDialog.tsx)
+- **Main process**
+  - [UserPreferencesService.ts](../../../main/UserPreferencesService.ts)
+  - [MetadataFetcherService.ts](../../../main/MetadataFetcherService.ts)

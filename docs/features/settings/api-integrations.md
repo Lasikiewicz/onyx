@@ -42,12 +42,12 @@ Manages credentials and enablement for third-party metadata and artwork provider
 
 ## File Ownership Map
 
-- Renderer
-  - `renderer/src/components/OnyxSettingsModal.tsx`
-- Main process
-  - `main/APICredentialsService.ts`
-  - `main/UserPreferencesService.ts`
-  - `main/IGDBService.ts`
-  - `main/GiantBombService.ts`
-  - `main/IGDBMetadataProvider.ts`
-  - `main/GiantBombMetadataProvider.ts`
+- **Renderer**
+  - [OnyxSettingsModal.tsx](../../../renderer/src/components/OnyxSettingsModal.tsx)
+- **Main process**
+  - [APICredentialsService.ts](../../../main/APICredentialsService.ts)
+  - [UserPreferencesService.ts](../../../main/UserPreferencesService.ts)
+  - [IGDBService.ts](../../../main/IGDBService.ts)
+  - [GiantBombService.ts](../../../main/GiantBombService.ts)
+  - [IGDBMetadataProvider.ts](../../../main/IGDBMetadataProvider.ts)
+  - [GiantBombMetadataProvider.ts](../../../main/GiantBombMetadataProvider.ts)

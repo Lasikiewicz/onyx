@@ -46,9 +46,9 @@ Exposes maintenance and destructive application actions such as cache inspection
 
 ## File Ownership Map
 
-- Renderer
-  - `renderer/src/components/OnyxSettingsModal.tsx`
-- Main process
-  - `main/GameStore.ts`
-  - `main/UserPreferencesService.ts`
-  - `main/ipc/appHandlers.ts`
+- **Renderer**
+  - [OnyxSettingsModal.tsx](../../../renderer/src/components/OnyxSettingsModal.tsx)
+- **Main process**
+  - [GameStore.ts](../../../main/GameStore.ts)
+  - [UserPreferencesService.ts](../../../main/UserPreferencesService.ts)
+  - [ipc/appHandlers.ts](../../../main/ipc/appHandlers.ts)

@@ -4,6 +4,12 @@
 
 Caches image assets and optimizes them (including worker-based processing) for faster load and lower memory/disk overhead.
 
+## Related Documentation
+
+- [Image search and selection](./image-search-and-selection.md) — selected URLs are consumed by cache/optimization.
+- [Game Details Panel](./main-view/components/game-details-panel.md), [App.tsx](../../renderer/src/App.tsx) — display cached/optimized artwork.
+- [Settings and preferences](./settings-and-preferences.md) — [Animations](./settings/animations.md) affect animated asset usage; [Advanced](./settings/advanced.md) for cache-related options.
+
 ## User-Facing Surfaces
 
 - Game library and details panels that display cached artwork.
@@ -18,9 +24,9 @@ Caches image assets and optimizes them (including worker-based processing) for f
 ## Confirmed End-to-End Flows
 
 1. Game metadata references image URLs.
-2. Cache service fetches/stores canonical files.
-3. Optimization controller/queue schedules transformation work.
-4. Worker host executes image optimization in worker context.
+2. [ImageCacheService.ts](../../main/ImageCacheService.ts) fetches/stores canonical files.
+3. [ImageOptimizationController.ts](../../main/ImageOptimizationController.ts) / [ImageOptimizationQueue.ts](../../main/ImageOptimizationQueue.ts) schedule transformation work.
+4. [ImageOptimizerWorkerHost.ts](../../main/ImageOptimizerWorkerHost.ts) executes image optimization in worker context ([ImageOptimizerWorker.worker.ts](../../main/ImageOptimizerWorker.worker.ts)).
 5. Optimized assets are served back to renderer paths.
 
 ## Discovery and Data Sources
@@ -56,15 +62,15 @@ Caches image assets and optimizes them (including worker-based processing) for f
 
 ## File Ownership Map
 
-- Main process
-  - `main/ImageCacheService.ts`
-  - `main/ImageOptimizationController.ts`
-  - `main/ImageOptimizationQueue.ts`
-  - `main/ImageOptimizerWorkerHost.ts`
-  - `main/ImageOptimizerWorker.worker.ts`
-  - `main/thinWebpFrames.ts`
-  - `main/debugOptimizationLog.ts`
-- Renderer
-  - `renderer/src/components/RefreshMetadataDialog.tsx`
-  - `renderer/src/components/GameDetailsPanel.tsx`
-  - `renderer/src/App.tsx`
+- **Main process**
+  - [ImageCacheService.ts](../../main/ImageCacheService.ts)
+  - [ImageOptimizationController.ts](../../main/ImageOptimizationController.ts)
+  - [ImageOptimizationQueue.ts](../../main/ImageOptimizationQueue.ts)
+  - [ImageOptimizerWorkerHost.ts](../../main/ImageOptimizerWorkerHost.ts)
+  - [ImageOptimizerWorker.worker.ts](../../main/ImageOptimizerWorker.worker.ts)
+  - [thinWebpFrames.ts](../../main/thinWebpFrames.ts)
+  - [debugOptimizationLog.ts](../../main/debugOptimizationLog.ts)
+- **Renderer**
+  - [RefreshMetadataDialog.tsx](../../renderer/src/components/RefreshMetadataDialog.tsx)
+  - [GameDetailsPanel.tsx](../../renderer/src/components/GameDetailsPanel.tsx)
+  - [App.tsx](../../renderer/src/App.tsx)

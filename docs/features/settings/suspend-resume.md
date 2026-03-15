@@ -43,9 +43,9 @@ Controls whether suspend-resume behavior is enabled and how the suspend hotkey i
 
 ## File Ownership Map
 
-- Renderer
-  - `renderer/src/components/OnyxSettingsModal.tsx`
-- Main process
-  - `main/UserPreferencesService.ts`
-  - `main/main.ts`
-  - `main/preload.ts`
+- **Renderer**
+  - [OnyxSettingsModal.tsx](../../../renderer/src/components/OnyxSettingsModal.tsx)
+- **Main process**
+  - [UserPreferencesService.ts](../../../main/UserPreferencesService.ts)
+  - [main.ts](../../../main/main.ts)
+  - [preload.ts](../../../main/preload.ts)

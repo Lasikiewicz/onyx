@@ -25,7 +25,7 @@ Always check this map first before editing code.
 ## Last Sync
 
 <!-- AUTO-GENERATED:LAST_SYNC:START -->
-- Synced (UTC): 2026-03-15T23:08:25.765Z
+- Synced (UTC): 2026-03-15T23:33:26.312Z
 <!-- AUTO-GENERATED:LAST_SYNC:END -->
 
 ## Manual Update Policy
@@ -35,4 +35,4 @@ Always check this map first before editing code.
 3. If architecture, data flow, module responsibilities, or release pipeline changed, update `.agent/docs/architecture.md`.
 4. If workflow rules or guardrails changed, update `agents.md` (project root).
 5. If files under `main/` or `renderer/src/` change, stage at least one updated file from `docs/features/` to keep feature runbooks as source of truth.
-6. Every updated feature doc must satisfy `docs/features/FEATURE_DOC_STANDARD.md` (required sections and depth).
+6. Every updated feature doc must satisfy `docs/features/FEATURE_DOC_STANDARD.md` (required sections, depth, and linking to source files and related docs).

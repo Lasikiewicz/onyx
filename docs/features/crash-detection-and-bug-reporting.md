@@ -4,6 +4,11 @@
 
 Detects crash dumps from prior runs, prompts the user, and generates bug-report bundles for support/debugging.
 
+## Related Documentation
+
+- [Settings and preferences](./settings-and-preferences.md) — no dedicated tab; feature is event-driven.
+- [Updater](./updater.md) — startup flow; crash check can interact with update-check timing.
+
 ## User-Facing Surfaces
 
 - Crash-dump modal shown after startup when prior crash evidence is found.
@@ -18,9 +23,9 @@ Detects crash dumps from prior runs, prompts the user, and generates bug-report 
 ## Confirmed End-to-End Flows
 
 1. Main process checks crash dump locations on startup.
-2. Renderer is notified when dumps are available.
-3. User can save/open/dismiss through crash modal actions.
-4. Bug report service bundles logs/context/user description.
+2. Renderer is notified when dumps are available (IPC from [main.ts](../../main/main.ts) / [appHandlers.ts](../../main/ipc/appHandlers.ts)).
+3. User can save/open/dismiss through [CrashDumpModal.tsx](../../renderer/src/components/CrashDumpModal.tsx) actions.
+4. [BugReportService.ts](../../main/BugReportService.ts) bundles logs/context/user description.
 
 ## Discovery and Data Sources
 
@@ -53,12 +58,12 @@ Detects crash dumps from prior runs, prompts the user, and generates bug-report 
 
 ## File Ownership Map
 
-- Main process
-  - `main/BugReportService.ts`
-  - `main/crashDumpAnalyzer.ts`
-  - `main/main.ts`
-  - `main/ipc/appHandlers.ts`
-- Renderer
-  - `renderer/src/components/BugReportModal.tsx`
-  - `renderer/src/components/CrashDumpModal.tsx`
-  - `renderer/src/App.tsx`
+- **Main process**
+  - [BugReportService.ts](../../main/BugReportService.ts)
+  - [crashDumpAnalyzer.ts](../../main/crashDumpAnalyzer.ts)
+  - [main.ts](../../main/main.ts)
+  - [ipc/appHandlers.ts](../../main/ipc/appHandlers.ts)
+- **Renderer**
+  - [BugReportModal.tsx](../../renderer/src/components/BugReportModal.tsx)
+  - [CrashDumpModal.tsx](../../renderer/src/components/CrashDumpModal.tsx)
+  - [App.tsx](../../renderer/src/App.tsx)

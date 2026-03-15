@@ -42,9 +42,9 @@ Lets users manage manual library folders and launcher-specific library configura
 
 ## File Ownership Map
 
-- Renderer
-  - `renderer/src/components/OnyxSettingsModal.tsx`
-- Main process
-  - `main/UserPreferencesService.ts`
-  - `main/LauncherDetectionService.ts`
-  - `main/ImportService.ts`
+- **Renderer**
+  - [OnyxSettingsModal.tsx](../../../renderer/src/components/OnyxSettingsModal.tsx)
+- **Main process**
+  - [UserPreferencesService.ts](../../../main/UserPreferencesService.ts)
+  - [LauncherDetectionService.ts](../../../main/LauncherDetectionService.ts)
+  - [ImportService.ts](../../../main/ImportService.ts)

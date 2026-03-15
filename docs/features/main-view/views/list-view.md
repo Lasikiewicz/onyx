@@ -2,7 +2,14 @@
 
 ## What This Feature Does
 
-Displays the games list as a vertical list of rows, each showing game art (boxart or logo), title, and optional metadata (description, playtime, release date, genres, platform, launcher). Supports multiple display modes (boxart-title, logo-title, logo-only, title-only, icon-title) and configurable row height and text sizes.
+Displays the games list as a vertical list of rows, each showing game art (boxart or logo), title, and optional metadata (description, playtime, release date, genres, platform, launcher). Supports multiple display modes (boxart-title, logo-title, logo-only, title-only, icon-title) and configurable row height and text sizes. Part of the [Main View](../../main-view.md) layout.
+
+## Related Documentation
+
+- [Main View](../../main-view.md) — layout and view mode.
+- [Game Details Panel](../components/game-details-panel.md) — right panel when a game is selected.
+- [Games List](../components/games-list.md) — left panel that hosts the list.
+- [Settings and preferences](../../settings-and-preferences.md) — list view options persistence.
 
 ## User-Facing Surfaces
 
@@ -11,7 +18,7 @@ Displays the games list as a vertical list of rows, each showing game art (boxar
 
 ## Settings and Toggles
 
-- List view options: show description, categories, playtime, release date, genres, platform, launcher, logos; title/section text size; display mode; tile height; boxart/logo size. Configured via RightClickMenu and preferences.
+- List view options: show description, categories, playtime, release date, genres, platform, launcher, logos; title/section text size; display mode; tile height; boxart/logo size. Configured via [RightClickMenu.tsx](../../../../renderer/src/components/RightClickMenu.tsx) and [UserPreferencesService](../../../../main/UserPreferencesService.ts).
 
 ## Confirmed End-to-End Flows
 
@@ -21,24 +28,26 @@ Displays the games list as a vertical list of rows, each showing game art (boxar
 
 ## Discovery and Data Sources
 
-- Games list from App (filtered). ListViewOptions and listViewSize from preferences.
+- Games list from [App.tsx](../../../../renderer/src/App.tsx) (filtered). ListViewOptions and listViewSize from [UserPreferencesService](../../../../main/UserPreferencesService.ts).
 
 ## Data Model and Persistence
 
-- List view options and listViewSize persisted via UserPreferencesService.
+- List view options and listViewSize persisted via [UserPreferencesService](../../../../main/UserPreferencesService.ts). See [Settings and preferences](../../settings-and-preferences.md).
 
 ## Failure Modes and Triage
 
 ### Symptom: List shows wrong fields or layout
 
-- Check listViewOptions passed from App to LibraryListView; ensure preferences load and override defaults.
+- Check listViewOptions passed from [App.tsx](../../../../renderer/src/App.tsx) to [LibraryListView.tsx](../../../../renderer/src/components/LibraryListView.tsx); ensure preferences load and override defaults.
 
 ### Symptom: Playtime or dates not showing
 
-- Verify game object has playtime/releaseDate; formatPlaytime/formatDate in LibraryListView.
+- Verify game object has playtime/releaseDate; formatPlaytime/formatDate in [LibraryListView.tsx](../../../../renderer/src/components/LibraryListView.tsx).
 
 ## File Ownership Map
 
-- Renderer
-  - `renderer/src/components/LibraryListView.tsx`
-  - `renderer/src/App.tsx` (listViewOptions, listViewSize, preferences)
+- **Renderer**
+  - [LibraryListView.tsx](../../../../renderer/src/components/LibraryListView.tsx)
+  - [App.tsx](../../../../renderer/src/App.tsx) — listViewOptions, listViewSize, preferences
+- **Main**
+  - [UserPreferencesService.ts](../../../../main/UserPreferencesService.ts) — list view options and size

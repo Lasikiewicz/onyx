@@ -4,27 +4,33 @@
 
 Defines the application-wide configuration surface for startup behavior, window behavior, visuals, scanning, library sources, third-party integrations, links, maintenance actions, suspend resume, and app information.
 
-This parent file is the settings overview and routing document. Detailed behavior for each main tab lives in the settings sub-runbooks under `docs/features/settings/`.
+This parent file is the settings overview and routing document. Detailed behavior for each main tab lives in the settings sub-runbooks under [settings/](./settings/README.md).
+
+## Related Documentation
+
+- [Main View](./main-view.md) — many layout and display options (panel width, view mode, categories) are applied in the main view.
+- [Library import and startup scan](./library-import-and-startup-scan.md), [Metadata matching and enrichment](./metadata-matching-and-enrichment.md), [Links and link management](./links-and-link-management.md) — settings tabs affect those features.
+- [Suspend and resume](./suspend-and-resume.md), [Crash detection and bug reporting](./crash-detection-and-bug-reporting.md) — related settings and modals.
 
 ## User-Facing Surfaces
 
-- `Onyx Settings` modal.
+- `Onyx Settings` modal ([OnyxSettingsModal.tsx](../../renderer/src/components/OnyxSettingsModal.tsx)).
 - Main settings tabs:
-  - `General` -> `docs/features/settings/general.md`
-  - `Animations` -> `docs/features/settings/animations.md`
-  - `Scanning` -> `docs/features/settings/scanning.md`
-  - `Libraries` -> `docs/features/settings/libraries.md`
-  - `API Integrations` -> `docs/features/settings/api-integrations.md`
-  - `Link Management` -> `docs/features/settings/link-management.md`
-  - `Advanced` -> `docs/features/settings/advanced.md`
-  - `Suspend Resume` -> `docs/features/settings/suspend-resume.md`
-  - `About` -> `docs/features/settings/about.md`
+  - [General](./settings/general.md)
+  - [Animations](./settings/animations.md)
+  - [Scanning](./settings/scanning.md)
+  - [Libraries](./settings/libraries.md)
+  - [API Integrations](./settings/api-integrations.md)
+  - [Link Management](./settings/link-management.md)
+  - [Advanced](./settings/advanced.md)
+  - [Suspend Resume](./settings/suspend-resume.md)
+  - [About](./settings/about.md)
 
 ## Settings and Toggles
 
 - This feature owns the app's complete settings surface.
 - Detailed toggle inventories are maintained in the tab-specific runbooks.
-- Shared persistence is centered on `UserPreferencesService`, with some tabs also calling dedicated IPC or credential storage APIs.
+- Shared persistence is centered on [UserPreferencesService](../../main/UserPreferencesService.ts), with some tabs also calling dedicated IPC or credential storage APIs.
 
 ## Confirmed End-to-End Flows
 
@@ -36,19 +42,19 @@ This parent file is the settings overview and routing document. Detailed behavio
 
 ## Discovery and Data Sources
 
-- Primary settings UI: `renderer/src/components/OnyxSettingsModal.tsx`
-- Shared persistence: `main/UserPreferencesService.ts`
-- Runtime application of settings happens in `renderer/src/App.tsx`, Electron bootstrap code, metadata services, import services, and launcher flows.
-- Per-tab behavior is documented in `docs/features/settings/README.md` and the linked tab docs.
+- Primary settings UI: [OnyxSettingsModal.tsx](../../renderer/src/components/OnyxSettingsModal.tsx)
+- Shared persistence: [UserPreferencesService.ts](../../main/UserPreferencesService.ts)
+- Runtime application of settings happens in [App.tsx](../../renderer/src/App.tsx), Electron bootstrap code, metadata services, import services, and launcher flows.
+- Per-tab behavior is documented in [settings/README.md](./settings/README.md) and the linked tab docs.
 
 ## Data Model and Persistence
 
-- Most settings persist in the user preferences store.
+- Most settings persist in the user preferences store ([UserPreferencesService.ts](../../main/UserPreferencesService.ts)).
 - Some operational values use dedicated APIs or related stores:
   - background scanning configuration
-  - API credentials
+  - API credentials ([APICredentialsService.ts](../../main/APICredentialsService.ts))
   - launcher and library configuration
-- Defaults originate in `UserPreferencesService.createDefaultPreferences()`.
+- Defaults originate in [UserPreferencesService.createDefaultPreferences()](../../main/UserPreferencesService.ts).
 
 ## Failure Modes and Triage
 
@@ -66,31 +72,23 @@ This parent file is the settings overview and routing document. Detailed behavio
 
 ### Symptom: A settings area is unclear or incomplete
 
-- Treat the matching tab doc in `docs/features/settings/` as the first required update target.
+- Treat the matching tab doc in [settings/](./settings/README.md) as the first required update target.
 - Update this parent overview if architecture or cross-tab behavior changed.
 
 ## File Ownership Map
 
-- Overview and navigation docs
-  - `docs/features/settings/README.md`
-  - `docs/features/settings/general.md`
-  - `docs/features/settings/animations.md`
-  - `docs/features/settings/scanning.md`
-  - `docs/features/settings/libraries.md`
-  - `docs/features/settings/api-integrations.md`
-  - `docs/features/settings/link-management.md`
-  - `docs/features/settings/advanced.md`
-  - `docs/features/settings/suspend-resume.md`
-  - `docs/features/settings/about.md`
-- Main process
-  - `main/UserPreferencesService.ts`
-  - `main/AppConfigService.ts`
-  - `main/InstallerPreferenceService.ts`
-  - `main/APICredentialsService.ts`
-  - `main/electronStoreShim.ts`
-  - `main/ipc/appHandlers.ts`
-  - `main/main.ts`
-- Renderer
-  - `renderer/src/components/OnyxSettingsModal.tsx`
-  - `renderer/src/App.tsx`
+- **Overview and navigation docs**
+  - [settings/README.md](./settings/README.md)
+  - [general.md](./settings/general.md), [animations.md](./settings/animations.md), [scanning.md](./settings/scanning.md), [libraries.md](./settings/libraries.md), [api-integrations.md](./settings/api-integrations.md), [link-management.md](./settings/link-management.md), [advanced.md](./settings/advanced.md), [suspend-resume.md](./settings/suspend-resume.md), [about.md](./settings/about.md)
+- **Main process**
+  - [UserPreferencesService.ts](../../main/UserPreferencesService.ts)
+  - [AppConfigService.ts](../../main/AppConfigService.ts)
+  - [InstallerPreferenceService.ts](../../main/InstallerPreferenceService.ts)
+  - [APICredentialsService.ts](../../main/APICredentialsService.ts)
+  - [electronStoreShim.ts](../../main/electronStoreShim.ts)
+  - [ipc/appHandlers.ts](../../main/ipc/appHandlers.ts)
+  - [main.ts](../../main/main.ts)
+- **Renderer**
+  - [OnyxSettingsModal.tsx](../../renderer/src/components/OnyxSettingsModal.tsx)
+  - [App.tsx](../../renderer/src/App.tsx)
 

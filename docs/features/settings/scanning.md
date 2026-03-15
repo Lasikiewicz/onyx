@@ -48,10 +48,10 @@ Controls automatic background scans, scan interval, startup library refresh, and
 
 ## File Ownership Map
 
-- Renderer
-  - `renderer/src/components/OnyxSettingsModal.tsx`
-  - `renderer/src/App.tsx`
-- Main process
-  - `main/UserPreferencesService.ts`
-  - `main/main.ts`
-  - `main/ipc/appHandlers.ts`
+- **Renderer**
+  - [OnyxSettingsModal.tsx](../../../renderer/src/components/OnyxSettingsModal.tsx)
+  - [App.tsx](../../../renderer/src/App.tsx)
+- **Main process**
+  - [UserPreferencesService.ts](../../../main/UserPreferencesService.ts)
+  - [main.ts](../../../main/main.ts)
+  - [ipc/appHandlers.ts](../../../main/ipc/appHandlers.ts)

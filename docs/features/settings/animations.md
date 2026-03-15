@@ -45,9 +45,9 @@ Controls whether UI and artwork animation features remain active at runtime.
 
 ## File Ownership Map
 
-- Renderer
-  - `renderer/src/components/OnyxSettingsModal.tsx`
-  - `renderer/src/App.tsx`
-  - `renderer/src/components/GameDetailsPanel.tsx`
-- Main process
-  - `main/UserPreferencesService.ts`
+- **Renderer**
+  - [OnyxSettingsModal.tsx](../../../renderer/src/components/OnyxSettingsModal.tsx)
+  - [App.tsx](../../../renderer/src/App.tsx)
+  - [GameDetailsPanel.tsx](../../../renderer/src/components/GameDetailsPanel.tsx)
+- **Main process**
+  - [UserPreferencesService.ts](../../../main/UserPreferencesService.ts)

@@ -4,11 +4,16 @@
 
 Checks for new versions, offers download, and installs updates for packaged builds.
 
+## Related Documentation
+
+- [Settings and preferences](./settings-and-preferences.md) — [About](./settings/about.md) tab hosts update area; update-check preference.
+- [Settings / About](./settings/about.md) — update UI and packaged-state handling.
+
 ## User-Facing Surfaces
 
-- `Onyx Settings` -> `About` tab update area.
-- Update notification modal and startup update messaging.
-- App-level renderer state that shows update progress and download/install actions.
+- `Onyx Settings` -> `About` tab update area ([OnyxSettingsModal.tsx](../../renderer/src/components/OnyxSettingsModal.tsx)).
+- Update notification modal ([UpdateNotificationModal.tsx](../../renderer/src/components/UpdateNotificationModal.tsx)) and startup update messaging.
+- App-level renderer state in [App.tsx](../../renderer/src/App.tsx) that shows update progress and download/install actions.
 
 ## Settings and Toggles
 
@@ -18,9 +23,9 @@ Checks for new versions, offers download, and installs updates for packaged buil
 ## Confirmed End-to-End Flows
 
 1. UI triggers check from settings/about or menu.
-2. Renderer calls preload API (`checkForUpdates`, `downloadUpdate`, `quitAndInstall`).
-3. Main process routes to `AppUpdateService`.
-4. `AppUpdateService` emits status events (`checking`, `available`, `not-available`, `downloading`, `downloaded`, `error`).
+2. Renderer calls preload API (`checkForUpdates`, `downloadUpdate`, `quitAndInstall`) ([preload.ts](../../main/preload.ts)).
+3. Main process routes to [AppUpdateService.ts](../../main/AppUpdateService.ts).
+4. [AppUpdateService](../../main/AppUpdateService.ts) emits status events (`checking`, `available`, `not-available`, `downloading`, `downloaded`, `error`).
 5. Renderer updates modal/button state from `app:update-status`.
 
 Alpha builds use GitHub Releases API prerelease selection logic. Production uses `electron-updater` feed behavior.
@@ -28,21 +33,21 @@ Alpha builds use GitHub Releases API prerelease selection logic. Production uses
 ## Discovery and Data Sources
 
 - Update source is GitHub releases and packaged-app update metadata.
-- Main orchestration lives in `AppUpdateService`.
-- Startup coordination with library scan/update prompts runs through `main.ts` and renderer app readiness state.
+- Main orchestration lives in [AppUpdateService.ts](../../main/AppUpdateService.ts).
+- Startup coordination with library scan/update prompts runs through [main.ts](../../main/main.ts) and renderer app readiness state.
 
 ## Data Model and Persistence
 
 - Updater state is mostly runtime state rather than long-lived user data.
-- Startup update-check preference is persisted in user preferences.
+- Startup update-check preference is persisted in [UserPreferencesService.ts](../../main/UserPreferencesService.ts).
 - Downloaded installer/update artifacts are managed by Electron updater infrastructure and release assets.
 
 ## Failure Modes and Triage
 
-### Symptom: Stuck on “Checking...”
+### Symptom: Stuck on "Checking..."
 
 - Confirm runtime is packaged (`app:isPackaged`), not dev.
-- Confirm status events are received in renderer (`onUpdateStatus`).
+- Confirm status events are received in renderer (`onUpdateStatus` in [App.tsx](../../renderer/src/App.tsx)).
 - Confirm timeout fallback in settings UI is not removed.
 
 ### Symptom: Update available but cannot download
@@ -54,26 +59,26 @@ Alpha builds use GitHub Releases API prerelease selection logic. Production uses
 ### Symptom: Startup scan blocks after update check
 
 - Verify `app:update-found` and `app:update-dismissed` coordination events fire.
-- Check startup wait loop logic in main process.
+- Check startup wait loop logic in [main.ts](../../main/main.ts).
 
 ### Symptom: Update controls do not appear
 
 - Expected in development mode.
-- Confirm the About tab is reading packaged-state flags correctly.
+- Confirm the About tab is reading packaged-state flags correctly ([settings/about.md](./settings/about.md)).
 
 ## File Ownership Map
 
-- Main process
-  - `main/AppUpdateService.ts`
-  - `main/main.ts`
-  - `main/ipc/appHandlers.ts`
-- Preload bridge
-  - `main/preload.ts`
-- Renderer
-  - `renderer/src/components/OnyxSettingsModal.tsx`
-  - `renderer/src/components/UpdateNotificationModal.tsx`
-  - `renderer/src/App.tsx`
-  - `renderer/src/types/game.ts`
-- Build/release config
+- **Main process**
+  - [AppUpdateService.ts](../../main/AppUpdateService.ts)
+  - [main.ts](../../main/main.ts)
+  - [ipc/appHandlers.ts](../../main/ipc/appHandlers.ts)
+- **Preload bridge**
+  - [preload.ts](../../main/preload.ts)
+- **Renderer**
+  - [OnyxSettingsModal.tsx](../../renderer/src/components/OnyxSettingsModal.tsx)
+  - [UpdateNotificationModal.tsx](../../renderer/src/components/UpdateNotificationModal.tsx)
+  - [App.tsx](../../renderer/src/App.tsx)
+  - [types/game.ts](../../renderer/src/types/game.ts)
+- **Build/release config**
   - `electron-builder.config.js`
   - `package.json`

@@ -240,6 +240,7 @@ export interface UserPreferences {
   rightPanelButtonSize?: number;
   rightPanelButtonLocation?: 'left' | 'middle' | 'right';
   detailsPanelOpacity?: number;
+  detailsPanelBottomBarHeight?: number;
   topBarPositions?: {
     searchBar?: 'left' | 'middle' | 'right';
     sortBy?: 'left' | 'middle' | 'right';

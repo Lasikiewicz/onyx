@@ -44,6 +44,8 @@ interface GameDetailsPanelProps {
   onFanartHeightChange?: (height: number) => void;
   descriptionWidth?: number;
   onDescriptionWidthChange?: (width: number) => void;
+  detailsPanelBottomBarHeight?: number;
+  onDetailsPanelBottomBarHeightChange?: (height: number) => void;
   isViewFlipped?: boolean;
   // Button colors
   rightPanelButtonColors?: { playColor?: string; editColor?: string; modManagerColor?: string };
@@ -91,6 +93,8 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
   onFanartHeightChange,
   descriptionWidth: propDescriptionWidth = 50,
   onDescriptionWidthChange,
+  detailsPanelBottomBarHeight: propBottomBarHeight,
+  onDetailsPanelBottomBarHeightChange,
   isViewFlipped = false,
   rightPanelButtonColors,
   linkDisplayOrder: linkDisplayOrderFromProps,
@@ -111,10 +115,13 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
   const [isResizingFanart, setIsResizingFanart] = useState(false);
   const [isResizingDescription, setIsResizingDescription] = useState(false);
   const [isResizingDescriptionWidth, setIsResizingDescriptionWidth] = useState(false);
+  const [isResizingBottomBar, setIsResizingBottomBar] = useState(false);
+  const [bottomBarHeight, setBottomBarHeight] = useState(propBottomBarHeight ?? 72);
   const panelRef = useRef<HTMLDivElement>(null);
   const fanartRef = useRef<HTMLDivElement>(null);
   const descriptionRef = useRef<HTMLDivElement>(null);
   const descriptionContainerRef = useRef<HTMLDivElement>(null);
+  const bottomBarRef = useRef<HTMLDivElement>(null);
   const viewKey: ViewKey = viewMode === 'list' ? 'list' : viewMode === 'logo' ? 'logo' : 'grid';
   const activePanelWidth = (propPanelWidth ?? panelWidths[viewKey] ?? defaultPanelWidths[viewKey]);
   const normalizedOpacity = Math.max(0, Math.min(100, detailsPanelOpacity));
@@ -201,6 +208,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
         if (prefs.visibleDetails) setVisibleDetails(prefs.visibleDetails);
         if (prefs.boxartWidth) setBoxartWidth(prefs.boxartWidth);
         if (prefs.descriptionHeight !== undefined) setDescriptionHeight(prefs.descriptionHeight);
+        if (prefs.detailsPanelBottomBarHeight !== undefined) setBottomBarHeight(prefs.detailsPanelBottomBarHeight);
         if (prefs.visibleLinkTypes && Object.keys(prefs.visibleLinkTypes).length > 0) {
           setVisibleLinkTypes(prefs.visibleLinkTypes);
         } else {
@@ -222,6 +230,11 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
   useEffect(() => {
     setDescriptionWidth(propDescriptionWidth);
   }, [propDescriptionWidth]);
+
+  // Sync bottom bar height from prop when provided (e.g. from App/RightClickMenu)
+  useEffect(() => {
+    if (propBottomBarHeight !== undefined) setBottomBarHeight(propBottomBarHeight);
+  }, [propBottomBarHeight]);
 
   // Sync panel width from prop when provided
   useEffect(() => {
@@ -264,11 +277,11 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
     };
   }, []);
 
-  // Save preferences when they change
+  // Save preferences when they change (omit bottom bar height when App owns it via callback)
   useEffect(() => {
     const savePreferences = async () => {
       try {
-        await window.electronAPI.savePreferences({
+        const prefs: Record<string, unknown> = {
           panelWidthByView: panelWidths,
           panelWidth: activePanelWidth,
           fanartHeight,
@@ -282,7 +295,11 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
           detailsFontFamily,
           visibleDetails,
           boxartWidth,
-        });
+        };
+        if (onDetailsPanelBottomBarHeightChange === undefined) {
+          prefs.detailsPanelBottomBarHeight = bottomBarHeight;
+        }
+        await window.electronAPI.savePreferences(prefs);
       } catch (error) {
         console.error('Error saving preferences:', error);
       }
@@ -290,7 +307,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
     // Debounce saves
     const timeoutId = setTimeout(savePreferences, 500);
     return () => clearTimeout(timeoutId);
-  }, [panelWidths, activePanelWidth, fanartHeight, descriptionHeight, descriptionWidth, titleFontSize, titleFontFamily, descriptionFontSize, descriptionFontFamily, detailsFontSize, detailsFontFamily, visibleDetails, boxartWidth]);
+  }, [panelWidths, activePanelWidth, fanartHeight, descriptionHeight, descriptionWidth, bottomBarHeight, onDetailsPanelBottomBarHeightChange, titleFontSize, titleFontFamily, descriptionFontSize, descriptionFontFamily, detailsFontSize, detailsFontFamily, visibleDetails, boxartWidth]);
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -326,6 +343,14 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
         const clampedPercentage = Math.max(minPercentage, Math.min(maxPercentage, percentage));
         setDescriptionWidth(clampedPercentage);
         onDescriptionWidthChange?.(clampedPercentage);
+      } else if (isResizingBottomBar && bottomBarRef.current) {
+        const rect = bottomBarRef.current.getBoundingClientRect();
+        const newHeight = rect.bottom - e.clientY;
+        const minHeight = 48;
+        const maxHeight = 140;
+        const clampedHeight = Math.max(minHeight, Math.min(maxHeight, newHeight));
+        setBottomBarHeight(clampedHeight);
+        onDetailsPanelBottomBarHeightChange?.(clampedHeight);
       }
     };
 
@@ -334,9 +359,10 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
       setIsResizingFanart(false);
       setIsResizingDescription(false);
       setIsResizingDescriptionWidth(false);
+      setIsResizingBottomBar(false);
     };
 
-    if (isResizing || isResizingFanart || isResizingDescription || isResizingDescriptionWidth) {
+    if (isResizing || isResizingFanart || isResizingDescription || isResizingDescriptionWidth || isResizingBottomBar) {
       document.addEventListener('mousemove', handleMouseMove);
       document.addEventListener('mouseup', handleMouseUp);
       return () => {
@@ -344,7 +370,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
         document.removeEventListener('mouseup', handleMouseUp);
       };
     }
-  }, [isResizing, isResizingFanart, isResizingDescription, isResizingDescriptionWidth, viewKey]);
+  }, [isResizing, isResizingFanart, isResizingDescription, isResizingDescriptionWidth, isResizingBottomBar, viewKey]);
 
   const handleLogoSizeChange = async (newSize: number) => {
     if (!game) return;
@@ -1035,20 +1061,48 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
         </div>
       )}
 
-      {/* Action Buttons and Links at Bottom */}
-      {game && (
-        <div className={`border-t border-gray-700 p-4 flex items-center flex-shrink-0 w-full ${rightPanelButtonLocation === 'middle' ? 'justify-between' : 'justify-between'}`}>
+      {/* Action Buttons and Links at Bottom - Resizable height */}
+      {game && (() => {
+        const bottomBarScale = bottomBarHeight / 72;
+        const scaledButtonSize = Math.round(rightPanelButtonSize * bottomBarScale);
+        const scaledPadding = Math.max(8, 16 * bottomBarScale);
+        const scaledGap = Math.max(8, 12 * bottomBarScale);
+        const scaledIconSize = Math.max(14, 20 * bottomBarScale);
+        return (
+        <div
+          ref={bottomBarRef}
+          className="border-t border-gray-700 flex items-center flex-shrink-0 w-full relative"
+          style={{
+            boxSizing: 'border-box',
+            height: `${bottomBarHeight}px`,
+            minHeight: `${bottomBarHeight}px`,
+            paddingLeft: scaledPadding,
+            paddingRight: scaledPadding,
+            paddingTop: scaledPadding,
+            paddingBottom: scaledPadding,
+            gap: scaledGap,
+          }}
+        >
+          {/* Resize handle at top of bottom bar */}
+          <div
+            className="absolute left-0 right-0 top-0 h-1 cursor-row-resize hover:bg-blue-500 transition-colors z-10"
+            onMouseDown={(e) => {
+              e.preventDefault();
+              setIsResizingBottomBar(true);
+            }}
+          />
+          <div className={`flex items-center w-full ${rightPanelButtonLocation === 'middle' ? 'justify-between' : 'justify-between'}`} style={{ gap: scaledGap }}>
           {(() => {
             const actionButtons = (
               <>
                 <button
                   onClick={() => onFavorite?.(game)}
-                  className={`group p-2 rounded transition-colors ${game.favorite ? 'text-yellow-400' : 'text-gray-300 hover:bg-gray-700'
+                  className={`group rounded transition-colors ${game.favorite ? 'text-yellow-400' : 'text-gray-300 hover:bg-gray-700'
                     }`}
                   title="Favorite"
-                  style={{ fontSize: `${rightPanelButtonSize}px` }}
+                  style={{ fontSize: `${scaledButtonSize}px`, padding: scaledGap * 0.5 }}
                 >
-                  <svg className="w-5 h-5 group- hover:animate-gentle-bounce group-hover:animate-gentle-bounce" fill={game.favorite ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="group- hover:animate-gentle-bounce group-hover:animate-gentle-bounce" fill={game.favorite ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24" style={{ width: scaledIconSize, height: scaledIconSize }}>
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
                   </svg>
                 </button>
@@ -1059,12 +1113,14 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
                     style={{
                       backgroundColor: rightPanelButtonColors?.editColor || '#6b7280',
                       color: getContrastingTextColor(rightPanelButtonColors?.editColor || '#6b7280'),
-                      fontSize: `${rightPanelButtonSize}px`
+                      fontSize: `${scaledButtonSize}px`,
+                      padding: `${scaledGap * 0.5}px ${scaledGap}px`,
+                      gap: scaledGap,
                     }}
-                    className="group px-4 py-2 hover:opacity-90 text-white font-medium rounded-lg transition-colors flex items-center gap-2"
+                    className="group hover:opacity-90 text-white font-medium rounded-lg transition-colors flex items-center"
                     title="Edit Game"
                   >
-                    <svg className="w-5 h-5 group- hover:animate-edit-pen group-hover:animate-edit-pen" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="group- hover:animate-edit-pen group-hover:animate-edit-pen" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ width: scaledIconSize, height: scaledIconSize }}>
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                     </svg>
                     Edit
@@ -1088,12 +1144,14 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
                     style={{
                       backgroundColor: rightPanelButtonColors?.modManagerColor || '#a855f7',
                       color: getContrastingTextColor(rightPanelButtonColors?.modManagerColor || '#a855f7'),
-                      fontSize: `${rightPanelButtonSize}px`
+                      fontSize: `${scaledButtonSize}px`,
+                      padding: `${scaledGap * 0.5}px ${scaledGap}px`,
+                      gap: scaledGap,
                     }}
-                    className="group px-4 py-2 hover:opacity-90 text-white font-medium rounded-lg transition-colors flex items-center gap-2"
+                    className="group hover:opacity-90 text-white font-medium rounded-lg transition-colors flex items-center"
                     title="Open Mod Manager"
                   >
-                    <svg className="w-5 h-5 group- hover:animate-gear-spin group-hover:animate-gear-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="group- hover:animate-gear-spin group-hover:animate-gear-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ width: scaledIconSize, height: scaledIconSize }}>
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                     </svg>
                     Mod Manager
@@ -1106,11 +1164,13 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
                   style={{
                     backgroundColor: rightPanelButtonColors?.playColor || '#0ea5e9',
                     color: getContrastingTextColor(rightPanelButtonColors?.playColor || '#0ea5e9'),
-                    fontSize: `${rightPanelButtonSize}px`
+                    fontSize: `${scaledButtonSize}px`,
+                    padding: `${scaledGap * 0.5}px ${scaledGap * 1.5}px`,
+                    gap: scaledGap,
                   }}
-                  className="group px-6 py-2 rounded-lg flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 transition-opacity text-white font-medium"
+                  className="group rounded-lg flex items-center disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 transition-opacity text-white font-medium"
                 >
-                  <svg className="w-5 h-5 group- hover:animate-play-pulse group-hover:animate-play-pulse" fill="currentColor" viewBox="0 0 24 24">
+                  <svg className="group- hover:animate-play-pulse group-hover:animate-play-pulse" fill="currentColor" viewBox="0 0 24 24" style={{ width: scaledIconSize, height: scaledIconSize }}>
                     <path d="M8 5v14l11-7z" />
                   </svg>
                   {isLaunching ? 'Launching...' : isRunning ? 'Running' : 'Play'}
@@ -1129,7 +1189,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
                 displayMode="icons"
                 visibleTypes={visibleLinkTypesFromProps ?? visibleLinkTypes}
                 displayOrder={linkDisplayOrderFromProps ?? linkDisplayOrder ?? undefined}
-                buttonSize={rightPanelButtonSize}
+                buttonSize={scaledButtonSize}
                 disableAnimatedIcons={disableAnimatedIconsBySettings}
               />
             );
@@ -1137,8 +1197,8 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
             if (rightPanelButtonLocation === 'left') {
               return (
                 <>
-                  <div className="flex items-center gap-3">{actionButtons}</div>
-                  <div className="flex items-center gap-3 px-2 flex-wrap justify-end flex-1">{linksComponent}</div>
+                  <div className="flex items-center flex-shrink-0" style={{ gap: scaledGap }}>{actionButtons}</div>
+                  <div className="flex items-center flex-wrap justify-end flex-1 px-2" style={{ gap: scaledGap }}>{linksComponent}</div>
                 </>
               );
             }
@@ -1146,8 +1206,8 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
             if (rightPanelButtonLocation === 'right') {
               return (
                 <>
-                  <div className="flex items-center gap-3 px-2 flex-wrap justify-start flex-1">{linksComponent}</div>
-                  <div className="flex items-center gap-3 flex-shrink-0">{actionButtons}</div>
+                  <div className="flex items-center flex-wrap justify-start flex-1 px-2" style={{ gap: scaledGap }}>{linksComponent}</div>
+                  <div className="flex items-center flex-shrink-0" style={{ gap: scaledGap }}>{actionButtons}</div>
                 </>
               );
             }
@@ -1155,14 +1215,16 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
             // Middle
             return (
               <>
-                <div className="flex-1 flex justify-start items-center px-2 flex-wrap">{linksComponent}</div>
-                <div className="flex-none flex items-center gap-3 justify-center flex-shrink-0">{actionButtons}</div>
+                <div className="flex-1 flex justify-start items-center px-2 flex-wrap" style={{ gap: scaledGap }}>{linksComponent}</div>
+                <div className="flex-none flex items-center justify-center flex-shrink-0" style={{ gap: scaledGap }}>{actionButtons}</div>
                 <div className="flex-1"></div>
               </>
             );
           })()}
+          </div>
         </div>
-      )}
+        );
+      })()}
     </div>
   );
 };

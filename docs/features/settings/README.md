@@ -1,6 +1,6 @@
 # Settings Documentation Index
 
-This folder breaks the Settings feature into one runbook per main settings tab.
+This folder breaks the Settings feature into one runbook per main settings tab. Parent overview: [Settings and preferences](../settings-and-preferences.md).
 
 ## Settings Tabs
 

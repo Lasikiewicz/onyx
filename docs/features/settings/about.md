@@ -40,8 +40,8 @@ Provides version, project, and update-related information inside the settings mo
 
 ## File Ownership Map
 
-- Renderer
-  - `renderer/src/components/OnyxSettingsModal.tsx`
-- Main process
-  - `main/AppUpdateService.ts`
-  - `main/main.ts`
+- **Renderer**
+  - [OnyxSettingsModal.tsx](../../../renderer/src/components/OnyxSettingsModal.tsx)
+- **Main process**
+  - [AppUpdateService.ts](../../../main/AppUpdateService.ts)
+  - [main.ts](../../../main/main.ts)

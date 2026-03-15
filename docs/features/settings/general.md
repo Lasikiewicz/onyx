@@ -2,7 +2,12 @@
 
 ## What This Feature Does
 
-Controls app startup, tray integration, hardware acceleration, and basic window behavior.
+Controls app startup, tray integration, hardware acceleration, and basic window behavior. Part of [Settings and preferences](../settings-and-preferences.md).
+
+## Related Documentation
+
+- [Settings and preferences](../settings-and-preferences.md) — parent overview and persistence.
+- [Game launch and process tracking](../game-launch-and-process-tracking.md) — minimize on launch, restore on exit, confirm launch.
 
 ## User-Facing Surfaces
 
@@ -33,14 +38,14 @@ Controls app startup, tray integration, hardware acceleration, and basic window 
 
 ## Discovery and Data Sources
 
-- UI lives in `OnyxSettingsModal` under the `general` tab.
-- Persistence uses `UserPreferencesService` defaults and save flow.
-- Runtime consumers include tray/window lifecycle and launch behavior in main/app state.
+- UI lives in [OnyxSettingsModal.tsx](../../../renderer/src/components/OnyxSettingsModal.tsx) under the `general` tab.
+- Persistence uses [UserPreferencesService.ts](../../../main/UserPreferencesService.ts) defaults and save flow.
+- Runtime consumers include tray/window lifecycle and launch behavior in [main.ts](../../../main/main.ts) / [App.tsx](../../../renderer/src/App.tsx).
 
 ## Data Model and Persistence
 
 - Stored in user preferences store.
-- Defaults are defined in `UserPreferencesService.createDefaultPreferences()`.
+- Defaults are defined in [UserPreferencesService.createDefaultPreferences()](../../../main/UserPreferencesService.ts).
 - Some settings apply immediately; some require restart or next launch.
 
 ## Failure Modes and Triage
@@ -56,10 +61,10 @@ Controls app startup, tray integration, hardware acceleration, and basic window 
 
 ## File Ownership Map
 
-- Renderer
-  - `renderer/src/components/OnyxSettingsModal.tsx`
-  - `renderer/src/App.tsx`
-- Main process
-  - `main/UserPreferencesService.ts`
-  - `main/ipc/appHandlers.ts`
-  - `main/main.ts`
+- **Renderer**
+  - [OnyxSettingsModal.tsx](../../../renderer/src/components/OnyxSettingsModal.tsx)
+  - [App.tsx](../../../renderer/src/App.tsx)
+- **Main process**
+  - [UserPreferencesService.ts](../../../main/UserPreferencesService.ts)
+  - [ipc/appHandlers.ts](../../../main/ipc/appHandlers.ts)
+  - [main.ts](../../../main/main.ts)

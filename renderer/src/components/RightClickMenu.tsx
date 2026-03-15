@@ -114,6 +114,8 @@ interface RightClickMenuProps {
   onFanartHeightChange?: (height: number) => void;
   descriptionWidth?: number;
   onDescriptionWidthChange?: (width: number) => void;
+  detailsPanelBottomBarHeight?: number;
+  onDetailsPanelBottomBarHeightChange?: (height: number) => void;
   showCategoriesInGameList?: boolean;
   onShowCategoriesInGameListChange?: (show: boolean) => void;
   categoriesPosition?: 'top' | 'bottom';
@@ -223,6 +225,8 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
   onFanartHeightChange,
   descriptionWidth = 50,
   onDescriptionWidthChange,
+  detailsPanelBottomBarHeight = 72,
+  onDetailsPanelBottomBarHeightChange,
   showCategoriesInGameList = false,
   onShowCategoriesInGameListChange,
   categoriesPosition = 'top',
@@ -393,6 +397,7 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
       if (defaults.panelWidth !== undefined) onPanelWidthChange?.(defaults.panelWidth);
       if (defaults.fanartHeight !== undefined) onFanartHeightChange?.(defaults.fanartHeight);
       if (defaults.descriptionWidth !== undefined) onDescriptionWidthChange?.(defaults.descriptionWidth);
+      if (defaults.detailsPanelBottomBarHeight !== undefined) onDetailsPanelBottomBarHeightChange?.(defaults.detailsPanelBottomBarHeight);
       if (defaults.backgroundBlur !== undefined) onBackgroundBlurChange?.(defaults.backgroundBlur);
       if (defaults.backgroundBrightness !== undefined) onBackgroundBrightnessChange?.(defaults.backgroundBrightness);
       if (defaults.showLogoOverBoxart !== undefined) onShowLogoOverBoxartChange?.(defaults.showLogoOverBoxart);
@@ -405,6 +410,7 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
       if (defaults.panelWidth !== undefined) onPanelWidthChange?.(defaults.panelWidth);
       if (defaults.fanartHeight !== undefined) onFanartHeightChange?.(defaults.fanartHeight);
       if (defaults.descriptionWidth !== undefined) onDescriptionWidthChange?.(defaults.descriptionWidth);
+      if (defaults.detailsPanelBottomBarHeight !== undefined) onDetailsPanelBottomBarHeightChange?.(defaults.detailsPanelBottomBarHeight);
       if (defaults.rightPanelLogoSize !== undefined) onRightPanelLogoSizeChange?.(defaults.rightPanelLogoSize);
     } else if (mode === 'list') {
       if (defaults.backgroundBlur !== undefined) onBackgroundBlurChange?.(defaults.backgroundBlur);
@@ -412,6 +418,7 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
       if (defaults.panelWidth !== undefined) onPanelWidthChange?.(defaults.panelWidth);
       if (defaults.fanartHeight !== undefined) onFanartHeightChange?.(defaults.fanartHeight);
       if (defaults.descriptionWidth !== undefined) onDescriptionWidthChange?.(defaults.descriptionWidth);
+      if (defaults.detailsPanelBottomBarHeight !== undefined) onDetailsPanelBottomBarHeightChange?.(defaults.detailsPanelBottomBarHeight);
       if (defaults.listViewOptions !== undefined) onListViewOptionsChange?.(defaults.listViewOptions);
       if (defaults.rightPanelLogoSize !== undefined) onRightPanelLogoSizeChange?.(defaults.rightPanelLogoSize);
     } else if (mode === 'carousel') {
@@ -572,6 +579,7 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
     panelWidth: 800,
     fanartHeight: 320,
     descriptionWidth: 50,
+    detailsPanelBottomBarHeight: 72,
     perGameLogoSize: 100,
     rightPanelBoxartSize: 120,
     rightPanelTextSize: 14,
@@ -1862,6 +1870,23 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                     formatValue={(value) => `${value}%`}
                     minLabel="20%"
                     maxLabel="80%"
+                  />
+                </div>
+
+                {/* Bottom Bar Height Control */}
+                <div className="px-3 py-2 bg-gray-700/30 rounded-md">
+                  <MenuSliderRow
+                    label="Bottom Bar Height"
+                    min={48}
+                    max={140}
+                    step={2}
+                    value={detailsPanelBottomBarHeight}
+                    defaultValue={sliderDefaults.detailsPanelBottomBarHeight}
+                    onChange={(value) => onDetailsPanelBottomBarHeightChange?.(value)}
+                    onReset={() => onDetailsPanelBottomBarHeightChange?.(sliderDefaults.detailsPanelBottomBarHeight)}
+                    formatValue={(value) => `${value}px`}
+                    minLabel="48px"
+                    maxLabel="140px"
                   />
                 </div>
               </div>

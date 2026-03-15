@@ -17,6 +17,7 @@ ALWAYS check `.agent/docs/structure.md` BEFORE modifying code.
 ## 5. STRICT DOCUMENTATION & MODULARITY MANDATE (CRITICAL)
 
 - Documentation changes ship with code changes.
+- Feature docs in `docs/features/` must link to actual source files and related feature docs so a single runbook explains how the feature works (see `docs/features/FEATURE_DOC_STANDARD.md`).
 - Keep files modular and single-responsibility.
 - Enforcement:
   - `npm run docs:sync`

@@ -4,6 +4,12 @@
 
 Finds games from configured launchers/folders and imports them into the local library.
 
+## Related Documentation
+
+- [Settings and preferences](./settings-and-preferences.md) — [Libraries](./settings/libraries.md) and [Scanning](./settings/scanning.md) tabs for startup and background scan options.
+- [Game launch and process tracking](./game-launch-and-process-tracking.md) — launcher resolution uses [LauncherService](../../main/LauncherService.ts) and [LauncherDetectionService](../../main/LauncherDetectionService.ts).
+- [Metadata matching and enrichment](./metadata-matching-and-enrichment.md) — identity and matching during import.
+
 ## User-Facing Surfaces
 
 - Initial startup scan flow.
@@ -22,21 +28,21 @@ Finds games from configured launchers/folders and imports them into the local li
 
 1. Renderer starts scan from menu/settings/startup flow.
 2. Main startup sequence checks preferences and coordinates update-check timing.
-3. `ImportService` orchestrates launcher readers and normalization.
-4. `GameMatcher` deduplicates and resolves identity.
-5. `GameStore` persists the resulting game set.
+3. [ImportService.ts](../../main/ImportService.ts) orchestrates launcher readers and normalization.
+4. [GameMatcher.ts](../../main/GameMatcher.ts) deduplicates and resolves identity.
+5. [GameStore.ts](../../main/GameStore.ts) persists the resulting game set.
 6. Progress and discovered games are streamed back to renderer.
 
 ## Discovery and Data Sources
 
 - Sources include configured launchers plus manual library folders.
-- Launcher detection and launcher-specific metadata come from `LauncherDetectionService` and `LauncherService`.
+- Launcher detection and launcher-specific metadata come from [LauncherDetectionService.ts](../../main/LauncherDetectionService.ts) and [LauncherService.ts](../../main/LauncherService.ts).
 - Matching uses known IDs, executable paths, launcher identifiers, and title heuristics.
 
 ## Data Model and Persistence
 
-- Imported games are persisted in `GameStore`.
-- User preferences determine whether startup and background scans run automatically.
+- Imported games are persisted in [GameStore.ts](../../main/GameStore.ts).
+- User preferences ([UserPreferencesService.ts](../../main/UserPreferencesService.ts)) determine whether startup and background scans run automatically.
 - Launcher and library configuration must remain stable across rescans to avoid duplicates.
 
 ## Failure Modes and Triage
@@ -65,19 +71,19 @@ Finds games from configured launchers/folders and imports them into the local li
 
 ## File Ownership Map
 
-- Main process
-  - `main/main.ts`
-  - `main/ImportService.ts`
-  - `main/LauncherService.ts`
-  - `main/LauncherDetectionService.ts`
-  - `main/GameMatcher.ts`
-  - `main/GameStore.ts`
-  - `main/UserPreferencesService.ts`
-- Preload bridge
-  - `main/preload.ts`
-- Renderer
-  - `renderer/src/App.tsx`
-  - `renderer/src/components/FoundGamesModal.tsx`
-  - `renderer/src/components/UpdateLibraryModal.tsx`
-  - `renderer/src/components/MissingGamesModal.tsx`
-  - `renderer/src/components/RemoveDeletedGamesDialog.tsx`
+- **Main process**
+  - [main.ts](../../main/main.ts)
+  - [ImportService.ts](../../main/ImportService.ts)
+  - [LauncherService.ts](../../main/LauncherService.ts)
+  - [LauncherDetectionService.ts](../../main/LauncherDetectionService.ts)
+  - [GameMatcher.ts](../../main/GameMatcher.ts)
+  - [GameStore.ts](../../main/GameStore.ts)
+  - [UserPreferencesService.ts](../../main/UserPreferencesService.ts)
+- **Preload bridge**
+  - [preload.ts](../../main/preload.ts)
+- **Renderer**
+  - [App.tsx](../../renderer/src/App.tsx)
+  - [FoundGamesModal.tsx](../../renderer/src/components/FoundGamesModal.tsx)
+  - [UpdateLibraryModal.tsx](../../renderer/src/components/UpdateLibraryModal.tsx)
+  - [MissingGamesModal.tsx](../../renderer/src/components/MissingGamesModal.tsx)
+  - [RemoveDeletedGamesDialog.tsx](../../renderer/src/components/RemoveDeletedGamesDialog.tsx)

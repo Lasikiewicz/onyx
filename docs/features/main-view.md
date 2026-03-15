@@ -4,6 +4,11 @@
 
 Defines the primary library window layout after launch: menu bar, main content area (games list left, game details right or full-width for carousel/coverflow), and how layout and alignment work.
 
+## Related Documentation
+
+- [Settings and preferences](./settings-and-preferences.md) — persistence for view mode, panel width, category options.
+- [Game launch and process tracking](./game-launch-and-process-tracking.md) — Play from tiles and game details.
+
 ## User-Facing Surfaces
 
 - **Menu bar** (fixed top): app menu, search, sort, launcher/category filters. See [Menu Bar](./main-view/components/menu-bar.md).
@@ -33,19 +38,19 @@ Layout: When view mode is grid/list/logo, the games list and game details panel 
 
 ## Discovery and Data Sources
 
-- Games from GameStore; selection and view state in renderer.
-- Preferences from UserPreferencesService for layout and display options.
+- Games from [GameStore](../../main/GameStore.ts); selection and view state in [App.tsx](../../renderer/src/App.tsx).
+- Preferences from [UserPreferencesService](../../main/UserPreferencesService.ts) for layout and display options.
 
 ## Data Model and Persistence
 
-- No dedicated main-view persistence; uses game library and preferences (panel width, view mode, category/list options).
+- No dedicated main-view persistence; uses game library and preferences (panel width, view mode, category/list options). Stored via [UserPreferencesService](../../main/UserPreferencesService.ts); see [Settings and preferences](./settings-and-preferences.md).
 
 ## Failure Modes and Triage
 
 ### Symptom: Layout is single column or panels overlap
 
 - Confirm view mode is not carousel/coverflow if two panels are expected.
-- Check flex/overflow classes in `App.tsx` main content area and that no CSS overrides collapse the layout.
+- Check flex/overflow classes in [App.tsx](../../renderer/src/App.tsx) main content area and that no CSS overrides collapse the layout.
 
 ### Symptom: Categories appear in the wrong place or affect game details
 
@@ -53,15 +58,15 @@ Layout: When view mode is grid/list/logo, the games list and game details panel 
 
 ### Symptom: Game details panel higher or lower than games list
 
-- When categories are off or at bottom, the right panel must have pt-4 so content aligns. See `rightPanelNeedsTopPadding` in `App.tsx`.
+- When categories are off or at bottom, the right panel must have pt-4 so content aligns. See `rightPanelNeedsTopPadding` in [App.tsx](../../renderer/src/App.tsx).
 
 ## File Ownership Map
 
-- Renderer
-  - `renderer/src/App.tsx` (main layout, panel structure, categories placement, alignment)
-  - `renderer/src/components/MenuBar.tsx`
-  - `renderer/src/components/GameDetailsPanel.tsx`
-  - `renderer/src/components/LibraryGrid.tsx`
-  - `renderer/src/components/LibraryListView.tsx`
-  - `renderer/src/components/LibraryCarousel.tsx`
-  - `renderer/src/components/LibraryCoverFlow.tsx`
+- **Renderer**
+  - [App.tsx](../../renderer/src/App.tsx) — main layout, panel structure, categories placement, alignment
+  - [MenuBar.tsx](../../renderer/src/components/MenuBar.tsx)
+  - [GameDetailsPanel.tsx](../../renderer/src/components/GameDetailsPanel.tsx)
+  - [LibraryGrid.tsx](../../renderer/src/components/LibraryGrid.tsx)
+  - [LibraryListView.tsx](../../renderer/src/components/LibraryListView.tsx)
+  - [LibraryCarousel.tsx](../../renderer/src/components/LibraryCarousel.tsx)
+  - [LibraryCoverFlow.tsx](../../renderer/src/components/LibraryCoverFlow.tsx)

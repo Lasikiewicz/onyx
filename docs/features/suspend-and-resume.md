@@ -4,6 +4,11 @@
 
 Allows pausing/resuming supported game processes through OS-level process control.
 
+## Related Documentation
+
+- [Settings and preferences](./settings-and-preferences.md) — [Suspend Resume](./settings/suspend-resume.md) tab for enablement and shortcut.
+- [Game launch and process tracking](./game-launch-and-process-tracking.md) — process state comes from launch/tracking.
+
 ## User-Facing Surfaces
 
 - `Onyx Settings` -> `Suspend/Resume` tab.
@@ -19,7 +24,7 @@ Allows pausing/resuming supported game processes through OS-level process contro
 ## Confirmed End-to-End Flows
 
 1. Renderer requests suspend/resume via preload suspend API.
-2. Main suspend service validates feature enablement and target process.
+2. Main [ProcessSuspendService.ts](../../main/ProcessSuspendService.ts) validates feature enablement and target process.
 3. Service executes suspend/resume operation and returns success/error.
 4. Renderer updates running/suspended status in UI.
 
@@ -53,13 +58,11 @@ Allows pausing/resuming supported game processes through OS-level process contro
 
 ## File Ownership Map
 
-- Main process
-  - `main/ProcessSuspendService.ts`
-  - `main/ipc/appHandlers.ts`
-  - `main/main.ts`
-- Renderer
-  - `renderer/src/components/OnyxSettingsModal.tsx`
-  - `renderer/src/App.tsx`
-  - `renderer/src/components/RightClickMenu.tsx`
-- Related docs
-  - `docs/SUSPEND_FEATURE_QUICK_REFERENCE.md`
+- **Main process**
+  - [ProcessSuspendService.ts](../../main/ProcessSuspendService.ts)
+  - [ipc/appHandlers.ts](../../main/ipc/appHandlers.ts)
+  - [main.ts](../../main/main.ts)
+- **Renderer**
+  - [OnyxSettingsModal.tsx](../../renderer/src/components/OnyxSettingsModal.tsx)
+  - [App.tsx](../../renderer/src/App.tsx)
+  - [RightClickMenu.tsx](../../renderer/src/components/RightClickMenu.tsx)

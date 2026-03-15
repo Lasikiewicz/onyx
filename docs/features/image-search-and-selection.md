@@ -4,6 +4,13 @@
 
 Lets users search provider/web image sources, preview candidates, and assign boxart/banner/logo/icon assets.
 
+## Related Documentation
+
+- [Game Details Panel](./main-view/components/game-details-panel.md) — image display and context menus; Game Manager Images tab (this feature).
+- [Metadata matching and enrichment](./metadata-matching-and-enrichment.md) — provider image fetch and metadata flow.
+- [Image cache and optimization](./image-cache-and-optimization.md) — downstream cache after selection.
+- [Settings and preferences](./settings-and-preferences.md) — [API Integrations](./settings/api-integrations.md), [Animations](./settings/animations.md).
+
 ## User-Facing Surfaces
 
 - Image search modal.
@@ -39,8 +46,8 @@ Lets users search provider/web image sources, preview candidates, and assign box
 
 ## Discovery and Data Sources
 
-- Sources include configured metadata providers plus optional web search via `DuckDuckGoImageService`.
-- URL normalization and safety helpers live in `artworkUrlUtils`.
+- Sources include configured metadata providers plus optional web search via [DuckDuckGoImageService.ts](../../main/DuckDuckGoImageService.ts).
+- URL normalization and safety helpers live in [artworkUrlUtils.ts](../../main/artworkUrlUtils.ts).
 - Search inputs typically include game title, platform hints, and requested artwork type.
 
 ## Data Model and Persistence
@@ -69,15 +76,15 @@ Lets users search provider/web image sources, preview candidates, and assign box
 
 ## File Ownership Map
 
-- Main process
-  - `main/MetadataFetcherService.ts`
-  - `main/DuckDuckGoImageService.ts`
-  - `main/artworkUrlUtils.ts`
-  - `main/ipc/appHandlers.ts`
-- Renderer
-  - `renderer/src/components/GameManager.tsx`
-  - `renderer/src/components/ImageSearchModal.tsx`
-  - `renderer/src/components/ImageSelector.tsx`
-  - `renderer/src/components/BoxartFixDialog.tsx`
-  - `renderer/src/components/GameDetailsPanel.tsx`
-  - `renderer/src/components/ImageContextMenu.tsx`
+- **Main process**
+  - [MetadataFetcherService.ts](../../main/MetadataFetcherService.ts)
+  - [DuckDuckGoImageService.ts](../../main/DuckDuckGoImageService.ts)
+  - [artworkUrlUtils.ts](../../main/artworkUrlUtils.ts)
+  - [ipc/appHandlers.ts](../../main/ipc/appHandlers.ts)
+- **Renderer**
+  - [GameManager.tsx](../../renderer/src/components/GameManager.tsx)
+  - [ImageSearchModal.tsx](../../renderer/src/components/ImageSearchModal.tsx)
+  - [ImageSelector.tsx](../../renderer/src/components/ImageSelector.tsx)
+  - [BoxartFixDialog.tsx](../../renderer/src/components/BoxartFixDialog.tsx)
+  - [GameDetailsPanel.tsx](../../renderer/src/components/GameDetailsPanel.tsx)
+  - [ImageContextMenu.tsx](../../renderer/src/components/ImageContextMenu.tsx)

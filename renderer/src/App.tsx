@@ -197,6 +197,7 @@ function App() {
     list: 320,
     logo: 320,
   });
+  const [detailsPanelBottomBarHeight, setDetailsPanelBottomBarHeight] = useState(72);
   const [descriptionWidthByView, setDescriptionWidthByView] = useState<Record<'grid' | 'list' | 'logo', number>>({
     grid: 50,
     list: 50,
@@ -369,6 +370,7 @@ function App() {
     if (prefs.descriptionWidthByView) {
       setDescriptionWidthByView({ ...descriptionWidthByView, ...prefs.descriptionWidthByView });
     }
+    if (prefs.detailsPanelBottomBarHeight !== undefined) setDetailsPanelBottomBarHeight(prefs.detailsPanelBottomBarHeight);
     if (prefs.panelWidthByView) {
       setPanelWidthByViewState({ ...panelWidthByViewState, ...prefs.panelWidthByView });
     }
@@ -2637,6 +2639,11 @@ function App() {
                 setDescriptionWidthByView(newByView);
                 window.electronAPI.savePreferences({ descriptionWidthByView: newByView });
               }}
+              detailsPanelBottomBarHeight={detailsPanelBottomBarHeight}
+              onDetailsPanelBottomBarHeightChange={(height) => {
+                setDetailsPanelBottomBarHeight(height);
+                window.electronAPI.savePreferences({ detailsPanelBottomBarHeight: height });
+              }}
               isViewFlipped={isViewFlippedByView[viewMode]}
               rightPanelButtonColors={
                 viewMode === 'grid' ? gridButtonColors :
@@ -3172,6 +3179,11 @@ function App() {
             const newByView = { ...descriptionWidthByView, [viewMode]: width };
             setDescriptionWidthByView(newByView);
             window.electronAPI.savePreferences({ descriptionWidthByView: newByView });
+          }}
+          detailsPanelBottomBarHeight={detailsPanelBottomBarHeight}
+          onDetailsPanelBottomBarHeightChange={(height: number) => {
+            setDetailsPanelBottomBarHeight(height);
+            window.electronAPI.savePreferences({ detailsPanelBottomBarHeight: height });
           }}
           rightPanelButtonColors={rightPanelButtonColors}
           onRightPanelButtonColorsChange={(colors) => {

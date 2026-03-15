@@ -78,6 +78,7 @@ export interface UserPreferences {
   rightPanelButtonSize?: number;
   rightPanelButtonLocation?: 'left' | 'middle' | 'right';
   detailsPanelOpacity?: number;
+  detailsPanelBottomBarHeight?: number;
   // View-specific settings
   gridView?: {
     gridSize?: number;
@@ -315,6 +316,7 @@ export class UserPreferencesService {
       rightPanelTextSize: 13,
       rightPanelButtonSize: 13,
       rightPanelButtonLocation: 'right',
+      detailsPanelBottomBarHeight: 72,
       titleFontSize: 24,
       titleFontFamily: 'system-ui',
       descriptionFontSize: 14,
