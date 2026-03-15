@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Pending]
 
+## [0.7.21] - 2026-03-15
+
+- Game Manager / Images tab: Skip Auto-Match re-identification for known-game image requests (`gameId`/`steamAppId`/`igdbId`) and go directly to provider fetches.
+- Game Manager / Images tab: Overlap RAWG provider fetch with IGDB work to reduce serialized wait time before additional image results appear.
+- Game Manager / Images tab: Stream provider results immediately as batches arrive, without waiting for all providers to complete.
+- Game Manager / Images tab: Keep progressive image results in append/discovery order with cross-batch dedupe so late provider results do not jump ahead in the list.
+- Game Manager / Images tab manual search: Keep per-type result batches in append/discovery order (remove score-based resorting and front-insertion that could make results jump).
+- Game Manager / Images tab manual search: Make `metadata:searchImages` return fast SteamGridDB batches without extra metadata fallback blocking.
+- Game Manager / Images tab: Render `All` sections from one merged ordered stream so cross-provider discovery order remains stable across Box Art/Logo/Banner/Icon sections.
+- Game Manager header: Rename `Optimizer Report` to `Image Optimizer Report`, align the button styling with other header actions, and rename `Remove Deleted` action label to `Remove Games`.
+
 ## [0.7.20] - 2026-03-15
 
 - Game Manager / Images tab: Keep users on the Images tab after selecting artwork and update the top preview strip immediately.

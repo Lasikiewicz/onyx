@@ -661,87 +661,11 @@ export function registerMetadataIPCHandlers(
         try {
             const allImages: any[] = [];
             const shouldIncludeAnimated = includeAnimated === true;
-            const filterImages = createImageUrlFilter();
 
-            // 1. Fetch from SteamGridDB
+            // 1. Fetch from SteamGridDB and return quickly for progressive UI rendering.
             const sgdbImagesRaw = await searchSGDB(query, steamAppId, imageType, shouldIncludeAnimated);
-            const sgdbImages = await filterImages(sgdbImagesRaw, `metadata:searchImages:SteamGridDB:${query}`);
+            const sgdbImages = sgdbImagesRaw.filter((image: any) => !!image?.url);
             allImages.push(...sgdbImages);
-
-            // 2. Fetch from IGDB/RAWG via metadata fetcher
-            try {
-                const metadata = await metadataFetcher.searchArtwork(query, steamAppId);
-                const metadataImages: any[] = [];
-
-                // Extract relevant images based on type
-                if (imageType === 'boxart' && metadata.boxArtUrl) {
-                    metadataImages.push({
-                        url: metadata.boxArtUrl,
-                        score: 90, // High score for official metadata
-                        width: metadata.boxArtResolution?.width || 512,
-                        height: metadata.boxArtResolution?.height || 512,
-                        mime: 'image/jpeg',
-                        isAnimated: false,
-                        source: 'igdb/rawg'
-                    });
-                }
-
-                if (imageType === 'banner' && metadata.bannerUrl) {
-                    metadataImages.push({
-                        url: metadata.bannerUrl,
-                        score: 85,
-                        width: metadata.bannerResolution?.width || 1920,
-                        height: metadata.bannerResolution?.height || 620,
-                        mime: 'image/jpeg',
-                        isAnimated: false,
-                        source: 'igdb/rawg'
-                    });
-                }
-
-                if (imageType === 'logo' && metadata.logoUrl) {
-                    metadataImages.push({
-                        url: metadata.logoUrl,
-                        score: 80,
-                        width: metadata.logoResolution?.width || 256,
-                        height: metadata.logoResolution?.height || 256,
-                        mime: 'image/png',
-                        isAnimated: false,
-                        source: 'igdb/rawg'
-                    });
-                }
-
-                if (imageType === 'icon' && metadata.iconUrl) {
-                    metadataImages.push({
-                        url: metadata.iconUrl,
-                        score: 75,
-                        width: metadata.iconResolution?.width || 64,
-                        height: metadata.iconResolution?.height || 64,
-                        mime: 'image/png',
-                        isAnimated: false,
-                        source: 'igdb/rawg'
-                    });
-                }
-
-                // For screenshots (used for banner sometimes)
-                if (imageType === 'banner' && metadata.screenshots && metadata.screenshots.length > 0) {
-                    metadata.screenshots.slice(0, 3).forEach((screenshot, index) => {
-                        metadataImages.push({
-                            url: screenshot,
-                            score: 70 - index, // Decreasing score for multiple screenshots
-                            width: 1920, // Assume standard resolution
-                            height: 1080,
-                            mime: 'image/jpeg',
-                            isAnimated: false,
-                            source: 'igdb/rawg'
-                        });
-                    });
-                }
-
-                const validatedMetadataImages = await filterImages(metadataImages, `metadata:searchImages:AutoMatch:${query}`);
-                allImages.push(...validatedMetadataImages);
-            } catch (error) {
-                console.warn('Failed to fetch metadata images:', error);
-            }
 
             // Transform for UI
             const uiImages = [{
@@ -759,7 +683,9 @@ export function registerMetadataIPCHandlers(
     ipcMain.handle('metadata:fetchGameImages', async (event, gameName: string, steamAppId?: string, igdbId?: number, includeAnimated?: boolean, requestId?: number, gameId?: string) => {
         // Track this request as the active one; previous requests will detect they're stale
         activeImageSearchRequestId = requestId;
-        const filterImages = createImageUrlFilter();
+        const hasSteamAppId = typeof steamAppId === 'string' && steamAppId.trim().length > 0;
+        const hasIgdbId = typeof igdbId === 'number' && !isNaN(igdbId);
+        const isKnownGameRequest = Boolean(gameId) || hasSteamAppId || hasIgdbId;
 
         const isStale = () => requestId !== undefined && activeImageSearchRequestId !== requestId;
         const sendProviderStatus = (currentProvider: string, remaining: string[]) => {
@@ -791,9 +717,9 @@ export function registerMetadataIPCHandlers(
             };
 
             // 1. Fetch from SteamGridDB (Full list)
-            sendProviderStatus('SteamGridDB', ['Auto-Match', 'IGDB', 'RAWG']);
+            sendProviderStatus('SteamGridDB', isKnownGameRequest ? ['IGDB', 'RAWG'] : ['Auto-Match', 'IGDB', 'RAWG']);
             const sgdbImagesRaw = await searchSGDB(gameName, steamAppId, 'all', includeAnimated);
-            const sgdbImages = await filterImages(sgdbImagesRaw, `metadata:fetchGameImages:SteamGridDB:${gameName}`);
+            const sgdbImages = sgdbImagesRaw.filter((image: any) => !!image?.url);
             if (sgdbImages.length > 0) {
                 results.push(...sgdbImages);
                 if (!event.sender.isDestroyed()) {
@@ -808,37 +734,60 @@ export function registerMetadataIPCHandlers(
                 return { success: true, images: results, aborted: true };
             }
 
-            // 2. Try to fetch standard metadata (Steam/IGDB auto-match) as fallback/addition
-            sendProviderStatus('Auto-Match', ['IGDB', 'RAWG']);
-            try {
-                const metadata = await metadataFetcher.searchArtwork(gameName, steamAppId, false, false, true, true);
-                const autoMatchImages: any[] = [];
+            if (!isKnownGameRequest) {
+                // 2. Unknown query path only: run auto-match fallback
+                sendProviderStatus('Auto-Match', ['IGDB', 'RAWG']);
+                try {
+                    const metadata = await metadataFetcher.searchArtwork(gameName, steamAppId, false, false, true, true);
+                    const autoMatchImages: any[] = [];
 
-                if (metadata.boxArtUrl) autoMatchImages.push({ type: 'boxart', url: metadata.boxArtUrl, source: 'Auto-Match', name: gameName });
-                if (metadata.bannerUrl) autoMatchImages.push({ type: 'banner', url: metadata.bannerUrl, source: 'Auto-Match', name: gameName });
-                if (metadata.logoUrl) autoMatchImages.push({ type: 'logo', url: metadata.logoUrl, source: 'Auto-Match', name: gameName });
-                if (metadata.iconUrl) autoMatchImages.push({ type: 'icon', url: metadata.iconUrl, source: 'Auto-Match', name: gameName });
-                if (metadata.heroUrl) autoMatchImages.push({ type: 'hero', url: metadata.heroUrl, source: 'Auto-Match', name: gameName });
+                    if (metadata.boxArtUrl) autoMatchImages.push({ type: 'boxart', url: metadata.boxArtUrl, source: 'Auto-Match', name: gameName });
+                    if (metadata.bannerUrl) autoMatchImages.push({ type: 'banner', url: metadata.bannerUrl, source: 'Auto-Match', name: gameName });
+                    if (metadata.logoUrl) autoMatchImages.push({ type: 'logo', url: metadata.logoUrl, source: 'Auto-Match', name: gameName });
+                    if (metadata.iconUrl) autoMatchImages.push({ type: 'icon', url: metadata.iconUrl, source: 'Auto-Match', name: gameName });
+                    if (metadata.heroUrl) autoMatchImages.push({ type: 'hero', url: metadata.heroUrl, source: 'Auto-Match', name: gameName });
 
-                const validatedAutoMatchImages = await filterImages(autoMatchImages, `metadata:fetchGameImages:AutoMatch:${gameName}`);
+                    const validatedAutoMatchImages = autoMatchImages.filter((image: any) => !!image?.url);
 
-                if (validatedAutoMatchImages.length > 0) {
-                    results.push(...validatedAutoMatchImages);
-                    if (!event.sender.isDestroyed()) {
-                        event.sender.send('metadata:gameImagesFound', { images: validatedAutoMatchImages, query: gameName, gameId, requestId });
+                    if (validatedAutoMatchImages.length > 0) {
+                        results.push(...validatedAutoMatchImages);
+                        if (!event.sender.isDestroyed()) {
+                            event.sender.send('metadata:gameImagesFound', { images: validatedAutoMatchImages, query: gameName, gameId, requestId });
+                        }
                     }
+                } catch (err) {
+                    console.warn('Auto-match fallback failed:', err);
                 }
-            } catch (err) {
-                console.warn('Auto-match fallback failed:', err);
+
+                if (isStale()) {
+                    console.log(`[fetchGameImages] Request ${requestId} is stale after Auto-Match, aborting`);
+                    sendProviderStatus('', []);
+                    return { success: true, images: results, aborted: true };
+                }
+            } else {
+                console.log(`[fetchGameImages] Skipping Auto-Match for known game request (gameId: ${gameId || 'none'}, steamAppId: ${steamAppId || 'none'}, igdbId: ${igdbId ?? 'none'})`);
             }
 
-            if (isStale()) {
-                console.log(`[fetchGameImages] Request ${requestId} is stale after Auto-Match, aborting`);
-                sendProviderStatus('', []);
-                return { success: true, images: results, aborted: true };
-            }
+            // 3. Fetch provider-specific artwork (IGDB, RAWG) for clearer attribution.
+            // Start RAWG work early so it can run while IGDB is in-flight.
+            const rawgImagesPromise = (async () => {
+                try {
+                    const rawgProvider = metadataFetcher.getRAWGProvider();
+                    if (!rawgProvider?.isAvailable()) return [];
 
-            // 3. Fetch provider-specific artwork (IGDB, RAWG) for clearer attribution
+                    const rawgResults = await rawgProvider.search(gameName);
+                    const rawgResultId = rawgResults[0]?.id;
+                    if (!rawgResultId) return [];
+
+                    const rawgArtwork = await rawgProvider.getArtwork(rawgResultId);
+                    const rawgImagesRaw = mapArtworkToImages(rawgArtwork, 'RAWG', gameName);
+                    return rawgImagesRaw.filter((image: any) => !!image?.url);
+                } catch (err) {
+                    console.warn('RAWG provider fetch failed:', err);
+                    return [];
+                }
+            })();
+
             sendProviderStatus('IGDB', ['RAWG']);
             try {
                 const igdbProvider = metadataFetcher.getIGDBProvider();
@@ -854,7 +803,7 @@ export function registerMetadataIPCHandlers(
                     if (igdbResultId) {
                         const igdbArtwork = await igdbProvider.getArtwork(igdbResultId, steamAppId);
                         const igdbImagesRaw = mapArtworkToImages(igdbArtwork, 'IGDB', gameName);
-                        const igdbImages = await filterImages(igdbImagesRaw, `metadata:fetchGameImages:IGDB:${gameName}`);
+                        const igdbImages = igdbImagesRaw.filter((image: any) => !!image?.url);
                         if (igdbImages.length > 0) {
                             results.push(...igdbImages);
                             if (!event.sender.isDestroyed()) {
@@ -874,26 +823,12 @@ export function registerMetadataIPCHandlers(
             }
 
             sendProviderStatus('RAWG', []);
-            try {
-                const rawgProvider = metadataFetcher.getRAWGProvider();
-                if (rawgProvider?.isAvailable()) {
-                    const rawgResults = await rawgProvider.search(gameName);
-                    const rawgResultId = rawgResults[0]?.id;
-
-                    if (rawgResultId) {
-                        const rawgArtwork = await rawgProvider.getArtwork(rawgResultId);
-                        const rawgImagesRaw = mapArtworkToImages(rawgArtwork, 'RAWG', gameName);
-                        const rawgImages = await filterImages(rawgImagesRaw, `metadata:fetchGameImages:RAWG:${gameName}`);
-                        if (rawgImages.length > 0) {
-                            results.push(...rawgImages);
-                            if (!event.sender.isDestroyed()) {
-                                event.sender.send('metadata:gameImagesFound', { images: rawgImages, query: gameName, gameId, requestId });
-                            }
-                        }
-                    }
+            const rawgImages = await rawgImagesPromise;
+            if (rawgImages.length > 0) {
+                results.push(...rawgImages);
+                if (!event.sender.isDestroyed()) {
+                    event.sender.send('metadata:gameImagesFound', { images: rawgImages, query: gameName, gameId, requestId });
                 }
-            } catch (err) {
-                console.warn('RAWG provider fetch failed:', err);
             }
 
             // Send final "complete" status

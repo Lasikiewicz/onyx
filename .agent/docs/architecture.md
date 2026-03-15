@@ -17,6 +17,12 @@ It explains module boundaries, data flow, and release pipeline expectations.
 3. Services persist state (e.g., `electron-store`) and return typed results.
 4. Renderer updates local state and component views.
 
+### Known-Game Image Fetch Contract
+
+- `metadata:fetchGameImages` treats requests with known identifiers (`gameId`, `steamAppId`, or `igdbId`) as known-game flows.
+- In known-game flows, the handler skips Auto-Match/title re-identification and fetches provider artwork directly.
+- Auto-Match remains an unknown-query fallback only when no game identifiers are provided.
+
 ## HTTP Client Notes
 
 - `main/axiosShim.ts` is expected to preserve `baseURL` path segments when joining relative request paths (e.g., IGDB `https://api.igdb.com/v4` + `/games` -> `https://api.igdb.com/v4/games`).
