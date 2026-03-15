@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Pending]
 
+## [0.7.20] - 2026-03-15
+
+- Game Manager / Images tab: Keep users on the Images tab after selecting artwork and update the top preview strip immediately.
+- Game Manager / Images tab: Reuse already-loaded image results when clicking top image slots instead of re-running a full provider scan.
 - Docs/Agent: Move `agents.md` to project root (alongside `CHANGELOG.md`/`package.json`) so it is always loaded by AI tooling; update `doc-map.json` and `structure.md` references accordingly.
 
 ## [0.7.19] - 2026-03-15

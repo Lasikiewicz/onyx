@@ -23,6 +23,13 @@ Lets users search provider/web image sources, preview candidates, and assign box
 4. User selects an image and saves it back to game metadata.
 5. Renderer updates state immediately and persists via main process save flow.
 
+### Game Manager Images Tab Interaction Rules
+
+- First click on an image slot can trigger an image search for that type when no results are loaded yet.
+- After results are loaded, clicking image slots at the top of the Images tab switches the active image-type view without starting a new search.
+- Selecting any image candidate keeps the user on the Images tab and updates the top preview strip immediately.
+- Re-running a search is explicit via the search controls (for example, Quick All or New Search).
+
 ## Discovery and Data Sources
 
 - Sources include configured metadata providers plus optional web search via `DuckDuckGoImageService`.
@@ -61,6 +68,7 @@ Lets users search provider/web image sources, preview candidates, and assign box
   - `main/artworkUrlUtils.ts`
   - `main/ipc/appHandlers.ts`
 - Renderer
+  - `renderer/src/components/GameManager.tsx`
   - `renderer/src/components/ImageSearchModal.tsx`
   - `renderer/src/components/ImageSelector.tsx`
   - `renderer/src/components/BoxartFixDialog.tsx`

@@ -1336,6 +1336,10 @@ export const GameManager: React.FC<GameManagerProps> = ({
     if (!selectedGame) return;
     setShowImageSearch({ type, gameId: selectedGame.id });
     setActiveImageSearchTab(type);
+    if (hasAnyRawImageResults()) {
+      return;
+    }
+
     setImageSearchQuery(selectedGame.title);
     currentSearchQueryRef.current = selectedGame.title;
 
@@ -1856,6 +1860,8 @@ export const GameManager: React.FC<GameManagerProps> = ({
   const handleSelectImage = async (imageUrl: string, type: 'boxart' | 'banner' | 'alternativeBanner' | 'logo' | 'icon', isVideo?: boolean) => {
     if (!selectedGame || !editedGame) return;
 
+    setActiveTab('images');
+
     // Globally block WebP usage for game artwork (both HTTP(S) and local paths).
     // Users should instead download/upload WEBM variants for animated assets.
     const lowerUrl = imageUrl.toLowerCase();
@@ -1906,7 +1912,6 @@ export const GameManager: React.FC<GameManagerProps> = ({
       updatedGame.boxArtUrl = editedGame.boxArtUrl || selectedGame.boxArtUrl || updatedGame.boxArtUrl;
       updatedGame.bannerUrl = editedGame.bannerUrl || selectedGame.bannerUrl || updatedGame.bannerUrl;
       updatedGame.iconUrl = editedGame.iconUrl || selectedGame.iconUrl || updatedGame.iconUrl;
-      setActiveTab('images');
     } else if (type === 'icon') {
       updatedGame.iconUrl = imageUrl;
       updatedGame.iconIsVideo = isV;
@@ -1914,7 +1919,6 @@ export const GameManager: React.FC<GameManagerProps> = ({
       updatedGame.boxArtUrl = editedGame.boxArtUrl || selectedGame.boxArtUrl || updatedGame.boxArtUrl;
       updatedGame.bannerUrl = editedGame.bannerUrl || selectedGame.bannerUrl || updatedGame.bannerUrl;
       updatedGame.logoUrl = editedGame.logoUrl || selectedGame.logoUrl || updatedGame.logoUrl;
-      setActiveTab('images');
     }
 
     // Update state immediately so user sees the change
