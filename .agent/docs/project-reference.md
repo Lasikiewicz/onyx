@@ -36,6 +36,14 @@
 - `npm run dist` — local production packaging
 - `npm run increment-build` — bump patch/build number
 
+## Feature Documentation Rule
+
+- Every core feature has a dedicated Markdown file in `docs/features/`.
+- When a feature changes, update its corresponding feature file in the same commit.
+- Every feature file must follow `docs/features/FEATURE_DOC_STANDARD.md`.
+- Settings is documented as both a parent overview and per-tab runbooks in `docs/features/settings/`.
+- Required sections include user-facing surfaces, settings/toggles, end-to-end flows, data sources, persistence, triage, and file ownership.
+
 ## Critical Files
 
 - `main/main.ts` — app bootstrap + IPC handlers

@@ -4,6 +4,16 @@ const path = require('path');
 
 const repoRoot = path.resolve(__dirname, '..');
 const mapPath = path.join(repoRoot, '.agent', 'docs', 'doc-map.json');
+const requiredFeatureDocHeadings = [
+  '## What This Feature Does',
+  '## User-Facing Surfaces',
+  '## Settings and Toggles',
+  '## Confirmed End-to-End Flows',
+  '## Discovery and Data Sources',
+  '## Data Model and Persistence',
+  '## Failure Modes and Triage',
+  '## File Ownership Map'
+];
 
 function normalizePath(value) {
   return value.replace(/\\/g, '/').trim();
@@ -95,6 +105,41 @@ function findMatchingRules(filePath, rules) {
   return rules.filter((rule) => rule.prefixes.some((prefix) => matchesPrefix(filePath, prefix)));
 }
 
+function getRuleDocs(rule) {
+  if (Array.isArray(rule.docs)) {
+    return rule.docs.map((doc) => normalizePath(doc));
+  }
+
+  if (rule.doc) {
+    return [normalizePath(rule.doc)];
+  }
+
+  throw new Error(`Invalid rule '${rule.id}': expected 'doc' or 'docs'.`);
+}
+
+function isFeatureDoc(filePath) {
+  if (!filePath.startsWith('docs/features/')) {
+    return false;
+  }
+
+  const base = path.basename(filePath);
+  if (base === 'README.md' || base === 'FEATURE_DOC_STANDARD.md') {
+    return false;
+  }
+
+  return base.endsWith('.md');
+}
+
+function validateFeatureDocStructure(filePath) {
+  const absolutePath = path.join(repoRoot, filePath);
+  const content = fs.readFileSync(absolutePath, 'utf8');
+  const missing = requiredFeatureDocHeadings.filter((heading) => !content.includes(heading));
+  return {
+    filePath,
+    missing
+  };
+}
+
 function main() {
   const againstRef = parseAgainstRefArg(process.argv.slice(2));
   const stagedFiles = againstRef ? getFilesAgainstRef(againstRef) : getStagedFiles();
@@ -106,6 +151,7 @@ function main() {
 
   const docMap = readDocMap();
   const requiredDocs = new Set();
+  const anyOfGroups = [];
   const codeFiles = [];
   const unmatched = [];
 
@@ -123,7 +169,19 @@ function main() {
     }
 
     for (const rule of matchedRules) {
-      requiredDocs.add(normalizePath(rule.doc));
+      const docs = getRuleDocs(rule);
+      const matchMode = rule.matchMode === 'any' ? 'any' : 'all';
+
+      if (matchMode === 'any') {
+        anyOfGroups.push({
+          ruleId: rule.id,
+          docs
+        });
+      } else {
+        for (const docPath of docs) {
+          requiredDocs.add(docPath);
+        }
+      }
     }
   }
 
@@ -134,15 +192,47 @@ function main() {
 
   const stagedSet = new Set(stagedFiles.map((value) => normalizePath(value)));
   const missingDocs = Array.from(requiredDocs).filter((docPath) => !stagedSet.has(docPath));
+  const missingAnyGroups = anyOfGroups.filter((group) => !group.docs.some((docPath) => stagedSet.has(docPath)));
+  const stagedFeatureDocs = stagedFiles.filter((file) => isFeatureDoc(file));
+  const invalidFeatureDocs = stagedFeatureDocs
+    .map((file) => validateFeatureDocStructure(file))
+    .filter((result) => result.missing.length > 0);
 
-  if (missingDocs.length > 0) {
+  if (missingDocs.length > 0 || missingAnyGroups.length > 0 || invalidFeatureDocs.length > 0) {
     console.error('docs:check failed. Missing required doc updates for staged code changes.');
     console.error('');
-    console.error('Required docs not staged:');
-    for (const doc of missingDocs) {
-      console.error(`  - ${doc}`);
+    if (missingDocs.length > 0) {
+      console.error('Required docs not staged:');
+      for (const doc of missingDocs) {
+        console.error(`  - ${doc}`);
+      }
+      console.error('');
     }
-    console.error('');
+
+    if (missingAnyGroups.length > 0) {
+      console.error('Required doc groups missing (at least one doc from each group must be staged):');
+      for (const group of missingAnyGroups) {
+        console.error(`  - Rule ${group.ruleId}:`);
+        for (const doc of group.docs) {
+          console.error(`    - ${doc}`);
+        }
+      }
+      console.error('');
+    }
+
+    if (invalidFeatureDocs.length > 0) {
+      console.error('Feature docs missing required sections:');
+      for (const invalid of invalidFeatureDocs) {
+        console.error(`  - ${invalid.filePath}`);
+        for (const heading of invalid.missing) {
+          console.error(`    - Missing heading: ${heading}`);
+        }
+      }
+      console.error('');
+      console.error('See docs/features/FEATURE_DOC_STANDARD.md for required structure.');
+      console.error('');
+    }
+
     console.error('Staged code files:');
     for (const file of codeFiles) {
       console.error(`  - ${file}`);

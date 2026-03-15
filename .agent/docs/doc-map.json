@@ -27,6 +27,37 @@
       "scope": "Renderer architecture, state and IPC usage"
     },
     {
+      "id": "feature-docs-source-of-truth",
+      "prefixes": [
+        "main/",
+        "renderer/src/"
+      ],
+      "docs": [
+        "docs/features/updater.md",
+        "docs/features/library-import-and-startup-scan.md",
+        "docs/features/metadata-matching-and-enrichment.md",
+        "docs/features/image-search-and-selection.md",
+        "docs/features/image-cache-and-optimization.md",
+        "docs/features/links-and-link-management.md",
+        "docs/features/game-launch-and-process-tracking.md",
+        "docs/features/settings-and-preferences.md",
+        "docs/features/settings/README.md",
+        "docs/features/settings/general.md",
+        "docs/features/settings/animations.md",
+        "docs/features/settings/scanning.md",
+        "docs/features/settings/libraries.md",
+        "docs/features/settings/api-integrations.md",
+        "docs/features/settings/link-management.md",
+        "docs/features/settings/advanced.md",
+        "docs/features/settings/suspend-resume.md",
+        "docs/features/settings/about.md",
+        "docs/features/suspend-and-resume.md",
+        "docs/features/crash-detection-and-bug-reporting.md"
+      ],
+      "matchMode": "any",
+      "scope": "For application code changes, at least one feature runbook must be updated in the same commit"
+    },
+    {
       "id": "build-release-pipeline",
       "prefixes": [
         ".github/workflows/",

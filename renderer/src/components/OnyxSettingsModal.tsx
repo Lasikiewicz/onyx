@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import iconPng from '../../../resources/icon.png';
 import iconSvg from '../../../resources/icon.svg';
 import { SettingsLayout } from './settings/SettingsLayout';
@@ -259,9 +259,11 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
   const [showLogoOverBoxart, setShowLogoOverBoxart] = useState(true);
   const [logoPosition, setLogoPosition] = useState<'top' | 'middle' | 'bottom' | 'underneath'>('middle');
   const [appVersion, setAppVersion] = useState<string>('0.0.0');
+  const [isPackagedApp, setIsPackagedApp] = useState<boolean>(false);
   const [updateStatus, setUpdateStatus] = useState<'idle' | 'checking' | 'available' | 'not-available' | 'downloading' | 'downloaded' | 'error'>('idle');
   const [updateVersion, setUpdateVersion] = useState<string | null>(null);
   const [updateError, setUpdateError] = useState<string | null>(null);
+  const updateCheckTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [backgroundScanEnabled, setBackgroundScanEnabled] = useState(false);
   const [backgroundScanIntervalMinutes, setBackgroundScanIntervalMinutes] = useState(30);
@@ -328,6 +330,15 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
             console.error('Error loading app version:', error);
           }
 
+          // Determine whether auto-updater is active in this runtime
+          try {
+            const packaged = await window.electronAPI.isPackaged?.();
+            setIsPackagedApp(Boolean(packaged));
+          } catch (error) {
+            console.error('Error loading packaged state:', error);
+            setIsPackagedApp(false);
+          }
+
           // Load background scan settings
           try {
             const enabled = await window.electronAPI.getBackgroundScanEnabled();
@@ -349,11 +360,21 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
   useEffect(() => {
     if (!isOpen || !window.electronAPI.onUpdateStatus) return;
     const unsubscribe = window.electronAPI.onUpdateStatus((payload) => {
+      if (updateCheckTimeoutRef.current) {
+        clearTimeout(updateCheckTimeoutRef.current);
+        updateCheckTimeoutRef.current = null;
+      }
       setUpdateStatus(payload.status as any);
       setUpdateVersion(payload.version ?? null);
       setUpdateError(sanitizeUpdateErrorForDisplay(payload.error ?? null));
     });
-    return unsubscribe;
+    return () => {
+      if (updateCheckTimeoutRef.current) {
+        clearTimeout(updateCheckTimeoutRef.current);
+        updateCheckTimeoutRef.current = null;
+      }
+      unsubscribe();
+    };
   }, [isOpen]);
 
   const [apiStatus, setApiStatus] = useState<{
@@ -2213,10 +2234,31 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
                 {window.electronAPI.checkForUpdates && (
                   <div className="flex flex-col items-center gap-3 mt-2">
                     <button
-                      onClick={() => {
+                      onClick={async () => {
                         setUpdateError(null);
+
+                        if (!isPackagedApp) {
+                          setUpdateStatus('error');
+                          setUpdateError('Updater is only available in installed builds.');
+                          return;
+                        }
+
+                        if (updateCheckTimeoutRef.current) {
+                          clearTimeout(updateCheckTimeoutRef.current);
+                          updateCheckTimeoutRef.current = null;
+                        }
+
                         setUpdateStatus('checking');
-                        window.electronAPI.checkForUpdates?.();
+                        await window.electronAPI.checkForUpdates?.();
+
+                        updateCheckTimeoutRef.current = setTimeout(() => {
+                          setUpdateStatus((prev) => {
+                            if (prev !== 'checking') return prev;
+                            setUpdateError('Update check timed out. Please try again.');
+                            return 'error';
+                          });
+                          updateCheckTimeoutRef.current = null;
+                        }, 15000);
                       }}
                       disabled={updateStatus === 'checking' || updateStatus === 'downloading'}
                       className="px-4 py-2 rounded-lg bg-slate-700/50 text-slate-200 hover:bg-slate-600/50 transition-colors border border-slate-600/50 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"

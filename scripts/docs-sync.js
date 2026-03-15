@@ -68,8 +68,8 @@ function countFilesRecursively(relativeDir, extensionPattern) {
 
 function buildOwnershipTable(rules) {
   const header = [
-    '| Rule | File Area(s) | Required Doc | Scope |',
-    '| --- | --- | --- | --- |'
+    '| Rule | File Area(s) | Required Doc(s) | Match | Scope |',
+    '| --- | --- | --- | --- | --- |'
   ];
 
   const rows = rules
@@ -77,7 +77,11 @@ function buildOwnershipTable(rules) {
     .sort((a, b) => a.id.localeCompare(b.id))
     .map((rule) => {
       const areas = rule.prefixes.map((prefix) => `\`${prefix}\``).join('<br>');
-      return `| ${rule.id} | ${areas} | \`${rule.doc}\` | ${rule.scope} |`;
+      const docs = Array.isArray(rule.docs)
+        ? rule.docs.map((doc) => `\`${doc}\``).join('<br>')
+        : `\`${rule.doc}\``;
+      const matchMode = rule.matchMode === 'any' ? 'any' : 'all';
+      return `| ${rule.id} | ${areas} | ${docs} | ${matchMode} | ${rule.scope} |`;
     });
 
   return [...header, ...rows].join('\n');
@@ -118,8 +122,21 @@ function validateDocMap(docMap) {
   }
 
   for (const rule of docMap.rules) {
-    if (!rule.id || !Array.isArray(rule.prefixes) || !rule.doc) {
+    const hasDoc = typeof rule.doc === 'string' && rule.doc.trim().length > 0;
+    const hasDocs = Array.isArray(rule.docs) && rule.docs.length > 0;
+    if (!rule.id || !Array.isArray(rule.prefixes) || (!hasDoc && !hasDocs)) {
       throw new Error(`Invalid rule format in doc-map.json: ${JSON.stringify(rule)}`);
+    }
+
+    const docs = hasDocs ? rule.docs : [rule.doc];
+    for (const doc of docs) {
+      if (!exists(doc)) {
+        throw new Error(`doc-map rule '${rule.id}' references missing doc: ${doc}`);
+      }
+    }
+
+    if (rule.matchMode && rule.matchMode !== 'all' && rule.matchMode !== 'any') {
+      throw new Error(`Invalid matchMode for rule '${rule.id}': ${rule.matchMode}`);
     }
   }
 }

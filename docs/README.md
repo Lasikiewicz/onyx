@@ -9,6 +9,7 @@ This folder contains project reference documents.
 
 ## Features and Implementation Notes
 
+- `features/README.md` (one-file-per-feature runbooks)
 - `SUSPEND_FEATURE_QUICK_REFERENCE.md`
 - `STEAM_PLAYTIME_QUICK_REFERENCE.md`
 - `NYRNA_PROVENANCE.md`
@@ -26,3 +27,8 @@ This folder contains project reference documents.
 
 - Root `README.md` and `.github/CONTRIBUTING.md` for contributor onboarding.
 - `.agent/docs/README.md` for AI/automation governance documentation.
+
+## Feature Incident Docs
+
+Use `docs/features/` as the first stop when troubleshooting a feature.
+Each feature file includes architecture flow, quick triage steps, and an explicit file map.
