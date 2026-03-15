@@ -1,0 +1,3 @@
+## 2024-05-24 - Content Visibility as Native Virtualization
+**Learning:** For lists in React where traditional virtualization libraries introduce too much complexity or DOM-thrashing overhead, CSS properties `contentVisibility: 'auto'` paired with `containIntrinsicSize` act as a lightweight, native browser alternative to virtualization. This instructs the browser to skip layout and painting for off-screen items.
+**Action:** When optimizing long lists, use `contentVisibility: 'auto'` on list item containers and provide a `containIntrinsicSize` placeholder size to prevent scrollbar jumping. Always combine this with `loading="lazy"` on nested media.
