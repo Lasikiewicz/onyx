@@ -83,10 +83,6 @@ jobs:
           }
         shell: pwsh
 
-      - name: Install pnpm (for electron-builder)
-        shell: pwsh
-        run: npm install -g pnpm
-
       - name: Build application
         run: |
           if ("${{ steps.build_profile.outputs.profile }}" -eq "alpha") {

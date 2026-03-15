@@ -8,6 +8,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - No unreleased entries yet.
 
+## [0.7.19] - 2026-03-15
+
+- Build/CI: Remove pnpm usage from Windows release workflow and drop `pnpm-lock.yaml` so electron-builder no longer calls `pnpm config list` in an npm-configured project.
+
 ## [0.7.18] - 2026-03-15
 
 - Docs: Align contributor and README setup guidance with npm-based project workflows (`npm ci`) and update IGDB OAuth redirect guidance to `http://localhost:5173`.

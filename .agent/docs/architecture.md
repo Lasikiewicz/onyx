@@ -28,6 +28,7 @@ It explains module boundaries, data flow, and release pipeline expectations.
 - Packaging: `npm run dist`
 - Secrets baseline gate: `npm run scan:secrets`
 - Commit-time guardrails: `.husky/pre-commit`
+- Package manager policy: npm-only (`packageManager` is `npm@10` and CI must not install/use pnpm for packaging)
 
 ## Module Index
 
