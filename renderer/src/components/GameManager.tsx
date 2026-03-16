@@ -6,7 +6,6 @@ import { RefreshMetadataDialog } from './RefreshMetadataDialog';
 import { BoxartFixDialog } from './BoxartFixDialog';
 import { RemoveDeletedGamesDialog } from './RemoveDeletedGamesDialog';
 import { ImageContextMenu } from './ImageContextMenu';
-import { getLinkIconSearchQuery } from './GameLinks';
 import { LauncherIcon, getLauncherDisplayName, normalizeLauncherId } from '../utils/launcherIcons';
 import type { OptimizationStatus } from '../types/optimization';
 import {
@@ -34,6 +33,8 @@ import {
 import { GameManagerImagesTab } from './gameManager/GameManagerImagesTab';
 import { GameManagerMetadataTab } from './gameManager/GameManagerMetadataTab';
 import { GameManagerLinksTab } from './gameManager/GameManagerLinksTab';
+import { GameManagerModManagerTab } from './gameManager/GameManagerModManagerTab';
+import { LinkIconPickerDialog } from './gameManager/LinkIconPickerDialog';
 
 interface GameManagerProps {
   isOpen: boolean;
@@ -146,7 +147,6 @@ export const GameManager: React.FC<GameManagerProps> = ({
   const [showUploadWebmTypePicker, setShowUploadWebmTypePicker] = useState(false);
   const [showUploadWebmInstructions, setShowUploadWebmInstructions] = useState(false);
   const [uploadWebmTargetType, setUploadWebmTargetType] = useState<'boxart' | 'banner' | 'alternativeBanner' | 'logo' | 'icon' | null>(null);
-  const linkIconFileInputRef = useRef<HTMLInputElement>(null);
   const imageChangedGameIdsRef = useRef<Set<string>>(new Set());
   const imageResultOrderRef = useRef(0);
   const nextImageResultOrder = () => {
@@ -2240,6 +2240,54 @@ export const GameManager: React.FC<GameManagerProps> = ({
     }
   };
 
+  const handleBrowseModManager = async () => {
+    if (!editedGame) {
+      return;
+    }
+
+    const path = await window.electronAPI.showOpenDialog();
+    if (path) {
+      setEditedGame({ ...editedGame, modManagerUrl: path });
+    }
+  };
+
+  const handleLaunchModManager = async () => {
+    if (!editedGame?.id) {
+      return;
+    }
+
+    try {
+      const result = await window.electronAPI.launchModManager(editedGame.id);
+      if (!result.success && result.error) {
+        console.error('Error launching mod manager:', result.error);
+      }
+    } catch (err) {
+      console.error('Error opening mod manager:', err);
+    }
+  };
+
+  const handleRemoveCustomLinkIcon = () => {
+    if (linkIconPopupIndex === null || !editedGame?.links?.[linkIconPopupIndex]) {
+      return;
+    }
+
+    const newLinks = [...editedGame.links];
+    newLinks[linkIconPopupIndex] = { ...newLinks[linkIconPopupIndex], iconUrl: undefined };
+    setEditedGame({ ...editedGame, links: newLinks });
+    setLinkIconPopupIndex(null);
+  };
+
+  const handleUploadCustomLinkIcon = (dataUrl: string) => {
+    if (linkIconPopupIndex === null || !editedGame?.links?.[linkIconPopupIndex]) {
+      return;
+    }
+
+    const newLinks = [...editedGame.links];
+    newLinks[linkIconPopupIndex] = { ...newLinks[linkIconPopupIndex], iconUrl: dataUrl };
+    setEditedGame({ ...editedGame, links: newLinks });
+    setLinkIconPopupIndex(null);
+  };
+
   // Get launcher name
   const getLauncherName = (game: Game): string => {
     const fromSource = (game.source || '').trim();
@@ -2585,81 +2633,15 @@ export const GameManager: React.FC<GameManagerProps> = ({
                   )}
 
                   {activeTab === 'modManager' && editedGame && (
-                    <div className="p-4">
-                      <div className="space-y-4">
-                        <div>
-                          <label className="block text-xs font-medium text-gray-400 mb-1">
-                            Mod Manager Link
-                          </label>
-                          <div className="flex gap-2">
-                            <input
-                              type="text"
-                              value={editedGame.modManagerUrl || ''}
-                              onChange={(e) => setEditedGame({ ...editedGame, modManagerUrl: e.target.value })}
-                              className="flex-1 px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                              placeholder="Enter mod manager URL or path (e.g., https://example.com/mod-manager)"
-                            />
-                            <button
-                              type="button"
-                              onClick={async () => {
-                                const path = await window.electronAPI.showOpenDialog();
-                                if (path) {
-                                  setEditedGame({ ...editedGame, modManagerUrl: path });
-                                }
-                              }}
-                              className="px-4 py-1.5 text-sm bg-gray-700 hover:bg-gray-600 text-white rounded transition-colors"
-                              title="Browse for mod manager executable"
-                            >
-                              Browse
-                            </button>
-                            <button
-                              type="button"
-                              onClick={async () => {
-                                if (editedGame.id) {
-                                  try {
-                                    const result = await window.electronAPI.launchModManager(editedGame.id);
-                                    if (!result.success && result.error) {
-                                      console.error('Error launching mod manager:', result.error);
-                                    }
-                                  } catch (err) {
-                                    console.error('Error opening mod manager:', err);
-                                  }
-                                }
-                              }}
-                              className="px-4 py-1.5 text-sm bg-purple-600 hover:bg-purple-700 text-white rounded transition-colors"
-                              title="Test Launch Mod Manager"
-                            >
-                              Launch
-                            </button>
-                          </div>
-                          <p className="text-xs text-gray-500 mt-2">
-                            Enter the URL or path to your mod manager. This will appear in the game's context menu and bottom bar.
-                          </p>
-                        </div>
-
-                        {/* Action Buttons */}
-                        <div className="flex gap-2 pt-2">
-                          <button
-                            onClick={handleSave}
-                            disabled={isSaving}
-                            className="flex-1 px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors disabled:opacity-50"
-                          >
-                            {isSaving ? 'Saving...' : 'Save'}
-                          </button>
-                          <button
-                            onClick={() => {
-                              setExpandedGameId(null);
-                              setEditedGame(null);
-                              setShowFixMatch(false);
-                              setSelectedGameId(null);
-                            }}
-                            className="px-4 py-2 text-sm bg-gray-600 hover:bg-gray-700 text-white rounded transition-colors"
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      </div>
-                    </div>
+                    <GameManagerModManagerTab
+                      editedGame={editedGame}
+                      isSaving={isSaving}
+                      onEditedGameChange={setEditedGame}
+                      onBrowse={handleBrowseModManager}
+                      onLaunch={handleLaunchModManager}
+                      onSave={handleSave}
+                      onCancel={handleCancelEditing}
+                    />
                   )}
                 </div>
               </>
@@ -3164,84 +3146,15 @@ export const GameManager: React.FC<GameManagerProps> = ({
         onCancel={() => setShowRemoveDeletedDialog(false)}
       />
 
-      {/* Link icon change popup */}
       {linkIconPopupIndex !== null && editedGame?.links?.[linkIconPopupIndex] && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60" onClick={() => setLinkIconPopupIndex(null)}>
-          <div className="bg-gray-900 border border-gray-700 rounded-xl shadow-2xl p-4 w-[320px] max-w-[90vw]" onClick={e => e.stopPropagation()}>
-            <h3 className="text-sm font-semibold text-gray-200 mb-3">Change icon for &quot;{editedGame.links[linkIconPopupIndex].name || 'Link'}&quot;</h3>
-            <div className="flex flex-col gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  const query = getLinkIconSearchQuery(editedGame.links![linkIconPopupIndex].name);
-                  window.electronAPI.openExternal(`https://www.google.com/search?q=${query}`);
-                  setLinkIconPopupIndex(null);
-                }}
-                className="w-full px-3 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center justify-center gap-2"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-                Search for icon in browser
-              </button>
-              <button
-                type="button"
-                onClick={() => linkIconFileInputRef.current?.click()}
-                className="w-full px-3 py-2 text-sm bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors flex items-center justify-center gap-2"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                </svg>
-                Upload SVG icon
-              </button>
-              {editedGame.links[linkIconPopupIndex].iconUrl && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    const newLinks = [...editedGame.links!];
-                    newLinks[linkIconPopupIndex] = { ...newLinks[linkIconPopupIndex], iconUrl: undefined };
-                    setEditedGame({ ...editedGame, links: newLinks });
-                    setLinkIconPopupIndex(null);
-                  }}
-                  className="w-full px-3 py-2 text-sm text-gray-300 hover:text-white bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors"
-                >
-                  Remove custom icon
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={() => setLinkIconPopupIndex(null)}
-                className="w-full px-3 py-2 text-sm text-gray-400 hover:text-gray-200 rounded-lg transition-colors"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
+        <LinkIconPickerDialog
+          linkName={editedGame.links[linkIconPopupIndex].name || 'Link'}
+          hasCustomIcon={Boolean(editedGame.links[linkIconPopupIndex].iconUrl)}
+          onUploadIcon={handleUploadCustomLinkIcon}
+          onRemoveCustomIcon={handleRemoveCustomLinkIcon}
+          onClose={() => setLinkIconPopupIndex(null)}
+        />
       )}
-      <input
-        ref={linkIconFileInputRef}
-        type="file"
-        accept=".svg"
-        className="hidden"
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (!file || linkIconPopupIndex === null || !editedGame?.links?.[linkIconPopupIndex]) {
-            e.target.value = '';
-            return;
-          }
-          const reader = new FileReader();
-          reader.onload = () => {
-            const dataUrl = reader.result as string;
-            const newLinks = [...editedGame.links!];
-            newLinks[linkIconPopupIndex] = { ...newLinks[linkIconPopupIndex], iconUrl: dataUrl };
-            setEditedGame({ ...editedGame, links: newLinks });
-            setLinkIconPopupIndex(null);
-          };
-          reader.readAsDataURL(file);
-          e.target.value = '';
-        }}
-      />
     </div >
   );
 };

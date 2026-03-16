@@ -155,6 +155,7 @@ Provides a full lifecycle for game links:
   - [importer/ImportWorkbenchV2.tsx](../../renderer/src/components/importer/ImportWorkbenchV2.tsx)
   - [GameManager.tsx](../../renderer/src/components/GameManager.tsx)
   - [gameManager/GameManagerLinksTab.tsx](../../renderer/src/components/gameManager/GameManagerLinksTab.tsx)
+  - [gameManager/LinkIconPickerDialog.tsx](../../renderer/src/components/gameManager/LinkIconPickerDialog.tsx)
   - [GameLinks.tsx](../../renderer/src/components/GameLinks.tsx)
   - [RefreshMetadataDialog.tsx](../../renderer/src/components/RefreshMetadataDialog.tsx)
   - [GameDetailsPanel.tsx](../../renderer/src/components/GameDetailsPanel.tsx)
