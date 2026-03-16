@@ -1,6 +1,9 @@
 import { Suspense, lazy, useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useGameLibrary } from './hooks/useGameLibrary';
 import { useFullscreen } from './hooks/useFullscreen';
+import { useAppShellEvents } from './hooks/useAppShellEvents';
+import { useAppPreferences } from './hooks/useAppPreferences';
+import { useGameLaunchFlow } from './hooks/useGameLaunchFlow';
 import { LibraryGrid } from './components/LibraryGrid';
 import { LibraryListView } from './components/LibraryListView';
 import { RightClickMenu } from './components/RightClickMenu';
@@ -17,10 +20,7 @@ import { TopBarPositions } from './components/TopBarContextMenu';
 import { UpdateLibraryModal } from './components/UpdateLibraryModal';
 import { APISettingsModal } from './components/APISettingsModal';
 import { ConfirmationDialog } from './components/ConfirmationDialog';
-import { MissingGamesModal } from './components/MissingGamesModal';
-import { UpdateNotificationModal } from './components/UpdateNotificationModal';
-import { LibraryTutorialModal } from './components/LibraryTutorialModal';
-import { CrashDumpModal } from './components/CrashDumpModal';
+import { AppShellOverlays } from './components/appShell/AppShellOverlays';
 import { Game, ExecutableFile, GameMetadata } from './types/game';
 import { areAPIsConfigured } from './utils/apiValidation';
 
@@ -60,8 +60,6 @@ function App() {
 
   const [activeGameId, setActiveGameId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [launchingGameId, setLaunchingGameId] = useState<string | null>(null);
-  const [runningGames, setRunningGames] = useState<Set<string>>(new Set());
 
   // Scanning state
   const [, setIsScanningSteam] = useState(false);
@@ -262,7 +260,6 @@ function App() {
 
   // Launch confirmation state
   const [confirmGameLaunch, setConfirmGameLaunch] = useState(false);
-  const [launchConfirmation, setLaunchConfirmation] = useState<{ game: Game } | null>(null);
 
   // Missing games state
   const [missingGames, setMissingGames] = useState<Array<{
@@ -305,170 +302,110 @@ function App() {
   const [rightClickMenu, setRightClickMenu] = useState<{ x: number; y: number } | null>(null);
   const [gameContextMenu, setGameContextMenu] = useState<{ x: number; y: number; game: Game } | null>(null);
   const [displayedBackgroundImageUrl, setDisplayedBackgroundImageUrl] = useState('');
-  const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [autoSizeToFit, setAutoSizeToFit] = useState(false);
   const gridContainerRef = useRef<HTMLDivElement>(null);
-  const currentResolutionRef = useRef<string>(window.screen.height >= 2160 ? '4K' : window.screen.height >= 1440 ? '1440p' : window.screen.height >= 1080 ? '1080p' : '720p');
-  const baselineDefaultsRef = useRef<any>(null);
-
-  const applyPreferences = (prefs: any, options?: { markInitialLoad?: boolean }) => {
-    if (prefs.gridSize) setGridSize(prefs.gridSize);
-    if (prefs.logoSize) setLogoSize(prefs.logoSize);
-    if (prefs.pinnedCategories) setPinnedCategories(prefs.pinnedCategories);
-    if (prefs.hideVRTitles !== undefined) setHideVRTitles(prefs.hideVRTitles);
-    if (prefs.hideAppsTitles !== undefined) setHideAppsTitles(prefs.hideAppsTitles);
-    if (prefs.hideGameTitles !== undefined) setHideGameTitles(prefs.hideGameTitles);
-    if (prefs.gameTilePadding !== undefined) setGameTilePadding(prefs.gameTilePadding);
-    if (prefs.showCategoriesInGameListByView !== undefined) setShowCategoriesByView(prefs.showCategoriesInGameListByView);
-    if (prefs.categoriesPositionByView !== undefined) setCategoriesPositionByView(prefs.categoriesPositionByView);
-    if (prefs.categoriesAlignmentByView !== undefined) setCategoriesAlignmentByView(prefs.categoriesAlignmentByView);
-    if (prefs.categoriesSizeByView !== undefined) setCategoriesSizeByView(prefs.categoriesSizeByView);
-    if (prefs.showLogoOverBoxart !== undefined) setShowLogoOverBoxart(prefs.showLogoOverBoxart);
-    if (prefs.logoPosition !== undefined) setLogoPosition(prefs.logoPosition);
-    if (prefs.logoBackgroundColor !== undefined) setLogoBackgroundColor(prefs.logoBackgroundColor);
-    if (prefs.logoBackgroundOpacity !== undefined) setLogoBackgroundOpacity(prefs.logoBackgroundOpacity);
-    if (prefs.backgroundBlur !== undefined) setBackgroundBlur(prefs.backgroundBlur);
-    if (prefs.backgroundBrightnessByView !== undefined) {
-      setBackgroundBrightnessByView({
-        grid: prefs.backgroundBrightnessByView.grid ?? 0.3,
-        list: prefs.backgroundBrightnessByView.list ?? 0.3,
-        logo: prefs.backgroundBrightnessByView.logo ?? 0.3,
-        carousel: prefs.backgroundBrightnessByView.carousel ?? 0.3,
-        coverflow: prefs.backgroundBrightnessByView.coverflow ?? 0.3,
-      });
-    }
-    if (prefs.showCarouselDetails !== undefined) setShowCarouselDetails(prefs.showCarouselDetails);
-    if (prefs.showCarouselLogos !== undefined) setShowCarouselLogos(prefs.showCarouselLogos);
-    if (prefs.detailsBarSize !== undefined) setDetailsBarSize(prefs.detailsBarSize);
-    if (prefs.carouselLogoSize !== undefined) setCarouselLogoSize(prefs.carouselLogoSize);
-    if (prefs.carouselButtonSize !== undefined) setCarouselButtonSize(prefs.carouselButtonSize);
-    if (prefs.carouselDescriptionSize !== undefined) setCarouselDescriptionSize(prefs.carouselDescriptionSize);
-    // Right panel settings
-    if (prefs.rightPanelLogoSize !== undefined) setRightPanelLogoSize(prefs.rightPanelLogoSize);
-    if (prefs.rightPanelBoxartPosition !== undefined) setRightPanelBoxartPosition(prefs.rightPanelBoxartPosition);
-    if (prefs.rightPanelBoxartSize !== undefined) setRightPanelBoxartSize(prefs.rightPanelBoxartSize);
-    if (prefs.rightPanelTextSize !== undefined) setRightPanelTextSize(prefs.rightPanelTextSize);
-    if (prefs.rightPanelButtonSize !== undefined) setRightPanelButtonSize(prefs.rightPanelButtonSize);
-    if (prefs.rightPanelButtonLocation !== undefined) setRightPanelButtonLocation(prefs.rightPanelButtonLocation);
-    if (prefs.detailsPanelOpacity !== undefined) setDetailsPanelOpacity(prefs.detailsPanelOpacity);
-    if (prefs.rightPanelButtonColors !== undefined) setRightPanelButtonColors(prefs.rightPanelButtonColors);
-    if (prefs.carouselButtonColors !== undefined) setCarouselButtonColors(prefs.carouselButtonColors);
-    if (prefs.gridButtonColors !== undefined) setGridButtonColors(prefs.gridButtonColors);
-    if (prefs.listButtonColors !== undefined) setListButtonColors(prefs.listButtonColors);
-    if (prefs.logoButtonColors !== undefined) setLogoButtonColors(prefs.logoButtonColors);
-    if (prefs.coverFlowCoverSize !== undefined) setCoverFlowCoverSize(prefs.coverFlowCoverSize);
-    if (prefs.coverFlowReflection !== undefined) setCoverFlowReflection(prefs.coverFlowReflection);
-    if (prefs.coverFlowVerticalOffset !== undefined) setCoverFlowVerticalOffset(prefs.coverFlowVerticalOffset);
-    if (prefs.coverFlowSideOpacity !== undefined) setCoverFlowSideOpacity(prefs.coverFlowSideOpacity);
-    if (prefs.coverFlowShowButtons !== undefined) setCoverFlowShowButtons(prefs.coverFlowShowButtons);
-    if (prefs.coverFlowButtonPosition !== undefined) setCoverFlowButtonPosition(prefs.coverFlowButtonPosition);
-    if (prefs.coverFlowButtonColors !== undefined) setCoverFlowButtonColors(prefs.coverFlowButtonColors);
-    if (prefs.disableAllAnimations !== undefined) setDisableAllAnimations(prefs.disableAllAnimations);
-    if (prefs.disableAnimatedBanners !== undefined) setDisableAnimatedBanners(prefs.disableAnimatedBanners);
-    if (prefs.disableAnimatedBoxarts !== undefined) setDisableAnimatedBoxarts(prefs.disableAnimatedBoxarts);
-    if (prefs.disableAnimatedBackgrounds !== undefined) setDisableAnimatedBackgrounds(prefs.disableAnimatedBackgrounds);
-    if (prefs.disableAnimatedIcons !== undefined) setDisableAnimatedIcons(prefs.disableAnimatedIcons);
-    if (prefs.disableAnimatedLogos !== undefined) setDisableAnimatedLogos(prefs.disableAnimatedLogos);
-    if (prefs.isViewFlippedByView !== undefined) {
-      const defaultFlipped = { grid: false, list: false, logo: false, carousel: false, coverflow: false };
-      setIsViewFlippedByView({ ...defaultFlipped, ...prefs.isViewFlippedByView });
-    }
-    // Top bar positions
-    if (prefs.topBarPositions) setTopBarPositions({ ...topBarPositions, ...prefs.topBarPositions });
-    if (prefs.viewMode) setViewMode(prefs.viewMode);
-    if (prefs.backgroundMode) setBackgroundMode(prefs.backgroundMode as 'image' | 'color');
-    if (prefs.backgroundColor) setBackgroundColor(prefs.backgroundColor);
-    if (prefs.listViewOptions) {
-      setListViewOptions({ ...defaultListViewOptions, ...prefs.listViewOptions });
-    } else {
-      setListViewOptions(defaultListViewOptions);
-    }
-    if (prefs.listViewSize) setListViewSize(prefs.listViewSize);
-    // Load divider settings per view
-    if (prefs.fanartHeightByView) {
-      setFanartHeightByView({ ...fanartHeightByView, ...prefs.fanartHeightByView });
-    }
-    if (prefs.descriptionWidthByView) {
-      setDescriptionWidthByView({ ...descriptionWidthByView, ...prefs.descriptionWidthByView });
-    }
-    if (prefs.detailsPanelBottomBarHeight !== undefined) setDetailsPanelBottomBarHeight(prefs.detailsPanelBottomBarHeight);
-    if (prefs.panelWidthByView) {
-      setPanelWidthByViewState({ ...panelWidthByViewState, ...prefs.panelWidthByView });
-    }
-    // Set initial panelWidth based on current view
-    const savedPanelWidth = (prefs.panelWidthByView && prefs.viewMode ? prefs.panelWidthByView[prefs.viewMode as 'grid' | 'list' | 'logo' | 'carousel' | 'coverflow'] : undefined) ?? prefs.panelWidth;
-    if (savedPanelWidth) setPanelWidth(savedPanelWidth);
-    if (prefs.autoSizeToFit !== undefined) setAutoSizeToFit(prefs.autoSizeToFit);
-    // Restore active game selection if it exists
-    if (prefs.activeGameId) {
-      setActiveGameId(prefs.activeGameId);
-    }
-    if (prefs.isFirstLaunch && baselineDefaultsRef.current) {
-      console.log(`[App] First launch detected. Applying baseline defaults for ${currentResolutionRef.current}.`);
-      applyBaselineDefaults(currentResolutionRef.current);
-      // Save preference change to set isFirstLaunch to false
-      window.electronAPI.savePreferences({ isFirstLaunch: false });
-    }
-
-    if (prefs.confirmGameLaunch !== undefined) setConfirmGameLaunch(prefs.confirmGameLaunch);
-    if (prefs.linkDisplayOrder && prefs.linkDisplayOrder.length > 0) setLinkDisplayOrder(prefs.linkDisplayOrder);
-    if (prefs.visibleLinkTypes && Object.keys(prefs.visibleLinkTypes).length > 0) setVisibleLinkTypes(prefs.visibleLinkTypes);
-
-    // Handle default startup page
-    if (prefs.defaultStartupPage) {
-      if (prefs.defaultStartupPage === 'favorites') {
-        setSelectedCategory('favorites');
-      } else if (prefs.defaultStartupPage === 'recent') {
-        // "Recent" page usually implies sort by last played
-        setSortBy('lastPlayed');
-      } else {
-        // 'library' is default, ensure defaults
-        setSelectedCategory(null);
-      }
-    }
-
-    // Keep current resolution in sync with actual screen height
-    const actualResKey = window.screen.height >= 2160 ? '4K' : window.screen.height >= 1440 ? '1440p' : window.screen.height >= 1080 ? '1080p' : '720p';
-    currentResolutionRef.current = actualResKey;
-    if (prefs.currentResolution !== actualResKey) {
-      window.electronAPI.savePreferences({ currentResolution: actualResKey });
-    }
-
-    if (options?.markInitialLoad) {
-      setIsInitialLoad(false);
-    }
-  };
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [selectedLauncher, setSelectedLauncher] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState<'title' | 'releaseDate' | 'playtime' | 'lastPlayed'>('title');
 
   // Clamp padding in carousel without overwriting the saved preference
   const carouselGameTilePadding = (viewMode === 'carousel' || viewMode === 'coverflow') && gameTilePadding > 3 ? 1 : gameTilePadding;
 
-  const refreshPreferences = async () => {
-    const prefs = await window.electronAPI.getPreferences();
-    applyPreferences(prefs);
-  };
-
-  // Load preferences and baseline defaults on mount
-  useEffect(() => {
-    const initialize = async () => {
-      // Load baseline defaults first
-      const baseline = await window.electronAPI.getBaselineDefaults?.();
-      if (baseline) {
-        baselineDefaultsRef.current = baseline;
-      }
-
-      const loadPreferences = async () => {
-        try {
-          const prefs = await window.electronAPI.getPreferences();
-          applyPreferences(prefs, { markInitialLoad: true });
-        } catch (error) {
-          console.error('Error loading preferences:', error);
-          setIsInitialLoad(false);
-        }
-      };
-      await loadPreferences();
-    };
-    initialize();
-  }, []);
+  const { isInitialLoad, refreshPreferences } = useAppPreferences({
+    viewMode,
+    defaultListViewOptions,
+    defaultTopBarPositions: {
+      searchBar: 'left',
+      sortBy: 'left',
+      launcher: 'left',
+      categories: 'left',
+    },
+    defaultFanartHeightByView: {
+      grid: 320,
+      list: 320,
+      logo: 320,
+    },
+    defaultDescriptionWidthByView: {
+      grid: 50,
+      list: 50,
+      logo: 50,
+    },
+    defaultPanelWidthByView: {
+      grid: 800,
+      list: 800,
+      logo: 800,
+      carousel: 800,
+      coverflow: 800,
+    },
+    setGridSize,
+    setLogoSize,
+    setPinnedCategories,
+    setHideVRTitles,
+    setHideAppsTitles,
+    setHideGameTitles,
+    setGameTilePadding,
+    setShowCategoriesByView,
+    setCategoriesPositionByView,
+    setCategoriesAlignmentByView,
+    setCategoriesSizeByView,
+    setShowLogoOverBoxart,
+    setLogoPosition,
+    setLogoBackgroundColor,
+    setLogoBackgroundOpacity,
+    setBackgroundBlur,
+    setBackgroundBrightnessByView,
+    setShowCarouselDetails,
+    setShowCarouselLogos,
+    setSelectedBoxArtSize,
+    setDetailsBarSize,
+    setCarouselLogoSize,
+    setCarouselButtonSize,
+    setCarouselDescriptionSize,
+    setRightPanelLogoSize,
+    setRightPanelBoxartPosition,
+    setRightPanelBoxartSize,
+    setRightPanelTextSize,
+    setRightPanelButtonSize,
+    setRightPanelButtonLocation,
+    setDetailsPanelOpacity,
+    setRightPanelButtonColors,
+    setCarouselButtonColors,
+    setGridButtonColors,
+    setListButtonColors,
+    setLogoButtonColors,
+    setCoverFlowCoverSize,
+    setCoverFlowReflection,
+    setCoverFlowVerticalOffset,
+    setCoverFlowSideOpacity,
+    setCoverFlowShowButtons,
+    setCoverFlowButtonPosition,
+    setCoverFlowButtonColors,
+    setDisableAllAnimations,
+    setDisableAnimatedBanners,
+    setDisableAnimatedBoxarts,
+    setDisableAnimatedBackgrounds,
+    setDisableAnimatedIcons,
+    setDisableAnimatedLogos,
+    setIsViewFlippedByView,
+    setTopBarPositions,
+    setViewMode,
+    setBackgroundMode,
+    setBackgroundColor,
+    setListViewOptions,
+    setListViewSize,
+    setFanartHeightByView,
+    setDescriptionWidthByView,
+    setDetailsPanelBottomBarHeight,
+    setPanelWidthByViewState,
+    setPanelWidth,
+    setAutoSizeToFit,
+    setActiveGameId,
+    setConfirmGameLaunch,
+    setLinkDisplayOrder,
+    setVisibleLinkTypes,
+    setSelectedCategory,
+    setSortBy,
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -556,67 +493,6 @@ function App() {
   }, [fetchChangelog]);
 
   // Dev-only update popup removed so you can test without the update modal. Use Help > Check for Updates to test the modal.
-
-  const applyBaselineDefaults = useCallback((resKey: string) => {
-    if (!baselineDefaultsRef.current || !baselineDefaultsRef.current[resKey]) return;
-    const defaults = baselineDefaultsRef.current[resKey][viewMode];
-    if (!defaults) return;
-
-    // Apply view-specific settings from baseline
-    if (viewMode === 'grid') {
-      if (defaults.gridSize !== undefined) setGridSize(defaults.gridSize);
-      if (defaults.showLogoOverBoxart !== undefined) setShowLogoOverBoxart(defaults.showLogoOverBoxart);
-      if (defaults.gameTilePadding !== undefined) setGameTilePadding(defaults.gameTilePadding);
-    } else if (viewMode === 'logo') {
-      if (defaults.logoSize !== undefined) setLogoSize(defaults.logoSize);
-      if (defaults.logoBackgroundOpacity !== undefined) setLogoBackgroundOpacity(defaults.logoBackgroundOpacity);
-      if (defaults.gameTilePadding !== undefined) setGameTilePadding(defaults.gameTilePadding);
-      if (defaults.rightPanelLogoSize !== undefined) setRightPanelLogoSize(defaults.rightPanelLogoSize);
-    } else if (viewMode === 'list') {
-      if (defaults.listViewOptions !== undefined) setListViewOptions(defaults.listViewOptions);
-      if (defaults.rightPanelLogoSize !== undefined) setRightPanelLogoSize(defaults.rightPanelLogoSize);
-    } else if (viewMode === 'carousel') {
-      if (defaults.showCarouselDetails !== undefined) setShowCarouselDetails(defaults.showCarouselDetails);
-      if (defaults.showCarouselLogos !== undefined) setShowCarouselLogos(defaults.showCarouselLogos);
-      if (defaults.detailsBarSize !== undefined) setDetailsBarSize(defaults.detailsBarSize);
-      if (defaults.selectedBoxArtSize !== undefined) setSelectedBoxArtSize(defaults.selectedBoxArtSize);
-      if (defaults.gameTilePadding !== undefined) setGameTilePadding(defaults.gameTilePadding);
-      if (defaults.carouselLogoSize !== undefined) setCarouselLogoSize(defaults.carouselLogoSize);
-      if (defaults.carouselButtonSize !== undefined) setCarouselButtonSize(defaults.carouselButtonSize);
-      if (defaults.carouselDescriptionSize !== undefined) setCarouselDescriptionSize(defaults.carouselDescriptionSize);
-    } else if (viewMode === 'coverflow') {
-      // Cover Flow uses same-style defaults as carousel where applicable
-      if (defaults && defaults.gameTilePadding !== undefined) setGameTilePadding(defaults.gameTilePadding);
-    }
-
-    // Common baseline settings
-    if (defaults.backgroundBlur !== undefined) setBackgroundBlur(defaults.backgroundBlur);
-    if (defaults.panelWidth !== undefined) setPanelWidth(defaults.panelWidth);
-    if (defaults.rightPanelBoxartPosition !== undefined) setRightPanelBoxartPosition(defaults.rightPanelBoxartPosition);
-    if (defaults.rightPanelBoxartSize !== undefined) setRightPanelBoxartSize(defaults.rightPanelBoxartSize);
-    if (defaults.rightPanelTextSize !== undefined) setRightPanelTextSize(defaults.rightPanelTextSize);
-    if (defaults.rightPanelButtonSize !== undefined) setRightPanelButtonSize(defaults.rightPanelButtonSize);
-    if (defaults.rightPanelButtonLocation !== undefined) setRightPanelButtonLocation(defaults.rightPanelButtonLocation);
-    if (defaults.detailsPanelOpacity !== undefined) setDetailsPanelOpacity(defaults.detailsPanelOpacity);
-  }, [viewMode]);
-
-  // Detect resolution changes and auto-apply defaults
-  useEffect(() => {
-    const handleResize = () => {
-      const height = window.screen.height;
-      const newResKey = height >= 2160 ? '4K' : height >= 1440 ? '1440p' : height >= 1080 ? '1080p' : '720p';
-
-      if (newResKey !== currentResolutionRef.current) {
-        console.log(`[App] Resolution change detected: ${currentResolutionRef.current} -> ${newResKey}. Auto-applying baseline defaults.`);
-        currentResolutionRef.current = newResKey;
-        applyBaselineDefaults(newResKey);
-        window.electronAPI.savePreferences({ currentResolution: newResKey });
-      }
-    };
-
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, [applyBaselineDefaults]);
 
 
   // Save grid size when it changes (but not when auto-size is enabled)
@@ -761,141 +637,6 @@ function App() {
       }
     });
   };
-
-  // Filter and sort state
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [selectedLauncher, setSelectedLauncher] = useState<string | null>(null);
-  const [sortBy, setSortBy] = useState<'title' | 'releaseDate' | 'playtime' | 'lastPlayed'>('title');
-
-
-  // Listen to menu events
-  useEffect(() => {
-    window.electronAPI.notifyAppReady?.();
-
-    const cleanup1 = window.electronAPI.onMenuEvent('menu:addGame', async () => {
-      const apisConfigured = await areAPIsConfigured();
-      if (!apisConfigured) {
-        showToast('Both IGDB (Client ID + Secret) and SteamGridDB (API Key) are required before adding games. Please configure them in Settings > APIs.', 'error');
-        setIsOnyxSettingsOpen(true);
-        setOnyxSettingsInitialTab('apis');
-        return;
-      }
-      setIsModalOpen(true);
-    });
-    const cleanup2 = window.electronAPI.onMenuEvent('menu:scanFolder', () => {
-      handleScanFolder();
-    });
-    const cleanup3 = window.electronAPI.onMenuEvent('menu:updateSteamLibrary', () => {
-      handleUpdateSteamLibrary();
-    });
-    const cleanup4 = window.electronAPI.onMenuEvent('menu:configureSteam', () => {
-      setIsSteamConfigOpen(true);
-    });
-    const cleanup5 = window.electronAPI.onMenuEvent('menu:checkForUpdates', () => {
-      window.electronAPI.checkForUpdates?.();
-    });
-
-    // Listen for new Steam games found notification
-    const newGamesHandler = (_event: any, data: { count: number; games: Array<any> }) => {
-      if (data.games && data.games.length > 0) {
-        handleOpenImporterWithGames(data.games);
-      }
-    };
-
-    // Listen for new games found from background scan (all sources) – opens importer
-    const backgroundNewGamesHandler = (_event: any, data: { count: number; games: Array<any>; bySource?: Record<string, Array<any>> }) => {
-      console.log('[App] Background scan found new games:', data);
-      if (Array.isArray(data.games) && data.games.length > 0) {
-        handleOpenImporterWithGames(data.games);
-      }
-    };
-
-    // Startup scan new games: show in overlay only (user clicks "Review in Importer"); do not auto-open importer
-    const startupNewGamesHandler = (_event: any, data: { count?: number; games?: Array<any> }) => {
-      if (Array.isArray(data.games) && data.games.length > 0) {
-        setFoundGames(data.games);
-      }
-    };
-
-    // Listen for startup scan progress
-    const startupProgressHandler = (_event: any, data: { message: string }) => {
-      // Handle cases where data might be undefined or malformed
-      if (!data || typeof data !== 'object') {
-        console.warn('[App] ⚠️ Received malformed startup:progress data:', data);
-        return;
-      }
-      setStartupProgress(data);
-      // Auto-hide progress after completion, but keep open if games were found for user interaction
-      if (data.message && (data.message.includes('Scan complete') || data.message.includes('Error'))) {
-        setTimeout(() => {
-          setFoundGames(currentFoundGames => {
-            // If games were found, keep the overlay open (don't close startupProgress)
-            if (currentFoundGames && currentFoundGames.length > 0) {
-              return currentFoundGames;
-            }
-            // No games found, close the overlay after 500ms
-            setStartupProgress(null);
-            return currentFoundGames;
-          });
-        }, 500);
-      }
-    };
-
-    // Listen for missing games detected during scans
-    const missingGamesHandler = (_event: any, data: { games: Array<any> }) => {
-      console.log('[App] Missing games detected:', data);
-      if (data.games && data.games.length > 0) {
-        setMissingGames(data.games);
-      }
-    };
-
-    const removeSteamNewGames = window.electronAPI?.on && window.electronAPI.on('steam:newGamesFound', newGamesHandler);
-    const removeBackgroundNewGames = window.electronAPI?.on && window.electronAPI.on('background:newGamesFound', backgroundNewGamesHandler);
-    const removeStartupNewGames = window.electronAPI?.on && window.electronAPI.on('startup:newGamesFound', startupNewGamesHandler);
-    const removeStartupProgress = window.electronAPI?.on && window.electronAPI.on('startup:progress', startupProgressHandler);
-    const removeMissingGames = window.electronAPI?.on && window.electronAPI.on('scan:missing-games', missingGamesHandler);
-
-    // Listen for update status: show persistent notification when update is available
-    const updateStatusHandler = (_event: any, payload: { status: string; version?: string; error?: string }) => {
-      if (payload.status === 'available' && payload.version) {
-        setIsUpdateModalTest(false);
-        setUpdateNotification({
-          version: payload.version,
-          status: 'available',
-        });
-        // Signal main process that update was found (to pause startup scan)
-        window.electronAPI.onUpdateFound?.();
-      } else if (payload.status === 'downloading') {
-        setIsUpdateModalTest(false);
-        setUpdateNotification(prev => prev ? { ...prev, status: 'downloading' } : null);
-      } else if (payload.status === 'downloaded') {
-        setIsUpdateModalTest(false);
-        setUpdateNotification(prev => prev ? { ...prev, status: 'downloaded' } : null);
-      } else if (payload.status === 'error' && payload.error) {
-        setIsUpdateModalTest(false);
-        setUpdateNotification(prev => prev ? { ...prev, status: 'error', error: payload.error } : null);
-      }
-    };
-    const removeUpdateStatus = window.electronAPI?.on && window.electronAPI.on('app:update-status', updateStatusHandler);
-    const removeCrashDumps = window.electronAPI?.on && window.electronAPI.on('crash:dumpsAvailable', (_event: unknown, payload: { paths: string[] }) => {
-      if (payload?.paths?.length) setCrashDumpPaths(payload.paths);
-    });
-
-    return () => {
-      cleanup1();
-      cleanup2();
-      cleanup3();
-      cleanup4();
-      cleanup5();
-      if (typeof removeSteamNewGames === 'function') removeSteamNewGames();
-      if (typeof removeBackgroundNewGames === 'function') removeBackgroundNewGames();
-      if (typeof removeStartupNewGames === 'function') removeStartupNewGames();
-      if (typeof removeStartupProgress === 'function') removeStartupProgress();
-      if (typeof removeMissingGames === 'function') removeMissingGames();
-      if (typeof removeUpdateStatus === 'function') removeUpdateStatus();
-      if (typeof removeCrashDumps === 'function') removeCrashDumps();
-    };
-  }, []);
 
   // Get all unique categories and their counts from games
   const { allCategories, categoryCounts } = useMemo(() => {
@@ -1354,166 +1095,6 @@ function App() {
     }
   }, [loading, filteredGames, activeGameId]);
 
-  const handlePlay = async (game: Game) => {
-    if (confirmGameLaunch) {
-      setLaunchConfirmation({ game });
-      return;
-    }
-
-    launchGame(game);
-  };
-
-  const launchGame = async (game: Game) => {
-    setLaunchingGameId(game.id);
-    try {
-      try {
-        const suspendEnabled = await window.electronAPI.suspend.getFeatureEnabled();
-        if (suspendEnabled) {
-          const trackedGames = await window.electronAPI.suspend.getRunningGames();
-          const trackedGame = trackedGames.find((entry: { gameId: string }) => entry.gameId === game.id);
-
-          if (trackedGame?.status === 'suspended') {
-            const resumeResult = await window.electronAPI.suspend.resumeGame(game.id);
-            setLaunchingGameId(null);
-
-            if (!resumeResult.success) {
-              alert(`Failed to resume game: ${resumeResult.error || 'Unknown error'}`);
-              return;
-            }
-
-            setRunningGames((prev) => new Set(prev).add(game.id));
-            return;
-          }
-
-          if (trackedGame?.status === 'running') {
-            setLaunchingGameId(null);
-            return;
-          }
-        }
-      } catch (suspendLookupError) {
-        console.warn('Suspend state lookup failed before launch, continuing with normal launch flow:', suspendLookupError);
-      }
-
-      const result = await window.electronAPI.launchGame(game.id);
-      if (!result.success) {
-        console.error('Failed to launch game:', result.error);
-        alert(`Failed to launch game: ${result.error || 'Unknown error'}`);
-        setLaunchingGameId(null);
-        return;
-      }
-
-      // Check if we should minimize the window on game launch
-      const prefs = await window.electronAPI.getPreferences();
-      if (prefs.minimizeOnGameLaunch) {
-        await window.electronAPI.minimizeWindow();
-      }
-
-      // Notify main process that a game has started
-      await window.electronAPI.scanning?.gameStarted?.(game.id);
-
-      // Game launched successfully
-      // Wait a moment for the process to start, then mark as running
-      setTimeout(() => {
-        setLaunchingGameId(null);
-        setRunningGames(prev => new Set(prev).add(game.id));
-
-        // For non-Steam games with PIDs, monitor the process
-        if (result.pid) {
-          monitorGameProcess(game.id, result.pid);
-        } else {
-          // For Steam games or games without PID, poll for process
-          pollForGameProcess(game.id);
-        }
-      }, 1000); // Show "Launching..." for 1 second
-
-    } catch (error) {
-      console.error('Error launching game:', error);
-      alert(`Error launching game: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      setLaunchingGameId(null);
-    }
-  };
-
-  // Monitor game process and update state when it closes
-  const monitorGameProcess = (gameId: string, pid: number) => {
-    const checkInterval = setInterval(async () => {
-      try {
-        // Check if process is still running by trying to kill with signal 0
-        // This doesn't actually kill the process, just checks if it exists
-        const isRunning = await checkProcessRunning(pid);
-        if (!isRunning) {
-          clearInterval(checkInterval);
-          setRunningGames(prev => {
-            const newSet = new Set(prev);
-            newSet.delete(gameId);
-            return newSet;
-          });
-
-          // Notify main process that a game has stopped
-          await window.electronAPI.scanning?.gameStopped?.(gameId);
-
-          // Check if we should restore the window on game exit
-          const prefs = await window.electronAPI.getPreferences();
-          if (prefs.restoreAfterLaunch) {
-            const { isMinimized } = await window.electronAPI.fullscreen.isMinimized();
-            if (isMinimized) {
-              await window.electronAPI.restoreWindow();
-            }
-          }
-        }
-      } catch (error) {
-        console.error('Error checking process:', error);
-        clearInterval(checkInterval);
-      }
-    }, 2000); // Check every 2 seconds
-  };
-
-  // Poll for game process for Steam games
-  const pollForGameProcess = (gameId: string) => {
-    let pollCount = 0;
-    const maxPolls = 30; // Poll for up to 60 seconds (30 * 2s)
-
-    const checkInterval = setInterval(async () => {
-      pollCount++;
-
-      // After max polls, assume game closed
-      if (pollCount > maxPolls) {
-        clearInterval(checkInterval);
-        setRunningGames(prev => {
-          const newSet = new Set(prev);
-          newSet.delete(gameId);
-          return newSet;
-        });
-
-        // Notify main process that a game has stopped
-        await window.electronAPI.scanning?.gameStopped?.(gameId);
-
-        // Check if we should restore the window on game exit
-        const prefs = await window.electronAPI.getPreferences();
-        if (prefs.restoreAfterLaunch) {
-          const { isMinimized } = await window.electronAPI.fullscreen.isMinimized();
-          if (isMinimized) {
-            await window.electronAPI.restoreWindow();
-          }
-        }
-        return;
-      }
-
-      // For now, just keep it running for a reasonable time
-      // TODO: Implement actual process checking for Steam games
-    }, 2000);
-  };
-
-  // Helper to check if process is running
-  const checkProcessRunning = async (pid: number): Promise<boolean> => {
-    try {
-      // On Windows, we can use tasklist to check if process exists
-      const result = await window.electronAPI.checkProcessExists(pid);
-      return result ?? false;
-    } catch {
-      return false;
-    }
-  };
-
   const handleReorder = async (reorderedGames: Game[]) => {
     await reorderGames(reorderedGames);
   };
@@ -1791,10 +1372,10 @@ function App() {
   };
 
   // Toast notification helper
-  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+  const showToast = useCallback((message: string, type: 'success' | 'error' = 'success') => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3000);
-  };
+  }, []);
 
   // Missing games handlers
   const handleRemoveMissingGames = async (gameIds: string[]) => {
@@ -1846,7 +1427,7 @@ function App() {
   }, [setIsOnyxSettingsOpen, setOnyxSettingsInitialTab, showToast]);
 
   // Function to open importer with pre-scanned games
-  const handleOpenImporterWithGames = (foundGames: Array<any>) => {
+  const handleOpenImporterWithGames = useCallback((foundGames: Array<any>) => {
     // Show window if it was hidden/minimized
     window.electronAPI.showWindow?.();
 
@@ -1864,7 +1445,7 @@ function App() {
     setImportAppType(appType);
     setAutoStartScan(true); // Enable auto-scan
     setIsImportWorkbenchOpen(true);
-  };
+  }, []);
 
   // Handle Steam games import
 
@@ -1925,6 +1506,34 @@ function App() {
       showToast('Failed to select folder', 'error');
     }
   }, [showToast]);
+
+  useAppShellEvents({
+    showToast,
+    handleScanFolder,
+    handleUpdateSteamLibrary,
+    handleOpenImporterWithGames,
+    setIsOnyxSettingsOpen,
+    setOnyxSettingsInitialTab,
+    setIsModalOpen,
+    setIsSteamConfigOpen,
+    setFoundGames,
+    setStartupProgress,
+    setMissingGames,
+    setIsUpdateModalTest,
+    setUpdateNotification,
+    setCrashDumpPaths,
+  });
+
+  const {
+    handlePlay,
+    launchingGameId,
+    runningGames,
+    launchConfirmation,
+    confirmLaunch,
+    cancelLaunchConfirmation,
+  } = useGameLaunchFlow({
+    confirmGameLaunch,
+  });
 
 
   // Handle save from metadata editor
@@ -2182,6 +1791,48 @@ function App() {
 
   // Check if this is an Alpha build
   const isAlphaBuild = __BUILD_PROFILE__ === 'alpha' || (typeof process !== 'undefined' && process.env?.NODE_ENV === 'development');
+
+  const handleUpdateNow = async () => {
+    const result = await window.electronAPI.downloadUpdate?.();
+    if (!result?.success) {
+      setUpdateNotification(prev => prev ? { ...prev, status: 'error', error: result?.error ?? 'Download failed' } : null);
+    }
+  };
+
+  const handleDismissUpdateNotification = () => {
+    setUpdateNotification(null);
+    setIsUpdateModalTest(false);
+    if (!isUpdateModalTest) {
+      window.electronAPI.onUpdateDismissed?.();
+    }
+  };
+
+  const handleSaveCrashDumps = async () => {
+    await window.electronAPI.saveCrashDumps?.();
+    setCrashDumpPaths(null);
+  };
+
+  const handleOpenCrashDumpFolder = async () => {
+    await window.electronAPI.openCrashDumpFolder?.();
+    setCrashDumpPaths(null);
+  };
+
+  const handleDismissCrashDumps = async () => {
+    await window.electronAPI.dismissCrashDumps?.();
+    setCrashDumpPaths(null);
+  };
+
+  const handleCancelFoundGames = () => {
+    setFoundGames(null);
+    setStartupProgress(null);
+  };
+
+  const handleReviewFoundGames = (gamesToReview: Array<any>) => {
+    setStartupProgress(null);
+    setTimeout(() => {
+      handleOpenImporterWithGames(gamesToReview);
+    }, 200);
+  };
 
   return (
     <div
@@ -3368,314 +3019,44 @@ function App() {
           message="Are you sure you want to launch this game?"
           confirmText="Launch"
           cancelText="Cancel"
-          onConfirm={() => {
-            launchGame(launchConfirmation.game);
-            setLaunchConfirmation(null);
-          }}
-          onCancel={() => setLaunchConfirmation(null)}
+          onConfirm={confirmLaunch}
+          onCancel={cancelLaunchConfirmation}
         />
       )}
 
-      {/* Update Notification Modal - Persistent until user interacts */}
-      {updateNotification && (
-        <UpdateNotificationModal
-          isOpen={true}
-          version={updateNotification.version}
-          status={updateNotification.status}
-          error={updateNotification.error}
-          currentVersion={currentVersion}
-          changelogSource={changelogSource}
-          changelogLoading={changelogLoading}
-          changelogError={changelogError}
-          isTestMode={isUpdateModalTest}
-          onUpdateNow={async () => {
-            const result = await window.electronAPI.downloadUpdate?.();
-            if (!result?.success) {
-              setUpdateNotification(prev => prev ? { ...prev, status: 'error', error: result?.error ?? 'Download failed' } : null);
-            }
-          }}
-          onDismiss={() => {
-            setUpdateNotification(null);
-            setIsUpdateModalTest(false);
-            // Signal main process that update was dismissed (so startup scan can proceed)
-            if (!isUpdateModalTest) {
-              window.electronAPI.onUpdateDismissed?.();
-            }
-          }}
-          onInstall={() => {
-            window.electronAPI.quitAndInstall?.();
-          }}
-        />
-      )}
-
-      {/* Crash dump from previous session - offer to save on next open */}
-      <CrashDumpModal
-        isOpen={crashDumpPaths !== null && crashDumpPaths.length > 0}
-        dumpCount={crashDumpPaths?.length ?? 0}
-        onSave={async () => {
-          await window.electronAPI.saveCrashDumps?.();
-          setCrashDumpPaths(null);
+      <AppShellOverlays
+        updateNotification={updateNotification}
+        currentVersion={currentVersion}
+        changelogSource={changelogSource}
+        changelogLoading={changelogLoading}
+        changelogError={changelogError}
+        isUpdateModalTest={isUpdateModalTest}
+        onUpdateNow={handleUpdateNow}
+        onDismissUpdate={handleDismissUpdateNotification}
+        onInstallUpdate={() => {
+          window.electronAPI.quitAndInstall?.();
         }}
-        onOpenFolder={async () => {
-          await window.electronAPI.openCrashDumpFolder?.();
-          setCrashDumpPaths(null);
-        }}
-        onDismiss={async () => {
-          await window.electronAPI.dismissCrashDumps?.();
-          setCrashDumpPaths(null);
-        }}
-      />
-
-      <LibraryTutorialModal
-        isOpen={showLibraryTutorial}
-        onClose={() => setShowLibraryTutorial(false)}
+        crashDumpPaths={crashDumpPaths}
+        onSaveCrashDumps={handleSaveCrashDumps}
+        onOpenCrashDumpFolder={handleOpenCrashDumpFolder}
+        onDismissCrashDumps={handleDismissCrashDumps}
+        showLibraryTutorial={showLibraryTutorial}
+        onCloseLibraryTutorial={() => setShowLibraryTutorial(false)}
         onOpenSettings={() => {
           setOnyxSettingsInitialTab('general');
           setIsOnyxSettingsOpen(true);
         }}
         onOpenUpdateLibrary={handleUpdateSteamLibrary}
+        toast={toast}
+        onDismissToast={() => setToast(null)}
+        missingGames={missingGames}
+        onRemoveMissingGames={handleRemoveMissingGames}
+        onCancelMissingGames={handleCancelMissingGames}
+        startupProgress={startupProgress}
+        foundGames={foundGames}
+        onCancelFoundGames={handleCancelFoundGames}
+        onReviewFoundGames={handleReviewFoundGames}
       />
-
-      {/* Toast Notification - app styling, slides up from bottom */}
-      {toast && (
-        <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 toast-slide-up">
-          <div
-            className={`px-5 py-3 rounded-xl shadow-2xl flex items-center gap-3 backdrop-blur-xl border max-w-[90vw] ${toast.type === 'success'
-              ? 'bg-slate-900/95 border-cyan-500/40 text-slate-100'
-              : 'bg-slate-900/95 border-red-500/40 text-slate-100'
-              }`}
-          >
-            <div className="flex-1 text-sm">{toast.message}</div>
-            <button
-              onClick={() => setToast(null)}
-              className="text-slate-400 hover:text-slate-100 transition-colors p-0.5 rounded"
-            >
-              <svg className="w-5 h-5 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Missing Games Modal */}
-      {missingGames && missingGames.length > 0 && (
-        <MissingGamesModal
-          missingGames={missingGames}
-          onRemove={handleRemoveMissingGames}
-          onCancel={handleCancelMissingGames}
-        />
-      )}
-
-
-      {missingGames && (
-        <MissingGamesModal
-          missingGames={missingGames}
-          onRemove={async (gameIds) => {
-            await window.electronAPI.removeMissingGames(gameIds);
-            setMissingGames(null);
-            loadLibrary();
-          }}
-          onCancel={() => setMissingGames(null)}
-        />
-      )}
-
-
-
-      {/* Startup scan progress overlay */}
-      {startupProgress && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[999] flex items-center justify-center">
-          <div className="bg-gradient-to-br from-gray-900/95 to-slate-950/95 backdrop-blur-xl border border-cyan-500/20 p-10 rounded-3xl shadow-2xl w-[800px] max-w-[90vw] max-h-[90vh] overflow-hidden animate-in fade-in zoom-in duration-300 flex flex-col">
-            {!foundGames ? (
-              <div className="flex flex-col items-center space-y-6">
-                {/* Onyx Logo */}
-                <div className="w-24 h-24 animate-pulse">
-                  <svg width="100%" height="100%" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <defs>
-                      <linearGradient id="onyxGrad" x1="256" y1="20" x2="256" y2="492" gradientUnits="userSpaceOnUse">
-                        <stop offset="0" stopColor="#334155" />
-                        <stop offset="1" stopColor="#020617" />
-                      </linearGradient>
-                      <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
-                        <feGaussianBlur stdDeviation="8" result="blur" />
-                        <feComposite in="SourceGraphic" in2="blur" operator="over" />
-                      </filter>
-                    </defs>
-
-                    <path d="M256 30 L465 150 V362 L256 482 L47 362 V150 L256 30Z"
-                      fill="url(#onyxGrad)"
-                      stroke="#0ea5e9"
-                      strokeWidth="8"
-                      filter="url(#glow)" />
-
-                    <path d="M256 256 L256 482 M256 256 L47 150 M256 256 L465 150"
-                      stroke="#1e293b"
-                      strokeWidth="4" />
-
-                    <g transform="translate(256, 143) scale(1, 0.58)">
-                      <circle r="55" stroke="#0ea5e9" strokeWidth="20" strokeOpacity="0.6" fill="none" />
-                      <circle r="55" stroke="#e0f2fe" strokeWidth="8" fill="none" />
-                    </g>
-
-                    <g transform="translate(151, 325) rotate(60) scale(1, 0.58)">
-                      <circle r="55" stroke="#0ea5e9" strokeWidth="20" strokeOpacity="0.6" fill="none" />
-                      <circle r="55" stroke="#e0f2fe" strokeWidth="8" fill="none" />
-                    </g>
-
-                    <g transform="translate(361, 325) rotate(-60) scale(1, 0.58)">
-                      <circle r="55" stroke="#0ea5e9" strokeWidth="20" strokeOpacity="0.6" fill="none" />
-                      <circle r="55" stroke="#e0f2fe" strokeWidth="8" fill="none" />
-                    </g>
-
-                    <path d="M256 30 L465 150 L256 256 L47 150 L256 30Z"
-                      fill="white"
-                      fillOpacity="0.1" />
-                  </svg>
-                </div>
-
-                {/* Title */}
-                <div className="text-center">
-                  <h3 className="text-2xl font-bold text-white mb-2">Scanning Game Libraries</h3>
-                  <p className="text-cyan-100/60 text-sm">Checking for new games on startup...</p>
-                </div>
-
-                {/* Progress message - larger and more visible */}
-                <div className="w-full bg-slate-800/50 rounded-xl p-4 border border-cyan-500/10">
-                  <p className="text-cyan-50/90 text-base text-center font-medium break-words">
-                    {startupProgress.message}
-                  </p>
-                </div>
-
-                {/* Progress bar */}
-                <div className="w-full bg-slate-700/50 rounded-full h-2.5 overflow-hidden">
-                  <div className="h-full bg-gradient-to-r from-cyan-500 to-sky-400 rounded-full animate-pulse" style={{ width: '100%' }}></div>
-                </div>
-              </div>
-            ) : (
-              <div className="flex flex-1 min-h-0 flex-col">
-                <div className="flex items-start gap-4 mb-6">
-                  {/* Onyx Logo */}
-                  <div className="w-16 h-16 flex-shrink-0">
-                    <svg width="100%" height="100%" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <defs>
-                        <linearGradient id="onyxGrad3" x1="256" y1="20" x2="256" y2="492" gradientUnits="userSpaceOnUse">
-                          <stop offset="0" stopColor="#334155" />
-                          <stop offset="1" stopColor="#020617" />
-                        </linearGradient>
-                        <filter id="glow3" x="-50%" y="-50%" width="200%" height="200%">
-                          <feGaussianBlur stdDeviation="8" result="blur" />
-                          <feComposite in="SourceGraphic" in2="blur" operator="over" />
-                        </filter>
-                      </defs>
-
-                      <path d="M256 30 L465 150 V362 L256 482 L47 362 V150 L256 30Z"
-                        fill="url(#onyxGrad3)"
-                        stroke="#0ea5e9"
-                        strokeWidth="8"
-                        filter="url(#glow3)" />
-
-                      <path d="M256 256 L256 482 M256 256 L47 150 M256 256 L465 150"
-                        stroke="#1e293b"
-                        strokeWidth="4" />
-
-                      <g transform="translate(256, 143) scale(1, 0.58)">
-                        <circle r="55" stroke="#0ea5e9" strokeWidth="20" strokeOpacity="0.6" fill="none" />
-                        <circle r="55" stroke="#e0f2fe" strokeWidth="8" fill="none" />
-                      </g>
-
-                      <g transform="translate(151, 325) rotate(60) scale(1, 0.58)">
-                        <circle r="55" stroke="#0ea5e9" strokeWidth="20" strokeOpacity="0.6" fill="none" />
-                        <circle r="55" stroke="#e0f2fe" strokeWidth="8" fill="none" />
-                      </g>
-
-                      <g transform="translate(361, 325) rotate(-60) scale(1, 0.58)">
-                        <circle r="55" stroke="#0ea5e9" strokeWidth="20" strokeOpacity="0.6" fill="none" />
-                        <circle r="55" stroke="#e0f2fe" strokeWidth="8" fill="none" />
-                      </g>
-
-                      <path d="M256 30 L465 150 L256 256 L47 150 L256 30Z"
-                        fill="white"
-                        fillOpacity="0.1" />
-                    </svg>
-                  </div>
-                  <div>
-                    <h2 className="text-2xl font-bold text-white">New Games Found</h2>
-                    <p className="text-gray-400 text-sm mt-1">
-                      The following new games were detected. You can review them in the Importer.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center mb-4 px-1">
-                  <span className="text-sm font-medium text-gray-400">
-                    {foundGames.length} {foundGames.length === 1 ? 'game' : 'games'} found
-                  </span>
-                </div>
-
-                <div className="flex-1 min-h-0 overflow-y-auto mb-4 pr-2 -mr-2 space-y-2">
-                  {[...foundGames].sort((a, b) => a.title.localeCompare(b.title)).map((game, index) => (
-                    <div
-                      key={game.id || `game-${index}`}
-                      className="flex items-start gap-4 p-4 bg-gray-800/40 border border-gray-700/30 rounded-xl hover:bg-gray-800/60 transition-colors group"
-                    >
-                      <div className="flex-1 min-w-0">
-                        <div className="flex justify-between items-start gap-2">
-                          <div className="font-semibold text-white truncate">{game.title}</div>
-                          {(game.platform || game.source) && (
-                            <div className="px-2 py-0.5 rounded text-xs font-medium bg-gray-700 text-gray-300 uppercase tracking-wider text-[10px]">
-                              {game.platform || game.source}
-                            </div>
-                          )}
-                        </div>
-                        {(game.exePath || game.installPath) && (
-                          <div className="text-xs text-gray-500 mt-1 font-mono break-all group-hover:text-gray-400 transition-colors">
-                            {game.exePath || game.installPath}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="flex gap-3 pt-4 border-t border-gray-800 bg-gradient-to-t from-slate-950/90 to-transparent">
-                  <button
-                    onClick={() => {
-                      setFoundGames(null);
-                      setStartupProgress(null);
-                    }}
-                    className="flex-1 px-5 py-2.5 bg-gray-800 hover:bg-gray-700 text-white font-medium rounded-lg transition-colors border border-gray-700"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={() => {
-                      // Close scanning overlay first for smooth transition
-                      setStartupProgress(null);
-
-                      // Small delay for transition effect
-                      setTimeout(() => {
-                        // Determine app type from the games (use 'other' for mixed sources)
-                        const sources = new Set(foundGames.map((g: any) => g.source));
-                        const appType = sources.size === 1 && sources.has('steam') ? 'steam' :
-                          sources.size === 1 && sources.has('xbox') ? 'xbox' : 'other';
-
-                        setScannedSteamGames(foundGames);
-                        setImportAppType(appType);
-                        setAutoStartScan(true); // Enable auto-scan
-                        setIsImportWorkbenchOpen(true);
-                        setFoundGames(null);
-                      }, 200);
-                    }}
-                    className="flex-1 px-5 py-2.5 bg-gray-700 hover:bg-gray-600 text-white font-medium rounded-lg transition-colors border border-gray-600"
-                  >
-                    Review in Importer
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

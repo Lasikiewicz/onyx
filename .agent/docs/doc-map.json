@@ -34,6 +34,7 @@
         "renderer/src/"
       ],
       "docs": [
+        "docs/features/app-shell.md",
         "docs/features/updater.md",
         "docs/features/add-games.md",
         "docs/features/game-manager.md",

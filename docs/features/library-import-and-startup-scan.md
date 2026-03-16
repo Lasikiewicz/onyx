@@ -18,6 +18,7 @@ Finds games from configured launchers/folders and imports them into the local li
 - Manual library update/import dialogs.
 - Add Games review/editor surfaces for per-title metadata, links, and artwork changes before import completes.
 - Found games, missing games, and remove-deleted-games review dialogs.
+- Startup scan progress and found-games review overlay in [`StartupScanOverlay.tsx`](../../renderer/src/components/appShell/StartupScanOverlay.tsx), mounted from [`AppShellOverlays.tsx`](../../renderer/src/components/appShell/AppShellOverlays.tsx).
 - Settings surfaces for launcher configuration, library folders, and startup scanning.
 
 ## Settings and Toggles

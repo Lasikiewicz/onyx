@@ -15,6 +15,7 @@ Each feature document follows the same structure:
 
 ## Feature Files
 
+- [App Shell](./app-shell.md)
 - [Updater and Release Install](./updater.md)
 - [Main View (Library Window)](./main-view.md)
   - Components: [Menu Bar](./main-view/components/menu-bar.md), [Game Details Panel](./main-view/components/game-details-panel.md), [Games List](./main-view/components/games-list.md)

@@ -22,7 +22,7 @@ Launches games from multiple sources and tracks running state for UX actions (mi
 
 ## Confirmed End-to-End Flows
 
-1. Renderer invokes launch action from game card ([GameCard.tsx](../../renderer/src/components/GameCard.tsx)) or context menu; [App.tsx](../../renderer/src/App.tsx) handles the callback.
+1. Renderer invokes launch action from game card ([GameCard.tsx](../../renderer/src/components/GameCard.tsx)) or context menu; [App.tsx](../../renderer/src/App.tsx) delegates the callback to [useGameLaunchFlow.ts](../../renderer/src/hooks/useGameLaunchFlow.ts).
 2. Main [LauncherService.ts](../../main/LauncherService.ts) resolves launch target and spawns process/URI.
 3. Process state is monitored and signaled back to renderer via IPC ([appHandlers.ts](../../main/ipc/appHandlers.ts)).
 4. Renderer applies UI state changes (running status, minimize/restore behavior).
@@ -31,12 +31,12 @@ Launches games from multiple sources and tracks running state for UX actions (mi
 
 - Launch sources include executable paths, launcher-managed titles, and URI-based launch targets.
 - Launcher resolution and process tracking live in [LauncherService.ts](../../main/LauncherService.ts) with supporting app bootstrap in [main.ts](../../main/main.ts).
-- Running-state updates are emitted back to renderer through IPC/state events.
+- Running-state updates are emitted back to renderer through IPC/state events and local shell state managed in [useGameLaunchFlow.ts](../../renderer/src/hooks/useGameLaunchFlow.ts).
 
 ## Data Model and Persistence
 
 - Launch metadata is stored on the game record, including paths, launcher identifiers, and source details.
-- Running process state is runtime-only.
+- Running process state is runtime-only and is held in [useGameLaunchFlow.ts](../../renderer/src/hooks/useGameLaunchFlow.ts).
 - User preferences ([UserPreferencesService.ts](../../main/UserPreferencesService.ts)) govern launch confirmation and window behavior around active sessions.
 
 ## Failure Modes and Triage
@@ -67,6 +67,7 @@ Launches games from multiple sources and tracks running state for UX actions (mi
   - [main.ts](../../main/main.ts)
 - **Renderer**
   - [App.tsx](../../renderer/src/App.tsx)
+  - [useGameLaunchFlow.ts](../../renderer/src/hooks/useGameLaunchFlow.ts)
   - [GameCard.tsx](../../renderer/src/components/GameCard.tsx)
   - [RightClickMenu.tsx](../../renderer/src/components/RightClickMenu.tsx)
   - [GameContextMenu.tsx](../../renderer/src/components/GameContextMenu.tsx)

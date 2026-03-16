@@ -4,6 +4,14 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Pending]
+
+- App shell maintainability: Add a dedicated `docs/features/app-shell.md` runbook and make it first-class in the feature index/doc map so `App.tsx` has a clear source-of-truth owner document.
+- App shell maintainability: Move startup/update/crash/tutorial/toast/missing-games overlay rendering out of `App.tsx` into `components/appShell/AppShellOverlays.tsx`, with `StartupScanOverlay.tsx` reusing `FoundGamesModal.tsx` for startup scan review.
+- App shell maintainability: Move root menu-event, startup-scan, updater, and crash-dump listener wiring out of `App.tsx` into `hooks/useAppShellEvents.ts` so the renderer shell no longer owns the whole subscription block inline.
+- App shell maintainability: Move initial preference load, baseline-default application, refresh, and resolution-change sync out of `App.tsx` into `hooks/useAppPreferences.ts` so the renderer shell no longer owns the whole preference bootstrap pipeline inline.
+- App shell maintainability: Move launch confirmation, launch execution, running-state tracking, and process polling out of `App.tsx` into `hooks/useGameLaunchFlow.ts` so the renderer shell no longer owns the whole launch/process workflow inline.
+
 ## [0.7.34] - 2026-03-16
 
 - Game Manager maintainability: Move delete and remove-missing maintenance state/handlers into `gameManager/useGameManagerMaintenance.ts` so the modal shell carries less maintenance-side state and async workflow code.

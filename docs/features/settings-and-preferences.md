@@ -45,7 +45,7 @@ This parent file is the settings overview and routing document. Detailed behavio
 
 - Primary settings UI: [OnyxSettingsModal.tsx](../../renderer/src/components/OnyxSettingsModal.tsx)
 - Shared persistence: [UserPreferencesService.ts](../../main/UserPreferencesService.ts)
-- Runtime application of settings happens in [App.tsx](../../renderer/src/App.tsx), Electron bootstrap code, metadata services, import services, and launcher flows.
+- Runtime application of settings happens in [App.tsx](../../renderer/src/App.tsx), [useAppPreferences.ts](../../renderer/src/hooks/useAppPreferences.ts), Electron bootstrap code, metadata services, import services, and launcher flows.
 - Per-tab behavior is documented in [settings/README.md](./settings/README.md) and the linked tab docs.
 
 ## Data Model and Persistence
