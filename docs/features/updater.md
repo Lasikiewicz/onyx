@@ -80,5 +80,5 @@ Alpha builds use GitHub Releases API prerelease selection logic. Production uses
   - [App.tsx](../../renderer/src/App.tsx)
   - [types/game.ts](../../renderer/src/types/game.ts)
 - **Build/release config**
-  - `electron-builder.config.js`
-  - `package.json`
+  - [`electron-builder.config.js`](../../electron-builder.config.js)
+  - [`package.json`](../../package.json)

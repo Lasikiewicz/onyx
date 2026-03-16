@@ -44,7 +44,7 @@ CI runs these checks on PRs. There is no project-wide lint or format script; fol
 
 ## Maintainer-only scripts
 
-Scripts under `scripts/` that call the GitHub API (e.g. `create-pr.js`, `list-runs.js`, `post-pr-comment.js`, `fetch-failing-jobs.js`, `create-pr-credentials.js`) are intended for the canonical repository maintainers. They use `GHTOKEN` from the environment and may use `GITHUB_REPOSITORY` (or similar) for owner/repo; see the script files or README for usage.
+Scripts under `scripts/` that call the GitHub API (e.g. [`create-pr.js`](../scripts/create-pr.js), [`list-runs.js`](../scripts/list-runs.js), [`post-pr-comment.js`](../scripts/post-pr-comment.js), [`fetch-failing-jobs.js`](../scripts/fetch-failing-jobs.js), [`create-pr-credentials.js`](../scripts/create-pr-credentials.js)) are intended for the canonical repository maintainers. They use `GHTOKEN` from the environment and may use `GITHUB_REPOSITORY` (or similar) for owner/repo; see the script files or README for usage.
 
 ## Forks publishing their own builds
 

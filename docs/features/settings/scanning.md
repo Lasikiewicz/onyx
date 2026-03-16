@@ -27,7 +27,7 @@ Controls automatic background scans, scan interval, startup library refresh, and
 ## Discovery and Data Sources
 
 - UI: `OnyxSettingsModal` scanning tab.
-- Main consumers: startup sequencing in `main.ts` and background scan service handlers.
+- Main consumers: startup sequencing in [`main.ts`](../../../main/main.ts) and background scan service handlers.
 
 ## Data Model and Persistence
 

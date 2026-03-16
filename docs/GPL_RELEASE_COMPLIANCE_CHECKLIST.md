@@ -5,7 +5,7 @@ Use this checklist before publishing any installer/binary that includes GPL-cove
 ## Repository & Source
 - [ ] `LICENSE` contains full GNU GPL v3 text.
 - [ ] `README.md` license section matches `GPL-3.0-or-later`.
-- [ ] `package.json` and `package-lock.json` top-level license fields are aligned.
+- [ ] [`package.json`](../package.json) and [`package-lock.json`](../package-lock.json) top-level license fields are aligned.
 - [ ] Provenance doc is updated: `docs/NYRNA_PROVENANCE.md`.
 
 ## Notices & Attribution

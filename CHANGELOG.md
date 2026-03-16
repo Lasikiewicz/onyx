@@ -30,7 +30,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - Game Manager / Images tab: Keep users on the Images tab after selecting artwork and update the top preview strip immediately.
 - Game Manager / Images tab: Reuse already-loaded image results when clicking top image slots instead of re-running a full provider scan.
-- Docs/Agent: Move `agents.md` to project root (alongside `CHANGELOG.md`/`package.json`) so it is always loaded by AI tooling; update `doc-map.json` and `structure.md` references accordingly.
+- Docs/Agent: Move `agents.md` to project root (alongside `CHANGELOG.md`/[`package.json`](./package.json)) so it is always loaded by AI tooling; update [`doc-map.json`](.agent/docs/doc-map.json) and `structure.md` references accordingly.
 
 ## [0.7.19] - 2026-03-15
 
@@ -216,7 +216,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [0.6.21] - 2026-03-02
 
-- Build: Fix `MenuBar` prop mismatch in `App.tsx` by removing stale development-only props, resolving TypeScript build failure on CI.
+- Build: Fix `MenuBar` prop mismatch in [`App.tsx`](./renderer/src/App.tsx) by removing stale development-only props, resolving TypeScript build failure on CI.
 
 ## [0.6.20] - 2026-03-02
 
@@ -277,7 +277,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [0.6.2] - 2026-02-28
 
 - Storage: Isolate API credential keychain entries by build profile (dev/alpha/production) with legacy fallback reads.
-- Cache: Use the active `ImageCacheService` directory in `onyx-local` protocol resolution to avoid wrong-folder 404s.
+- Cache: Use the active [`ImageCacheService`](./main/ImageCacheService.ts) directory in `onyx-local` protocol resolution to avoid wrong-folder 404s.
 - Test: Add missing test dependencies so `vitest` runs without interactive install prompts.
 
 ## [0.6.1] - 2026-02-28

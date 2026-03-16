@@ -1,8 +1,8 @@
 # Onyx TODO
 
 ## Security
-- [x] **Sanitize game launch arguments** — `LauncherService.ts` now uses `spawn` with an arguments array and `shell: false` to prevent command injection while correctly handling paths.
-- [x] **Restrict `app:openExternal` URLs** — Validated URLs in `appHandlers.ts` to allow only allowed protocols (http, https, steam, epic, etc.).
+- [x] **Sanitize game launch arguments** — [`LauncherService.ts`](../main/LauncherService.ts) now uses `spawn` with an arguments array and `shell: false` to prevent command injection while correctly handling paths.
+- [x] **Restrict `app:openExternal` URLs** — Validated URLs in [`appHandlers.ts`](../main/ipc/appHandlers.ts) to allow only allowed protocols (http, https, steam, epic, etc.).
 
 ## Performance
 - [x] **Virtualize LibraryGrid** — Implemented CSS-based virtualization using `content-visibility: auto` and `contain-intrinsic-size` for zero-overhead performance gains.

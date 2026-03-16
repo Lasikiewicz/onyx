@@ -5,7 +5,7 @@ This folder contains AI-facing documentation used by workflow rules and document
 ## Core Governance
 
 - `structure.md` — file-area -> required-doc ownership map.
-- `doc-map.json` — machine-readable mapping used by `docs:sync` and `docs:check`.
+- [`doc-map.json`](./doc-map.json) — machine-readable mapping used by `docs:sync` and `docs:check`.
 - `architecture.md` — architecture, data flow, and build/release documentation requirements.
 
 ## Operational References

@@ -137,4 +137,4 @@ Icons are automatically:
 - ✅ Validated before builds (`prebuild` hook)
 - ✅ Generated and validated before distribution builds (`predist` hook)
 - ✅ Validated in CI/CD pipelines
-- ✅ Included in packaged app via `extraResources` in `package.json`
+- ✅ Included in packaged app via `extraResources` in [`package.json`](../package.json)

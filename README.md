@@ -244,11 +244,11 @@ Before editing code, check `.agent/docs/structure.md` to identify which document
 
 ### Maintainer scripts (GitHub API)
 
-Scripts that call the GitHub API (e.g. `create-pr.js`, `create-pr-credentials.js`, `list-runs.js`, `post-pr-comment.js`, `fetch-failing-jobs.js`) are for maintainers of the canonical repo. They read:
+Scripts that call the GitHub API (e.g. [`create-pr.js`](./scripts/create-pr.js), [`create-pr-credentials.js`](./scripts/create-pr-credentials.js), [`list-runs.js`](./scripts/list-runs.js), [`post-pr-comment.js`](./scripts/post-pr-comment.js), [`fetch-failing-jobs.js`](./scripts/fetch-failing-jobs.js)) are for maintainers of the canonical repo. They read:
 
 - **`GHTOKEN`** (required) — GitHub token with appropriate scopes (e.g. `repo`, `workflow`).
 - **`GITHUB_REPOSITORY`** (optional) — `owner/repo`; default `Lasikiewicz/onyx`. Set this when running against a fork (e.g. `youruser/onyx`).
-- **`GITHUB_ISSUE_NUMBER`** (optional) — Used by `post-pr-comment.js` only; default `3`.
+- **`GITHUB_ISSUE_NUMBER`** (optional) — Used by [`post-pr-comment.js`](./scripts/post-pr-comment.js) only; default `3`.
 
 Do not put tokens in `.env` or commit them; set them in your shell (e.g. `$env:GHTOKEN = 'ghp_xxx'` in PowerShell). See [.github/CONTRIBUTING.md](.github/CONTRIBUTING.md#maintainer-only-scripts) for more.
 
@@ -275,7 +275,7 @@ The app uses ContextBridge for secure IPC communication. The preload script expo
 
 ## Build Configuration
 
-The build configuration is managed in `electron-builder.config.js`, which supports dynamic configuration based on the `BUILD_PROFILE` environment variable:
+The build configuration is managed in [`electron-builder.config.js`](./electron-builder.config.js), which supports dynamic configuration based on the `BUILD_PROFILE` environment variable:
 
 - `BUILD_PROFILE=alpha` - Configures for Alpha builds
 - `BUILD_PROFILE=production` - Configures for Production builds (default)

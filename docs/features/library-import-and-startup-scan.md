@@ -56,7 +56,7 @@ Finds games from configured launchers/folders and imports them into the local li
 ### Symptom: Scan runs but finds zero games
 
 - Validate launcher paths/config in settings.
-- Check per-launcher detection output from `LauncherDetectionService`.
+- Check per-launcher detection output from [`LauncherDetectionService`](../../main/LauncherDetectionService.ts).
 - Verify any manual folders exist and are accessible.
 
 ### Symptom: Duplicate games appear
