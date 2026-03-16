@@ -44,6 +44,10 @@ Left panel of the library window that shows the list of games as tiles (grid/lis
 
 - When categories are off or categories are at bottom, the left panel content has top padding. The right panel must get pt-4 via `rightPanelNeedsTopPadding` in [App.tsx](../../../../renderer/src/App.tsx) so content aligns.
 
+### Symptom: Right-click menu appears cramped near the screen edge
+
+- The library right-click settings menu anchors by screen half: left half opens to the right of the cursor, right half opens to the left, then clamps to viewport bounds with a 10px margin in [RightClickMenu.tsx](../../../../renderer/src/components/RightClickMenu.tsx).
+
 ## File Ownership Map
 
 - **Renderer**

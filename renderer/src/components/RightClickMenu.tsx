@@ -346,15 +346,21 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
       const rect = menuRef.current.getBoundingClientRect();
       const viewportWidth = window.innerWidth;
       const viewportHeight = window.innerHeight;
+      const margin = 10;
 
-      if (x + rect.width > viewportWidth) {
-        menuRef.current.style.left = `${viewportWidth - rect.width - 10}px`;
-      }
-      if (y + rect.height > viewportHeight) {
-        menuRef.current.style.top = `${viewportHeight - rect.height - 10}px`;
-      }
+      // Open to the right on the left half of the screen, and to the left on the right half.
+      const shouldOpenLeft = x > viewportWidth / 2;
+      let left = shouldOpenLeft ? x - rect.width : x;
+      let top = y;
+
+      // Clamp to viewport so the menu remains fully visible.
+      left = Math.max(margin, Math.min(left, viewportWidth - rect.width - margin));
+      top = Math.max(margin, Math.min(top, viewportHeight - rect.height - margin));
+
+      menuRef.current.style.left = `${left}px`;
+      menuRef.current.style.top = `${top}px`;
     }
-  }, [x, y]);
+  }, [x, y, viewMode]);
 
   const handleViewModeChange = (mode: 'grid' | 'list' | 'logo' | 'carousel' | 'coverflow') => {
     if (onViewModeChange) {

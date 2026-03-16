@@ -4,6 +4,10 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.7.25] - 2026-03-16
+
+- Right-click menu: Library appearance/settings context menu now opens away from the nearest horizontal edge (left half opens right; right half opens left) and clamps to viewport bounds to prevent squashing when opened near screen edges.
+
 ## [0.7.24] - 2026-03-16
 
 - Metadata: Steam-backed game descriptions now prefer the Steam Store `about_the_game` field so the game details panel shows the richer About the Game content after metadata refresh.
