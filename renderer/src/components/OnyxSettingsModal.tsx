@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import iconPng from '../../../resources/icon.png';
-import iconSvg from '../../../resources/icon.svg';
 import { SettingsLayout } from './settings/SettingsLayout';
 import { SettingsSidebar, SettingsTab } from './settings/SettingsSidebar';
 import { SettingsSection, SettingsToggle, SettingsInput } from './settings/SettingsComponents';
+import { SettingsIntegrationsTab } from './settings/SettingsIntegrationsTab';
+import { SettingsAboutTab } from './settings/SettingsAboutTab';
 import { LINK_DISPLAY_ORDER, DEFAULT_VISIBLE_LINK_TYPES, LINK_DISPLAY_NAME_TO_KEY, LinkIcon } from './GameLinks';
 import { LauncherIcon } from '../utils/launcherIcons';
 import manualFolderIconBaseline from '../assets/manual-folder-icons/baseline-games.svg';
@@ -617,6 +617,48 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
       return updated;
     });
 
+  };
+
+  const handleCheckForUpdates = async () => {
+    setUpdateError(null);
+
+    if (!isPackagedApp) {
+      setUpdateStatus('error');
+      setUpdateError('Updater is only available in installed builds.');
+      return;
+    }
+
+    if (updateCheckTimeoutRef.current) {
+      clearTimeout(updateCheckTimeoutRef.current);
+      updateCheckTimeoutRef.current = null;
+    }
+
+    setUpdateStatus('checking');
+    await window.electronAPI.checkForUpdates?.();
+
+    updateCheckTimeoutRef.current = setTimeout(() => {
+      setUpdateStatus((prev) => {
+        if (prev !== 'checking') return prev;
+        setUpdateError('Update check timed out. Please try again.');
+        return 'error';
+      });
+      updateCheckTimeoutRef.current = null;
+    }, 15000);
+  };
+
+  const handleDownloadUpdate = async () => {
+    setUpdateStatus('downloading');
+    const result = await window.electronAPI.downloadUpdate?.();
+    if (result?.success) {
+      setUpdateStatus('downloaded');
+      return;
+    }
+
+    setUpdateError(result?.error ?? 'Download failed');
+  };
+
+  const handleOpenBugReportFromAbout = () => {
+    onClose();
   };
 
 
@@ -1629,209 +1671,15 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
             )
           }
 
-          {
-            activeTab === 'integrations' && (
-              <div className="space-y-6 animate-fade-in p-6">
-                <div className="space-y-1 mb-6">
-                  <h3 className="text-lg font-semibold text-white mb-2">API Integrations</h3>
-                  <p className="text-gray-400 text-sm">
-                    Configure external services for metadata and images.
-                  </p>
-                </div>
-
-                {/* Tabs */}
-                <div className="flex space-x-6 border-b border-gray-700/50 mb-6">
-                  {(['steamgriddb', 'igdb', 'rawg', 'giantbomb'] as const).map((tab) => (
-                    <button
-                      key={tab}
-                      onClick={() => setActiveAPITab(tab)}
-                      className={`pb-3 text-sm font-medium transition-all duration-200 border-b-2 capitalize relative ${activeAPITab === tab
-                        ? 'border-blue-500 text-blue-400'
-                        : 'border-transparent text-gray-400 hover:text-gray-200'
-                        }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        {tab === 'steamgriddb' ? 'SteamGridDB (Mandatory)' :
-                          tab === 'igdb' ? 'IGDB (Optional)' :
-                            tab === 'rawg' ? 'RAWG (Optional)' :
-                              'Giant Bomb (Unavailable)'}
-                        {((tab === 'igdb' && apiStatus.igdbConfigured) ||
-                          (tab === 'steamgriddb' && apiStatus.steamGridDBConfigured) ||
-                          (tab === 'rawg' && apiStatus.rawgConfigured)) && (
-                            <svg className="w-3.5 h-3.5 text-green-500 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                            </svg>
-                          )}
-                      </div>
-                    </button>
-                  ))}
-                </div>
-
-                {/* Content */}
-                <div className="animate-fade-in">
-                  {/* SteamGridDB Input */}
-                  {activeAPITab === 'steamgriddb' && (
-                    <div className="space-y-6">
-                      <SettingsInput
-                        label="API Key"
-                        value={apiCredentials.steamGridDBApiKey}
-                        onChange={(val) => handleAPIInputChange('steamGridDBApiKey', val)}
-                        placeholder="SteamGridDB API Key"
-                        type="password"
-                        description="Required for searching games and fetching artwork."
-                      />
-                    </div>
-                  )}
-
-                  {/* IGDB Inputs */}
-                  {activeAPITab === 'igdb' && (
-                    <div className="space-y-6">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <SettingsInput
-                          label="Client ID"
-                          value={apiCredentials.igdbClientId}
-                          onChange={(val) => handleAPIInputChange('igdbClientId', val)}
-                          placeholder="IGDB Client ID"
-                          description="Optional game metadata"
-                        />
-                        <SettingsInput
-                          label="Client Secret"
-                          value={apiCredentials.igdbClientSecret}
-                          onChange={(val) => handleAPIInputChange('igdbClientSecret', val)}
-                          placeholder="IGDB Client Secret"
-                          type="password"
-                          description="Keep this secret safe"
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  {/* RAWG Input */}
-                  {activeAPITab === 'rawg' && (
-                    <div className="space-y-6">
-                      <SettingsInput
-                        label="API Key"
-                        value={apiCredentials.rawgApiKey}
-                        onChange={(val) => handleAPIInputChange('rawgApiKey', val)}
-                        placeholder="RAWG API Key"
-                        type="password"
-                        description="Alternative metadata source (Optional)"
-                      />
-                    </div>
-                  )}
-
-                  {/* Giant Bomb Input */}
-                  {activeAPITab === 'giantbomb' && (
-                    <div className="space-y-6">
-                      <div className="p-4 bg-red-900/10 border border-red-500/20 rounded-lg">
-                        <div className="flex items-center gap-2 mb-2">
-                          <svg className="w-5 h-5 text-red-400 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                          </svg>
-                          <span className="text-red-400 font-medium">API Currently Unavailable</span>
-                        </div>
-                        <p className="text-sm text-red-300">
-                          Giant Bomb is rebuilding their API infrastructure after becoming independent from Fandom. The API is temporarily offline while they migrate their tech stack.
-                        </p>
-                      </div>
-                      <SettingsInput
-                        label="API Key (When Available)"
-                        value={apiCredentials.giantBombApiKey}
-                        onChange={(val) => handleAPIInputChange('giantBombApiKey', val)}
-                        placeholder="Giant Bomb API Key"
-                        type="password"
-                        description="Additional metadata and artwork source (Currently Unavailable)"
-                        disabled={true}
-                      />
-                    </div>
-                  )}
-                </div>
-              </div>
-            )
-          }
-
           {activeTab === 'integrations' && (
-            /* Scrollable Instructions */
-            <div className="flex-1 overflow-y-auto p-6 border-t border-gray-700/50">
-              <div className="space-y-6 animate-slide-up">
-                {activeAPITab === 'igdb' && (
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-2 text-blue-400 mb-2">
-                      <span className="text-sm font-semibold uppercase tracking-wider">Instructions</span>
-                    </div>
-                    <h4 className="text-lg font-medium text-white">How to configure IGDB</h4>
-                    <ol className="space-y-3 list-decimal list-inside text-gray-300 text-sm pl-2">
-                      <li>Log in to the <button onClick={() => window.electronAPI?.openExternal('https://dev.twitch.tv/console')} className="text-blue-400 hover:text-blue-300 underline">Twitch Developer Console</button></li>
-                      <li>Click <span className="font-semibold text-white">"Register Your Application"</span></li>
-                      <li>Name it (e.g. "Onyx"), set Category to <span className="font-semibold text-white">"Game Integration"</span>, and set OAuth Redirect URL to <code className="bg-gray-800/50 px-1.5 py-0.5 rounded text-blue-300">http://localhost</code></li>
-                      <li>Click <span className="font-semibold text-white">"Create"</span>, then <span className="font-semibold text-white">"Manage"</span></li>
-                      <li>Copy the <strong className="text-white">Client ID</strong></li>
-                      <li>Click <span className="font-semibold text-white">"New Secret"</span> to generate a <strong className="text-white">Client Secret</strong></li>
-                    </ol>
-                    <div className="p-4 bg-blue-900/10 border border-blue-500/10 rounded-lg mt-4">
-                      <p className="text-xs text-blue-300">IGDB provides essential metadata like release dates, genres, and summaries.</p>
-                    </div>
-                  </div>
-                )}
-
-                {activeAPITab === 'steamgriddb' && (
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-2 text-blue-400 mb-2">
-                      <span className="text-sm font-semibold uppercase tracking-wider">Instructions</span>
-                    </div>
-                    <h4 className="text-lg font-medium text-white">How to configure SteamGridDB</h4>
-                    <ol className="space-y-3 list-decimal list-inside text-gray-300 text-sm pl-2">
-                      <li>Log in to the <button onClick={() => window.electronAPI?.openExternal('https://www.steamgriddb.com/profile/preferences/api')} className="text-blue-400 hover:text-blue-300 underline">SteamGridDB API Page</button></li>
-                      <li>Click the <span className="font-semibold text-white">"Generate API Key"</span> button</li>
-                      <li>Copy the generated key and paste it into the field above</li>
-                    </ol>
-                    <div className="p-4 bg-blue-900/10 border border-blue-500/10 rounded-lg mt-4">
-                      <p className="text-xs text-blue-300">SteamGridDB is the best source for high-quality vertical covers, heroes, and logos.</p>
-                    </div>
-                  </div>
-                )}
-
-                {activeAPITab === 'rawg' && (
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-2 text-blue-400 mb-2">
-                      <span className="text-sm font-semibold uppercase tracking-wider">Instructions</span>
-                    </div>
-                    <h4 className="text-lg font-medium text-white">How to configure RAWG</h4>
-                    <ol className="space-y-3 list-decimal list-inside text-gray-300 text-sm pl-2">
-                      <li>Sign up for an account at <button onClick={() => window.electronAPI?.openExternal('https://rawg.io/apidocs')} className="text-blue-400 hover:text-blue-300 underline">RAWG API</button></li>
-                      <li>Click <span className="font-semibold text-white">"Get API Key"</span> on your profile or API page</li>
-                      <li>Copy the key and paste it into the field above</li>
-                    </ol>
-                    <div className="p-4 bg-blue-900/10 border border-blue-500/10 rounded-lg mt-4">
-                      <p className="text-xs text-blue-300">RAWG is an optional secondary source for metadata.</p>
-                    </div>
-                  </div>
-                )}
-
-                {activeAPITab === 'giantbomb' && (
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-2 text-red-400 mb-2">
-                      <span className="text-sm font-semibold uppercase tracking-wider">Status Update</span>
-                    </div>
-                    <h4 className="text-lg font-medium text-white">Giant Bomb API Status</h4>
-                    <div className="p-4 bg-red-900/10 border border-red-500/20 rounded-lg">
-                      <p className="text-sm text-gray-300 mb-3">
-                        Giant Bomb has become independent from Fandom and is currently rebuilding their entire tech stack. During this transition, their API is temporarily unavailable.
-                      </p>
-                      <p className="text-sm text-gray-300 mb-3">
-                        <strong>What this means for Onyx:</strong> The Giant Bomb metadata provider is currently disabled. You can still configure your API key for when the service becomes available again.
-                      </p>
-                      <p className="text-sm text-gray-300">
-                        <strong>Future plans:</strong> Giant Bomb is working on an open source wiki project. Check <button onClick={() => window.electronAPI?.openExternal('https://bombcast.com/wiki')} className="text-blue-400 hover:text-blue-300 underline">bombcast.com/wiki</button> for updates and contribution opportunities.
-                      </p>
-                    </div>
-                    <div className="p-4 bg-blue-900/10 border border-blue-500/10 rounded-lg mt-4">
-                      <p className="text-xs text-blue-300">When the API becomes available again, Giant Bomb will provide high-quality game metadata and artwork as an additional source.</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
+            <SettingsIntegrationsTab
+              activeAPITab={activeAPITab}
+              apiCredentials={apiCredentials}
+              apiStatus={apiStatus}
+              onActiveTabChange={setActiveAPITab}
+              onAPIInputChange={handleAPIInputChange}
+              onOpenExternal={(url) => void window.electronAPI?.openExternal(url)}
+            />
           )}
 
           {activeTab === 'links' && (
@@ -2212,270 +2060,32 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
           {/* DISABLED: Suspend feature (Future Feature) */}
 
 
-          {
-            activeTab === 'about' && (
-              <div className="flex flex-col items-center justify-center h-full text-center space-y-6 p-8">
-                {/* Header Section */}
-                <div className="flex flex-col items-center animate-fade-in">
-                  <img
-                    src={iconPng}
-                    alt="Onyx Logo"
-                    className="w-24 h-24 mb-4 drop-shadow-[0_0_15px_rgba(14,165,233,0.3)]"
-                    onError={(e) => {
-                      const target = e.target as HTMLImageElement;
-                      target.src = iconSvg;
-                    }}
-                  />
-                  <h2 className="text-3xl font-bold text-white tracking-wide">Onyx{__BUILD_PROFILE__ === 'alpha' ? ' Alpha' : ''}</h2>
-                  <span className="text-sm font-medium text-slate-500 mt-1">v{appVersion}</span>
-                </div>
+          {activeTab === 'about' && (
+            <SettingsAboutTab
+              appVersion={appVersion}
+              isAlphaBuild={__BUILD_PROFILE__ === 'alpha'}
+              isPackagedApp={isPackagedApp}
+              updateStatus={updateStatus}
+              updateVersion={updateVersion}
+              updateError={updateError}
+              onCheckForUpdates={handleCheckForUpdates}
+              onDownloadUpdate={handleDownloadUpdate}
+              onRestartToUpdate={() => window.electronAPI.quitAndInstall?.()}
+              onBugReportClick={handleOpenBugReportFromAbout}
+              onOpenExternal={async (url) => {
+                try {
+                  const result = await window.electronAPI.openExternal(url);
+                  if (!result.success) {
+                    console.error('Failed to open external URL:', result.error);
+                  }
+                } catch (error) {
+                  console.error('Failed to open external URL:', error);
+                }
+              }}
+            />
+          )}
 
-                {/* Check for updates (packaged app only) */}
-                {window.electronAPI.checkForUpdates && (
-                  <div className="flex flex-col items-center gap-3 mt-2">
-                    <button
-                      onClick={async () => {
-                        setUpdateError(null);
 
-                        if (!isPackagedApp) {
-                          setUpdateStatus('error');
-                          setUpdateError('Updater is only available in installed builds.');
-                          return;
-                        }
-
-                        if (updateCheckTimeoutRef.current) {
-                          clearTimeout(updateCheckTimeoutRef.current);
-                          updateCheckTimeoutRef.current = null;
-                        }
-
-                        setUpdateStatus('checking');
-                        await window.electronAPI.checkForUpdates?.();
-
-                        updateCheckTimeoutRef.current = setTimeout(() => {
-                          setUpdateStatus((prev) => {
-                            if (prev !== 'checking') return prev;
-                            setUpdateError('Update check timed out. Please try again.');
-                            return 'error';
-                          });
-                          updateCheckTimeoutRef.current = null;
-                        }, 15000);
-                      }}
-                      disabled={updateStatus === 'checking' || updateStatus === 'downloading'}
-                      className="px-4 py-2 rounded-lg bg-slate-700/50 text-slate-200 hover:bg-slate-600/50 transition-colors border border-slate-600/50 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
-                    >
-                      {updateStatus === 'checking' || updateStatus === 'downloading' ? 'Checking...' : 'Check for Updates'}
-                    </button>
-                    {updateStatus === 'available' && updateVersion && (
-                      <div className="flex flex-col items-center gap-2">
-                        <p className="text-sm text-emerald-400">Update available: v{updateVersion}</p>
-                        <button
-                          onClick={async () => {
-                            setUpdateStatus('downloading');
-                            const result = await window.electronAPI.downloadUpdate?.();
-                            if (result?.success) setUpdateStatus('downloaded');
-                            else setUpdateError(result?.error ?? 'Download failed');
-                          }}
-                          className="px-4 py-2 rounded-lg bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600/30 border border-emerald-500/30 text-sm font-medium"
-                        >
-                          Download Update
-                        </button>
-                      </div>
-                    )}
-                    {updateStatus === 'downloaded' && (
-                      <div className="flex flex-col items-center gap-2">
-                        <p className="text-sm text-emerald-400">Update ready. Restart to install.</p>
-                        <button
-                          onClick={() => window.electronAPI.quitAndInstall?.()}
-                          className="px-4 py-2 rounded-lg bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600/30 border border-emerald-500/30 text-sm font-medium"
-                        >
-                          Restart to Update
-                        </button>
-                      </div>
-                    )}
-                    {updateStatus === 'not-available' && (
-                      <p className="text-sm text-slate-500">You’re on the latest version.</p>
-                    )}
-                    {updateStatus === 'error' && updateError && (
-                      <p className="text-sm text-red-400 max-w-xs text-center">{updateError}</p>
-                    )}
-                  </div>
-                )}
-
-                {/* Bug Report Button (Alpha only) */}
-                {__BUILD_PROFILE__ === 'alpha' && (
-                  <button
-                    onClick={() => {
-                      onClose();
-                      // We need a way to open the bug report modal from here
-                      // For now, it's just in the MenuBar, but we could add it here too
-                      // For now I will just show it in the MenuBar as before
-                    }}
-                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-yellow-500/10 text-yellow-500 hover:bg-yellow-500/20 transition-all duration-300 border border-yellow-500/20"
-                  >
-                    Found a bug?
-                  </button>
-                )}
-
-                {/* Bio / Story */}
-                <div className="max-w-md space-y-4">
-                  <p className="text-slate-400 leading-relaxed">
-                    Onyx is a passion project built by a single developer who just wanted a better way to launch games.
-                  </p>
-                  <p className="text-slate-400 leading-relaxed font-medium">
-                    No ads, no bloat—just games.
-                  </p>
-                  {/* API Credits */}
-                  <div className="pt-4 border-t border-slate-700/50 mt-4 space-y-1">
-                    <p className="text-xs text-slate-500">
-                      Powered by <span className="text-slate-400 font-medium">IGDB</span>, <span className="text-slate-400 font-medium">SteamGridDB</span>, and <span className="text-slate-400 font-medium">RAWG.io</span>
-                    </p>
-                    <p className="text-xs text-slate-500">
-                      Link icons by{' '}
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          try {
-                            const result = await window.electronAPI.openExternal('https://allsvgicons.com');
-                            if (!result.success) {
-                              console.error('Failed to open external URL:', result.error);
-                            }
-                          } catch (error) {
-                            console.error('Failed to open external URL:', error);
-                          }
-                        }}
-                        className="text-slate-400 font-medium hover:text-sky-400 transition-colors underline"
-                      >
-                        allsvgicons.com
-                      </button>
-                    </p>
-                  </div>
-
-                  <div className="pt-4 border-t border-slate-700/50 mt-4 space-y-2 text-xs text-slate-500">
-                    <p>
-                      Licensed under <span className="text-slate-300 font-medium">GNU GPL v3.0-or-later</span>. You can review the license text in this repository.
-                    </p>
-                    <p>
-                      Suspend/Resume integration thanks to{' '}
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          try {
-                            const result = await window.electronAPI.openExternal('https://nyrna.merritt.codes/');
-                            if (!result.success) {
-                              console.error('Failed to open external URL:', result.error);
-                            }
-                          } catch (error) {
-                            console.error('Failed to open Nyrna link:', error);
-                          }
-                        }}
-                        className="text-slate-300 font-medium hover:text-sky-400 transition-colors underline"
-                      >
-                        Nyrna
-                      </button>
-                    </p>
-                  </div>
-                </div>
-
-                {/* Social Actions Row */}
-                <div className="flex items-center gap-4 mt-4">
-                  {/* Discord */}
-                  <button
-                    onClick={async () => {
-                      try {
-                        if (window.electronAPI && window.electronAPI.openExternal) {
-                          const result = await window.electronAPI.openExternal('https://discord.gg/m2dgd4ZUPu');
-                          if (!result.success) {
-                            console.error('Failed to open external URL:', result.error);
-                          }
-                        }
-                      } catch (error) {
-                        console.error('Failed to open external URL:', error);
-                      }
-                    }}
-                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#5865F2]/10 text-[#5865F2] hover:bg-[#5865F2]/20 transition-all duration-300 border border-[#5865F2]/20 hover:scale-105"
-                  >
-                    <svg className="w-[18px] h-[18px] group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                    </svg>
-                    <span>Join Discord</span>
-                  </button>
-
-                  {/* Official Website */}
-                  <button
-                    onClick={async () => {
-                      try {
-                        if (window.electronAPI && window.electronAPI.openExternal) {
-                          const result = await window.electronAPI.openExternal('https://onyxlauncher.co.uk/');
-                          if (!result.success) {
-                            console.error('Failed to open external URL:', result.error);
-                          }
-                        }
-                      } catch (error) {
-                        console.error('Failed to open external URL:', error);
-                      }
-                    }}
-                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-700/10 text-slate-200 hover:bg-slate-700/20 transition-all duration-300 border border-slate-700/20 hover:scale-105"
-                  >
-                    <svg className="w-[18px] h-[18px] group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 2a10 10 0 100 20 10 10 0 000-20zM2 12h20M12 2v20" />
-                    </svg>
-                    <span>Official Website</span>
-                  </button>
-
-                  {/* Reddit */}
-                  <button
-                    onClick={async () => {
-                      try {
-                        if (window.electronAPI && window.electronAPI.openExternal) {
-                          const result = await window.electronAPI.openExternal('https://www.reddit.com/r/OnyxLauncher/');
-                          if (!result.success) {
-                            console.error('Failed to open external URL:', result.error);
-                          }
-                        }
-                      } catch (error) {
-                        console.error('Failed to open external URL:', error);
-                      }
-                    }}
-                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#FF4500]/10 text-[#FF4500] hover:bg-[#FF4500]/20 transition-all duration-300 border border-[#FF4500]/20 hover:scale-105"
-                  >
-                    <svg className="w-[18px] h-[18px] group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M22 12c0 5.523-4.477 10-10 10S2 17.523 2 12 6.477 2 12 2s10 4.477 10 10zM12 8a1.5 1.5 0 110-3 1.5 1.5 0 010 3zM7.5 13.5c1.5 1 4.5 1 6 0M16.5 13.5c-1.5 1-4.5 1-6 0" />
-                    </svg>
-                    <span>Visit Reddit</span>
-                  </button>
-
-                  {/* Ko-fi Support */}
-                  <button
-                    onClick={async () => {
-                      try {
-                        if (window.electronAPI && window.electronAPI.openExternal) {
-                          const result = await window.electronAPI.openExternal('https://ko-fi.com/oynxgilga');
-                          if (!result.success) {
-                            console.error('Failed to open external URL:', result.error);
-                          }
-                        }
-                      } catch (error) {
-                        console.error('Failed to open external URL:', error);
-                      }
-                    }}
-                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-rose-500/10 text-rose-500 hover:bg-rose-500/20 transition-all duration-300 border border-rose-500/20 hover:scale-105"
-                  >
-                    <svg className="w-[18px] h-[18px] group- hover:animate-wobble group-hover:animate-wobble" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                    </svg>
-                    <span>Support Onyx</span>
-                  </button>
-                </div>
-
-                {/* Footer */}
-                <div className="mt-auto pt-12">
-                  <p className="text-xs text-slate-700">
-                    © 2026 Onyx. All rights reserved.
-                  </p>
-                </div>
-              </div>
-            )
-          }
         </div>
 
         {/* Footer */}
@@ -2497,6 +2107,8 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
     </SettingsLayout >
   );
 };
+
+
 
 
 

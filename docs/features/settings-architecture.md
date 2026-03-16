@@ -19,6 +19,7 @@ This is the architecture-level companion to the user-facing settings overview in
 ## User-Facing Surfaces
 
 - The main settings UI in [`OnyxSettingsModal.tsx`](../../renderer/src/components/OnyxSettingsModal.tsx), which collects tab-level settings changes from the user.
+- Tab-specific renderer slices in [`renderer/src/components/settings/`](../../renderer/src/components/settings), which now hold larger tab bodies such as [`SettingsIntegrationsTab.tsx`](../../renderer/src/components/settings/SettingsIntegrationsTab.tsx) and [`SettingsAboutTab.tsx`](../../renderer/src/components/settings/SettingsAboutTab.tsx) so the modal shell does not own every tab inline.
 - The shell/runtime consumers in [`App.tsx`](../../renderer/src/App.tsx), [`useAppPreferences.ts`](../../renderer/src/hooks/useAppPreferences.ts), and [`useGameLaunchFlow.ts`](../../renderer/src/hooks/useGameLaunchFlow.ts), which apply settings that need to affect the renderer immediately.
 - Main-process consumers such as [`main.ts`](../../main/main.ts), [`startupCoordinator.ts`](../../main/startupCoordinator.ts), tray/window code, scanning services, and updater services that read preferences at startup or on demand.
 - Specialized settings tabs documented in [settings/README.md](./settings/README.md), which define the detailed per-tab behavior and UI.
@@ -79,7 +80,9 @@ This is the architecture-level companion to the user-facing settings overview in
 
 ## File Ownership Map
 
-- [`OnyxSettingsModal.tsx`](../../renderer/src/components/OnyxSettingsModal.tsx) - primary renderer settings UI and tab routing.
+- [`OnyxSettingsModal.tsx`](../../renderer/src/components/OnyxSettingsModal.tsx) - primary renderer settings UI, shared modal state, and tab routing.
+- [`SettingsIntegrationsTab.tsx`](../../renderer/src/components/settings/SettingsIntegrationsTab.tsx) - extracted API credentials and integration instructions tab UI.
+- [`SettingsAboutTab.tsx`](../../renderer/src/components/settings/SettingsAboutTab.tsx) - extracted About tab UI for updater actions, credits, and external project links.
 - [`useAppPreferences.ts`](../../renderer/src/hooks/useAppPreferences.ts) - renderer bootstrap and explicit preference refresh/application for the shell.
 - [`App.tsx`](../../renderer/src/App.tsx) - root renderer consumer for many persisted layout/display/shell settings.
 - [`useGameLaunchFlow.ts`](../../renderer/src/hooks/useGameLaunchFlow.ts) - renderer launch behavior consumer for launch-related settings.

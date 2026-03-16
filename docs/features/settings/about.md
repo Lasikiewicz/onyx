@@ -9,6 +9,7 @@ Provides version, project, and update-related information inside the settings mo
 - `Onyx Settings` -> `About` tab.
 - Update information and app metadata.
 - Credits and project references.
+- External project links for Discord, website, Reddit, Ko-fi, link-icon attribution, and Nyrna credit.
 
 ## Settings and Toggles
 
@@ -20,10 +21,11 @@ Provides version, project, and update-related information inside the settings mo
 1. User opens the tab.
 2. Renderer displays current version/update state.
 3. If update actions are available, renderer invokes updater IPC calls.
+4. If the user opens a project/support link, the renderer uses the preload `openExternal` bridge.
 
 ## Discovery and Data Sources
 
-- UI in `OnyxSettingsModal` about tab.
+- UI is now rendered by [`SettingsAboutTab.tsx`](../../../renderer/src/components/settings/SettingsAboutTab.tsx) and mounted from [`OnyxSettingsModal.tsx`](../../../renderer/src/components/OnyxSettingsModal.tsx).
 - Update state supplied by app/update services.
 
 ## Data Model and Persistence
@@ -42,6 +44,8 @@ Provides version, project, and update-related information inside the settings mo
 
 - **Renderer**
   - [OnyxSettingsModal.tsx](../../../renderer/src/components/OnyxSettingsModal.tsx)
+  - [SettingsAboutTab.tsx](../../../renderer/src/components/settings/SettingsAboutTab.tsx)
 - **Main process**
   - [AppUpdateService.ts](../../../main/AppUpdateService.ts)
   - [main.ts](../../../main/main.ts)
+  - [preload.ts](../../../main/preload.ts)

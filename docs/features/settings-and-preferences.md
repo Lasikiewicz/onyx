@@ -16,6 +16,7 @@ This parent file is the settings overview and routing document. Detailed behavio
 ## User-Facing Surfaces
 
 - `Onyx Settings` modal ([OnyxSettingsModal.tsx](../../renderer/src/components/OnyxSettingsModal.tsx)).
+- Extracted tab components under [`renderer/src/components/settings/`](../../renderer/src/components/settings), including [`SettingsIntegrationsTab.tsx`](../../renderer/src/components/settings/SettingsIntegrationsTab.tsx) and [`SettingsAboutTab.tsx`](../../renderer/src/components/settings/SettingsAboutTab.tsx), which now carry the heaviest tab-specific layouts and help keep the modal shell smaller.
 - Main settings tabs:
   - [General](./settings/general.md)
   - [Animations](./settings/animations.md)
@@ -45,6 +46,7 @@ This parent file is the settings overview and routing document. Detailed behavio
 ## Discovery and Data Sources
 
 - Primary settings UI: [OnyxSettingsModal.tsx](../../renderer/src/components/OnyxSettingsModal.tsx)
+- Extracted tab bodies: [SettingsIntegrationsTab.tsx](../../renderer/src/components/settings/SettingsIntegrationsTab.tsx) and [SettingsAboutTab.tsx](../../renderer/src/components/settings/SettingsAboutTab.tsx)
 - Shared persistence: [UserPreferencesService.ts](../../main/UserPreferencesService.ts)
 - Runtime application of settings happens in [App.tsx](../../renderer/src/App.tsx), [useAppPreferences.ts](../../renderer/src/hooks/useAppPreferences.ts), Electron bootstrap code, metadata services, import services, and launcher flows.
 - Per-tab behavior is documented in [settings/README.md](./settings/README.md) and the linked tab docs.

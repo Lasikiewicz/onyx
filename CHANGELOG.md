@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Pending]
 
+- Settings maintainability: Move the Integrations and About tab bodies out of `OnyxSettingsModal.tsx` into dedicated `SettingsIntegrationsTab.tsx` and `SettingsAboutTab.tsx` components so the main settings shell can keep shrinking without losing updater/about behavior.
+
 ## [0.7.35] - 2026-03-16
 
 - App shell maintainability: Add a dedicated `docs/features/app-shell.md` runbook and make it first-class in the feature index/doc map so `App.tsx` has a clear source-of-truth owner document.
