@@ -1,7 +1,7 @@
 {
   "name": "onyx-launcher",
   "productName": "Onyx",
-  "version": "0.7.30",
+  "version": "0.7.31",
   "description": "The premium unified game library.",
   "main": "dist-electron/main.js",
   "scripts": {
@@ -27,12 +27,12 @@
     "test:credentials:mock": "node scripts/test-credentials-migration-mock.js",
     "test:credentials:service-mock": "node scripts/test-credentials-service-mock.js",
     "test:suspend:service-mock": "node scripts/test-suspend-service-mock.js",
-    "generate-icons": "node scripts/generate-icons.js",
+    "generate-icons": "node scripts/generate-icons.mjs",
     "download-link-icons": "node scripts/download-uxwing-link-icons.js",
     "download-simple-icons": "node scripts/download-simple-icons.js",
     "prebuild": "npm run clean && npm run validate-icons",
     "predist": "npm run clean && npm run generate-icons && npm run validate-icons",
-    "increment-build": "node scripts/increment-build.js",
+    "increment-build": "node scripts/increment-build.mjs",
     "release-notes:alpha": "node scripts/generate-release-notes.js --mode alpha --changelog CHANGELOG.md",
     "release-notes:main": "node scripts/generate-release-notes.js --mode main --changelog CHANGELOG.md",
     "dist": "npm run predist && tsc && vite build && tsc -p main/tsconfig.json && tsc -p main/tsconfig.preload.json && electron-builder --config electron-builder.config.js",

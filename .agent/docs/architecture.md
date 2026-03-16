@@ -44,6 +44,7 @@ It explains module boundaries, data flow, and release pipeline expectations.
 - Packaging: `npm run dist`
 - Renderer bundle shaping: `vite.config.mts` defines manual chunking for React/vendor-heavy dependencies so large secondary UI flows can be lazy-loaded without bloating the initial app shell.
 - Static analysis: `eslint.config.mjs` and `npm run lint` provide lightweight repo-wide checks for React hooks, duplicate imports, and TypeScript hygiene without forcing a formatter.
+- Release/build script entrypoints that use ESM now use explicit `.mjs` filenames such as `scripts/generate-icons.mjs`, `scripts/validate-icons.mjs`, and `scripts/increment-build.mjs` so Node does not reparse typeless release tooling during local packaging or version bumps.
 - Secrets baseline gate: `npm run scan:secrets`
 - Commit-time guardrails: `.husky/pre-commit`
 - Package manager policy: npm-only (`packageManager` is `npm@10` and CI must not install/use pnpm for packaging)
@@ -53,7 +54,7 @@ It explains module boundaries, data flow, and release pipeline expectations.
 <!-- AUTO-GENERATED:MODULE_INDEX:START -->
 - Main process source files: 70
 - Renderer source files: 78
-- Automation scripts: 32
+- Automation scripts: 30
 - GitHub workflow files: 7
 - Key entrypoints:
   - Main process entry: `main/main.ts` (present)

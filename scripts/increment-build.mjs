@@ -22,6 +22,6 @@ const newVersion = `${major}.${minor}.${patch + 1}`;
 packageJson.version = newVersion;
 
 // Write back to package.json
-writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2) + '\n', 'utf8');
+writeFileSync(packageJsonPath, `${JSON.stringify(packageJson, null, 2)}\n`, 'utf8');
 
-console.log(`✓ Version incremented: ${packageJson.version.split('.').slice(0, 2).join('.')}.${patch} → ${newVersion}`);
+console.log(`Version incremented: ${packageJson.version.split('.').slice(0, 2).join('.')}.${patch} -> ${newVersion}`);

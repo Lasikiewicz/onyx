@@ -224,7 +224,7 @@ See [docs/ICON_REQUIREMENTS.md](docs/ICON_REQUIREMENTS.md) for detailed icon req
 - `npm run dist` - Build distribution package (generates and validates icons automatically)
 
 ### Icons
-- `npm run generate-icons` - Generate all icon formats from `resources/icon.svg`
+- `npm run generate-icons` - Generate all icon formats from `resources/icon.svg` via `scripts/generate-icons.mjs`
 - `npm run validate-icons` - Validate that all required icon files exist and are valid
 
 ### Checks (run before submitting PRs)

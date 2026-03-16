@@ -4,6 +4,10 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.7.31] - 2026-03-16
+
+- Release tooling: Rename the ESM-based `increment-build` and `generate-icons` scripts to `.mjs` so local version bumps and packaging no longer trigger Node's typeless-module reparsing warning.
+
 ## [0.7.30] - 2026-03-16
 
 - Tooling: Add a project-wide `npm run lint` command backed by a flat ESLint config for React hooks, duplicate imports, and common TypeScript hygiene checks, with targeted overrides for legacy-heavy hotspots.

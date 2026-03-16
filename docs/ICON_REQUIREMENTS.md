@@ -127,7 +127,7 @@ project-root/
 │   ├── icon.png      (optional - generated)
 │   └── icon.icns     (macOS - generated)
 └── scripts/
-    ├── generate-icons.js    (generates icons)
+    ├── generate-icons.mjs   (generates icons)
     └── validate-icons.mjs   (validates icons)
 ```
 

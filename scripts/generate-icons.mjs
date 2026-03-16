@@ -19,14 +19,14 @@ async function convertSvgToPng() {
   try {
     await access(sourceIconPath, constants.F_OK);
     console.log(`Source SVG icon found at ${sourceIconPath}`);
-    
+
     // Convert SVG to PNG for use in icon generation
     await sharp(sourceIconPath)
       .png()
       .resize(512, 512)
       .toFile(pngIconPath);
-    
-    console.log(`✓ Converted SVG to PNG at ${pngIconPath}`);
+
+    console.log(`Converted SVG to PNG at ${pngIconPath}`);
     return true;
   } catch (error) {
     console.error(`Error converting SVG to PNG: ${error.message}`);
@@ -41,14 +41,14 @@ async function generateIco() {
   try {
     const pngBuffer = await sharp(pngIconPath).png().toBuffer();
     const icoBuffer = png2icons.createICO(pngBuffer, png2icons.BILINEAR, 0);
-    
+
     // Ensure build directory exists
     await mkdir(buildDir, { recursive: true });
-    
+
     // Write ICO file
     const fs = await import('fs/promises');
     await fs.writeFile(icoOutputPath, icoBuffer);
-    console.log(`✓ Generated ${icoOutputPath}`);
+    console.log(`Generated ${icoOutputPath}`);
   } catch (error) {
     console.error(`Error generating ICO: ${error.message}`);
     throw error;
@@ -61,19 +61,18 @@ async function generateIco() {
 async function generateIcons() {
   try {
     console.log('Generating icons...\n');
-    
+
     // Convert SVG to PNG first
     await convertSvgToPng();
-    
+
     // Generate ICO for Windows
     await generateIco();
-    
-    console.log('\n✓ All icons generated successfully!');
+
+    console.log('\nAll icons generated successfully!');
   } catch (error) {
-    console.error('\n✗ Error generating icons:', error);
+    console.error('\nError generating icons:', error);
     process.exit(1);
   }
 }
 
-// Run if called directly
 generateIcons();
