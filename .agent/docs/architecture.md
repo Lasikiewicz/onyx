@@ -42,7 +42,8 @@ It explains module boundaries, data flow, and release pipeline expectations.
 - Local development: `npm run electron:dev`
 - Type/build validation: `npm run build`
 - Packaging: `npm run dist`
-- Renderer bundle shaping: `vite.config.ts` defines manual chunking for React/vendor-heavy dependencies so large secondary UI flows can be lazy-loaded without bloating the initial app shell.
+- Renderer bundle shaping: `vite.config.mts` defines manual chunking for React/vendor-heavy dependencies so large secondary UI flows can be lazy-loaded without bloating the initial app shell.
+- Static analysis: `eslint.config.mjs` and `npm run lint` provide lightweight repo-wide checks for React hooks, duplicate imports, and TypeScript hygiene without forcing a formatter.
 - Secrets baseline gate: `npm run scan:secrets`
 - Commit-time guardrails: `.husky/pre-commit`
 - Package manager policy: npm-only (`packageManager` is `npm@10` and CI must not install/use pnpm for packaging)

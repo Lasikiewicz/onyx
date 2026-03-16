@@ -64,8 +64,8 @@
         ".github/workflows/",
         "electron-builder.config.js",
         "package.json",
-        "vite.config.ts",
-        "vitest.config.ts",
+        "vite.config.mts",
+        "vitest.config.mts",
         "tsconfig.json",
         "tailwind.config.js",
         "postcss.config.js"

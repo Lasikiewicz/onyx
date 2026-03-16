@@ -26,6 +26,12 @@ export interface ScannedGameResult {
   error?: string;
 }
 
+interface ConfiguredSource {
+  id: string;
+  enabled: boolean;
+  path: string;
+}
+
 /**
  * Service to orchestrate scanning from all game sources
  * Returns simplified structures that can be converted to StagedGame in the frontend
@@ -59,6 +65,47 @@ export class ImportService {
     this.isScanCancelled = true;
   }
 
+  private getEnabledConfigs(configs: Record<string, ConfiguredSource>): ConfiguredSource[] {
+    return Object.values(configs).filter((config) => {
+      const isEnabled = config.enabled && (
+        (config.path && existsSync(config.path)) ||
+        config.id === 'battle' ||
+        config.id === 'epic'
+      );
+
+      if (!isEnabled) {
+        console.log(
+          `[ImportService] Skipping ${config.id}: enabled=${config.enabled}, path=${config.path}, exists=${config.path ? existsSync(config.path) : false}`,
+        );
+      }
+
+      return isEnabled;
+    });
+  }
+
+  private async scanConfiguredSource(config: ConfiguredSource): Promise<ScannedGameResult[]> {
+    const scanners: Record<string, (path: string) => Promise<ScannedGameResult[]>> = {
+      steam: (path) => this.scanSteam(path),
+      xbox: (path) => this.scanXbox(path),
+      epic: (path) => this.scanEpic(path),
+      gog: (path) => this.scanGOG(path),
+      ubisoft: (path) => this.scanUbisoft(path),
+      rockstar: (path) => this.scanRockstar(path),
+      ea: (path) => this.scanEA(path),
+      battle: (path) => this.scanBattle(path),
+      humble: (path) => this.scanHumble(path),
+      itch: (path) => this.scanItch(path),
+    };
+
+    const scanner = scanners[config.id];
+    if (scanner) {
+      return scanner(config.path);
+    }
+
+    console.log(`[ImportService] No specific scanner for ${config.id}, using generic deep scan`);
+    return this.scanFolderForExecutables(config.path);
+  }
+
   /**
    * Scan all configured sources in parallel
    * Scans all enabled app locations from Onyx Settings > Apps
@@ -79,21 +126,7 @@ export class ImportService {
       console.log(`[ImportService] Found ${Object.keys(configs).length} app configs`);
       progressCallback?.(`Checking ${Object.keys(configs).length} configured locations...`);
 
-      const enabledConfigs = Object.values(configs).filter(
-        (config: any) => {
-          // Some launchers (like Battle.net, Epic) can find games globally via Registry/ProgramData
-          // so we don't strictly require the configured path to exist as long as they are enabled.
-          const isEnabled = config.enabled && (
-            (config.path && existsSync(config.path)) ||
-            config.id === 'battle' ||
-            config.id === 'epic'
-          );
-          if (!isEnabled) {
-            console.log(`[ImportService] Skipping ${config.id}: enabled=${config.enabled}, path=${config.path}, exists=${config.path ? existsSync(config.path) : false}`);
-          }
-          return isEnabled;
-        }
-      );
+      const enabledConfigs = this.getEnabledConfigs(configs as Record<string, ConfiguredSource>);
 
       console.log(`[ImportService] Scanning ${enabledConfigs.length} enabled app configs`);
       progressCallback?.(`Scanning ${enabledConfigs.length} location${enabledConfigs.length !== 1 ? 's' : ''}...`);
@@ -106,39 +139,14 @@ export class ImportService {
           return results;
         }
 
-        const config: any = enabledConfigs[i];
+        const config = enabledConfigs[i];
         const appName = this.getAppDisplayName(config.id);
 
         try {
           progressCallback?.(`Scanning ${appName} (${config.path})...`);
           console.log(`[ImportService] Scanning ${config.id} at path: ${config.path}`);
 
-          let games: ScannedGameResult[] = [];
-          if (config.id === 'steam') {
-            games = await this.scanSteam(config.path);
-          } else if (config.id === 'xbox') {
-            games = await this.scanXbox(config.path);
-          } else if (config.id === 'epic') {
-            games = await this.scanEpic(config.path);
-          } else if (config.id === 'gog') {
-            games = await this.scanGOG(config.path);
-          } else if (config.id === 'ubisoft') {
-            games = await this.scanUbisoft(config.path);
-          } else if (config.id === 'rockstar') {
-            games = await this.scanRockstar(config.path);
-          } else if (config.id === 'ea') {
-            games = await this.scanEA(config.path);
-          } else if (config.id === 'battle') {
-            games = await this.scanBattle(config.path);
-          } else if (config.id === 'humble') {
-            games = await this.scanHumble(config.path);
-          } else if (config.id === 'itch') {
-            games = await this.scanItch(config.path);
-          } else {
-            // Fallback: Use generic deep scan for any unknown app type
-            console.log(`[ImportService] No specific scanner for ${config.id}, using generic deep scan`);
-            games = await this.scanFolderForExecutables(config.path);
-          }
+          const games = await this.scanConfiguredSource(config);
 
           if (games.length > 0) {
             progressCallback?.(`Found ${games.length} game${games.length !== 1 ? 's' : ''} in ${appName}`);
@@ -196,7 +204,7 @@ export class ImportService {
 
       // Auto-detect Battle.net games via registry if not already configured
       // This ensures Blizzard games are found even if the user hasn't enabled Battle.net in Configure Apps
-      const battleAlreadyScanned = enabledConfigs.some((c: any) => c.id === 'battle');
+      const battleAlreadyScanned = enabledConfigs.some((config) => config.id === 'battle');
       if (!this.isScanCancelled && !battleAlreadyScanned && process.platform === 'win32') {
         try {
           progressCallback?.('Auto-detecting Battle.net games...');

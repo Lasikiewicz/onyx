@@ -4,6 +4,12 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.7.30] - 2026-03-16
+
+- Tooling: Add a project-wide `npm run lint` command backed by a flat ESLint config for React hooks, duplicate imports, and common TypeScript hygiene checks, with targeted overrides for legacy-heavy hotspots.
+- Build config: Rename the Vite and Vitest config files to ESM-native `.mts` variants so the toolchain no longer relies on the CJS config loading path.
+- Import scanning: Replace the large source-scanner dispatch chain in `ImportService` with shared scanner-selection helpers so adding new launchers is less error-prone.
+
 ## [0.7.29] - 2026-03-16
 
 - Startup flow: Move renderer-ready/update-gating startup orchestration into `main/startupCoordinator.ts` so `main.ts` is slimmer and the startup handshake is covered by focused tests.

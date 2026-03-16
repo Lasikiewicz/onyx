@@ -228,6 +228,7 @@ See [docs/ICON_REQUIREMENTS.md](docs/ICON_REQUIREMENTS.md) for detailed icon req
 - `npm run validate-icons` - Validate that all required icon files exist and are valid
 
 ### Checks (run before submitting PRs)
+- `npm run lint` - Run the project ESLint checks for React hooks, duplicate imports, and common TypeScript hygiene issues
 - `npm run scan:secrets` - Scan for committed secrets; must pass (see [scripts/secret-scan.js](scripts/secret-scan.js))
 - `npm run check:no-raw-ipc` - Enforce no raw `window.ipcRenderer` in renderer (see [scripts/check-no-raw-ipc.js](scripts/check-no-raw-ipc.js))
 - `npm run docs:sync` - Auto-update generated documentation blocks in `.agent/docs/`

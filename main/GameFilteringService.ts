@@ -1,5 +1,4 @@
-import { statSync } from 'node:fs';
-import { readdirSync } from 'node:fs';
+import { readdirSync, statSync } from 'node:fs';
 
 /**
  * Shared game filtering logic for all launchers

@@ -161,8 +161,6 @@ export const UpdateNotificationModal: React.FC<UpdateNotificationModalProps> = (
   const [isDownloading, setIsDownloading] = useState(false);
   const [showChangelog, setShowChangelog] = useState(true);
 
-  if (!isOpen) return null;
-
   const handleUpdateNow = async () => {
     setIsDownloading(true);
     try {
@@ -207,6 +205,8 @@ export const UpdateNotificationModal: React.FC<UpdateNotificationModalProps> = (
       includedVersions: filtered,
     };
   }, [changelogSource, currentVersion, isTestMode, version]);
+
+  if (!isOpen) return null;
 
   return (
     <>

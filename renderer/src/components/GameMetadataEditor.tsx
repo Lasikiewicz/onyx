@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import { ExecutableFile } from '../types/game';
-import { GameMetadata } from '../types/game';
+import { ExecutableFile, GameMetadata } from '../types/game';
 
 interface IGDBGameResult {
   id: number;

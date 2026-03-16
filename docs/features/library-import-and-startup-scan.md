@@ -30,7 +30,7 @@ Finds games from configured launchers/folders and imports them into the local li
 
 1. Renderer starts scan from menu/settings/startup flow.
 2. Main startup sequence initializes the packaged update service before the renderer can signal `app:ready`, then hands control to [startupCoordinator.ts](../../main/startupCoordinator.ts) to gate update checks, startup-scan timing, cancellation, and fallback startup.
-3. [ImportService.ts](../../main/ImportService.ts) orchestrates launcher readers and normalization.
+3. [ImportService.ts](../../main/ImportService.ts) orchestrates launcher readers and normalization through shared source-scanner dispatch helpers instead of one long launcher `if/else` chain.
 4. [GameMatcher.ts](../../main/GameMatcher.ts) deduplicates and resolves identity.
 5. Add Games review can adjust staged metadata and run the shared multi-provider image search/browse flow before import.
 6. Staged edits that are represented on the `Game` model, such as categories, links, launch arguments, screenshots, and launcher-specific launch fields, are copied into the imported library record.

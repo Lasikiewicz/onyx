@@ -31,11 +31,12 @@ Do **not** commit real API credentials to the repository. The project runs a sec
 Before opening a PR, run:
 
 - **Build**: `npm run build`
+- **Lint**: `npm run lint`
 - **Secret scan**: `npm run scan:secrets` — must pass; do not commit API keys, tokens, or literal secrets (see [../scripts/secret-scan.js](../scripts/secret-scan.js)).
 - **Raw IPC check**: `npm run check:no-raw-ipc` — must pass; the renderer must not use `window.ipcRenderer` directly (see [../scripts/check-no-raw-ipc.js](../scripts/check-no-raw-ipc.js)).
 - **Docs guard**: `npm run docs:sync` and `npm run docs:check` — see the contributor flow in [../README.md](../README.md#contributor-docs-guard-structure-first) and mapping in [../.agent/docs/structure.md](../.agent/docs/structure.md).
 
-CI runs these checks on PRs. There is no project-wide lint or format script; follow existing code style in the files you change.
+CI runs these checks on PRs. The lint config is intentionally lightweight and focuses on hooks, duplicate imports, and common TypeScript hygiene; follow the existing local style in legacy-heavy files unless the lint rules require otherwise.
 
 ## Code and security
 

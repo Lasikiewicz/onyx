@@ -2,7 +2,6 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'node:path';
 
-// https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
   root: 'renderer',
@@ -31,6 +30,6 @@ export default defineConfig({
     port: 5173,
   },
   define: {
-    '__BUILD_PROFILE__': JSON.stringify(process.env.BUILD_PROFILE || 'production'),
+    __BUILD_PROFILE__: JSON.stringify(process.env.BUILD_PROFILE || 'production'),
   },
 });
