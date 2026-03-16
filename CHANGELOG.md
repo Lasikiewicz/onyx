@@ -4,6 +4,11 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Pending]
+
+- Game Manager maintainability: Move the full Metadata tab layout into a dedicated `gameManager/GameManagerMetadataTab.tsx` component so the main modal shell no longer owns the metadata-editing UI inline.
+- Game Manager maintainability: Lift the Metadata tab's fix-match toggle and cancel-edit flows into dedicated `GameManager` handlers so the parent component carries less anonymous inline orchestration.
+
 ## [0.7.32] - 2026-03-16
 
 - Lint cleanup: Stabilize several renderer hook/effect dependencies in the app shell, update flow, and library view components so the lightweight ESLint rules can tighten without introducing stale closures.
@@ -11,6 +16,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Game Manager maintainability: Move image result ordering, provider filtering, and provider image-count aggregation into a dedicated `gameManager/` helper module so the image-search UI can keep shrinking in focused slices.
 - Game Manager maintainability: Move provider-progress row construction and provider-status event mapping into a dedicated `gameManager/` helper module so image-search orchestration is easier to read and test.
 - Documentation: Add dedicated `Game Manager` and `Add Games` feature runbooks so the two largest per-game editing surfaces have stable entry-point docs instead of only being described indirectly through overlapping feature pages.
+- Game Manager maintainability: Move the provider status/filter row into a dedicated `gameManager/ProviderStatusRow.tsx` component so the image-search UI block is less embedded in the main modal file.
+- Game Manager maintainability: Move the main artwork preview/context-menu strip into a dedicated `gameManager/GameArtworkStrip.tsx` component so the Images tab layout is easier to evolve independently of modal orchestration.
+- Game Manager maintainability: Move the fast-search result chooser into a dedicated `gameManager/FastSearchResultsList.tsx` component so the Images tab search controls stay easier to follow.
+- Game Manager maintainability: Move the repeated image-result grid sections into a dedicated `gameManager/ImageSearchResultsSections.tsx` component so the Images tab rendering is less tangled with modal state orchestration.
+- Game Manager maintainability: Move the full Images tab layout into a dedicated `gameManager/GameManagerImagesTab.tsx` component so the main modal shell no longer owns the whole image-tab UI inline.
 
 ## [0.7.31] - 2026-03-16
 

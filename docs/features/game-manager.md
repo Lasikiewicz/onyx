@@ -44,6 +44,12 @@ Provides the main per-game maintenance workspace for the library. The Game Manag
   - [`imageSearchUtils.ts`](../../renderer/src/components/gameManager/imageSearchUtils.ts)
   - [`imageResultUtils.ts`](../../renderer/src/components/gameManager/imageResultUtils.ts)
   - [`providerProgressUtils.ts`](../../renderer/src/components/gameManager/providerProgressUtils.ts)
+  - [`ProviderStatusRow.tsx`](../../renderer/src/components/gameManager/ProviderStatusRow.tsx)
+  - [`GameArtworkStrip.tsx`](../../renderer/src/components/gameManager/GameArtworkStrip.tsx)
+  - [`FastSearchResultsList.tsx`](../../renderer/src/components/gameManager/FastSearchResultsList.tsx)
+  - [`ImageSearchResultsSections.tsx`](../../renderer/src/components/gameManager/ImageSearchResultsSections.tsx)
+  - [`GameManagerImagesTab.tsx`](../../renderer/src/components/gameManager/GameManagerImagesTab.tsx)
+- Metadata editing UI is now split so [`GameManagerMetadataTab.tsx`](../../renderer/src/components/gameManager/GameManagerMetadataTab.tsx) owns the Metadata tab layout while [`GameManager.tsx`](../../renderer/src/components/GameManager.tsx) keeps the async save, refresh, and match-application orchestration.
 - Link icon inference and search-query helpers come from [`GameLinks.tsx`](../../renderer/src/components/GameLinks.tsx).
 - Preferences that shape manager behavior are read through the preload bridge and persisted by main-process preference services described in [settings-and-preferences.md](./settings-and-preferences.md).
 
@@ -67,6 +73,12 @@ Provides the main per-game maintenance workspace for the library. The Game Manag
 - [`imageSearchUtils.ts`](../../renderer/src/components/gameManager/imageSearchUtils.ts) - image URL normalization, provider-name normalization, and animated-asset filtering helpers used by the Images tab.
 - [`imageResultUtils.ts`](../../renderer/src/components/gameManager/imageResultUtils.ts) - ordered result grouping, provider filtering, and image-count aggregation for image search results.
 - [`providerProgressUtils.ts`](../../renderer/src/components/gameManager/providerProgressUtils.ts) - provider-progress row construction and provider-status event mapping for image searches.
+- [`ProviderStatusRow.tsx`](../../renderer/src/components/gameManager/ProviderStatusRow.tsx) - presentational provider status/filter row for the Images tab search results.
+- [`GameArtworkStrip.tsx`](../../renderer/src/components/gameManager/GameArtworkStrip.tsx) - presentational artwork preview strip and context-menu entry points for boxart, logo, banner, alt-banner, and icon slots.
+- [`FastSearchResultsList.tsx`](../../renderer/src/components/gameManager/FastSearchResultsList.tsx) - presentational quick-result chooser for the fast image-search path before a specific result is expanded into full artwork candidates.
+- [`ImageSearchResultsSections.tsx`](../../renderer/src/components/gameManager/ImageSearchResultsSections.tsx) - presentational grouped result grids for boxart, logo, banner, alt-banner, and icon candidates in the Images tab.
+- [`GameManagerImagesTab.tsx`](../../renderer/src/components/gameManager/GameManagerImagesTab.tsx) - container component for the Images tab layout, wiring the artwork strip, search controls, provider row, quick-result chooser, grouped result sections, and fallback web-search shortcuts.
+- [`GameManagerMetadataTab.tsx`](../../renderer/src/components/gameManager/GameManagerMetadataTab.tsx) - container component for the Metadata tab layout, wiring the artwork strip reuse, fix-match results list, metadata field editors, category editing, and save/cancel/delete actions.
 - [`MatchFixDialog.tsx`](../../renderer/src/components/MatchFixDialog.tsx) - manual match-repair flow launched from the Metadata tab.
 - [`RefreshMetadataDialog.tsx`](../../renderer/src/components/RefreshMetadataDialog.tsx) - refresh-mode selection for metadata/images/links maintenance actions.
 - [`BoxartFixDialog.tsx`](../../renderer/src/components/BoxartFixDialog.tsx) - missing-artwork repair workflow launched from the manager.

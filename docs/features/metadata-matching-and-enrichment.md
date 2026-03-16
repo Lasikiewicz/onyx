@@ -89,6 +89,8 @@ Resolves game metadata (titles, identifiers, links, artwork candidates) from con
 - **Provider API services**
   - [IGDBService.ts](../../main/IGDBService.ts), [RAWGService.ts](../../main/RAWGService.ts), [SteamGridDBService.ts](../../main/SteamGridDBService.ts), [GiantBombService.ts](../../main/GiantBombService.ts), [SteamService.ts](../../main/SteamService.ts), [XboxService.ts](../../main/XboxService.ts)
 - **Renderer**
+  - [GameManager.tsx](../../renderer/src/components/GameManager.tsx)
+  - [gameManager/GameManagerMetadataTab.tsx](../../renderer/src/components/gameManager/GameManagerMetadataTab.tsx)
   - [GameMetadataEditor.tsx](../../renderer/src/components/GameMetadataEditor.tsx)
   - [MetadataSearchModal.tsx](../../renderer/src/components/MetadataSearchModal.tsx)
   - [RefreshMetadataDialog.tsx](../../renderer/src/components/RefreshMetadataDialog.tsx)

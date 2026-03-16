@@ -57,7 +57,7 @@ It explains module boundaries, data flow, and release pipeline expectations.
 
 <!-- AUTO-GENERATED:MODULE_INDEX:START -->
 - Main process source files: 70
-- Renderer source files: 81
+- Renderer source files: 87
 - Automation scripts: 30
 - GitHub workflow files: 7
 - Key entrypoints:

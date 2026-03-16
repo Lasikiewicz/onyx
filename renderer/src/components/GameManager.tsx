@@ -31,6 +31,8 @@ import {
   updateProviderProgressFromEvent,
   type ProviderProgressEntry,
 } from './gameManager/providerProgressUtils';
+import { GameManagerImagesTab } from './gameManager/GameManagerImagesTab';
+import { GameManagerMetadataTab } from './gameManager/GameManagerMetadataTab';
 
 interface GameManagerProps {
   isOpen: boolean;
@@ -1040,60 +1042,31 @@ export const GameManager: React.FC<GameManagerProps> = ({
     return buildOrderedResultsByType(imageSearchResults, steamGridDBResults, getRenderableImageUrl);
   }, [getRenderableImageUrl, imageSearchResults, steamGridDBResults]);
 
-  // Legacy verbose status panel – hidden in favor of compact provider row
-  const renderDetailedSearchStatus = (_className: string = 'mt-3') => null;
-
-  /** Single row of provider statuses; each is a button to filter by that provider. Shows image count when complete, "Searching" or "No API" otherwise. */
-  const renderProviderStatusRow = (className: string = '') => {
-    if (providerProgress.length === 0) return null;
-    return (
-      <div className={`flex flex-wrap items-center gap-2 gap-y-1 text-xs ${className}`} role="status" aria-live="polite">
-        <button
-          type="button"
-          onClick={() => setProviderFilter('all')}
-          className={`px-2.5 py-1 rounded border transition-colors ${providerFilter === 'all'
-            ? 'bg-green-600/30 border-green-500 text-green-300 font-medium'
-            : 'bg-gray-800 border-gray-600 text-gray-300 hover:border-gray-500 hover:text-white'
-            }`}
-          aria-pressed={providerFilter === 'all'}
-          aria-label="Show images from all providers"
-        >
-          All
-        </button>
-        {providerProgress.map((provider) => {
-          const isSelected = providerFilter === provider.name;
-          const label =
-            provider.status === 'noApi'
-              ? `${provider.name} = No API`
-              : provider.status === 'completed'
-                ? `${provider.name} = ${getImageCountForProvider(orderedResultsByType, provider.name)}`
-                : `${provider.name} = Searching`;
-          return (
-            <button
-              key={provider.name}
-              type="button"
-              onClick={() => setProviderFilter(provider.name as ProviderName)}
-              disabled={provider.status === 'noApi'}
-              className={`px-2.5 py-1 rounded border transition-colors ${provider.status === 'noApi'
-                ? 'bg-gray-800/50 border-gray-700 text-gray-500 cursor-default'
-                : isSelected
-                  ? 'bg-green-600/30 border-green-500 text-green-300 font-medium'
-                  : provider.status === 'completed'
-                    ? 'bg-gray-800 border-gray-600 text-green-400 hover:border-gray-500 hover:text-white'
-                    : 'bg-gray-800 border-gray-600 text-amber-400 animate-pulse hover:border-amber-500'
-                }`}
-              aria-pressed={isSelected}
-              aria-label={provider.status === 'noApi' ? `${provider.name}: API not configured` : `Filter by ${provider.name}`}
-            >
-              {label}
-            </button>
-          );
-        })}
-      </div>
-    );
-  };
-
   const [providerFilter, setProviderFilter] = useState<'all' | ProviderName>('all');
+
+  const handleOpenArtworkContextMenu = useCallback((event: { pageX: number; pageY: number }, type: 'boxart' | 'banner' | 'alternativeBanner' | 'logo' | 'icon') => {
+    setContextMenu({ x: event.pageX, y: event.pageY, type });
+  }, []);
+
+  const getVisibleImageResultCountForTab = useCallback((tab: 'boxart' | 'banner' | 'alternativeBanner' | 'logo' | 'icon') => (
+    getImageResultCountForTab(orderedResultsByType, providerFilter, tab)
+  ), [orderedResultsByType, providerFilter]);
+
+  const matchesActiveProviderFilter = useCallback((source?: string) => (
+    matchesProviderFilter(source, providerFilter)
+  ), [providerFilter]);
+
+  const handleClearImageSearchState = useCallback(() => {
+    setImageSearchResults([]);
+    setFailedImageSearchUrls(new Set());
+    setSteamGridDBResults({ boxart: [], banner: [], alternativeBanner: [], logo: [], icon: [] });
+    setFastSearchResults([]);
+    setSelectedFastGame(null);
+  }, []);
+
+  const handleOpenGoogleImageSearch = useCallback((query: string) => {
+    window.electronAPI.openExternal(`https://www.google.com/search?tbm=isch&q=${encodeURIComponent(query)}`);
+  }, []);
 
   const handleImageSearchTabChange = (tab: 'all' | 'boxart' | 'banner' | 'alternativeBanner' | 'logo' | 'icon') => {
     setActiveImageSearchTab(tab);
@@ -2162,6 +2135,86 @@ export const GameManager: React.FC<GameManagerProps> = ({
     }
   };
 
+  const handleToggleFixMatch = async () => {
+    if (!editedGame || !selectedGame) {
+      return;
+    }
+
+    const wasHidden = !showFixMatch;
+    setShowFixMatch(!showFixMatch);
+
+    if (wasHidden) {
+      const query = editedGame.title || selectedGame.title;
+      setMetadataSearchQuery(query);
+
+      if (!query) {
+        return;
+      }
+
+      setIsSearchingMetadata(true);
+      setMetadataSearchResults([]);
+      setError(null);
+
+      try {
+        const response = await window.electronAPI.searchGames(query);
+        const results = Array.isArray(response) ? response : (response.results || []);
+
+        if (results.length === 0) {
+          setError('No matches found. Try a different search term.');
+          setMetadataSearchResults([]);
+          return;
+        }
+
+        const normalizedQuery = query.toLowerCase().trim();
+        const sortedResults = results.sort((a: any, b: any) => {
+          const scoreA = a.score || 0;
+          const scoreB = b.score || 0;
+          if (scoreA !== scoreB) return scoreB - scoreA;
+
+          const getDate = (result: any) => {
+            if (result.releaseDate) return typeof result.releaseDate === 'number' ? result.releaseDate * 1000 : new Date(result.releaseDate).getTime();
+            if (result.year) return new Date(result.year, 0, 1).getTime();
+            return 0;
+          };
+
+          const dateA = getDate(a);
+          const dateB = getDate(b);
+          if (dateA !== dateB && dateA > 0 && dateB > 0) return dateB - dateA;
+
+          const nameA = (a.title || a.name || '').toLowerCase().trim();
+          const nameB = (b.title || b.name || '').toLowerCase().trim();
+          if (nameA === normalizedQuery && nameB !== normalizedQuery) return -1;
+          if (nameA !== normalizedQuery && nameB === normalizedQuery) return 1;
+
+          return 0;
+        });
+
+        setMetadataSearchResults(sortedResults);
+      } catch (err) {
+        console.error('Error searching metadata:', err);
+        setError('Failed to search for games. Please try again.');
+      } finally {
+        setIsSearchingMetadata(false);
+      }
+
+      return;
+    }
+
+    setMetadataSearchResults([]);
+    setMetadataSearchQuery('');
+    setError(null);
+  };
+
+  const handleCancelEditing = () => {
+    setExpandedGameId(null);
+    setEditedGame(null);
+    setShowFixMatch(false);
+    setSelectedGameId(null);
+    setMetadataSearchResults([]);
+    setMetadataSearchQuery('');
+    setIsSearchingMetadata(false);
+  };
+
   // Get launcher name
   const getLauncherName = (game: Game): string => {
     const fromSource = (game.source || '').trim();
@@ -2422,1285 +2475,70 @@ export const GameManager: React.FC<GameManagerProps> = ({
                 {/* Tab Content */}
                 <div className="flex-1 overflow-hidden flex flex-col relative">
                   {activeTab === 'images' && (
-                    <>
-                      <div className="p-2 space-y-2 flex-shrink-0 bg-gray-900/95 z-10 border-b border-gray-800">
-                        {/* Top Images Section - Compact Flex Layout */}
-                        <div className="flex gap-2 mb-1 items-start">
-                          {/* Boxart */}
-                          <div
-                            onClick={() => openImageSearchAndSearch('boxart')}
-                            onContextMenu={(e) => {
-                              e.preventDefault();
-                              setContextMenu({ x: e.pageX, y: e.pageY, type: 'boxart' });
-                            }}
-                            className="h-36 w-auto aspect-[2/3] relative group cursor-pointer border border-gray-700 rounded-lg overflow-hidden bg-gray-800 hover:border-green-500 transition-colors flex-shrink-0"
-                          >
-                            {(editedGame.boxArtUrl || selectedGame.boxArtUrl) ? (
-                              (editedGame.boxArtIsVideo || selectedGame?.boxArtIsVideo) ? (
-                                <video
-                                  key={editedGame.boxArtUrl || selectedGame.boxArtUrl}
-                                  src={editedGame.boxArtUrl || selectedGame.boxArtUrl}
-                                  muted
-                                  loop
-                                  playsInline
-                                  autoPlay
-                                  className="w-full h-full object-cover"
-                                />
-                              ) : (
-                                <img
-                                  key={editedGame.boxArtUrl || selectedGame.boxArtUrl}
-                                  src={editedGame.boxArtUrl || selectedGame.boxArtUrl}
-                                  alt="Boxart"
-                                  className="w-full h-full object-cover"
-                                  onError={(e) => {
-                                    const target = e.target as HTMLImageElement;
-                                    target.style.display = 'none';
-                                    target.parentElement?.classList.add('flex', 'items-center', 'justify-center');
-                                    target.parentElement!.innerHTML = '<span class="text-[8px] text-gray-500 text-center p-1">No Image</span>';
-                                  }}
-                                />
-                              )
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center">
-                                <span className="text-[8px] text-gray-600 text-center p-1">Boxart</span>
-                              </div>
-                            )}
-                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                              <span className="text-[10px] text-white font-medium">Edit</span>
-                            </div>
-                          </div>
-
-                          {/* Logo - Moved to 2nd position */}
-                          <div
-                            onClick={() => openImageSearchAndSearch('logo')}
-                            onContextMenu={(e) => {
-                              e.preventDefault();
-                              setContextMenu({ x: e.pageX, y: e.pageY, type: 'logo' });
-                            }}
-                            className="h-36 w-56 relative group cursor-pointer border border-gray-700 rounded-lg overflow-hidden bg-gray-800 hover:border-green-500 transition-colors flex-shrink-0"
-                          >
-                            {(editedGame.logoUrl || selectedGame.logoUrl) ? (
-                              <div className="w-full h-full p-2 flex items-center justify-center">
-                                {(editedGame.logoIsVideo || selectedGame?.logoIsVideo) ? (
-                                  <video
-                                    key={editedGame.logoUrl || selectedGame.logoUrl}
-                                    src={editedGame.logoUrl || selectedGame.logoUrl}
-                                    muted
-                                    loop
-                                    playsInline
-                                    autoPlay
-                                    className="max-w-full max-h-full object-contain"
-                                  />
-                                ) : (
-                                  <img
-                                    key={editedGame.logoUrl || selectedGame.logoUrl}
-                                    src={editedGame.logoUrl || selectedGame.logoUrl}
-                                    alt="Logo"
-                                    className="max-w-full max-h-full object-contain"
-                                  />
-                                )}
-                              </div>
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center p-2">
-                                <span className="text-xs text-gray-600">Click to search for logo</span>
-                              </div>
-                            )}
-                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                              <span className="text-xs text-white font-medium">Edit Logo</span>
-                            </div>
-                          </div>
-
-                          {/* Banner - Split into two sections */}
-                          <div className="h-36 flex-1 flex gap-1">
-                            {/* Banner */}
-                            <div
-                              onClick={() => openImageSearchAndSearch('banner')}
-                              onContextMenu={(e) => {
-                                e.preventDefault();
-                                setContextMenu({ x: e.pageX, y: e.pageY, type: 'banner' });
-                              }}
-                              className="flex-1 relative group cursor-pointer border border-gray-700 rounded-lg overflow-hidden bg-gray-800 hover:border-green-500 transition-colors"
-                            >
-                              {(editedGame.bannerUrl || selectedGame.bannerUrl) ? (
-                                (editedGame.bannerIsVideo || selectedGame?.bannerIsVideo) ? (
-                                  <video
-                                    key={editedGame.bannerUrl || selectedGame.bannerUrl}
-                                    src={editedGame.bannerUrl || selectedGame.bannerUrl}
-                                    muted
-                                    loop
-                                    playsInline
-                                    autoPlay
-                                    className="w-full h-full object-cover"
-                                  />
-                                ) : (
-                                  <img
-                                    key={editedGame.bannerUrl || selectedGame.bannerUrl}
-                                    src={editedGame.bannerUrl || selectedGame.bannerUrl}
-                                    alt="Banner"
-                                    className="w-full h-full object-cover"
-                                  />
-                                )
-                              ) : (
-                                <div className="w-full h-full flex items-center justify-center">
-                                  <span className="text-xs text-gray-600">Banner</span>
-                                </div>
-                              )}
-                              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                <span className="text-[10px] text-white font-medium">Edit</span>
-                              </div>
-                            </div>
-
-                            {/* Alternative Banner */}
-                            <div
-                              onClick={() => openImageSearchAndSearch('alternativeBanner')}
-                              onContextMenu={(e) => {
-                                e.preventDefault();
-                                setContextMenu({ x: e.pageX, y: e.pageY, type: 'alternativeBanner' });
-                              }}
-                              className="flex-1 relative group cursor-pointer border border-gray-700 rounded-lg overflow-hidden bg-gray-800 hover:border-green-500 transition-colors"
-                            >
-                              {(editedGame.alternativeBannerUrl || selectedGame.alternativeBannerUrl) ? (
-                                (editedGame.alternativeBannerIsVideo || selectedGame?.alternativeBannerIsVideo) ? (
-                                  <video
-                                    key={editedGame.alternativeBannerUrl || selectedGame.alternativeBannerUrl}
-                                    src={editedGame.alternativeBannerUrl || selectedGame.alternativeBannerUrl}
-                                    muted
-                                    loop
-                                    playsInline
-                                    autoPlay
-                                    className="w-full h-full object-cover"
-                                  />
-                                ) : (
-                                  <img
-                                    key={editedGame.alternativeBannerUrl || selectedGame.alternativeBannerUrl}
-                                    src={editedGame.alternativeBannerUrl || selectedGame.alternativeBannerUrl}
-                                    alt="Alternative Banner"
-                                    className="w-full h-full object-cover"
-                                  />
-                                )
-                              ) : (
-                                <div className="w-full h-full flex items-center justify-center">
-                                  <span className="text-xs text-gray-600">Alt Banner</span>
-                                </div>
-                              )}
-                              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                <span className="text-[10px] text-white font-medium">Edit</span>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Icon - Moved to 4th position */}
-                          <div
-                            onClick={() => openImageSearchAndSearch('icon')}
-                            onContextMenu={(e) => {
-                              e.preventDefault();
-                              setContextMenu({ x: e.pageX, y: e.pageY, type: 'icon' });
-                            }}
-                            className="h-36 w-36 relative group cursor-pointer border border-gray-700 rounded-lg overflow-hidden bg-gray-800 hover:border-green-500 transition-colors flex-shrink-0"
-                          >
-                            {(editedGame.iconUrl || selectedGame.iconUrl) ? (
-                              <div className="w-full h-full p-2 flex items-center justify-center">
-                                {(editedGame.iconIsVideo || selectedGame?.iconIsVideo) ? (
-                                  <video
-                                    key={editedGame.iconUrl || selectedGame.iconUrl}
-                                    src={editedGame.iconUrl || selectedGame.iconUrl}
-                                    muted
-                                    loop
-                                    playsInline
-                                    autoPlay
-                                    className="max-w-full max-h-full object-contain"
-                                  />
-                                ) : (
-                                  <img
-                                    key={editedGame.iconUrl || selectedGame.iconUrl}
-                                    src={editedGame.iconUrl || selectedGame.iconUrl}
-                                    alt="Icon"
-                                    className="max-w-full max-h-full object-contain"
-                                  />
-                                )}
-                              </div>
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center text-center p-1">
-                                <span className="text-[10px] text-gray-600">Click to search for icon</span>
-                              </div>
-                            )}
-                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                              <span className="text-[10px] text-white font-medium">Edit Icon</span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Image Search Input - Hidden when results found */}
-                        {!hasAnyRawImageResults(imageSearchResults, steamGridDBResults) && (
-                          <div className="border-t border-gray-800 pt-4 px-4">
-                            <div className="mb-4">
-                              <label className="block text-sm font-medium text-gray-300 mb-2">
-                                {showImageSearch ? `Search for ${showImageSearch.type}` : 'Search Images'}
-                                {showImageSearch && <span className="text-gray-500 ml-2">(click an image above to change type)</span>}
-                              </label>
-                              <div className="flex gap-2">
-                                <input
-                                  type="text"
-                                  value={imageSearchQuery}
-                                  onChange={(e) => setImageSearchQuery(e.target.value)}
-                                  onKeyDown={(e) => {
-                                    if (e.key === 'Enter') {
-                                      handleSearchImages(showImageSearch?.type || 'boxart');
-                                    }
-                                  }}
-                                  placeholder="Enter game title..."
-                                  className="flex-1 px-4 py-2 bg-gray-800 border border-gray-600 rounded text-white placeholder-gray-500"
-                                  disabled={isSearchingImages}
-                                />
-                                {/* Quick Search All - Aggregated instant search */ /* community-requested feature */}
-                                <button
-                                  onClick={handleFastSearch}
-                                  disabled={isFastSearching || isSearchingImages}
-                                  className="px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white font-bold rounded transition-all shadow-lg shadow-green-500/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                                  title="Quick search all image types at once"
-                                >
-                                  {isFastSearching ? (
-                                    <>
-                                      <svg className="animate-spin h-4 w-4 group- hover:animate-wobble group-hover:animate-wobble" fill="none" viewBox="0 0 24 24">
-                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                                      </svg>
-                                      <span>Fast...</span>
-                                    </>
-                                  ) : (
-                                    <>
-                                      <svg className="w-4 h-4 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                                      </svg>
-                                      <span>Quick All</span>
-                                    </>
-                                  )}
-                                </button>
-                                <button
-                                  onClick={() => handleBrowseImage(showImageSearch?.type as any || 'boxart')}
-                                  disabled={isSearchingImages}
-                                  className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded transition-colors disabled:opacity-50 flex items-center gap-2"
-                                  title={
-                                    showImageSearch?.type === 'banner' || showImageSearch?.type === 'alternativeBanner'
-                                      ? 'Upload a WEBM video file for this artwork type (animated backgrounds)'
-                                      : 'Browse for a local image or WEBM file for this artwork type'
-                                  }
-                                >
-                                  <svg className="w-4 h-4 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
-                                  </svg>
-                                  {showImageSearch?.type === 'banner' || showImageSearch?.type === 'alternativeBanner' ? 'Upload WEBM' : 'Browse'}
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    setImageSearchResults([]);
-                                    setFailedImageSearchUrls(new Set());
-                                    setSteamGridDBResults({ boxart: [], banner: [], alternativeBanner: [], logo: [], icon: [] });
-                                    setFastSearchResults([]);
-                                    setSelectedFastGame(null);
-                                  }}
-                                  className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded transition-colors"
-                                  disabled={isSearchingImages}
-                                >
-                                  Clear
-                                </button>
-                              </div>
-
-                              {renderProviderStatusRow('mt-3')}
-                              {/* Fast Search Results - Game Selection (inline, no border) */}
-                              {fastSearchResults.length > 0 && (
-                                <div className="mt-3">
-                                  <div className="flex items-center justify-between mb-2">
-                                    <h4 className="text-sm font-medium text-gray-300">
-                                      <span className="text-green-400">⚡</span> Quick Results - Click to see images:
-                                    </h4>
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setFastSearchResults([]);
-                                        setSelectedFastGame(null);
-                                      }}
-                                      className="text-xs text-gray-400 hover:text-white"
-                                    >
-                                      Clear
-                                    </button>
-                                  </div>
-                                  <div className="flex flex-col gap-2 max-h-[600px] overflow-y-auto pr-1">
-                                    {fastSearchResults.map((game) => (
-                                      <button
-                                        key={game.id}
-                                        type="button"
-                                        onClick={() => handleSelectFastGame(game)}
-                                        className={`flex items-center gap-3 p-2 rounded-lg border transition-all hover:bg-gray-800 text-left ${selectedFastGame?.id === game.id
-                                          ? 'border-green-500 bg-green-900/10'
-                                          : 'border-gray-700 bg-gray-800/50 hover:border-gray-500'
-                                          }`}
-                                      >
-                                        <div className="w-10 h-14 bg-gray-800 flex-shrink-0 rounded overflow-hidden">
-                                          {game.coverUrl ? (
-                                            <img
-                                              src={game.coverUrl}
-                                              alt={game.name}
-                                              className="w-full h-full object-cover"
-                                              onError={(e) => {
-                                                handleImageResultLoadError(game.coverUrl, e);
-                                              }}
-                                            />
-                                          ) : (
-                                            <div className="w-full h-full flex items-center justify-center text-gray-600">
-                                              <svg className="w-4 h-4 group- hover:animate-edit-image group-hover:animate-edit-image" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                              </svg>
-                                            </div>
-                                          )}
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                          <div className="font-medium text-white truncate">{game.name}</div>
-                                          <div className="text-xs text-gray-400">
-                                            {game.releaseDate ? new Date(game.releaseDate * 1000).getFullYear() : 'Unknown Year'} • {game.source || 'Unknown Source'}
-                                          </div>
-                                        </div>
-                                        <div className="text-xs px-2 py-1 bg-gray-700 rounded text-gray-300 group-hover:bg-green-600 group-hover:text-white transition-colors">
-                                          Select
-                                        </div>
-                                      </button>
-                                    ))}
-                                  </div>
-                                </div>
-                              )}
-
-                              {renderDetailedSearchStatus('mt-3')}
-                            </div>
-                          </div>
-                        )}
-
-                      {/* Sticky Tabs Header - Outside Scrollable Container */}
-                        {hasAnyRawImageResults(imageSearchResults, steamGridDBResults) && (
-                          <div className="border-t border-gray-800 bg-gray-900 px-4 pt-4 pb-2">
-                            {/* Tabs Header with New Search Button */}
-                            <div className="flex items-center justify-between mb-4 border-b border-gray-700 pb-2">
-                              <div className="flex items-center gap-1">
-                                {['all', 'boxart', 'logo', 'banner', 'alternativeBanner', 'icon'].map((tab) => {
-                                  const label = tab === 'alternativeBanner' ? 'Alt Banner' : tab.charAt(0).toUpperCase() + tab.slice(1);
-                                  const isActive = activeImageSearchTab === tab;
-
-                                  // Calculate counts
-                                  let count = 0;
-                                  if (tab === 'all') {
-                                    count = getImageResultCountForTab(orderedResultsByType, providerFilter, 'boxart') +
-                                      getImageResultCountForTab(orderedResultsByType, providerFilter, 'banner') +
-                                      getImageResultCountForTab(orderedResultsByType, providerFilter, 'logo') +
-                                      getImageResultCountForTab(orderedResultsByType, providerFilter, 'icon');
-                                  } else {
-                                    if (tab === 'boxart') count = getImageResultCountForTab(orderedResultsByType, providerFilter, 'boxart');
-                                    else if (tab === 'banner') count = getImageResultCountForTab(orderedResultsByType, providerFilter, 'banner');
-                                    else if (tab === 'alternativeBanner') count = getImageResultCountForTab(orderedResultsByType, providerFilter, 'alternativeBanner');
-                                    else if (tab === 'logo') count = getImageResultCountForTab(orderedResultsByType, providerFilter, 'logo');
-                                    else if (tab === 'icon') count = getImageResultCountForTab(orderedResultsByType, providerFilter, 'icon');
-                                  }
-
-                                  return (
-                                    <button
-                                      key={tab}
-                                      onClick={() => handleImageSearchTabChange(tab as any)}
-                                      className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${isActive
-                                        ? 'border-green-500 text-green-400'
-                                        : 'border-transparent text-gray-400 hover:text-white hover:border-gray-600'
-                                        }`}
-                                    >
-                                      {label}
-                                      {count > 0 && <span className="ml-2 text-xs opacity-60 bg-gray-800 px-1.5 py-0.5 rounded-full">{count}</span>}
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <button
-                                  onClick={handleUploadWebmClick}
-                                  className="text-xs px-3 py-1 rounded border border-emerald-500 bg-emerald-600/20 text-emerald-200 hover:bg-emerald-600/30 hover:border-emerald-400 transition-colors flex items-center gap-1"
-                                  title={
-                                    activeImageSearchTab === 'all'
-                                      ? 'Upload a WEBM file. You will choose which image type (boxart, banner, etc.) to assign it to.'
-                                      : `Upload a WEBM file for ${activeImageSearchTab === 'alternativeBanner' ? 'Alt Banner' : activeImageSearchTab.charAt(0).toUpperCase() + activeImageSearchTab.slice(1)}.`
-                                  }
-                                >
-                                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M16 12l-4 4m0 0l-4-4m4 4V4" />
-                                  </svg>
-                                  Upload WEBM
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    setImageSearchResults([]);
-                                    setFailedImageSearchUrls(new Set());
-                                    setSteamGridDBResults({ boxart: [], banner: [], alternativeBanner: [], logo: [], icon: [] });
-                                    setFastSearchResults([]);
-                                    setSelectedFastGame(null);
-                                  }}
-                                  className="text-xs text-gray-400 hover:text-white flex items-center gap-1 px-3 py-1 bg-gray-800 rounded border border-gray-700 hover:border-gray-500"
-                                >
-                                  <svg className="w-3 h-3 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                                  </svg>
-                                  New Search
-                                </button>
-                              </div>
-                            </div>
-                            {renderProviderStatusRow('px-1 pb-2')}
-                            {renderDetailedSearchStatus('px-1 pb-2 text-xs')}
-                          </div>
-                        )}
-
-                      {/* Result Tabs Content - Scrollable Container */}
-                      <div className="flex-1 overflow-y-auto px-4 py-1 custom-scrollbar relative">
-                        {hasAnyRawImageResults(imageSearchResults, steamGridDBResults) && (
-                            <div>
-                              {/* Content */}
-                              <div className="space-y-8">
-                                {!hasAnyVisibleImageResults(orderedResultsByType, providerFilter) && (
-                                  <div className="rounded-lg border border-gray-700 bg-gray-800/40 p-6 text-center">
-                                    <p className="text-sm text-gray-300">No results found for the current image filter.</p>
-                                    <p className="text-xs text-gray-500 mt-1">Try turning off filters or switching to another filter mode.</p>
-                                  </div>
-                                )}
-                                {/* Boxart Section */}
-                                {(activeImageSearchTab === 'all' || activeImageSearchTab === 'boxart') &&
-                                  (getImageResultCountForTab(orderedResultsByType, providerFilter, 'boxart') > 0) && (
-                                    <div>
-                                      {activeImageSearchTab === 'all' && <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">Box Art & Covers</h4>}
-                                      <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-10 gap-3">
-                                        {orderedResultsByType.boxart.filter((result: any) => matchesProviderFilter(result.source, providerFilter)).map((result, idx) => (
-                                          <div
-                                            key={`igdb-boxart-${result.id}-${idx}`}
-                                            onClick={() => handleSelectImage(result.boxArtUrl || result.coverUrl, 'boxart')}
-                                            className="group cursor-pointer"
-                                          >
-                                            <div className="aspect-[2/3] rounded overflow-hidden border border-gray-700 bg-gray-800 group-hover:border-green-500 transition-all relative">
-                                              <img
-                                                src={result.boxArtUrl || result.coverUrl}
-                                                alt={result.name}
-                                                className="w-full h-full object-cover"
-                                                onError={(e) => {
-                                                  handleImageResultLoadError(result.boxArtUrl || result.coverUrl, e);
-                                                }}
-                                              />
-                                              <div className="absolute inset-x-0 bottom-0 bg-black/60 p-1 translate-y-full group-hover:translate-y-0 transition-transform">
-                                                <p className="text-[10px] text-white truncate text-center">{result.source || 'IGDB'}</p>
-                                              </div>
-                                            </div>
-                                          </div>
-                                        ))}
-                                      </div>
-                                    </div>
-                                  )}
-
-                                {/* Logo Section */}
-                                {(activeImageSearchTab === 'all' || activeImageSearchTab === 'logo') &&
-                                  (getImageResultCountForTab(orderedResultsByType, providerFilter, 'logo') > 0) && (
-                                    <div>
-                                      {activeImageSearchTab === 'all' && <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">Logos</h4>}
-                                      <div className="grid grid-cols-4 sm:grid-cols-6 gap-3 bg-gray-900/50 p-4 rounded-lg border border-gray-800">
-                                        {orderedResultsByType.logo.filter((result: any) => matchesProviderFilter(result.source, providerFilter)).map((result, idx) => (
-                                          <div
-                                            key={`igdb-logo-${idx}`}
-                                            onClick={() => handleSelectImage(result.logoUrl, 'logo')}
-                                            className="group cursor-pointer flex items-center justify-center p-2 rounded bg-gray-800/50 border border-gray-700 hover:border-green-500 hover:bg-gray-800 transition-all h-24"
-                                          >
-                                            <img
-                                              src={result.logoUrl}
-                                              alt="Logo"
-                                              className="max-w-full max-h-full object-contain"
-                                              onError={(e) => {
-                                                handleImageResultLoadError(result.logoUrl, e);
-                                              }}
-                                            />
-                                          </div>
-                                        ))}
-                                      </div>
-                                    </div>
-                                  )}
-
-                                {/* Banner Section */}
-                                {(activeImageSearchTab === 'all' || activeImageSearchTab === 'banner') &&
-                                  (getImageResultCountForTab(orderedResultsByType, providerFilter, 'banner') > 0) && (
-                                    <div>
-                                      {activeImageSearchTab === 'all' && <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">Banners & Screenshots</h4>}
-                                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                                        {orderedResultsByType.banner.filter((result: any) => matchesProviderFilter(result.source, providerFilter)).map((result, idx) => {
-                                          const url = getRenderableImageUrl(result.bannerUrl || result.screenshotUrls?.[0]);
-                                          if (!url) return null;
-                                          return (
-                                            <div
-                                              key={`igdb-banner-${result.id}-${idx}`}
-                                              onClick={() => handleSelectImage(url, 'banner')}
-                                              className="group cursor-pointer"
-                                            >
-                                              <div className="aspect-video rounded overflow-hidden border border-gray-700 bg-gray-800 group-hover:border-green-500 transition-all relative">
-                                                <img
-                                                  src={url}
-                                                  alt={result.name}
-                                                  className="w-full h-full object-cover"
-                                                  onError={(e) => {
-                                                    handleImageResultLoadError(url, e);
-                                                  }}
-                                                />
-                                                <div className="absolute inset-x-0 bottom-0 bg-black/60 p-1 translate-y-full group-hover:translate-y-0 transition-transform">
-                                                  <p className="text-[10px] text-white truncate text-center">{result.source || result.name}</p>
-                                                </div>
-                                              </div>
-                                            </div>
-                                          );
-                                        })}
-                                      </div>
-                                    </div>
-                                  )}
-
-                                {/* Alternative Banner Section */}
-                                {(activeImageSearchTab === 'all' || activeImageSearchTab === 'alternativeBanner') &&
-                                  (getImageResultCountForTab(orderedResultsByType, providerFilter, 'alternativeBanner') > 0) && (
-                                    <div>
-                                      {activeImageSearchTab === 'all' && <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">Alternative Banners</h4>}
-                                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                                        {orderedResultsByType.banner.filter((result: any) => matchesProviderFilter(result.source, providerFilter)).map((result, idx) => {
-                                          const url = getRenderableImageUrl(result.bannerUrl || result.screenshotUrls?.[0]);
-                                          if (!url) return null;
-                                          return (
-                                            <div
-                                              key={`igdb-alt-banner-${result.id}-${idx}`}
-                                              onClick={() => handleSelectImage(url, 'alternativeBanner')}
-                                              className="group cursor-pointer"
-                                            >
-                                              <div className="aspect-video rounded overflow-hidden border border-gray-700 bg-gray-800 group-hover:border-green-500 transition-all relative">
-                                                <img
-                                                  src={url}
-                                                  alt={result.name}
-                                                  className="w-full h-full object-cover"
-                                                  onError={(e) => {
-                                                    handleImageResultLoadError(url, e);
-                                                  }}
-                                                />
-                                                <div className="absolute inset-x-0 bottom-0 bg-black/60 p-1 translate-y-full group-hover:translate-y-0 transition-transform">
-                                                  <p className="text-[10px] text-white truncate text-center">{result.source || result.name}</p>
-                                                </div>
-                                              </div>
-                                            </div>
-                                          );
-                                        })}
-                                      </div>
-                                    </div>
-                                  )}
-
-                                {/* Icon Section */}
-                                {(activeImageSearchTab === 'all' || activeImageSearchTab === 'icon') &&
-                                  (getImageResultCountForTab(orderedResultsByType, providerFilter, 'icon') > 0) && (
-                                    <div>
-                                      {activeImageSearchTab === 'all' && <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">Icons</h4>}
-                                      <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-12 gap-3 bg-gray-900/50 p-4 rounded-lg border border-gray-800">
-                                        {orderedResultsByType.icon.filter((result: any) => matchesProviderFilter(result.source, providerFilter)).map((result, idx) => {
-                                          const url = getRenderableImageUrl(result.iconUrl);
-                                          if (!url) return null;
-                                          return (
-                                            <div
-                                              key={`igdb-icon-${idx}`}
-                                              onClick={() => handleSelectImage(url, 'icon')}
-                                              className="group cursor-pointer flex items-center justify-center p-2 rounded bg-gray-800/50 border border-gray-700 hover:border-green-500 hover:bg-gray-800 transition-all aspect-square"
-                                            >
-                                              <img
-                                                src={url}
-                                                alt="Icon"
-                                                className="w-full h-full object-contain"
-                                                onError={(e) => {
-                                                  handleImageResultLoadError(url, e);
-                                                }}
-                                              />
-                                            </div>
-                                          );
-                                        })}
-                                      </div>
-                                    </div>
-                                  )}
-                              </div>
-                            </div>
-                          )}
-
-                        {/* Manual Search / Help Footer */}
-                        <div className="mt-8 mx-4 pt-6 border-t border-gray-800 pb-8 text-center opacity-80 hover:opacity-100 transition-opacity">
-                          <h4 className="text-sm font-medium text-gray-300 mb-2">Can't find what you're looking for?</h4>
-                          <p className="text-xs text-gray-500 mb-4 max-w-md mx-auto">
-                            You can search Google Images for the exact asset you need, save it, and use the "Browse" button or <strong>Right-Click</strong> on the image slots above to upload it.
-                          </p>
-                          <div className="flex flex-wrap justify-center gap-3">
-                            <button
-                              onClick={() => {
-                                const query = `${editedGame?.title || selectedGame?.title} box art`;
-                                window.electronAPI.openExternal(`https://www.google.com/search?tbm=isch&q=${encodeURIComponent(query)}`);
-                              }}
-                              className="px-3 py-1.5 text-xs bg-gray-800 hover:bg-gray-700 border border-gray-700 hover:border-blue-500 text-gray-300 rounded transition-all flex items-center gap-2"
-                            >
-                              <svg className="w-3 h-3 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-                              Search Box Art
-                            </button>
-                            <button
-                              onClick={() => {
-                                const query = `${editedGame?.title || selectedGame?.title} game logo transparent`;
-                                window.electronAPI.openExternal(`https://www.google.com/search?tbm=isch&q=${encodeURIComponent(query)}`);
-                              }}
-                              className="px-3 py-1.5 text-xs bg-gray-800 hover:bg-gray-700 border border-gray-700 hover:border-blue-500 text-gray-300 rounded transition-all flex items-center gap-2"
-                            >
-                              <svg className="w-3 h-3 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-                              Search Logo
-                            </button>
-                            <button
-                              onClick={() => {
-                                const query = `${editedGame?.title || selectedGame?.title} game banner wallpaper`;
-                                window.electronAPI.openExternal(`https://www.google.com/search?tbm=isch&q=${encodeURIComponent(query)}`);
-                              }}
-                              className="px-3 py-1.5 text-xs bg-gray-800 hover:bg-gray-700 border border-gray-700 hover:border-blue-500 text-gray-300 rounded transition-all flex items-center gap-2"
-                            >
-                              <svg className="w-3 h-3 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-                              Search Banner
-                            </button>
-                            <button
-                              onClick={() => {
-                                const query = `${editedGame?.title || selectedGame?.title} game icon`;
-                                window.electronAPI.openExternal(`https://www.google.com/search?tbm=isch&q=${encodeURIComponent(query)}`);
-                              }}
-                              className="px-3 py-1.5 text-xs bg-gray-800 hover:bg-gray-700 border border-gray-700 hover:border-blue-500 text-gray-300 rounded transition-all flex items-center gap-2"
-                            >
-                              <svg className="w-3 h-3 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-                              Search Icon
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    </>
+                    <GameManagerImagesTab
+                      editedGame={editedGame}
+                      selectedGame={selectedGame}
+                      showImageSearch={showImageSearch}
+                      imageSearchQuery={imageSearchQuery}
+                      isSearchingImages={isSearchingImages}
+                      isFastSearching={isFastSearching}
+                      providerProgress={providerProgress}
+                      providerFilter={providerFilter}
+                      fastSearchResults={fastSearchResults}
+                      selectedFastGameId={selectedFastGame?.id ?? null}
+                      activeImageSearchTab={activeImageSearchTab}
+                      orderedResultsByType={orderedResultsByType}
+                      hasRawImageResults={hasAnyRawImageResults(imageSearchResults, steamGridDBResults)}
+                      hasVisibleImageResults={hasAnyVisibleImageResults(orderedResultsByType, providerFilter)}
+                      onOpenImageSearch={openImageSearchAndSearch}
+                      onOpenArtworkContextMenu={handleOpenArtworkContextMenu}
+                      onImageSearchQueryChange={setImageSearchQuery}
+                      onSubmitImageSearch={handleSearchImages}
+                      onFastSearch={handleFastSearch}
+                      onBrowseImage={handleBrowseImage}
+                      onClearResults={handleClearImageSearchState}
+                      onProviderFilterChange={setProviderFilter}
+                      getImageCountForProvider={(providerName) => getImageCountForProvider(orderedResultsByType, providerName)}
+                      onSelectFastGame={handleSelectFastGame}
+                      onImageLoadError={handleImageResultLoadError}
+                      onImageSearchTabChange={handleImageSearchTabChange}
+                      getImageResultCountForTab={getVisibleImageResultCountForTab}
+                      getRenderableImageUrl={getRenderableImageUrl}
+                      onSelectImage={handleSelectImage}
+                      matchesProviderFilter={matchesActiveProviderFilter}
+                      onUploadWebmClick={handleUploadWebmClick}
+                      onOpenGoogleImageSearch={handleOpenGoogleImageSearch}
+                    />
                   )}
 
                   {activeTab === 'metadata' && (
-                    <div className="p-4 h-full overflow-y-auto">
-                      {/* Image Preview Strip - Copied from Images Tab */}
-                      <div className="flex gap-2 mb-6 items-start p-3 bg-gray-900/50 rounded-lg border border-gray-800">
-                        {/* Boxart */}
-                        <div
-                          onClick={() => {
-                            setActiveTab('images');
-                            openImageSearchAndSearch('boxart');
-                          }}
-                          className="h-24 w-auto aspect-[2/3] relative group cursor-pointer border border-gray-700 rounded-lg overflow-hidden bg-gray-800 hover:border-green-500 transition-colors flex-shrink-0"
-                        >
-                          {(editedGame.boxArtUrl || selectedGame.boxArtUrl) ? (
-                            (editedGame.boxArtIsVideo || selectedGame?.boxArtIsVideo) ? (
-                              <video
-                                src={editedGame.boxArtUrl || selectedGame.boxArtUrl}
-                                muted
-                                loop
-                                playsInline
-                                autoPlay
-                                className="w-full h-full object-cover"
-                              />
-                            ) : (
-                              <img
-                                src={editedGame.boxArtUrl || selectedGame.boxArtUrl}
-                                alt="Boxart"
-                                className="w-full h-full object-cover"
-                              />
-                            )
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center">
-                              <span className="text-[8px] text-gray-600 text-center p-1">Boxart</span>
-                            </div>
-                          )}
-                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                            <span className="text-[10px] text-white font-medium">Edit</span>
-                          </div>
-                        </div>
-
-                        {/* Logo */}
-                        <div
-                          onClick={() => {
-                            setActiveTab('images');
-                            openImageSearchAndSearch('logo');
-                          }}
-                          className="h-24 w-36 relative group cursor-pointer border border-gray-700 rounded-lg overflow-hidden bg-gray-800 hover:border-green-500 transition-colors flex-shrink-0"
-                        >
-                          {(editedGame.logoUrl || selectedGame.logoUrl) ? (
-                            <div className="w-full h-full p-2 flex items-center justify-center">
-                              {(editedGame.logoIsVideo || selectedGame?.logoIsVideo) ? (
-                                <video
-                                  src={editedGame.logoUrl || selectedGame.logoUrl}
-                                  muted
-                                  loop
-                                  playsInline
-                                  autoPlay
-                                  className="max-w-full max-h-full object-contain"
-                                />
-                              ) : (
-                                <img
-                                  src={editedGame.logoUrl || selectedGame.logoUrl}
-                                  alt="Logo"
-                                  className="max-w-full max-h-full object-contain"
-                                />
-                              )}
-                            </div>
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center p-2">
-                              <span className="text-[8px] text-gray-600">Logo</span>
-                            </div>
-                          )}
-                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                            <span className="text-[10px] text-white font-medium">Edit</span>
-                          </div>
-                        </div>
-
-                        {/* Banner + Alt Banner */}
-                        <div className="h-24 flex-1 flex gap-1">
-                          {/* Banner */}
-                          <div
-                            onClick={() => {
-                              setActiveTab('images');
-                              openImageSearchAndSearch('banner');
-                            }}
-                            className="flex-1 relative group cursor-pointer border border-gray-700 rounded-lg overflow-hidden bg-gray-800 hover:border-green-500 transition-colors"
-                          >
-                            {(editedGame.bannerUrl || selectedGame.bannerUrl) ? (
-                              (editedGame.bannerIsVideo || selectedGame?.bannerIsVideo) ? (
-                                <video
-                                  src={editedGame.bannerUrl || selectedGame.bannerUrl}
-                                  muted
-                                  loop
-                                  playsInline
-                                  autoPlay
-                                  className="w-full h-full object-cover"
-                                />
-                              ) : (
-                                <img
-                                  src={editedGame.bannerUrl || selectedGame.bannerUrl}
-                                  alt="Banner"
-                                  className="w-full h-full object-cover"
-                                />
-                              )
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center">
-                                <span className="text-[8px] text-gray-600">Banner</span>
-                              </div>
-                            )}
-                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                              <span className="text-[10px] text-white font-medium">Edit</span>
-                            </div>
-                          </div>
-
-                          {/* Alt Banner */}
-                          <div
-                            onClick={() => {
-                              setActiveTab('images');
-                              openImageSearchAndSearch('alternativeBanner');
-                            }}
-                            className="flex-1 relative group cursor-pointer border border-gray-700 rounded-lg overflow-hidden bg-gray-800 hover:border-green-500 transition-colors"
-                          >
-                            {(editedGame.alternativeBannerUrl || selectedGame.alternativeBannerUrl) ? (
-                              (editedGame.alternativeBannerIsVideo || selectedGame?.alternativeBannerIsVideo) ? (
-                                <video
-                                  src={editedGame.alternativeBannerUrl || selectedGame.alternativeBannerUrl}
-                                  muted
-                                  loop
-                                  playsInline
-                                  autoPlay
-                                  className="w-full h-full object-cover"
-                                />
-                              ) : (
-                                <img
-                                  src={editedGame.alternativeBannerUrl || selectedGame.alternativeBannerUrl}
-                                  alt="Alt Banner"
-                                  className="w-full h-full object-cover"
-                                />
-                              )
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center">
-                                <span className="text-[8px] text-gray-600">Alt Banner</span>
-                              </div>
-                            )}
-                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                              <span className="text-[10px] text-white font-medium">Edit</span>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Icon */}
-                        <div
-                          onClick={() => {
-                            setActiveTab('images');
-                            openImageSearchAndSearch('icon');
-                          }}
-                          className="h-24 w-24 relative group cursor-pointer border border-gray-700 rounded-lg overflow-hidden bg-gray-800 hover:border-green-500 transition-colors flex-shrink-0"
-                        >
-                          {(editedGame.iconUrl || selectedGame.iconUrl) ? (
-                            <div className="w-full h-full p-2 flex items-center justify-center">
-                              {(editedGame.iconIsVideo || selectedGame?.iconIsVideo) ? (
-                                <video
-                                  src={editedGame.iconUrl || selectedGame.iconUrl}
-                                  muted
-                                  loop
-                                  playsInline
-                                  autoPlay
-                                  className="max-w-full max-h-full object-contain"
-                                />
-                              ) : (
-                                <img
-                                  src={editedGame.iconUrl || selectedGame.iconUrl}
-                                  alt="Icon"
-                                  className="max-w-full max-h-full object-contain"
-                                />
-                              )}
-                            </div>
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center text-center p-1">
-                              <span className="text-[8px] text-gray-600">Icon</span>
-                            </div>
-                          )}
-                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                            <span className="text-[10px] text-white font-medium">Edit</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="space-y-4">
-                        <div className="flex flex-col lg:flex-row gap-4">
-                          {/* Title Row with Fix Match */}
-                          <div className="flex-1">
-                            <label className="block text-xs font-medium text-gray-400 mb-1">Title</label>
-                            <div className="flex gap-2">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const newLockedFields = { ...editedGame.lockedFields };
-                                  newLockedFields.title = !newLockedFields.title;
-                                  setEditedGame({ ...editedGame, lockedFields: newLockedFields });
-                                }}
-                                className={`flex items-center justify-center p-1.5 rounded transition-colors ${editedGame.lockedFields?.title ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30' : 'bg-gray-700 text-gray-400 hover:bg-gray-600 hover:text-white'}`}
-                                title={editedGame.lockedFields?.title ? "Unlock Title" : "Lock Title"}
-                              >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  {editedGame.lockedFields?.title ? (
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                                  ) : (
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" />
-                                  )}
-                                </svg>
-                              </button>
-                              <input
-                                type="text"
-                                value={showFixMatch ? metadataSearchQuery : editedGame.title}
-                                onChange={(e) => {
-                                  if (showFixMatch) {
-                                    setMetadataSearchQuery(e.target.value);
-                                  } else {
-                                    setEditedGame({ ...editedGame, title: e.target.value });
-                                  }
-                                }}
-                                onKeyDown={(e) => {
-                                  if (showFixMatch && e.key === 'Enter') {
-                                    handleFixMatchSearch();
-                                  }
-                                }}
-                                placeholder={showFixMatch ? "Enter game title to search..." : ""}
-                                className="flex-1 px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                disabled={(showFixMatch && isSearchingMetadata) || editedGame.lockedFields?.title}
-                              />
-                              {showFixMatch && (
-                                <button
-                                  onClick={handleFixMatchSearch}
-                                  disabled={isSearchingMetadata}
-                                  className="px-4 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors disabled:opacity-50 flex items-center gap-2"
-                                >
-                                  {isSearchingMetadata ? (
-                                    <>
-                                      <svg className="animate-spin h-4 w-4 group- hover:animate-wobble group-hover:animate-wobble" fill="none" viewBox="0 0 24 24">
-                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                                      </svg>
-                                      Searching...
-                                    </>
-                                  ) : (
-                                    'Search'
-                                  )}
-                                </button>
-                              )}
-                              <button
-                                onClick={async () => {
-                                  const wasHidden = !showFixMatch;
-                                  setShowFixMatch(!showFixMatch);
-                                  if (wasHidden) {
-                                    // When opening, set search query to current title and auto-search
-                                    setMetadataSearchQuery(editedGame.title || selectedGame.title);
-                                    const query = editedGame.title || selectedGame.title;
-                                    if (query) {
-                                      setIsSearchingMetadata(true);
-                                      setMetadataSearchResults([]);
-                                      setError(null);
-                                      try {
-                                        // Note: searchGames returns an array directly, not a {success, results} wrapper
-                                        const response = await window.electronAPI.searchGames(query);
-                                        const results = Array.isArray(response) ? response : (response.results || []);
-
-                                        if (results.length === 0) {
-                                          setError('No matches found. Try a different search term.');
-                                          setMetadataSearchResults([]);
-                                        } else {
-                                          // Sort: Score > Date > Exact Match
-                                          const normalizedQuery = query.toLowerCase().trim();
-                                          const sortedResults = results.sort((a: any, b: any) => {
-                                            // 1. Score (assigned by backend)
-                                            const scoreA = a.score || 0;
-                                            const scoreB = b.score || 0;
-                                            if (scoreA !== scoreB) return scoreB - scoreA;
-
-                                            // 2. Release Date (Newest first)
-                                            const getDate = (r: any) => {
-                                              if (r.releaseDate) return typeof r.releaseDate === 'number' ? r.releaseDate * 1000 : new Date(r.releaseDate).getTime();
-                                              if (r.year) return new Date(r.year, 0, 1).getTime();
-                                              return 0;
-                                            };
-                                            const dateA = getDate(a);
-                                            const dateB = getDate(b);
-                                            if (dateA !== dateB && dateA > 0 && dateB > 0) return dateB - dateA;
-
-                                            // 3. Exact Match
-                                            const nameA = (a.title || a.name || "").toLowerCase().trim();
-                                            const nameB = (b.title || b.name || "").toLowerCase().trim();
-                                            if (nameA === normalizedQuery && nameB !== normalizedQuery) return -1;
-                                            if (nameA !== normalizedQuery && nameB === normalizedQuery) return 1;
-
-                                            return 0;
-                                          });
-                                          setMetadataSearchResults(sortedResults);
-                                        }
-                                      } catch (err) {
-                                        console.error('Error searching metadata:', err);
-                                        setError('Failed to search for games. Please try again.');
-                                      } finally {
-                                        setIsSearchingMetadata(false);
-                                      }
-                                    }
-                                  } else {
-                                    // When hiding, clear search results
-                                    setMetadataSearchResults([]);
-                                    setMetadataSearchQuery('');
-                                    setError(null);
-                                  }
-                                }}
-                                className="px-3 py-1.5 text-sm bg-purple-600 hover:bg-purple-700 text-white rounded transition-colors flex items-center gap-1.5"
-                              >
-                                <svg className="w-3.5 h-3.5 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                                </svg>
-                                {showFixMatch ? 'Hide' : 'Fix Match'}
-                              </button>
-                            </div>
-                          </div>
-
-
-                        </div>
-
-                        {/* Fix Match Results */}
-                        {showFixMatch && (
-                          <div className="space-y-2">
-                            {isSearchingMetadata && (
-                              <div className="flex items-center gap-2 text-sm text-gray-400">
-                                <svg className="animate-spin h-4 w-4 group- hover:animate-wobble group-hover:animate-wobble" fill="none" viewBox="0 0 24 24">
-                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                                </svg>
-                                Searching for metadata matches...
-                              </div>
-                            )}
-
-                            {metadataSearchResults.length > 0 && (
-                              <div className="max-h-96 overflow-y-auto">
-                                <div className="space-y-2">
-                                  {metadataSearchResults.map((result) => {
-                                    // Extract release date properly - show full date, not just year
-                                    let displayDate: string | undefined;
-                                    if (result.releaseDate) {
-                                      // Handle both Unix timestamp (seconds) and Date objects
-                                      if (typeof result.releaseDate === 'number') {
-                                        const date = new Date(result.releaseDate * 1000);
-                                        displayDate = date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-                                      } else if (typeof result.releaseDate === 'string') {
-                                        const date = new Date(result.releaseDate);
-                                        if (!isNaN(date.getTime())) {
-                                          displayDate = date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-                                        } else {
-                                          // Try parsing as ISO date string
-                                          displayDate = result.releaseDate;
-                                        }
-                                      }
-                                    } else if (result.year) {
-                                      // Fallback to year only if no full date available
-                                      displayDate = result.year.toString();
-                                    }
-
-                                    return (
-                                      <button
-                                        key={result.id}
-                                        onClick={() => handleSelectMetadataMatch({ id: result.id, source: result.source, steamAppId: result.steamAppId, title: result.title || result.name })}
-                                        disabled={isApplyingMetadata}
-                                        className="relative w-full text-left p-3 text-sm bg-gray-800 hover:bg-gray-700 rounded border border-gray-600 disabled:opacity-50 transition-colors flex items-center gap-3"
-                                      >
-                                        <div className="flex-1 min-w-0">
-                                          <p className="text-white font-medium text-sm truncate" title={result.title || result.name}>
-                                            {result.title || result.name}
-                                          </p>
-                                          <div className="flex items-center gap-2 mt-1">
-                                            <span className={`text-xs ${result.source === 'steam' ? 'text-blue-400' : 'text-gray-400'}`}>
-                                              {result.source === 'steam' ? 'Steam' : result.source === 'igdb' ? 'IGDB' : result.source === 'steamgriddb' ? 'SGDB' : result.source}
-                                            </span>
-                                            {result.steamAppId && (
-                                              <span className="text-xs text-gray-500">App ID: {result.steamAppId}</span>
-                                            )}
-                                            {displayDate && (
-                                              <span className="text-xs text-gray-400">ï¿½ï¿½ï¿½ {displayDate}</span>
-                                            )}
-                                          </div>
-                                        </div>
-                                        {isApplyingMetadata && (
-                                          <div className="absolute inset-0 bg-black/50 rounded flex items-center justify-center">
-                                            <svg className="animate-spin h-5 w-5 text-blue-500 group- hover:animate-wobble group-hover:animate-wobble" fill="none" viewBox="0 0 24 24">
-                                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                                            </svg>
-                                          </div>
-                                        )}
-                                      </button>
-                                    );
-                                  })}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        )}
-
-                        {/* Description and Categories Row */}
-                        <div className="flex flex-col lg:flex-row gap-4">
-                          {/* Description */}
-                          <div className="flex-1">
-                            <label className="block text-xs font-medium text-gray-400 mb-1">Description</label>
-                            <textarea
-                              value={editedGame.description || ''}
-                              onChange={(e) => setEditedGame({ ...editedGame, description: e.target.value })}
-                              className="w-full px-3 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                              rows={4}
-                            />
-                          </div>
-
-                          {/* Categories - vertical scroll layout */}
-                          <div className="w-full lg:w-[35%] flex flex-col">
-                            <label className="block text-xs font-medium text-gray-400 mb-1">Categories</label>
-                            <div className="flex-1 p-2 bg-gray-800/50 rounded border border-gray-700 flex flex-col gap-2 max-h-[104px] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent">
-                              <div className="flex flex-wrap gap-1">
-                                {editedGame.categories?.map((category, index) => (
-                                  <span key={index} className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium bg-blue-900/30 text-blue-200 border border-blue-700/30 rounded-full group hover:border-blue-500/50 transition-colors">
-                                    {category}
-                                    <button
-                                      onClick={() => {
-                                        const newCategories = [...(editedGame.categories || [])];
-                                        newCategories.splice(index, 1);
-                                        setEditedGame({ ...editedGame, categories: newCategories });
-                                      }}
-                                      className="ml-0.5 text-blue-400 hover:text-white focus:outline-none rounded-full"
-                                    >
-                                      &times;
-                                    </button>
-                                  </span>
-                                ))}
-                              </div>
-                              <input
-                                type="text"
-                                value={newCategoryInput}
-                                onChange={(e) => setNewCategoryInput(e.target.value)}
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') {
-                                    e.preventDefault();
-                                    if (newCategoryInput.trim()) {
-                                      const currentCategories = editedGame.categories || [];
-                                      const newCat = newCategoryInput.trim();
-                                      if (!currentCategories.includes(newCat)) {
-                                        setEditedGame({
-                                          ...editedGame,
-                                          categories: [...currentCategories, newCat]
-                                        });
-                                        setNewCategoryInput('');
-                                      }
-                                    }
-                                  }
-                                }}
-                                placeholder="Add category..."
-                                className="w-full bg-transparent border-none text-xs text-white focus:outline-none placeholder-gray-500"
-                              />
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Metadata Grid - 5 Columns */}
-                        <div className="grid grid-cols-5 gap-2">
-                          {/* Platform */}
-                          {editedGame.platform && editedGame.platform !== 'other' && (
-                            <div>
-                              <label className="block text-[10px] uppercase tracking-wider font-semibold text-gray-500 mb-0.5">Platform</label>
-                              <div className="relative">
-                                <div className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-300 pointer-events-none">
-                                  <LauncherIcon launcher={editedGame.platform} className="w-3.5 h-3.5" />
-                                </div>
-                                <input
-                                  type="text"
-                                  value={getLauncherDisplayName(editedGame.platform)}
-                                  onChange={(e) => setEditedGame({ ...editedGame, platform: e.target.value })}
-                                  className="w-full pl-7 pr-2 py-1 text-xs bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                />
-                              </div>
-                            </div>
-                          )}
-
-
-
-                          <div>
-                            <label className="block text-[10px] uppercase tracking-wider font-semibold text-gray-500 mb-0.5">Release Date</label>
-                            <input
-                              type="text"
-                              value={editedGame.releaseDate || ''}
-                              onChange={(e) => setEditedGame({ ...editedGame, releaseDate: e.target.value })}
-                              placeholder="YYYY-MM-DD"
-                              className="w-full px-2 py-1 text-xs bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-[10px] uppercase tracking-wider font-semibold text-gray-500 mb-0.5">Age Rating</label>
-                            <input
-                              type="text"
-                              value={editedGame.ageRating || ''}
-                              onChange={(e) => setEditedGame({ ...editedGame, ageRating: e.target.value })}
-                              className="w-full px-2 py-1 text-xs bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-[10px] uppercase tracking-wider font-semibold text-gray-500 mb-0.5">Series</label>
-                            <input
-                              type="text"
-                              value={editedGame.series || ''}
-                              onChange={(e) => setEditedGame({ ...editedGame, series: e.target.value })}
-                              className="w-full px-2 py-1 text-xs bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-[10px] uppercase tracking-wider font-semibold text-gray-500 mb-0.5">Genres</label>
-                            <input
-                              type="text"
-                              value={editedGame.genres?.join(', ') || ''}
-                              onChange={(e) => setEditedGame({ ...editedGame, genres: e.target.value.split(',').map(g => g.trim()).filter(g => g) })}
-                              className="w-full px-2 py-1 text-xs bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-[10px] uppercase tracking-wider font-semibold text-gray-500 mb-0.5">Developers</label>
-                            <input
-                              type="text"
-                              value={editedGame.developers?.join(', ') || ''}
-                              onChange={(e) => setEditedGame({ ...editedGame, developers: e.target.value.split(',').map(d => d.trim()).filter(d => d) })}
-                              className="w-full px-2 py-1 text-xs bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-[10px] uppercase tracking-wider font-semibold text-gray-500 mb-0.5">Publishers</label>
-                            <input
-                              type="text"
-                              value={editedGame.publishers?.join(', ') || ''}
-                              onChange={(e) => setEditedGame({ ...editedGame, publishers: e.target.value.split(',').map(p => p.trim()).filter(p => p) })}
-                              className="w-full px-2 py-1 text-xs bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-[10px] uppercase tracking-wider font-semibold text-gray-500 mb-0.5">Source</label>
-                            <div className="relative">
-                              <div className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-300 pointer-events-none">
-                                <LauncherIcon launcher={editedGame.source || 'other'} className="w-3.5 h-3.5" />
-                              </div>
-                              <input
-                                type="text"
-                                value={getSourceDisplayName(editedGame.source || '')}
-                                onChange={(e) => setEditedGame({ ...editedGame, source: e.target.value })}
-                                className="w-full pl-7 pr-2 py-1 text-xs bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                              />
-                            </div>
-                          </div>
-                          <div className="col-span-2">
-                            <label className="block text-[10px] uppercase tracking-wider font-semibold text-gray-500 mb-0.5">Install Directory</label>
-                            <input
-                              type="text"
-                              value={editedGame.installationDirectory || ''}
-                              onChange={(e) => setEditedGame({ ...editedGame, installationDirectory: e.target.value })}
-                              className="w-full px-2 py-1 text-xs bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                            />
-                          </div>
-                          <div className="col-span-2">
-                            <label className="block text-[10px] uppercase tracking-wider font-semibold text-gray-500 mb-0.5">Executable Path</label>
-                            <input
-                              type="text"
-                              value={editedGame.exePath || ''}
-                              onChange={(e) => setEditedGame({ ...editedGame, exePath: e.target.value })}
-                              className="w-full px-2 py-1 text-xs bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-[10px] uppercase tracking-wider font-semibold text-gray-500 mb-0.5">Install Size</label>
-                            <input
-                              type="text"
-                              value={editedGame.installSize ? `${Math.round(editedGame.installSize / 1024 / 1024 / 1024 * 100) / 100} GB` : ''}
-                              readOnly
-                              className="w-full px-2 py-1 text-xs bg-gray-800/50 border border-gray-600 rounded text-gray-400"
-                            />
-                          </div>
-
-                        </div>
-
-                        {/* Action Buttons */}
-                        <div className="flex gap-2 pt-2">
-                          <button
-                            onClick={handleSave}
-                            disabled={isSaving}
-                            className="flex-1 px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors disabled:opacity-50"
-                          >
-                            {isSaving ? 'Saving...' : 'Save'}
-                          </button>
-                          <button
-                            onClick={() => {
-                              setExpandedGameId(null);
-                              setEditedGame(null);
-                              setShowFixMatch(false);
-                              setSelectedGameId(null);
-                              // Reset Fix Match state when cancelling edit
-                              setMetadataSearchResults([]);
-                              setMetadataSearchQuery('');
-                              setIsSearchingMetadata(false);
-                            }}
-                            className="px-4 py-2 text-sm bg-gray-600 hover:bg-gray-700 text-white rounded transition-colors"
-                          >
-                            Cancel
-                          </button>
-                          {onDeleteGame && (
-                            <button
-                              onClick={() => setShowDeleteConfirm(true)}
-                              disabled={isDeleting}
-                              className="px-4 py-2 text-sm bg-red-600 hover:bg-red-700 text-white rounded transition-colors disabled:opacity-50 flex items-center gap-2"
-                            >
-                              <svg className="w-4 h-4 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                              </svg>
-                              Delete
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    </div>
+                    <GameManagerMetadataTab
+                      editedGame={editedGame}
+                      selectedGame={selectedGame}
+                      showFixMatch={showFixMatch}
+                      metadataSearchQuery={metadataSearchQuery}
+                      metadataSearchResults={metadataSearchResults}
+                      isSearchingMetadata={isSearchingMetadata}
+                      isApplyingMetadata={isApplyingMetadata}
+                      isSaving={isSaving}
+                      isDeleting={isDeleting}
+                      newCategoryInput={newCategoryInput}
+                      canDelete={Boolean(onDeleteGame)}
+                      onOpenImageSearch={(type) => {
+                        setActiveTab('images');
+                        openImageSearchAndSearch(type);
+                      }}
+                      onEditedGameChange={setEditedGame}
+                      onMetadataSearchQueryChange={setMetadataSearchQuery}
+                      onFixMatchSearch={handleFixMatchSearch}
+                      onToggleFixMatch={handleToggleFixMatch}
+                      onSelectMetadataMatch={handleSelectMetadataMatch}
+                      onNewCategoryInputChange={setNewCategoryInput}
+                      onSave={handleSave}
+                      onCancel={handleCancelEditing}
+                      onDelete={() => setShowDeleteConfirm(true)}
+                      getSourceDisplayName={getSourceDisplayName}
+                    />
                   )}
 
                   {activeTab === 'links' && editedGame && (
