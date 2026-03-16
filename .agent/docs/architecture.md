@@ -9,6 +9,8 @@ It explains module boundaries, data flow, and release pipeline expectations.
 - `renderer/src/`: React UI, user interaction logic, and calls to secure preload APIs.
 - `main/preload.ts`: Controlled bridge API between renderer and main process.
 - `dist-electron/`: Build output only; never edit manually.
+- Large renderer surfaces may extract pure helpers into feature-local folders such as `renderer/src/components/gameManager/` so orchestration-heavy components do not also own every normalization/filtering utility inline.
+- `renderer/src/components/gameManager/` now owns both image normalization helpers and ordered image-result aggregation helpers, leaving `GameManager.tsx` focused on state transitions, IPC coordination, and modal rendering.
 
 ## Data and Control Flow
 
@@ -54,7 +56,7 @@ It explains module boundaries, data flow, and release pipeline expectations.
 
 <!-- AUTO-GENERATED:MODULE_INDEX:START -->
 - Main process source files: 70
-- Renderer source files: 78
+- Renderer source files: 80
 - Automation scripts: 30
 - GitHub workflow files: 7
 - Key entrypoints:

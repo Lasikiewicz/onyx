@@ -51,6 +51,7 @@ Lets users search provider/web image sources, preview candidates, and assign box
 
 - Sources include configured metadata providers plus optional web search via [DuckDuckGoImageService.ts](../../main/DuckDuckGoImageService.ts).
 - URL normalization and safety helpers live in [artworkUrlUtils.ts](../../main/artworkUrlUtils.ts).
+- Game Manager-specific renderer result shaping now lives in [imageSearchUtils.ts](../../renderer/src/components/gameManager/imageSearchUtils.ts) and [imageResultUtils.ts](../../renderer/src/components/gameManager/imageResultUtils.ts), which keep URL normalization, provider-name normalization, animation filtering, ordered result grouping, and provider-count filtering separate from the modal component UI.
 - Search inputs typically include game title, platform hints, and requested artwork type.
 
 ## Data Model and Persistence

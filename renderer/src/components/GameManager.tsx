@@ -9,6 +9,21 @@ import { ImageContextMenu } from './ImageContextMenu';
 import { LinkIcon, inferLinkKey, getLinkIconSearchQuery } from './GameLinks';
 import { LauncherIcon, getLauncherDisplayName, normalizeLauncherId } from '../utils/launcherIcons';
 import type { OptimizationStatus } from '../types/optimization';
+import {
+  isWebmAssetUrl,
+  matchesAnimationFilter,
+  normalizeImageUrl,
+  normalizeProviderName,
+  type ProviderName,
+} from './gameManager/imageSearchUtils';
+import {
+  buildOrderedResultsByType,
+  getImageCountForProvider,
+  getImageResultCountForTab,
+  hasAnyRawImageResults,
+  hasAnyVisibleImageResults,
+  matchesProviderFilter,
+} from './gameManager/imageResultUtils';
 
 interface GameManagerProps {
   isOpen: boolean;
@@ -143,26 +158,6 @@ export const GameManager: React.FC<GameManagerProps> = ({
   const includeAnimatedInRequests = false;
   const gameListPlaceholderUrl = useMemo(() => new URL('onyx-logo.svg', window.location.href).href, []);
 
-  const normalizeImageUrl = (value?: string) => {
-    if (!value) return undefined;
-    const trimmed = value.trim();
-    if (!trimmed) return undefined;
-    const lower = trimmed.toLowerCase();
-    if (lower === 'null' || lower === 'undefined' || lower === 'n/a') return undefined;
-    if (trimmed.startsWith('//')) return `https:${trimmed}`;
-    if (
-      lower.startsWith('https://') ||
-      lower.startsWith('http://') ||
-      lower.startsWith('data:') ||
-      lower.startsWith('blob:') ||
-      lower.startsWith('file://') ||
-      lower.startsWith('onyx-local://')
-    ) {
-      return trimmed;
-    }
-    return undefined;
-  };
-
   const getRenderableImageUrl = useCallback((value?: string) => {
     const normalized = normalizeImageUrl(value);
     if (!normalized) return undefined;
@@ -189,42 +184,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
     target.parentElement?.remove();
   };
 
-  const isAnimatedAssetUrl = (url?: string) => !!url && /\.(gif|webp|apng)(\?|$)/i.test(url);
-  const isWebmAssetUrl = (url?: string) => !!url && /\.webm(\?|$)/i.test(url);
-
-  const isAnimatedAsset = (url?: string, image?: { mime?: string; isAnimated?: boolean; animated?: boolean; is_animated?: boolean; notes?: string }) => {
-    if (!url && !image) return false;
-    const mime = (image?.mime || '').toLowerCase();
-    const notes = (image?.notes || '').toLowerCase();
-    const explicitAnimated = image?.isAnimated === true || image?.animated === true || image?.is_animated === true;
-
-    if (explicitAnimated) return true;
-    if (mime.includes('image/apng') || mime.includes('image/gif') || mime.includes('image/webp')) return true;
-    if (mime === 'image/png' && /\banimat(ed|ion)\b/i.test(notes)) return true;
-    return isAnimatedAssetUrl(url);
-  };
-
-  type ProviderName = 'Steam Store API' | 'SteamGridDB' | 'IGDB' | 'RAWG' | 'Giant Bomb' | 'Web Search';
-
   const [providerAvailability, setProviderAvailability] = useState<Partial<Record<ProviderName, boolean>>>({});
-
-  const normalizeProviderName = useCallback((provider: string): ProviderName | string => {
-    const key = provider.toLowerCase();
-    if (key.includes('steam store') || key.includes('auto-match') || key === 'steam') return 'Steam Store API';
-    if (key.includes('steamgriddb') || key.includes('steam grid')) return 'SteamGridDB';
-    if (key.includes('igdb')) return 'IGDB';
-    if (key.includes('rawg')) return 'RAWG';
-    if (key.includes('giantbomb') || key.includes('giant bomb')) return 'Giant Bomb';
-    if (key.includes('web')) return 'Web Search';
-    return provider;
-  }, []);
-
-  const matchesAnimationFilter = useCallback((url?: string, image?: { mime?: string; isAnimated?: boolean; animated?: boolean; is_animated?: boolean; notes?: string }) => {
-    if (!url && !image) return false;
-    // Completely hide animated assets (webp/gif/apng) from search results;
-    // WEBM uploads are handled via explicit "Upload WEBM" flow instead.
-    return !isAnimatedAsset(url, image);
-  }, []);
 
   // Load provider availability (which APIs are configured) once for status row and filters
   useEffect(() => {
@@ -1093,127 +1053,9 @@ export const GameManager: React.FC<GameManagerProps> = ({
     }
   };
 
-  const matchesProviderFilter = (source?: string) => {
-    if (providerFilter === 'all') return true;
-    const normalized = normalizeProviderName(source || '') as ProviderName | string;
-    const raw = (source || '').toLowerCase();
-    if (providerFilter === 'Steam Store API') return normalized === 'Steam Store API' || raw === 'steam';
-    if (providerFilter === 'SteamGridDB') return normalized === 'SteamGridDB' || raw === 'steamgriddb';
-    if (providerFilter === 'IGDB') return normalized === 'IGDB' || raw.includes('igdb');
-    if (providerFilter === 'RAWG') return normalized === 'RAWG' || raw.includes('rawg');
-    if (providerFilter === 'Giant Bomb') return normalized === 'Giant Bomb' || raw.includes('giantbomb');
-    if (providerFilter === 'Web Search') return normalized === 'Web Search' || raw.includes('web');
-    return true;
-  };
-
   const orderedResultsByType = useMemo(() => {
-    type OrderedEntry = { item: any; type: 'boxart' | 'banner' | 'logo' | 'icon'; order: number; key: string };
-    const entries: OrderedEntry[] = [];
-    let fallbackOrder = 1000000;
-    const toOrder = (value: any) => (typeof value === 'number' ? value : fallbackOrder++);
-
-    const pushDirect = (item: any, type: 'boxart' | 'banner' | 'logo' | 'icon', urlCandidate: string | undefined) => {
-      const normalizedUrl = getRenderableImageUrl(urlCandidate);
-      if (!normalizedUrl || !matchesAnimationFilter(normalizedUrl, item)) return;
-      const source = item.source || '';
-      entries.push({
-        item,
-        type,
-        order: toOrder(item?.foundOrder),
-        key: `${normalizedUrl}|${source}|${type}`,
-      });
-    };
-
-    imageSearchResults.forEach((item) => {
-      pushDirect(item, 'boxart', item.boxArtUrl || item.coverUrl);
-      pushDirect(item, 'banner', item.bannerUrl || item.screenshotUrls?.[0]);
-      pushDirect(item, 'logo', item.logoUrl);
-      pushDirect(item, 'icon', item.iconUrl);
-    });
-
-    steamGridDBResults.boxart.forEach((item: any) => {
-      const normalizedUrl = getRenderableImageUrl(item.url || item.boxArtUrl || item.coverUrl);
-      if (!normalizedUrl || !matchesAnimationFilter(normalizedUrl, item)) return;
-      const mapped = { ...item, boxArtUrl: normalizedUrl, coverUrl: normalizedUrl, source: item.source || 'SteamGridDB' };
-      entries.push({ item: mapped, type: 'boxart', order: toOrder(item?.foundOrder), key: `${normalizedUrl}|${mapped.source}|boxart` });
-    });
-
-    steamGridDBResults.banner.forEach((item: any) => {
-      const normalizedUrl = getRenderableImageUrl(item.url || item.bannerUrl);
-      if (!normalizedUrl || !matchesAnimationFilter(normalizedUrl, item)) return;
-      const mapped = { ...item, bannerUrl: normalizedUrl, screenshotUrls: [normalizedUrl], source: item.source || 'SteamGridDB' };
-      entries.push({ item: mapped, type: 'banner', order: toOrder(item?.foundOrder), key: `${normalizedUrl}|${mapped.source}|banner` });
-    });
-
-    steamGridDBResults.logo.forEach((item: any) => {
-      const normalizedUrl = getRenderableImageUrl(item.url || item.logoUrl);
-      if (!normalizedUrl || !matchesAnimationFilter(normalizedUrl, item)) return;
-      const mapped = { ...item, logoUrl: normalizedUrl, source: item.source || 'SteamGridDB' };
-      entries.push({ item: mapped, type: 'logo', order: toOrder(item?.foundOrder), key: `${normalizedUrl}|${mapped.source}|logo` });
-    });
-
-    steamGridDBResults.icon.forEach((item: any) => {
-      const normalizedUrl = getRenderableImageUrl(item.url || item.iconUrl);
-      if (!normalizedUrl || !matchesAnimationFilter(normalizedUrl, item)) return;
-      const mapped = { ...item, iconUrl: normalizedUrl, source: item.source || 'SteamGridDB' };
-      entries.push({ item: mapped, type: 'icon', order: toOrder(item?.foundOrder), key: `${normalizedUrl}|${mapped.source}|icon` });
-    });
-
-    entries.sort((a, b) => a.order - b.order);
-    const seen = new Set<string>();
-    const result = { boxart: [] as any[], banner: [] as any[], logo: [] as any[], icon: [] as any[] };
-
-    entries.forEach((entry) => {
-      if (seen.has(entry.key)) return;
-      seen.add(entry.key);
-      result[entry.type].push(entry.item);
-    });
-
-    return result;
-  }, [getRenderableImageUrl, imageAnimationFilter, imageSearchResults, matchesAnimationFilter, steamGridDBResults]);
-
-  const getImageResultCountForTab = (tab: 'boxart' | 'banner' | 'alternativeBanner' | 'logo' | 'icon') => {
-    if (tab === 'boxart') return orderedResultsByType.boxart.filter((i: any) => matchesProviderFilter(i.source)).length;
-    if (tab === 'banner' || tab === 'alternativeBanner') return orderedResultsByType.banner.filter((i: any) => matchesProviderFilter(i.source)).length;
-    if (tab === 'logo') return orderedResultsByType.logo.filter((i: any) => matchesProviderFilter(i.source)).length;
-    return orderedResultsByType.icon.filter((i: any) => matchesProviderFilter(i.source)).length;
-  };
-
-  const hasAnyVisibleImageResults = () =>
-    getImageResultCountForTab('boxart') +
-    getImageResultCountForTab('banner') +
-    getImageResultCountForTab('logo') +
-    getImageResultCountForTab('icon') > 0;
-
-  const hasAnyRawImageResults = () =>
-    imageSearchResults.length > 0 ||
-    steamGridDBResults.boxart.length > 0 ||
-    steamGridDBResults.banner.length > 0 ||
-    steamGridDBResults.alternativeBanner.length > 0 ||
-    steamGridDBResults.logo.length > 0 ||
-    steamGridDBResults.icon.length > 0;
-
-  /** Total number of images from a given provider (across all types), for status row display. */
-  const getImageCountForProvider = (providerName: string): number => {
-    const matchesProvider = (source?: string) => {
-      const normalized = normalizeProviderName(source || '') as ProviderName | string;
-      if (normalized === providerName) return true;
-      const raw = (source || '').toLowerCase();
-      if (providerName === 'Steam Store API' && raw === 'steam') return true;
-      if (providerName === 'SteamGridDB' && raw === 'steamgriddb') return true;
-      if (providerName === 'IGDB' && raw.includes('igdb')) return true;
-      if (providerName === 'RAWG' && raw.includes('rawg')) return true;
-      if (providerName === 'Giant Bomb' && raw.includes('giantbomb')) return true;
-      if (providerName === 'Web Search' && raw.includes('web')) return true;
-      return false;
-    };
-    return [
-      ...orderedResultsByType.boxart,
-      ...orderedResultsByType.banner,
-      ...orderedResultsByType.logo,
-      ...orderedResultsByType.icon,
-    ].filter((i: any) => matchesProvider(i.source)).length;
-  };
+    return buildOrderedResultsByType(imageSearchResults, steamGridDBResults, getRenderableImageUrl);
+  }, [getRenderableImageUrl, imageSearchResults, steamGridDBResults]);
 
   // Legacy verbose status panel – hidden in favor of compact provider row
   const renderDetailedSearchStatus = (_className: string = 'mt-3') => null;
@@ -1241,7 +1083,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
             provider.status === 'noApi'
               ? `${provider.name} = No API`
               : provider.status === 'completed'
-                ? `${provider.name} = ${getImageCountForProvider(provider.name)}`
+                ? `${provider.name} = ${getImageCountForProvider(orderedResultsByType, provider.name)}`
                 : `${provider.name} = Searching`;
           return (
             <button
@@ -1279,7 +1121,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
 
     if (isSearchingImages) return;
 
-    if (getImageResultCountForTab(tab) === 0) {
+    if (getImageResultCountForTab(orderedResultsByType, providerFilter, tab) === 0) {
       void handleSearchImages(tab);
     }
   };
@@ -1289,7 +1131,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
     if (!selectedGame) return;
     setShowImageSearch({ type, gameId: selectedGame.id });
     setActiveImageSearchTab(type);
-    if (hasAnyRawImageResults()) {
+    if (hasAnyRawImageResults(imageSearchResults, steamGridDBResults)) {
       return;
     }
 
@@ -2815,7 +2657,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
                       </div>
 
                       {/* Image Search Input - Hidden when results found */}
-                        {!hasAnyRawImageResults() && (
+                        {!hasAnyRawImageResults(imageSearchResults, steamGridDBResults) && (
                           <div className="border-t border-gray-800 pt-4 px-4">
                             <div className="mb-4">
                               <label className="block text-sm font-medium text-gray-300 mb-2">
@@ -2959,7 +2801,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
                         )}
 
                       {/* Sticky Tabs Header - Outside Scrollable Container */}
-                        {hasAnyRawImageResults() && (
+                        {hasAnyRawImageResults(imageSearchResults, steamGridDBResults) && (
                           <div className="border-t border-gray-800 bg-gray-900 px-4 pt-4 pb-2">
                             {/* Tabs Header with New Search Button */}
                             <div className="flex items-center justify-between mb-4 border-b border-gray-700 pb-2">
@@ -2971,16 +2813,16 @@ export const GameManager: React.FC<GameManagerProps> = ({
                                   // Calculate counts
                                   let count = 0;
                                   if (tab === 'all') {
-                                    count = getImageResultCountForTab('boxart') +
-                                      getImageResultCountForTab('banner') +
-                                      getImageResultCountForTab('logo') +
-                                      getImageResultCountForTab('icon');
+                                    count = getImageResultCountForTab(orderedResultsByType, providerFilter, 'boxart') +
+                                      getImageResultCountForTab(orderedResultsByType, providerFilter, 'banner') +
+                                      getImageResultCountForTab(orderedResultsByType, providerFilter, 'logo') +
+                                      getImageResultCountForTab(orderedResultsByType, providerFilter, 'icon');
                                   } else {
-                                    if (tab === 'boxart') count = getImageResultCountForTab('boxart');
-                                    else if (tab === 'banner') count = getImageResultCountForTab('banner');
-                                    else if (tab === 'alternativeBanner') count = getImageResultCountForTab('alternativeBanner');
-                                    else if (tab === 'logo') count = getImageResultCountForTab('logo');
-                                    else if (tab === 'icon') count = getImageResultCountForTab('icon');
+                                    if (tab === 'boxart') count = getImageResultCountForTab(orderedResultsByType, providerFilter, 'boxart');
+                                    else if (tab === 'banner') count = getImageResultCountForTab(orderedResultsByType, providerFilter, 'banner');
+                                    else if (tab === 'alternativeBanner') count = getImageResultCountForTab(orderedResultsByType, providerFilter, 'alternativeBanner');
+                                    else if (tab === 'logo') count = getImageResultCountForTab(orderedResultsByType, providerFilter, 'logo');
+                                    else if (tab === 'icon') count = getImageResultCountForTab(orderedResultsByType, providerFilter, 'icon');
                                   }
 
                                   return (
@@ -3037,11 +2879,11 @@ export const GameManager: React.FC<GameManagerProps> = ({
 
                       {/* Result Tabs Content - Scrollable Container */}
                       <div className="flex-1 overflow-y-auto px-4 py-1 custom-scrollbar relative">
-                        {hasAnyRawImageResults() && (
+                        {hasAnyRawImageResults(imageSearchResults, steamGridDBResults) && (
                             <div>
                               {/* Content */}
                               <div className="space-y-8">
-                                {!hasAnyVisibleImageResults() && (
+                                {!hasAnyVisibleImageResults(orderedResultsByType, providerFilter) && (
                                   <div className="rounded-lg border border-gray-700 bg-gray-800/40 p-6 text-center">
                                     <p className="text-sm text-gray-300">No results found for the current image filter.</p>
                                     <p className="text-xs text-gray-500 mt-1">Try turning off filters or switching to another filter mode.</p>
@@ -3049,11 +2891,11 @@ export const GameManager: React.FC<GameManagerProps> = ({
                                 )}
                                 {/* Boxart Section */}
                                 {(activeImageSearchTab === 'all' || activeImageSearchTab === 'boxart') &&
-                                  (getImageResultCountForTab('boxart') > 0) && (
+                                  (getImageResultCountForTab(orderedResultsByType, providerFilter, 'boxart') > 0) && (
                                     <div>
                                       {activeImageSearchTab === 'all' && <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">Box Art & Covers</h4>}
                                       <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-10 gap-3">
-                                        {orderedResultsByType.boxart.filter((result: any) => matchesProviderFilter(result.source)).map((result, idx) => (
+                                        {orderedResultsByType.boxart.filter((result: any) => matchesProviderFilter(result.source, providerFilter)).map((result, idx) => (
                                           <div
                                             key={`igdb-boxart-${result.id}-${idx}`}
                                             onClick={() => handleSelectImage(result.boxArtUrl || result.coverUrl, 'boxart')}
@@ -3080,11 +2922,11 @@ export const GameManager: React.FC<GameManagerProps> = ({
 
                                 {/* Logo Section */}
                                 {(activeImageSearchTab === 'all' || activeImageSearchTab === 'logo') &&
-                                  (getImageResultCountForTab('logo') > 0) && (
+                                  (getImageResultCountForTab(orderedResultsByType, providerFilter, 'logo') > 0) && (
                                     <div>
                                       {activeImageSearchTab === 'all' && <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">Logos</h4>}
                                       <div className="grid grid-cols-4 sm:grid-cols-6 gap-3 bg-gray-900/50 p-4 rounded-lg border border-gray-800">
-                                        {orderedResultsByType.logo.filter((result: any) => matchesProviderFilter(result.source)).map((result, idx) => (
+                                        {orderedResultsByType.logo.filter((result: any) => matchesProviderFilter(result.source, providerFilter)).map((result, idx) => (
                                           <div
                                             key={`igdb-logo-${idx}`}
                                             onClick={() => handleSelectImage(result.logoUrl, 'logo')}
@@ -3106,11 +2948,11 @@ export const GameManager: React.FC<GameManagerProps> = ({
 
                                 {/* Banner Section */}
                                 {(activeImageSearchTab === 'all' || activeImageSearchTab === 'banner') &&
-                                  (getImageResultCountForTab('banner') > 0) && (
+                                  (getImageResultCountForTab(orderedResultsByType, providerFilter, 'banner') > 0) && (
                                     <div>
                                       {activeImageSearchTab === 'all' && <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">Banners & Screenshots</h4>}
                                       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                                        {orderedResultsByType.banner.filter((result: any) => matchesProviderFilter(result.source)).map((result, idx) => {
+                                        {orderedResultsByType.banner.filter((result: any) => matchesProviderFilter(result.source, providerFilter)).map((result, idx) => {
                                           const url = getRenderableImageUrl(result.bannerUrl || result.screenshotUrls?.[0]);
                                           if (!url) return null;
                                           return (
@@ -3141,11 +2983,11 @@ export const GameManager: React.FC<GameManagerProps> = ({
 
                                 {/* Alternative Banner Section */}
                                 {(activeImageSearchTab === 'all' || activeImageSearchTab === 'alternativeBanner') &&
-                                  (getImageResultCountForTab('alternativeBanner') > 0) && (
+                                  (getImageResultCountForTab(orderedResultsByType, providerFilter, 'alternativeBanner') > 0) && (
                                     <div>
                                       {activeImageSearchTab === 'all' && <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">Alternative Banners</h4>}
                                       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                                        {orderedResultsByType.banner.filter((result: any) => matchesProviderFilter(result.source)).map((result, idx) => {
+                                        {orderedResultsByType.banner.filter((result: any) => matchesProviderFilter(result.source, providerFilter)).map((result, idx) => {
                                           const url = getRenderableImageUrl(result.bannerUrl || result.screenshotUrls?.[0]);
                                           if (!url) return null;
                                           return (
@@ -3176,11 +3018,11 @@ export const GameManager: React.FC<GameManagerProps> = ({
 
                                 {/* Icon Section */}
                                 {(activeImageSearchTab === 'all' || activeImageSearchTab === 'icon') &&
-                                  (getImageResultCountForTab('icon') > 0) && (
+                                  (getImageResultCountForTab(orderedResultsByType, providerFilter, 'icon') > 0) && (
                                     <div>
                                       {activeImageSearchTab === 'all' && <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">Icons</h4>}
                                       <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-12 gap-3 bg-gray-900/50 p-4 rounded-lg border border-gray-800">
-                                        {orderedResultsByType.icon.filter((result: any) => matchesProviderFilter(result.source)).map((result, idx) => {
+                                        {orderedResultsByType.icon.filter((result: any) => matchesProviderFilter(result.source, providerFilter)).map((result, idx) => {
                                           const url = getRenderableImageUrl(result.iconUrl);
                                           if (!url) return null;
                                           return (
