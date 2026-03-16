@@ -578,6 +578,38 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
   const platformDisplay = normalizedPlatform
     ? getLauncherDisplayName(normalizedPlatform)
     : '';
+  const baseContentTopPadding = 24;
+  const contentInnerWidth = Math.max(0, activePanelWidth - 48);
+  const descriptionColumnWidth = Math.max(0, contentInnerWidth * (descriptionWidth / 100));
+  const detailsColumnWidth = Math.max(0, contentInnerWidth - descriptionColumnWidth - 4);
+  const requestedLogoHeight = localLogoSize !== undefined
+    ? localLogoSize
+    : (game.logoSizePerViewMode?.[viewMode] || game.logoSizePerViewMode?.carousel || rightPanelLogoSize);
+  const effectiveLogoHeight = Math.min(requestedLogoHeight, Math.floor(fanartHeight * 0.6));
+  const logoClearancePadding = (game.logoUrl || !game.boxArtUrl)
+    ? Math.ceil(effectiveLogoHeight * 0.5) + 24
+    : 0;
+  const maxBoxartWidthForSide = rightPanelBoxartPosition === 'left'
+    ? Math.max(120, descriptionColumnWidth - 72)
+    : rightPanelBoxartPosition === 'right'
+      ? Math.max(120, detailsColumnWidth - 72)
+      : rightPanelBoxartSize;
+  const renderedBoxartWidth = rightPanelBoxartPosition === 'none'
+    ? rightPanelBoxartSize
+    : Math.max(120, Math.min(rightPanelBoxartSize, maxBoxartWidthForSide));
+  const boxartSideInset = rightPanelBoxartPosition !== 'none' && game.boxArtUrl
+    ? Math.max(24, Math.min(renderedBoxartWidth + 24, Math.floor(activePanelWidth * 0.24)))
+    : 0;
+  const descriptionTopPadding = logoClearancePadding;
+  const detailsTopPadding = rightPanelBoxartPosition === 'right'
+    ? Math.max(logoClearancePadding, Math.ceil(renderedBoxartWidth * 1.5 * 0.5) + 24)
+    : logoClearancePadding;
+  const descriptionLeftPadding = rightPanelBoxartPosition === 'left'
+    ? boxartSideInset
+    : 0;
+  const primaryDeveloper = game.developers?.[0] || '';
+  const detailsSectionGapClass = 'gap-3';
+  const detailsLabelClass = 'text-gray-400 mb-0.5';
 
   return (
     <div
@@ -718,7 +750,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
                   autoPlay
                   className={`max-w-full max-h-full object-contain cursor-pointer drop-shadow-2xl ${imageLoaded[logoLoadKey] ? 'game-logo-transition-fast' : ''}`}
                   style={{
-                    maxHeight: `${localLogoSize !== undefined ? localLogoSize : (game.logoSizePerViewMode?.[viewMode] || game.logoSizePerViewMode?.carousel || rightPanelLogoSize)}px`,
+                    maxHeight: `${requestedLogoHeight}px`,
                     display: 'block',
                     contain: 'layout style paint',
                     ...(game.removeLogoTransparency ? {
@@ -737,7 +769,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
                   alt={game.title}
                   className={`max-w-full max-h-full object-contain cursor-pointer drop-shadow-2xl ${imageLoaded[logoLoadKey] ? (isAnimatedImage(game.logoUrl) ? 'game-logo-transition-fast' : 'game-logo-transition') : ''}`}
                   style={{
-                    maxHeight: `${localLogoSize !== undefined ? localLogoSize : (game.logoSizePerViewMode?.[viewMode] || game.logoSizePerViewMode?.carousel || rightPanelLogoSize)}px`,
+                    maxHeight: `${requestedLogoHeight}px`,
                     display: 'block',
                     contain: 'layout style paint',
                     ...(isAnimatedImage(game.logoUrl) ? {
@@ -782,7 +814,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
         {/* Box Art - Position based on rightPanelBoxartPosition */}
         {rightPanelBoxartPosition !== 'none' && (
           <div
-            className={`absolute ${rightPanelBoxartPosition === 'left' ? 'left-6' : 'right-6'} bottom-0 z-20`}
+            className={`absolute ${rightPanelBoxartPosition === 'left' ? 'left-6' : 'right-14'} bottom-0 z-20`}
             style={{ transform: 'translateY(50%)' }}
           >
             {game.boxArtUrl && (isBoxartVideo || !isAnimatedMedia(game.boxArtUrl, isBoxartVideo) || !disableAnimatedBoxartsBySettings) ? (
@@ -795,7 +827,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
                   playsInline
                   autoPlay
                   className="aspect-[2/3] object-cover rounded border border-gray-600 shadow-lg cursor-pointer"
-                  style={{ width: `${rightPanelBoxartSize}px` }}
+                  style={{ width: `${renderedBoxartWidth}px` }}
                   onLoadedData={() => {
                     setImageLoaded(prev => ({ ...prev, [boxartLoadKey]: true }));
                   }}
@@ -809,7 +841,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
                   alt={game.title}
                   className="aspect-[2/3] object-cover rounded border border-gray-600 shadow-lg cursor-pointer"
                   style={{
-                    width: `${rightPanelBoxartSize}px`,
+                    width: `${renderedBoxartWidth}px`,
                     ...(isAnimatedImage(game.boxArtUrl) ? {
                       willChange: 'transform',
                       contain: 'layout style paint',
@@ -842,7 +874,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
             ) : (
               <div
                 className="aspect-[2/3] bg-gray-800 rounded border border-gray-600 flex items-center justify-center text-gray-400 text-xs text-center px-2 cursor-pointer hover:bg-gray-700 transition-colors"
-                style={{ width: `${rightPanelBoxartSize}px` }}
+                style={{ width: `${renderedBoxartWidth}px` }}
                 onClick={() => onOpenInGameManager?.(game, 'images')}
               >
                 Click to add boxart
@@ -871,7 +903,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
           key={game.id}
           className="p-6 flex flex-col gap-6 h-full min-h-0 game-details-content"
           style={{
-            paddingTop: (game.logoUrl || game.boxArtUrl) ? '7rem' : '1.5rem' // Add extra padding when logo/boxart overlap
+            paddingTop: `${baseContentTopPadding}px`
           }}
         >
           {/* Upper Section: Title - only shown when no logo */}
@@ -895,10 +927,17 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
           {/* Description and Details in a row */}
           <div ref={descriptionContainerRef} className="flex flex-1 min-h-0 gap-0 relative">
             {/* Description Content - Left side */}
-            <div className="relative min-h-0" style={{ width: `${descriptionWidth}%` }}>
+            <div
+              className="relative min-h-0 flex flex-col"
+              style={{
+                width: `${descriptionWidth}%`,
+                paddingTop: descriptionTopPadding > 0 ? `${descriptionTopPadding}px` : undefined,
+                paddingLeft: descriptionLeftPadding > 0 ? `${descriptionLeftPadding}px` : undefined,
+              }}
+            >
               <div
                 ref={descriptionRef}
-                className="space-y-6 relative pr-3 h-full min-h-0"
+                className="space-y-6 relative pr-3 min-h-0 flex-1"
                 style={{
                   minHeight: `${descriptionHeight}px`,
                   overflowY: 'auto',
@@ -908,7 +947,6 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
                 {/* Game Description */}
                 {game.description && (
                   <div>
-                    <h3 className="text-lg font-semibold text-white mb-3">Description</h3>
                     <div
                       className={`game-details-description ${useSideMediaLayout ? 'layout-side' : 'layout-stacked'} text-gray-200 leading-relaxed cursor-pointer`}
                       style={{
@@ -959,24 +997,24 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
 
             {/* Details Section - Right side */}
             <div
-              className="pl-6 min-h-0 overflow-y-auto"
+              className="pl-6 min-h-0 flex flex-col"
               style={{
+                paddingTop: detailsTopPadding > 0 ? `${detailsTopPadding}px` : undefined,
                 width: `${100 - descriptionWidth}%`,
                 fontSize: `${detailsFontSize}px`,
                 fontFamily: detailsFontFamily,
               }}
             >
-              <h3 className="text-lg font-semibold text-white mb-4">Details</h3>
-              <div className="grid grid-cols-1 gap-4">
+              <div className={`grid grid-cols-1 ${detailsSectionGapClass} min-h-0 flex-1 overflow-y-auto`}>
                 {visibleDetails.releaseDate && game.releaseDate && (
                   <div>
-                    <p className="text-gray-400 mb-1" style={{ fontSize: `${rightPanelTextSize - 2}px` }}>Release Date</p>
+                    <p className={detailsLabelClass} style={{ fontSize: `${rightPanelTextSize - 2}px` }}>Release Date</p>
                     <p className="text-gray-200" style={{ fontSize: `${rightPanelTextSize}px` }}>{formatDate(game.releaseDate)}</p>
                   </div>
                 )}
                 {visibleDetails.platform && platformDisplay && (
                   <div>
-                    <p className="text-gray-400 mb-1" style={{ fontSize: `${rightPanelTextSize - 2}px` }}>Platform</p>
+                    <p className={detailsLabelClass} style={{ fontSize: `${rightPanelTextSize - 2}px` }}>Platform</p>
                     <div className="text-gray-200 flex items-center gap-2" style={{ fontSize: `${rightPanelTextSize}px` }}>
                       <LauncherIcon launcher={normalizedPlatform} className="w-4 h-4" />
                       <span>{platformDisplay}</span>
@@ -985,49 +1023,49 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
                 )}
                 {visibleDetails.ageRating && game.ageRating && (
                   <div>
-                    <p className="text-gray-400 mb-1">Age Rating</p>
+                    <p className={detailsLabelClass}>Age Rating</p>
                     <p className="text-gray-200">{game.ageRating}</p>
                   </div>
                 )}
                 {visibleDetails.genres && game.genres && game.genres.length > 0 && (
                   <div>
-                    <p className="text-gray-400 mb-1">Genres</p>
+                    <p className={detailsLabelClass}>Genres</p>
                     <p className="text-gray-200">{game.genres.join(', ')}</p>
                   </div>
                 )}
-                {visibleDetails.developers && game.developers && game.developers.length > 0 && (
+                {visibleDetails.developers && primaryDeveloper && (
                   <div>
-                    <p className="text-gray-400 mb-1">Developer</p>
-                    <p className="text-gray-200">{game.developers.join(', ')}</p>
+                    <p className={detailsLabelClass}>Developer</p>
+                    <p className="text-gray-200" title={game.developers?.join(', ')}>{primaryDeveloper}</p>
                   </div>
                 )}
                 {visibleDetails.publishers && game.publishers && game.publishers.length > 0 && (
                   <div>
-                    <p className="text-gray-400 mb-1">Publisher</p>
+                    <p className={detailsLabelClass}>Publisher</p>
                     <p className="text-gray-200">{game.publishers.join(', ')}</p>
                   </div>
                 )}
                 {visibleDetails.communityScore && game.communityScore !== undefined && (
                   <div>
-                    <p className="text-gray-400 mb-1">Community Score</p>
+                    <p className={detailsLabelClass}>Community Score</p>
                     <p className="text-gray-200">{game.communityScore}/100</p>
                   </div>
                 )}
                 {visibleDetails.userScore && game.userScore !== undefined && (
                   <div>
-                    <p className="text-gray-400 mb-1">User Score</p>
+                    <p className={detailsLabelClass}>User Score</p>
                     <p className="text-gray-200">{game.userScore}/100</p>
                   </div>
                 )}
                 {visibleDetails.criticScore && game.criticScore !== undefined && (
                   <div>
-                    <p className="text-gray-400 mb-1">Critic Score</p>
+                    <p className={detailsLabelClass}>Critic Score</p>
                     <p className="text-gray-200">{game.criticScore}/100</p>
                   </div>
                 )}
                 {visibleDetails.installationDirectory && game.installationDirectory && (
                   <div>
-                    <p className="text-gray-400 mb-1">Installation Folder</p>
+                    <p className={detailsLabelClass}>Installation Folder</p>
                     <p className="text-gray-200 text-xs break-all">{game.installationDirectory}</p>
                     {game.installSize && (
                       <p className="text-gray-400 text-xs mt-1">

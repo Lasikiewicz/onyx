@@ -596,6 +596,8 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
     coverFlowVerticalOffset: 0,
     coverFlowSideOpacity: 100,
   };
+  const detailsLogoSliderMax = Math.max(50, Math.floor(fanartHeight * 0.6));
+  const detailsLogoSliderDefault = Math.min(sliderDefaults.perGameLogoSize, detailsLogoSliderMax);
 
   const defaultButtonColors = {
     playColor: '#0ea5e9',
@@ -1873,7 +1875,7 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                     defaultValue={sliderDefaults.descriptionWidth}
                     onChange={(value) => onDescriptionWidthChange?.(value)}
                     onReset={() => onDescriptionWidthChange?.(sliderDefaults.descriptionWidth)}
-                    formatValue={(value) => `${value}%`}
+                    formatValue={(value) => `${Math.round(value)}%`}
                     minLabel="20%"
                     maxLabel="80%"
                   />
@@ -1907,15 +1909,15 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                       <MenuSliderRow
                         label={activeGame.logoUrl ? 'Game Logo Size' : 'Title Size'}
                         min={50}
-                        max={600}
+                        max={detailsLogoSliderMax}
                         step={5}
-                        value={localLogoSizes.grid}
-                        defaultValue={sliderDefaults.perGameLogoSize}
+                        value={Math.min(localLogoSizes.grid, detailsLogoSliderMax)}
+                        defaultValue={detailsLogoSliderDefault}
                         onChange={(value) => handlePerGameLogoSizeChange('grid', value)}
-                        onReset={() => handlePerGameLogoSizeChange('grid', sliderDefaults.perGameLogoSize)}
+                        onReset={() => handlePerGameLogoSizeChange('grid', detailsLogoSliderDefault)}
                         formatValue={(value) => `${value}px`}
                         minLabel="50px"
-                        maxLabel="600px"
+                        maxLabel={`${detailsLogoSliderMax}px`}
                         sliderClassName="h-2"
                       />
                     )}
@@ -1925,15 +1927,15 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                       <MenuSliderRow
                         label={activeGame.logoUrl ? 'Game Logo Size' : 'Title Size'}
                         min={50}
-                        max={600}
+                        max={detailsLogoSliderMax}
                         step={5}
-                        value={localLogoSizes.list}
-                        defaultValue={sliderDefaults.perGameLogoSize}
+                        value={Math.min(localLogoSizes.list, detailsLogoSliderMax)}
+                        defaultValue={detailsLogoSliderDefault}
                         onChange={(value) => handlePerGameLogoSizeChange('list', value)}
-                        onReset={() => handlePerGameLogoSizeChange('list', sliderDefaults.perGameLogoSize)}
+                        onReset={() => handlePerGameLogoSizeChange('list', detailsLogoSliderDefault)}
                         formatValue={(value) => `${value}px`}
                         minLabel="50px"
-                        maxLabel="600px"
+                        maxLabel={`${detailsLogoSliderMax}px`}
                         sliderClassName="h-2"
                       />
                     )}
@@ -1943,15 +1945,15 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                       <MenuSliderRow
                         label={activeGame.logoUrl ? 'Game Logo Size' : 'Title Size'}
                         min={50}
-                        max={600}
+                        max={detailsLogoSliderMax}
                         step={5}
-                        value={localLogoSizes.logo}
-                        defaultValue={sliderDefaults.perGameLogoSize}
+                        value={Math.min(localLogoSizes.logo, detailsLogoSliderMax)}
+                        defaultValue={detailsLogoSliderDefault}
                         onChange={(value) => handlePerGameLogoSizeChange('logo', value)}
-                        onReset={() => handlePerGameLogoSizeChange('logo', sliderDefaults.perGameLogoSize)}
+                        onReset={() => handlePerGameLogoSizeChange('logo', detailsLogoSliderDefault)}
                         formatValue={(value) => `${value}px`}
                         minLabel="50px"
-                        maxLabel="600px"
+                        maxLabel={`${detailsLogoSliderMax}px`}
                         sliderClassName="h-2"
                       />
                     )}

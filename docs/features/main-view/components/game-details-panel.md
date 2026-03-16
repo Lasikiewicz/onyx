@@ -15,6 +15,7 @@ Right-hand panel in the library window (grid/list/logo modes) that shows the sel
 
 - Right panel: hero/banner/boxart background, logo, boxart position/size, metadata (release date, platform, genres, etc.), description (resizable width/height), link bar, Play/Edit/Mod Manager and other actions. Right-click opens context menu. Resizable panel width via left-edge drag. Bottom action bar (Edit, Play, links) is resizable by dragging its top edge; bar height and content scale are persisted.
 - The description/details column split remains horizontally resizable, but the divider is visually hidden until hover/drag feedback appears.
+- The top-level "Description" and "Details" headings are intentionally omitted so the panel starts directly with game content.
 
 ## Settings and Toggles
 
@@ -33,6 +34,13 @@ Right-hand panel in the library window (grid/list/logo modes) that shows the sel
 - **Artwork and metadata:** From the [game](../../../../renderer/src/types/game.ts) object (e.g. `heroUrl`, `bannerUrl`, `boxArtUrl`, `logoUrl`, `description`, `links`, metadata fields).
 - **Description content:** The Description section renders sanitized HTML from `game.description`; for Steam-refreshed games this now normally comes from the Steam Store `about_the_game` field rather than the shorter store blurb.
 - **Description sizing:** The description/details row now stretches to the available vertical space in the panel, while the saved description height preference acts as a minimum height rather than a hard cap.
+- **Artwork clearance:** Both description and details align below the logo clearance line so large logos cannot overlap the opening content. Left-side boxart still reserves side inset on the description column, while right-side boxart now pushes the details column down below the hanging artwork instead of squeezing that column narrower.
+- **Logo clearance cap:** The vertical clearance below the logo follows the logo's effective rendered height after fanart-area caps are applied, so increasing the logo slider past the visible max no longer creates extra blank space underneath.
+- **Logo slider guardrail:** The Game Details logo-size slider now caps itself to the current fanart-driven visible maximum, so the control no longer exposes a dead range above the largest renderable logo size for that panel height.
+- **Default boxart anchor:** The default right-side boxart sits farther in from the panel edge to avoid feeling pinned to the border while keeping the existing left-side anchor behavior unchanged.
+- **Boxart width guardrail:** In the details panel, rendered boxart width is capped to the available space on its side of the split so narrow layouts cannot let the cover spill across the divider and over the description/details columns.
+- **Scroll boundary behavior:** Logo/boxart clearance is applied outside the scrollable regions, so the visible top edge of both columns stays locked to the bottom of the overlapping artwork and users cannot scroll upward into empty clearance space.
+- **Compact metadata summary:** The details column uses slightly tighter section spacing, and when a game provides multiple developer studio entries the panel shows the primary developer while preserving the full list in the field tooltip.
 - **Description width behavior:** Rich HTML inside the Description section is constrained to the description column width so Steam images, videos, and long text wrap inside the panel instead of overflowing across the layout.
 - **Adaptive media layout:** Description content is grouped into section rows (heading/body + nearest media). In wider/taller layouts, only sections that actually have media alternate left/right (text left/media right, then text right/media left). Text-only sections stay full-width so mixed game markup remains readable. In tighter layouts everything remains stacked and media scales down with bounded height.
 - **Text-aware media sizing:** In side layout, each section’s media width and max-height are auto-sized from nearby text density so short sections use smaller media and long sections can use larger media, reducing large blank areas.
