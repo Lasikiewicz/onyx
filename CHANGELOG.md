@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Pending]
 
+## [0.7.35] - 2026-03-16
+
 - App shell maintainability: Add a dedicated `docs/features/app-shell.md` runbook and make it first-class in the feature index/doc map so `App.tsx` has a clear source-of-truth owner document.
 - App shell maintainability: Move startup/update/crash/tutorial/toast/missing-games overlay rendering out of `App.tsx` into `components/appShell/AppShellOverlays.tsx`, with `StartupScanOverlay.tsx` reusing `FoundGamesModal.tsx` for startup scan review.
 - App shell maintainability: Move root menu-event, startup-scan, updater, and crash-dump listener wiring out of `App.tsx` into `hooks/useAppShellEvents.ts` so the renderer shell no longer owns the whole subscription block inline.
