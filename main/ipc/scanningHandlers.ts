@@ -11,6 +11,16 @@ let backgroundScanInterval: NodeJS.Timeout | null = null;
 let runningGames = new Set<string>();
 let backgroundScanPaused = false;
 
+export function getBackgroundScanUiChannels(fromStartup: boolean): {
+    progressChannel: 'startup:progress' | null;
+    newGamesChannel: 'startup:newGamesFound' | 'background:newGamesFound';
+} {
+    return {
+        progressChannel: fromStartup ? 'startup:progress' : null,
+        newGamesChannel: fromStartup ? 'startup:newGamesFound' : 'background:newGamesFound',
+    };
+}
+
 export function registerScanningHandlers(
     winReference: { readonly current: BrowserWindow | null },
     gameStore: GameStore,
@@ -21,6 +31,7 @@ export function registerScanningHandlers(
 ) {
     const performBackgroundScan = async (skipEnabledCheck: boolean = false, fromStartup: boolean = false) => {
         try {
+            const channels = getBackgroundScanUiChannels(fromStartup);
             if (backgroundScanPaused) {
                 console.log('[BackgroundScan] Skipping scan - background scanning is paused');
                 return;
@@ -41,8 +52,8 @@ export function registerScanningHandlers(
 
             console.log('[BackgroundScan] Starting background scan...');
             const scannedResults = await importService.scanAllSources((message) => {
-                if (winReference.current && !winReference.current.isDestroyed()) {
-                    winReference.current.webContents.send('startup:progress', { message });
+                if (channels.progressChannel && winReference.current && !winReference.current.isDestroyed()) {
+                    winReference.current.webContents.send(channels.progressChannel, { message });
                 }
             });
             console.log(`[BackgroundScan] Scanned ${scannedResults.length} total games`);
@@ -88,8 +99,7 @@ export function registerScanningHandlers(
                 if (newGames.length > 0) {
                     console.log(`[BackgroundScan] Found ${newGames.length} new games to import`);
                     if (winReference.current && !winReference.current.isDestroyed()) {
-                        const channel = fromStartup ? 'startup:newGamesFound' : 'background:newGamesFound';
-                        winReference.current.webContents.send(channel, {
+                        winReference.current.webContents.send(channels.newGamesChannel, {
                             count: newGames.length,
                             games: newGames
                         });

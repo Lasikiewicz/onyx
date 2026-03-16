@@ -43,6 +43,9 @@ const baseGame: Game = {
   boxArtUrl: 'onyx-local://steam-123-boxart',
   bannerUrl: 'onyx-local://steam-123-banner',
   logoUrl: 'onyx-local://steam-123-logo',
+  alternativeBannerUrl: 'onyx-local://steam-123-alternativeBanner',
+  iconUrl: 'onyx-local://steam-123-icon',
+  screenshots: ['onyx-local://steam-123-screenshot-0'],
   categories: ['Original'],
 };
 
@@ -63,6 +66,8 @@ describe('GameStore artwork persistence', () => {
       boxArtUrl: 'onyx-local://steam-123-boxart?t=111',
       bannerUrl: 'onyx-local://steam-123-banner?t=222#hash',
       logoUrl: 'onyx-local://steam-123-logo?t=333',
+      alternativeBannerUrl: 'onyx-local://steam-123-alternativeBanner?t=444',
+      iconUrl: 'onyx-local://steam-123-icon?t=555',
     });
     await store.flushPending();
 
@@ -73,6 +78,8 @@ describe('GameStore artwork persistence', () => {
     expect(reloadedGame.boxArtUrl).toBe('onyx-local://steam-123-boxart');
     expect(reloadedGame.bannerUrl).toBe('onyx-local://steam-123-banner');
     expect(reloadedGame.logoUrl).toBe('onyx-local://steam-123-logo');
+    expect(reloadedGame.alternativeBannerUrl).toBe('onyx-local://steam-123-alternativeBanner');
+    expect(reloadedGame.iconUrl).toBe('onyx-local://steam-123-icon');
   });
 
   it('keeps valid cached artwork during startup cleanup even if URLs include query params', async () => {
@@ -84,6 +91,9 @@ describe('GameStore artwork persistence', () => {
       bannerUrl: 'onyx-local://steam-123-banner?t=222',
       logoUrl: 'onyx-local://steam-123-logo?t=333',
       heroUrl: 'onyx-local://steam-123-hero?t=444',
+      alternativeBannerUrl: 'onyx-local://steam-123-alternativeBanner?t=555',
+      iconUrl: 'onyx-local://steam-123-icon?t=666',
+      screenshots: ['onyx-local://steam-123-screenshot-0?t=777'],
     }];
     MockStore.persisted.set('game-library', persisted);
 
@@ -93,6 +103,9 @@ describe('GameStore artwork persistence', () => {
       writeFileSync(path.join(cacheDir, 'steam-123-banner.png'), 'banner');
       writeFileSync(path.join(cacheDir, 'steam-123-logo.webp'), 'logo');
       writeFileSync(path.join(cacheDir, 'steam-123-hero.jpg'), 'hero');
+      writeFileSync(path.join(cacheDir, 'steam-123-alternativeBanner.png'), 'alt');
+      writeFileSync(path.join(cacheDir, 'steam-123-icon.ico'), 'icon');
+      writeFileSync(path.join(cacheDir, 'steam-123-screenshot-0.webp'), 'screenshot');
 
       const clearedCount = await store.clearBrokenOnyxLocalUrls(cacheDir);
       expect(clearedCount).toBe(0);
@@ -102,6 +115,9 @@ describe('GameStore artwork persistence', () => {
       expect(game.bannerUrl).toBe('onyx-local://steam-123-banner?t=222');
       expect(game.logoUrl).toBe('onyx-local://steam-123-logo?t=333');
       expect(game.heroUrl).toBe('onyx-local://steam-123-hero?t=444');
+      expect(game.alternativeBannerUrl).toBe('onyx-local://steam-123-alternativeBanner?t=555');
+      expect(game.iconUrl).toBe('onyx-local://steam-123-icon?t=666');
+      expect(game.screenshots).toEqual(['onyx-local://steam-123-screenshot-0?t=777']);
     } finally {
       rmSync(cacheDir, { recursive: true, force: true });
     }
@@ -114,8 +130,14 @@ describe('GameStore artwork persistence', () => {
       ...baseGame,
       boxArtUrl: 'onyx-local://steam-123-boxart?t=111',
       bannerUrl: 'onyx-local://steam-123-banner?t=222',
-      logoUrl: '',
-      heroUrl: '',
+      logoUrl: 'onyx-local://steam-123-logo?t=333',
+      heroUrl: 'onyx-local://steam-123-hero?t=444',
+      alternativeBannerUrl: 'onyx-local://steam-123-alternativeBanner?t=555',
+      iconUrl: 'onyx-local://steam-123-icon?t=666',
+      screenshots: [
+        'onyx-local://steam-123-screenshot-0?t=777',
+        'https://example.com/keep-me.jpg',
+      ],
     }];
     MockStore.persisted.set('game-library', persisted);
 
@@ -124,11 +146,16 @@ describe('GameStore artwork persistence', () => {
       mkdirSync(cacheDir, { recursive: true });
 
       const clearedCount = await store.clearBrokenOnyxLocalUrls(cacheDir);
-      expect(clearedCount).toBe(2);
+      expect(clearedCount).toBe(7);
 
       const [game] = await store.getLibrary();
       expect(game.boxArtUrl).toBe('');
       expect(game.bannerUrl).toBe('');
+      expect(game.logoUrl).toBe('');
+      expect(game.heroUrl).toBe('');
+      expect(game.alternativeBannerUrl).toBe('');
+      expect(game.iconUrl).toBe('');
+      expect(game.screenshots).toEqual(['https://example.com/keep-me.jpg']);
     } finally {
       rmSync(cacheDir, { recursive: true, force: true });
     }

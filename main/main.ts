@@ -2106,7 +2106,7 @@ app.whenReady().then(async () => {
         }
 
         // Use the built-in background scan mechanism which handled notifications
-        await performBackgroundScan(true);
+        await performBackgroundScan(true, true);
 
         if (win && !win.isDestroyed()) {
           win.webContents.send('startup:progress', { message: 'Scan complete' });
@@ -2126,6 +2126,9 @@ app.whenReady().then(async () => {
     ]);
   };
 
+  // Initialize auto-updater before the renderer can trigger the startup sequence.
+  initAppUpdateService(() => win, IS_ALPHA);
+
   await createWindow();
 
   // Fallback: if renderer never sends app:ready, start sequence anyway.
@@ -2136,9 +2139,6 @@ app.whenReady().then(async () => {
       runStartupSequence();
     }
   }, 5000);
-
-  // Initialize auto-updater (only active when packaged; alpha uses prerelease channel)
-  initAppUpdateService(() => win, IS_ALPHA);
 
   // Initialize background scan interval if enabled
   const backgroundScanEnabled = await appConfigService.getBackgroundScanEnabled();

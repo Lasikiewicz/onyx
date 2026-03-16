@@ -40,6 +40,7 @@ Caches image assets and optimizes them (including worker-based processing) for f
 - Cached files are persisted on disk in app-managed cache directories.
 - Optimized derivatives are separate from raw downloads and may vary by asset type.
 - Queue state is runtime-only; cached artifacts persist across runs until invalidated or cleared.
+- Startup cache cleanup in [GameStore.ts](../../main/GameStore.ts) preserves valid `onyx-local://` artwork URLs even when they include cache-busting query strings, and now clears broken alternative banners, icons, and screenshot entries alongside box art/banner/logo/hero fields.
 
 ## Failure Modes and Triage
 
@@ -54,6 +55,7 @@ Caches image assets and optimizes them (including worker-based processing) for f
 - Inspect source URL validity and cache file existence.
 - Check worker errors and format conversion failures.
 - Re-run optimize flow on affected games only.
+- If the library record still points at deleted cached files, restart once to trigger startup cleanup of stale `onyx-local://` references before re-fetching artwork.
 
 ### Symptom: Old art remains after metadata refresh
 

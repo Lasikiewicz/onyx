@@ -432,44 +432,50 @@ export class GameStore {
 
     const { existsSync } = require('node:fs');
 
+    const clearIfMissing = (
+      game: Game,
+      field: 'boxArtUrl' | 'bannerUrl' | 'logoUrl' | 'heroUrl' | 'alternativeBannerUrl' | 'iconUrl',
+      label: string
+    ) => {
+      const currentUrl = game[field];
+      if (!currentUrl?.startsWith('onyx-local://')) {
+        return;
+      }
+
+      const assetPath = this.extractFilePathFromOnyxUrl(currentUrl, cacheDir);
+      if (!existsSync(assetPath)) {
+        console.log(`[GameStore] Clearing broken ${label} URL for ${game.title}: ${currentUrl}`);
+        game[field] = '';
+        clearedCount++;
+      }
+    };
+
     games.forEach(game => {
-      // Check if boxart file exists before clearing
-      if (game.boxArtUrl?.startsWith('onyx-local://')) {
-        const boxartPath = this.extractFilePathFromOnyxUrl(game.boxArtUrl, cacheDir);
-        if (!existsSync(boxartPath)) {
-          console.log(`[GameStore] Clearing broken boxart URL for ${game.title}: ${game.boxArtUrl}`);
-          game.boxArtUrl = '';
-          clearedCount++;
-        }
-      }
+      clearIfMissing(game, 'boxArtUrl', 'boxart');
+      clearIfMissing(game, 'bannerUrl', 'banner');
+      clearIfMissing(game, 'logoUrl', 'logo');
+      clearIfMissing(game, 'heroUrl', 'hero');
+      clearIfMissing(game, 'alternativeBannerUrl', 'alternative banner');
+      clearIfMissing(game, 'iconUrl', 'icon');
 
-      // Check if banner file exists before clearing
-      if (game.bannerUrl?.startsWith('onyx-local://')) {
-        const bannerPath = this.extractFilePathFromOnyxUrl(game.bannerUrl, cacheDir);
-        if (!existsSync(bannerPath)) {
-          console.log(`[GameStore] Clearing broken banner URL for ${game.title}: ${game.bannerUrl}`);
-          game.bannerUrl = '';
-          clearedCount++;
-        }
-      }
+      if (Array.isArray(game.screenshots)) {
+        const nextScreenshots = game.screenshots.filter((url, index) => {
+          if (!url?.startsWith('onyx-local://')) {
+            return true;
+          }
 
-      // Check if logo file exists before clearing
-      if (game.logoUrl?.startsWith('onyx-local://')) {
-        const logoPath = this.extractFilePathFromOnyxUrl(game.logoUrl, cacheDir);
-        if (!existsSync(logoPath)) {
-          console.log(`[GameStore] Clearing broken logo URL for ${game.title}: ${game.logoUrl}`);
-          game.logoUrl = '';
-          clearedCount++;
-        }
-      }
+          const screenshotPath = this.extractFilePathFromOnyxUrl(url, cacheDir);
+          if (existsSync(screenshotPath)) {
+            return true;
+          }
 
-      // Check if hero file exists before clearing
-      if (game.heroUrl?.startsWith('onyx-local://')) {
-        const heroPath = this.extractFilePathFromOnyxUrl(game.heroUrl, cacheDir);
-        if (!existsSync(heroPath)) {
-          console.log(`[GameStore] Clearing broken hero URL for ${game.title}: ${game.heroUrl}`);
-          game.heroUrl = '';
+          console.log(`[GameStore] Clearing broken screenshot URL ${index + 1} for ${game.title}: ${url}`);
           clearedCount++;
+          return false;
+        });
+
+        if (nextScreenshots.length !== game.screenshots.length) {
+          game.screenshots = nextScreenshots;
         }
       }
     });

@@ -4,6 +4,12 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Pending]
+
+- Startup/update flow: Initialize the packaged updater before the renderer starts the startup sequence so the first startup update check reliably reports status instead of racing the updater setup.
+- Startup scan flow: Route startup-originated scan progress and newly found games through the startup overlay only, while recurring background scans stop emitting startup progress UI events.
+- Cache cleanup: Clear stale `onyx-local://` alternative banner, icon, and screenshot references during startup cleanup, while preserving valid cached artwork URLs that include transient query strings.
+
 ## [0.7.27] - 2026-03-16
 
 - Update modal: Simplify the update header, lower the update icon to avoid clipping, group changelog bullets by version, split release notes into `New features` and `Fixed issues`, and make the dev-only `Open Update Found` preview load the latest three changelog entries instead of guessing the next patch.
