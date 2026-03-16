@@ -149,7 +149,6 @@ function main() {
   let architecture = fs.readFileSync(architecturePath, 'utf8');
 
   const ownershipTable = buildOwnershipTable(docMap.rules);
-  const lastSync = `- Synced (UTC): ${new Date().toISOString()}`;
   const moduleIndex = buildModuleIndex();
 
   structure = replaceMarkerBlock(
@@ -157,13 +156,6 @@ function main() {
     '<!-- AUTO-GENERATED:MAP:START -->',
     '<!-- AUTO-GENERATED:MAP:END -->',
     ownershipTable
-  );
-
-  structure = replaceMarkerBlock(
-    structure,
-    '<!-- AUTO-GENERATED:LAST_SYNC:START -->',
-    '<!-- AUTO-GENERATED:LAST_SYNC:END -->',
-    lastSync
   );
 
   architecture = replaceMarkerBlock(

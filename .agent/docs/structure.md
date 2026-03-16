@@ -8,6 +8,7 @@ Always check this map first before editing code.
 - Mapping source: `.agent/docs/doc-map.json`
 - Guardrails: `npm run docs:sync` and `npm run docs:check`
 - Enforcement points: `.husky/pre-commit` and `.github/workflows/docs-guard.yml`
+- `AUTO-GENERATED:LAST_SYNC` is informational and intentionally stable across repeated sync runs to avoid timestamp-only CI drift.
 
 ## Ownership Map
 
