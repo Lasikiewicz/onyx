@@ -35,7 +35,7 @@ beforeEach(() => {
 });
 
 describe('GameManager accessibility', () => {
-  it('renders accessible labels for game list view toggle buttons', () => {
+  it('renders accessible labels for game list view toggle buttons', async () => {
     render(
       <GameManager
         isOpen={true}
@@ -45,9 +45,9 @@ describe('GameManager accessibility', () => {
       />
     );
 
-    expect(screen.getByRole('button', { name: /boxart view/i })).toBeDefined();
-    expect(screen.getByRole('button', { name: /icon view/i })).toBeDefined();
-    expect(screen.getByRole('button', { name: /text-only view/i })).toBeDefined();
+    expect(await screen.findByRole('button', { name: /boxart view/i })).toBeDefined();
+    expect(await screen.findByRole('button', { name: /icon view/i })).toBeDefined();
+    expect(await screen.findByRole('button', { name: /text-only view/i })).toBeDefined();
   });
 });
 

@@ -17,6 +17,11 @@ pnpm-debug.log*
 .env
 .env.production
 
+# local wrangler output snapshots
+deployments.json
+deployments_utf8.json
+projects.txt
+
 # macOS-specific files
 .DS_Store
 

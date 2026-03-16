@@ -37,3 +37,7 @@ Always check this map first before editing code.
 4. If workflow rules or guardrails changed, update `agents.md` (project root).
 5. If files under `main/` or `renderer/src/` change, stage at least one updated file from `docs/features/` to keep feature runbooks as source of truth.
 6. Every updated feature doc must satisfy `docs/features/FEATURE_DOC_STANDARD.md` (required sections and depth).
+
+## Automation Notes
+
+- Script-driven asset generation should avoid writing duplicate tracked outputs when one source asset is sufficient for multiple logical keys.

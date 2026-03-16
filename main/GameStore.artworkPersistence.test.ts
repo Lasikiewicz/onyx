@@ -3,34 +3,37 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { GameStore, type Game } from './GameStore.js';
-import * as dynamicImportModule from './dynamicImport.js';
 
-vi.mock('./dynamicImport.js', () => ({
-  dynamicImport: vi.fn(),
-}));
+const { MockStore } = vi.hoisted(() => {
+  class HoistedMockStore {
+    static persisted = new Map<string, any>();
+    name: string;
 
-class MockStore {
-  static persisted = new Map<string, any>();
-  name: string;
+    constructor(options?: { name?: string; defaults?: Record<string, unknown> }) {
+      this.name = options?.name || 'default';
+      if (!HoistedMockStore.persisted.has(this.name)) {
+        HoistedMockStore.persisted.set(this.name, { ...(options?.defaults || {}) });
+      }
+    }
 
-  constructor(options?: { name?: string; defaults?: Record<string, unknown> }) {
-    this.name = options?.name || 'default';
-    if (!MockStore.persisted.has(this.name)) {
-      MockStore.persisted.set(this.name, { ...(options?.defaults || {}) });
+    get(key: string, fallback?: unknown) {
+      const state = HoistedMockStore.persisted.get(this.name) || {};
+      return state[key] ?? fallback;
+    }
+
+    set(key: string, value: unknown) {
+      const state = HoistedMockStore.persisted.get(this.name) || {};
+      state[key] = value;
+      HoistedMockStore.persisted.set(this.name, state);
     }
   }
 
-  get(key: string, fallback?: unknown) {
-    const state = MockStore.persisted.get(this.name) || {};
-    return state[key] ?? fallback;
-  }
+  return { MockStore: HoistedMockStore };
+});
 
-  set(key: string, value: unknown) {
-    const state = MockStore.persisted.get(this.name) || {};
-    state[key] = value;
-    MockStore.persisted.set(this.name, state);
-  }
-}
+vi.mock('./electronStoreShim.js', () => ({
+  default: MockStore,
+}));
 
 const baseGame: Game = {
   id: 'steam-123',
@@ -47,7 +50,6 @@ describe('GameStore artwork persistence', () => {
   beforeEach(() => {
     MockStore.persisted.clear();
     vi.clearAllMocks();
-    vi.mocked(dynamicImportModule.dynamicImport).mockResolvedValue({ default: MockStore as any });
   });
 
   it('persists normalized artwork URLs when saving category edits', async () => {
@@ -112,7 +114,8 @@ describe('GameStore artwork persistence', () => {
       ...baseGame,
       boxArtUrl: 'onyx-local://steam-123-boxart?t=111',
       bannerUrl: 'onyx-local://steam-123-banner?t=222',
-      logoUrl: undefined,
+      logoUrl: '',
+      heroUrl: '',
     }];
     MockStore.persisted.set('game-library', persisted);
 

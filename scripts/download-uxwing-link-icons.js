@@ -17,7 +17,6 @@ const ICONS = [
     { key: 'reddit', url: `${BASE}/reddit-icon.svg`, file: 'reddit-icon.svg' },
     { key: 'discord', url: `${BASE}/discord-color-icon.svg`, file: 'discord-color-icon.svg' },
     { key: 'wikipedia', url: `${BASE}/wikipedia-icon.svg`, file: 'wikipedia-icon.svg' },
-    { key: 'wiki', url: null, file: 'wiki-icon.svg' }, // no UXWing slug; copy of wikipedia
     { key: 'facebook', url: `${BASE}/facebook-app-round-icon.svg`, file: 'facebook-icon.svg' },
     { key: 'twitter', url: `${BASE}/twitter-icon.svg`, file: 'twitter-icon.svg' },
     { key: 'twitch', url: `${BASE}/twitch-color-icon.svg`, file: 'twitch-icon.svg' },
@@ -49,18 +48,6 @@ async function main() {
         fs.mkdirSync(OUT_DIR, { recursive: true });
     }
     for (const { key, url, file } of ICONS) {
-        if (!url) {
-            // wiki: use Wikipedia icon as Community Wiki icon
-            const wikiPath = path.join(OUT_DIR, 'wikipedia-icon.svg');
-            const destPath = path.join(OUT_DIR, file);
-            if (fs.existsSync(wikiPath)) {
-                fs.copyFileSync(wikiPath, destPath);
-                console.log(`OK ${key} -> ${file} (copy of wikipedia)`);
-            } else {
-                console.error(`SKIP ${key} (no url; run again after wikipedia is downloaded)`);
-            }
-            continue;
-        }
         try {
             const body = await get(url);
             const outPath = path.join(OUT_DIR, file);

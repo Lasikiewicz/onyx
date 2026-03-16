@@ -40,8 +40,8 @@ It explains module boundaries, data flow, and release pipeline expectations.
 
 <!-- AUTO-GENERATED:MODULE_INDEX:START -->
 - Main process source files: 66
-- Renderer source files: 79
-- Automation scripts: 37
+- Renderer source files: 78
+- Automation scripts: 33
 - GitHub workflow files: 7
 - Key entrypoints:
   - Main process entry: `main/main.ts` (present)
