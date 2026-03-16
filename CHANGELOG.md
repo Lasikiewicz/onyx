@@ -11,6 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Game Manager maintainability: Move the full Links tab layout into a dedicated `gameManager/GameManagerLinksTab.tsx` component and lift the links refresh request into a named `GameManager` handler so the modal shell carries less inline link-editing UI and side-effect code.
 - Game Manager maintainability: Move the full Mod Manager tab layout into a dedicated `gameManager/GameManagerModManagerTab.tsx` component and lift the browse/launch actions into named `GameManager` handlers so the modal shell carries less inline mod-manager UI and side-effect code.
 - Game Manager maintainability: Move the link-icon picker overlay and SVG upload flow into a dedicated `gameManager/LinkIconPickerDialog.tsx` component so the modal shell no longer owns the inline dialog and file-reader logic for per-link custom icons.
+- Game Manager maintainability: Move the refresh confirmation and refresh progress overlays into dedicated `gameManager/GameManagerRefreshConfirmDialog.tsx` and `gameManager/GameManagerRefreshProgressDialog.tsx` components, and lift the confirm action into a named `GameManager` handler so maintenance-flow UI is less embedded in the modal shell.
 
 ## [0.7.32] - 2026-03-16
 
