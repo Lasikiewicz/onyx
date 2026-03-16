@@ -36,6 +36,26 @@ export const GamePropertiesPanel = forwardRef<GamePropertiesPanelHandle, GamePro
     editingDisabled = false,
     editingDisabledReason
 }, ref) => {
+    const normalizeImageUrl = (value?: string) => {
+        if (!value) return undefined;
+        const trimmed = value.trim();
+        if (!trimmed) return undefined;
+        const lower = trimmed.toLowerCase();
+        if (lower === 'null' || lower === 'undefined' || lower === 'n/a') return undefined;
+        if (trimmed.startsWith('//')) return `https:${trimmed}`;
+        if (
+            lower.startsWith('https://') ||
+            lower.startsWith('http://') ||
+            lower.startsWith('data:') ||
+            lower.startsWith('blob:') ||
+            lower.startsWith('file://') ||
+            lower.startsWith('onyx-local://')
+        ) {
+            return trimmed;
+        }
+        return undefined;
+    };
+
     const [activeTab, setActiveTab] = useState<'metadata' | 'images' | 'links' | 'modManager'>('metadata');
     const [editedFields, setEditedFields] = useState<EditableGameFields>(() => toEditableFields(game));
 
@@ -90,6 +110,102 @@ export const GamePropertiesPanel = forwardRef<GamePropertiesPanelHandle, GamePro
 
     const updateField = <K extends keyof EditableGameFields>(field: K, value: EditableGameFields[K]) => {
         setEditedFields(prev => ({ ...prev, [field]: value }));
+    };
+
+    const clearImageResults = () => {
+        setSteamGridDBResults({ boxart: [], banner: [], alternativeBanner: [], logo: [], icon: [] });
+        setFailedImageUrls(new Set());
+    };
+
+    const getNumericSteamAppId = () => {
+        const rawAppId = (game as any).appId || (game as any).steamAppId;
+        return rawAppId && /^\d+$/.test(String(rawAppId)) ? String(rawAppId) : undefined;
+    };
+
+    const categorizeFetchedImages = (images: any[]) => {
+        const categorized = {
+            boxart: [] as any[],
+            banner: [] as any[],
+            alternativeBanner: [] as any[],
+            logo: [] as any[],
+            icon: [] as any[],
+        };
+        const seenUrls = new Set<string>();
+
+        images.forEach((img: any) => {
+            const normalizedUrl = normalizeImageUrl(
+                img.url || img.boxArtUrl || img.coverUrl || img.bannerUrl || img.logoUrl || img.iconUrl || img.screenshotUrls?.[0]
+            );
+            if (!normalizedUrl) return;
+
+            const normalizedType: 'boxart' | 'banner' | 'alternativeBanner' | 'logo' | 'icon' | undefined = img.type === 'hero' || img.type === 'screenshot'
+                ? 'banner'
+                : img.type === 'alternativeBanner'
+                    ? 'alternativeBanner'
+                    : img.type;
+            const dedupeKey = `${normalizedUrl}|${img.source || ''}|${normalizedType || ''}`;
+            if (seenUrls.has(dedupeKey)) return;
+            seenUrls.add(dedupeKey);
+
+            const normalizedResult = {
+                ...img,
+                url: normalizedUrl,
+                boxArtUrl: normalizedType === 'boxart' ? normalizedUrl : img.boxArtUrl,
+                coverUrl: normalizedType === 'boxart' ? normalizedUrl : img.coverUrl,
+                bannerUrl: normalizedType === 'banner' || normalizedType === 'alternativeBanner' ? normalizedUrl : img.bannerUrl,
+                logoUrl: normalizedType === 'logo' ? normalizedUrl : img.logoUrl,
+                iconUrl: normalizedType === 'icon' ? normalizedUrl : img.iconUrl,
+                source: img.source || 'Unknown',
+            };
+
+            if (normalizedType === 'alternativeBanner') {
+                categorized.alternativeBanner.push(normalizedResult);
+            } else if (normalizedType === 'boxart' || normalizedType === 'banner' || normalizedType === 'logo' || normalizedType === 'icon') {
+                categorized[normalizedType].push(normalizedResult);
+            }
+        });
+
+        return categorized;
+    };
+
+    const openImageSearch = async (type: 'boxart' | 'banner' | 'logo' | 'icon' | 'alternativeBanner', explicitQuery?: string) => {
+        const query = (explicitQuery || imageSearchQuery || editedFields.title).trim();
+        if (!query) {
+            setError('Please enter a game title to search');
+            return;
+        }
+
+        const runId = ++imageSearchRunIdRef.current;
+        const steamAppId = getNumericSteamAppId();
+
+        setActiveTab('images');
+        setActiveImageSearchTab(type);
+        setImageSearchQuery(query);
+        setIsSearchingImages(true);
+        setError(null);
+        clearImageResults();
+
+        try {
+            const response = await (window.electronAPI as any).fetchGameImages(
+                query,
+                steamAppId,
+                undefined,
+                false,
+                runId,
+                isStaged ? (game as StagedGame).uuid : (game as Game).id
+            );
+
+            if (response?.success && Array.isArray(response.images)) {
+                setSteamGridDBResults(categorizeFetchedImages(response.images));
+            } else {
+                setError(response?.error || 'No images found');
+            }
+        } catch (err) {
+            console.error('[ImporterImageSearch] error', { runId, query, err });
+            setError('Failed to fetch images from sources');
+        } finally {
+            setIsSearchingImages(false);
+        }
     };
 
     // --- Undo ---
@@ -194,51 +310,52 @@ export const GamePropertiesPanel = forwardRef<GamePropertiesPanelHandle, GamePro
 
     // --- Image Search ---
     const handleSearchImages = async (type: 'boxart' | 'banner' | 'logo' | 'icon' | 'alternativeBanner') => {
-        const query = imageSearchQuery || editedFields.title;
-        if (!query) return;
+        await openImageSearch(type);
+    };
 
-        const runId = ++imageSearchRunIdRef.current;
-
-        setIsSearchingImages(true);
-        setSteamGridDBResults(prev => ({ ...prev, [type]: [] }));
-
-        console.log('[ImporterImageSearch] start', {
-            runId,
-            type,
-            query,
-            gameId: (game as any).id,
-            steamAppId: (game as any).appId || (game as any).steamAppId,
-            showAnimatedImages: false,
-            timestamp: new Date().toISOString()
-        });
-
+    const handleBrowseImage = async (type: 'boxart' | 'banner' | 'logo' | 'icon' | 'alternativeBanner') => {
         try {
-            // Only use appId if it's a numeric Steam App ID - Xbox/Epic IDs like 'AppARCRaidersShipping' must NOT be sent to SGDB
-            const rawAppId = (game as any).appId || (game as any).steamAppId;
-            const steamAppId = rawAppId && /^\d+$/.test(String(rawAppId)) ? String(rawAppId) : undefined;
-            // Pass the actual type directly - backend handles alternativeBanner by fetching heroes
-            const response = await window.electronAPI.searchImages(query, type, steamAppId);
-            if (response.success && response.images) {
-                const flattened = response.images.flatMap(r => r.images || []);
-                setSteamGridDBResults(prev => ({ ...prev, [type]: flattened }));
+            const imagePath = await (window.electronAPI as any).showImageOrWebmDialog?.();
+            if (!imagePath) return;
+            if (/\.(webp)$/i.test(imagePath)) {
+                setError('WebP files are not supported. Please choose another image format or a WEBM file.');
+                return;
             }
+
+            const gameId = isStaged ? (game as StagedGame).uuid : (game as Game).id;
+            const cacheResult = await window.electronAPI.cacheLocalFile(imagePath, gameId, type);
+            if (!cacheResult?.url) {
+                setError(cacheResult?.error || 'Failed to add file to cache');
+                return;
+            }
+
+            applyImage(type, cacheResult.url);
         } catch (err) {
-            console.error('[ImporterImageSearch] error', { runId, query, err });
-        } finally {
-            setIsSearchingImages(false);
-            console.log('[ImporterImageSearch] end', { runId, query, timestamp: new Date().toISOString() });
+            console.error('[ImporterImageBrowse] error', err);
+            setError('Failed to select image file');
         }
     };
 
     const applyImage = (type: 'boxart' | 'banner' | 'logo' | 'icon' | 'alternativeBanner', url: string) => {
-        const fieldMap = {
-            boxart: 'boxArtUrl',
-            banner: 'bannerUrl',
-            alternativeBanner: 'alternativeBannerUrl',
-            logo: 'logoUrl',
-            icon: 'iconUrl'
-        } as const;
-        updateField(fieldMap[type], url);
+        setEditedFields(prev => {
+            const next = { ...prev };
+
+            if (type === 'boxart') {
+                next.boxArtUrl = url;
+            } else if (type === 'banner') {
+                next.bannerUrl = url;
+                next.heroUrl = url;
+            } else if (type === 'alternativeBanner') {
+                next.alternativeBannerUrl = url;
+                next.useAlternativeBackground = true;
+            } else if (type === 'logo') {
+                next.logoUrl = url;
+            } else if (type === 'icon') {
+                next.iconUrl = url;
+            }
+
+            return next;
+        });
         setSuccess(`Applied ${type === 'alternativeBanner' ? 'Alt Banner' : type}`);
         setTimeout(() => setSuccess(null), 2000);
     };
@@ -345,9 +462,7 @@ export const GamePropertiesPanel = forwardRef<GamePropertiesPanelHandle, GamePro
         setError(null);
 
         try {
-            // Only use appId if it's a numeric Steam App ID - Xbox/Epic IDs must NOT be sent to SGDB
-            const rawAppId = (game as any).appId || (game as any).steamAppId;
-            const steamAppId = rawAppId && /^\d+$/.test(String(rawAppId)) ? String(rawAppId) : undefined;
+            const steamAppId = getNumericSteamAppId();
             const igdbIdParam = (() => {
                 if (gameResult.source !== 'igdb') return undefined;
                 if (typeof gameResult.id === 'number' && Number.isFinite(gameResult.id)) return gameResult.id;
@@ -367,23 +482,7 @@ export const GamePropertiesPanel = forwardRef<GamePropertiesPanelHandle, GamePro
             );
 
             if (response.success && response.images) {
-                const categorized = { boxart: [], banner: [], alternativeBanner: [], logo: [], icon: [] } as any;
-                const seenUrls = new Set<string>();
-
-                response.images.forEach((img: any) => {
-                    const dedupeKey = `${img.url}|${img.source}|${img.type}`;
-                    if (!img.url || seenUrls.has(dedupeKey)) return;
-                    seenUrls.add(dedupeKey);
-
-                    const normalizedType = img.type === 'hero' || img.type === 'screenshot' ? 'banner' : img.type;
-                    if (normalizedType === 'alternativeBanner') {
-                        categorized.alternativeBanner.push(img);
-                    } else if (categorized[normalizedType]) {
-                        categorized[normalizedType].push(img);
-                    }
-                });
-
-                setSteamGridDBResults(categorized);
+                setSteamGridDBResults(categorizeFetchedImages(response.images));
                 setSuccess(`Showing images for "${gameResult.name}"`);
                 setTimeout(() => setSuccess(null), 3000);
             } else {
@@ -441,8 +540,7 @@ export const GamePropertiesPanel = forwardRef<GamePropertiesPanelHandle, GamePro
                                 setActiveTab('images');
                                 setActiveImageSearchTab(type);
                                 if (!editingDisabled) {
-                                    setImageSearchQuery(editedFields.title);
-                                    handleSearchImages(type);
+                                    void openImageSearch(type, editedFields.title);
                                 }
                             }}
                             className={`${sizeClass} relative group cursor-pointer border border-gray-700 rounded-lg overflow-hidden bg-gray-800 hover:border-green-500 transition-colors flex-shrink-0`}
@@ -776,6 +874,24 @@ export const GamePropertiesPanel = forwardRef<GamePropertiesPanelHandle, GamePro
                                         <span>Quick All</span>
                                     </>
                                 )}
+                            </button>
+                            <button
+                                onClick={() => handleBrowseImage(activeImageSearchTab === 'all' ? 'boxart' : activeImageSearchTab)}
+                                disabled={editingDisabled || isSearchingImages}
+                                className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                title="Choose a local image or WEBM file"
+                            >
+                                Browse
+                            </button>
+                            <button
+                                onClick={() => {
+                                    setFastSearchResults([]);
+                                    clearImageResults();
+                                }}
+                                disabled={editingDisabled || isSearchingImages}
+                                className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                Clear
                             </button>
                         </div>
 

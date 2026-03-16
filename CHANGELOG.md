@@ -4,8 +4,10 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## Pending
+## [0.7.26] - 2026-03-16
 
+- Add Games: Image edits made during import review now persist into the library correctly, including banner/background selections that need linked hero/background fields updated.
+- Add Games: Import now carries staged launch arguments, screenshots, and launcher-specific launch fields into the final library record instead of dropping them during the staged-to-library conversion.
 - Maintenance: Remove redundant tracked website snapshot files, unused menu-bar patch scripts, and an unused importer image-search modal to keep the repo leaner.
 - Tests: Stabilize GameStore artwork persistence coverage by mocking the active Electron store shim and clarifying onyx-local cache-buster expectations during startup cleanup.
 - Tests: Eliminate the Game Manager accessibility test's React `act(...)` warning by waiting for async startup effects before asserting the view-toggle controls.

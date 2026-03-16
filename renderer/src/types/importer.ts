@@ -33,6 +33,7 @@ export interface StagedGame {
   boxArtUrl: string;
   bannerUrl: string;
   alternativeBannerUrl?: string;
+  useAlternativeBackground?: boolean;
   logoUrl?: string;
   heroUrl?: string;
   iconUrl?: string;

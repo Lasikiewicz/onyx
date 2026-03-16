@@ -15,6 +15,7 @@ Lets users search provider/web image sources, preview candidates, and assign box
 
 - Image search modal.
 - Image selector controls on game details and metadata-edit surfaces.
+- Add Games per-title editor ([GamePropertiesPanel.tsx](../../renderer/src/components/GamePropertiesPanel.tsx)) uses the same aggregated multi-provider image fetch path as Game Manager when swapping artwork during import review.
 - Boxart, banner, logo, and icon fix flows plus image context menus.
 
 ## Settings and Toggles
@@ -43,6 +44,8 @@ Lets users search provider/web image sources, preview candidates, and assign box
 - Manual per-type search now keeps discovery order by appending provider batches as they arrive (no score/exact-match resorting or front insertion during active search).
 - `metadata:searchImages` now returns SteamGridDB type results directly for this flow, while IGDB metadata continues via its own parallel search channel in the renderer.
 - The Images `all` tab renders from a single ordered merged stream across providers, so section ordering reflects discovery time consistently instead of per-provider grouping priority.
+- Add Games image editing can also browse a local image/WEBM file, cache it, and apply it before the game is imported.
+- Add Games mirrors Game Manager's linked image-field updates for background artwork, so choosing a banner also updates the imported `heroUrl`/background display path instead of reverting to older artwork after import.
 
 ## Discovery and Data Sources
 

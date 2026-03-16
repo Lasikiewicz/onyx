@@ -17,6 +17,7 @@ export interface EditableGameFields {
   boxArtUrl: string;
   bannerUrl: string;
   alternativeBannerUrl?: string;
+  useAlternativeBackground?: boolean;
   logoUrl?: string;
   heroUrl?: string;
   iconUrl?: string;
@@ -60,6 +61,7 @@ export function toEditableFields(source: Game | StagedGame): EditableGameFields 
     boxArtUrl: source.boxArtUrl,
     bannerUrl: source.bannerUrl,
     alternativeBannerUrl: (source as any).alternativeBannerUrl,
+    useAlternativeBackground: (source as any).useAlternativeBackground,
     logoUrl: source.logoUrl,
     heroUrl: source.heroUrl,
     iconUrl: source.iconUrl,
@@ -90,6 +92,7 @@ export function mergeIntoGame(original: Game, edited: EditableGameFields): Game 
     boxArtUrl: edited.boxArtUrl,
     bannerUrl: edited.bannerUrl,
     alternativeBannerUrl: edited.alternativeBannerUrl,
+    useAlternativeBackground: edited.useAlternativeBackground ?? original.useAlternativeBackground,
     logoUrl: edited.logoUrl,
     heroUrl: edited.heroUrl,
     iconUrl: edited.iconUrl,
@@ -118,6 +121,7 @@ export function mergeIntoStagedGame(original: StagedGame, edited: EditableGameFi
     boxArtUrl: edited.boxArtUrl,
     bannerUrl: edited.bannerUrl,
     alternativeBannerUrl: edited.alternativeBannerUrl,
+    useAlternativeBackground: edited.useAlternativeBackground,
     logoUrl: edited.logoUrl,
     heroUrl: edited.heroUrl,
     iconUrl: edited.iconUrl,

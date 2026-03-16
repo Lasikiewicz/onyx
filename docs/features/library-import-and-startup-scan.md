@@ -14,6 +14,7 @@ Finds games from configured launchers/folders and imports them into the local li
 
 - Initial startup scan flow.
 - Manual library update/import dialogs.
+- Add Games review/editor surfaces for per-title metadata, links, and artwork changes before import completes.
 - Found games, missing games, and remove-deleted-games review dialogs.
 - Settings surfaces for launcher configuration, library folders, and startup scanning.
 
@@ -30,8 +31,10 @@ Finds games from configured launchers/folders and imports them into the local li
 2. Main startup sequence checks preferences and coordinates update-check timing.
 3. [ImportService.ts](../../main/ImportService.ts) orchestrates launcher readers and normalization.
 4. [GameMatcher.ts](../../main/GameMatcher.ts) deduplicates and resolves identity.
-5. [GameStore.ts](../../main/GameStore.ts) persists the resulting game set.
-6. Progress and discovered games are streamed back to renderer.
+5. Add Games review can adjust staged metadata and run the shared multi-provider image search/browse flow before import.
+6. Staged edits that are represented on the `Game` model, such as categories, links, launch arguments, screenshots, and launcher-specific launch fields, are copied into the imported library record.
+7. [GameStore.ts](../../main/GameStore.ts) persists the resulting game set.
+8. Progress and discovered games are streamed back to renderer.
 
 ## Discovery and Data Sources
 
