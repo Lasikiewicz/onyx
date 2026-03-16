@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Game, MissingGame } from '../types/game';
 import { ConfirmationDialog } from './ConfirmationDialog';
 import { MatchFixDialog } from './MatchFixDialog';
@@ -163,12 +163,12 @@ export const GameManager: React.FC<GameManagerProps> = ({
     return undefined;
   };
 
-  const getRenderableImageUrl = (value?: string) => {
+  const getRenderableImageUrl = useCallback((value?: string) => {
     const normalized = normalizeImageUrl(value);
     if (!normalized) return undefined;
     if (failedImageSearchUrls.has(normalized)) return undefined;
     return normalized;
-  };
+  }, [failedImageSearchUrls]);
 
   const markImageResultUrlAsFailed = (value?: string) => {
     const normalized = normalizeImageUrl(value);
@@ -208,7 +208,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
 
   const [providerAvailability, setProviderAvailability] = useState<Partial<Record<ProviderName, boolean>>>({});
 
-  const normalizeProviderName = (provider: string): ProviderName | string => {
+  const normalizeProviderName = useCallback((provider: string): ProviderName | string => {
     const key = provider.toLowerCase();
     if (key.includes('steam store') || key.includes('auto-match') || key === 'steam') return 'Steam Store API';
     if (key.includes('steamgriddb') || key.includes('steam grid')) return 'SteamGridDB';
@@ -217,14 +217,14 @@ export const GameManager: React.FC<GameManagerProps> = ({
     if (key.includes('giantbomb') || key.includes('giant bomb')) return 'Giant Bomb';
     if (key.includes('web')) return 'Web Search';
     return provider;
-  };
+  }, []);
 
-  const matchesAnimationFilter = (url?: string, image?: { mime?: string; isAnimated?: boolean; animated?: boolean; is_animated?: boolean; notes?: string }) => {
+  const matchesAnimationFilter = useCallback((url?: string, image?: { mime?: string; isAnimated?: boolean; animated?: boolean; is_animated?: boolean; notes?: string }) => {
     if (!url && !image) return false;
     // Completely hide animated assets (webp/gif/apng) from search results;
     // WEBM uploads are handled via explicit "Upload WEBM" flow instead.
     return !isAnimatedAsset(url, image);
-  };
+  }, []);
 
   // Load provider availability (which APIs are configured) once for status row and filters
   useEffect(() => {
@@ -258,7 +258,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [normalizeProviderName]);
 
   useEffect(() => {
     selectedGameIdRef.current = selectedGameId;
@@ -1170,7 +1170,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
     });
 
     return result;
-  }, [imageSearchResults, steamGridDBResults, imageAnimationFilter, failedImageSearchUrls]);
+  }, [getRenderableImageUrl, imageAnimationFilter, imageSearchResults, matchesAnimationFilter, steamGridDBResults]);
 
   const getImageResultCountForTab = (tab: 'boxart' | 'banner' | 'alternativeBanner' | 'logo' | 'icon') => {
     if (tab === 'boxart') return orderedResultsByType.boxart.filter((i: any) => matchesProviderFilter(i.source)).length;
@@ -1603,7 +1603,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
     return () => {
       if (typeof removeListener === 'function') removeListener();
     };
-  }, []);
+  }, [matchesAnimationFilter, normalizeProviderName]);
 
   // Listen for provider status updates during image search
   useEffect(() => {

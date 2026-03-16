@@ -31,7 +31,7 @@ function convertFileUrlToLocalProtocol(url: string): string {
         }
         // Already URL-encoded, return as-is (no conversion needed)
         return url;
-      } catch (e) {
+      } catch {
         // If conversion fails, return as-is
         console.warn('Failed to convert old onyx-local URL format:', url);
         return url;

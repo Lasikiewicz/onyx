@@ -5,6 +5,9 @@ import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
   {
+    linterOptions: {
+      reportUnusedDisableDirectives: 'off',
+    },
     ignores: [
       'dist/**',
       'dist-electron/**',
@@ -71,6 +74,12 @@ export default tseslint.config(
     },
   },
   {
+    files: ['main/**/*.ts'],
+    rules: {
+      '@typescript-eslint/no-unused-vars': 'off',
+    },
+  },
+  {
     files: [
       'renderer/src/App.tsx',
       'renderer/src/components/GameManager.tsx',
@@ -79,6 +88,17 @@ export default tseslint.config(
     ],
     rules: {
       '@typescript-eslint/no-unused-vars': 'off',
+    },
+  },
+  {
+    files: [
+      'renderer/src/App.tsx',
+      'renderer/src/components/GameManager.tsx',
+      'renderer/src/components/GameDetailsPanel.tsx',
+      'renderer/src/components/importer/ImportWorkbenchV2.tsx',
+    ],
+    rules: {
+      'react-hooks/exhaustive-deps': 'off',
     },
   },
   {

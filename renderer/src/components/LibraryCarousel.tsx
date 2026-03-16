@@ -122,7 +122,7 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
   const selectedGameHeight = Math.max(minSelectedHeight, selectedGameWidth * 1.5); // Match box art aspect ratio
 
   // Calculate carousel offset for smooth animations
-  const calculateOffset = (index: number) => {
+  const calculateOffset = React.useCallback((index: number) => {
     if (games.length === 0) return 0;
 
     // We want to bring the selected game to position 4 (index 3)
@@ -131,10 +131,10 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
     const offsetNeeded = (index - targetPosition) * (baseGameWidth + gameTilePadding * 2);
 
     return -offsetNeeded;
-  };
+  }, [baseGameWidth, gameTilePadding, games.length]);
 
   // Handle game selection with smooth animation
-  const handleGameSelect = (index: number) => {
+  const handleGameSelect = React.useCallback((index: number) => {
     if (index === selectedIndex || index < 0 || index >= games.length) return;
 
     setSelectedIndex(index);
@@ -144,7 +144,7 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
     if (game) {
       onGameClick?.(game);
     }
-  };
+  }, [calculateOffset, games, onGameClick, selectedIndex]);
 
   // Handle activeGameId changes
   React.useEffect(() => {
@@ -155,12 +155,12 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
         setCarouselOffset(calculateOffset(index));
       }
     }
-  }, [activeGameId, games]);
+  }, [activeGameId, calculateOffset, games, selectedIndex]);
 
   // Initialize carousel position
   React.useEffect(() => {
     setCarouselOffset(calculateOffset(validSelectedIndex));
-  }, [validSelectedIndex]);
+  }, [calculateOffset, validSelectedIndex]);
 
   React.useEffect(() => {
     if (!games.length) return;
@@ -232,7 +232,7 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('click', handleClickOutside);
     };
-  }, [games, validSelectedIndex, selectedGame, onGameClick, onPlay, showDetailsBarResizer, logoContextMenu, thumbnailContextMenu]);
+  }, [games, validSelectedIndex, selectedGame, onGameClick, onPlay, showDetailsBarResizer, logoContextMenu, thumbnailContextMenu, handleGameSelect]);
 
   if (games.length === 0) {
     return (

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 
 interface AppConfig {
   id: string;
@@ -42,14 +42,7 @@ export const UpdateLibraryModal: React.FC<UpdateLibraryModalProps> = ({
   const [isDetecting, setIsDetecting] = useState(false);
   const [detectionResults, setDetectionResults] = useState<Map<string, { detected: boolean; path: string }>>(new Map());
 
-  useEffect(() => {
-    if (isOpen) {
-      loadAppConfigs();
-      checkIfWizardNeeded();
-    }
-  }, [isOpen]);
-
-  const checkIfWizardNeeded = async () => {
+  const checkIfWizardNeeded = useCallback(async () => {
     try {
       const configs = await window.electronAPI.getAppConfigs();
       const hasConfiguredApps = Object.values(configs).some((config: any) => config.enabled && config.path);
@@ -63,9 +56,9 @@ export const UpdateLibraryModal: React.FC<UpdateLibraryModalProps> = ({
       console.error('Error checking wizard status:', err);
       setMode('scan');
     }
-  };
+  }, []);
 
-  const loadAppConfigs = async () => {
+  const loadAppConfigs = useCallback(async () => {
     try {
       const savedConfigs = await window.electronAPI.getAppConfigs();
       const defaultApps = getDefaultApps();
@@ -83,7 +76,14 @@ export const UpdateLibraryModal: React.FC<UpdateLibraryModalProps> = ({
     } catch (err) {
       console.error('Error loading app configs:', err);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (isOpen) {
+      loadAppConfigs();
+      checkIfWizardNeeded();
+    }
+  }, [checkIfWizardNeeded, isOpen, loadAppConfigs]);
 
   const getDefaultApps = (): Omit<AppConfig, 'enabled' | 'path'>[] => {
     return [

@@ -142,7 +142,7 @@ export const LibraryCoverFlow: React.FC<LibraryCoverFlowProps> = ({
       };
       animationRef.current = requestAnimationFrame(animate);
     },
-    [games.length]
+    [games]
   );
 
   useEffect(() => {

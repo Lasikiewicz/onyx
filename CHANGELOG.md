@@ -4,6 +4,10 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Pending]
+
+- Lint cleanup: Stabilize several renderer hook/effect dependencies in the app shell, update flow, and library view components so the lightweight ESLint rules can tighten without introducing stale closures.
+
 ## [0.7.31] - 2026-03-16
 
 - Release tooling: Rename the ESM-based `increment-build` and `generate-icons` scripts to `.mjs` so local version bumps and packaging no longer trigger Node's typeless-module reparsing warning.

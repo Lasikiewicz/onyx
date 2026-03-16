@@ -316,7 +316,7 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
     }
-  }, [activeGame?.id]); // Only change when game ID changes
+  }, [activeGame]); // Keep local state aligned with the currently active game
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -482,7 +482,7 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
   const handleClearPerGameOverrides = async () => {
     if (!activeGame || !onActiveGameChange) return;
 
-    const { logoSizePerViewMode, ...restOfGame } = activeGame;
+    const { logoSizePerViewMode: _logoSizePerViewMode, ...restOfGame } = activeGame;
     const updatedGame = restOfGame as Game;
     setLocalLogoSizes({ grid: 100, list: 100, logo: 100, carousel: 100 });
     onActiveGameChange(updatedGame);

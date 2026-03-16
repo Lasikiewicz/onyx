@@ -89,7 +89,7 @@ export function useFullscreen(): UseFullscreenReturn {
     };
 
     setupCursorHiding();
-  }, [state.isFullscreen]);
+  }, [mouseIdleTimer, state.isFullscreen]);
 
   // Handle mouse movement for cursor hiding
   useEffect(() => {

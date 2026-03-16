@@ -234,7 +234,7 @@ export const GamePropertiesPanel = forwardRef<GamePropertiesPanelHandle, GamePro
             } else {
                 setError('No results found');
             }
-        } catch (err) {
+        } catch {
             setError('Search failed');
         } finally {
             setIsSearchingMetadata(false);

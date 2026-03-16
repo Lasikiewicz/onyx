@@ -117,7 +117,7 @@ export const ConfigureAppsModal: React.FC<ConfigureAppsModalProps> = ({
       try {
         const path = await window.electronAPI.getSteamPath();
         if (path) steamPath = path;
-      } catch (err) {
+      } catch {
         // Ignore errors
       }
 

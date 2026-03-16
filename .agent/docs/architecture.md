@@ -43,7 +43,8 @@ It explains module boundaries, data flow, and release pipeline expectations.
 - Type/build validation: `npm run build`
 - Packaging: `npm run dist`
 - Renderer bundle shaping: `vite.config.mts` defines manual chunking for React/vendor-heavy dependencies so large secondary UI flows can be lazy-loaded without bloating the initial app shell.
-- Static analysis: `eslint.config.mjs` and `npm run lint` provide lightweight repo-wide checks for React hooks, duplicate imports, and TypeScript hygiene without forcing a formatter.
+- Static analysis: `eslint.config.mjs` and `npm run lint` provide lightweight repo-wide checks for import duplication and targeted hook hygiene without forcing a formatter.
+- The lint config intentionally relaxes `no-unused-vars` for legacy-heavy `main/` services and disables `react-hooks/exhaustive-deps` in a short list of hotspot renderer files until those modules are decomposed further, so lint stays actionable instead of devolving into broad migration noise.
 - Release/build script entrypoints that use ESM now use explicit `.mjs` filenames such as `scripts/generate-icons.mjs`, `scripts/validate-icons.mjs`, and `scripts/increment-build.mjs` so Node does not reparse typeless release tooling during local packaging or version bumps.
 - Secrets baseline gate: `npm run scan:secrets`
 - Commit-time guardrails: `.husky/pre-commit`

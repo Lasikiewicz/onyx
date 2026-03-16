@@ -296,7 +296,7 @@ function App() {
       const viewSpecificWidth = panelWidthByViewState[viewMode];
       setPanelWidth(viewSpecificWidth);
     }
-  }, [viewMode]);
+  }, [backgroundBlur, panelWidthByViewState, viewMode]);
   const [backgroundMode, setBackgroundMode] = useState<'image' | 'color'>('image');
   const [backgroundColor, setBackgroundColor] = useState('#000000');
   const [listViewOptions, setListViewOptions] = useState(defaultListViewOptions);
@@ -557,7 +557,7 @@ function App() {
 
   // Dev-only update popup removed so you can test without the update modal. Use Help > Check for Updates to test the modal.
 
-  const applyBaselineDefaults = (resKey: string) => {
+  const applyBaselineDefaults = useCallback((resKey: string) => {
     if (!baselineDefaultsRef.current || !baselineDefaultsRef.current[resKey]) return;
     const defaults = baselineDefaultsRef.current[resKey][viewMode];
     if (!defaults) return;
@@ -598,7 +598,7 @@ function App() {
     if (defaults.rightPanelButtonSize !== undefined) setRightPanelButtonSize(defaults.rightPanelButtonSize);
     if (defaults.rightPanelButtonLocation !== undefined) setRightPanelButtonLocation(defaults.rightPanelButtonLocation);
     if (defaults.detailsPanelOpacity !== undefined) setDetailsPanelOpacity(defaults.detailsPanelOpacity);
-  };
+  }, [viewMode]);
 
   // Detect resolution changes and auto-apply defaults
   useEffect(() => {
@@ -616,7 +616,7 @@ function App() {
 
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, [viewMode]);
+  }, [applyBaselineDefaults]);
 
 
   // Save grid size when it changes (but not when auto-size is enabled)
@@ -720,7 +720,7 @@ function App() {
     // Debounce saves
     const timeoutId = setTimeout(saveAppearancePrefs, 500);
     return () => clearTimeout(timeoutId);
-  }, [hideGameTitles, gameTilePadding, backgroundBlur, backgroundBrightnessByView, viewMode, isInitialLoad]);
+  }, [hideGameTitles, gameTilePadding, backgroundBlur, backgroundBrightnessByView, viewMode, backgroundMode, backgroundColor, listViewOptions, listViewSize, isInitialLoad]);
 
   // Save activeGameId when it changes
   useEffect(() => {
@@ -1157,7 +1157,7 @@ function App() {
     });
 
     return filtered;
-  }, [games, searchQuery, activeSection, selectedCategory, selectedLauncher, sortBy, hideVRTitles, hideAppsTitles]);
+  }, [games, searchQuery, activeSection, selectedCategory, selectedLauncher, sortBy, hideVRTitles, hideAppsTitles, getGameLauncher]);
 
   // Whether any major overlay or context menu is open (settings, game manager, right-click menu, etc.)
   const overlaysOpen =
@@ -1616,7 +1616,7 @@ function App() {
       const fallbackSize = Math.round((availableWidth - totalGapWidth) / minColumns);
       setGridSize(Math.max(50, Math.min(500, fallbackSize)));
     }
-  }, [viewMode, filteredGames.length, gameTilePadding, hideGameTitles]);
+  }, [viewMode, filteredGames.length, gameTilePadding]);
 
   // Auto-recalculate when auto-size is enabled and dependencies change
   useEffect(() => {
@@ -1823,7 +1823,7 @@ function App() {
   const [hideConfirmation, setHideConfirmation] = useState<{ game: Game } | null>(null);
 
   // Update Library handler - opens game importer
-  const handleUpdateSteamLibrary = async () => {
+  const handleUpdateSteamLibrary = useCallback(async () => {
     // Check if APIs are configured
     const apisConfigured = await areAPIsConfigured();
     if (!apisConfigured) {
@@ -1843,7 +1843,7 @@ function App() {
     setScannedSteamGames([]);
     setImportAppType('steam');
     setIsImportWorkbenchOpen(true);
-  };
+  }, [setIsOnyxSettingsOpen, setOnyxSettingsInitialTab, showToast]);
 
   // Function to open importer with pre-scanned games
   const handleOpenImporterWithGames = (foundGames: Array<any>) => {
@@ -1901,7 +1901,7 @@ function App() {
   };
 
   // Scan Folder handler - now uses ImportWorkbench
-  const handleScanFolder = async () => {
+  const handleScanFolder = useCallback(async () => {
     // Check if APIs are configured
     const apisConfigured = await areAPIsConfigured();
     if (!apisConfigured) {
@@ -1924,7 +1924,7 @@ function App() {
       console.error('Error selecting folder:', err);
       showToast('Failed to select folder', 'error');
     }
-  };
+  }, [showToast]);
 
 
   // Handle save from metadata editor
