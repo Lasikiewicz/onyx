@@ -35,6 +35,8 @@
       ],
       "docs": [
         "docs/features/updater.md",
+        "docs/features/add-games.md",
+        "docs/features/game-manager.md",
         "docs/features/library-import-and-startup-scan.md",
         "docs/features/metadata-matching-and-enrichment.md",
         "docs/features/image-search-and-selection.md",

@@ -6,9 +6,11 @@ Finds games from configured launchers/folders and imports them into the local li
 
 ## Related Documentation
 
+- [Add Games](./add-games.md) - staged import-review workspace for editing discovered games before they are committed to the library.
 - [Settings and preferences](./settings-and-preferences.md) — [Libraries](./settings/libraries.md) and [Scanning](./settings/scanning.md) tabs for startup and background scan options.
 - [Game launch and process tracking](./game-launch-and-process-tracking.md) — launcher resolution uses [LauncherService](../../main/LauncherService.ts) and [LauncherDetectionService](../../main/LauncherDetectionService.ts).
 - [Metadata matching and enrichment](./metadata-matching-and-enrichment.md) — identity and matching during import.
+- [Game Manager](./game-manager.md) - per-game maintenance modal that reuses import-adjacent cleanup, fix, and refresh workflows after games are already in the library.
 
 ## User-Facing Surfaces
 

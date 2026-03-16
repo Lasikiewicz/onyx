@@ -12,6 +12,8 @@ Provides a full lifecycle for game links:
 
 ## Related Documentation
 
+- [Add Games](./add-games.md) - staged import-review flow that reuses per-game link editing before a title is committed to the library.
+- [Game Manager](./game-manager.md) - per-game link editing, icon customization, and links-only refresh entry points.
 - [Game Details Panel](./main-view/components/game-details-panel.md) — right-panel link bar ([GameLinks.tsx](../../renderer/src/components/GameLinks.tsx)).
 - [Settings and preferences](./settings-and-preferences.md) — [Link Management](./settings/link-management.md) tab for visibility and ordering.
 - [Metadata matching and enrichment](./metadata-matching-and-enrichment.md) — link discovery during refresh and metadata fetch.

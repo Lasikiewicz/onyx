@@ -11,6 +11,7 @@ It explains module boundaries, data flow, and release pipeline expectations.
 - `dist-electron/`: Build output only; never edit manually.
 - Large renderer surfaces may extract pure helpers into feature-local folders such as `renderer/src/components/gameManager/` so orchestration-heavy components do not also own every normalization/filtering utility inline.
 - `renderer/src/components/gameManager/` now owns both image normalization helpers and ordered image-result aggregation helpers, leaving `GameManager.tsx` focused on state transitions, IPC coordination, and modal rendering.
+- `renderer/src/components/gameManager/` also owns provider-progress helper logic for the image-search status row, so provider availability and provider-status event mapping stay outside the modal component body.
 
 ## Data and Control Flow
 
@@ -56,7 +57,7 @@ It explains module boundaries, data flow, and release pipeline expectations.
 
 <!-- AUTO-GENERATED:MODULE_INDEX:START -->
 - Main process source files: 70
-- Renderer source files: 80
+- Renderer source files: 81
 - Automation scripts: 30
 - GitHub workflow files: 7
 - Key entrypoints:

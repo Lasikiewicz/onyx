@@ -24,6 +24,13 @@ import {
   hasAnyVisibleImageResults,
   matchesProviderFilter,
 } from './gameManager/imageResultUtils';
+import {
+  buildProviderProgress,
+  markAllProvidersCompleted,
+  markProviderCompleted,
+  updateProviderProgressFromEvent,
+  type ProviderProgressEntry,
+} from './gameManager/providerProgressUtils';
 
 interface GameManagerProps {
   isOpen: boolean;
@@ -131,7 +138,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
   const [foundLinks, setFoundLinks] = useState<Array<{ name: string; url: string }> | null>(null);
   const [linkIconPopupIndex, setLinkIconPopupIndex] = useState<number | null>(null);
   const [, setImageSearchProviderStatus] = useState<{ currentProvider: string; remaining: string[] } | null>(null);
-  const [providerProgress, setProviderProgress] = useState<Array<{ name: string; status: 'completed' | 'processing' | 'noApi' }>>([]);
+  const [providerProgress, setProviderProgress] = useState<ProviderProgressEntry[]>([]);
   const [optimizationStatus, setOptimizationStatus] = useState<OptimizationStatus | null>(null);
   const [showUploadWebmTypePicker, setShowUploadWebmTypePicker] = useState(false);
   const [showUploadWebmInstructions, setShowUploadWebmInstructions] = useState(false);
@@ -799,38 +806,14 @@ export const GameManager: React.FC<GameManagerProps> = ({
 
     // Build provider list for status row (same order as searches below)
     const orderedProviders: ProviderName[] = ['Steam Store API', 'SteamGridDB', 'IGDB', 'RAWG', 'Giant Bomb', 'Web Search'];
-    const nextProgress: Array<{ name: string; status: 'completed' | 'processing' | 'noApi' }> = [];
-
-    for (const name of orderedProviders) {
-      // Web Search row only appears when using web search
-      if (name === 'Web Search' && !useWeb) continue;
-
-      const available = providerAvailability[name] ?? true;
-      const needsSearch =
-        name === 'Steam Store API' ? !!steamAppId :
-        name === 'SteamGridDB' ? true :
-        name === 'IGDB' ? (effectiveImageType === 'boxart' || effectiveImageType === 'banner') :
-        name === 'RAWG' ? true :
-        name === 'Giant Bomb' ? true :
-        true;
-
-      if (!available) {
-        nextProgress.push({ name, status: 'noApi' });
-      } else {
-        nextProgress.push({ name, status: needsSearch ? 'processing' : 'completed' });
-      }
-    }
-
-    setProviderProgress(nextProgress);
+    setProviderProgress(buildProviderProgress(orderedProviders, providerAvailability, {
+      useWeb,
+      steamAppId,
+      effectiveImageType,
+    }));
 
     const setProviderCompleted = (name: ProviderName) => {
-      setProviderProgress((prev) =>
-        prev.map((p) =>
-          p.name === name && p.status === 'processing'
-            ? { ...p, status: 'completed' as const }
-            : p
-        )
-      );
+      setProviderProgress((prev) => markProviderCompleted(prev, name));
     };
 
     // Initial clearing - simplified to avoid clearing if we are just switching tabs
@@ -1144,10 +1127,10 @@ export const GameManager: React.FC<GameManagerProps> = ({
     const steamAppId = (selectedGame.id.match(/^steam-(.+)$/) || [])[1] ?? (editedGame?.id.match(/^steam-(.+)$/) || [])[1];
 
     const orderedProviders: ProviderName[] = ['Steam Store API', 'SteamGridDB', 'IGDB', 'RAWG', 'Giant Bomb'];
-    const nextProgress: Array<{ name: string; status: 'completed' | 'processing' | 'noApi' }> = orderedProviders.map(
-      (name) => ({ name, status: providerAvailability[name] === false ? 'noApi' : 'processing' })
-    );
-    setProviderProgress(nextProgress);
+    setProviderProgress(buildProviderProgress(orderedProviders, providerAvailability, {
+      steamAppId,
+      markAllSearchable: true,
+    }));
 
     setImageSearchResults([]);
     setFailedImageSearchUrls(new Set());
@@ -1168,9 +1151,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
         if (fastSearchActiveRunIdRef.current === runId) {
           setIsSearchingImages(false);
           // Mark all available providers as completed so the status row shows counts instead of \"Searching\".
-          setProviderProgress(prev =>
-            prev.map(p => p.status === 'noApi' ? p : { ...p, status: 'completed' })
-          );
+          setProviderProgress((prev) => markAllProvidersCompleted(prev));
         }
       })
       .catch((err: unknown) => {
@@ -1458,17 +1439,11 @@ export const GameManager: React.FC<GameManagerProps> = ({
         const currentProvider = normalizeProviderName(data.currentProvider);
         const remainingProviders = (data.remaining || []).map((provider: string) => normalizeProviderName(provider));
         setImageSearchProviderStatus({ currentProvider, remaining: remainingProviders });
-        setProviderProgress(prev => {
-          const order = [...new Set([...prev.map(item => item.name), currentProvider, ...remainingProviders])];
-          return order.map((name) => ({
-            name,
-            status: (name === currentProvider || remainingProviders.includes(name)) ? 'processing' : 'completed'
-          }));
-        });
+        setProviderProgress((prev) => updateProviderProgressFromEvent(prev, data.currentProvider, data.remaining || []));
       } else {
         // Empty provider = search complete
         setImageSearchProviderStatus(null);
-        setProviderProgress(prev => prev.map((provider) => ({ ...provider, status: 'completed' })));
+        setProviderProgress((prev) => markAllProvidersCompleted(prev));
       }
     };
 

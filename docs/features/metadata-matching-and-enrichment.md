@@ -6,6 +6,8 @@ Resolves game metadata (titles, identifiers, links, artwork candidates) from con
 
 ## Related Documentation
 
+- [Add Games](./add-games.md) - staged import-review flow that reuses metadata search and fix behavior before games are imported.
+- [Game Manager](./game-manager.md) - main per-game maintenance modal that hosts metadata editing, fix-match, and refresh entry points.
 - [Links and link management](./links-and-link-management.md) — links-only behavior and troubleshooting.
 - [Image search and selection](./image-search-and-selection.md) — artwork candidates and selection flow.
 - [Settings and preferences](./settings-and-preferences.md) — [API Integrations](./settings/api-integrations.md) for provider credentials.

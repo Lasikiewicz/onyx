@@ -6,6 +6,8 @@ Lets users search provider/web image sources, preview candidates, and assign box
 
 ## Related Documentation
 
+- [Add Games](./add-games.md) - staged import-review flow that reuses artwork search, quick image fetch, and local image assignment before import.
+- [Game Manager](./game-manager.md) - main modal that hosts the Images tab and aggregated provider artwork workflow.
 - [Game Details Panel](./main-view/components/game-details-panel.md) — image display and context menus; Game Manager Images tab (this feature).
 - [Metadata matching and enrichment](./metadata-matching-and-enrichment.md) — provider image fetch and metadata flow.
 - [Image cache and optimization](./image-cache-and-optimization.md) — downstream cache after selection.
@@ -51,7 +53,7 @@ Lets users search provider/web image sources, preview candidates, and assign box
 
 - Sources include configured metadata providers plus optional web search via [DuckDuckGoImageService.ts](../../main/DuckDuckGoImageService.ts).
 - URL normalization and safety helpers live in [artworkUrlUtils.ts](../../main/artworkUrlUtils.ts).
-- Game Manager-specific renderer result shaping now lives in [imageSearchUtils.ts](../../renderer/src/components/gameManager/imageSearchUtils.ts) and [imageResultUtils.ts](../../renderer/src/components/gameManager/imageResultUtils.ts), which keep URL normalization, provider-name normalization, animation filtering, ordered result grouping, and provider-count filtering separate from the modal component UI.
+- Game Manager-specific renderer result shaping now lives in [imageSearchUtils.ts](../../renderer/src/components/gameManager/imageSearchUtils.ts), [imageResultUtils.ts](../../renderer/src/components/gameManager/imageResultUtils.ts), and [providerProgressUtils.ts](../../renderer/src/components/gameManager/providerProgressUtils.ts), which keep URL normalization, provider-name normalization, animation filtering, ordered result grouping, provider-count filtering, and provider-status row updates separate from the modal component UI.
 - Search inputs typically include game title, platform hints, and requested artwork type.
 
 ## Data Model and Persistence
