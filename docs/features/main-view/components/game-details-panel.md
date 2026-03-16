@@ -14,6 +14,7 @@ Right-hand panel in the library window (grid/list/logo modes) that shows the sel
 ## User-Facing Surfaces
 
 - Right panel: hero/banner/boxart background, logo, boxart position/size, metadata (release date, platform, genres, etc.), description (resizable width/height), link bar, Play/Edit/Mod Manager and other actions. Right-click opens context menu. Resizable panel width via left-edge drag. Bottom action bar (Edit, Play, links) is resizable by dragging its top edge; bar height and content scale are persisted.
+- The description/details column split remains horizontally resizable, but the divider is visually hidden until hover/drag feedback appears.
 
 ## Settings and Toggles
 
@@ -30,6 +31,11 @@ Right-hand panel in the library window (grid/list/logo modes) that shows the sel
 
 - **Active game:** From [App.tsx](../../../../renderer/src/App.tsx) (selected game / active game state).
 - **Artwork and metadata:** From the [game](../../../../renderer/src/types/game.ts) object (e.g. `heroUrl`, `bannerUrl`, `boxArtUrl`, `logoUrl`, `description`, `links`, metadata fields).
+- **Description content:** The Description section renders sanitized HTML from `game.description`; for Steam-refreshed games this now normally comes from the Steam Store `about_the_game` field rather than the shorter store blurb.
+- **Description sizing:** The description/details row now stretches to the available vertical space in the panel, while the saved description height preference acts as a minimum height rather than a hard cap.
+- **Description width behavior:** Rich HTML inside the Description section is constrained to the description column width so Steam images, videos, and long text wrap inside the panel instead of overflowing across the layout.
+- **Adaptive media layout:** Description content is grouped into section rows (heading/body + nearest media). In wider/taller layouts, only sections that actually have media alternate left/right (text left/media right, then text right/media left). Text-only sections stay full-width so mixed game markup remains readable. In tighter layouts everything remains stacked and media scales down with bounded height.
+- **Text-aware media sizing:** In side layout, each section’s media width and max-height are auto-sized from nearby text density so short sections use smaller media and long sections can use larger media, reducing large blank areas.
 - **Panel dimensions and appearance:** Read on load from preferences ([getPreferences](../../../../main/preload.ts) / [UserPreferencesService.getPreferences](../../../../main/UserPreferencesService.ts)); passed into [GameDetailsPanel](../../../../renderer/src/components/GameDetailsPanel.tsx) and [RightClickMenu](../../../../renderer/src/components/RightClickMenu.tsx) as props from [App.tsx](../../../../renderer/src/App.tsx).
 
 ## Data Model and Persistence

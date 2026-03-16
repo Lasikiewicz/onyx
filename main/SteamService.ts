@@ -552,7 +552,7 @@ export class SteamService {
         const appData = data[appId].data;
         return {
           name: appData.name,
-          description: appData.short_description,
+          description: appData.about_the_game || appData.short_description || '',
           developers: appData.developers || [],
           publishers: appData.publishers || [],
         };

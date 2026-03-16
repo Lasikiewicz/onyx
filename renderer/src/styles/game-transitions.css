@@ -151,6 +151,118 @@
   animation: fadeInUp 500ms ease-out;
 }
 
+.game-details-description {
+  width: 100%;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.game-details-description * {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.game-details-description img,
+.game-details-description video,
+.game-details-description iframe,
+.game-details-description canvas {
+  display: block;
+  width: 100% !important;
+  max-width: 100% !important;
+  height: auto !important;
+  max-height: var(--desc-media-max-height, 420px) !important;
+  object-fit: contain;
+}
+
+.game-details-description .bb_img_ctn,
+.game-details-description .bb_paragraph,
+.game-details-description p,
+.game-details-description ul,
+.game-details-description ol,
+.game-details-description li,
+.game-details-description h1,
+.game-details-description h2,
+.game-details-description h3,
+.game-details-description h4,
+.game-details-description h5,
+.game-details-description h6 {
+  max-width: 100%;
+}
+
+.game-details-description.layout-side::after {
+  content: '';
+  display: block;
+  clear: both;
+}
+
+.game-details-description .onyx-desc-section {
+  margin-bottom: 1rem;
+}
+
+.game-details-description .onyx-desc-text {
+  min-width: 0;
+}
+
+.game-details-description .onyx-desc-media {
+  min-width: 0;
+}
+
+.game-details-description .onyx-desc-media .bb_img_ctn,
+.game-details-description .onyx-desc-media .bb_img_ctn:nth-of-type(odd),
+.game-details-description .onyx-desc-media .bb_img_ctn:nth-of-type(even) {
+  float: none;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  clear: none;
+}
+
+.game-details-description.layout-side .onyx-desc-section.has-media {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(200px, var(--onyx-section-media-width, var(--desc-media-side-width, 320px)));
+  gap: 1rem;
+  align-items: start;
+}
+
+.game-details-description.layout-side .onyx-desc-section.has-media.is-reverse {
+  grid-template-columns: minmax(200px, var(--onyx-section-media-width, var(--desc-media-side-width, 320px))) minmax(0, 1fr);
+}
+
+.game-details-description.layout-side .onyx-desc-section.has-media.is-reverse .onyx-desc-text {
+  grid-column: 2;
+}
+
+.game-details-description.layout-side .onyx-desc-section.has-media.is-reverse .onyx-desc-media {
+  grid-column: 1;
+}
+
+.game-details-description.layout-side .onyx-desc-section.no-media {
+  display: block;
+}
+
+.game-details-description.layout-side .onyx-desc-section.has-media .onyx-desc-media img,
+.game-details-description.layout-side .onyx-desc-section.has-media .onyx-desc-media video,
+.game-details-description.layout-side .onyx-desc-section.has-media .onyx-desc-media iframe,
+.game-details-description.layout-side .onyx-desc-section.has-media .onyx-desc-media canvas {
+  max-height: min(var(--desc-media-max-height, 420px), var(--onyx-section-media-max-height, 320px)) !important;
+}
+
+.game-details-description.layout-stacked .onyx-desc-section {
+  display: block;
+}
+
+.game-details-description.layout-stacked .onyx-desc-media {
+  margin-top: 0.75rem;
+}
+
+.game-details-description.layout-stacked .bb_img_ctn {
+  width: 100%;
+  max-width: 100%;
+  display: block;
+  margin: 0 0 0.85rem 0;
+}
+
 /* Smooth transitions for all game-related content */
 .game-content-transition {
   transition: opacity 400ms ease-out, transform 400ms ease-out;

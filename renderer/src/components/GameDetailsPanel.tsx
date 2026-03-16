@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import DOMPurify from 'dompurify';
 import { Game } from '../types/game';
 import { GameContextMenu } from './GameContextMenu';
@@ -106,11 +106,110 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
   disableAnimatedLogos = false,
   overlaysOpen = false,
 }) => {
+  const buildStructuredDescriptionHtml = (descriptionHtml: string): string => {
+    const sanitizedHtml = DOMPurify.sanitize(descriptionHtml);
+
+    try {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(`<div>${sanitizedHtml}</div>`, 'text/html');
+      const root = doc.body.firstElementChild as HTMLElement | null;
+      if (!root) return sanitizedHtml;
+
+      type Section = {
+        headingHtml: string;
+        bodyHtmlParts: string[];
+        mediaHtml: string;
+      };
+
+      const sections: Section[] = [];
+      let current: Section = { headingHtml: '', bodyHtmlParts: [], mediaHtml: '' };
+
+      const pushCurrent = () => {
+        const hasContent = current.headingHtml || current.bodyHtmlParts.length > 0 || current.mediaHtml;
+        if (hasContent) {
+          sections.push(current);
+        }
+        current = { headingHtml: '', bodyHtmlParts: [], mediaHtml: '' };
+      };
+
+      const isHeadingElement = (element: Element) => {
+        const tag = element.tagName.toUpperCase();
+        return tag === 'H1' || tag === 'H2' || tag === 'H3' || tag === 'H4' || element.classList.contains('bb_tag');
+      };
+
+      const isMeaningfulText = (text: string) => text.replace(/\s+/g, '').length > 0;
+
+      const mediaSelector = '.bb_img_ctn, img, video, iframe, canvas';
+
+      for (const node of Array.from(root.childNodes)) {
+        if (node.nodeType === Node.TEXT_NODE) {
+          const text = node.textContent || '';
+          if (isMeaningfulText(text)) {
+            current.bodyHtmlParts.push(`<p>${text}</p>`);
+          }
+          continue;
+        }
+
+        if (!(node instanceof Element)) continue;
+
+        if (isHeadingElement(node)) {
+          pushCurrent();
+          current.headingHtml = node.outerHTML;
+          continue;
+        }
+
+        const clone = node.cloneNode(true) as Element;
+        if (!current.mediaHtml) {
+          const media = clone.matches(mediaSelector) ? clone : clone.querySelector(mediaSelector);
+          if (media) {
+            current.mediaHtml = media.outerHTML;
+            media.remove();
+          }
+        }
+
+        const remainingText = clone.textContent?.trim() || '';
+        if (remainingText.length > 0) {
+          current.bodyHtmlParts.push(clone.outerHTML);
+        }
+      }
+
+      pushCurrent();
+
+      if (sections.length === 0) return sanitizedHtml;
+
+      let mediaSectionIndex = 0;
+      return sections.map((section) => {
+        const hasMedia = !!section.mediaHtml;
+        const reverseClass = hasMedia && mediaSectionIndex % 2 === 1 ? ' is-reverse' : '';
+        const mediaClass = hasMedia ? ' has-media' : ' no-media';
+        const bodyHtml = section.bodyHtmlParts.join('');
+        const plainText = `${section.headingHtml} ${bodyHtml}`.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+        const textLength = plainText.length;
+        const estimatedLines = Math.max(3, Math.ceil(textLength / 62));
+        const sectionMediaMaxHeight = Math.max(150, Math.min(420, estimatedLines * 26));
+        const sectionMediaWidth = Math.max(210, Math.min(420, Math.round(sectionMediaMaxHeight * 1.45)));
+        const sectionStyle = hasMedia
+          ? ` style="--onyx-section-media-max-height:${sectionMediaMaxHeight}px;--onyx-section-media-width:${sectionMediaWidth}px;"`
+          : '';
+        if (hasMedia) {
+          mediaSectionIndex += 1;
+        }
+        const mediaBlock = section.mediaHtml
+          ? `<div class="onyx-desc-media">${section.mediaHtml}</div>`
+          : '';
+        return `<section class="onyx-desc-section${mediaClass}${reverseClass}"${sectionStyle}><div class="onyx-desc-text">${section.headingHtml}${bodyHtml}</div>${mediaBlock}</section>`;
+      }).join('');
+    } catch {
+      return sanitizedHtml;
+    }
+  };
+
   const defaultPanelWidths: Record<ViewKey, number> = { grid: 800, list: 800, logo: 800 };
   const [panelWidths, setPanelWidths] = useState<Record<ViewKey, number>>(defaultPanelWidths);
   const [fanartHeight, setFanartHeight] = useState(propFanartHeight);
   const [descriptionHeight, setDescriptionHeight] = useState(400);
   const [descriptionWidth, setDescriptionWidth] = useState(propDescriptionWidth);
+  const [descriptionViewport, setDescriptionViewport] = useState({ width: 0, height: 0 });
   const [isResizing, setIsResizing] = useState(false);
   const [isResizingFanart, setIsResizingFanart] = useState(false);
   const [isResizingDescription, setIsResizingDescription] = useState(false);
@@ -126,6 +225,13 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
   const activePanelWidth = (propPanelWidth ?? panelWidths[viewKey] ?? defaultPanelWidths[viewKey]);
   const normalizedOpacity = Math.max(0, Math.min(100, detailsPanelOpacity));
   const panelBackground = `rgba(26, 31, 46, ${normalizedOpacity / 100})`;
+  const useSideMediaLayout = descriptionViewport.width >= 760 && descriptionViewport.height >= 420;
+  const mediaMaxHeight = Math.max(180, Math.floor(descriptionViewport.height * 0.52));
+  const mediaSideWidth = Math.max(220, Math.floor(descriptionViewport.width * 0.42));
+  const renderedDescriptionHtml = useMemo(
+    () => (game?.description ? buildStructuredDescriptionHtml(game.description) : ''),
+    [game?.description]
+  );
 
   // Context menu state
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
@@ -371,6 +477,27 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
       };
     }
   }, [isResizing, isResizingFanart, isResizingDescription, isResizingDescriptionWidth, isResizingBottomBar, viewKey]);
+
+  useEffect(() => {
+    if (!descriptionRef.current) return;
+
+    const element = descriptionRef.current;
+    const updateViewport = () => {
+      setDescriptionViewport({
+        width: element.clientWidth,
+        height: element.clientHeight,
+      });
+    };
+
+    updateViewport();
+
+    const observer = new ResizeObserver(() => {
+      updateViewport();
+    });
+
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [game?.id, descriptionWidth, descriptionHeight]);
 
   const handleLogoSizeChange = async (newSize: number) => {
     if (!game) return;
@@ -739,10 +866,10 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
       {/* Social media links have been moved to the bottom action bar overlay */}
 
       {/* Content */}
-      <div className="flex-1" style={{ overflowY: 'auto', overflowX: 'hidden', minHeight: 0 }}>
+      <div className="flex-1" style={{ overflowX: 'hidden', minHeight: 0 }}>
         <div
           key={game.id}
-          className="p-6 space-y-6 game-details-content"
+          className="p-6 flex flex-col gap-6 h-full min-h-0 game-details-content"
           style={{
             paddingTop: (game.logoUrl || game.boxArtUrl) ? '7rem' : '1.5rem' // Add extra padding when logo/boxart overlap
           }}
@@ -766,14 +893,14 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
           )}
 
           {/* Description and Details in a row */}
-          <div ref={descriptionContainerRef} className="flex gap-0 relative">
+          <div ref={descriptionContainerRef} className="flex flex-1 min-h-0 gap-0 relative">
             {/* Description Content - Left side */}
-            <div className="relative" style={{ width: `${descriptionWidth}%` }}>
+            <div className="relative min-h-0" style={{ width: `${descriptionWidth}%` }}>
               <div
                 ref={descriptionRef}
-                className="space-y-6 relative pr-3"
+                className="space-y-6 relative pr-3 h-full min-h-0"
                 style={{
-                  height: `${descriptionHeight}px`,
+                  minHeight: `${descriptionHeight}px`,
                   overflowY: 'auto',
                   overflowX: 'hidden'
                 }}
@@ -783,12 +910,14 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
                   <div>
                     <h3 className="text-lg font-semibold text-white mb-3">Description</h3>
                     <div
-                      className="text-gray-200 leading-relaxed cursor-pointer"
+                      className={`game-details-description ${useSideMediaLayout ? 'layout-side' : 'layout-stacked'} text-gray-200 leading-relaxed cursor-pointer`}
                       style={{
                         fontSize: `${rightPanelTextSize}px`,
                         fontFamily: descriptionFontFamily,
-                      }}
-                      dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(game.description) }}
+                        ['--desc-media-max-height' as any]: `${mediaMaxHeight}px`,
+                        ['--desc-media-side-width' as any]: `${mediaSideWidth}px`,
+                      } as React.CSSProperties}
+                      dangerouslySetInnerHTML={{ __html: renderedDescriptionHtml }}
                     />
                   </div>
                 )}
@@ -821,7 +950,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
 
             {/* Vertical divider */}
             <div
-              className="w-1 cursor-col-resize hover:bg-blue-500 transition-colors bg-gray-700 flex-shrink-0"
+              className="w-1 cursor-col-resize hover:bg-blue-500/40 transition-colors bg-transparent flex-shrink-0"
               onMouseDown={(e) => {
                 e.preventDefault();
                 setIsResizingDescriptionWidth(true);
@@ -830,7 +959,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
 
             {/* Details Section - Right side */}
             <div
-              className="pl-6"
+              className="pl-6 min-h-0 overflow-y-auto"
               style={{
                 width: `${100 - descriptionWidth}%`,
                 fontSize: `${detailsFontSize}px`,

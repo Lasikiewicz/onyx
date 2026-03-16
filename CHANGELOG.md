@@ -4,8 +4,18 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [0.7.23] - 2026-03-16
+## [0.7.24] - 2026-03-16
 
+- Metadata: Steam-backed game descriptions now prefer the Steam Store `about_the_game` field so the game details panel shows the richer About the Game content after metadata refresh.
+- Metadata: Explicit per-game metadata updates now bypass the in-memory metadata cache, and direct Steam description fetches normalize `steam-` IDs correctly so refreshed descriptions are less likely to stay stale.
+- Game details panel: The description/details row now expands to fill the available vertical space in the panel instead of leaving unused space below long descriptions.
+- Game details panel: Hide the always-visible vertical divider between the description and details columns while keeping the resize handle behavior.
+- Game details panel: Constrain rich HTML descriptions to the description column width so embedded store media and long text no longer overflow the panel layout.
+- Game details panel: Description media now adapts to available box size, scaling images/videos down and switching to a side-by-text layout when the description area is wide and tall enough.
+- Game details panel: In side-by-text description mode, media blocks now alternate left and right for a cleaner reading flow.
+- Game details panel: Description HTML is now grouped into section rows so headings and body text stay paired with their nearest image/media while alternating left/right by section.
+- Game details panel: Section alternation is now media-aware across different games; text-only sections remain full-width and do not disrupt left/right alternation.
+- Game details panel: Side-layout media now auto-sizes per section based on nearby text amount to reduce oversized images and blank vertical gaps.
 - Docs: Enforce strict markdown linking rules across all repository documentation to ensure all code references (files, services, components) are hyperlinked to their source.
 - Game details panel: Resizable bottom action bar (Edit / Play / links). Drag the top edge of the bar to change its height; contents scale with the bar and the setting is persisted.
 

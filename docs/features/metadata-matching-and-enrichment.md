@@ -43,6 +43,8 @@ Resolves game metadata (titles, identifiers, links, artwork candidates) from con
 - Game metadata is persisted into [GameStore.ts](../../main/GameStore.ts) records.
 - Cache state is maintained separately in [MetadataCache.ts](../../main/MetadataCache.ts).
 - Provider-specific identifiers, artwork URLs, descriptions, and links are normalized before persistence.
+- Steam descriptions prefer the Steam Store `about_the_game` HTML field for the app `description`, fall back to `short_description` when needed, and keep `detailed_description` in `summary`.
+- Explicit per-game metadata reapply flows bypass the in-memory metadata cache so a user-triggered rematch or re-fetch pulls fresh provider data instead of reusing an older cached description payload.
 
 ## Failure Modes and Triage
 

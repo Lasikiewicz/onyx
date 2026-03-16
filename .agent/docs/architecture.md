@@ -39,7 +39,7 @@ It explains module boundaries, data flow, and release pipeline expectations.
 ## Module Index
 
 <!-- AUTO-GENERATED:MODULE_INDEX:START -->
-- Main process source files: 65
+- Main process source files: 66
 - Renderer source files: 79
 - Automation scripts: 37
 - GitHub workflow files: 7

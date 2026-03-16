@@ -172,8 +172,19 @@ export function registerMetadataIPCHandlers(
     // Description and Content Handlers
     ipcMain.handle('metadata:fetchGameDescription', async (_event, steamGameId: string) => {
         try {
-            // This usually comes from Steam metadata provider
-            return await metadataFetcher.fetchCompleteMetadata('', { source: 'steam', externalId: steamGameId } as any, steamGameId);
+            const steamAppId = steamGameId.startsWith('steam-') ? steamGameId.replace('steam-', '') : steamGameId;
+            return await metadataFetcher.fetchCompleteMetadata(
+                '',
+                {
+                    id: `steam-${steamAppId}`,
+                    title: '',
+                    source: 'steam',
+                    externalId: steamAppId,
+                    steamAppId,
+                } as any,
+                steamAppId,
+                true
+            );
         } catch (error) {
             return null;
         }
@@ -914,7 +925,7 @@ export function registerMetadataIPCHandlers(
             const steamAppId = providerSource === 'steam' ? providerId :
                 (gameId.startsWith('steam-') ? gameId.replace('steam-', '') : undefined);
 
-            const metadata = await metadataFetcher.fetchCompleteMetadata(gameTitle, matchedGame, steamAppId);
+            const metadata = await metadataFetcher.fetchCompleteMetadata(gameTitle, matchedGame, steamAppId, true);
 
             if (!metadata) {
                 return { success: false, error: 'No metadata found', metadata: null };

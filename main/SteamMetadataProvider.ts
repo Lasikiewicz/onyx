@@ -281,8 +281,10 @@ export class SteamMetadataProvider implements MetadataProvider {
 
         description.source = this.name;
 
-        // Description/Summary
-        if (gameData.short_description) {
+        // Prefer Steam's About the Game HTML for the primary description field.
+        if (gameData.about_the_game) {
+          description.description = gameData.about_the_game;
+        } else if (gameData.short_description) {
           description.description = gameData.short_description;
         }
         if (gameData.detailed_description) {
