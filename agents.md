@@ -30,6 +30,7 @@ ALWAYS check `.agent/docs/structure.md` BEFORE modifying code.
 
 - Run `npm run scan:secrets` before any push.
 - Keep `CHANGELOG.md` `Pending` section updated for user-visible changes.
+- `CHANGELOG.md` must list each user-visible fix or adjustment explicitly; do not collapse multiple fixes into one broad summary bullet.
 - Use terminal git commands; avoid editor SCM commit/push UI.
 - Do not include Cursor branding or Co-authored-by lines in commit messages.
 - Avoid using the word `alpha` in commit messages that land on `main`.

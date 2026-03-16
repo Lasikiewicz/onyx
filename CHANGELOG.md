@@ -7,7 +7,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [0.7.36] - 2026-03-16
 
 - Settings maintainability: Move the Integrations and About tab bodies out of `OnyxSettingsModal.tsx` into dedicated `SettingsIntegrationsTab.tsx` and `SettingsAboutTab.tsx` components so the main settings shell can keep shrinking without losing updater/about behavior.
-- Game details panel: Remove the redundant top-level `Description` and `Details` headings, and add dynamic content clearance so hanging logo/boxart artwork no longer overlaps the opening description or metadata rows.
+- Game details panel: Remove the redundant top-level `Description` and `Details` headings so the panel starts directly with content.
+- Game details panel: Keep the description and details content aligned below the visible logo instead of letting text climb into the logo area.
+- Game details panel: Make the details column drop below right-side boxart instead of narrowing until metadata becomes squashed.
+- Game details panel: Reserve left-side description inset only when left-positioned boxart would otherwise collide with the text column.
+- Game details panel: Clamp rendered boxart width to the available side-space so narrow layouts cannot let cover art spill across the divider and overlap metadata.
+- Game details panel: Move the default right-side boxart farther inward from the panel edge for a less pinned layout.
+- Game details panel: Keep logo and boxart clearance outside the scrollable regions so users cannot scroll into blank top padding or scroll description text under the logo.
+- Game details panel: Base logo clearance on the logo's effective rendered size after fanart-area caps, preventing extra dead space when the logo slider goes past the visible maximum.
+- Game details panel: Constrain the Game Details logo-size slider to the current visible maximum so it no longer exposes a dead range of non-functional values.
+- Game details panel: Show only the primary developer in the details column when providers return multiple branch or studio entries, while keeping the full list in the tooltip.
+- Game details panel: Tighten metadata spacing in the details column so more information fits without unnecessary vertical gaps.
+- Game details panel: Round the Description Width control display to whole percentages instead of long decimal values.
 
 ## [0.7.35] - 2026-03-16
 
