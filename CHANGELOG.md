@@ -4,7 +4,7 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Pending]
+## [0.7.36] - 2026-03-16
 
 - Settings maintainability: Move the Integrations and About tab bodies out of `OnyxSettingsModal.tsx` into dedicated `SettingsIntegrationsTab.tsx` and `SettingsAboutTab.tsx` components so the main settings shell can keep shrinking without losing updater/about behavior.
 - Game details panel: Remove the redundant top-level `Description` and `Details` headings, and add dynamic content clearance so hanging logo/boxart artwork no longer overlaps the opening description or metadata rows.
