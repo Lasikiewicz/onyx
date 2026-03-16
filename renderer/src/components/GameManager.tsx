@@ -1,10 +1,8 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Game, MissingGame } from '../types/game';
-import { ConfirmationDialog } from './ConfirmationDialog';
 import { MatchFixDialog } from './MatchFixDialog';
 import { RefreshMetadataDialog } from './RefreshMetadataDialog';
 import { BoxartFixDialog } from './BoxartFixDialog';
-import { RemoveDeletedGamesDialog } from './RemoveDeletedGamesDialog';
 import { ImageContextMenu } from './ImageContextMenu';
 import { LauncherIcon, getLauncherDisplayName, normalizeLauncherId } from '../utils/launcherIcons';
 import type { OptimizationStatus } from '../types/optimization';
@@ -37,6 +35,7 @@ import { GameManagerModManagerTab } from './gameManager/GameManagerModManagerTab
 import { LinkIconPickerDialog } from './gameManager/LinkIconPickerDialog';
 import { GameManagerRefreshConfirmDialog } from './gameManager/GameManagerRefreshConfirmDialog';
 import { GameManagerRefreshProgressDialog } from './gameManager/GameManagerRefreshProgressDialog';
+import { GameManagerMaintenanceDialogs } from './gameManager/GameManagerMaintenanceDialogs';
 
 interface GameManagerProps {
   isOpen: boolean;
@@ -2880,15 +2879,16 @@ export const GameManager: React.FC<GameManagerProps> = ({
           </div>
         )}
       </div>
-      <ConfirmationDialog
-        isOpen={showDeleteConfirm}
-        title="Delete Game"
-        message={`Are you sure you want to delete "${selectedGame?.title || 'this game'}"? This action cannot be undone.`}
-        confirmText="Delete"
-        cancelText="Cancel"
-        onConfirm={handleDelete}
-        onCancel={() => setShowDeleteConfirm(false)}
-        variant="danger"
+      <GameManagerMaintenanceDialogs
+        showDeleteConfirm={showDeleteConfirm}
+        selectedGameTitle={selectedGame?.title}
+        onConfirmDelete={handleDelete}
+        onCancelDelete={() => setShowDeleteConfirm(false)}
+        showRemoveDeletedDialog={showRemoveDeletedDialog}
+        missingGames={missingGames}
+        isScanningMissingGames={isScanningMissingGames}
+        onRemoveMissingGames={handleRemoveMissingGames}
+        onCancelRemoveDeleted={() => setShowRemoveDeletedDialog(false)}
       />
 
       {/* Upload WEBM: pick image type when current tab is "All" */}
@@ -2990,14 +2990,6 @@ export const GameManager: React.FC<GameManagerProps> = ({
           }}
         />
       )}
-
-      <RemoveDeletedGamesDialog
-        isOpen={showRemoveDeletedDialog}
-        missingGames={missingGames}
-        isScanning={isScanningMissingGames}
-        onRemove={handleRemoveMissingGames}
-        onCancel={() => setShowRemoveDeletedDialog(false)}
-      />
 
       {linkIconPopupIndex !== null && editedGame?.links?.[linkIconPopupIndex] && (
         <LinkIconPickerDialog
