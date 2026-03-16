@@ -17,6 +17,16 @@ It explains module boundaries, data flow, and release pipeline expectations.
 3. Services persist state (e.g., `electron-store`) and return typed results.
 4. Renderer updates local state and component views.
 
+### Preload Contract Ownership
+
+- `main/preload.ts` owns the `electronAPI` bridge object and exports `type ElectronAPI = typeof electronAPI`.
+- Renderer-side global typing imports that exported type instead of maintaining a separate duplicate interface, so preload and renderer stay on the same contract.
+
+### Startup Sequence Coordination
+
+- `main/startupCoordinator.ts` owns the packaged-update gate, renderer `app:ready` handshake, startup-scan cancellation, and fallback startup timer.
+- `main/main.ts` now initializes the updater first, registers the startup coordinator, and leaves the coordinator to gate `performBackgroundScan(true, true)` until update status allows startup scanning to proceed.
+
 ### Known-Game Image Fetch Contract
 
 - `metadata:fetchGameImages` treats requests with known identifiers (`gameId`, `steamAppId`, or `igdbId`) as known-game flows.
@@ -32,6 +42,7 @@ It explains module boundaries, data flow, and release pipeline expectations.
 - Local development: `npm run electron:dev`
 - Type/build validation: `npm run build`
 - Packaging: `npm run dist`
+- Renderer bundle shaping: `vite.config.ts` defines manual chunking for React/vendor-heavy dependencies so large secondary UI flows can be lazy-loaded without bloating the initial app shell.
 - Secrets baseline gate: `npm run scan:secrets`
 - Commit-time guardrails: `.husky/pre-commit`
 - Package manager policy: npm-only (`packageManager` is `npm@10` and CI must not install/use pnpm for packaging)
@@ -39,9 +50,9 @@ It explains module boundaries, data flow, and release pipeline expectations.
 ## Module Index
 
 <!-- AUTO-GENERATED:MODULE_INDEX:START -->
-- Main process source files: 67
+- Main process source files: 70
 - Renderer source files: 78
-- Automation scripts: 33
+- Automation scripts: 32
 - GitHub workflow files: 7
 - Key entrypoints:
   - Main process entry: `main/main.ts` (present)

@@ -1,10 +1,8 @@
-import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { Suspense, lazy, useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useGameLibrary } from './hooks/useGameLibrary';
 import { useFullscreen } from './hooks/useFullscreen';
 import { LibraryGrid } from './components/LibraryGrid';
 import { LibraryListView } from './components/LibraryListView';
-import { LibraryCarousel } from './components/LibraryCarousel';
-import { LibraryCoverFlow } from './components/LibraryCoverFlow';
 import { RightClickMenu } from './components/RightClickMenu';
 import { GameContextMenu } from './components/GameContextMenu';
 import { AddGameModal } from './components/AddGameModal';
@@ -17,20 +15,41 @@ import { TopBar } from './components/TopBar';
 import { MenuBar } from './components/MenuBar';
 import { TopBarPositions } from './components/TopBarContextMenu';
 import { UpdateLibraryModal } from './components/UpdateLibraryModal';
-import { OnyxSettingsModal } from './components/OnyxSettingsModal';
 import { APISettingsModal } from './components/APISettingsModal';
-import { MetadataSearchModal } from './components/MetadataSearchModal';
-import { ImportWorkbenchV2 as ImportWorkbench } from './components/importer/ImportWorkbenchV2';
-import { GameManager } from './components/GameManager';
 import { ConfirmationDialog } from './components/ConfirmationDialog';
-import { BugReportModal } from './components/BugReportModal';
-import { WelcomeScreen } from './components/WelcomeScreen';
 import { MissingGamesModal } from './components/MissingGamesModal';
 import { UpdateNotificationModal } from './components/UpdateNotificationModal';
 import { LibraryTutorialModal } from './components/LibraryTutorialModal';
 import { CrashDumpModal } from './components/CrashDumpModal';
 import { Game, ExecutableFile, GameMetadata } from './types/game';
 import { areAPIsConfigured } from './utils/apiValidation';
+
+const LibraryCarousel = lazy(() =>
+  import('./components/LibraryCarousel').then((module) => ({ default: module.LibraryCarousel })),
+);
+const LibraryCoverFlow = lazy(() =>
+  import('./components/LibraryCoverFlow').then((module) => ({ default: module.LibraryCoverFlow })),
+);
+const OnyxSettingsModal = lazy(() =>
+  import('./components/OnyxSettingsModal').then((module) => ({ default: module.OnyxSettingsModal })),
+);
+const MetadataSearchModal = lazy(() =>
+  import('./components/MetadataSearchModal').then((module) => ({ default: module.MetadataSearchModal })),
+);
+const ImportWorkbench = lazy(() =>
+  import('./components/importer/ImportWorkbenchV2').then((module) => ({ default: module.ImportWorkbenchV2 })),
+);
+const GameManager = lazy(() =>
+  import('./components/GameManager').then((module) => ({ default: module.GameManager })),
+);
+const BugReportModal = lazy(() =>
+  import('./components/BugReportModal').then((module) => ({ default: module.BugReportModal })),
+);
+const WelcomeScreen = lazy(() =>
+  import('./components/WelcomeScreen').then((module) => ({ default: module.WelcomeScreen })),
+);
+
+const lazyRenderFallback = null;
 
 function App() {
   // Main App Component
@@ -71,11 +90,6 @@ function App() {
 
   // Toast notification state
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
-
-  // Signal to main process that renderer is ready to receive messages
-  useEffect(() => {
-    window.electronAPI.ready?.();
-  }, []);
 
   // Update notification state
   const [updateNotification, setUpdateNotification] = useState<{
@@ -1356,7 +1370,7 @@ function App() {
         const suspendEnabled = await window.electronAPI.suspend.getFeatureEnabled();
         if (suspendEnabled) {
           const trackedGames = await window.electronAPI.suspend.getRunningGames();
-          const trackedGame = trackedGames.find((entry) => entry.gameId === game.id);
+          const trackedGame = trackedGames.find((entry: { gameId: string }) => entry.gameId === game.id);
 
           if (trackedGame?.status === 'suspended') {
             const resumeResult = await window.electronAPI.suspend.resumeGame(game.id);
@@ -1714,14 +1728,14 @@ function App() {
       console.log('Saving game from App:', game.title, 'favorite:', game.favorite);
       // Get old game if not provided
       if (!oldGame) {
-        oldGame = games.find(g => g.id === game.id);
+        oldGame = games.find((g: Game) => g.id === game.id);
       }
       const success = await window.electronAPI.saveGame(game, oldGame);
       if (success) {
         await loadLibrary();
         // Verify the game was saved correctly
         const updatedGames = await window.electronAPI.getLibrary();
-        const savedGame = updatedGames.find(g => g.id === game.id);
+        const savedGame = updatedGames.find((g: Game) => g.id === game.id);
         console.log('Game after save - favorite:', savedGame?.favorite, 'Full game:', savedGame);
         showToast(`Game "${game.title}" updated successfully`, 'success');
       } else {
@@ -2443,80 +2457,84 @@ function App() {
                           viewMode={viewMode as 'grid' | 'logo'}
                         />
                       ) : viewMode === 'coverflow' ? (
-                        <LibraryCoverFlow
-                          games={displayGames}
-                          onPlay={handlePlay}
-                          onGameClick={handleGameClick}
-                          onEdit={handleEditGame}
-                          onEditImages={handleEditImages}
-                          onEditCategories={handleEditCategories}
-                          onFavorite={handleToggleFavorite}
-                          onPin={handleTogglePin}
-                          onFixMatch={handleFixMatch}
-                          onHide={handleHideGame}
-                          onUnhide={handleUnhideGame}
-                          onUninstall={handleUninstallGame}
-                          isHiddenView={selectedCategory === 'hidden'}
-                          activeGameId={activeGameId}
-                          coverSize={coverFlowCoverSize}
-                          reflectionStrength={coverFlowReflection / 100}
-                          verticalOffset={coverFlowVerticalOffset}
-                          sideOpacity={coverFlowSideOpacity}
-                          showButtons={coverFlowShowButtons}
-                          buttonPosition={coverFlowButtonPosition}
-                          buttonColors={coverFlowButtonColors}
-                          onEmptySpaceRightClick={(x, y) => {
-                            setGameContextMenu(null);
-                            setRightClickMenu({ x, y });
-                          }}
-                        />
+                        <Suspense fallback={lazyRenderFallback}>
+                          <LibraryCoverFlow
+                            games={displayGames}
+                            onPlay={handlePlay}
+                            onGameClick={handleGameClick}
+                            onEdit={handleEditGame}
+                            onEditImages={handleEditImages}
+                            onEditCategories={handleEditCategories}
+                            onFavorite={handleToggleFavorite}
+                            onPin={handleTogglePin}
+                            onFixMatch={handleFixMatch}
+                            onHide={handleHideGame}
+                            onUnhide={handleUnhideGame}
+                            onUninstall={handleUninstallGame}
+                            isHiddenView={selectedCategory === 'hidden'}
+                            activeGameId={activeGameId}
+                            coverSize={coverFlowCoverSize}
+                            reflectionStrength={coverFlowReflection / 100}
+                            verticalOffset={coverFlowVerticalOffset}
+                            sideOpacity={coverFlowSideOpacity}
+                            showButtons={coverFlowShowButtons}
+                            buttonPosition={coverFlowButtonPosition}
+                            buttonColors={coverFlowButtonColors}
+                            onEmptySpaceRightClick={(x, y) => {
+                              setGameContextMenu(null);
+                              setRightClickMenu({ x, y });
+                            }}
+                          />
+                        </Suspense>
                       ) : viewMode === 'carousel' ? (
-                        <LibraryCarousel
-                          games={displayGames}
-                          onPlay={handlePlay}
-                          onGameClick={handleGameClick}
-                          onEdit={handleEditGame}
-                          onEditImages={handleEditImages}
-                          onEditCategories={handleEditCategories}
-                          onFavorite={handleToggleFavorite}
-                          onPin={handleTogglePin}
-                          onFixMatch={handleFixMatch}
-                          onHide={handleHideGame}
-                          onUnhide={handleUnhideGame}
-                          onUninstall={handleUninstallGame}
-                          isHiddenView={selectedCategory === 'hidden'}
-                          activeGameId={activeGameId}
-                          selectedBoxArtSize={selectedBoxArtSize}
-                          gameTilePadding={carouselGameTilePadding}
-                          showCarouselDetails={showCarouselDetails}
-                          showCarouselLogos={showCarouselLogos}
-                          detailsBarSize={detailsBarSize}
-                          onDetailsBarSizeChange={(size) => {
-                            setDetailsBarSize(size);
-                            window.electronAPI.savePreferences({ detailsBarSize: size });
-                          }}
-                          carouselLogoSize={carouselLogoSize}
-                          onCarouselLogoSizeChange={(size) => {
-                            setCarouselLogoSize(size);
-                            window.electronAPI.savePreferences({ carouselLogoSize: size });
-                          }}
-                          carouselButtonSize={carouselButtonSize}
-                          onCarouselButtonSizeChange={(size) => {
-                            setCarouselButtonSize(size);
-                            window.electronAPI.savePreferences({ carouselButtonSize: size });
-                          }}
-                          carouselDescriptionSize={carouselDescriptionSize}
-                          onCarouselDescriptionSizeChange={(size) => {
-                            setCarouselDescriptionSize(size);
-                            window.electronAPI.savePreferences({ carouselDescriptionSize: size });
-                          }}
-                          onEmptySpaceRightClick={(x, y) => {
-                            setGameContextMenu(null);
-                            setRightClickMenu({ x, y });
-                          }}
-                          isViewFlipped={isViewFlippedByView[viewMode]}
-                          carouselButtonColors={carouselButtonColors}
-                        />
+                        <Suspense fallback={lazyRenderFallback}>
+                          <LibraryCarousel
+                            games={displayGames}
+                            onPlay={handlePlay}
+                            onGameClick={handleGameClick}
+                            onEdit={handleEditGame}
+                            onEditImages={handleEditImages}
+                            onEditCategories={handleEditCategories}
+                            onFavorite={handleToggleFavorite}
+                            onPin={handleTogglePin}
+                            onFixMatch={handleFixMatch}
+                            onHide={handleHideGame}
+                            onUnhide={handleUnhideGame}
+                            onUninstall={handleUninstallGame}
+                            isHiddenView={selectedCategory === 'hidden'}
+                            activeGameId={activeGameId}
+                            selectedBoxArtSize={selectedBoxArtSize}
+                            gameTilePadding={carouselGameTilePadding}
+                            showCarouselDetails={showCarouselDetails}
+                            showCarouselLogos={showCarouselLogos}
+                            detailsBarSize={detailsBarSize}
+                            onDetailsBarSizeChange={(size) => {
+                              setDetailsBarSize(size);
+                              window.electronAPI.savePreferences({ detailsBarSize: size });
+                            }}
+                            carouselLogoSize={carouselLogoSize}
+                            onCarouselLogoSizeChange={(size) => {
+                              setCarouselLogoSize(size);
+                              window.electronAPI.savePreferences({ carouselLogoSize: size });
+                            }}
+                            carouselButtonSize={carouselButtonSize}
+                            onCarouselButtonSizeChange={(size) => {
+                              setCarouselButtonSize(size);
+                              window.electronAPI.savePreferences({ carouselButtonSize: size });
+                            }}
+                            carouselDescriptionSize={carouselDescriptionSize}
+                            onCarouselDescriptionSizeChange={(size) => {
+                              setCarouselDescriptionSize(size);
+                              window.electronAPI.savePreferences({ carouselDescriptionSize: size });
+                            }}
+                            onEmptySpaceRightClick={(x, y) => {
+                              setGameContextMenu(null);
+                              setRightClickMenu({ x, y });
+                            }}
+                            isViewFlipped={isViewFlippedByView[viewMode]}
+                            carouselButtonColors={carouselButtonColors}
+                          />
+                        </Suspense>
                       ) : (
                         <LibraryListView
                           games={displayGames}
@@ -2543,22 +2561,24 @@ function App() {
                       )}
                     </div>
                   ) : (
-                    <WelcomeScreen
-                      onScanGames={() => {
-                        setForceShowInitialOnboarding(false);
-                        window.electronAPI.cancelStartupScan?.();
-                        setAutoStartScan(true);
-                        setIsImportWorkbenchOpen(true);
-                      }}
-                      onAddFolder={(path, categories, icon) => {
-                        setForceShowInitialOnboarding(false);
-                        handleAddFolder(path, categories, icon);
-                      }}
-                      onOpenSettings={() => {
-                        setForceShowInitialOnboarding(false);
-                        setIsAPISettingsOpen(true);
-                      }}
-                    />
+                    <Suspense fallback={lazyRenderFallback}>
+                      <WelcomeScreen
+                        onScanGames={() => {
+                          setForceShowInitialOnboarding(false);
+                          window.electronAPI.cancelStartupScan?.();
+                          setAutoStartScan(true);
+                          setIsImportWorkbenchOpen(true);
+                        }}
+                        onAddFolder={(path, categories, icon) => {
+                          setForceShowInitialOnboarding(false);
+                          handleAddFolder(path, categories, icon);
+                        }}
+                        onOpenSettings={() => {
+                          setForceShowInitialOnboarding(false);
+                          setIsAPISettingsOpen(true);
+                        }}
+                      />
+                    </Suspense>
                   )}
                   {showCategoriesByView[viewMode] && viewMode !== 'carousel' && viewMode !== 'coverflow' && pinnedCategories.length > 0 && (categoriesPositionByView[viewMode] ?? 'top') === 'bottom' && (
                     <div
@@ -2737,78 +2757,75 @@ function App() {
 
 
       {/* Onyx Settings Modal */}
-      <OnyxSettingsModal
-        isOpen={isOnyxSettingsOpen}
-        onClose={() => setIsOnyxSettingsOpen(false)}
-        initialTab={onyxSettingsInitialTab}
-        onShowImportModal={(games, appType) => {
-          // Use ImportWorkbench instead of SteamImportModal
-          setScannedSteamGames(games);
-          setImportAppType(appType || 'steam');
-          setIsImportWorkbenchOpen(true);
-        }}
-        onSave={async () => {
-          // Reload preferences after saving to update UI immediately
-          try {
-            const prefs = await window.electronAPI.getPreferences();
-            if (prefs.hideGameTitles !== undefined) {
-              setHideGameTitles(prefs.hideGameTitles);
-            }
-            if (prefs.gameTilePadding !== undefined) {
-              setGameTilePadding(prefs.gameTilePadding);
-            }
-            if (prefs.showLogoOverBoxart !== undefined) {
-              setShowLogoOverBoxart(prefs.showLogoOverBoxart);
-            }
-            if (prefs.logoPosition !== undefined) {
-              setLogoPosition(prefs.logoPosition);
-            }
-            if (prefs.showLogoOverBoxart !== undefined) {
-              setShowLogoOverBoxart(prefs.showLogoOverBoxart);
-            }
-            if (prefs.logoPosition !== undefined) {
-              setLogoPosition(prefs.logoPosition);
-            }
-            // Also update other settings that might have changed
-            if (prefs.minimizeToTray !== undefined) {
-              // These are handled by the modal, but we can reload them too if needed
-            }
+      <Suspense fallback={lazyRenderFallback}>
+        <OnyxSettingsModal
+          isOpen={isOnyxSettingsOpen}
+          onClose={() => setIsOnyxSettingsOpen(false)}
+          initialTab={onyxSettingsInitialTab}
+          onShowImportModal={(games, appType) => {
+            // Use ImportWorkbench instead of SteamImportModal
+            setScannedSteamGames(games);
+            setImportAppType(appType || 'steam');
+            setIsImportWorkbenchOpen(true);
+          }}
+          onSave={async () => {
+            // Reload preferences after saving to update UI immediately
+            try {
+              const prefs = await window.electronAPI.getPreferences();
+              if (prefs.hideGameTitles !== undefined) {
+                setHideGameTitles(prefs.hideGameTitles);
+              }
+              if (prefs.gameTilePadding !== undefined) {
+                setGameTilePadding(prefs.gameTilePadding);
+              }
+              if (prefs.showLogoOverBoxart !== undefined) {
+                setShowLogoOverBoxart(prefs.showLogoOverBoxart);
+              }
+              if (prefs.logoPosition !== undefined) {
+                setLogoPosition(prefs.logoPosition);
+              }
+              if (prefs.showLogoOverBoxart !== undefined) {
+                setShowLogoOverBoxart(prefs.showLogoOverBoxart);
+              }
+              if (prefs.logoPosition !== undefined) {
+                setLogoPosition(prefs.logoPosition);
+              }
 
-            if (prefs.confirmGameLaunch !== undefined) {
-              setConfirmGameLaunch(prefs.confirmGameLaunch);
-            }
-            if (prefs.disableAllAnimations !== undefined) {
-              setDisableAllAnimations(prefs.disableAllAnimations);
-            }
-            if (prefs.disableAnimatedBanners !== undefined) {
-              setDisableAnimatedBanners(prefs.disableAnimatedBanners);
-            }
-            if (prefs.disableAnimatedBoxarts !== undefined) {
-              setDisableAnimatedBoxarts(prefs.disableAnimatedBoxarts);
-            }
-            if (prefs.disableAnimatedBackgrounds !== undefined) {
-              setDisableAnimatedBackgrounds(prefs.disableAnimatedBackgrounds);
-            }
-            if (prefs.disableAnimatedIcons !== undefined) {
-              setDisableAnimatedIcons(prefs.disableAnimatedIcons);
-            }
-            if (prefs.disableAnimatedLogos !== undefined) {
-              setDisableAnimatedLogos(prefs.disableAnimatedLogos);
-            }
-            if (prefs.linkDisplayOrder && prefs.linkDisplayOrder.length > 0) {
-              setLinkDisplayOrder(prefs.linkDisplayOrder);
-            }
-            if (prefs.visibleLinkTypes && Object.keys(prefs.visibleLinkTypes).length > 0) {
-              setVisibleLinkTypes(prefs.visibleLinkTypes);
-            }
+              if (prefs.confirmGameLaunch !== undefined) {
+                setConfirmGameLaunch(prefs.confirmGameLaunch);
+              }
+              if (prefs.disableAllAnimations !== undefined) {
+                setDisableAllAnimations(prefs.disableAllAnimations);
+              }
+              if (prefs.disableAnimatedBanners !== undefined) {
+                setDisableAnimatedBanners(prefs.disableAnimatedBanners);
+              }
+              if (prefs.disableAnimatedBoxarts !== undefined) {
+                setDisableAnimatedBoxarts(prefs.disableAnimatedBoxarts);
+              }
+              if (prefs.disableAnimatedBackgrounds !== undefined) {
+                setDisableAnimatedBackgrounds(prefs.disableAnimatedBackgrounds);
+              }
+              if (prefs.disableAnimatedIcons !== undefined) {
+                setDisableAnimatedIcons(prefs.disableAnimatedIcons);
+              }
+              if (prefs.disableAnimatedLogos !== undefined) {
+                setDisableAnimatedLogos(prefs.disableAnimatedLogos);
+              }
+              if (prefs.linkDisplayOrder && prefs.linkDisplayOrder.length > 0) {
+                setLinkDisplayOrder(prefs.linkDisplayOrder);
+              }
+              if (prefs.visibleLinkTypes && Object.keys(prefs.visibleLinkTypes).length > 0) {
+                setVisibleLinkTypes(prefs.visibleLinkTypes);
+              }
 
-            // Reload library if app configs were saved
-            await loadLibrary();
-          } catch (error) {
-            console.error('Error reloading preferences after save:', error);
-          }
-        }}
-      />
+              await loadLibrary();
+            } catch (error) {
+              console.error('Error reloading preferences after save:', error);
+            }
+          }}
+        />
+      </Suspense>
 
       {/* API Settings Modal */}
       <APISettingsModal
@@ -2833,23 +2850,24 @@ function App() {
       />
 
       {/* Game Importer */}
-      <ImportWorkbench
-        isOpen={isImportWorkbenchOpen}
-        autoStartScan={autoStartScan}
-        initialMode={importWorkbenchInitialMode}
-        onRefreshComplete={loadLibrary}
-        onClose={() => {
-          setIsImportWorkbenchOpen(false);
-          setImportWorkbenchInitialMode(null);
-          setAutoStartScan(false);
-          setImportWorkbenchFolderPath(undefined);
-          setScannedSteamGames([]);
-          setImportAppType('steam');
-        }}
-        existingLibrary={games}
-        preScannedGames={scannedSteamGames && scannedSteamGames.length > 0 ? scannedSteamGames : undefined}
-        onImport={async (games, onProgress) => {
-          try {
+      <Suspense fallback={lazyRenderFallback}>
+        <ImportWorkbench
+          isOpen={isImportWorkbenchOpen}
+          autoStartScan={autoStartScan}
+          initialMode={importWorkbenchInitialMode}
+          onRefreshComplete={loadLibrary}
+          onClose={() => {
+            setIsImportWorkbenchOpen(false);
+            setImportWorkbenchInitialMode(null);
+            setAutoStartScan(false);
+            setImportWorkbenchFolderPath(undefined);
+            setScannedSteamGames([]);
+            setImportAppType('steam');
+          }}
+          existingLibrary={games}
+          preScannedGames={scannedSteamGames && scannedSteamGames.length > 0 ? scannedSteamGames : undefined}
+          onImport={async (games, onProgress) => {
+            try {
             // Save imported games first, reporting progress to the importer UI
             for (let i = 0; i < games.length; i++) {
               const game = games[i];
@@ -2953,58 +2971,60 @@ function App() {
               setShowLibraryTutorial(true);
               await window.electronAPI.savePreferences({ hasSeenPostImportTutorial: true });
             }
-          } catch (err) {
-            console.error('Error importing games:', err);
-            showToast('Failed to import games', 'error');
-          }
-        }}
-      />
+            } catch (err) {
+              console.error('Error importing games:', err);
+              showToast('Failed to import games', 'error');
+            }
+          }}
+        />
+      </Suspense>
 
       {/* Game Manager */}
-      <GameManager
-        isOpen={isGameManagerOpen}
-        onClose={() => {
-          setIsGameManagerOpen(false);
-          setGameManagerInitialGameId(null);
-          setGameManagerInitialTab('images');
-        }}
-        games={games}
-        initialGameId={gameManagerInitialGameId}
-        initialTab={gameManagerInitialTab}
-        onOpenImporterWithMode={async (mode) => {
-          setIsGameManagerOpen(false);
-          if (mode === 'nuclear') {
-            const result = await window.electronAPI.clearLibrary?.();
-            if (!result?.success) {
-              console.error('Failed to clear library:', result?.error);
-              return;
+      <Suspense fallback={lazyRenderFallback}>
+        <GameManager
+          isOpen={isGameManagerOpen}
+          onClose={() => {
+            setIsGameManagerOpen(false);
+            setGameManagerInitialGameId(null);
+            setGameManagerInitialTab('images');
+          }}
+          games={games}
+          initialGameId={gameManagerInitialGameId}
+          initialTab={gameManagerInitialTab}
+          onOpenImporterWithMode={async (mode) => {
+            setIsGameManagerOpen(false);
+            if (mode === 'nuclear') {
+              const result = await window.electronAPI.clearLibrary?.();
+              if (!result?.success) {
+                console.error('Failed to clear library:', result?.error);
+                return;
+              }
+              await loadLibrary();
+              setImportWorkbenchInitialMode('nuclear');
+              setAutoStartScan(true);
+              setIsImportWorkbenchOpen(true);
+            } else if (mode === 'images') {
+              const result = await window.electronAPI.clearAllImages?.();
+              if (!result?.success) {
+                console.error('Failed to clear images:', result?.error);
+                return;
+              }
+              await loadLibrary();
+              setImportWorkbenchInitialMode('images');
+              setIsImportWorkbenchOpen(true);
+            } else if (mode === 'links') {
+              const result = await window.electronAPI.clearAllLinks?.();
+              if (!result?.success) {
+                console.error('Failed to clear links:', result?.error);
+                return;
+              }
+              await loadLibrary();
+              setImportWorkbenchInitialMode('links');
+              setIsImportWorkbenchOpen(true);
             }
-            await loadLibrary();
-            setImportWorkbenchInitialMode('nuclear');
-            setAutoStartScan(true);
-            setIsImportWorkbenchOpen(true);
-          } else if (mode === 'images') {
-            const result = await window.electronAPI.clearAllImages?.();
-            if (!result?.success) {
-              console.error('Failed to clear images:', result?.error);
-              return;
-            }
-            await loadLibrary();
-            setImportWorkbenchInitialMode('images');
-            setIsImportWorkbenchOpen(true);
-          } else if (mode === 'links') {
-            const result = await window.electronAPI.clearAllLinks?.();
-            if (!result?.success) {
-              console.error('Failed to clear links:', result?.error);
-              return;
-            }
-            await loadLibrary();
-            setImportWorkbenchInitialMode('links');
-            setIsImportWorkbenchOpen(true);
-          }
-        }}
-        onRequestOptimizer={() => setShowOptimizerModal(true)}
-        onSaveGame={async (game, oldGame) => {
+          }}
+          onRequestOptimizer={() => setShowOptimizerModal(true)}
+          onSaveGame={async (game, oldGame) => {
           // Get old game if not provided
           if (!oldGame) {
             oldGame = games.find(g => g.id === game.id);
@@ -3028,12 +3048,13 @@ function App() {
             await loadLibrary();
           }
         }}
-        onDeleteGame={async (gameId) => {
-          await deleteGame(gameId);
-          await loadLibrary();
-        }}
-        onReloadLibrary={loadLibrary}
-      />
+          onDeleteGame={async (gameId) => {
+            await deleteGame(gameId);
+            await loadLibrary();
+          }}
+          onReloadLibrary={loadLibrary}
+        />
+      </Suspense>
 
       {/* Right Click Menu */}
       {rightClickMenu && (
@@ -3304,22 +3325,26 @@ function App() {
 
       {/* Metadata Search Modal */}
       {fixingGame && (
-        <MetadataSearchModal
-          isOpen={isMetadataSearchOpen}
-          onClose={() => {
-            setIsMetadataSearchOpen(false);
-            setFixingGame(null);
-          }}
-          game={fixingGame}
-          onSelect={handleSelectMetadataMatch}
-        />
+        <Suspense fallback={lazyRenderFallback}>
+          <MetadataSearchModal
+            isOpen={isMetadataSearchOpen}
+            onClose={() => {
+              setIsMetadataSearchOpen(false);
+              setFixingGame(null);
+            }}
+            game={fixingGame}
+            onSelect={handleSelectMetadataMatch}
+          />
+        </Suspense>
       )}
 
       {/* Bug Report Modal */}
-      <BugReportModal
-        isOpen={isBugReportOpen}
-        onClose={() => setIsBugReportOpen(false)}
-      />
+      <Suspense fallback={lazyRenderFallback}>
+        <BugReportModal
+          isOpen={isBugReportOpen}
+          onClose={() => setIsBugReportOpen(false)}
+        />
+      </Suspense>
 
       {/* Hide Game Confirmation Dialog */}
       {hideConfirmation && (

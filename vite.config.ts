@@ -10,6 +10,17 @@ export default defineConfig({
   build: {
     outDir: '../dist',
     emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return undefined;
+          if (id.includes('react')) return 'react-vendor';
+          if (id.includes('@dnd-kit')) return 'dnd-kit';
+          if (id.includes('dompurify')) return 'sanitizer';
+          return 'vendor';
+        },
+      },
+    },
   },
   resolve: {
     alias: {

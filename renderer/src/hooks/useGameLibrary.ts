@@ -81,7 +81,7 @@ export function useGameLibrary() {
             ...(migrationResult.overrides || {}),
           };
           const libraryForNames = await window.electronAPI.getLibrary();
-          const nameById = new Map(libraryForNames.map((game) => [game.id, game.title]));
+          const nameById = new Map(libraryForNames.map((game: Game) => [game.id, game.title]));
           const perViewCustomByView: any = { grid: {}, list: {}, logo: {}, carousel: {}, coverflow: {} };
           Object.entries(mergedOverrides).forEach(([gameId, viewMap]) => {
             const gameName = nameById.get(gameId);
@@ -110,7 +110,7 @@ export function useGameLibrary() {
       // Convert file:// URLs to onyx-local:// when loading (for backward compatibility)
       // Add cache-busting timestamp to force fresh image loads
       const timestamp = Date.now();
-      const convertedGames = library.map(game => ({
+      const convertedGames = library.map((game: Game) => ({
         ...game,
         logoSizePerViewMode: {
           ...(game.logoSizePerViewMode || {}),

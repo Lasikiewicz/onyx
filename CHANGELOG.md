@@ -4,6 +4,14 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.7.29] - 2026-03-16
+
+- Startup flow: Move renderer-ready/update-gating startup orchestration into `main/startupCoordinator.ts` so `main.ts` is slimmer and the startup handshake is covered by focused tests.
+- IPC contract: Make `main/preload.ts` the single source of truth for the `electronAPI` bridge type and switch the renderer to the canonical `notifyAppReady()` handshake.
+- Renderer performance: Lazy-load heavy secondary UI flows such as Settings, Importer, Game Manager, Metadata Search, Bug Report, Welcome, Carousel, and Cover Flow, and add manual Vite vendor chunking to reduce first-load pressure.
+- Tests: Add smoke coverage for the preload bridge, startup coordinator, and app shell startup/render path.
+- Build tooling: Move icon validation to `scripts/validate-icons.mjs` to avoid the module-format warning emitted during builds.
+
 ## [0.7.28] - 2026-03-16
 
 - Startup/update flow: Initialize the packaged updater before the renderer starts the startup sequence so the first startup update check reliably reports status instead of racing the updater setup.

@@ -253,9 +253,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
       }
     };
 
-    if (window.electronAPI.getMetadataProviderStatus) {
-      void loadProviderAvailability();
-    }
+    void loadProviderAvailability();
 
     return () => {
       cancelled = true;
@@ -537,7 +535,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
       // Set initial game and tab when modal first opens
       if (initialGameId && !selectedGameId) {
         setSelectedGameId(initialGameId);
-        const game = games.find(g => g.id === initialGameId);
+        const game = games.find((g: Game) => g.id === initialGameId);
         if (game) {
           setEditedGame({ ...game });
           setExpandedGameId(initialGameId);
@@ -577,7 +575,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
       // Only update if the selected game's data has changed
       setLocalGames(prevLocalGames => {
         const currentSelectedGame = prevLocalGames.find(g => g.id === selectedGameId);
-        const newSelectedGame = games.find(g => g.id === selectedGameId);
+        const newSelectedGame = games.find((g: Game) => g.id === selectedGameId);
 
         if (currentSelectedGame && newSelectedGame) {
           // Check if the game data actually changed before updating
@@ -713,7 +711,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
           // setSuccess(`Synced playtime for ${result.updatedCount || 0} game(s)`);
           // Reload the game to get updated playtime
           const library = await window.electronAPI.getLibrary();
-          const updatedGame = library.find(g => g.id === targetGame.id);
+          const updatedGame = library.find((g: Game) => g.id === targetGame.id);
           if (updatedGame) {
             setEditedGame({ ...updatedGame });
             // Also update the games list if we have it

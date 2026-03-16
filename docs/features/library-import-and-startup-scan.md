@@ -29,7 +29,7 @@ Finds games from configured launchers/folders and imports them into the local li
 ## Confirmed End-to-End Flows
 
 1. Renderer starts scan from menu/settings/startup flow.
-2. Main startup sequence initializes the packaged update service before the renderer can signal `app:ready`, then checks preferences and coordinates update-check timing.
+2. Main startup sequence initializes the packaged update service before the renderer can signal `app:ready`, then hands control to [startupCoordinator.ts](../../main/startupCoordinator.ts) to gate update checks, startup-scan timing, cancellation, and fallback startup.
 3. [ImportService.ts](../../main/ImportService.ts) orchestrates launcher readers and normalization.
 4. [GameMatcher.ts](../../main/GameMatcher.ts) deduplicates and resolves identity.
 5. Add Games review can adjust staged metadata and run the shared multi-provider image search/browse flow before import.
@@ -56,7 +56,7 @@ Finds games from configured launchers/folders and imports them into the local li
 - Confirm `updateLibrariesOnStartup` preference is true.
 - Check update-check gate is not waiting forever.
 - Confirm the update modal is not still open; startup/background scan work stays paused until that prompt is dismissed or completed.
-- Verify `app:ready` is emitted from renderer.
+- Verify `notifyAppReady()` is emitted from renderer through [preload.ts](../../main/preload.ts), which is the single source of truth for the preload contract.
 - In packaged builds, confirm the update service initialized before the renderer handshake so the first startup update check can publish a completion status.
 
 ### Symptom: Scan runs but finds zero games
@@ -84,6 +84,7 @@ Finds games from configured launchers/folders and imports them into the local li
 
 - **Main process**
   - [main.ts](../../main/main.ts)
+  - [startupCoordinator.ts](../../main/startupCoordinator.ts)
   - [ImportService.ts](../../main/ImportService.ts)
   - [LauncherService.ts](../../main/LauncherService.ts)
   - [LauncherDetectionService.ts](../../main/LauncherDetectionService.ts)

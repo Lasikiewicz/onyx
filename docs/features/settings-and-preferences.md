@@ -39,6 +39,7 @@ This parent file is the settings overview and routing document. Detailed behavio
 3. Renderer saves through preload-exposed APIs.
 4. Main-process services persist preferences, credentials, or operational config.
 5. Renderer refreshes state and runtime consumers pick up changes immediately or on next startup, depending on the setting.
+6. The settings modal is lazy-loaded from [App.tsx](../../renderer/src/App.tsx), so the initial app shell does not pay the full settings bundle cost until the user opens Settings.
 
 ## Discovery and Data Sources
 

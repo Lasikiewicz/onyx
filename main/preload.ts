@@ -1,5 +1,4 @@
 import { contextBridge, ipcRenderer } from 'electron';
-import type { UserPreferences } from './UserPreferencesService';
 
 // Note: Removed debug logging in preload for production safety
 
@@ -9,7 +8,8 @@ import type { UserPreferences } from './UserPreferencesService';
 
 // Expose protected methods that allow the renderer process to use
 // the ipcRenderer without exposing the entire object
-contextBridge.exposeInMainWorld('electronAPI', {
+export const electronAPI = {
+  showWindow: () => ipcRenderer.send('app:show-window'),
   // Steam service methods
   scanSteamGames: () => ipcRenderer.invoke('steam:scanGames'),
   getSteamPath: () => ipcRenderer.invoke('steam:getSteamPath'),
@@ -84,7 +84,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onMenuEvent: (channel: string, callback: () => void) => {
     const handler = () => callback();
     ipcRenderer.on(channel, handler);
-    return () => {
+    return (): void => {
       ipcRenderer.removeListener(channel, handler);
     };
   },
@@ -115,14 +115,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
       callback(event, ...args);
     };
     ipcRenderer.on(channel, handler);
-    return () => ipcRenderer.removeListener(channel, handler);
+    return (): void => {
+      ipcRenderer.removeListener(channel, handler);
+    };
   },
   off: (channel: string, callback: (...args: any[]) => void) => {
     ipcRenderer.removeListener(channel, callback as any);
   },
   // User preferences methods
   getPreferences: () => ipcRenderer.invoke('preferences:get'),
-  savePreferences: (preferences: Partial<UserPreferences>) => ipcRenderer.invoke('preferences:save', preferences),
+  savePreferences: (preferences: any) => ipcRenderer.invoke('preferences:save', preferences),
   // Custom defaults methods
   hasCustomDefaults: () => ipcRenderer.invoke('customDefaults:has'),
   saveCustomDefaults: (settings: any, resolution?: string) => ipcRenderer.invoke('customDefaults:save', settings, resolution),
@@ -148,7 +150,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     onStatus: (callback: (status: any) => void) => {
       const handler = (_event: any, status: any) => callback(status);
       ipcRenderer.on('optimization:status', handler);
-      return () => ipcRenderer.removeListener('optimization:status', handler);
+      return (): void => {
+        ipcRenderer.removeListener('optimization:status', handler);
+      };
     },
   },
   minimizeToTray: () => ipcRenderer.invoke('app:minimizeToTray'),
@@ -215,7 +219,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onUpdateStatus: (callback: (payload: { status: string; version?: string; error?: string }) => void) => {
     const handler = (_e: Electron.IpcRendererEvent, payload: { status: string; version?: string; error?: string }) => callback(payload);
     ipcRenderer.on('app:update-status', handler);
-    return () => ipcRenderer.removeListener('app:update-status', handler);
+    return (): void => {
+      ipcRenderer.removeListener('app:update-status', handler);
+    };
   },
   notifyAppReady: () => ipcRenderer.send('app:ready'),
   onUpdateFound: () => ipcRenderer.send('app:update-found'),
@@ -248,12 +254,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
     onChanged: (callback: (isFullscreen: boolean) => void) => {
       const handler = (_event: any, isFullscreen: boolean) => callback(isFullscreen);
       ipcRenderer.on('fullscreen-changed', handler);
-      return () => ipcRenderer.removeListener('fullscreen-changed', handler);
+      return (): void => {
+        ipcRenderer.removeListener('fullscreen-changed', handler);
+      };
     },
   },
   // Bug report methods
   generateBugReport: (userDescription: string) => ipcRenderer.invoke('bugReport:generate', userDescription),
   getBugReportLogsDirectory: () => ipcRenderer.invoke('bugReport:getLogsDirectory'),
-});
+};
+
+export type ElectronAPI = typeof electronAPI;
+
+contextBridge.exposeInMainWorld('electronAPI', electronAPI);
 
 // electronAPI is intentionally minimal and safe; do not log its exposure in production

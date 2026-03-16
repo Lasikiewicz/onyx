@@ -128,7 +128,7 @@ project-root/
 │   └── icon.icns     (macOS - generated)
 └── scripts/
     ├── generate-icons.js    (generates icons)
-    └── validate-icons.js    (validates icons)
+    └── validate-icons.mjs   (validates icons)
 ```
 
 ## Integration

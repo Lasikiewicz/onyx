@@ -13,3 +13,13 @@ if (typeof performance === 'undefined') {
     now: () => Date.now(),
   };
 }
+
+if (typeof (global as any).ResizeObserver === 'undefined') {
+  class ResizeObserverMock {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  }
+
+  (global as any).ResizeObserver = ResizeObserverMock;
+}

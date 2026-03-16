@@ -102,7 +102,7 @@ export const UpdateLibraryModal: React.FC<UpdateLibraryModalProps> = ({
       const detected = await window.electronAPI.detectLaunchers();
       const results = new Map<string, { detected: boolean; path: string }>();
 
-      detected.forEach((launcher) => {
+      detected.forEach((launcher: { id: string; detected: boolean; path: string }) => {
         results.set(launcher.id, {
           detected: launcher.detected,
           path: launcher.path,
@@ -208,7 +208,7 @@ export const UpdateLibraryModal: React.FC<UpdateLibraryModalProps> = ({
 
       // Check which games are new (not in existing library)
       const existingLibrary = await window.electronAPI.getLibrary();
-      const existingGameIds = new Set(existingLibrary.map(g => g.id));
+      const existingGameIds = new Set(existingLibrary.map((g: { id: string }) => g.id));
 
       const newGamesList = allScannedGames.filter(game => !existingGameIds.has(game.id));
 
