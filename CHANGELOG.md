@@ -4,7 +4,7 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Pending]
+## [0.7.33] - 2026-03-16
 
 - Game Manager maintainability: Move the full Metadata tab layout into a dedicated `gameManager/GameManagerMetadataTab.tsx` component so the main modal shell no longer owns the metadata-editing UI inline.
 - Game Manager maintainability: Lift the Metadata tab's fix-match toggle and cancel-edit flows into dedicated `GameManager` handlers so the parent component carries less anonymous inline orchestration.
