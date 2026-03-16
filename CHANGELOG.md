@@ -4,7 +4,7 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Pending]
+## [0.7.32] - 2026-03-16
 
 - Lint cleanup: Stabilize several renderer hook/effect dependencies in the app shell, update flow, and library view components so the lightweight ESLint rules can tighten without introducing stale closures.
 - Game Manager maintainability: Move image-search URL/provider helper logic into a dedicated `gameManager/` helper module so the modal component carries less inline utility code.
