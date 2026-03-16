@@ -8,6 +8,7 @@ This parent file is the settings overview and routing document. Detailed behavio
 
 ## Related Documentation
 
+- [Settings Architecture](./settings-architecture.md) - system-level map of settings UI, persistence, and runtime consumers.
 - [Main View](./main-view.md) — many layout and display options (panel width, view mode, categories) are applied in the main view.
 - [Library import and startup scan](./library-import-and-startup-scan.md), [Metadata matching and enrichment](./metadata-matching-and-enrichment.md), [Links and link management](./links-and-link-management.md) — settings tabs affect those features.
 - [Suspend and resume](./suspend-and-resume.md), [Crash detection and bug reporting](./crash-detection-and-bug-reporting.md) — related settings and modals.

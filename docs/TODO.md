@@ -1,35 +1,48 @@
-# Onyx TODO
+# Onyx Refactor Roadmap
 
-## Security
-- [x] **Sanitize game launch arguments** — [`LauncherService.ts`](../main/LauncherService.ts) now uses `spawn` with an arguments array and `shell: false` to prevent command injection while correctly handling paths.
-- [x] **Restrict `app:openExternal` URLs** — Validated URLs in [`appHandlers.ts`](../main/ipc/appHandlers.ts) to allow only allowed protocols (http, https, steam, epic, etc.).
+This file tracks the remaining work to fully refactor Onyx into smaller, safer, easier-to-test modules.
+Completed historical items have been removed so this stays focused on what is still worth doing.
 
-## Performance
-- [x] **Virtualize LibraryGrid** — Implemented CSS-based virtualization using `content-visibility: auto` and `contain-intrinsic-size` for zero-overhead performance gains.
-- [x] **Virtualize LibraryCarousel** — Implemented CSS-based virtualization for the carousel view.
-- [x] **GameStore write-behind caching** — Implemented `flushSync()` on app quit to ensure debounced saves are committed to disk before exit.
-- [x] **Async Steam scanning** — Updated all callers to correctly `await` the async Steam scanning process.
+## 1. Renderer Hotspots
 
-## Features
-- [x] **Steam process detection by install directory** — Implemented `getActiveSteamProcessId` using `wmic` to track playtime for Steam games.
-- [x] **IGDB fallback for non-Steam metadata** — Verified and optimized IGDB descriptor and link fetching as a fallback for non-Steam games.
-- [ ] **Per-game mod manager URL** — Add `modManagerUrl` field to Game interface and `launchModManager()` to LauncherService. Supports both web URLs and local exe paths.
-- [ ] **Track per-game settings in saved defaults** — Include per-game custom settings count and details in the exported/imported defaults list.
+- [ ] **Finish decomposing `App.tsx`** - Move the remaining shell orchestration in [`App.tsx`](../renderer/src/App.tsx) into focused hooks/components, especially background/media policy, importer handoff state, and any remaining modal-control glue that still makes the file hard to reason about.
+- [ ] **Split `OnyxSettingsModal.tsx` by tab/workflow** - Break [`OnyxSettingsModal.tsx`](../renderer/src/components/OnyxSettingsModal.tsx) into tab-level components plus shared settings state/persistence helpers so the modal is no longer a single giant UI surface.
+- [ ] **Refactor `RightClickMenu.tsx` into view-specific sections** - Extract view settings, per-game actions, and shell display controls from [`RightClickMenu.tsx`](../renderer/src/components/RightClickMenu.tsx) so context-menu behavior is easier to change without regressions.
+- [ ] **Decompose `GamePropertiesPanel.tsx`** - Split [`GamePropertiesPanel.tsx`](../renderer/src/components/GamePropertiesPanel.tsx) into tab components and shared hooks, mirroring the Game Manager refactor, because Add Games still depends on one very large staged-game editor.
+- [ ] **Break up `ImportWorkbenchV2.tsx`** - Split [`ImportWorkbenchV2.tsx`](../renderer/src/components/importer/ImportWorkbenchV2.tsx) into queue/sidebar, staged editor, import progress, and scanner-control slices so importer changes do not require editing one large screen component.
 
-## Testing
-- [ ] **GameFilteringService tests** — Test `isLikelyDownloading()` to verify detection of downloading/staged game states across launchers.
-- [ ] **IGDBService tests** — Test `inferLinkNameFromUrl()` for correct link name inference from various URL patterns.
-- [ ] **UserPreferencesService snapshot test** — Snapshot test for `createDefaultPreferences()` to catch unintended changes to default values.
-- [ ] **normalizeResolutionKey tests** — Test resolution key normalization in UserPreferencesService.
-- [ ] **MetadataFetcherService tests** — Test IGDB fallback logic for non-Steam providers.
+## 2. Main-Process Hotspots
 
-## Refactoring (Future — do incrementally, not all at once)
-- [ ] **Break down App.tsx** — Extract layout, context providers, and routing into separate files.
-- [ ] **Break down RightClickMenu** — Split into sub-components per section (view settings, game actions, display options).
-- [ ] **Break down GameManager.tsx** — Extract tab panels (Metadata, Images, Links, Mod Manager) into separate components.
-- [ ] **Simplify main.ts initialization** — Extract protocol handler, tray setup, and window creation into dedicated modules.
-- [ ] **ImportService Strategy Pattern** — Replace the monolithic scanner switch/case with a pluggable scanner strategy per launcher.
-- [ ] **Simplify ImportWorkbenchV2** — Break overview/confirmation/progress into smaller sub-components.
+- [ ] **Refactor `ImportService.ts` into real scanner modules** - Continue the scanner cleanup in [`ImportService.ts`](../main/ImportService.ts) by moving launcher-specific scanning into pluggable scanner modules instead of keeping the service as the central control tower for every source.
+- [ ] **Split `UserPreferencesService.ts` into domain slices** - Separate defaults/schema, migration logic, import/export logic, and per-feature preference helpers inside [`UserPreferencesService.ts`](../main/UserPreferencesService.ts) so preference changes are easier to review and test.
+- [ ] **Break down `ImageCacheService.ts`** - Extract cache path resolution, optimization/FFmpeg work, remote fetch normalization, and cleanup policy from [`ImageCacheService.ts`](../main/ImageCacheService.ts) into smaller modules with narrower responsibilities.
+- [ ] **Keep shrinking `main.ts`** - Move any remaining startup/window/tray/update orchestration from [`main.ts`](../main/main.ts) into dedicated modules so the Electron entrypoint stays mostly wiring, not behavior.
 
-## Code Quality
-- [ ] **RateLimitCoordinator** — Current implementation awaits each request sequentially. Consider allowing parallel execution within rate limits, but be careful not to break error propagation.
+## 3. Contract and State Safety
+
+- [ ] **Add focused tests for app-shell state hooks** - Cover [`useAppPreferences.ts`](../renderer/src/hooks/useAppPreferences.ts), [`useAppShellEvents.ts`](../renderer/src/hooks/useAppShellEvents.ts), and [`useGameLaunchFlow.ts`](../renderer/src/hooks/useGameLaunchFlow.ts) directly so future shell refactors do not silently break selection, view switching, or startup/update wiring.
+- [ ] **Add focused tests for Game Manager hooks** - Cover [`useGameManagerImageSearch.ts`](../renderer/src/components/gameManager/useGameManagerImageSearch.ts), [`useGameManagerMetadata.ts`](../renderer/src/components/gameManager/useGameManagerMetadata.ts), [`useGameManagerMaintenance.ts`](../renderer/src/components/gameManager/useGameManagerMaintenance.ts), and [`useGameManagerRefresh.ts`](../renderer/src/components/gameManager/useGameManagerRefresh.ts).
+- [ ] **Add a stronger mocked Electron shell regression suite** - Expand [`renderer/tests/App.shell.smoke.test.tsx`](../renderer/tests/App.shell.smoke.test.tsx) into a more useful suite that verifies selection, view switching, startup overlays, and updater/menu-event behavior.
+- [ ] **Add snapshot/default coverage for preferences** - Add tests around [`UserPreferencesService.ts`](../main/UserPreferencesService.ts) defaults, migration paths, and resolution normalization so app-shell and settings refactors have a safety net.
+
+## 4. Settings and Persistence Cleanup
+
+- [ ] **Centralize renderer preference writes** - Reduce scattered `window.electronAPI.savePreferences(...)` calls across [`App.tsx`](../renderer/src/App.tsx), [`RightClickMenu.tsx`](../renderer/src/components/RightClickMenu.tsx), and settings surfaces by creating clearer per-domain save helpers.
+- [ ] **Unify settings import/export refresh behavior** - Make sure settings import, live shell updates, and persisted preference reloads use one clear pathway so future shell/settings changes cannot reintroduce state snap-back bugs.
+- [ ] **Audit per-view preference ownership** - Clarify which view-specific preferences belong in shell state, per-view helpers, or settings tab components so there is less duplication between [`App.tsx`](../renderer/src/App.tsx), [`RightClickMenu.tsx`](../renderer/src/components/RightClickMenu.tsx), and [`UserPreferencesService.ts`](../main/UserPreferencesService.ts).
+
+## 5. Documentation Gaps
+
+- [x] **Add a dedicated settings architecture runbook** - Added [`docs/features/settings-architecture.md`](./features/settings-architecture.md) to tie together [`OnyxSettingsModal.tsx`](../renderer/src/components/OnyxSettingsModal.tsx), [`UserPreferencesService.ts`](../main/UserPreferencesService.ts), and runtime consumers.
+- [x] **Add an importer architecture runbook** - Added [`docs/features/importer-architecture.md`](./features/importer-architecture.md) to document scanner selection, staged-game editing, metadata/image enrichment, and final library persistence as one system.
+
+## 6. Maintenance Follow-Through
+
+- [ ] **Prune temporary lint exemptions over time** - Revisit [`eslint.config.mjs`](../eslint.config.mjs) and remove targeted legacy exceptions as the largest renderer and main-process hotspots are split up.
+
+## 7. Suggested Order
+
+- [ ] **Phase 1** - `OnyxSettingsModal.tsx`, `GamePropertiesPanel.tsx`, and `ImportWorkbenchV2.tsx`
+- [ ] **Phase 2** - `ImportService.ts`, `UserPreferencesService.ts`, and `ImageCacheService.ts`
+- [ ] **Phase 3** - stronger app-shell/Game Manager hook tests and broader mocked Electron regressions
+- [ ] **Phase 4** - remove temporary lint exceptions and tighten static-analysis rules again

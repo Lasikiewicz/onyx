@@ -21,6 +21,7 @@ Each feature document follows the same structure:
   - Components: [Menu Bar](./main-view/components/menu-bar.md), [Game Details Panel](./main-view/components/game-details-panel.md), [Games List](./main-view/components/games-list.md)
   - View types: [Grid](./main-view/views/grid-view.md), [List](./main-view/views/list-view.md), [Logo](./main-view/views/logo-view.md), [Carousel](./main-view/views/carousel-view.md), [Coverflow](./main-view/views/coverflow-view.md)
 - [Library Import and Startup Scan](./library-import-and-startup-scan.md)
+- [Importer Architecture](./importer-architecture.md)
 - [Metadata Matching and Enrichment](./metadata-matching-and-enrichment.md)
 - [Image Search and Selection](./image-search-and-selection.md)
 - [Image Cache and Optimization Pipeline](./image-cache-and-optimization.md)
@@ -28,6 +29,7 @@ Each feature document follows the same structure:
 - [Game Launch and Process Tracking](./game-launch-and-process-tracking.md)
 - [Settings and Preferences Overview](./settings-and-preferences.md)
 	- Per-tab settings runbooks: [settings/README.md](./settings/README.md)
+- [Settings Architecture](./settings-architecture.md)
 - [Suspend and Resume](./suspend-and-resume.md)
 - [Crash Detection and Bug Reporting](./crash-detection-and-bug-reporting.md)
 

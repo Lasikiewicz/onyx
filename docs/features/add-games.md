@@ -6,6 +6,7 @@ Provides the staged import-review workspace for bringing newly discovered or man
 
 ## Related Documentation
 
+- [Importer Architecture](./importer-architecture.md) - system-level map of scanning, staged editing, and final import persistence.
 - [Library import and startup scan](./library-import-and-startup-scan.md) - launcher scanning, startup scan behavior, and main-process import orchestration that feed the Add Games queue.
 - [Metadata matching and enrichment](./metadata-matching-and-enrichment.md) - metadata search, match fixes, and provider enrichment used while reviewing staged games.
 - [Image search and selection](./image-search-and-selection.md) - artwork search, quick image fetch, and local image selection used by the staged game editor.
