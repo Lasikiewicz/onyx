@@ -24,6 +24,7 @@ Finds games from configured launchers/folders and imports them into the local li
 - Background scanning enablement and interval
 - Library folder configuration
 - Launcher-specific install and library path configuration
+- Automatic background scans are temporarily paused while the update notification modal is open, then resumed when the modal closes.
 
 ## Confirmed End-to-End Flows
 
@@ -54,6 +55,7 @@ Finds games from configured launchers/folders and imports them into the local li
 
 - Confirm `updateLibrariesOnStartup` preference is true.
 - Check update-check gate is not waiting forever.
+- Confirm the update modal is not still open; startup/background scan work stays paused until that prompt is dismissed or completed.
 - Verify `app:ready` is emitted from renderer.
 
 ### Symptom: Scan runs but finds zero games

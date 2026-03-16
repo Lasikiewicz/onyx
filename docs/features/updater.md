@@ -14,6 +14,8 @@ Checks for new versions, offers download, and installs updates for packaged buil
 - `Onyx Settings` -> `About` tab update area ([OnyxSettingsModal.tsx](../../renderer/src/components/OnyxSettingsModal.tsx)).
 - Update notification modal ([UpdateNotificationModal.tsx](../../renderer/src/components/UpdateNotificationModal.tsx)) and startup update messaging.
 - App-level renderer state in [App.tsx](../../renderer/src/App.tsx) that shows update progress and download/install actions.
+- Development-only `Help -> Develop -> Open Update Found` preview in [MenuBar.tsx](../../renderer/src/components/MenuBar.tsx) now targets the newest parsed changelog data and shows the latest three changelog entries so local modal testing reflects a realistic multi-release update view.
+- While the update modal is visible, the renderer pauses automatic background library scanning through the preload bridge so update prompts are not interrupted by scan-driven importer dialogs.
 
 ## Settings and Toggles
 
@@ -35,6 +37,7 @@ Alpha builds use GitHub Releases API prerelease selection logic. Production uses
 - Update source is GitHub releases and packaged-app update metadata.
 - Main orchestration lives in [AppUpdateService.ts](../../main/AppUpdateService.ts).
 - Startup coordination with library scan/update prompts runs through [main.ts](../../main/main.ts) and renderer app readiness state.
+- The renderer fetches the full changelog source through `app:getChangelog`, parses version sections from `CHANGELOG.md`, and renders grouped per-version release bullets in the update modal, split into `New features` and `Fixed issues`, instead of a raw preformatted markdown block.
 
 ## Data Model and Persistence
 

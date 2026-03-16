@@ -88,6 +88,13 @@ function App() {
   const [changelogLoading, setChangelogLoading] = useState(false);
   const [changelogError, setChangelogError] = useState<string | null>(null);
   const [isUpdateModalTest, setIsUpdateModalTest] = useState(false);
+  const latestChangelogVersion = useMemo(() => {
+    if (!changelogSource) return null;
+    const match = changelogSource.match(/^##\s+\[([^\]]+)\]/m);
+    if (!match?.[1]) return null;
+    const parsed = match[1].replace(/^v/i, '').trim();
+    return parsed.toLowerCase() === 'unreleased' ? null : parsed;
+  }, [changelogSource]);
 
   // Crash dump from previous session (paths when main sent crash:dumpsAvailable)
   const [crashDumpPaths, setCrashDumpPaths] = useState<string[] | null>(null);
@@ -503,6 +510,31 @@ function App() {
     if (!updateNotification?.version) return;
     fetchChangelog(updateNotification.version);
   }, [updateNotification?.version, fetchChangelog]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const syncBackgroundScanState = async () => {
+      try {
+        if (updateNotification) {
+          await window.electronAPI.pauseBackgroundScan?.();
+          return;
+        }
+
+        await window.electronAPI.resumeBackgroundScan?.();
+      } catch (error) {
+        if (!cancelled) {
+          console.error('[UpdateModal] Failed to sync background scan state:', error);
+        }
+      }
+    };
+
+    syncBackgroundScanState();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [updateNotification]);
 
   useEffect(() => {
     if (!import.meta.env.DEV) return;
@@ -2222,14 +2254,14 @@ function App() {
           onShowLibraryTutorial={() => setShowLibraryTutorial(true)}
           onExit={handleExit}
           onBugReport={isAlphaBuild ? () => setIsBugReportOpen(true) : undefined}
-          onForceOpenUpdateFound={() => {
-            const normalized = (currentVersion ?? '0.0.0').replace(/^v/i, '').trim();
-            const parts = normalized.split('-')[0].split('.').map((part) => Number(part) || 0);
-            const [major, minor, patch] = [parts[0] ?? 0, parts[1] ?? 0, parts[2] ?? 0];
-            const simulatedVersion = `${major}.${minor}.${patch + 1}`;
-            setIsUpdateModalTest(true);
-            setUpdateNotification({
-              version: simulatedVersion,
+            onForceOpenUpdateFound={() => {
+              const normalized = (currentVersion ?? '0.0.0').replace(/^v/i, '').trim();
+              const parts = normalized.split('-')[0].split('.').map((part) => Number(part) || 0);
+              const [major, minor, patch] = [parts[0] ?? 0, parts[1] ?? 0, parts[2] ?? 0];
+              const simulatedVersion = latestChangelogVersion ?? `${major}.${minor}.${patch + 1}`;
+              setIsUpdateModalTest(true);
+              setUpdateNotification({
+                version: simulatedVersion,
               status: 'available',
             });
           }}

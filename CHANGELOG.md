@@ -4,6 +4,11 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.7.27] - 2026-03-16
+
+- Update modal: Simplify the update header, lower the update icon to avoid clipping, group changelog bullets by version, split release notes into `New features` and `Fixed issues`, and make the dev-only `Open Update Found` preview load the latest three changelog entries instead of guessing the next patch.
+- Update flow: Pause recurring background library scanning while the update modal is open so update prompts do not compete with auto-scan activity.
+
 ## [0.7.26] - 2026-03-16
 
 - Add Games: Image edits made during import review now persist into the library correctly, including banner/background selections that need linked hero/background fields updated.

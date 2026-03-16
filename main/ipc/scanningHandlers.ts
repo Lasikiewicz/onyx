@@ -9,6 +9,7 @@ import { existsSync } from 'node:fs';
 
 let backgroundScanInterval: NodeJS.Timeout | null = null;
 let runningGames = new Set<string>();
+let backgroundScanPaused = false;
 
 export function registerScanningHandlers(
     winReference: { readonly current: BrowserWindow | null },
@@ -20,6 +21,11 @@ export function registerScanningHandlers(
 ) {
     const performBackgroundScan = async (skipEnabledCheck: boolean = false, fromStartup: boolean = false) => {
         try {
+            if (backgroundScanPaused) {
+                console.log('[BackgroundScan] Skipping scan - background scanning is paused');
+                return;
+            }
+
             if (!skipEnabledCheck) {
                 const enabled = await appConfigService.getBackgroundScanEnabled();
                 if (!enabled) {
@@ -40,6 +46,11 @@ export function registerScanningHandlers(
                 }
             });
             console.log(`[BackgroundScan] Scanned ${scannedResults.length} total games`);
+
+            if (backgroundScanPaused) {
+                console.log('[BackgroundScan] Ignoring scan results - background scanning was paused while scan was running');
+                return;
+            }
 
             if (scannedResults.length > 0) {
                 const existingLibrary = await gameStore.getLibrary();
@@ -163,7 +174,7 @@ export function registerScanningHandlers(
     };
 
     const startBackgroundScan = async () => {
-        if (backgroundScanInterval) return;
+        if (backgroundScanPaused || backgroundScanInterval) return;
         const interval = 60 * 60 * 1000; // 1 hour
         backgroundScanInterval = setInterval(() => performBackgroundScan(), interval);
         console.log('[BackgroundScan] Background scan interval started (1 hour)');
@@ -175,6 +186,25 @@ export function registerScanningHandlers(
             backgroundScanInterval = null;
             console.log('[BackgroundScan] Background scan interval stopped');
         }
+    };
+
+    const pauseBackgroundScan = async () => {
+        if (backgroundScanPaused) return { success: true };
+        backgroundScanPaused = true;
+        stopBackgroundScan();
+        console.log('[BackgroundScan] Background scanning paused');
+        return { success: true };
+    };
+
+    const resumeBackgroundScan = async () => {
+        if (!backgroundScanPaused) return { success: true };
+        backgroundScanPaused = false;
+        console.log('[BackgroundScan] Background scanning resumed');
+        const enabled = await appConfigService.getBackgroundScanEnabled();
+        if (enabled) {
+            await startBackgroundScan();
+        }
+        return { success: true };
     };
 
     ipcMain.handle('app:performBackgroundScan', async (_event, quiet: boolean = false) => {
@@ -364,5 +394,8 @@ export function registerScanningHandlers(
         console.log(`[BackgroundScan] Game stopped: ${gameId}, running games: ${runningGames.size}`);
     });
 
-    return { performBackgroundScan, startBackgroundScan, stopBackgroundScan };
+    ipcMain.handle('appConfig:pauseBackgroundScan', pauseBackgroundScan);
+    ipcMain.handle('appConfig:resumeBackgroundScan', resumeBackgroundScan);
+
+    return { performBackgroundScan, startBackgroundScan, stopBackgroundScan, pauseBackgroundScan, resumeBackgroundScan };
 }
