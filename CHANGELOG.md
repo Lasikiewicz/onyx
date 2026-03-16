@@ -4,8 +4,9 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Pending]
+## [0.7.23] - 2026-03-16
 
+- Docs: Enforce strict markdown linking rules across all repository documentation to ensure all code references (files, services, components) are hyperlinked to their source.
 - Game details panel: Resizable bottom action bar (Edit / Play / links). Drag the top edge of the bar to change its height; contents scale with the bar and the setting is persisted.
 
 ## [0.7.22] - 2026-03-15
