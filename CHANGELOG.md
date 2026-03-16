@@ -11,6 +11,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - App shell maintainability: Move root menu-event, startup-scan, updater, and crash-dump listener wiring out of `App.tsx` into `hooks/useAppShellEvents.ts` so the renderer shell no longer owns the whole subscription block inline.
 - App shell maintainability: Move initial preference load, baseline-default application, refresh, and resolution-change sync out of `App.tsx` into `hooks/useAppPreferences.ts` so the renderer shell no longer owns the whole preference bootstrap pipeline inline.
 - App shell maintainability: Move launch confirmation, launch execution, running-state tracking, and process polling out of `App.tsx` into `hooks/useGameLaunchFlow.ts` so the renderer shell no longer owns the whole launch/process workflow inline.
+- App shell selection: Keep the active game anchored to the currently visible filtered library set so switching games and changing filters cannot leave the shell stuck on a stale off-screen selection.
+- App shell stability: Stop `useAppPreferences.ts` from re-running full preference bootstrap after ordinary shell state changes, which was snapping view mode and other shell state back to the persisted preference unexpectedly.
 
 ## [0.7.34] - 2026-03-16
 

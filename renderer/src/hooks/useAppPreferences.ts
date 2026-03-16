@@ -172,6 +172,7 @@ export function useAppPreferences({
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const currentResolutionRef = useRef<string>(getResolutionKey());
   const baselineDefaultsRef = useRef<any>(null);
+  const applyPreferencesRef = useRef<(prefs: any, options?: { markInitialLoad?: boolean }) => void>(() => {});
 
   const applyBaselineDefaults = useCallback((resKey: string) => {
     if (!baselineDefaultsRef.current || !baselineDefaultsRef.current[resKey]) return;
@@ -425,6 +426,10 @@ export function useAppPreferences({
     setVisibleLinkTypes,
   ]);
 
+  useEffect(() => {
+    applyPreferencesRef.current = applyPreferences;
+  }, [applyPreferences]);
+
   const refreshPreferences = useCallback(async () => {
     const prefs = await window.electronAPI.getPreferences();
     applyPreferences(prefs);
@@ -439,7 +444,7 @@ export function useAppPreferences({
 
       try {
         const prefs = await window.electronAPI.getPreferences();
-        applyPreferences(prefs, { markInitialLoad: true });
+        applyPreferencesRef.current(prefs, { markInitialLoad: true });
       } catch (error) {
         console.error('Error loading preferences:', error);
         setIsInitialLoad(false);
@@ -447,7 +452,7 @@ export function useAppPreferences({
     };
 
     initialize();
-  }, [applyPreferences]);
+  }, []);
 
   useEffect(() => {
     const handleResize = () => {

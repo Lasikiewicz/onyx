@@ -1086,11 +1086,25 @@ function App() {
     disableAnimatedLogos,
   ]);
 
-  const activeGame = activeGameId ? games.find(g => g.id === activeGameId) || null : null;
+  const activeGame = useMemo(() => {
+    if (!activeGameId) return null;
 
-  // When no game is selected, select the first (top-left) game in the current view
+    return (
+      filteredGames.find((game) => game.id === activeGameId) ??
+      games.find((game) => game.id === activeGameId) ??
+      null
+    );
+  }, [activeGameId, filteredGames, games]);
+
+  // Keep the active selection aligned to the currently visible library set.
   useEffect(() => {
-    if (!loading && filteredGames.length > 0 && !activeGameId) {
+    if (loading || filteredGames.length === 0) return;
+
+    const hasVisibleSelection = activeGameId
+      ? filteredGames.some((game) => game.id === activeGameId)
+      : false;
+
+    if (!hasVisibleSelection) {
       setActiveGameId(filteredGames[0].id);
     }
   }, [loading, filteredGames, activeGameId]);
@@ -1254,9 +1268,9 @@ function App() {
   }, [autoSizeToFit, viewMode, filteredGames.length, calculateAutoSize]);
 
 
-  const handleGameClick = (game: Game) => {
+  const handleGameClick = useCallback((game: Game) => {
     setActiveGameId(game.id);
-  };
+  }, []);
 
   const handleEditGame = (game: Game) => {
     setGameManagerInitialGameId(game.id);
