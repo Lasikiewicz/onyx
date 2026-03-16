@@ -4,7 +4,7 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Pending]
+## [0.7.28] - 2026-03-16
 
 - Startup/update flow: Initialize the packaged updater before the renderer starts the startup sequence so the first startup update check reliably reports status instead of racing the updater setup.
 - Startup scan flow: Route startup-originated scan progress and newly found games through the startup overlay only, while recurring background scans stop emitting startup progress UI events.
