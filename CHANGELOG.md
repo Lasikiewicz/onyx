@@ -4,6 +4,13 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.7.34] - 2026-03-16
+
+- Game Manager maintainability: Move delete and remove-missing maintenance state/handlers into `gameManager/useGameManagerMaintenance.ts` so the modal shell carries less maintenance-side state and async workflow code.
+- Game Manager maintainability: Move metadata save, fix-match search, match-apply, and cancel-edit workflow state into `gameManager/useGameManagerMetadata.ts` so the modal shell carries less metadata-side state and async orchestration code.
+- Game Manager maintainability: Move image search, fast-search, provider-progress, and image-apply workflow state into `gameManager/useGameManagerImageSearch.ts` so the modal shell carries less image-side state and async orchestration code.
+- Game Manager maintainability: Move refresh dialog state, progress handling, match-fix flow, and boxart-fix flow into `gameManager/useGameManagerRefresh.ts` so the modal shell carries less refresh/import-side orchestration code.
+
 ## [0.7.33] - 2026-03-16
 
 - Game Manager maintainability: Move the full Metadata tab layout into a dedicated `gameManager/GameManagerMetadataTab.tsx` component so the main modal shell no longer owns the metadata-editing UI inline.

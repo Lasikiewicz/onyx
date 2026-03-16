@@ -45,6 +45,7 @@ Finds games from configured launchers/folders and imports them into the local li
 - Sources include configured launchers plus manual library folders.
 - Launcher detection and launcher-specific metadata come from [LauncherDetectionService.ts](../../main/LauncherDetectionService.ts) and [LauncherService.ts](../../main/LauncherService.ts).
 - Matching uses known IDs, executable paths, launcher identifiers, and title heuristics.
+- Renderer-side post-import maintenance flows launched from Game Manager now route through [useGameManagerRefresh.ts](../../renderer/src/components/gameManager/useGameManagerRefresh.ts), which owns refresh confirmation/progress state plus match-fix and boxart-fix continuation behavior after library updates are started from the manager.
 
 ## Data Model and Persistence
 
@@ -98,6 +99,7 @@ Finds games from configured launchers/folders and imports them into the local li
   - [preload.ts](../../main/preload.ts)
 - **Renderer**
   - [App.tsx](../../renderer/src/App.tsx)
+  - [gameManager/useGameManagerRefresh.ts](../../renderer/src/components/gameManager/useGameManagerRefresh.ts)
   - [FoundGamesModal.tsx](../../renderer/src/components/FoundGamesModal.tsx)
   - [UpdateLibraryModal.tsx](../../renderer/src/components/UpdateLibraryModal.tsx)
   - [MissingGamesModal.tsx](../../renderer/src/components/MissingGamesModal.tsx)
