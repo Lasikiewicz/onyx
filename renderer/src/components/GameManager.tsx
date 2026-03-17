@@ -22,7 +22,7 @@ import { useGameManagerMetadata } from './gameManager/useGameManagerMetadata';
 import { useGameManagerImageSearch } from './gameManager/useGameManagerImageSearch';
 import { useGameManagerRefresh } from './gameManager/useGameManagerRefresh';
 
-interface GameManagerProps {
+export interface GameManagerProps {
   isOpen: boolean;
   onClose: () => void;
   games: Game[];

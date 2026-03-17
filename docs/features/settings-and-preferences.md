@@ -48,7 +48,7 @@ This parent file is the settings overview and routing document. Detailed behavio
 - Primary settings UI: [OnyxSettingsModal.tsx](../../renderer/src/components/OnyxSettingsModal.tsx)
 - Extracted tab bodies: [SettingsIntegrationsTab.tsx](../../renderer/src/components/settings/SettingsIntegrationsTab.tsx) and [SettingsAboutTab.tsx](../../renderer/src/components/settings/SettingsAboutTab.tsx)
 - Shared persistence: [UserPreferencesService.ts](../../main/UserPreferencesService.ts)
-- Runtime application of settings happens in [App.tsx](../../renderer/src/App.tsx), [useAppPreferences.ts](../../renderer/src/hooks/useAppPreferences.ts), [useSettingsSaveRefresh.ts](../../renderer/src/hooks/useSettingsSaveRefresh.ts), [usePreferenceWriter.ts](../../renderer/src/hooks/usePreferenceWriter.ts), [useRightClickMenuControls.ts](../../renderer/src/hooks/useRightClickMenuControls.ts), Electron bootstrap code, metadata services, import services, and launcher flows.
+- Runtime application of settings happens in [App.tsx](../../renderer/src/App.tsx), [useAppPreferences.ts](../../renderer/src/hooks/useAppPreferences.ts), [useSettingsSaveRefresh.ts](../../renderer/src/hooks/useSettingsSaveRefresh.ts), [usePreferenceWriter.ts](../../renderer/src/hooks/usePreferenceWriter.ts), [useRightClickMenuControls.ts](../../renderer/src/hooks/useRightClickMenuControls.ts), [useAppShellModalControls.ts](../../renderer/src/hooks/useAppShellModalControls.ts), Electron bootstrap code, metadata services, import services, and launcher flows.
 - Per-tab behavior is documented in [settings/README.md](./settings/README.md) and the linked tab docs.
 
 ## Data Model and Persistence
@@ -98,4 +98,5 @@ This parent file is the settings overview and routing document. Detailed behavio
   - [useSettingsSaveRefresh.ts](../../renderer/src/hooks/useSettingsSaveRefresh.ts)
   - [usePreferenceWriter.ts](../../renderer/src/hooks/usePreferenceWriter.ts)
   - [useRightClickMenuControls.ts](../../renderer/src/hooks/useRightClickMenuControls.ts)
+  - [useAppShellModalControls.ts](../../renderer/src/hooks/useAppShellModalControls.ts)
 

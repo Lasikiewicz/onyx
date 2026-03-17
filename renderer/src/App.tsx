@@ -16,6 +16,7 @@ import { useMainViewShellControls } from './hooks/useMainViewShellControls';
 import { useRightClickMenuControls } from './hooks/useRightClickMenuControls';
 import { useAppShellSurfaceActions } from './hooks/useAppShellSurfaceActions';
 import { useGameDetailsPanelControls } from './hooks/useGameDetailsPanelControls';
+import { useAppShellModalControls } from './hooks/useAppShellModalControls';
 import { LibraryGrid } from './components/LibraryGrid';
 import { LibraryListView } from './components/LibraryListView';
 import { RightClickMenu } from './components/RightClickMenu';
@@ -1776,6 +1777,37 @@ function App() {
     visibleLinkTypes,
   });
 
+  const {
+    gameManagerProps,
+    importWorkbenchProps,
+    onyxSettingsModalProps,
+    updateLibraryModalProps,
+  } = useAppShellModalControls({
+    autoStartScan,
+    closeGameManager,
+    closeImportWorkbench,
+    closeOnyxSettings,
+    gameManagerInitialGameId,
+    gameManagerInitialTab,
+    games,
+    handleDeleteGameFromManager,
+    handleImport,
+    handleOpenImporterWithMode,
+    handleRequestOptimizer,
+    handleSaveGameFromManager,
+    importWorkbenchInitialMode,
+    isGameManagerOpen,
+    isImportWorkbenchOpen,
+    isOnyxSettingsOpen,
+    isUpdateLibraryOpen,
+    loadLibrary,
+    onyxSettingsInitialTab,
+    openImportWorkbenchWithGames,
+    preScannedGames,
+    refreshAfterSettingsSave,
+    setIsUpdateLibraryOpen,
+  });
+
   return (
     <div
       className="h-screen bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-900 via-[#0f172a] to-black text-white flex flex-col overflow-hidden relative"
@@ -2231,15 +2263,7 @@ function App() {
 
       {/* Onyx Settings Modal */}
       <Suspense fallback={lazyRenderFallback}>
-        <OnyxSettingsModal
-          isOpen={isOnyxSettingsOpen}
-          onClose={closeOnyxSettings}
-          initialTab={onyxSettingsInitialTab}
-          onShowImportModal={(games, appType) => {
-            openImportWorkbenchWithGames(games, { autoStartScan: appType === 'steam' });
-          }}
-          onSave={refreshAfterSettingsSave}
-        />
+        <OnyxSettingsModal {...onyxSettingsModalProps} />
       </Suspense>
 
       {/* API Settings Modal */}
@@ -2250,45 +2274,16 @@ function App() {
 
 
       {/* Update Library Modal */}
-      <UpdateLibraryModal
-        isOpen={isUpdateLibraryOpen}
-        onClose={() => setIsUpdateLibraryOpen(false)}
-        onUpdate={() => {
-          loadLibrary();
-        }}
-        onShowImportModal={(games, appType = 'steam') => {
-          openImportWorkbenchWithGames(games, { autoStartScan: appType === 'steam' });
-        }}
-      />
+      <UpdateLibraryModal {...updateLibraryModalProps} />
 
       {/* Game Importer */}
       <Suspense fallback={lazyRenderFallback}>
-        <ImportWorkbench
-          isOpen={isImportWorkbenchOpen}
-          autoStartScan={autoStartScan}
-          initialMode={importWorkbenchInitialMode}
-          onRefreshComplete={loadLibrary}
-          onClose={closeImportWorkbench}
-          existingLibrary={games}
-          preScannedGames={preScannedGames.length > 0 ? preScannedGames : undefined}
-          onImport={handleImport}
-        />
+        <ImportWorkbench {...importWorkbenchProps} />
       </Suspense>
 
       {/* Game Manager */}
       <Suspense fallback={lazyRenderFallback}>
-        <GameManager
-          isOpen={isGameManagerOpen}
-          onClose={closeGameManager}
-          games={games}
-          initialGameId={gameManagerInitialGameId}
-          initialTab={gameManagerInitialTab}
-          onOpenImporterWithMode={handleOpenImporterWithMode}
-          onRequestOptimizer={handleRequestOptimizer}
-          onSaveGame={handleSaveGameFromManager}
-          onDeleteGame={handleDeleteGameFromManager}
-          onReloadLibrary={loadLibrary}
-        />
+        <GameManager {...gameManagerProps} />
       </Suspense>
 
       {/* Right Click Menu */}

@@ -19,7 +19,7 @@ interface ScannedGame {
   source?: string; // Which launcher it came from
 }
 
-interface UpdateLibraryModalProps {
+export interface UpdateLibraryModalProps {
   isOpen: boolean;
   onClose: () => void;
   onUpdate?: () => void;

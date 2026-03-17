@@ -20,6 +20,7 @@ This is the system-level companion to the user-facing [Add Games](./add-games.md
 
 - The importer shell in [`ImportWorkbenchV2.tsx`](../../renderer/src/components/importer/ImportWorkbenchV2.tsx), which owns the staged queue, scan controls, import progress, and overall modal lifecycle.
 - The renderer importer handoff/orchestration hook in [`useImporterWorkbench.ts`](../../renderer/src/hooks/useImporterWorkbench.ts), which centralizes API-gated importer opening, startup/background scan handoff, importer reset, and post-import tutorial follow-up.
+- The shell modal-control bridge in [`useAppShellModalControls.ts`](../../renderer/src/hooks/useAppShellModalControls.ts), which packages importer modal props for settings, update-library, and Game Manager entry points before they reach the app shell.
 - The startup scan review hook in [`useStartupScanReview.ts`](../../renderer/src/hooks/useStartupScanReview.ts), which owns the shell-side cancel/review actions that turn startup-found games into importer handoff requests.
 - The staged-game editor in [`GamePropertiesPanel.tsx`](../../renderer/src/components/GamePropertiesPanel.tsx), which exposes Metadata, Images, Links, and Mod Manager editing before import.
 - Discovery entry points in [`MenuBar.tsx`](../../renderer/src/components/MenuBar.tsx), startup overlays, and found-games handoff UI such as [`FoundGamesModal.tsx`](../../renderer/src/components/FoundGamesModal.tsx).

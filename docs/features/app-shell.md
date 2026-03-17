@@ -32,6 +32,7 @@ Owns the renderer root experience in [`App.tsx`](../../renderer/src/App.tsx): li
 - The right-click menu control bridge in [`useRightClickMenuControls.ts`](../../renderer/src/hooks/useRightClickMenuControls.ts), which packages the root `RightClickMenu` callback bundle for active-game updates and preference-backed view/detail controls.
 - The shell-surface action bridge in [`useAppShellSurfaceActions.ts`](../../renderer/src/hooks/useAppShellSurfaceActions.ts), which packages the remaining Welcome Screen, Game Context Menu, and root overlay callback bundles for the app shell.
 - The game-details-panel control bridge in [`useGameDetailsPanelControls.ts`](../../renderer/src/hooks/useGameDetailsPanelControls.ts), which packages the root `GameDetailsPanel` action and panel-persistence callbacks for the app shell.
+- The shell modal-control bridge in [`useAppShellModalControls.ts`](../../renderer/src/hooks/useAppShellModalControls.ts), which packages settings, importer, Game Manager, and update-library modal callback bundles for the app shell.
 - The shell launch bridge in [`useGameLaunchFlow.ts`](../../renderer/src/hooks/useGameLaunchFlow.ts), which owns launch confirmation, launch execution, running-state tracking, and restore/minimize process-side behavior.
 - The importer handoff bridge in [`useImporterWorkbench.ts`](../../renderer/src/hooks/useImporterWorkbench.ts), which owns importer-open guards, startup-scan/new-games handoff, importer reset behavior, and post-import tutorial follow-up.
 - The visible-library selection policy in [`App.tsx`](../../renderer/src/App.tsx), which keeps `activeGameId` aligned to the current filtered game set so the details panel and background shell do not stick to an off-screen game after filters or clicks change the visible library.
@@ -58,8 +59,9 @@ Owns the renderer root experience in [`App.tsx`](../../renderer/src/App.tsx): li
 12. [`useRightClickMenuControls.ts`](../../renderer/src/hooks/useRightClickMenuControls.ts) bundles the root right-click settings menu actions, including per-view preference writes and active-game handoff, so `RightClickMenu` routing no longer stays inline in [`App.tsx`](../../renderer/src/App.tsx).
 13. [`useAppShellSurfaceActions.ts`](../../renderer/src/hooks/useAppShellSurfaceActions.ts) bundles the smaller Welcome Screen, Game Context Menu, and overlay action props so the remaining shell surface routing does not stay inline in [`App.tsx`](../../renderer/src/App.tsx).
 14. [`useGameDetailsPanelControls.ts`](../../renderer/src/hooks/useGameDetailsPanelControls.ts) bundles the root `GameDetailsPanel` actions plus panel-width/divider persistence wiring so right-panel control routing no longer stays inline in [`App.tsx`](../../renderer/src/App.tsx).
-15. [`useImporterWorkbench.ts`](../../renderer/src/hooks/useImporterWorkbench.ts) converts menu actions, Welcome Screen onboarding, startup-scan discoveries, and Game Manager maintenance flows into one importer lifecycle for [`ImportWorkbenchV2.tsx`](../../renderer/src/components/importer/ImportWorkbenchV2.tsx).
-16. Update availability, crash dumps, tutorial prompts, toast messages, and missing-games cleanup all render above the library shell without each feature owning its own root-level wiring.
+15. [`useAppShellModalControls.ts`](../../renderer/src/hooks/useAppShellModalControls.ts) bundles the settings/importer/Game Manager/update-library modal props so the remaining modal callback routing does not stay inline in [`App.tsx`](../../renderer/src/App.tsx).
+16. [`useImporterWorkbench.ts`](../../renderer/src/hooks/useImporterWorkbench.ts) converts menu actions, Welcome Screen onboarding, startup-scan discoveries, and Game Manager maintenance flows into one importer lifecycle for [`ImportWorkbenchV2.tsx`](../../renderer/src/components/importer/ImportWorkbenchV2.tsx).
+17. Update availability, crash dumps, tutorial prompts, toast messages, and missing-games cleanup all render above the library shell without each feature owning its own root-level wiring.
 
 ## Discovery and Data Sources
 
@@ -126,6 +128,7 @@ Owns the renderer root experience in [`App.tsx`](../../renderer/src/App.tsx): li
 - [useRightClickMenuControls.ts](../../renderer/src/hooks/useRightClickMenuControls.ts) - bundled right-click settings menu callbacks for active-game updates and preference-backed per-view display controls.
 - [useAppShellSurfaceActions.ts](../../renderer/src/hooks/useAppShellSurfaceActions.ts) - bundled Welcome Screen, Game Context Menu, and overlay callbacks for smaller root shell surface prop wiring.
 - [useGameDetailsPanelControls.ts](../../renderer/src/hooks/useGameDetailsPanelControls.ts) - bundled Game Details panel callbacks for right-panel actions and divider persistence.
+- [useAppShellModalControls.ts](../../renderer/src/hooks/useAppShellModalControls.ts) - bundled settings/importer/Game Manager/update-library modal callbacks for smaller root shell modal prop wiring.
 - [useGameLaunchFlow.ts](../../renderer/src/hooks/useGameLaunchFlow.ts) - renderer launch confirmation, launch execution, process polling, and running-state tracking for the app shell.
 - [useImporterWorkbench.ts](../../renderer/src/hooks/useImporterWorkbench.ts) - importer lifecycle orchestration shared by startup handoff, menu actions, onboarding, and Game Manager cleanup flows.
 - [FoundGamesModal.tsx](../../renderer/src/components/FoundGamesModal.tsx) - reusable found-games review modal used by the startup overlay when scans discover new titles.

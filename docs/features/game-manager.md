@@ -17,6 +17,7 @@ Provides the main per-game maintenance workspace for the library. The Game Manag
 
 - The `Game Manager` modal opened from the main library UI via [`GameManager.tsx`](../../renderer/src/components/GameManager.tsx).
 - The shell-side bridge in [`useGameManagerShellBridge.ts`](../../renderer/src/hooks/useGameManagerShellBridge.ts), which connects the modal to app-shell save/delete follow-up, optimizer launch, and importer maintenance modes.
+- The shell modal-control bridge in [`useAppShellModalControls.ts`](../../renderer/src/hooks/useAppShellModalControls.ts), which packages the root Game Manager modal props before they reach the app shell.
 - Metadata editing flows, including match fixes, metadata refresh, and per-game title/description/category changes.
 - Artwork editing flows, including local browse/upload, aggregated provider search, quick search, provider filtering, and artwork context menus.
 - Link editing flows, including manual link changes, icon inference, and link-icon upload/search helpers.

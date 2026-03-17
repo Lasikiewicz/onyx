@@ -11,7 +11,7 @@ import { LauncherIcon, getLauncherDisplayName } from '../../utils/launcherIcons'
 
 export type ImportProgressCallback = (current: number, total: number, phase: string, detail?: string) => void;
 
-interface ImportWorkbenchV2Props {
+export interface ImportWorkbenchV2Props {
     isOpen: boolean;
     onClose: () => void;
     onImport: (games: Game[], onProgress?: ImportProgressCallback) => Promise<void>;

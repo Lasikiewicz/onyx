@@ -21,7 +21,7 @@ import manualFolderIconVrGogglesFilled from '../assets/manual-folder-icons/vr-go
 import manualFolderIconVrGogglesOutline from '../assets/manual-folder-icons/vr-goggles-outline.svg';
 import manualFolderIconVrSquare from '../assets/manual-folder-icons/vr-square.svg';
 
-interface OnyxSettingsModalProps {
+export interface OnyxSettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave?: () => void;
