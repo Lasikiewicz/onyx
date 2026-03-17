@@ -201,6 +201,27 @@ const fetchChangelogFromGithub = async (version?: string): Promise<string | null
     return null;
 };
 
+const readLocalChangelog = async (): Promise<string | null> => {
+    const candidatePaths = [
+        path.join(app.getAppPath(), 'CHANGELOG.md'),
+        path.join(process.resourcesPath, 'CHANGELOG.md'),
+        path.join(process.resourcesPath, 'app.asar', 'CHANGELOG.md'),
+        path.join(process.resourcesPath, 'app.asar.unpacked', 'CHANGELOG.md'),
+        path.join(process.cwd(), 'CHANGELOG.md')
+    ];
+
+    for (const candidatePath of candidatePaths) {
+        if (!existsSync(candidatePath)) continue;
+        try {
+            return await readFile(candidatePath, 'utf-8');
+        } catch (error) {
+            console.error(`[Changelog] Failed reading local candidate "${candidatePath}":`, error);
+        }
+    }
+
+    return null;
+};
+
 const escapeForPowerShellSingleQuoted = (value: string) => value.replace(/'/g, "''");
 
 export function registerAppIPCHandlers(
@@ -418,8 +439,18 @@ export function registerAppIPCHandlers(
         return isAlpha ? 'alpha' : 'production';
     });
     ipcMain.handle('app:isPackaged', () => app.isPackaged);
-    ipcMain.handle('app:getChangelog', async (_event, version?: string) => {
+    ipcMain.handle('app:getChangelog', async (_event, request?: string | { version?: string; preferLocal?: boolean }) => {
         let lastError: string | null = null;
+        const version = typeof request === 'string' ? request : request?.version;
+        const preferLocal = typeof request === 'object' && request?.preferLocal === true;
+
+        if (preferLocal) {
+            const localChangelog = await readLocalChangelog();
+            if (localChangelog) {
+                return { success: true, content: localChangelog };
+            }
+        }
+
         // Try to fetch full CHANGELOG.md from GitHub as the primary source for versions
         // This ensures the update modal shows actual changelog sections instead of release body text
         try {
@@ -442,22 +473,9 @@ export function registerAppIPCHandlers(
             }
         }
 
-        const candidatePaths = [
-            path.join(app.getAppPath(), 'CHANGELOG.md'),
-            path.join(process.resourcesPath, 'CHANGELOG.md'),
-            path.join(process.resourcesPath, 'app.asar', 'CHANGELOG.md'),
-            path.join(process.resourcesPath, 'app.asar.unpacked', 'CHANGELOG.md'),
-            path.join(process.cwd(), 'CHANGELOG.md')
-        ];
-
-        for (const candidatePath of candidatePaths) {
-            if (!existsSync(candidatePath)) continue;
-            try {
-                const content = await readFile(candidatePath, 'utf-8');
-                return { success: true, content };
-            } catch (error) {
-                return { success: false, error: error instanceof Error ? error.message : String(error) };
-            }
+        const localChangelog = await readLocalChangelog();
+        if (localChangelog) {
+            return { success: true, content: localChangelog };
         }
 
         return { success: false, error: lastError ?? 'Changelog not found' };

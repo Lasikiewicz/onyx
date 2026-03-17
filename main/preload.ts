@@ -208,7 +208,7 @@ export const electronAPI = {
   getMetadataProviderStatus: () => ipcRenderer.invoke('metadata:getProviderStatus'),
   // App version
   getVersion: () => ipcRenderer.invoke('app:getVersion'),
-  getChangelog: (version?: string) => ipcRenderer.invoke('app:getChangelog', version),
+  getChangelog: (request?: string | { version?: string; preferLocal?: boolean }) => ipcRenderer.invoke('app:getChangelog', request),
   // App name (for detecting Alpha builds)
   getName: () => ipcRenderer.invoke('app:getName'),
   isPackaged: () => ipcRenderer.invoke('app:isPackaged'),

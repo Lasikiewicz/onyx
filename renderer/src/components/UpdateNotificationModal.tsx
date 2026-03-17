@@ -19,6 +19,7 @@ interface ParsedBullet {
   title: string | null;
   detail: string;
   raw: string;
+  children: string[];
 }
 
 interface ParsedSection {
@@ -27,10 +28,55 @@ interface ParsedSection {
   bullets: ParsedBullet[];
 }
 
-interface CategorizedBullets {
-  newFeatures: ParsedBullet[];
-  fixedIssues: ParsedBullet[];
-}
+const aggregateBullets = (bullets: ParsedBullet[]): ParsedBullet[] => {
+  const aggregated: ParsedBullet[] = [];
+
+  for (const bullet of bullets) {
+    if (!bullet.title) {
+      aggregated.push(bullet);
+      continue;
+    }
+
+    const existing = aggregated.find((entry) => entry.title === bullet.title);
+    if (!existing) {
+      aggregated.push({
+        ...bullet,
+        detail: '',
+        children: [
+          ...(bullet.detail ? [bullet.detail] : []),
+          ...bullet.children,
+        ],
+      });
+      continue;
+    }
+
+    if (bullet.detail) {
+      existing.children.push(bullet.detail);
+    }
+    existing.children.push(...bullet.children);
+  }
+
+  return aggregated;
+};
+
+const renderInlineSegments = (text: string, className = '') => {
+  const parts = text.split(/(`[^`]+`)/g).filter(Boolean);
+  return (
+    <span className={className}>
+      {parts.map((part, index) => {
+        if (part.startsWith('`') && part.endsWith('`')) {
+          return (
+            <em key={`${part}-${index}`} className="italic text-slate-100">
+              {part.slice(1, -1)}
+            </em>
+          );
+        }
+
+        return <React.Fragment key={`${part}-${index}`}>{part}</React.Fragment>;
+      })}
+    </span>
+  );
+};
 
 const normalizeVersion = (value: string) => value.replace(/^v/i, '').trim();
 
@@ -56,16 +102,25 @@ const compareVersions = (a: string, b: string) => {
 const parseBullet = (line: string): ParsedBullet => {
   const separatorIndex = line.indexOf(':');
   if (separatorIndex <= 0 || separatorIndex >= line.length - 1) {
-    return { title: null, detail: line, raw: line };
+    if (line.endsWith(':')) {
+      return {
+        title: line.slice(0, -1).trim() || null,
+        detail: '',
+        raw: line,
+        children: [],
+      };
+    }
+
+    return { title: null, detail: line, raw: line, children: [] };
   }
 
   const title = line.slice(0, separatorIndex).trim();
   const detail = line.slice(separatorIndex + 1).trim();
   if (!title || !detail) {
-    return { title: null, detail: line, raw: line };
+    return { title: null, detail: line, raw: line, children: [] };
   }
 
-  return { title, detail, raw: line };
+  return { title, detail, raw: line, children: [] };
 };
 
 const parseSections = (source: string): ParsedSection[] => {
@@ -78,12 +133,24 @@ const parseSections = (source: string): ParsedSection[] => {
       const endIndex = index + 1 < matches.length ? (matches[index + 1].index ?? source.length) : source.length;
       const headerLine = match[0];
       const sectionBody = source.slice(startIndex + headerLine.length, endIndex).trim();
-      const bullets = sectionBody
-        .split('\n')
-        .map((line) => line.trim())
-        .filter((line) => line.startsWith('- '))
-        .map((line) => parseBullet(line.slice(2).trim()))
-        .filter((line) => Boolean(line.raw));
+      const bullets: ParsedBullet[] = [];
+      let currentParent: ParsedBullet | null = null;
+
+      sectionBody.split('\n').forEach((line) => {
+        const trimmed = line.trim();
+        if (!trimmed) return;
+
+        const childMatch = line.match(/^\s{2,}-\s+(.*)$/);
+        if (childMatch && currentParent) {
+          currentParent.children.push(childMatch[1].trim());
+          return;
+        }
+
+        if (trimmed.startsWith('- ')) {
+          currentParent = parseBullet(trimmed.slice(2).trim());
+          bullets.push(currentParent);
+        }
+      });
 
       return {
         version: normalizeVersion(match[1]),
@@ -92,56 +159,6 @@ const parseSections = (source: string): ParsedSection[] => {
       };
     })
     .filter((section) => section.version.toLowerCase() !== 'unreleased');
-};
-
-const categorizeBullets = (bullets: ParsedBullet[]): CategorizedBullets => {
-  const newFeatures: ParsedBullet[] = [];
-  const fixedIssues: ParsedBullet[] = [];
-
-  for (const bullet of bullets) {
-    const haystack = `${bullet.title ?? ''} ${bullet.detail}`.toLowerCase();
-    const looksLikeFix = [
-      'fix',
-      'fixed',
-      'stabilize',
-      'stabilized',
-      'eliminate',
-      'eliminated',
-      'prevent',
-      'prevents',
-      'prevented',
-      'correctly',
-      'no longer',
-      'pause',
-      'paused',
-      'resume',
-      'resumed',
-      'warning',
-      'error',
-      'cleanup',
-      'constrain',
-      'clamp',
-      'bypass',
-      'persist',
-    ].some((term) => haystack.includes(term));
-
-    if (looksLikeFix) {
-      fixedIssues.push(bullet);
-      continue;
-    }
-
-    newFeatures.push(bullet);
-  }
-
-  if (newFeatures.length === 0 && fixedIssues.length > 0) {
-    return { newFeatures: [], fixedIssues };
-  }
-
-  if (fixedIssues.length === 0 && newFeatures.length > 0) {
-    return { newFeatures, fixedIssues: [] };
-  }
-
-  return { newFeatures, fixedIssues };
 };
 
 export const UpdateNotificationModal: React.FC<UpdateNotificationModalProps> = ({
@@ -303,33 +320,43 @@ export const UpdateNotificationModal: React.FC<UpdateNotificationModalProps> = (
                             {(() => {
                               const fallbackBullets = section.bullets.length > 0
                                 ? section.bullets
-                                : [{ title: null, detail: 'Internal maintenance and quality improvements.', raw: `fallback-${section.version}` }];
-                              const categorized = categorizeBullets(fallbackBullets);
-                              const groups = [
-                                { key: 'new', title: 'New features', bullets: categorized.newFeatures },
-                                { key: 'fixed', title: 'Fixed issues', bullets: categorized.fixedIssues },
-                              ].filter((group) => group.bullets.length > 0);
+                                : [{ title: null, detail: 'Internal maintenance and quality improvements.', raw: `fallback-${section.version}`, children: [] }];
+                              const bullets = aggregateBullets(fallbackBullets);
 
                               return (
-                                <div className="space-y-4">
-                                  {groups.map((group) => (
-                                    <section key={`${section.version}-${group.key}`} className="space-y-2">
-                                      <h4 className="text-sm font-semibold uppercase tracking-[0.14em] text-cyan-200/90">
-                                        {group.title}
-                                      </h4>
-                                      <div className="space-y-2">
-                                        {group.bullets.map((bullet) => (
-                                          <div key={bullet.raw} className="flex items-start gap-3 text-sm text-slate-200">
-                                            <span className="mt-2 h-1.5 w-1.5 rounded-full bg-cyan-300/80 shrink-0" />
-                                            <p className="leading-6">
-                                              {bullet.title ? <span className="font-semibold text-slate-50">{bullet.title}: </span> : null}
-                                              {bullet.detail}
-                                            </p>
-                                          </div>
-                                        ))}
+                                <div className="space-y-2">
+                                  {bullets.map((bullet) => {
+                                    const childItems = bullet.title && bullet.detail
+                                      ? [bullet.detail, ...bullet.children]
+                                      : bullet.children;
+
+                                    if (bullet.title) {
+                                      return (
+                                        <div key={bullet.raw} className="space-y-2 text-sm text-slate-200">
+                                          <p className="leading-6 font-semibold text-slate-50">
+                                            {renderInlineSegments(`${bullet.title}:`)}
+                                          </p>
+                                          {childItems.length > 0 && (
+                                            <div className="space-y-1.5 pl-1">
+                                              {childItems.map((child) => (
+                                                <div key={`${bullet.raw}-${child}`} className="flex items-start gap-2 text-sm text-slate-300">
+                                                  <span className="mt-2 h-1.5 w-1.5 rounded-full bg-slate-400/80 shrink-0" />
+                                                  <p className="leading-6">{renderInlineSegments(child)}</p>
+                                                </div>
+                                              ))}
+                                            </div>
+                                          )}
+                                        </div>
+                                      );
+                                    }
+
+                                    return (
+                                      <div key={bullet.raw} className="flex items-start gap-3 text-sm text-slate-200">
+                                        <span className="mt-2 h-1.5 w-1.5 rounded-full bg-cyan-300/80 shrink-0" />
+                                        <p className="leading-6">{renderInlineSegments(bullet.detail)}</p>
                                       </div>
-                                    </section>
-                                  ))}
+                                    );
+                                  })}
                                 </div>
                               );
                             })()}

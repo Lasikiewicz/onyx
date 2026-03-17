@@ -23,14 +23,17 @@ export function useAppShellSystemState() {
     return parsed.toLowerCase() === 'unreleased' ? null : parsed;
   }, [changelogSource]);
 
-  const fetchChangelog = useCallback(async (targetVersion?: string) => {
+  const fetchChangelog = useCallback(async (targetVersion?: string, options?: { preferLocal?: boolean }) => {
     if (!window.electronAPI.getChangelog) return;
     setChangelogLoading(true);
     setChangelogError(null);
     setChangelogSource(null);
 
     try {
-      const result = await window.electronAPI.getChangelog(targetVersion);
+      const result = await window.electronAPI.getChangelog({
+        version: targetVersion,
+        preferLocal: options?.preferLocal ?? false,
+      });
       if (result?.success && result.content) {
         setChangelogSource(result.content);
       } else {
@@ -65,8 +68,8 @@ export function useAppShellSystemState() {
 
   useEffect(() => {
     if (!updateNotification?.version) return;
-    fetchChangelog(updateNotification.version);
-  }, [updateNotification?.version, fetchChangelog]);
+    fetchChangelog(updateNotification.version, { preferLocal: isUpdateModalTest || import.meta.env.DEV });
+  }, [fetchChangelog, isUpdateModalTest, updateNotification?.version]);
 
   useEffect(() => {
     let cancelled = false;
@@ -95,7 +98,7 @@ export function useAppShellSystemState() {
 
   useEffect(() => {
     if (!import.meta.env.DEV) return;
-    fetchChangelog();
+    fetchChangelog(undefined, { preferLocal: true });
   }, [fetchChangelog]);
 
   const handleUpdateNow = useCallback(async () => {
