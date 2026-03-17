@@ -15,6 +15,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Settings maintainability: Extract launcher and manual-folder source loading/actions from `OnyxSettingsModal.tsx` into `useOnyxSettingsLibrarySources.ts`.
 - Settings maintainability: Extract settings load/save, background scan, destructive maintenance, and suspend shortcut persistence from `OnyxSettingsModal.tsx` into `useOnyxSettingsModalPersistence.ts`.
 - Add Games maintainability: Extract the staged-editor Links tab from `GamePropertiesPanel.tsx` into `GamePropertiesLinksTab.tsx`.
+- Add Games maintainability: Extract the staged-editor Mod Manager tab from `GamePropertiesPanel.tsx` into `GamePropertiesModManagerTab.tsx`.
+- Add Games maintainability: Extract the staged-editor metadata undo and fix-match workflow from `GamePropertiesPanel.tsx` into `useGamePropertiesMetadata.ts`.
 
 ## [0.7.37] - 2026-03-17
 

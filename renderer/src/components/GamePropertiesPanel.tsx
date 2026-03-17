@@ -8,6 +8,8 @@ import {
     mergeIntoStagedGame
 } from '../types/EditableGame';
 import { GamePropertiesLinksTab } from './gameProperties/GamePropertiesLinksTab';
+import { GamePropertiesModManagerTab } from './gameProperties/GamePropertiesModManagerTab';
+import { useGamePropertiesMetadata } from './gameProperties/useGamePropertiesMetadata';
 
 export interface GamePropertiesPanelHandle {
     /** Flush current edits to parent and return the merged game (e.g. before Import). */
@@ -59,16 +61,6 @@ export const GamePropertiesPanel = forwardRef<GamePropertiesPanelHandle, GamePro
     const [activeTab, setActiveTab] = useState<'metadata' | 'images' | 'links' | 'modManager'>('metadata');
     const [editedFields, setEditedFields] = useState<EditableGameFields>(() => toEditableFields(game));
 
-    // Undo state: store previous state before Fix Match
-    const previousStateRef = useRef<EditableGameFields | null>(null);
-    const [canUndo, setCanUndo] = useState(false);
-
-    // Metadata Search State
-    const [showFixMatch, setShowFixMatch] = useState(false);
-    const [metadataSearchQuery, setMetadataSearchQuery] = useState('');
-    const [isSearchingMetadata, setIsSearchingMetadata] = useState(false);
-    const [metadataSearchResults, setMetadataSearchResults] = useState<any[]>([]);
-
     // Image Search State
     const [imageSearchQuery, setImageSearchQuery] = useState('');
     const [isSearchingImages, setIsSearchingImages] = useState(false);
@@ -95,17 +87,34 @@ export const GamePropertiesPanel = forwardRef<GamePropertiesPanelHandle, GamePro
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
     const [newCategoryInput, setNewCategoryInput] = useState('');
+    const {
+        canUndo,
+        handleApplyMatch,
+        handleFixMatchSearch,
+        handleToggleFixMatch,
+        handleUndo,
+        isSearchingMetadata,
+        metadataSearchQuery,
+        metadataSearchResults,
+        resetMetadataState,
+        setMetadataSearchQuery,
+        showFixMatch,
+    } = useGamePropertiesMetadata({
+        editedFields,
+        game,
+        isStaged,
+        onSave,
+        setEditedFields,
+        setError,
+        setSuccess,
+    });
 
     useEffect(() => {
         setEditedFields(toEditableFields(game));
         setFailedImageUrls(new Set());
-        // Reset transient states
-        setShowFixMatch(false);
-        setMetadataSearchResults([]);
         setError(null);
         setImageSearchQuery('');
-        setCanUndo(false);
-        previousStateRef.current = null;
+        resetMetadataState();
     }, [game]);
 
     const updateField = <K extends keyof EditableGameFields>(field: K, value: EditableGameFields[K]) => {
@@ -205,106 +214,6 @@ export const GamePropertiesPanel = forwardRef<GamePropertiesPanelHandle, GamePro
             setError('Failed to fetch images from sources');
         } finally {
             setIsSearchingImages(false);
-        }
-    };
-
-    // --- Undo ---
-    const handleUndo = () => {
-        if (previousStateRef.current) {
-            setEditedFields(previousStateRef.current);
-            previousStateRef.current = null;
-            setCanUndo(false);
-            setSuccess('Reverted to previous state');
-            setTimeout(() => setSuccess(null), 2000);
-        }
-    };
-
-    // --- Metadata Search ---
-    const handleFixMatchSearch = async () => {
-        if (!metadataSearchQuery.trim()) return;
-        setIsSearchingMetadata(true);
-        setMetadataSearchResults([]);
-        setError(null);
-
-        try {
-            // searchGames returns an array directly, not a {success, results} wrapper
-            const response = await window.electronAPI.searchGames(metadataSearchQuery);
-            if (Array.isArray(response) && response.length > 0) {
-                setMetadataSearchResults(response);
-            } else {
-                setError('No results found');
-            }
-        } catch {
-            setError('Search failed');
-        } finally {
-            setIsSearchingMetadata(false);
-        }
-    };
-
-    const handleApplyMatch = async (result: any) => {
-        // Store current state for undo
-        previousStateRef.current = { ...editedFields };
-
-        try {
-            let metadata: any = null;
-
-            if (!isStaged && 'id' in game) {
-                // Use existing API for real games
-                const response = await window.electronAPI.fetchAndUpdateByProviderId((game as Game).id, result.id, result.source);
-                if (response.success) {
-                    metadata = response.metadata;
-                } else {
-                    throw new Error(response.error || "Failed to fetch metadata");
-                }
-            } else {
-                // For Staged / Import: Fetch Metadata and Apply to Local State
-                metadata = await window.electronAPI.searchArtwork(result.title, result.steamAppId);
-            }
-
-            if (metadata) {
-                const newFields = {
-                    ...editedFields,
-                    title: metadata.title || editedFields.title,
-                    description: metadata.description || editedFields.description,
-                    releaseDate: metadata.releaseDate || editedFields.releaseDate,
-                    genres: metadata.genres || editedFields.genres,
-                    developers: metadata.developers || editedFields.developers,
-                    publishers: metadata.publishers || editedFields.publishers,
-                    categories: metadata.categories || editedFields.categories,
-                    boxArtUrl: metadata.boxArtUrl || editedFields.boxArtUrl,
-                    bannerUrl: metadata.bannerUrl || editedFields.bannerUrl,
-                    alternativeBannerUrl: metadata.alternativeBannerUrl || editedFields.alternativeBannerUrl,
-                    logoUrl: metadata.logoUrl || editedFields.logoUrl,
-                    heroUrl: metadata.heroUrl || editedFields.heroUrl,
-                    iconUrl: metadata.iconUrl || editedFields.iconUrl,
-                    links: metadata.links || editedFields.links,
-                    screenshots: metadata.screenshots || editedFields.screenshots,
-                    ageRating: metadata.ageRating || editedFields.ageRating,
-                };
-
-                setEditedFields(newFields);
-                setShowFixMatch(false);
-                setCanUndo(true);
-
-                if (!isStaged && 'id' in game) {
-                    // Trigger parent reload with updated fields
-                    const merged = mergeIntoGame(game as Game, newFields);
-                    if (onSave) onSave(merged);
-                    setSuccess("Match fixed!");
-                } else {
-                    // Auto-save/update parent for Staged games to simulate "re-import"
-                    if (isStaged) {
-                        const merged = mergeIntoStagedGame(game as StagedGame, newFields);
-                        if (onSave) await onSave(merged);
-                        setSuccess("Match fixed & Updated!");
-                    } else {
-                        setSuccess("Metadata applied!");
-                    }
-                }
-            }
-        } catch (err) {
-            setError(err instanceof Error ? err.message : "Failed to apply match");
-            previousStateRef.current = null;
         }
     };
 
@@ -622,7 +531,7 @@ export const GamePropertiesPanel = forwardRef<GamePropertiesPanelHandle, GamePro
                                     </button>
                                 )}
                                 <button
-                                    onClick={() => { setShowFixMatch(!showFixMatch); if (!showFixMatch) setMetadataSearchQuery(editedFields.title); }}
+                                    onClick={handleToggleFixMatch}
                                     disabled={editingDisabled}
                                     className="px-3 py-1.5 text-sm bg-purple-600 hover:bg-purple-700 text-white rounded transition-colors flex items-center gap-1.5 disabled:opacity-50"
                                 >
@@ -1247,48 +1156,10 @@ export const GamePropertiesPanel = forwardRef<GamePropertiesPanelHandle, GamePro
                 )}
 
                 {activeTab === 'modManager' && (
-                    <div className="space-y-4">
-                        {isStaged ? (
-                            <p className="text-sm text-gray-400 py-4">Mod manager can be configured after importing this game (in Game Manager → Mod Manager tab).</p>
-                        ) : (
-                            <>
-                                <div>
-                                    <label className="text-xs font-medium text-gray-400 mb-1 block">Mod Manager Link</label>
-                                    <div className="flex gap-2">
-                                        <input
-                                            type="text"
-                                            value={(game as Game).modManagerUrl || ''}
-                                            readOnly
-                                            className="flex-1 bg-gray-800 border border-gray-700 rounded p-2 text-sm text-gray-400"
-                                            placeholder="Configure in Game Manager"
-                                        />
-                                        {(game as Game).modManagerUrl && (
-                                            <button
-                                                type="button"
-                                                onClick={async () => {
-                                                    if ((game as Game).id) {
-                                                        try {
-                                                            const result = await window.electronAPI.launchModManager((game as Game).id);
-                                                            if (!result.success && result.error) {
-                                                                console.error('Error launching mod manager:', result.error);
-                                                            }
-                                                        } catch (err) {
-                                                            console.error('Error opening mod manager:', err);
-                                                        }
-                                                    }
-                                                }}
-                                                className="px-4 py-1.5 text-sm bg-purple-600 hover:bg-purple-700 text-white rounded transition-colors"
-                                                title="Launch Mod Manager"
-                                            >
-                                                Launch
-                                            </button>
-                                        )}
-                                    </div>
-                                    <p className="text-xs text-gray-500 mt-2">Edit the mod manager URL in Game Manager.</p>
-                                </div>
-                            </>
-                        )}
-                    </div>
+                    <GamePropertiesModManagerTab
+                        game={game as Game}
+                        isStaged={isStaged}
+                    />
                 )}
             </div>
 

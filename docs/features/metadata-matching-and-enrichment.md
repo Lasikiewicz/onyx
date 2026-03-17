@@ -40,6 +40,7 @@ Resolves game metadata (titles, identifiers, links, artwork candidates) from con
 - Provider services fetch remote API payloads and provider adapters normalize them into the app metadata model.
 - Metadata cache reduces repeated fetches and supports refresh workflows.
 - The renderer-side per-game metadata workflow is now split so [`GameManagerMetadataTab.tsx`](../../renderer/src/components/gameManager/GameManagerMetadataTab.tsx) owns the Metadata tab layout while [`useGameManagerMetadata.ts`](../../renderer/src/components/gameManager/useGameManagerMetadata.ts) owns save, fix-match search, match-apply, and cancel-edit orchestration for the Game Manager flow.
+- The Add Games staged-editor metadata workflow now also flows through [`useGamePropertiesMetadata.ts`](../../renderer/src/components/gameProperties/useGamePropertiesMetadata.ts), which owns staged undo, fix-match search, and match-apply behavior outside the main staged-editor shell.
 
 ## Data Model and Persistence
 
@@ -93,6 +94,7 @@ Resolves game metadata (titles, identifiers, links, artwork candidates) from con
   - [GameManager.tsx](../../renderer/src/components/GameManager.tsx)
   - [gameManager/GameManagerMetadataTab.tsx](../../renderer/src/components/gameManager/GameManagerMetadataTab.tsx)
   - [gameManager/useGameManagerMetadata.ts](../../renderer/src/components/gameManager/useGameManagerMetadata.ts)
+  - [gameProperties/useGamePropertiesMetadata.ts](../../renderer/src/components/gameProperties/useGamePropertiesMetadata.ts)
   - [GameMetadataEditor.tsx](../../renderer/src/components/GameMetadataEditor.tsx)
   - [MetadataSearchModal.tsx](../../renderer/src/components/MetadataSearchModal.tsx)
   - [RefreshMetadataDialog.tsx](../../renderer/src/components/RefreshMetadataDialog.tsx)

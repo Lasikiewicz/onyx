@@ -50,6 +50,8 @@ It explains module boundaries, data flow, and release pipeline expectations.
 - `renderer/src/components/settings/SettingsScanningTab.tsx` now owns the Scanning tab body for background scan controls and startup behavior toggles, further reducing the amount of scanning UI embedded directly in `OnyxSettingsModal.tsx`.
 - `renderer/src/components/settings/SettingsSuspendTab.tsx` now owns the Suspend/Resume tab body for shortcut capture, elevation restart, and suspend feature toggles, further reducing the amount of suspend workflow UI embedded directly in `OnyxSettingsModal.tsx`.
 - `renderer/src/components/gameProperties/GamePropertiesLinksTab.tsx` now owns the Add Games staged-editor Links tab body, so `GamePropertiesPanel.tsx` no longer embeds per-link row rendering and icon selection markup directly inside the giant editor shell.
+- `renderer/src/components/gameProperties/GamePropertiesModManagerTab.tsx` now owns the Add Games staged-editor Mod Manager tab body, so `GamePropertiesPanel.tsx` no longer embeds that launch/configuration panel directly inside the giant editor shell.
+- `renderer/src/components/gameProperties/useGamePropertiesMetadata.ts` now owns the Add Games staged-editor metadata undo/fix-match/apply-match workflow, so `GamePropertiesPanel.tsx` no longer embeds that metadata repair state machine directly inside the giant editor shell.
 
 ## Data and Control Flow
 
@@ -95,7 +97,7 @@ It explains module boundaries, data flow, and release pipeline expectations.
 
 <!-- AUTO-GENERATED:MODULE_INDEX:START -->
 - Main process source files: 70
-- Renderer source files: 129
+- Renderer source files: 131
 - Automation scripts: 30
 - GitHub workflow files: 7
 - Key entrypoints:
