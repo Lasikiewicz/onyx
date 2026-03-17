@@ -11,6 +11,7 @@ import { useAppShellSystemState } from './hooks/useAppShellSystemState';
 import { useSettingsSaveRefresh } from './hooks/useSettingsSaveRefresh';
 import { usePreferenceWriter } from './hooks/usePreferenceWriter';
 import { useStartupScanReview } from './hooks/useStartupScanReview';
+import { useGameManagerShellBridge } from './hooks/useGameManagerShellBridge';
 import { LibraryGrid } from './components/LibraryGrid';
 import { LibraryListView } from './components/LibraryListView';
 import { RightClickMenu } from './components/RightClickMenu';
@@ -1160,6 +1161,20 @@ function App() {
     setStartupProgress,
     openImporterWithGames: handleOpenImporterWithGames,
   });
+  const {
+    handleDeleteGame: handleDeleteGameFromManager,
+    handleOpenImporterWithMode,
+    handleRequestOptimizer,
+    handleSaveGame: handleSaveGameFromManager,
+  } = useGameManagerShellBridge({
+    games,
+    closeGameManager,
+    deleteGame,
+    loadLibrary,
+    openImportWorkbench,
+    setShowOptimizerModal,
+    updateGameInState,
+  });
 
   // Whether any major overlay or context menu is open (settings, game manager, right-click menu, etc.)
   const overlaysOpen =
@@ -2128,63 +2143,10 @@ function App() {
           games={games}
           initialGameId={gameManagerInitialGameId}
           initialTab={gameManagerInitialTab}
-          onOpenImporterWithMode={async (mode) => {
-            closeGameManager();
-            if (mode === 'nuclear') {
-              const result = await window.electronAPI.clearLibrary?.();
-              if (!result?.success) {
-                console.error('Failed to clear library:', result?.error);
-                return;
-              }
-              await loadLibrary();
-              openImportWorkbench({ initialMode: 'nuclear', autoStartScan: true });
-            } else if (mode === 'images') {
-              const result = await window.electronAPI.clearAllImages?.();
-              if (!result?.success) {
-                console.error('Failed to clear images:', result?.error);
-                return;
-              }
-              await loadLibrary();
-              openImportWorkbench({ initialMode: 'images' });
-            } else if (mode === 'links') {
-              const result = await window.electronAPI.clearAllLinks?.();
-              if (!result?.success) {
-                console.error('Failed to clear links:', result?.error);
-                return;
-              }
-              await loadLibrary();
-              openImportWorkbench({ initialMode: 'links' });
-            }
-          }}
-          onRequestOptimizer={() => setShowOptimizerModal(true)}
-          onSaveGame={async (game, oldGame) => {
-          // Get old game if not provided
-          if (!oldGame) {
-            oldGame = games.find(g => g.id === game.id);
-          }
-          await window.electronAPI.saveGame(game, oldGame);
-          // Check if it's just an image update
-          const isImageUpdate = oldGame && (
-            game.boxArtUrl !== oldGame.boxArtUrl ||
-            game.bannerUrl !== oldGame.bannerUrl ||
-            game.alternativeBannerUrl !== oldGame.alternativeBannerUrl ||
-            game.logoUrl !== oldGame.logoUrl ||
-            game.heroUrl !== oldGame.heroUrl ||
-            game.iconUrl !== oldGame.iconUrl
-          );
-
-          if (isImageUpdate) {
-            // Update the game in state without reloading - this updates the main app immediately
-            updateGameInState(game);
-          } else {
-            // For non-image updates, reload the library
-            await loadLibrary();
-          }
-        }}
-          onDeleteGame={async (gameId) => {
-            await deleteGame(gameId);
-            await loadLibrary();
-          }}
+          onOpenImporterWithMode={handleOpenImporterWithMode}
+          onRequestOptimizer={handleRequestOptimizer}
+          onSaveGame={handleSaveGameFromManager}
+          onDeleteGame={handleDeleteGameFromManager}
           onReloadLibrary={loadLibrary}
         />
       </Suspense>

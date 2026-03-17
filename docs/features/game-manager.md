@@ -16,6 +16,7 @@ Provides the main per-game maintenance workspace for the library. The Game Manag
 ## User-Facing Surfaces
 
 - The `Game Manager` modal opened from the main library UI via [`GameManager.tsx`](../../renderer/src/components/GameManager.tsx).
+- The shell-side bridge in [`useGameManagerShellBridge.ts`](../../renderer/src/hooks/useGameManagerShellBridge.ts), which connects the modal to app-shell save/delete follow-up, optimizer launch, and importer maintenance modes.
 - Metadata editing flows, including match fixes, metadata refresh, and per-game title/description/category changes.
 - Artwork editing flows, including local browse/upload, aggregated provider search, quick search, provider filtering, and artwork context menus.
 - Link editing flows, including manual link changes, icon inference, and link-icon upload/search helpers.
@@ -34,7 +35,7 @@ Provides the main per-game maintenance workspace for the library. The Game Manag
 2. Run metadata search or fix-match flows, preview provider candidates, apply a result, and refresh the local edited game state so the modal reflects persisted metadata immediately.
 3. Open the Images tab, search multiple providers, filter by provider/type, choose an asset or browse for a local replacement, and queue optimization after artwork changes.
 4. Edit links or trigger links-only refresh flows, including icon search/upload helpers, then save the updated link array back into the game record.
-5. Launch maintenance dialogs such as remove-deleted-games scans, boxart fixes, or bulk refresh actions from inside the manager and return to the same modal context afterward.
+5. Launch maintenance dialogs such as remove-deleted-games scans, boxart fixes, or bulk refresh actions from inside the manager; [`useGameManagerShellBridge.ts`](../../renderer/src/hooks/useGameManagerShellBridge.ts) handles the app-shell side of importer maintenance handoff and save/delete follow-up after those actions complete.
 
 ## Discovery and Data Sources
 
@@ -61,6 +62,7 @@ Provides the main per-game maintenance workspace for the library. The Game Manag
 - Delete and remove-missing maintenance state now lives in [`useGameManagerMaintenance.ts`](../../renderer/src/components/gameManager/useGameManagerMaintenance.ts), which owns the delete/remove-missing async handlers and related dialog state while [`GameManager.tsx`](../../renderer/src/components/GameManager.tsx) keeps the rest of the modal orchestration.
 - Link icon inference and search-query helpers come from [`GameLinks.tsx`](../../renderer/src/components/GameLinks.tsx).
 - Preferences that shape manager behavior are read through the preload bridge and persisted by main-process preference services described in [settings-and-preferences.md](./settings-and-preferences.md).
+- App-shell follow-up for Game Manager actions now runs through [`useGameManagerShellBridge.ts`](../../renderer/src/hooks/useGameManagerShellBridge.ts), which keeps [`App.tsx`](../../renderer/src/App.tsx) focused on modal composition instead of Game Manager maintenance callbacks.
 
 ## Data Model and Persistence
 
@@ -79,6 +81,7 @@ Provides the main per-game maintenance workspace for the library. The Game Manag
 ## File Ownership Map
 
 - [`GameManager.tsx`](../../renderer/src/components/GameManager.tsx) - top-level modal orchestration for tabs, dialogs, searches, and save/delete flows.
+- [`useGameManagerShellBridge.ts`](../../renderer/src/hooks/useGameManagerShellBridge.ts) - app-shell bridge for Game Manager save/delete follow-up, optimizer launch, and maintenance-mode importer handoff.
 - [`imageSearchUtils.ts`](../../renderer/src/components/gameManager/imageSearchUtils.ts) - image URL normalization, provider-name normalization, and animated-asset filtering helpers used by the Images tab.
 - [`imageResultUtils.ts`](../../renderer/src/components/gameManager/imageResultUtils.ts) - ordered result grouping, provider filtering, and image-count aggregation for image search results.
 - [`providerProgressUtils.ts`](../../renderer/src/components/gameManager/providerProgressUtils.ts) - provider-progress row construction and provider-status event mapping for image searches.
