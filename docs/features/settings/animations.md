@@ -27,7 +27,7 @@ Controls whether UI and artwork animation features remain active at runtime.
 
 ## Discovery and Data Sources
 
-- Settings UI: `OnyxSettingsModal` animations tab.
+- Settings UI: [SettingsAnimationsTab.tsx](../../../renderer/src/components/settings/SettingsAnimationsTab.tsx), mounted by [OnyxSettingsModal.tsx](../../../renderer/src/components/OnyxSettingsModal.tsx).
 - Runtime consumers include [`App.tsx`](../../../renderer/src/App.tsx), [`GameDetailsPanel`](../../../renderer/src/components/GameDetailsPanel.tsx), and image/display selection logic.
 
 ## Data Model and Persistence
@@ -46,6 +46,7 @@ Controls whether UI and artwork animation features remain active at runtime.
 ## File Ownership Map
 
 - **Renderer**
+  - [SettingsAnimationsTab.tsx](../../../renderer/src/components/settings/SettingsAnimationsTab.tsx)
   - [OnyxSettingsModal.tsx](../../../renderer/src/components/OnyxSettingsModal.tsx)
   - [App.tsx](../../../renderer/src/App.tsx)
   - [GameDetailsPanel.tsx](../../../renderer/src/components/GameDetailsPanel.tsx)

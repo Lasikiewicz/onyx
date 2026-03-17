@@ -38,7 +38,7 @@ Controls app startup, tray integration, hardware acceleration, and basic window 
 
 ## Discovery and Data Sources
 
-- UI lives in [OnyxSettingsModal.tsx](../../../renderer/src/components/OnyxSettingsModal.tsx) under the `general` tab.
+- UI lives in [SettingsGeneralTab.tsx](../../../renderer/src/components/settings/SettingsGeneralTab.tsx), mounted by [OnyxSettingsModal.tsx](../../../renderer/src/components/OnyxSettingsModal.tsx).
 - Persistence uses [UserPreferencesService.ts](../../../main/UserPreferencesService.ts) defaults and save flow.
 - Runtime consumers include tray/window lifecycle and launch behavior in [main.ts](../../../main/main.ts) / [App.tsx](../../../renderer/src/App.tsx).
 
@@ -62,6 +62,7 @@ Controls app startup, tray integration, hardware acceleration, and basic window 
 ## File Ownership Map
 
 - **Renderer**
+  - [SettingsGeneralTab.tsx](../../../renderer/src/components/settings/SettingsGeneralTab.tsx)
   - [OnyxSettingsModal.tsx](../../../renderer/src/components/OnyxSettingsModal.tsx)
   - [App.tsx](../../../renderer/src/App.tsx)
 - **Main process**

@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { SettingsLayout } from './settings/SettingsLayout';
 import { SettingsSidebar, SettingsTab } from './settings/SettingsSidebar';
-import { SettingsSection, SettingsToggle } from './settings/SettingsComponents';
 import { SettingsAdvancedTab } from './settings/SettingsAdvancedTab';
+import { SettingsAnimationsTab } from './settings/SettingsAnimationsTab';
+import { SettingsGeneralTab } from './settings/SettingsGeneralTab';
 import { SettingsIntegrationsTab } from './settings/SettingsIntegrationsTab';
 import { SettingsAboutTab } from './settings/SettingsAboutTab';
 import { SettingsLibrariesTab } from './settings/SettingsLibrariesTab';
@@ -10,6 +11,7 @@ import { SettingsLinksTab } from './settings/SettingsLinksTab';
 import { SettingsScanningTab } from './settings/SettingsScanningTab';
 import { SettingsSuspendTab } from './settings/SettingsSuspendTab';
 import { LINK_DISPLAY_ORDER, DEFAULT_VISIBLE_LINK_TYPES } from './GameLinks';
+import { SettingsModalTab, useOnyxSettingsModalShellState } from '../hooks/useOnyxSettingsModalShellState';
 
 export interface OnyxSettingsModalProps {
   isOpen: boolean;
@@ -52,8 +54,6 @@ interface OnyxSettings {
   suspendShortcut: string;
 }
 
-type TabType = 'general' | 'scanning' | 'library' | 'launchers' | 'integrations' | 'links' | 'appearance' | 'animations' | 'advanced' | 'suspend' | 'about'; // Keep legacy types for state compatibility, but UI will hide them
-
 interface AppConfig {
   id: string;
   name: string;
@@ -66,14 +66,6 @@ interface AppConfig {
   autoCategory?: string[];
 }
 
-interface APICredentials {
-  igdbClientId: string;
-  igdbClientSecret: string;
-  rawgApiKey: string;
-  steamGridDBApiKey: string;
-  giantBombApiKey: string;
-}
-
 interface ManualFolderConfig {
   id: string;
   name: string;
@@ -82,8 +74,6 @@ interface ManualFolderConfig {
   autoCategory?: string[];
   icon?: string;
 }
-
-type APITabType = 'igdb' | 'rawg' | 'steamgriddb' | 'giantbomb';
 
 // Default game install locations for Windows
 const getDefaultPaths = (appId: string): string[] => {
@@ -153,19 +143,6 @@ const findExistingPath = async (defaultPaths: string[]): Promise<string> => {
   return defaultPaths[0] || '';
 };
 
-const sanitizeUpdateErrorForDisplay = (error?: string | null): string | null => {
-  if (!error) return null;
-  const trimmed = error.trim();
-  if (!trimmed) return null;
-
-  if (/<!doctype html|<html|<head|<body|<style|<script|<div|<span/i.test(trimmed)) {
-    return 'Update check failed due to an unexpected server response. Please try again.';
-  }
-
-  const singleLine = trimmed.replace(/\s+/g, ' ');
-  return singleLine.length > 220 ? `${singleLine.slice(0, 217)}...` : singleLine;
-};
-
 export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
   isOpen,
   onClose,
@@ -173,21 +150,6 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
   initialTab = 'general',
   onShowImportModal,
 }) => {
-  const [activeTab, setActiveTab] = useState<TabType>(() => {
-    if (initialTab === 'apps') return 'launchers';
-    if (initialTab === 'apis') return 'integrations';
-    if ((initialTab as string) === 'folders') return 'library';
-    if (initialTab === 'reset') return 'advanced';
-    return initialTab as TabType;
-  });
-  const [apiCredentials, setApiCredentials] = useState<APICredentials>({
-    igdbClientId: '',
-    igdbClientSecret: '',
-    rawgApiKey: '',
-    steamGridDBApiKey: '',
-    giantBombApiKey: '',
-  });
-  const [activeAPITab, setActiveAPITab] = useState<APITabType>('steamgriddb');
   const [apps, setApps] = useState<AppConfig[]>([]);
   const [isLoadingApps, setIsLoadingApps] = useState(false);
   const [scanningAppId, setScanningAppId] = useState<string | null>(null);
@@ -228,185 +190,100 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
   });
   const [showLogoOverBoxart, setShowLogoOverBoxart] = useState(true);
   const [logoPosition, setLogoPosition] = useState<'top' | 'middle' | 'bottom' | 'underneath'>('middle');
-  const [appVersion, setAppVersion] = useState<string>('0.0.0');
-  const [isPackagedApp, setIsPackagedApp] = useState<boolean>(false);
-  const [updateStatus, setUpdateStatus] = useState<'idle' | 'checking' | 'available' | 'not-available' | 'downloading' | 'downloaded' | 'error'>('idle');
-  const [updateVersion, setUpdateVersion] = useState<string | null>(null);
-  const [updateError, setUpdateError] = useState<string | null>(null);
-  const updateCheckTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [backgroundScanEnabled, setBackgroundScanEnabled] = useState(false);
   const [backgroundScanIntervalMinutes, setBackgroundScanIntervalMinutes] = useState(30);
 
   const [linkVisibleTypes, setLinkVisibleTypes] = useState<Record<string, boolean>>(DEFAULT_VISIBLE_LINK_TYPES);
   const [linkDisplayOrder, setLinkDisplayOrder] = useState<string[]>(LINK_DISPLAY_ORDER);
-  const [isCapturingSuspendShortcut, setIsCapturingSuspendShortcut] = useState(false);
-  const [suspendShortcutCaptureError, setSuspendShortcutCaptureError] = useState<string | null>(null);
-
-  // Load settings and version on mount
-  useEffect(() => {
-    if (isOpen) {
-      const loadSettings = async () => {
-        try {
-          const prefs = await window.electronAPI.getPreferences();
-          setSettings({
-            minimizeToTray: prefs.minimizeToTray ?? false,
-            showSystemTrayIcon: prefs.showSystemTrayIcon ?? true,
-            startWithComputer: prefs.startWithComputer ?? false,
-            startMinimized: prefs.startMinimized ?? false,
-            startClosedToTray: prefs.startClosedToTray ?? false,
-            updateLibrariesOnStartup: prefs.updateLibrariesOnStartup ?? false,
-            checkForUpdatesOnStartup: prefs.checkForUpdatesOnStartup ?? true,
-            minimizeOnGameLaunch: prefs.minimizeOnGameLaunch ?? false,
-            hideGameTitles: prefs.hideGameTitles ?? false,
-            gameTilePadding: prefs.gameTilePadding ?? 16,
-            enableHardwareAcceleration: prefs.enableHardwareAcceleration ?? true,
-            closeToTray: prefs.closeToTray ?? false,
-            confirmGameLaunch: prefs.confirmGameLaunch ?? false,
-            restoreAfterLaunch: prefs.restoreAfterLaunch ?? false,
-            defaultStartupPage: (prefs.defaultStartupPage as any) ?? 'library',
-            disableAllAnimations: prefs.disableAllAnimations ?? false,
-                  disableAnimatedBanners: prefs.disableAnimatedBanners ?? false,
-                  disableAnimatedBoxarts: prefs.disableAnimatedBoxarts ?? false,
-                  disableAnimatedBackgrounds: prefs.disableAnimatedBackgrounds ?? false,
-                  disableAnimatedIcons: prefs.disableAnimatedIcons ?? false,
-                  disableAnimatedLogos: prefs.disableAnimatedLogos ?? false,
-            startInFullscreen: prefs.startInFullscreen ?? false,
-            hideMouseCursorInFullscreen: prefs.hideMouseCursorInFullscreen ?? true,
-            cursorHideTimeout: prefs.cursorHideTimeout ?? 3000,
-            linkDisplayMode: prefs.linkDisplayMode ?? 'icons',
-            enableSuspendFeature: prefs.enableSuspendFeature ?? false,
-            suspendShortcut: prefs.suspendShortcut ?? 'Ctrl+Shift+S',
-          });
-          setShowLogoOverBoxart(prefs.showLogoOverBoxart ?? true);
-          setLogoPosition(prefs.logoPosition ?? 'middle');
-
-          if (prefs.visibleLinkTypes && Object.keys(prefs.visibleLinkTypes).length > 0) {
-            setLinkVisibleTypes(prefs.visibleLinkTypes);
-          } else {
-            setLinkVisibleTypes(DEFAULT_VISIBLE_LINK_TYPES);
-          }
-          if (prefs.linkDisplayOrder && prefs.linkDisplayOrder.length > 0) {
-            setLinkDisplayOrder(prefs.linkDisplayOrder);
-          } else {
-            setLinkDisplayOrder(LINK_DISPLAY_ORDER);
-          }
-
-          // Load app version
-          try {
-            const version = await window.electronAPI.getVersion();
-            setAppVersion(version);
-          } catch (error) {
-            console.error('Error loading app version:', error);
-          }
-
-          // Determine whether auto-updater is active in this runtime
-          try {
-            const packaged = await window.electronAPI.isPackaged?.();
-            setIsPackagedApp(Boolean(packaged));
-          } catch (error) {
-            console.error('Error loading packaged state:', error);
-            setIsPackagedApp(false);
-          }
-
-          // Load background scan settings
-          try {
-            const enabled = await window.electronAPI.getBackgroundScanEnabled();
-            setBackgroundScanEnabled(enabled);
-            const interval = await window.electronAPI.getBackgroundScanIntervalMinutes();
-            setBackgroundScanIntervalMinutes(interval);
-          } catch (error) {
-            console.error('Error loading background scan settings:', error);
-          }
-        } catch (error) {
-          console.error('Error loading Onyx settings:', error);
-        }
-      };
-      loadSettings();
-    }
-  }, [isOpen]);
-
-  // Subscribe to update status from main process (packaged app only)
-  useEffect(() => {
-    if (!isOpen || !window.electronAPI.onUpdateStatus) return;
-    const unsubscribe = window.electronAPI.onUpdateStatus((payload) => {
-      if (updateCheckTimeoutRef.current) {
-        clearTimeout(updateCheckTimeoutRef.current);
-        updateCheckTimeoutRef.current = null;
-      }
-      setUpdateStatus(payload.status as any);
-      setUpdateVersion(payload.version ?? null);
-      setUpdateError(sanitizeUpdateErrorForDisplay(payload.error ?? null));
-    });
-    return () => {
-      if (updateCheckTimeoutRef.current) {
-        clearTimeout(updateCheckTimeoutRef.current);
-        updateCheckTimeoutRef.current = null;
-      }
-      unsubscribe();
-    };
-  }, [isOpen]);
-
-  const [apiStatus, setApiStatus] = useState<{
-    igdbConfigured: boolean;
-    rawgConfigured: boolean;
-    steamGridDBConfigured: boolean;
-    giantBombConfigured: boolean;
-    allRequiredConfigured: boolean;
-  }>({
-    igdbConfigured: false,
-    rawgConfigured: false,
-    steamGridDBConfigured: false,
-    giantBombConfigured: false,
-    allRequiredConfigured: false,
+  const {
+    activeAPITab,
+    activeTab,
+    apiCredentials,
+    apiStatus,
+    appVersion,
+    handleAPIInputChange,
+    handleCheckForUpdates,
+    handleDownloadUpdate,
+    handleOpenBugReportFromAbout,
+    isCapturingSuspendShortcut,
+    isPackagedApp,
+    setActiveAPITab,
+    setActiveTab,
+    setIsCapturingSuspendShortcut,
+    setSuspendShortcutCaptureError,
+    suspendShortcutCaptureError,
+    updateError,
+    updateStatus,
+    updateVersion,
+  } = useOnyxSettingsModalShellState({
+    initialTab,
+    isOpen,
+    onClose,
+    setSettings,
   });
 
-  // Load API credentials on mount
   useEffect(() => {
-    if (isOpen) {
-      const loadAPICredentials = async () => {
+    if (!isOpen) return;
+
+    const loadSettings = async () => {
+      try {
+        const prefs = await window.electronAPI.getPreferences();
+        setSettings({
+          minimizeToTray: prefs.minimizeToTray ?? false,
+          showSystemTrayIcon: prefs.showSystemTrayIcon ?? true,
+          startWithComputer: prefs.startWithComputer ?? false,
+          startMinimized: prefs.startMinimized ?? false,
+          startClosedToTray: prefs.startClosedToTray ?? false,
+          updateLibrariesOnStartup: prefs.updateLibrariesOnStartup ?? false,
+          checkForUpdatesOnStartup: prefs.checkForUpdatesOnStartup ?? true,
+          minimizeOnGameLaunch: prefs.minimizeOnGameLaunch ?? false,
+          hideGameTitles: prefs.hideGameTitles ?? false,
+          gameTilePadding: prefs.gameTilePadding ?? 16,
+          enableHardwareAcceleration: prefs.enableHardwareAcceleration ?? true,
+          closeToTray: prefs.closeToTray ?? false,
+          confirmGameLaunch: prefs.confirmGameLaunch ?? false,
+          restoreAfterLaunch: prefs.restoreAfterLaunch ?? false,
+          defaultStartupPage: (prefs.defaultStartupPage as any) ?? 'library',
+          disableAllAnimations: prefs.disableAllAnimations ?? false,
+          disableAnimatedBanners: prefs.disableAnimatedBanners ?? false,
+          disableAnimatedBoxarts: prefs.disableAnimatedBoxarts ?? false,
+          disableAnimatedBackgrounds: prefs.disableAnimatedBackgrounds ?? false,
+          disableAnimatedIcons: prefs.disableAnimatedIcons ?? false,
+          disableAnimatedLogos: prefs.disableAnimatedLogos ?? false,
+          startInFullscreen: prefs.startInFullscreen ?? false,
+          hideMouseCursorInFullscreen: prefs.hideMouseCursorInFullscreen ?? true,
+          cursorHideTimeout: prefs.cursorHideTimeout ?? 3000,
+          linkDisplayMode: prefs.linkDisplayMode ?? 'icons',
+          enableSuspendFeature: prefs.enableSuspendFeature ?? false,
+          suspendShortcut: prefs.suspendShortcut ?? 'Ctrl+Shift+S',
+        });
+        setShowLogoOverBoxart(prefs.showLogoOverBoxart ?? true);
+        setLogoPosition(prefs.logoPosition ?? 'middle');
+        setLinkVisibleTypes(
+          prefs.visibleLinkTypes && Object.keys(prefs.visibleLinkTypes).length > 0
+            ? prefs.visibleLinkTypes
+            : DEFAULT_VISIBLE_LINK_TYPES,
+        );
+        setLinkDisplayOrder(
+          prefs.linkDisplayOrder && prefs.linkDisplayOrder.length > 0
+            ? prefs.linkDisplayOrder
+            : LINK_DISPLAY_ORDER,
+        );
+
         try {
-          const creds = await window.electronAPI.getAPICredentials();
-          setApiCredentials({
-            igdbClientId: creds.igdbClientId || '',
-            igdbClientSecret: creds.igdbClientSecret || '',
-            rawgApiKey: creds.rawgApiKey || '',
-            steamGridDBApiKey: creds.steamGridDBApiKey || '',
-            giantBombApiKey: creds.giantBombApiKey || '',
-          });
-
-          // Check API status
-          const igdbConfigured = !!(creds.igdbClientId && creds.igdbClientSecret &&
-            creds.igdbClientId.trim() !== '' && creds.igdbClientSecret.trim() !== '');
-          const rawgConfigured = !!(creds.rawgApiKey && creds.rawgApiKey.trim() !== '');
-          const steamGridDBConfigured = !!(creds.steamGridDBApiKey && creds.steamGridDBApiKey.trim() !== '');
-          const giantBombConfigured = !!(creds.giantBombApiKey && creds.giantBombApiKey.trim() !== '');
-
-          setApiStatus({
-            igdbConfigured,
-            rawgConfigured,
-            steamGridDBConfigured,
-            giantBombConfigured,
-            allRequiredConfigured: igdbConfigured,
-          });
+          setBackgroundScanEnabled(await window.electronAPI.getBackgroundScanEnabled());
+          setBackgroundScanIntervalMinutes(await window.electronAPI.getBackgroundScanIntervalMinutes());
         } catch (error) {
-          console.error('Error loading API credentials:', error);
+          console.error('Error loading background scan settings:', error);
         }
-      };
-      loadAPICredentials();
-    }
-  }, [isOpen]);
+      } catch (error) {
+        console.error('Error loading Onyx settings:', error);
+      }
+    };
 
-  // Update active tab when initialTab changes
-  useEffect(() => {
-    if (isOpen && initialTab) {
-      if (initialTab === 'apps') setActiveTab('launchers');
-      else if (initialTab === 'apis') setActiveTab('integrations');
-      else if ((initialTab as string) === 'folders') setActiveTab('library');
-      else if (initialTab === 'reset') setActiveTab('advanced');
-      else setActiveTab(initialTab as TabType);
-    }
-  }, [isOpen, initialTab]);
+    void loadSettings();
+  }, [isOpen]);
 
 
 
@@ -497,138 +374,6 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
   const handleToggle = (key: keyof OnyxSettings) => {
     const newSettings = { ...settings, [key]: !settings[key] };
     setSettings(newSettings);
-  };
-
-  const formatSuspendShortcutFromEvent = (event: KeyboardEvent): string | null => {
-    const disallowedKeys = ['Control', 'Shift', 'Alt', 'Meta'];
-    if (disallowedKeys.includes(event.key)) {
-      return null;
-    }
-
-    const modifiers: string[] = [];
-    if (event.ctrlKey) modifiers.push('Ctrl');
-    if (event.altKey) modifiers.push('Alt');
-    if (event.shiftKey) modifiers.push('Shift');
-    if (event.metaKey) modifiers.push('Super');
-
-    let key = event.key;
-    if (key.length === 1) {
-      key = key.toUpperCase();
-    } else {
-      const keyAliases: Record<string, string> = {
-        ' ': 'Space',
-        ArrowUp: 'Up',
-        ArrowDown: 'Down',
-        ArrowLeft: 'Left',
-        ArrowRight: 'Right',
-        Escape: 'Esc',
-      };
-      key = keyAliases[key] || key;
-    }
-
-    return [...modifiers, key].join('+');
-  };
-
-  useEffect(() => {
-    if (!isCapturingSuspendShortcut) {
-      return;
-    }
-
-    const onKeyDown = (event: KeyboardEvent) => {
-      event.preventDefault();
-      event.stopPropagation();
-
-      if (event.key === 'Escape') {
-        setIsCapturingSuspendShortcut(false);
-        setSuspendShortcutCaptureError(null);
-        return;
-      }
-
-      const shortcut = formatSuspendShortcutFromEvent(event);
-      if (!shortcut) {
-        setSuspendShortcutCaptureError('Press a non-modifier key with optional modifiers (Ctrl, Alt, Shift).');
-        return;
-      }
-
-      setSettings((prev) => ({
-        ...prev,
-        suspendShortcut: shortcut,
-      }));
-      setSuspendShortcutCaptureError(null);
-      setIsCapturingSuspendShortcut(false);
-    };
-
-    window.addEventListener('keydown', onKeyDown, true);
-    return () => {
-      window.removeEventListener('keydown', onKeyDown, true);
-    };
-  }, [isCapturingSuspendShortcut]);
-
-
-
-  const handleAPIInputChange = (key: keyof APICredentials, value: string) => {
-    setApiCredentials((prev) => {
-      const updated = { ...prev, [key]: value };
-
-      // Update API status in real-time
-      const igdbConfigured = !!(updated.igdbClientId.trim() && updated.igdbClientSecret.trim());
-      const rawgConfigured = !!updated.rawgApiKey.trim();
-      const steamGridDBConfigured = !!updated.steamGridDBApiKey.trim();
-      const giantBombConfigured = !!updated.giantBombApiKey.trim();
-
-      setApiStatus({
-        igdbConfigured,
-        rawgConfigured,
-        steamGridDBConfigured,
-        giantBombConfigured,
-        allRequiredConfigured: igdbConfigured, // Only IGDB is required
-      });
-
-      return updated;
-    });
-
-  };
-
-  const handleCheckForUpdates = async () => {
-    setUpdateError(null);
-
-    if (!isPackagedApp) {
-      setUpdateStatus('error');
-      setUpdateError('Updater is only available in installed builds.');
-      return;
-    }
-
-    if (updateCheckTimeoutRef.current) {
-      clearTimeout(updateCheckTimeoutRef.current);
-      updateCheckTimeoutRef.current = null;
-    }
-
-    setUpdateStatus('checking');
-    await window.electronAPI.checkForUpdates?.();
-
-    updateCheckTimeoutRef.current = setTimeout(() => {
-      setUpdateStatus((prev) => {
-        if (prev !== 'checking') return prev;
-        setUpdateError('Update check timed out. Please try again.');
-        return 'error';
-      });
-      updateCheckTimeoutRef.current = null;
-    }, 15000);
-  };
-
-  const handleDownloadUpdate = async () => {
-    setUpdateStatus('downloading');
-    const result = await window.electronAPI.downloadUpdate?.();
-    if (result?.success) {
-      setUpdateStatus('downloaded');
-      return;
-    }
-
-    setUpdateError(result?.error ?? 'Download failed');
-  };
-
-  const handleOpenBugReportFromAbout = () => {
-    onClose();
   };
 
 
@@ -1097,139 +842,47 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
       <SettingsSidebar
         tabs={tabs}
         activeTab={activeTab}
-        onTabChange={(id) => setActiveTab(id as TabType)}
+        onTabChange={(id) => setActiveTab(id as SettingsModalTab)}
         appVersion={appVersion}
       />
 
       <div className="flex-1 bg-gray-900 flex flex-col overflow-hidden">
         <div className="flex-1 w-full overflow-y-auto custom-scrollbar">
           {activeTab === 'general' && (
-            <div className="space-y-6 p-6">
-              <SettingsSection title="System" description="Configure how Onyx integrates with your system">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
-                  <SettingsToggle
-                    label="Start with Windows"
-                    description="Automatically start Onyx when you log into Windows"
-                    checked={settings.startWithComputer}
-                    onChange={() => handleToggle('startWithComputer')}
-                  />
-                  <SettingsToggle
-                    label="Start Minimized"
-                    description="Start Onyx minimized on launch"
-                    checked={settings.startMinimized}
-                    onChange={() => handleToggle('startMinimized')}
-                  />
-                  <SettingsToggle
-                    label="System Tray Icon"
-                    description="Show Onyx in the system tray"
-                    checked={settings.showSystemTrayIcon}
-                    onChange={() => handleToggle('showSystemTrayIcon')}
-                  />
-                  <SettingsToggle
-                    label="Minimize to Tray"
-                    description="Minimize to the system tray instead of the taskbar"
-                    checked={settings.minimizeToTray}
-                    onChange={() => handleToggle('minimizeToTray')}
-                  />
-                  <SettingsToggle
-                    label="Close to Tray"
-                    description="Close button minimizes to tray instead of quitting"
-                    checked={settings.closeToTray}
-                    onChange={() => handleToggle('closeToTray')}
-                  />
-                  <SettingsToggle
-                    label="Start Closed to Tray"
-                    description="Launch Onyx in the background"
-                    checked={settings.startClosedToTray}
-                    onChange={() => handleToggle('startClosedToTray')}
-                  />
-                  <SettingsToggle
-                    label="Hardware Acceleration"
-                    description="Use GPU for rendering (Requires Restart)"
-                    checked={settings.enableHardwareAcceleration}
-                    onChange={() => handleToggle('enableHardwareAcceleration')}
-                  />
-                </div>
-
-
-              </SettingsSection>
-
-              <SettingsSection title="Window Behavior">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
-                  <SettingsToggle
-                    label="Minimize on Game Launch"
-                    description="Automatically minimize Onyx when a game starts"
-                    checked={settings.minimizeOnGameLaunch}
-                    onChange={() => handleToggle('minimizeOnGameLaunch')}
-                  />
-                  <SettingsToggle
-                    label="Restore Window on Game Exit"
-                    description="Automatically restore Onyx when you close a game"
-                    checked={settings.restoreAfterLaunch}
-                    onChange={() => handleToggle('restoreAfterLaunch')}
-                  />
-                  <SettingsToggle
-                    label="Confirm Game Launch"
-                    description="Show a confirmation dialog before launching games"
-                    checked={settings.confirmGameLaunch}
-                    onChange={() => handleToggle('confirmGameLaunch')}
-                  />
-                </div>
-              </SettingsSection>
-
-            </div>
+            <SettingsGeneralTab
+              closeToTray={settings.closeToTray}
+              confirmGameLaunch={settings.confirmGameLaunch}
+              enableHardwareAcceleration={settings.enableHardwareAcceleration}
+              minimizeOnGameLaunch={settings.minimizeOnGameLaunch}
+              minimizeToTray={settings.minimizeToTray}
+              onToggle={handleToggle}
+              restoreAfterLaunch={settings.restoreAfterLaunch}
+              showSystemTrayIcon={settings.showSystemTrayIcon}
+              startClosedToTray={settings.startClosedToTray}
+              startMinimized={settings.startMinimized}
+              startWithComputer={settings.startWithComputer}
+            />
           )}
           {activeTab === 'animations' && (
-            <div className="space-y-6 p-6">
-              <SettingsSection title="Animations" description="Control animated UI and artwork to reduce CPU usage">
-                <SettingsToggle
-                  label="Disable all animations"
-                  description="Turn off UI motion and animated artwork. Some changes may require restart."
-                  checked={settings.disableAllAnimations}
-                  onChange={(checked) => {
-                    setSettings(prev => ({
-                      ...prev,
-                      disableAllAnimations: checked,
-                    }));
-                  }}
-                />
-                <SettingsToggle
-                  label="Disable animated banners"
-                  description="Stop animated hero/banner artwork from animating."
-                  checked={settings.disableAnimatedBanners}
-                  disabled={settings.disableAllAnimations}
-                  onChange={(checked) => setSettings(prev => ({ ...prev, disableAnimatedBanners: checked }))}
-                />
-                <SettingsToggle
-                  label="Disable animated boxarts"
-                  description="Force boxart tiles to stay static even when animated versions exist."
-                  checked={settings.disableAnimatedBoxarts}
-                  disabled={settings.disableAllAnimations}
-                  onChange={(checked) => setSettings(prev => ({ ...prev, disableAnimatedBoxarts: checked }))}
-                />
-                <SettingsToggle
-                  label="Disable animated alt banners"
-                  description="Prevent animated alternative banner backgrounds from animating."
-                  checked={settings.disableAnimatedBackgrounds}
-                  disabled={settings.disableAllAnimations}
-                  onChange={(checked) => setSettings(prev => ({ ...prev, disableAnimatedBackgrounds: checked }))}
-                />
-                <SettingsToggle
-                  label="Disable animated icons"
-                  description="Disable animations on small icon-style artwork and badges."
-                  checked={settings.disableAnimatedIcons}
-                  disabled={settings.disableAllAnimations}
-                  onChange={(checked) => setSettings(prev => ({ ...prev, disableAnimatedIcons: checked }))}
-                />
-                <SettingsToggle
-                  label="Disable animated logos"
-                  description="Disable animations on game and publisher logos."
-                  checked={settings.disableAnimatedLogos}
-                  disabled={settings.disableAllAnimations}
-                  onChange={(checked) => setSettings(prev => ({ ...prev, disableAnimatedLogos: checked }))}
-                />
-              </SettingsSection>
-            </div>
+            <SettingsAnimationsTab
+              disableAllAnimations={settings.disableAllAnimations}
+              disableAnimatedBackgrounds={settings.disableAnimatedBackgrounds}
+              disableAnimatedBanners={settings.disableAnimatedBanners}
+              disableAnimatedBoxarts={settings.disableAnimatedBoxarts}
+              disableAnimatedIcons={settings.disableAnimatedIcons}
+              disableAnimatedLogos={settings.disableAnimatedLogos}
+              onSetDisableAllAnimations={(checked) => {
+                setSettings((prev) => ({
+                  ...prev,
+                  disableAllAnimations: checked,
+                }));
+              }}
+              onSetDisableAnimatedBackgrounds={(checked) => setSettings((prev) => ({ ...prev, disableAnimatedBackgrounds: checked }))}
+              onSetDisableAnimatedBanners={(checked) => setSettings((prev) => ({ ...prev, disableAnimatedBanners: checked }))}
+              onSetDisableAnimatedBoxarts={(checked) => setSettings((prev) => ({ ...prev, disableAnimatedBoxarts: checked }))}
+              onSetDisableAnimatedIcons={(checked) => setSettings((prev) => ({ ...prev, disableAnimatedIcons: checked }))}
+              onSetDisableAnimatedLogos={(checked) => setSettings((prev) => ({ ...prev, disableAnimatedLogos: checked }))}
+            />
           )}
           {activeTab === 'scanning' && (
             <SettingsScanningTab
