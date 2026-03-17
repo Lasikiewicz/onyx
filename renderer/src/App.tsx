@@ -8,6 +8,7 @@ import { useAnimatedMediaPolicy } from './hooks/useAnimatedMediaPolicy';
 import { useImporterWorkbench } from './hooks/useImporterWorkbench';
 import { useAppShellModals } from './hooks/useAppShellModals';
 import { useAppShellSystemState } from './hooks/useAppShellSystemState';
+import { useSettingsSaveRefresh } from './hooks/useSettingsSaveRefresh';
 import { LibraryGrid } from './components/LibraryGrid';
 import { LibraryListView } from './components/LibraryListView';
 import { RightClickMenu } from './components/RightClickMenu';
@@ -1135,6 +1136,23 @@ function App() {
     setShowLibraryTutorial,
   });
 
+  const { refreshAfterSettingsSave } = useSettingsSaveRefresh({
+    loadLibrary,
+    setHideGameTitles,
+    setGameTilePadding,
+    setShowLogoOverBoxart,
+    setLogoPosition,
+    setConfirmGameLaunch,
+    setDisableAllAnimations,
+    setDisableAnimatedBanners,
+    setDisableAnimatedBoxarts,
+    setDisableAnimatedBackgrounds,
+    setDisableAnimatedIcons,
+    setDisableAnimatedLogos,
+    setLinkDisplayOrder,
+    setVisibleLinkTypes,
+  });
+
   // Whether any major overlay or context menu is open (settings, game manager, right-click menu, etc.)
   const overlaysOpen =
     isOnyxSettingsOpen ||
@@ -2069,62 +2087,7 @@ function App() {
           onShowImportModal={(games, appType) => {
             openImportWorkbenchWithGames(games, { autoStartScan: appType === 'steam' });
           }}
-          onSave={async () => {
-            // Reload preferences after saving to update UI immediately
-            try {
-              const prefs = await window.electronAPI.getPreferences();
-              if (prefs.hideGameTitles !== undefined) {
-                setHideGameTitles(prefs.hideGameTitles);
-              }
-              if (prefs.gameTilePadding !== undefined) {
-                setGameTilePadding(prefs.gameTilePadding);
-              }
-              if (prefs.showLogoOverBoxart !== undefined) {
-                setShowLogoOverBoxart(prefs.showLogoOverBoxart);
-              }
-              if (prefs.logoPosition !== undefined) {
-                setLogoPosition(prefs.logoPosition);
-              }
-              if (prefs.showLogoOverBoxart !== undefined) {
-                setShowLogoOverBoxart(prefs.showLogoOverBoxart);
-              }
-              if (prefs.logoPosition !== undefined) {
-                setLogoPosition(prefs.logoPosition);
-              }
-
-              if (prefs.confirmGameLaunch !== undefined) {
-                setConfirmGameLaunch(prefs.confirmGameLaunch);
-              }
-              if (prefs.disableAllAnimations !== undefined) {
-                setDisableAllAnimations(prefs.disableAllAnimations);
-              }
-              if (prefs.disableAnimatedBanners !== undefined) {
-                setDisableAnimatedBanners(prefs.disableAnimatedBanners);
-              }
-              if (prefs.disableAnimatedBoxarts !== undefined) {
-                setDisableAnimatedBoxarts(prefs.disableAnimatedBoxarts);
-              }
-              if (prefs.disableAnimatedBackgrounds !== undefined) {
-                setDisableAnimatedBackgrounds(prefs.disableAnimatedBackgrounds);
-              }
-              if (prefs.disableAnimatedIcons !== undefined) {
-                setDisableAnimatedIcons(prefs.disableAnimatedIcons);
-              }
-              if (prefs.disableAnimatedLogos !== undefined) {
-                setDisableAnimatedLogos(prefs.disableAnimatedLogos);
-              }
-              if (prefs.linkDisplayOrder && prefs.linkDisplayOrder.length > 0) {
-                setLinkDisplayOrder(prefs.linkDisplayOrder);
-              }
-              if (prefs.visibleLinkTypes && Object.keys(prefs.visibleLinkTypes).length > 0) {
-                setVisibleLinkTypes(prefs.visibleLinkTypes);
-              }
-
-              await loadLibrary();
-            } catch (error) {
-              console.error('Error reloading preferences after save:', error);
-            }
-          }}
+          onSave={refreshAfterSettingsSave}
         />
       </Suspense>
 
