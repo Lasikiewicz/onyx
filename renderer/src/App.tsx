@@ -10,6 +10,7 @@ import { useAppShellModals } from './hooks/useAppShellModals';
 import { useAppShellSystemState } from './hooks/useAppShellSystemState';
 import { useSettingsSaveRefresh } from './hooks/useSettingsSaveRefresh';
 import { usePreferenceWriter } from './hooks/usePreferenceWriter';
+import { useStartupScanReview } from './hooks/useStartupScanReview';
 import { LibraryGrid } from './components/LibraryGrid';
 import { LibraryListView } from './components/LibraryListView';
 import { RightClickMenu } from './components/RightClickMenu';
@@ -1154,6 +1155,11 @@ function App() {
     setVisibleLinkTypes,
   });
   const { saveByViewValue, savePreferences, saveValue } = usePreferenceWriter();
+  const { handleCancelFoundGames, handleReviewFoundGames } = useStartupScanReview({
+    setFoundGames,
+    setStartupProgress,
+    openImporterWithGames: handleOpenImporterWithGames,
+  });
 
   // Whether any major overlay or context menu is open (settings, game manager, right-click menu, etc.)
   const overlaysOpen =
@@ -1522,18 +1528,6 @@ function App() {
 
   // Check if this is an Alpha build
   const isAlphaBuild = __BUILD_PROFILE__ === 'alpha' || (typeof process !== 'undefined' && process.env?.NODE_ENV === 'development');
-
-  const handleCancelFoundGames = () => {
-    setFoundGames(null);
-    setStartupProgress(null);
-  };
-
-  const handleReviewFoundGames = (gamesToReview: Array<any>) => {
-    setStartupProgress(null);
-    setTimeout(() => {
-      handleOpenImporterWithGames(gamesToReview);
-    }, 200);
-  };
 
   return (
     <div
