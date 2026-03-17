@@ -42,6 +42,7 @@ Layout: When view mode is grid/list/logo, the games list and game details panel 
 - Preferences from [UserPreferencesService](../../main/UserPreferencesService.ts) for layout and display options.
 - Root MenuBar and TopBar shell actions are assembled in [useMainViewShellControls.ts](../../renderer/src/hooks/useMainViewShellControls.ts) so main-view entry points share one callback bundle before reaching [MenuBar.tsx](../../renderer/src/components/MenuBar.tsx) and [TopBar.tsx](../../renderer/src/components/TopBar.tsx).
 - Root right-click settings actions are assembled in [useRightClickMenuControls.ts](../../renderer/src/hooks/useRightClickMenuControls.ts) so per-view display and divider writes share one callback bundle before reaching [RightClickMenu.tsx](../../renderer/src/components/RightClickMenu.tsx).
+- Root game-details-panel actions are assembled in [useGameDetailsPanelControls.ts](../../renderer/src/hooks/useGameDetailsPanelControls.ts) so right-panel actions and divider writes share one callback bundle before reaching [GameDetailsPanel.tsx](../../renderer/src/components/GameDetailsPanel.tsx).
 
 ## Data Model and Persistence
 
@@ -68,6 +69,7 @@ Layout: When view mode is grid/list/logo, the games list and game details panel 
   - [App.tsx](../../renderer/src/App.tsx) — main layout, panel structure, categories placement, alignment
   - [useMainViewShellControls.ts](../../renderer/src/hooks/useMainViewShellControls.ts) - MenuBar and TopBar shell action wiring for refresh, import, settings, tutorial, updater preview, and view/search updates
   - [useRightClickMenuControls.ts](../../renderer/src/hooks/useRightClickMenuControls.ts) - right-click settings menu action wiring for active-game updates and preference-backed main-view controls
+  - [useGameDetailsPanelControls.ts](../../renderer/src/hooks/useGameDetailsPanelControls.ts) - game-details-panel action wiring for right-panel actions and divider persistence
   - [MenuBar.tsx](../../renderer/src/components/MenuBar.tsx)
   - [TopBar.tsx](../../renderer/src/components/TopBar.tsx)
   - [GameDetailsPanel.tsx](../../renderer/src/components/GameDetailsPanel.tsx)

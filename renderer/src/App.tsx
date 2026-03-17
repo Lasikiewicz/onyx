@@ -15,6 +15,7 @@ import { useGameManagerShellBridge } from './hooks/useGameManagerShellBridge';
 import { useMainViewShellControls } from './hooks/useMainViewShellControls';
 import { useRightClickMenuControls } from './hooks/useRightClickMenuControls';
 import { useAppShellSurfaceActions } from './hooks/useAppShellSurfaceActions';
+import { useGameDetailsPanelControls } from './hooks/useGameDetailsPanelControls';
 import { LibraryGrid } from './components/LibraryGrid';
 import { LibraryListView } from './components/LibraryListView';
 import { RightClickMenu } from './components/RightClickMenu';
@@ -1719,6 +1720,62 @@ function App() {
     updateNotification,
   });
 
+  const gameDetailsPanelProps = useGameDetailsPanelControls({
+    activeGame,
+    currentDescriptionWidth,
+    currentFanartHeight,
+    currentPanelWidth,
+    descriptionWidthByView,
+    detailsPanelBottomBarHeight,
+    detailsPanelOpacity,
+    disableAllAnimations,
+    disableAnimatedBackgrounds,
+    disableAnimatedBanners,
+    disableAnimatedBoxarts,
+    disableAnimatedIcons,
+    disableAnimatedLogos,
+    fanartHeightByView,
+    gridButtonColors,
+    handleEditCategories,
+    handleEditGame,
+    handleEditImages,
+    handleFixMatch,
+    handleHideGame,
+    handlePlay,
+    handleSaveGame,
+    handleToggleFavorite,
+    handleTogglePin,
+    handleUnhideGame,
+    handleUninstallGame,
+    isViewFlippedByView,
+    launchingGameId,
+    linkDisplayOrder,
+    listButtonColors,
+    logoButtonColors,
+    openGameManager,
+    overlaysOpen,
+    panelWidthByViewState,
+    rightPanelBoxartPosition,
+    rightPanelBoxartSize,
+    rightPanelButtonColors,
+    rightPanelButtonLocation,
+    rightPanelButtonSize,
+    rightPanelLogoSize,
+    rightPanelTextSize,
+    runningGames,
+    selectedCategory,
+    setDescriptionWidthByView,
+    setDetailsPanelBottomBarHeight,
+    setFanartHeightByView,
+    setGameContextMenu,
+    setPanelWidth,
+    setPanelWidthByViewState,
+    setRightClickMenu,
+    updateGameInState,
+    viewMode,
+    visibleLinkTypes,
+  });
+
   return (
     <div
       className="h-screen bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-900 via-[#0f172a] to-black text-white flex flex-col overflow-hidden relative"
@@ -2127,78 +2184,7 @@ function App() {
           {viewMode !== 'carousel' && viewMode !== 'coverflow' && filteredGames.length > 0 && !forceShowInitialOnboarding && (
             <div className={rightPanelNeedsTopPadding ? 'pt-4 flex-1 flex flex-col min-h-0' : 'flex-1 flex flex-col min-h-0'}>
               <div className="flex-1 min-h-0">
-            <GameDetailsPanel
-              game={activeGame}
-              isLaunching={launchingGameId === activeGame?.id}
-              isRunning={activeGame ? runningGames.has(activeGame.id) : false}
-              onPlay={handlePlay}
-              onSaveGame={handleSaveGame}
-              onUpdateGameInState={updateGameInState}
-              viewMode={viewMode}
-            disableAnimatedBackgrounds={disableAllAnimations || disableAnimatedBackgrounds || overlaysOpen}
-            disableAnimatedBanners={disableAllAnimations || disableAnimatedBanners || overlaysOpen}
-            disableAnimatedBoxarts={disableAllAnimations || disableAnimatedBoxarts || overlaysOpen}
-            disableAnimatedIcons={disableAllAnimations || disableAnimatedIcons || overlaysOpen}
-            disableAnimatedLogos={disableAllAnimations || disableAnimatedLogos || overlaysOpen}
-            overlaysOpen={overlaysOpen}
-              onOpenInGameManager={(game, tab) => {
-                openGameManager({ gameId: game.id, tab });
-              }}
-              onFavorite={handleToggleFavorite}
-              onEdit={handleEditGame}
-              onEditImages={handleEditImages}
-              onEditCategories={handleEditCategories}
-              onPin={handleTogglePin}
-              onFixMatch={handleFixMatch}
-              onHide={handleHideGame}
-              onUnhide={handleUnhideGame}
-              onUninstall={handleUninstallGame}
-              isHiddenView={selectedCategory === 'hidden'}
-              onRightClick={(x, y) => {
-                setGameContextMenu(null);
-                setRightClickMenu({ x, y });
-              }}
-              panelWidth={currentPanelWidth}
-              onPanelWidthChange={(width) => {
-                setPanelWidth(width);
-                const newByView = { ...panelWidthByViewState, [viewMode]: width };
-                setPanelWidthByViewState(newByView);
-                window.electronAPI.savePreferences({ panelWidthByView: newByView });
-              }}
-              rightPanelLogoSize={rightPanelLogoSize}
-              rightPanelBoxartPosition={rightPanelBoxartPosition}
-              rightPanelBoxartSize={rightPanelBoxartSize}
-              rightPanelTextSize={rightPanelTextSize}
-              rightPanelButtonSize={rightPanelButtonSize}
-              rightPanelButtonLocation={rightPanelButtonLocation}
-              detailsPanelOpacity={detailsPanelOpacity}
-              fanartHeight={currentFanartHeight}
-              onFanartHeightChange={(height) => {
-                const newByView = { ...fanartHeightByView, [viewMode]: height };
-                setFanartHeightByView(newByView);
-                window.electronAPI.savePreferences({ fanartHeightByView: newByView });
-              }}
-              descriptionWidth={currentDescriptionWidth}
-              onDescriptionWidthChange={(width) => {
-                const newByView = { ...descriptionWidthByView, [viewMode]: width };
-                setDescriptionWidthByView(newByView);
-                window.electronAPI.savePreferences({ descriptionWidthByView: newByView });
-              }}
-              detailsPanelBottomBarHeight={detailsPanelBottomBarHeight}
-              onDetailsPanelBottomBarHeightChange={(height) => {
-                setDetailsPanelBottomBarHeight(height);
-                window.electronAPI.savePreferences({ detailsPanelBottomBarHeight: height });
-              }}
-              isViewFlipped={isViewFlippedByView[viewMode]}
-              rightPanelButtonColors={
-                viewMode === 'grid' ? gridButtonColors :
-                  viewMode === 'list' ? listButtonColors :
-                    viewMode === 'logo' ? logoButtonColors :
-                      rightPanelButtonColors
-              }
-              linkDisplayOrder={linkDisplayOrder}
-              visibleLinkTypes={visibleLinkTypes}
-            />
+                <GameDetailsPanel {...gameDetailsPanelProps} />
               </div>
             </div>
           )}

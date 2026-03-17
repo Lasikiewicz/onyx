@@ -10,7 +10,7 @@ import { LauncherIcon, getLauncherDisplayName } from '../utils/launcherIcons';
 
 type ViewKey = 'grid' | 'list' | 'logo';
 
-interface GameDetailsPanelProps {
+export interface GameDetailsPanelProps {
   game: Game | null;
   onPlay?: (game: Game) => void;
   isLaunching?: boolean;
