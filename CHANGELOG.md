@@ -4,7 +4,7 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Pending]
+## [0.7.39] - 2026-03-17
 
 - App shell:
   - Ask whether uninstalling a game should also remove it from the Onyx library, with a checkbox in the uninstall confirmation dialog.
