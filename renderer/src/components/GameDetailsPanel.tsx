@@ -566,18 +566,24 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
   
   const formatDate = (dateString?: string) => {
     if (!dateString) return '';
-    try {
-      const date = new Date(dateString);
-      return date.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
-    } catch {
+    const date = new Date(dateString);
+    if (Number.isNaN(date.getTime())) {
       return '';
     }
+    return date.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  };
+
+  const formatInstallSize = (installSize?: number) => {
+    if (installSize === undefined || installSize <= 0) return '';
+    return `${Math.round((installSize / 1024 / 1024 / 1024) * 100) / 100} GB`;
   };
 
   const normalizedPlatform = game.platform?.trim() || '';
   const platformDisplay = normalizedPlatform
     ? getLauncherDisplayName(normalizedPlatform)
     : '';
+  const formattedReleaseDate = formatDate(game.releaseDate);
+  const formattedInstallSize = formatInstallSize(game.installSize);
   const baseContentTopPadding = 24;
   const contentInnerWidth = Math.max(0, activePanelWidth - 48);
   const descriptionColumnWidth = Math.max(0, contentInnerWidth * (descriptionWidth / 100));
@@ -799,7 +805,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
             <div
               className="text-center text-gray-100 leading-tight"
               style={{
-                fontSize: `${localLogoSize !== undefined ? localLogoSize * 0.5 : 'clamp(1.25rem, 5vw, 2.5rem)'}px`,
+                fontSize: localLogoSize !== undefined ? `${localLogoSize * 0.5}px` : 'clamp(1.25rem, 5vw, 2.5rem)',
                 fontWeight: '600',
                 wordBreak: 'break-word',
                 hyphens: 'auto',
@@ -1006,10 +1012,10 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
               }}
             >
               <div className={`grid grid-cols-1 ${detailsSectionGapClass} min-h-0 flex-1 overflow-y-auto`}>
-                {visibleDetails.releaseDate && game.releaseDate && (
+                {visibleDetails.releaseDate && formattedReleaseDate && (
                   <div>
                     <p className={detailsLabelClass} style={{ fontSize: `${rightPanelTextSize - 2}px` }}>Release Date</p>
-                    <p className="text-gray-200" style={{ fontSize: `${rightPanelTextSize}px` }}>{formatDate(game.releaseDate)}</p>
+                    <p className="text-gray-200" style={{ fontSize: `${rightPanelTextSize}px` }}>{formattedReleaseDate}</p>
                   </div>
                 )}
                 {visibleDetails.platform && platformDisplay && (
@@ -1067,9 +1073,9 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
                   <div>
                     <p className={detailsLabelClass}>Installation Folder</p>
                     <p className="text-gray-200 text-xs break-all">{game.installationDirectory}</p>
-                    {game.installSize && (
+                    {formattedInstallSize && (
                       <p className="text-gray-400 text-xs mt-1">
-                        {(game.installSize / 1024).toFixed(3)} GB
+                        {formattedInstallSize}
                       </p>
                     )}
                   </div>
