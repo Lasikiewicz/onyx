@@ -6,6 +6,7 @@ import { useAppPreferences } from './hooks/useAppPreferences';
 import { useGameLaunchFlow } from './hooks/useGameLaunchFlow';
 import { useAnimatedMediaPolicy } from './hooks/useAnimatedMediaPolicy';
 import { useImporterWorkbench } from './hooks/useImporterWorkbench';
+import { useAppShellModals } from './hooks/useAppShellModals';
 import { LibraryGrid } from './components/LibraryGrid';
 import { LibraryListView } from './components/LibraryListView';
 import { RightClickMenu } from './components/RightClickMenu';
@@ -23,7 +24,7 @@ import { UpdateLibraryModal } from './components/UpdateLibraryModal';
 import { APISettingsModal } from './components/APISettingsModal';
 import { ConfirmationDialog } from './components/ConfirmationDialog';
 import { AppShellOverlays } from './components/appShell/AppShellOverlays';
-import { Game, ExecutableFile, GameMetadata } from './types/game';
+import { Game, GameMetadata } from './types/game';
 import { areAPIsConfigured } from './utils/apiValidation';
 
 const LibraryCarousel = lazy(() =>
@@ -61,25 +62,50 @@ function App() {
   useFullscreen();
 
   const [activeGameId, setActiveGameId] = useState<string | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const {
+    closeCategoriesEditor,
+    closeGameManager,
+    closeLibraryTutorial,
+    closeMetadataEditor,
+    closeMetadataSearch,
+    closeOnyxSettings,
+    editingCategoriesGame,
+    fixingGame,
+    forceShowInitialOnboarding,
+    gameManagerInitialGameId,
+    gameManagerInitialTab,
+    isAPISettingsOpen,
+    isBugReportOpen,
+    isCategoriesEditorOpen,
+    isGameManagerOpen,
+    isMetadataEditorOpen,
+    isMetadataSearchOpen,
+    isModalOpen,
+    isOnyxSettingsOpen,
+    isSteamConfigOpen,
+    isUpdateLibraryOpen,
+    onyxSettingsInitialTab,
+    openCategoriesEditor,
+    openGameManager,
+    openLibraryTutorial,
+    openOnyxSettings,
+    selectedExecutable,
+    setForceShowInitialOnboarding,
+    setIsAPISettingsOpen,
+    setIsBugReportOpen,
+    setIsModalOpen,
+    setIsOnyxSettingsOpen,
+    setIsSteamConfigOpen,
+    setIsUpdateLibraryOpen,
+    setOnyxSettingsInitialTab,
+    setShowLibraryTutorial,
+    showLibraryTutorial,
+    showOptimizerModal,
+    setShowOptimizerModal,
+  } = useAppShellModals();
 
   // Scanning state
   const [, setIsScanningSteam] = useState(false);
-
-  // Metadata editor state
-  const [isMetadataEditorOpen, setIsMetadataEditorOpen] = useState(false);
-  const [selectedExecutable, setSelectedExecutable] = useState<ExecutableFile | null>(null);
-
-  // Steam config modal state
-  const [isSteamConfigOpen, setIsSteamConfigOpen] = useState(false);
-
-  // Categories editor state
-  const [isCategoriesEditorOpen, setIsCategoriesEditorOpen] = useState(false);
-  const [editingCategoriesGame, setEditingCategoriesGame] = useState<Game | null>(null);
-
-  // Metadata search modal state
-  const [isMetadataSearchOpen, setIsMetadataSearchOpen] = useState(false);
-  const [fixingGame, setFixingGame] = useState<Game | null>(null);
 
   // Toast notification state
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
@@ -111,17 +137,6 @@ function App() {
   const [viewMode, setViewMode] = useState<'grid' | 'list' | 'logo' | 'carousel' | 'coverflow'>('grid');
   const [activeSection] = useState('library');
   const [showTopBar] = useState(false);
-  const [isUpdateLibraryOpen, setIsUpdateLibraryOpen] = useState(false);
-  const [isOnyxSettingsOpen, setIsOnyxSettingsOpen] = useState(false);
-  const [showLibraryTutorial, setShowLibraryTutorial] = useState(false);
-  const [isGameManagerOpen, setIsGameManagerOpen] = useState(false);
-  const [showOptimizerModal, setShowOptimizerModal] = useState(false);
-  const [gameManagerInitialGameId, setGameManagerInitialGameId] = useState<string | null>(null);
-  const [gameManagerInitialTab, setGameManagerInitialTab] = useState<'images' | 'metadata' | 'modManager'>('images');
-  const [onyxSettingsInitialTab, setOnyxSettingsInitialTab] = useState<'general' | 'appearance' | 'apis' | 'apps' | 'about'>('general');
-  const [isAPISettingsOpen, setIsAPISettingsOpen] = useState(false);
-  const [isBugReportOpen, setIsBugReportOpen] = useState(false);
-  const [forceShowInitialOnboarding, setForceShowInitialOnboarding] = useState(false);
   const [gridSize, setGridSize] = useState(120);
   const [logoSize, setLogoSize] = useState(100);
   const [pinnedCategories, setPinnedCategories] = useState<string[]>([]);
@@ -1069,26 +1084,19 @@ function App() {
   }, []);
 
   const handleEditGame = (game: Game) => {
-    setGameManagerInitialGameId(game.id);
-    setGameManagerInitialTab('metadata');
-    setIsGameManagerOpen(true);
+    openGameManager({ gameId: game.id, tab: 'metadata' });
   };
 
   const handleEditCategories = (game: Game) => {
-    setEditingCategoriesGame(game);
-    setIsCategoriesEditorOpen(true);
+    openCategoriesEditor(game);
   };
 
   const handleEditImages = (game: Game) => {
-    setGameManagerInitialGameId(game.id);
-    setGameManagerInitialTab('images');
-    setIsGameManagerOpen(true);
+    openGameManager({ gameId: game.id, tab: 'images' });
   };
 
   const handleFixMatch = (game: Game) => {
-    setGameManagerInitialGameId(game.id);
-    setGameManagerInitialTab('metadata');
-    setIsGameManagerOpen(true);
+    openGameManager({ gameId: game.id, tab: 'metadata' });
   };
 
   const handleSelectMetadataMatch = async (result: { id: string; source: string }) => {
@@ -1174,8 +1182,7 @@ function App() {
     if (!apisConfigured) {
       showToast('API credentials must be configured before adding games. Please configure them in Settings.', 'error');
       setIsModalOpen(false);
-      setIsOnyxSettingsOpen(true);
-      setOnyxSettingsInitialTab('apis');
+      openOnyxSettings('apis');
       return;
     }
     await addCustomGame(game);
@@ -1347,8 +1354,7 @@ function App() {
       if (success) {
         await loadLibrary();
         showToast(`Game "${metadata.title || title}" added successfully`, 'success');
-        setIsMetadataEditorOpen(false);
-        setSelectedExecutable(null);
+        closeMetadataEditor();
       } else {
         showToast('Failed to save game', 'error');
       }
@@ -1688,21 +1694,12 @@ function App() {
           onScanFolder={handleScanFolder}
           onUpdateSteamLibrary={handleUpdateSteamLibrary}
           onUpdateLibrary={handleUpdateSteamLibrary}
-          onGameManager={() => setIsGameManagerOpen(true)}
+          onGameManager={() => openGameManager()}
           onConfigureSteam={() => setIsSteamConfigOpen(true)}
-          onOnyxSettings={() => {
-            setOnyxSettingsInitialTab('general');
-            setIsOnyxSettingsOpen(true);
-          }}
-          onAPISettings={() => {
-            setOnyxSettingsInitialTab('apis');
-            setIsOnyxSettingsOpen(true);
-          }}
-          onAbout={() => {
-            setOnyxSettingsInitialTab('about');
-            setIsOnyxSettingsOpen(true);
-          }}
-          onShowLibraryTutorial={() => setShowLibraryTutorial(true)}
+          onOnyxSettings={() => openOnyxSettings('general')}
+          onAPISettings={() => openOnyxSettings('apis')}
+          onAbout={() => openOnyxSettings('about')}
+          onShowLibraryTutorial={openLibraryTutorial}
           onExit={handleExit}
           onBugReport={isAlphaBuild ? () => setIsBugReportOpen(true) : undefined}
             onForceOpenUpdateFound={() => {
@@ -2083,9 +2080,7 @@ function App() {
             disableAnimatedLogos={disableAllAnimations || disableAnimatedLogos || overlaysOpen}
             overlaysOpen={overlaysOpen}
               onOpenInGameManager={(game, tab) => {
-                setGameManagerInitialGameId(game.id);
-                setGameManagerInitialTab(tab);
-                setIsGameManagerOpen(true);
+                openGameManager({ gameId: game.id, tab });
               }}
               onFavorite={handleToggleFavorite}
               onEdit={handleEditGame}
@@ -2160,10 +2155,7 @@ function App() {
       {selectedExecutable && (
         <GameMetadataEditor
           isOpen={isMetadataEditorOpen}
-          onClose={() => {
-            setIsMetadataEditorOpen(false);
-            setSelectedExecutable(null);
-          }}
+          onClose={closeMetadataEditor}
           executable={selectedExecutable}
           onSave={handleSaveGameWithMetadata}
         />
@@ -2181,10 +2173,7 @@ function App() {
       <CategoriesEditor
         isOpen={isCategoriesEditorOpen}
         game={editingCategoriesGame}
-        onClose={() => {
-          setIsCategoriesEditorOpen(false);
-          setEditingCategoriesGame(null);
-        }}
+        onClose={closeCategoriesEditor}
         onSave={async (game) => {
           await handleSaveGame(game);
         }}
@@ -2196,7 +2185,7 @@ function App() {
       <Suspense fallback={lazyRenderFallback}>
         <OnyxSettingsModal
           isOpen={isOnyxSettingsOpen}
-          onClose={() => setIsOnyxSettingsOpen(false)}
+          onClose={closeOnyxSettings}
           initialTab={onyxSettingsInitialTab}
           onShowImportModal={(games, appType) => {
             openImportWorkbenchWithGames(games, { autoStartScan: appType === 'steam' });
@@ -2297,16 +2286,12 @@ function App() {
       <Suspense fallback={lazyRenderFallback}>
         <GameManager
           isOpen={isGameManagerOpen}
-          onClose={() => {
-            setIsGameManagerOpen(false);
-            setGameManagerInitialGameId(null);
-            setGameManagerInitialTab('images');
-          }}
+          onClose={closeGameManager}
           games={games}
           initialGameId={gameManagerInitialGameId}
           initialTab={gameManagerInitialTab}
           onOpenImporterWithMode={async (mode) => {
-            setIsGameManagerOpen(false);
+            closeGameManager();
             if (mode === 'nuclear') {
               const result = await window.electronAPI.clearLibrary?.();
               if (!result?.success) {
@@ -2638,10 +2623,7 @@ function App() {
         <Suspense fallback={lazyRenderFallback}>
           <MetadataSearchModal
             isOpen={isMetadataSearchOpen}
-            onClose={() => {
-              setIsMetadataSearchOpen(false);
-              setFixingGame(null);
-            }}
+            onClose={closeMetadataSearch}
             game={fixingGame}
             onSelect={handleSelectMetadataMatch}
           />
@@ -2700,11 +2682,8 @@ function App() {
         onOpenCrashDumpFolder={handleOpenCrashDumpFolder}
         onDismissCrashDumps={handleDismissCrashDumps}
         showLibraryTutorial={showLibraryTutorial}
-        onCloseLibraryTutorial={() => setShowLibraryTutorial(false)}
-        onOpenSettings={() => {
-          setOnyxSettingsInitialTab('general');
-          setIsOnyxSettingsOpen(true);
-        }}
+        onCloseLibraryTutorial={closeLibraryTutorial}
+        onOpenSettings={() => openOnyxSettings('general')}
         onOpenUpdateLibrary={handleUpdateSteamLibrary}
         toast={toast}
         onDismissToast={() => setToast(null)}
