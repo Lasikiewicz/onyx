@@ -23,6 +23,7 @@ This is the system-level companion to the user-facing [Add Games](./add-games.md
 - The shell modal-control bridge in [`useAppShellModalControls.ts`](../../renderer/src/hooks/useAppShellModalControls.ts), which packages importer modal props for settings, update-library, and Game Manager entry points before they reach the app shell.
 - The startup scan review hook in [`useStartupScanReview.ts`](../../renderer/src/hooks/useStartupScanReview.ts), which owns the shell-side cancel/review actions that turn startup-found games into importer handoff requests.
 - The staged-game editor in [`GamePropertiesPanel.tsx`](../../renderer/src/components/GamePropertiesPanel.tsx), which exposes Metadata, Images, Links, and Mod Manager editing before import.
+- The extracted staged Links tab in [`GamePropertiesLinksTab.tsx`](../../renderer/src/components/gameProperties/GamePropertiesLinksTab.tsx), which now owns link-row editing and icon rendering for the importer workflow.
 - Discovery entry points in [`MenuBar.tsx`](../../renderer/src/components/MenuBar.tsx), startup overlays, and found-games handoff UI such as [`FoundGamesModal.tsx`](../../renderer/src/components/FoundGamesModal.tsx).
 - Main-process scan/import APIs exposed through [`main/preload.ts`](../../main/preload.ts) and fulfilled by IPC handlers and services under [`main/ipc/`](../../main/ipc) and [`main/ImportService.ts`](../../main/ImportService.ts).
 
@@ -88,6 +89,7 @@ This is the system-level companion to the user-facing [Add Games](./add-games.md
 - [`useImporterWorkbench.ts`](../../renderer/src/hooks/useImporterWorkbench.ts) - shell-to-importer handoff, importer reset, and post-import follow-up orchestration.
 - [`useStartupScanReview.ts`](../../renderer/src/hooks/useStartupScanReview.ts) - startup overlay review/cancel actions that feed the importer handoff path.
 - [`GamePropertiesPanel.tsx`](../../renderer/src/components/GamePropertiesPanel.tsx) - staged-game editor for metadata, images, links, and mod manager fields before import.
+- [`GamePropertiesLinksTab.tsx`](../../renderer/src/components/gameProperties/GamePropertiesLinksTab.tsx) - extracted staged Links tab UI for importer-side link editing.
 - [`ImportSidebar.tsx`](../../renderer/src/components/importer/ImportSidebar.tsx) - queue navigation, staged selection, and ignored filtering.
 - [`ImportHeader.tsx`](../../renderer/src/components/importer/ImportHeader.tsx) - importer toolbar and scan/import actions.
 - [`importer.ts`](../../renderer/src/types/importer.ts) - staged importer types such as `StagedGame` and importer progress/status shapes.

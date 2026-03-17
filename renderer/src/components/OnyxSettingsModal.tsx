@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { SettingsLayout } from './settings/SettingsLayout';
 import { SettingsSidebar, SettingsTab } from './settings/SettingsSidebar';
 import { SettingsAdvancedTab } from './settings/SettingsAdvancedTab';
@@ -13,6 +13,7 @@ import { SettingsSuspendTab } from './settings/SettingsSuspendTab';
 import { LINK_DISPLAY_ORDER, DEFAULT_VISIBLE_LINK_TYPES } from './GameLinks';
 import { SettingsModalTab, useOnyxSettingsModalShellState } from '../hooks/useOnyxSettingsModalShellState';
 import { useOnyxSettingsLibrarySources } from '../hooks/useOnyxSettingsLibrarySources';
+import { useOnyxSettingsModalPersistence } from '../hooks/useOnyxSettingsModalPersistence';
 
 export interface OnyxSettingsModalProps {
   isOpen: boolean;
@@ -23,38 +24,6 @@ export interface OnyxSettingsModalProps {
   onShowImportModal?: (games: Array<any>, appType?: 'steam' | 'xbox' | 'other') => void;
 }
 
-interface OnyxSettings {
-  minimizeToTray: boolean;
-  showSystemTrayIcon: boolean;
-  startWithComputer: boolean;
-  startMinimized: boolean;
-  startClosedToTray: boolean;
-  updateLibrariesOnStartup: boolean;
-  checkForUpdatesOnStartup: boolean;
-  minimizeOnGameLaunch: boolean;
-  hideGameTitles: boolean;
-  gameTilePadding: number;
-  // New Settings
-  enableHardwareAcceleration: boolean;
-  closeToTray: boolean;
-  confirmGameLaunch: boolean;
-  restoreAfterLaunch: boolean;
-  defaultStartupPage: 'library' | 'recent' | 'favorites';
-  disableAllAnimations: boolean;
-  disableAnimatedBanners: boolean;
-  disableAnimatedBoxarts: boolean;
-  disableAnimatedBackgrounds: boolean;
-  disableAnimatedIcons: boolean;
-  disableAnimatedLogos: boolean;
-  // Fullscreen settings
-  startInFullscreen: boolean;
-  hideMouseCursorInFullscreen: boolean;
-  cursorHideTimeout: number;
-  linkDisplayMode: 'icons' | 'dropdown';
-  enableSuspendFeature: boolean;
-  suspendShortcut: string;
-}
-
 export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
   isOpen,
   onClose,
@@ -62,41 +31,6 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
   initialTab = 'general',
   onShowImportModal,
 }) => {
-  const [settings, setSettings] = useState<OnyxSettings>({
-    minimizeToTray: false,
-    showSystemTrayIcon: true,
-    startWithComputer: false,
-    startMinimized: false,
-    startClosedToTray: false,
-    updateLibrariesOnStartup: false,
-    checkForUpdatesOnStartup: true,
-    minimizeOnGameLaunch: false,
-    hideGameTitles: false,
-    gameTilePadding: 16,
-    enableHardwareAcceleration: true,
-    closeToTray: false,
-    confirmGameLaunch: false,
-    restoreAfterLaunch: false,
-    defaultStartupPage: 'library',
-    disableAllAnimations: false,
-    disableAnimatedBanners: false,
-    disableAnimatedBoxarts: false,
-    disableAnimatedBackgrounds: false,
-    disableAnimatedIcons: false,
-    disableAnimatedLogos: false,
-    startInFullscreen: false,
-    hideMouseCursorInFullscreen: true,
-    cursorHideTimeout: 3000,
-    linkDisplayMode: 'icons',
-    enableSuspendFeature: false,
-    suspendShortcut: 'Ctrl+Shift+S',
-  });
-  const [showLogoOverBoxart, setShowLogoOverBoxart] = useState(true);
-  const [logoPosition, setLogoPosition] = useState<'top' | 'middle' | 'bottom' | 'underneath'>('middle');
-
-  const [backgroundScanEnabled, setBackgroundScanEnabled] = useState(false);
-  const [backgroundScanIntervalMinutes, setBackgroundScanIntervalMinutes] = useState(30);
-
   const [linkVisibleTypes, setLinkVisibleTypes] = useState<Record<string, boolean>>(DEFAULT_VISIBLE_LINK_TYPES);
   const [linkDisplayOrder, setLinkDisplayOrder] = useState<string[]>(LINK_DISPLAY_ORDER);
   const {
@@ -146,283 +80,39 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
     initialTab,
     isOpen,
     onClose,
+  });
+  const {
+    backgroundScanEnabled,
+    backgroundScanIntervalMinutes,
+    handleRemoveAllGames,
+    handleReset,
+    handleSave,
+    handleToggle,
+    isRemovingGames,
+    isResetting,
+    removeGamesConfirmation,
+    resetConfirmation,
+    setBackgroundScanEnabled,
+    setBackgroundScanIntervalMinutes,
+    setRemoveGamesConfirmation,
+    setResetConfirmation,
     setSettings,
+    settings,
+  } = useOnyxSettingsModalPersistence({
+    apiCredentials,
+    apps,
+    isCapturingSuspendShortcut,
+    isOpen,
+    linkDisplayOrder,
+    linkVisibleTypes,
+    manualFolders,
+    onClose,
+    onSave,
+    setIsCapturingSuspendShortcut,
+    setLinkDisplayOrder,
+    setLinkVisibleTypes,
+    setSuspendShortcutCaptureError,
   });
-
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const loadSettings = async () => {
-      try {
-        const prefs = await window.electronAPI.getPreferences();
-        setSettings({
-          minimizeToTray: prefs.minimizeToTray ?? false,
-          showSystemTrayIcon: prefs.showSystemTrayIcon ?? true,
-          startWithComputer: prefs.startWithComputer ?? false,
-          startMinimized: prefs.startMinimized ?? false,
-          startClosedToTray: prefs.startClosedToTray ?? false,
-          updateLibrariesOnStartup: prefs.updateLibrariesOnStartup ?? false,
-          checkForUpdatesOnStartup: prefs.checkForUpdatesOnStartup ?? true,
-          minimizeOnGameLaunch: prefs.minimizeOnGameLaunch ?? false,
-          hideGameTitles: prefs.hideGameTitles ?? false,
-          gameTilePadding: prefs.gameTilePadding ?? 16,
-          enableHardwareAcceleration: prefs.enableHardwareAcceleration ?? true,
-          closeToTray: prefs.closeToTray ?? false,
-          confirmGameLaunch: prefs.confirmGameLaunch ?? false,
-          restoreAfterLaunch: prefs.restoreAfterLaunch ?? false,
-          defaultStartupPage: (prefs.defaultStartupPage as any) ?? 'library',
-          disableAllAnimations: prefs.disableAllAnimations ?? false,
-          disableAnimatedBanners: prefs.disableAnimatedBanners ?? false,
-          disableAnimatedBoxarts: prefs.disableAnimatedBoxarts ?? false,
-          disableAnimatedBackgrounds: prefs.disableAnimatedBackgrounds ?? false,
-          disableAnimatedIcons: prefs.disableAnimatedIcons ?? false,
-          disableAnimatedLogos: prefs.disableAnimatedLogos ?? false,
-          startInFullscreen: prefs.startInFullscreen ?? false,
-          hideMouseCursorInFullscreen: prefs.hideMouseCursorInFullscreen ?? true,
-          cursorHideTimeout: prefs.cursorHideTimeout ?? 3000,
-          linkDisplayMode: prefs.linkDisplayMode ?? 'icons',
-          enableSuspendFeature: prefs.enableSuspendFeature ?? false,
-          suspendShortcut: prefs.suspendShortcut ?? 'Ctrl+Shift+S',
-        });
-        setShowLogoOverBoxart(prefs.showLogoOverBoxart ?? true);
-        setLogoPosition(prefs.logoPosition ?? 'middle');
-        setLinkVisibleTypes(
-          prefs.visibleLinkTypes && Object.keys(prefs.visibleLinkTypes).length > 0
-            ? prefs.visibleLinkTypes
-            : DEFAULT_VISIBLE_LINK_TYPES,
-        );
-        setLinkDisplayOrder(
-          prefs.linkDisplayOrder && prefs.linkDisplayOrder.length > 0
-            ? prefs.linkDisplayOrder
-            : LINK_DISPLAY_ORDER,
-        );
-
-        try {
-          setBackgroundScanEnabled(await window.electronAPI.getBackgroundScanEnabled());
-          setBackgroundScanIntervalMinutes(await window.electronAPI.getBackgroundScanIntervalMinutes());
-        } catch (error) {
-          console.error('Error loading background scan settings:', error);
-        }
-      } catch (error) {
-        console.error('Error loading Onyx settings:', error);
-      }
-    };
-
-    void loadSettings();
-  }, [isOpen]);
-
-  const handleToggle = (key: keyof OnyxSettings) => {
-    const newSettings = { ...settings, [key]: !settings[key] };
-    setSettings(newSettings);
-  };
-  const [resetConfirmation, setResetConfirmation] = useState({
-    step: 1, // 1 = initial, 2 = type confirmation, 3 = final confirmation
-    typedText: '',
-  });
-  const [isResetting, setIsResetting] = useState(false);
-
-  // Remove All Games state (separate from full reset)
-  const [removeGamesConfirmation, setRemoveGamesConfirmation] = useState({
-    step: 1,
-    typedText: '',
-  });
-  const [isRemovingGames, setIsRemovingGames] = useState(false);
-
-  const handleRemoveAllGames = async () => {
-    if (removeGamesConfirmation.step === 1) {
-      setRemoveGamesConfirmation({ step: 2, typedText: '' });
-      return;
-    }
-
-    if (removeGamesConfirmation.step === 2) {
-      if (removeGamesConfirmation.typedText !== 'DELETE') {
-        return;
-      }
-      setRemoveGamesConfirmation({ step: 3, typedText: '' });
-      return;
-    }
-
-    if (removeGamesConfirmation.step === 3) {
-      setIsRemovingGames(true);
-      try {
-        // Call backend to clear only games (library, images, metadata)
-        const result = await window.electronAPI.clearGameLibrary();
-        if (result.success) {
-          setRemoveGamesConfirmation({ step: 1, typedText: '' });
-          setIsRemovingGames(false);
-          onClose();
-          window.location.reload();
-        } else {
-          alert('Failed to remove games: ' + (result.error || 'Unknown error'));
-          setIsRemovingGames(false);
-          setRemoveGamesConfirmation({ step: 1, typedText: '' });
-        }
-      } catch (error) {
-        console.error('Error removing games:', error);
-        alert('Failed to remove games: ' + (error instanceof Error ? error.message : 'Unknown error'));
-        setIsRemovingGames(false);
-        setRemoveGamesConfirmation({ step: 1, typedText: '' });
-      }
-    }
-  };
-
-  const handleReset = async () => {
-    if (resetConfirmation.step === 1) {
-      // First step: show typing confirmation
-      setResetConfirmation({ step: 2, typedText: '' });
-      return;
-    }
-
-    if (resetConfirmation.step === 2) {
-      // Second step: check if user typed "RESET"
-      if (resetConfirmation.typedText !== 'RESET') {
-        return;
-      }
-      // Move to final confirmation
-      setResetConfirmation({ step: 3, typedText: '' });
-      return;
-    }
-
-    // Final step: perform reset
-    if (resetConfirmation.step === 3) {
-      setIsResetting(true);
-      try {
-        const result = await window.electronAPI.resetApp();
-        if (result.success) {
-          // Close modal and reload the app
-          onClose();
-          // Reload the window to reflect changes
-          window.location.reload();
-        } else {
-          alert('Failed to reset application: ' + (result.error || 'Unknown error'));
-          setIsResetting(false);
-          setResetConfirmation({ step: 1, typedText: '' });
-        }
-      } catch (error) {
-        console.error('Error resetting app:', error);
-        alert('Failed to reset application: ' + (error instanceof Error ? error.message : 'Unknown error'));
-        setIsResetting(false);
-        setResetConfirmation({ step: 1, typedText: '' });
-      }
-    }
-  };
-
-  const handleSave = async () => {
-    try {
-      const result = await window.electronAPI.savePreferences({
-        minimizeToTray: settings.minimizeToTray,
-        showSystemTrayIcon: settings.showSystemTrayIcon,
-        startWithComputer: settings.startWithComputer,
-        startMinimized: settings.startMinimized,
-        startClosedToTray: settings.startClosedToTray,
-        updateLibrariesOnStartup: settings.updateLibrariesOnStartup,
-        checkForUpdatesOnStartup: settings.checkForUpdatesOnStartup,
-        minimizeOnGameLaunch: settings.minimizeOnGameLaunch,
-        hideGameTitles: settings.hideGameTitles,
-        gameTilePadding: settings.gameTilePadding,
-        showLogoOverBoxart: showLogoOverBoxart,
-        logoPosition: logoPosition,
-        enableHardwareAcceleration: settings.enableHardwareAcceleration,
-        closeToTray: settings.closeToTray,
-        confirmGameLaunch: settings.confirmGameLaunch,
-        restoreAfterLaunch: settings.restoreAfterLaunch,
-        defaultStartupPage: settings.defaultStartupPage,
-        disableAllAnimations: settings.disableAllAnimations,
-        disableAnimatedBanners: settings.disableAnimatedBanners,
-        disableAnimatedBoxarts: settings.disableAnimatedBoxarts,
-        disableAnimatedBackgrounds: settings.disableAnimatedBackgrounds,
-        disableAnimatedIcons: settings.disableAnimatedIcons,
-        disableAnimatedLogos: settings.disableAnimatedLogos,
-        startInFullscreen: settings.startInFullscreen,
-        hideMouseCursorInFullscreen: settings.hideMouseCursorInFullscreen,
-        cursorHideTimeout: settings.cursorHideTimeout,
-        linkDisplayMode: settings.linkDisplayMode,
-        enableSuspendFeature: settings.enableSuspendFeature,
-        suspendShortcut: settings.suspendShortcut,
-        visibleLinkTypes: linkVisibleTypes,
-        linkDisplayOrder: linkDisplayOrder,
-      });
-
-      const suspendShortcutResult = await window.electronAPI.suspend.setShortcut(settings.suspendShortcut);
-      if (!suspendShortcutResult.success) {
-        throw new Error(suspendShortcutResult.error || 'Failed to set suspend shortcut');
-      }
-
-      const suspendEnabledResult = await window.electronAPI.suspend.setFeatureEnabled(settings.enableSuspendFeature);
-      if (!suspendEnabledResult.success) {
-        throw new Error(suspendEnabledResult.error || 'Failed to apply suspend feature setting');
-      }
-
-      // Save API credentials
-      await window.electronAPI.saveAPICredentials({
-        igdbClientId: apiCredentials.igdbClientId,
-        igdbClientSecret: apiCredentials.igdbClientSecret,
-        steamGridDBApiKey: apiCredentials.steamGridDBApiKey,
-        rawgApiKey: apiCredentials.rawgApiKey,
-      });
-
-      if (!result.success) {
-        throw new Error(result.error || 'Failed to save preferences');
-      }
-
-      // Save app configs if we're on the apps tab or if apps have been modified
-      if (apps.length > 0) {
-        const configsToSave = apps.map(app => ({
-          id: app.id,
-          name: app.name,
-          enabled: app.enabled,
-          path: app.path,
-          autoAdd: app.autoAdd || false,
-          syncPlaytime: app.syncPlaytime || false,
-        }));
-
-        const appResult = await window.electronAPI.saveAppConfigs(configsToSave);
-
-        if (!appResult.success) {
-          console.error('Error saving app configs:', appResult.error);
-        }
-
-        // Also save Steam path for backward compatibility
-        const steamApp = apps.find((app) => app.id === 'steam');
-        if (steamApp && steamApp.enabled && steamApp.path) {
-          await window.electronAPI.setSteamPath(steamApp.path);
-        }
-      }
-
-      // Save manual folders
-      try {
-        const manualFoldersResult = await window.electronAPI.saveManualFolders(manualFolders);
-        if (!manualFoldersResult || !manualFoldersResult.success) {
-          console.error('Error saving manual folders:', manualFoldersResult?.error || 'Unknown error');
-        }
-      } catch (err) {
-        console.error('Error saving manual folders:', err);
-      }
-
-      // Apply system tray settings
-      await window.electronAPI.applySystemTraySettings({
-        showSystemTrayIcon: settings.showSystemTrayIcon,
-        minimizeToTray: settings.minimizeToTray,
-      });
-
-      // Apply startup settings
-      await window.electronAPI.applyStartupSettings({
-        startWithComputer: settings.startWithComputer,
-        startMinimized: settings.startMinimized,
-        startClosedToTray: settings.startClosedToTray,
-      });
-
-      // Notify parent component to reload preferences
-      if (onSave) {
-        await onSave();
-      }
-
-      onClose();
-    } catch (error) {
-      console.error('Error saving Onyx settings:', error);
-      alert('Failed to save settings: ' + (error instanceof Error ? error.message : 'Unknown error'));
-    }
-  };
 
   if (!isOpen) return null;
 

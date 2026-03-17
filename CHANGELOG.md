@@ -13,6 +13,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Settings maintainability: Extract the Suspend/Resume tab from `OnyxSettingsModal.tsx` into `SettingsSuspendTab.tsx`.
 - Settings maintainability: Extract General and Animations tab bodies plus shared shell runtime state from `OnyxSettingsModal.tsx` into dedicated settings components and `useOnyxSettingsModalShellState.ts`.
 - Settings maintainability: Extract launcher and manual-folder source loading/actions from `OnyxSettingsModal.tsx` into `useOnyxSettingsLibrarySources.ts`.
+- Settings maintainability: Extract settings load/save, background scan, destructive maintenance, and suspend shortcut persistence from `OnyxSettingsModal.tsx` into `useOnyxSettingsModalPersistence.ts`.
+- Add Games maintainability: Extract the staged-editor Links tab from `GamePropertiesPanel.tsx` into `GamePropertiesLinksTab.tsx`.
 
 ## [0.7.37] - 2026-03-17
 

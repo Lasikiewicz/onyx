@@ -61,14 +61,12 @@ interface UseOnyxSettingsModalShellStateOptions {
   initialTab: InitialTab;
   isOpen: boolean;
   onClose: () => void;
-  setSettings: React.Dispatch<React.SetStateAction<any>>;
 }
 
 export const useOnyxSettingsModalShellState = ({
   initialTab,
   isOpen,
   onClose,
-  setSettings,
 }: UseOnyxSettingsModalShellStateOptions) => {
   const [activeTab, setActiveTab] = useState<SettingsModalTab>(() => resolveTab(initialTab));
   const [apiCredentials, setApiCredentials] = useState<SettingsModalApiCredentials>({
@@ -168,55 +166,6 @@ export const useOnyxSettingsModalShellState = ({
       unsubscribe();
     };
   }, [isOpen]);
-
-  useEffect(() => {
-    if (!isCapturingSuspendShortcut) return;
-
-    const onKeyDown = (event: KeyboardEvent) => {
-      event.preventDefault();
-      event.stopPropagation();
-
-      if (event.key === 'Escape') {
-        setIsCapturingSuspendShortcut(false);
-        setSuspendShortcutCaptureError(null);
-        return;
-      }
-
-      const disallowedKeys = ['Control', 'Shift', 'Alt', 'Meta'];
-      if (disallowedKeys.includes(event.key)) {
-        setSuspendShortcutCaptureError('Press a non-modifier key with optional modifiers (Ctrl, Alt, Shift).');
-        return;
-      }
-
-      const modifiers: string[] = [];
-      if (event.ctrlKey) modifiers.push('Ctrl');
-      if (event.altKey) modifiers.push('Alt');
-      if (event.shiftKey) modifiers.push('Shift');
-      if (event.metaKey) modifiers.push('Super');
-
-      let key = event.key;
-      if (key.length === 1) {
-        key = key.toUpperCase();
-      } else {
-        const keyAliases: Record<string, string> = {
-          ' ': 'Space',
-          ArrowUp: 'Up',
-          ArrowDown: 'Down',
-          ArrowLeft: 'Left',
-          ArrowRight: 'Right',
-          Escape: 'Esc',
-        };
-        key = keyAliases[key] || key;
-      }
-
-      setSettings((prev: any) => ({ ...prev, suspendShortcut: [...modifiers, key].join('+') }));
-      setSuspendShortcutCaptureError(null);
-      setIsCapturingSuspendShortcut(false);
-    };
-
-    window.addEventListener('keydown', onKeyDown, true);
-    return () => window.removeEventListener('keydown', onKeyDown, true);
-  }, [isCapturingSuspendShortcut, setSettings]);
 
   const handleAPIInputChange = (key: keyof SettingsModalApiCredentials, value: string) => {
     setApiCredentials((prev) => {

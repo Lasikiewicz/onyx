@@ -19,6 +19,7 @@ Provides the staged import-review workspace for bringing newly discovered or man
 - The `Add Games` entry point in [`MenuBar.tsx`](../../renderer/src/components/MenuBar.tsx), which opens the importer flow from the main app menu.
 - The importer shell in [`ImportWorkbenchV2.tsx`](../../renderer/src/components/importer/ImportWorkbenchV2.tsx), which manages staged queue state, scanning, import progress, and close/confirm behavior.
 - The staged game editor in [`GamePropertiesPanel.tsx`](../../renderer/src/components/GamePropertiesPanel.tsx), which provides per-game Metadata, Images, Links, and Mod Manager tabs before import.
+- The extracted Links tab in [`GamePropertiesLinksTab.tsx`](../../renderer/src/components/gameProperties/GamePropertiesLinksTab.tsx), which now owns staged link-row editing and icon rendering for Add Games review.
 - The queue/source navigation in [`ImportSidebar.tsx`](../../renderer/src/components/importer/ImportSidebar.tsx) and action toolbar in [`ImportHeader.tsx`](../../renderer/src/components/importer/ImportHeader.tsx).
 - The found-games bridge modal in [`FoundGamesModal.tsx`](../../renderer/src/components/FoundGamesModal.tsx), which lets users jump from newly detected titles straight into Add Games review.
 
@@ -62,6 +63,7 @@ Provides the staged import-review workspace for bringing newly discovered or man
 
 - [`ImportWorkbenchV2.tsx`](../../renderer/src/components/importer/ImportWorkbenchV2.tsx) - top-level Add Games shell for staged queue state, scanning, import progress, and modal lifecycle.
 - [`GamePropertiesPanel.tsx`](../../renderer/src/components/GamePropertiesPanel.tsx) - per-staged-game editor covering metadata, images, links, and mod-manager fields before import.
+- [`GamePropertiesLinksTab.tsx`](../../renderer/src/components/gameProperties/GamePropertiesLinksTab.tsx) - extracted staged Links tab UI for per-link row editing and icon rendering before import.
 - [`ImportSidebar.tsx`](../../renderer/src/components/importer/ImportSidebar.tsx) - queue navigation, source tabs, and ignored/visible game filtering for staged entries.
 - [`ImportHeader.tsx`](../../renderer/src/components/importer/ImportHeader.tsx) - top toolbar for scan-folder, add-file, and scan-all actions.
 - [`ImportGameForm.tsx`](../../renderer/src/components/importer/ImportGameForm.tsx) - form-oriented staged import helpers used by the importer surface.
