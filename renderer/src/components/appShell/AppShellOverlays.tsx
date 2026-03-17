@@ -34,7 +34,7 @@ interface MissingGame {
   source?: string;
 }
 
-interface AppShellOverlaysProps {
+export interface AppShellOverlaysProps {
   updateNotification: UpdateNotificationState | null;
   currentVersion: string | null;
   changelogSource: string | null;

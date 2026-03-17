@@ -14,6 +14,7 @@ import { useStartupScanReview } from './hooks/useStartupScanReview';
 import { useGameManagerShellBridge } from './hooks/useGameManagerShellBridge';
 import { useMainViewShellControls } from './hooks/useMainViewShellControls';
 import { useRightClickMenuControls } from './hooks/useRightClickMenuControls';
+import { useAppShellSurfaceActions } from './hooks/useAppShellSurfaceActions';
 import { LibraryGrid } from './components/LibraryGrid';
 import { LibraryListView } from './components/LibraryListView';
 import { RightClickMenu } from './components/RightClickMenu';
@@ -1673,6 +1674,51 @@ function App() {
     viewMode,
   });
 
+  const { appShellOverlayProps, gameContextMenuProps, welcomeScreenProps } = useAppShellSurfaceActions({
+    changelogError,
+    changelogLoading,
+    changelogSource,
+    closeLibraryTutorial,
+    crashDumpPaths,
+    currentVersion,
+    foundGames,
+    gameContextMenu,
+    handleAddFolder,
+    handleCancelFoundGames,
+    handleCancelMissingGames,
+    handleDismissCrashDumps,
+    handleDismissUpdateNotification,
+    handleEditCategories,
+    handleEditGame,
+    handleEditImages,
+    handleFixMatch,
+    handleHideGame,
+    handleOpenCrashDumpFolder,
+    handlePlay,
+    handleRemoveMissingGames,
+    handleReviewFoundGames,
+    handleSaveCrashDumps,
+    handleToggleFavorite,
+    handleTogglePin,
+    handleUnhideGame,
+    handleUninstallGame,
+    handleUpdateNow,
+    handleUpdateSteamLibrary,
+    isUpdateModalTest,
+    missingGames,
+    openImportWorkbench,
+    openOnyxSettings,
+    selectedCategory,
+    setForceShowInitialOnboarding,
+    setGameContextMenu,
+    setIsAPISettingsOpen,
+    setToast,
+    showLibraryTutorial,
+    startupProgress,
+    toast,
+    updateNotification,
+  });
+
   return (
     <div
       className="h-screen bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-900 via-[#0f172a] to-black text-white flex flex-col overflow-hidden relative"
@@ -2026,21 +2072,7 @@ function App() {
                     </div>
                   ) : (
                     <Suspense fallback={lazyRenderFallback}>
-                      <WelcomeScreen
-                        onScanGames={() => {
-                          setForceShowInitialOnboarding(false);
-                          window.electronAPI.cancelStartupScan?.();
-                          openImportWorkbench({ autoStartScan: true });
-                        }}
-                        onAddFolder={(path, categories, icon) => {
-                          setForceShowInitialOnboarding(false);
-                          handleAddFolder(path, categories, icon);
-                        }}
-                        onOpenSettings={() => {
-                          setForceShowInitialOnboarding(false);
-                          setIsAPISettingsOpen(true);
-                        }}
-                      />
+                      <WelcomeScreen {...welcomeScreenProps} />
                     </Suspense>
                   )}
                   {showCategoriesByView[viewMode] && viewMode !== 'carousel' && viewMode !== 'coverflow' && pinnedCategories.length > 0 && (categoriesPositionByView[viewMode] ?? 'top') === 'bottom' && (
@@ -2284,25 +2316,7 @@ function App() {
       )}
 
       {/* Game Context Menu */}
-      {gameContextMenu && (
-        <GameContextMenu
-          game={gameContextMenu.game}
-          x={gameContextMenu.x}
-          y={gameContextMenu.y}
-          onClose={() => setGameContextMenu(null)}
-          onPlay={handlePlay}
-          onEdit={handleEditGame}
-          onEditImages={handleEditImages}
-          onEditCategories={handleEditCategories}
-          onFavorite={handleToggleFavorite}
-          onPin={handleTogglePin}
-          onFixMatch={handleFixMatch}
-          onHide={handleHideGame}
-          onUnhide={handleUnhideGame}
-          onUninstall={handleUninstallGame}
-          isHiddenView={selectedCategory === 'hidden'}
-        />
-      )}
+      {gameContextMenuProps && <GameContextMenu {...gameContextMenuProps} />}
 
       {/* Metadata Search Modal */}
       {fixingGame && (
@@ -2351,36 +2365,7 @@ function App() {
         />
       )}
 
-      <AppShellOverlays
-        updateNotification={updateNotification}
-        currentVersion={currentVersion}
-        changelogSource={changelogSource}
-        changelogLoading={changelogLoading}
-        changelogError={changelogError}
-        isUpdateModalTest={isUpdateModalTest}
-        onUpdateNow={handleUpdateNow}
-        onDismissUpdate={handleDismissUpdateNotification}
-        onInstallUpdate={() => {
-          window.electronAPI.quitAndInstall?.();
-        }}
-        crashDumpPaths={crashDumpPaths}
-        onSaveCrashDumps={handleSaveCrashDumps}
-        onOpenCrashDumpFolder={handleOpenCrashDumpFolder}
-        onDismissCrashDumps={handleDismissCrashDumps}
-        showLibraryTutorial={showLibraryTutorial}
-        onCloseLibraryTutorial={closeLibraryTutorial}
-        onOpenSettings={() => openOnyxSettings('general')}
-        onOpenUpdateLibrary={handleUpdateSteamLibrary}
-        toast={toast}
-        onDismissToast={() => setToast(null)}
-        missingGames={missingGames}
-        onRemoveMissingGames={handleRemoveMissingGames}
-        onCancelMissingGames={handleCancelMissingGames}
-        startupProgress={startupProgress}
-        foundGames={foundGames}
-        onCancelFoundGames={handleCancelFoundGames}
-        onReviewFoundGames={handleReviewFoundGames}
-      />
+      <AppShellOverlays {...appShellOverlayProps} />
     </div>
   );
 }

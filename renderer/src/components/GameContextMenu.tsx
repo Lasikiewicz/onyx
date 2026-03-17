@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { Game } from '../types/game';
 
-interface GameContextMenuProps {
+export interface GameContextMenuProps {
   game: Game;
   x: number;
   y: number;

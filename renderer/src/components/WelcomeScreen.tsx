@@ -21,7 +21,7 @@ type SetupStep = 'welcome' | 'steamgriddb' | 'otherFolders' | 'overview';
 const STEP_PANEL_API_KEYS_CLASS = 'w-full max-w-[1400px] max-h-[calc(100vh-4rem)] bg-gray-900/60 border border-gray-700/50 rounded-3xl p-12 backdrop-blur-xl shadow-2xl text-left overflow-auto';
 const STEP_WRAPPER_API_KEYS_CLASS = 'flex flex-col items-center justify-center min-h-full px-4 py-8 animate-in fade-in zoom-in duration-500';
 
-interface WelcomeScreenProps {
+export interface WelcomeScreenProps {
     onScanGames: () => void;
     onAddFolder: (path: string, categories: string[], icon?: string) => void;
     onOpenSettings: () => void;
