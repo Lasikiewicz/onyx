@@ -12,6 +12,7 @@ import { useSettingsSaveRefresh } from './hooks/useSettingsSaveRefresh';
 import { usePreferenceWriter } from './hooks/usePreferenceWriter';
 import { useStartupScanReview } from './hooks/useStartupScanReview';
 import { useGameManagerShellBridge } from './hooks/useGameManagerShellBridge';
+import { useMainViewShellControls } from './hooks/useMainViewShellControls';
 import { LibraryGrid } from './components/LibraryGrid';
 import { LibraryListView } from './components/LibraryListView';
 import { RightClickMenu } from './components/RightClickMenu';
@@ -1544,6 +1545,26 @@ function App() {
   // Check if this is an Alpha build
   const isAlphaBuild = __BUILD_PROFILE__ === 'alpha' || (typeof process !== 'undefined' && process.env?.NODE_ENV === 'development');
 
+  const { menuBarProps, topBarProps } = useMainViewShellControls({
+    handleExit,
+    handleScanFolder,
+    handleUpdateSteamLibrary,
+    isAlphaBuild,
+    loadLibrary,
+    openGameManager: () => openGameManager(),
+    openLibraryTutorial,
+    openOnyxSettings,
+    openSimulatedUpdateModal,
+    savePreferences,
+    setForceShowInitialOnboarding,
+    setIsBugReportOpen,
+    setIsSteamConfigOpen,
+    setSearchQuery,
+    setTopBarPositions,
+    setViewMode,
+    viewMode,
+  });
+
   return (
     <div
       className="h-screen bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-900 via-[#0f172a] to-black text-white flex flex-col overflow-hidden relative"
@@ -1609,20 +1630,20 @@ function App() {
       <div className="relative z-10 flex flex-col h-full">
         {/* Menu Bar - Fixed at top */}
         <MenuBar
-          onScanFolder={handleScanFolder}
-          onUpdateSteamLibrary={handleUpdateSteamLibrary}
-          onUpdateLibrary={handleUpdateSteamLibrary}
-          onGameManager={() => openGameManager()}
-          onConfigureSteam={() => setIsSteamConfigOpen(true)}
-          onOnyxSettings={() => openOnyxSettings('general')}
-          onAPISettings={() => openOnyxSettings('apis')}
-          onAbout={() => openOnyxSettings('about')}
-          onShowLibraryTutorial={openLibraryTutorial}
-          onExit={handleExit}
-          onBugReport={isAlphaBuild ? () => setIsBugReportOpen(true) : undefined}
-          onForceOpenUpdateFound={openSimulatedUpdateModal}
-          onForceOpenOnboarding={() => setForceShowInitialOnboarding(true)}
-          onForceCloseOnboarding={() => setForceShowInitialOnboarding(false)}
+          onScanFolder={menuBarProps.onScanFolder}
+          onUpdateSteamLibrary={menuBarProps.onUpdateSteamLibrary}
+          onUpdateLibrary={menuBarProps.onUpdateLibrary}
+          onGameManager={menuBarProps.onGameManager}
+          onConfigureSteam={menuBarProps.onConfigureSteam}
+          onOnyxSettings={menuBarProps.onOnyxSettings}
+          onAPISettings={menuBarProps.onAPISettings}
+          onAbout={menuBarProps.onAbout}
+          onShowLibraryTutorial={menuBarProps.onShowLibraryTutorial}
+          onExit={menuBarProps.onExit}
+          onBugReport={menuBarProps.onBugReport}
+          onForceOpenUpdateFound={menuBarProps.onForceOpenUpdateFound}
+          onForceOpenOnboarding={menuBarProps.onForceOpenOnboarding}
+          onForceCloseOnboarding={menuBarProps.onForceCloseOnboarding}
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
           selectedCategory={selectedCategory}
@@ -1649,24 +1670,17 @@ function App() {
           showImageQueueDetail={showOptimizerModal}
           setShowImageQueueDetail={setShowOptimizerModal}
           topBarPositions={topBarPositions}
-          onTopBarPositionsChange={async (positions) => {
-            setTopBarPositions(positions);
-            try {
-              await window.electronAPI.savePreferences({ topBarPositions: positions });
-            } catch (error) {
-              console.error('Error saving top bar positions:', error);
-            }
-          }}
+          onTopBarPositionsChange={menuBarProps.onTopBarPositionsChange}
         />
 
         {/* Top Bar - Hidden by default, shown when menu is open */}
         {showTopBar && (
           <TopBar
-            onSearch={setSearchQuery}
-            onRefresh={loadLibrary}
-            onFolder={() => handleScanFolder()}
-            onGridToggle={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')}
-            onSettings={() => setIsSteamConfigOpen(true)}
+            onSearch={topBarProps.onSearch}
+            onRefresh={topBarProps.onRefresh}
+            onFolder={topBarProps.onFolder}
+            onGridToggle={topBarProps.onGridToggle}
+            onSettings={topBarProps.onSettings}
             viewMode={viewMode}
             notificationCount={0}
           />

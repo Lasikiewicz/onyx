@@ -40,6 +40,7 @@ Layout: When view mode is grid/list/logo, the games list and game details panel 
 
 - Games from [GameStore](../../main/GameStore.ts); selection and view state in [App.tsx](../../renderer/src/App.tsx).
 - Preferences from [UserPreferencesService](../../main/UserPreferencesService.ts) for layout and display options.
+- Root MenuBar and TopBar shell actions are assembled in [useMainViewShellControls.ts](../../renderer/src/hooks/useMainViewShellControls.ts) so main-view entry points share one callback bundle before reaching [MenuBar.tsx](../../renderer/src/components/MenuBar.tsx) and [TopBar.tsx](../../renderer/src/components/TopBar.tsx).
 
 ## Data Model and Persistence
 
@@ -64,7 +65,9 @@ Layout: When view mode is grid/list/logo, the games list and game details panel 
 
 - **Renderer**
   - [App.tsx](../../renderer/src/App.tsx) — main layout, panel structure, categories placement, alignment
+  - [useMainViewShellControls.ts](../../renderer/src/hooks/useMainViewShellControls.ts) - MenuBar and TopBar shell action wiring for refresh, import, settings, tutorial, updater preview, and view/search updates
   - [MenuBar.tsx](../../renderer/src/components/MenuBar.tsx)
+  - [TopBar.tsx](../../renderer/src/components/TopBar.tsx)
   - [GameDetailsPanel.tsx](../../renderer/src/components/GameDetailsPanel.tsx)
   - [LibraryGrid.tsx](../../renderer/src/components/LibraryGrid.tsx)
   - [LibraryListView.tsx](../../renderer/src/components/LibraryListView.tsx)

@@ -20,6 +20,7 @@ It explains module boundaries, data flow, and release pipeline expectations.
 - `renderer/src/hooks/usePreferenceWriter.ts` owns lightweight renderer-side `savePreferences` helpers for direct shell control surfaces, so repeated state-update-plus-persist patterns do not stay duplicated inline.
 - `renderer/src/hooks/useStartupScanReview.ts` owns startup scan found-games review and dismissal handoff, so importer-opening actions for startup overlays do not stay embedded in `App.tsx`.
 - `renderer/src/hooks/useGameManagerShellBridge.ts` owns the app-shell side of Game Manager maintenance wiring, including save/delete handoff and importer-open maintenance actions, so `App.tsx` does not also carry those modal-bridge callbacks inline.
+- `renderer/src/hooks/useMainViewShellControls.ts` owns the root MenuBar/TopBar action wiring for shell entry points such as scan, refresh, settings, tutorial, updater preview, and preference-backed view/search controls, so `App.tsx` does not also carry those callback bundles inline.
 - App-shell preference bootstrap is intentionally one-time at renderer startup; later shell state changes must not implicitly reload persisted preferences, or root UI state like view mode and active selection can snap back to saved values.
 - `renderer/src/hooks/useGameLaunchFlow.ts` owns renderer-side launch confirmation, launch execution, PID polling, and running-state updates for the app shell, so `App.tsx` does not also carry the whole launch/process workflow inline.
 - `renderer/src/hooks/useImporterWorkbench.ts` owns importer open guards, startup/background scan handoff, importer reset behavior, and post-import follow-up, so `App.tsx` can treat importer lifecycle as a focused hook instead of another root-level modal workflow.
@@ -79,7 +80,7 @@ It explains module boundaries, data flow, and release pipeline expectations.
 
 <!-- AUTO-GENERATED:MODULE_INDEX:START -->
 - Main process source files: 70
-- Renderer source files: 113
+- Renderer source files: 114
 - Automation scripts: 30
 - GitHub workflow files: 7
 - Key entrypoints:

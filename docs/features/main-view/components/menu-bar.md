@@ -28,6 +28,7 @@ Fixed top bar in the library window providing app menu, search, sort, launcher a
 ## Discovery and Data Sources
 
 - Preferences for top bar positions and visibility from [UserPreferencesService](../../../../main/UserPreferencesService.ts). Game library and category/launcher lists for filter options.
+- Shell-level MenuBar callbacks are packaged in [useMainViewShellControls.ts](../../../../renderer/src/hooks/useMainViewShellControls.ts), which routes scan, refresh, settings, tutorial, updater preview, and search/view control actions out of [App.tsx](../../../../renderer/src/App.tsx).
 
 ## Data Model and Persistence
 
@@ -48,5 +49,6 @@ Fixed top bar in the library window providing app menu, search, sort, launcher a
 - **Renderer**
   - [App.tsx](../../../../renderer/src/App.tsx) — state, layout padding for menu bar
   - [MenuBar.tsx](../../../../renderer/src/components/MenuBar.tsx) — menu bar UI and filter controls
+  - [useMainViewShellControls.ts](../../../../renderer/src/hooks/useMainViewShellControls.ts) - shell callback bundle passed into the menu bar and sibling top-bar controls
 - **Main**
   - [UserPreferencesService.ts](../../../../main/UserPreferencesService.ts) — top bar position and related preference keys
