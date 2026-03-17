@@ -4,6 +4,13 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## Pending
+
+- App shell:
+  - Move debounced shell preference persistence and restored active-game validation out of `App.tsx` into `useAppShellPreferencePersistence.ts`.
+- Docs:
+  - Update the app-shell runbook and refactor roadmap to track the new `App.tsx` shell-persistence extraction.
+
 ## [0.7.39] - 2026-03-17
 
 - App shell:

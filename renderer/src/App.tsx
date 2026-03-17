@@ -12,6 +12,7 @@ import { useSettingsSaveRefresh } from './hooks/useSettingsSaveRefresh';
 import { usePreferenceWriter } from './hooks/usePreferenceWriter';
 import { useStartupScanReview } from './hooks/useStartupScanReview';
 import { useGameManagerShellBridge } from './hooks/useGameManagerShellBridge';
+import { useAppShellPreferencePersistence } from './hooks/useAppShellPreferencePersistence';
 import { useMainViewShellControls } from './hooks/useMainViewShellControls';
 import { useRightClickMenuControls } from './hooks/useRightClickMenuControls';
 import { useAppShellSurfaceActions } from './hooks/useAppShellSurfaceActions';
@@ -420,135 +421,28 @@ function App() {
     setSortBy,
   });
 
-  // Save grid size when it changes, except while auto-fit is actively recalculating it
-  useEffect(() => {
-    if (isInitialLoad) return;
-    if (autoSizeToFit) return;
-
-    const saveGridSize = async () => {
-      try {
-        await window.electronAPI.savePreferences({ gridSize });
-      } catch (error) {
-        console.error('Error saving grid size:', error);
-      }
-    };
-    // Debounce saves
-    const timeoutId = setTimeout(saveGridSize, 500);
-    return () => clearTimeout(timeoutId);
-  }, [gridSize, autoSizeToFit, isInitialLoad]);
-
-  // Save logo size when it changes
-  useEffect(() => {
-    if (isInitialLoad) return;
-    const saveLogoSize = async () => {
-      try {
-        await window.electronAPI.savePreferences({ logoSize });
-      } catch (error) {
-        console.error('Error saving logo size:', error);
-      }
-    };
-    // Debounce saves
-    const timeoutId = setTimeout(saveLogoSize, 500);
-    return () => clearTimeout(timeoutId);
-  }, [logoSize, isInitialLoad]);
-
-  // Save pinned categories when they change
-  useEffect(() => {
-    if (isInitialLoad) return;
-    const savePinnedCategories = async () => {
-      try {
-        await window.electronAPI.savePreferences({ pinnedCategories });
-      } catch (error) {
-        console.error('Error saving pinned categories:', error);
-      }
-    };
-    // Debounce saves
-    const timeoutId = setTimeout(savePinnedCategories, 300);
-    return () => clearTimeout(timeoutId);
-  }, [pinnedCategories, isInitialLoad]);
-
-  // Save hideVRTitles when it changes
-  useEffect(() => {
-    if (isInitialLoad) return;
-    const saveHideVRTitles = async () => {
-      try {
-        await window.electronAPI.savePreferences({ hideVRTitles });
-      } catch (error) {
-        console.error('Error saving hide VR titles preference:', error);
-      }
-    };
-    // Debounce saves
-    const timeoutId = setTimeout(saveHideVRTitles, 300);
-    return () => clearTimeout(timeoutId);
-  }, [hideVRTitles, isInitialLoad]);
-
-  // Save hideAppsTitles when it changes
-  useEffect(() => {
-    if (isInitialLoad) return;
-    const saveHideAppsTitles = async () => {
-      try {
-        await window.electronAPI.savePreferences({ hideAppsTitles });
-      } catch (error) {
-        console.error('Error saving hide Apps titles preference:', error);
-      }
-    };
-    // Debounce saves
-    const timeoutId = setTimeout(saveHideAppsTitles, 300);
-    return () => clearTimeout(timeoutId);
-  }, [hideAppsTitles, isInitialLoad]);
-
-  // Save appearance preferences when they change (but skip initial load)
-  useEffect(() => {
-    if (isInitialLoad) return; // Skip saving on initial load
-
-    const saveAppearancePrefs = async () => {
-      try {
-        await window.electronAPI.savePreferences({
-          hideGameTitles,
-          gameTilePadding,
-          backgroundBlur,
-          backgroundBrightnessByView,
-          viewMode,
-          backgroundMode,
-          backgroundColor,
-          listViewOptions,
-          listViewSize
-        });
-      } catch (error) {
-        console.error('Error saving appearance preferences:', error);
-      }
-    };
-    // Debounce saves
-    const timeoutId = setTimeout(saveAppearancePrefs, 500);
-    return () => clearTimeout(timeoutId);
-  }, [hideGameTitles, gameTilePadding, backgroundBlur, backgroundBrightnessByView, viewMode, backgroundMode, backgroundColor, listViewOptions, listViewSize, isInitialLoad]);
-
-  // Save activeGameId when it changes
-  useEffect(() => {
-    if (isInitialLoad) return;
-    const saveActiveGameId = async () => {
-      try {
-        await window.electronAPI.savePreferences({ activeGameId });
-      } catch (error) {
-        console.error('Error saving active game ID:', error);
-      }
-    };
-    // Debounce saves
-    const timeoutId = setTimeout(saveActiveGameId, 300);
-    return () => clearTimeout(timeoutId);
-  }, [activeGameId, isInitialLoad]);
-
-  // Restore active game selection after games are loaded
-  useEffect(() => {
-    if (!loading && games.length > 0 && activeGameId) {
-      // Verify the saved game still exists in the library
-      const gameExists = games.some(g => g.id === activeGameId);
-      if (!gameExists) {
-        // Game no longer exists, clear the selection
-        setActiveGameId(null);
-      }
-    }
-  }, [loading, games, activeGameId]);
+  useAppShellPreferencePersistence({
+    activeGameId,
+    autoSizeToFit,
+    backgroundBlur,
+    backgroundBrightnessByView,
+    backgroundColor,
+    backgroundMode,
+    gameTilePadding,
+    games,
+    gridSize,
+    hideAppsTitles,
+    hideGameTitles,
+    hideVRTitles,
+    isInitialLoad,
+    listViewOptions,
+    listViewSize,
+    loading,
+    logoSize,
+    pinnedCategories,
+    setActiveGameId,
+    viewMode,
+  });
 
   // Toggle pin category
   const handleTogglePinCategory = (category: string) => {
