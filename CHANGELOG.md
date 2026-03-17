@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Pending]
 
+## [0.7.38] - 2026-03-17
+
 - Workflow: Require all committed changes to be recorded explicitly in `CHANGELOG.md` `Pending`, including maintainability refactors.
 - Settings maintainability: Extract the Libraries tab from `OnyxSettingsModal.tsx` into `SettingsLibrariesTab.tsx`.
 - Settings maintainability: Extract the Advanced and Link Management tabs from `OnyxSettingsModal.tsx` into `SettingsAdvancedTab.tsx` and `SettingsLinksTab.tsx`.
