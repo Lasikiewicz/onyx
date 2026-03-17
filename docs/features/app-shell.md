@@ -29,6 +29,7 @@ Owns the renderer root experience in [`App.tsx`](../../renderer/src/App.tsx): li
 - The startup scan review bridge in [`useStartupScanReview.ts`](../../renderer/src/hooks/useStartupScanReview.ts), which owns review/cancel actions for startup-discovered games before they hand off into the importer.
 - The Game Manager shell bridge in [`useGameManagerShellBridge.ts`](../../renderer/src/hooks/useGameManagerShellBridge.ts), which owns the app-shell side of Game Manager save/delete maintenance actions and importer-open maintenance handoffs.
 - The main-view shell-controls bridge in [`useMainViewShellControls.ts`](../../renderer/src/hooks/useMainViewShellControls.ts), which packages MenuBar and TopBar action callbacks so shell entry points share one root control surface instead of duplicating callback wiring in [`App.tsx`](../../renderer/src/App.tsx).
+- The right-click menu control bridge in [`useRightClickMenuControls.ts`](../../renderer/src/hooks/useRightClickMenuControls.ts), which packages the root `RightClickMenu` callback bundle for active-game updates and preference-backed view/detail controls.
 - The shell launch bridge in [`useGameLaunchFlow.ts`](../../renderer/src/hooks/useGameLaunchFlow.ts), which owns launch confirmation, launch execution, running-state tracking, and restore/minimize process-side behavior.
 - The importer handoff bridge in [`useImporterWorkbench.ts`](../../renderer/src/hooks/useImporterWorkbench.ts), which owns importer-open guards, startup-scan/new-games handoff, importer reset behavior, and post-import tutorial follow-up.
 - The visible-library selection policy in [`App.tsx`](../../renderer/src/App.tsx), which keeps `activeGameId` aligned to the current filtered game set so the details panel and background shell do not stick to an off-screen game after filters or clicks change the visible library.
@@ -52,8 +53,9 @@ Owns the renderer root experience in [`App.tsx`](../../renderer/src/App.tsx): li
 9. [`useStartupScanReview.ts`](../../renderer/src/hooks/useStartupScanReview.ts) owns the startup overlay’s cancel/review actions so found-games review routes into the importer through one focused handoff path.
 10. [`useGameManagerShellBridge.ts`](../../renderer/src/hooks/useGameManagerShellBridge.ts) owns the shell-side Game Manager maintenance bridge, including delete/save follow-up and maintenance-mode importer handoff.
 11. [`useMainViewShellControls.ts`](../../renderer/src/hooks/useMainViewShellControls.ts) bundles MenuBar and TopBar shell actions, including refresh/import/settings entry points and preference-backed search/view updates, so root control routing stays consistent across main-view surfaces.
-12. [`useImporterWorkbench.ts`](../../renderer/src/hooks/useImporterWorkbench.ts) converts menu actions, Welcome Screen onboarding, startup-scan discoveries, and Game Manager maintenance flows into one importer lifecycle for [`ImportWorkbenchV2.tsx`](../../renderer/src/components/importer/ImportWorkbenchV2.tsx).
-13. Update availability, crash dumps, tutorial prompts, toast messages, and missing-games cleanup all render above the library shell without each feature owning its own root-level wiring.
+12. [`useRightClickMenuControls.ts`](../../renderer/src/hooks/useRightClickMenuControls.ts) bundles the root right-click settings menu actions, including per-view preference writes and active-game handoff, so `RightClickMenu` routing no longer stays inline in [`App.tsx`](../../renderer/src/App.tsx).
+13. [`useImporterWorkbench.ts`](../../renderer/src/hooks/useImporterWorkbench.ts) converts menu actions, Welcome Screen onboarding, startup-scan discoveries, and Game Manager maintenance flows into one importer lifecycle for [`ImportWorkbenchV2.tsx`](../../renderer/src/components/importer/ImportWorkbenchV2.tsx).
+14. Update availability, crash dumps, tutorial prompts, toast messages, and missing-games cleanup all render above the library shell without each feature owning its own root-level wiring.
 
 ## Discovery and Data Sources
 
@@ -117,6 +119,7 @@ Owns the renderer root experience in [`App.tsx`](../../renderer/src/App.tsx): li
 - [useStartupScanReview.ts](../../renderer/src/hooks/useStartupScanReview.ts) - startup scan review/cancel handoff from shell overlays into the importer flow.
 - [useGameManagerShellBridge.ts](../../renderer/src/hooks/useGameManagerShellBridge.ts) - shell-side Game Manager maintenance, save/delete follow-up, and importer handoff wiring.
 - [useMainViewShellControls.ts](../../renderer/src/hooks/useMainViewShellControls.ts) - bundled MenuBar and TopBar shell callbacks for scan, refresh, settings, tutorial, updater preview, and preference-backed search/view actions.
+- [useRightClickMenuControls.ts](../../renderer/src/hooks/useRightClickMenuControls.ts) - bundled right-click settings menu callbacks for active-game updates and preference-backed per-view display controls.
 - [useGameLaunchFlow.ts](../../renderer/src/hooks/useGameLaunchFlow.ts) - renderer launch confirmation, launch execution, process polling, and running-state tracking for the app shell.
 - [useImporterWorkbench.ts](../../renderer/src/hooks/useImporterWorkbench.ts) - importer lifecycle orchestration shared by startup handoff, menu actions, onboarding, and Game Manager cleanup flows.
 - [FoundGamesModal.tsx](../../renderer/src/components/FoundGamesModal.tsx) - reusable found-games review modal used by the startup overlay when scans discover new titles.

@@ -41,6 +41,7 @@ Layout: When view mode is grid/list/logo, the games list and game details panel 
 - Games from [GameStore](../../main/GameStore.ts); selection and view state in [App.tsx](../../renderer/src/App.tsx).
 - Preferences from [UserPreferencesService](../../main/UserPreferencesService.ts) for layout and display options.
 - Root MenuBar and TopBar shell actions are assembled in [useMainViewShellControls.ts](../../renderer/src/hooks/useMainViewShellControls.ts) so main-view entry points share one callback bundle before reaching [MenuBar.tsx](../../renderer/src/components/MenuBar.tsx) and [TopBar.tsx](../../renderer/src/components/TopBar.tsx).
+- Root right-click settings actions are assembled in [useRightClickMenuControls.ts](../../renderer/src/hooks/useRightClickMenuControls.ts) so per-view display and divider writes share one callback bundle before reaching [RightClickMenu.tsx](../../renderer/src/components/RightClickMenu.tsx).
 
 ## Data Model and Persistence
 
@@ -66,6 +67,7 @@ Layout: When view mode is grid/list/logo, the games list and game details panel 
 - **Renderer**
   - [App.tsx](../../renderer/src/App.tsx) — main layout, panel structure, categories placement, alignment
   - [useMainViewShellControls.ts](../../renderer/src/hooks/useMainViewShellControls.ts) - MenuBar and TopBar shell action wiring for refresh, import, settings, tutorial, updater preview, and view/search updates
+  - [useRightClickMenuControls.ts](../../renderer/src/hooks/useRightClickMenuControls.ts) - right-click settings menu action wiring for active-game updates and preference-backed main-view controls
   - [MenuBar.tsx](../../renderer/src/components/MenuBar.tsx)
   - [TopBar.tsx](../../renderer/src/components/TopBar.tsx)
   - [GameDetailsPanel.tsx](../../renderer/src/components/GameDetailsPanel.tsx)

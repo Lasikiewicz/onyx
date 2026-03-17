@@ -13,6 +13,7 @@ import { usePreferenceWriter } from './hooks/usePreferenceWriter';
 import { useStartupScanReview } from './hooks/useStartupScanReview';
 import { useGameManagerShellBridge } from './hooks/useGameManagerShellBridge';
 import { useMainViewShellControls } from './hooks/useMainViewShellControls';
+import { useRightClickMenuControls } from './hooks/useRightClickMenuControls';
 import { LibraryGrid } from './components/LibraryGrid';
 import { LibraryListView } from './components/LibraryListView';
 import { RightClickMenu } from './components/RightClickMenu';
@@ -1156,7 +1157,7 @@ function App() {
     setLinkDisplayOrder,
     setVisibleLinkTypes,
   });
-  const { saveByViewValue, savePreferences, saveValue } = usePreferenceWriter();
+  const { savePreferences } = usePreferenceWriter();
   const { handleCancelFoundGames, handleReviewFoundGames } = useStartupScanReview({
     setFoundGames,
     setStartupProgress,
@@ -1562,6 +1563,113 @@ function App() {
     setSearchQuery,
     setTopBarPositions,
     setViewMode,
+    viewMode,
+  });
+
+  const rightClickMenuProps = useRightClickMenuControls({
+    activeGame,
+    backgroundBlur,
+    backgroundBrightnessByView,
+    carouselButtonColors,
+    carouselButtonSize,
+    carouselDescriptionSize,
+    carouselLogoSize,
+    categoriesAlignmentByView,
+    categoriesPositionByView,
+    categoriesSizeByView,
+    coverFlowButtonColors,
+    coverFlowButtonPosition,
+    coverFlowCoverSize,
+    coverFlowReflection,
+    coverFlowShowButtons,
+    coverFlowSideOpacity,
+    coverFlowVerticalOffset,
+    currentBackgroundBrightness,
+    currentDescriptionWidth,
+    currentFanartHeight,
+    currentPanelWidth,
+    defaultListViewOptions,
+    descriptionWidthByView,
+    detailsBarSize,
+    detailsPanelBottomBarHeight,
+    detailsPanelOpacity,
+    fanartHeightByView,
+    gameTilePadding,
+    gridButtonColors,
+    gridSize,
+    isViewFlippedByView,
+    listButtonColors,
+    listViewOptions,
+    listViewSize,
+    logoBackgroundColor,
+    logoBackgroundOpacity,
+    logoButtonColors,
+    logoPosition,
+    logoSize,
+    panelWidthByViewState,
+    refreshPreferences,
+    rightPanelBoxartPosition,
+    rightPanelBoxartSize,
+    rightPanelButtonColors,
+    rightPanelButtonLocation,
+    rightPanelButtonSize,
+    rightPanelLogoSize,
+    rightPanelTextSize,
+    selectedBoxArtSize,
+    setActiveGameId,
+    setBackgroundBlur,
+    setBackgroundBrightnessByView,
+    setCarouselButtonColors,
+    setCarouselButtonSize,
+    setCarouselDescriptionSize,
+    setCarouselLogoSize,
+    setCategoriesAlignmentByView,
+    setCategoriesPositionByView,
+    setCategoriesSizeByView,
+    setCoverFlowButtonColors,
+    setCoverFlowButtonPosition,
+    setCoverFlowCoverSize,
+    setCoverFlowReflection,
+    setCoverFlowShowButtons,
+    setCoverFlowSideOpacity,
+    setCoverFlowVerticalOffset,
+    setDescriptionWidthByView,
+    setDetailsBarSize,
+    setDetailsPanelBottomBarHeight,
+    setDetailsPanelOpacity,
+    setFanartHeightByView,
+    setGameTilePadding,
+    setGridButtonColors,
+    setGridSize,
+    setIsViewFlippedByView,
+    setListButtonColors,
+    setListViewOptions,
+    setListViewSize,
+    setLogoBackgroundColor,
+    setLogoBackgroundOpacity,
+    setLogoButtonColors,
+    setLogoPosition,
+    setLogoSize,
+    setPanelWidth,
+    setPanelWidthByViewState,
+    setRightPanelBoxartPosition,
+    setRightPanelBoxartSize,
+    setRightPanelButtonColors,
+    setRightPanelButtonLocation,
+    setRightPanelButtonSize,
+    setRightPanelLogoSize,
+    setRightPanelTextSize,
+    setSelectedBoxArtSize,
+    setShowCarouselDetails,
+    setShowCarouselLogos,
+    setShowCategoriesByView,
+    setShowLogoOverBoxart,
+    setViewMode,
+    showCarouselDetails,
+    showCarouselLogos,
+    showCategoriesByView,
+    showLogoOverBoxart,
+    updateGameInState,
     viewMode,
   });
 
@@ -2171,195 +2279,7 @@ function App() {
           x={rightClickMenu.x}
           y={rightClickMenu.y}
           onClose={() => setRightClickMenu(null)}
-          viewMode={viewMode}
-          onViewModeChange={setViewMode}
-          activeGame={activeGame || undefined}
-          onActiveGameChange={(game) => {
-            setActiveGameId(game.id);
-            updateGameInState(game);
-            // Note: Do NOT save here - let RightClickMenu handle saves with debouncing
-            // This prevents duplicate saves and flickering on logo size changes
-          }}
-          gridSize={gridSize}
-          onGridSizeChange={setGridSize}
-          logoSize={logoSize}
-          onLogoSizeChange={setLogoSize}
-          listSize={listViewSize}
-          onListSizeChange={setListViewSize}
-          listViewOptions={listViewOptions}
-          onListViewOptionsChange={(options) => {
-            setListViewOptions({
-              ...defaultListViewOptions,
-              ...options,
-              showLauncher: options.showLauncher ?? true,
-              showLogos: options.showLogos ?? false,
-            });
-            savePreferences({ listViewOptions: options });
-          }}
-          gameTilePadding={gameTilePadding}
-          onGameTilePaddingChange={setGameTilePadding}
-          backgroundBlur={backgroundBlur}
-          onBackgroundBlurChange={setBackgroundBlur}
-          backgroundBrightness={currentBackgroundBrightness}
-          onBackgroundBrightnessChange={(brightness: number) => {
-            saveByViewValue(backgroundBrightnessByView, setBackgroundBrightnessByView, 'backgroundBrightnessByView', viewMode, brightness);
-          }}
-          selectedBoxArtSize={selectedBoxArtSize}
-          onSelectedBoxArtSizeChange={setSelectedBoxArtSize}
-          panelWidth={currentPanelWidth}
-          onPanelWidthChange={(width) => {
-            setPanelWidth(width);
-            saveByViewValue(panelWidthByViewState, setPanelWidthByViewState, 'panelWidthByView', viewMode, width);
-          }}
-          carouselLogoSize={carouselLogoSize}
-          onCarouselLogoSizeChange={(size) => {
-            saveValue(setCarouselLogoSize, 'carouselLogoSize', size);
-          }}
-          detailsBarSize={detailsBarSize}
-          onDetailsBarSizeChange={(size) => {
-            saveValue(setDetailsBarSize, 'detailsBarSize', size);
-          }}
-          showCarouselDetails={showCarouselDetails}
-          onShowCarouselDetailsChange={(show) => {
-            saveValue(setShowCarouselDetails, 'showCarouselDetails', show);
-          }}
-          showCarouselLogos={showCarouselLogos}
-          onShowCarouselLogosChange={(show) => {
-            saveValue(setShowCarouselLogos, 'showCarouselLogos', show);
-          }}
-          carouselButtonSize={carouselButtonSize}
-          onCarouselButtonSizeChange={(size) => {
-            saveValue(setCarouselButtonSize, 'carouselButtonSize', size);
-          }}
-          carouselDescriptionSize={carouselDescriptionSize}
-          onCarouselDescriptionSizeChange={(size) => {
-            saveValue(setCarouselDescriptionSize, 'carouselDescriptionSize', size);
-          }}
-          showCategoriesInGameList={showCategoriesByView[viewMode] ?? false}
-          onShowCategoriesInGameListChange={(show) => {
-            saveByViewValue(showCategoriesByView, setShowCategoriesByView, 'showCategoriesInGameListByView', viewMode, show);
-          }}
-          categoriesPosition={categoriesPositionByView[viewMode] ?? 'top'}
-          onCategoriesPositionChange={(position: 'top' | 'bottom') => {
-            saveByViewValue(categoriesPositionByView, setCategoriesPositionByView, 'categoriesPositionByView', viewMode, position);
-          }}
-          categoriesTopAlignment={categoriesAlignmentByView[viewMode] ?? 'left'}
-          onCategoriesTopAlignmentChange={(alignment: 'left' | 'center' | 'right') => {
-            saveByViewValue(categoriesAlignmentByView, setCategoriesAlignmentByView, 'categoriesAlignmentByView', viewMode, alignment);
-          }}
-          categoriesTopSize={categoriesSizeByView[viewMode] ?? 12}
-          onCategoriesTopSizeChange={(size: number) => {
-            saveByViewValue(categoriesSizeByView, setCategoriesSizeByView, 'categoriesSizeByView', viewMode, size);
-          }}
-          showLogoOverBoxart={showLogoOverBoxart}
-          onShowLogoOverBoxartChange={(show) => {
-            saveValue(setShowLogoOverBoxart, 'showLogoOverBoxart', show);
-          }}
-          logoPosition={logoPosition}
-          onLogoPositionChange={(position) => {
-            saveValue(setLogoPosition, 'logoPosition', position);
-          }}
-          logoBackgroundColor={logoBackgroundColor}
-          onLogoBackgroundColorChange={(color: string) => {
-            saveValue(setLogoBackgroundColor, 'logoBackgroundColor', color);
-          }}
-          logoBackgroundOpacity={logoBackgroundOpacity}
-          onLogoBackgroundOpacityChange={(opacity: number) => {
-            saveValue(setLogoBackgroundOpacity, 'logoBackgroundOpacity', opacity);
-          }}
-          rightPanelLogoSize={rightPanelLogoSize}
-          onRightPanelLogoSizeChange={(size) => {
-            saveValue(setRightPanelLogoSize, 'rightPanelLogoSize', size);
-          }}
-          rightPanelBoxartPosition={rightPanelBoxartPosition}
-          onRightPanelBoxartPositionChange={(position) => {
-            saveValue(setRightPanelBoxartPosition, 'rightPanelBoxartPosition', position);
-          }}
-          rightPanelBoxartSize={rightPanelBoxartSize}
-          onRightPanelBoxartSizeChange={(size) => {
-            saveValue(setRightPanelBoxartSize, 'rightPanelBoxartSize', size);
-          }}
-          rightPanelTextSize={rightPanelTextSize}
-          onRightPanelTextSizeChange={(size) => {
-            saveValue(setRightPanelTextSize, 'rightPanelTextSize', size);
-          }}
-          rightPanelButtonSize={rightPanelButtonSize}
-          onRightPanelButtonSizeChange={(size) => {
-            saveValue(setRightPanelButtonSize, 'rightPanelButtonSize', size);
-          }}
-          rightPanelButtonLocation={rightPanelButtonLocation}
-          onRightPanelButtonLocationChange={(location) => {
-            saveValue(setRightPanelButtonLocation, 'rightPanelButtonLocation', location);
-          }}
-          isViewFlipped={isViewFlippedByView[viewMode]}
-          onViewFlipChange={(flipped) => {
-            saveByViewValue(isViewFlippedByView, setIsViewFlippedByView, 'isViewFlippedByView', viewMode, flipped);
-          }}
-          detailsPanelOpacity={detailsPanelOpacity}
-          onDetailsPanelOpacityChange={(opacity) => {
-            saveValue(setDetailsPanelOpacity, 'detailsPanelOpacity', opacity);
-          }}
-          fanartHeight={currentFanartHeight}
-          onFanartHeightChange={(height) => {
-            saveByViewValue(fanartHeightByView, setFanartHeightByView, 'fanartHeightByView', viewMode as 'grid' | 'list' | 'logo', height);
-          }}
-          descriptionWidth={currentDescriptionWidth}
-          onDescriptionWidthChange={(width) => {
-            saveByViewValue(descriptionWidthByView, setDescriptionWidthByView, 'descriptionWidthByView', viewMode as 'grid' | 'list' | 'logo', width);
-          }}
-          detailsPanelBottomBarHeight={detailsPanelBottomBarHeight}
-          onDetailsPanelBottomBarHeightChange={(height: number) => {
-            saveValue(setDetailsPanelBottomBarHeight, 'detailsPanelBottomBarHeight', height);
-          }}
-          rightPanelButtonColors={rightPanelButtonColors}
-          onRightPanelButtonColorsChange={(colors) => {
-            saveValue(setRightPanelButtonColors, 'rightPanelButtonColors', colors);
-          }}
-          carouselButtonColors={carouselButtonColors}
-          onCarouselButtonColorsChange={(colors) => {
-            saveValue(setCarouselButtonColors, 'carouselButtonColors', colors);
-          }}
-          gridButtonColors={gridButtonColors}
-          onGridButtonColorsChange={(colors) => {
-            saveValue(setGridButtonColors, 'gridButtonColors', colors);
-          }}
-          listButtonColors={listButtonColors}
-          onListButtonColorsChange={(colors) => {
-            saveValue(setListButtonColors, 'listButtonColors', colors);
-          }}
-          logoButtonColors={logoButtonColors}
-          onLogoButtonColorsChange={(colors) => {
-            saveValue(setLogoButtonColors, 'logoButtonColors', colors);
-          }}
-          coverFlowCoverSize={coverFlowCoverSize}
-          onCoverFlowCoverSizeChange={(size) => {
-            saveValue(setCoverFlowCoverSize, 'coverFlowCoverSize', size);
-          }}
-          coverFlowReflection={coverFlowReflection}
-          onCoverFlowReflectionChange={(value) => {
-            saveValue(setCoverFlowReflection, 'coverFlowReflection', value);
-          }}
-          coverFlowVerticalOffset={coverFlowVerticalOffset}
-          onCoverFlowVerticalOffsetChange={(value: number) => {
-            saveValue(setCoverFlowVerticalOffset, 'coverFlowVerticalOffset', value);
-          }}
-          coverFlowSideOpacity={coverFlowSideOpacity}
-          onCoverFlowSideOpacityChange={(value: number) => {
-            saveValue(setCoverFlowSideOpacity, 'coverFlowSideOpacity', value);
-          }}
-          coverFlowShowButtons={coverFlowShowButtons}
-          onCoverFlowShowButtonsChange={(show) => {
-            saveValue(setCoverFlowShowButtons, 'coverFlowShowButtons', show);
-          }}
-          coverFlowButtonPosition={coverFlowButtonPosition}
-          onCoverFlowButtonPositionChange={(pos) => {
-            saveValue(setCoverFlowButtonPosition, 'coverFlowButtonPosition', pos);
-          }}
-          coverFlowButtonColors={coverFlowButtonColors}
-          onCoverFlowButtonColorsChange={(colors) => {
-            saveValue(setCoverFlowButtonColors, 'coverFlowButtonColors', colors);
-          }}
-          onSettingsImported={refreshPreferences}
+          {...rightClickMenuProps}
         />
       )}
 

@@ -4,7 +4,7 @@ import { CustomDefaultsManager } from './CustomDefaultsManager';
 import { ConfirmationDialog } from './ConfirmationDialog';
 import { MenuSliderRow } from './MenuSliderRow';
 
-interface RightClickMenuProps {
+export interface RightClickMenuProps {
   x: number;
   y: number;
   onClose: () => void;
