@@ -25,7 +25,7 @@ Exposes maintenance and destructive application actions such as cache inspection
 
 ## Discovery and Data Sources
 
-- UI actions live in `OnyxSettingsModal` advanced tab.
+- Advanced tab UI now lives in [`SettingsAdvancedTab.tsx`](../../../renderer/src/components/settings/SettingsAdvancedTab.tsx), mounted by [`OnyxSettingsModal.tsx`](../../../renderer/src/components/OnyxSettingsModal.tsx).
 - Main handlers open filesystem locations or mutate store state.
 
 ## Data Model and Persistence
@@ -48,6 +48,7 @@ Exposes maintenance and destructive application actions such as cache inspection
 
 - **Renderer**
   - [OnyxSettingsModal.tsx](../../../renderer/src/components/OnyxSettingsModal.tsx)
+  - [SettingsAdvancedTab.tsx](../../../renderer/src/components/settings/SettingsAdvancedTab.tsx)
 - **Main process**
   - [GameStore.ts](../../../main/GameStore.ts)
   - [UserPreferencesService.ts](../../../main/UserPreferencesService.ts)

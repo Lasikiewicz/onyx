@@ -19,7 +19,7 @@ This is the architecture-level companion to the user-facing settings overview in
 ## User-Facing Surfaces
 
 - The main settings UI in [`OnyxSettingsModal.tsx`](../../renderer/src/components/OnyxSettingsModal.tsx), which collects tab-level settings changes from the user.
-- Tab-specific renderer slices in [`renderer/src/components/settings/`](../../renderer/src/components/settings), which now hold larger tab bodies such as [`SettingsIntegrationsTab.tsx`](../../renderer/src/components/settings/SettingsIntegrationsTab.tsx), [`SettingsAboutTab.tsx`](../../renderer/src/components/settings/SettingsAboutTab.tsx), and [`SettingsLibrariesTab.tsx`](../../renderer/src/components/settings/SettingsLibrariesTab.tsx) so the modal shell does not own every tab inline.
+- Tab-specific renderer slices in [`renderer/src/components/settings/`](../../renderer/src/components/settings), which now hold larger tab bodies such as [`SettingsIntegrationsTab.tsx`](../../renderer/src/components/settings/SettingsIntegrationsTab.tsx), [`SettingsAboutTab.tsx`](../../renderer/src/components/settings/SettingsAboutTab.tsx), [`SettingsLibrariesTab.tsx`](../../renderer/src/components/settings/SettingsLibrariesTab.tsx), [`SettingsAdvancedTab.tsx`](../../renderer/src/components/settings/SettingsAdvancedTab.tsx), and [`SettingsLinksTab.tsx`](../../renderer/src/components/settings/SettingsLinksTab.tsx) so the modal shell does not own every tab inline.
 - The shell/runtime consumers in [`App.tsx`](../../renderer/src/App.tsx), [`useAppPreferences.ts`](../../renderer/src/hooks/useAppPreferences.ts), and [`useGameLaunchFlow.ts`](../../renderer/src/hooks/useGameLaunchFlow.ts), which apply settings that need to affect the renderer immediately.
 - Main-process consumers such as [`main.ts`](../../main/main.ts), [`startupCoordinator.ts`](../../main/startupCoordinator.ts), tray/window code, scanning services, and updater services that read preferences at startup or on demand.
 - Specialized settings tabs documented in [settings/README.md](./settings/README.md), which define the detailed per-tab behavior and UI.
@@ -84,6 +84,8 @@ This is the architecture-level companion to the user-facing settings overview in
 - [`SettingsIntegrationsTab.tsx`](../../renderer/src/components/settings/SettingsIntegrationsTab.tsx) - extracted API credentials and integration instructions tab UI.
 - [`SettingsAboutTab.tsx`](../../renderer/src/components/settings/SettingsAboutTab.tsx) - extracted About tab UI for updater actions, credits, and external project links.
 - [`SettingsLibrariesTab.tsx`](../../renderer/src/components/settings/SettingsLibrariesTab.tsx) - extracted Libraries tab UI for manual folders and launcher configuration.
+- [`SettingsAdvancedTab.tsx`](../../renderer/src/components/settings/SettingsAdvancedTab.tsx) - extracted Advanced tab UI for folder actions and destructive maintenance confirmation flows.
+- [`SettingsLinksTab.tsx`](../../renderer/src/components/settings/SettingsLinksTab.tsx) - extracted Link Management tab UI for link ordering and hidden-by-default visibility controls.
 - [`useAppPreferences.ts`](../../renderer/src/hooks/useAppPreferences.ts) - renderer bootstrap and explicit preference refresh/application for the shell.
 - [`App.tsx`](../../renderer/src/App.tsx) - root renderer consumer for many persisted layout/display/shell settings.
 - [`useGameLaunchFlow.ts`](../../renderer/src/hooks/useGameLaunchFlow.ts) - renderer launch behavior consumer for launch-related settings.

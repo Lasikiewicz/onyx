@@ -30,7 +30,7 @@ Controls how external store and information links are displayed, discovered, and
 
 ## Discovery and Data Sources
 
-- This tab is the configuration surface for [Links and link management](../links-and-link-management.md).
+- This tab UI now lives in [`SettingsLinksTab.tsx`](../../../renderer/src/components/settings/SettingsLinksTab.tsx), mounted by [`OnyxSettingsModal.tsx`](../../../renderer/src/components/OnyxSettingsModal.tsx), and remains the configuration surface for [Links and link management](../links-and-link-management.md).
 - Runtime consumers include metadata fetchers, link UI, and refresh dialogs.
 
 ## Data Model and Persistence
@@ -49,6 +49,7 @@ Controls how external store and information links are displayed, discovered, and
 
 - **Renderer**
   - [OnyxSettingsModal.tsx](../../../renderer/src/components/OnyxSettingsModal.tsx)
+  - [SettingsLinksTab.tsx](../../../renderer/src/components/settings/SettingsLinksTab.tsx)
   - [GameLinks.tsx](../../../renderer/src/components/GameLinks.tsx)
   - [RefreshMetadataDialog.tsx](../../../renderer/src/components/RefreshMetadataDialog.tsx)
 - **Main process**
