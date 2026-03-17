@@ -42,6 +42,7 @@ It explains module boundaries, data flow, and release pipeline expectations.
 - `renderer/src/components/settings/SettingsGeneralTab.tsx` now owns the General tab body for startup, tray, hardware acceleration, and launch-window behavior toggles, so `OnyxSettingsModal.tsx` no longer embeds that UI inline.
 - `renderer/src/components/settings/SettingsAnimationsTab.tsx` now owns the Animations tab body for the master animation override and per-surface animation toggles, so `OnyxSettingsModal.tsx` no longer embeds that UI inline.
 - `renderer/src/hooks/useOnyxSettingsModalShellState.ts` now owns `OnyxSettingsModal.tsx` shell runtime concerns such as tab routing, updater/about state, API credential status, and suspend shortcut capture, so the modal shell no longer mixes those flows directly into its remaining save/app-config orchestration.
+- `renderer/src/hooks/useOnyxSettingsLibrarySources.ts` now owns `OnyxSettingsModal.tsx` launcher/manual-folder loading and library-source actions, so the modal shell no longer mixes app-config discovery and manual-folder management directly into its remaining save/reset orchestration.
 - `renderer/src/components/settings/SettingsLibrariesTab.tsx` now owns the Libraries tab body for manual folders and launcher configuration, further reducing the amount of library-management UI embedded directly in `OnyxSettingsModal.tsx`.
 - `renderer/src/components/settings/SettingsAdvancedTab.tsx` now owns the Advanced tab body for folder actions and destructive maintenance confirmation UI, further reducing the amount of maintenance workflow markup embedded directly in `OnyxSettingsModal.tsx`.
 - `renderer/src/components/settings/SettingsLinksTab.tsx` now owns the Link Management tab body for ordering and hidden-by-default visibility controls, further reducing the amount of link-settings UI embedded directly in `OnyxSettingsModal.tsx`.
@@ -92,7 +93,7 @@ It explains module boundaries, data flow, and release pipeline expectations.
 
 <!-- AUTO-GENERATED:MODULE_INDEX:START -->
 - Main process source files: 70
-- Renderer source files: 126
+- Renderer source files: 127
 - Automation scripts: 30
 - GitHub workflow files: 7
 - Key entrypoints:

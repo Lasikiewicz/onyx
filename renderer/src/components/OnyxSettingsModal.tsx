@@ -12,6 +12,7 @@ import { SettingsScanningTab } from './settings/SettingsScanningTab';
 import { SettingsSuspendTab } from './settings/SettingsSuspendTab';
 import { LINK_DISPLAY_ORDER, DEFAULT_VISIBLE_LINK_TYPES } from './GameLinks';
 import { SettingsModalTab, useOnyxSettingsModalShellState } from '../hooks/useOnyxSettingsModalShellState';
+import { useOnyxSettingsLibrarySources } from '../hooks/useOnyxSettingsLibrarySources';
 
 export interface OnyxSettingsModalProps {
   isOpen: boolean;
@@ -54,95 +55,6 @@ interface OnyxSettings {
   suspendShortcut: string;
 }
 
-interface AppConfig {
-  id: string;
-  name: string;
-  enabled: boolean;
-  path: string;
-  defaultPaths: string[];
-  placeholder: string;
-  autoAdd?: boolean;
-  syncPlaytime?: boolean;
-  autoCategory?: string[];
-}
-
-interface ManualFolderConfig {
-  id: string;
-  name: string;
-  path: string;
-  enabled: boolean;
-  autoCategory?: string[];
-  icon?: string;
-}
-
-// Default game install locations for Windows
-const getDefaultPaths = (appId: string): string[] => {
-  const paths: Record<string, string[]> = {
-    steam: [
-      'C:\\Program Files (x86)\\Steam',
-      'C:\\Program Files\\Steam',
-    ],
-    epic: [
-      'C:\\Program Files\\Epic Games',
-      'C:\\Program Files (x86)\\Epic Games',
-    ],
-    ea: [
-      'C:\\Program Files\\EA Games',
-      'C:\\Program Files (x86)\\EA Games',
-      'C:\\Program Files\\Electronic Arts',
-    ],
-    gog: [
-      'C:\\Program Files (x86)\\GOG Galaxy',
-      'C:\\Program Files\\GOG Galaxy',
-    ],
-    ubisoft: [
-      'C:\\Program Files (x86)\\Ubisoft\\Ubisoft Game Launcher',
-      'C:\\Program Files\\Ubisoft\\Ubisoft Game Launcher',
-    ],
-    battle: [
-      'C:\\Program Files (x86)\\Battle.net',
-      'C:\\Program Files\\Battle.net',
-    ],
-    xbox: [
-      'C:\\XboxGames',
-      'C:\\Program Files\\WindowsApps',
-    ],
-    humble: [
-      'C:\\Program Files\\Humble App',
-      'C:\\Program Files (x86)\\Humble App',
-      '%LOCALAPPDATA%\\Humble App',
-    ],
-    itch: [
-      '%LOCALAPPDATA%\\itch',
-      'C:\\Program Files\\itch',
-      'C:\\Program Files (x86)\\itch',
-    ],
-    rockstar: [
-      'C:\\Program Files\\Rockstar Games',
-      'C:\\Program Files (x86)\\Rockstar Games',
-      '%USERPROFILE%\\Documents\\Rockstar Games',
-    ],
-  };
-  return paths[appId] || [];
-};
-
-const defaultApps: Omit<AppConfig, 'enabled' | 'path'>[] = [
-  { id: 'steam', name: 'Steam', defaultPaths: getDefaultPaths('steam'), placeholder: 'C:\\Program Files (x86)\\Steam' },
-  { id: 'epic', name: 'Epic Games', defaultPaths: getDefaultPaths('epic'), placeholder: 'C:\\Program Files\\Epic Games' },
-  { id: 'ea', name: 'EA App / Origin', defaultPaths: getDefaultPaths('ea'), placeholder: 'C:\\Program Files\\EA Games' },
-  { id: 'gog', name: 'GOG Galaxy', defaultPaths: getDefaultPaths('gog'), placeholder: 'C:\\Program Files (x86)\\GOG Galaxy' },
-  { id: 'ubisoft', name: 'Ubisoft Connect', defaultPaths: getDefaultPaths('ubisoft'), placeholder: 'C:\\Program Files (x86)\\Ubisoft\\Ubisoft Game Launcher' },
-  { id: 'battle', name: 'Battle.net', defaultPaths: getDefaultPaths('battle'), placeholder: 'C:\\Program Files (x86)\\Battle.net' },
-  { id: 'xbox', name: 'Xbox Game Pass', defaultPaths: getDefaultPaths('xbox'), placeholder: 'C:\\XboxGames' },
-  { id: 'humble', name: 'Humble', defaultPaths: getDefaultPaths('humble'), placeholder: 'C:\\Program Files\\Humble App' },
-  { id: 'itch', name: 'itch.io', defaultPaths: getDefaultPaths('itch'), placeholder: '%LOCALAPPDATA%\\itch' },
-  { id: 'rockstar', name: 'Rockstar Games', defaultPaths: getDefaultPaths('rockstar'), placeholder: 'C:\\Program Files\\Rockstar Games' },
-];
-
-const findExistingPath = async (defaultPaths: string[]): Promise<string> => {
-  return defaultPaths[0] || '';
-};
-
 export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
   isOpen,
   onClose,
@@ -150,15 +62,6 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
   initialTab = 'general',
   onShowImportModal,
 }) => {
-  const [apps, setApps] = useState<AppConfig[]>([]);
-  const [isLoadingApps, setIsLoadingApps] = useState(false);
-  const [scanningAppId, setScanningAppId] = useState<string | null>(null);
-
-  const [manualFolders, setManualFolders] = useState<string[]>([]);
-  const [manualFolderConfigs, setManualFolderConfigs] = useState<Record<string, ManualFolderConfig>>({});
-  const [editingAppId, setEditingAppId] = useState<string | null>(null);
-  const [editingManualFolderId, setEditingManualFolderId] = useState<string | null>(null);
-
   const [settings, setSettings] = useState<OnyxSettings>({
     minimizeToTray: false,
     showSystemTrayIcon: true,
@@ -196,6 +99,29 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
 
   const [linkVisibleTypes, setLinkVisibleTypes] = useState<Record<string, boolean>>(DEFAULT_VISIBLE_LINK_TYPES);
   const [linkDisplayOrder, setLinkDisplayOrder] = useState<string[]>(LINK_DISPLAY_ORDER);
+  const {
+    apps,
+    editingAppId,
+    editingManualFolderId,
+    handleAddManualFolder,
+    handleBrowseApp,
+    handleRemoveManualFolder,
+    handleScanApp,
+    handleToggleAppEnabled,
+    handleUpdateAppCategory,
+    handleUpdateManualFolderName,
+    isLoadingApps,
+    manualFolderConfigs,
+    manualFolders,
+    notifyManualFolderIconsUpdated,
+    scanningAppId,
+    setEditingAppId,
+    setEditingManualFolderId,
+    setManualFolderConfigs,
+  } = useOnyxSettingsLibrarySources({
+    isOpen,
+    onShowImportModal,
+  });
   const {
     activeAPITab,
     activeTab,
@@ -285,256 +211,10 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
     void loadSettings();
   }, [isOpen]);
 
-
-
-  // Load app configs and manual folders on mount
-  useEffect(() => {
-    if (isOpen) {
-      const loadAppConfigs = async () => {
-        setIsLoadingApps(true);
-        try {
-          const savedConfigs = await window.electronAPI.getAppConfigs();
-
-          // Load manual folders
-          try {
-            const folders = await window.electronAPI.getManualFolders();
-            setManualFolders(folders || []);
-            // Load manual folder configs with custom names
-            if (window.electronAPI.getManualFolderConfigs) {
-              const configs = await window.electronAPI.getManualFolderConfigs();
-              setManualFolderConfigs(configs || {});
-            }
-          } catch (err) {
-            console.error('Error loading manual folders:', err);
-            setManualFolders([]);
-            setManualFolderConfigs({});
-          }
-
-          let steamPath = '';
-          try {
-            const path = await window.electronAPI.getSteamPath();
-            if (path) steamPath = path;
-          } catch (err) {
-            // Ignore errors
-          }
-
-          const initializedApps: AppConfig[] = await Promise.all(
-            defaultApps.map(async (app) => {
-              const savedConfig = savedConfigs[app.id];
-
-              if (savedConfig) {
-                return {
-                  ...app,
-                  enabled: savedConfig.enabled,
-                  path: savedConfig.path || app.defaultPaths[0] || '',
-                  autoAdd: savedConfig.autoAdd || false,
-                  syncPlaytime: savedConfig.syncPlaytime || false,
-                };
-              }
-
-              let path = '';
-              let enabled = true; // Enable all apps by default
-
-              if (app.id === 'steam' && steamPath) {
-                path = steamPath;
-                enabled = true;
-              } else {
-                const existingPath = await findExistingPath(app.defaultPaths);
-                if (existingPath) {
-                  path = existingPath;
-                  enabled = true; // Enable by default
-                } else {
-                  path = app.defaultPaths[0] || '';
-                  enabled = true; // Enable by default
-                }
-              }
-
-              return {
-                ...app,
-                enabled,
-                path,
-              };
-            })
-          );
-
-          setApps(initializedApps);
-
-        } catch (err) {
-          console.error('Error loading app configs:', err);
-        } finally {
-          setIsLoadingApps(false);
-        }
-      };
-      loadAppConfigs();
-
-
-    }
-  }, [isOpen]);
-
   const handleToggle = (key: keyof OnyxSettings) => {
     const newSettings = { ...settings, [key]: !settings[key] };
     setSettings(newSettings);
   };
-
-
-
-  const handleToggleAppEnabled = (appId: string) => {
-    setApps((prev) => {
-      const updated = prev.map((app) => {
-        if (app.id === appId) {
-          return { ...app, enabled: !app.enabled };
-        }
-        return app;
-      });
-      return updated;
-    });
-  };
-
-  const handleAppPathChange = (appId: string, path: string) => {
-    setApps((prev) =>
-      prev.map((app) => (app.id === appId ? { ...app, path } : app))
-    );
-  };
-
-
-
-  const handleUpdateAppCategory = (appId: string, categories: string[]) => {
-    setApps((prev) =>
-      prev.map((app) => (app.id === appId ? { ...app, autoCategory: categories } : app))
-    );
-  };
-
-
-
-  const handleBrowseApp = async (appId: string) => {
-    try {
-      const path = await window.electronAPI.showFolderDialog();
-      if (path) {
-        handleAppPathChange(appId, path);
-      }
-    } catch (err) {
-      console.error(`Error browsing for ${appId} path:`, err);
-    }
-  };
-
-  const handleAddManualFolder = async () => {
-    try {
-      const path = await window.electronAPI.showFolderDialog();
-      if (path) {
-        // Check if folder already exists
-        const existingConfig = Object.values(manualFolderConfigs).find(c => c.path === path);
-        if (existingConfig) {
-          alert('This folder is already in the list.');
-          return;
-        }
-
-        // Create config with default name (folder basename)
-        const folderName = path.split(/[/\\]/).pop() || 'Manual Folder';
-        // Generate a simple ID from the path
-        const pathHash = btoa(path).replace(/[^a-zA-Z0-9]/g, '').substring(0, 16);
-        const folderId = `manual-${pathHash}`;
-
-        const newConfig = {
-          id: folderId,
-          name: folderName,
-          path: path,
-          enabled: true,
-        };
-
-        // Save config
-        if (window.electronAPI.saveManualFolderConfig) {
-          const result = await window.electronAPI.saveManualFolderConfig(newConfig);
-          if (result && result.success) {
-            setManualFolderConfigs({ ...manualFolderConfigs, [folderId]: newConfig });
-            const updated = [...manualFolders, path];
-            setManualFolders(updated);
-          } else {
-            alert('Failed to save manual folder. Please try again.');
-          }
-        } else {
-          // Fallback to old method
-          const updated = [...manualFolders, path];
-          setManualFolders(updated);
-          const result = await window.electronAPI.saveManualFolders(updated);
-          if (!result || !result.success) {
-            alert('Failed to save manual folder. Please try again.');
-            setManualFolders(manualFolders);
-          }
-        }
-      }
-    } catch (err) {
-      console.error('Error adding manual folder:', err);
-      alert('Failed to add manual folder: ' + (err instanceof Error ? err.message : 'Unknown error'));
-    }
-  };
-
-  const handleRemoveManualFolder = async (folderPath: string) => {
-    // Find config by path
-    const config = Object.values(manualFolderConfigs).find(c => c.path === folderPath);
-    if (config && window.electronAPI.deleteManualFolderConfig) {
-      const result = await window.electronAPI.deleteManualFolderConfig(config.id);
-      if (result && result.success) {
-        const updatedConfigs = { ...manualFolderConfigs };
-        delete updatedConfigs[config.id];
-        setManualFolderConfigs(updatedConfigs);
-        const updated = manualFolders.filter(f => f !== folderPath);
-        setManualFolders(updated);
-      }
-    } else {
-      // Fallback to old method
-      const updated = manualFolders.filter(f => f !== folderPath);
-      setManualFolders(updated);
-      try {
-        await window.electronAPI.saveManualFolders(updated);
-      } catch (err) {
-        console.error('Error removing manual folder:', err);
-      }
-    }
-  };
-
-  const handleUpdateManualFolderName = async (folderId: string, newName: string) => {
-    const config = manualFolderConfigs[folderId];
-    if (config && window.electronAPI.saveManualFolderConfig) {
-      const updatedConfig = { ...config, name: newName };
-      const result = await window.electronAPI.saveManualFolderConfig(updatedConfig);
-      if (result && result.success) {
-        setManualFolderConfigs({ ...manualFolderConfigs, [folderId]: updatedConfig });
-        notifyManualFolderIconsUpdated();
-      }
-    }
-  };
-
-  const handleScanApp = async (appId: string) => {
-    const app = apps.find(a => a.id === appId);
-    if (!app || !app.enabled || !app.path) {
-      return;
-    }
-
-    setScanningAppId(appId);
-    try {
-      if (appId === 'steam') {
-        const result = await window.electronAPI.scanGamesWithPath(app.path, false);
-        if (result.success && result.games && result.games.length > 0) {
-          if (onShowImportModal) {
-            onShowImportModal(result.games, 'steam');
-          }
-        }
-      } else if (appId === 'xbox') {
-        const result = await window.electronAPI.scanXboxGames(app.path, false);
-        if (result.success && result.games && result.games.length > 0) {
-          if (onShowImportModal) {
-            onShowImportModal(result.games, 'xbox');
-          }
-        }
-      }
-
-    } catch (err) {
-      console.error('Error scanning app:', err);
-    } finally {
-      setScanningAppId(null);
-    }
-  };
-
   const [resetConfirmation, setResetConfirmation] = useState({
     step: 1, // 1 = initial, 2 = type confirmation, 3 = final confirmation
     typedText: '',
@@ -547,12 +227,6 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
     typedText: '',
   });
   const [isRemovingGames, setIsRemovingGames] = useState(false);
-
-  const notifyManualFolderIconsUpdated = () => {
-    if (typeof window !== 'undefined') {
-      window.dispatchEvent(new Event('onyx:manual-folder-icons-updated'));
-    }
-  };
 
   const handleRemoveAllGames = async () => {
     if (removeGamesConfirmation.step === 1) {

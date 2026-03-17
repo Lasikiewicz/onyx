@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Settings maintainability: Extract the Scanning tab from `OnyxSettingsModal.tsx` into `SettingsScanningTab.tsx`.
 - Settings maintainability: Extract the Suspend/Resume tab from `OnyxSettingsModal.tsx` into `SettingsSuspendTab.tsx`.
 - Settings maintainability: Extract General and Animations tab bodies plus shared shell runtime state from `OnyxSettingsModal.tsx` into dedicated settings components and `useOnyxSettingsModalShellState.ts`.
+- Settings maintainability: Extract launcher and manual-folder source loading/actions from `OnyxSettingsModal.tsx` into `useOnyxSettingsLibrarySources.ts`.
 
 ## [0.7.37] - 2026-03-17
 
