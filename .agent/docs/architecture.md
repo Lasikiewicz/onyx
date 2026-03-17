@@ -15,6 +15,7 @@ It explains module boundaries, data flow, and release pipeline expectations.
 - `renderer/src/hooks/useAppPreferences.ts` owns preference bootstrap, baseline defaults, refresh, and resolution-change preference sync for the app shell, so `App.tsx` does not also carry the whole startup preference application pipeline inline.
 - `renderer/src/hooks/useAnimatedMediaPolicy.ts` owns shell-wide animated-image sanitization and DOM video pause/resume enforcement, so overlay/media policy does not stay embedded in `App.tsx`.
 - `renderer/src/hooks/useAppShellModals.ts` owns shell-level modal state and common open/close helpers for settings, Game Manager, onboarding, and related modal entry points, so `App.tsx` does not also carry every modal routing toggle inline.
+- `renderer/src/hooks/useAppShellSystemState.ts` owns update-modal, changelog, and crash-dump runtime state plus related shell actions, so `App.tsx` does not also carry every updater/crash coordination effect inline.
 - App-shell preference bootstrap is intentionally one-time at renderer startup; later shell state changes must not implicitly reload persisted preferences, or root UI state like view mode and active selection can snap back to saved values.
 - `renderer/src/hooks/useGameLaunchFlow.ts` owns renderer-side launch confirmation, launch execution, PID polling, and running-state updates for the app shell, so `App.tsx` does not also carry the whole launch/process workflow inline.
 - `renderer/src/hooks/useImporterWorkbench.ts` owns importer open guards, startup/background scan handoff, importer reset behavior, and post-import follow-up, so `App.tsx` can treat importer lifecycle as a focused hook instead of another root-level modal workflow.
@@ -74,7 +75,7 @@ It explains module boundaries, data flow, and release pipeline expectations.
 
 <!-- AUTO-GENERATED:MODULE_INDEX:START -->
 - Main process source files: 70
-- Renderer source files: 108
+- Renderer source files: 109
 - Automation scripts: 30
 - GitHub workflow files: 7
 - Key entrypoints:

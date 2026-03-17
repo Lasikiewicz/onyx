@@ -14,6 +14,7 @@ Checks for new versions, offers download, and installs updates for packaged buil
 - `Onyx Settings` -> `About` tab update area ([OnyxSettingsModal.tsx](../../renderer/src/components/OnyxSettingsModal.tsx)).
 - Update notification modal ([UpdateNotificationModal.tsx](../../renderer/src/components/UpdateNotificationModal.tsx)) and startup update messaging.
 - App-level renderer state in [App.tsx](../../renderer/src/App.tsx) that shows update progress and download/install actions.
+- Shell update/changelog runtime state in [useAppShellSystemState.ts](../../renderer/src/hooks/useAppShellSystemState.ts), which owns changelog fetches, background-scan pause/resume while the update modal is visible, and the renderer-side update action callbacks.
 - Development-only `Help -> Develop -> Open Update Found` preview in [MenuBar.tsx](../../renderer/src/components/MenuBar.tsx) now targets the newest parsed changelog data and shows the latest three changelog entries so local modal testing reflects a realistic multi-release update view.
 - While the update modal is visible, the renderer pauses automatic background library scanning through the preload bridge so update prompts are not interrupted by scan-driven importer dialogs.
 
@@ -28,7 +29,7 @@ Checks for new versions, offers download, and installs updates for packaged buil
 2. Renderer calls preload API (`checkForUpdates`, `downloadUpdate`, `quitAndInstall`) ([preload.ts](../../main/preload.ts)).
 3. Main process routes to [AppUpdateService.ts](../../main/AppUpdateService.ts).
 4. [AppUpdateService](../../main/AppUpdateService.ts) emits status events (`checking`, `available`, `not-available`, `downloading`, `downloaded`, `error`).
-5. Renderer updates modal/button state from `app:update-status`.
+5. [useAppShellSystemState.ts](../../renderer/src/hooks/useAppShellSystemState.ts) receives the renderer-side update state from [App.tsx](../../renderer/src/App.tsx), fetches matching changelog content when a version is known, and exposes the update actions used by the modal.
 
 Alpha builds use GitHub Releases API prerelease selection logic. Production uses `electron-updater` feed behavior.
 
@@ -81,6 +82,7 @@ Alpha builds use GitHub Releases API prerelease selection logic. Production uses
   - [OnyxSettingsModal.tsx](../../renderer/src/components/OnyxSettingsModal.tsx)
   - [UpdateNotificationModal.tsx](../../renderer/src/components/UpdateNotificationModal.tsx)
   - [App.tsx](../../renderer/src/App.tsx)
+  - [useAppShellSystemState.ts](../../renderer/src/hooks/useAppShellSystemState.ts)
   - [types/game.ts](../../renderer/src/types/game.ts)
 - **Build/release config**
   - [`electron-builder.config.js`](../../electron-builder.config.js)

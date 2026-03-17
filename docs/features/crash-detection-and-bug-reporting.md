@@ -13,6 +13,7 @@ Detects crash dumps from prior runs, prompts the user, and generates bug-report 
 
 - Crash-dump modal shown after startup when prior crash evidence is found.
 - Bug-report modal for packaging logs, context, and user notes.
+- Renderer crash-dump shell state in [useAppShellSystemState.ts](../../renderer/src/hooks/useAppShellSystemState.ts), which owns the save/open/dismiss actions after the app shell receives crash-dump availability from IPC.
 - Supporting filesystem outputs in debug-log and crash-dump locations.
 
 ## Settings and Toggles
@@ -24,7 +25,7 @@ Detects crash dumps from prior runs, prompts the user, and generates bug-report 
 
 1. Main process checks crash dump locations on startup.
 2. Renderer is notified when dumps are available (IPC from [main.ts](../../main/main.ts) / [appHandlers.ts](../../main/ipc/appHandlers.ts)).
-3. User can save/open/dismiss through [CrashDumpModal.tsx](../../renderer/src/components/CrashDumpModal.tsx) actions.
+3. [useAppShellSystemState.ts](../../renderer/src/hooks/useAppShellSystemState.ts) stores the available dump paths and exposes the save/open/dismiss actions used by [CrashDumpModal.tsx](../../renderer/src/components/CrashDumpModal.tsx).
 4. [BugReportService.ts](../../main/BugReportService.ts) bundles logs/context/user description.
 
 ## Discovery and Data Sources
@@ -67,3 +68,4 @@ Detects crash dumps from prior runs, prompts the user, and generates bug-report 
   - [BugReportModal.tsx](../../renderer/src/components/BugReportModal.tsx)
   - [CrashDumpModal.tsx](../../renderer/src/components/CrashDumpModal.tsx)
   - [App.tsx](../../renderer/src/App.tsx)
+  - [useAppShellSystemState.ts](../../renderer/src/hooks/useAppShellSystemState.ts)
