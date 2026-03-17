@@ -4,6 +4,8 @@ import { useFullscreen } from './hooks/useFullscreen';
 import { useAppShellEvents } from './hooks/useAppShellEvents';
 import { useAppPreferences } from './hooks/useAppPreferences';
 import { useGameLaunchFlow } from './hooks/useGameLaunchFlow';
+import { useAnimatedMediaPolicy } from './hooks/useAnimatedMediaPolicy';
+import { useImporterWorkbench } from './hooks/useImporterWorkbench';
 import { LibraryGrid } from './components/LibraryGrid';
 import { LibraryListView } from './components/LibraryListView';
 import { RightClickMenu } from './components/RightClickMenu';
@@ -64,19 +66,12 @@ function App() {
   // Scanning state
   const [, setIsScanningSteam] = useState(false);
 
-  // Folder scan state (for ImportWorkbench)
-  const [, setImportWorkbenchFolderPath] = useState<string | undefined>(undefined);
-
   // Metadata editor state
   const [isMetadataEditorOpen, setIsMetadataEditorOpen] = useState(false);
   const [selectedExecutable, setSelectedExecutable] = useState<ExecutableFile | null>(null);
 
   // Steam config modal state
   const [isSteamConfigOpen, setIsSteamConfigOpen] = useState(false);
-
-  const [scannedSteamGames, setScannedSteamGames] = useState<Array<any>>([]);
-  const [, setImportAppType] = useState<'steam' | 'xbox' | 'other'>('steam');
-
 
   // Categories editor state
   const [isCategoriesEditorOpen, setIsCategoriesEditorOpen] = useState(false);
@@ -118,10 +113,7 @@ function App() {
   const [showTopBar] = useState(false);
   const [isUpdateLibraryOpen, setIsUpdateLibraryOpen] = useState(false);
   const [isOnyxSettingsOpen, setIsOnyxSettingsOpen] = useState(false);
-  const [isImportWorkbenchOpen, setIsImportWorkbenchOpen] = useState(false);
-  const [importWorkbenchInitialMode, setImportWorkbenchInitialMode] = useState<'nuclear' | 'images' | 'links' | null>(null);
   const [showLibraryTutorial, setShowLibraryTutorial] = useState(false);
-  const [autoStartScan, setAutoStartScan] = useState(false);
   const [isGameManagerOpen, setIsGameManagerOpen] = useState(false);
   const [showOptimizerModal, setShowOptimizerModal] = useState(false);
   const [gameManagerInitialGameId, setGameManagerInitialGameId] = useState<string | null>(null);
@@ -446,16 +438,6 @@ function App() {
       setChangelogLoading(false);
     }
   }, []);
-
-  // Global animation kill-switch classes
-  useEffect(() => {
-    const root = document.documentElement;
-    if (disableAllAnimations) root.classList.add('onyx-animations-off');
-    else root.classList.remove('onyx-animations-off');
-
-    if (disableAllAnimations || disableAnimatedIcons) root.classList.add('onyx-icon-animations-off');
-    else root.classList.remove('onyx-icon-animations-off');
-  }, [disableAllAnimations, disableAnimatedIcons]);
 
   useEffect(() => {
     if (!updateNotification?.version) return;
@@ -900,192 +882,6 @@ function App() {
     return filtered;
   }, [games, searchQuery, activeSection, selectedCategory, selectedLauncher, sortBy, hideVRTitles, hideAppsTitles, getGameLauncher]);
 
-  // Whether any major overlay or context menu is open (settings, game manager, right-click menu, etc.)
-  const overlaysOpen =
-    isOnyxSettingsOpen ||
-    isGameManagerOpen ||
-    isImportWorkbenchOpen ||
-    showOptimizerModal ||
-    isUpdateLibraryOpen ||
-    showLibraryTutorial ||
-    isAPISettingsOpen ||
-    isBugReportOpen ||
-    rightClickMenu !== null ||
-    gameContextMenu !== null;
-
-  // Sanitize games for display based on animation settings and overlay state.
-  // During overlays, keep videos visible (they are paused via global controller below) but hide animated image formats.
-  const displayGames = useMemo(() => {
-    const isAnimatedImageUrl = (url?: string) => !!url && /\.(gif|webp|apng)(\?|$)/i.test(url);
-
-    if (
-      !overlaysOpen &&
-      !disableAllAnimations &&
-      !disableAnimatedBanners &&
-      !disableAnimatedBoxarts &&
-      !disableAnimatedBackgrounds &&
-      !disableAnimatedIcons &&
-      !disableAnimatedLogos
-    ) {
-      return filteredGames;
-    }
-
-    const disableBoxartBySettings = disableAllAnimations || disableAnimatedBoxarts;
-    const disableBannerBySettings = disableAllAnimations || disableAnimatedBanners;
-    const disableBackgroundBySettings = disableAllAnimations || disableAnimatedBackgrounds;
-    const disableIconBySettings = disableAllAnimations || disableAnimatedIcons;
-    const disableLogoBySettings = disableAllAnimations || disableAnimatedLogos;
-
-    return filteredGames.map((game) => {
-      const clone: Game = { ...game };
-
-      if (clone.boxArtUrl && (
-        (disableBoxartBySettings && !clone.boxArtIsVideo && isAnimatedImageUrl(clone.boxArtUrl)) ||
-        (overlaysOpen && !clone.boxArtIsVideo && isAnimatedImageUrl(clone.boxArtUrl))
-      )) {
-        clone.boxArtUrl = '';
-      }
-      if (clone.bannerUrl && (
-        (disableBannerBySettings && !clone.bannerIsVideo && isAnimatedImageUrl(clone.bannerUrl)) ||
-        (overlaysOpen && !clone.bannerIsVideo && isAnimatedImageUrl(clone.bannerUrl))
-      )) {
-        clone.bannerUrl = '';
-      }
-      if (clone.heroUrl && (
-        (disableBackgroundBySettings && !clone.heroIsVideo && isAnimatedImageUrl(clone.heroUrl)) ||
-        (overlaysOpen && !clone.heroIsVideo && isAnimatedImageUrl(clone.heroUrl))
-      )) {
-        clone.heroUrl = '';
-      }
-      if (clone.iconUrl && (
-        (disableIconBySettings && !clone.iconIsVideo && isAnimatedImageUrl(clone.iconUrl)) ||
-        (overlaysOpen && !clone.iconIsVideo && isAnimatedImageUrl(clone.iconUrl))
-      )) {
-        clone.iconUrl = '';
-      }
-      if (clone.logoUrl && (
-        (disableLogoBySettings && !clone.logoIsVideo && isAnimatedImageUrl(clone.logoUrl)) ||
-        (overlaysOpen && !clone.logoIsVideo && isAnimatedImageUrl(clone.logoUrl))
-      )) {
-        clone.logoUrl = '';
-      }
-
-      return clone;
-    });
-  }, [
-    filteredGames,
-    overlaysOpen,
-    disableAllAnimations,
-    disableAnimatedBanners,
-    disableAnimatedBoxarts,
-    disableAnimatedBackgrounds,
-    disableAnimatedIcons,
-    disableAnimatedLogos,
-  ]);
-
-  // Pause videos based on overlay/animation policy while keeping them visible.
-  // Disabled animation categories seek to first frame for consistent static display.
-  useEffect(() => {
-    if (typeof document === 'undefined' || !document.body) return;
-
-    const pauseMarker = 'data-onyx-paused-by-policy';
-
-    const getVideoKind = (video: HTMLVideoElement): 'background' | 'banner' | 'boxart' | 'icon' | 'logo' | 'unknown' => {
-      const explicit = video.getAttribute('data-animation-kind');
-      if (explicit === 'background' || explicit === 'banner' || explicit === 'boxart' || explicit === 'icon' || explicit === 'logo') {
-        return explicit;
-      }
-      const src = (video.currentSrc || video.getAttribute('src') || '').toLowerCase();
-      if (/-(boxart)\.webm(\?|$)/i.test(src)) return 'boxart';
-      if (/-(logo)\.webm(\?|$)/i.test(src)) return 'logo';
-      if (/-(icon)\.webm(\?|$)/i.test(src)) return 'icon';
-      if (/-(hero|banner|alternativebanner)\.webm(\?|$)/i.test(src)) return 'banner';
-      return 'unknown';
-    };
-
-    type PauseReason = 'overlay' | 'all' | 'background' | 'banner' | 'boxart' | 'icon' | 'logo' | null;
-
-    const getPauseReason = (video: HTMLVideoElement): PauseReason => {
-      if (overlaysOpen) return 'overlay';
-      if (disableAllAnimations) return 'all';
-      const kind = getVideoKind(video);
-      if (disableAnimatedBackgrounds && kind === 'background') return 'background';
-      if (disableAnimatedBanners && kind === 'banner') return 'banner';
-      if (disableAnimatedBoxarts && kind === 'boxart') return 'boxart';
-      if (disableAnimatedIcons && kind === 'icon') return 'icon';
-      if (disableAnimatedLogos && kind === 'logo') return 'logo';
-      return null;
-    };
-
-    const enforceVideoPolicy = (video: HTMLVideoElement) => {
-      const pauseReason = getPauseReason(video);
-      const shouldSeekToFirstFrame = pauseReason !== null && pauseReason !== 'overlay';
-
-      if (pauseReason !== null) {
-        if (!video.hasAttribute(pauseMarker)) {
-          // Preserve user-paused videos: only auto-resume those paused by this policy.
-          video.setAttribute(pauseMarker, '1');
-        }
-
-        if (!video.paused) {
-          video.pause();
-        }
-
-        if (shouldSeekToFirstFrame) {
-          try {
-            video.currentTime = 0;
-          } catch {
-            // ignore seek failures
-          }
-        }
-      } else if (video.hasAttribute(pauseMarker)) {
-        const playPromise = video.play();
-        if (playPromise && typeof playPromise.catch === 'function') {
-          playPromise.catch(() => { });
-        }
-        video.removeAttribute(pauseMarker);
-      }
-    };
-
-    const applyPausePolicy = () => {
-      document.querySelectorAll('video').forEach((node) => {
-        enforceVideoPolicy(node as HTMLVideoElement);
-      });
-    };
-
-    const enforceFromEventTarget = (event: Event) => {
-      const target = event.target;
-      if (target instanceof HTMLVideoElement) {
-        enforceVideoPolicy(target);
-      }
-    };
-
-    applyPausePolicy();
-    const observer = new MutationObserver(() => {
-      applyPausePolicy();
-    });
-    observer.observe(document.body, { childList: true, subtree: true });
-
-    document.addEventListener('play', enforceFromEventTarget, true);
-    document.addEventListener('loadeddata', enforceFromEventTarget, true);
-    document.addEventListener('canplay', enforceFromEventTarget, true);
-
-    return () => {
-      observer.disconnect();
-      document.removeEventListener('play', enforceFromEventTarget, true);
-      document.removeEventListener('loadeddata', enforceFromEventTarget, true);
-      document.removeEventListener('canplay', enforceFromEventTarget, true);
-    };
-  }, [
-    overlaysOpen,
-    disableAllAnimations,
-    disableAnimatedBackgrounds,
-    disableAnimatedBanners,
-    disableAnimatedBoxarts,
-    disableAnimatedIcons,
-    disableAnimatedLogos,
-  ]);
-
   const activeGame = useMemo(() => {
     if (!activeGameId) return null;
 
@@ -1391,6 +1187,52 @@ function App() {
     setTimeout(() => setToast(null), 3000);
   }, []);
 
+  const {
+    autoStartScan,
+    closeImportWorkbench,
+    handleImport,
+    handleOpenImporterWithGames,
+    handleScanFolder,
+    handleUpdateSteamLibrary,
+    importWorkbenchInitialMode,
+    isImportWorkbenchOpen,
+    openImportWorkbench,
+    openImportWorkbenchWithGames,
+    preScannedGames,
+  } = useImporterWorkbench({
+    loadLibrary,
+    showToast,
+    setIsOnyxSettingsOpen,
+    setOnyxSettingsInitialTab,
+    setStartupProgress,
+    setFoundGames,
+    setShowLibraryTutorial,
+  });
+
+  // Whether any major overlay or context menu is open (settings, game manager, right-click menu, etc.)
+  const overlaysOpen =
+    isOnyxSettingsOpen ||
+    isGameManagerOpen ||
+    isImportWorkbenchOpen ||
+    showOptimizerModal ||
+    isUpdateLibraryOpen ||
+    showLibraryTutorial ||
+    isAPISettingsOpen ||
+    isBugReportOpen ||
+    rightClickMenu !== null ||
+    gameContextMenu !== null;
+
+  const { displayGames } = useAnimatedMediaPolicy({
+    filteredGames,
+    overlaysOpen,
+    disableAllAnimations,
+    disableAnimatedBackgrounds,
+    disableAnimatedBanners,
+    disableAnimatedBoxarts,
+    disableAnimatedIcons,
+    disableAnimatedLogos,
+  });
+
   // Missing games handlers
   const handleRemoveMissingGames = async (gameIds: string[]) => {
     try {
@@ -1416,50 +1258,6 @@ function App() {
 
   // Hide confirmation dialog state
   const [hideConfirmation, setHideConfirmation] = useState<{ game: Game } | null>(null);
-
-  // Update Library handler - opens game importer
-  const handleUpdateSteamLibrary = useCallback(async () => {
-    // Check if APIs are configured
-    const apisConfigured = await areAPIsConfigured();
-    if (!apisConfigured) {
-      showToast('API credentials must be configured before adding games. Please configure them in Settings.', 'error');
-      setIsOnyxSettingsOpen(true);
-      setOnyxSettingsInitialTab('apis');
-      return;
-    }
-
-    // Show window if it was hidden/minimized
-    window.electronAPI.showWindow?.();
-
-    // Cancel any pending startup scan to avoid UI overlap
-    window.electronAPI.cancelStartupScan?.();
-
-    // Open the workbench
-    setScannedSteamGames([]);
-    setImportAppType('steam');
-    setIsImportWorkbenchOpen(true);
-  }, [setIsOnyxSettingsOpen, setOnyxSettingsInitialTab, showToast]);
-
-  // Function to open importer with pre-scanned games
-  const handleOpenImporterWithGames = useCallback((foundGames: Array<any>) => {
-    // Show window if it was hidden/minimized
-    window.electronAPI.showWindow?.();
-
-    // Close scanning overlay first for smooth transition
-    setStartupProgress(null);
-    window.electronAPI.cancelStartupScan?.();
-    setFoundGames(null);
-    setScannedSteamGames(foundGames);
-
-    // Determine app type from the games (use 'other' for mixed sources)
-    const sources = new Set(foundGames.map((g: any) => g.source));
-    const appType = sources.size === 1 && sources.has('steam') ? 'steam' :
-      sources.size === 1 && sources.has('xbox') ? 'xbox' : 'other';
-
-    setImportAppType(appType);
-    setAutoStartScan(true); // Enable auto-scan
-    setIsImportWorkbenchOpen(true);
-  }, []);
 
   // Handle Steam games import
 
@@ -1494,32 +1292,6 @@ function App() {
       setIsScanningSteam(false);
     }
   };
-
-  // Scan Folder handler - now uses ImportWorkbench
-  const handleScanFolder = useCallback(async () => {
-    // Check if APIs are configured
-    const apisConfigured = await areAPIsConfigured();
-    if (!apisConfigured) {
-      showToast('API credentials must be configured before adding games. Please configure them in Settings.', 'error');
-      setIsOnyxSettingsOpen(true);
-      setOnyxSettingsInitialTab('apis');
-      return;
-    }
-
-    try {
-      const folderPath = await window.electronAPI.showFolderDialog();
-      if (!folderPath) {
-        return; // User cancelled
-      }
-
-      // Open ImportWorkbench with the selected folder path
-      setImportWorkbenchFolderPath(folderPath);
-      setIsImportWorkbenchOpen(true);
-    } catch (err) {
-      console.error('Error selecting folder:', err);
-      showToast('Failed to select folder', 'error');
-    }
-  }, [showToast]);
 
   useAppShellEvents({
     showToast,
@@ -2231,8 +2003,7 @@ function App() {
                         onScanGames={() => {
                           setForceShowInitialOnboarding(false);
                           window.electronAPI.cancelStartupScan?.();
-                          setAutoStartScan(true);
-                          setIsImportWorkbenchOpen(true);
+                          openImportWorkbench({ autoStartScan: true });
                         }}
                         onAddFolder={(path, categories, icon) => {
                           setForceShowInitialOnboarding(false);
@@ -2428,10 +2199,7 @@ function App() {
           onClose={() => setIsOnyxSettingsOpen(false)}
           initialTab={onyxSettingsInitialTab}
           onShowImportModal={(games, appType) => {
-            // Use ImportWorkbench instead of SteamImportModal
-            setScannedSteamGames(games);
-            setImportAppType(appType || 'steam');
-            setIsImportWorkbenchOpen(true);
+            openImportWorkbenchWithGames(games, { autoStartScan: appType === 'steam' });
           }}
           onSave={async () => {
             // Reload preferences after saving to update UI immediately
@@ -2507,10 +2275,7 @@ function App() {
           loadLibrary();
         }}
         onShowImportModal={(games, appType = 'steam') => {
-          // Use ImportWorkbench instead of SteamImportModal
-          setScannedSteamGames(games);
-          setImportAppType(appType);
-          setIsImportWorkbenchOpen(true);
+          openImportWorkbenchWithGames(games, { autoStartScan: appType === 'steam' });
         }}
       />
 
@@ -2521,126 +2286,10 @@ function App() {
           autoStartScan={autoStartScan}
           initialMode={importWorkbenchInitialMode}
           onRefreshComplete={loadLibrary}
-          onClose={() => {
-            setIsImportWorkbenchOpen(false);
-            setImportWorkbenchInitialMode(null);
-            setAutoStartScan(false);
-            setImportWorkbenchFolderPath(undefined);
-            setScannedSteamGames([]);
-            setImportAppType('steam');
-          }}
+          onClose={closeImportWorkbench}
           existingLibrary={games}
-          preScannedGames={scannedSteamGames && scannedSteamGames.length > 0 ? scannedSteamGames : undefined}
-          onImport={async (games, onProgress) => {
-            try {
-            // Save imported games first, reporting progress to the importer UI
-            for (let i = 0; i < games.length; i++) {
-              const game = games[i];
-              onProgress?.(i + 1, games.length, 'Saving games', `Saving ${game.title}...`);
-              await window.electronAPI.saveGame(game);
-            }
-
-            // Kick off artwork fetching in the background so it doesn't block the import UI
-            const gamesNeedingArtwork = games.filter(
-              (g) => !g.bannerUrl || !g.iconUrl || !g.alternativeBannerUrl
-            );
-            if (gamesNeedingArtwork.length > 0) {
-              const BATCH_SIZE = 5;
-              (async () => {
-                for (let i = 0; i < gamesNeedingArtwork.length; i += BATCH_SIZE) {
-                  const batch = gamesNeedingArtwork.slice(i, i + BATCH_SIZE);
-                  console.log(`[Import] [Background] Processing artwork batch ${i / BATCH_SIZE + 1} (${batch.length} games)`);
-
-                  await Promise.all(batch.map(async (game) => {
-                    try {
-                      console.log(`[Import] [Background] Fetching banners for: ${game.title}`);
-
-                      const metadata = await window.electronAPI.searchArtwork(game.title, (game as any).appId);
-
-                      if (metadata) {
-                        let updatedGame = { ...game };
-                        let updated = false;
-
-                        if (metadata.bannerUrl && !game.bannerUrl) {
-                          updatedGame.bannerUrl = metadata.bannerUrl;
-                          updated = true;
-                        }
-                        if (metadata.alternativeBannerUrl && !game.alternativeBannerUrl) {
-                          updatedGame.alternativeBannerUrl = metadata.alternativeBannerUrl;
-                          updated = true;
-                        }
-                        if (metadata.iconUrl && !game.iconUrl) {
-                          updatedGame.iconUrl = metadata.iconUrl;
-                          updated = true;
-                        }
-
-                        try {
-                          const steamAppId = (game as any).appId;
-                          const bannerSearch = await window.electronAPI.searchImages(game.title, 'banner', steamAppId);
-
-                          if (bannerSearch?.success && bannerSearch.images) {
-                            const allBannerUrls: string[] = [];
-
-                            if (Array.isArray(bannerSearch.images)) {
-                              bannerSearch.images.forEach((item: any) => {
-                                if (item.images && Array.isArray(item.images)) {
-                                  item.images.forEach((img: any) => {
-                                    const url = img.url || img.bannerUrl;
-                                    if (url && !allBannerUrls.includes(url)) allBannerUrls.push(url);
-                                  });
-                                } else if (item.url || item.bannerUrl) {
-                                  const url = item.url || item.bannerUrl;
-                                  if (url && !allBannerUrls.includes(url)) allBannerUrls.push(url);
-                                }
-                              });
-                            }
-
-                            if (!updatedGame.bannerUrl && allBannerUrls.length > 0) {
-                              updatedGame.bannerUrl = allBannerUrls[0];
-                              updated = true;
-                            }
-                            if (allBannerUrls.length > 1) {
-                              const altUrl = allBannerUrls.find(url => url !== updatedGame.bannerUrl) || allBannerUrls[1];
-                              if (altUrl && altUrl !== updatedGame.bannerUrl) {
-                                updatedGame.alternativeBannerUrl = altUrl;
-                                updated = true;
-                              }
-                            }
-                          }
-                        } catch (searchErr) {
-                          console.error(`[Import] [Background] Banner search error for ${game.title}:`, searchErr);
-                        }
-
-                        if (updated) {
-                          await window.electronAPI.saveGame(updatedGame);
-                        }
-                      }
-                    } catch (err) {
-                      console.error(`[Import] [Background] Failed to fetch metadata for ${game.title}:`, err);
-                    }
-                  }));
-                }
-              })().catch((err) => console.error('[Import] Background artwork task failed:', err));
-            }
-
-            onProgress?.(games.length, games.length, 'Finishing', 'Reloading library...');
-            await loadLibrary();
-            showToast(`Successfully imported ${games.length} ${games.length === 1 ? 'game' : 'games'}`, 'success');
-            setIsImportWorkbenchOpen(false);
-            setAutoStartScan(false);
-            setImportWorkbenchFolderPath(undefined);
-            setScannedSteamGames([]);
-            setImportAppType('steam');
-            const prefs = await window.electronAPI.getPreferences();
-            if (!prefs.hasSeenPostImportTutorial) {
-              setShowLibraryTutorial(true);
-              await window.electronAPI.savePreferences({ hasSeenPostImportTutorial: true });
-            }
-            } catch (err) {
-              console.error('Error importing games:', err);
-              showToast('Failed to import games', 'error');
-            }
-          }}
+          preScannedGames={preScannedGames.length > 0 ? preScannedGames : undefined}
+          onImport={handleImport}
         />
       </Suspense>
 
@@ -2665,9 +2314,7 @@ function App() {
                 return;
               }
               await loadLibrary();
-              setImportWorkbenchInitialMode('nuclear');
-              setAutoStartScan(true);
-              setIsImportWorkbenchOpen(true);
+              openImportWorkbench({ initialMode: 'nuclear', autoStartScan: true });
             } else if (mode === 'images') {
               const result = await window.electronAPI.clearAllImages?.();
               if (!result?.success) {
@@ -2675,8 +2322,7 @@ function App() {
                 return;
               }
               await loadLibrary();
-              setImportWorkbenchInitialMode('images');
-              setIsImportWorkbenchOpen(true);
+              openImportWorkbench({ initialMode: 'images' });
             } else if (mode === 'links') {
               const result = await window.electronAPI.clearAllLinks?.();
               if (!result?.success) {
@@ -2684,8 +2330,7 @@ function App() {
                 return;
               }
               await loadLibrary();
-              setImportWorkbenchInitialMode('links');
-              setIsImportWorkbenchOpen(true);
+              openImportWorkbench({ initialMode: 'links' });
             }
           }}
           onRequestOptimizer={() => setShowOptimizerModal(true)}

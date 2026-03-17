@@ -13,8 +13,10 @@ It explains module boundaries, data flow, and release pipeline expectations.
 - `renderer/src/components/appShell/` owns root overlay composition for the app shell, so `App.tsx` does not also carry every startup/update/crash/tutorial modal block inline.
 - `renderer/src/hooks/useAppShellEvents.ts` owns root renderer listener wiring for menu actions, startup/background scan events, updater status, and crash-dump availability, leaving `App.tsx` focused more on shell state and composition than subscription setup.
 - `renderer/src/hooks/useAppPreferences.ts` owns preference bootstrap, baseline defaults, refresh, and resolution-change preference sync for the app shell, so `App.tsx` does not also carry the whole startup preference application pipeline inline.
+- `renderer/src/hooks/useAnimatedMediaPolicy.ts` owns shell-wide animated-image sanitization and DOM video pause/resume enforcement, so overlay/media policy does not stay embedded in `App.tsx`.
 - App-shell preference bootstrap is intentionally one-time at renderer startup; later shell state changes must not implicitly reload persisted preferences, or root UI state like view mode and active selection can snap back to saved values.
 - `renderer/src/hooks/useGameLaunchFlow.ts` owns renderer-side launch confirmation, launch execution, PID polling, and running-state updates for the app shell, so `App.tsx` does not also carry the whole launch/process workflow inline.
+- `renderer/src/hooks/useImporterWorkbench.ts` owns importer open guards, startup/background scan handoff, importer reset behavior, and post-import follow-up, so `App.tsx` can treat importer lifecycle as a focused hook instead of another root-level modal workflow.
 - `renderer/src/App.tsx` still owns active-library selection policy for the shell, including reconciling `activeGameId` against the currently visible filtered game set so details/background state cannot stay pinned to an off-screen game after filters or clicks change the visible library.
 - `renderer/src/components/GameDetailsPanel.tsx` owns right-panel collision avoidance for oversized logo and boxart artwork: both content columns align below the logo, left-side boxart reserves inset on the description side, and right-side boxart pushes the details column downward instead of narrowing it.
 - `renderer/src/components/GameDetailsPanel.tsx` also owns the default right-panel boxart anchor offsets, including the extra inward inset used by the default right-side boxart placement.
@@ -71,7 +73,7 @@ It explains module boundaries, data flow, and release pipeline expectations.
 
 <!-- AUTO-GENERATED:MODULE_INDEX:START -->
 - Main process source files: 70
-- Renderer source files: 105
+- Renderer source files: 107
 - Automation scripts: 30
 - GitHub workflow files: 7
 - Key entrypoints:
