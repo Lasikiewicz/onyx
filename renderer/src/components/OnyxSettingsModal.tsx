@@ -7,6 +7,7 @@ import { SettingsIntegrationsTab } from './settings/SettingsIntegrationsTab';
 import { SettingsAboutTab } from './settings/SettingsAboutTab';
 import { SettingsLibrariesTab } from './settings/SettingsLibrariesTab';
 import { SettingsLinksTab } from './settings/SettingsLinksTab';
+import { SettingsScanningTab } from './settings/SettingsScanningTab';
 import { LINK_DISPLAY_ORDER, DEFAULT_VISIBLE_LINK_TYPES } from './GameLinks';
 
 export interface OnyxSettingsModalProps {
@@ -1230,56 +1231,16 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
             </div>
           )}
           {activeTab === 'scanning' && (
-            <div className="space-y-6 p-6">
-              <SettingsSection title="Automatic Scanning" description="Configure how Onyx detects new games">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
-                  <SettingsToggle
-                    label="Background Scanning"
-                    description="Automatically scan for new games periodically"
-                    checked={backgroundScanEnabled}
-                    onChange={(checked) => {
-                      setBackgroundScanEnabled(checked);
-                      if (window.electronAPI.setBackgroundScanEnabled) {
-                        window.electronAPI.setBackgroundScanEnabled(checked);
-                      }
-                    }}
-                  />
-                  {backgroundScanEnabled && (
-                    <SettingsInput
-                      label="Scan Interval (Minutes)"
-                      value={backgroundScanIntervalMinutes}
-                      onChange={(val) => {
-                        const num = parseInt(val) || 30;
-                        setBackgroundScanIntervalMinutes(num);
-                        if (window.electronAPI.setBackgroundScanIntervalMinutes) {
-                          window.electronAPI.setBackgroundScanIntervalMinutes(num);
-                        }
-                      }}
-                      type="number"
-                      description="How often to check for new games (1-1440 minutes)"
-                    />
-                  )}
-                </div>
-              </SettingsSection>
-
-              <SettingsSection title="Startup Behavior" description="Configure scanning behavior on application start">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
-                  <SettingsToggle
-                    label="Update Libraries on Startup"
-                    description="Automatically scan for new games when Onyx starts"
-                    checked={settings.updateLibrariesOnStartup}
-                    onChange={() => handleToggle('updateLibrariesOnStartup')}
-                  />
-                  <SettingsToggle
-                    label="Check for Updates on Startup"
-                    description="Check for app updates when Onyx starts"
-                    checked={settings.checkForUpdatesOnStartup}
-                    onChange={() => handleToggle('checkForUpdatesOnStartup')}
-                  />
-                </div>
-              </SettingsSection>
-
-            </div>
+            <SettingsScanningTab
+              backgroundScanEnabled={backgroundScanEnabled}
+              backgroundScanIntervalMinutes={backgroundScanIntervalMinutes}
+              checkForUpdatesOnStartup={settings.checkForUpdatesOnStartup}
+              onSetBackgroundScanEnabled={setBackgroundScanEnabled}
+              onSetBackgroundScanIntervalMinutes={setBackgroundScanIntervalMinutes}
+              onToggleCheckForUpdatesOnStartup={() => handleToggle('checkForUpdatesOnStartup')}
+              onToggleUpdateLibrariesOnStartup={() => handleToggle('updateLibrariesOnStartup')}
+              updateLibrariesOnStartup={settings.updateLibrariesOnStartup}
+            />
           )}
           {
             activeTab === 'library' && (

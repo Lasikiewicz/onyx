@@ -26,7 +26,7 @@ Controls automatic background scans, scan interval, startup library refresh, and
 
 ## Discovery and Data Sources
 
-- UI: `OnyxSettingsModal` scanning tab.
+- UI: [`SettingsScanningTab.tsx`](../../../renderer/src/components/settings/SettingsScanningTab.tsx), mounted by [`OnyxSettingsModal.tsx`](../../../renderer/src/components/OnyxSettingsModal.tsx).
 - Main consumers: startup sequencing in [`main.ts`](../../../main/main.ts) and background scan service handlers.
 
 ## Data Model and Persistence
@@ -50,6 +50,7 @@ Controls automatic background scans, scan interval, startup library refresh, and
 
 - **Renderer**
   - [OnyxSettingsModal.tsx](../../../renderer/src/components/OnyxSettingsModal.tsx)
+  - [SettingsScanningTab.tsx](../../../renderer/src/components/settings/SettingsScanningTab.tsx)
   - [App.tsx](../../../renderer/src/App.tsx)
 - **Main process**
   - [UserPreferencesService.ts](../../../main/UserPreferencesService.ts)

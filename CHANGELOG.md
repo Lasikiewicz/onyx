@@ -6,11 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Pending]
 
+- Workflow: Require all committed changes to be recorded explicitly in `CHANGELOG.md` `Pending`, including maintainability refactors.
+- Settings maintainability: Split more `OnyxSettingsModal` tabs into dedicated components to reduce shell complexity.
+
 ## [0.7.37] - 2026-03-17
 
 - Game details panel: Fix install size formatting so the right panel converts stored byte values to GB correctly instead of overstating game sizes.
 - Game details panel: Hide malformed release dates instead of rendering `Invalid Date` in the metadata column.
 - Game details panel: Restore responsive fallback title sizing for games that do not have a logo image.
+
 ## [0.7.36] - 2026-03-16
 
 - Settings maintainability: Move the Integrations and About tab bodies out of `OnyxSettingsModal.tsx` into dedicated `SettingsIntegrationsTab.tsx` and `SettingsAboutTab.tsx` components so the main settings shell can keep shrinking without losing updater/about behavior.
