@@ -631,6 +631,8 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
     coverFlowVerticalOffset: 0,
     coverFlowSideOpacity: 100,
   };
+  const detailsPanelTransparency = Math.max(0, Math.min(100, 100 - detailsPanelOpacity));
+  const defaultDetailsPanelTransparency = Math.max(0, Math.min(100, 100 - sliderDefaults.detailsPanelOpacity));
   const detailsLogoSliderMax = Math.max(50, Math.floor(fanartHeight * 0.6));
   const detailsLogoSliderDefault = Math.min(sliderDefaults.perGameLogoSize, detailsLogoSliderMax);
 
@@ -1096,9 +1098,9 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                     defaultValue={0}
                     onChange={(value) => onBackgroundBlurChange?.(value)}
                     onReset={() => onBackgroundBlurChange?.(0)}
-                    formatValue={(value) => `${value}px`}
-                    minLabel="0px"
-                    maxLabel="100px"
+                    formatValue={(value) => `${value}%`}
+                    minLabel="0%"
+                    maxLabel="100%"
                   />
                 </div>
 
@@ -1389,9 +1391,9 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                 defaultValue={sliderDefaults.backgroundBlur}
                 onChange={onBackgroundBlurChange}
                 onReset={() => onBackgroundBlurChange(sliderDefaults.backgroundBlur)}
-                formatValue={(value) => `${value}px`}
-                minLabel="0px"
-                maxLabel="100px"
+                formatValue={(value) => `${value}%`}
+                minLabel="0%"
+                maxLabel="100%"
                 sliderClassName="h-2"
               />
             </div>
@@ -1956,9 +1958,9 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                     defaultValue={sliderDefaults.backgroundBlur}
                     onChange={(value) => onBackgroundBlurChange?.(value)}
                     onReset={() => onBackgroundBlurChange?.(sliderDefaults.backgroundBlur)}
-                    formatValue={(value) => `${value}px`}
-                    minLabel="0px"
-                    maxLabel="100px"
+                    formatValue={(value) => `${value}%`}
+                    minLabel="0%"
+                    maxLabel="100%"
                   />
                 </div>
 
@@ -2260,9 +2262,9 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                     min={0}
                     max={100}
                     step={1}
-                    value={detailsPanelOpacity}
-                    defaultValue={sliderDefaults.detailsPanelOpacity}
-                    onChange={(value) => onDetailsPanelOpacityChange?.(value)}
+                    value={detailsPanelTransparency}
+                    defaultValue={defaultDetailsPanelTransparency}
+                    onChange={(value) => onDetailsPanelOpacityChange?.(100 - value)}
                     onReset={() => onDetailsPanelOpacityChange?.(sliderDefaults.detailsPanelOpacity)}
                     formatValue={(value) => `${value}%`}
                     minLabel="0%"

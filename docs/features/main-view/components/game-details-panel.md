@@ -19,7 +19,7 @@ Right-hand panel in the library window (grid/list/logo modes) that shows the sel
 
 ## Settings and Toggles
 
-- Panel width, fanart height, description width, bottom bar height, logo/boxart size and position, button size and location, details panel opacity, button colors (per view mode where applicable).
+- Panel width, fanart height, description width, bottom bar height, logo/boxart size and position, button size and location, details panel transparency, button colors (per view mode where applicable).
 - **Where controlled:** Drag resizers on the panel (left edge for width; top edges of banner, description, and bottom bar for heights/width); and the **Dividers** column in the right-click context menu ([RightClickMenu.tsx](../../../../renderer/src/components/RightClickMenu.tsx) — sliders for Right Panel Width, Banner Height, Description Width, Bottom Bar Height). Root callback and persistence wiring now route through [useGameDetailsPanelControls.ts](../../../../renderer/src/hooks/useGameDetailsPanelControls.ts) and persist via [UserPreferencesService](../../../../main/UserPreferencesService.ts); see [Settings and preferences](../../settings-and-preferences.md).
 
 ## Confirmed End-to-End Flows
@@ -48,6 +48,7 @@ Right-hand panel in the library window (grid/list/logo modes) that shows the sel
 - **Adaptive media layout:** Description content is grouped into section rows (heading/body + nearest media). In wider/taller layouts, only sections that actually have media alternate left/right (text left/media right, then text right/media left). Text-only sections stay full-width so mixed game markup remains readable. In tighter layouts everything remains stacked and media scales down with bounded height.
 - **Text-aware media sizing:** In side layout, each section’s media width and max-height are auto-sized from nearby text density so short sections use smaller media and long sections can use larger media, reducing large blank areas.
 - **Panel dimensions and appearance:** Read on load from preferences ([getPreferences](../../../../main/preload.ts) / [UserPreferencesService.getPreferences](../../../../main/UserPreferencesService.ts)); passed into [GameDetailsPanel](../../../../renderer/src/components/GameDetailsPanel.tsx) and [RightClickMenu](../../../../renderer/src/components/RightClickMenu.tsx) via shell-level callback bundles in [useGameDetailsPanelControls.ts](../../../../renderer/src/hooks/useGameDetailsPanelControls.ts) and [useRightClickMenuControls.ts](../../../../renderer/src/hooks/useRightClickMenuControls.ts).
+- **Transparency slider semantics:** The right-click menu exposes `Details View Transparency` as a true transparency control where `0%` keeps the panel fully opaque and `100%` removes the panel tint and glass blur so the background artwork shows through as if the right section had no background, while the underlying persisted `detailsPanelOpacity` value is inverted for backward compatibility with existing saved preferences.
 
 ## Data Model and Persistence
 

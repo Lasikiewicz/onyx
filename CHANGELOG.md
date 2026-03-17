@@ -8,7 +8,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - App shell:
   - Move debounced shell preference persistence and restored active-game validation out of `App.tsx` into `useAppShellPreferencePersistence.ts`.
+- Right-click menu:
+  - Show background blur sliders as `0-100%` controls instead of pixel labels.
+  - Make `Details View Transparency` behave as a true transparency control, with `0%` fully opaque and `100%` removing the right-panel tint and blur so the background shows through, while preserving existing saved preference values.
 - Docs:
+  - Update the app-shell and game-details-panel runbooks to document the right-click menu blur and transparency control semantics.
   - Update the app-shell runbook and refactor roadmap to track the new `App.tsx` shell-persistence extraction.
 
 ## [0.7.39] - 2026-03-17

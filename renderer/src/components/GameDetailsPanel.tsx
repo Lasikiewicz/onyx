@@ -224,7 +224,9 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
   const viewKey: ViewKey = viewMode === 'list' ? 'list' : viewMode === 'logo' ? 'logo' : 'grid';
   const activePanelWidth = (propPanelWidth ?? panelWidths[viewKey] ?? defaultPanelWidths[viewKey]);
   const normalizedOpacity = Math.max(0, Math.min(100, detailsPanelOpacity));
+  const panelTransparency = 1 - (normalizedOpacity / 100);
   const panelBackground = `rgba(26, 31, 46, ${normalizedOpacity / 100})`;
+  const panelBackdropBlur = `${Math.round(normalizedOpacity * 0.2)}px`;
   const useSideMediaLayout = descriptionViewport.width >= 760 && descriptionViewport.height >= 420;
   const mediaMaxHeight = Math.max(180, Math.floor(descriptionViewport.height * 0.52));
   const mediaSideWidth = Math.max(220, Math.floor(descriptionViewport.width * 0.42));
@@ -515,8 +517,15 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
     return (
       <div
         ref={panelRef}
-        className={`onyx-glass-panel ${isViewFlipped ? 'rounded-r-3xl' : 'rounded-l-3xl'} flex items-center justify-center p-8 relative`}
-        style={{ width: `${activePanelWidth}px`, minWidth: '400px', backgroundColor: panelBackground }}
+        className={`${isViewFlipped ? 'rounded-r-3xl' : 'rounded-l-3xl'} flex items-center justify-center p-8 relative border border-white/5 shadow-xl`}
+        style={{
+          width: `${activePanelWidth}px`,
+          minWidth: '400px',
+          backgroundColor: panelBackground,
+          backdropFilter: `blur(${panelBackdropBlur})`,
+          WebkitBackdropFilter: `blur(${panelBackdropBlur})`,
+          boxShadow: panelTransparency >= 0.98 ? 'none' : undefined,
+        }}
       >
         <div className="text-center">
           <p className="text-gray-100 text-lg">Select a game</p>
@@ -620,8 +629,15 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
   return (
     <div
       ref={panelRef}
-      className={`onyx-glass-panel ${isViewFlipped ? 'rounded-r-3xl' : 'rounded-l-3xl'} flex flex-col h-full overflow-hidden relative ml-auto`}
-      style={{ width: `${activePanelWidth}px`, minWidth: '400px', backgroundColor: panelBackground }}
+      className={`${isViewFlipped ? 'rounded-r-3xl' : 'rounded-l-3xl'} flex flex-col h-full overflow-hidden relative ml-auto border border-white/5 shadow-xl`}
+      style={{
+        width: `${activePanelWidth}px`,
+        minWidth: '400px',
+        backgroundColor: panelBackground,
+        backdropFilter: `blur(${panelBackdropBlur})`,
+        WebkitBackdropFilter: `blur(${panelBackdropBlur})`,
+        boxShadow: panelTransparency >= 0.98 ? 'none' : undefined,
+      }}
       onContextMenu={(e) => {
         // Open right-click menu anywhere in the panel
         setLogoResizeMenu(null);
