@@ -30,7 +30,8 @@ ALWAYS check `.agent/docs/structure.md` BEFORE modifying code.
 
 - Run `npm run scan:secrets` before any push.
 - Keep `CHANGELOG.md` `Pending` section updated for all committed changes, including maintainability and refactor work.
-- `CHANGELOG.md` must list each fix, adjustment, or maintainability slice explicitly; do not collapse multiple changes into one broad summary bullet.
+- `CHANGELOG.md` must list each fix or adjustment explicitly. For refactors, prefer one main bullet per parent source file, then list the extracted subfiles/components/hooks as child bullets under that parent entry instead of scattering multiple top-level bullets for the same file.
+- If multiple changelog bullets in the same release would start with the same prefix or surface label, group them under one parent bullet and use child bullets for the individual changes. Examples: `Add Games:`, `Tests:`, `Game details panel:`, or a parent file such as `OnyxSettingsModal.tsx`.
 - Use terminal git commands; avoid editor SCM commit/push UI.
 - Do not include Cursor branding or Co-authored-by lines in commit messages.
 - Avoid using the word `alpha` in commit messages that land on `main`.

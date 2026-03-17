@@ -14,13 +14,14 @@ This file is the source of truth for branch promotion and release operations.
 
 - Run `npm run scan:secrets` before any push.
 - Keep `CHANGELOG.md` accurate before commit/push.
-- `CHANGELOG.md` must enumerate each user-visible fix or adjustment explicitly; do not merge multiple shipped fixes into one broad summary bullet.
+- `CHANGELOG.md` must enumerate each user-visible fix or adjustment explicitly. For refactors, prefer one main bullet per parent source file and list the extracted subfiles/components/hooks as child bullets under that parent entry instead of splitting one parent-file cleanup across many top-level bullets.
+- If multiple changelog entries in the same release would start with the same prefix or surface label, group them under one parent bullet and use child bullets for the individual changes.
 - Use terminal commands for git operations.
 - Do not use the word "alpha" in commit messages that land on `main`.
 
 ## 1) Push to git / Push to git master
 
-1. Ensure `CHANGELOG.md` reflects current user-visible changes. Use `## [Pending]` when present, otherwise add/update the target release section. List each user-visible fix or adjustment as its own bullet.
+1. Ensure `CHANGELOG.md` reflects current user-visible changes. Use `## [Pending]` when present, otherwise add/update the target release section. List each user-visible fix or adjustment as its own bullet. For refactors, group by parent file and list the created/extracted subfiles as child bullets under that file's main bullet. If multiple items share the same prefix or surface label, group them under one parent bullet with child bullets.
 2. Run `npm run build` and resolve failures.
 3. Run `npm run scan:secrets` and resolve failures.
 4. Commit and push:
@@ -40,6 +41,8 @@ git push origin master
 	- If `## [Pending]` exists, promote it.
 	- If `## [Pending]` does not exist, add the new section at the top with release bullets.
 	- Keep each user-visible fix or adjustment as a separate bullet instead of collapsing them into one summary line.
+	- For refactors, group by parent file and list the created/extracted subfiles as child bullets under that file's main bullet.
+	- If multiple items share the same prefix or surface label, group them under one parent bullet with child bullets.
 3. Run `npm run scan:secrets`.
 4. Commit with message: `<version> <changes>`.
 5. Push and force promote:

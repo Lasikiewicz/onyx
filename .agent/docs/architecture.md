@@ -58,6 +58,7 @@ It explains module boundaries, data flow, and release pipeline expectations.
 - `renderer/src/components/GamePropertiesPanel.tsx` is now primarily a shared staged-editor shell that coordinates editable-field state, tab switching, save flushing, and footer actions instead of embedding the full metadata/images/links/mod-manager UI inline.
 - `renderer/src/App.tsx` now routes uninstall actions through a confirmation state that can optionally remove the game from the Onyx library after opening the uninstall flow, while `renderer/src/components/ConfirmationDialog.tsx` supports embedded custom body content for checkbox-driven confirmations.
 - `renderer/src/components/RightClickMenu.tsx` now opens the dense Game Details and Carousel button-color editor in a dedicated floating popup anchored to the trigger row, using a neutral shell border and full `Mod Manager` labeling so the picker reads like part of the menu instead of a warning state.
+- `renderer/src/components/RightClickMenu.tsx` now exposes the persisted `autoSizeToFit` preference as a compact `Fill Available Space` toggle for grid view, while `renderer/src/App.tsx` recalculates grid tile width against the live left-panel width and visible height so boxart can shrink to fit all visible rows or grow to reduce right-side gaps as the details panel changes.
 
 ## Data and Control Flow
 

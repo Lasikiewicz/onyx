@@ -16,6 +16,8 @@ export interface RightClickMenuProps {
   onGridSizeChange?: (size: number) => void;
   logoSize?: number;
   onLogoSizeChange?: (size: number) => void;
+  autoSizeToFit?: boolean;
+  onAutoSizeToFitChange?: (enabled: boolean) => void;
   listSize?: number;
   onListSizeChange?: (size: number) => void;
   gameTilePadding?: number;
@@ -167,6 +169,8 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
   onGridSizeChange,
   logoSize = 100,
   onLogoSizeChange,
+  autoSizeToFit = false,
+  onAutoSizeToFitChange,
   listSize = 120,
   onListSizeChange,
   gameTilePadding = 3,
@@ -427,6 +431,7 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
 
     // Apply view-specific settings
     if (mode === 'grid') {
+      if (defaults.autoSizeToFit !== undefined) onAutoSizeToFitChange?.(defaults.autoSizeToFit);
       if (defaults.gridSize !== undefined) onGridSizeChange?.(defaults.gridSize);
       if (defaults.gameTilePadding !== undefined) onGameTilePaddingChange?.(defaults.gameTilePadding);
       if (defaults.panelWidth !== undefined) onPanelWidthChange?.(defaults.panelWidth);
@@ -437,6 +442,7 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
       if (defaults.backgroundBrightness !== undefined) onBackgroundBrightnessChange?.(defaults.backgroundBrightness);
       if (defaults.showLogoOverBoxart !== undefined) onShowLogoOverBoxartChange?.(defaults.showLogoOverBoxart);
     } else if (mode === 'logo') {
+      if (defaults.autoSizeToFit !== undefined) onAutoSizeToFitChange?.(defaults.autoSizeToFit);
       if (defaults.logoSize !== undefined) onLogoSizeChange?.(defaults.logoSize);
       if (defaults.gameTilePadding !== undefined) onGameTilePaddingChange?.(defaults.gameTilePadding);
       if (defaults.logoBackgroundOpacity !== undefined) onLogoBackgroundOpacityChange?.(defaults.logoBackgroundOpacity);
@@ -1589,6 +1595,25 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                       maxLabel={`${sizeRange.max}px`}
                       sliderClassName="h-2"
                     />
+                  </div>
+                )}
+
+                {viewMode === 'grid' && onAutoSizeToFitChange && (
+                  <div className="px-3 py-2 bg-gray-700/30 rounded-md">
+                    <div className="flex items-center justify-between gap-3">
+                      <label className="text-xs text-gray-400 font-medium">Fill Available Space</label>
+                      <button
+                        onClick={() => onAutoSizeToFitChange(!autoSizeToFit)}
+                        className={`relative inline-flex h-3 w-6 items-center rounded-full transition-colors ${autoSizeToFit ? 'bg-blue-600' : 'bg-gray-600'
+                          }`}
+                        title="Toggle fill available space"
+                      >
+                        <span
+                          className={`inline-block h-2 w-2 transform rounded-full bg-white transition-transform ${autoSizeToFit ? 'translate-x-3' : 'translate-x-0.5'
+                            }`}
+                        />
+                      </button>
+                    </div>
                   </div>
                 )}
 

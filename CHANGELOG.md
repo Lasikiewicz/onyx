@@ -10,23 +10,30 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Right-click menu: Open Game Details and Carousel button-color controls in a dedicated popup picker so the menu stays less cluttered and the editor does not spill off-screen.
 - Right-click menu: Remove the bright highlight around the button-color popup and show the full `Mod Manager` label inside the color picker.
 - Right-click menu: Close the button-color popup when clicking away from it so the picker dismisses like a normal transient menu.
+- Right-click menu: Add a `Fill Available Space` option for grid view so game cards can shrink to fit all visible rows or grow to reduce right-side gaps as the details panel width changes.
 
 ## [0.7.38] - 2026-03-17
 
 - Workflow: Require all committed changes to be recorded explicitly in `CHANGELOG.md` `Pending`, including maintainability refactors.
-- Settings maintainability: Extract the Libraries tab from `OnyxSettingsModal.tsx` into `SettingsLibrariesTab.tsx`.
-- Settings maintainability: Extract the Advanced and Link Management tabs from `OnyxSettingsModal.tsx` into `SettingsAdvancedTab.tsx` and `SettingsLinksTab.tsx`.
-- Settings maintainability: Extract the Scanning tab from `OnyxSettingsModal.tsx` into `SettingsScanningTab.tsx`.
-- Settings maintainability: Extract the Suspend/Resume tab from `OnyxSettingsModal.tsx` into `SettingsSuspendTab.tsx`.
-- Settings maintainability: Extract General and Animations tab bodies plus shared shell runtime state from `OnyxSettingsModal.tsx` into dedicated settings components and `useOnyxSettingsModalShellState.ts`.
-- Settings maintainability: Extract launcher and manual-folder source loading/actions from `OnyxSettingsModal.tsx` into `useOnyxSettingsLibrarySources.ts`.
-- Settings maintainability: Extract settings load/save, background scan, destructive maintenance, and suspend shortcut persistence from `OnyxSettingsModal.tsx` into `useOnyxSettingsModalPersistence.ts`.
-- Add Games maintainability: Extract the staged-editor Links tab from `GamePropertiesPanel.tsx` into `GamePropertiesLinksTab.tsx`.
-- Add Games maintainability: Extract the staged-editor Mod Manager tab from `GamePropertiesPanel.tsx` into `GamePropertiesModManagerTab.tsx`.
-- Add Games maintainability: Extract the staged-editor metadata undo and fix-match workflow from `GamePropertiesPanel.tsx` into `useGamePropertiesMetadata.ts`.
-- Add Games maintainability: Extract the staged-editor image search and apply-image workflow from `GamePropertiesPanel.tsx` into `useGamePropertiesImages.ts`.
-- Add Games maintainability: Extract the staged-editor Images tab UI from `GamePropertiesPanel.tsx` into `GamePropertiesImagesTab.tsx` and `GamePropertiesImageStrip.tsx`.
-- Add Games maintainability: Extract the staged-editor Metadata tab UI from `GamePropertiesPanel.tsx` into `GamePropertiesMetadataTab.tsx`.
+- `OnyxSettingsModal.tsx` was split into the following smaller files:
+  - `SettingsLibrariesTab.tsx`
+  - `SettingsAdvancedTab.tsx`
+  - `SettingsLinksTab.tsx`
+  - `SettingsScanningTab.tsx`
+  - `SettingsSuspendTab.tsx`
+  - `SettingsGeneralTab.tsx`
+  - `SettingsAnimationsTab.tsx`
+  - `useOnyxSettingsModalShellState.ts`
+  - `useOnyxSettingsLibrarySources.ts`
+  - `useOnyxSettingsModalPersistence.ts`
+- `GamePropertiesPanel.tsx` was split into the following smaller files:
+  - `GamePropertiesLinksTab.tsx`
+  - `GamePropertiesModManagerTab.tsx`
+  - `GamePropertiesMetadataTab.tsx`
+  - `GamePropertiesImagesTab.tsx`
+  - `GamePropertiesImageStrip.tsx`
+  - `useGamePropertiesMetadata.ts`
+  - `useGamePropertiesImages.ts`
 
 ## [0.7.37] - 2026-03-17
 
@@ -36,59 +43,70 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [0.7.36] - 2026-03-16
 
-- Settings maintainability: Move the Integrations and About tab bodies out of `OnyxSettingsModal.tsx` into dedicated `SettingsIntegrationsTab.tsx` and `SettingsAboutTab.tsx` components so the main settings shell can keep shrinking without losing updater/about behavior.
-- Game details panel: Remove the redundant top-level `Description` and `Details` headings so the panel starts directly with content.
-- Game details panel: Keep the description and details content aligned below the visible logo instead of letting text climb into the logo area.
-- Game details panel: Make the details column drop below right-side boxart instead of narrowing until metadata becomes squashed.
-- Game details panel: Reserve left-side description inset only when left-positioned boxart would otherwise collide with the text column.
-- Game details panel: Clamp rendered boxart width to the available side-space so narrow layouts cannot let cover art spill across the divider and overlap metadata.
-- Game details panel: Move the default right-side boxart farther inward from the panel edge for a less pinned layout.
-- Game details panel: Keep logo and boxart clearance outside the scrollable regions so users cannot scroll into blank top padding or scroll description text under the logo.
-- Game details panel: Base logo clearance on the logo's effective rendered size after fanart-area caps, preventing extra dead space when the logo slider goes past the visible maximum.
-- Game details panel: Constrain the Game Details logo-size slider to the current visible maximum so it no longer exposes a dead range of non-functional values.
-- Game details panel: Show only the primary developer in the details column when providers return multiple branch or studio entries, while keeping the full list in the tooltip.
-- Game details panel: Tighten metadata spacing in the details column so more information fits without unnecessary vertical gaps.
-- Game details panel: Round the Description Width control display to whole percentages instead of long decimal values.
+- `OnyxSettingsModal.tsx` was split further into:
+  - `SettingsIntegrationsTab.tsx`
+  - `SettingsAboutTab.tsx`
+- Game details panel:
+  - Remove the redundant top-level `Description` and `Details` headings so the panel starts directly with content.
+  - Keep the description and details content aligned below the visible logo instead of letting text climb into the logo area.
+  - Make the details column drop below right-side boxart instead of narrowing until metadata becomes squashed.
+  - Reserve left-side description inset only when left-positioned boxart would otherwise collide with the text column.
+  - Clamp rendered boxart width to the available side-space so narrow layouts cannot let cover art spill across the divider and overlap metadata.
+  - Move the default right-side boxart farther inward from the panel edge for a less pinned layout.
+  - Keep logo and boxart clearance outside the scrollable regions so users cannot scroll into blank top padding or scroll description text under the logo.
+  - Base logo clearance on the logo's effective rendered size after fanart-area caps, preventing extra dead space when the logo slider goes past the visible maximum.
+  - Constrain the Game Details logo-size slider to the current visible maximum so it no longer exposes a dead range of non-functional values.
+  - Show only the primary developer in the details column when providers return multiple branch or studio entries, while keeping the full list in the tooltip.
+  - Tighten metadata spacing in the details column so more information fits without unnecessary vertical gaps.
+  - Round the Description Width control display to whole percentages instead of long decimal values.
 
 ## [0.7.35] - 2026-03-16
 
 - App shell maintainability: Add a dedicated `docs/features/app-shell.md` runbook and make it first-class in the feature index/doc map so `App.tsx` has a clear source-of-truth owner document.
-- App shell maintainability: Move startup/update/crash/tutorial/toast/missing-games overlay rendering out of `App.tsx` into `components/appShell/AppShellOverlays.tsx`, with `StartupScanOverlay.tsx` reusing `FoundGamesModal.tsx` for startup scan review.
-- App shell maintainability: Move root menu-event, startup-scan, updater, and crash-dump listener wiring out of `App.tsx` into `hooks/useAppShellEvents.ts` so the renderer shell no longer owns the whole subscription block inline.
-- App shell maintainability: Move initial preference load, baseline-default application, refresh, and resolution-change sync out of `App.tsx` into `hooks/useAppPreferences.ts` so the renderer shell no longer owns the whole preference bootstrap pipeline inline.
-- App shell maintainability: Move launch confirmation, launch execution, running-state tracking, and process polling out of `App.tsx` into `hooks/useGameLaunchFlow.ts` so the renderer shell no longer owns the whole launch/process workflow inline.
+- `App.tsx` was split into the following smaller files:
+  - `components/appShell/AppShellOverlays.tsx`
+  - `components/appShell/StartupScanOverlay.tsx`
+  - `components/FoundGamesModal.tsx`
+  - `hooks/useAppShellEvents.ts`
+  - `hooks/useAppPreferences.ts`
+  - `hooks/useGameLaunchFlow.ts`
 - App shell selection: Keep the active game anchored to the currently visible filtered library set so switching games and changing filters cannot leave the shell stuck on a stale off-screen selection.
 - App shell stability: Stop `useAppPreferences.ts` from re-running full preference bootstrap after ordinary shell state changes, which was snapping view mode and other shell state back to the persisted preference unexpectedly.
 
 ## [0.7.34] - 2026-03-16
 
-- Game Manager maintainability: Move delete and remove-missing maintenance state/handlers into `gameManager/useGameManagerMaintenance.ts` so the modal shell carries less maintenance-side state and async workflow code.
-- Game Manager maintainability: Move metadata save, fix-match search, match-apply, and cancel-edit workflow state into `gameManager/useGameManagerMetadata.ts` so the modal shell carries less metadata-side state and async orchestration code.
-- Game Manager maintainability: Move image search, fast-search, provider-progress, and image-apply workflow state into `gameManager/useGameManagerImageSearch.ts` so the modal shell carries less image-side state and async orchestration code.
-- Game Manager maintainability: Move refresh dialog state, progress handling, match-fix flow, and boxart-fix flow into `gameManager/useGameManagerRefresh.ts` so the modal shell carries less refresh/import-side orchestration code.
+- `GameManager.tsx` was split further into:
+  - `gameManager/useGameManagerMaintenance.ts`
+  - `gameManager/useGameManagerMetadata.ts`
+  - `gameManager/useGameManagerImageSearch.ts`
+  - `gameManager/useGameManagerRefresh.ts`
 
 ## [0.7.33] - 2026-03-16
 
-- Game Manager maintainability: Move the full Metadata tab layout into a dedicated `gameManager/GameManagerMetadataTab.tsx` component so the main modal shell no longer owns the metadata-editing UI inline.
-- Game Manager maintainability: Lift the Metadata tab's fix-match toggle and cancel-edit flows into dedicated `GameManager` handlers so the parent component carries less anonymous inline orchestration.
-- Game Manager maintainability: Move the full Links tab layout into a dedicated `gameManager/GameManagerLinksTab.tsx` component and lift the links refresh request into a named `GameManager` handler so the modal shell carries less inline link-editing UI and side-effect code.
-- Game Manager maintainability: Move the full Mod Manager tab layout into a dedicated `gameManager/GameManagerModManagerTab.tsx` component and lift the browse/launch actions into named `GameManager` handlers so the modal shell carries less inline mod-manager UI and side-effect code.
-- Game Manager maintainability: Move the link-icon picker overlay and SVG upload flow into a dedicated `gameManager/LinkIconPickerDialog.tsx` component so the modal shell no longer owns the inline dialog and file-reader logic for per-link custom icons.
-- Game Manager maintainability: Move the refresh confirmation and refresh progress overlays into dedicated `gameManager/GameManagerRefreshConfirmDialog.tsx` and `gameManager/GameManagerRefreshProgressDialog.tsx` components, and lift the confirm action into a named `GameManager` handler so maintenance-flow UI is less embedded in the modal shell.
-- Game Manager maintainability: Move the delete-confirm and remove-missing dialog rendering into a dedicated `gameManager/GameManagerMaintenanceDialogs.tsx` component so the modal shell carries less maintenance-dialog boilerplate.
+- `GameManager.tsx` was split further into:
+  - `gameManager/GameManagerMetadataTab.tsx`
+  - `gameManager/GameManagerLinksTab.tsx`
+  - `gameManager/GameManagerModManagerTab.tsx`
+  - `gameManager/LinkIconPickerDialog.tsx`
+  - `gameManager/GameManagerRefreshConfirmDialog.tsx`
+  - `gameManager/GameManagerRefreshProgressDialog.tsx`
+  - `gameManager/GameManagerMaintenanceDialogs.tsx`
 
 ## [0.7.32] - 2026-03-16
 
 - Lint cleanup: Stabilize several renderer hook/effect dependencies in the app shell, update flow, and library view components so the lightweight ESLint rules can tighten without introducing stale closures.
-- Game Manager maintainability: Move image-search URL/provider helper logic into a dedicated `gameManager/` helper module so the modal component carries less inline utility code.
-- Game Manager maintainability: Move image result ordering, provider filtering, and provider image-count aggregation into a dedicated `gameManager/` helper module so the image-search UI can keep shrinking in focused slices.
-- Game Manager maintainability: Move provider-progress row construction and provider-status event mapping into a dedicated `gameManager/` helper module so image-search orchestration is easier to read and test.
+- `GameManager.tsx` was split further into image-search helper modules for:
+  - provider URL resolution
+  - image-result ordering and filtering
+  - image-count aggregation
+  - provider-progress event mapping
 - Documentation: Add dedicated `Game Manager` and `Add Games` feature runbooks so the two largest per-game editing surfaces have stable entry-point docs instead of only being described indirectly through overlapping feature pages.
-- Game Manager maintainability: Move the provider status/filter row into a dedicated `gameManager/ProviderStatusRow.tsx` component so the image-search UI block is less embedded in the main modal file.
-- Game Manager maintainability: Move the main artwork preview/context-menu strip into a dedicated `gameManager/GameArtworkStrip.tsx` component so the Images tab layout is easier to evolve independently of modal orchestration.
-- Game Manager maintainability: Move the fast-search result chooser into a dedicated `gameManager/FastSearchResultsList.tsx` component so the Images tab search controls stay easier to follow.
-- Game Manager maintainability: Move the repeated image-result grid sections into a dedicated `gameManager/ImageSearchResultsSections.tsx` component so the Images tab rendering is less tangled with modal state orchestration.
-- Game Manager maintainability: Move the full Images tab layout into a dedicated `gameManager/GameManagerImagesTab.tsx` component so the main modal shell no longer owns the whole image-tab UI inline.
+- `GameManager.tsx` was split further into:
+  - `gameManager/ProviderStatusRow.tsx`
+  - `gameManager/GameArtworkStrip.tsx`
+  - `gameManager/FastSearchResultsList.tsx`
+  - `gameManager/ImageSearchResultsSections.tsx`
+  - `gameManager/GameManagerImagesTab.tsx`
 
 ## [0.7.31] - 2026-03-16
 
@@ -121,11 +139,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [0.7.26] - 2026-03-16
 
-- Add Games: Image edits made during import review now persist into the library correctly, including banner/background selections that need linked hero/background fields updated.
-- Add Games: Import now carries staged launch arguments, screenshots, and launcher-specific launch fields into the final library record instead of dropping them during the staged-to-library conversion.
+- Add Games:
+  - Image edits made during import review now persist into the library correctly, including banner/background selections that need linked hero/background fields updated.
+  - Import now carries staged launch arguments, screenshots, and launcher-specific launch fields into the final library record instead of dropping them during the staged-to-library conversion.
 - Maintenance: Remove redundant tracked website snapshot files, unused menu-bar patch scripts, and an unused importer image-search modal to keep the repo leaner.
-- Tests: Stabilize GameStore artwork persistence coverage by mocking the active Electron store shim and clarifying onyx-local cache-buster expectations during startup cleanup.
-- Tests: Eliminate the Game Manager accessibility test's React `act(...)` warning by waiting for async startup effects before asserting the view-toggle controls.
+- Tests:
+  - Stabilize GameStore artwork persistence coverage by mocking the active Electron store shim and clarifying onyx-local cache-buster expectations during startup cleanup.
+  - Eliminate the Game Manager accessibility test's React `act(...)` warning by waiting for async startup effects before asserting the view-toggle controls.
 
 ## [0.7.25] - 2026-03-16
 
@@ -135,16 +155,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - Metadata: Steam-backed game descriptions now prefer the Steam Store `about_the_game` field so the game details panel shows the richer About the Game content after metadata refresh.
 - Metadata: Explicit per-game metadata updates now bypass the in-memory metadata cache, and direct Steam description fetches normalize `steam-` IDs correctly so refreshed descriptions are less likely to stay stale.
-- Game details panel: The description/details row now expands to fill the available vertical space in the panel instead of leaving unused space below long descriptions.
-- Game details panel: Hide the always-visible vertical divider between the description and details columns while keeping the resize handle behavior.
-- Game details panel: Constrain rich HTML descriptions to the description column width so embedded store media and long text no longer overflow the panel layout.
-- Game details panel: Description media now adapts to available box size, scaling images/videos down and switching to a side-by-text layout when the description area is wide and tall enough.
-- Game details panel: In side-by-text description mode, media blocks now alternate left and right for a cleaner reading flow.
-- Game details panel: Description HTML is now grouped into section rows so headings and body text stay paired with their nearest image/media while alternating left/right by section.
-- Game details panel: Section alternation is now media-aware across different games; text-only sections remain full-width and do not disrupt left/right alternation.
-- Game details panel: Side-layout media now auto-sizes per section based on nearby text amount to reduce oversized images and blank vertical gaps.
+- Game details panel:
+  - The description/details row now expands to fill the available vertical space in the panel instead of leaving unused space below long descriptions.
+  - Hide the always-visible vertical divider between the description and details columns while keeping the resize handle behavior.
+  - Constrain rich HTML descriptions to the description column width so embedded store media and long text no longer overflow the panel layout.
+  - Description media now adapts to available box size, scaling images/videos down and switching to a side-by-text layout when the description area is wide and tall enough.
+  - In side-by-text description mode, media blocks now alternate left and right for a cleaner reading flow.
+  - Description HTML is now grouped into section rows so headings and body text stay paired with their nearest image/media while alternating left/right by section.
+  - Section alternation is now media-aware across different games; text-only sections remain full-width and do not disrupt left/right alternation.
+  - Side-layout media now auto-sizes per section based on nearby text amount to reduce oversized images and blank vertical gaps.
 - Docs: Enforce strict markdown linking rules across all repository documentation to ensure all code references (files, services, components) are hyperlinked to their source.
-- Game details panel: Resizable bottom action bar (Edit / Play / links). Drag the top edge of the bar to change its height; contents scale with the bar and the setting is persisted.
+- Game details panel:
+  - Resizable bottom action bar (Edit / Play / links).
+  - Drag the top edge of the bar to change its height; contents scale with the bar and the setting is persisted.
 
 ## [0.7.22] - 2026-03-15
 

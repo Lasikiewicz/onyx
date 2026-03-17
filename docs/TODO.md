@@ -47,7 +47,3 @@ Completed historical items have been removed so this stays focused on what is st
 - [ ] **Phase 2** - `ImportService.ts`, `UserPreferencesService.ts`, and `ImageCacheService.ts`
 - [ ] **Phase 3** - stronger app-shell/Game Manager hook tests and broader mocked Electron regressions
 - [ ] **Phase 4** - remove temporary lint exceptions and tighten static-analysis rules again
-
-## 8. Future fixes
-
-- [ ] **Right Click Menu - Games View** - Add an option to fill all the availabe space with the game cards. So as the right sections size is changed the left section cards will always fill the space. (Boxart size will auto adjust.)

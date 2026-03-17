@@ -311,7 +311,7 @@ function App() {
   const [backgroundColor, setBackgroundColor] = useState('#000000');
   const [listViewOptions, setListViewOptions] = useState(defaultListViewOptions);
   const [listViewSize, setListViewSize] = useState(128);
-  const [panelWidth, setPanelWidth] = useState(800);
+  const [_panelWidth, setPanelWidth] = useState(800);
   const [rightClickMenu, setRightClickMenu] = useState<{ x: number; y: number } | null>(null);
   const [gameContextMenu, setGameContextMenu] = useState<{ x: number; y: number; game: Game } | null>(null);
   const [displayedBackgroundImageUrl, setDisplayedBackgroundImageUrl] = useState('');
@@ -420,10 +420,10 @@ function App() {
     setSortBy,
   });
 
-  // Save grid size when it changes (but not when auto-size is enabled)
+  // Save grid size when it changes, except while auto-fit is actively recalculating it
   useEffect(() => {
     if (isInitialLoad) return;
-    if (autoSizeToFit) return; // Don't save when auto-size is calculating
+    if (autoSizeToFit) return;
 
     const saveGridSize = async () => {
       try {
@@ -858,14 +858,10 @@ function App() {
     }
 
     const container = gridContainerRef.current;
-    // Use the actual container width (left panel) to ensure we fill it properly
     const containerWidth = container.clientWidth;
-    // Use the visible viewport height, not the scrollable container height
-    const containerHeight = container.clientHeight; // This is the visible height
-
-    // Account for padding (p-4 = 16px on each side = 32px total)
+    const containerHeight = container.clientHeight;
     const horizontalPadding = 32;
-    const verticalPadding = 32; // Top and bottom padding
+    const verticalPadding = 32;
     const availableWidth = containerWidth - horizontalPadding;
     const availableHeight = containerHeight - verticalPadding;
 
@@ -875,98 +871,76 @@ function App() {
 
     const totalGames = filteredGames.length;
     const gap = gameTilePadding;
-
-    // GameCard uses aspect-[2/3], so height = width * 1.5
-    // We need to find the grid size that maximizes tile size while ensuring
-    // the rightmost boxart gets as close as possible to the divider
-
     let bestSize = 0;
-
     let bestRemainingWidth = Infinity;
 
-    // Try different column counts to find the one that fills the width best
     for (let columns = 1; columns <= 20; columns++) {
-      // Calculate tile width based on available width
       const totalGapWidth = gap * (columns - 1);
       const tileWidth = (availableWidth - totalGapWidth) / columns;
 
-      if (tileWidth < 50) continue; // Too small, skip
+      if (tileWidth < 50) continue;
 
-      // Calculate tile height (2:3 aspect ratio)
       const tileHeight = tileWidth * 1.5;
-
-      // Calculate how many rows we need to fit all games
       const rowsNeeded = Math.ceil(totalGames / columns);
-
-      // Calculate total height needed for all rows
       const totalHeightNeeded = (tileHeight * rowsNeeded) + (gap * (rowsNeeded - 1));
 
-      // Check if this configuration fits ALL games in the visible height
       if (totalHeightNeeded <= availableHeight) {
-        // Calculate how much space this configuration uses
         const usedWidth = (tileWidth * columns) + (gap * (columns - 1));
         const remainingWidth = availableWidth - usedWidth;
 
-        // Prioritize configurations that minimize remaining width (fill more space)
-        // Among those, prefer larger tile sizes
-        if (bestSize === 0 ||
+        if (
+          bestSize === 0 ||
           remainingWidth < bestRemainingWidth ||
-          (Math.abs(remainingWidth - bestRemainingWidth) < 5 && tileWidth > bestSize)) {
+          (Math.abs(remainingWidth - bestRemainingWidth) < 5 && tileWidth > bestSize)
+        ) {
           bestSize = tileWidth;
-
           bestRemainingWidth = remainingWidth;
         }
       }
     }
 
-    // If we found a solution, use it
     if (bestSize > 0) {
       setGridSize(Math.round(bestSize));
-    } else {
-      // No solution found - try to fit as many as possible
-      // Start with a reasonable tile size and work backwards
-      for (let testSize = 200; testSize >= 50; testSize -= 10) {
-        const tileHeight = testSize * 1.5;
+      return;
+    }
 
-        for (let columns = 1; columns <= 20; columns++) {
-          const totalGapWidth = gap * (columns - 1);
-          const tileWidth = (availableWidth - totalGapWidth) / columns;
+    for (let testSize = 200; testSize >= 50; testSize -= 10) {
+      const tileHeight = testSize * 1.5;
 
-          if (Math.abs(tileWidth - testSize) < 10) { // Close match
-            const rowsNeeded = Math.ceil(totalGames / columns);
-            const totalHeightNeeded = (tileHeight * rowsNeeded) + (gap * (rowsNeeded - 1));
+      for (let columns = 1; columns <= 20; columns++) {
+        const totalGapWidth = gap * (columns - 1);
+        const tileWidth = (availableWidth - totalGapWidth) / columns;
 
-            if (totalHeightNeeded <= availableHeight) {
-              setGridSize(Math.round(tileWidth));
-              return;
-            }
+        if (Math.abs(tileWidth - testSize) < 10) {
+          const rowsNeeded = Math.ceil(totalGames / columns);
+          const totalHeightNeeded = (tileHeight * rowsNeeded) + (gap * (rowsNeeded - 1));
+
+          if (totalHeightNeeded <= availableHeight) {
+            setGridSize(Math.round(tileWidth));
+            return;
           }
         }
       }
-
-      // Last resort: use a small size that should fit
-      const minColumns = Math.ceil(Math.sqrt(totalGames));
-      const totalGapWidth = gap * (minColumns - 1);
-      const fallbackSize = Math.round((availableWidth - totalGapWidth) / minColumns);
-      setGridSize(Math.max(50, Math.min(500, fallbackSize)));
     }
+
+    const minColumns = Math.ceil(Math.sqrt(totalGames));
+    const totalGapWidth = gap * (minColumns - 1);
+    const fallbackSize = Math.round((availableWidth - totalGapWidth) / minColumns);
+    setGridSize(Math.max(50, Math.min(500, fallbackSize)));
   }, [viewMode, filteredGames.length, gameTilePadding]);
 
-  // Auto-recalculate when auto-size is enabled and dependencies change
   useEffect(() => {
     if (!autoSizeToFit || viewMode !== 'grid' || filteredGames.length === 0) {
       return;
     }
 
-    // Recalculate after a short delay to ensure DOM is updated
     const timeoutId = setTimeout(() => {
       calculateAutoSize();
     }, 100);
 
     return () => clearTimeout(timeoutId);
-  }, [autoSizeToFit, filteredGames.length, gameTilePadding, hideGameTitles, viewMode, calculateAutoSize, panelWidth]);
+  }, [autoSizeToFit, filteredGames.length, gameTilePadding, hideGameTitles, viewMode, calculateAutoSize, _panelWidth]);
 
-  // Watch for container size changes using ResizeObserver (handles window resize and panel resize)
   useEffect(() => {
     if (!autoSizeToFit || viewMode !== 'grid' || !gridContainerRef.current) {
       return;
@@ -976,7 +950,6 @@ function App() {
     let resizeTimeout: NodeJS.Timeout;
 
     const resizeObserver = new ResizeObserver(() => {
-      // Debounce resize calculations
       clearTimeout(resizeTimeout);
       resizeTimeout = setTimeout(() => {
         if (filteredGames.length > 0) {
@@ -987,7 +960,6 @@ function App() {
 
     resizeObserver.observe(container);
 
-    // Also listen to window resize as a fallback
     const handleWindowResize = () => {
       clearTimeout(resizeTimeout);
       resizeTimeout = setTimeout(() => {
@@ -1594,6 +1566,7 @@ function App() {
 
   const rightClickMenuProps = useRightClickMenuControls({
     activeGame,
+    autoSizeToFit,
     backgroundBlur,
     backgroundBrightnessByView,
     carouselButtonColors,
@@ -1643,6 +1616,7 @@ function App() {
     rightPanelTextSize,
     selectedBoxArtSize,
     setActiveGameId,
+    setAutoSizeToFit,
     setBackgroundBlur,
     setBackgroundBrightnessByView,
     setCarouselButtonColors,
