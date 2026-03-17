@@ -9,6 +9,7 @@ import { useImporterWorkbench } from './hooks/useImporterWorkbench';
 import { useAppShellModals } from './hooks/useAppShellModals';
 import { useAppShellSystemState } from './hooks/useAppShellSystemState';
 import { useSettingsSaveRefresh } from './hooks/useSettingsSaveRefresh';
+import { usePreferenceWriter } from './hooks/usePreferenceWriter';
 import { LibraryGrid } from './components/LibraryGrid';
 import { LibraryListView } from './components/LibraryListView';
 import { RightClickMenu } from './components/RightClickMenu';
@@ -1152,6 +1153,7 @@ function App() {
     setLinkDisplayOrder,
     setVisibleLinkTypes,
   });
+  const { saveByViewValue, savePreferences, saveValue } = usePreferenceWriter();
 
   // Whether any major overlay or context menu is open (settings, game manager, right-click menu, etc.)
   const overlaysOpen =
@@ -2222,7 +2224,7 @@ function App() {
               showLauncher: options.showLauncher ?? true,
               showLogos: options.showLogos ?? false,
             });
-            window.electronAPI.savePreferences({ listViewOptions: options });
+            savePreferences({ listViewOptions: options });
           }}
           gameTilePadding={gameTilePadding}
           onGameTilePaddingChange={setGameTilePadding}
@@ -2230,210 +2232,162 @@ function App() {
           onBackgroundBlurChange={setBackgroundBlur}
           backgroundBrightness={currentBackgroundBrightness}
           onBackgroundBrightnessChange={(brightness: number) => {
-            const newByView = { ...backgroundBrightnessByView, [viewMode]: brightness };
-            setBackgroundBrightnessByView(newByView);
-            window.electronAPI.savePreferences({ backgroundBrightnessByView: newByView });
+            saveByViewValue(backgroundBrightnessByView, setBackgroundBrightnessByView, 'backgroundBrightnessByView', viewMode, brightness);
           }}
           selectedBoxArtSize={selectedBoxArtSize}
           onSelectedBoxArtSizeChange={setSelectedBoxArtSize}
           panelWidth={currentPanelWidth}
           onPanelWidthChange={(width) => {
             setPanelWidth(width);
-            const newByView = { ...panelWidthByViewState, [viewMode]: width };
-            setPanelWidthByViewState(newByView);
-            window.electronAPI.savePreferences({ panelWidthByView: newByView });
+            saveByViewValue(panelWidthByViewState, setPanelWidthByViewState, 'panelWidthByView', viewMode, width);
           }}
           carouselLogoSize={carouselLogoSize}
           onCarouselLogoSizeChange={(size) => {
-            setCarouselLogoSize(size);
-            window.electronAPI.savePreferences({ carouselLogoSize: size });
+            saveValue(setCarouselLogoSize, 'carouselLogoSize', size);
           }}
           detailsBarSize={detailsBarSize}
           onDetailsBarSizeChange={(size) => {
-            setDetailsBarSize(size);
-            window.electronAPI.savePreferences({ detailsBarSize: size });
+            saveValue(setDetailsBarSize, 'detailsBarSize', size);
           }}
           showCarouselDetails={showCarouselDetails}
           onShowCarouselDetailsChange={(show) => {
-            setShowCarouselDetails(show);
-            window.electronAPI.savePreferences({ showCarouselDetails: show });
+            saveValue(setShowCarouselDetails, 'showCarouselDetails', show);
           }}
           showCarouselLogos={showCarouselLogos}
           onShowCarouselLogosChange={(show) => {
-            setShowCarouselLogos(show);
-            window.electronAPI.savePreferences({ showCarouselLogos: show });
+            saveValue(setShowCarouselLogos, 'showCarouselLogos', show);
           }}
           carouselButtonSize={carouselButtonSize}
           onCarouselButtonSizeChange={(size) => {
-            setCarouselButtonSize(size);
-            window.electronAPI.savePreferences({ carouselButtonSize: size });
+            saveValue(setCarouselButtonSize, 'carouselButtonSize', size);
           }}
           carouselDescriptionSize={carouselDescriptionSize}
           onCarouselDescriptionSizeChange={(size) => {
-            setCarouselDescriptionSize(size);
-            window.electronAPI.savePreferences({ carouselDescriptionSize: size });
+            saveValue(setCarouselDescriptionSize, 'carouselDescriptionSize', size);
           }}
           showCategoriesInGameList={showCategoriesByView[viewMode] ?? false}
           onShowCategoriesInGameListChange={(show) => {
-            const newByView = { ...showCategoriesByView, [viewMode]: show };
-            setShowCategoriesByView(newByView);
-            window.electronAPI.savePreferences({ showCategoriesInGameListByView: newByView });
+            saveByViewValue(showCategoriesByView, setShowCategoriesByView, 'showCategoriesInGameListByView', viewMode, show);
           }}
           categoriesPosition={categoriesPositionByView[viewMode] ?? 'top'}
           onCategoriesPositionChange={(position: 'top' | 'bottom') => {
-            const newByView = { ...categoriesPositionByView, [viewMode]: position };
-            setCategoriesPositionByView(newByView);
-            window.electronAPI.savePreferences({ categoriesPositionByView: newByView });
+            saveByViewValue(categoriesPositionByView, setCategoriesPositionByView, 'categoriesPositionByView', viewMode, position);
           }}
           categoriesTopAlignment={categoriesAlignmentByView[viewMode] ?? 'left'}
           onCategoriesTopAlignmentChange={(alignment: 'left' | 'center' | 'right') => {
-            const newByView = { ...categoriesAlignmentByView, [viewMode]: alignment };
-            setCategoriesAlignmentByView(newByView);
-            window.electronAPI.savePreferences({ categoriesAlignmentByView: newByView });
+            saveByViewValue(categoriesAlignmentByView, setCategoriesAlignmentByView, 'categoriesAlignmentByView', viewMode, alignment);
           }}
           categoriesTopSize={categoriesSizeByView[viewMode] ?? 12}
           onCategoriesTopSizeChange={(size: number) => {
-            const newByView = { ...categoriesSizeByView, [viewMode]: size };
-            setCategoriesSizeByView(newByView);
-            window.electronAPI.savePreferences({ categoriesSizeByView: newByView });
+            saveByViewValue(categoriesSizeByView, setCategoriesSizeByView, 'categoriesSizeByView', viewMode, size);
           }}
           showLogoOverBoxart={showLogoOverBoxart}
           onShowLogoOverBoxartChange={(show) => {
-            setShowLogoOverBoxart(show);
-            window.electronAPI.savePreferences({ showLogoOverBoxart: show });
+            saveValue(setShowLogoOverBoxart, 'showLogoOverBoxart', show);
           }}
           logoPosition={logoPosition}
           onLogoPositionChange={(position) => {
-            setLogoPosition(position);
-            window.electronAPI.savePreferences({ logoPosition: position });
+            saveValue(setLogoPosition, 'logoPosition', position);
           }}
           logoBackgroundColor={logoBackgroundColor}
           onLogoBackgroundColorChange={(color: string) => {
-            setLogoBackgroundColor(color);
-            window.electronAPI.savePreferences({ logoBackgroundColor: color });
+            saveValue(setLogoBackgroundColor, 'logoBackgroundColor', color);
           }}
           logoBackgroundOpacity={logoBackgroundOpacity}
           onLogoBackgroundOpacityChange={(opacity: number) => {
-            setLogoBackgroundOpacity(opacity);
-            window.electronAPI.savePreferences({ logoBackgroundOpacity: opacity });
+            saveValue(setLogoBackgroundOpacity, 'logoBackgroundOpacity', opacity);
           }}
           rightPanelLogoSize={rightPanelLogoSize}
           onRightPanelLogoSizeChange={(size) => {
-            setRightPanelLogoSize(size);
-            window.electronAPI.savePreferences({ rightPanelLogoSize: size });
+            saveValue(setRightPanelLogoSize, 'rightPanelLogoSize', size);
           }}
           rightPanelBoxartPosition={rightPanelBoxartPosition}
           onRightPanelBoxartPositionChange={(position) => {
-            setRightPanelBoxartPosition(position);
-            window.electronAPI.savePreferences({ rightPanelBoxartPosition: position });
+            saveValue(setRightPanelBoxartPosition, 'rightPanelBoxartPosition', position);
           }}
           rightPanelBoxartSize={rightPanelBoxartSize}
           onRightPanelBoxartSizeChange={(size) => {
-            setRightPanelBoxartSize(size);
-            window.electronAPI.savePreferences({ rightPanelBoxartSize: size });
+            saveValue(setRightPanelBoxartSize, 'rightPanelBoxartSize', size);
           }}
           rightPanelTextSize={rightPanelTextSize}
           onRightPanelTextSizeChange={(size) => {
-            setRightPanelTextSize(size);
-            window.electronAPI.savePreferences({ rightPanelTextSize: size });
+            saveValue(setRightPanelTextSize, 'rightPanelTextSize', size);
           }}
           rightPanelButtonSize={rightPanelButtonSize}
           onRightPanelButtonSizeChange={(size) => {
-            setRightPanelButtonSize(size);
-            window.electronAPI.savePreferences({ rightPanelButtonSize: size });
+            saveValue(setRightPanelButtonSize, 'rightPanelButtonSize', size);
           }}
           rightPanelButtonLocation={rightPanelButtonLocation}
           onRightPanelButtonLocationChange={(location) => {
-            setRightPanelButtonLocation(location);
-            window.electronAPI.savePreferences({ rightPanelButtonLocation: location });
+            saveValue(setRightPanelButtonLocation, 'rightPanelButtonLocation', location);
           }}
           isViewFlipped={isViewFlippedByView[viewMode]}
           onViewFlipChange={(flipped) => {
-            const newByView = { ...isViewFlippedByView, [viewMode]: flipped };
-            setIsViewFlippedByView(newByView);
-            window.electronAPI.savePreferences({ isViewFlippedByView: newByView });
+            saveByViewValue(isViewFlippedByView, setIsViewFlippedByView, 'isViewFlippedByView', viewMode, flipped);
           }}
           detailsPanelOpacity={detailsPanelOpacity}
           onDetailsPanelOpacityChange={(opacity) => {
-            setDetailsPanelOpacity(opacity);
-            window.electronAPI.savePreferences({ detailsPanelOpacity: opacity });
+            saveValue(setDetailsPanelOpacity, 'detailsPanelOpacity', opacity);
           }}
           fanartHeight={currentFanartHeight}
           onFanartHeightChange={(height) => {
-            const newByView = { ...fanartHeightByView, [viewMode]: height };
-            setFanartHeightByView(newByView);
-            window.electronAPI.savePreferences({ fanartHeightByView: newByView });
+            saveByViewValue(fanartHeightByView, setFanartHeightByView, 'fanartHeightByView', viewMode as 'grid' | 'list' | 'logo', height);
           }}
           descriptionWidth={currentDescriptionWidth}
           onDescriptionWidthChange={(width) => {
-            const newByView = { ...descriptionWidthByView, [viewMode]: width };
-            setDescriptionWidthByView(newByView);
-            window.electronAPI.savePreferences({ descriptionWidthByView: newByView });
+            saveByViewValue(descriptionWidthByView, setDescriptionWidthByView, 'descriptionWidthByView', viewMode as 'grid' | 'list' | 'logo', width);
           }}
           detailsPanelBottomBarHeight={detailsPanelBottomBarHeight}
           onDetailsPanelBottomBarHeightChange={(height: number) => {
-            setDetailsPanelBottomBarHeight(height);
-            window.electronAPI.savePreferences({ detailsPanelBottomBarHeight: height });
+            saveValue(setDetailsPanelBottomBarHeight, 'detailsPanelBottomBarHeight', height);
           }}
           rightPanelButtonColors={rightPanelButtonColors}
           onRightPanelButtonColorsChange={(colors) => {
-            setRightPanelButtonColors(colors);
-            window.electronAPI.savePreferences({ rightPanelButtonColors: colors });
+            saveValue(setRightPanelButtonColors, 'rightPanelButtonColors', colors);
           }}
           carouselButtonColors={carouselButtonColors}
           onCarouselButtonColorsChange={(colors) => {
-            setCarouselButtonColors(colors);
-            window.electronAPI.savePreferences({ carouselButtonColors: colors });
+            saveValue(setCarouselButtonColors, 'carouselButtonColors', colors);
           }}
           gridButtonColors={gridButtonColors}
           onGridButtonColorsChange={(colors) => {
-            setGridButtonColors(colors);
-            window.electronAPI.savePreferences({ gridButtonColors: colors });
+            saveValue(setGridButtonColors, 'gridButtonColors', colors);
           }}
           listButtonColors={listButtonColors}
           onListButtonColorsChange={(colors) => {
-            setListButtonColors(colors);
-            window.electronAPI.savePreferences({ listButtonColors: colors });
+            saveValue(setListButtonColors, 'listButtonColors', colors);
           }}
           logoButtonColors={logoButtonColors}
           onLogoButtonColorsChange={(colors) => {
-            setLogoButtonColors(colors);
-            window.electronAPI.savePreferences({ logoButtonColors: colors });
+            saveValue(setLogoButtonColors, 'logoButtonColors', colors);
           }}
           coverFlowCoverSize={coverFlowCoverSize}
           onCoverFlowCoverSizeChange={(size) => {
-            setCoverFlowCoverSize(size);
-            window.electronAPI.savePreferences({ coverFlowCoverSize: size });
+            saveValue(setCoverFlowCoverSize, 'coverFlowCoverSize', size);
           }}
           coverFlowReflection={coverFlowReflection}
           onCoverFlowReflectionChange={(value) => {
-            setCoverFlowReflection(value);
-            window.electronAPI.savePreferences({ coverFlowReflection: value });
+            saveValue(setCoverFlowReflection, 'coverFlowReflection', value);
           }}
           coverFlowVerticalOffset={coverFlowVerticalOffset}
           onCoverFlowVerticalOffsetChange={(value: number) => {
-            setCoverFlowVerticalOffset(value);
-            window.electronAPI.savePreferences({ coverFlowVerticalOffset: value } as any);
+            saveValue(setCoverFlowVerticalOffset, 'coverFlowVerticalOffset', value);
           }}
           coverFlowSideOpacity={coverFlowSideOpacity}
           onCoverFlowSideOpacityChange={(value: number) => {
-            setCoverFlowSideOpacity(value);
-            window.electronAPI.savePreferences({ coverFlowSideOpacity: value } as any);
+            saveValue(setCoverFlowSideOpacity, 'coverFlowSideOpacity', value);
           }}
           coverFlowShowButtons={coverFlowShowButtons}
           onCoverFlowShowButtonsChange={(show) => {
-            setCoverFlowShowButtons(show);
-            window.electronAPI.savePreferences({ coverFlowShowButtons: show });
+            saveValue(setCoverFlowShowButtons, 'coverFlowShowButtons', show);
           }}
           coverFlowButtonPosition={coverFlowButtonPosition}
           onCoverFlowButtonPositionChange={(pos) => {
-            setCoverFlowButtonPosition(pos);
-            window.electronAPI.savePreferences({ coverFlowButtonPosition: pos });
+            saveValue(setCoverFlowButtonPosition, 'coverFlowButtonPosition', pos);
           }}
           coverFlowButtonColors={coverFlowButtonColors}
           onCoverFlowButtonColorsChange={(colors) => {
-            setCoverFlowButtonColors(colors);
-            window.electronAPI.savePreferences({ coverFlowButtonColors: colors });
+            saveValue(setCoverFlowButtonColors, 'coverFlowButtonColors', colors);
           }}
           onSettingsImported={refreshPreferences}
         />

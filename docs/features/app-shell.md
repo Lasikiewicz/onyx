@@ -25,6 +25,7 @@ Owns the renderer root experience in [`App.tsx`](../../renderer/src/App.tsx): li
 - The shell modal-state bridge in [`useAppShellModals.ts`](../../renderer/src/hooks/useAppShellModals.ts), which centralizes shell modal open/close state and tab/game targeting for settings, Game Manager, onboarding, and adjacent modal entry points.
 - The shell system-state bridge in [`useAppShellSystemState.ts`](../../renderer/src/hooks/useAppShellSystemState.ts), which centralizes updater/changelog state, dev update-preview helpers, background-scan pause while update prompts are open, and crash-dump prompt actions.
 - The settings-save refresh bridge in [`useSettingsSaveRefresh.ts`](../../renderer/src/hooks/useSettingsSaveRefresh.ts), which reloads shell-facing preferences after settings saves so runtime consumers update immediately without duplicating readback code in [`App.tsx`](../../renderer/src/App.tsx).
+- The shell preference-writer bridge in [`usePreferenceWriter.ts`](../../renderer/src/hooks/usePreferenceWriter.ts), which centralizes direct renderer-side preference writes for root control surfaces such as the right-click menu.
 - The shell launch bridge in [`useGameLaunchFlow.ts`](../../renderer/src/hooks/useGameLaunchFlow.ts), which owns launch confirmation, launch execution, running-state tracking, and restore/minimize process-side behavior.
 - The importer handoff bridge in [`useImporterWorkbench.ts`](../../renderer/src/hooks/useImporterWorkbench.ts), which owns importer-open guards, startup-scan/new-games handoff, importer reset behavior, and post-import tutorial follow-up.
 - The visible-library selection policy in [`App.tsx`](../../renderer/src/App.tsx), which keeps `activeGameId` aligned to the current filtered game set so the details panel and background shell do not stick to an off-screen game after filters or clicks change the visible library.
@@ -44,8 +45,9 @@ Owns the renderer root experience in [`App.tsx`](../../renderer/src/App.tsx): li
 5. [`useAppShellModals.ts`](../../renderer/src/hooks/useAppShellModals.ts) normalizes settings, Game Manager, onboarding, and related modal routes so shell callbacks can target tabs or games without each surface reimplementing the same state transitions.
 6. [`useAppShellSystemState.ts`](../../renderer/src/hooks/useAppShellSystemState.ts) owns update/changelog fetching, update-dismiss/update-download actions, and crash-dump prompt actions so updater and crash flows share one shell-level runtime state path.
 7. [`useSettingsSaveRefresh.ts`](../../renderer/src/hooks/useSettingsSaveRefresh.ts) reapplies shell-facing settings after the user saves [`OnyxSettingsModal.tsx`](../../renderer/src/components/OnyxSettingsModal.tsx), keeping runtime shell controls aligned with persisted preferences without embedding that readback logic in the root component.
-8. [`useImporterWorkbench.ts`](../../renderer/src/hooks/useImporterWorkbench.ts) converts menu actions, Welcome Screen onboarding, startup-scan discoveries, and Game Manager maintenance flows into one importer lifecycle for [`ImportWorkbenchV2.tsx`](../../renderer/src/components/importer/ImportWorkbenchV2.tsx).
-9. Update availability, crash dumps, tutorial prompts, toast messages, and missing-games cleanup all render above the library shell without each feature owning its own root-level wiring.
+8. [`usePreferenceWriter.ts`](../../renderer/src/hooks/usePreferenceWriter.ts) now handles a chunk of the shell-level write-through preference updates for controls like the right-click menu, reducing repeated `savePreferences` wiring in [`App.tsx`](../../renderer/src/App.tsx).
+9. [`useImporterWorkbench.ts`](../../renderer/src/hooks/useImporterWorkbench.ts) converts menu actions, Welcome Screen onboarding, startup-scan discoveries, and Game Manager maintenance flows into one importer lifecycle for [`ImportWorkbenchV2.tsx`](../../renderer/src/components/importer/ImportWorkbenchV2.tsx).
+10. Update availability, crash dumps, tutorial prompts, toast messages, and missing-games cleanup all render above the library shell without each feature owning its own root-level wiring.
 
 ## Discovery and Data Sources
 
@@ -105,6 +107,7 @@ Owns the renderer root experience in [`App.tsx`](../../renderer/src/App.tsx): li
 - [useAppShellModals.ts](../../renderer/src/hooks/useAppShellModals.ts) - shell modal state ownership and tab/game-aware open-close helpers for root modal entry points.
 - [useAppShellSystemState.ts](../../renderer/src/hooks/useAppShellSystemState.ts) - updater, changelog, and crash-dump runtime state plus the shell actions that operate on them.
 - [useSettingsSaveRefresh.ts](../../renderer/src/hooks/useSettingsSaveRefresh.ts) - settings-save preference readback and runtime shell refresh after modal saves.
+- [usePreferenceWriter.ts](../../renderer/src/hooks/usePreferenceWriter.ts) - direct renderer-side preference write helpers used by shell control surfaces.
 - [useGameLaunchFlow.ts](../../renderer/src/hooks/useGameLaunchFlow.ts) - renderer launch confirmation, launch execution, process polling, and running-state tracking for the app shell.
 - [useImporterWorkbench.ts](../../renderer/src/hooks/useImporterWorkbench.ts) - importer lifecycle orchestration shared by startup handoff, menu actions, onboarding, and Game Manager cleanup flows.
 - [FoundGamesModal.tsx](../../renderer/src/components/FoundGamesModal.tsx) - reusable found-games review modal used by the startup overlay when scans discover new titles.
