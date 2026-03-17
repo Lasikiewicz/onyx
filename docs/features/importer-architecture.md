@@ -23,9 +23,13 @@ This is the system-level companion to the user-facing [Add Games](./add-games.md
 - The shell modal-control bridge in [`useAppShellModalControls.ts`](../../renderer/src/hooks/useAppShellModalControls.ts), which packages importer modal props for settings, update-library, and Game Manager entry points before they reach the app shell.
 - The startup scan review hook in [`useStartupScanReview.ts`](../../renderer/src/hooks/useStartupScanReview.ts), which owns the shell-side cancel/review actions that turn startup-found games into importer handoff requests.
 - The staged-game editor in [`GamePropertiesPanel.tsx`](../../renderer/src/components/GamePropertiesPanel.tsx), which exposes Metadata, Images, Links, and Mod Manager editing before import.
+- [`GamePropertiesPanel.tsx`](../../renderer/src/components/GamePropertiesPanel.tsx) now mainly acts as the shared staged-editor shell for tab state, editable-field state, save flushing, and footer actions while tab layout/workflow concerns live in focused `gameProperties/` modules.
 - The extracted staged Links tab in [`GamePropertiesLinksTab.tsx`](../../renderer/src/components/gameProperties/GamePropertiesLinksTab.tsx), which now owns link-row editing and icon rendering for the importer workflow.
 - The extracted staged Mod Manager tab in [`GamePropertiesModManagerTab.tsx`](../../renderer/src/components/gameProperties/GamePropertiesModManagerTab.tsx), which now owns importer-side mod-manager status and launch UI.
 - The extracted staged metadata workflow hook in [`useGamePropertiesMetadata.ts`](../../renderer/src/components/gameProperties/useGamePropertiesMetadata.ts), which now owns importer-side undo, fix-match search, and match-apply behavior.
+- The extracted staged Metadata tab UI in [`GamePropertiesMetadataTab.tsx`](../../renderer/src/components/gameProperties/GamePropertiesMetadataTab.tsx), which now owns importer-side metadata form layout outside the main staged editor shell.
+- The extracted staged image workflow hook in [`useGamePropertiesImages.ts`](../../renderer/src/components/gameProperties/useGamePropertiesImages.ts), which now owns importer-side image search, browse, fast-search, and image-apply behavior.
+- The extracted staged Images tab UI in [`GamePropertiesImagesTab.tsx`](../../renderer/src/components/gameProperties/GamePropertiesImagesTab.tsx) and [`GamePropertiesImageStrip.tsx`](../../renderer/src/components/gameProperties/GamePropertiesImageStrip.tsx), which now own importer-side image controls and artwork slot previews.
 - Discovery entry points in [`MenuBar.tsx`](../../renderer/src/components/MenuBar.tsx), startup overlays, and found-games handoff UI such as [`FoundGamesModal.tsx`](../../renderer/src/components/FoundGamesModal.tsx).
 - Main-process scan/import APIs exposed through [`main/preload.ts`](../../main/preload.ts) and fulfilled by IPC handlers and services under [`main/ipc/`](../../main/ipc) and [`main/ImportService.ts`](../../main/ImportService.ts).
 
@@ -91,9 +95,13 @@ This is the system-level companion to the user-facing [Add Games](./add-games.md
 - [`useImporterWorkbench.ts`](../../renderer/src/hooks/useImporterWorkbench.ts) - shell-to-importer handoff, importer reset, and post-import follow-up orchestration.
 - [`useStartupScanReview.ts`](../../renderer/src/hooks/useStartupScanReview.ts) - startup overlay review/cancel actions that feed the importer handoff path.
 - [`GamePropertiesPanel.tsx`](../../renderer/src/components/GamePropertiesPanel.tsx) - staged-game editor for metadata, images, links, and mod manager fields before import.
+- [`GamePropertiesMetadataTab.tsx`](../../renderer/src/components/gameProperties/GamePropertiesMetadataTab.tsx) - extracted staged Metadata tab layout for importer review.
+- [`GamePropertiesImagesTab.tsx`](../../renderer/src/components/gameProperties/GamePropertiesImagesTab.tsx) - extracted staged Images tab layout for importer review.
+- [`GamePropertiesImageStrip.tsx`](../../renderer/src/components/gameProperties/GamePropertiesImageStrip.tsx) - extracted staged artwork preview strip shared by staged editor image surfaces.
 - [`GamePropertiesLinksTab.tsx`](../../renderer/src/components/gameProperties/GamePropertiesLinksTab.tsx) - extracted staged Links tab UI for importer-side link editing.
 - [`GamePropertiesModManagerTab.tsx`](../../renderer/src/components/gameProperties/GamePropertiesModManagerTab.tsx) - extracted staged Mod Manager tab UI for importer-side mod-manager status and launch actions.
 - [`useGamePropertiesMetadata.ts`](../../renderer/src/components/gameProperties/useGamePropertiesMetadata.ts) - extracted staged metadata workflow for undo, fix-match search, and match application.
+- [`useGamePropertiesImages.ts`](../../renderer/src/components/gameProperties/useGamePropertiesImages.ts) - extracted staged image workflow for search, browse, fast-search, and image application.
 - [`ImportSidebar.tsx`](../../renderer/src/components/importer/ImportSidebar.tsx) - queue navigation, staged selection, and ignored filtering.
 - [`ImportHeader.tsx`](../../renderer/src/components/importer/ImportHeader.tsx) - importer toolbar and scan/import actions.
 - [`importer.ts`](../../renderer/src/types/importer.ts) - staged importer types such as `StagedGame` and importer progress/status shapes.

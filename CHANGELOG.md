@@ -17,6 +17,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Add Games maintainability: Extract the staged-editor Links tab from `GamePropertiesPanel.tsx` into `GamePropertiesLinksTab.tsx`.
 - Add Games maintainability: Extract the staged-editor Mod Manager tab from `GamePropertiesPanel.tsx` into `GamePropertiesModManagerTab.tsx`.
 - Add Games maintainability: Extract the staged-editor metadata undo and fix-match workflow from `GamePropertiesPanel.tsx` into `useGamePropertiesMetadata.ts`.
+- Add Games maintainability: Extract the staged-editor image search and apply-image workflow from `GamePropertiesPanel.tsx` into `useGamePropertiesImages.ts`.
+- Add Games maintainability: Extract the staged-editor Images tab UI from `GamePropertiesPanel.tsx` into `GamePropertiesImagesTab.tsx` and `GamePropertiesImageStrip.tsx`.
+- Add Games maintainability: Extract the staged-editor Metadata tab UI from `GamePropertiesPanel.tsx` into `GamePropertiesMetadataTab.tsx`.
 
 ## [0.7.37] - 2026-03-17
 

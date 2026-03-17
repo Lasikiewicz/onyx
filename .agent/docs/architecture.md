@@ -52,6 +52,10 @@ It explains module boundaries, data flow, and release pipeline expectations.
 - `renderer/src/components/gameProperties/GamePropertiesLinksTab.tsx` now owns the Add Games staged-editor Links tab body, so `GamePropertiesPanel.tsx` no longer embeds per-link row rendering and icon selection markup directly inside the giant editor shell.
 - `renderer/src/components/gameProperties/GamePropertiesModManagerTab.tsx` now owns the Add Games staged-editor Mod Manager tab body, so `GamePropertiesPanel.tsx` no longer embeds that launch/configuration panel directly inside the giant editor shell.
 - `renderer/src/components/gameProperties/useGamePropertiesMetadata.ts` now owns the Add Games staged-editor metadata undo/fix-match/apply-match workflow, so `GamePropertiesPanel.tsx` no longer embeds that metadata repair state machine directly inside the giant editor shell.
+- `renderer/src/components/gameProperties/useGamePropertiesImages.ts` now owns the Add Games staged-editor image-search, browse, apply-image, and fast-search orchestration, so `GamePropertiesPanel.tsx` no longer embeds that image workflow state machine directly inside the giant editor shell.
+- `renderer/src/components/gameProperties/GamePropertiesMetadataTab.tsx` now owns the Add Games staged-editor Metadata tab layout, so `GamePropertiesPanel.tsx` no longer needs to keep that large metadata-editing surface inline in the live render path.
+- `renderer/src/components/gameProperties/GamePropertiesImagesTab.tsx` and `renderer/src/components/gameProperties/GamePropertiesImageStrip.tsx` now own the Add Games staged-editor Images tab layout and preview strip, so `GamePropertiesPanel.tsx` no longer needs to embed the image-search controls and artwork slot UI directly inside the giant editor shell.
+- `renderer/src/components/GamePropertiesPanel.tsx` is now primarily a shared staged-editor shell that coordinates editable-field state, tab switching, save flushing, and footer actions instead of embedding the full metadata/images/links/mod-manager UI inline.
 
 ## Data and Control Flow
 
@@ -97,7 +101,7 @@ It explains module boundaries, data flow, and release pipeline expectations.
 
 <!-- AUTO-GENERATED:MODULE_INDEX:START -->
 - Main process source files: 70
-- Renderer source files: 131
+- Renderer source files: 135
 - Automation scripts: 30
 - GitHub workflow files: 7
 - Key entrypoints:

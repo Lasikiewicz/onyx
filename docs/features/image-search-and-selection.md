@@ -18,6 +18,8 @@ Lets users search provider/web image sources, preview candidates, and assign box
 - Image search modal.
 - Image selector controls on game details and metadata-edit surfaces.
 - Add Games per-title editor ([GamePropertiesPanel.tsx](../../renderer/src/components/GamePropertiesPanel.tsx)) uses the same aggregated multi-provider image fetch path as Game Manager when swapping artwork during import review.
+- Add Games image orchestration now also flows through [`useGamePropertiesImages.ts`](../../renderer/src/components/gameProperties/useGamePropertiesImages.ts), which owns staged image search, browse, fast-search, and apply-image behavior outside the main staged-editor shell.
+- Add Games image rendering now also flows through [`GamePropertiesImagesTab.tsx`](../../renderer/src/components/gameProperties/GamePropertiesImagesTab.tsx) and [`GamePropertiesImageStrip.tsx`](../../renderer/src/components/gameProperties/GamePropertiesImageStrip.tsx), which own the staged Images tab controls and artwork slot strip outside the main staged-editor shell.
 - Boxart, banner, logo, and icon fix flows plus image context menus.
 
 ## Settings and Toggles
