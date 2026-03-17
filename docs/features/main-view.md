@@ -42,6 +42,7 @@ Layout: When view mode is grid/list/logo, the games list and game details panel 
 - Preferences from [UserPreferencesService](../../main/UserPreferencesService.ts) for layout and display options.
 - Root MenuBar and TopBar shell actions are assembled in [useMainViewShellControls.ts](../../renderer/src/hooks/useMainViewShellControls.ts) so main-view entry points share one callback bundle before reaching [MenuBar.tsx](../../renderer/src/components/MenuBar.tsx) and [TopBar.tsx](../../renderer/src/components/TopBar.tsx).
 - Root right-click settings actions are assembled in [useRightClickMenuControls.ts](../../renderer/src/hooks/useRightClickMenuControls.ts) so per-view display and divider writes share one callback bundle before reaching [RightClickMenu.tsx](../../renderer/src/components/RightClickMenu.tsx).
+- [RightClickMenu.tsx](../../renderer/src/components/RightClickMenu.tsx) now opens Game Details and Carousel button-color controls through a compact popup picker with neutral shell styling, full button labels, and click-away dismissal so view-configuration controls stay easier to scan and do not force the main menu off-screen.
 - Root game-details-panel actions are assembled in [useGameDetailsPanelControls.ts](../../renderer/src/hooks/useGameDetailsPanelControls.ts) so right-panel actions and divider writes share one callback bundle before reaching [GameDetailsPanel.tsx](../../renderer/src/components/GameDetailsPanel.tsx).
 
 ## Data Model and Persistence

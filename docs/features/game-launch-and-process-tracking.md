@@ -14,6 +14,7 @@ Launches games from multiple sources and tracks running state for UX actions (mi
 - Launch buttons on game cards and game details views.
 - Context menus and right-click launch actions ([GameContextMenu.tsx](../../renderer/src/components/GameContextMenu.tsx), [RightClickMenu.tsx](../../renderer/src/components/RightClickMenu.tsx)).
 - Running-state indicators and post-launch window behavior.
+- Uninstall actions that can also remove the game from the Onyx library after the uninstall flow is opened.
 
 ## Settings and Toggles
 
@@ -26,6 +27,7 @@ Launches games from multiple sources and tracks running state for UX actions (mi
 2. Main [LauncherService.ts](../../main/LauncherService.ts) resolves launch target and spawns process/URI.
 3. Process state is monitored and signaled back to renderer via IPC ([appHandlers.ts](../../main/ipc/appHandlers.ts)).
 4. Renderer applies UI state changes (running status, minimize/restore behavior).
+5. When the user chooses `Uninstall`, [`App.tsx`](../../renderer/src/App.tsx) opens a confirmation dialog, [`LauncherService.ts`](../../main/LauncherService.ts) launches the detected uninstaller or Windows Settings fallback, and the shell can optionally remove the game from the library through the existing delete flow.
 
 ## Discovery and Data Sources
 

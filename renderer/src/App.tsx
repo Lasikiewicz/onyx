@@ -1230,6 +1230,7 @@ function App() {
 
   // Hide confirmation dialog state
   const [hideConfirmation, setHideConfirmation] = useState<{ game: Game } | null>(null);
+  const [uninstallConfirmation, setUninstallConfirmation] = useState<{ game: Game; removeFromLibrary: boolean } | null>(null);
 
   // Handle Steam games import
 
@@ -1368,6 +1369,15 @@ function App() {
 
   const handleUninstallGame = async (game: Game) => {
     setGameContextMenu(null);
+    setUninstallConfirmation({ game, removeFromLibrary: false });
+  };
+
+  const handleConfirmUninstall = async () => {
+    if (!uninstallConfirmation) return;
+
+    const { game, removeFromLibrary } = uninstallConfirmation;
+    setUninstallConfirmation(null);
+
     try {
       const result = await window.electronAPI.openGameUninstaller(game.id);
       if (result.success) {
@@ -1376,12 +1386,25 @@ function App() {
         } else {
           showToast('Opened Windows Settings > Apps', 'success');
         }
+
+        if (removeFromLibrary) {
+          const removed = await deleteGame(game.id);
+          if (removed) {
+            showToast(`Removed "${game.title}" from the library`, 'success');
+          } else {
+            showToast(`Opened uninstall flow, but failed to remove "${game.title}" from the library`, 'error');
+          }
+        }
       } else if (result.error) {
         showToast(result.error, 'error');
       }
     } catch (err) {
       showToast('Failed to open uninstaller', 'error');
     }
+  };
+
+  const handleCancelUninstall = () => {
+    setUninstallConfirmation(null);
   };
 
   // Handle exit with confirmation
@@ -2331,6 +2354,36 @@ function App() {
           onConfirm={handleConfirmHide}
           onCancel={handleCancelHide}
         />
+      )}
+
+      {uninstallConfirmation && (
+        <ConfirmationDialog
+          isOpen={true}
+          title={`Uninstall "${uninstallConfirmation.game.title}"?`}
+          message="Onyx will try to open the game's uninstaller. If no local uninstaller is found, Windows Settings > Apps will open instead."
+          note="Removing a game from the library only affects Onyx. It does not uninstall files by itself."
+          confirmText="Open Uninstaller"
+          cancelText="Cancel"
+          onConfirm={handleConfirmUninstall}
+          onCancel={handleCancelUninstall}
+          variant="danger"
+        >
+          <label className="flex items-start gap-3 rounded border border-gray-700 bg-gray-900/50 p-3 text-sm text-gray-300 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={uninstallConfirmation.removeFromLibrary}
+              onChange={(event) =>
+                setUninstallConfirmation((current) =>
+                  current
+                    ? { ...current, removeFromLibrary: event.target.checked }
+                    : current,
+                )
+              }
+              className="mt-0.5 h-4 w-4 rounded border-gray-600 bg-gray-800 text-red-500 focus:ring-red-500"
+            />
+            <span>Also remove this game from the Onyx library after opening the uninstall flow.</span>
+          </label>
+        </ConfirmationDialog>
       )}
 
       {/* Launch Confirmation Dialog */}

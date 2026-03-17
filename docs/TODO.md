@@ -50,6 +50,4 @@ Completed historical items have been removed so this stays focused on what is st
 
 ## 8. Future fixes
 
-- [ ] **After choosing Uninstall ask if the game should be removed from the library** - Add a checkbox to the uninstall dialog to remove the game from the library.
-- [ ] **rightclickmenu - game details - Button Colors** - Change the layout of the options here, maybe have it as a button that opens another pop up menu with the options.
 - [ ] **Right Click Menu - Games View** - Add an option to fill all the availabe space with the game cards. So as the right sections size is changed the left section cards will always fill the space. (Boxart size will auto adjust.)

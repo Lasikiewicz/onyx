@@ -4,6 +4,7 @@ interface ConfirmationDialogProps {
   isOpen: boolean;
   title: string;
   message: string;
+  children?: React.ReactNode;
   note?: string;
   confirmText?: string;
   cancelText?: string;
@@ -21,6 +22,7 @@ export const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
   isOpen,
   title,
   message,
+  children,
   note,
   confirmText = 'OK',
   cancelText = 'Cancel',
@@ -81,6 +83,11 @@ export const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
                 <span>{note}</span>
+              </div>
+            )}
+            {children && (
+              <div className={note ? 'mt-3' : ''}>
+                {children}
               </div>
             )}
           </div>

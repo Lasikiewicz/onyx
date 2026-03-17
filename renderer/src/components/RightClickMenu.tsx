@@ -264,6 +264,15 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
   onSettingsImported,
 }) => {
   const menuRef = useRef<HTMLDivElement>(null);
+  const buttonColorsPopupRef = useRef<HTMLDivElement>(null);
+  const [buttonColorsPopup, setButtonColorsPopup] = React.useState<{
+    editorKey: 'carousel' | 'details';
+    title: string;
+    colors?: { playColor?: string; editColor?: string; modManagerColor?: string };
+    onChange?: (colors: { playColor?: string; editColor?: string; modManagerColor?: string }) => void;
+    onReset?: () => void;
+    anchorRect: DOMRect;
+  } | null>(null);
 
   // State for Custom Defaults Modal
   const [showCustomDefaultsModal, setShowCustomDefaultsModal] = React.useState(false);
@@ -276,7 +285,6 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
 
   // State for Per-Game Override Clear Confirmation
   const [showClearPerGameConfirm, setShowClearPerGameConfirm] = React.useState(false);
-
   // Detect screen resolution
   React.useEffect(() => {
     const updateResolution = () => {
@@ -320,7 +328,15 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+      const target = event.target as Node;
+      const clickedInsideMenu = menuRef.current?.contains(target) ?? false;
+      const clickedInsidePopup = buttonColorsPopupRef.current?.contains(target) ?? false;
+
+      if (buttonColorsPopup && !clickedInsidePopup) {
+        setButtonColorsPopup(null);
+      }
+
+      if (!clickedInsideMenu && !clickedInsidePopup) {
         onClose();
       }
     };
@@ -338,7 +354,7 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
       document.removeEventListener('mousedown', handleClickOutside);
       document.removeEventListener('keydown', handleEscape);
     };
-  }, [onClose]);
+  }, [buttonColorsPopup, onClose]);
 
   // Adjust position if menu would go off screen
   useEffect(() => {
@@ -361,6 +377,19 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
       menuRef.current.style.top = `${top}px`;
     }
   }, [x, y, viewMode]);
+
+  React.useEffect(() => {
+    const handleViewportChange = () => {
+      setButtonColorsPopup(null);
+    };
+
+    window.addEventListener('resize', handleViewportChange);
+    window.addEventListener('scroll', handleViewportChange, true);
+    return () => {
+      window.removeEventListener('resize', handleViewportChange);
+      window.removeEventListener('scroll', handleViewportChange, true);
+    };
+  }, []);
 
   const handleViewModeChange = (mode: 'grid' | 'list' | 'logo' | 'carousel' | 'coverflow') => {
     if (onViewModeChange) {
@@ -632,27 +661,30 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
     }> = [
         { key: 'playColor', label: 'Play', title: 'Play button color' },
         { key: 'editColor', label: 'Edit', title: 'Edit button color' },
-        { key: 'modManagerColor', label: 'Mod Mgr', title: 'Mod Manager button color' },
+        { key: 'modManagerColor', label: 'Mod Manager', title: 'Mod Manager button color' },
       ];
 
     return (
       <div className={containerClassName}>
-        <div className="flex items-center justify-between mb-2">
-          <label className="block text-xs text-gray-400 font-semibold">{title}</label>
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <label className="block text-sm text-white font-semibold">{title}</label>
+            <p className="text-[11px] text-gray-400 mt-0.5">Choose per-button colors for this view.</p>
+          </div>
           {onReset && (
             <button
               onClick={onReset}
-              className="px-2 py-1 text-xs rounded bg-gray-600 hover:bg-gray-500 text-gray-300 border border-gray-500 transition-colors"
+              className="px-2.5 py-1.5 text-xs rounded bg-gray-700 hover:bg-gray-600 text-gray-200 border border-gray-500 transition-colors"
               title="Reset to defaults"
             >
               Reset
             </button>
           )}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="grid grid-cols-3 gap-3">
           {colorItems.map((item) => (
-            <div key={item.key} className="flex-1 min-w-0 flex items-center justify-between gap-2">
-              <div className="text-[11px] text-gray-300">{item.label}</div>
+            <div key={item.key} className="min-w-0 rounded-lg border border-gray-600 bg-gray-900/70 p-3">
+              <div className="mb-2 text-center text-xs font-medium leading-tight text-gray-200">{item.label}</div>
               <input
                 type="color"
                 value={resolvedColors[item.key]}
@@ -660,12 +692,106 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                   ...resolvedColors,
                   [item.key]: e.target.value,
                 })}
-                className="color-chip-input w-7 h-5 rounded cursor-pointer"
+                className="color-chip-input w-full h-12 rounded-md cursor-pointer bg-transparent"
                 title={item.title}
               />
             </div>
           ))}
         </div>
+      </div>
+    );
+  };
+
+  const renderButtonColorsTrigger = ({
+    editorKey,
+    title,
+    colors,
+    onChange,
+    onReset,
+  }: {
+    editorKey: 'carousel' | 'details';
+    title: string;
+    colors?: { playColor?: string; editColor?: string; modManagerColor?: string };
+    onChange?: (colors: { playColor?: string; editColor?: string; modManagerColor?: string }) => void;
+    onReset?: () => void;
+  }) => {
+    const resolvedColors = resolveButtonColors(colors);
+    const isOpen = buttonColorsPopup?.editorKey === editorKey;
+
+    return (
+      <div className="px-3 py-2 bg-gray-700/30 rounded-md">
+        <button
+          onClick={(event) => {
+            const anchorRect = event.currentTarget.getBoundingClientRect();
+            setButtonColorsPopup((current) => (
+              current?.editorKey === editorKey
+                ? null
+                : {
+                  editorKey,
+                  title,
+                  colors,
+                  onChange,
+                  onReset,
+                  anchorRect,
+                }
+            ));
+          }}
+          className="w-full flex items-center justify-between gap-3 text-left"
+        >
+          <div>
+            <div className="text-xs text-gray-400 font-semibold">{title}</div>
+            <div className="text-[11px] text-gray-500 mt-0.5">Open color picker</div>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1">
+              <span className="w-4 h-4 rounded border border-gray-500" style={{ backgroundColor: resolvedColors.playColor }} title="Play button color" />
+              <span className="w-4 h-4 rounded border border-gray-500" style={{ backgroundColor: resolvedColors.editColor }} title="Edit button color" />
+              <span className="w-4 h-4 rounded border border-gray-500" style={{ backgroundColor: resolvedColors.modManagerColor }} title="Mod Manager button color" />
+            </div>
+            <svg
+              className={`w-4 h-4 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </div>
+        </button>
+      </div>
+    );
+  };
+
+  const renderButtonColorsPopup = () => {
+    if (!buttonColorsPopup) return null;
+
+    const popupWidth = 420;
+    const popupHeight = 170;
+    const margin = 12;
+    const { anchorRect, colors, editorKey, onChange, onReset, title } = buttonColorsPopup;
+    const spaceBelow = window.innerHeight - anchorRect.bottom;
+    const top = spaceBelow >= popupHeight + margin
+      ? Math.min(anchorRect.bottom + 8, window.innerHeight - popupHeight - margin)
+      : Math.max(margin, anchorRect.top - popupHeight - 8);
+    const preferredLeft = anchorRect.right - popupWidth;
+    const left = Math.max(margin, Math.min(preferredLeft, window.innerWidth - popupWidth - margin));
+
+    return (
+      <div
+        ref={buttonColorsPopupRef}
+        className="fixed z-[10020] w-[420px] rounded-xl border border-gray-500/80 bg-gray-800 shadow-2xl shadow-black/50"
+        style={{ left, top }}
+      >
+        {renderButtonColorsEditor({
+          title,
+          colors,
+          onChange,
+          onReset: () => {
+            onReset?.();
+            setButtonColorsPopup((current) => current?.editorKey === editorKey ? null : current);
+          },
+          containerClassName: 'px-4 py-4 bg-transparent rounded-xl',
+        })}
       </div>
     );
   };
@@ -1136,7 +1262,8 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                 </div>
 
                 {/* Button Colors */}
-                {renderButtonColorsEditor({
+                {renderButtonColorsTrigger({
+                  editorKey: 'carousel',
                   title: 'Button Colors',
                   colors: carouselButtonColors,
                   onChange: onCarouselButtonColorsChange,
@@ -2089,7 +2216,8 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                     return { colors: rightPanelButtonColors, handler: onRightPanelButtonColorsChange, preferenceKey: 'rightPanelButtonColors' };
                   };
                   const { colors, handler, preferenceKey } = getColors();
-                  return renderButtonColorsEditor({
+                  return renderButtonColorsTrigger({
+                    editorKey: 'details',
                     title: 'Button Colors',
                     colors,
                     onChange: handler,
@@ -2163,6 +2291,8 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
         onCancel={handleSkipClearPerGameOverrides}
         variant="default"
       />
+
+      {renderButtonColorsPopup()}
 
     </div>
   );

@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Pending]
 
+- App shell: Ask whether uninstalling a game should also remove it from the Onyx library, with a checkbox in the uninstall confirmation dialog.
+- Right-click menu: Open Game Details and Carousel button-color controls in a dedicated popup picker so the menu stays less cluttered and the editor does not spill off-screen.
+- Right-click menu: Remove the bright highlight around the button-color popup and show the full `Mod Manager` label inside the color picker.
+- Right-click menu: Close the button-color popup when clicking away from it so the picker dismisses like a normal transient menu.
+
 ## [0.7.38] - 2026-03-17
 
 - Workflow: Require all committed changes to be recorded explicitly in `CHANGELOG.md` `Pending`, including maintainability refactors.
