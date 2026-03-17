@@ -24,7 +24,7 @@ Lets users manage manual library folders and launcher-specific library configura
 
 ## Discovery and Data Sources
 
-- UI editing happens in `OnyxSettingsModal` library tab.
+- UI editing happens in [`SettingsLibrariesTab.tsx`](../../../renderer/src/components/settings/SettingsLibrariesTab.tsx), mounted by [`OnyxSettingsModal.tsx`](../../../renderer/src/components/OnyxSettingsModal.tsx).
 - Import pipeline, launcher detection, and startup scan consume the saved config.
 
 ## Data Model and Persistence
@@ -44,6 +44,7 @@ Lets users manage manual library folders and launcher-specific library configura
 
 - **Renderer**
   - [OnyxSettingsModal.tsx](../../../renderer/src/components/OnyxSettingsModal.tsx)
+  - [SettingsLibrariesTab.tsx](../../../renderer/src/components/settings/SettingsLibrariesTab.tsx)
 - **Main process**
   - [UserPreferencesService.ts](../../../main/UserPreferencesService.ts)
   - [LauncherDetectionService.ts](../../../main/LauncherDetectionService.ts)

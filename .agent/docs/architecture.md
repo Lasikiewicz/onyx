@@ -39,6 +39,7 @@ It explains module boundaries, data flow, and release pipeline expectations.
 - `renderer/src/components/gameManager/` now owns both image normalization helpers and ordered image-result aggregation helpers, leaving `GameManager.tsx` focused on state transitions, IPC coordination, and modal rendering.
 - `renderer/src/components/gameManager/` also owns provider-progress helper logic for the image-search status row, so provider availability and provider-status event mapping stay outside the modal component body.
 - `renderer/src/components/settings/` now owns extracted settings-tab bodies such as `SettingsIntegrationsTab.tsx` and `SettingsAboutTab.tsx`, leaving `OnyxSettingsModal.tsx` focused more on shared modal state, save orchestration, and tab routing than every large tab layout inline.
+- `renderer/src/components/settings/SettingsLibrariesTab.tsx` now owns the Libraries tab body for manual folders and launcher configuration, further reducing the amount of library-management UI embedded directly in `OnyxSettingsModal.tsx`.
 
 ## Data and Control Flow
 
@@ -84,7 +85,7 @@ It explains module boundaries, data flow, and release pipeline expectations.
 
 <!-- AUTO-GENERATED:MODULE_INDEX:START -->
 - Main process source files: 70
-- Renderer source files: 118
+- Renderer source files: 119
 - Automation scripts: 30
 - GitHub workflow files: 7
 - Key entrypoints:
