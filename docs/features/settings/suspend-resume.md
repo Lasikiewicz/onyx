@@ -25,7 +25,7 @@ Controls whether suspend-resume behavior is enabled and how the suspend hotkey i
 
 ## Discovery and Data Sources
 
-- UI in `OnyxSettingsModal` suspend tab.
+- UI in [`SettingsSuspendTab.tsx`](../../../renderer/src/components/settings/SettingsSuspendTab.tsx), mounted by [`OnyxSettingsModal.tsx`](../../../renderer/src/components/OnyxSettingsModal.tsx).
 - Runtime consumers in suspend/resume services and app startup.
 
 ## Data Model and Persistence
@@ -45,6 +45,7 @@ Controls whether suspend-resume behavior is enabled and how the suspend hotkey i
 
 - **Renderer**
   - [OnyxSettingsModal.tsx](../../../renderer/src/components/OnyxSettingsModal.tsx)
+  - [SettingsSuspendTab.tsx](../../../renderer/src/components/settings/SettingsSuspendTab.tsx)
 - **Main process**
   - [UserPreferencesService.ts](../../../main/UserPreferencesService.ts)
   - [main.ts](../../../main/main.ts)

@@ -7,7 +7,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Pending]
 
 - Workflow: Require all committed changes to be recorded explicitly in `CHANGELOG.md` `Pending`, including maintainability refactors.
-- Settings maintainability: Split more `OnyxSettingsModal` tabs into dedicated components to reduce shell complexity.
+- Settings maintainability: Extract the Libraries tab from `OnyxSettingsModal.tsx` into `SettingsLibrariesTab.tsx`.
+- Settings maintainability: Extract the Advanced and Link Management tabs from `OnyxSettingsModal.tsx` into `SettingsAdvancedTab.tsx` and `SettingsLinksTab.tsx`.
+- Settings maintainability: Extract the Scanning tab from `OnyxSettingsModal.tsx` into `SettingsScanningTab.tsx`.
+- Settings maintainability: Extract the Suspend/Resume tab from `OnyxSettingsModal.tsx` into `SettingsSuspendTab.tsx`.
 
 ## [0.7.37] - 2026-03-17
 

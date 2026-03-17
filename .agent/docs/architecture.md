@@ -43,6 +43,7 @@ It explains module boundaries, data flow, and release pipeline expectations.
 - `renderer/src/components/settings/SettingsAdvancedTab.tsx` now owns the Advanced tab body for folder actions and destructive maintenance confirmation UI, further reducing the amount of maintenance workflow markup embedded directly in `OnyxSettingsModal.tsx`.
 - `renderer/src/components/settings/SettingsLinksTab.tsx` now owns the Link Management tab body for ordering and hidden-by-default visibility controls, further reducing the amount of link-settings UI embedded directly in `OnyxSettingsModal.tsx`.
 - `renderer/src/components/settings/SettingsScanningTab.tsx` now owns the Scanning tab body for background scan controls and startup behavior toggles, further reducing the amount of scanning UI embedded directly in `OnyxSettingsModal.tsx`.
+- `renderer/src/components/settings/SettingsSuspendTab.tsx` now owns the Suspend/Resume tab body for shortcut capture, elevation restart, and suspend feature toggles, further reducing the amount of suspend workflow UI embedded directly in `OnyxSettingsModal.tsx`.
 
 ## Data and Control Flow
 
@@ -88,7 +89,7 @@ It explains module boundaries, data flow, and release pipeline expectations.
 
 <!-- AUTO-GENERATED:MODULE_INDEX:START -->
 - Main process source files: 70
-- Renderer source files: 122
+- Renderer source files: 123
 - Automation scripts: 30
 - GitHub workflow files: 7
 - Key entrypoints:
