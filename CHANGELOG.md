@@ -4,7 +4,7 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## Pending
+## [0.8.0] - 2026-03-18
 
 - Right click menu:
   - Reflow focused Games View, Dividers, and Game Details editors into two columns, shrink those focused overlays into smaller centered popups with more padding around the underlying section, split key controls into their own cards, remove stretched dead space in the focused cards, widen the unfocused menu so the full editor no longer feels squashed, restyle the top-row section buttons and Menu Transparency control to match the Flip View/Reset button treatment, keep the Menu Transparency label and slider visible instead of collapsing to the thumb icon, add a visible centered filled slider line with corrected thumb alignment, a larger lower-set slider logo thumb across all sliders, and stable reset-button spacing, improve helper-text readability, and replace plain `?` hover titles with themed hover-or-click tooltips when the menu is not in a focused section mode.
