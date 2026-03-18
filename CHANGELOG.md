@@ -4,7 +4,7 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## Pending
+## [0.7.44] - 2026-03-18
 
 - List view:
   - Strip HTML markup from description snippets in game cards so rich descriptions render as plain text previews instead of showing literal tags.
