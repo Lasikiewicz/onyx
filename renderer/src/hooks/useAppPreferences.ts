@@ -43,13 +43,13 @@ interface UseAppPreferencesOptions {
   setCarouselLogoSize: (value: number) => void;
   setCarouselButtonSize: (value: number) => void;
   setCarouselDescriptionSize: (value: number) => void;
-  setRightPanelLogoSize: (value: number) => void;
-  setRightPanelBoxartPosition: (value: 'left' | 'right' | 'none') => void;
-  setRightPanelBoxartSize: (value: number) => void;
-  setRightPanelTextSize: (value: number) => void;
-  setRightPanelButtonSize: (value: number) => void;
-  setRightPanelButtonLocation: (value: 'left' | 'middle' | 'right') => void;
-  setDetailsPanelOpacity: (value: number) => void;
+  setRightPanelLogoSizeByView: (value: Record<'grid' | 'list' | 'logo', number>) => void;
+  setRightPanelBoxartPositionByView: (value: Record<'grid' | 'list' | 'logo', 'left' | 'right' | 'none'>) => void;
+  setRightPanelBoxartSizeByView: (value: Record<'grid' | 'list' | 'logo', number>) => void;
+  setRightPanelTextSizeByView: (value: Record<'grid' | 'list' | 'logo', number>) => void;
+  setRightPanelButtonSizeByView: (value: Record<'grid' | 'list' | 'logo', number>) => void;
+  setRightPanelButtonLocationByView: (value: Record<'grid' | 'list' | 'logo', 'left' | 'middle' | 'right'>) => void;
+  setDetailsPanelOpacityByView: (value: Record<'grid' | 'list' | 'logo', number>) => void;
   setRightPanelButtonColors: (value: { playColor?: string; editColor?: string; modManagerColor?: string }) => void;
   setCarouselButtonColors: (value: { playColor?: string; editColor?: string; modManagerColor?: string }) => void;
   setGridButtonColors: (value: { playColor?: string; editColor?: string; modManagerColor?: string }) => void;
@@ -124,13 +124,13 @@ export function useAppPreferences({
   setCarouselLogoSize,
   setCarouselButtonSize,
   setCarouselDescriptionSize,
-  setRightPanelLogoSize,
-  setRightPanelBoxartPosition,
-  setRightPanelBoxartSize,
-  setRightPanelTextSize,
-  setRightPanelButtonSize,
-  setRightPanelButtonLocation,
-  setDetailsPanelOpacity,
+  setRightPanelLogoSizeByView,
+  setRightPanelBoxartPositionByView,
+  setRightPanelBoxartSizeByView,
+  setRightPanelTextSizeByView,
+  setRightPanelButtonSizeByView,
+  setRightPanelButtonLocationByView,
+  setDetailsPanelOpacityByView,
   setRightPanelButtonColors,
   setCarouselButtonColors,
   setGridButtonColors,
@@ -187,10 +187,8 @@ export function useAppPreferences({
       if (defaults.logoSize !== undefined) setLogoSize(defaults.logoSize);
       if (defaults.logoBackgroundOpacity !== undefined) setLogoBackgroundOpacity(defaults.logoBackgroundOpacity);
       if (defaults.gameTilePadding !== undefined) setGameTilePadding(defaults.gameTilePadding);
-      if (defaults.rightPanelLogoSize !== undefined) setRightPanelLogoSize(defaults.rightPanelLogoSize);
     } else if (viewMode === 'list') {
       if (defaults.listViewOptions !== undefined) setListViewOptions(defaults.listViewOptions);
-      if (defaults.rightPanelLogoSize !== undefined) setRightPanelLogoSize(defaults.rightPanelLogoSize);
     } else if (viewMode === 'carousel') {
       if (defaults.showCarouselDetails !== undefined) setShowCarouselDetails(defaults.showCarouselDetails);
       if (defaults.showCarouselLogos !== undefined) setShowCarouselLogos(defaults.showCarouselLogos);
@@ -206,31 +204,18 @@ export function useAppPreferences({
 
     if (defaults.backgroundBlur !== undefined) setBackgroundBlur(defaults.backgroundBlur);
     if (defaults.panelWidth !== undefined) setPanelWidth(defaults.panelWidth);
-    if (defaults.rightPanelBoxartPosition !== undefined) setRightPanelBoxartPosition(defaults.rightPanelBoxartPosition);
-    if (defaults.rightPanelBoxartSize !== undefined) setRightPanelBoxartSize(defaults.rightPanelBoxartSize);
-    if (defaults.rightPanelTextSize !== undefined) setRightPanelTextSize(defaults.rightPanelTextSize);
-    if (defaults.rightPanelButtonSize !== undefined) setRightPanelButtonSize(defaults.rightPanelButtonSize);
-    if (defaults.rightPanelButtonLocation !== undefined) setRightPanelButtonLocation(defaults.rightPanelButtonLocation);
-    if (defaults.detailsPanelOpacity !== undefined) setDetailsPanelOpacity(defaults.detailsPanelOpacity);
   }, [
     setBackgroundBlur,
     setCarouselButtonSize,
     setCarouselDescriptionSize,
     setCarouselLogoSize,
     setDetailsBarSize,
-    setDetailsPanelOpacity,
     setGameTilePadding,
     setGridSize,
     setListViewOptions,
     setLogoBackgroundOpacity,
     setLogoSize,
     setPanelWidth,
-    setRightPanelBoxartPosition,
-    setRightPanelBoxartSize,
-    setRightPanelButtonLocation,
-    setRightPanelButtonSize,
-    setRightPanelLogoSize,
-    setRightPanelTextSize,
     setSelectedBoxArtSize,
     setShowCarouselDetails,
     setShowCarouselLogos,
@@ -270,13 +255,41 @@ export function useAppPreferences({
     if (prefs.carouselLogoSize !== undefined) setCarouselLogoSize(prefs.carouselLogoSize);
     if (prefs.carouselButtonSize !== undefined) setCarouselButtonSize(prefs.carouselButtonSize);
     if (prefs.carouselDescriptionSize !== undefined) setCarouselDescriptionSize(prefs.carouselDescriptionSize);
-    if (prefs.rightPanelLogoSize !== undefined) setRightPanelLogoSize(prefs.rightPanelLogoSize);
-    if (prefs.rightPanelBoxartPosition !== undefined) setRightPanelBoxartPosition(prefs.rightPanelBoxartPosition);
-    if (prefs.rightPanelBoxartSize !== undefined) setRightPanelBoxartSize(prefs.rightPanelBoxartSize);
-    if (prefs.rightPanelTextSize !== undefined) setRightPanelTextSize(prefs.rightPanelTextSize);
-    if (prefs.rightPanelButtonSize !== undefined) setRightPanelButtonSize(prefs.rightPanelButtonSize);
-    if (prefs.rightPanelButtonLocation !== undefined) setRightPanelButtonLocation(prefs.rightPanelButtonLocation);
-    if (prefs.detailsPanelOpacity !== undefined) setDetailsPanelOpacity(prefs.detailsPanelOpacity);
+    setRightPanelLogoSizeByView({
+      grid: prefs.rightPanelLogoSizeByView?.grid ?? prefs.rightPanelLogoSize ?? 100,
+      list: prefs.rightPanelLogoSizeByView?.list ?? prefs.rightPanelLogoSize ?? 100,
+      logo: prefs.rightPanelLogoSizeByView?.logo ?? prefs.rightPanelLogoSize ?? 100,
+    });
+    setRightPanelBoxartPositionByView({
+      grid: prefs.rightPanelBoxartPositionByView?.grid ?? prefs.rightPanelBoxartPosition ?? 'right',
+      list: prefs.rightPanelBoxartPositionByView?.list ?? prefs.rightPanelBoxartPosition ?? 'right',
+      logo: prefs.rightPanelBoxartPositionByView?.logo ?? prefs.rightPanelBoxartPosition ?? 'right',
+    });
+    setRightPanelBoxartSizeByView({
+      grid: prefs.rightPanelBoxartSizeByView?.grid ?? prefs.rightPanelBoxartSize ?? 120,
+      list: prefs.rightPanelBoxartSizeByView?.list ?? prefs.rightPanelBoxartSize ?? 120,
+      logo: prefs.rightPanelBoxartSizeByView?.logo ?? prefs.rightPanelBoxartSize ?? 120,
+    });
+    setRightPanelTextSizeByView({
+      grid: prefs.rightPanelTextSizeByView?.grid ?? prefs.rightPanelTextSize ?? 14,
+      list: prefs.rightPanelTextSizeByView?.list ?? prefs.rightPanelTextSize ?? 14,
+      logo: prefs.rightPanelTextSizeByView?.logo ?? prefs.rightPanelTextSize ?? 14,
+    });
+    setRightPanelButtonSizeByView({
+      grid: prefs.rightPanelButtonSizeByView?.grid ?? prefs.rightPanelButtonSize ?? 14,
+      list: prefs.rightPanelButtonSizeByView?.list ?? prefs.rightPanelButtonSize ?? 14,
+      logo: prefs.rightPanelButtonSizeByView?.logo ?? prefs.rightPanelButtonSize ?? 14,
+    });
+    setRightPanelButtonLocationByView({
+      grid: prefs.rightPanelButtonLocationByView?.grid ?? prefs.rightPanelButtonLocation ?? 'right',
+      list: prefs.rightPanelButtonLocationByView?.list ?? prefs.rightPanelButtonLocation ?? 'right',
+      logo: prefs.rightPanelButtonLocationByView?.logo ?? prefs.rightPanelButtonLocation ?? 'right',
+    });
+    setDetailsPanelOpacityByView({
+      grid: prefs.detailsPanelOpacityByView?.grid ?? prefs.detailsPanelOpacity ?? 80,
+      list: prefs.detailsPanelOpacityByView?.list ?? prefs.detailsPanelOpacity ?? 80,
+      logo: prefs.detailsPanelOpacityByView?.logo ?? prefs.detailsPanelOpacity ?? 80,
+    });
     if (prefs.rightPanelButtonColors !== undefined) setRightPanelButtonColors(prefs.rightPanelButtonColors);
     if (prefs.carouselButtonColors !== undefined) setCarouselButtonColors(prefs.carouselButtonColors);
     if (prefs.gridButtonColors !== undefined) setGridButtonColors(prefs.gridButtonColors);
@@ -381,7 +394,7 @@ export function useAppPreferences({
     setDescriptionWidthByView,
     setDetailsBarSize,
     setDetailsPanelBottomBarHeight,
-    setDetailsPanelOpacity,
+    setDetailsPanelOpacityByView,
     setDisableAllAnimations,
     setDisableAnimatedBackgrounds,
     setDisableAnimatedBanners,
@@ -408,13 +421,13 @@ export function useAppPreferences({
     setPanelWidth,
     setPanelWidthByViewState,
     setPinnedCategories,
-    setRightPanelBoxartPosition,
-    setRightPanelBoxartSize,
     setRightPanelButtonColors,
-    setRightPanelButtonLocation,
-    setRightPanelButtonSize,
-    setRightPanelLogoSize,
-    setRightPanelTextSize,
+    setRightPanelBoxartPositionByView,
+    setRightPanelBoxartSizeByView,
+    setRightPanelButtonLocationByView,
+    setRightPanelButtonSizeByView,
+    setRightPanelLogoSizeByView,
+    setRightPanelTextSizeByView,
     setSelectedCategory,
     setShowCarouselDetails,
     setShowCarouselLogos,

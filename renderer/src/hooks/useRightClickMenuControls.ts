@@ -41,6 +41,7 @@ interface UseRightClickMenuControlsOptions {
   detailsBarSize: number;
   detailsPanelBottomBarHeight: number;
   detailsPanelOpacity: number;
+  detailsPanelOpacityByView: Record<DetailsViewMode, number>;
   fanartHeightByView: Record<DetailsViewMode, number>;
   gameTilePadding: number;
   gridButtonColors: ButtonColors;
@@ -57,12 +58,18 @@ interface UseRightClickMenuControlsOptions {
   panelWidthByViewState: Record<ViewMode, number>;
   refreshPreferences: () => void;
   rightPanelBoxartPosition: 'left' | 'right' | 'none';
+  rightPanelBoxartPositionByView: Record<DetailsViewMode, 'left' | 'right' | 'none'>;
   rightPanelBoxartSize: number;
+  rightPanelBoxartSizeByView: Record<DetailsViewMode, number>;
   rightPanelButtonColors: ButtonColors;
   rightPanelButtonLocation: 'left' | 'middle' | 'right';
+  rightPanelButtonLocationByView: Record<DetailsViewMode, 'left' | 'middle' | 'right'>;
   rightPanelButtonSize: number;
+  rightPanelButtonSizeByView: Record<DetailsViewMode, number>;
   rightPanelLogoSize: number;
+  rightPanelLogoSizeByView: Record<DetailsViewMode, number>;
   rightPanelTextSize: number;
+  rightPanelTextSizeByView: Record<DetailsViewMode, number>;
   selectedBoxArtSize: number;
   setActiveGameId: (id: string | null) => void;
   setBackgroundBlur: (value: number) => void;
@@ -85,7 +92,7 @@ interface UseRightClickMenuControlsOptions {
   setDescriptionWidthByView: (value: Record<DetailsViewMode, number>) => void;
   setDetailsBarSize: (value: number) => void;
   setDetailsPanelBottomBarHeight: (value: number) => void;
-  setDetailsPanelOpacity: (value: number) => void;
+  setDetailsPanelOpacityByView: (value: Record<DetailsViewMode, number>) => void;
   setFanartHeightByView: (value: Record<DetailsViewMode, number>) => void;
   setGameTilePadding: (value: number) => void;
   setGridButtonColors: (value: ButtonColors) => void;
@@ -101,13 +108,13 @@ interface UseRightClickMenuControlsOptions {
   setLogoSize: (value: number) => void;
   setPanelWidth: (value: number) => void;
   setPanelWidthByViewState: (value: Record<ViewMode, number>) => void;
-  setRightPanelBoxartPosition: (value: 'left' | 'right' | 'none') => void;
-  setRightPanelBoxartSize: (value: number) => void;
+  setRightPanelBoxartPositionByView: (value: Record<DetailsViewMode, 'left' | 'right' | 'none'>) => void;
+  setRightPanelBoxartSizeByView: (value: Record<DetailsViewMode, number>) => void;
   setRightPanelButtonColors: (value: ButtonColors) => void;
-  setRightPanelButtonLocation: (value: 'left' | 'middle' | 'right') => void;
-  setRightPanelButtonSize: (value: number) => void;
-  setRightPanelLogoSize: (value: number) => void;
-  setRightPanelTextSize: (value: number) => void;
+  setRightPanelButtonLocationByView: (value: Record<DetailsViewMode, 'left' | 'middle' | 'right'>) => void;
+  setRightPanelButtonSizeByView: (value: Record<DetailsViewMode, number>) => void;
+  setRightPanelLogoSizeByView: (value: Record<DetailsViewMode, number>) => void;
+  setRightPanelTextSizeByView: (value: Record<DetailsViewMode, number>) => void;
   setSelectedBoxArtSize: (value: number) => void;
   setShowCarouselDetails: (value: boolean) => void;
   setShowCarouselLogos: (value: boolean) => void;
@@ -150,6 +157,7 @@ export function useRightClickMenuControls({
   detailsBarSize,
   detailsPanelBottomBarHeight,
   detailsPanelOpacity,
+  detailsPanelOpacityByView,
   fanartHeightByView,
   gameTilePadding,
   gridButtonColors,
@@ -166,12 +174,18 @@ export function useRightClickMenuControls({
   panelWidthByViewState,
   refreshPreferences,
   rightPanelBoxartPosition,
+  rightPanelBoxartPositionByView,
   rightPanelBoxartSize,
+  rightPanelBoxartSizeByView,
   rightPanelButtonColors,
   rightPanelButtonLocation,
+  rightPanelButtonLocationByView,
   rightPanelButtonSize,
+  rightPanelButtonSizeByView,
   rightPanelLogoSize,
+  rightPanelLogoSizeByView,
   rightPanelTextSize,
+  rightPanelTextSizeByView,
   selectedBoxArtSize,
   setActiveGameId,
   setBackgroundBlur,
@@ -194,7 +208,7 @@ export function useRightClickMenuControls({
   setDescriptionWidthByView,
   setDetailsBarSize,
   setDetailsPanelBottomBarHeight,
-  setDetailsPanelOpacity,
+  setDetailsPanelOpacityByView,
   setFanartHeightByView,
   setGameTilePadding,
   setGridButtonColors,
@@ -210,13 +224,13 @@ export function useRightClickMenuControls({
   setLogoSize,
   setPanelWidth,
   setPanelWidthByViewState,
-  setRightPanelBoxartPosition,
-  setRightPanelBoxartSize,
+  setRightPanelBoxartPositionByView,
+  setRightPanelBoxartSizeByView,
   setRightPanelButtonColors,
-  setRightPanelButtonLocation,
-  setRightPanelButtonSize,
-  setRightPanelLogoSize,
-  setRightPanelTextSize,
+  setRightPanelButtonLocationByView,
+  setRightPanelButtonSizeByView,
+  setRightPanelLogoSizeByView,
+  setRightPanelTextSizeByView,
   setSelectedBoxArtSize,
   setShowCarouselDetails,
   setShowCarouselLogos,
@@ -345,7 +359,7 @@ export function useRightClickMenuControls({
       saveValue(setDetailsPanelBottomBarHeight, 'detailsPanelBottomBarHeight', height);
     },
     onDetailsPanelOpacityChange: (opacity) => {
-      saveValue(setDetailsPanelOpacity, 'detailsPanelOpacity', opacity);
+      saveByViewValue(detailsPanelOpacityByView, setDetailsPanelOpacityByView, 'detailsPanelOpacityByView', detailViewMode, opacity);
     },
     onFanartHeightChange: (height) => {
       saveByViewValue(fanartHeightByView, setFanartHeightByView, 'fanartHeightByView', detailViewMode, height);
@@ -378,25 +392,25 @@ export function useRightClickMenuControls({
       saveByViewValue(panelWidthByViewState, setPanelWidthByViewState, 'panelWidthByView', viewMode, width);
     },
     onRightPanelBoxartPositionChange: (position) => {
-      saveValue(setRightPanelBoxartPosition, 'rightPanelBoxartPosition', position);
+      saveByViewValue(rightPanelBoxartPositionByView, setRightPanelBoxartPositionByView, 'rightPanelBoxartPositionByView', detailViewMode, position);
     },
     onRightPanelBoxartSizeChange: (size) => {
-      saveValue(setRightPanelBoxartSize, 'rightPanelBoxartSize', size);
+      saveByViewValue(rightPanelBoxartSizeByView, setRightPanelBoxartSizeByView, 'rightPanelBoxartSizeByView', detailViewMode, size);
     },
     onRightPanelButtonColorsChange: (colors) => {
       saveValue(setRightPanelButtonColors, 'rightPanelButtonColors', colors);
     },
     onRightPanelButtonLocationChange: (location) => {
-      saveValue(setRightPanelButtonLocation, 'rightPanelButtonLocation', location);
+      saveByViewValue(rightPanelButtonLocationByView, setRightPanelButtonLocationByView, 'rightPanelButtonLocationByView', detailViewMode, location);
     },
     onRightPanelButtonSizeChange: (size) => {
-      saveValue(setRightPanelButtonSize, 'rightPanelButtonSize', size);
+      saveByViewValue(rightPanelButtonSizeByView, setRightPanelButtonSizeByView, 'rightPanelButtonSizeByView', detailViewMode, size);
     },
     onRightPanelLogoSizeChange: (size) => {
-      saveValue(setRightPanelLogoSize, 'rightPanelLogoSize', size);
+      saveByViewValue(rightPanelLogoSizeByView, setRightPanelLogoSizeByView, 'rightPanelLogoSizeByView', detailViewMode, size);
     },
     onRightPanelTextSizeChange: (size) => {
-      saveValue(setRightPanelTextSize, 'rightPanelTextSize', size);
+      saveByViewValue(rightPanelTextSizeByView, setRightPanelTextSizeByView, 'rightPanelTextSizeByView', detailViewMode, size);
     },
     onSelectedBoxArtSizeChange: setSelectedBoxArtSize,
     onSettingsImported: refreshPreferences,

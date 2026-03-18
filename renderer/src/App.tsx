@@ -189,13 +189,41 @@ function App() {
   const [visibleLinkTypes, setVisibleLinkTypes] = useState<Record<string, boolean>>(DEFAULT_VISIBLE_LINK_TYPES);
 
   // Right panel (GameDetailsPanel) settings
-  const [rightPanelLogoSize, setRightPanelLogoSize] = useState(100);
-  const [rightPanelBoxartPosition, setRightPanelBoxartPosition] = useState<'left' | 'right' | 'none'>('right');
-  const [rightPanelBoxartSize, setRightPanelBoxartSize] = useState(120);
-  const [rightPanelTextSize, setRightPanelTextSize] = useState(14);
-  const [rightPanelButtonSize, setRightPanelButtonSize] = useState(14);
-  const [rightPanelButtonLocation, setRightPanelButtonLocation] = useState<'left' | 'middle' | 'right'>('right');
-  const [detailsPanelOpacity, setDetailsPanelOpacity] = useState(80);
+  const [rightPanelLogoSizeByView, setRightPanelLogoSizeByView] = useState<Record<'grid' | 'list' | 'logo', number>>({
+    grid: 100,
+    list: 100,
+    logo: 100,
+  });
+  const [rightPanelBoxartPositionByView, setRightPanelBoxartPositionByView] = useState<Record<'grid' | 'list' | 'logo', 'left' | 'right' | 'none'>>({
+    grid: 'right',
+    list: 'right',
+    logo: 'right',
+  });
+  const [rightPanelBoxartSizeByView, setRightPanelBoxartSizeByView] = useState<Record<'grid' | 'list' | 'logo', number>>({
+    grid: 120,
+    list: 120,
+    logo: 120,
+  });
+  const [rightPanelTextSizeByView, setRightPanelTextSizeByView] = useState<Record<'grid' | 'list' | 'logo', number>>({
+    grid: 14,
+    list: 14,
+    logo: 14,
+  });
+  const [rightPanelButtonSizeByView, setRightPanelButtonSizeByView] = useState<Record<'grid' | 'list' | 'logo', number>>({
+    grid: 14,
+    list: 14,
+    logo: 14,
+  });
+  const [rightPanelButtonLocationByView, setRightPanelButtonLocationByView] = useState<Record<'grid' | 'list' | 'logo', 'left' | 'middle' | 'right'>>({
+    grid: 'right',
+    list: 'right',
+    logo: 'right',
+  });
+  const [detailsPanelOpacityByView, setDetailsPanelOpacityByView] = useState<Record<'grid' | 'list' | 'logo', number>>({
+    grid: 80,
+    list: 80,
+    logo: 80,
+  });
   const [isViewFlippedByView, setIsViewFlippedByView] = useState<Record<'grid' | 'list' | 'logo' | 'carousel' | 'coverflow', boolean>>({
     grid: false,
     list: false,
@@ -293,6 +321,14 @@ function App() {
   const currentFanartHeight = (viewMode === 'grid' || viewMode === 'list' || viewMode === 'logo') ? fanartHeightByView[viewMode] : 320;
   const currentDescriptionWidth = (viewMode === 'grid' || viewMode === 'list' || viewMode === 'logo') ? descriptionWidthByView[viewMode] : 50;
   const currentPanelWidth = (viewMode === 'grid' || viewMode === 'list' || viewMode === 'logo') ? panelWidthByViewState[viewMode] : 800;
+  const detailViewMode = viewMode === 'list' ? 'list' : viewMode === 'logo' ? 'logo' : 'grid';
+  const currentRightPanelLogoSize = rightPanelLogoSizeByView[detailViewMode];
+  const currentRightPanelBoxartPosition = rightPanelBoxartPositionByView[detailViewMode];
+  const currentRightPanelBoxartSize = rightPanelBoxartSizeByView[detailViewMode];
+  const currentRightPanelTextSize = rightPanelTextSizeByView[detailViewMode];
+  const currentRightPanelButtonSize = rightPanelButtonSizeByView[detailViewMode];
+  const currentRightPanelButtonLocation = rightPanelButtonLocationByView[detailViewMode];
+  const currentDetailsPanelOpacity = detailsPanelOpacityByView[detailViewMode];
   /** Always true in grid/list/logo so the right panel always has pt-4 and retains its position when "Show categories" is toggled on or off. */
   const rightPanelNeedsTopPadding = viewMode === 'grid' || viewMode === 'list' || viewMode === 'logo';
   const currentBackgroundBrightness = backgroundBrightnessByView[viewMode] ?? 0.3;
@@ -375,13 +411,13 @@ function App() {
     setCarouselLogoSize,
     setCarouselButtonSize,
     setCarouselDescriptionSize,
-    setRightPanelLogoSize,
-    setRightPanelBoxartPosition,
-    setRightPanelBoxartSize,
-    setRightPanelTextSize,
-    setRightPanelButtonSize,
-    setRightPanelButtonLocation,
-    setDetailsPanelOpacity,
+    setRightPanelLogoSizeByView,
+    setRightPanelBoxartPositionByView,
+    setRightPanelBoxartSizeByView,
+    setRightPanelTextSizeByView,
+    setRightPanelButtonSizeByView,
+    setRightPanelButtonLocationByView,
+    setDetailsPanelOpacityByView,
     setRightPanelButtonColors,
     setCarouselButtonColors,
     setGridButtonColors,
@@ -1485,7 +1521,7 @@ function App() {
     descriptionWidthByView,
     detailsBarSize,
     detailsPanelBottomBarHeight,
-    detailsPanelOpacity,
+    detailsPanelOpacity: currentDetailsPanelOpacity,
     fanartHeightByView,
     gameTilePadding,
     gridButtonColors,
@@ -1501,13 +1537,20 @@ function App() {
     logoSize,
     panelWidthByViewState,
     refreshPreferences,
-    rightPanelBoxartPosition,
-    rightPanelBoxartSize,
+    rightPanelBoxartPosition: currentRightPanelBoxartPosition,
+    rightPanelBoxartPositionByView,
+    rightPanelBoxartSize: currentRightPanelBoxartSize,
+    rightPanelBoxartSizeByView,
     rightPanelButtonColors,
-    rightPanelButtonLocation,
-    rightPanelButtonSize,
-    rightPanelLogoSize,
-    rightPanelTextSize,
+    rightPanelButtonLocation: currentRightPanelButtonLocation,
+    rightPanelButtonLocationByView,
+    rightPanelButtonSize: currentRightPanelButtonSize,
+    rightPanelButtonSizeByView,
+    rightPanelLogoSize: currentRightPanelLogoSize,
+    rightPanelLogoSizeByView,
+    rightPanelTextSize: currentRightPanelTextSize,
+    rightPanelTextSizeByView,
+    detailsPanelOpacityByView,
     selectedBoxArtSize,
     setActiveGameId,
     setAutoSizeToFit,
@@ -1530,7 +1573,7 @@ function App() {
     setDescriptionWidthByView,
     setDetailsBarSize,
     setDetailsPanelBottomBarHeight,
-    setDetailsPanelOpacity,
+    setDetailsPanelOpacityByView,
     setFanartHeightByView,
     setGameTilePadding,
     setGridButtonColors,
@@ -1546,13 +1589,13 @@ function App() {
     setLogoSize,
     setPanelWidth,
     setPanelWidthByViewState,
-    setRightPanelBoxartPosition,
-    setRightPanelBoxartSize,
+    setRightPanelBoxartPositionByView,
+    setRightPanelBoxartSizeByView,
     setRightPanelButtonColors,
-    setRightPanelButtonLocation,
-    setRightPanelButtonSize,
-    setRightPanelLogoSize,
-    setRightPanelTextSize,
+    setRightPanelButtonLocationByView,
+    setRightPanelButtonSizeByView,
+    setRightPanelLogoSizeByView,
+    setRightPanelTextSizeByView,
     setSelectedBoxArtSize,
     setShowCarouselDetails,
     setShowCarouselLogos,
@@ -1619,7 +1662,7 @@ function App() {
     currentPanelWidth,
     descriptionWidthByView,
     detailsPanelBottomBarHeight,
-    detailsPanelOpacity,
+    detailsPanelOpacity: currentDetailsPanelOpacity,
     disableAllAnimations,
     disableAnimatedBackgrounds,
     disableAnimatedBanners,
@@ -1647,13 +1690,13 @@ function App() {
     openGameManager,
     overlaysOpen,
     panelWidthByViewState,
-    rightPanelBoxartPosition,
-    rightPanelBoxartSize,
+    rightPanelBoxartPosition: currentRightPanelBoxartPosition,
+    rightPanelBoxartSize: currentRightPanelBoxartSize,
     rightPanelButtonColors,
-    rightPanelButtonLocation,
-    rightPanelButtonSize,
-    rightPanelLogoSize,
-    rightPanelTextSize,
+    rightPanelButtonLocation: currentRightPanelButtonLocation,
+    rightPanelButtonSize: currentRightPanelButtonSize,
+    rightPanelLogoSize: currentRightPanelLogoSize,
+    rightPanelTextSize: currentRightPanelTextSize,
     runningGames,
     selectedCategory,
     setDescriptionWidthByView,

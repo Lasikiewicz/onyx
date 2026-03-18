@@ -6,10 +6,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Pending
 
+- List view:
+  - Strip HTML markup from description snippets in game cards so rich descriptions render as plain text previews instead of showing literal tags.
+  - Keep the display-mode size controls tied to the active layout, so Boxart + Title uses boxart sizing, Logo + Title uses logo sizing, and Logo Only / Icon + Tile no longer show the old tile-height slider.
+  - Replace the bright blue focused-card ring with a subtler selected-state treatment so the active row stays readable without a large outline box.
+  - Make Logo + Title resize the full artwork frame instead of only the inner logo image, and restore the missing Logo Size and Tile Size sliders for Logo Only and Icon + Title display modes.
+
 - Game details panel:
   - Buffer the next logo until it is ready when switching games so the right panel no longer flickers on logo swaps.
   - Keep the logo centered in the open space between the boxart and the panel edge while preserving the existing fallback title when no logo is available.
   - Animate the newly selected logo from a smaller start into the user-chosen size with a slower, more deliberate grow-in so the switch feels smooth without animating the surrounding text.
+  - Let left-positioned boxart float beside the description so the text wraps underneath it instead of staying locked in a separate side column.
+  - Mirror the right-side boxart overlay on the left edge and keep the description reserving wrap space beside it, so the boxart stays in the same vertical position while the text still flows under it.
+  - Reduce the left-boxart wrap spacer to the actual portion of the cover that hangs into the content area so the description does not leave an oversized blank gap before widening underneath it.
+  - Restore the adaptive wide-description layout for left-side boxart while clearing media sections around the cover so text can widen underneath it without screenshot collisions.
+  - Keep left-side description screenshots in the normal left-floated section layout under the boxart instead of forcing the first media block into a full-width banner.
+  - Make wide left-boxart descriptions mirror into a 60/40 text-left image-right section layout, while narrower descriptions now release the text underneath the boxart much earlier.
+  - Store the right-panel logo, boxart, text, button, and transparency settings per view so grid, list, and logo can keep independent values.
 
 ## [0.7.43] - 2026-03-18
 

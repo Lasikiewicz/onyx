@@ -48,7 +48,7 @@ export interface UserPreferences {
     showLauncher?: boolean;
     showLogos?: boolean;
     titleTextSize?: number;
-    displayMode?: 'boxart-title' | 'logo-title' | 'logo-only' | 'title-only';
+    displayMode?: 'boxart-title' | 'logo-title' | 'logo-only' | 'title-only' | 'icon-title';
     sectionTextSize?: number;
     tileHeight?: number;
     boxartSize?: number;
@@ -79,6 +79,13 @@ export interface UserPreferences {
   rightPanelButtonLocation?: 'left' | 'middle' | 'right';
   detailsPanelOpacity?: number;
   detailsPanelBottomBarHeight?: number;
+  rightPanelLogoSizeByView?: { grid?: number; list?: number; logo?: number };
+  rightPanelBoxartPositionByView?: { grid?: 'left' | 'right' | 'none'; list?: 'left' | 'right' | 'none'; logo?: 'left' | 'right' | 'none' };
+  rightPanelBoxartSizeByView?: { grid?: number; list?: number; logo?: number };
+  rightPanelTextSizeByView?: { grid?: number; list?: number; logo?: number };
+  rightPanelButtonSizeByView?: { grid?: number; list?: number; logo?: number };
+  rightPanelButtonLocationByView?: { grid?: 'left' | 'middle' | 'right'; list?: 'left' | 'middle' | 'right'; logo?: 'left' | 'middle' | 'right' };
+  detailsPanelOpacityByView?: { grid?: number; list?: number; logo?: number };
   // View-specific settings
   gridView?: {
     gridSize?: number;
@@ -317,6 +324,13 @@ export class UserPreferencesService {
       rightPanelButtonSize: 13,
       rightPanelButtonLocation: 'right',
       detailsPanelBottomBarHeight: 72,
+      rightPanelLogoSizeByView: { grid: 100, list: 100, logo: 100 },
+      rightPanelBoxartPositionByView: { grid: 'right', list: 'right', logo: 'right' },
+      rightPanelBoxartSizeByView: { grid: 200, list: 200, logo: 200 },
+      rightPanelTextSizeByView: { grid: 13, list: 13, logo: 13 },
+      rightPanelButtonSizeByView: { grid: 13, list: 13, logo: 13 },
+      rightPanelButtonLocationByView: { grid: 'right', list: 'right', logo: 'right' },
+      detailsPanelOpacityByView: { grid: 80, list: 80, logo: 80 },
       titleFontSize: 24,
       titleFontFamily: 'system-ui',
       descriptionFontSize: 14,
@@ -391,8 +405,55 @@ export class UserPreferencesService {
     return defaults;
   }
 
+  private mergeByViewMaps<T>(
+    defaults: Partial<Record<'grid' | 'list' | 'logo', T>> | undefined,
+    preferenceMap: Partial<Record<'grid' | 'list' | 'logo', T>> | undefined,
+    extractedMap: Partial<Record<'grid' | 'list' | 'logo', T>> | undefined,
+    fallbackValue: T | undefined,
+  ): Record<'grid' | 'list' | 'logo', T> {
+    const merged = { ...(defaults || {}) } as Record<'grid' | 'list' | 'logo', T>;
+    const views: Array<'grid' | 'list' | 'logo'> = ['grid', 'list', 'logo'];
+
+    for (const view of views) {
+      if (preferenceMap?.[view] !== undefined) {
+        merged[view] = preferenceMap[view] as T;
+      }
+    }
+
+    for (const view of views) {
+      if (extractedMap?.[view] !== undefined) {
+        merged[view] = extractedMap[view] as T;
+      }
+    }
+
+    if (fallbackValue !== undefined) {
+      for (const view of views) {
+        if (preferenceMap?.[view] === undefined && extractedMap?.[view] === undefined) {
+          merged[view] = fallbackValue;
+        }
+      }
+    }
+
+    return merged;
+  }
+
+  private resolveByView<T>(
+    byView: Partial<Record<'grid' | 'list' | 'logo', T>> | undefined,
+    view: 'grid' | 'list' | 'logo',
+    fallback: T,
+  ): T {
+    return byView?.[view] ?? fallback;
+  }
+
   private buildReadableSections(preferences: UserPreferences): NonNullable<UserPreferences['sections']> {
     const byView = preferences.perGameViewCustomByView || {};
+    const rightPanelLogoSizeByView = preferences.rightPanelLogoSizeByView || {};
+    const rightPanelBoxartPositionByView = preferences.rightPanelBoxartPositionByView || {};
+    const rightPanelBoxartSizeByView = preferences.rightPanelBoxartSizeByView || {};
+    const rightPanelTextSizeByView = preferences.rightPanelTextSizeByView || {};
+    const rightPanelButtonSizeByView = preferences.rightPanelButtonSizeByView || {};
+    const rightPanelButtonLocationByView = preferences.rightPanelButtonLocationByView || {};
+    const detailsPanelOpacityByView = preferences.detailsPanelOpacityByView || {};
 
     // Helper to create view section for a specific resolution
     const createGridViewSection = () => ({
@@ -433,21 +494,21 @@ export class UserPreferencesService {
         categoriesSize: preferences.categoriesSizeByView?.grid,
         '// ── Details Panel ──': '',
         '// Details Panel Logo Size': 'Size of logo in details panel (50-200)',
-        rightPanelLogoSize: preferences.rightPanelLogoSize,
+        rightPanelLogoSize: this.resolveByView(rightPanelLogoSizeByView, 'grid', preferences.rightPanelLogoSize),
         '// Details Panel Boxart Position': 'Position of boxart in panel (left/right)',
-        rightPanelBoxartPosition: preferences.rightPanelBoxartPosition,
+        rightPanelBoxartPosition: this.resolveByView(rightPanelBoxartPositionByView, 'grid', preferences.rightPanelBoxartPosition),
         '// Details Panel Boxart Size': 'Size of boxart in details panel',
-        rightPanelBoxartSize: preferences.rightPanelBoxartSize,
+        rightPanelBoxartSize: this.resolveByView(rightPanelBoxartSizeByView, 'grid', preferences.rightPanelBoxartSize),
         '// Details Panel Text Size': 'Font size for details panel text',
-        rightPanelTextSize: preferences.rightPanelTextSize,
+        rightPanelTextSize: this.resolveByView(rightPanelTextSizeByView, 'grid', preferences.rightPanelTextSize),
         '// Details Panel Button Size': 'Size of buttons in details panel',
-        rightPanelButtonSize: preferences.rightPanelButtonSize,
+        rightPanelButtonSize: this.resolveByView(rightPanelButtonSizeByView, 'grid', preferences.rightPanelButtonSize),
         '// Details Panel Button Location': 'Position of buttons (left/right)',
-        rightPanelButtonLocation: preferences.rightPanelButtonLocation,
+        rightPanelButtonLocation: this.resolveByView(rightPanelButtonLocationByView, 'grid', preferences.rightPanelButtonLocation),
         '// Details Panel Button Colors': 'Colors for details panel buttons',
         rightPanelButtonColors: preferences.rightPanelButtonColors,
         '// Details Panel Opacity': 'Transparency of details panel overlay (0-100)',
-        detailsPanelOpacity: preferences.detailsPanelOpacity,
+        detailsPanelOpacity: this.resolveByView(detailsPanelOpacityByView, 'grid', preferences.detailsPanelOpacity),
       },
       '// Per-Game Custom Settings': '═══════════════════════════════════════════',
       '// Per-Game Description': 'Custom Grid View settings for specific games (logo sizes, etc.)',
@@ -484,21 +545,21 @@ export class UserPreferencesService {
         categoriesSize: preferences.categoriesSizeByView?.list,
         '// ── Details Panel ──': '',
         '// Details Panel Logo Size': 'Size of logo in details panel (50-200)',
-        rightPanelLogoSize: preferences.rightPanelLogoSize,
+        rightPanelLogoSize: this.resolveByView(rightPanelLogoSizeByView, 'list', preferences.rightPanelLogoSize),
         '// Details Panel Boxart Position': 'Position of boxart in panel (left/right)',
-        rightPanelBoxartPosition: preferences.rightPanelBoxartPosition,
+        rightPanelBoxartPosition: this.resolveByView(rightPanelBoxartPositionByView, 'list', preferences.rightPanelBoxartPosition),
         '// Details Panel Boxart Size': 'Size of boxart in details panel',
-        rightPanelBoxartSize: preferences.rightPanelBoxartSize,
+        rightPanelBoxartSize: this.resolveByView(rightPanelBoxartSizeByView, 'list', preferences.rightPanelBoxartSize),
         '// Details Panel Text Size': 'Font size for details panel text',
-        rightPanelTextSize: preferences.rightPanelTextSize,
+        rightPanelTextSize: this.resolveByView(rightPanelTextSizeByView, 'list', preferences.rightPanelTextSize),
         '// Details Panel Button Size': 'Size of buttons in details panel',
-        rightPanelButtonSize: preferences.rightPanelButtonSize,
+        rightPanelButtonSize: this.resolveByView(rightPanelButtonSizeByView, 'list', preferences.rightPanelButtonSize),
         '// Details Panel Button Location': 'Position of buttons (left/right)',
-        rightPanelButtonLocation: preferences.rightPanelButtonLocation,
+        rightPanelButtonLocation: this.resolveByView(rightPanelButtonLocationByView, 'list', preferences.rightPanelButtonLocation),
         '// Details Panel Button Colors': 'Colors for details panel buttons',
         rightPanelButtonColors: preferences.rightPanelButtonColors,
         '// Details Panel Opacity': 'Transparency of details panel overlay (0-100)',
-        detailsPanelOpacity: preferences.detailsPanelOpacity,
+        detailsPanelOpacity: this.resolveByView(detailsPanelOpacityByView, 'list', preferences.detailsPanelOpacity),
       },
       '// Per-Game Custom Settings': '═══════════════════════════════════════════',
       '// Per-Game Description': 'Custom List View settings for specific games (logo sizes, etc.)',
@@ -541,21 +602,21 @@ export class UserPreferencesService {
         categoriesSize: preferences.categoriesSizeByView?.logo,
         '// ── Details Panel ──': '',
         '// Details Panel Logo Size': 'Size of logo in details panel (50-200)',
-        rightPanelLogoSize: preferences.rightPanelLogoSize,
+        rightPanelLogoSize: this.resolveByView(rightPanelLogoSizeByView, 'logo', preferences.rightPanelLogoSize),
         '// Details Panel Boxart Position': 'Position of boxart in panel (left/right)',
-        rightPanelBoxartPosition: preferences.rightPanelBoxartPosition,
+        rightPanelBoxartPosition: this.resolveByView(rightPanelBoxartPositionByView, 'logo', preferences.rightPanelBoxartPosition),
         '// Details Panel Boxart Size': 'Size of boxart in details panel',
-        rightPanelBoxartSize: preferences.rightPanelBoxartSize,
+        rightPanelBoxartSize: this.resolveByView(rightPanelBoxartSizeByView, 'logo', preferences.rightPanelBoxartSize),
         '// Details Panel Text Size': 'Font size for details panel text',
-        rightPanelTextSize: preferences.rightPanelTextSize,
+        rightPanelTextSize: this.resolveByView(rightPanelTextSizeByView, 'logo', preferences.rightPanelTextSize),
         '// Details Panel Button Size': 'Size of buttons in details panel',
-        rightPanelButtonSize: preferences.rightPanelButtonSize,
+        rightPanelButtonSize: this.resolveByView(rightPanelButtonSizeByView, 'logo', preferences.rightPanelButtonSize),
         '// Details Panel Button Location': 'Position of buttons (left/right)',
-        rightPanelButtonLocation: preferences.rightPanelButtonLocation,
+        rightPanelButtonLocation: this.resolveByView(rightPanelButtonLocationByView, 'logo', preferences.rightPanelButtonLocation),
         '// Details Panel Button Colors': 'Colors for details panel buttons',
         rightPanelButtonColors: preferences.rightPanelButtonColors,
         '// Details Panel Opacity': 'Transparency of details panel overlay (0-100)',
-        detailsPanelOpacity: preferences.detailsPanelOpacity,
+        detailsPanelOpacity: this.resolveByView(detailsPanelOpacityByView, 'logo', preferences.detailsPanelOpacity),
       },
       '// Per-Game Custom Settings': '═══════════════════════════════════════════',
       '// Per-Game Description': 'Custom Logo View settings for specific games (logo sizes, etc.)',
@@ -835,14 +896,35 @@ export class UserPreferencesService {
       if (gridSettings.categoriesSize !== undefined) {
         extracted.categoriesSizeByView = { ...extracted.categoriesSizeByView, grid: gridSettings.categoriesSize };
       }
-      if (gridSettings.rightPanelLogoSize !== undefined) extracted.rightPanelLogoSize = gridSettings.rightPanelLogoSize;
-      if (gridSettings.rightPanelBoxartPosition !== undefined) extracted.rightPanelBoxartPosition = gridSettings.rightPanelBoxartPosition;
-      if (gridSettings.rightPanelBoxartSize !== undefined) extracted.rightPanelBoxartSize = gridSettings.rightPanelBoxartSize;
-      if (gridSettings.rightPanelTextSize !== undefined) extracted.rightPanelTextSize = gridSettings.rightPanelTextSize;
-      if (gridSettings.rightPanelButtonSize !== undefined) extracted.rightPanelButtonSize = gridSettings.rightPanelButtonSize;
-      if (gridSettings.rightPanelButtonLocation !== undefined) extracted.rightPanelButtonLocation = gridSettings.rightPanelButtonLocation;
+      if (gridSettings.rightPanelLogoSize !== undefined) {
+        extracted.rightPanelLogoSize = gridSettings.rightPanelLogoSize;
+        extracted.rightPanelLogoSizeByView = { ...extracted.rightPanelLogoSizeByView, grid: gridSettings.rightPanelLogoSize };
+      }
+      if (gridSettings.rightPanelBoxartPosition !== undefined) {
+        extracted.rightPanelBoxartPosition = gridSettings.rightPanelBoxartPosition;
+        extracted.rightPanelBoxartPositionByView = { ...extracted.rightPanelBoxartPositionByView, grid: gridSettings.rightPanelBoxartPosition };
+      }
+      if (gridSettings.rightPanelBoxartSize !== undefined) {
+        extracted.rightPanelBoxartSize = gridSettings.rightPanelBoxartSize;
+        extracted.rightPanelBoxartSizeByView = { ...extracted.rightPanelBoxartSizeByView, grid: gridSettings.rightPanelBoxartSize };
+      }
+      if (gridSettings.rightPanelTextSize !== undefined) {
+        extracted.rightPanelTextSize = gridSettings.rightPanelTextSize;
+        extracted.rightPanelTextSizeByView = { ...extracted.rightPanelTextSizeByView, grid: gridSettings.rightPanelTextSize };
+      }
+      if (gridSettings.rightPanelButtonSize !== undefined) {
+        extracted.rightPanelButtonSize = gridSettings.rightPanelButtonSize;
+        extracted.rightPanelButtonSizeByView = { ...extracted.rightPanelButtonSizeByView, grid: gridSettings.rightPanelButtonSize };
+      }
+      if (gridSettings.rightPanelButtonLocation !== undefined) {
+        extracted.rightPanelButtonLocation = gridSettings.rightPanelButtonLocation;
+        extracted.rightPanelButtonLocationByView = { ...extracted.rightPanelButtonLocationByView, grid: gridSettings.rightPanelButtonLocation };
+      }
       if (gridSettings.rightPanelButtonColors !== undefined) extracted.rightPanelButtonColors = gridSettings.rightPanelButtonColors;
-      if (gridSettings.detailsPanelOpacity !== undefined) extracted.detailsPanelOpacity = gridSettings.detailsPanelOpacity;
+      if (gridSettings.detailsPanelOpacity !== undefined) {
+        extracted.detailsPanelOpacity = gridSettings.detailsPanelOpacity;
+        extracted.detailsPanelOpacityByView = { ...extracted.detailsPanelOpacityByView, grid: gridSettings.detailsPanelOpacity };
+      }
       if (gridSettings.panelWidth !== undefined) {
         extracted.panelWidthByView = { ...extracted.panelWidthByView, grid: gridSettings.panelWidth };
       }
@@ -887,6 +969,34 @@ export class UserPreferencesService {
       if (listSettings.backgroundBrightness !== undefined) {
         extracted.backgroundBrightnessByView = { ...extracted.backgroundBrightnessByView, list: listSettings.backgroundBrightness };
       }
+      if (listSettings.rightPanelLogoSize !== undefined) {
+        extracted.rightPanelLogoSize = listSettings.rightPanelLogoSize;
+        extracted.rightPanelLogoSizeByView = { ...extracted.rightPanelLogoSizeByView, list: listSettings.rightPanelLogoSize };
+      }
+      if (listSettings.rightPanelBoxartPosition !== undefined) {
+        extracted.rightPanelBoxartPosition = listSettings.rightPanelBoxartPosition;
+        extracted.rightPanelBoxartPositionByView = { ...extracted.rightPanelBoxartPositionByView, list: listSettings.rightPanelBoxartPosition };
+      }
+      if (listSettings.rightPanelBoxartSize !== undefined) {
+        extracted.rightPanelBoxartSize = listSettings.rightPanelBoxartSize;
+        extracted.rightPanelBoxartSizeByView = { ...extracted.rightPanelBoxartSizeByView, list: listSettings.rightPanelBoxartSize };
+      }
+      if (listSettings.rightPanelTextSize !== undefined) {
+        extracted.rightPanelTextSize = listSettings.rightPanelTextSize;
+        extracted.rightPanelTextSizeByView = { ...extracted.rightPanelTextSizeByView, list: listSettings.rightPanelTextSize };
+      }
+      if (listSettings.rightPanelButtonSize !== undefined) {
+        extracted.rightPanelButtonSize = listSettings.rightPanelButtonSize;
+        extracted.rightPanelButtonSizeByView = { ...extracted.rightPanelButtonSizeByView, list: listSettings.rightPanelButtonSize };
+      }
+      if (listSettings.rightPanelButtonLocation !== undefined) {
+        extracted.rightPanelButtonLocation = listSettings.rightPanelButtonLocation;
+        extracted.rightPanelButtonLocationByView = { ...extracted.rightPanelButtonLocationByView, list: listSettings.rightPanelButtonLocation };
+      }
+      if (listSettings.detailsPanelOpacity !== undefined) {
+        extracted.detailsPanelOpacity = listSettings.detailsPanelOpacity;
+        extracted.detailsPanelOpacityByView = { ...extracted.detailsPanelOpacityByView, list: listSettings.detailsPanelOpacity };
+      }
     }
 
     // Extract from logoView
@@ -921,6 +1031,34 @@ export class UserPreferencesService {
       }
       if (logoSettings.backgroundBrightness !== undefined) {
         extracted.backgroundBrightnessByView = { ...extracted.backgroundBrightnessByView, logo: logoSettings.backgroundBrightness };
+      }
+      if (logoSettings.rightPanelLogoSize !== undefined) {
+        extracted.rightPanelLogoSize = logoSettings.rightPanelLogoSize;
+        extracted.rightPanelLogoSizeByView = { ...extracted.rightPanelLogoSizeByView, logo: logoSettings.rightPanelLogoSize };
+      }
+      if (logoSettings.rightPanelBoxartPosition !== undefined) {
+        extracted.rightPanelBoxartPosition = logoSettings.rightPanelBoxartPosition;
+        extracted.rightPanelBoxartPositionByView = { ...extracted.rightPanelBoxartPositionByView, logo: logoSettings.rightPanelBoxartPosition };
+      }
+      if (logoSettings.rightPanelBoxartSize !== undefined) {
+        extracted.rightPanelBoxartSize = logoSettings.rightPanelBoxartSize;
+        extracted.rightPanelBoxartSizeByView = { ...extracted.rightPanelBoxartSizeByView, logo: logoSettings.rightPanelBoxartSize };
+      }
+      if (logoSettings.rightPanelTextSize !== undefined) {
+        extracted.rightPanelTextSize = logoSettings.rightPanelTextSize;
+        extracted.rightPanelTextSizeByView = { ...extracted.rightPanelTextSizeByView, logo: logoSettings.rightPanelTextSize };
+      }
+      if (logoSettings.rightPanelButtonSize !== undefined) {
+        extracted.rightPanelButtonSize = logoSettings.rightPanelButtonSize;
+        extracted.rightPanelButtonSizeByView = { ...extracted.rightPanelButtonSizeByView, logo: logoSettings.rightPanelButtonSize };
+      }
+      if (logoSettings.rightPanelButtonLocation !== undefined) {
+        extracted.rightPanelButtonLocation = logoSettings.rightPanelButtonLocation;
+        extracted.rightPanelButtonLocationByView = { ...extracted.rightPanelButtonLocationByView, logo: logoSettings.rightPanelButtonLocation };
+      }
+      if (logoSettings.detailsPanelOpacity !== undefined) {
+        extracted.detailsPanelOpacity = logoSettings.detailsPanelOpacity;
+        extracted.detailsPanelOpacityByView = { ...extracted.detailsPanelOpacityByView, logo: logoSettings.detailsPanelOpacity };
       }
     }
 
@@ -1067,6 +1205,48 @@ export class UserPreferencesService {
       ...defaults,
       ...(preferences || {}),
       ...fromSections, // Override with values from sections if they exist
+      rightPanelLogoSizeByView: this.mergeByViewMaps(
+        defaults.rightPanelLogoSizeByView,
+        preferences?.rightPanelLogoSizeByView,
+        fromSections.rightPanelLogoSizeByView,
+        preferences?.rightPanelLogoSize,
+      ),
+      rightPanelBoxartPositionByView: this.mergeByViewMaps(
+        defaults.rightPanelBoxartPositionByView,
+        preferences?.rightPanelBoxartPositionByView,
+        fromSections.rightPanelBoxartPositionByView,
+        preferences?.rightPanelBoxartPosition,
+      ),
+      rightPanelBoxartSizeByView: this.mergeByViewMaps(
+        defaults.rightPanelBoxartSizeByView,
+        preferences?.rightPanelBoxartSizeByView,
+        fromSections.rightPanelBoxartSizeByView,
+        preferences?.rightPanelBoxartSize,
+      ),
+      rightPanelTextSizeByView: this.mergeByViewMaps(
+        defaults.rightPanelTextSizeByView,
+        preferences?.rightPanelTextSizeByView,
+        fromSections.rightPanelTextSizeByView,
+        preferences?.rightPanelTextSize,
+      ),
+      rightPanelButtonSizeByView: this.mergeByViewMaps(
+        defaults.rightPanelButtonSizeByView,
+        preferences?.rightPanelButtonSizeByView,
+        fromSections.rightPanelButtonSizeByView,
+        preferences?.rightPanelButtonSize,
+      ),
+      rightPanelButtonLocationByView: this.mergeByViewMaps(
+        defaults.rightPanelButtonLocationByView,
+        preferences?.rightPanelButtonLocationByView,
+        fromSections.rightPanelButtonLocationByView,
+        preferences?.rightPanelButtonLocation,
+      ),
+      detailsPanelOpacityByView: this.mergeByViewMaps(
+        defaults.detailsPanelOpacityByView,
+        preferences?.detailsPanelOpacityByView,
+        fromSections.detailsPanelOpacityByView,
+        preferences?.detailsPanelOpacity,
+      ),
       panelWidthByView: { ...defaults.panelWidthByView, ...(preferences?.panelWidthByView || {}), ...(fromSections.panelWidthByView || {}) },
       fanartHeightByView: { ...defaults.fanartHeightByView, ...(preferences?.fanartHeightByView || {}), ...(fromSections.fanartHeightByView || {}) },
       descriptionWidthByView: { ...defaults.descriptionWidthByView, ...(preferences?.descriptionWidthByView || {}), ...(fromSections.descriptionWidthByView || {}) },

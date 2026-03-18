@@ -250,6 +250,21 @@
   display: block;
 }
 
+.game-details-description.left-boxart-wrap.layout-side .onyx-desc-section.has-media {
+  clear: both;
+}
+
+.game-details-description.left-boxart-wrap.layout-side .onyx-desc-section.has-media .onyx-desc-media {
+  float: right;
+  width: calc(40% - 0.75rem);
+  margin: 0 0 0.75rem 1.5rem;
+}
+
+.game-details-description.left-boxart-wrap.layout-side .onyx-desc-section.has-media .onyx-desc-text {
+  display: block;
+  min-width: 0;
+}
+
 .game-details-description.layout-side .onyx-desc-media-column .onyx-desc-media img,
 .game-details-description.layout-side .onyx-desc-media-column .onyx-desc-media video,
 .game-details-description.layout-side .onyx-desc-media-column .onyx-desc-media iframe,

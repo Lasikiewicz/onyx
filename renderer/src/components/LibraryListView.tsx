@@ -92,6 +92,19 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
     return getLauncherDisplayName(launcher);
   };
 
+  const getDescriptionPreview = (description?: string) => {
+    if (!description) return '';
+
+    try {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(`<div>${description}</div>`, 'text/html');
+      const text = doc.body.textContent || '';
+      return text.replace(/\s+/g, ' ').trim();
+    } catch {
+      return description.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+    }
+  };
+
   const displayMode = listViewOptions.displayMode || 'boxart-title';
   const titleTextSize = listViewOptions.titleTextSize ?? 18;
   const sectionTextSize = listViewOptions.sectionTextSize ?? 14;
@@ -103,6 +116,8 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
   const showBoxart = displayMode === 'boxart-title';
   const showLogo = displayMode === 'logo-title' || displayMode === 'logo-only';
   const showTitle = displayMode !== 'logo-only';
+  const artworkFrameWidth = showBoxart ? boxartSize : logoSizeForList;
+  const artworkFrameHeight = Math.round(artworkFrameWidth * (4 / 3));
   const isWebmUrl = (url?: string) => !!url && /\.webm(\?|$)/i.test(url);
 
   const [contextMenu, setContextMenu] = useState<{ game: Game; x: number; y: number } | null>(null);
@@ -186,7 +201,7 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                   setFocusedIndex(index);
                   prefetchGameArtwork(game);
                 }}
-                className={`p-3 bg-gray-800/40 backdrop-blur-md border border-white/5 rounded-xl transition-all duration-300 hover:bg-gray-700/60 hover:border-cyan-400/30 cursor-pointer group outline-none ${index === focusedIndex ? 'ring-2 ring-blue-500 ring-offset-2 ring-offset-slate-900' : ''
+                className={`p-3 bg-gray-800/40 backdrop-blur-md border border-white/5 rounded-xl transition-all duration-300 hover:bg-gray-700/60 hover:border-cyan-400/30 cursor-pointer group outline-none ${index === focusedIndex ? 'bg-gray-700/55 border-white/10 shadow-lg' : ''
                   } ${displayMode === 'logo-only' || displayMode === 'title-only' ? 'flex flex-col items-center' : 'flex items-center gap-4'
                   }`}
               >
@@ -265,8 +280,8 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                     <div
                       className="flex items-center justify-center overflow-hidden rounded-lg mb-3"
                       style={{
-                        width: `${tileHeight}px`,
-                        height: `${Math.round(tileHeight * 0.6)}px`
+                        width: `${logoSizeForList}px`,
+                        height: `${Math.round(logoSizeForList * 0.6)}px`
                       }}
                     >
                       {game.logoUrl ? (
@@ -467,7 +482,7 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                       </div>
                       {listViewOptions.showDescription && game.description && (
                         <p className="text-gray-500 mt-2 line-clamp-2" style={{ fontSize: `${sectionTextSize}px` }}>
-                          {game.description}
+                          {getDescriptionPreview(game.description)}
                         </p>
                       )}
                     </div>
@@ -478,8 +493,8 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                     <div
                       className="flex-shrink-0 overflow-hidden rounded-lg"
                       style={{
-                        width: `${boxartSize}px`,
-                        height: `${Math.round(boxartSize * (4 / 3))}px`
+                        width: `${artworkFrameWidth}px`,
+                        height: `${artworkFrameHeight}px`
                       }}
                     >
                       {showBoxart && game.boxArtUrl ? (
@@ -516,7 +531,6 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                             playsInline
                             autoPlay
                             className="w-full h-full object-contain p-2 transition-transform duration-300 group-hover:scale-110"
-                            style={{ width: `${logoSizeForList}px`, height: `${Math.round(logoSizeForList * (4 / 3))}px` }}
                             onContextMenu={(e) => handleGameElementContextMenu(e, game)}
                           />
                         ) : (
@@ -524,7 +538,6 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                             src={game.logoUrl}
                             alt={game.title}
                             className="w-full h-full object-contain p-2 transition-transform duration-300 group-hover:scale-110"
-                            style={{ width: `${logoSizeForList}px`, height: `${Math.round(logoSizeForList * (4 / 3))}px` }}
                             onError={(e) => {
                               const target = e.target as HTMLImageElement;
                               target.style.display = 'none';
@@ -599,11 +612,11 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                           </span>
                         )}
                       </div>
-                      {listViewOptions.showDescription && game.description && (
-                        <p className="text-gray-500 mt-2 line-clamp-2" style={{ fontSize: `${sectionTextSize}px` }}>
-                          {game.description}
-                        </p>
-                      )}
+                        {listViewOptions.showDescription && game.description && (
+                          <p className="text-gray-500 mt-2 line-clamp-2" style={{ fontSize: `${sectionTextSize}px` }}>
+                            {getDescriptionPreview(game.description)}
+                          </p>
+                        )}
                     </div>
                   </>
                 )}

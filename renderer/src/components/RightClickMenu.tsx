@@ -1723,29 +1723,6 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                 {/* List view specific controls */}
                 {viewMode === 'list' && listViewOptions && (
                   <>
-                    {/* Tile Height control - always visible */}
-                    <div className="px-3 py-2 bg-gray-700/30 rounded-md">
-                      <MenuSliderRow
-                        label="Tile Height"
-                        min={10}
-                        max={300}
-                        step={1}
-                        value={listViewOptions.tileHeight ?? 128}
-                        defaultValue={sliderDefaults.listTileHeight}
-                        onChange={(value) => onListViewOptionsChange?.({
-                          ...listViewOptions,
-                          tileHeight: value,
-                        })}
-                        onReset={() => onListViewOptionsChange?.({
-                          ...listViewOptions,
-                          tileHeight: sliderDefaults.listTileHeight,
-                        })}
-                        formatValue={(value) => `${value}px`}
-                        minLabel="10px"
-                        maxLabel="300px"
-                      />
-                    </div>
-
                     {/* Display Mode controls */}
                     <div className="px-3 py-2 bg-gray-700/30 rounded-md space-y-2">
                       <label className="block text-xs text-gray-400 mb-2 font-semibold">Display</label>
@@ -1837,8 +1814,8 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                         </div>
                       )}
 
-                      {/* Logo Size - only for Logo + Title mode */}
-                      {listViewOptions.displayMode === 'logo-title' && (
+                      {/* Logo Size - for logo-based list modes */}
+                      {(listViewOptions.displayMode === 'logo-title' || listViewOptions.displayMode === 'logo-only') && (
                         <div className="pt-2">
                           <MenuSliderRow
                             label="Logo Size"
@@ -1854,6 +1831,31 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                             onReset={() => onListViewOptionsChange?.({
                               ...listViewOptions,
                               logoSize: sliderDefaults.listLogoSize,
+                            })}
+                            formatValue={(value) => `${value}px`}
+                            minLabel="30px"
+                            maxLabel="200px"
+                          />
+                        </div>
+                      )}
+
+                      {/* Tile Size - only for Icon + Title mode */}
+                      {listViewOptions.displayMode === 'icon-title' && (
+                        <div className="pt-2">
+                          <MenuSliderRow
+                            label="Tile Size"
+                            min={30}
+                            max={200}
+                            step={1}
+                            value={listViewOptions.tileHeight ?? sliderDefaults.listTileHeight}
+                            defaultValue={sliderDefaults.listTileHeight}
+                            onChange={(value) => onListViewOptionsChange?.({
+                              ...listViewOptions,
+                              tileHeight: value,
+                            })}
+                            onReset={() => onListViewOptionsChange?.({
+                              ...listViewOptions,
+                              tileHeight: sliderDefaults.listTileHeight,
                             })}
                             formatValue={(value) => `${value}px`}
                             minLabel="30px"

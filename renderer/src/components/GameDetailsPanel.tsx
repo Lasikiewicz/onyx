@@ -243,11 +243,17 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
   const panelBackground = `rgba(26, 31, 46, ${normalizedOpacity / 100})`;
   const panelBackdropBlur = `${Math.round(normalizedOpacity * 0.2)}px`;
   const useSideMediaLayout = descriptionViewport.width >= 760 && descriptionViewport.height >= 420;
+  const useLeftBoxartWideLayout = rightPanelBoxartPosition === 'left'
+    && descriptionViewport.width >= 900
+    && descriptionViewport.height >= 420;
+  const useDescriptionSideMediaLayout = rightPanelBoxartPosition === 'left'
+    ? useLeftBoxartWideLayout
+    : useSideMediaLayout;
   const mediaMaxHeight = Math.max(180, Math.floor(descriptionViewport.height * 0.52));
   const mediaSideWidth = Math.max(220, Math.floor(descriptionViewport.width * 0.42));
   const renderedDescriptionHtml = useMemo(
-    () => (game?.description ? buildStructuredDescriptionHtml(game.description, useSideMediaLayout) : ''),
-    [game?.description, useSideMediaLayout]
+    () => (game?.description ? buildStructuredDescriptionHtml(game.description, useDescriptionSideMediaLayout) : ''),
+    [game?.description, useDescriptionSideMediaLayout]
   );
   const formatScore = (score: number) => `${Math.round(score)}/100`;
 
@@ -669,9 +675,9 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
   const renderedBoxartWidth = rightPanelBoxartPosition === 'none'
     ? rightPanelBoxartSize
     : Math.max(120, Math.min(rightPanelBoxartSize, maxBoxartWidthForSide));
-  const boxartSideInset = rightPanelBoxartPosition !== 'none' && game.boxArtUrl
-    ? Math.max(24, Math.min(renderedBoxartWidth + 24, Math.floor(activePanelWidth * 0.24)))
-    : 0;
+  const renderedBoxartHeight = Math.round(renderedBoxartWidth * 1.5);
+  const leftBoxartOverlapRatio = useLeftBoxartWideLayout ? 0.34 : 0.22;
+  const leftBoxartContentOverlapHeight = Math.max(0, Math.round(renderedBoxartHeight * leftBoxartOverlapRatio));
   const logoAreaOuterInset = 24;
   const boxartPanelInset = 56;
   const logoAreaPositionStyle: React.CSSProperties = rightPanelBoxartPosition === 'none'
@@ -692,12 +698,88 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
   const detailsTopPadding = rightPanelBoxartPosition === 'right'
     ? Math.max(logoClearancePadding, Math.ceil(renderedBoxartWidth * 1.5 * 0.5) + 24)
     : logoClearancePadding;
-  const descriptionLeftPadding = rightPanelBoxartPosition === 'left'
-    ? boxartSideInset
-    : 0;
   const primaryDeveloper = game.developers?.[0] || '';
   const detailsSectionGapClass = 'gap-2';
   const detailsLabelClass = 'text-gray-400 mb-0 leading-tight';
+  const renderBoxart = (position: 'left' | 'right') => {
+    const wrapperClassName = `absolute ${position === 'left' ? 'left-6' : 'right-14'} bottom-0 z-20`;
+
+    return (
+      <div className={wrapperClassName} style={{ transform: 'translateY(50%)' }}>
+        {game.boxArtUrl && (isBoxartVideo || !isAnimatedMedia(game.boxArtUrl, isBoxartVideo) || !disableAnimatedBoxartsBySettings) ? (
+          game.boxArtIsVideo ? (
+            <video
+              src={game.boxArtUrl}
+              data-animation-kind="boxart"
+              muted
+              loop
+              playsInline
+              autoPlay
+              className="aspect-[2/3] object-cover rounded border border-gray-600 shadow-lg cursor-pointer"
+              style={{ width: `${renderedBoxartWidth}px` }}
+              onContextMenu={(e) => {
+                e.preventDefault();
+              }}
+            />
+          ) : (
+            <img
+              src={game.boxArtUrl}
+              alt={game.title}
+              className="aspect-[2/3] object-cover rounded border border-gray-600 shadow-lg cursor-pointer"
+              style={{
+                width: `${renderedBoxartWidth}px`,
+                ...(isAnimatedImage(game.boxArtUrl) ? {
+                  willChange: 'transform',
+                  contain: 'layout style paint',
+                } : {})
+              }}
+              onError={(e) => {
+                const target = e.target as HTMLImageElement;
+                if (target.dataset.errorHandled === 'true') return;
+
+                if (game.bannerUrl && target.src !== game.bannerUrl && !target.dataset.fallbackAttempted) {
+                  target.dataset.fallbackAttempted = 'true';
+                  target.src = game.bannerUrl;
+                } else {
+                  target.dataset.errorHandled = 'true';
+                  target.style.display = 'none';
+                  target.src = '';
+                }
+              }}
+              onContextMenu={(e) => {
+                e.preventDefault();
+              }}
+            />
+          )
+        ) : (
+          <div
+            className="aspect-[2/3] bg-gray-800 rounded border border-gray-600 flex items-center justify-center text-gray-400 text-xs text-center px-2 cursor-pointer hover:bg-gray-700 transition-colors"
+            style={{ width: `${renderedBoxartWidth}px` }}
+            onClick={() => onOpenInGameManager?.(game, 'images')}
+          >
+            Click to add boxart
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderLeftBoxartSpacer = () => {
+    if (rightPanelBoxartPosition !== 'left') {
+      return null;
+    }
+
+    return (
+      <div
+        aria-hidden="true"
+        className="float-left mr-6 mb-2 pointer-events-none"
+        style={{
+          width: `${renderedBoxartWidth}px`,
+          height: `${leftBoxartContentOverlapHeight}px`,
+        }}
+      />
+    );
+  };
 
   return (
     <div
@@ -888,70 +970,8 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
         </div>
 
         {/* Box Art - Position based on rightPanelBoxartPosition */}
-        {rightPanelBoxartPosition !== 'none' && (
-          <div
-            className={`absolute ${rightPanelBoxartPosition === 'left' ? 'left-6' : 'right-14'} bottom-0 z-20`}
-            style={{ transform: 'translateY(50%)' }}
-          >
-            {game.boxArtUrl && (isBoxartVideo || !isAnimatedMedia(game.boxArtUrl, isBoxartVideo) || !disableAnimatedBoxartsBySettings) ? (
-              game.boxArtIsVideo ? (
-                <video
-                  src={game.boxArtUrl}
-                  data-animation-kind="boxart"
-                  muted
-                  loop
-                  playsInline
-                  autoPlay
-                  className="aspect-[2/3] object-cover rounded border border-gray-600 shadow-lg cursor-pointer"
-                  style={{ width: `${renderedBoxartWidth}px` }}
-                  onContextMenu={(e) => {
-                    e.preventDefault();
-                  }}
-                />
-              ) : (
-                <img
-                  src={game.boxArtUrl}
-                  alt={game.title}
-                  className="aspect-[2/3] object-cover rounded border border-gray-600 shadow-lg cursor-pointer"
-                  style={{
-                    width: `${renderedBoxartWidth}px`,
-                    ...(isAnimatedImage(game.boxArtUrl) ? {
-                      willChange: 'transform',
-                      contain: 'layout style paint',
-                    } : {})
-                  }}
-                  onError={(e) => {
-                    const target = e.target as HTMLImageElement;
-                    // Prevent infinite retry loop
-                    if (target.dataset.errorHandled === 'true') return;
-
-                    // Try banner URL as fallback (only once)
-                    if (game.bannerUrl && target.src !== game.bannerUrl && !target.dataset.fallbackAttempted) {
-                      target.dataset.fallbackAttempted = 'true';
-                      target.src = game.bannerUrl;
-                    } else {
-                      target.dataset.errorHandled = 'true';
-                      target.style.display = 'none';
-                      target.src = ''; // Clear src to prevent retries
-                    }
-                  }}
-                  onContextMenu={(e) => {
-                    // Allow event to bubble up to parent to open RightClickMenu
-                    e.preventDefault();
-                  }}
-                />
-              )
-            ) : (
-              <div
-                className="aspect-[2/3] bg-gray-800 rounded border border-gray-600 flex items-center justify-center text-gray-400 text-xs text-center px-2 cursor-pointer hover:bg-gray-700 transition-colors"
-                style={{ width: `${renderedBoxartWidth}px` }}
-                onClick={() => onOpenInGameManager?.(game, 'images')}
-              >
-                Click to add boxart
-              </div>
-            )}
-          </div>
-        )}
+        {rightPanelBoxartPosition === 'left' && renderBoxart('left')}
+        {rightPanelBoxartPosition === 'right' && renderBoxart('right')}
 
         {/* Resize handle */}
         {backgroundImageUrl && (
@@ -994,31 +1014,32 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
             </div>
           )}
 
-          {/* Description and Details in a row */}
-          <div ref={descriptionContainerRef} className="flex flex-1 min-h-0 gap-0 relative">
+        {/* Description and Details in a row */}
+        <div ref={descriptionContainerRef} className="flex flex-1 min-h-0 gap-0 relative">
             {/* Description Content - Left side */}
             <div
               className="relative min-h-0 flex flex-col"
               style={{
                 width: `${descriptionWidth}%`,
                 paddingTop: descriptionTopPadding > 0 ? `${descriptionTopPadding}px` : undefined,
-                paddingLeft: descriptionLeftPadding > 0 ? `${descriptionLeftPadding}px` : undefined,
               }}
             >
               <div
                 ref={descriptionRef}
-                className="space-y-6 relative pr-3 min-h-0 flex-1"
+                className={`${rightPanelBoxartPosition === 'left' ? '' : 'space-y-6'} relative pr-3 min-h-0 flex-1`}
                 style={{
                   minHeight: `${descriptionHeight}px`,
                   overflowY: 'auto',
                   overflowX: 'hidden'
                 }}
               >
+                {renderLeftBoxartSpacer()}
+
                 {/* Game Description */}
                 {game.description && (
-                  <div>
+                  <div className={rightPanelBoxartPosition === 'left' ? 'mb-6' : ''}>
                     <div
-                      className={`game-details-description ${useSideMediaLayout ? 'layout-side' : 'layout-stacked'} text-gray-200 leading-relaxed cursor-pointer`}
+                      className={`game-details-description ${useDescriptionSideMediaLayout ? 'layout-side' : 'layout-stacked'} ${rightPanelBoxartPosition === 'left' ? 'left-boxart-wrap' : ''} text-gray-200 leading-relaxed cursor-pointer`}
                       style={{
                         fontSize: `${rightPanelTextSize}px`,
                         fontFamily: descriptionFontFamily,
@@ -1032,7 +1053,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
 
                 {/* Features */}
                 {game.features && game.features.length > 0 && (
-                  <div>
+                  <div className={rightPanelBoxartPosition === 'left' ? 'mt-6' : ''}>
                     <h3 className="text-lg font-semibold text-white mb-3">Features</h3>
                     <ul className="space-y-2 text-gray-200 text-sm">
                       {game.features.map((feature, index) => (

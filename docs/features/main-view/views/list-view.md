@@ -15,10 +15,12 @@ Displays the games list as a vertical list of rows, each showing game art (boxar
 
 - Left panel: scrollable list of game rows. Each row can show boxart/logo, title, description snippet, playtime, release date, genres, platform/launcher. Right-click for context menu and list view options.
 - Right panel: game details. See [Game Details Panel](../components/game-details-panel.md).
+- Description snippets in list rows are rendered as plain text previews, stripping any HTML markup from the stored description so rich text does not leak literal tags into the cards.
+- The currently focused list row now uses a subtler surface highlight instead of the previous bright blue ring, keeping selection visible without drawing a large outline around the card.
 
 ## Settings and Toggles
 
-- List view options: show description, categories, playtime, release date, genres, platform, launcher, logos; title/section text size; display mode; tile height; boxart/logo size. Configured via [RightClickMenu.tsx](../../../../renderer/src/components/RightClickMenu.tsx) and [UserPreferencesService](../../../../main/UserPreferencesService.ts).
+- List view options: show description, categories, playtime, release date, genres, platform, launcher, logos; title/section text size; display mode; and mode-specific size controls. Boxart + Title uses boxart size, Logo + Title and Logo Only use logo size, and Icon + Title uses tile size. Configured via [RightClickMenu.tsx](../../../../renderer/src/components/RightClickMenu.tsx) and [UserPreferencesService](../../../../main/UserPreferencesService.ts).
 
 ## Confirmed End-to-End Flows
 
