@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Pending
 
+## [0.7.43] - 2026-03-18
+
 - Settings:
   - Replace the About tab's static logo with a smaller unboxed shared mouse-tracked Onyx cube and let clicking it open a larger interactive version.
   - Let the enlarged About logo be dragged and thrown across the full app window with bounce-and-friction physics until it comes to a stop.
