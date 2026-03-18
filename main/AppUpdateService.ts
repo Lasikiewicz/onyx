@@ -302,7 +302,23 @@ export function downloadUpdate(): Promise<string[] | null> {
           resolve(null);
           return;
         }
-        response.on('data', (chunk: Buffer) => out.write(chunk));
+        const totalBytesHeader = response.headers['content-length'];
+        const totalBytesRaw = Array.isArray(totalBytesHeader) ? totalBytesHeader[0] : totalBytesHeader;
+        const totalBytes = totalBytesRaw ? Number(totalBytesRaw) : NaN;
+        const hasTotalBytes = Number.isFinite(totalBytes) && totalBytes > 0;
+        let downloadedBytes = 0;
+
+        response.on('data', (chunk: Buffer) => {
+          downloadedBytes += chunk.length;
+          out.write(chunk);
+
+          if (hasTotalBytes) {
+            send({
+              status: 'downloading',
+              progressPercent: Math.max(0, Math.min(100, (downloadedBytes / totalBytes) * 100)),
+            });
+          }
+        });
         response.on('end', () => {
           out.end(() => {
             downloadedAlphaPath = destPath;

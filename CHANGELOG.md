@@ -4,6 +4,11 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## Pending
+
+- Updater:
+  - Report alpha-channel update download progress from streamed bytes so the update modal progress bar advances during GitHub asset downloads instead of sitting still until completion.
+
 ## [0.7.45] - 2026-03-18
 
 - Right click menu:

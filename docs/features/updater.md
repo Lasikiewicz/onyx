@@ -28,7 +28,7 @@ Checks for new versions, offers download, and installs updates for packaged buil
 1. UI triggers check from settings/about or menu.
 2. Renderer calls preload API (`checkForUpdates`, `downloadUpdate`, `quitAndInstall`) ([preload.ts](../../main/preload.ts)).
 3. Main process routes to [AppUpdateService.ts](../../main/AppUpdateService.ts).
-4. [AppUpdateService](../../main/AppUpdateService.ts) emits status events (`checking`, `available`, `not-available`, `downloading`, `downloaded`, `error`), and download progress now carries a numeric percent for the modal progress bar while an update is being fetched.
+4. [AppUpdateService](../../main/AppUpdateService.ts) emits status events (`checking`, `available`, `not-available`, `downloading`, `downloaded`, `error`), and download progress now carries a numeric percent for the modal progress bar while an update is being fetched. That progress path now covers both the standard `electron-updater` download flow and the alpha GitHub asset download flow when the asset response includes `content-length`.
 5. [useAppShellSystemState.ts](../../renderer/src/hooks/useAppShellSystemState.ts) receives the renderer-side update state from [App.tsx](../../renderer/src/App.tsx), fetches matching changelog content when a version is known, and exposes the update actions used by the modal.
 
 Alpha builds use GitHub Releases API prerelease selection logic. Production uses `electron-updater` feed behavior.
