@@ -4,6 +4,11 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## Pending
+
+- Right click menu:
+  - Continue splitting the popup into focused Games View, Dividers, and Game Details sections with section-based placement and a top-level menu transparency control, while still opening in a broader normal full editor layout first. Games View now overlays the game-details side, Game Details jumps to the opposite shell side, and Dividers stays snapped to the left in a fixed-width full-height editor with a divider-safe inset.
+
 ## [0.7.44] - 2026-03-18
 
 - List view:

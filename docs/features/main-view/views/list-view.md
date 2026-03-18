@@ -17,6 +17,7 @@ Displays the games list as a vertical list of rows, each showing game art (boxar
 - Right panel: game details. See [Game Details Panel](../components/game-details-panel.md).
 - Description snippets in list rows are rendered as plain text previews, stripping any HTML markup from the stored description so rich text does not leak literal tags into the cards.
 - The currently focused list row now uses a subtler surface highlight instead of the previous bright blue ring, keeping selection visible without drawing a large outline around the card.
+- The shared right-click menu now still opens in a broader normal full layout, but can be switched into focused Games View, Dividers, and Game Details modes so the popup can jump onto the shell section currently being adjusted instead of covering the whole view at once.
 
 ## Settings and Toggles
 

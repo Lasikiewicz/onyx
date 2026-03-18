@@ -17,6 +17,7 @@ Right-hand panel in the library window (grid/list/logo modes) that shows the sel
 - The description/details column split remains horizontally resizable, but the divider is visually hidden until hover/drag feedback appears.
 - The top-level "Description" and "Details" headings are intentionally omitted so the panel starts directly with game content.
 - When the selected game changes, the panel keeps text content stable, buffers the next logo until it is ready instead of swapping immediately, and lets the logo grow into its chosen size on mount. The logo area is centered in the open space between the panel edge and the boxart in [`GameDetailsPanel.tsx`](../../../../renderer/src/components/GameDetailsPanel.tsx).
+- The right-click menu now opens in a broader normal full editor layout first, but top tabs can switch it into focused Games View, Dividers, or Game Details modes. Games View overlays the game-details side, while Game Details jumps to the opposite shell side. Dividers uses its own fixed-width full-height editor snapped to the left edge with a little extra inset near the center split, so it does not grow and shrink with the right panel width. A menu-transparency slider lets the popup stay visible without fully obscuring the underlying panel while users tweak settings.
 
 ## Settings and Toggles
 

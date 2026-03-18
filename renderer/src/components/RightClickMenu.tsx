@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import type { Game } from '../types/game';
 import { CustomDefaultsManager } from './CustomDefaultsManager';
 import { ConfirmationDialog } from './ConfirmationDialog';
@@ -267,8 +267,11 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
   onCoverFlowButtonColorsChange,
   onSettingsImported,
 }) => {
+  type EditorSection = 'games-view' | 'dividers' | 'details-view';
   const menuRef = useRef<HTMLDivElement>(null);
   const buttonColorsPopupRef = useRef<HTMLDivElement>(null);
+  const [activeEditorSection, setActiveEditorSection] = useState<EditorSection | null>(null);
+  const [menuTransparency, setMenuTransparency] = useState(12);
   const [buttonColorsPopup, setButtonColorsPopup] = React.useState<{
     editorKey: 'carousel' | 'details';
     title: string;
@@ -286,6 +289,37 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
   const [showResetConfirmation, setShowResetConfirmation] = React.useState(false);
   const [resetResolution, setResetResolution] = React.useState('');
   const [baselineDefaults, setBaselineDefaults] = React.useState<any>(null);
+  const isSectionedEditor = viewMode !== 'carousel' && viewMode !== 'coverflow';
+  const isFocusedEditorSection = isSectionedEditor && activeEditorSection !== null;
+  const menuOpacity = Math.max(0.18, 1 - (menuTransparency / 100));
+  const menuBackground = `rgba(31, 41, 55, ${menuOpacity})`;
+  const menuBackdropBlur = `${Math.max(8, Math.round((100 - menuTransparency) * 0.22))}px`;
+  const focusedPanelPadding = 18;
+  const focusedPanelTop = 56;
+  const focusedPanelBottom = 18;
+  const focusedSectionTarget = activeEditorSection === 'games-view' ? 'details-panel' : 'games-panel';
+  const dividerGuardInset = activeEditorSection === 'dividers' ? 28 : 0;
+  const defaultMenuWidth = viewMode === 'list' ? 1040 : 760;
+  const dividerPanelWidth = 760;
+  const focusedAreaWidth = activeEditorSection === 'dividers'
+    ? dividerPanelWidth
+    : focusedSectionTarget === 'details-panel'
+      ? panelWidth
+      : Math.max(320, window.innerWidth - panelWidth);
+  const dividerIsOnStartEdge = activeEditorSection === 'dividers'
+    ? true
+    : focusedSectionTarget === 'details-panel'
+      ? isViewFlipped
+      : !isViewFlipped;
+  const panelInsetStart = focusedPanelPadding + (isFocusedEditorSection && dividerIsOnStartEdge ? dividerGuardInset : 0);
+  const panelInsetEnd = focusedPanelPadding + (isFocusedEditorSection && !dividerIsOnStartEdge ? dividerGuardInset : 0);
+  const focusedPanelWidth = Math.max(320, focusedAreaWidth - panelInsetStart - panelInsetEnd);
+  const focusedPanelHeight = `calc(100vh - ${focusedPanelTop + focusedPanelBottom}px)`;
+  const menuMinWidth = !isSectionedEditor
+    ? defaultMenuWidth
+    : !isFocusedEditorSection
+      ? defaultMenuWidth
+      : focusedPanelWidth;
 
   // State for Per-Game Override Clear Confirmation
   const [showClearPerGameConfirm, setShowClearPerGameConfirm] = React.useState(false);
@@ -368,19 +402,29 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
       const viewportHeight = window.innerHeight;
       const margin = 10;
 
-      // Open to the right on the left half of the screen, and to the left on the right half.
-      const shouldOpenLeft = x > viewportWidth / 2;
-      let left = shouldOpenLeft ? x - rect.width : x;
+      let left = x > viewportWidth / 2 ? x - rect.width : x;
       let top = y;
+
+      if (isFocusedEditorSection) {
+        const detailsPanelLeft = isViewFlipped ? 0 : viewportWidth - panelWidth;
+        const gamesPanelLeft = isViewFlipped ? panelWidth : 0;
+        const areaBaseLeft = activeEditorSection === 'dividers'
+          ? 0
+          : focusedSectionTarget === 'details-panel'
+            ? detailsPanelLeft
+            : gamesPanelLeft;
+        left = areaBaseLeft + panelInsetStart;
+        top = focusedPanelTop;
+      }
 
       // Clamp to viewport so the menu remains fully visible.
       left = Math.max(margin, Math.min(left, viewportWidth - rect.width - margin));
-      top = Math.max(margin, Math.min(top, viewportHeight - rect.height - margin));
+      top = Math.max(margin, Math.min(top, viewportHeight - rect.height - focusedPanelBottom));
 
       menuRef.current.style.left = `${left}px`;
       menuRef.current.style.top = `${top}px`;
     }
-  }, [x, y, viewMode]);
+  }, [x, y, viewMode, isFocusedEditorSection, activeEditorSection, panelWidth, isViewFlipped, panelInsetStart, focusedSectionTarget]);
 
   React.useEffect(() => {
     const handleViewportChange = () => {
@@ -395,11 +439,19 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
     };
   }, []);
 
+  useEffect(() => {
+    if (viewMode === 'carousel' || viewMode === 'coverflow') {
+      return;
+    }
+    setActiveEditorSection(null);
+  }, [viewMode]);
+
   const handleViewModeChange = (mode: 'grid' | 'list' | 'logo' | 'carousel' | 'coverflow') => {
     if (onViewModeChange) {
       onViewModeChange(mode);
     }
   };
+
 
   const getSizeValue = () => {
     if (viewMode === 'grid') return gridSize;
@@ -889,15 +941,28 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
   return (
     <div
       ref={menuRef}
-      className="fixed bg-gray-800 border border-gray-700 rounded-lg shadow-xl z-50 py-1"
+      className="fixed flex flex-col border border-gray-600/80 rounded-lg shadow-xl z-50 py-1"
       style={{
         left: `${x}px`,
         top: `${y}px`,
-        minWidth: viewMode === 'list' ? '900px' : '620px'
+        width: `${menuMinWidth}px`,
+        minWidth: `${menuMinWidth}px`,
+        maxWidth: `${menuMinWidth}px`,
+        height: isFocusedEditorSection ? focusedPanelHeight : undefined,
+        maxHeight: isFocusedEditorSection ? focusedPanelHeight : 'calc(100vh - 20px)',
+        backgroundColor: menuBackground,
+        backdropFilter: `blur(${menuBackdropBlur})`,
+        WebkitBackdropFilter: `blur(${menuBackdropBlur})`,
+        overflowX: 'hidden',
+        overflowY: 'hidden',
       }}
     >
       {/* Top Action Row */}
-      <div className="px-3 pt-2 pb-1">
+      <div className={`px-3 pt-2 pb-1 ${isFocusedEditorSection ? 'sticky top-0 z-10' : ''}`} style={isFocusedEditorSection ? {
+        backgroundColor: menuBackground,
+        backdropFilter: `blur(${menuBackdropBlur})`,
+        WebkitBackdropFilter: `blur(${menuBackdropBlur})`,
+      } : undefined}>
         <div className="flex items-center justify-between">
           <div>
             {viewMode !== 'coverflow' && (
@@ -918,6 +983,44 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
           </div>
 
           <div className="flex items-center gap-1.5">
+            {isSectionedEditor && (
+              <div className="flex items-center gap-1 rounded-md border border-gray-600 bg-gray-900/35 px-1 py-1">
+                {([
+                  ['games-view', 'Games View'],
+                  ['dividers', 'Dividers'],
+                  ['details-view', 'Game Details'],
+                ] as const).map(([sectionKey, label]) => (
+                  <button
+                    key={sectionKey}
+                    onClick={() => setActiveEditorSection((current) => current === sectionKey ? null : sectionKey)}
+                    className={`px-2.5 py-1 text-[11px] rounded transition-colors font-medium ${
+                      activeEditorSection === sectionKey
+                        ? 'bg-blue-600/40 text-white border border-blue-500'
+                        : 'bg-transparent text-gray-300 hover:bg-gray-700/60 border border-transparent'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2">
+            {isSectionedEditor && (
+              <div className="flex items-center gap-2 rounded-md border border-gray-600 bg-gray-900/35 px-2 py-1">
+                <span className="text-[10px] text-gray-400 whitespace-nowrap">Menu Transparency</span>
+                <input
+                  type="range"
+                  min="0"
+                  max="75"
+                  step="1"
+                  value={menuTransparency}
+                  onChange={(e) => setMenuTransparency(Number(e.target.value))}
+                  className="w-20 accent-blue-500"
+                />
+              </div>
+            )}
             <button
               onClick={handleResetToDefaults}
               className="px-2 py-1 text-[11px] rounded transition-colors bg-gray-700 text-gray-300 hover:bg-gray-600 border border-gray-600 font-medium"
@@ -1478,16 +1581,18 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
       {/* Shared layout settings for Grid, List, and Logo views (exclude Cover Flow) */}
       {viewMode !== 'carousel' && viewMode !== 'coverflow' && (
         <>
-          {/* 3-column layout for all views (4-column for list) */}
-          <div className={`grid text-xs text-gray-400 px-3 pb-1 font-semibold ${viewMode === 'list' ? 'grid-cols-4' : 'grid-cols-3'}`}>
-            <span className={viewMode === 'list' ? 'col-span-2' : ''}>Games View</span>
-            <span className="text-center">Dividers</span>
-            <span className="text-right">Game Details</span>
-          </div>
-          <div className="px-2 py-2">
-            <div className={`grid gap-3 ${viewMode === 'list' ? 'grid-cols-4' : 'grid-cols-3'}`}>
+          <div className={`px-2 py-2 ${isFocusedEditorSection ? 'flex-1 overflow-y-auto min-h-0' : ''}`}>
+            <div className={`grid gap-3 ${!isFocusedEditorSection ? (viewMode === 'list' ? 'grid-cols-4' : 'grid-cols-3') : 'grid-cols-1'}`}>
               {/* Left Column(s) - Split into 2 columns for list view */}
-              <div className={viewMode === 'list' ? 'col-span-2 grid grid-cols-2 gap-2' : 'space-y-2'}>
+              <div className={`${
+                isFocusedEditorSection
+                  ? activeEditorSection === 'games-view'
+                    ? (viewMode === 'list' ? 'grid grid-cols-2 gap-2' : 'space-y-2')
+                    : 'hidden'
+                  : viewMode === 'list'
+                    ? 'col-span-2 grid grid-cols-2 gap-2'
+                    : 'space-y-2'
+              }`}>
                 {/* Categories Section */}
                 {(viewMode as string) !== 'carousel' && onShowCategoriesInGameListChange && (
                   <div className="px-3 py-2 bg-gray-700/30 rounded-md space-y-3">
@@ -1985,7 +2090,7 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
               </div>
 
               {/* Middle Column - Dividers (All non-carousel views) */}
-              <div className="space-y-2">
+              <div className={`${isFocusedEditorSection ? (activeEditorSection === 'dividers' ? 'space-y-2' : 'hidden') : 'space-y-2'}`}>
                 {/* Right Panel Width Control */}
                 <div className="px-3 py-2 bg-gray-700/30 rounded-md">
                   <MenuSliderRow
@@ -2056,7 +2161,7 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
               </div>
 
               {/* Right Column */}
-              <div className="space-y-2">
+              <div className={`${isFocusedEditorSection ? (activeEditorSection === 'details-view' ? 'space-y-2' : 'hidden') : 'space-y-2'}`}>
                 {/* Per-Game Logo Size Control - Top of Game Details, only for current view */}
                 {activeGame && (
                   <div className="px-3 py-2 bg-gray-700/30 rounded-md">
