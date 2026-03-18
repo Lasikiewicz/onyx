@@ -285,8 +285,10 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
     installationDirectory: true,
   });
 
-  // Track image loaded state for animation deferral
-  const [imageLoaded, setImageLoaded] = useState<Record<string, boolean>>({});
+  const [displayedLogo, setDisplayedLogo] = useState<{ url: string; isVideo: boolean }>({
+    url: game?.logoUrl || '',
+    isVideo: !!game?.logoIsVideo,
+  });
 
   // Preload current game images so they are decoded before <img> mounts (faster first paint)
   useEffect(() => {
@@ -307,6 +309,50 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
       for (const img of images) img.src = '';
     };
   }, [game?.id, game?.heroUrl, game?.bannerUrl, game?.boxArtUrl, game?.logoUrl]);
+
+  useEffect(() => {
+    if (!game?.logoUrl) {
+      setDisplayedLogo({ url: '', isVideo: false });
+      return;
+    }
+
+    const disableAnimatedLogosBySettings = disableAnimatedLogos && !overlaysOpen;
+    const canRenderLogo = game.logoIsVideo || !isAnimatedMedia(game.logoUrl, game.logoIsVideo) || !disableAnimatedLogosBySettings;
+    if (!canRenderLogo) {
+      setDisplayedLogo({ url: '', isVideo: false });
+      return;
+    }
+
+    if (game.logoIsVideo) {
+      setDisplayedLogo({ url: game.logoUrl, isVideo: true });
+      return;
+    }
+
+    let cancelled = false;
+    const img = new Image();
+    img.onload = () => {
+      if (!cancelled) {
+        setDisplayedLogo({ url: game.logoUrl || '', isVideo: false });
+      }
+    };
+    img.onerror = () => {
+      if (!cancelled) {
+        setDisplayedLogo({ url: '', isVideo: false });
+      }
+    };
+    img.src = game.logoUrl;
+
+    if (img.complete && img.naturalWidth > 0) {
+      setDisplayedLogo({ url: game.logoUrl, isVideo: false });
+    }
+
+    return () => {
+      cancelled = true;
+      img.onload = null;
+      img.onerror = null;
+      img.src = '';
+    };
+  }, [game?.id, game?.logoUrl, game?.logoIsVideo, disableAnimatedLogos, overlaysOpen]);
 
   // Load preferences on mount
   useEffect(() => {
@@ -561,9 +607,6 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
   // Banner at top of panel always uses primary artwork (hero/banner/boxArt).
   // Alternative Background toggle only affects the full-page backdrop in App.tsx.
   const backgroundImageUrl = game.heroUrl || game.bannerUrl || game.boxArtUrl || '';
-  const backgroundLoadKey = `bg:${backgroundImageUrl}`;
-  const logoLoadKey = `logo:${game.logoUrl || ''}`;
-  const boxartLoadKey = `boxart:${game.boxArtUrl || ''}`;
   const backgroundFromHero = game.heroUrl === backgroundImageUrl;
   const backgroundFromBanner = game.bannerUrl === backgroundImageUrl;
   const backgroundFromBoxart = game.boxArtUrl === backgroundImageUrl;
@@ -579,10 +622,8 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
   // Helper function to detect animated media (animated image formats + webm video)
   const isAnimatedImage = (url: string) => /\.(gif|webp|apng|webm)(\?|$)/i.test(url);
   const isAnimatedMedia = (url: string, isVideo?: boolean) => !!isVideo || isAnimatedImage(url);
-  const isLogoVideo = !!game.logoIsVideo;
   const isBoxartVideo = !!game.boxArtIsVideo;
   const disableAnimatedBannersBySettings = disableAnimatedBanners && !overlaysOpen;
-  const disableAnimatedLogosBySettings = disableAnimatedLogos && !overlaysOpen;
   const disableAnimatedBoxartsBySettings = disableAnimatedBoxarts && !overlaysOpen;
   const disableAnimatedIconsBySettings = disableAnimatedIcons && !overlaysOpen;
   const shouldDisableAnimatedCurrentBackground =
@@ -631,6 +672,22 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
   const boxartSideInset = rightPanelBoxartPosition !== 'none' && game.boxArtUrl
     ? Math.max(24, Math.min(renderedBoxartWidth + 24, Math.floor(activePanelWidth * 0.24)))
     : 0;
+  const logoAreaOuterInset = 24;
+  const boxartPanelInset = 56;
+  const logoAreaPositionStyle: React.CSSProperties = rightPanelBoxartPosition === 'none'
+    ? {
+      left: `${logoAreaOuterInset}px`,
+      right: `${logoAreaOuterInset}px`,
+    }
+    : rightPanelBoxartPosition === 'right'
+      ? {
+        left: `${logoAreaOuterInset}px`,
+        right: `${boxartPanelInset + renderedBoxartWidth + logoAreaOuterInset}px`,
+      }
+      : {
+        left: `${boxartPanelInset + renderedBoxartWidth + logoAreaOuterInset}px`,
+        right: `${logoAreaOuterInset}px`,
+      };
   const descriptionTopPadding = logoClearancePadding;
   const detailsTopPadding = rightPanelBoxartPosition === 'right'
     ? Math.max(logoClearancePadding, Math.ceil(renderedBoxartWidth * 1.5 * 0.5) + 24)
@@ -691,9 +748,6 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
                 preload="auto"
                 className="w-full h-full object-cover cursor-pointer"
                 style={{ height: `${fanartHeight}px` }}
-                onLoadedData={() => {
-                  setImageLoaded(prev => ({ ...prev, [backgroundLoadKey]: true }));
-                }}
                 onError={(e) => {
                   const v = e.currentTarget;
                   v.style.display = 'none';
@@ -712,9 +766,6 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
                     contain: 'layout style paint',
                   } : {})
                 }}
-                onLoad={() => {
-                  setImageLoaded(prev => ({ ...prev, [backgroundLoadKey]: true }));
-                }}
                 onError={(e) => {
                   const target = e.target as HTMLImageElement;
                   // Prevent infinite retry loop
@@ -728,15 +779,12 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
             {/* Blurred background for logo area - Disabled if animated to prevent glitches */}
             {game.logoUrl && !/\.(gif|webp|apng|webm)(\?|$)/i.test(backgroundImageUrl) && !isBackgroundVideo && (
               <div
-                className={`absolute bottom-0 z-10 ${rightPanelBoxartPosition === 'left' ? 'right-6' :
-                  rightPanelBoxartPosition === 'right' ? 'left-6' :
-                    'left-1/2 transform -translate-x-1/2'
-                  }`}
+                className="absolute bottom-0 z-10"
                 style={{
-                  width: rightPanelBoxartPosition === 'none' ? 'calc(100% - 3rem)' : 'calc(100% - 11rem)', // Full width when no boxart, space for boxart otherwise
+                  ...logoAreaPositionStyle,
                   height: '60%',
-                  transform: rightPanelBoxartPosition === 'none' ? 'translateY(50%) translateX(-50%)' : 'translateY(50%)',
-                  pointerEvents: 'none'
+                  transform: 'translateY(50%)',
+                  pointerEvents: 'none',
                 }}
               >
                 <div
@@ -758,35 +806,34 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
 
         {/* Logo - Position based on rightPanelBoxartPosition */}
         <div
-          className={`absolute bottom-0 z-20 flex items-center justify-center ${rightPanelBoxartPosition === 'left' ? 'right-6' :
-            rightPanelBoxartPosition === 'right' ? 'left-6' :
-              'left-1/2 transform -translate-x-1/2'
-            }`}
+          className="absolute bottom-0 z-20 flex items-center justify-center"
           data-logo-area
           style={{
-            width: rightPanelBoxartPosition === 'none' ? 'calc(100% - 3rem)' : 'calc(100% - 11rem)',
-            transform: rightPanelBoxartPosition === 'none' ? 'translateY(50%) translateX(-50%)' : 'translateY(50%)',
+            ...logoAreaPositionStyle,
+            transform: 'translateY(50%)',
             maxHeight: '60%',
             contain: 'layout style',
           }}
         >
-          {game.logoUrl && (isLogoVideo || !isAnimatedMedia(game.logoUrl, isLogoVideo) || !disableAnimatedLogosBySettings) ? (
+          {displayedLogo.url ? (
             <div
+              key={displayedLogo.url}
+              className="game-logo-swap-in"
               onContextMenu={(e) => {
                 // Allow event to bubble up to parent to open RightClickMenu
                 e.preventDefault();
               }}
               style={{ pointerEvents: 'auto' }}
             >
-              {game.logoIsVideo ? (
+              {displayedLogo.isVideo ? (
                 <video
-                  src={game.logoUrl}
+                  src={displayedLogo.url}
                   data-animation-kind="logo"
                   muted
                   loop
                   playsInline
                   autoPlay
-                  className={`max-w-full max-h-full object-contain cursor-pointer drop-shadow-2xl ${imageLoaded[logoLoadKey] ? 'game-logo-transition-fast' : ''}`}
+                  className="max-w-full max-h-full object-contain cursor-pointer drop-shadow-2xl"
                   style={{
                     maxHeight: `${requestedLogoHeight}px`,
                     display: 'block',
@@ -796,31 +843,22 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
                       padding: '8px',
                       borderRadius: '4px'
                     } : {})
-                  }}
-                  onLoadedData={() => {
-                    setImageLoaded(prev => ({ ...prev, [logoLoadKey]: true }));
                   }}
                 />
               ) : (
                 <img
-                  src={game.logoUrl}
+                  src={displayedLogo.url}
                   alt={game.title}
-                  className={`max-w-full max-h-full object-contain cursor-pointer drop-shadow-2xl ${imageLoaded[logoLoadKey] ? (isAnimatedImage(game.logoUrl) ? 'game-logo-transition-fast' : 'game-logo-transition') : ''}`}
+                  className="max-w-full max-h-full object-contain cursor-pointer drop-shadow-2xl"
                   style={{
                     maxHeight: `${requestedLogoHeight}px`,
                     display: 'block',
                     contain: 'layout style paint',
-                    ...(isAnimatedImage(game.logoUrl) ? {
-                      willChange: 'transform',
-                    } : {}),
                     ...(game.removeLogoTransparency ? {
                       backgroundColor: 'rgba(0, 0, 0, 0.5)',
                       padding: '8px',
                       borderRadius: '4px'
                     } : {})
-                  }}
-                  onLoad={() => {
-                    setImageLoaded(prev => ({ ...prev, [logoLoadKey]: true }));
                   }}
                   onError={(e) => {
                     const target = e.target as HTMLImageElement;
@@ -866,9 +904,6 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
                   autoPlay
                   className="aspect-[2/3] object-cover rounded border border-gray-600 shadow-lg cursor-pointer"
                   style={{ width: `${renderedBoxartWidth}px` }}
-                  onLoadedData={() => {
-                    setImageLoaded(prev => ({ ...prev, [boxartLoadKey]: true }));
-                  }}
                   onContextMenu={(e) => {
                     e.preventDefault();
                   }}
@@ -884,9 +919,6 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
                       willChange: 'transform',
                       contain: 'layout style paint',
                     } : {})
-                  }}
-                  onLoad={() => {
-                    setImageLoaded(prev => ({ ...prev, [boxartLoadKey]: true }));
                   }}
                   onError={(e) => {
                     const target = e.target as HTMLImageElement;
@@ -939,7 +971,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
       <div className="flex-1" style={{ overflowX: 'hidden', minHeight: 0 }}>
         <div
           key={game.id}
-          className="p-6 flex flex-col gap-6 h-full min-h-0 game-details-content"
+          className="p-6 flex flex-col gap-6 h-full min-h-0"
           style={{
             paddingTop: `${baseContentTopPadding}px`
           }}

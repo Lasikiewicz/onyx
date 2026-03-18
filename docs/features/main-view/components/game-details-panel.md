@@ -16,6 +16,7 @@ Right-hand panel in the library window (grid/list/logo modes) that shows the sel
 - Right panel: hero/banner/boxart background, logo, boxart position/size, metadata (release date, platform, genres, etc.), description (resizable width/height), link bar, Play/Edit/Mod Manager and other actions. Right-click opens context menu. Resizable panel width via left-edge drag. Bottom action bar (Edit, Play, links) is resizable by dragging its top edge; bar height and content scale are persisted.
 - The description/details column split remains horizontally resizable, but the divider is visually hidden until hover/drag feedback appears.
 - The top-level "Description" and "Details" headings are intentionally omitted so the panel starts directly with game content.
+- When the selected game changes, the panel keeps text content stable, buffers the next logo until it is ready instead of swapping immediately, and lets the logo grow into its chosen size on mount. The logo area is centered in the open space between the panel edge and the boxart in [`GameDetailsPanel.tsx`](../../../../renderer/src/components/GameDetailsPanel.tsx).
 
 ## Settings and Toggles
 

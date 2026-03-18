@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Pending
 
+- Game details panel:
+  - Buffer the next logo until it is ready when switching games so the right panel no longer flickers on logo swaps.
+  - Keep the logo centered in the open space between the boxart and the panel edge while preserving the existing fallback title when no logo is available.
+  - Animate the newly selected logo from a smaller start into the user-chosen size with a slower, more deliberate grow-in so the switch feels smooth without animating the surrounding text.
+
 ## [0.7.43] - 2026-03-18
 
 - Settings:
