@@ -18,6 +18,7 @@ Provides the staged import-review workspace for bringing newly discovered or man
 
 - The `Add Games` entry point in [`MenuBar.tsx`](../../renderer/src/components/MenuBar.tsx), which opens the importer flow from the main app menu.
 - The importer shell in [`ImportWorkbenchV2.tsx`](../../renderer/src/components/importer/ImportWorkbenchV2.tsx), which manages staged queue state, scanning, import progress, and close/confirm behavior.
+- The interactive importer hero in [`InteractiveOnyxLogo.tsx`](../../renderer/src/components/importer/InteractiveOnyxLogo.tsx), which gives the empty-state preview the same mouse-reactive 3D Onyx cube treatment used on the website homepage, now tracks pointer motion across the full app window, and renders the glowing ring treatment on every cube face.
 - The staged game editor in [`GamePropertiesPanel.tsx`](../../renderer/src/components/GamePropertiesPanel.tsx), which provides per-game Metadata, Images, Links, and Mod Manager tabs before import.
 - [`GamePropertiesPanel.tsx`](../../renderer/src/components/GamePropertiesPanel.tsx) now mainly acts as the shared staged-editor shell for tab state, editable-field state, save flushing, and footer actions while delegating tab rendering to focused `gameProperties/` components.
 - The extracted Links tab in [`GamePropertiesLinksTab.tsx`](../../renderer/src/components/gameProperties/GamePropertiesLinksTab.tsx), which now owns staged link-row editing and icon rendering for Add Games review.
@@ -39,10 +40,11 @@ Provides the staged import-review workspace for bringing newly discovered or man
 ## Confirmed End-to-End Flows
 
 1. User opens Add Games from the menu or from a found-games/startup-scan handoff, which opens [`ImportWorkbenchV2.tsx`](../../renderer/src/components/importer/ImportWorkbenchV2.tsx).
-2. The importer scans configured sources or accepts pre-scanned games, building a staged `queue` of [`StagedGame`](../../renderer/src/types/importer.ts) records.
-3. User selects staged entries in the sidebar and edits them through [`GamePropertiesPanel.tsx`](../../renderer/src/components/GamePropertiesPanel.tsx), including metadata fixes, artwork fetch/browse, link changes, categories, and launch fields.
-4. Ignored entries stay out of the ready/import view, while ready entries remain in the queue until the user starts import.
-5. Import commits the reviewed staged games through the main-process import pipeline and persists them into the library, after which the importer closes or refreshes surrounding UI state.
+2. If no staged game is selected yet, the importer keeps the staged-game sidebar collapsed and shows a branded onboarding hero with scan CTA, full source list, and the interactive 3D Onyx cube before any staged-game editor is shown.
+3. The importer scans configured sources or accepts pre-scanned games, building a staged `queue` of [`StagedGame`](../../renderer/src/types/importer.ts) records.
+4. User selects staged entries in the sidebar and edits them through [`GamePropertiesPanel.tsx`](../../renderer/src/components/GamePropertiesPanel.tsx), including metadata fixes, artwork fetch/browse, link changes, categories, and launch fields.
+5. Ignored entries stay out of the ready/import view, while ready entries remain in the queue until the user starts import.
+6. Import commits the reviewed staged games through the main-process import pipeline and persists them into the library, after which the importer closes or refreshes surrounding UI state.
 
 ## Discovery and Data Sources
 
@@ -68,10 +70,11 @@ Provides the staged import-review workspace for bringing newly discovered or man
 ## File Ownership Map
 
 - [`ImportWorkbenchV2.tsx`](../../renderer/src/components/importer/ImportWorkbenchV2.tsx) - top-level Add Games shell for staged queue state, scanning, import progress, and modal lifecycle.
+- [`InteractiveOnyxLogo.tsx`](../../renderer/src/components/importer/InteractiveOnyxLogo.tsx) - website-inspired 3D empty-state cube with mouse-reactive rotation and logo-face spin used by the Add Games onboarding hero.
 - [`GamePropertiesPanel.tsx`](../../renderer/src/components/GamePropertiesPanel.tsx) - per-staged-game editor covering metadata, images, links, and mod-manager fields before import.
 - [`GamePropertiesMetadataTab.tsx`](../../renderer/src/components/gameProperties/GamePropertiesMetadataTab.tsx) - extracted staged Metadata tab UI for importer review.
 - [`GamePropertiesImagesTab.tsx`](../../renderer/src/components/gameProperties/GamePropertiesImagesTab.tsx) - extracted staged Images tab UI for importer review.
-- [`GamePropertiesImageStrip.tsx`](../../renderer/src/components/gameProperties/GamePropertiesImageStrip.tsx) - extracted staged artwork slot strip used by the metadata and Images tabs.
+- [`GamePropertiesImageStrip.tsx`](../../renderer/src/components/gameProperties/GamePropertiesImageStrip.tsx) - extracted staged artwork slot strip used by the metadata and Images tabs, with normalized preview heights across boxart, logo, banner, alt-banner, and icon slots.
 - [`GamePropertiesLinksTab.tsx`](../../renderer/src/components/gameProperties/GamePropertiesLinksTab.tsx) - extracted staged Links tab UI for per-link row editing and icon rendering before import.
 - [`GamePropertiesModManagerTab.tsx`](../../renderer/src/components/gameProperties/GamePropertiesModManagerTab.tsx) - extracted staged Mod Manager tab UI for import-time mod-manager status and launch actions.
 - [`useGamePropertiesMetadata.ts`](../../renderer/src/components/gameProperties/useGamePropertiesMetadata.ts) - extracted staged metadata undo, fix-match search, and apply-match workflow.

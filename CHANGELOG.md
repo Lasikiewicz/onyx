@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Pending
 
+- Add Games:
+  - Replace the initial importer empty state with a branded two-column onboarding layout, a launcher-source list, and a left sidebar that stays collapsed until scanning begins.
+  - Replace the opener logo treatment with the same mouse-reactive 3D Onyx cube used on the website homepage, now reacting to mouse movement anywhere on screen, rendering as a closed cube without edge gaps, and showing the glowing ring on every face.
+  - Tidy the onboarding hero alignment by centering the cube in the right-side space and keeping the copy block offset on the left.
+  - Normalize staged artwork preview heights so boxart and icon no longer tower over the logo and banner slots after scan results load.
 - Updater:
   - Show a download progress bar in the update modal while an app update is being downloaded.
 
