@@ -4,7 +4,7 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## Pending
+## [0.7.42] - 2026-03-18
 
 - Game details panel:
   - Align the right-side Details metadata column to the panel's right edge.
@@ -12,7 +12,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   - Round displayed community, user, and critic scores to whole numbers.
   - Tighten the Details metadata spacing so labels sit closer to their values and the column uses less vertical space.
   - Rework wide Description sections so each image pairs with its nearest text block using a 60% floated media treatment, no-image sections stay full-width and left-aligned, overflow text continues underneath its image, and screenshots fill the available width while preserving their own aspect ratios.
-  - Set the wide Description image/text split to 65% media and 35% text.
 
 ## [0.7.41] - 2026-03-17
 
