@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import type { Game } from '../types/game';
 import { CustomDefaultsManager } from './CustomDefaultsManager';
 import { ConfirmationDialog } from './ConfirmationDialog';
-import { MenuSliderRow } from './MenuSliderRow';
+import { InfoHintButton, MenuSliderRow } from './MenuSliderRow';
 
 export interface RightClickMenuProps {
   x: number;
@@ -294,16 +294,15 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
   const menuOpacity = Math.max(0.18, 1 - (menuTransparency / 100));
   const menuBackground = `rgba(31, 41, 55, ${menuOpacity})`;
   const menuBackdropBlur = `${Math.max(8, Math.round((100 - menuTransparency) * 0.22))}px`;
-  const focusedPanelPadding = 18;
+  const menuTransparencyPercent = Math.max(0, Math.min(100, (menuTransparency / 75) * 100));
+  const focusedAreaHorizontalPadding = 44;
+  const focusedAreaVerticalPadding = 42;
   const focusedPanelTop = 56;
   const focusedPanelBottom = 18;
   const focusedSectionTarget = activeEditorSection === 'games-view' ? 'details-panel' : 'games-panel';
-  const dividerGuardInset = activeEditorSection === 'dividers' ? 28 : 0;
-  const defaultMenuWidth = viewMode === 'list' ? 1040 : 760;
-  const dividerPanelWidth = 760;
-  const focusedAreaWidth = activeEditorSection === 'dividers'
-    ? dividerPanelWidth
-    : focusedSectionTarget === 'details-panel'
+  const dividerGuardInset = activeEditorSection === 'dividers' ? 18 : 0;
+  const defaultMenuWidth = viewMode === 'list' ? 1240 : 980;
+  const focusedAreaWidth = focusedSectionTarget === 'details-panel'
       ? panelWidth
       : Math.max(320, window.innerWidth - panelWidth);
   const dividerIsOnStartEdge = activeEditorSection === 'dividers'
@@ -311,15 +310,38 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
     : focusedSectionTarget === 'details-panel'
       ? isViewFlipped
       : !isViewFlipped;
-  const panelInsetStart = focusedPanelPadding + (isFocusedEditorSection && dividerIsOnStartEdge ? dividerGuardInset : 0);
-  const panelInsetEnd = focusedPanelPadding + (isFocusedEditorSection && !dividerIsOnStartEdge ? dividerGuardInset : 0);
-  const focusedPanelWidth = Math.max(320, focusedAreaWidth - panelInsetStart - panelInsetEnd);
-  const focusedPanelHeight = `calc(100vh - ${focusedPanelTop + focusedPanelBottom}px)`;
+  const panelInsetStart = focusedAreaHorizontalPadding + (isFocusedEditorSection && dividerIsOnStartEdge ? dividerGuardInset : 0);
+  const panelInsetEnd = focusedAreaHorizontalPadding + (isFocusedEditorSection && !dividerIsOnStartEdge ? dividerGuardInset : 0);
+  const focusedAreaHeight = Math.max(420, window.innerHeight - focusedPanelTop - focusedPanelBottom);
+  const focusedPanelWidth = Math.max(
+    420,
+    Math.min(
+      activeEditorSection === 'dividers' ? 760 : 880,
+      focusedAreaWidth - panelInsetStart - panelInsetEnd,
+    ),
+  );
+  const focusedPanelHeightPx = Math.max(420, focusedAreaHeight - (focusedAreaVerticalPadding * 2));
+  const focusedPanelHeight = `${focusedPanelHeightPx}px`;
   const menuMinWidth = !isSectionedEditor
     ? defaultMenuWidth
     : !isFocusedEditorSection
       ? defaultMenuWidth
       : focusedPanelWidth;
+  const focusedGamesViewLayoutClass = viewMode === 'list'
+    ? 'columns-2 gap-2 [&>*]:mb-2 [&>*]:break-inside-avoid [&>*]:w-full'
+    : 'columns-2 gap-2 [&>*]:mb-2 [&>*]:break-inside-avoid [&>*]:w-full';
+  const focusedSectionLayoutClass = 'columns-2 gap-2 [&>*]:mb-2 [&>*]:break-inside-avoid [&>*]:w-full';
+  const settingDescriptionDisplay = isFocusedEditorSection ? 'inline' : 'icon';
+
+  const renderSettingHintIcon = (description: string) => (
+    <InfoHintButton description={description} />
+  );
+
+  const renderSettingDescription = (description: string) => (
+    settingDescriptionDisplay === 'inline'
+      ? <p className="mb-2 text-[11px] leading-4 text-gray-300/90">{description}</p>
+      : null
+  );
 
   // State for Per-Game Override Clear Confirmation
   const [showClearPerGameConfirm, setShowClearPerGameConfirm] = React.useState(false);
@@ -408,13 +430,11 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
       if (isFocusedEditorSection) {
         const detailsPanelLeft = isViewFlipped ? 0 : viewportWidth - panelWidth;
         const gamesPanelLeft = isViewFlipped ? panelWidth : 0;
-        const areaBaseLeft = activeEditorSection === 'dividers'
-          ? 0
-          : focusedSectionTarget === 'details-panel'
-            ? detailsPanelLeft
-            : gamesPanelLeft;
-        left = areaBaseLeft + panelInsetStart;
-        top = focusedPanelTop;
+        const areaBaseLeft = focusedSectionTarget === 'details-panel' ? detailsPanelLeft : gamesPanelLeft;
+        const availableAreaWidth = Math.max(0, focusedAreaWidth - panelInsetStart - panelInsetEnd);
+        const centeredLeftOffset = panelInsetStart + Math.max(0, (availableAreaWidth - focusedPanelWidth) / 2);
+        left = areaBaseLeft + centeredLeftOffset;
+        top = focusedPanelTop + Math.max(0, (focusedAreaHeight - focusedPanelHeightPx) / 2);
       }
 
       // Clamp to viewport so the menu remains fully visible.
@@ -424,7 +444,7 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
       menuRef.current.style.left = `${left}px`;
       menuRef.current.style.top = `${top}px`;
     }
-  }, [x, y, viewMode, isFocusedEditorSection, activeEditorSection, panelWidth, isViewFlipped, panelInsetStart, focusedSectionTarget]);
+  }, [x, y, viewMode, isFocusedEditorSection, activeEditorSection, panelWidth, isViewFlipped, panelInsetStart, panelInsetEnd, focusedSectionTarget, focusedAreaWidth, focusedAreaHeight, focusedPanelWidth, focusedPanelHeightPx]);
 
   React.useEffect(() => {
     const handleViewportChange = () => {
@@ -765,12 +785,14 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
   const renderButtonColorsTrigger = ({
     editorKey,
     title,
+    description,
     colors,
     onChange,
     onReset,
   }: {
     editorKey: 'carousel' | 'details';
     title: string;
+    description?: string;
     colors?: { playColor?: string; editColor?: string; modManagerColor?: string };
     onChange?: (colors: { playColor?: string; editColor?: string; modManagerColor?: string }) => void;
     onReset?: () => void;
@@ -799,8 +821,17 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
           className="w-full flex items-center justify-between gap-3 text-left"
         >
           <div>
-            <div className="text-xs text-gray-400 font-semibold">{title}</div>
-            <div className="text-[11px] text-gray-500 mt-0.5">Open color picker</div>
+            <div className="flex items-center gap-2">
+              <div className="text-xs text-gray-400 font-semibold">{title}</div>
+              {description && settingDescriptionDisplay === 'icon' && renderSettingHintIcon(description)}
+            </div>
+            {description && settingDescriptionDisplay === 'inline' ? (
+              <div className="text-[11px] text-gray-300/90 mt-0.5">{description}</div>
+            ) : (
+              <div className="text-[11px] text-gray-500 mt-0.5">
+                {settingDescriptionDisplay === 'inline' ? 'Open color picker' : ''}
+              </div>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-1">
@@ -984,7 +1015,7 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
 
           <div className="flex items-center gap-1.5">
             {isSectionedEditor && (
-              <div className="flex items-center gap-1 rounded-md border border-gray-600 bg-gray-900/35 px-1 py-1">
+              <>
                 {([
                   ['games-view', 'Games View'],
                   ['dividers', 'Dividers'],
@@ -993,23 +1024,23 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                   <button
                     key={sectionKey}
                     onClick={() => setActiveEditorSection((current) => current === sectionKey ? null : sectionKey)}
-                    className={`px-2.5 py-1 text-[11px] rounded transition-colors font-medium ${
+                    className={`px-2 py-1 text-[11px] rounded transition-colors border font-medium ${
                       activeEditorSection === sectionKey
-                        ? 'bg-blue-600/40 text-white border border-blue-500'
-                        : 'bg-transparent text-gray-300 hover:bg-gray-700/60 border border-transparent'
+                        ? 'bg-blue-700 text-white border-blue-600'
+                        : 'bg-gray-700 text-gray-300 hover:bg-gray-600 border-gray-600'
                     }`}
                   >
                     {label}
                   </button>
                 ))}
-              </div>
+              </>
             )}
           </div>
 
           <div className="flex items-center gap-2">
             {isSectionedEditor && (
-              <div className="flex items-center gap-2 rounded-md border border-gray-600 bg-gray-900/35 px-2 py-1">
-                <span className="text-[10px] text-gray-400 whitespace-nowrap">Menu Transparency</span>
+              <div className="flex min-w-[190px] items-center gap-2 rounded text-[11px] transition-colors bg-gray-700 text-gray-300 hover:bg-gray-600 border border-gray-600 font-medium px-2 py-1">
+                <span className="shrink-0 text-[10px] text-gray-300 whitespace-nowrap">Menu Transparency</span>
                 <input
                   type="range"
                   min="0"
@@ -1017,7 +1048,13 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                   step="1"
                   value={menuTransparency}
                   onChange={(e) => setMenuTransparency(Number(e.target.value))}
-                  className="w-20 accent-blue-500"
+                  style={{
+                    backgroundImage: `linear-gradient(90deg, rgba(59,130,246,0.95) 0%, rgba(59,130,246,0.95) ${menuTransparencyPercent}%, rgba(255,255,255,0.18) ${menuTransparencyPercent}%, rgba(255,255,255,0.18) 100%)`,
+                    backgroundSize: '100% 2px',
+                    backgroundPosition: 'center',
+                    backgroundRepeat: 'no-repeat',
+                  }}
+                  className="min-w-[88px] flex-1 accent-blue-500 slider h-1"
                 />
               </div>
             )}
@@ -1587,7 +1624,7 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
               <div className={`${
                 isFocusedEditorSection
                   ? activeEditorSection === 'games-view'
-                    ? (viewMode === 'list' ? 'grid grid-cols-2 gap-2' : 'space-y-2')
+                    ? focusedGamesViewLayoutClass
                     : 'hidden'
                   : viewMode === 'list'
                     ? 'col-span-2 grid grid-cols-2 gap-2'
@@ -1595,9 +1632,13 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
               }`}>
                 {/* Categories Section */}
                 {(viewMode as string) !== 'carousel' && onShowCategoriesInGameListChange && (
+                  <>
                   <div className="px-3 py-2 bg-gray-700/30 rounded-md space-y-3">
                     <div className="flex items-center justify-between">
-                      <label className="text-xs text-gray-300 font-medium">Show Categories</label>
+                      <div className="flex items-center gap-2">
+                        <label className="text-xs text-gray-300 font-medium">Show Categories</label>
+                        {settingDescriptionDisplay === 'icon' && renderSettingHintIcon('Shows or hides the pinned category chips above or below the games view.')}
+                      </div>
                       <button
                         onClick={() => onShowCategoriesInGameListChange(!showCategoriesInGameList)}
                         className={`relative inline-flex h-3.5 w-7 items-center rounded-full transition-all ${showCategoriesInGameList ? 'bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]' : 'bg-gray-600'
@@ -1609,9 +1650,15 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                         />
                       </button>
                     </div>
+                    {renderSettingDescription('Shows or hides the pinned category chips above or below the games view.')}
+                  </div>
 
+                  <div className="px-3 py-2 bg-gray-700/30 rounded-md space-y-3">
                     <div className="flex items-center justify-between">
-                      <label className="text-xs text-gray-300 font-medium">Alternative Background</label>
+                      <div className="flex items-center gap-2">
+                        <label className="text-xs text-gray-300 font-medium">Alternative Background</label>
+                        {settingDescriptionDisplay === 'icon' && renderSettingHintIcon('Switches the selected game to its alternate background artwork when available.')}
+                      </div>
                       <button
                         onClick={handleAlternativeBackgroundToggle}
                         disabled={!activeGame}
@@ -1622,9 +1669,11 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                         />
                       </button>
                     </div>
+                    {renderSettingDescription('Switches the selected game to its alternate background artwork when available.')}
+                  </div>
 
                     {showCategoriesInGameList && (
-                      <div className="space-y-3 pt-3 border-t border-white/5 animate-in fade-in slide-in-from-top-1 duration-200">
+                      <div className="px-3 py-2 bg-gray-700/30 rounded-md space-y-3 animate-in fade-in slide-in-from-top-1 duration-200">
                         {/* Position */}
                         <div>
                           <label className="block text-xs text-gray-400 mb-2 font-semibold">Categories Position</label>
@@ -1667,6 +1716,8 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                         <div>
                           <MenuSliderRow
                             label="Categories Size"
+                            description="Changes the size of the category chips shown in the games view."
+                            descriptionDisplay={settingDescriptionDisplay}
                             min={10}
                             max={24}
                             step={1}
@@ -1682,7 +1733,7 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                         </div>
                       </div>
                     )}
-                  </div>
+                  </>
                 )}
 
                 {/* Size control per view */}
@@ -1690,6 +1741,10 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                   <div className="px-3 py-2 bg-gray-700/30 rounded-md">
                     <MenuSliderRow
                       label={getSizeLabel()}
+                      description={viewMode === 'grid'
+                        ? 'Changes how large each game card appears in the grid.'
+                        : 'Changes how large each logo tile appears in this view.'}
+                      descriptionDisplay={settingDescriptionDisplay}
                       min={sizeRange.min}
                       max={sizeRange.max}
                       step={1}
@@ -1708,7 +1763,10 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                 {viewMode === 'grid' && onAutoSizeToFitChange && (
                   <div className="px-3 py-2 bg-gray-700/30 rounded-md">
                     <div className="flex items-center justify-between gap-3">
-                      <label className="text-xs text-gray-400 font-medium">Fill Available Space</label>
+                      <div className="flex items-center gap-2">
+                        <label className="text-xs text-gray-400 font-medium">Fill Available Space</label>
+                        {settingDescriptionDisplay === 'icon' && renderSettingHintIcon('Automatically sizes the grid cards to better fill the available games area.')}
+                      </div>
                       <button
                         onClick={() => onAutoSizeToFitChange(!autoSizeToFit)}
                         className={`relative inline-flex h-3 w-6 items-center rounded-full transition-colors ${autoSizeToFit ? 'bg-blue-600' : 'bg-gray-600'
@@ -1721,6 +1779,7 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                         />
                       </button>
                     </div>
+                    {renderSettingDescription('Automatically sizes the grid cards to better fill the available games area.')}
                   </div>
                 )}
 
@@ -1728,7 +1787,10 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                 {viewMode === 'grid' && (
                   <div className="px-3 py-2 bg-gray-700/30 rounded-md">
                     <div className="flex items-center justify-between mb-2">
-                      <label className="text-xs text-gray-400 font-medium">Show Logo Over Boxart</label>
+                      <div className="flex items-center gap-2">
+                        <label className="text-xs text-gray-400 font-medium">Show Logo Over Boxart</label>
+                        {settingDescriptionDisplay === 'icon' && renderSettingHintIcon('Shows the game logo on top of the cover art instead of leaving the cover clean.')}
+                      </div>
                       <button
                         onClick={() => onShowLogoOverBoxartChange?.(!showLogoOverBoxart)}
                         className={`relative inline-flex h-3 w-6 items-center rounded-full transition-colors ${showLogoOverBoxart ? 'bg-blue-600' : 'bg-gray-600'
@@ -1740,6 +1802,7 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                         />
                       </button>
                     </div>
+                    {renderSettingDescription('Shows the game logo on top of the cover art instead of leaving the cover clean.')}
 
                     {showLogoOverBoxart && (
                       <>
@@ -1792,6 +1855,8 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                   <div className="px-3 py-2 bg-gray-700/30 rounded-md">
                     <MenuSliderRow
                       label={paddingLabel}
+                      description="Adds or removes spacing between game tiles."
+                      descriptionDisplay={settingDescriptionDisplay}
                       min={paddingRange.min}
                       max={paddingRange.max}
                       step={1}
@@ -1811,6 +1876,8 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                   <div className="px-3 py-2 bg-gray-700/30 rounded-md">
                     <MenuSliderRow
                       label="Logo Tile Background Transparency"
+                      description="Controls how visible the logo tile background panel is in logo view."
+                      descriptionDisplay={settingDescriptionDisplay}
                       min={0}
                       max={100}
                       step={1}
@@ -1899,6 +1966,8 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                         <div className="pt-2">
                           <MenuSliderRow
                             label="Boxart Size"
+                            description="Changes how large the cover art appears in each list row."
+                            descriptionDisplay={settingDescriptionDisplay}
                             min={30}
                             max={200}
                             step={1}
@@ -1924,6 +1993,8 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                         <div className="pt-2">
                           <MenuSliderRow
                             label="Logo Size"
+                            description="Changes how large the logo appears in each list row."
+                            descriptionDisplay={settingDescriptionDisplay}
                             min={30}
                             max={200}
                             step={1}
@@ -1949,6 +2020,8 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                         <div className="pt-2">
                           <MenuSliderRow
                             label="Tile Size"
+                            description="Changes how large the icon tile appears in each list row."
+                            descriptionDisplay={settingDescriptionDisplay}
                             min={30}
                             max={200}
                             step={1}
@@ -1974,6 +2047,8 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                         <div>
                           <MenuSliderRow
                             label="Title Text Size"
+                            description="Changes the size of the game title text in list rows."
+                            descriptionDisplay={settingDescriptionDisplay}
                             min={12}
                             max={32}
                             step={1}
@@ -2032,6 +2107,8 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                       <div className="pt-2">
                         <MenuSliderRow
                           label="Section Text Size"
+                          description="Changes the size of the extra metadata text shown in each row."
+                          descriptionDisplay={settingDescriptionDisplay}
                           min={10}
                           max={18}
                           step={1}
@@ -2058,6 +2135,8 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                 <div className="px-3 py-2 bg-gray-700/30 rounded-md">
                   <MenuSliderRow
                     label="Background Blur Amount"
+                    description="Controls how much the background artwork is blurred behind the games view."
+                    descriptionDisplay={settingDescriptionDisplay}
                     min={0}
                     max={100}
                     step={1}
@@ -2075,6 +2154,8 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                 <div className="px-3 py-2 bg-gray-700/30 rounded-md">
                   <MenuSliderRow
                     label="Background Brightness"
+                    description="Controls how bright the background artwork appears behind the games view."
+                    descriptionDisplay={settingDescriptionDisplay}
                     min={0}
                     max={100}
                     step={1}
@@ -2090,11 +2171,13 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
               </div>
 
               {/* Middle Column - Dividers (All non-carousel views) */}
-              <div className={`${isFocusedEditorSection ? (activeEditorSection === 'dividers' ? 'space-y-2' : 'hidden') : 'space-y-2'}`}>
+              <div className={`${isFocusedEditorSection ? (activeEditorSection === 'dividers' ? focusedSectionLayoutClass : 'hidden') : 'space-y-2'}`}>
                 {/* Right Panel Width Control */}
                 <div className="px-3 py-2 bg-gray-700/30 rounded-md">
                   <MenuSliderRow
                     label="Right Panel Width"
+                    description="Changes how much horizontal space the game details panel uses."
+                    descriptionDisplay={settingDescriptionDisplay}
                     min={400}
                     max={Math.floor(window.innerWidth * 0.75)}
                     step={10}
@@ -2112,6 +2195,8 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                 <div className="px-3 py-2 bg-gray-700/30 rounded-md">
                   <MenuSliderRow
                     label="Banner Height"
+                    description="Changes how tall the top artwork banner is in the details panel."
+                    descriptionDisplay={settingDescriptionDisplay}
                     min={150}
                     max={500}
                     step={10}
@@ -2129,6 +2214,8 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                 <div className="px-3 py-2 bg-gray-700/30 rounded-md">
                   <MenuSliderRow
                     label="Description Width"
+                    description="Changes how much of the content area is given to the description column."
+                    descriptionDisplay={settingDescriptionDisplay}
                     min={20}
                     max={80}
                     step={1}
@@ -2146,6 +2233,8 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                 <div className="px-3 py-2 bg-gray-700/30 rounded-md">
                   <MenuSliderRow
                     label="Bottom Bar Height"
+                    description="Changes the height of the bottom action bar with buttons and links."
+                    descriptionDisplay={settingDescriptionDisplay}
                     min={48}
                     max={140}
                     step={2}
@@ -2161,7 +2250,7 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
               </div>
 
               {/* Right Column */}
-              <div className={`${isFocusedEditorSection ? (activeEditorSection === 'details-view' ? 'space-y-2' : 'hidden') : 'space-y-2'}`}>
+              <div className={`${isFocusedEditorSection ? (activeEditorSection === 'details-view' ? focusedSectionLayoutClass : 'hidden') : 'space-y-2'}`}>
                 {/* Per-Game Logo Size Control - Top of Game Details, only for current view */}
                 {activeGame && (
                   <div className="px-3 py-2 bg-gray-700/30 rounded-md">
@@ -2169,6 +2258,8 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                     {viewMode === 'grid' && (
                       <MenuSliderRow
                         label={activeGame.logoUrl ? 'Game Logo Size' : 'Title Size'}
+                        description="Changes the selected game's logo size in the details panel."
+                        descriptionDisplay={settingDescriptionDisplay}
                         min={50}
                         max={detailsLogoSliderMax}
                         step={5}
@@ -2187,6 +2278,8 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                     {viewMode === 'list' && (
                       <MenuSliderRow
                         label={activeGame.logoUrl ? 'Game Logo Size' : 'Title Size'}
+                        description="Changes the selected game's logo size in the details panel."
+                        descriptionDisplay={settingDescriptionDisplay}
                         min={50}
                         max={detailsLogoSliderMax}
                         step={5}
@@ -2205,6 +2298,8 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                     {viewMode === 'logo' && (
                       <MenuSliderRow
                         label={activeGame.logoUrl ? 'Game Logo Size' : 'Title Size'}
+                        description="Changes the selected game's logo size in the details panel."
+                        descriptionDisplay={settingDescriptionDisplay}
                         min={50}
                         max={detailsLogoSliderMax}
                         step={5}
@@ -2221,9 +2316,12 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                   </div>
                 )}
 
-                {/* Boxart Position and Size - Grouped together */}
                 <div className="px-3 py-2 bg-gray-700/30 rounded-md">
-                  <label className="block text-xs text-gray-400 mb-2 font-semibold">Boxart Position</label>
+                  <div className="mb-2 flex items-center gap-2">
+                    <label className="block text-xs text-gray-400 font-semibold">Boxart Position</label>
+                    {settingDescriptionDisplay === 'icon' && renderSettingHintIcon("Chooses which side of the details panel the selected game's boxart sits on.")}
+                  </div>
+                  {renderSettingDescription("Chooses which side of the details panel the selected game's boxart sits on.")}
                   <div className="grid grid-cols-3 gap-1 mb-3">
                     <button
                       onClick={() => onRightPanelBoxartPositionChange?.('left')}
@@ -2253,30 +2351,34 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                       None
                     </button>
                   </div>
-
-                  {(rightPanelBoxartPosition === 'left' || rightPanelBoxartPosition === 'right') && (
-                    <>
-                      <MenuSliderRow
-                        label="Resize Boxart"
-                        min={80}
-                        max={200}
-                        step={5}
-                        value={rightPanelBoxartSize}
-                        defaultValue={sliderDefaults.rightPanelBoxartSize}
-                        onChange={(value) => onRightPanelBoxartSizeChange?.(value)}
-                        onReset={() => onRightPanelBoxartSizeChange?.(sliderDefaults.rightPanelBoxartSize)}
-                        formatValue={(value) => `${value}px`}
-                        minLabel="80px"
-                        maxLabel="200px"
-                      />
-                    </>
-                  )}
                 </div>
+
+                {(rightPanelBoxartPosition === 'left' || rightPanelBoxartPosition === 'right') && (
+                  <div className="px-3 py-2 bg-gray-700/30 rounded-md">
+                    <MenuSliderRow
+                      label="Resize Boxart"
+                      description="Changes how large the selected game's boxart appears in the details panel."
+                      descriptionDisplay={settingDescriptionDisplay}
+                      min={80}
+                      max={200}
+                      step={5}
+                      value={rightPanelBoxartSize}
+                      defaultValue={sliderDefaults.rightPanelBoxartSize}
+                      onChange={(value) => onRightPanelBoxartSizeChange?.(value)}
+                      onReset={() => onRightPanelBoxartSizeChange?.(sliderDefaults.rightPanelBoxartSize)}
+                      formatValue={(value) => `${value}px`}
+                      minLabel="80px"
+                      maxLabel="200px"
+                    />
+                  </div>
+                )}
 
                 {/* Text Size */}
                 <div className="px-3 py-2 bg-gray-700/30 rounded-md">
                   <MenuSliderRow
                     label="Text Size"
+                    description="Changes the size of the description and metadata text in the details panel."
+                    descriptionDisplay={settingDescriptionDisplay}
                     min={10}
                     max={24}
                     step={1}
@@ -2294,6 +2396,8 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                 <div className="px-3 py-2 bg-gray-700/30 rounded-md">
                   <MenuSliderRow
                     label="Button Size"
+                    description="Changes the size of the action buttons shown at the bottom of the details panel."
+                    descriptionDisplay={settingDescriptionDisplay}
                     min={10}
                     max={24}
                     step={1}
@@ -2309,7 +2413,11 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
 
                 {/* Button Location */}
                 <div className="px-3 py-2 bg-gray-700/30 rounded-md">
-                  <label className="block text-xs text-gray-400 mb-2 font-semibold">Button Location</label>
+                  <div className="mb-2 flex items-center gap-2">
+                    <label className="block text-xs text-gray-400 font-semibold">Button Location</label>
+                    {settingDescriptionDisplay === 'icon' && renderSettingHintIcon('Chooses whether the action buttons sit left, centered, or right in the bottom bar.')}
+                  </div>
+                  {renderSettingDescription('Chooses whether the action buttons sit left, centered, or right in the bottom bar.')}
                   <div className="grid grid-cols-3 gap-1">
                     <button
                       onClick={() => onRightPanelButtonLocationChange?.('left')}
@@ -2353,6 +2461,7 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                   return renderButtonColorsTrigger({
                     editorKey: 'details',
                     title: 'Button Colors',
+                    description: 'Opens the color picker for the Play, Edit, and Mod Manager buttons.',
                     colors,
                     onChange: handler,
                     onReset: () => {
@@ -2366,6 +2475,8 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                 <div className="px-3 py-2 bg-gray-700/30 rounded-md">
                   <MenuSliderRow
                     label="Details View Transparency"
+                    description="Controls how transparent the details panel surface becomes over the background artwork."
+                    descriptionDisplay={settingDescriptionDisplay}
                     min={0}
                     max={100}
                     step={1}
