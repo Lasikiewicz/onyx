@@ -106,7 +106,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
   disableAnimatedLogos = false,
   overlaysOpen = false,
 }) => {
-  const buildStructuredDescriptionHtml = (descriptionHtml: string): string => {
+  const buildStructuredDescriptionHtml = (descriptionHtml: string, useSideLayout: boolean): string => {
     const sanitizedHtml = DOMPurify.sanitize(descriptionHtml);
 
     try {
@@ -177,27 +177,42 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
 
       if (sections.length === 0) return sanitizedHtml;
 
-      let mediaSectionIndex = 0;
+      if (useSideLayout) {
+        return sections.map((section) => {
+          const hasMedia = !!section.mediaHtml;
+          const mediaClass = hasMedia ? ' has-media' : ' no-media';
+          const bodyHtml = section.bodyHtmlParts.join('');
+          const plainText = `${section.headingHtml} ${bodyHtml}`.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+          const textLength = plainText.length;
+          const estimatedLines = Math.max(3, Math.ceil(textLength / 62));
+          const sectionMediaMaxHeight = Math.max(180, Math.min(460, estimatedLines * 30));
+          const sectionMediaWidth = Math.max(260, Math.min(520, Math.round(sectionMediaMaxHeight * 1.7)));
+          const sectionStyle = hasMedia
+            ? ` style="--onyx-section-media-max-height:${sectionMediaMaxHeight}px;--onyx-section-media-width:${sectionMediaWidth}px;"`
+            : '';
+          const mediaBlock = section.mediaHtml
+            ? `<div class="onyx-desc-media">${section.mediaHtml}</div>`
+            : '';
+          return `<section class="onyx-desc-section${mediaClass}"${sectionStyle}>${mediaBlock}<div class="onyx-desc-text">${section.headingHtml}${bodyHtml}</div></section>`;
+        }).join('');
+      }
+
       return sections.map((section) => {
         const hasMedia = !!section.mediaHtml;
-        const reverseClass = hasMedia && mediaSectionIndex % 2 === 1 ? ' is-reverse' : '';
         const mediaClass = hasMedia ? ' has-media' : ' no-media';
         const bodyHtml = section.bodyHtmlParts.join('');
         const plainText = `${section.headingHtml} ${bodyHtml}`.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
         const textLength = plainText.length;
         const estimatedLines = Math.max(3, Math.ceil(textLength / 62));
-        const sectionMediaMaxHeight = Math.max(150, Math.min(420, estimatedLines * 26));
-        const sectionMediaWidth = Math.max(210, Math.min(420, Math.round(sectionMediaMaxHeight * 1.45)));
+        const sectionMediaMaxHeight = Math.max(180, Math.min(460, estimatedLines * 30));
+        const sectionMediaWidth = Math.max(260, Math.min(520, Math.round(sectionMediaMaxHeight * 1.7)));
         const sectionStyle = hasMedia
           ? ` style="--onyx-section-media-max-height:${sectionMediaMaxHeight}px;--onyx-section-media-width:${sectionMediaWidth}px;"`
           : '';
-        if (hasMedia) {
-          mediaSectionIndex += 1;
-        }
         const mediaBlock = section.mediaHtml
           ? `<div class="onyx-desc-media">${section.mediaHtml}</div>`
           : '';
-        return `<section class="onyx-desc-section${mediaClass}${reverseClass}"${sectionStyle}><div class="onyx-desc-text">${section.headingHtml}${bodyHtml}</div>${mediaBlock}</section>`;
+        return `<section class="onyx-desc-section${mediaClass}"${sectionStyle}><div class="onyx-desc-text">${section.headingHtml}${bodyHtml}</div>${mediaBlock}</section>`;
       }).join('');
     } catch {
       return sanitizedHtml;
@@ -231,9 +246,10 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
   const mediaMaxHeight = Math.max(180, Math.floor(descriptionViewport.height * 0.52));
   const mediaSideWidth = Math.max(220, Math.floor(descriptionViewport.width * 0.42));
   const renderedDescriptionHtml = useMemo(
-    () => (game?.description ? buildStructuredDescriptionHtml(game.description) : ''),
-    [game?.description]
+    () => (game?.description ? buildStructuredDescriptionHtml(game.description, useSideMediaLayout) : ''),
+    [game?.description, useSideMediaLayout]
   );
+  const formatScore = (score: number) => `${Math.round(score)}/100`;
 
   // Context menu state
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
@@ -623,8 +639,8 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
     ? boxartSideInset
     : 0;
   const primaryDeveloper = game.developers?.[0] || '';
-  const detailsSectionGapClass = 'gap-3';
-  const detailsLabelClass = 'text-gray-400 mb-0.5';
+  const detailsSectionGapClass = 'gap-2';
+  const detailsLabelClass = 'text-gray-400 mb-0 leading-tight';
 
   return (
     <div
@@ -1019,7 +1035,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
 
             {/* Details Section - Right side */}
             <div
-              className="pl-6 min-h-0 flex flex-col"
+              className="pl-6 min-h-0 flex flex-col items-end text-right"
               style={{
                 paddingTop: detailsTopPadding > 0 ? `${detailsTopPadding}px` : undefined,
                 width: `${100 - descriptionWidth}%`,
@@ -1027,66 +1043,66 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
                 fontFamily: detailsFontFamily,
               }}
             >
-              <div className={`grid grid-cols-1 ${detailsSectionGapClass} min-h-0 flex-1 overflow-y-auto`}>
+              <div className={`grid grid-cols-1 ${detailsSectionGapClass} min-h-0 flex-1 overflow-y-auto justify-items-end pr-4`}>
                 {visibleDetails.releaseDate && formattedReleaseDate && (
-                  <div>
+                  <div className="leading-tight">
                     <p className={detailsLabelClass} style={{ fontSize: `${rightPanelTextSize - 2}px` }}>Release Date</p>
                     <p className="text-gray-200" style={{ fontSize: `${rightPanelTextSize}px` }}>{formattedReleaseDate}</p>
                   </div>
                 )}
                 {visibleDetails.platform && platformDisplay && (
-                  <div>
+                  <div className="leading-tight">
                     <p className={detailsLabelClass} style={{ fontSize: `${rightPanelTextSize - 2}px` }}>Platform</p>
-                    <div className="text-gray-200 flex items-center gap-2" style={{ fontSize: `${rightPanelTextSize}px` }}>
+                    <div className="text-gray-200 flex items-center justify-end gap-2" style={{ fontSize: `${rightPanelTextSize}px` }}>
                       <LauncherIcon launcher={normalizedPlatform} className="w-4 h-4" />
                       <span>{platformDisplay}</span>
                     </div>
                   </div>
                 )}
                 {visibleDetails.ageRating && game.ageRating && (
-                  <div>
+                  <div className="leading-tight">
                     <p className={detailsLabelClass}>Age Rating</p>
                     <p className="text-gray-200">{game.ageRating}</p>
                   </div>
                 )}
                 {visibleDetails.genres && game.genres && game.genres.length > 0 && (
-                  <div>
+                  <div className="leading-tight">
                     <p className={detailsLabelClass}>Genres</p>
                     <p className="text-gray-200">{game.genres.join(', ')}</p>
                   </div>
                 )}
                 {visibleDetails.developers && primaryDeveloper && (
-                  <div>
+                  <div className="leading-tight">
                     <p className={detailsLabelClass}>Developer</p>
                     <p className="text-gray-200" title={game.developers?.join(', ')}>{primaryDeveloper}</p>
                   </div>
                 )}
                 {visibleDetails.publishers && game.publishers && game.publishers.length > 0 && (
-                  <div>
+                  <div className="leading-tight">
                     <p className={detailsLabelClass}>Publisher</p>
                     <p className="text-gray-200">{game.publishers.join(', ')}</p>
                   </div>
                 )}
                 {visibleDetails.communityScore && game.communityScore !== undefined && (
-                  <div>
+                  <div className="leading-tight">
                     <p className={detailsLabelClass}>Community Score</p>
-                    <p className="text-gray-200">{game.communityScore}/100</p>
+                    <p className="text-gray-200">{formatScore(game.communityScore)}</p>
                   </div>
                 )}
                 {visibleDetails.userScore && game.userScore !== undefined && (
-                  <div>
+                  <div className="leading-tight">
                     <p className={detailsLabelClass}>User Score</p>
-                    <p className="text-gray-200">{game.userScore}/100</p>
+                    <p className="text-gray-200">{formatScore(game.userScore)}</p>
                   </div>
                 )}
                 {visibleDetails.criticScore && game.criticScore !== undefined && (
-                  <div>
+                  <div className="leading-tight">
                     <p className={detailsLabelClass}>Critic Score</p>
-                    <p className="text-gray-200">{game.criticScore}/100</p>
+                    <p className="text-gray-200">{formatScore(game.criticScore)}</p>
                   </div>
                 )}
                 {visibleDetails.installationDirectory && game.installationDirectory && (
-                  <div>
+                  <div className="leading-tight">
                     <p className={detailsLabelClass}>Installation Folder</p>
                     <p className="text-gray-200 text-xs break-all">{game.installationDirectory}</p>
                     {formattedInstallSize && (

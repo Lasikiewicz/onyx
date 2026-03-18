@@ -200,6 +200,12 @@
   margin-bottom: 1rem;
 }
 
+.game-details-description.layout-side .onyx-desc-section::after {
+  content: '';
+  display: block;
+  clear: both;
+}
+
 .game-details-description .onyx-desc-text {
   min-width: 0;
 }
@@ -219,33 +225,35 @@
 }
 
 .game-details-description.layout-side .onyx-desc-section.has-media {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(200px, var(--onyx-section-media-width, var(--desc-media-side-width, 320px)));
-  gap: 1rem;
-  align-items: start;
+  display: block;
 }
 
-.game-details-description.layout-side .onyx-desc-section.has-media.is-reverse {
-  grid-template-columns: minmax(200px, var(--onyx-section-media-width, var(--desc-media-side-width, 320px))) minmax(0, 1fr);
+.game-details-description.layout-side .onyx-desc-section.has-media .onyx-desc-media {
+  float: left;
+  width: calc(60% - 0.625rem);
+  margin: 0 1.25rem 0.75rem 0;
 }
 
-.game-details-description.layout-side .onyx-desc-section.has-media.is-reverse .onyx-desc-text {
-  grid-column: 2;
-}
-
-.game-details-description.layout-side .onyx-desc-section.has-media.is-reverse .onyx-desc-media {
-  grid-column: 1;
+.game-details-description.layout-side .onyx-desc-section.has-media .onyx-desc-text {
+  display: block;
+  min-width: 0;
 }
 
 .game-details-description.layout-side .onyx-desc-section.no-media {
   display: block;
 }
 
+.game-details-description.layout-side .onyx-desc-media-column .onyx-desc-media img,
+.game-details-description.layout-side .onyx-desc-media-column .onyx-desc-media video,
+.game-details-description.layout-side .onyx-desc-media-column .onyx-desc-media iframe,
+.game-details-description.layout-side .onyx-desc-media-column .onyx-desc-media canvas,
 .game-details-description.layout-side .onyx-desc-section.has-media .onyx-desc-media img,
 .game-details-description.layout-side .onyx-desc-section.has-media .onyx-desc-media video,
 .game-details-description.layout-side .onyx-desc-section.has-media .onyx-desc-media iframe,
 .game-details-description.layout-side .onyx-desc-section.has-media .onyx-desc-media canvas {
-  max-height: min(var(--desc-media-max-height, 420px), var(--onyx-section-media-max-height, 320px)) !important;
+  height: auto !important;
+  max-height: none !important;
+  object-fit: contain;
 }
 
 .game-details-description.layout-stacked .onyx-desc-section {
