@@ -1,6 +1,5 @@
 import React from 'react';
-import iconPng from '../../../../resources/icon.png';
-import iconSvg from '../../../../resources/icon.svg';
+import { InteractiveSettingsAboutLogo } from './InteractiveSettingsAboutLogo';
 
 interface SettingsAboutTabProps {
   appVersion: string;
@@ -82,15 +81,9 @@ export const SettingsAboutTab: React.FC<SettingsAboutTabProps> = ({
   return (
     <div className="flex flex-col items-center justify-center h-full text-center space-y-6 p-8">
       <div className="flex flex-col items-center animate-fade-in">
-        <img
-          src={iconPng}
-          alt="Onyx Logo"
-          className="w-24 h-24 mb-4 drop-shadow-[0_0_15px_rgba(14,165,233,0.3)]"
-          onError={(event) => {
-            const target = event.target as HTMLImageElement;
-            target.src = iconSvg;
-          }}
-        />
+        <div className="mb-4">
+          <InteractiveSettingsAboutLogo />
+        </div>
         <h2 className="text-3xl font-bold text-white tracking-wide">Onyx{isAlphaBuild ? ' Alpha' : ''}</h2>
         <span className="text-sm font-medium text-slate-500 mt-1">v{appVersion}</span>
       </div>

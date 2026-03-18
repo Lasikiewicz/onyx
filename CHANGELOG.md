@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Pending
 
+- Settings:
+  - Replace the About tab's static logo with a smaller unboxed shared mouse-tracked Onyx cube and let clicking it open a larger interactive version.
+  - Let the enlarged About logo be dragged and thrown across the full app window with bounce-and-friction physics until it comes to a stop.
+- App shell:
+  - Redesign the initial Welcome screen to match the updated Add Games onboarding style with a two-column hero, refreshed setup cards, and a glass-panel quick-tips section.
+  - Reuse the same mouse-tracked spinning Onyx cube from Add Games on the Welcome screen so first-run onboarding shares the same branded motion treatment.
 - Add Games:
   - Replace the initial importer empty state with a branded two-column onboarding layout, a launcher-source list, and a left sidebar that stays collapsed until scanning begins.
   - Replace the opener logo treatment with the same mouse-reactive 3D Onyx cube used on the website homepage, now reacting to mouse movement anywhere on screen, rendering as a closed cube without edge gaps, and showing the glowing ring on every face.

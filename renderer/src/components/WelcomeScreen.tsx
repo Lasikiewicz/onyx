@@ -14,6 +14,7 @@ import manualFolderIconVrBadge from '../assets/manual-folder-icons/vr-badge.svg'
 import manualFolderIconVrGogglesFilled from '../assets/manual-folder-icons/vr-goggles-filled.svg';
 import manualFolderIconVrGogglesOutline from '../assets/manual-folder-icons/vr-goggles-outline.svg';
 import manualFolderIconVrSquare from '../assets/manual-folder-icons/vr-square.svg';
+import { InteractiveOnyxLogo } from './importer/InteractiveOnyxLogo';
 
 type SetupStep = 'welcome' | 'steamgriddb' | 'otherFolders' | 'overview';
 
@@ -750,149 +751,63 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onScanGames, onAdd
     }
 
     return (
-        <div className="absolute inset-0 flex flex-col items-center justify-center px-6 py-12 text-center animate-in fade-in zoom-in duration-700">
-            <div className="max-w-3xl w-full">
-                {/* Welcome Header */}
-                <div className="mb-12">
-                    <h1 className="text-5xl font-bold text-white mb-4 bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-indigo-500">
-                        Welcome to Onyx
-                    </h1>
-                    <p className="text-xl text-white">
-                        Your premium, all-in-one gaming library. Let's get your collection organized.
-                    </p>
-                </div>
-
-                {/* Action: Get started (or Configure APIs if required) */}
-                <div className="mb-12">
-                    {apisConfigured === false ? (
-                        <button
-                            onClick={onOpenSettings}
-                            className="w-full max-w-2xl mx-auto group relative flex flex-col items-center p-8 bg-red-600/10 hover:bg-red-600/20 border border-red-500/30 hover:border-red-500/50 rounded-2xl transition-all duration-300 transform hover:-translate-y-1 hover:shadow-2xl hover:shadow-red-500/10"
-                        >
-                            <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                                <svg className="w-8 h-8 text-red-400 group- hover:animate-gear-spin group-hover:animate-gear-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                </svg>
+        <div className="absolute inset-0 overflow-y-auto animate-in fade-in zoom-in duration-700">
+            <div className="relative min-h-full overflow-hidden bg-[radial-gradient(circle_at_top_left,rgba(56,189,248,0.14),transparent_28%),radial-gradient(circle_at_85%_20%,rgba(59,130,246,0.16),transparent_24%),linear-gradient(135deg,#08101d_0%,#111827_46%,#090e1a_100%)] px-6 py-12">
+                <div className="absolute inset-0 opacity-40 [background-image:linear-gradient(rgba(148,163,184,0.06)_1px,transparent_1px),linear-gradient(90deg,rgba(148,163,184,0.06)_1px,transparent_1px)] [background-size:36px_36px]" />
+                <div className="relative z-10 mx-auto flex min-h-[calc(100vh-6rem)] w-full max-w-7xl items-center">
+                    <div className="grid w-full items-center gap-12 xl:grid-cols-[minmax(0,1.08fr)_minmax(320px,1fr)]">
+                        <div className="space-y-8 xl:pl-8">
+                            <div className="space-y-4 text-left">
+                                <h1 className="max-w-3xl text-5xl font-semibold tracking-tight text-white xl:text-6xl">
+                                    Welcome to Onyx
+                                </h1>
+                                <p className="max-w-2xl text-xl leading-8 text-slate-300">
+                                    Your premium all-in-one gaming library, designed to bring launchers, metadata, artwork, and organization into one place.
+                                </p>
                             </div>
-                            <h3 className="text-2xl font-semibold text-white mb-2">Configure APIs</h3>
-                            <p className="text-white text-sm mb-2">IGDB credentials are required for fetching game links and metadata.</p>
-                            <span className="text-xs px-2 py-1 bg-red-900/50 text-red-300 rounded border border-red-800">Setup Required</span>
-                        </button>
-                    ) : (
-                        <button
-                            onClick={() => setSetupStep('steamgriddb')}
-                            className="w-full max-w-2xl mx-auto group relative flex flex-col items-center p-8 bg-blue-600/10 hover:bg-blue-600/20 border border-blue-500/30 hover:border-blue-500/50 rounded-2xl transition-all duration-300 transform hover:-translate-y-1 hover:shadow-2xl hover:shadow-blue-500/10"
-                        >
-                            <div className="w-16 h-16 bg-blue-500/20 rounded-full flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                                <svg className="w-8 h-8 text-blue-400 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
-                                </svg>
+
+                            <div>
+                                {apisConfigured === false ? (
+                                    <button
+                                        onClick={onOpenSettings}
+                                        className="group flex w-full flex-col items-start rounded-[1.75rem] border border-red-500/30 bg-red-500/10 p-8 text-left transition-all duration-300 hover:-translate-y-1 hover:border-red-400/50 hover:bg-red-500/15 hover:shadow-[0_24px_60px_rgba(239,68,68,0.12)]"
+                                    >
+                                        <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl border border-red-400/20 bg-red-500/15">
+                                            <svg className="h-8 w-8 text-red-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                            </svg>
+                                        </div>
+                                        <h3 className="mb-2 text-3xl font-semibold text-white">Configure APIs to get started</h3>
+                                        <p className="max-w-2xl text-base leading-7 text-red-50/90">
+                                            IGDB credentials are required for richer metadata and official game links. Open Settings to finish the required setup before scanning.
+                                        </p>
+                                        <span className="mt-5 rounded-full border border-red-400/30 bg-red-500/15 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-red-200">
+                                            Setup Required
+                                        </span>
+                                    </button>
+                                ) : (
+                                    <button
+                                        onClick={() => setSetupStep('steamgriddb')}
+                                        className="group flex w-full flex-col items-start rounded-[1.75rem] border border-cyan-400/20 bg-white/[0.035] p-8 text-left shadow-[0_24px_60px_rgba(2,6,23,0.28)] backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 hover:border-cyan-300/35 hover:bg-white/[0.05] hover:shadow-[0_28px_70px_rgba(14,165,233,0.14)]"
+                                    >
+                                        <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl border border-cyan-400/20 bg-cyan-500/10">
+                                            <svg className="h-8 w-8 text-cyan-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
+                                            </svg>
+                                        </div>
+                                        <h3 className="mb-2 text-3xl font-semibold text-white">Start building your library</h3>
+                                        <p className="max-w-2xl text-base leading-7 text-slate-300">
+                                            We&apos;ll guide you through artwork and metadata APIs, optional extra folders, and your first full game scan.
+                                        </p>
+                                    </button>
+                                )}
                             </div>
-                            <h3 className="text-2xl font-semibold text-white mb-2">Click here to get started</h3>
-                            <p className="text-white text-sm">We&apos;ll guide you through adding your SteamGridDB key, optional APIs, and any extra game folders, then scan for games.</p>
-                        </button>
-                    )}
-                </div>
 
-                {/* Quick Tips & Advice */}
-                <div className="bg-gray-900/40 border border-gray-800/50 rounded-2xl p-8 text-left">
-                    <h4 className="text-sm font-semibold text-white uppercase tracking-wider mb-6 flex items-center gap-2">
-                        <svg className="w-4 h-4 group- hover:animate-gear-spin group-hover:animate-gear-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        Quick Tips & Advice
-                    </h4>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                        <div className="space-y-2">
-                            <p className="text-white font-medium text-sm flex items-center gap-2">
-                                <span className="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>
-                                Right-Click Everything
-                            </p>
-                            <p className="text-white text-xs leading-relaxed">
-                                Most features, like changing box art, modifying metadata, or pinning games, are available via the right-click menu.
-                            </p>
                         </div>
 
-                        <div className="space-y-2">
-                            <p className="text-white font-medium text-sm flex items-center gap-2">
-                                <span className="w-1.5 h-1.5 bg-purple-500 rounded-full"></span>
-                                Middle-Click to Launch
-                            </p>
-                            <p className="text-white text-xs leading-relaxed">
-                                Instantly launch any game without opening the details panel by clicking your middle mouse button (scroll wheel).
-                            </p>
-                        </div>
-
-                        <div className="space-y-2">
-                            <p className="text-white font-medium text-sm flex items-center gap-2">
-                                <span className="w-1.5 h-1.5 bg-green-500 rounded-full"></span>
-                                Update Library
-                            </p>
-                            <p className="text-white text-xs leading-relaxed">
-                                Use Update Library to rescan launchers and folders for new or changed games whenever your collection grows.
-                            </p>
-                        </div>
-
-                        <div className="space-y-2">
-                            <p className="text-white font-medium text-sm flex items-center gap-2">
-                                <span className="w-1.5 h-1.5 bg-amber-500 rounded-full"></span>
-                                Categories & Favorites
-                            </p>
-                            <p className="text-white text-xs leading-relaxed">
-                                Use the category bar to filter by Games, Apps, VR, or Favorites. Pin categories for quick access.
-                            </p>
-                        </div>
-
-                        <div className="space-y-2">
-                            <p className="text-white font-medium text-sm flex items-center gap-2">
-                                <span className="w-1.5 h-1.5 bg-rose-500 rounded-full"></span>
-                                Hide & Organize
-                            </p>
-                            <p className="text-white text-xs leading-relaxed">
-                                Right-click a game to hide it from the main library. Hidden games stay in a separate list so nothing is lost.
-                            </p>
-                        </div>
-
-                        <div className="space-y-2">
-                            <p className="text-white font-medium text-sm flex items-center gap-2">
-                                <span className="w-1.5 h-1.5 bg-cyan-500 rounded-full"></span>
-                                Fix Match
-                            </p>
-                            <p className="text-white text-xs leading-relaxed">
-                                If artwork or metadata is wrong, right-click and choose Fix Match to search and pick the correct game.
-                            </p>
-                        </div>
-
-                        <div className="space-y-2">
-                            <p className="text-white font-medium text-sm flex items-center gap-2">
-                                <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full"></span>
-                                View Modes
-                            </p>
-                            <p className="text-white text-xs leading-relaxed">
-                                Switch between Grid, List, Logo, and Carousel views from the view selector to suit how you browse.
-                            </p>
-                        </div>
-
-                        <div className="space-y-2">
-                            <p className="text-white font-medium text-sm flex items-center gap-2">
-                                <span className="w-1.5 h-1.5 bg-teal-500 rounded-full"></span>
-                                Settings & APIs
-                            </p>
-                            <p className="text-white text-xs leading-relaxed">
-                                Add or change API keys, monitored folders, and launcher paths anytime in Settings.
-                            </p>
-                        </div>
-
-                        <div className="space-y-2">
-                            <p className="text-white font-medium text-sm flex items-center gap-2">
-                                <span className="w-1.5 h-1.5 bg-yellow-500 rounded-full"></span>
-                                Customize the UI
-                            </p>
-                            <p className="text-white text-xs leading-relaxed">
-                                Right-click on empty library space and open Appearance to customize layout, panel size, and more.
-                            </p>
+                        <div className="flex items-center justify-center">
+                            <InteractiveOnyxLogo className="scale-[1.15] xl:scale-[1.25]" />
                         </div>
                     </div>
                 </div>
