@@ -216,8 +216,8 @@ export const electronAPI = {
   checkForUpdates: () => ipcRenderer.invoke('app:checkForUpdates'),
   downloadUpdate: () => ipcRenderer.invoke('app:downloadUpdate'),
   quitAndInstall: () => ipcRenderer.invoke('app:quitAndInstall'),
-  onUpdateStatus: (callback: (payload: { status: string; version?: string; error?: string }) => void) => {
-    const handler = (_e: Electron.IpcRendererEvent, payload: { status: string; version?: string; error?: string }) => callback(payload);
+  onUpdateStatus: (callback: (payload: { status: string; version?: string; error?: string; progressPercent?: number }) => void) => {
+    const handler = (_e: Electron.IpcRendererEvent, payload: { status: string; version?: string; error?: string; progressPercent?: number }) => callback(payload);
     ipcRenderer.on('app:update-status', handler);
     return (): void => {
       ipcRenderer.removeListener('app:update-status', handler);

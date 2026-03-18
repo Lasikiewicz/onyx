@@ -27,6 +27,7 @@ interface UpdateNotificationState {
   version: string;
   status: 'available' | 'downloading' | 'downloaded' | 'error';
   error?: string;
+  progressPercent?: number;
 }
 
 interface ToastState {

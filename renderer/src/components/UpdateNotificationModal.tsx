@@ -5,6 +5,7 @@ interface UpdateNotificationModalProps {
   version: string;
   status: 'available' | 'downloading' | 'downloaded' | 'error';
   error?: string;
+  progressPercent?: number;
   currentVersion?: string | null;
   changelogSource?: string | null;
   changelogLoading?: boolean;
@@ -166,6 +167,7 @@ export const UpdateNotificationModal: React.FC<UpdateNotificationModalProps> = (
   version,
   status,
   error,
+  progressPercent,
   currentVersion,
   changelogSource,
   changelogLoading = false,
@@ -256,7 +258,16 @@ export const UpdateNotificationModal: React.FC<UpdateNotificationModalProps> = (
               <div className="w-full bg-slate-800/50 rounded-lg p-4 border border-cyan-500/20">
                 <div className="flex items-center gap-3">
                   <div className="animate-spin w-5 h-5 border-2 border-cyan-400 border-t-transparent rounded-full" />
-                  <span className="text-slate-200 text-sm">Downloading update... Please wait.</span>
+                  <span className="text-slate-200 text-sm">
+                    Downloading update... Please wait.
+                    {typeof progressPercent === 'number' ? ` ${Math.round(progressPercent)}%` : ''}
+                  </span>
+                </div>
+                <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-slate-900/80 ring-1 ring-cyan-500/15">
+                  <div
+                    className="h-full rounded-full bg-[linear-gradient(90deg,rgba(34,211,238,0.75),rgba(6,182,212,1))] transition-[width] duration-300 ease-out"
+                    style={{ width: `${Math.max(4, Math.min(100, progressPercent ?? 8))}%` }}
+                  />
                 </div>
               </div>
             )}

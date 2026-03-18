@@ -285,6 +285,7 @@ export interface UpdateStatusPayload {
   status: UpdateStatus;
   version?: string;
   error?: string;
+  progressPercent?: number;
 }
 
 declare global {

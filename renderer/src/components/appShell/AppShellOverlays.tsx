@@ -13,6 +13,7 @@ interface UpdateNotificationState {
   version: string;
   status: 'available' | 'downloading' | 'downloaded' | 'error';
   error?: string;
+  progressPercent?: number;
 }
 
 interface FoundGame {
@@ -99,6 +100,7 @@ export function AppShellOverlays({
           version={updateNotification.version}
           status={updateNotification.status}
           error={updateNotification.error}
+          progressPercent={updateNotification.progressPercent}
           currentVersion={currentVersion}
           changelogSource={changelogSource}
           changelogLoading={changelogLoading}

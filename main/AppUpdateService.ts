@@ -25,6 +25,7 @@ export interface UpdateStatusPayload {
   status: UpdateStatus;
   version?: string;
   error?: string;
+  progressPercent?: number;
 }
 
 function sanitizeUpdateErrorMessage(raw?: string): string | undefined {
@@ -240,7 +241,14 @@ export function initAppUpdateService(
     send({ status: 'available', version: info?.version });
   });
   autoUpdater.on('update-not-available', () => send({ status: 'not-available' }));
-  autoUpdater.on('download-progress', () => send({ status: 'downloading' }));
+  autoUpdater.on('download-progress', (progress: { percent?: number }) =>
+    send({
+      status: 'downloading',
+      progressPercent: typeof progress?.percent === 'number'
+        ? Math.max(0, Math.min(100, progress.percent))
+        : undefined,
+    }),
+  );
   autoUpdater.on('update-downloaded', () => send({ status: 'downloaded' }));
   autoUpdater.on('error', (err: Error) => {
     send({ status: 'error', error: sanitizeUpdateErrorMessage(err?.message ?? String(err)) });

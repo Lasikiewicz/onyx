@@ -4,6 +4,7 @@ interface UpdateNotificationState {
   version: string;
   status: 'available' | 'downloading' | 'downloaded' | 'error';
   error?: string;
+  progressPercent?: number;
 }
 
 export function useAppShellSystemState() {
@@ -141,6 +142,7 @@ export function useAppShellSystemState() {
     setUpdateNotification({
       version: simulatedVersion,
       status: 'available',
+      progressPercent: undefined,
     });
   }, [currentVersion, latestChangelogVersion]);
 

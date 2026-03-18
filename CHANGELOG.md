@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [0.7.42] - 2026-03-18
 
+- Updater:
+  - Show a download progress bar in the update modal while an app update is being downloaded.
 - Game details panel:
   - Align the right-side Details metadata column to the panel's right edge.
   - Add right-side padding inside the Details metadata scroller so values do not sit against the scrollbar.

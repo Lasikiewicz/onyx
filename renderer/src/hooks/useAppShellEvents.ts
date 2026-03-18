@@ -20,6 +20,7 @@ interface UpdateNotificationState {
   version: string;
   status: 'available' | 'downloading' | 'downloaded' | 'error';
   error?: string;
+  progressPercent?: number;
 }
 
 interface UseAppShellEventsOptions {
@@ -138,7 +139,7 @@ export function useAppShellEvents({
     const removeStartupProgress = window.electronAPI?.on && window.electronAPI.on('startup:progress', startupProgressHandler);
     const removeMissingGames = window.electronAPI?.on && window.electronAPI.on('scan:missing-games', missingGamesHandler);
 
-    const updateStatusHandler = (_event: unknown, payload: { status: string; version?: string; error?: string }) => {
+    const updateStatusHandler = (_event: unknown, payload: { status: string; version?: string; error?: string; progressPercent?: number }) => {
       if (payload.status === 'available' && payload.version) {
         setIsUpdateModalTest(false);
         setUpdateNotification({
@@ -148,10 +149,14 @@ export function useAppShellEvents({
         window.electronAPI.onUpdateFound?.();
       } else if (payload.status === 'downloading') {
         setIsUpdateModalTest(false);
-        setUpdateNotification((prev) => (prev ? { ...prev, status: 'downloading' } : null));
+        setUpdateNotification((prev) => (prev ? {
+          ...prev,
+          status: 'downloading',
+          progressPercent: payload.progressPercent ?? prev.progressPercent,
+        } : null));
       } else if (payload.status === 'downloaded') {
         setIsUpdateModalTest(false);
-        setUpdateNotification((prev) => (prev ? { ...prev, status: 'downloaded' } : null));
+        setUpdateNotification((prev) => (prev ? { ...prev, status: 'downloaded', progressPercent: 100 } : null));
       } else if (payload.status === 'error' && payload.error) {
         setIsUpdateModalTest(false);
         setUpdateNotification((prev) => (prev ? { ...prev, status: 'error', error: payload.error } : null));
