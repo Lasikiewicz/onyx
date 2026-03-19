@@ -17,7 +17,7 @@ Provides the staged import-review workspace for bringing newly discovered or man
 ## User-Facing Surfaces
 
 - The `Add Games` entry point in [`MenuBar.tsx`](../../renderer/src/components/MenuBar.tsx), which opens the importer flow from the main app menu.
-- The importer shell in [`ImportWorkbench.tsx`](../../renderer/src/components/importer/ImportWorkbench.tsx), which manages staged queue state, scanning, import progress, and close/confirm behavior.
+- The importer shell in [`ImportWorkbench.tsx`](../../renderer/src/components/importer/ImportWorkbench.tsx), which manages staged queue state, scanning, import progress, and close/confirm behavior. The game list sidebar is rendered by [`ImportWorkbenchSidebar.tsx`](../../renderer/src/components/importer/ImportWorkbenchSidebar.tsx).
 - The interactive importer hero in [`InteractiveOnyxLogo.tsx`](../../renderer/src/components/importer/InteractiveOnyxLogo.tsx), which gives the empty-state preview the same mouse-reactive 3D Onyx cube treatment used on the website homepage, now tracks pointer motion across the full app window, and renders the glowing ring treatment on every cube face.
 - The staged game editor in [`GamePropertiesPanel.tsx`](../../renderer/src/components/GamePropertiesPanel.tsx), which provides per-game Metadata, Images, Links, and Mod Manager tabs before import.
 - [`GamePropertiesPanel.tsx`](../../renderer/src/components/GamePropertiesPanel.tsx) now mainly acts as the staged-editor shell and adapter layer, reusing the same Game Manager tab components for Metadata, Images, Links, and Mod Manager while still saving back into staged importer records.
@@ -27,7 +27,7 @@ Provides the staged import-review workspace for bringing newly discovered or man
 - The staged Images tab reuses [`GameManagerImagesTab.tsx`](../../renderer/src/components/gameManager/GameManagerImagesTab.tsx), while [`useGamePropertiesImages.ts`](../../renderer/src/components/gameProperties/useGamePropertiesImages.ts) adapts staged-game image state to the same tabbed search/results flow so clicking an artwork slot changes type without re-running a completed search.
 - The staged Links tab now reuses [`GameManagerLinksTab.tsx`](../../renderer/src/components/gameManager/GameManagerLinksTab.tsx), including the same found-links apply/cancel strip and custom link-icon picker used after import.
 - The staged Mod Manager tab now reuses [`GameManagerModManagerTab.tsx`](../../renderer/src/components/gameManager/GameManagerModManagerTab.tsx), and staged edits now carry `modManagerUrl` through [`EditableGame.ts`](../../renderer/src/types/EditableGame.ts) plus [`importer.ts`](../../renderer/src/types/importer.ts) so browse/save/launch actions behave the same before import.
-- The queue/source navigation in [`ImportSidebar.tsx`](../../renderer/src/components/importer/ImportSidebar.tsx) and action toolbar in [`ImportHeader.tsx`](../../renderer/src/components/importer/ImportHeader.tsx).
+- The queue/source navigation in [`ImportWorkbenchSidebar.tsx`](../../renderer/src/components/importer/ImportWorkbenchSidebar.tsx), [`ImportSidebar.tsx`](../../renderer/src/components/importer/ImportSidebar.tsx), and action toolbar in [`ImportHeader.tsx`](../../renderer/src/components/importer/ImportHeader.tsx).
 - The found-games bridge modal in [`FoundGamesModal.tsx`](../../renderer/src/components/FoundGamesModal.tsx), which lets users jump from newly detected titles straight into Add Games review.
 
 ## Settings and Toggles

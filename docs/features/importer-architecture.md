@@ -18,7 +18,7 @@ This is the system-level companion to the user-facing [Add Games](./add-games.md
 
 ## User-Facing Surfaces
 
-- The importer shell in [`ImportWorkbench.tsx`](../../renderer/src/components/importer/ImportWorkbench.tsx), which owns the staged queue, scan controls, import progress, and overall modal lifecycle.
+- The importer shell in [`ImportWorkbench.tsx`](../../renderer/src/components/importer/ImportWorkbench.tsx), which owns the staged queue, scan controls, import progress, and overall modal lifecycle. The queue/sidebar list is rendered by [`ImportWorkbenchSidebar.tsx`](../../renderer/src/components/importer/ImportWorkbenchSidebar.tsx).
 - The renderer importer handoff/orchestration hook in [`useImporterWorkbench.ts`](../../renderer/src/hooks/useImporterWorkbench.ts), which centralizes API-gated importer opening, startup/background scan handoff, importer reset, and post-import tutorial follow-up.
 - The shell modal-control bridge in [`useAppShellModalControls.ts`](../../renderer/src/hooks/useAppShellModalControls.ts), which packages importer modal props for settings, update-library, and Game Manager entry points before they reach the app shell.
 - The startup scan review hook in [`useStartupScanReview.ts`](../../renderer/src/hooks/useStartupScanReview.ts), which owns the shell-side cancel/review actions that turn startup-found games into importer handoff requests.
@@ -53,7 +53,7 @@ This is the system-level companion to the user-facing [Add Games](./add-games.md
 
 ## Discovery and Data Sources
 
-- Renderer importer state: [`ImportWorkbench.tsx`](../../renderer/src/components/importer/ImportWorkbench.tsx), [`ImportSidebar.tsx`](../../renderer/src/components/importer/ImportSidebar.tsx), [`ImportHeader.tsx`](../../renderer/src/components/importer/ImportHeader.tsx)
+- Renderer importer state: [`ImportWorkbench.tsx`](../../renderer/src/components/importer/ImportWorkbench.tsx), [`ImportWorkbenchSidebar.tsx`](../../renderer/src/components/importer/ImportWorkbenchSidebar.tsx), [`ImportSidebar.tsx`](../../renderer/src/components/importer/ImportSidebar.tsx), [`ImportHeader.tsx`](../../renderer/src/components/importer/ImportHeader.tsx)
 - Renderer importer shell orchestration: [`useImporterWorkbench.ts`](../../renderer/src/hooks/useImporterWorkbench.ts)
 - Startup-review handoff: [`useStartupScanReview.ts`](../../renderer/src/hooks/useStartupScanReview.ts)
 - Staged types and queue data: [`importer.ts`](../../renderer/src/types/importer.ts), [`EditableGame.ts`](../../renderer/src/types/EditableGame.ts)
