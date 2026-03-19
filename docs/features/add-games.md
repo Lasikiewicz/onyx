@@ -76,6 +76,7 @@ Provides the staged import-review workspace for bringing newly discovered or man
 - [`ImportWorkbench.tsx`](../../renderer/src/components/importer/ImportWorkbench.tsx) - top-level Add Games shell for staged queue state, import progress, and modal lifecycle.
 - [`ImportWorkbenchHeader.tsx`](../../renderer/src/components/importer/ImportWorkbenchHeader.tsx) - importer top header UI (scan status, ignored toggle, and close action).
 - [`ImportWorkbenchEmptyState.tsx`](../../renderer/src/components/importer/ImportWorkbenchEmptyState.tsx) - importer empty-state hero and onboarding scan CTA.
+- [`ImportWorkbenchDisplayUtils.tsx`](../../renderer/src/components/importer/ImportWorkbenchDisplayUtils.tsx) - shared source/status label + icon/color helpers used by the Add Games queue/sidebar UI.
 - [`useImportWorkbenchScan.ts`](../../renderer/src/hooks/useImportWorkbenchScan.ts) - scan-control hook for scan listeners, scan execution, and keep-in-view sidebar scrolling.
 - [`useImportWorkbenchActions.ts`](../../renderer/src/hooks/useImportWorkbenchActions.ts) - importer queue/editor/import actions (update/skip/ignore/import) for staged items.
 - [`InteractiveOnyxLogo.tsx`](../../renderer/src/components/importer/InteractiveOnyxLogo.tsx) - website-inspired 3D empty-state cube with mouse-reactive rotation and logo-face spin used by the Add Games onboarding hero.

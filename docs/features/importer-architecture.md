@@ -96,6 +96,7 @@ This is the system-level companion to the user-facing [Add Games](./add-games.md
 - [`ImportWorkbench.tsx`](../../renderer/src/components/importer/ImportWorkbench.tsx) - top-level importer workspace, queue state, import execution, and modal lifecycle wiring.
 - [`ImportWorkbenchHeader.tsx`](../../renderer/src/components/importer/ImportWorkbenchHeader.tsx) - importer top header UI (scan status, ignored toggle, close action).
 - [`ImportWorkbenchEmptyState.tsx`](../../renderer/src/components/importer/ImportWorkbenchEmptyState.tsx) - importer empty-state hero and scan CTA onboarding UI.
+- [`ImportWorkbenchDisplayUtils.tsx`](../../renderer/src/components/importer/ImportWorkbenchDisplayUtils.tsx) - shared source/status label + icon/color helpers used by the importer queue/sidebar UI.
 - [`useImportWorkbenchScan.ts`](../../renderer/src/hooks/useImportWorkbenchScan.ts) - scan-control hook for scan listeners, scan execution, and keep-in-view sidebar scrolling.
 - [`useImportWorkbenchActions.ts`](../../renderer/src/hooks/useImportWorkbenchActions.ts) - importer queue/editor/import actions (update/skip/ignore/import) used by the importer shell.
 - [`useImporterWorkbench.ts`](../../renderer/src/hooks/useImporterWorkbench.ts) - shell-to-importer handoff, importer reset, and post-import follow-up orchestration.
