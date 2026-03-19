@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Pending]
 
+## [0.8.1] - 2026-03-19
+
 - App shell:
   - Move carousel size-control persistence and empty-space context-menu routing out of `App.tsx` into `useAppShellCarouselControls.ts`.
   - Extract the shared pinned-category strip into `AppShellCategoryBar.tsx` so the top and bottom category rows no longer duplicate the same shell markup.
