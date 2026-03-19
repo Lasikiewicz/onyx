@@ -4,7 +4,7 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## Pending
+## [0.8.4] - 2026-03-19
 
 - Importer:
   - Rename `ImportWorkbenchV2.tsx` to `ImportWorkbench.tsx` and update all references (props type `ImportWorkbenchProps`, lazy import, hooks, eslint, and feature docs).
