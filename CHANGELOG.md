@@ -4,6 +4,11 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## Pending
+
+- Updater:
+  - Let the update notification modal changelog panel flex to fill the available dialog height, and tighten the vertical spacing so the "new version available" screen reads more compactly.
+
 ## [0.8.3] - 2026-03-19
 
 - Game details panel:
