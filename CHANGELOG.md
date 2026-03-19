@@ -4,7 +4,7 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Pending]
+## [0.8.2] - 2026-03-19
 
 - Game details panel:
   - Fix divider drag sizing so the center split measures from the live details-panel edge instead of the browser window edge, keeping the visible panel divider aligned while resizing.
