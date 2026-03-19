@@ -61,8 +61,11 @@ It explains module boundaries, data flow, and release pipeline expectations.
 - `renderer/src/App.tsx` now routes uninstall actions through a confirmation state that can optionally remove the game from the Onyx library after opening the uninstall flow, while `renderer/src/components/ConfirmationDialog.tsx` supports embedded custom body content for checkbox-driven confirmations.
 - `renderer/src/components/RightClickMenu.tsx` now opens the dense Game Details and Carousel button-color editor in a dedicated floating popup anchored to the trigger row, using a neutral shell border and full `Mod Manager` labeling so the picker reads like part of the menu instead of a warning state.
 - `renderer/src/components/RightClickMenu.tsx` now exposes the persisted `autoSizeToFit` preference as a compact `Fill Available Space` toggle for grid view, while `renderer/src/App.tsx` recalculates grid tile width against the live left-panel width and visible height so boxart can shrink to fit all visible rows or grow to reduce right-side gaps as the details panel changes.
+- `renderer/src/components/rightClickMenu/RightClickMenuDetailsSection.tsx` now owns the shared Game Details editor column for grid/list/logo right-click menus, so `RightClickMenu.tsx` no longer keeps the per-game logo-size, boxart-position, button-style, and details-transparency controls inline with the rest of the shell.
 - `renderer/src/components/UpdateNotificationModal.tsx` now parses grouped changelog bullets with nested child items and renders each version's grouped headings directly, so update previews can mirror the actual `CHANGELOG.md` structure instead of re-splitting entries into guessed "features" and "fixes" buckets.
 - `main/ipc/appHandlers.ts`, `main/preload.ts`, and `renderer/src/hooks/useAppShellSystemState.ts` now let dev/local test update previews prefer the workspace `CHANGELOG.md` before GitHub, so simulated update modals reflect unpushed local changelog edits while packaged/live update checks still use the remote-first path by default.
+- `main/main.ts` now treats default-session `onyx-local` protocol registration collisions as benign during startup, while `main/ui/tray.ts` correctly interprets `app.setJumpList()` success (`'ok'`) instead of logging it as an error.
+- `main/APICredentialsService.ts` now degrades to `electron-store` credential fallback when OS credential-store migration fails with known Windows resource/session errors, preventing repeated noisy startup error logs.
 
 ## Data and Control Flow
 
@@ -108,7 +111,7 @@ It explains module boundaries, data flow, and release pipeline expectations.
 
 <!-- AUTO-GENERATED:MODULE_INDEX:START -->
 - Main process source files: 70
-- Renderer source files: 151
+- Renderer source files: 153
 - Automation scripts: 30
 - GitHub workflow files: 7
 - Key entrypoints:

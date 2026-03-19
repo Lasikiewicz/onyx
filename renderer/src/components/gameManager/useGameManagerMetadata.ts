@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 import type React from 'react';
 import type { Game } from '../../types/game';
+import { normalizeMetadataDescription } from '../../utils/metadataText';
 
 interface MetadataMatchResult {
   id: string;
@@ -65,7 +66,12 @@ export function useGameManagerMetadata({
     setError(null);
 
     try {
-      await onSaveGame(editedGame);
+      const normalizedGame: Game = {
+        ...editedGame,
+        description: normalizeMetadataDescription(editedGame.description || ''),
+      };
+      setEditedGame(normalizedGame);
+      await onSaveGame(normalizedGame);
       setSuccess('Game saved successfully');
       setTimeout(() => {
         setSuccess(null);
@@ -99,10 +105,12 @@ export function useGameManagerMetadata({
       try {
         const metadata = await window.electronAPI.searchArtwork(expandedGame.title, steamAppId);
         if (metadata) {
+          const normalizedDescription = normalizeMetadataDescription(metadata.description || metadata.summary || '');
+
           setEditedGame({
             ...editedGame!,
             title: expandedGame.title,
-            description: metadata.description || metadata.summary || editedGame?.description,
+            description: normalizedDescription || editedGame?.description,
             genres: metadata.genres || editedGame?.genres,
             releaseDate: metadata.releaseDate || editedGame?.releaseDate,
             developers: metadata.developers || editedGame?.developers,
@@ -274,7 +282,7 @@ export function useGameManagerMetadata({
       });
 
       if (metadata) {
-        let finalDescription = (metadata.description || metadata.summary || '').trim();
+        let finalDescription = normalizeMetadataDescription(metadata.description || metadata.summary || '');
         let finalReleaseDate = metadata.releaseDate || '';
         let finalGenres = metadata.genres || [];
         let finalDevelopers = metadata.developers || [];
@@ -289,7 +297,7 @@ export function useGameManagerMetadata({
             const steamGameId = `steam-${steamAppId}`;
             const descriptionResult = await window.electronAPI.fetchGameDescription(steamGameId);
             if (descriptionResult && descriptionResult.success) {
-              finalDescription = (descriptionResult.description || descriptionResult.summary || '').trim();
+              finalDescription = normalizeMetadataDescription(descriptionResult.description || descriptionResult.summary || '');
               finalReleaseDate = descriptionResult.releaseDate || finalReleaseDate;
               finalGenres = descriptionResult.genres || finalGenres;
               finalDevelopers = descriptionResult.developers || finalDevelopers;

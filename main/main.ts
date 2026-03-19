@@ -1907,7 +1907,12 @@ app.whenReady().then(async () => {
     session.defaultSession.protocol.handle('onyx-local', protocolHandler);
     console.log('[onyx-local] Also registered on default session (modern API)');
   } catch (e) {
-    console.warn('[onyx-local] Could not register on default session:', e);
+    const message = e instanceof Error ? e.message : String(e);
+    if (/Failed to register protocol/i.test(message)) {
+      console.log('[onyx-local] Default session protocol already registered; continuing.');
+    } else {
+      console.warn('[onyx-local] Could not register on default session:', e);
+    }
   }
 
   // Verify registration

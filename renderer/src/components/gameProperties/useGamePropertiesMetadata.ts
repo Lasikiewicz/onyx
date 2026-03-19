@@ -6,6 +6,7 @@ import {
   mergeIntoGame,
   mergeIntoStagedGame,
 } from '../../types/EditableGame';
+import { normalizeMetadataDescription } from '../../utils/metadataText';
 
 interface UseGamePropertiesMetadataOptions {
   editedFields: EditableGameFields;
@@ -78,10 +79,12 @@ export const useGamePropertiesMetadata = ({
     metadata: any,
     fallbackTitle?: string,
   ) => {
+    const normalizedDescription = normalizeMetadataDescription(metadata.description || metadata.summary || '');
+
     const newFields = {
       ...editedFields,
       title: metadata.title || fallbackTitle || editedFields.title,
-      description: metadata.description || metadata.summary || editedFields.description,
+      description: normalizedDescription || editedFields.description,
       releaseDate: metadata.releaseDate || editedFields.releaseDate,
       genres: metadata.genres || editedFields.genres,
       developers: metadata.developers || editedFields.developers,

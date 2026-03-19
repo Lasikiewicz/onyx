@@ -5,6 +5,7 @@ import { ConfirmationDialog } from './ConfirmationDialog';
 import { InfoHintButton, MenuSliderRow } from './MenuSliderRow';
 import { RightClickMenuCarouselSection } from './rightClickMenu/RightClickMenuCarouselSection';
 import { RightClickMenuCoverFlowSection } from './rightClickMenu/RightClickMenuCoverFlowSection';
+import { RightClickMenuDetailsSection } from './rightClickMenu/RightClickMenuDetailsSection';
 import { RightClickMenuHeader, type RightClickMenuEditorSection } from './rightClickMenu/RightClickMenuHeader';
 import { RightClickMenuViewModeSwitch } from './rightClickMenu/RightClickMenuViewModeSwitch';
 
@@ -1716,247 +1717,44 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                 </div>
               </div>
 
-              {/* Right Column */}
-              <div className={`${isFocusedEditorSection ? (activeEditorSection === 'details-view' ? focusedSectionLayoutClass : 'hidden') : 'space-y-2'}`}>
-                {/* Per-Game Logo Size Control - Top of Game Details, only for current view */}
-                {activeGame && (
-                  <div className="px-3 py-2 bg-gray-700/30 rounded-md">
-                    {/* Grid View */}
-                    {viewMode === 'grid' && (
-                      <MenuSliderRow
-                        label={activeGame.logoUrl ? 'Game Logo Size' : 'Title Size'}
-                        description="Changes the selected game's logo size in the details panel."
-                        descriptionDisplay={settingDescriptionDisplay}
-                        min={50}
-                        max={detailsLogoSliderMax}
-                        step={5}
-                        value={Math.min(localLogoSizes.grid, detailsLogoSliderMax)}
-                        defaultValue={detailsLogoSliderDefault}
-                        onChange={(value) => handlePerGameLogoSizeChange('grid', value)}
-                        onReset={() => handlePerGameLogoSizeChange('grid', detailsLogoSliderDefault)}
-                        formatValue={(value) => `${value}px`}
-                        minLabel="50px"
-                        maxLabel={`${detailsLogoSliderMax}px`}
-                        sliderClassName="h-2"
-                      />
-                    )}
-
-                    {/* List View */}
-                    {viewMode === 'list' && (
-                      <MenuSliderRow
-                        label={activeGame.logoUrl ? 'Game Logo Size' : 'Title Size'}
-                        description="Changes the selected game's logo size in the details panel."
-                        descriptionDisplay={settingDescriptionDisplay}
-                        min={50}
-                        max={detailsLogoSliderMax}
-                        step={5}
-                        value={Math.min(localLogoSizes.list, detailsLogoSliderMax)}
-                        defaultValue={detailsLogoSliderDefault}
-                        onChange={(value) => handlePerGameLogoSizeChange('list', value)}
-                        onReset={() => handlePerGameLogoSizeChange('list', detailsLogoSliderDefault)}
-                        formatValue={(value) => `${value}px`}
-                        minLabel="50px"
-                        maxLabel={`${detailsLogoSliderMax}px`}
-                        sliderClassName="h-2"
-                      />
-                    )}
-
-                    {/* Logo View */}
-                    {viewMode === 'logo' && (
-                      <MenuSliderRow
-                        label={activeGame.logoUrl ? 'Game Logo Size' : 'Title Size'}
-                        description="Changes the selected game's logo size in the details panel."
-                        descriptionDisplay={settingDescriptionDisplay}
-                        min={50}
-                        max={detailsLogoSliderMax}
-                        step={5}
-                        value={Math.min(localLogoSizes.logo, detailsLogoSliderMax)}
-                        defaultValue={detailsLogoSliderDefault}
-                        onChange={(value) => handlePerGameLogoSizeChange('logo', value)}
-                        onReset={() => handlePerGameLogoSizeChange('logo', detailsLogoSliderDefault)}
-                        formatValue={(value) => `${value}px`}
-                        minLabel="50px"
-                        maxLabel={`${detailsLogoSliderMax}px`}
-                        sliderClassName="h-2"
-                      />
-                    )}
-                  </div>
-                )}
-
-                <div className="px-3 py-2 bg-gray-700/30 rounded-md">
-                  <div className="mb-2 flex items-center gap-2">
-                    <label className="block text-xs text-gray-400 font-semibold">Boxart Position</label>
-                    {settingDescriptionDisplay === 'icon' && renderSettingHintIcon("Chooses which side of the details panel the selected game's boxart sits on.")}
-                  </div>
-                  {renderSettingDescription("Chooses which side of the details panel the selected game's boxart sits on.")}
-                  <div className="grid grid-cols-3 gap-1 mb-3">
-                    <button
-                      onClick={() => onRightPanelBoxartPositionChange?.('left')}
-                      className={`px-2 py-1 text-xs rounded transition-colors ${rightPanelBoxartPosition === 'left'
-                        ? 'bg-blue-600/40 text-white border border-blue-500'
-                        : 'bg-gray-600 text-gray-300 hover:bg-gray-500 border border-gray-500'
-                        }`}
-                    >
-                      Left
-                    </button>
-                    <button
-                      onClick={() => onRightPanelBoxartPositionChange?.('right')}
-                      className={`px-2 py-1 text-xs rounded transition-colors ${rightPanelBoxartPosition === 'right'
-                        ? 'bg-blue-600/40 text-white border border-blue-500'
-                        : 'bg-gray-600 text-gray-300 hover:bg-gray-500 border border-gray-500'
-                        }`}
-                    >
-                      Right
-                    </button>
-                    <button
-                      onClick={() => onRightPanelBoxartPositionChange?.('none')}
-                      className={`px-2 py-1 text-xs rounded transition-colors ${rightPanelBoxartPosition === 'none'
-                        ? 'bg-blue-600/40 text-white border border-blue-500'
-                        : 'bg-gray-600 text-gray-300 hover:bg-gray-500 border border-gray-500'
-                        }`}
-                    >
-                      None
-                    </button>
-                  </div>
-                </div>
-
-                {(rightPanelBoxartPosition === 'left' || rightPanelBoxartPosition === 'right') && (
-                  <div className="px-3 py-2 bg-gray-700/30 rounded-md">
-                    <MenuSliderRow
-                      label="Resize Boxart"
-                      description="Changes how large the selected game's boxart appears in the details panel."
-                      descriptionDisplay={settingDescriptionDisplay}
-                      min={80}
-                      max={200}
-                      step={5}
-                      value={rightPanelBoxartSize}
-                      defaultValue={sliderDefaults.rightPanelBoxartSize}
-                      onChange={(value) => onRightPanelBoxartSizeChange?.(value)}
-                      onReset={() => onRightPanelBoxartSizeChange?.(sliderDefaults.rightPanelBoxartSize)}
-                      formatValue={(value) => `${value}px`}
-                      minLabel="80px"
-                      maxLabel="200px"
-                    />
-                  </div>
-                )}
-
-                {/* Text Size */}
-                <div className="px-3 py-2 bg-gray-700/30 rounded-md">
-                  <MenuSliderRow
-                    label="Text Size"
-                    description="Changes the size of the description and metadata text in the details panel."
-                    descriptionDisplay={settingDescriptionDisplay}
-                    min={10}
-                    max={24}
-                    step={1}
-                    value={rightPanelTextSize}
-                    defaultValue={sliderDefaults.rightPanelTextSize}
-                    onChange={(value) => onRightPanelTextSizeChange?.(value)}
-                    onReset={() => onRightPanelTextSizeChange?.(sliderDefaults.rightPanelTextSize)}
-                    formatValue={(value) => `${value}px`}
-                    minLabel="10px"
-                    maxLabel="24px"
-                  />
-                </div>
-
-                {/* Button Size */}
-                <div className="px-3 py-2 bg-gray-700/30 rounded-md">
-                  <MenuSliderRow
-                    label="Button Size"
-                    description="Changes the size of the action buttons shown at the bottom of the details panel."
-                    descriptionDisplay={settingDescriptionDisplay}
-                    min={10}
-                    max={24}
-                    step={1}
-                    value={rightPanelButtonSize}
-                    defaultValue={sliderDefaults.rightPanelButtonSize}
-                    onChange={(value) => onRightPanelButtonSizeChange?.(value)}
-                    onReset={() => onRightPanelButtonSizeChange?.(sliderDefaults.rightPanelButtonSize)}
-                    formatValue={(value) => `${value}px`}
-                    minLabel="10px"
-                    maxLabel="24px"
-                  />
-                </div>
-
-                {/* Button Location */}
-                <div className="px-3 py-2 bg-gray-700/30 rounded-md">
-                  <div className="mb-2 flex items-center gap-2">
-                    <label className="block text-xs text-gray-400 font-semibold">Button Location</label>
-                    {settingDescriptionDisplay === 'icon' && renderSettingHintIcon('Chooses whether the action buttons sit left, centered, or right in the bottom bar.')}
-                  </div>
-                  {renderSettingDescription('Chooses whether the action buttons sit left, centered, or right in the bottom bar.')}
-                  <div className="grid grid-cols-3 gap-1">
-                    <button
-                      onClick={() => onRightPanelButtonLocationChange?.('left')}
-                      className={`px-2 py-1 text-xs rounded transition-colors ${rightPanelButtonLocation === 'left'
-                        ? 'bg-blue-600/40 text-white border border-blue-500'
-                        : 'bg-gray-600 text-gray-300 hover:bg-gray-500 border border-gray-500'
-                        }`}
-                    >
-                      Left
-                    </button>
-                    <button
-                      onClick={() => onRightPanelButtonLocationChange?.('middle')}
-                      className={`px-2 py-1 text-xs rounded transition-colors ${rightPanelButtonLocation === 'middle'
-                        ? 'bg-blue-600/40 text-white border border-blue-500'
-                        : 'bg-gray-600 text-gray-300 hover:bg-gray-500 border border-gray-500'
-                        }`}
-                    >
-                      Middle
-                    </button>
-                    <button
-                      onClick={() => onRightPanelButtonLocationChange?.('right')}
-                      className={`px-2 py-1 text-xs rounded transition-colors ${rightPanelButtonLocation === 'right'
-                        ? 'bg-blue-600/40 text-white border border-blue-500'
-                        : 'bg-gray-600 text-gray-300 hover:bg-gray-500 border border-gray-500'
-                        }`}
-                    >
-                      Right
-                    </button>
-                  </div>
-                </div>
-
-                {/* Button Colors - View Specific */}
-                {(() => {
-                  const getColors = () => {
-                    if (viewMode === 'grid') return { colors: gridButtonColors, handler: onGridButtonColorsChange, preferenceKey: 'gridButtonColors' };
-                    if (viewMode === 'list') return { colors: listButtonColors, handler: onListButtonColorsChange, preferenceKey: 'listButtonColors' };
-                    if (viewMode === 'logo') return { colors: logoButtonColors, handler: onLogoButtonColorsChange, preferenceKey: 'logoButtonColors' };
-                    return { colors: rightPanelButtonColors, handler: onRightPanelButtonColorsChange, preferenceKey: 'rightPanelButtonColors' };
-                  };
-                  const { colors, handler, preferenceKey } = getColors();
-                  return renderButtonColorsTrigger({
-                    editorKey: 'details',
-                    title: 'Button Colors',
-                    description: 'Opens the color picker for the Play, Edit, and Mod Manager buttons.',
-                    colors,
-                    onChange: handler,
-                    onReset: () => {
-                      handler?.(defaultButtonColors);
-                      window.electronAPI.savePreferences({ [preferenceKey]: defaultButtonColors });
-                    },
-                  });
-                })()}
-
-                {/* Details View Transparency */}
-                <div className="px-3 py-2 bg-gray-700/30 rounded-md">
-                  <MenuSliderRow
-                    label="Details View Transparency"
-                    description="Controls how transparent the details panel surface becomes over the background artwork."
-                    descriptionDisplay={settingDescriptionDisplay}
-                    min={0}
-                    max={100}
-                    step={1}
-                    value={detailsPanelTransparency}
-                    defaultValue={defaultDetailsPanelTransparency}
-                    onChange={(value) => onDetailsPanelOpacityChange?.(100 - value)}
-                    onReset={() => onDetailsPanelOpacityChange?.(sliderDefaults.detailsPanelOpacity)}
-                    formatValue={(value) => `${value}%`}
-                    minLabel="0%"
-                    maxLabel="100%"
-                  />
-                </div>
-              </div>
+              <RightClickMenuDetailsSection
+                activeEditorSection={activeEditorSection}
+                activeGame={activeGame}
+                defaultButtonColors={defaultButtonColors}
+                defaultDetailsPanelTransparency={defaultDetailsPanelTransparency}
+                detailsLogoSliderDefault={detailsLogoSliderDefault}
+                detailsLogoSliderMax={detailsLogoSliderMax}
+                detailsPanelTransparency={detailsPanelTransparency}
+                focusedSectionLayoutClass={focusedSectionLayoutClass}
+                gridButtonColors={gridButtonColors}
+                isFocusedEditorSection={isFocusedEditorSection}
+                listButtonColors={listButtonColors}
+                localLogoSizes={localLogoSizes}
+                logoButtonColors={logoButtonColors}
+                rightPanelBoxartPosition={rightPanelBoxartPosition}
+                rightPanelBoxartSize={rightPanelBoxartSize}
+                rightPanelButtonColors={rightPanelButtonColors}
+                rightPanelButtonLocation={rightPanelButtonLocation}
+                rightPanelButtonSize={rightPanelButtonSize}
+                rightPanelTextSize={rightPanelTextSize}
+                settingDescriptionDisplay={settingDescriptionDisplay}
+                sliderDefaults={sliderDefaults}
+                viewMode={viewMode}
+                onDetailsPanelOpacityChange={onDetailsPanelOpacityChange}
+                onGridButtonColorsChange={onGridButtonColorsChange}
+                onListButtonColorsChange={onListButtonColorsChange}
+                onLogoButtonColorsChange={onLogoButtonColorsChange}
+                onRightPanelBoxartPositionChange={onRightPanelBoxartPositionChange}
+                onRightPanelBoxartSizeChange={onRightPanelBoxartSizeChange}
+                onRightPanelButtonColorsChange={onRightPanelButtonColorsChange}
+                onRightPanelButtonLocationChange={onRightPanelButtonLocationChange}
+                onRightPanelButtonSizeChange={onRightPanelButtonSizeChange}
+                onRightPanelTextSizeChange={onRightPanelTextSizeChange}
+                renderButtonColorsTrigger={renderButtonColorsTrigger}
+                renderSettingDescription={renderSettingDescription}
+                renderSettingHintIcon={renderSettingHintIcon}
+                handlePerGameLogoSizeChange={handlePerGameLogoSizeChange}
+              />
             </div>
           </div>
         </>

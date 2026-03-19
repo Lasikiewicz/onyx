@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { ExecutableFile, GameMetadata } from '../types/game';
+import { normalizeMetadataDescription } from '../utils/metadataText';
 
 interface IGDBGameResult {
   id: number;
@@ -91,7 +92,7 @@ export const GameMetadataEditor: React.FC<GameMetadataEditorProps> = ({
       screenshots: result.screenshotUrls,
       // Import all metadata fields
       title: result.name,
-      description: result.summary,
+      description: normalizeMetadataDescription(result.summary),
       releaseDate: formatReleaseDate(result.releaseDate),
       genres: result.genres,
       ageRating: result.ageRating,
@@ -222,6 +223,7 @@ export const GameMetadataEditor: React.FC<GameMetadataEditorProps> = ({
                   {searchResults.map((result) => {
                     const isSelected = selectedResult?.id === result.id;
                     const releaseYear = formatReleaseYear(result.releaseDate);
+                    const summaryPreview = normalizeMetadataDescription(result.summary);
                     
                     return (
                       <button
@@ -280,9 +282,9 @@ export const GameMetadataEditor: React.FC<GameMetadataEditorProps> = ({
                               </span>
                             )}
                           </div>
-                          {result.summary && (
+                          {summaryPreview && (
                             <p className="text-xs text-gray-500 mt-2 line-clamp-2">
-                              {result.summary}
+                              {summaryPreview}
                             </p>
                           )}
                         </div>

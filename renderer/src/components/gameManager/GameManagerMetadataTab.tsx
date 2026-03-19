@@ -1,6 +1,7 @@
 import { LauncherIcon, getLauncherDisplayName } from '../../utils/launcherIcons';
 import type { Game } from '../../types/game';
 import { GameArtworkStrip } from './GameArtworkStrip';
+import { normalizeMetadataDescription } from '../../utils/metadataText';
 
 type ImageType = 'boxart' | 'banner' | 'alternativeBanner' | 'logo' | 'icon';
 
@@ -67,8 +68,11 @@ export function GameManagerMetadataTab({
     onEditedGameChange({ ...editedGame, ...patch });
   };
 
+  const normalizedDescription = normalizeMetadataDescription(editedGame.description || '');
+
   return (
-    <div className="p-4 h-full overflow-y-auto">
+    <div className="flex h-full flex-col">
+      <div className="flex-1 overflow-y-auto p-4">
       <div className="mb-6 rounded-lg border border-gray-800 bg-gray-900/50 p-3">
         <GameArtworkStrip
           editedGame={editedGame}
@@ -228,7 +232,7 @@ export function GameManagerMetadataTab({
           <div className="flex-1">
             <label className="mb-1 block text-xs font-medium text-gray-400">Description</label>
             <textarea
-              value={editedGame.description || ''}
+              value={normalizedDescription}
               onChange={(event) => updateEditedGame({ description: event.target.value })}
               className="w-full rounded border border-gray-600 bg-gray-800 px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
               rows={4}
@@ -401,7 +405,11 @@ export function GameManagerMetadataTab({
           </div>
         </div>
 
-        <div className="flex gap-2 pt-2">
+      </div>
+      </div>
+
+      <div className="flex-shrink-0 border-t border-gray-800 bg-gray-900/95 p-4">
+        <div className="flex gap-2">
           <button
             onClick={onSave}
             disabled={isSaving}

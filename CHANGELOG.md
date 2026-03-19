@@ -17,6 +17,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Right click menu:
   - Extract the carousel-only editor into `RightClickMenuCarouselSection.tsx` and the cover-flow-only editor into `RightClickMenuCoverFlowSection.tsx` so `RightClickMenu.tsx` no longer keeps those view-specific control blocks inline.
   - Extract the shared top chrome into `RightClickMenuHeader.tsx` and `RightClickMenuViewModeSwitch.tsx` so `RightClickMenu.tsx` no longer keeps the flip-view action row, focused-section toggles, transparency control, reset/default buttons, and mode-switch strip inline.
+  - Extract the shared Game Details editor into `RightClickMenuDetailsSection.tsx` so `RightClickMenu.tsx` no longer keeps the grid/list/logo details-column controls inline.
 
 - Add Games:
   - Align the staged-game Images tab with the Game Manager image-search flow so artwork clicks switch type without re-running an already completed search, and staged image selection uses the same tabbed search/results controls as the Game Manager images tab.
@@ -24,6 +25,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   - Add a staged `launchModManagerTarget` path through the launcher IPC/preload bridge so the shared Mod Manager tab can launch configured local paths or vetted external URLs before a staged game exists in the library.
   - Persist staged image selections back into the importer queue immediately so artwork picks made through the shared `GameManagerImagesTab.tsx` update the visible staged game instead of reverting to the older importer behavior.
   - Keep the shared API/provider detail row visible in the staged Images tab after results load by retaining or rebuilding provider progress from the staged search state, so Add Games matches the Game Manager image-source breakdown.
+
+- Startup/runtime:
+  - Treat benign `onyx-local` default-session registration collisions as informational startup logs instead of warnings when the protocol is already registered.
+  - Fix Windows Jump List result handling to treat `app.setJumpList()` returning `'ok'` as success instead of logging it as an error.
+  - Degrade API credential migration to `electron-store` fallback when the OS credential manager returns known Windows resource/session errors, avoiding repeated startup error spam.
 
 ## [0.8.1] - 2026-03-19
 

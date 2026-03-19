@@ -85,8 +85,16 @@ export class APICredentialsService {
         const { migrateCredentials } = require('./credentialsMigrator');
         await migrateCredentials(baseStore, this.keytar, resolvedServiceName, ACCOUNT_KEYS);
       } catch (err) {
-        // eslint-disable-next-line no-console
-        console.error('Credential migration failed:', err);
+        const message = err instanceof Error ? err.message : String(err);
+        const isKnownCredentialStoreIssue = /Not enough memory resources|The parameter is incorrect|Element not found|The specified logon session does not exist/i.test(message);
+        if (isKnownCredentialStoreIssue) {
+          this.keytar = null;
+          // eslint-disable-next-line no-console
+          console.warn('Credential migration skipped due to OS credential store availability; using electron-store fallback.');
+        } else {
+          // eslint-disable-next-line no-console
+          console.error('Credential migration failed:', err);
+        }
       }
       return baseStore;
     })();

@@ -30,6 +30,7 @@ Manages credentials and enablement for third-party metadata and artwork provider
 ## Data Model and Persistence
 
 - Secrets may be stored outside plain preferences depending on provider credential handling.
+- When secure credential-store migration fails with known OS credential manager availability/resource errors, credentials fall back to `electron-store` so integrations remain usable.
 - Enablement flags are used to decide whether providers participate in search/fetch pipelines.
 
 ## Failure Modes and Triage

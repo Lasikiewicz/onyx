@@ -644,10 +644,10 @@ export class TrayService {
 
             // Set the jump list
             const result = app.setJumpList(categories);
-            if (result !== null) {
-                console.error('[Jump List] Error setting jump list:', result);
-            } else {
+            if (result === 'ok') {
                 console.log(`[Jump List] Updated with ${lastPlayedGames.length} recently played and ${lastInstalledGames.length} recently installed games`);
+            } else {
+                console.error('[Jump List] Error setting jump list:', result);
             }
         } catch (error) {
             console.error('[Jump List] Error updating jump list:', error);
