@@ -10,6 +10,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   - Move carousel size-control persistence and empty-space context-menu routing out of `App.tsx` into `useAppShellCarouselControls.ts`.
   - Extract the shared pinned-category strip into `AppShellCategoryBar.tsx` so the top and bottom category rows no longer duplicate the same shell markup.
   - Extract the left-panel library surface into `AppShellLibraryView.tsx` so grid, list, carousel, coverflow, welcome handoff, and non-card context-menu capture no longer live inline in `App.tsx`.
+  - Move category pinning, category counts, launcher derivation, and filtered-library sorting out of `App.tsx` into `useAppShellLibraryFilters.ts`.
+  - Move active-game lookup and visible-library selection reconciliation out of `App.tsx` into `useAppShellSelection.ts`.
+  - Move background artwork/video selection, animated fallback handling, blur optimization, and adjacent-art preloading out of `App.tsx` into `useAppShellBackgroundMedia.ts`.
   - Update the app-shell runbook, architecture module index, and refactor roadmap to document the new shell component and hook boundaries.
 
 ## [0.8.0] - 2026-03-18

@@ -13,6 +13,9 @@ import { usePreferenceWriter } from './hooks/usePreferenceWriter';
 import { useStartupScanReview } from './hooks/useStartupScanReview';
 import { useGameManagerShellBridge } from './hooks/useGameManagerShellBridge';
 import { useAppShellPreferencePersistence } from './hooks/useAppShellPreferencePersistence';
+import { useAppShellLibraryFilters } from './hooks/useAppShellLibraryFilters';
+import { useAppShellSelection } from './hooks/useAppShellSelection';
+import { useAppShellBackgroundMedia } from './hooks/useAppShellBackgroundMedia';
 import { useMainViewShellControls } from './hooks/useMainViewShellControls';
 import { useRightClickMenuControls } from './hooks/useRightClickMenuControls';
 import { useAppShellSurfaceActions } from './hooks/useAppShellSurfaceActions';
@@ -137,7 +140,6 @@ function App() {
   const [gridSize, setGridSize] = useState(120);
   const [logoSize, setLogoSize] = useState(100);
   const [pinnedCategories, setPinnedCategories] = useState<string[]>([]);
-  const autoPinOptOutRef = useRef<Set<string>>(new Set());
   const [hideVRTitles, setHideVRTitles] = useState(true);
   const [hideAppsTitles, setHideAppsTitles] = useState(true);
   const [hideGameTitles, setHideGameTitles] = useState(false);
@@ -341,7 +343,6 @@ function App() {
   const [_panelWidth, setPanelWidth] = useState(800);
   const [rightClickMenu, setRightClickMenu] = useState<{ x: number; y: number } | null>(null);
   const [gameContextMenu, setGameContextMenu] = useState<{ x: number; y: number; game: Game } | null>(null);
-  const [displayedBackgroundImageUrl, setDisplayedBackgroundImageUrl] = useState('');
   const [autoSizeToFit, setAutoSizeToFit] = useState(false);
   const gridContainerRef = useRef<HTMLDivElement>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -470,303 +471,37 @@ function App() {
     viewMode,
   });
 
-  // Toggle pin category
-  const handleTogglePinCategory = (category: string) => {
-    setPinnedCategories(prev => {
-      if (prev.includes(category)) {
-        autoPinOptOutRef.current.add(category);
-        return prev.filter(c => c !== category);
-      } else {
-        autoPinOptOutRef.current.delete(category);
-        return [...prev, category];
-      }
-    });
-  };
+  const {
+    allCategories,
+    allLaunchers,
+    categoryCounts,
+    filteredGames,
+    getGameLauncher,
+    handleTogglePinCategory,
+    hasAppsCategory,
+    hasFavoriteGames,
+    hasHiddenGames,
+    hasVRCategory,
+  } = useAppShellLibraryFilters({
+    activeSection,
+    games,
+    hideAppsTitles,
+    hideVRTitles,
+    pinnedCategories,
+    searchQuery,
+    selectedCategory,
+    selectedLauncher,
+    setPinnedCategories,
+    sortBy,
+  });
 
-  // Get all unique categories and their counts from games
-  const { allCategories, categoryCounts } = useMemo(() => {
-    const counts: Record<string, number> = {};
-    let favorites = 0;
-    let hidden = 0;
-    games.forEach(game => {
-      if (game.favorite) favorites++;
-      if (game.hidden) hidden++;
-      game.categories?.forEach(cat => {
-        counts[cat] = (counts[cat] || 0) + 1;
-      });
-    });
-
-    return {
-      allCategories: Object.keys(counts).sort(),
-      categoryCounts: {
-        ...counts,
-        favorites,
-        hidden,
-        all: games.length
-      }
-    };
-  }, [games]);
-
-  // Automatically pin all categories when they appear (default behavior)
-  useEffect(() => {
-    setPinnedCategories(prev => {
-      const updated = [...prev];
-      let changed = false;
-
-      for (const category of allCategories) {
-        if (!prev.includes(category) && !autoPinOptOutRef.current.has(category)) {
-          updated.push(category);
-          changed = true;
-        }
-      }
-
-      for (const category of Array.from(autoPinOptOutRef.current)) {
-        if (!allCategories.includes(category)) {
-          autoPinOptOutRef.current.delete(category);
-        }
-      }
-
-      return changed ? updated : prev;
-    });
-  }, [allCategories]);
-
-  // Check if there are any favorite games
-  const hasFavoriteGames = useMemo(() => {
-    return games.some(g => g.favorite === true);
-  }, [games]);
-
-  // Check if VR category exists
-  const hasVRCategory = useMemo(() => {
-    return allCategories.includes('VR');
-  }, [allCategories]);
-
-  // Check if Apps category exists
-  const hasAppsCategory = useMemo(() => {
-    return allCategories.includes('Apps');
-  }, [allCategories]);
-
-  // Check if there are any hidden games
-  const hasHiddenGames = useMemo(() => {
-    return games.some(g => g.hidden === true);
-  }, [games]);
-
-  // Get launcher from game (check ID format, then source, then platform, then installation directory)
-  const getGameLauncher = useCallback((game: Game): string => {
-    // Check ID format first (most reliable)
-    if (game.id.startsWith('steam-')) {
-      return 'steam';
-    }
-    if (game.id.startsWith('epic-')) {
-      return 'epic';
-    }
-    if (game.id.startsWith('gog-')) {
-      return 'gog';
-    }
-    if (game.id.startsWith('xbox-')) {
-      return 'xbox';
-    }
-    if (game.id.startsWith('ubisoft-')) {
-      return 'ubisoft';
-    }
-    if (game.id.startsWith('rockstar-')) {
-      return 'rockstar';
-    }
-    if (game.id.startsWith('ea-') || game.id.startsWith('origin-')) {
-      return 'ea';
-    }
-    if (game.id.startsWith('battle-') || game.id.startsWith('battlenet-')) {
-      return 'battle';
-    }
-
-    // Check source field
-    if (game.source) {
-      const source = game.source.toLowerCase();
-      const validSources = ['steam', 'epic', 'gog', 'xbox', 'ea', 'origin', 'ubisoft', 'battle', 'battlenet', 'humble', 'itch', 'rockstar'];
-      if (validSources.includes(source)) {
-        // Normalize some source names
-        if (source === 'origin') return 'ea';
-        if (source === 'battlenet') return 'battle';
-        return source;
-      }
-    }
-
-    // Check platform field (fallback)
-    const platform = game.platform?.toLowerCase();
-    if (platform === 'steam') {
-      return 'steam';
-    }
-    if (platform === 'epic' || platform === 'epic games') {
-      return 'epic';
-    }
-    if (platform === 'gog' || platform === 'gog galaxy') {
-      return 'gog';
-    }
-    if (platform === 'xbox' || platform === 'xbox game pass') {
-      return 'xbox';
-    }
-    if (platform === 'ea' || platform === 'ea app' || platform === 'origin') {
-      return 'ea';
-    }
-    if (platform === 'ubisoft' || platform === 'ubisoft connect') {
-      return 'ubisoft';
-    }
-    if (platform === 'battle.net' || platform === 'battlenet' || platform === 'battle') {
-      return 'battle';
-    }
-    if (platform === 'rockstar' || platform === 'rockstar games') {
-      return 'rockstar';
-    }
-
-    // Check installation directory as last resort
-    if (game.installationDirectory) {
-      const installPath = game.installationDirectory.toLowerCase();
-      if (installPath.includes('steam')) return 'steam';
-      if (installPath.includes('epic games') || installPath.includes('epicgames')) return 'epic';
-      if (installPath.includes('gog galaxy') || installPath.includes('gog\\games')) return 'gog';
-      if (installPath.includes('xboxgames') || installPath.includes('windowsapps')) return 'xbox';
-      if (installPath.includes('electronic arts') || installPath.includes('ea games') || installPath.includes('origin')) return 'ea';
-      if (installPath.includes('ubisoft')) return 'ubisoft';
-      if (installPath.includes('battle.net') || installPath.includes('battlenet')) return 'battle';
-      if (installPath.includes('rockstar games')) return 'rockstar';
-      if (installPath.includes('humble')) return 'humble';
-      if (installPath.includes('itch')) return 'itch';
-    }
-
-    return 'other';
-  }, []);
-
-  // Get all unique launchers from games
-  const allLaunchers = useMemo(() => {
-    const launchers = new Set<string>();
-    games.forEach(game => {
-      const launcher = getGameLauncher(game);
-      if (launcher) {
-        launchers.add(launcher);
-      }
-    });
-    return Array.from(launchers).sort((a, b) => {
-      // Sort with 'other' at the end
-      if (a === 'other') return 1;
-      if (b === 'other') return -1;
-      return a.localeCompare(b);
-    });
-  }, [games, getGameLauncher]);
-
-  // Filter games based on search, section, and category
-  const filteredGames = useMemo(() => {
-    let filtered = games;
-
-    // Filter by section
-    if (activeSection === 'favorites') {
-      filtered = filtered.filter(g => g.favorite);
-    } else if (activeSection === 'recent') {
-      filtered = filtered.filter(g => g.lastPlayed);
-    }
-
-    // Filter by category or favorites
-    if (selectedCategory === 'favorites') {
-      filtered = filtered.filter(g => g.favorite === true);
-    } else if (selectedCategory === 'hidden') {
-      // Show only hidden games when "Hidden" category is selected
-      filtered = filtered.filter(g => g.hidden === true);
-    } else if (selectedCategory) {
-      filtered = filtered.filter(g =>
-        g.categories?.includes(selectedCategory)
-      );
-    }
-
-    // Filter out hidden games by default (unless "Hidden" category is selected)
-    if (selectedCategory !== 'hidden') {
-      filtered = filtered.filter(g => g.hidden !== true);
-    }
-
-    // Filter by launcher
-    if (selectedLauncher) {
-      filtered = filtered.filter(g => {
-        const gameLauncher = getGameLauncher(g);
-        return gameLauncher === selectedLauncher;
-      });
-    }
-
-    // Filter out VR titles if hideVRTitles is enabled, but not if VR category is selected
-    if (hideVRTitles && selectedCategory !== 'VR' && selectedCategory !== 'Apps') {
-      filtered = filtered.filter(g =>
-        !g.categories?.includes('VR')
-      );
-    }
-
-    // Filter out Apps titles if hideAppsTitles is enabled, but not if Apps category is selected
-    if (hideAppsTitles && selectedCategory !== 'Apps' && selectedCategory !== 'VR') {
-      filtered = filtered.filter(g =>
-        !g.categories?.includes('Apps')
-      );
-    }
-
-    // Filter by search query
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(g =>
-        g.title.toLowerCase().includes(query) ||
-        g.genres?.some(genre => genre.toLowerCase().includes(query)) ||
-        g.developers?.some(dev => dev.toLowerCase().includes(query))
-      );
-    }
-
-    // Sort games - pinned games always appear first
-    filtered = [...filtered].sort((a, b) => {
-      // First, sort by pinned status (pinned games first)
-      const aPinned = a.pinned === true ? 1 : 0;
-      const bPinned = b.pinned === true ? 1 : 0;
-      if (aPinned !== bPinned) {
-        return bPinned - aPinned; // Pinned games first
-      }
-
-      // Then sort by the selected criteria
-      switch (sortBy) {
-        case 'title':
-          return (a.sortingName || a.title).localeCompare(b.sortingName || b.title);
-        case 'releaseDate':
-          const dateA = a.releaseDate ? new Date(a.releaseDate).getTime() : 0;
-          const dateB = b.releaseDate ? new Date(b.releaseDate).getTime() : 0;
-          return dateB - dateA; // Newest first
-        case 'playtime':
-          const playtimeA = a.playtime || 0;
-          const playtimeB = b.playtime || 0;
-          return playtimeB - playtimeA; // Most played first
-        case 'lastPlayed':
-          const lastA = a.lastPlayed ? new Date(a.lastPlayed).getTime() : 0;
-          const lastB = b.lastPlayed ? new Date(b.lastPlayed).getTime() : 0;
-          return lastB - lastA; // Most recent first
-        default:
-          return 0;
-      }
-    });
-
-    return filtered;
-  }, [games, searchQuery, activeSection, selectedCategory, selectedLauncher, sortBy, hideVRTitles, hideAppsTitles, getGameLauncher]);
-
-  const activeGame = useMemo(() => {
-    if (!activeGameId) return null;
-
-    return (
-      filteredGames.find((game) => game.id === activeGameId) ??
-      games.find((game) => game.id === activeGameId) ??
-      null
-    );
-  }, [activeGameId, filteredGames, games]);
-
-  // Keep the active selection aligned to the currently visible library set.
-  useEffect(() => {
-    if (loading || filteredGames.length === 0) return;
-
-    const hasVisibleSelection = activeGameId
-      ? filteredGames.some((game) => game.id === activeGameId)
-      : false;
-
-    if (!hasVisibleSelection) {
-      setActiveGameId(filteredGames[0].id);
-    }
-  }, [loading, filteredGames, activeGameId]);
+  const { activeGame, handleGameClick } = useAppShellSelection({
+    activeGameId,
+    filteredGames,
+    games,
+    loading,
+    setActiveGameId,
+  });
 
   const handleReorder = async (reorderedGames: Game[]) => {
     await reorderGames(reorderedGames);
@@ -898,10 +633,6 @@ function App() {
     };
   }, [autoSizeToFit, viewMode, filteredGames.length, calculateAutoSize]);
 
-
-  const handleGameClick = useCallback((game: Game) => {
-    setActiveGameId(game.id);
-  }, []);
 
   const handleOpenShellContextMenu = useCallback((x: number, y: number) => {
     setGameContextMenu(null);
@@ -1343,133 +1074,21 @@ function App() {
     }
   };
 
-  // Get background image from active game - use alternative banner if enabled
-  const backgroundImageUrl = (activeGame?.useAlternativeBackground && activeGame?.alternativeBannerUrl)
-    ? activeGame.alternativeBannerUrl
-    : activeGame?.heroUrl || activeGame?.bannerUrl || activeGame?.boxArtUrl || '';
-  const backgroundFromAltBanner = !!(activeGame?.useAlternativeBackground && activeGame?.alternativeBannerUrl === backgroundImageUrl);
-  const backgroundFromHero = !!(activeGame?.heroUrl === backgroundImageUrl);
-  const backgroundFromBanner = !!(activeGame?.bannerUrl === backgroundImageUrl);
-  const backgroundFromBoxart = !!(activeGame?.boxArtUrl === backgroundImageUrl);
-  const backgroundVideoKind: 'background' | 'banner' | 'boxart' = backgroundFromAltBanner
-    ? 'background'
-    : (backgroundFromHero || backgroundFromBanner)
-      ? 'banner'
-      : 'boxart';
-  const isBackgroundVideo = !!(activeGame && backgroundImageUrl && (
-    (backgroundFromAltBanner && activeGame.alternativeBannerIsVideo) ||
-    (backgroundFromHero && activeGame.heroIsVideo) ||
-    (backgroundFromBanner && activeGame.bannerIsVideo) ||
-    (backgroundFromBoxart && activeGame.boxArtIsVideo)
-  ));
-
-  // Keep previous background visible until the next background is loaded to avoid flicker
-  // for static images. For animated backgrounds (GIF/WebP/APNG), switch immediately so
-  // the old image is not shown for several seconds while large animations load.
-  useEffect(() => {
-    if (!backgroundImageUrl) {
-      setDisplayedBackgroundImageUrl('');
-      return;
-    }
-
-    const isAnimated = isBackgroundVideo || /\.(gif|webp|apng|webm)(\?|$)/i.test(backgroundImageUrl);
-    const blockAnimatedBackground =
-      overlaysOpen || disableAllAnimations || (disableAnimatedBackgrounds && backgroundFromAltBanner);
-
-    // If we should not run animated backgrounds, keep video backgrounds visible (they are paused via global controller)
-    // and only replace animated image formats.
-    if (blockAnimatedBackground) {
-      if (isAnimated) {
-        if (isBackgroundVideo) {
-          setDisplayedBackgroundImageUrl(backgroundImageUrl);
-          return;
-        }
-        const staticFallback = activeGame?.boxArtUrl && !activeGame.boxArtIsVideo && !/\.(gif|webp|apng|webm)(\?|$)/i.test(activeGame.boxArtUrl)
-          ? activeGame.boxArtUrl
-          : '';
-        setDisplayedBackgroundImageUrl(staticFallback);
-        return;
-      }
-    } else if (isAnimated) {
-      // Animated backgrounds allowed and no overlays: show the animated art.
-      setDisplayedBackgroundImageUrl(backgroundImageUrl);
-      return;
-    }
-
-    let cancelled = false;
-    let committed = false;
-    const img = new Image();
-    const commit = () => {
-      if (cancelled || committed) return;
-      committed = true;
-      setDisplayedBackgroundImageUrl(backgroundImageUrl);
-    };
-
-    img.onload = commit;
-    img.onerror = commit;
-    img.src = backgroundImageUrl;
-
-    if (img.decode) {
-      img.decode().then(commit).catch(() => {
-        // Fallback to onload/onerror paths.
-      });
-    }
-
-    return () => {
-      cancelled = true;
-      img.onload = null;
-      img.onerror = null;
-      img.src = '';
-    };
-  }, [backgroundImageUrl, disableAllAnimations, disableAnimatedBackgrounds, overlaysOpen, activeGame?.boxArtUrl, activeGame?.boxArtIsVideo, isBackgroundVideo, backgroundFromAltBanner]);
-
-  // Detect if background image is animated (GIF, WebP, APNG)
-  const isAnimatedBackground = useMemo(() => {
-    if (!displayedBackgroundImageUrl) return false;
-    return isBackgroundVideo || /\.(gif|webp|apng|webm)(\?|$)/i.test(displayedBackgroundImageUrl);
-  }, [displayedBackgroundImageUrl, isBackgroundVideo]);
-
-  // Optimize blur for animated backgrounds to reduce compositing cost
-  const optimizedBackgroundBlur = isAnimatedBackground ? Math.min(backgroundBlur, 10) : backgroundBlur;
-
-  // Preload images for adjacent games so switching is instant
-  useEffect(() => {
-    if (!activeGameId || filteredGames.length === 0) return;
-    const idx = filteredGames.findIndex((g) => g.id === activeGameId);
-    if (idx < 0) return;
-    const prevGame = idx > 0 ? filteredGames[idx - 1] : null;
-    const nextGame = idx < filteredGames.length - 1 ? filteredGames[idx + 1] : null;
-    const toPreload: Array<{ url: string; isAnimated: boolean }> = [];
-    for (const game of [prevGame, nextGame]) {
-      if (!game) continue;
-      const bgUrl = (game.useAlternativeBackground && game.alternativeBannerUrl) ? game.alternativeBannerUrl : game.heroUrl || game.bannerUrl || game.boxArtUrl || '';
-      if (bgUrl) {
-        const bgIsVideo =
-          (game.useAlternativeBackground && game.alternativeBannerUrl === bgUrl && game.alternativeBannerIsVideo) ||
-          (game.heroUrl === bgUrl && game.heroIsVideo) ||
-          (game.bannerUrl === bgUrl && game.bannerIsVideo) ||
-          (game.boxArtUrl === bgUrl && game.boxArtIsVideo);
-        toPreload.push({ url: bgUrl, isAnimated: !!bgIsVideo || /\.(gif|webp|apng|webm)(\?|$)/i.test(bgUrl) });
-      }
-      if (game.logoUrl) toPreload.push({ url: game.logoUrl, isAnimated: !!game.logoIsVideo || /\.(gif|webp|apng|webm)(\?|$)/i.test(game.logoUrl) });
-      if (game.boxArtUrl) toPreload.push({ url: game.boxArtUrl, isAnimated: !!game.boxArtIsVideo || /\.(gif|webp|apng|webm)(\?|$)/i.test(game.boxArtUrl) });
-    }
-    const images: HTMLImageElement[] = [];
-    for (const { url, isAnimated } of toPreload) {
-      if (!url) continue;
-      const img = new Image();
-      images.push(img);
-      img.src = url;
-      if (!isAnimated && img.decode) {
-        img.decode().catch(() => {});
-      }
-    }
-    return () => {
-      for (const img of images) {
-        img.src = '';
-      }
-    };
-  }, [activeGameId, filteredGames]);
+  const {
+    backgroundVideoKind,
+    displayedBackgroundImageUrl,
+    isAnimatedBackground,
+    isBackgroundVideo,
+    optimizedBackgroundBlur,
+  } = useAppShellBackgroundMedia({
+    activeGame,
+    activeGameId,
+    backgroundBlur,
+    disableAllAnimations,
+    disableAnimatedBackgrounds,
+    filteredGames,
+    overlaysOpen,
+  });
 
   // Check if this is an Alpha build
   const isAlphaBuild = __BUILD_PROFILE__ === 'alpha' || (typeof process !== 'undefined' && process.env?.NODE_ENV === 'development');
