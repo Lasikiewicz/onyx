@@ -6,7 +6,7 @@ Completed historical items have been removed so this stays focused on what is st
 - Renderer Hotspots
   - [x] **Refactor `RightClickMenu.tsx` into view-specific sections**
     - Done: Games View in [`RightClickMenuGamesViewSection.tsx`](../renderer/src/components/rightClickMenu/RightClickMenuGamesViewSection.tsx), Dividers in [`RightClickMenuDividersSection.tsx`](../renderer/src/components/rightClickMenu/RightClickMenuDividersSection.tsx), button colors in [`RightClickMenuButtonColorsEditor.tsx`](../renderer/src/components/rightClickMenu/RightClickMenuButtonColorsEditor.tsx) / [`RightClickMenuButtonColorsPopup.tsx`](../renderer/src/components/rightClickMenu/RightClickMenuButtonColorsPopup.tsx) / [`RightClickMenuButtonColorsTrigger.tsx`](../renderer/src/components/rightClickMenu/RightClickMenuButtonColorsTrigger.tsx), and modals (Custom Defaults, reset, clear-per-game) in [`RightClickMenuModals.tsx`](../renderer/src/components/rightClickMenu/RightClickMenuModals.tsx).
-  - [ ] **Break up `ImportWorkbench.tsx`**
+  - [x] **Break up `ImportWorkbench.tsx`**
     - Split [`ImportWorkbench.tsx`](../renderer/src/components/importer/ImportWorkbench.tsx) into:
       - A queue + sidebar slice that owns `queue`, `selectedId`, grouping, and scroll behavior only.
       - A staged editor slice that wraps `GamePropertiesPanel` and `handleUpdateGame`, fed by the currently selected staged game.

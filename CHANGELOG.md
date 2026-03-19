@@ -9,6 +9,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Importer:
   - Rename `ImportWorkbenchV2.tsx` to `ImportWorkbench.tsx` and update all references (props type `ImportWorkbenchProps`, lazy import, hooks, eslint, and feature docs).
   - Extract queue/sidebar game list into [`ImportWorkbenchSidebar.tsx`](renderer/src/components/importer/ImportWorkbenchSidebar.tsx) so `ImportWorkbench.tsx` composes the list from a dedicated slice; update importer and Add Games feature docs.
+  - Extract footer (import CTA and progress) into [`ImportWorkbenchFooter.tsx`](renderer/src/components/importer/ImportWorkbenchFooter.tsx); update importer and Add Games feature docs.
+  - Extract the staged-game editor shell into [`ImportWorkbenchEditor.tsx`](renderer/src/components/importer/ImportWorkbenchEditor.tsx) so `ImportWorkbench.tsx` composes `GamePropertiesPanel` through a focused editor slice; update importer and Add Games feature docs.
+  - Extract scan-control listeners + `handleScanAll` into [`useImportWorkbenchScan.ts`](renderer/src/hooks/useImportWorkbenchScan.ts) so scan logic is no longer owned by the top-level importer screen; update importer and Add Games feature docs.
+  - Extract the importer top header into [`ImportWorkbenchHeader.tsx`](renderer/src/components/importer/ImportWorkbenchHeader.tsx) so scan status and ignored toggles are rendered by a dedicated component.
+  - Extract the empty-state onboarding hero into [`ImportWorkbenchEmptyState.tsx`](renderer/src/components/importer/ImportWorkbenchEmptyState.tsx) so the main screen composes the onboarding CTA and preview points from a focused component.
 
 - Right click menu:
   - Extract the grid/list/logo Games View editor into `RightClickMenuGamesViewSection.tsx` (categories, size, padding, list options, background blur/brightness) and the Dividers editor into `RightClickMenuDividersSection.tsx` (panel width, banner height, description width, bottom bar height) so `RightClickMenu.tsx` no longer keeps those sections inline.

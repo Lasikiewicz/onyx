@@ -2,14 +2,18 @@
  * ImportWorkbench - A clean, maintainable game importer
  * Uses GamePropertiesPanel for unified game editing
  */
-import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import React, { useState, useMemo, useRef, useCallback } from 'react';
 import { StagedGame, ImportStatus, ImportSource } from '../../types/importer';
 import { Game } from '../../types/game';
-import { GamePropertiesPanel, GamePropertiesPanelHandle } from '../GamePropertiesPanel';
+import { GamePropertiesPanelHandle } from '../GamePropertiesPanel';
 import { ConfirmationDialog } from '../ConfirmationDialog';
 import { LauncherIcon, getLauncherDisplayName } from '../../utils/launcherIcons';
-import { InteractiveOnyxLogo } from './InteractiveOnyxLogo';
 import { ImportWorkbenchSidebar } from './ImportWorkbenchSidebar';
+import { ImportWorkbenchFooter } from './ImportWorkbenchFooter';
+import { ImportWorkbenchEditor } from './ImportWorkbenchEditor';
+import { ImportWorkbenchHeader } from './ImportWorkbenchHeader';
+import { ImportWorkbenchEmptyState } from './ImportWorkbenchEmptyState';
+import { useImportWorkbenchScan } from '../../hooks/useImportWorkbenchScan';
 
 export type ImportProgressCallback = (current: number, total: number, phase: string, detail?: string) => void;
 
@@ -46,23 +50,6 @@ const SOURCE_LABELS: Record<ImportSource, string> = {
     manual_folder: 'Game',
 };
 
-const IMPORT_SOURCE_PREVIEW = [
-    'Steam',
-    'Epic Games',
-    'GOG Galaxy',
-    'Xbox Game Pass',
-    'Ubisoft Connect',
-    'Rockstar Games',
-    'EA App / Origin',
-    'Battle.net',
-];
-
-const IMPORT_REVIEW_POINTS = [
-    'Scan your launchers and folders in one pass.',
-    'Review matches before anything touches your library.',
-    'Fix artwork, metadata, and launch details before import.',
-];
-
 const getSourceIcon = (source: string): React.ReactNode => {
     const cls = 'w-4 h-4 flex-shrink-0';
     if (source === 'manual_file') {
@@ -83,11 +70,6 @@ const getSourceIcon = (source: string): React.ReactNode => {
     }
 
     return <LauncherIcon launcher={source} className={cls} alt={`${getLauncherDisplayName(source)} icon`} />;
-};
-
-const sanitizeWebpArtworkUrl = (url?: string): string => {
-    if (!url) return '';
-    return /\.webp(\?|$)/i.test(url) ? '' : url;
 };
 
 export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
@@ -115,7 +97,6 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
     const [scanStats, setScanStats] = useState({ found: 0, processed: 0, skipped: 0 });
 
     // Refs
-    const hasAutoScanned = useRef(false);
     const sidebarRef = useRef<HTMLDivElement>(null);
     const panelRef = useRef<GamePropertiesPanelHandle>(null);
     const gameRowRefs = useRef<Record<string, HTMLDivElement | null>>({});
@@ -144,108 +125,26 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
     // Count ready games
     const readyCount = useMemo(() => visibleGames.filter(g => g.status === 'ready').length, [visibleGames]);
 
-    // --- Effects ---
-
-    // While scanning, keep the currently processing game in view in the sidebar
-    useEffect(() => {
-        if (!isScanning || !currentlyProcessingGame) return;
-        const sidebar = sidebarRef.current;
-        if (!sidebar) return;
-        const row = gameRowRefs.current[currentlyProcessingGame];
-        if (!row) return;
-
-        const rowTop = row.offsetTop;
-        const rowBottom = rowTop + row.offsetHeight;
-        const viewTop = sidebar.scrollTop;
-        const viewBottom = viewTop + sidebar.clientHeight;
-
-        if (rowTop < viewTop || rowBottom > viewBottom) {
-            sidebar.scrollTop = rowTop - sidebar.clientHeight / 2 + row.offsetHeight / 2;
-        }
-    }, [isScanning, currentlyProcessingGame]);
-
-    // Do NOT reset queue on open: if user closes importer while scan runs, reopening should show games waiting for import.
-
-    // Auto-scan only when opening with empty queue (first time or after user cleared). Do not restart scan on reopen.
-    useEffect(() => {
-        if (isOpen && autoStartScan && queue.length === 0 && !preScannedGames?.length && !hasAutoScanned.current) {
-            hasAutoScanned.current = true;
-            setTimeout(() => handleScanAll(), 300);
-        }
-    }, [isOpen, autoStartScan, queue.length, preScannedGames?.length]);
-
-    // Process pre-scanned games
-    useEffect(() => {
-        if (isOpen && preScannedGames && preScannedGames.length > 0) {
-            processPreScannedGames(preScannedGames);
-        }
-    }, [isOpen, preScannedGames]);
-
-    // Pause/resume background scan
-    useEffect(() => {
-        if (isOpen) {
-            window.electronAPI.pauseBackgroundScan?.().catch(console.error);
-        } else {
-            window.electronAPI.resumeBackgroundScan?.().catch(console.error);
-        }
-    }, [isOpen]);
-
-    // Listen for real-time scan progress
-    useEffect(() => {
-        if (!isOpen) return;
-
-        const handleScanProgress = (_event: any, data: { message: string }) => {
-            if (data.message) {
-                setScanProgress(data.message);
-
-                // Parse specific game discovery messages for stats
-                if (data.message.includes('Found:')) {
-                    setScanStats(prev => ({ ...prev, found: prev.found + 1 }));
-                }
-            }
-        };
-
-        const handleGameDiscovered = (_event: any, data: { gameName: string; status: string; progress: string }) => {
-            setCurrentlyProcessingGame(data.gameName);
-            setGameProcessingStates(prev => new Map(prev).set(data.gameName, {
-                status: data.status,
-                progress: data.progress
-            }));
-            setScanStats(prev => ({ ...prev, found: prev.found + 1 }));
-
-            // Note: We don't create stub games here anymore to avoid conflicts.
-            // Games will be processed and added to the queue by processScannedGames.
-        };
-
-        const handleGameProcessingUpdate = (_event: any, data: { gameName: string; status: string; progress: string }) => {
-            setGameProcessingStates(prev => new Map(prev).set(data.gameName, {
-                status: data.status,
-                progress: data.progress
-            }));
-
-            if (data.progress === '100%') {
-                setScanStats(prev => ({ ...prev, processed: prev.processed + 1 }));
-                // Clear current processing game when done
-                setTimeout(() => setCurrentlyProcessingGame(null), 500);
-            }
-        };
-
-        const removeProgressListener = window.electronAPI?.on && window.electronAPI.on('import:scanProgress', handleScanProgress);
-        const removeDiscoveredListener = window.electronAPI?.on && window.electronAPI.on('import:gameDiscovered', handleGameDiscovered);
-        const removeProcessingListener = window.electronAPI?.on && window.electronAPI.on('import:gameProcessingUpdate', handleGameProcessingUpdate);
-
-        return () => {
-            if (removeProgressListener && typeof removeProgressListener === 'function') {
-                removeProgressListener();
-            }
-            if (removeDiscoveredListener && typeof removeDiscoveredListener === 'function') {
-                removeDiscoveredListener();
-            }
-            if (removeProcessingListener && typeof removeProcessingListener === 'function') {
-                removeProcessingListener();
-            }
-        };
-    }, [isOpen]);
+    const { handleScanAll } = useImportWorkbenchScan({
+        isOpen,
+        autoStartScan,
+        preScannedGames,
+        existingLibrary,
+        sidebarRef,
+        gameRowRefs,
+        abortScanRef,
+        queueLength: queue.length,
+        isScanning,
+        currentlyProcessingGame,
+        setQueue,
+        setSelectedId,
+        setIsScanning,
+        setScanProgress,
+        setCurrentlyProcessingGame,
+        setGameProcessingStates,
+        setScanStats,
+        setError,
+    });
 
     // --- Handlers ---
 
@@ -259,7 +158,7 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
         }
     };
 
-    const handleScanAll = async () => {
+    /* const handleScanAll = async () => {
         abortScanRef.current = false;
         setIsScanning(true);
         setError(null);
@@ -644,6 +543,7 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
             await new Promise(resolve => setTimeout(resolve, 100));
         }
     };
+    */
 
     const handleUpdateGame = useCallback((updatedGame: StagedGame) => {
         setQueue(prev => prev.map(g => {
@@ -789,38 +689,16 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-[5vh]">
             <div className="w-[90vw] h-[90vh] bg-gray-900 border border-gray-700 rounded-xl shadow-2xl flex flex-col overflow-hidden">
 
-                {/* Header: title, scan status (when scanning), and actions */}
-                <div className="min-h-[60px] flex items-center justify-between gap-4 px-6 border-b border-gray-800 bg-gray-900/50 flex-wrap py-2">
-                    <h2 className="text-xl font-semibold text-white shrink-0">Add Games</h2>
-                    {isScanning && (
-                        <div className="flex items-center gap-3 text-sm text-gray-300 flex-1 min-w-0">
-                            <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-400 border-t-transparent shrink-0" />
-                            <span className="font-medium text-white">Scanning for games...</span>
-                            {(scanProgress || currentlyProcessingGame) && (
-                                <span className="text-gray-400 truncate" title={scanProgress || currentlyProcessingGame || ''}>
-                                    {scanProgress || (currentlyProcessingGame ? `Processing: ${currentlyProcessingGame}` : '')}
-                                </span>
-                            )}
-                            <span className="text-gray-400 shrink-0">
-                                {queue.length} {queue.length === 1 ? 'game' : 'games'} to import
-                                {scanStats.found > 0 && <> · {scanStats.found} detected ({Math.round((scanStats.processed / scanStats.found) * 100)}%)</>}
-                                {scanStats.skipped > 0 && <span className="text-yellow-500/70"> · {scanStats.skipped} skipped</span>}
-                            </span>
-                        </div>
-                    )}
-                    <div className="flex items-center gap-3 ml-auto shrink-0">
-                        <button
-                            onClick={() => setShowIgnored(!showIgnored)}
-                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${showIgnored ? 'bg-yellow-600 hover:bg-yellow-700' : 'bg-gray-700 hover:bg-gray-600'
-                                } text-white`}
-                        >
-                            {showIgnored ? 'Show Active' : 'Show Ignored'}
-                        </button>
-                        <button onClick={handleCloseClick} className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg text-sm font-medium">
-                            Close
-                        </button>
-                    </div>
-                </div>
+                <ImportWorkbenchHeader
+                    isScanning={isScanning}
+                    scanProgress={scanProgress}
+                    currentlyProcessingGame={currentlyProcessingGame}
+                    queueLength={queue.length}
+                    scanStats={scanStats}
+                    showIgnored={showIgnored}
+                    onToggleIgnored={() => setShowIgnored(!showIgnored)}
+                    onCloseClick={handleCloseClick}
+                />
 
                 {/* Main Content */}
                 <div className="flex flex-1 overflow-hidden">
@@ -843,136 +721,29 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
                         showIgnored={showIgnored}
                     />
 
-                    {/* Main Panel - Game Details */}
+                    {/* Main Panel - Game Details / Empty Hero */}
                     <div className="flex-1 flex flex-col overflow-hidden">
                         {selectedGame ? (
-                            <GamePropertiesPanel
-                                ref={panelRef}
-                                game={selectedGame}
-                                isStaged={true}
-                                onSave={async (updatedGame) => handleUpdateGame(updatedGame as StagedGame)}
-                                allCategories={Array.from(new Set(queue.flatMap(g => g.categories || [])))}
-                                editingDisabled={isScanning}
-                                editingDisabledReason="Editing is disabled while the scan is in progress. Please wait for the scan to complete to avoid the app hanging."
+                            <ImportWorkbenchEditor
+                                selectedGame={selectedGame}
+                                queue={visibleGames}
+                                isScanning={isScanning}
+                                panelRef={panelRef}
+                                onUpdateGame={handleUpdateGame}
                             />
                         ) : (
-                            <div className="relative flex-1 overflow-hidden bg-[radial-gradient(circle_at_top_left,rgba(56,189,248,0.12),transparent_30%),radial-gradient(circle_at_80%_18%,rgba(59,130,246,0.16),transparent_24%),linear-gradient(135deg,#0b1120_0%,#111827_46%,#090e1a_100%)]">
-                                <div className="absolute inset-0 opacity-40 [background-image:linear-gradient(rgba(148,163,184,0.06)_1px,transparent_1px),linear-gradient(90deg,rgba(148,163,184,0.06)_1px,transparent_1px)] [background-size:36px_36px]" />
-                                <div className="relative z-10 flex h-full flex-col justify-center p-8 lg:p-10">
-                                    <div className="grid items-center gap-10 lg:grid-cols-[minmax(0,1.05fr)_minmax(320px,1fr)]">
-                                        <div className="max-w-2xl space-y-6 lg:pl-8 xl:pl-12">
-                                            <div className="space-y-4">
-                                                <div className="space-y-3">
-                                                    <h3 className="max-w-xl text-4xl font-semibold tracking-tight text-white lg:text-5xl">
-                                                        Discover your installed games and bring them into Onyx
-                                                    </h3>
-                                                    <p className="max-w-xl text-base leading-7 text-slate-300 lg:text-lg">
-                                                        Scan your launchers, review what was found, and refine metadata before you import anything into your library.
-                                                    </p>
-                                                </div>
-                                            </div>
-
-                                            <div className="flex flex-wrap gap-2">
-                                                {IMPORT_SOURCE_PREVIEW.map(source => (
-                                                    <span
-                                                        key={source}
-                                                        className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-sm font-medium text-slate-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
-                                                    >
-                                                        {source}
-                                                    </span>
-                                                ))}
-                                            </div>
-
-                                            <button
-                                                onClick={handleScanAll}
-                                                disabled={isScanning}
-                                                className="inline-flex w-full items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-cyan-500 via-blue-500 to-blue-600 px-7 py-4 text-lg font-semibold text-white shadow-[0_18px_45px_rgba(37,99,235,0.35)] transition-all hover:scale-[1.01] hover:shadow-[0_24px_55px_rgba(14,165,233,0.35)] disabled:cursor-not-allowed disabled:from-slate-700 disabled:to-slate-600 disabled:shadow-none md:max-w-[calc(100%-0rem)]"
-                                            >
-                                                {isScanning ? (
-                                                    <>
-                                                        <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                                                        <span>Scanning System...</span>
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                                                        </svg>
-                                                        <span>Scan For Games</span>
-                                                    </>
-                                                )}
-                                            </button>
-
-                                            <div className="grid gap-3 md:grid-cols-3">
-                                                {IMPORT_REVIEW_POINTS.map(point => (
-                                                    <div
-                                                        key={point}
-                                                        className="rounded-2xl border border-white/8 bg-white/[0.035] p-4 backdrop-blur-xl"
-                                                    >
-                                                        <div className="mb-3 h-1.5 w-12 rounded-full bg-gradient-to-r from-cyan-400 to-blue-500" />
-                                                        <p className="text-sm leading-6 text-slate-300">{point}</p>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-
-                                        <div className="flex items-center justify-center">
-                                            <InteractiveOnyxLogo />
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
+                            <ImportWorkbenchEmptyState isScanning={isScanning} onScanAll={handleScanAll} />
                         )}
                     </div>
                 </div>
 
-                {/* Footer */}
-                <div className="min-h-[60px] flex flex-col justify-center px-6 py-3 border-t border-gray-800 bg-gray-900/50 gap-2">
-                    {isImporting ? (
-                        importProgress ? (
-                            <div className="flex flex-col gap-1.5 w-full">
-                                <div className="flex items-center justify-between text-sm">
-                                    <span className="text-gray-300">{importProgress.phase}</span>
-                                    <span className="text-gray-400 tabular-nums">
-                                        {importProgress.current} / {importProgress.total}
-                                    </span>
-                                </div>
-                                <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
-                                    <div
-                                        className="h-full bg-cyan-500 transition-all duration-300"
-                                        style={{ width: `${importProgress.total ? (100 * importProgress.current) / importProgress.total : 0}%` }}
-                                    />
-                                </div>
-                                {importProgress.detail && (
-                                    <p className="text-xs text-gray-500 truncate" title={importProgress.detail}>
-                                        {importProgress.detail}
-                                    </p>
-                                )}
-                            </div>
-                        ) : (
-                            <div className="flex items-center gap-2 text-sm text-gray-400">
-                                <span className="animate-spin inline-block w-4 h-4 border-2 border-cyan-500 border-t-transparent rounded-full" />
-                                Starting import...
-                            </div>
-                        )
-                    ) : (
-                        <>
-                            <div className="flex items-center justify-between">
-                                <div className="text-sm text-gray-300">
-                                    {readyCount} of {visibleGames.length} games ready to import
-                                </div>
-                                <button
-                                    onClick={handleImport}
-                                    disabled={isImporting || readyCount === 0}
-                                    className="px-6 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-700 disabled:cursor-not-allowed text-white rounded-lg font-medium flex items-center gap-2"
-                                >
-                                    {isImporting ? 'Importing...' : `Import ${readyCount} Games`}
-                                    <span>→</span>
-                                </button>
-                            </div>
-                        </>
-                    )}
-                </div>
+                <ImportWorkbenchFooter
+                    isImporting={isImporting}
+                    importProgress={importProgress}
+                    readyCount={readyCount}
+                    visibleCount={visibleGames.length}
+                    onImport={handleImport}
+                />
 
                 {/* Error Toast */}
                 {error && (
