@@ -14,6 +14,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   - Extract scan-control listeners + `handleScanAll` into [`useImportWorkbenchScan.ts`](renderer/src/hooks/useImportWorkbenchScan.ts) so scan logic is no longer owned by the top-level importer screen; update importer and Add Games feature docs.
   - Extract the importer top header into [`ImportWorkbenchHeader.tsx`](renderer/src/components/importer/ImportWorkbenchHeader.tsx) so scan status and ignored toggles are rendered by a dedicated component.
   - Extract the empty-state onboarding hero into [`ImportWorkbenchEmptyState.tsx`](renderer/src/components/importer/ImportWorkbenchEmptyState.tsx) so the main screen composes the onboarding CTA and preview points from a focused component.
+  - Extract queue/editor/import actions (update/skip/ignore/import) into [`useImportWorkbenchActions.ts`](renderer/src/hooks/useImportWorkbenchActions.ts) so `ImportWorkbench.tsx` is primarily orchestration and layout wiring.
 
 - Right click menu:
   - Extract the grid/list/logo Games View editor into `RightClickMenuGamesViewSection.tsx` (categories, size, padding, list options, background blur/brightness) and the Dividers editor into `RightClickMenuDividersSection.tsx` (panel width, banner height, description width, bottom bar height) so `RightClickMenu.tsx` no longer keeps those sections inline.

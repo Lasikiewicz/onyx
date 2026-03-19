@@ -2,7 +2,7 @@
  * ImportWorkbench - A clean, maintainable game importer
  * Uses GamePropertiesPanel for unified game editing
  */
-import React, { useState, useMemo, useRef, useCallback } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { StagedGame, ImportStatus, ImportSource } from '../../types/importer';
 import { Game } from '../../types/game';
 import { GamePropertiesPanelHandle } from '../GamePropertiesPanel';
@@ -14,6 +14,7 @@ import { ImportWorkbenchEditor } from './ImportWorkbenchEditor';
 import { ImportWorkbenchHeader } from './ImportWorkbenchHeader';
 import { ImportWorkbenchEmptyState } from './ImportWorkbenchEmptyState';
 import { useImportWorkbenchScan } from '../../hooks/useImportWorkbenchScan';
+import { useImportWorkbenchActions } from '../../hooks/useImportWorkbenchActions';
 
 export type ImportProgressCallback = (current: number, total: number, phase: string, detail?: string) => void;
 
@@ -146,7 +147,21 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
         setError,
     });
 
-    // --- Handlers ---
+    const { handleUpdateGame, handleSkipGame, handleIgnoreGame, handleImport } = useImportWorkbenchActions({
+        onImport,
+        onClose,
+        panelRef,
+
+        selectedId,
+        visibleGames,
+
+        setQueue,
+        setSelectedId,
+
+        setIsImporting,
+        setImportProgress,
+        setError,
+    });
 
     // --- Handlers ---
 
@@ -544,119 +559,6 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
         }
     };
     */
-
-    const handleUpdateGame = useCallback((updatedGame: StagedGame) => {
-        setQueue(prev => prev.map(g => {
-            if (g.uuid !== updatedGame.uuid) return g;
-
-            const hasImages = Boolean(updatedGame.boxArtUrl && (updatedGame.bannerUrl || updatedGame.alternativeBannerUrl || updatedGame.heroUrl));
-            const hasDesc = updatedGame.description;
-            const status: ImportStatus = (hasImages && hasDesc) ? 'ready' : 'ambiguous';
-
-            return { ...updatedGame, status };
-        }));
-    }, []);
-
-    const handleSkipGame = (game: StagedGame) => {
-        setQueue(prev => prev.filter(g => g.uuid !== game.uuid));
-        if (selectedId === game.uuid) {
-            const remaining = queue.filter(g => g.uuid !== game.uuid && !g.isIgnored);
-            setSelectedId(remaining[0]?.uuid || null);
-        }
-    };
-
-    const handleIgnoreGame = async (game: StagedGame) => {
-        const gameId = `${game.source}-${game.appId || game.originalName}`;
-        try {
-            const prefs = await window.electronAPI.getPreferences();
-            const ignored = new Set(prefs.ignoredGames || []);
-            ignored.add(gameId);
-            await window.electronAPI.savePreferences({
-                ...prefs,
-                ignoredGames: Array.from(ignored),
-            });
-        } catch (err) {
-            console.error('Failed to ignore game:', err);
-        }
-        setQueue(prev => prev.map(g => g.uuid === game.uuid ? { ...g, isIgnored: true } : g));
-    };
-
-    const handleImport = async () => {
-        if (visibleGames.length === 0) {
-            setError('No games to import');
-            return;
-        }
-
-        setIsImporting(true);
-        setImportProgress(null);
-        setError(null);
-
-        try {
-            // Flush current panel edits to queue and get merged game so import uses latest data
-            const updatedGame = await panelRef.current?.saveToParent?.() as StagedGame | undefined;
-            const listToImport = selectedId && updatedGame
-                ? visibleGames.map(staged => staged.uuid === selectedId ? updatedGame : staged)
-                : visibleGames;
-
-            const gamesToImport: Game[] = listToImport.map(staged => {
-                let gameId: string;
-                let launcherSource: string;
-
-                if (staged.source === 'steam' && staged.appId) {
-                    gameId = `steam-${staged.appId}`;
-                    launcherSource = 'steam';
-                } else if (staged.source === 'xbox') {
-                    gameId = staged.uuid;
-                    launcherSource = 'xbox';
-                } else {
-                    gameId = `custom-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
-                    launcherSource = staged.source;
-                }
-
-                return {
-                    id: gameId,
-                    title: staged.title,
-                    platform: staged.platform || staged.source,
-                    source: launcherSource,
-                    exePath: staged.exePath || staged.installPath,
-                    launchArgs: staged.launchArgs,
-                    boxArtUrl: staged.boxArtUrl,
-                    bannerUrl: staged.bannerUrl,
-                    alternativeBannerUrl: staged.alternativeBannerUrl,
-                    useAlternativeBackground: staged.useAlternativeBackground,
-                    logoUrl: staged.logoUrl,
-                    heroUrl: staged.heroUrl,
-                    iconUrl: staged.iconUrl,
-                    screenshots: staged.screenshots,
-                    links: staged.links,
-                    description: staged.description,
-                    releaseDate: staged.releaseDate,
-                    genres: staged.genres,
-                    developers: staged.developers,
-                    publishers: staged.publishers,
-                    categories: staged.categories,
-                    ageRating: staged.ageRating,
-                    userScore: staged.rating,
-                    installationDirectory: staged.installPath,
-                    xboxKind: staged.xboxKind,
-                    packageFamilyName: staged.packageFamilyName,
-                    appUserModelId: staged.appUserModelId,
-                    launchUri: staged.launchUri,
-                };
-            });
-
-            await onImport(gamesToImport, (current, total, phase, detail) => {
-                setImportProgress({ current, total, phase, detail: detail ?? '' });
-            });
-            setQueue([]); // Clear queue for a fresh start next time
-            onClose();
-        } catch (err) {
-            setError(err instanceof Error ? err.message : 'Import failed');
-        } finally {
-            setIsImporting(false);
-            setImportProgress(null);
-        }
-    };
 
     // Status helpers
     const getStatusColor = (status: ImportStatus) => {
