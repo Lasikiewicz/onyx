@@ -18,8 +18,6 @@ import { useRightClickMenuControls } from './hooks/useRightClickMenuControls';
 import { useAppShellSurfaceActions } from './hooks/useAppShellSurfaceActions';
 import { useGameDetailsPanelControls } from './hooks/useGameDetailsPanelControls';
 import { useAppShellModalControls } from './hooks/useAppShellModalControls';
-import { LibraryGrid } from './components/LibraryGrid';
-import { LibraryListView } from './components/LibraryListView';
 import { RightClickMenu } from './components/RightClickMenu';
 import { GameContextMenu } from './components/GameContextMenu';
 import { AddGameModal } from './components/AddGameModal';
@@ -35,15 +33,11 @@ import { UpdateLibraryModal } from './components/UpdateLibraryModal';
 import { APISettingsModal } from './components/APISettingsModal';
 import { ConfirmationDialog } from './components/ConfirmationDialog';
 import { AppShellOverlays } from './components/appShell/AppShellOverlays';
+import { AppShellLibraryView } from './components/appShell/AppShellLibraryView';
 import { Game, GameMetadata } from './types/game';
 import { areAPIsConfigured } from './utils/apiValidation';
+import { useAppShellCarouselControls } from './hooks/useAppShellCarouselControls';
 
-const LibraryCarousel = lazy(() =>
-  import('./components/LibraryCarousel').then((module) => ({ default: module.LibraryCarousel })),
-);
-const LibraryCoverFlow = lazy(() =>
-  import('./components/LibraryCoverFlow').then((module) => ({ default: module.LibraryCoverFlow })),
-);
 const OnyxSettingsModal = lazy(() =>
   import('./components/OnyxSettingsModal').then((module) => ({ default: module.OnyxSettingsModal })),
 );
@@ -59,10 +53,6 @@ const GameManager = lazy(() =>
 const BugReportModal = lazy(() =>
   import('./components/BugReportModal').then((module) => ({ default: module.BugReportModal })),
 );
-const WelcomeScreen = lazy(() =>
-  import('./components/WelcomeScreen').then((module) => ({ default: module.WelcomeScreen })),
-);
-
 const lazyRenderFallback = null;
 
 function App() {
@@ -913,6 +903,16 @@ function App() {
     setActiveGameId(game.id);
   }, []);
 
+  const handleOpenShellContextMenu = useCallback((x: number, y: number) => {
+    setGameContextMenu(null);
+    setRightClickMenu({ x, y });
+  }, []);
+
+  const handleOpenGameContextMenu = useCallback((game: Game, x: number, y: number) => {
+    setRightClickMenu(null);
+    setGameContextMenu({ game, x, y });
+  }, []);
+
   const handleEditGame = (game: Game) => {
     openGameManager({ gameId: game.id, tab: 'metadata' });
   };
@@ -1062,7 +1062,7 @@ function App() {
     setLinkDisplayOrder,
     setVisibleLinkTypes,
   });
-  const { savePreferences } = usePreferenceWriter();
+  const { savePreferences, saveValue } = usePreferenceWriter();
   const { handleCancelFoundGames, handleReviewFoundGames } = useStartupScanReview({
     setFoundGames,
     setStartupProgress,
@@ -1610,6 +1610,26 @@ function App() {
     viewMode,
   });
 
+  const { carouselViewProps } = useAppShellCarouselControls({
+    carouselButtonColors,
+    carouselButtonSize,
+    carouselDescriptionSize,
+    carouselLogoSize,
+    detailsBarSize,
+    gameContextMenu,
+    isViewFlipped: isViewFlippedByView[viewMode],
+    saveValue,
+    selectedBoxArtSize,
+    setCarouselButtonSize,
+    setCarouselDescriptionSize,
+    setCarouselLogoSize,
+    setDetailsBarSize,
+    setGameContextMenu,
+    setRightClickMenu,
+    showCarouselDetails,
+    showCarouselLogos,
+  });
+
   const { appShellOverlayProps, gameContextMenuProps, welcomeScreenProps } = useAppShellSurfaceActions({
     changelogError,
     changelogLoading,
@@ -1866,285 +1886,63 @@ function App() {
         {/* Main Content Area: games list (left) and game details (right). Categories live inside the games list only. */}
         <div className={`flex-1 flex overflow-hidden relative pt-10 ${isViewFlippedByView[viewMode] ? 'flex-row-reverse' : ''}`}>
           {/* Left Panel - Game Library (flexible width, full width in carousel/coverflow mode). Categories bar is inside this panel only. */}
-          <div className={`flex flex-col overflow-hidden ${viewMode === 'carousel' || viewMode === 'coverflow' ? 'w-full' : 'flex-1'}`}>
-            {/* Game Grid */}
-            <div
-              ref={gridContainerRef}
-              className={`flex-1 overflow-y-auto relative z-10 ${viewMode === 'carousel' || viewMode === 'coverflow' ? '' : (showCategoriesByView[viewMode] && (viewMode === 'grid' || viewMode === 'list' || viewMode === 'logo') ? 'p-0' : 'p-4')}`}
-              onContextMenuCapture={(e) => {
-                // Capture-phase fallback: open menu on any non-card area before children stop propagation
-                const target = e.target as HTMLElement;
-                if (!target.closest('[data-game-card]')) {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  setGameContextMenu(null);
-                  setRightClickMenu({ x: e.clientX, y: e.clientY });
-                }
-              }}
-              onContextMenu={(e) => {
-                const target = e.target as HTMLElement;
-                if (!target.closest('[data-game-card]')) {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  setGameContextMenu(null);
-                  setRightClickMenu({ x: e.clientX, y: e.clientY });
-                }
-              }}
-            >
-              {loading && (
-                <div className="text-center py-8">
-                  <p className="text-gray-100">Loading game library...</p>
-                </div>
-              )}
-
-              {error && (
-                <div className="bg-red-900/20 border border-red-500 rounded p-4 mb-4">
-                  <p className="text-red-300">Error: {error}</p>
-                </div>
-              )}
-
-              {!loading && !error && (
-                <div className="h-full flex flex-col">
-                  {showCategoriesByView[viewMode] && viewMode !== 'carousel' && viewMode !== 'coverflow' && pinnedCategories.length > 0 && (categoriesPositionByView[viewMode] ?? 'top') === 'top' && (
-                    <div
-                      className={`flex items-center gap-2 px-6 py-4 overflow-x-auto no-scrollbar flex-shrink-0 ${(categoriesAlignmentByView[viewMode] ?? 'left') === 'center' ? 'justify-center' : (categoriesAlignmentByView[viewMode] ?? 'left') === 'right' ? 'justify-end' : 'justify-start'
-                        }`}
-                      style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
-                    >
-                      <button
-                        onClick={() => setSelectedCategory(null)}
-                        style={{ fontSize: `${categoriesSizeByView[viewMode] ?? 12}px` }}
-                        className={`px-3 py-1.5 rounded-full font-medium transition-all whitespace-nowrap ${selectedCategory === null
-                          ? 'bg-blue-600/40 text-blue-100 border border-blue-500/40 shadow-sm shadow-blue-500/20'
-                          : 'bg-gray-800/40 text-gray-400 hover:bg-gray-700/60 hover:text-gray-200 border border-gray-700/20'
-                          }`}
-                      >
-                        All Games
-                      </button>
-                      {hasFavoriteGames && (
-                        <button
-                          onClick={() => setSelectedCategory(selectedCategory === 'favorites' ? null : 'favorites')}
-                          style={{ fontSize: `${categoriesSizeByView[viewMode] ?? 12}px` }}
-                          className={`px-3 py-1.5 rounded-full font-medium transition-all whitespace-nowrap ${selectedCategory === 'favorites'
-                            ? 'bg-blue-600/40 text-blue-100 border border-blue-500/40 shadow-sm shadow-blue-500/20'
-                            : 'bg-gray-800/40 text-gray-400 hover:bg-gray-700/60 hover:text-gray-200 border border-gray-700/20'
-                            }`}
-                        >
-                          Favorites
-                        </button>
-                      )}
-                      {pinnedCategories.map((cat) => (
-                        <button
-                          key={cat}
-                          onClick={() => setSelectedCategory(selectedCategory === cat ? null : cat)}
-                          style={{ fontSize: `${categoriesSizeByView[viewMode] ?? 12}px` }}
-                          className={`px-3 py-1.5 rounded-full font-medium transition-all whitespace-nowrap ${selectedCategory === cat
-                            ? 'bg-blue-600/40 text-blue-100 border border-blue-500/40 shadow-sm shadow-blue-500/20'
-                            : 'bg-gray-800/40 text-gray-400 hover:bg-gray-700/60 hover:text-gray-200 border border-gray-700/20'
-                            }`}
-                        >
-                          {cat}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                  {displayGames.length > 0 && !forceShowInitialOnboarding ? (
-                    <div className={`flex-1 overflow-y-auto animate-onyx-grid-fade min-h-0 ${showCategoriesByView[viewMode] && viewMode !== 'carousel' && viewMode !== 'coverflow' ? ((categoriesPositionByView[viewMode] ?? 'top') === 'top' ? 'px-4 pb-4 pt-0' : 'px-4 pt-4 pb-0') : ''}`}>
-                      {viewMode === 'grid' || viewMode === 'logo' ? (
-                        <LibraryGrid
-                          games={displayGames}
-                          onReorder={handleReorder}
-                          onPlay={handlePlay}
-                          onGameClick={handleGameClick}
-                          onEdit={handleEditGame}
-                          onEditImages={handleEditImages}
-                          onEditCategories={handleEditCategories}
-                          onFavorite={handleToggleFavorite}
-                          onPin={handleTogglePin}
-                          onFixMatch={handleFixMatch}
-                          onHide={handleHideGame}
-                          onUnhide={handleUnhideGame}
-                          isHiddenView={selectedCategory === 'hidden'}
-                          gridSize={gridSize}
-                          logoSize={logoSize}
-                          onGridSizeChange={setGridSize}
-                          gameTilePadding={gameTilePadding}
-                          hideGameTitles={hideGameTitles}
-                          showLogoOverBoxart={showLogoOverBoxart}
-                          logoPosition={logoPosition}
-                          useLogosInsteadOfBoxart={viewMode === 'logo'}
-                          autoSizeToFit={autoSizeToFit}
-                          logoBackgroundColor={logoBackgroundColor}
-                          logoBackgroundOpacity={logoBackgroundOpacity}
-                          descriptionSize={gridDescriptionSize}
-                          disableAnimatedBoxarts={disableAllAnimations || disableAnimatedBoxarts}
-                          disableAnimatedLogos={disableAllAnimations || disableAnimatedLogos}
-                          onGameContextMenu={(game: Game, x: number, y: number) => {
-                            setRightClickMenu(null);
-                            setGameContextMenu({ game, x, y });
-                          }}
-                          onEmptySpaceClick={(x: number, y: number) => {
-                            setGameContextMenu(null);
-                            setRightClickMenu({ x, y });
-                          }}
-                          viewMode={viewMode as 'grid' | 'logo'}
-                        />
-                      ) : viewMode === 'coverflow' ? (
-                        <Suspense fallback={lazyRenderFallback}>
-                          <LibraryCoverFlow
-                            games={displayGames}
-                            onPlay={handlePlay}
-                            onGameClick={handleGameClick}
-                            onEdit={handleEditGame}
-                            onEditImages={handleEditImages}
-                            onEditCategories={handleEditCategories}
-                            onFavorite={handleToggleFavorite}
-                            onPin={handleTogglePin}
-                            onFixMatch={handleFixMatch}
-                            onHide={handleHideGame}
-                            onUnhide={handleUnhideGame}
-                            onUninstall={handleUninstallGame}
-                            isHiddenView={selectedCategory === 'hidden'}
-                            activeGameId={activeGameId}
-                            coverSize={coverFlowCoverSize}
-                            reflectionStrength={coverFlowReflection / 100}
-                            verticalOffset={coverFlowVerticalOffset}
-                            sideOpacity={coverFlowSideOpacity}
-                            showButtons={coverFlowShowButtons}
-                            buttonPosition={coverFlowButtonPosition}
-                            buttonColors={coverFlowButtonColors}
-                            onEmptySpaceRightClick={(x, y) => {
-                              setGameContextMenu(null);
-                              setRightClickMenu({ x, y });
-                            }}
-                          />
-                        </Suspense>
-                      ) : viewMode === 'carousel' ? (
-                        <Suspense fallback={lazyRenderFallback}>
-                          <LibraryCarousel
-                            games={displayGames}
-                            onPlay={handlePlay}
-                            onGameClick={handleGameClick}
-                            onEdit={handleEditGame}
-                            onEditImages={handleEditImages}
-                            onEditCategories={handleEditCategories}
-                            onFavorite={handleToggleFavorite}
-                            onPin={handleTogglePin}
-                            onFixMatch={handleFixMatch}
-                            onHide={handleHideGame}
-                            onUnhide={handleUnhideGame}
-                            onUninstall={handleUninstallGame}
-                            isHiddenView={selectedCategory === 'hidden'}
-                            activeGameId={activeGameId}
-                            selectedBoxArtSize={selectedBoxArtSize}
-                            gameTilePadding={carouselGameTilePadding}
-                            showCarouselDetails={showCarouselDetails}
-                            showCarouselLogos={showCarouselLogos}
-                            detailsBarSize={detailsBarSize}
-                            onDetailsBarSizeChange={(size) => {
-                              setDetailsBarSize(size);
-                              window.electronAPI.savePreferences({ detailsBarSize: size });
-                            }}
-                            carouselLogoSize={carouselLogoSize}
-                            onCarouselLogoSizeChange={(size) => {
-                              setCarouselLogoSize(size);
-                              window.electronAPI.savePreferences({ carouselLogoSize: size });
-                            }}
-                            carouselButtonSize={carouselButtonSize}
-                            onCarouselButtonSizeChange={(size) => {
-                              setCarouselButtonSize(size);
-                              window.electronAPI.savePreferences({ carouselButtonSize: size });
-                            }}
-                            carouselDescriptionSize={carouselDescriptionSize}
-                            onCarouselDescriptionSizeChange={(size) => {
-                              setCarouselDescriptionSize(size);
-                              window.electronAPI.savePreferences({ carouselDescriptionSize: size });
-                            }}
-                            onEmptySpaceRightClick={(x, y) => {
-                              setGameContextMenu(null);
-                              setRightClickMenu({ x, y });
-                            }}
-                            isViewFlipped={isViewFlippedByView[viewMode]}
-                            carouselButtonColors={carouselButtonColors}
-                          />
-                        </Suspense>
-                      ) : (
-                        <LibraryListView
-                          games={displayGames}
-                          onPlay={handlePlay}
-                          onGameClick={handleGameClick}
-                          onEdit={handleEditGame}
-                          onEditImages={handleEditImages}
-                          onEditCategories={handleEditCategories}
-                          onFavorite={handleToggleFavorite}
-                          onPin={handleTogglePin}
-                          onFixMatch={handleFixMatch}
-                          onHide={handleHideGame}
-                          onUnhide={handleUnhideGame}
-                          onUninstall={handleUninstallGame}
-                          isHiddenView={selectedCategory === 'hidden'}
-                          hideGameTitles={hideGameTitles}
-                          listViewOptions={listViewOptions}
-                          listViewSize={listViewSize}
-                          onEmptySpaceClick={(x, y) => {
-                            setGameContextMenu(null);
-                            setRightClickMenu({ x, y });
-                          }}
-                        />
-                      )}
-                    </div>
-                  ) : (
-                    <Suspense fallback={lazyRenderFallback}>
-                      <WelcomeScreen {...welcomeScreenProps} />
-                    </Suspense>
-                  )}
-                  {showCategoriesByView[viewMode] && viewMode !== 'carousel' && viewMode !== 'coverflow' && pinnedCategories.length > 0 && (categoriesPositionByView[viewMode] ?? 'top') === 'bottom' && (
-                    <div
-                      className={`flex items-center gap-2 px-6 py-4 overflow-x-auto no-scrollbar ${(categoriesAlignmentByView[viewMode] ?? 'left') === 'center' ? 'justify-center' : (categoriesAlignmentByView[viewMode] ?? 'left') === 'right' ? 'justify-end' : 'justify-start'
-                        }`}
-                      style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
-                    >
-                      <button
-                        onClick={() => setSelectedCategory(null)}
-                        style={{ fontSize: `${categoriesSizeByView[viewMode] ?? 12}px` }}
-                        className={`px-3 py-1.5 rounded-full font-medium transition-all whitespace-nowrap ${selectedCategory === null
-                          ? 'bg-blue-600/40 text-blue-100 border border-blue-500/40 shadow-sm shadow-blue-500/20'
-                          : 'bg-gray-800/40 text-gray-400 hover:bg-gray-700/60 hover:text-gray-200 border border-gray-700/20'
-                          }`}
-                      >
-                        All Games
-                      </button>
-                      {hasFavoriteGames && (
-                        <button
-                          onClick={() => setSelectedCategory(selectedCategory === 'favorites' ? null : 'favorites')}
-                          style={{ fontSize: `${categoriesSizeByView[viewMode] ?? 12}px` }}
-                          className={`px-3 py-1.5 rounded-full font-medium transition-all whitespace-nowrap ${selectedCategory === 'favorites'
-                            ? 'bg-blue-600/40 text-blue-100 border border-blue-500/40 shadow-sm shadow-blue-500/20'
-                            : 'bg-gray-800/40 text-gray-400 hover:bg-gray-700/60 hover:text-gray-200 border border-gray-700/20'
-                            }`}
-                        >
-                          Favorites
-                        </button>
-                      )}
-                      {pinnedCategories.map((cat) => (
-                        <button
-                          key={cat}
-                          onClick={() => setSelectedCategory(selectedCategory === cat ? null : cat)}
-                          style={{ fontSize: `${categoriesSizeByView[viewMode] ?? 12}px` }}
-                          className={`px-3 py-1.5 rounded-full font-medium transition-all whitespace-nowrap ${selectedCategory === cat
-                            ? 'bg-blue-600/40 text-blue-100 border border-blue-500/40 shadow-sm shadow-blue-500/20'
-                            : 'bg-gray-800/40 text-gray-400 hover:bg-gray-700/60 hover:text-gray-200 border border-gray-700/20'
-                            }`}
-                        >
-                          {cat}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
+          <AppShellLibraryView
+            activeGameId={activeGameId}
+            autoSizeToFit={autoSizeToFit}
+            carouselGameTilePadding={carouselGameTilePadding}
+            carouselViewProps={carouselViewProps}
+            categoriesAlignment={categoriesAlignmentByView[viewMode] ?? 'left'}
+            categoriesPosition={categoriesPositionByView[viewMode] ?? 'top'}
+            categoriesSize={categoriesSizeByView[viewMode] ?? 12}
+            coverFlowButtonColors={coverFlowButtonColors}
+            coverFlowButtonPosition={coverFlowButtonPosition}
+            coverFlowCoverSize={coverFlowCoverSize}
+            coverFlowReflection={coverFlowReflection}
+            coverFlowShowButtons={coverFlowShowButtons}
+            coverFlowSideOpacity={coverFlowSideOpacity}
+            coverFlowVerticalOffset={coverFlowVerticalOffset}
+            disableAnimatedBoxarts={disableAllAnimations || disableAnimatedBoxarts}
+            disableAnimatedLogos={disableAllAnimations || disableAnimatedLogos}
+            displayGames={displayGames}
+            error={error}
+            forceShowInitialOnboarding={forceShowInitialOnboarding}
+            gameTilePadding={gameTilePadding}
+            gridContainerRef={gridContainerRef}
+            gridDescriptionSize={gridDescriptionSize}
+            gridSize={gridSize}
+            hasFavoriteGames={hasFavoriteGames}
+            hideGameTitles={hideGameTitles}
+            isHiddenView={selectedCategory === 'hidden'}
+            listViewOptions={listViewOptions}
+            listViewSize={listViewSize}
+            loading={loading}
+            logoBackgroundColor={logoBackgroundColor}
+            logoBackgroundOpacity={logoBackgroundOpacity}
+            logoPosition={logoPosition}
+            logoSize={logoSize}
+            onCategoryChange={setSelectedCategory}
+            onEditCategories={handleEditCategories}
+            onEditGame={handleEditGame}
+            onEditImages={handleEditImages}
+            onEmptySpaceMenu={handleOpenShellContextMenu}
+            onFixMatch={handleFixMatch}
+            onGameClick={handleGameClick}
+            onGameContextMenu={handleOpenGameContextMenu}
+            onHideGame={handleHideGame}
+            onPlay={handlePlay}
+            onReorder={handleReorder}
+            onToggleFavorite={handleToggleFavorite}
+            onTogglePin={handleTogglePin}
+            onUnhideGame={handleUnhideGame}
+            onUninstallGame={handleUninstallGame}
+            pinnedCategories={pinnedCategories}
+            selectedCategory={selectedCategory}
+            setGridSize={setGridSize}
+            showCategories={showCategoriesByView[viewMode] ?? false}
+            showLogoOverBoxart={showLogoOverBoxart}
+            viewMode={viewMode}
+            welcomeScreenProps={welcomeScreenProps}
+          />
 
           {/* Right Panel - Game Details (hidden in carousel/coverflow mode and when no games exist) */}
           {viewMode !== 'carousel' && viewMode !== 'coverflow' && filteredGames.length > 0 && !forceShowInitialOnboarding && (
