@@ -1,7 +1,27 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { Game } from '../../types/game';
 import type { StagedGame } from '../../types/importer';
 import type { EditableGameFields } from '../../types/EditableGame';
+import {
+  buildOrderedResultsByType,
+  getImageCountForProvider,
+  getImageResultCountForTab,
+  hasAnyRawImageResults,
+  hasAnyVisibleImageResults,
+  matchesProviderFilter,
+  type OrderedResultsByType,
+} from '../gameManager/imageResultUtils';
+import { mergeIntoGame, mergeIntoStagedGame } from '../../types/EditableGame';
+import {
+  buildProviderProgress,
+  markAllProvidersCompleted,
+  updateProviderProgressFromEvent,
+  type ProviderProgressEntry,
+} from '../gameManager/providerProgressUtils';
+import {
+  normalizeImageUrl as normalizeSharedImageUrl,
+  type ProviderName,
+} from '../gameManager/imageSearchUtils';
 
 type ImageType = 'boxart' | 'banner' | 'logo' | 'icon' | 'alternativeBanner';
 
@@ -17,6 +37,7 @@ interface UseGamePropertiesImagesOptions {
   editedFields: EditableGameFields;
   game: Game | StagedGame;
   isStaged: boolean;
+  onSave: (game: Game | StagedGame) => Promise<void> | void;
   setEditedFields: React.Dispatch<React.SetStateAction<EditableGameFields>>;
   setError: React.Dispatch<React.SetStateAction<string | null>>;
   setSuccess: React.Dispatch<React.SetStateAction<string | null>>;
@@ -35,6 +56,7 @@ export const useGamePropertiesImages = ({
   editedFields,
   game,
   isStaged,
+  onSave,
   setEditedFields,
   setError,
   setSuccess,
@@ -47,6 +69,10 @@ export const useGamePropertiesImages = ({
   const [isFastSearching, setIsFastSearching] = useState(false);
   const [fastSearchResults, setFastSearchResults] = useState<any[]>([]);
   const [failedImageUrls, setFailedImageUrls] = useState<Set<string>>(new Set());
+  const [showImageSearch, setShowImageSearch] = useState<{ type: ImageType; gameId: string } | null>(null);
+  const [selectedFastGameId, setSelectedFastGameId] = useState<number | null>(null);
+  const [providerFilter, setProviderFilter] = useState<'all' | ProviderName>('all');
+  const [providerProgress, setProviderProgress] = useState<ProviderProgressEntry[]>([]);
 
   const fastSearchRunIdRef = useRef(0);
   const imageSearchRunIdRef = useRef(0);
@@ -55,11 +81,24 @@ export const useGamePropertiesImages = ({
   const resetImageState = () => {
     setFailedImageUrls(new Set());
     setImageSearchQuery('');
+    setShowImageSearch(null);
+    setProviderProgress([]);
+    setProviderFilter('all');
+    setSelectedFastGameId(null);
   };
 
   const clearImageResults = () => {
     setSteamGridDBResults(emptyResults());
     setFailedImageUrls(new Set());
+    setProviderProgress([]);
+    setSelectedFastGameId(null);
+    setShowImageSearch(null);
+  };
+
+  const clearSearchResultsOnly = () => {
+    setSteamGridDBResults(emptyResults());
+    setFailedImageUrls(new Set());
+    setSelectedFastGameId(null);
   };
 
   const getNumericSteamAppId = () => {
@@ -85,6 +124,30 @@ export const useGamePropertiesImages = ({
       return trimmed;
     }
     return undefined;
+  };
+
+  const getRenderableImageUrl = (value?: string) => {
+    const normalized = normalizeSharedImageUrl(value);
+    if (!normalized) return undefined;
+    if (failedImageUrls.has(normalized)) return undefined;
+    return normalized;
+  };
+
+  const orderedResultsByType: OrderedResultsByType = buildOrderedResultsByType([], steamGridDBResults, getRenderableImageUrl);
+  const hasRawImageResults = hasAnyRawImageResults([], steamGridDBResults);
+  const hasVisibleImageResults = hasAnyVisibleImageResults(orderedResultsByType, providerFilter);
+  const getVisibleImageResultCountForTab = (tab: ImageType) => getImageResultCountForTab(orderedResultsByType, providerFilter, tab);
+  const getImageCountForActiveProvider = (providerName: string) => getImageCountForProvider(orderedResultsByType, providerName);
+  const matchesActiveProviderFilter = (source?: string) => matchesProviderFilter(source, providerFilter);
+  const handleImageLoadError = (url: string | undefined) => {
+    const normalized = normalizeSharedImageUrl(url);
+    if (!normalized) return;
+    setFailedImageUrls((prev) => {
+      if (prev.has(normalized)) return prev;
+      const next = new Set(prev);
+      next.add(normalized);
+      return next;
+    });
   };
 
   const categorizeFetchedImages = (images: any[]) => {
@@ -127,6 +190,50 @@ export const useGamePropertiesImages = ({
     return categorized;
   };
 
+  const buildImporterProviderProgress = (queryType?: ImageType) => buildProviderProgress(
+    ['Steam Store API', 'SteamGridDB', 'IGDB', 'RAWG', 'Giant Bomb'],
+    {},
+    {
+      effectiveImageType: queryType === 'alternativeBanner' ? 'banner' : queryType,
+      markAllSearchable: true,
+      steamAppId: getNumericSteamAppId(),
+    },
+  );
+
+  const effectiveProviderProgress = providerProgress.length > 0
+    ? providerProgress
+    : hasRawImageResults
+      ? markAllProvidersCompleted(buildImporterProviderProgress(showImageSearch?.type || 'boxart'))
+      : [];
+
+  const persistEditedFields = async (nextFields: EditableGameFields) => {
+    const merged = isStaged
+      ? mergeIntoStagedGame(game as StagedGame, nextFields)
+      : mergeIntoGame(game as Game, nextFields);
+    await onSave(merged);
+  };
+
+  useEffect(() => {
+    const handleProviderStatus = (_event: unknown, data: any) => {
+      if (data?.requestId !== undefined && data.requestId !== imageSearchRunIdRef.current && data.requestId !== fastSearchActiveRunIdRef.current) {
+        return;
+      }
+
+      if (data?.currentProvider) {
+        setProviderProgress((prev) => updateProviderProgressFromEvent(prev, data.currentProvider, data.remaining || []));
+      } else {
+        setProviderProgress((prev) => markAllProvidersCompleted(prev));
+      }
+    };
+
+    const removeProviderListener = window.electronAPI?.on?.('metadata:imageSearchProviderStatus', handleProviderStatus);
+    return () => {
+      if (typeof removeProviderListener === 'function') {
+        removeProviderListener();
+      }
+    };
+  }, []);
+
   const openImageSearch = async (type: ImageType, explicitQuery?: string) => {
     const query = (explicitQuery || imageSearchQuery || editedFields.title).trim();
     if (!query) {
@@ -136,13 +243,21 @@ export const useGamePropertiesImages = ({
 
     const runId = ++imageSearchRunIdRef.current;
     const steamAppId = getNumericSteamAppId();
+    const gameId = isStaged ? (game as StagedGame).uuid : (game as Game).id;
 
     setActiveTab('images');
+    setShowImageSearch({ type, gameId });
     setActiveImageSearchTab(type);
     setImageSearchQuery(query);
-    setIsSearchingImages(true);
     setError(null);
-    clearImageResults();
+
+    if (hasRawImageResults) {
+      return;
+    }
+
+    setIsSearchingImages(true);
+    clearSearchResultsOnly();
+    setProviderProgress(buildImporterProviderProgress(type));
 
     try {
       const response = await (window.electronAPI as any).fetchGameImages(
@@ -151,11 +266,12 @@ export const useGamePropertiesImages = ({
         undefined,
         false,
         runId,
-        isStaged ? (game as StagedGame).uuid : (game as Game).id,
+        gameId,
       );
 
       if (response?.success && Array.isArray(response.images)) {
         setSteamGridDBResults(categorizeFetchedImages(response.images));
+        setProviderProgress((prev) => markAllProvidersCompleted(prev));
       } else {
         setError(response?.error || 'No images found');
       }
@@ -168,28 +284,69 @@ export const useGamePropertiesImages = ({
   };
 
   const handleSearchImages = async (type: ImageType) => {
-    await openImageSearch(type);
+    const query = (imageSearchQuery || editedFields.title).trim();
+    if (!query) {
+      setError('Please enter a game title to search');
+      return;
+    }
+
+    const runId = ++imageSearchRunIdRef.current;
+    const steamAppId = getNumericSteamAppId();
+    const gameId = isStaged ? (game as StagedGame).uuid : (game as Game).id;
+
+    setShowImageSearch({ type, gameId });
+    setActiveImageSearchTab(type);
+    setImageSearchQuery(query);
+    setIsSearchingImages(true);
+    setError(null);
+    clearSearchResultsOnly();
+    setProviderProgress(buildImporterProviderProgress(type));
+
+    try {
+      const response = await (window.electronAPI as any).fetchGameImages(
+        query,
+        steamAppId,
+        undefined,
+        false,
+        runId,
+        gameId,
+      );
+
+      if (response?.success && Array.isArray(response.images)) {
+        setSteamGridDBResults(categorizeFetchedImages(response.images));
+        setProviderProgress((prev) => markAllProvidersCompleted(prev));
+      } else {
+        setError(response?.error || 'No images found');
+      }
+    } catch (error) {
+      console.error('[ImporterImageSearch] error', { runId, query, error });
+      setError('Failed to fetch images from sources');
+    } finally {
+      setIsSearchingImages(false);
+    }
   };
 
   const applyImage = (type: ImageType, url: string) => {
-    setEditedFields((prev) => {
-      const next = { ...prev };
+    const nextFields = { ...editedFields };
 
-      if (type === 'boxart') {
-        next.boxArtUrl = url;
-      } else if (type === 'banner') {
-        next.bannerUrl = url;
-        next.heroUrl = url;
-      } else if (type === 'alternativeBanner') {
-        next.alternativeBannerUrl = url;
-        next.useAlternativeBackground = true;
-      } else if (type === 'logo') {
-        next.logoUrl = url;
-      } else if (type === 'icon') {
-        next.iconUrl = url;
-      }
+    if (type === 'boxart') {
+      nextFields.boxArtUrl = url;
+    } else if (type === 'banner') {
+      nextFields.bannerUrl = url;
+      nextFields.heroUrl = url;
+    } else if (type === 'alternativeBanner') {
+      nextFields.alternativeBannerUrl = url;
+      nextFields.useAlternativeBackground = true;
+    } else if (type === 'logo') {
+      nextFields.logoUrl = url;
+    } else if (type === 'icon') {
+      nextFields.iconUrl = url;
+    }
 
-      return next;
+    setEditedFields(nextFields);
+    void persistEditedFields(nextFields).catch((error) => {
+      console.error('[ImporterImageApply] error', error);
+      setError('Failed to save selected image');
     });
     setSuccess(`Applied ${type === 'alternativeBanner' ? 'Alt Banner' : type}`);
     setTimeout(() => setSuccess(null), 2000);
@@ -229,8 +386,18 @@ export const useGamePropertiesImages = ({
     });
 
     setFastSearchResults([]);
+    setSelectedFastGameId(gameResult.id ?? null);
     setIsSearchingImages(true);
     setError(null);
+    const gameId = isStaged ? (game as StagedGame).uuid : (game as Game).id;
+    const effectiveType = showImageSearch?.type || 'boxart';
+    if (!showImageSearch) {
+      setShowImageSearch({ type: effectiveType, gameId });
+    }
+    setActiveImageSearchTab(effectiveType);
+    fastSearchActiveRunIdRef.current = ++imageSearchRunIdRef.current;
+    clearSearchResultsOnly();
+    setProviderProgress(buildImporterProviderProgress(effectiveType));
 
     try {
       const steamAppId = getNumericSteamAppId();
@@ -250,10 +417,12 @@ export const useGamePropertiesImages = ({
         igdbIdParam,
         false,
         fastSearchActiveRunIdRef.current,
+        gameId,
       );
 
       if (response.success && response.images) {
         setSteamGridDBResults(categorizeFetchedImages(response.images));
+        setProviderProgress((prev) => markAllProvidersCompleted(prev));
         setSuccess(`Showing images for "${gameResult.name}"`);
         setTimeout(() => setSuccess(null), 3000);
       } else {
@@ -279,6 +448,7 @@ export const useGamePropertiesImages = ({
     setIsFastSearching(true);
     setError(null);
     setFastSearchResults([]);
+    setSelectedFastGameId(null);
 
     const removeProgressListener = window.electronAPI?.on
       ? window.electronAPI.on('metadata:fastSearchProgress', (_event: any, data: any) => {
@@ -352,25 +522,59 @@ export const useGamePropertiesImages = ({
     }
   };
 
+  const handleImageSearchTabChange = async (tab: 'all' | ImageType) => {
+    setActiveImageSearchTab(tab);
+
+    if (tab === 'all') return;
+
+    const gameId = isStaged ? (game as StagedGame).uuid : (game as Game).id;
+    setShowImageSearch({ type: tab, gameId });
+
+    if (isSearchingImages) return;
+
+    if (getVisibleImageResultCountForTab(tab) === 0) {
+      await handleSearchImages(tab);
+    }
+  };
+
+  const handleOpenGoogleImageSearch = (query: string) => {
+    window.open(`https://www.google.com/search?tbm=isch&q=${encodeURIComponent(query)}`, '_blank', 'noopener,noreferrer');
+  };
+
   return {
     activeImageSearchTab,
     applyImage,
     clearImageResults,
     failedImageUrls,
     fastSearchResults,
+    getImageCountForActiveProvider,
+    getRenderableImageUrl,
+    getVisibleImageResultCountForTab,
     handleBrowseImage,
     handleFastSearch,
+    handleImageLoadError,
+    handleImageSearchTabChange,
+    handleOpenGoogleImageSearch,
     handleSearchImages,
     handleSelectFastGame,
+    hasRawImageResults,
+    hasVisibleImageResults,
     imageSearchQuery,
     isFastSearching,
     isSearchingImages,
+    matchesActiveProviderFilter,
     openImageSearch,
+    orderedResultsByType,
+    providerFilter,
+    providerProgress: effectiveProviderProgress,
     resetImageState,
+    selectedFastGameId,
     setActiveImageSearchTab,
     setFailedImageUrls,
     setFastSearchResults,
     setImageSearchQuery,
+    setProviderFilter,
+    showImageSearch,
     steamGridDBResults,
   };
 };

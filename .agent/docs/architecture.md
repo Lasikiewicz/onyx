@@ -53,13 +53,11 @@ It explains module boundaries, data flow, and release pipeline expectations.
 - `renderer/src/components/settings/SettingsLinksTab.tsx` now owns the Link Management tab body for ordering and hidden-by-default visibility controls, further reducing the amount of link-settings UI embedded directly in `OnyxSettingsModal.tsx`.
 - `renderer/src/components/settings/SettingsScanningTab.tsx` now owns the Scanning tab body for background scan controls and startup behavior toggles, further reducing the amount of scanning UI embedded directly in `OnyxSettingsModal.tsx`.
 - `renderer/src/components/settings/SettingsSuspendTab.tsx` now owns the Suspend/Resume tab body for shortcut capture, elevation restart, and suspend feature toggles, further reducing the amount of suspend workflow UI embedded directly in `OnyxSettingsModal.tsx`.
-- `renderer/src/components/gameProperties/GamePropertiesLinksTab.tsx` now owns the Add Games staged-editor Links tab body, so `GamePropertiesPanel.tsx` no longer embeds per-link row rendering and icon selection markup directly inside the giant editor shell.
-- `renderer/src/components/gameProperties/GamePropertiesModManagerTab.tsx` now owns the Add Games staged-editor Mod Manager tab body, so `GamePropertiesPanel.tsx` no longer embeds that launch/configuration panel directly inside the giant editor shell.
-- `renderer/src/components/gameProperties/useGamePropertiesMetadata.ts` now owns the Add Games staged-editor metadata undo/fix-match/apply-match workflow, so `GamePropertiesPanel.tsx` no longer embeds that metadata repair state machine directly inside the giant editor shell.
+- `renderer/src/components/gameProperties/useGamePropertiesMetadata.ts` now owns the Add Games staged-editor metadata repair workflow, adapting the same Game Manager metadata surface to staged importer saves instead of leaving a separate importer-only fix-match path inline in `GamePropertiesPanel.tsx`.
 - `renderer/src/components/gameProperties/useGamePropertiesImages.ts` now owns the Add Games staged-editor image-search, browse, apply-image, and fast-search orchestration, so `GamePropertiesPanel.tsx` no longer embeds that image workflow state machine directly inside the giant editor shell.
-- `renderer/src/components/gameProperties/GamePropertiesMetadataTab.tsx` now owns the Add Games staged-editor Metadata tab layout, so `GamePropertiesPanel.tsx` no longer needs to keep that large metadata-editing surface inline in the live render path.
 - `renderer/src/components/gameProperties/GamePropertiesImagesTab.tsx` and `renderer/src/components/gameProperties/GamePropertiesImageStrip.tsx` now own the Add Games staged-editor Images tab layout and preview strip, so `GamePropertiesPanel.tsx` no longer needs to embed the image-search controls and artwork slot UI directly inside the giant editor shell.
-- `renderer/src/components/GamePropertiesPanel.tsx` is now primarily a shared staged-editor shell that coordinates editable-field state, tab switching, save flushing, and footer actions instead of embedding the full metadata/images/links/mod-manager UI inline.
+- `renderer/src/components/GamePropertiesPanel.tsx` is now primarily a staged-editor shell and adapter layer that coordinates editable-field state, staged-save flushing, link-icon popup state, and tab switching while reusing the Game Manager Metadata, Images, Links, and Mod Manager tab components for pre-import review.
+- `main/LauncherService.ts`, `main/ipc/launcherHandlers.ts`, and `main/preload.ts` now expose a direct `launchModManagerTarget` path for staged games, so the shared Mod Manager tab can launch configured local paths or vetted external URLs before a staged game has been imported into the library.
 - `renderer/src/App.tsx` now routes uninstall actions through a confirmation state that can optionally remove the game from the Onyx library after opening the uninstall flow, while `renderer/src/components/ConfirmationDialog.tsx` supports embedded custom body content for checkbox-driven confirmations.
 - `renderer/src/components/RightClickMenu.tsx` now opens the dense Game Details and Carousel button-color editor in a dedicated floating popup anchored to the trigger row, using a neutral shell border and full `Mod Manager` labeling so the picker reads like part of the menu instead of a warning state.
 - `renderer/src/components/RightClickMenu.tsx` now exposes the persisted `autoSizeToFit` preference as a compact `Fill Available Space` toggle for grid view, while `renderer/src/App.tsx` recalculates grid tile width against the live left-panel width and visible height so boxart can shrink to fit all visible rows or grow to reduce right-side gaps as the details panel changes.
@@ -110,7 +108,7 @@ It explains module boundaries, data flow, and release pipeline expectations.
 
 <!-- AUTO-GENERATED:MODULE_INDEX:START -->
 - Main process source files: 70
-- Renderer source files: 147
+- Renderer source files: 151
 - Automation scripts: 30
 - GitHub workflow files: 7
 - Key entrypoints:

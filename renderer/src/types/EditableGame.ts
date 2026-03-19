@@ -26,6 +26,7 @@ export interface EditableGameFields {
   exePath?: string;
   launchArgs?: string;
   installPath?: string;
+  modManagerUrl?: string;
   links?: Array<{ name: string; url: string; hidden?: boolean; iconUrl?: string }>;
   lockedFields?: {
     title?: boolean;
@@ -70,6 +71,7 @@ export function toEditableFields(source: Game | StagedGame): EditableGameFields 
     exePath: (source as any).exePath,
     launchArgs: (source as any).launchArgs,
     installPath: (source as StagedGame).installPath,
+    modManagerUrl: (source as Game).modManagerUrl ?? (source as any).modManagerUrl,
     links: (source as Game).links ?? (source as StagedGame).links,
     lockedFields: source.lockedFields,
   };
@@ -99,6 +101,7 @@ export function mergeIntoGame(original: Game, edited: EditableGameFields): Game 
     screenshots: edited.screenshots,
     exePath: edited.exePath ?? original.exePath,
     launchArgs: edited.launchArgs ?? (original as Game).launchArgs,
+    modManagerUrl: edited.modManagerUrl ?? original.modManagerUrl,
     links: edited.links ?? original.links,
     lockedFields: edited.lockedFields,
   };
@@ -130,6 +133,7 @@ export function mergeIntoStagedGame(original: StagedGame, edited: EditableGameFi
     exePath: edited.exePath ?? original.exePath,
     launchArgs: edited.launchArgs ?? (original as StagedGame).launchArgs,
     installPath: edited.installPath ?? (original as StagedGame).installPath,
+    modManagerUrl: edited.modManagerUrl ?? (original as any).modManagerUrl,
     links: edited.links ?? original.links,
     lockedFields: edited.lockedFields,
   };

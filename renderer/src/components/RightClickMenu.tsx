@@ -3,6 +3,10 @@ import type { Game } from '../types/game';
 import { CustomDefaultsManager } from './CustomDefaultsManager';
 import { ConfirmationDialog } from './ConfirmationDialog';
 import { InfoHintButton, MenuSliderRow } from './MenuSliderRow';
+import { RightClickMenuCarouselSection } from './rightClickMenu/RightClickMenuCarouselSection';
+import { RightClickMenuCoverFlowSection } from './rightClickMenu/RightClickMenuCoverFlowSection';
+import { RightClickMenuHeader, type RightClickMenuEditorSection } from './rightClickMenu/RightClickMenuHeader';
+import { RightClickMenuViewModeSwitch } from './rightClickMenu/RightClickMenuViewModeSwitch';
 
 export interface RightClickMenuProps {
   x: number;
@@ -267,10 +271,9 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
   onCoverFlowButtonColorsChange,
   onSettingsImported,
 }) => {
-  type EditorSection = 'games-view' | 'dividers' | 'details-view';
   const menuRef = useRef<HTMLDivElement>(null);
   const buttonColorsPopupRef = useRef<HTMLDivElement>(null);
-  const [activeEditorSection, setActiveEditorSection] = useState<EditorSection | null>(null);
+  const [activeEditorSection, setActiveEditorSection] = useState<RightClickMenuEditorSection | null>(null);
   const [menuTransparency, setMenuTransparency] = useState(12);
   const [buttonColorsPopup, setButtonColorsPopup] = React.useState<{
     editorKey: 'carousel' | 'details';
@@ -988,631 +991,95 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
         overflowY: 'hidden',
       }}
     >
-      {/* Top Action Row */}
-      <div className={`px-3 pt-2 pb-1 ${isFocusedEditorSection ? 'sticky top-0 z-10' : ''}`} style={isFocusedEditorSection ? {
-        backgroundColor: menuBackground,
-        backdropFilter: `blur(${menuBackdropBlur})`,
-        WebkitBackdropFilter: `blur(${menuBackdropBlur})`,
-      } : undefined}>
-        <div className="flex items-center justify-between">
-          <div>
-            {viewMode !== 'coverflow' && (
-              <button
-                onClick={() => {
-                  onViewFlipChange?.(!isViewFlipped);
-                  onClose();
-                }}
-                className="px-2 py-1 text-[11px] rounded transition-colors bg-gray-700 text-gray-300 hover:bg-gray-600 border border-gray-600 font-medium flex items-center gap-1"
-                title={viewMode === 'carousel' ? 'Flip the view - swap carousel and details sections' : 'Flip the view - swap left and right sections'}
-              >
-                <svg className="w-3 h-3 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-                </svg>
-                Flip View
-              </button>
-            )}
-          </div>
+      <RightClickMenuHeader
+        activeEditorSection={activeEditorSection}
+        isFocusedEditorSection={isFocusedEditorSection}
+        isSectionedEditor={isSectionedEditor}
+        isViewFlipped={isViewFlipped}
+        menuBackground={menuBackground}
+        menuBackdropBlur={menuBackdropBlur}
+        menuTransparency={menuTransparency}
+        menuTransparencyPercent={menuTransparencyPercent}
+        viewMode={viewMode}
+        onClose={onClose}
+        onOpenCustomDefaults={handleOpenCustomDefaultsModal}
+        onResetToDefaults={handleResetToDefaults}
+        onSetActiveEditorSection={setActiveEditorSection}
+        onSetMenuTransparency={setMenuTransparency}
+        onViewFlipChange={onViewFlipChange}
+      />
 
-          <div className="flex items-center gap-1.5">
-            {isSectionedEditor && (
-              <>
-                {([
-                  ['games-view', 'Games View'],
-                  ['dividers', 'Dividers'],
-                  ['details-view', 'Game Details'],
-                ] as const).map(([sectionKey, label]) => (
-                  <button
-                    key={sectionKey}
-                    onClick={() => setActiveEditorSection((current) => current === sectionKey ? null : sectionKey)}
-                    className={`px-2 py-1 text-[11px] rounded transition-colors border font-medium ${
-                      activeEditorSection === sectionKey
-                        ? 'bg-blue-700 text-white border-blue-600'
-                        : 'bg-gray-700 text-gray-300 hover:bg-gray-600 border-gray-600'
-                    }`}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </>
-            )}
-          </div>
+      <RightClickMenuViewModeSwitch
+        viewMode={viewMode}
+        onViewModeChange={handleViewModeChange}
+      />
 
-          <div className="flex items-center gap-2">
-            {isSectionedEditor && (
-              <div className="flex min-w-[190px] items-center gap-2 rounded text-[11px] transition-colors bg-gray-700 text-gray-300 hover:bg-gray-600 border border-gray-600 font-medium px-2 py-1">
-                <span className="shrink-0 text-[10px] text-gray-300 whitespace-nowrap">Menu Transparency</span>
-                <input
-                  type="range"
-                  min="0"
-                  max="75"
-                  step="1"
-                  value={menuTransparency}
-                  onChange={(e) => setMenuTransparency(Number(e.target.value))}
-                  style={{
-                    backgroundImage: `linear-gradient(90deg, rgba(59,130,246,0.95) 0%, rgba(59,130,246,0.95) ${menuTransparencyPercent}%, rgba(255,255,255,0.18) ${menuTransparencyPercent}%, rgba(255,255,255,0.18) 100%)`,
-                    backgroundSize: '100% 2px',
-                    backgroundPosition: 'center',
-                    backgroundRepeat: 'no-repeat',
-                  }}
-                  className="min-w-[88px] flex-1 accent-blue-500 slider h-1"
-                />
-              </div>
-            )}
-            <button
-              onClick={handleResetToDefaults}
-              className="px-2 py-1 text-[11px] rounded transition-colors bg-gray-700 text-gray-300 hover:bg-gray-600 border border-gray-600 font-medium"
-              title="Reset view settings to defaults for your resolution"
-            >
-              Reset
-            </button>
-            <button
-              onClick={handleOpenCustomDefaultsModal}
-              className="px-2 py-1 text-[11px] rounded transition-colors bg-blue-700 text-gray-300 hover:bg-blue-600 border border-blue-600 font-medium"
-              title="Save or restore your custom defaults"
-            >
-              Defaults
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* View Mode Toggle Buttons - Single Row */}
-      <div className="px-3 py-1 grid grid-cols-5 gap-1.5">
-        <button
-          onClick={() => handleViewModeChange('grid')}
-          className={`px-2 py-1.5 text-xs rounded transition-colors flex flex-col items-center gap-0.5 font-medium ${viewMode === 'grid'
-            ? 'bg-blue-600/40 text-white border border-blue-500'
-            : 'bg-gray-700 text-gray-300 hover:bg-gray-600 border border-gray-600'
-            }`}
-          title="Grid View"
-        >
-          <svg className="w-4 h-4 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-          </svg>
-          Grid
-        </button>
-        <button
-          onClick={() => handleViewModeChange('list')}
-          className={`px-2 py-1.5 text-xs rounded transition-colors flex flex-col items-center gap-0.5 font-medium ${viewMode === 'list'
-            ? 'bg-blue-600/40 text-white border border-blue-500'
-            : 'bg-gray-700 text-gray-300 hover:bg-gray-600 border border-gray-600'
-            }`}
-          title="List View"
-        >
-          <svg className="w-4 h-4 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-          </svg>
-          List
-        </button>
-        <button
-          onClick={() => handleViewModeChange('logo')}
-          className={`px-2 py-1.5 text-xs rounded transition-colors flex flex-col items-center gap-0.5 font-medium ${viewMode === 'logo'
-            ? 'bg-blue-600/40 text-white border border-blue-500'
-            : 'bg-gray-700 text-gray-300 hover:bg-gray-600 border border-gray-600'
-            }`}
-          title="Logo View"
-        >
-          <svg className="w-4 h-4 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
-          </svg>
-          Logo
-        </button>
-        <button
-          onClick={() => handleViewModeChange('carousel')}
-          className={`px-2 py-1.5 text-xs rounded transition-colors flex flex-col items-center gap-0.5 font-medium ${viewMode === 'carousel'
-            ? 'bg-blue-600/40 text-white border border-blue-500'
-            : 'bg-gray-700 text-gray-300 hover:bg-gray-600 border border-gray-600'
-            }`}
-          title="Carousel View"
-        >
-          <svg className="w-4 h-4 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
-          </svg>
-          Carousel
-        </button>
-        <button
-          onClick={() => handleViewModeChange('coverflow')}
-          className={`px-2 py-1.5 text-xs rounded transition-colors flex flex-col items-center gap-0.5 font-medium ${viewMode === 'coverflow'
-            ? 'bg-blue-600/40 text-white border border-blue-500'
-            : 'bg-gray-700 text-gray-300 hover:bg-gray-600 border border-gray-600'
-            }`}
-          title="Cover Flow View"
-        >
-          <svg className="w-4 h-4 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h3v12H4V6zM10.5 4h3v16h-3V4zM17 6h3v12h-3V6z" />
-          </svg>
-          Cover Flow
-        </button>
-      </div>
-
-      {/* Carousel Settings - in two columns */}
       {viewMode === 'carousel' && (
-        <>
-          <div className="grid grid-cols-2 text-xs text-gray-400 px-3 pb-1 font-semibold">
-            <span>Games View</span>
-            <span className="text-right">Game Details</span>
-          </div>
-          <div className="px-2 py-2">
-            <div className="grid grid-cols-2 gap-3">
-              {/* Left Column */}
-              <div className="space-y-2">
-                {/* Details Section */}
-                <div className="px-3 py-2 bg-gray-700/30 rounded-md">
-                  {/* Show Details Toggle */}
-                  <div className="flex items-center justify-between mb-2">
-                    <label className="text-xs text-gray-400 font-medium">Show Details Across Top</label>
-                    <button
-                      onClick={handleShowCarouselDetailsToggle}
-                      className={`relative inline-flex h-3 w-6 items-center rounded-full transition-colors ${showCarouselDetails ? 'bg-blue-600' : 'bg-gray-600'
-                        }`}
-                    >
-                      <span
-                        className={`inline-block h-2 w-2 transform rounded-full bg-white transition-transform ${showCarouselDetails ? 'translate-x-3' : 'translate-x-0.5'
-                          }`}
-                      />
-                    </button>
-                  </div>
-
-                  {/* Details Bar Size - only show when details are enabled */}
-                  {showCarouselDetails && onDetailsBarSizeChange && (
-                    <>
-                      <MenuSliderRow
-                        label="Details Bar Size"
-                        min={10}
-                        max={24}
-                        step={1}
-                        value={detailsBarSize}
-                        defaultValue={sliderDefaults.detailsBarSize}
-                        onChange={onDetailsBarSizeChange}
-                        onReset={() => onDetailsBarSizeChange(sliderDefaults.detailsBarSize)}
-                        formatValue={(value) => `${value}px`}
-                        minLabel="10px"
-                        maxLabel="24px"
-                      />
-                    </>
-                  )}
-                </div>
-
-                {/* Selected Box Art Size */}
-                <div className="px-3 py-2 bg-gray-700/30 rounded-md">
-                  <MenuSliderRow
-                    label="Selected Box Art Size"
-                    min={5}
-                    max={30}
-                    step={0.5}
-                    value={selectedBoxArtSize}
-                    defaultValue={sliderDefaults.selectedBoxArtSize}
-                    onChange={(value) => onSelectedBoxArtSizeChange?.(value)}
-                    onReset={() => onSelectedBoxArtSizeChange?.(sliderDefaults.selectedBoxArtSize)}
-                    formatValue={(value) => `${value}vw`}
-                    minLabel="5vw"
-                    maxLabel="30vw"
-                  />
-                </div>
-
-                {/* Game Tile Padding - for Carousel */}
-                <div className="px-3 py-2 bg-gray-700/30 rounded-md">
-                  <MenuSliderRow
-                    label="Game Tile Padding"
-                    min={0}
-                    max={3}
-                    step={1}
-                    value={gameTilePadding}
-                    defaultValue={sliderDefaults.gameTilePadding}
-                    onChange={(value) => onGameTilePaddingChange?.(value)}
-                    onReset={() => onGameTilePaddingChange?.(sliderDefaults.gameTilePadding)}
-                    formatValue={(value) => `${value}px`}
-                    minLabel="0px"
-                    maxLabel="3px"
-                  />
-                </div>
-
-                {/* Background Blur Amount - for Carousel */}
-                <div className="px-3 py-2 bg-gray-700/30 rounded-md">
-                  <MenuSliderRow
-                    label="Background Blur Amount"
-                    min={0}
-                    max={100}
-                    step={1}
-                    value={backgroundBlur}
-                    defaultValue={0}
-                    onChange={(value) => onBackgroundBlurChange?.(value)}
-                    onReset={() => onBackgroundBlurChange?.(0)}
-                    formatValue={(value) => `${value}%`}
-                    minLabel="0%"
-                    maxLabel="100%"
-                  />
-                </div>
-
-                {/* Background Brightness - for Carousel */}
-                <div className="px-3 py-2 bg-gray-700/30 rounded-md">
-                  <MenuSliderRow
-                    label="Background Brightness"
-                    min={0}
-                    max={100}
-                    step={1}
-                    value={Math.round(backgroundBrightness * 100)}
-                    defaultValue={sliderDefaults.backgroundBrightnessPercent}
-                    onChange={(value) => onBackgroundBrightnessChange?.(value / 100)}
-                    onReset={() => onBackgroundBrightnessChange?.(sliderDefaults.backgroundBrightnessPercent / 100)}
-                    formatValue={(value) => `${value}%`}
-                    minLabel="0%"
-                    maxLabel="100%"
-                  />
-                </div>
-              </div>
-
-              {/* Right Column */}
-              <div className="space-y-2">
-                {/* Per-Game Logo Size Control for Carousel */}
-                {activeGame && (
-                  <div className="px-3 py-2 bg-gray-700/30 rounded-md space-y-3">
-                    <div className="flex items-center justify-between">
-                      <label className="text-xs text-gray-300 font-medium">Alternative Background</label>
-                      <button
-                        onClick={handleAlternativeBackgroundToggle}
-                        className={`relative inline-flex h-3.5 w-7 items-center rounded-full transition-all ${activeGame?.useAlternativeBackground ? 'bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]' : 'bg-gray-600'}`}
-                      >
-                        <span
-                          className={`inline-block h-2.5 w-2.5 transform rounded-full bg-white transition-all shadow-sm ${activeGame?.useAlternativeBackground ? 'translate-x-[14px]' : 'translate-x-0.5'}`}
-                        />
-                      </button>
-                    </div>
-
-                    <div className="pt-3 border-t border-white/5">
-                      <MenuSliderRow
-                        label="Game Logo Size"
-                        min={50}
-                        max={600}
-                        step={5}
-                        value={localLogoSizes.carousel}
-                        defaultValue={sliderDefaults.perGameLogoSize}
-                        onChange={(value) => handlePerGameLogoSizeChange('carousel', value)}
-                        onReset={() => handlePerGameLogoSizeChange('carousel', sliderDefaults.perGameLogoSize)}
-                        formatValue={(value) => `${value}px`}
-                        minLabel="50px"
-                        maxLabel="600px"
-                        sliderClassName="h-2"
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {/* Game Logos Section */}
-                <div className="px-3 py-2 bg-gray-700/30 rounded-md">
-                  {/* Show Game Logos Toggle */}
-                  <div className="flex items-center justify-between mb-2">
-                    <label className="text-xs text-gray-400 font-medium">Show Game Logos</label>
-                    <button
-                      onClick={handleShowCarouselLogosToggle}
-                      className={`relative inline-flex h-3 w-6 items-center rounded-full transition-colors ${showCarouselLogos ? 'bg-blue-600' : 'bg-gray-600'
-                        }`}
-                    >
-                      <span
-                        className={`inline-block h-2 w-2 transform rounded-full bg-white transition-transform ${showCarouselLogos ? 'translate-x-3' : 'translate-x-0.5'
-                          }`}
-                      />
-                    </button>
-                  </div>
-
-                  {/* Logo Size - only show when logos are enabled AND no per-game override */}
-                  {showCarouselLogos && !activeGame && onCarouselLogoSizeChange && (
-                    <>
-                      <MenuSliderRow
-                        label="Logo Size"
-                        min={50}
-                        max={600}
-                        step={5}
-                        value={carouselLogoSize}
-                        defaultValue={sliderDefaults.carouselLogoSize}
-                        onChange={onCarouselLogoSizeChange}
-                        onReset={() => onCarouselLogoSizeChange(sliderDefaults.carouselLogoSize)}
-                        formatValue={(value) => `${value}px`}
-                        minLabel="50px"
-                        maxLabel="600px"
-                      />
-                    </>
-                  )}
-
-                  {/* Logo Alignment - only show when logos are enabled */}
-                  {showCarouselLogos && onCarouselLogoAlignmentChange && (
-                    <>
-                      <label className="block text-xs text-gray-400 mb-2 font-semibold mt-3">Logo Alignment</label>
-                      <div className="flex gap-1">
-                        {(['left', 'center', 'right'] as const).map((alignment) => (
-                          <button
-                            key={alignment}
-                            onClick={() => onCarouselLogoAlignmentChange(alignment)}
-                            className={`flex-1 px-2 py-1 text-xs rounded transition-colors ${carouselLogoAlignment === alignment
-                              ? 'bg-blue-600 text-white'
-                              : 'bg-gray-600 text-gray-300 hover:bg-gray-500'
-                              }`}
-                          >
-                            {alignment.charAt(0).toUpperCase() + alignment.slice(1)}
-                          </button>
-                        ))}
-                      </div>
-                    </>
-                  )}
-                </div>
-
-                {/* Description Text Size */}
-                <div className="px-3 py-2 bg-gray-700/30 rounded-md">
-                  <MenuSliderRow
-                    label="Description Text Size"
-                    min={12}
-                    max={28}
-                    step={1}
-                    value={carouselDescriptionSize}
-                    defaultValue={sliderDefaults.carouselDescriptionSize}
-                    onChange={(value) => onCarouselDescriptionSizeChange?.(value)}
-                    onReset={() => onCarouselDescriptionSizeChange?.(sliderDefaults.carouselDescriptionSize)}
-                    formatValue={(value) => `${value}px`}
-                    minLabel="12px"
-                    maxLabel="28px"
-                  />
-                </div>
-
-                {/* Description Text Alignment */}
-                <div className="px-3 py-2 bg-gray-700/30 rounded-md">
-                  <label className="block text-xs text-gray-400 mb-2 font-semibold">Description Text Alignment</label>
-                  <div className="flex gap-1">
-                    {(['left', 'center', 'right'] as const).map((alignment) => (
-                      <button
-                        key={alignment}
-                        onClick={() => onCarouselDescriptionAlignmentChange?.(alignment)}
-                        className={`flex-1 px-2 py-1 text-xs rounded transition-colors ${carouselDescriptionAlignment === alignment
-                          ? 'bg-blue-600 text-white'
-                          : 'bg-gray-600 text-gray-300 hover:bg-gray-500'
-                          }`}
-                      >
-                        {alignment.charAt(0).toUpperCase() + alignment.slice(1)}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Button Size */}
-                <div className="px-3 py-2 bg-gray-700/30 rounded-md">
-                  <MenuSliderRow
-                    label="Button Size"
-                    min={10}
-                    max={24}
-                    step={1}
-                    value={carouselButtonSize}
-                    defaultValue={sliderDefaults.carouselButtonSize}
-                    onChange={(value) => onCarouselButtonSizeChange?.(value)}
-                    onReset={() => onCarouselButtonSizeChange?.(sliderDefaults.carouselButtonSize)}
-                    formatValue={(value) => `${value}px`}
-                    minLabel="10px"
-                    maxLabel="24px"
-                  />
-                </div>
-
-                {/* Button Colors */}
-                {renderButtonColorsTrigger({
-                  editorKey: 'carousel',
-                  title: 'Button Colors',
-                  colors: carouselButtonColors,
-                  onChange: onCarouselButtonColorsChange,
-                  onReset: () => {
-                    onCarouselButtonColorsChange?.(defaultButtonColors);
-                    window.electronAPI.savePreferences({ carouselButtonColors: defaultButtonColors });
-                  },
-                })}
-
-                {/* Button Alignment */}
-                <div className="px-3 py-2 bg-gray-700/30 rounded-md">
-                  <label className="block text-xs text-gray-400 mb-2 font-semibold">Button Alignment</label>
-                  <div className="flex gap-1">
-                    {(['left', 'center', 'right'] as const).map((alignment) => (
-                      <button
-                        key={alignment}
-                        onClick={() => onCarouselButtonAlignmentChange?.(alignment)}
-                        className={`flex-1 px-2 py-1 text-xs rounded transition-colors ${carouselButtonAlignment === alignment
-                          ? 'bg-blue-600 text-white'
-                          : 'bg-gray-600 text-gray-300 hover:bg-gray-500'
-                          }`}
-                      >
-                        {alignment.charAt(0).toUpperCase() + alignment.slice(1)}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </>
+        <RightClickMenuCarouselSection
+          activeGame={activeGame}
+          backgroundBlur={backgroundBlur}
+          backgroundBrightness={backgroundBrightness}
+          carouselButtonAlignment={carouselButtonAlignment}
+          carouselButtonColors={carouselButtonColors}
+          carouselButtonSize={carouselButtonSize}
+          carouselDescriptionAlignment={carouselDescriptionAlignment}
+          carouselDescriptionSize={carouselDescriptionSize}
+          carouselLogoAlignment={carouselLogoAlignment}
+          carouselLogoSize={carouselLogoSize}
+          defaultButtonColors={defaultButtonColors}
+          detailsBarSize={detailsBarSize}
+          gameTilePadding={gameTilePadding}
+          localCarouselLogoSize={localLogoSizes.carousel}
+          selectedBoxArtSize={selectedBoxArtSize}
+          showCarouselDetails={showCarouselDetails}
+          showCarouselLogos={showCarouselLogos}
+          sliderDefaults={sliderDefaults}
+          onBackgroundBlurChange={onBackgroundBlurChange}
+          onBackgroundBrightnessChange={onBackgroundBrightnessChange}
+          onCarouselButtonAlignmentChange={onCarouselButtonAlignmentChange}
+          onCarouselButtonColorsChange={onCarouselButtonColorsChange}
+          onCarouselButtonSizeChange={onCarouselButtonSizeChange}
+          onCarouselDescriptionAlignmentChange={onCarouselDescriptionAlignmentChange}
+          onCarouselDescriptionSizeChange={onCarouselDescriptionSizeChange}
+          onCarouselLogoAlignmentChange={onCarouselLogoAlignmentChange}
+          onCarouselLogoSizeChange={onCarouselLogoSizeChange}
+          onDetailsBarSizeChange={onDetailsBarSizeChange}
+          onGameTilePaddingChange={onGameTilePaddingChange}
+          onSelectedBoxArtSizeChange={onSelectedBoxArtSizeChange}
+          handleAlternativeBackgroundToggle={handleAlternativeBackgroundToggle}
+          handlePerGameLogoSizeChange={handlePerGameLogoSizeChange}
+          handleShowCarouselDetailsToggle={handleShowCarouselDetailsToggle}
+          handleShowCarouselLogosToggle={handleShowCarouselLogosToggle}
+          renderButtonColorsTrigger={renderButtonColorsTrigger}
+        />
       )}
 
-      {/* Cover Flow only – simplified menu */}
       {viewMode === 'coverflow' && (
-        <div className="px-2 py-2 space-y-3">
-          {onCoverFlowCoverSizeChange && (
-            <div className="px-3 py-2 bg-gray-700/30 rounded-md">
-              <MenuSliderRow
-                label="Boxart size"
-                min={150}
-                max={450}
-                step={10}
-                value={coverFlowCoverSize}
-                defaultValue={sliderDefaults.coverFlowCoverSize}
-                onChange={onCoverFlowCoverSizeChange}
-                onReset={() => onCoverFlowCoverSizeChange(sliderDefaults.coverFlowCoverSize)}
-                formatValue={(value) => `${value}px`}
-                minLabel="150px"
-                maxLabel="450px"
-                sliderClassName="h-2"
-              />
-            </div>
-          )}
-          {onCoverFlowReflectionChange && (
-            <div className="px-3 py-2 bg-gray-700/30 rounded-md">
-              <MenuSliderRow
-                label="Reflection transparency"
-                min={0}
-                max={100}
-                step={5}
-                value={coverFlowReflection}
-                defaultValue={sliderDefaults.coverFlowReflection}
-                onChange={onCoverFlowReflectionChange}
-                onReset={() => onCoverFlowReflectionChange(sliderDefaults.coverFlowReflection)}
-                formatValue={(value) => `${value}%`}
-                minLabel="0%"
-                maxLabel="100%"
-                sliderClassName="h-2"
-              />
-            </div>
-          )}
-          {onCoverFlowVerticalOffsetChange && (
-            <div className="px-3 py-2 bg-gray-700/30 rounded-md">
-              <MenuSliderRow
-                label="Boxart vertical position"
-                min={-500}
-                max={500}
-                step={5}
-                value={coverFlowVerticalOffset}
-                defaultValue={sliderDefaults.coverFlowVerticalOffset}
-                onChange={onCoverFlowVerticalOffsetChange}
-                onReset={() => onCoverFlowVerticalOffsetChange(sliderDefaults.coverFlowVerticalOffset)}
-                formatValue={(value) => value > 0 ? `+${value}px` : `${value}px`}
-                minLabel="-500px"
-                maxLabel="500px"
-                sliderClassName="h-2"
-              />
-            </div>
-          )}
-          {onCoverFlowSideOpacityChange && (
-            <div className="px-3 py-2 bg-gray-700/30 rounded-md">
-              <MenuSliderRow
-                label="Side boxart opacity"
-                min={0}
-                max={100}
-                step={5}
-                value={coverFlowSideOpacity}
-                defaultValue={sliderDefaults.coverFlowSideOpacity}
-                onChange={onCoverFlowSideOpacityChange}
-                onReset={() => onCoverFlowSideOpacityChange(sliderDefaults.coverFlowSideOpacity)}
-                formatValue={(value) => `${value}%`}
-                minLabel="0%"
-                maxLabel="100%"
-                sliderClassName="h-2"
-              />
-            </div>
-          )}
-          {onBackgroundBlurChange && (
-            <div className="px-3 py-2 bg-gray-700/30 rounded-md">
-              <MenuSliderRow
-                label="Background Blur Amount"
-                min={0}
-                max={100}
-                step={1}
-                value={backgroundBlur}
-                defaultValue={sliderDefaults.backgroundBlur}
-                onChange={onBackgroundBlurChange}
-                onReset={() => onBackgroundBlurChange(sliderDefaults.backgroundBlur)}
-                formatValue={(value) => `${value}%`}
-                minLabel="0%"
-                maxLabel="100%"
-                sliderClassName="h-2"
-              />
-            </div>
-          )}
-          {onBackgroundBrightnessChange && (
-            <div className="px-3 py-2 bg-gray-700/30 rounded-md space-y-3">
-              <MenuSliderRow
-                label="Background brightness"
-                min={0}
-                max={100}
-                step={5}
-                value={Math.round((backgroundBrightness ?? 0) * 100)}
-                defaultValue={sliderDefaults.backgroundBrightnessPercent}
-                onChange={(value) => onBackgroundBrightnessChange(value / 100)}
-                onReset={() => onBackgroundBrightnessChange(sliderDefaults.backgroundBrightnessPercent / 100)}
-                formatValue={(value) => `${value}%`}
-                minLabel="0%"
-                maxLabel="100%"
-                sliderClassName="h-2"
-              />
-
-              {activeGame && (
-                <div className="flex items-center justify-between pt-3 border-t border-white/5">
-                  <label className="text-xs text-gray-300 font-medium">Alternative Background</label>
-                  <button
-                    onClick={handleAlternativeBackgroundToggle}
-                    className={`relative inline-flex h-3.5 w-7 items-center rounded-full transition-all ${activeGame?.useAlternativeBackground ? 'bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]' : 'bg-gray-600'}`}
-                  >
-                    <span
-                      className={`inline-block h-2.5 w-2.5 transform rounded-full bg-white transition-all shadow-sm ${activeGame?.useAlternativeBackground ? 'translate-x-[14px]' : 'translate-x-0.5'}`}
-                    />
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
-          <div className="px-3 py-2 bg-gray-700/30 rounded-md space-y-3">
-            <div className="flex items-center justify-between">
-              <label className="text-xs text-gray-300 font-medium">Show Buttons</label>
-              <button
-                onClick={() => onCoverFlowShowButtonsChange?.(!coverFlowShowButtons)}
-                className={`relative inline-flex h-3.5 w-7 items-center rounded-full transition-all ${coverFlowShowButtons ? 'bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]' : 'bg-gray-600'}`}
-              >
-                <span
-                  className={`inline-block h-2.5 w-2.5 transform rounded-full bg-white transition-all shadow-sm ${coverFlowShowButtons ? 'translate-x-[14px]' : 'translate-x-0.5'}`}
-                />
-              </button>
-            </div>
-            {coverFlowShowButtons && (
-              <>
-                <div>
-                  <label className="block text-xs text-gray-400 mb-1 font-semibold">Button position</label>
-                  <div className="flex gap-1">
-                    {(['left', 'middle', 'right'] as const).map((pos) => (
-                      <button
-                        key={pos}
-                        onClick={() => onCoverFlowButtonPositionChange?.(pos)}
-                        className={`flex-1 px-2 py-1 text-xs rounded transition-colors ${coverFlowButtonPosition === pos ? 'bg-blue-600 text-white' : 'bg-gray-600 text-gray-300 hover:bg-gray-500'}`}
-                      >
-                        {pos === 'middle' ? 'Middle' : pos.charAt(0).toUpperCase() + pos.slice(1)}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                {onCoverFlowButtonColorsChange && (
-                  <>
-                    {renderButtonColorsEditor({
-                      title: 'Button Colours',
-                      colors: coverFlowButtonColors,
-                      onChange: onCoverFlowButtonColorsChange,
-                      onReset: () => onCoverFlowButtonColorsChange(defaultButtonColors),
-                      containerClassName: 'space-y-2 pt-2 border-t border-white/5',
-                    })}
-                  </>
-                )}
-              </>
-            )}
-          </div>
-        </div>
+        <RightClickMenuCoverFlowSection
+          activeGame={activeGame}
+          backgroundBlur={backgroundBlur}
+          backgroundBrightness={backgroundBrightness}
+          coverFlowButtonColors={coverFlowButtonColors}
+          coverFlowButtonPosition={coverFlowButtonPosition}
+          coverFlowCoverSize={coverFlowCoverSize}
+          coverFlowReflection={coverFlowReflection}
+          coverFlowShowButtons={coverFlowShowButtons}
+          coverFlowSideOpacity={coverFlowSideOpacity}
+          coverFlowVerticalOffset={coverFlowVerticalOffset}
+          defaultButtonColors={defaultButtonColors}
+          sliderDefaults={sliderDefaults}
+          onBackgroundBlurChange={onBackgroundBlurChange}
+          onBackgroundBrightnessChange={onBackgroundBrightnessChange}
+          onCoverFlowButtonColorsChange={onCoverFlowButtonColorsChange}
+          onCoverFlowButtonPositionChange={onCoverFlowButtonPositionChange}
+          onCoverFlowCoverSizeChange={onCoverFlowCoverSizeChange}
+          onCoverFlowReflectionChange={onCoverFlowReflectionChange}
+          onCoverFlowShowButtonsChange={onCoverFlowShowButtonsChange}
+          onCoverFlowSideOpacityChange={onCoverFlowSideOpacityChange}
+          onCoverFlowVerticalOffsetChange={onCoverFlowVerticalOffsetChange}
+          handleAlternativeBackgroundToggle={handleAlternativeBackgroundToggle}
+          renderButtonColorsEditor={renderButtonColorsEditor}
+        />
       )}
 
       {/* Shared layout settings for Grid, List, and Logo views (exclude Cover Flow) */}

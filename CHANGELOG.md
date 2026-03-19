@@ -6,6 +6,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Pending]
 
+- Game details panel:
+  - Fix divider drag sizing so the center split measures from the live details-panel edge instead of the browser window edge, keeping the visible panel divider aligned while resizing.
+  - Size the shell-side details wrapper to the active panel width instead of leaving it as a full-width `flex-1` lane, so the center divider now moves the actual split instead of shrinking the panel inside a large empty gap.
+
+- App shell:
+  - Keep the rounded corners clipped while the selected library card runs its breathing zoom animation, so focused boxart no longer flashes square corners during the scale pulse.
+  - Move the breathing-scale transform onto an inner library-card wrapper while the rounded clip stays on the static outer shell, so selected boxart remains rounded for the full pulse instead of briefly rasterizing square corners.
+
+- Right click menu:
+  - Extract the carousel-only editor into `RightClickMenuCarouselSection.tsx` and the cover-flow-only editor into `RightClickMenuCoverFlowSection.tsx` so `RightClickMenu.tsx` no longer keeps those view-specific control blocks inline.
+  - Extract the shared top chrome into `RightClickMenuHeader.tsx` and `RightClickMenuViewModeSwitch.tsx` so `RightClickMenu.tsx` no longer keeps the flip-view action row, focused-section toggles, transparency control, reset/default buttons, and mode-switch strip inline.
+
+- Add Games:
+  - Align the staged-game Images tab with the Game Manager image-search flow so artwork clicks switch type without re-running an already completed search, and staged image selection uses the same tabbed search/results controls as the Game Manager images tab.
+  - Reuse the exact Game Manager Metadata, Links, and Mod Manager tabs inside `GamePropertiesPanel.tsx`, adapt staged-game saves through `useGamePropertiesMetadata.ts`, and persist staged `modManagerUrl` edits so Add Games now matches the same editing surfaces and actions used after import.
+  - Add a staged `launchModManagerTarget` path through the launcher IPC/preload bridge so the shared Mod Manager tab can launch configured local paths or vetted external URLs before a staged game exists in the library.
+  - Persist staged image selections back into the importer queue immediately so artwork picks made through the shared `GameManagerImagesTab.tsx` update the visible staged game instead of reverting to the older importer behavior.
+  - Keep the shared API/provider detail row visible in the staged Images tab after results load by retaining or rebuilding provider progress from the staged search state, so Add Games matches the Game Manager image-source breakdown.
+
 ## [0.8.1] - 2026-03-19
 
 - App shell:

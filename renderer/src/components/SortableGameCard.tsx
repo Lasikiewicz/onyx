@@ -113,24 +113,26 @@ const SortableGameCardComponent: React.FC<SortableGameCardProps> = ({
       onDoubleClick={handleDoubleClick}
       onFocus={handleFocus}
       tabIndex={tabIndex}
-      className={`cursor-pointer outline-none transition-all duration-200 ${isFocused ? 'rounded-xl animate-breathing-scale z-10' : ''}`}
+      className="cursor-pointer outline-none overflow-hidden rounded-xl transition-all duration-200"
       data-game-card
     >
-      <GameCard
-        game={game}
-        onPlay={onPlay}
-        onEdit={onEdit}
-        hideTitle={hideTitle}
-        showLogoOverBoxart={showLogoOverBoxart}
-        logoPosition={logoPosition}
-        useLogoInsteadOfBoxart={useLogoInsteadOfBoxart}
-        descriptionSize={descriptionSize}
-        viewMode={viewMode}
-        logoBackgroundColor={logoBackgroundColor}
-        logoBackgroundOpacity={logoBackgroundOpacity}
-        disableAnimatedBoxarts={disableAnimatedBoxarts}
-        disableAnimatedLogos={disableAnimatedLogos}
-      />
+      <div className={`${isFocused ? 'animate-breathing-scale z-10 will-change-transform' : ''}`}>
+        <GameCard
+          game={game}
+          onPlay={onPlay}
+          onEdit={onEdit}
+          hideTitle={hideTitle}
+          showLogoOverBoxart={showLogoOverBoxart}
+          logoPosition={logoPosition}
+          useLogoInsteadOfBoxart={useLogoInsteadOfBoxart}
+          descriptionSize={descriptionSize}
+          viewMode={viewMode}
+          logoBackgroundColor={logoBackgroundColor}
+          logoBackgroundOpacity={logoBackgroundOpacity}
+          disableAnimatedBoxarts={disableAnimatedBoxarts}
+          disableAnimatedLogos={disableAnimatedLogos}
+        />
+      </div>
     </div>
   );
 };

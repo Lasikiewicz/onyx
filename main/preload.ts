@@ -66,6 +66,7 @@ export const electronAPI = {
   // Launcher methods
   launchGame: (gameId: string) => ipcRenderer.invoke('launcher:launchGame', gameId),
   launchModManager: (gameId: string) => ipcRenderer.invoke('launcher:launchModManager', gameId),
+  launchModManagerTarget: (modManagerUrl: string) => ipcRenderer.invoke('launcher:launchModManagerTarget', modManagerUrl),
   openGameUninstaller: (gameId: string) => ipcRenderer.invoke('launcher:openGameUninstaller', gameId),
   // App config methods
   getAppConfigs: () => ipcRenderer.invoke('appConfig:getAll'),

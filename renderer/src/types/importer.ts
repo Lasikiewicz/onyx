@@ -38,6 +38,7 @@ export interface StagedGame {
   heroUrl?: string;
   iconUrl?: string;
   screenshots?: string[];
+  modManagerUrl?: string;
   links?: Array<{ name: string; url: string; hidden?: boolean; iconUrl?: string }>;
 
   // Locked fields (prevent editing)

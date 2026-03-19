@@ -1462,7 +1462,10 @@ function App() {
 
           {/* Right Panel - Game Details (hidden in carousel/coverflow mode and when no games exist) */}
           {viewMode !== 'carousel' && viewMode !== 'coverflow' && filteredGames.length > 0 && !forceShowInitialOnboarding && (
-            <div className={rightPanelNeedsTopPadding ? 'pt-4 flex-1 flex flex-col min-h-0' : 'flex-1 flex flex-col min-h-0'}>
+            <div
+              className={rightPanelNeedsTopPadding ? 'pt-4 flex-none flex flex-col min-h-0' : 'flex-none flex flex-col min-h-0'}
+              style={{ width: `${currentPanelWidth}px`, maxWidth: '100%' }}
+            >
               <div className="flex-1 min-h-0">
                 <GameDetailsPanel {...gameDetailsPanelProps} />
               </div>

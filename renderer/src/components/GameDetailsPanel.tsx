@@ -488,8 +488,10 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (isResizing && panelRef.current) {
-        // Calculate width from the right edge (mouse position from right)
-        const newWidth = window.innerWidth - e.clientX;
+        // Measure from the live panel edge so the divider tracks the shell split,
+        // not the full window width.
+        const panelRect = panelRef.current.getBoundingClientRect();
+        const newWidth = panelRect.right - e.clientX;
         const minWidth = 400;
         const maxWidth = window.innerWidth * 0.75;
         const clampedWidth = Math.max(minWidth, Math.min(maxWidth, newWidth));
@@ -784,7 +786,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
   return (
     <div
       ref={panelRef}
-      className={`${isViewFlipped ? 'rounded-r-3xl' : 'rounded-l-3xl'} flex flex-col h-full overflow-hidden relative ml-auto border border-white/5 shadow-xl`}
+      className={`${isViewFlipped ? 'rounded-r-3xl' : 'rounded-l-3xl'} flex flex-col h-full overflow-hidden relative border border-white/5 shadow-xl`}
       style={{
         width: `${activePanelWidth}px`,
         minWidth: '400px',

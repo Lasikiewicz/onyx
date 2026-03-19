@@ -291,6 +291,37 @@ export class LauncherService {
    * Launch the configured mod manager for a game
    * Supports vetted launcher/web URLs and local file paths
    */
+  async launchModManagerTarget(modManagerUrl: string): Promise<{ success: boolean; error?: string }> {
+    try {
+      if (!modManagerUrl) {
+        return { success: false, error: 'Mod manager not configured' };
+      }
+
+      if (isSafeExternalUrl(modManagerUrl)) {
+        try {
+          await shell.openExternal(modManagerUrl);
+          return { success: true };
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          console.error('[LauncherService] Failed to open external mod manager URL:', message);
+          return { success: false, error: message };
+        }
+      }
+
+      if (existsSync(modManagerUrl)) {
+        const error = await shell.openPath(modManagerUrl);
+        return { success: error === '', error: error || undefined };
+      }
+
+      console.warn('[LauncherService] Mod manager URL is not allowed and path does not exist:', modManagerUrl);
+      return { success: false, error: 'Mod manager path or URL is invalid, unsafe, or not found' };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error('Error launching mod manager target:', errorMessage);
+      return { success: false, error: errorMessage };
+    }
+  }
+
   async launchModManager(gameId: string): Promise<{ success: boolean; error?: string }> {
     try {
       const games = await this.gameStore.getLibrary();
@@ -306,27 +337,7 @@ export class LauncherService {
       }
 
       console.log(`[LauncherService] Launching mod manager for ${game.title}: ${modManagerUrl}`);
-
-      // Prefer secure external URLs that pass the central whitelist
-      if (isSafeExternalUrl(modManagerUrl)) {
-        try {
-          await shell.openExternal(modManagerUrl);
-          return { success: true };
-        } catch (error) {
-          const message = error instanceof Error ? error.message : String(error);
-          console.error('[LauncherService] Failed to open external mod manager URL:', message);
-          return { success: false, error: message };
-        }
-      }
-
-      // Fallback to local file path handling
-      if (existsSync(modManagerUrl)) {
-        const error = await shell.openPath(modManagerUrl);
-        return { success: error === '', error: error || undefined };
-      }
-
-      console.warn('[LauncherService] Mod manager URL is not allowed and path does not exist:', modManagerUrl);
-      return { success: false, error: 'Mod manager path or URL is invalid, unsafe, or not found' };
+      return await this.launchModManagerTarget(modManagerUrl);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       console.error('Error launching mod manager:', errorMessage);

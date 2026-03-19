@@ -5,7 +5,7 @@ Completed historical items have been removed so this stays focused on what is st
 
 - Renderer Hotspots
   - [ ] **Refactor `RightClickMenu.tsx` into view-specific sections**
-    - Extract view settings, per-game actions, and shell display controls from [`RightClickMenu.tsx`](../renderer/src/components/RightClickMenu.tsx) so context-menu behavior is easier to change without regressions.
+    - Continue splitting [`RightClickMenu.tsx`](../renderer/src/components/RightClickMenu.tsx) now that the carousel and cover-flow editors live in [`RightClickMenuCarouselSection.tsx`](../renderer/src/components/rightClickMenu/RightClickMenuCarouselSection.tsx) and [`RightClickMenuCoverFlowSection.tsx`](../renderer/src/components/rightClickMenu/RightClickMenuCoverFlowSection.tsx), and the shared top chrome lives in [`RightClickMenuHeader.tsx`](../renderer/src/components/rightClickMenu/RightClickMenuHeader.tsx) plus [`RightClickMenuViewModeSwitch.tsx`](../renderer/src/components/rightClickMenu/RightClickMenuViewModeSwitch.tsx); grid/list/logo section editors and shared popup/default flows still need the same treatment.
   - [ ] **Break up `ImportWorkbenchV2.tsx`**
     - Split [`ImportWorkbenchV2.tsx`](../renderer/src/components/importer/ImportWorkbenchV2.tsx) into queue/sidebar, staged editor, import progress, and scanner-control slices so importer changes do not require editing one large screen component.
 

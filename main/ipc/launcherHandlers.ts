@@ -96,6 +96,16 @@ export function registerLauncherIPCHandlers(
         }
     });
 
+    ipcMain.handle('launcher:launchModManagerTarget', async (_event, modManagerUrl: string) => {
+        try {
+            console.log('[Launcher] Launching mod manager target');
+            return await launcherService.launchModManagerTarget(modManagerUrl);
+        } catch (error) {
+            console.error('Error in launcher:launchModManagerTarget handler:', error);
+            return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+        }
+    });
+
     ipcMain.handle('launcher:openGameUninstaller', async (_event, gameId: string) => {
         try {
             return await launcherService.openGameUninstaller(gameId);

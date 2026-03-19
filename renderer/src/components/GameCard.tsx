@@ -97,7 +97,10 @@ const GameCardComponent: React.FC<GameCardProps> = ({
   return (
     <div
       className={`relative group overflow-hidden onyx-card game-card-transition ${aspectRatio} flex flex-col`}
-      style={cardBackground}
+      style={{
+        ...cardBackground,
+        clipPath: 'inset(0 round 0.75rem)',
+      }}
       onMouseEnter={handlePrefetch}
       onFocus={handlePrefetch}
     >
