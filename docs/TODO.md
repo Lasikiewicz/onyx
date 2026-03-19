@@ -3,17 +3,6 @@
 This file tracks the remaining work to fully refactor Onyx into smaller, safer, easier-to-test modules.
 Completed historical items have been removed so this stays focused on what is still worth doing.
 
-- Renderer Hotspots
-  - [x] **Refactor `RightClickMenu.tsx` into view-specific sections**
-    - Done: Games View in [`RightClickMenuGamesViewSection.tsx`](../renderer/src/components/rightClickMenu/RightClickMenuGamesViewSection.tsx), Dividers in [`RightClickMenuDividersSection.tsx`](../renderer/src/components/rightClickMenu/RightClickMenuDividersSection.tsx), button colors in [`RightClickMenuButtonColorsEditor.tsx`](../renderer/src/components/rightClickMenu/RightClickMenuButtonColorsEditor.tsx) / [`RightClickMenuButtonColorsPopup.tsx`](../renderer/src/components/rightClickMenu/RightClickMenuButtonColorsPopup.tsx) / [`RightClickMenuButtonColorsTrigger.tsx`](../renderer/src/components/rightClickMenu/RightClickMenuButtonColorsTrigger.tsx), and modals (Custom Defaults, reset, clear-per-game) in [`RightClickMenuModals.tsx`](../renderer/src/components/rightClickMenu/RightClickMenuModals.tsx).
-  - [x] **Break up `ImportWorkbench.tsx`**
-    - Split [`ImportWorkbench.tsx`](../renderer/src/components/importer/ImportWorkbench.tsx) into:
-      - A queue + sidebar slice that owns `queue`, `selectedId`, grouping, and scroll behavior only.
-      - A staged editor slice that wraps `GamePropertiesPanel` and `handleUpdateGame`, fed by the currently selected staged game.
-      - A scanner-control slice that owns scan state (`isScanning`, `scanProgress`, real-time scan listeners) and `handleScanAll` / `processScannedGames` / `processPreScannedGames`.
-      - An import-footer slice that owns `isImporting`, `importProgress`, `handleImport`, and the footer CTA layout.
-    - Keep `ImportWorkbench.tsx` as a thin composition shell that wires these slices together and coordinates modal/close behavior.
-
 - Main-Process Hotspots
   - [ ] **Refactor `ImportService.ts` into real scanner modules**
     - Continue the scanner cleanup in [`ImportService.ts`](../main/ImportService.ts) by moving launcher-specific scanning into pluggable scanner modules instead of keeping the service as the central control tower for every source.

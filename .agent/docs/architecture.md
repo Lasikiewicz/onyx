@@ -110,7 +110,7 @@ It explains module boundaries, data flow, and release pipeline expectations.
 ## Module Index
 
 <!-- AUTO-GENERATED:MODULE_INDEX:START -->
-- Main process source files: 70
+- Main process source files: 73
 - Renderer source files: 167
 - Automation scripts: 30
 - GitHub workflow files: 7

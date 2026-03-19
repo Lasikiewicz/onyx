@@ -3,6 +3,8 @@ import { XboxService, XboxGame } from './XboxService.js';
 import { AppConfigService } from './AppConfigService.js';
 import { MetadataFetcherService } from './MetadataFetcherService.js';
 import { GameFilteringService } from './GameFilteringService.js';
+import { SteamScanner } from './scanners/SteamScanner.js';
+import { XboxScanner } from './scanners/XboxScanner.js';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, sep, dirname } from 'node:path';
 import { execSync } from 'node:child_process';
@@ -42,6 +44,8 @@ export class ImportService {
   private appConfigService: AppConfigService;
   private metadataFetcher: MetadataFetcherService;
   private gameFilteringService: GameFilteringService;
+  private steamScanner: SteamScanner;
+  private xboxScanner: XboxScanner;
   private isScanCancelled: boolean = false;
 
   constructor(
@@ -55,6 +59,8 @@ export class ImportService {
     this.appConfigService = appConfigService;
     this.metadataFetcher = metadataFetcher;
     this.gameFilteringService = new GameFilteringService();
+    this.steamScanner = new SteamScanner(steamService);
+    this.xboxScanner = new XboxScanner(xboxService, this.gameFilteringService);
   }
 
   /**
@@ -85,8 +91,8 @@ export class ImportService {
 
   private async scanConfiguredSource(config: ConfiguredSource): Promise<ScannedGameResult[]> {
     const scanners: Record<string, (path: string) => Promise<ScannedGameResult[]>> = {
-      steam: (path) => this.scanSteam(path),
-      xbox: (path) => this.scanXbox(path),
+      steam: (path) => this.steamScanner.scan(path),
+      xbox: (path) => this.xboxScanner.scan(path),
       epic: (path) => this.scanEpic(path),
       gog: (path) => this.scanGOG(path),
       ubisoft: (path) => this.scanUbisoft(path),
