@@ -84,7 +84,7 @@ Owns the renderer root experience in [`App.tsx`](../../renderer/src/App.tsx): li
 16. [`RightClickMenuHeader.tsx`](../../renderer/src/components/rightClickMenu/RightClickMenuHeader.tsx) now owns the shared top action row, including flip-view, focused-section tabs, menu-transparency, and reset/default entry points.
 17. [`RightClickMenuViewModeSwitch.tsx`](../../renderer/src/components/rightClickMenu/RightClickMenuViewModeSwitch.tsx) now owns the shared row of mode-toggle buttons for grid, list, logo, carousel, and cover flow.
 17. [`useAppShellSurfaceActions.ts`](../../renderer/src/hooks/useAppShellSurfaceActions.ts) bundles the smaller Welcome Screen, Game Context Menu, and overlay action props so the remaining shell surface routing does not stay inline in [`App.tsx`](../../renderer/src/App.tsx).
-18. [`useAppShellCarouselControls.ts`](../../renderer/src/hooks/useAppShellCarouselControls.ts) bundles carousel size-control persistence and empty-space right-click routing so the carousel view no longer leaves direct `savePreferences` glue inline in [`App.tsx`](../../renderer/src/App.tsx).
+18. [`useAppShellCarouselControls.ts`](../../renderer/src/hooks/useAppShellCarouselControls.ts) bundles carousel size-control persistence and empty-space right-click routing so the carousel view no longer leaves direct `savePreferences` glue inline in [`App.tsx`](../../renderer/src/App.App.tsx).
 19. [`AppShellCategoryBar.tsx`](../../renderer/src/components/appShell/AppShellCategoryBar.tsx) renders the shared pinned-category strip for either top or bottom placement, keeping category-pill behavior consistent without duplicate shell JSX.
 20. [`AppShellLibraryView.tsx`](../../renderer/src/components/appShell/AppShellLibraryView.tsx) owns the library-surface view branching, top/bottom pinned-category placement, Welcome Screen handoff, and non-card context-menu capture so the app shell no longer renders the entire left panel inline in [`App.tsx`](../../renderer/src/App.tsx).
 21. [`useAppShellLibraryFilters.ts`](../../renderer/src/hooks/useAppShellLibraryFilters.ts) owns category pinning defaults, category/launcher discovery, and filtered-library sorting so the app shell no longer leaves those library-state rules inline in [`App.tsx`](../../renderer/src/App.tsx).
@@ -144,6 +144,10 @@ Owns the renderer root experience in [`App.tsx`](../../renderer/src/App.tsx): li
 
 - Check the selection reconciliation logic in [`useAppShellSelection.ts`](../../renderer/src/hooks/useAppShellSelection.ts), especially the visible-selection fallback when the previous game is no longer in `filteredGames`.
 - Check that the current view component (`LibraryGrid`, `LibraryListView`, `LibraryCarousel`, or `LibraryCoverFlow`) is forwarding `onGameClick` back through [`AppShellLibraryView.tsx`](../../renderer/src/components/appShell/AppShellLibraryView.tsx).
+
+### Symptom: WebP banners, logos, or boxarts are missing
+
+- Check `isAnimatedImageUrl` in [`useAnimatedMediaPolicy.ts`](../../renderer/src/hooks/useAnimatedMediaPolicy.ts) and ensure WebP is not flagged as always animated, then verify if the game record has a valid URL.
 
 ## File Ownership Map
 

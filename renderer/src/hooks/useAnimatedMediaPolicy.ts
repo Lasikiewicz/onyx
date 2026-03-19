@@ -12,7 +12,7 @@ interface UseAnimatedMediaPolicyOptions {
   disableAnimatedLogos: boolean;
 }
 
-const isAnimatedImageUrl = (url?: string) => !!url && /\.(gif|webp|apng)(\?|$)/i.test(url);
+const isAnimatedImageUrl = (url?: string) => !!url && /\.(gif|apng)(\?|$)/i.test(url);
 
 const getVideoKind = (video: HTMLVideoElement): 'background' | 'banner' | 'boxart' | 'icon' | 'logo' | 'unknown' => {
   const explicit = video.getAttribute('data-animation-kind');

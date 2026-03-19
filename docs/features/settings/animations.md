@@ -28,12 +28,13 @@ Controls whether UI and artwork animation features remain active at runtime.
 ## Discovery and Data Sources
 
 - Settings UI: [SettingsAnimationsTab.tsx](../../../renderer/src/components/settings/SettingsAnimationsTab.tsx), mounted by [OnyxSettingsModal.tsx](../../../renderer/src/components/OnyxSettingsModal.tsx).
-- Runtime consumers include [`App.tsx`](../../../renderer/src/App.tsx), [`GameDetailsPanel`](../../../renderer/src/components/GameDetailsPanel.tsx), and image/display selection logic.
+- Runtime consumers include [`App.tsx`](../../../renderer/src/App.tsx), [`GameDetailsPanel.tsx`](../../../renderer/src/components/GameDetailsPanel.tsx), and image/display selection logic.
 
 ## Data Model and Persistence
 
 - Stored in user preferences.
 - `disableAllAnimations` acts as a master override over per-type flags.
+- **WebP format treatment**: WebP images are treated as static for the purpose of the disable flags (banners, logos, etc.) to prevent them from being hidden when animations are disabled, as many WebP assets are single-frame.
 - Legacy animation preference fields still exist for compatibility.
 
 ## Failure Modes and Triage

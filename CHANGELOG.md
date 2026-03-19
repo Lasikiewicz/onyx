@@ -7,6 +7,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [0.8.2] - 2026-03-19
 
 - Game details panel:
+  - Simplify the background transition between the banner and content area by using a long `mask-image` gradient on the banner artwork itself, providing a clean blend into the details area without the "double effect" of a separate blur layer.
+  - Remove format restrictions that excluded WebP and animated image formats from the background blur, and fix an app-wide bug where WebP banners, boxarts, and logos were hidden when animations were disabled.
   - Fix divider drag sizing so the center split measures from the live details-panel edge instead of the browser window edge, keeping the visible panel divider aligned while resizing.
   - Size the shell-side details wrapper to the active panel width instead of leaving it as a full-width `flex-1` lane, so the center divider now moves the actual split instead of shrinking the panel inside a large empty gap.
 

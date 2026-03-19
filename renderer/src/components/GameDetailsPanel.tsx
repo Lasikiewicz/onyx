@@ -627,8 +627,9 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
     (backgroundFromBoxart && game.boxArtIsVideo)
   ));
   
-  // Helper function to detect animated media (animated image formats + webm video)
-  const isAnimatedImage = (url: string) => /\.(gif|webp|apng|webm)(\?|$)/i.test(url);
+  // Helper function to detect animated media (animated image formats)
+  // We exclude webp here as many webp files are static, and lumping them all into "animated" causes them to be hidden when animations are disabled.
+  const isAnimatedImage = (url: string) => /\.(gif|apng)(\?|$)/i.test(url);
   const isAnimatedMedia = (url: string, isVideo?: boolean) => !!isVideo || isAnimatedImage(url);
   const isBoxartVideo = !!game.boxArtIsVideo;
   const disableAnimatedBannersBySettings = disableAnimatedBanners && !overlaysOpen;
@@ -831,7 +832,11 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
                 autoPlay
                 preload="auto"
                 className="w-full h-full object-cover cursor-pointer"
-                style={{ height: `${fanartHeight}px` }}
+                style={{ 
+                  height: `${fanartHeight}px`,
+                  maskImage: 'linear-gradient(to bottom, black 80%, transparent 100%)',
+                  WebkitMaskImage: 'linear-gradient(to bottom, black 80%, transparent 100%)',
+                }}
                 onError={(e) => {
                   const v = e.currentTarget;
                   v.style.display = 'none';
@@ -845,6 +850,8 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
                 className="w-full h-full object-cover cursor-pointer"
                 style={{
                   height: `${fanartHeight}px`,
+                  maskImage: 'linear-gradient(to bottom, black 80%, transparent 100%)',
+                  WebkitMaskImage: 'linear-gradient(to bottom, black 80%, transparent 100%)',
                   ...(isAnimatedImage(backgroundImageUrl) ? {
                     willChange: 'transform',
                     contain: 'layout style paint',
@@ -859,31 +866,6 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
                   target.src = ''; // Clear src to prevent retries
                 }}
               />
-            )}
-            {/* Blurred background for logo area - Disabled if animated to prevent glitches */}
-            {game.logoUrl && !/\.(gif|webp|apng|webm)(\?|$)/i.test(backgroundImageUrl) && !isBackgroundVideo && (
-              <div
-                className="absolute bottom-0 z-10"
-                style={{
-                  ...logoAreaPositionStyle,
-                  height: '60%',
-                  transform: 'translateY(50%)',
-                  pointerEvents: 'none',
-                }}
-              >
-                <div
-                  className="w-full h-full"
-                  style={{
-                    backgroundImage: `url(${backgroundImageUrl})`,
-                    backgroundSize: 'cover',
-                    backgroundPosition: 'center',
-                    filter: 'blur(40px)',
-                    opacity: 0.6,
-                    position: 'absolute',
-                    inset: 0
-                  }}
-                ></div>
-              </div>
             )}
           </>
         )}
