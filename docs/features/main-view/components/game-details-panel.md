@@ -22,7 +22,7 @@ Right-hand panel in the library window (grid/list/logo modes) that shows the sel
 ## Settings and Toggles
 
 - Panel width, fanart height, description width, bottom bar height, logo/boxart size and position, button size and location, details panel transparency, button colors. The right-panel appearance values are stored per view mode, so grid/list/logo can keep separate boxart, logo, text, button, and transparency choices.
-- **Where controlled:** Drag resizers on the panel (left edge for width; top edges of banner, description, and bottom bar for heights/width); and the **Dividers** column in the right-click context menu ([RightClickMenu.tsx](../../../../renderer/src/components/RightClickMenu.tsx) — sliders for Right Panel Width, Banner Height, Description Width, Bottom Bar Height). Root callback and persistence wiring now route through [useGameDetailsPanelControls.ts](../../../../renderer/src/hooks/useGameDetailsPanelControls.ts) and persist via [UserPreferencesService](../../../../main/UserPreferencesService.ts); see [Settings and preferences](../../settings-and-preferences.md).
+- **Where controlled:** Drag resizers on the panel (left edge for width; top edges of banner, description, and bottom bar for heights/width); and the **Dividers** column in the right-click context menu ([RightClickMenuDividersSection.tsx](../../../../renderer/src/components/rightClickMenu/RightClickMenuDividersSection.tsx) inside [RightClickMenu.tsx](../../../../renderer/src/components/RightClickMenu.tsx) — sliders for Right Panel Width, Banner Height, Description Width, Bottom Bar Height). Root callback and persistence wiring now route through [useGameDetailsPanelControls.ts](../../../../renderer/src/hooks/useGameDetailsPanelControls.ts) and persist via [UserPreferencesService](../../../../main/UserPreferencesService.ts); see [Settings and preferences](../../settings-and-preferences.md).
 
 ## Confirmed End-to-End Flows
 
@@ -84,7 +84,7 @@ Right-hand panel in the library window (grid/list/logo modes) that shows the sel
   - [GameDetailsPanel.tsx](../../../../renderer/src/components/GameDetailsPanel.tsx) — panel UI, resize handles, banner/description/bottom bar, links, action buttons.
   - [App.tsx](../../../../renderer/src/App.tsx) — props, layout wrapper, and shell composition for the panel.
   - [useGameDetailsPanelControls.ts](../../../../renderer/src/hooks/useGameDetailsPanelControls.ts) — root panel callback bundle, right-panel actions, and divider persistence wiring.
-  - [RightClickMenu.tsx](../../../../renderer/src/components/RightClickMenu.tsx) — Dividers column sliders (panel width, fanart height, description width, bottom bar height) for grid/list/logo.
+  - [RightClickMenuDividersSection.tsx](../../../../renderer/src/components/rightClickMenu/RightClickMenuDividersSection.tsx) — Dividers column sliders (panel width, fanart height, description width, bottom bar height) for grid/list/logo.
   - [GameLinks.tsx](../../../../renderer/src/components/GameLinks.tsx) — link bar in the panel (see [Links and link management](../../links-and-link-management.md)).
 - **Main**
   - [UserPreferencesService.ts](../../../../main/UserPreferencesService.ts) — persistence for panel and divider preferences; defaults and merge logic.
