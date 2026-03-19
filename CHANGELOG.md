@@ -4,7 +4,7 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [0.8.2] - 2026-03-19
+## [0.8.3] - 2026-03-19
 
 - Game details panel:
   - Simplify the background transition between the banner and content area by using a long `mask-image` gradient on the banner artwork itself, providing a clean blend into the details area without the "double effect" of a separate blur layer.
