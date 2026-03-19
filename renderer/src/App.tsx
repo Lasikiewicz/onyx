@@ -49,7 +49,7 @@ const MetadataSearchModal = lazy(() =>
   import('./components/MetadataSearchModal').then((module) => ({ default: module.MetadataSearchModal })),
 );
 const ImportWorkbench = lazy(() =>
-  import('./components/importer/ImportWorkbenchV2').then((module) => ({ default: module.ImportWorkbenchV2 })),
+  import('./components/importer/ImportWorkbench').then((module) => ({ default: module.ImportWorkbench })),
 );
 const GameManager = lazy(() =>
   import('./components/GameManager').then((module) => ({ default: module.GameManager })),
@@ -1589,5 +1589,6 @@ function App() {
 }
 
 export default App;
+
 
 

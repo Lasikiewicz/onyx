@@ -18,7 +18,7 @@ This is the system-level companion to the user-facing [Add Games](./add-games.md
 
 ## User-Facing Surfaces
 
-- The importer shell in [`ImportWorkbenchV2.tsx`](../../renderer/src/components/importer/ImportWorkbenchV2.tsx), which owns the staged queue, scan controls, import progress, and overall modal lifecycle.
+- The importer shell in [`ImportWorkbench.tsx`](../../renderer/src/components/importer/ImportWorkbench.tsx), which owns the staged queue, scan controls, import progress, and overall modal lifecycle.
 - The renderer importer handoff/orchestration hook in [`useImporterWorkbench.ts`](../../renderer/src/hooks/useImporterWorkbench.ts), which centralizes API-gated importer opening, startup/background scan handoff, importer reset, and post-import tutorial follow-up.
 - The shell modal-control bridge in [`useAppShellModalControls.ts`](../../renderer/src/hooks/useAppShellModalControls.ts), which packages importer modal props for settings, update-library, and Game Manager entry points before they reach the app shell.
 - The startup scan review hook in [`useStartupScanReview.ts`](../../renderer/src/hooks/useStartupScanReview.ts), which owns the shell-side cancel/review actions that turn startup-found games into importer handoff requests.
@@ -44,7 +44,7 @@ This is the system-level companion to the user-facing [Add Games](./add-games.md
 
 1. Discovery begins from a manual Add Games action, startup scan handoff, or background/new-games flow.
 2. When startup scans find games, [`useStartupScanReview.ts`](../../renderer/src/hooks/useStartupScanReview.ts) owns the shell-side review/cancel actions before the user routes those findings into the importer.
-3. [`useImporterWorkbench.ts`](../../renderer/src/hooks/useImporterWorkbench.ts) validates renderer-side prerequisites, normalizes the handoff, and opens [`ImportWorkbenchV2.tsx`](../../renderer/src/components/importer/ImportWorkbenchV2.tsx) with either fresh-scan or pre-scanned context.
+3. [`useImporterWorkbench.ts`](../../renderer/src/hooks/useImporterWorkbench.ts) validates renderer-side prerequisites, normalizes the handoff, and opens [`ImportWorkbench.tsx`](../../renderer/src/components/importer/ImportWorkbench.tsx) with either fresh-scan or pre-scanned context.
 4. Main-process handlers route scan requests into [`ImportService.ts`](../../main/ImportService.ts), launcher-specific services, and related helpers to build scanned game candidates.
 5. Renderer transforms discovered candidates into staged [`StagedGame`](../../renderer/src/types/importer.ts) records and stores them in the importer queue.
 6. User edits staged entries through [`GamePropertiesPanel.tsx`](../../renderer/src/components/GamePropertiesPanel.tsx), which reuses metadata/image/link workflows that overlap with Game Manager concepts but target staged records instead of persisted library games.
@@ -53,7 +53,7 @@ This is the system-level companion to the user-facing [Add Games](./add-games.md
 
 ## Discovery and Data Sources
 
-- Renderer importer state: [`ImportWorkbenchV2.tsx`](../../renderer/src/components/importer/ImportWorkbenchV2.tsx), [`ImportSidebar.tsx`](../../renderer/src/components/importer/ImportSidebar.tsx), [`ImportHeader.tsx`](../../renderer/src/components/importer/ImportHeader.tsx)
+- Renderer importer state: [`ImportWorkbench.tsx`](../../renderer/src/components/importer/ImportWorkbench.tsx), [`ImportSidebar.tsx`](../../renderer/src/components/importer/ImportSidebar.tsx), [`ImportHeader.tsx`](../../renderer/src/components/importer/ImportHeader.tsx)
 - Renderer importer shell orchestration: [`useImporterWorkbench.ts`](../../renderer/src/hooks/useImporterWorkbench.ts)
 - Startup-review handoff: [`useStartupScanReview.ts`](../../renderer/src/hooks/useStartupScanReview.ts)
 - Staged types and queue data: [`importer.ts`](../../renderer/src/types/importer.ts), [`EditableGame.ts`](../../renderer/src/types/EditableGame.ts)
@@ -74,24 +74,24 @@ This is the system-level companion to the user-facing [Add Games](./add-games.md
 ### Symptom: Scans succeed but the importer queue is empty or incomplete
 
 - Check scan result generation in [`ImportService.ts`](../../main/ImportService.ts) and IPC handoff in [`main/ipc/scanningHandlers.ts`](../../main/ipc/scanningHandlers.ts).
-- Confirm renderer queue-building logic in [`ImportWorkbenchV2.tsx`](../../renderer/src/components/importer/ImportWorkbenchV2.tsx) is receiving the expected candidate set.
+- Confirm renderer queue-building logic in [`ImportWorkbench.tsx`](../../renderer/src/components/importer/ImportWorkbench.tsx) is receiving the expected candidate set.
 - Verify launcher/library settings in [settings/libraries.md](./settings/libraries.md) and [settings/scanning.md](./settings/scanning.md).
 
 ### Symptom: Switching staged games loses edits or shows the wrong record
 
-- Check staged queue/edit synchronization in [`ImportWorkbenchV2.tsx`](../../renderer/src/components/importer/ImportWorkbenchV2.tsx).
+- Check staged queue/edit synchronization in [`ImportWorkbench.tsx`](../../renderer/src/components/importer/ImportWorkbench.tsx).
 - Check staged editable conversion/merge helpers in [`EditableGame.ts`](../../renderer/src/types/EditableGame.ts).
 - Check the tab/editor logic inside [`GamePropertiesPanel.tsx`](../../renderer/src/components/GamePropertiesPanel.tsx).
 
 ### Symptom: Imported games are missing metadata, artwork, or links that were visible during staging
 
-- Check the staged-to-library mapping during import in [`ImportWorkbenchV2.tsx`](../../renderer/src/components/importer/ImportWorkbenchV2.tsx).
+- Check the staged-to-library mapping during import in [`ImportWorkbench.tsx`](../../renderer/src/components/importer/ImportWorkbench.tsx).
 - Confirm the final save path preserves the staged fields rather than regenerating partial records.
 - Cross-check the relevant deeper runbooks for metadata, image, and link workflows.
 
 ## File Ownership Map
 
-- [`ImportWorkbenchV2.tsx`](../../renderer/src/components/importer/ImportWorkbenchV2.tsx) - top-level importer workspace, queue state, scan controls, and import execution.
+- [`ImportWorkbench.tsx`](../../renderer/src/components/importer/ImportWorkbench.tsx) - top-level importer workspace, queue state, scan controls, and import execution.
 - [`useImporterWorkbench.ts`](../../renderer/src/hooks/useImporterWorkbench.ts) - shell-to-importer handoff, importer reset, and post-import follow-up orchestration.
 - [`useStartupScanReview.ts`](../../renderer/src/hooks/useStartupScanReview.ts) - startup overlay review/cancel actions that feed the importer handoff path.
 - [`GamePropertiesPanel.tsx`](../../renderer/src/components/GamePropertiesPanel.tsx) - staged-game editor for metadata, images, links, and mod manager fields before import.
@@ -109,3 +109,4 @@ This is the system-level companion to the user-facing [Add Games](./add-games.md
 - [`main/preload.ts`](../../main/preload.ts) - preload bridge for scan/import/pause/resume/metadata/image actions used by the importer.
 - [`main/ipc/scanningHandlers.ts`](../../main/ipc/scanningHandlers.ts) - IPC boundary for scan and importer-oriented discovery requests.
 - [`ImportService.ts`](../../main/ImportService.ts) - primary main-process scan orchestration and candidate discovery service.
+

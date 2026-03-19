@@ -1,5 +1,5 @@
 /**
- * ImportWorkbenchV2 - A clean, maintainable game importer
+ * ImportWorkbench - A clean, maintainable game importer
  * Uses GamePropertiesPanel for unified game editing
  */
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
@@ -12,7 +12,7 @@ import { InteractiveOnyxLogo } from './InteractiveOnyxLogo';
 
 export type ImportProgressCallback = (current: number, total: number, phase: string, detail?: string) => void;
 
-export interface ImportWorkbenchV2Props {
+export interface ImportWorkbenchProps {
     isOpen: boolean;
     onClose: () => void;
     onImport: (games: Game[], onProgress?: ImportProgressCallback) => Promise<void>;
@@ -89,7 +89,7 @@ const sanitizeWebpArtworkUrl = (url?: string): string => {
     return /\.webp(\?|$)/i.test(url) ? '' : url;
 };
 
-export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
+export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
     isOpen,
     onClose,
     onImport,
@@ -1097,3 +1097,7 @@ export const ImportWorkbenchV2: React.FC<ImportWorkbenchV2Props> = ({
         </div>
     );
 };
+
+
+
+

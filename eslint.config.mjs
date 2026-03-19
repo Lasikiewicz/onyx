@@ -95,7 +95,7 @@ export default tseslint.config(
       'renderer/src/App.tsx',
       'renderer/src/components/GameManager.tsx',
       'renderer/src/components/GameDetailsPanel.tsx',
-      'renderer/src/components/importer/ImportWorkbenchV2.tsx',
+      'renderer/src/components/importer/ImportWorkbench.tsx',
     ],
     rules: {
       'react-hooks/exhaustive-deps': 'off',
@@ -122,3 +122,4 @@ export default tseslint.config(
     },
   },
 );
+

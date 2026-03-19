@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 import type { Game } from '../types/game';
 import type { OnyxSettingsModalProps } from '../components/OnyxSettingsModal';
 import type { GameManagerProps } from '../components/GameManager';
-import type { ImportWorkbenchV2Props } from '../components/importer/ImportWorkbenchV2';
+import type { ImportWorkbenchProps } from '../components/importer/ImportWorkbench';
 import type { UpdateLibraryModalProps } from '../components/UpdateLibraryModal';
 
 interface UseAppShellModalControlsOptions {
@@ -77,7 +77,7 @@ export function useAppShellModalControls({
     onShowImportModal: handleShowImportModal,
   };
 
-  const importWorkbenchProps: ImportWorkbenchV2Props = {
+  const importWorkbenchProps: ImportWorkbenchProps = {
     autoStartScan,
     existingLibrary: games,
     initialMode: importWorkbenchInitialMode,
@@ -115,3 +115,5 @@ export function useAppShellModalControls({
     updateLibraryModalProps,
   };
 }
+
+

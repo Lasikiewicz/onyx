@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import type { ImportProgressCallback } from '../components/importer/ImportWorkbenchV2';
+import type { ImportProgressCallback } from '../components/importer/ImportWorkbench';
 import type { ImportSource } from '../types/importer';
 import { Game } from '../types/game';
 import { areAPIsConfigured } from '../utils/apiValidation';
@@ -273,3 +273,4 @@ export function useImporterWorkbench({
     preScannedGames,
   };
 }
+

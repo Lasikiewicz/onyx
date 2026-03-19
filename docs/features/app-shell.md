@@ -103,7 +103,7 @@ Owns the renderer root experience in [`App.tsx`](../../renderer/src/App.tsx): li
 31. [`useAppShellViewState.ts`](../../renderer/src/hooks/useAppShellViewState.ts) owns the large view/layout preference state cluster and current-view derived values so the app shell no longer leaves that shell-state warehouse inline in [`App.tsx`](../../renderer/src/App.tsx).
 32. [`useGameDetailsPanelControls.ts`](../../renderer/src/hooks/useGameDetailsPanelControls.ts) bundles the root `GameDetailsPanel` actions plus panel-width/divider persistence wiring so right-panel control routing no longer stays inline in [`App.tsx`](../../renderer/src/App.tsx).
 33. [`useAppShellModalControls.ts`](../../renderer/src/hooks/useAppShellModalControls.ts) bundles the settings/importer/Game Manager/update-library modal props so the remaining modal callback routing does not stay inline in [`App.tsx`](../../renderer/src/App.tsx).
-34. [`useImporterWorkbench.ts`](../../renderer/src/hooks/useImporterWorkbench.ts) converts menu actions, Welcome Screen onboarding, startup-scan discoveries, and Game Manager maintenance flows into one importer lifecycle for [`ImportWorkbenchV2.tsx`](../../renderer/src/components/importer/ImportWorkbenchV2.tsx).
+34. [`useImporterWorkbench.ts`](../../renderer/src/hooks/useImporterWorkbench.ts) converts menu actions, Welcome Screen onboarding, startup-scan discoveries, and Game Manager maintenance flows into one importer lifecycle for [`ImportWorkbench.tsx`](../../renderer/src/components/importer/ImportWorkbench.tsx).
 35. Update availability, crash dumps, tutorial prompts, toast messages, and missing-games cleanup all render above the library shell without each feature owning its own root-level wiring.
 
 ## Discovery and Data Sources
@@ -195,3 +195,4 @@ Owns the renderer root experience in [`App.tsx`](../../renderer/src/App.tsx): li
 - [useImporterWorkbench.ts](../../renderer/src/hooks/useImporterWorkbench.ts) - importer lifecycle orchestration shared by startup handoff, menu actions, onboarding, and Game Manager cleanup flows.
 - [FoundGamesModal.tsx](../../renderer/src/components/FoundGamesModal.tsx) - reusable found-games review modal used by the startup overlay when scans discover new titles.
 - [MenuBar.tsx](../../renderer/src/components/MenuBar.tsx) - top-level shell entry points into importer, settings, updater, tutorial, and other library actions.
+

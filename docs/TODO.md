@@ -6,8 +6,8 @@ Completed historical items have been removed so this stays focused on what is st
 - Renderer Hotspots
   - [x] **Refactor `RightClickMenu.tsx` into view-specific sections**
     - Done: Games View in [`RightClickMenuGamesViewSection.tsx`](../renderer/src/components/rightClickMenu/RightClickMenuGamesViewSection.tsx), Dividers in [`RightClickMenuDividersSection.tsx`](../renderer/src/components/rightClickMenu/RightClickMenuDividersSection.tsx), button colors in [`RightClickMenuButtonColorsEditor.tsx`](../renderer/src/components/rightClickMenu/RightClickMenuButtonColorsEditor.tsx) / [`RightClickMenuButtonColorsPopup.tsx`](../renderer/src/components/rightClickMenu/RightClickMenuButtonColorsPopup.tsx) / [`RightClickMenuButtonColorsTrigger.tsx`](../renderer/src/components/rightClickMenu/RightClickMenuButtonColorsTrigger.tsx), and modals (Custom Defaults, reset, clear-per-game) in [`RightClickMenuModals.tsx`](../renderer/src/components/rightClickMenu/RightClickMenuModals.tsx).
-  - [ ] **Break up `ImportWorkbenchV2.tsx`**
-    - Split [`ImportWorkbenchV2.tsx`](../renderer/src/components/importer/ImportWorkbenchV2.tsx) into queue/sidebar, staged editor, import progress, and scanner-control slices so importer changes do not require editing one large screen component.
+  - [ ] **Break up `ImportWorkbench.tsx`**
+    - Split [`ImportWorkbench.tsx`](../renderer/src/components/importer/ImportWorkbench.tsx) into queue/sidebar, staged editor, import progress, and scanner-control slices so importer changes do not require editing one large screen component.
 
 - Main-Process Hotspots
   - [ ] **Refactor `ImportService.ts` into real scanner modules**
@@ -40,3 +40,4 @@ Completed historical items have been removed so this stays focused on what is st
 - Maintenance Follow-Through
   - [ ] **Prune temporary lint exemptions over time**
     - Revisit [`eslint.config.mjs`](../renderer/../eslint.config.mjs) and remove targeted legacy exceptions as the largest renderer and main-process hotspots are split up.
+

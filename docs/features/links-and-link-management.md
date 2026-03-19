@@ -152,7 +152,7 @@ Provides a full lifecycle for game links:
 ## File Ownership Map
 
 - **Renderer**
-  - [importer/ImportWorkbenchV2.tsx](../../renderer/src/components/importer/ImportWorkbenchV2.tsx)
+  - [importer/ImportWorkbench.tsx](../../renderer/src/components/importer/ImportWorkbench.tsx)
   - [GameManager.tsx](../../renderer/src/components/GameManager.tsx)
   - [gameManager/GameManagerLinksTab.tsx](../../renderer/src/components/gameManager/GameManagerLinksTab.tsx)
   - [gameManager/LinkIconPickerDialog.tsx](../../renderer/src/components/gameManager/LinkIconPickerDialog.tsx)
@@ -173,3 +173,4 @@ Provides a full lifecycle for game links:
   - [IGDBMetadataProvider.ts](../../main/IGDBMetadataProvider.ts)
   - [UserPreferencesService.ts](../../main/UserPreferencesService.ts)
   - [GameStore.ts](../../main/GameStore.ts)
+

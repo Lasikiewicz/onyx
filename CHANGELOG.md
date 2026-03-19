@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Pending
 
+- Importer:
+  - Rename `ImportWorkbenchV2.tsx` to `ImportWorkbench.tsx` and update all references (props type `ImportWorkbenchProps`, lazy import, hooks, eslint, and feature docs).
+
 - Right click menu:
   - Extract the grid/list/logo Games View editor into `RightClickMenuGamesViewSection.tsx` (categories, size, padding, list options, background blur/brightness) and the Dividers editor into `RightClickMenuDividersSection.tsx` (panel width, banner height, description width, bottom bar height) so `RightClickMenu.tsx` no longer keeps those sections inline.
   - Extract shared popup/default flows into `RightClickMenuButtonColorsEditor.tsx`, `RightClickMenuButtonColorsPopup.tsx`, `RightClickMenuButtonColorsTrigger.tsx` (button color picker UI), and `RightClickMenuModals.tsx` (Custom Defaults Manager, reset confirmation, clear-per-game confirmation) so the parent menu no longer keeps those dialogs and popup UI inline.
