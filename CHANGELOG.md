@@ -13,6 +13,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   - Move category pinning, category counts, launcher derivation, and filtered-library sorting out of `App.tsx` into `useAppShellLibraryFilters.ts`.
   - Move active-game lookup and visible-library selection reconciliation out of `App.tsx` into `useAppShellSelection.ts`.
   - Move background artwork/video selection, animated fallback handling, blur optimization, and adjacent-art preloading out of `App.tsx` into `useAppShellBackgroundMedia.ts`.
+  - Move hide/uninstall confirmation state into `useAppShellGameConfirmations.ts`, render the root confirmation stack through `AppShellConfirmationDialogs.tsx`, and move the large view/layout preference state cluster into `useAppShellViewState.ts` so `App.tsx` now acts mainly as the root shell orchestrator.
   - Update the app-shell runbook, architecture module index, and refactor roadmap to document the new shell component and hook boundaries.
 
 ## [0.8.0] - 2026-03-18

@@ -42,12 +42,13 @@ Owns the renderer root experience in [`App.tsx`](../../renderer/src/App.tsx): li
 - The shell library-filter bridge in [`useAppShellLibraryFilters.ts`](../../renderer/src/hooks/useAppShellLibraryFilters.ts), which owns category pinning, category counts, launcher derivation, and filtered-library sorting so [`App.tsx`](../../renderer/src/App.tsx) no longer mixes those library-state rules with the rest of the shell orchestration.
 - The shell selection bridge in [`useAppShellSelection.ts`](../../renderer/src/hooks/useAppShellSelection.ts), which owns active-game lookup, visible-library selection reconciliation, and shell click-to-select behavior so [`App.tsx`](../../renderer/src/App.tsx) no longer manages that selection policy inline.
 - The shell background-media bridge in [`useAppShellBackgroundMedia.ts`](../../renderer/src/hooks/useAppShellBackgroundMedia.ts), which owns background artwork/video selection, animated fallback rules, blur optimization, and adjacent-art preloading so [`App.tsx`](../../renderer/src/App.tsx) no longer mixes that runtime media policy into the root component.
+- The shell game-confirmation bridge in [`useAppShellGameConfirmations.ts`](../../renderer/src/hooks/useAppShellGameConfirmations.ts), which owns hide/uninstall confirmation state and follow-up actions so [`App.tsx`](../../renderer/src/App.tsx) no longer carries those root confirmation flows inline.
+- The shell confirmation-dialog renderer in [`AppShellConfirmationDialogs.tsx`](../../renderer/src/components/appShell/AppShellConfirmationDialogs.tsx), which renders the hide, uninstall, and launch confirmation dialogs above the shell so [`App.tsx`](../../renderer/src/App.tsx) no longer embeds that dialog stack directly.
+- The shell view-state bridge in [`useAppShellViewState.ts`](../../renderer/src/hooks/useAppShellViewState.ts), which owns the large view/layout preference state cluster and current-view derived values so [`App.tsx`](../../renderer/src/App.tsx) no longer acts as the main shell-state warehouse.
 - The game-details-panel control bridge in [`useGameDetailsPanelControls.ts`](../../renderer/src/hooks/useGameDetailsPanelControls.ts), which packages the root `GameDetailsPanel` action and panel-persistence callbacks for the app shell.
 - The shell modal-control bridge in [`useAppShellModalControls.ts`](../../renderer/src/hooks/useAppShellModalControls.ts), which packages settings, importer, Game Manager, and update-library modal callback bundles for the app shell.
 - The shell launch bridge in [`useGameLaunchFlow.ts`](../../renderer/src/hooks/useGameLaunchFlow.ts), which owns launch confirmation, launch execution, running-state tracking, and restore/minimize process-side behavior.
-- The shell uninstall confirmation in [`App.tsx`](../../renderer/src/App.tsx), which can launch the detected uninstaller and optionally remove the same game from the Onyx library through one confirmation flow.
 - The importer handoff bridge in [`useImporterWorkbench.ts`](../../renderer/src/hooks/useImporterWorkbench.ts), which owns importer-open guards, startup-scan/new-games handoff, importer reset behavior, and post-import tutorial follow-up.
-- The visible-library selection policy in [`App.tsx`](../../renderer/src/App.tsx), which keeps `activeGameId` aligned to the current filtered game set so the details panel and background shell do not stick to an off-screen game after filters or clicks change the visible library.
 
 ## Settings and Toggles
 
@@ -76,10 +77,13 @@ Owns the renderer root experience in [`App.tsx`](../../renderer/src/App.tsx): li
 17. [`useAppShellLibraryFilters.ts`](../../renderer/src/hooks/useAppShellLibraryFilters.ts) owns category pinning defaults, category/launcher discovery, and filtered-library sorting so the app shell no longer leaves those library-state rules inline in [`App.tsx`](../../renderer/src/App.tsx).
 18. [`useAppShellSelection.ts`](../../renderer/src/hooks/useAppShellSelection.ts) owns active-game lookup, visible-library selection reconciliation, and click-to-select routing so the app shell no longer leaves that selection policy inline in [`App.tsx`](../../renderer/src/App.tsx).
 19. [`useAppShellBackgroundMedia.ts`](../../renderer/src/hooks/useAppShellBackgroundMedia.ts) owns background artwork/video selection, animated fallback rules, blur optimization, and adjacent-art preloading so the app shell no longer leaves that runtime media policy inline in [`App.tsx`](../../renderer/src/App.tsx).
-20. [`useGameDetailsPanelControls.ts`](../../renderer/src/hooks/useGameDetailsPanelControls.ts) bundles the root `GameDetailsPanel` actions plus panel-width/divider persistence wiring so right-panel control routing no longer stays inline in [`App.tsx`](../../renderer/src/App.tsx).
-21. [`useAppShellModalControls.ts`](../../renderer/src/hooks/useAppShellModalControls.ts) bundles the settings/importer/Game Manager/update-library modal props so the remaining modal callback routing does not stay inline in [`App.tsx`](../../renderer/src/App.tsx).
-22. [`useImporterWorkbench.ts`](../../renderer/src/hooks/useImporterWorkbench.ts) converts menu actions, Welcome Screen onboarding, startup-scan discoveries, and Game Manager maintenance flows into one importer lifecycle for [`ImportWorkbenchV2.tsx`](../../renderer/src/components/importer/ImportWorkbenchV2.tsx).
-23. Update availability, crash dumps, tutorial prompts, toast messages, and missing-games cleanup all render above the library shell without each feature owning its own root-level wiring.
+20. [`useAppShellGameConfirmations.ts`](../../renderer/src/hooks/useAppShellGameConfirmations.ts) owns hide/uninstall confirmation state and follow-up actions so the app shell no longer leaves those root confirmation flows inline in [`App.tsx`](../../renderer/src/App.tsx).
+21. [`AppShellConfirmationDialogs.tsx`](../../renderer/src/components/appShell/AppShellConfirmationDialogs.tsx) renders the hide, uninstall, and launch confirmation dialogs so the app shell no longer embeds that confirmation stack directly in [`App.tsx`](../../renderer/src/App.tsx).
+22. [`useAppShellViewState.ts`](../../renderer/src/hooks/useAppShellViewState.ts) owns the large view/layout preference state cluster and current-view derived values so the app shell no longer leaves that shell-state warehouse inline in [`App.tsx`](../../renderer/src/App.tsx).
+23. [`useGameDetailsPanelControls.ts`](../../renderer/src/hooks/useGameDetailsPanelControls.ts) bundles the root `GameDetailsPanel` actions plus panel-width/divider persistence wiring so right-panel control routing no longer stays inline in [`App.tsx`](../../renderer/src/App.tsx).
+24. [`useAppShellModalControls.ts`](../../renderer/src/hooks/useAppShellModalControls.ts) bundles the settings/importer/Game Manager/update-library modal props so the remaining modal callback routing does not stay inline in [`App.tsx`](../../renderer/src/App.tsx).
+25. [`useImporterWorkbench.ts`](../../renderer/src/hooks/useImporterWorkbench.ts) converts menu actions, Welcome Screen onboarding, startup-scan discoveries, and Game Manager maintenance flows into one importer lifecycle for [`ImportWorkbenchV2.tsx`](../../renderer/src/components/importer/ImportWorkbenchV2.tsx).
+26. Update availability, crash dumps, tutorial prompts, toast messages, and missing-games cleanup all render above the library shell without each feature owning its own root-level wiring.
 
 ## Discovery and Data Sources
 
@@ -125,8 +129,8 @@ Owns the renderer root experience in [`App.tsx`](../../renderer/src/App.tsx): li
 
 ### Symptom: clicking another visible game does not update the shell selection
 
-- Check the `activeGameId` reconciliation logic in [`App.tsx`](../../renderer/src/App.tsx), especially the effect that reselects the first visible game when the previous selection is no longer in `filteredGames`.
-- Check that the current view component (`LibraryGrid`, `LibraryListView`, `LibraryCarousel`, or `LibraryCoverFlow`) is forwarding `onGameClick` back to [`App.tsx`](../../renderer/src/App.tsx).
+- Check the selection reconciliation logic in [`useAppShellSelection.ts`](../../renderer/src/hooks/useAppShellSelection.ts), especially the visible-selection fallback when the previous game is no longer in `filteredGames`.
+- Check that the current view component (`LibraryGrid`, `LibraryListView`, `LibraryCarousel`, or `LibraryCoverFlow`) is forwarding `onGameClick` back through [`AppShellLibraryView.tsx`](../../renderer/src/components/appShell/AppShellLibraryView.tsx).
 
 ## File Ownership Map
 
@@ -152,6 +156,9 @@ Owns the renderer root experience in [`App.tsx`](../../renderer/src/App.tsx): li
 - [useAppShellLibraryFilters.ts](../../renderer/src/hooks/useAppShellLibraryFilters.ts) - bundled category pinning, category counts, launcher derivation, and filtered-library sorting for the root shell.
 - [useAppShellSelection.ts](../../renderer/src/hooks/useAppShellSelection.ts) - bundled active-game lookup and visible-library selection reconciliation for the root shell.
 - [useAppShellBackgroundMedia.ts](../../renderer/src/hooks/useAppShellBackgroundMedia.ts) - bundled background artwork/video selection, animated fallback handling, blur optimization, and adjacent-art preloading for the root shell.
+- [useAppShellGameConfirmations.ts](../../renderer/src/hooks/useAppShellGameConfirmations.ts) - bundled hide/uninstall confirmation state and follow-up actions for the root shell.
+- [AppShellConfirmationDialogs.tsx](../../renderer/src/components/appShell/AppShellConfirmationDialogs.tsx) - reusable root confirmation dialog stack for hide, uninstall, and launch flows.
+- [useAppShellViewState.ts](../../renderer/src/hooks/useAppShellViewState.ts) - bundled shell view/layout preference state and current-view derived values for the renderer root.
 - [useGameDetailsPanelControls.ts](../../renderer/src/hooks/useGameDetailsPanelControls.ts) - bundled Game Details panel callbacks for right-panel actions and divider persistence.
 - [useAppShellModalControls.ts](../../renderer/src/hooks/useAppShellModalControls.ts) - bundled settings/importer/Game Manager/update-library modal callbacks for smaller root shell modal prop wiring.
 - [useGameLaunchFlow.ts](../../renderer/src/hooks/useGameLaunchFlow.ts) - renderer launch confirmation, launch execution, process polling, and running-state tracking for the app shell.

@@ -1,4 +1,5 @@
 import { useCallback } from 'react';
+import type { Game } from '../types/game';
 
 interface UseAppShellCarouselControlsOptions {
   carouselButtonColors: { playColor?: string; editColor?: string; modManagerColor?: string };
@@ -6,7 +7,7 @@ interface UseAppShellCarouselControlsOptions {
   carouselDescriptionSize: number;
   carouselLogoSize: number;
   detailsBarSize: number;
-  gameContextMenu: { x: number; y: number; game: unknown } | null;
+  gameContextMenu: { x: number; y: number; game: Game } | null;
   isViewFlipped: boolean;
   saveValue: <T>(setter: (value: T) => void, prefKey: string, value: T) => void;
   selectedBoxArtSize: number;
@@ -14,7 +15,7 @@ interface UseAppShellCarouselControlsOptions {
   setCarouselDescriptionSize: (size: number) => void;
   setCarouselLogoSize: (size: number) => void;
   setDetailsBarSize: (size: number) => void;
-  setGameContextMenu: (menu: { x: number; y: number; game: unknown } | null) => void;
+  setGameContextMenu: (menu: { x: number; y: number; game: Game } | null) => void;
   setRightClickMenu: (menu: { x: number; y: number } | null) => void;
   showCarouselDetails: boolean;
   showCarouselLogos: boolean;

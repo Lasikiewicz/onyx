@@ -1,4 +1,4 @@
-import { Suspense, lazy, useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import React, { Suspense, lazy, useState, useEffect, useRef, useCallback } from 'react';
 import { useGameLibrary } from './hooks/useGameLibrary';
 import { useFullscreen } from './hooks/useFullscreen';
 import { useAppShellEvents } from './hooks/useAppShellEvents';
@@ -16,6 +16,7 @@ import { useAppShellPreferencePersistence } from './hooks/useAppShellPreferenceP
 import { useAppShellLibraryFilters } from './hooks/useAppShellLibraryFilters';
 import { useAppShellSelection } from './hooks/useAppShellSelection';
 import { useAppShellBackgroundMedia } from './hooks/useAppShellBackgroundMedia';
+import { useAppShellViewState } from './hooks/useAppShellViewState';
 import { useMainViewShellControls } from './hooks/useMainViewShellControls';
 import { useRightClickMenuControls } from './hooks/useRightClickMenuControls';
 import { useAppShellSurfaceActions } from './hooks/useAppShellSurfaceActions';
@@ -31,15 +32,15 @@ import { SteamConfigModal } from './components/SteamConfigModal';
 import { CategoriesEditor } from './components/CategoriesEditor';
 import { TopBar } from './components/TopBar';
 import { MenuBar } from './components/MenuBar';
-import { TopBarPositions } from './components/TopBarContextMenu';
 import { UpdateLibraryModal } from './components/UpdateLibraryModal';
 import { APISettingsModal } from './components/APISettingsModal';
-import { ConfirmationDialog } from './components/ConfirmationDialog';
 import { AppShellOverlays } from './components/appShell/AppShellOverlays';
+import { AppShellConfirmationDialogs } from './components/appShell/AppShellConfirmationDialogs';
 import { AppShellLibraryView } from './components/appShell/AppShellLibraryView';
 import { Game, GameMetadata } from './types/game';
 import { areAPIsConfigured } from './utils/apiValidation';
 import { useAppShellCarouselControls } from './hooks/useAppShellCarouselControls';
+import { useAppShellGameConfirmations } from './hooks/useAppShellGameConfirmations';
 
 const OnyxSettingsModal = lazy(() =>
   import('./components/OnyxSettingsModal').then((module) => ({ default: module.OnyxSettingsModal })),
@@ -132,170 +133,161 @@ function App() {
     updateNotification,
   } = useAppShellSystemState();
 
-  // Search and view state
-  const [searchQuery, setSearchQuery] = useState('');
-  const [viewMode, setViewMode] = useState<'grid' | 'list' | 'logo' | 'carousel' | 'coverflow'>('grid');
-  const [activeSection] = useState('library');
-  const [showTopBar] = useState(false);
-  const [gridSize, setGridSize] = useState(120);
-  const [logoSize, setLogoSize] = useState(100);
-  const [pinnedCategories, setPinnedCategories] = useState<string[]>([]);
-  const [hideVRTitles, setHideVRTitles] = useState(true);
-  const [hideAppsTitles, setHideAppsTitles] = useState(true);
-  const [hideGameTitles, setHideGameTitles] = useState(false);
-  const [gameTilePadding, setGameTilePadding] = useState(3);
-  const [selectedBoxArtSize, setSelectedBoxArtSize] = useState(25);
-  const [showLogoOverBoxart, setShowLogoOverBoxart] = useState(true);
-  const [logoPosition, setLogoPosition] = useState<'top' | 'middle' | 'bottom' | 'underneath'>('middle');
-  const [logoBackgroundColor, setLogoBackgroundColor] = useState('#374151');
-  const [logoBackgroundOpacity, setLogoBackgroundOpacity] = useState(100);
-  const [backgroundBlur, setBackgroundBlur] = useState(40);
-  const [backgroundBrightnessByView, setBackgroundBrightnessByView] = useState<Record<'grid' | 'list' | 'logo' | 'carousel' | 'coverflow', number>>({
-    grid: 0.3,
-    list: 0.3,
-    logo: 0.3,
-    carousel: 0.3,
-    coverflow: 0.3,
-  });
-  const [showCarouselDetails, setShowCarouselDetails] = useState(true);
-  const [showCarouselLogos, setShowCarouselLogos] = useState(true);
-  const [detailsBarSize, setDetailsBarSize] = useState(14);
-  const [carouselLogoSize, setCarouselLogoSize] = useState(100);
-  const [carouselButtonSize, setCarouselButtonSize] = useState(14);
-  const [carouselDescriptionSize, setCarouselDescriptionSize] = useState(18);
+  const {
+    activeSection,
+    autoSizeToFit,
+    backgroundBlur,
+    backgroundBrightnessByView,
+    backgroundColor,
+    backgroundMode,
+    carouselButtonColors,
+    carouselButtonSize,
+    carouselDescriptionSize,
+    carouselGameTilePadding,
+    carouselLogoSize,
+    categoriesAlignmentByView,
+    categoriesPositionByView,
+    categoriesSizeByView,
+    coverFlowButtonColors,
+    coverFlowButtonPosition,
+    coverFlowCoverSize,
+    coverFlowReflection,
+    coverFlowShowButtons,
+    coverFlowSideOpacity,
+    coverFlowVerticalOffset,
+    currentBackgroundBrightness,
+    currentDescriptionWidth,
+    currentDetailsPanelOpacity,
+    currentFanartHeight,
+    currentPanelWidth,
+    currentRightPanelBoxartPosition,
+    currentRightPanelBoxartSize,
+    currentRightPanelButtonLocation,
+    currentRightPanelButtonSize,
+    currentRightPanelLogoSize,
+    currentRightPanelTextSize,
+    defaultListViewOptions,
+    descriptionWidthByView,
+    detailsBarSize,
+    detailsPanelBottomBarHeight,
+    detailsPanelOpacityByView,
+    disableAllAnimations,
+    disableAnimatedBackgrounds,
+    disableAnimatedBanners,
+    disableAnimatedBoxarts,
+    disableAnimatedIcons,
+    disableAnimatedLogos,
+    fanartHeightByView,
+    gameTilePadding,
+    gridButtonColors,
+    gridDescriptionSize,
+    gridSize,
+    hideAppsTitles,
+    hideGameTitles,
+    hideVRTitles,
+    isViewFlippedByView,
+    listButtonColors,
+    listViewOptions,
+    listViewSize,
+    logoBackgroundColor,
+    logoBackgroundOpacity,
+    logoButtonColors,
+    logoPosition,
+    logoSize,
+    panelWidthByViewState,
+    pinnedCategories,
+    rightPanelBoxartPositionByView,
+    rightPanelBoxartSizeByView,
+    rightPanelButtonColors,
+    rightPanelButtonLocationByView,
+    rightPanelButtonSizeByView,
+    rightPanelLogoSizeByView,
+    rightPanelNeedsTopPadding,
+    rightPanelTextSizeByView,
+    searchQuery,
+    selectedBoxArtSize,
+    selectedCategory,
+    selectedLauncher,
+    setAutoSizeToFit,
+    setBackgroundBlur,
+    setBackgroundBrightnessByView,
+    setBackgroundColor,
+    setBackgroundMode,
+    setCarouselButtonColors,
+    setCarouselButtonSize,
+    setCarouselDescriptionSize,
+    setCarouselLogoSize,
+    setCategoriesAlignmentByView,
+    setCategoriesPositionByView,
+    setCategoriesSizeByView,
+    setCoverFlowButtonColors,
+    setCoverFlowButtonPosition,
+    setCoverFlowCoverSize,
+    setCoverFlowReflection,
+    setCoverFlowShowButtons,
+    setCoverFlowSideOpacity,
+    setCoverFlowVerticalOffset,
+    setDescriptionWidthByView,
+    setDetailsBarSize,
+    setDetailsPanelBottomBarHeight,
+    setDetailsPanelOpacityByView,
+    setDisableAllAnimations,
+    setDisableAnimatedBackgrounds,
+    setDisableAnimatedBanners,
+    setDisableAnimatedBoxarts,
+    setDisableAnimatedIcons,
+    setDisableAnimatedLogos,
+    setFanartHeightByView,
+    setGameTilePadding,
+    setGridButtonColors,
+    setGridSize,
+    setHideAppsTitles,
+    setHideGameTitles,
+    setHideVRTitles,
+    setIsViewFlippedByView,
+    setListButtonColors,
+    setListViewOptions,
+    setListViewSize,
+    setLogoBackgroundColor,
+    setLogoBackgroundOpacity,
+    setLogoButtonColors,
+    setLogoPosition,
+    setLogoSize,
+    setPanelWidth,
+    setPanelWidthByViewState,
+    setPinnedCategories,
+    setRightPanelBoxartPositionByView,
+    setRightPanelBoxartSizeByView,
+    setRightPanelButtonColors,
+    setRightPanelButtonLocationByView,
+    setRightPanelButtonSizeByView,
+    setRightPanelLogoSizeByView,
+    setRightPanelTextSizeByView,
+    setSearchQuery,
+    setSelectedBoxArtSize,
+    setSelectedCategory,
+    setSelectedLauncher,
+    setShowCarouselDetails,
+    setShowCarouselLogos,
+    setShowCategoriesByView,
+    setShowLogoOverBoxart,
+    setSortBy,
+    setTopBarPositions,
+    setViewMode,
+    showCarouselDetails,
+    showCarouselLogos,
+    showCategoriesByView,
+    showLogoOverBoxart,
+    showTopBar,
+    sortBy,
+    topBarPositions,
+    viewMode,
+  } = useAppShellViewState();
+
   const [startupProgress, setStartupProgress] = useState<{ message: string } | null>(null);
-  const [gridDescriptionSize] = useState(14);
-  const defaultListViewOptions = {
-    showDescription: true,
-    showCategories: false,
-    showPlaytime: true,
-    showReleaseDate: true,
-    showGenres: true,
-    showPlatform: false,
-    showLauncher: true,
-    showLogos: false,
-    titleTextSize: 18,
-  };
-  // Link management (source of truth from Settings; respected by all views)
   const [linkDisplayOrder, setLinkDisplayOrder] = useState<string[]>(LINK_DISPLAY_ORDER);
   const [visibleLinkTypes, setVisibleLinkTypes] = useState<Record<string, boolean>>(DEFAULT_VISIBLE_LINK_TYPES);
-
-  // Right panel (GameDetailsPanel) settings
-  const [rightPanelLogoSizeByView, setRightPanelLogoSizeByView] = useState<Record<'grid' | 'list' | 'logo', number>>({
-    grid: 100,
-    list: 100,
-    logo: 100,
-  });
-  const [rightPanelBoxartPositionByView, setRightPanelBoxartPositionByView] = useState<Record<'grid' | 'list' | 'logo', 'left' | 'right' | 'none'>>({
-    grid: 'right',
-    list: 'right',
-    logo: 'right',
-  });
-  const [rightPanelBoxartSizeByView, setRightPanelBoxartSizeByView] = useState<Record<'grid' | 'list' | 'logo', number>>({
-    grid: 120,
-    list: 120,
-    logo: 120,
-  });
-  const [rightPanelTextSizeByView, setRightPanelTextSizeByView] = useState<Record<'grid' | 'list' | 'logo', number>>({
-    grid: 14,
-    list: 14,
-    logo: 14,
-  });
-  const [rightPanelButtonSizeByView, setRightPanelButtonSizeByView] = useState<Record<'grid' | 'list' | 'logo', number>>({
-    grid: 14,
-    list: 14,
-    logo: 14,
-  });
-  const [rightPanelButtonLocationByView, setRightPanelButtonLocationByView] = useState<Record<'grid' | 'list' | 'logo', 'left' | 'middle' | 'right'>>({
-    grid: 'right',
-    list: 'right',
-    logo: 'right',
-  });
-  const [detailsPanelOpacityByView, setDetailsPanelOpacityByView] = useState<Record<'grid' | 'list' | 'logo', number>>({
-    grid: 80,
-    list: 80,
-    logo: 80,
-  });
-  const [isViewFlippedByView, setIsViewFlippedByView] = useState<Record<'grid' | 'list' | 'logo' | 'carousel' | 'coverflow', boolean>>({
-    grid: false,
-    list: false,
-    logo: false,
-    carousel: false,
-    coverflow: false,
-  });
-  // Button colors per view
-  const [rightPanelButtonColors, setRightPanelButtonColors] = useState<{ playColor?: string; editColor?: string; modManagerColor?: string }>({ playColor: '#0ea5e9', editColor: '#6b7280', modManagerColor: '#a855f7' });
-  const [carouselButtonColors, setCarouselButtonColors] = useState<{ playColor?: string; editColor?: string; modManagerColor?: string }>({ playColor: '#0ea5e9', editColor: '#6b7280', modManagerColor: '#a855f7' });
-  const [gridButtonColors, setGridButtonColors] = useState<{ playColor?: string; editColor?: string; modManagerColor?: string }>({ playColor: '#0ea5e9', editColor: '#6b7280', modManagerColor: '#a855f7' });
-  const [listButtonColors, setListButtonColors] = useState<{ playColor?: string; editColor?: string; modManagerColor?: string }>({ playColor: '#0ea5e9', editColor: '#6b7280', modManagerColor: '#a855f7' });
-  const [logoButtonColors, setLogoButtonColors] = useState<{ playColor?: string; editColor?: string; modManagerColor?: string }>({ playColor: '#0ea5e9', editColor: '#6b7280', modManagerColor: '#a855f7' });
-  // Cover Flow (simplified menu)
-  const [coverFlowCoverSize, setCoverFlowCoverSize] = useState(300);
-  const [coverFlowReflection, setCoverFlowReflection] = useState(60);
-  const [coverFlowVerticalOffset, setCoverFlowVerticalOffset] = useState(0);
-  const [coverFlowSideOpacity, setCoverFlowSideOpacity] = useState(100);
-  const [coverFlowShowButtons, setCoverFlowShowButtons] = useState(true);
-  const [coverFlowButtonPosition, setCoverFlowButtonPosition] = useState<'left' | 'middle' | 'right'>('middle');
-  const [coverFlowButtonColors, setCoverFlowButtonColors] = useState<{ playColor?: string; editColor?: string; modManagerColor?: string }>({ playColor: '#0ea5e9', editColor: '#6b7280', modManagerColor: '#a855f7' });
-  // Top bar element positions
-  const [topBarPositions, setTopBarPositions] = useState<TopBarPositions>({
-    searchBar: 'left',
-    sortBy: 'left',
-    launcher: 'left',
-    categories: 'left',
-  });
-  // Game details panel divider settings per view
-  const [fanartHeightByView, setFanartHeightByView] = useState<Record<'grid' | 'list' | 'logo', number>>({
-    grid: 320,
-    list: 320,
-    logo: 320,
-  });
-  const [detailsPanelBottomBarHeight, setDetailsPanelBottomBarHeight] = useState(72);
-  const [descriptionWidthByView, setDescriptionWidthByView] = useState<Record<'grid' | 'list' | 'logo', number>>({
-    grid: 50,
-    list: 50,
-    logo: 50,
-  });
-
-  // Animation preferences
-  const [disableAllAnimations, setDisableAllAnimations] = useState(false);
-  const [disableAnimatedBanners, setDisableAnimatedBanners] = useState(false);
-  const [disableAnimatedBoxarts, setDisableAnimatedBoxarts] = useState(false);
-  const [disableAnimatedBackgrounds, setDisableAnimatedBackgrounds] = useState(false);
-  const [disableAnimatedIcons, setDisableAnimatedIcons] = useState(false);
-  const [disableAnimatedLogos, setDisableAnimatedLogos] = useState(false);
-  const [panelWidthByViewState, setPanelWidthByViewState] = useState<Record<'grid' | 'list' | 'logo' | 'carousel' | 'coverflow', number>>({
-    grid: 800,
-    list: 800,
-    logo: 800,
-    carousel: 800,
-    coverflow: 800,
-  });
-  const [showCategoriesByView, setShowCategoriesByView] = useState<Record<string, boolean>>({
-    grid: false,
-    list: false,
-    logo: false,
-  });
-  const [categoriesPositionByView, setCategoriesPositionByView] = useState<Record<string, 'top' | 'bottom'>>({
-    grid: 'top',
-    list: 'top',
-    logo: 'top'
-  });
-  const [categoriesAlignmentByView, setCategoriesAlignmentByView] = useState<Record<string, 'left' | 'center' | 'right'>>({
-    grid: 'left',
-    list: 'left',
-    logo: 'left'
-  });
-  const [categoriesSizeByView, setCategoriesSizeByView] = useState<Record<string, number>>({
-    grid: 12,
-    list: 12,
-    logo: 12
-  });
-
-  // Launch confirmation state
   const [confirmGameLaunch, setConfirmGameLaunch] = useState(false);
-
-  // Missing games state
   const [missingGames, setMissingGames] = useState<Array<{
     id: string;
     title: string;
@@ -303,54 +295,10 @@ function App() {
     platform?: string;
     source?: string;
   }> | null>(null);
-
-  // Found games state
   const [foundGames, setFoundGames] = useState<Array<any> | null>(null);
-
-
-
-  // Get current view's divider settings
-  const currentFanartHeight = (viewMode === 'grid' || viewMode === 'list' || viewMode === 'logo') ? fanartHeightByView[viewMode] : 320;
-  const currentDescriptionWidth = (viewMode === 'grid' || viewMode === 'list' || viewMode === 'logo') ? descriptionWidthByView[viewMode] : 50;
-  const currentPanelWidth = (viewMode === 'grid' || viewMode === 'list' || viewMode === 'logo') ? panelWidthByViewState[viewMode] : 800;
-  const detailViewMode = viewMode === 'list' ? 'list' : viewMode === 'logo' ? 'logo' : 'grid';
-  const currentRightPanelLogoSize = rightPanelLogoSizeByView[detailViewMode];
-  const currentRightPanelBoxartPosition = rightPanelBoxartPositionByView[detailViewMode];
-  const currentRightPanelBoxartSize = rightPanelBoxartSizeByView[detailViewMode];
-  const currentRightPanelTextSize = rightPanelTextSizeByView[detailViewMode];
-  const currentRightPanelButtonSize = rightPanelButtonSizeByView[detailViewMode];
-  const currentRightPanelButtonLocation = rightPanelButtonLocationByView[detailViewMode];
-  const currentDetailsPanelOpacity = detailsPanelOpacityByView[detailViewMode];
-  /** Always true in grid/list/logo so the right panel always has pt-4 and retains its position when "Show categories" is toggled on or off. */
-  const rightPanelNeedsTopPadding = viewMode === 'grid' || viewMode === 'list' || viewMode === 'logo';
-  const currentBackgroundBrightness = backgroundBrightnessByView[viewMode] ?? 0.3;
-
-  // Set background blur to 0 when switching to carousel/coverflow mode and sync divider widths when view changes
-  useEffect(() => {
-    if ((viewMode === 'carousel' || viewMode === 'coverflow') && backgroundBlur !== 0) {
-      setBackgroundBlur(0);
-    }
-    // Sync panelWidth to current view's setting
-    if (viewMode !== 'carousel' && viewMode !== 'coverflow') {
-      const viewSpecificWidth = panelWidthByViewState[viewMode];
-      setPanelWidth(viewSpecificWidth);
-    }
-  }, [backgroundBlur, panelWidthByViewState, viewMode]);
-  const [backgroundMode, setBackgroundMode] = useState<'image' | 'color'>('image');
-  const [backgroundColor, setBackgroundColor] = useState('#000000');
-  const [listViewOptions, setListViewOptions] = useState(defaultListViewOptions);
-  const [listViewSize, setListViewSize] = useState(128);
-  const [_panelWidth, setPanelWidth] = useState(800);
   const [rightClickMenu, setRightClickMenu] = useState<{ x: number; y: number } | null>(null);
   const [gameContextMenu, setGameContextMenu] = useState<{ x: number; y: number; game: Game } | null>(null);
-  const [autoSizeToFit, setAutoSizeToFit] = useState(false);
   const gridContainerRef = useRef<HTMLDivElement>(null);
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [selectedLauncher, setSelectedLauncher] = useState<string | null>(null);
-  const [sortBy, setSortBy] = useState<'title' | 'releaseDate' | 'playtime' | 'lastPlayed'>('title');
-
-  // Clamp padding in carousel without overwriting the saved preference
-  const carouselGameTilePadding = (viewMode === 'carousel' || viewMode === 'coverflow') && gameTilePadding > 3 ? 1 : gameTilePadding;
 
   const { isInitialLoad, refreshPreferences } = useAppPreferences({
     viewMode,
@@ -476,7 +424,6 @@ function App() {
     allLaunchers,
     categoryCounts,
     filteredGames,
-    getGameLauncher,
     handleTogglePinCategory,
     hasAppsCategory,
     hasFavoriteGames,
@@ -594,7 +541,7 @@ function App() {
     }, 100);
 
     return () => clearTimeout(timeoutId);
-  }, [autoSizeToFit, filteredGames.length, gameTilePadding, hideGameTitles, viewMode, calculateAutoSize, _panelWidth]);
+  }, [autoSizeToFit, filteredGames.length, gameTilePadding, hideGameTitles, viewMode, calculateAutoSize, currentPanelWidth]);
 
   useEffect(() => {
     if (!autoSizeToFit || viewMode !== 'grid' || !gridContainerRef.current) {
@@ -861,10 +808,6 @@ function App() {
     setMissingGames(null);
   };
 
-  // Hide confirmation dialog state
-  const [hideConfirmation, setHideConfirmation] = useState<{ game: Game } | null>(null);
-  const [uninstallConfirmation, setUninstallConfirmation] = useState<{ game: Game; removeFromLibrary: boolean } | null>(null);
-
   // Handle Steam games import
 
   // Handle Steam configuration scan
@@ -976,69 +919,23 @@ function App() {
     await handleSaveGame(updatedGame);
   };
 
-  const handleHideGame = (game: Game) => {
-    setHideConfirmation({ game });
-  };
-
-  const handleConfirmHide = async () => {
-    if (hideConfirmation) {
-      const { game } = hideConfirmation;
-      const updatedGame = { ...game, hidden: true };
-      await handleSaveGame(updatedGame);
-      showToast(`"${game.title}" has been hidden`, 'success');
-      setHideConfirmation(null);
-    }
-  };
-
-  const handleCancelHide = () => {
-    setHideConfirmation(null);
-  };
-
-  const handleUnhideGame = async (game: Game) => {
-    const updatedGame = { ...game, hidden: false };
-    await handleSaveGame(updatedGame);
-    showToast(`"${game.title}" has been unhidden`, 'success');
-  };
-
-  const handleUninstallGame = async (game: Game) => {
-    setGameContextMenu(null);
-    setUninstallConfirmation({ game, removeFromLibrary: false });
-  };
-
-  const handleConfirmUninstall = async () => {
-    if (!uninstallConfirmation) return;
-
-    const { game, removeFromLibrary } = uninstallConfirmation;
-    setUninstallConfirmation(null);
-
-    try {
-      const result = await window.electronAPI.openGameUninstaller(game.id);
-      if (result.success) {
-        if (result.openedUninstaller) {
-          showToast('Uninstaller opened', 'success');
-        } else {
-          showToast('Opened Windows Settings > Apps', 'success');
-        }
-
-        if (removeFromLibrary) {
-          const removed = await deleteGame(game.id);
-          if (removed) {
-            showToast(`Removed "${game.title}" from the library`, 'success');
-          } else {
-            showToast(`Opened uninstall flow, but failed to remove "${game.title}" from the library`, 'error');
-          }
-        }
-      } else if (result.error) {
-        showToast(result.error, 'error');
-      }
-    } catch (err) {
-      showToast('Failed to open uninstaller', 'error');
-    }
-  };
-
-  const handleCancelUninstall = () => {
-    setUninstallConfirmation(null);
-  };
+  const {
+    handleCancelHide,
+    handleCancelUninstall,
+    handleConfirmHide,
+    handleConfirmUninstall,
+    handleHideGame,
+    handleRemoveFromLibraryChange,
+    handleUnhideGame,
+    handleUninstallGame,
+    hideConfirmation,
+    uninstallConfirmation,
+  } = useAppShellGameConfirmations({
+    deleteGame,
+    handleSaveGame,
+    setGameContextMenu,
+    showToast,
+  });
 
   // Handle exit with confirmation
   const handleExit = async () => {
@@ -1526,7 +1423,7 @@ function App() {
             error={error}
             forceShowInitialOnboarding={forceShowInitialOnboarding}
             gameTilePadding={gameTilePadding}
-            gridContainerRef={gridContainerRef}
+            gridContainerRef={gridContainerRef as React.RefObject<HTMLDivElement>}
             gridDescriptionSize={gridDescriptionSize}
             gridSize={gridSize}
             hasFavoriteGames={hasFavoriteGames}
@@ -1670,62 +1567,18 @@ function App() {
         />
       </Suspense>
 
-      {/* Hide Game Confirmation Dialog */}
-      {hideConfirmation && (
-        <ConfirmationDialog
-          isOpen={true}
-          title={`Hide "${hideConfirmation.game.title}"?`}
-          message="This game will be hidden from your library view."
-          note="You can find hidden games by selecting the 'Hidden' category from the Categories dropdown."
-          confirmText="Hide"
-          cancelText="Cancel"
-          onConfirm={handleConfirmHide}
-          onCancel={handleCancelHide}
-        />
-      )}
-
-      {uninstallConfirmation && (
-        <ConfirmationDialog
-          isOpen={true}
-          title={`Uninstall "${uninstallConfirmation.game.title}"?`}
-          message="Onyx will try to open the game's uninstaller. If no local uninstaller is found, Windows Settings > Apps will open instead."
-          note="Removing a game from the library only affects Onyx. It does not uninstall files by itself."
-          confirmText="Open Uninstaller"
-          cancelText="Cancel"
-          onConfirm={handleConfirmUninstall}
-          onCancel={handleCancelUninstall}
-          variant="danger"
-        >
-          <label className="flex items-start gap-3 rounded border border-gray-700 bg-gray-900/50 p-3 text-sm text-gray-300 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={uninstallConfirmation.removeFromLibrary}
-              onChange={(event) =>
-                setUninstallConfirmation((current) =>
-                  current
-                    ? { ...current, removeFromLibrary: event.target.checked }
-                    : current,
-                )
-              }
-              className="mt-0.5 h-4 w-4 rounded border-gray-600 bg-gray-800 text-red-500 focus:ring-red-500"
-            />
-            <span>Also remove this game from the Onyx library after opening the uninstall flow.</span>
-          </label>
-        </ConfirmationDialog>
-      )}
-
-      {/* Launch Confirmation Dialog */}
-      {launchConfirmation && (
-        <ConfirmationDialog
-          isOpen={true}
-          title={`Launch "${launchConfirmation.game.title}"?`}
-          message="Are you sure you want to launch this game?"
-          confirmText="Launch"
-          cancelText="Cancel"
-          onConfirm={confirmLaunch}
-          onCancel={cancelLaunchConfirmation}
-        />
-      )}
+      <AppShellConfirmationDialogs
+        confirmLaunch={confirmLaunch}
+        hideConfirmation={hideConfirmation}
+        launchConfirmation={launchConfirmation}
+        onCancelHide={handleCancelHide}
+        onCancelLaunch={cancelLaunchConfirmation}
+        onCancelUninstall={handleCancelUninstall}
+        onConfirmHide={handleConfirmHide}
+        onConfirmUninstall={handleConfirmUninstall}
+        onRemoveFromLibraryChange={handleRemoveFromLibraryChange}
+        uninstallConfirmation={uninstallConfirmation}
+      />
 
       <AppShellOverlays {...appShellOverlayProps} />
     </div>

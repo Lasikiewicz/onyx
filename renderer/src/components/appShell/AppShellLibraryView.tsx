@@ -55,7 +55,7 @@ interface AppShellLibraryViewProps {
   error: string | null;
   forceShowInitialOnboarding: boolean;
   gameTilePadding: number;
-  gridContainerRef: RefObject<HTMLDivElement | null>;
+  gridContainerRef: RefObject<HTMLDivElement>;
   gridDescriptionSize: number;
   gridSize: number;
   hasFavoriteGames: boolean;

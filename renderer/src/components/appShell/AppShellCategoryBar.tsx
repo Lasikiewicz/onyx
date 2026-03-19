@@ -9,7 +9,7 @@ interface AppShellCategoryBarProps {
   onCategoryChange: (category: string | null) => void;
 }
 
-const categoryBarDragStyle: CSSProperties = { WebkitAppRegion: 'no-drag' };
+const categoryBarDragStyle = { WebkitAppRegion: 'no-drag' } as CSSProperties & { WebkitAppRegion: string };
 
 function getCategoryButtonClass(isSelected: boolean) {
   return `px-3 py-1.5 rounded-full font-medium transition-all whitespace-nowrap ${
