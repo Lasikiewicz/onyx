@@ -235,7 +235,7 @@ export const UpdateNotificationModal: React.FC<UpdateNotificationModalProps> = (
       {/* Modal */}
       <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
         <div className={`bg-[radial-gradient(circle_at_top,_rgba(34,211,238,0.16),_transparent_32%),linear-gradient(145deg,rgba(15,23,42,0.98),rgba(2,6,23,0.98))] backdrop-blur-xl border border-cyan-500/35 rounded-[2rem] shadow-2xl w-full ${showChangelog ? 'max-w-5xl h-[90vh] max-h-[90vh]' : 'max-w-2xl'} p-6 md:p-8 animate-in fade-in zoom-in duration-300 flex flex-col`}>
-          <div className={`flex flex-col items-center gap-6 ${showChangelog ? 'flex-1 min-h-0 overflow-y-auto' : ''}`}>
+          <div className={`flex flex-col items-center gap-6 ${showChangelog ? 'flex-1 min-h-0' : ''}`}>
             {/* Header */}
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-5 max-w-3xl text-center sm:text-left">
               <div className="w-16 h-16 rounded-full bg-cyan-500/15 ring-1 ring-cyan-400/30 flex items-center justify-center shrink-0 shadow-[0_0_40px_rgba(34,211,238,0.18)] overflow-visible translate-y-1">
@@ -290,8 +290,8 @@ export const UpdateNotificationModal: React.FC<UpdateNotificationModalProps> = (
 
             {/* Changelog */}
             {showChangelog && (
-              <div className="w-full rounded-[1.75rem] bg-slate-950/45 border border-slate-700/60 p-4 md:p-5 max-h-[55vh] overflow-y-auto shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-                <div className="flex flex-wrap items-center gap-2 mb-5">
+              <div className="w-full flex-1 min-h-0 rounded-[1.75rem] bg-slate-950/45 border border-slate-700/60 p-4 md:p-4 overflow-y-auto shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+                <div className="flex flex-wrap items-center gap-2 mb-4">
                   <span className="rounded-full bg-slate-800/80 px-3 py-1 text-xs font-medium text-slate-200">
                     {changelogData ? changelogData.rangeLabel : `Changes from v${currentVersion ?? '0.0.0'} to v${version}`}
                   </span>
@@ -311,16 +311,16 @@ export const UpdateNotificationModal: React.FC<UpdateNotificationModalProps> = (
                   <p className="text-red-300 text-sm">{changelogError}</p>
                 )}
                 {!changelogLoading && !changelogError && changelogData && (
-                  <div className="space-y-5">
+                  <div className="space-y-4">
                     <section className="rounded-2xl border border-cyan-500/20 bg-[linear-gradient(180deg,rgba(8,47,73,0.22),rgba(15,23,42,0.12))] p-4 md:p-5">
-                      <h3 className="text-xl font-semibold text-slate-50 mb-5">What&apos;s new in v{changelogData.displayVersion}</h3>
-                      <div className="space-y-5">
+                      <h3 className="text-xl font-semibold text-slate-50 mb-4">What&apos;s new in v{changelogData.displayVersion}</h3>
+                      <div className="space-y-4">
                         {changelogData.includedVersions.map((section, index) => (
                           <article
                             key={section.version}
-                            className={index > 0 ? 'border-t border-slate-700/60 pt-5' : ''}
+                            className={index > 0 ? 'border-t border-slate-700/60 pt-4' : ''}
                           >
-                            <div className="flex flex-wrap items-center gap-2 mb-3">
+                            <div className="flex flex-wrap items-center gap-2 mb-2.5">
                               <span className="rounded-full bg-cyan-500/10 px-3 py-1 text-xs font-semibold text-cyan-200">
                                 v{section.version}
                               </span>
@@ -335,7 +335,7 @@ export const UpdateNotificationModal: React.FC<UpdateNotificationModalProps> = (
                               const bullets = aggregateBullets(fallbackBullets);
 
                               return (
-                                <div className="space-y-2">
+                                <div className="space-y-1.5">
                                   {bullets.map((bullet) => {
                                     const childItems = bullet.title && bullet.detail
                                       ? [bullet.detail, ...bullet.children]
@@ -344,15 +344,15 @@ export const UpdateNotificationModal: React.FC<UpdateNotificationModalProps> = (
                                     if (bullet.title) {
                                       return (
                                         <div key={bullet.raw} className="space-y-2 text-sm text-slate-200">
-                                          <p className="leading-6 font-semibold text-slate-50">
+                                          <p className="leading-5 font-semibold text-slate-50">
                                             {renderInlineSegments(`${bullet.title}:`)}
                                           </p>
                                           {childItems.length > 0 && (
-                                            <div className="space-y-1.5 pl-1">
+                                            <div className="space-y-1 pl-1">
                                               {childItems.map((child) => (
                                                 <div key={`${bullet.raw}-${child}`} className="flex items-start gap-2 text-sm text-slate-300">
                                                   <span className="mt-2 h-1.5 w-1.5 rounded-full bg-slate-400/80 shrink-0" />
-                                                  <p className="leading-6">{renderInlineSegments(child)}</p>
+                                                  <p className="leading-5">{renderInlineSegments(child)}</p>
                                                 </div>
                                               ))}
                                             </div>
@@ -364,7 +364,7 @@ export const UpdateNotificationModal: React.FC<UpdateNotificationModalProps> = (
                                     return (
                                       <div key={bullet.raw} className="flex items-start gap-3 text-sm text-slate-200">
                                         <span className="mt-2 h-1.5 w-1.5 rounded-full bg-cyan-300/80 shrink-0" />
-                                        <p className="leading-6">{renderInlineSegments(bullet.detail)}</p>
+                                        <p className="leading-5">{renderInlineSegments(bullet.detail)}</p>
                                       </div>
                                     );
                                   })}

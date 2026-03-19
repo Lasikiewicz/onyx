@@ -12,7 +12,7 @@ Checks for new versions, offers download, and installs updates for packaged buil
 ## User-Facing Surfaces
 
 - `Onyx Settings` -> `About` tab update area ([OnyxSettingsModal.tsx](../../renderer/src/components/OnyxSettingsModal.tsx)).
-- Update notification modal ([UpdateNotificationModal.tsx](../../renderer/src/components/UpdateNotificationModal.tsx)) and startup update messaging.
+- Update notification modal ([UpdateNotificationModal.tsx](../../renderer/src/components/UpdateNotificationModal.tsx)) and startup update messaging. When the changelog view is shown, the modal body uses a flex layout so the changelog panel expands to fill the available dialog height and becomes the scroll container.
 - App-level renderer state in [App.tsx](../../renderer/src/App.tsx) that shows update progress and download/install actions.
 - Shell update/changelog runtime state in [useAppShellSystemState.ts](../../renderer/src/hooks/useAppShellSystemState.ts), which owns changelog fetches, background-scan pause/resume while the update modal is visible, and the renderer-side update action callbacks.
 - Development-only `Help -> Develop -> Open Update Found` preview in [MenuBar.tsx](../../renderer/src/components/MenuBar.tsx) now targets the newest parsed changelog data and shows the latest three changelog entries so local modal testing reflects a realistic multi-release update view.
