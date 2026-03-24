@@ -34,7 +34,10 @@ Controls app startup, tray integration, hardware acceleration, and basic window 
 1. User opens settings and changes a toggle.
 2. Modal local state updates immediately.
 3. `Save` writes preferences through main-process settings handlers.
-4. App reloads preferences after save and updates active runtime state where supported.
+4. Startup settings are translated into an explicit login/startup mode:
+   - `Start Minimized` launches the main window and minimizes it to the taskbar.
+   - `Start Closed to Tray` keeps the main window hidden and relies on the tray icon.
+5. App reloads preferences after save and updates active runtime state where supported.
 
 ## Discovery and Data Sources
 
@@ -47,6 +50,7 @@ Controls app startup, tray integration, hardware acceleration, and basic window 
 - Stored in user preferences store.
 - Defaults are defined in [UserPreferencesService.createDefaultPreferences()](../../../main/UserPreferencesService.ts).
 - Some settings apply immediately; some require restart or next launch.
+- Startup registration is applied through [appHandlers.ts](../../../main/ipc/appHandlers.ts) and consumed during bootstrap in [main.ts](../../../main/main.ts).
 
 ## Failure Modes and Triage
 
@@ -54,6 +58,14 @@ Controls app startup, tray integration, hardware acceleration, and basic window 
 
 - Confirm saved preference changed.
 - Verify OS startup registration path/service is still implemented in runtime.
+
+### Symptom: Start Minimized and Start Closed to Tray behave the same
+
+- Confirm the saved startup mode was written by [appHandlers.ts](../../../main/ipc/appHandlers.ts).
+- Verify [main.ts](../../../main/main.ts) resolves startup mode correctly:
+  - `minimized` should show then minimize.
+  - `tray` should keep the main window hidden and require a tray icon.
+- If tray icon is disabled, tray startup falls back to minimized startup.
 
 ### Symptom: Hardware acceleration toggle changes nothing
 

@@ -4,6 +4,18 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Pending]
+
+- Startup/runtime:
+  - Distinguish `Start Minimized` from `Start Closed to Tray` by registering explicit startup-mode launch arguments, so login launches now minimize to the taskbar or stay hidden in the tray according to the saved preference.
+  - Restore the main window on demand by showing and focusing it after minimize, and only auto-restore after game exit when Onyx minimized a launch that returned a tracked PID.
+  - Log renderer crashes through Electron's `render-process-gone` event so importer/startup failures report structured exit reasons.
+
+- Add Games:
+  - Keep the importer on a lightweight scanning screen while manual scans are running so large discovery/metadata batches do not mount the full staged editor mid-scan.
+  - Trim oversized staged screenshot and link arrays before storing importer metadata, reducing renderer pressure during large scans.
+  - Stabilize staged Metadata and Images state resets when changing games by exposing memoized reset callbacks from the shared Game Properties hooks.
+
 ## [0.8.4] - 2026-03-19
 
 - Importer:

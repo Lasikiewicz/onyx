@@ -249,12 +249,18 @@ export function registerAppIPCHandlers(
     });
 
     ipcMain.handle('app:applyStartupSettings', async (_event, settings: { startWithComputer: boolean; startMinimized: boolean; startClosedToTray: boolean }) => {
-        const shouldStartHidden = settings.startMinimized || settings.startClosedToTray;
+        let startupModeArg: string | null = null;
+        if (settings.startClosedToTray) {
+            startupModeArg = '--startup-mode=tray';
+        } else if (settings.startMinimized) {
+            startupModeArg = '--startup-mode=minimized';
+        }
+
         app.setLoginItemSettings({
             openAtLogin: settings.startWithComputer,
-            openAsHidden: shouldStartHidden,
+            openAsHidden: settings.startClosedToTray,
             path: app.getPath('exe'),
-            args: shouldStartHidden ? ['--hidden'] : []
+            args: startupModeArg ? [startupModeArg] : []
         });
         return { success: true };
     });
@@ -320,7 +326,13 @@ export function registerAppIPCHandlers(
     });
 
     ipcMain.handle('app:restoreWindow', async () => {
-        if (winReference.current) winReference.current.restore();
+        if (winReference.current) {
+            if (winReference.current.isMinimized()) {
+                winReference.current.restore();
+            }
+            winReference.current.show();
+            winReference.current.focus();
+        }
         return { success: !!winReference.current };
     });
 

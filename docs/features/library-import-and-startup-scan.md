@@ -40,6 +40,7 @@ Finds games from configured launchers/folders and imports them into the local li
 7. Staged edits that are represented on the `Game` model, such as categories, links, launch arguments, screenshots, and launcher-specific launch fields, are copied into the imported library record.
 8. [GameStore.ts](../../main/GameStore.ts) persists the resulting game set.
 9. Startup scans emit `startup:*` progress/new-game events so the startup overlay owns the UX, while recurring background scans avoid that startup-only progress UI and use `background:newGamesFound`.
+10. Manual importer scans keep the main panel in a lightweight progress state until scanning completes; the full staged editor only mounts after scan-time discovery/metadata churn settles.
 
 ## Discovery and Data Sources
 
@@ -53,6 +54,7 @@ Finds games from configured launchers/folders and imports them into the local li
 - Imported games are persisted in [GameStore.ts](../../main/GameStore.ts).
 - User preferences ([UserPreferencesService.ts](../../main/UserPreferencesService.ts)) determine whether startup and background scans run automatically.
 - Launcher and library configuration must remain stable across rescans to avoid duplicates.
+- Importer staging trims oversized scan-time metadata arrays (currently screenshots and links) before storing them in renderer state so large scans remain stable.
 
 ## Failure Modes and Triage
 
@@ -84,6 +86,12 @@ Finds games from configured launchers/folders and imports them into the local li
 
 - Confirm the scan was started through the startup path, which should emit `startup:newGamesFound` rather than `background:newGamesFound`.
 - Check the renderer is listening for startup-overlay events separately from the recurring background scan importer flow.
+
+### Symptom: Manual scan blanks the app or crashes the renderer
+
+- Check whether the importer is mounting the lightweight scanning view first; the heavy staged editor should wait until `isScanning` is false.
+- Confirm staged metadata is being trimmed before it is written into importer queue state, especially screenshots and links from multi-provider metadata.
+- Inspect main-process renderer crash logs from `render-process-gone` for the crash reason and exit code.
 
 ## File Ownership Map
 

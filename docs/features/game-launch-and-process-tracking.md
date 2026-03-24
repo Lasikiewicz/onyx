@@ -27,13 +27,15 @@ Launches games from multiple sources and tracks running state for UX actions (mi
 2. Main [LauncherService.ts](../../main/LauncherService.ts) resolves launch target and spawns process/URI.
 3. Process state is monitored and signaled back to renderer via IPC ([appHandlers.ts](../../main/ipc/appHandlers.ts)).
 4. Renderer applies UI state changes (running status, minimize/restore behavior).
-5. When the user chooses `Uninstall`, [`App.tsx`](../../renderer/src/App.tsx) opens a confirmation dialog, [`LauncherService.ts`](../../main/LauncherService.ts) launches the detected uninstaller or Windows Settings fallback, and the shell can optionally remove the game from the library through the existing delete flow.
+5. `Restore Window on Game Exit` only restores the window for launches that returned a concrete tracked PID and that Onyx itself minimized during launch.
+6. When the user chooses `Uninstall`, [`App.tsx`](../../renderer/src/App.tsx) opens a confirmation dialog, [`LauncherService.ts`](../../main/LauncherService.ts) launches the detected uninstaller or Windows Settings fallback, and the shell can optionally remove the game from the library through the existing delete flow.
 
 ## Discovery and Data Sources
 
 - Launch sources include executable paths, launcher-managed titles, and URI-based launch targets.
 - Launcher resolution and process tracking live in [LauncherService.ts](../../main/LauncherService.ts) with supporting app bootstrap in [main.ts](../../main/main.ts).
 - Running-state updates are emitted back to renderer through IPC/state events and local shell state managed in [useGameLaunchFlow.ts](../../renderer/src/hooks/useGameLaunchFlow.ts).
+- PID-less launches still use a timeout fallback to clear stale running state, but that fallback no longer triggers automatic window restore because exit timing is not reliable there.
 
 ## Data Model and Persistence
 
@@ -59,6 +61,7 @@ Launches games from multiple sources and tracks running state for UX actions (mi
 
 - Confirm launch-behavior preferences were saved and reloaded ([UserPreferencesService.ts](../../main/UserPreferencesService.ts)).
 - Check whether the launched target is actually being tracked as the active game process.
+- Automatic restore is intentionally limited to launches with a real PID; URI/protocol launches without a tracked PID should not be expected to restore reliably.
 
 ## File Ownership Map
 

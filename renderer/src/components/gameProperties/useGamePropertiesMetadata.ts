@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import type { Game } from '../../types/game';
 import type { StagedGame } from '../../types/importer';
 import type { EditableGameFields } from '../../types/EditableGame';
@@ -55,7 +55,7 @@ export const useGamePropertiesMetadata = ({
     return appIdMatch ? appIdMatch[1] : undefined;
   };
 
-  const resetMetadataState = () => {
+  const resetMetadataState = useCallback(() => {
     setShowFixMatch(false);
     setMetadataSearchResults([]);
     setCanUndo(false);
@@ -63,7 +63,7 @@ export const useGamePropertiesMetadata = ({
     setIsSearchingMetadata(false);
     setIsApplyingMetadata(false);
     previousStateRef.current = null;
-  };
+  }, []);
 
   const handleUndo = () => {
     if (!previousStateRef.current) return;

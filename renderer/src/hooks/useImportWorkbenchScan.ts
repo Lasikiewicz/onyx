@@ -20,6 +20,9 @@ type GameProcessingState = {
     progress?: string;
 };
 
+const MAX_STAGED_SCREENSHOTS = 12;
+const MAX_STAGED_LINKS = 20;
+
 type UseImportWorkbenchScanParams = {
     isOpen: boolean;
     autoStartScan: boolean;
@@ -48,6 +51,16 @@ const sanitizeWebpArtworkUrl = (url?: string): string => {
     if (!url) return '';
     return /\.webp(\?|$)/i.test(url) ? '' : url;
 };
+
+const trimStagedMetadata = (metadata: any) => ({
+    ...metadata,
+    screenshots: Array.isArray(metadata?.screenshots)
+        ? metadata.screenshots.slice(0, MAX_STAGED_SCREENSHOTS)
+        : [],
+    links: Array.isArray(metadata?.links)
+        ? metadata.links.slice(0, MAX_STAGED_LINKS)
+        : [],
+});
 
 export function useImportWorkbenchScan({
     isOpen,
@@ -316,14 +329,15 @@ export function useImportWorkbenchScan({
                     );
                 }
 
+                const trimmedMetadata = trimStagedMetadata(metadata);
                 const sanitizedMetadata = {
-                    ...metadata,
-                    boxArtUrl: sanitizeWebpArtworkUrl(metadata?.boxArtUrl),
-                    bannerUrl: sanitizeWebpArtworkUrl(metadata?.bannerUrl),
-                    alternativeBannerUrl: sanitizeWebpArtworkUrl(metadata?.alternativeBannerUrl),
-                    logoUrl: sanitizeWebpArtworkUrl(metadata?.logoUrl),
-                    heroUrl: sanitizeWebpArtworkUrl(metadata?.heroUrl),
-                    iconUrl: sanitizeWebpArtworkUrl(metadata?.iconUrl),
+                    ...trimmedMetadata,
+                    boxArtUrl: sanitizeWebpArtworkUrl(trimmedMetadata?.boxArtUrl),
+                    bannerUrl: sanitizeWebpArtworkUrl(trimmedMetadata?.bannerUrl),
+                    alternativeBannerUrl: sanitizeWebpArtworkUrl(trimmedMetadata?.alternativeBannerUrl),
+                    logoUrl: sanitizeWebpArtworkUrl(trimmedMetadata?.logoUrl),
+                    heroUrl: sanitizeWebpArtworkUrl(trimmedMetadata?.heroUrl),
+                    iconUrl: sanitizeWebpArtworkUrl(trimmedMetadata?.iconUrl),
                 };
 
                 // Build fully processed game
@@ -566,14 +580,9 @@ export function useImportWorkbenchScan({
     useEffect(() => {
         if (!isOpen) return;
 
-        const handleScanProgress = (_event: any, data: { message: string }) => {
+                const handleScanProgress = (_event: any, data: { message: string }) => {
             if (data.message) {
                 setScanProgress(data.message);
-
-                // Parse specific game discovery messages for stats
-                if (data.message.includes('Found:')) {
-                    setScanStats(prev => ({ ...prev, found: prev.found + 1 }));
-                }
             }
         };
 
@@ -637,4 +646,3 @@ export function useImportWorkbenchScan({
 
     return { handleScanAll };
 }
-

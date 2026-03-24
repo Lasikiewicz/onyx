@@ -207,6 +207,55 @@ let tray: Tray | null = null;
 let trayService: TrayService | null = null;
 let isAppQuitting = false;
 
+type StartupWindowMode = 'normal' | 'minimized' | 'tray';
+
+function getStartupModeArg(argv: string[]): StartupWindowMode | null {
+  const startupModeArg = argv.find((arg) => arg.startsWith('--startup-mode='));
+  if (!startupModeArg) return null;
+
+  const requestedMode = startupModeArg.slice('--startup-mode='.length);
+  if (requestedMode === 'minimized' || requestedMode === 'tray') {
+    return requestedMode;
+  }
+
+  return null;
+}
+
+function resolveStartupWindowMode(
+  prefs: UserPreferences | null | undefined,
+  argv: string[],
+  loginSettings: Electron.LoginItemSettings,
+): StartupWindowMode {
+  const trayAvailable = prefs?.showSystemTrayIcon ?? true;
+  const requestedArgMode = getStartupModeArg(argv);
+
+  if (requestedArgMode === 'tray') {
+    return trayAvailable ? 'tray' : 'minimized';
+  }
+  if (requestedArgMode === 'minimized') {
+    return 'minimized';
+  }
+
+  // Backward compatibility for existing login items that still use the legacy hidden flag.
+  if (argv.includes('--hidden') || loginSettings.wasOpenedAsHidden) {
+    if (prefs?.startClosedToTray && trayAvailable) {
+      return 'tray';
+    }
+    if (prefs?.startMinimized) {
+      return 'minimized';
+    }
+  }
+
+  if (prefs?.startClosedToTray && trayAvailable) {
+    return 'tray';
+  }
+  if (prefs?.startMinimized) {
+    return 'minimized';
+  }
+
+  return 'normal';
+}
+
 // Initialize services early to be available everywhere
 const steamService = new SteamService();
 const gameStore = new GameStore();
@@ -866,13 +915,10 @@ async function createWindow() {
     show: false,
   });
 
-  // Determine if we should start hidden (respecting preferences, CLI flags and login settings)
+  // Determine the initial window state (respecting preferences, CLI flags and login settings)
   const loginSettings = app.getLoginItemSettings();
-  const hasHiddenFlag = process.argv.includes('--hidden') || loginSettings.wasOpenedAsHidden;
-  const isStartedAtLogin = loginSettings.wasOpenedAtLogin || hasHiddenFlag;
-  // IMPORTANT: Do not allow automatic fully hidden startups; only an explicit --hidden flag may start hidden.
-  const wantsHiddenStart = hasHiddenFlag && (prefs ? (prefs.showSystemTrayIcon ?? true) : true);
-  const shouldStartHidden = wantsHiddenStart;
+  const startupWindowMode = resolveStartupWindowMode(prefs, process.argv, loginSettings);
+  const shouldStartHidden = startupWindowMode === 'tray';
 
   if (!shouldStartHidden) {
     // Restore maximized state if previously maximized (for non-first-launch)
@@ -1057,9 +1103,15 @@ async function createWindow() {
     win?.webContents.send('main-process-message', new Date().toLocaleString());
     console.log('Window loaded, checking if electronAPI is available...');
 
-    // Always show the window once content is loaded.
-    // Startup prefs / flags may still minimize later, but we never stay fully invisible.
-    win?.show();
+    if (startupWindowMode === 'tray') {
+      console.log('[Startup] Starting in tray mode; keeping main window hidden.');
+    } else {
+      win?.show();
+      if (startupWindowMode === 'minimized') {
+        console.log('[Startup] Starting minimized.');
+        win?.minimize();
+      }
+    }
 
     // If a previous run produced crash dumps, offer to save them
     const dumpPaths = getCrashDumpFilePaths();
@@ -1077,8 +1129,11 @@ async function createWindow() {
     }
   });
 
-  win.webContents.on('crashed', (event, killed) => {
-    console.error('Renderer process crashed:', killed);
+  win.webContents.on('render-process-gone', (_event, details) => {
+    console.error('[Renderer] Render process gone:', {
+      reason: details.reason,
+      exitCode: details.exitCode,
+    });
   });
 
   // Debug: Check for preload errors

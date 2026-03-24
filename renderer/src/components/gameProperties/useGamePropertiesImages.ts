@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Game } from '../../types/game';
 import type { StagedGame } from '../../types/importer';
 import type { EditableGameFields } from '../../types/EditableGame';
@@ -78,14 +78,14 @@ export const useGamePropertiesImages = ({
   const imageSearchRunIdRef = useRef(0);
   const fastSearchActiveRunIdRef = useRef(0);
 
-  const resetImageState = () => {
+  const resetImageState = useCallback(() => {
     setFailedImageUrls(new Set());
     setImageSearchQuery('');
     setShowImageSearch(null);
     setProviderProgress([]);
     setProviderFilter('all');
     setSelectedFastGameId(null);
-  };
+  }, []);
 
   const clearImageResults = () => {
     setSteamGridDBResults(emptyResults());

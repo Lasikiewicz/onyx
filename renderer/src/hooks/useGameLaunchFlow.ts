@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import type { Game } from '../types/game';
 
 interface UseGameLaunchFlowOptions {
@@ -9,14 +9,15 @@ export function useGameLaunchFlow({ confirmGameLaunch }: UseGameLaunchFlowOption
   const [launchingGameId, setLaunchingGameId] = useState<string | null>(null);
   const [runningGames, setRunningGames] = useState<Set<string>>(new Set());
   const [launchConfirmation, setLaunchConfirmation] = useState<{ game: Game } | null>(null);
+  const minimizedForTrackedLaunchesRef = useRef<Set<string>>(new Set());
 
-  const restoreWindowAfterLaunchIfNeeded = useCallback(async () => {
+  const restoreWindowAfterLaunchIfNeeded = useCallback(async (gameId: string) => {
     const prefs = await window.electronAPI.getPreferences();
-    if (prefs.restoreAfterLaunch) {
-      const { isMinimized } = await window.electronAPI.fullscreen.isMinimized();
-      if (isMinimized) {
-        await window.electronAPI.restoreWindow();
-      }
+    const shouldRestore = minimizedForTrackedLaunchesRef.current.has(gameId);
+    minimizedForTrackedLaunchesRef.current.delete(gameId);
+
+    if (prefs.restoreAfterLaunch && shouldRestore) {
+      await window.electronAPI.restoreWindow();
     }
   }, []);
 
@@ -41,11 +42,12 @@ export function useGameLaunchFlow({ confirmGameLaunch }: UseGameLaunchFlowOption
             return next;
           });
           await window.electronAPI.scanning?.gameStopped?.(gameId);
-          await restoreWindowAfterLaunchIfNeeded();
+          await restoreWindowAfterLaunchIfNeeded(gameId);
         }
       } catch (error) {
         console.error('Error checking process:', error);
         clearInterval(checkInterval);
+        minimizedForTrackedLaunchesRef.current.delete(gameId);
       }
     }, 2000);
   }, [checkProcessRunning, restoreWindowAfterLaunchIfNeeded]);
@@ -58,16 +60,16 @@ export function useGameLaunchFlow({ confirmGameLaunch }: UseGameLaunchFlowOption
       pollCount += 1;
       if (pollCount > maxPolls) {
         clearInterval(checkInterval);
+        minimizedForTrackedLaunchesRef.current.delete(gameId);
         setRunningGames((prev) => {
           const next = new Set(prev);
           next.delete(gameId);
           return next;
         });
         await window.electronAPI.scanning?.gameStopped?.(gameId);
-        await restoreWindowAfterLaunchIfNeeded();
       }
     }, 2000);
-  }, [restoreWindowAfterLaunchIfNeeded]);
+  }, []);
 
   const launchGame = useCallback(async (game: Game) => {
     setLaunchingGameId(game.id);
@@ -120,8 +122,12 @@ export function useGameLaunchFlow({ confirmGameLaunch }: UseGameLaunchFlowOption
         setRunningGames((prev) => new Set(prev).add(game.id));
 
         if (result.pid) {
+          if (prefs.minimizeOnGameLaunch) {
+            minimizedForTrackedLaunchesRef.current.add(game.id);
+          }
           void monitorGameProcess(game.id, result.pid);
         } else {
+          minimizedForTrackedLaunchesRef.current.delete(game.id);
           void pollForGameProcess(game.id);
         }
       }, 1000);

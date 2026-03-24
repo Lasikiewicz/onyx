@@ -29,6 +29,8 @@ It explains module boundaries, data flow, and release pipeline expectations.
 - App-shell preference bootstrap is intentionally one-time at renderer startup; later shell state changes must not implicitly reload persisted preferences, or root UI state like view mode and active selection can snap back to saved values.
 - `renderer/src/hooks/useGameLaunchFlow.ts` owns renderer-side launch confirmation, launch execution, PID polling, and running-state updates for the app shell, so `App.tsx` does not also carry the whole launch/process workflow inline.
 - `renderer/src/hooks/useImporterWorkbench.ts` owns importer open guards, startup/background scan handoff, importer reset behavior, and post-import follow-up, so `App.tsx` can treat importer lifecycle as a focused hook instead of another root-level modal workflow.
+- `renderer/src/hooks/useImportWorkbenchScan.ts` now trims staged screenshot/link payloads and keeps scan-progress state separate from the heavy staged editor, while `renderer/src/components/importer/ImportWorkbench.tsx` renders a lightweight progress surface during active scans so large scan batches do not blank the renderer by mounting the full `GamePropertiesPanel` tree mid-scan.
+- `renderer/src/components/gameProperties/useGamePropertiesMetadata.ts` and `renderer/src/components/gameProperties/useGamePropertiesImages.ts` now expose stable reset callbacks so `GamePropertiesPanel.tsx` can safely reset staged editor state when the selected game changes without falling into an effect-driven render loop.
 - `renderer/src/App.tsx` still owns active-library selection policy for the shell, including reconciling `activeGameId` against the currently visible filtered game set so details/background state cannot stay pinned to an off-screen game after filters or clicks change the visible library.
 - `renderer/src/components/GameDetailsPanel.tsx` owns right-panel collision avoidance for oversized logo and boxart artwork: both content columns align below the logo, left-side boxart reserves inset on the description side, and right-side boxart pushes the details column downward instead of narrowing it.
 - `renderer/src/components/GameDetailsPanel.tsx` also lets left-positioned boxart float inside the description flow so the copy wraps beneath the artwork instead of staying in a separate side column.
@@ -83,6 +85,7 @@ It explains module boundaries, data flow, and release pipeline expectations.
 
 - `main/startupCoordinator.ts` owns the packaged-update gate, renderer `app:ready` handshake, startup-scan cancellation, and fallback startup timer.
 - `main/main.ts` now initializes the updater first, registers the startup coordinator, and leaves the coordinator to gate `performBackgroundScan(true, true)` until update status allows startup scanning to proceed.
+- `main/main.ts` now uses Electron's `render-process-gone` event for renderer crash logging so scan/import crashes report structured exit reasons instead of relying on deprecated `webContents.on('crashed')` behavior.
 
 ### Known-Game Image Fetch Contract
 

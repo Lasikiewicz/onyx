@@ -181,7 +181,25 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
 
                     {/* Main Panel - Game Details / Empty Hero */}
                     <div className="flex-1 flex flex-col overflow-hidden">
-                        {selectedGame ? (
+                        {isScanning ? (
+                            <div className="flex h-full flex-col items-center justify-center gap-4 px-8 text-center text-gray-300">
+                                <div className="h-12 w-12 animate-spin rounded-full border-4 border-blue-500/30 border-t-blue-400" />
+                                <div className="space-y-2">
+                                    <h2 className="text-xl font-semibold text-white">Scanning your libraries</h2>
+                                    <p className="max-w-xl text-sm text-gray-400">
+                                        Onyx keeps the importer editor lightweight while scanning so large result sets and metadata updates do not blank the app.
+                                    </p>
+                                    {scanProgress && (
+                                        <p className="text-sm text-blue-300">{scanProgress}</p>
+                                    )}
+                                    {currentlyProcessingGame && (
+                                        <p className="text-xs uppercase tracking-[0.2em] text-gray-500">
+                                            Processing {currentlyProcessingGame}
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+                        ) : selectedGame ? (
                             <ImportWorkbenchEditor
                                 selectedGame={selectedGame}
                                 queue={visibleGames}
