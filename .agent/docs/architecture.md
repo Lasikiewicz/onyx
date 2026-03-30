@@ -86,6 +86,7 @@ It explains module boundaries, data flow, and release pipeline expectations.
 - `main/startupCoordinator.ts` owns the packaged-update gate, renderer `app:ready` handshake, startup-scan cancellation, and fallback startup timer.
 - `main/main.ts` now initializes the updater first, registers the startup coordinator, and leaves the coordinator to gate `performBackgroundScan(true, true)` until update status allows startup scanning to proceed.
 - `main/main.ts` now uses Electron's `render-process-gone` event for renderer crash logging so scan/import crashes report structured exit reasons instead of relying on deprecated `webContents.on('crashed')` behavior.
+- `main/main.ts` also owns BrowserWindow bounds/maximize/fullscreen persistence; move and resize writes stay debounced, but maximize/fullscreen transitions persist immediately so reloads and relaunches restore the latest shell mode reliably.
 
 ### Known-Game Image Fetch Contract
 

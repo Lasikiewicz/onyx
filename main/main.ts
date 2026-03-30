@@ -1010,44 +1010,61 @@ async function createWindow() {
   }
   if (trayService) trayService.setWindow(win);
 
-  // Save window state when window is moved or resized
+  // Save window state when window bounds or shell mode changes.
+  // Maximize/fullscreen transitions are written immediately so fast reloads/relaunches
+  // do not lose the latest shell state while move/resize remains debounced.
   let saveWindowStateTimeout: NodeJS.Timeout | null = null;
-  const saveWindowState = async () => {
+  const persistWindowState = async () => {
     if (!win) return;
 
-    // Debounce saves to avoid too many writes
+    try {
+      const bounds = win.getBounds();
+      const isMaximized = win.isMaximized();
+      const isFullscreen = win.isFullScreen();
+
+      await userPreferencesService.savePreferences({
+        windowState: {
+          x: bounds.x,
+          y: bounds.y,
+          width: bounds.width,
+          height: bounds.height,
+          isMaximized,
+          isFullscreen,
+        },
+      });
+    } catch (error) {
+      console.error('Error saving window state:', error);
+    }
+  };
+
+  const scheduleWindowStateSave = () => {
+    if (!win) return;
+
     if (saveWindowStateTimeout) {
       clearTimeout(saveWindowStateTimeout);
     }
 
-    saveWindowStateTimeout = setTimeout(async () => {
-      try {
-        const bounds = win!.getBounds();
-        const isMaximized = win!.isMaximized();
-        const isFullscreen = win!.isFullScreen();
-
-        await userPreferencesService.savePreferences({
-          windowState: {
-            x: bounds.x,
-            y: bounds.y,
-            width: bounds.width,
-            height: bounds.height,
-            isMaximized,
-            isFullscreen,
-          },
-        });
-      } catch (error) {
-        console.error('Error saving window state:', error);
-      }
-    }, 500); // Debounce for 500ms
+    saveWindowStateTimeout = setTimeout(() => {
+      saveWindowStateTimeout = null;
+      void persistWindowState();
+    }, 500);
   };
 
-  win.on('move', saveWindowState);
-  win.on('resize', saveWindowState);
-  win.on('maximize', saveWindowState);
-  win.on('unmaximize', saveWindowState);
-  win.on('enter-full-screen', saveWindowState);
-  win.on('leave-full-screen', saveWindowState);
+  const saveWindowStateImmediately = () => {
+    if (saveWindowStateTimeout) {
+      clearTimeout(saveWindowStateTimeout);
+      saveWindowStateTimeout = null;
+    }
+
+    void persistWindowState();
+  };
+
+  win.on('move', scheduleWindowStateSave);
+  win.on('resize', scheduleWindowStateSave);
+  win.on('maximize', saveWindowStateImmediately);
+  win.on('unmaximize', saveWindowStateImmediately);
+  win.on('enter-full-screen', saveWindowStateImmediately);
+  win.on('leave-full-screen', saveWindowStateImmediately);
 
   // Notify renderer of fullscreen state changes
   win.on('enter-full-screen', () => {
@@ -1063,20 +1080,11 @@ async function createWindow() {
     try {
       // Save window state before closing
       if (win) {
-        const bounds = win.getBounds();
-        const isMaximized = win.isMaximized();
-        const isFullscreen = win.isFullScreen();
-
-        await userPreferencesService.savePreferences({
-          windowState: {
-            x: bounds.x,
-            y: bounds.y,
-            width: bounds.width,
-            height: bounds.height,
-            isMaximized,
-            isFullscreen,
-          },
-        });
+        if (saveWindowStateTimeout) {
+          clearTimeout(saveWindowStateTimeout);
+          saveWindowStateTimeout = null;
+        }
+        await persistWindowState();
       }
 
       const prefs = await userPreferencesService.getPreferences();
