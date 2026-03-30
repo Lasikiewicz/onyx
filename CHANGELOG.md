@@ -4,7 +4,7 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Pending]
+## [0.8.6] - 2026-03-30
 
 - Startup/runtime:
   - Save maximized and fullscreen window-state changes immediately so reloads and relaunches reopen the app in the latest shell mode instead of falling back to a restored windowed state.
