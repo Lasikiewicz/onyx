@@ -504,6 +504,14 @@ export const GameManager: React.FC<GameManagerProps> = ({
     setShowUploadWebmInstructions(true);
   };
 
+  const handleUploadCustomImageClick = () => {
+    if (!showImageSearch || !selectedGame || !editedGame) return;
+    const type = activeImageSearchTab === 'all'
+      ? (showImageSearch?.type || 'boxart')
+      : activeImageSearchTab;
+    void handleBrowseImage(type as 'boxart' | 'banner' | 'alternativeBanner' | 'logo' | 'icon');
+  };
+
   const handleUploadWebmTypePicked = (type: 'boxart' | 'banner' | 'alternativeBanner' | 'logo' | 'icon') => {
     setShowUploadWebmTypePicker(false);
     setUploadWebmTargetType(type);
@@ -958,6 +966,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
                       getRenderableImageUrl={getRenderableImageUrl}
                       onSelectImage={handleSelectImage}
                       matchesProviderFilter={matchesActiveProviderFilter}
+                      onUploadCustomImageClick={handleUploadCustomImageClick}
                       onUploadWebmClick={handleUploadWebmClick}
                       onOpenGoogleImageSearch={handleOpenGoogleImageSearch}
                     />

@@ -4,6 +4,11 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Pending]
+
+- Game Manager:
+  - Keep a local `Upload Image` action visible next to `Upload WEBM` in the Images tab results header so selected artwork tabs such as Logo can attach a custom image without leaving the search results view.
+
 ## [0.8.6] - 2026-03-30
 
 - Startup/runtime:

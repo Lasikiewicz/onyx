@@ -53,6 +53,7 @@ interface GameManagerImagesTabProps {
   getRenderableImageUrl: (value?: string) => string | undefined;
   onSelectImage: (imageUrl: string, type: ImageType) => void;
   matchesProviderFilter: (source?: string) => boolean;
+  onUploadCustomImageClick: () => void;
   onUploadWebmClick: () => void;
   onOpenGoogleImageSearch: (query: string) => void;
 }
@@ -88,6 +89,7 @@ export function GameManagerImagesTab({
   getRenderableImageUrl,
   onSelectImage,
   matchesProviderFilter,
+  onUploadCustomImageClick,
   onUploadWebmClick,
   onOpenGoogleImageSearch,
 }: GameManagerImagesTabProps) {
@@ -200,6 +202,12 @@ export function GameManagerImagesTab({
               })}
             </div>
             <div className="flex items-center gap-2">
+              <button
+                onClick={onUploadCustomImageClick}
+                className="text-xs px-3 py-1 rounded border border-blue-500 bg-blue-600/20 text-blue-100 hover:bg-blue-600/30 hover:border-blue-400 transition-colors flex items-center gap-1"
+              >
+                Upload Image
+              </button>
               <button onClick={onUploadWebmClick} className="text-xs px-3 py-1 rounded border border-emerald-500 bg-emerald-600/20 text-emerald-200 hover:bg-emerald-600/30 hover:border-emerald-400 transition-colors flex items-center gap-1">
                 Upload WEBM
               </button>

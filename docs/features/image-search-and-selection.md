@@ -41,6 +41,7 @@ Lets users search provider/web image sources, preview candidates, and assign box
 - After results are loaded, clicking image slots at the top of the Images tab switches the active image-type view without starting a new search.
 - Selecting any image candidate keeps the user on the Images tab and updates the top preview strip immediately.
 - Re-running a search is explicit via the search controls (for example, Quick All or New Search).
+- When image results are already open, the header actions keep both local custom-image upload and `Upload WEBM` available for the current artwork type, so a selected Logo tab can swap in a custom logo without leaving the results view.
 - When the request already has known game identity (for example `gameId`, `steamAppId`, or `igdbId`), the main-process image fetch flow skips Auto-Match/title re-identification and proceeds directly with provider fetches.
 - In provider-specific fallback stages, IGDB and RAWG fetch work can overlap so slower provider lookups do not fully serialize image-result delivery.
 - Progressive image batches are rendered as soon as they are emitted by providers (no wait for full multi-provider completion in the Images tab).

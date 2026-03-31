@@ -462,6 +462,11 @@ export const GamePropertiesPanel = forwardRef<GamePropertiesPanelHandle, GamePro
             getRenderableImageUrl={getRenderableImageUrl}
             onSelectImage={(imageUrl, type) => applyImage(type, imageUrl)}
             matchesProviderFilter={matchesActiveProviderFilter}
+            onUploadCustomImageClick={() => {
+              const uploadType = showImageSearch?.type || (activeImageSearchTab === 'all' ? 'boxart' : activeImageSearchTab);
+              if (editingDisabled) return;
+              void handleBrowseImage(uploadType);
+            }}
             onUploadWebmClick={() => {
               const uploadType = showImageSearch?.type || (activeImageSearchTab === 'all' ? 'banner' : activeImageSearchTab);
               if (editingDisabled) return;
