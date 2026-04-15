@@ -4,7 +4,7 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Pending]
+## [0.8.8] - 2026-04-15
 
 - Startup/runtime:
   - Stop showing crash-report prompts after clean launches by persisting previous-session exit state and only surfacing crash artifacts when the last run ended uncleanly.
