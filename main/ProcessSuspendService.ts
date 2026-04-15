@@ -1,8 +1,6 @@
-import { spawn, exec } from 'child_process';
+import { spawn } from 'child_process';
 import path from 'node:path';
 import { platform } from 'node:os';
-import { promisify } from 'util';
-const execAsync = promisify(exec);
 
 type ExecRunner = (command: string, args: string[], opts?: any) => Promise<{ stdout: string; stderr: string; code: number }>;
 
@@ -11,6 +9,9 @@ export interface ProcessInfo {
   gameId: string;
   title: string;
   exePath?: string;
+  installationDirectory?: string;
+  platform?: string;
+  source?: string;
   status: 'running' | 'suspended' | 'stopped';
   suspendedAt?: number;
 }
@@ -70,6 +71,18 @@ export class ProcessSuspendService {
   private validatePid(pid: number) {
     if (!Number.isInteger(pid) || pid <= 0 || pid > 2147483647) {
       throw new Error('Invalid PID');
+    }
+  }
+
+  private async runPowerShell(script: string, timeout: number = 5000): Promise<{ stdout: string; stderr: string; code: number }> {
+    const args = ['-ExecutionPolicy', 'Bypass', '-NoProfile', '-Command', script];
+    try {
+      return await this.runCommandSafe('powershell.exe', args, { timeout });
+    } catch (firstError) {
+      if ((firstError as NodeJS.ErrnoException)?.code !== 'ENOENT') {
+        throw firstError;
+      }
+      return this.runCommandSafe('powershell', args, { timeout });
     }
   }
 
@@ -164,7 +177,15 @@ export class ProcessSuspendService {
     this.stopLaunchTrackingSession(options.gameId);
 
     if (options.knownPid && Number.isInteger(options.knownPid) && options.knownPid > 0) {
-      this.trackLaunchedGame(options.gameId, options.knownPid, options.title, options.exePath);
+      this.trackLaunchedGame(
+        options.gameId,
+        options.knownPid,
+        options.title,
+        options.exePath,
+        options.installationDirectory,
+        options.platform,
+        options.source,
+      );
     }
 
     const baselinePids = new Set(options.baselinePids || []);
@@ -190,7 +211,15 @@ export class ProcessSuspendService {
         }
 
         if (bestCandidate && bestCandidate.score >= 80) {
-          this.trackLaunchedGame(options.gameId, bestCandidate.pid, options.title, options.exePath);
+          this.trackLaunchedGame(
+            options.gameId,
+            bestCandidate.pid,
+            options.title,
+            options.exePath,
+            options.installationDirectory,
+            options.platform,
+            options.source,
+          );
           this.stopLaunchTrackingSession(options.gameId);
           return;
         }
@@ -251,7 +280,7 @@ try {
 }
 `;
 
-    await this.runCommandSafe('powershell', ['-ExecutionPolicy', 'Bypass', '-NoProfile', '-Command', script], { timeout: 10000 });
+    await this.runPowerShell(script, 10000);
   }
 
   private async setProcessWindowState(pid: number, state: 'minimize' | 'restore'): Promise<void> {
@@ -283,18 +312,25 @@ ${shouldForeground ? '[OnyxUser32]::SetForegroundWindow($hWnd) | Out-Null' : ''}
 `;
 
     try {
-      await this.runCommandSafe('powershell', ['-ExecutionPolicy', 'Bypass', '-NoProfile', '-Command', script], { timeout: 4000 });
+      await this.runPowerShell(script, 4000);
     } catch {
       // no-op: window operations are best-effort only
     }
   }
 
   private async tryRediscoverTrackedGame(gameInfo: ProcessInfo): Promise<boolean> {
-    if (!gameInfo.exePath) {
+    if (!gameInfo.exePath && !gameInfo.installationDirectory) {
       return false;
     }
 
-    const rediscoveredPid = await this.discoverGameProcess(gameInfo.gameId, gameInfo.exePath, gameInfo.title);
+    const rediscoveredPid = await this.discoverGameProcess(
+      gameInfo.gameId,
+      gameInfo.exePath,
+      gameInfo.title,
+      gameInfo.installationDirectory,
+      gameInfo.platform,
+      gameInfo.source,
+    );
     if (!rediscoveredPid) {
       return false;
     }
@@ -345,7 +381,7 @@ ${shouldForeground ? '[OnyxUser32]::SetForegroundWindow($hWnd) | Out-Null' : ''}
 
     // Method 2: PowerShell cmdlet fallback
     try {
-      await this.runCommandSafe('powershell', ['-ExecutionPolicy', 'Bypass', '-NoProfile', '-Command', `Suspend-Process -Id ${pid} -ErrorAction Stop`], { timeout: 5000 });
+      await this.runPowerShell(`Suspend-Process -Id ${pid} -ErrorAction Stop`, 5000);
       return true;
     } catch (cmdletError: any) {
       const errorMessage = cmdletError?.stderr || cmdletError?.message || String(cmdletError || 'Unknown error');
@@ -383,7 +419,7 @@ ${shouldForeground ? '[OnyxUser32]::SetForegroundWindow($hWnd) | Out-Null' : ''}
 
     // Method 2: PowerShell cmdlet fallback
     try {
-      await this.runCommandSafe('powershell', ['-ExecutionPolicy', 'Bypass', '-NoProfile', '-Command', `Resume-Process -Id ${pid} -ErrorAction Stop`], { timeout: 5000 });
+      await this.runPowerShell(`Resume-Process -Id ${pid} -ErrorAction Stop`, 5000);
       return true;
     } catch (cmdletError: any) {
       const errorMessage = cmdletError?.stderr || cmdletError?.message || String(cmdletError || 'Unknown error');
@@ -410,9 +446,17 @@ ${shouldForeground ? '[OnyxUser32]::SetForegroundWindow($hWnd) | Out-Null' : ''}
     }
 
     try {
-      const command = `powershell -Command "Get-Process -Id ${pid} -ErrorAction SilentlyContinue"`;
-      const { stdout } = await execAsync(command);
-      return stdout.trim().length > 0;
+      process.kill(pid, 0);
+      return true;
+    } catch (error: any) {
+      if (error?.code === 'EPERM') {
+        return true;
+      }
+    }
+
+    try {
+      await this.runPowerShell(`Get-Process -Id ${pid} -ErrorAction Stop | Out-Null`, 4000);
+      return true;
     } catch {
       return false;
     }
@@ -427,17 +471,19 @@ ${shouldForeground ? '[OnyxUser32]::SetForegroundWindow($hWnd) | Out-Null' : ''}
     }
 
     try {
-      const command = `powershell -Command "Get-Process | Select-Object Id, ProcessName, Path | ConvertTo-Json"`;
-      const { stdout } = await execAsync(command);
+      const { stdout } = await this.runPowerShell(
+        'Get-CimInstance Win32_Process | Select-Object ProcessId, Name, ExecutablePath | ConvertTo-Json -Compress',
+        15000,
+      );
       const processes = JSON.parse(stdout);
 
       // Handle both single object and array
       const processList = Array.isArray(processes) ? processes : [processes];
 
       return processList.map((p: any) => ({
-        pid: p.Id,
-        name: p.ProcessName,
-        path: p.Path || undefined,
+        pid: p.ProcessId,
+        name: p.Name,
+        path: p.ExecutablePath || undefined,
       }));
     } catch (error) {
       console.error('Failed to get process list:', error);
@@ -448,13 +494,26 @@ ${shouldForeground ? '[OnyxUser32]::SetForegroundWindow($hWnd) | Out-Null' : ''}
   /**
    * Track a launched game process
    */
-  trackLaunchedGame(gameId: string, pid: number, title: string, exePath?: string): void {
+  trackLaunchedGame(
+    gameId: string,
+    pid: number,
+    title: string,
+    exePath?: string,
+    installationDirectory?: string,
+    platform?: string,
+    source?: string,
+  ): void {
+    const existing = this.runningGames.get(gameId);
     this.runningGames.set(gameId, {
       pid,
       gameId,
       title,
       exePath,
-      status: 'running',
+      installationDirectory,
+      platform,
+      source,
+      status: existing?.status === 'suspended' ? 'suspended' : 'running',
+      suspendedAt: existing?.status === 'suspended' ? existing.suspendedAt : undefined,
     });
     console.log(`Tracking game: ${title} (${gameId}) - PID: ${pid}`);
   }
@@ -462,33 +521,63 @@ ${shouldForeground ? '[OnyxUser32]::SetForegroundWindow($hWnd) | Out-Null' : ''}
   /**
    * Discover a game process by executable path
    */
-  async discoverGameProcess(gameId: string, exePath: string, title: string): Promise<number | null> {
-    if (!exePath) {
+  async discoverGameProcess(
+    gameId: string,
+    exePath: string | undefined,
+    title: string,
+    installationDirectory?: string,
+    platform?: string,
+    source?: string,
+  ): Promise<number | null> {
+    if (!exePath && !installationDirectory) {
       return null;
     }
 
     try {
       const processes = await this.getAllProcesses();
-      const exeName = path.basename(exePath).toLowerCase();
+      const exeName = exePath ? path.basename(exePath).toLowerCase() : undefined;
+      const installDirLower = installationDirectory?.toLowerCase().replace(/\//g, '\\');
+      const titleTokens = title
+        .toLowerCase()
+        .replace(/[^a-z0-9\s]/g, ' ')
+        .split(/\s+/)
+        .filter((token) => token.length >= 4)
+        .slice(0, 4);
 
       // Try exact match first
       let matchingProcess = processes.find(p => {
-        if (p.path) {
+        if (p.path && exeName) {
           return path.basename(p.path).toLowerCase() === exeName;
+        }
+        if (!exeName) {
+          return false;
         }
         return p.name.toLowerCase() === exeName.replace('.exe', '');
       });
 
       // If no exact match, try process name match
-      if (!matchingProcess) {
+      if (!matchingProcess && exeName) {
         const processName = exeName.replace('.exe', '');
         matchingProcess = processes.find(p =>
           p.name.toLowerCase() === processName
         );
       }
 
+      if (!matchingProcess && installDirLower) {
+        matchingProcess = processes.find((processInfo) =>
+          processInfo.path?.toLowerCase().includes(installDirLower)
+        );
+      }
+
+      if (!matchingProcess && titleTokens.length > 0) {
+        matchingProcess = processes.find((processInfo) => {
+          const haystack = `${processInfo.name.toLowerCase()} ${processInfo.path?.toLowerCase() || ''}`;
+          return titleTokens.some((token) => haystack.includes(token));
+        });
+      }
+
       if (matchingProcess) {
-        this.trackLaunchedGame(gameId, matchingProcess.pid, title, exePath);
+        this.trackLaunchedGame(gameId, matchingProcess.pid, title, exePath, installationDirectory, platform, source);
         return matchingProcess.pid;
       }
 
@@ -563,7 +652,7 @@ ${shouldForeground ? '[OnyxUser32]::SetForegroundWindow($hWnd) | Out-Null' : ''}
       });
 
       if (matchedProcess) {
-        this.trackLaunchedGame(game.id, matchedProcess.pid, game.title, game.exePath);
+        this.trackLaunchedGame(game.id, matchedProcess.pid, game.title, game.exePath, game.installationDirectory);
         trackedCount += 1;
       }
     }

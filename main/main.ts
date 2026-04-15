@@ -48,7 +48,7 @@ if (!gotTheLock) {
 }
 
 import path from 'node:path';
-import { readdirSync, statSync, existsSync, readFileSync, copyFileSync, mkdirSync, unlinkSync, promises as fsPromises } from 'node:fs';
+import { readdirSync, statSync, existsSync, readFileSync, copyFileSync, mkdirSync, unlinkSync, writeFileSync, promises as fsPromises } from 'node:fs';
 import { platform } from 'node:os';
 import { analyzeCrashDumps, setupJavaScriptErrorHandler } from './crashDumpAnalyzer.js';
 
@@ -69,6 +69,50 @@ try {
   console.warn('[Crash] Failed to init crash reporter:', e);
 }
 
+type CrashSessionState = {
+  lastStartedAt?: string;
+  lastExitedCleanly?: boolean;
+  lastExitAt?: string;
+};
+
+const CRASH_SESSION_STATE_FILE = 'crash-session-state.json';
+
+function getCrashSessionStatePath(): string {
+  return path.join(app.getPath('userData'), CRASH_SESSION_STATE_FILE);
+}
+
+function readCrashSessionState(): CrashSessionState | null {
+  try {
+    const statePath = getCrashSessionStatePath();
+    if (!existsSync(statePath)) {
+      return null;
+    }
+    return JSON.parse(readFileSync(statePath, 'utf8')) as CrashSessionState;
+  } catch (error) {
+    console.warn('[Crash] Failed to read crash session state:', error);
+    return null;
+  }
+}
+
+function writeCrashSessionState(patch: Partial<CrashSessionState>): void {
+  try {
+    const nextState: CrashSessionState = {
+      ...(readCrashSessionState() ?? {}),
+      ...patch,
+    };
+    writeFileSync(getCrashSessionStatePath(), JSON.stringify(nextState, null, 2), 'utf8');
+  } catch (error) {
+    console.warn('[Crash] Failed to write crash session state:', error);
+  }
+}
+
+function isCrashArtifactFile(fileName: string): boolean {
+  const lowerName = fileName.toLowerCase();
+  return lowerName.endsWith('.dmp')
+    || (lowerName.startsWith('js-crash-') && lowerName.endsWith('.txt'))
+    || lowerName.endsWith('-report.txt');
+}
+
 /** Collect crash dump file paths from the crashDumps directory (and one level of subdirs for Crashpad). */
 function getCrashDumpFilePaths(): string[] {
   const out: string[] = [];
@@ -80,7 +124,7 @@ function getCrashDumpFilePaths(): string[] {
       for (const e of entries) {
         const full = path.join(d, e.name);
         if (e.isFile()) {
-          if (e.name.endsWith('.dmp') || e.name.endsWith('.txt')) out.push(full);
+          if (isCrashArtifactFile(e.name)) out.push(full);
         } else if (e.isDirectory()) {
           collect(full);
         }
@@ -206,6 +250,7 @@ let win: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let trayService: TrayService | null = null;
 let isAppQuitting = false;
+let previousCrashSessionState: CrashSessionState | null = null;
 
 type StartupWindowMode = 'normal' | 'minimized' | 'tray';
 
@@ -1091,11 +1136,6 @@ async function createWindow() {
       // Check closeToTray (fallback to minimizeToTray if closeToTray is undefined for backward compatibility)
       if (prefs.closeToTray !== false) {
         // If closeToTray is true or undefined (default), minimize
-        try {
-          imageQueue.cancelAll();
-        } catch (error) {
-          console.warn('[Close] Failed to cancel image optimization queue:', error);
-        }
         event.preventDefault();
         win?.hide();
         return;
@@ -1123,7 +1163,8 @@ async function createWindow() {
 
     // If a previous run produced crash dumps, offer to save them
     const dumpPaths = getCrashDumpFilePaths();
-    if (dumpPaths.length > 0 && win && !win.isDestroyed()) {
+    const shouldPromptForPreviousCrash = previousCrashSessionState?.lastExitedCleanly === false;
+    if (shouldPromptForPreviousCrash && dumpPaths.length > 0 && win && !win.isDestroyed()) {
       win.webContents.send('crash:dumpsAvailable', { paths: dumpPaths });
     }
   });
@@ -1297,12 +1338,50 @@ app.on('activate', () => {
 
 
 app.whenReady().then(async () => {
+  previousCrashSessionState = readCrashSessionState();
+  writeCrashSessionState({
+    lastStartedAt: new Date().toISOString(),
+    lastExitedCleanly: false,
+  });
+
   // Clean up any broken onyx-local:// URLs from previous failed caching attempts
   // Only clear URLs if the files don't exist in the cache
   const cacheDir = imageCacheService.getCacheDir();
   const clearedCount = await gameStore.clearBrokenOnyxLocalUrls(cacheDir);
   if (clearedCount > 0) {
     console.log(`[App] Cleaned up ${clearedCount} broken image URLs on startup`);
+  }
+
+  try {
+    const gamesNeedingRecovery = (await gameStore.getLibrary()).filter((game) => {
+      const urls = [
+        game.boxArtUrl,
+        game.bannerUrl,
+        game.alternativeBannerUrl,
+        game.logoUrl,
+        game.heroUrl,
+        game.iconUrl,
+      ].filter((value): value is string => typeof value === 'string' && value.trim().length > 0);
+
+      return urls.some((url) => !url.startsWith('onyx-local://'));
+    });
+
+    for (const game of gamesNeedingRecovery) {
+      imageQueue.add(game.id, game.title, {
+        boxArtUrl: game.boxArtUrl,
+        bannerUrl: game.bannerUrl,
+        alternativeBannerUrl: game.alternativeBannerUrl,
+        logoUrl: game.logoUrl,
+        heroUrl: game.heroUrl,
+        iconUrl: game.iconUrl,
+      });
+    }
+
+    if (gamesNeedingRecovery.length > 0) {
+      console.log(`[Startup] Re-queued artwork recovery for ${gamesNeedingRecovery.length} games with uncached image URLs`);
+    }
+  } catch (error) {
+    console.warn('[Startup] Failed to re-queue uncached artwork recovery:', error);
   }
 
   // Remove games that use WinGDK executables (WinGDK folders don't contain actual games)
@@ -2132,6 +2211,10 @@ app.whenReady().then(async () => {
 // Cleanup global shortcuts and background scan on app quit
 app.on('before-quit', () => {
   isAppQuitting = true;
+  writeCrashSessionState({
+    lastExitedCleanly: true,
+    lastExitAt: new Date().toISOString(),
+  });
   try {
     imageQueue.cancelAll();
   } catch (error) {

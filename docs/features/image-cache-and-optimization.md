@@ -27,7 +27,8 @@ Caches image assets and optimizes them (including worker-based processing) for f
 2. [ImageCacheService.ts](../../main/ImageCacheService.ts) fetches/stores canonical files.
 3. [ImageOptimizationController.ts](../../main/ImageOptimizationController.ts) / [ImageOptimizationQueue.ts](../../main/ImageOptimizationQueue.ts) schedule transformation work.
 4. [ImageOptimizerWorkerHost.ts](../../main/ImageOptimizerWorkerHost.ts) executes image optimization in worker context ([ImageOptimizerWorker.worker.ts](../../main/ImageOptimizerWorker.worker.ts)).
-5. Optimized assets are served back to renderer paths.
+5. [main.ts](../../main/main.ts) re-queues any games that still hold remote artwork URLs on startup so interrupted cache work is retried automatically on the next full launch.
+6. Optimized assets are served back to renderer paths.
 
 ## Discovery and Data Sources
 
@@ -40,6 +41,7 @@ Caches image assets and optimizes them (including worker-based processing) for f
 - Cached files are persisted on disk in app-managed cache directories.
 - Optimized derivatives are separate from raw downloads and may vary by asset type.
 - Queue state is runtime-only; cached artifacts persist across runs until invalidated or cleared.
+- Games can temporarily persist remote artwork URLs until the importer/cache queue finishes; startup recovery now re-queues those games so a prior interrupted session does not leave new imports permanently uncached.
 - Startup cache cleanup in [GameStore.ts](../../main/GameStore.ts) preserves valid `onyx-local://` artwork URLs even when they include cache-busting query strings, and now clears broken alternative banners, icons, and screenshot entries alongside box art/banner/logo/hero fields.
 
 ## Failure Modes and Triage
@@ -49,6 +51,7 @@ Caches image assets and optimizes them (including worker-based processing) for f
 - Verify cache directory is writable.
 - Check queue backlog and worker host health.
 - Confirm optimization is not disabled by settings.
+- If newer games still point at remote artwork after a restart, confirm startup recovery re-queued them and that the app was not merely hidden to tray mid-queue.
 
 ### Symptom: Broken or blank optimized images
 

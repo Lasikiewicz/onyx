@@ -69,6 +69,8 @@ It explains module boundaries, data flow, and release pipeline expectations.
 - `main/ipc/appHandlers.ts`, `main/preload.ts`, and `renderer/src/hooks/useAppShellSystemState.ts` now let dev/local test update previews prefer the workspace `CHANGELOG.md` before GitHub, so simulated update modals reflect unpushed local changelog edits while packaged/live update checks still use the remote-first path by default.
 - `main/main.ts` now treats default-session `onyx-local` protocol registration collisions as benign during startup, while `main/ui/tray.ts` correctly interprets `app.setJumpList()` success (`'ok'`) instead of logging it as an error.
 - `main/APICredentialsService.ts` now degrades to `electron-store` credential fallback when OS credential-store migration fails with known Windows resource/session errors, preventing repeated noisy startup error logs.
+- `main/main.ts` now persists a lightweight clean-exit marker for crash-dump triage and re-queues games that still have remote artwork URLs on startup, so old crash artifacts do not trigger false prompts after normal exits and interrupted image-cache work resumes on the next launch instead of leaving newer games on uncached remote art.
+- `main/ProcessSuspendService.ts` now keeps launch-tracking context such as installation directory/platform/source, prefers CIM-based Windows process enumeration, and uses direct PID existence checks before suspend/resume rediscovery, so suspend workflows are less dependent on fragile `Get-Process` path lookups after launch.
 
 ## Data and Control Flow
 

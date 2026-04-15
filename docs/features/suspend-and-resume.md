@@ -24,15 +24,17 @@ Allows pausing/resuming supported game processes through OS-level process contro
 ## Confirmed End-to-End Flows
 
 1. Renderer requests suspend/resume via preload suspend API.
-2. Main [ProcessSuspendService.ts](../../main/ProcessSuspendService.ts) validates feature enablement and target process.
-3. Service executes suspend/resume operation and returns success/error.
-4. Renderer updates running/suspended status in UI.
+2. Launcher IPC captures a pre-launch process baseline and [ProcessSuspendService.ts](../../main/ProcessSuspendService.ts) tracks the best candidate PID plus install-path context for later suspend/resume.
+3. Main [ProcessSuspendService.ts](../../main/ProcessSuspendService.ts) validates feature enablement, confirms the PID still exists, and re-discovers the process from executable/install metadata when needed.
+4. Service executes suspend/resume operation and returns success/error.
+5. Renderer updates running/suspended status in UI.
 
 ## Discovery and Data Sources
 
 - Target process data comes from launch/process tracking state.
 - Enablement and shortcut configuration come from user preferences.
 - Runtime control is implemented in the process suspend service and main bootstrap code.
+- Process discovery now prefers Windows CIM process enumeration and lightweight PID existence checks before falling back to PowerShell process lookups.
 
 ## Data Model and Persistence
 
@@ -55,6 +57,7 @@ Allows pausing/resuming supported game processes through OS-level process contro
 
 - Confirm the saved shortcut is valid.
 - Check whether elevation or app restart is required for global shortcut registration.
+- Verify the launched game was tracked with either an executable path or installation directory so rediscovery can recover from stale PIDs.
 
 ## File Ownership Map
 

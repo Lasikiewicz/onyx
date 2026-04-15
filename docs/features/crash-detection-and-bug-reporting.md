@@ -23,15 +23,16 @@ Detects crash dumps from prior runs, prompts the user, and generates bug-report 
 
 ## Confirmed End-to-End Flows
 
-1. Main process checks crash dump locations on startup.
+1. Main process reads the previous-session exit marker on startup and only surfaces crash artifacts when the prior run did not exit cleanly.
 2. Renderer is notified when dumps are available (IPC from [main.ts](../../main/main.ts) / [appHandlers.ts](../../main/ipc/appHandlers.ts)).
 3. [useAppShellSystemState.ts](../../renderer/src/hooks/useAppShellSystemState.ts) stores the available dump paths and exposes the save/open/dismiss actions used by [CrashDumpModal.tsx](../../renderer/src/components/CrashDumpModal.tsx).
 4. [BugReportService.ts](../../main/BugReportService.ts) bundles logs/context/user description.
 
 ## Discovery and Data Sources
 
-- Crash evidence comes from crash-dump and related debug-log directories.
+- Crash evidence comes from crash-dump artifacts such as native `.dmp` files, generated readable `-report.txt` files, and `js-crash-*.txt` logs written after unhandled main-process failures.
 - Main-process analysis happens before or during renderer startup notification.
+- Session-exit state is persisted in the app user-data folder so a normal shutdown does not keep re-triggering the crash modal on later launches.
 - Bug reports aggregate logs, crash analysis, and user-supplied description/context.
 
 ## Data Model and Persistence
