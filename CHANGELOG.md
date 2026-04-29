@@ -4,7 +4,7 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Pending]
+## [0.8.10] - 2026-04-29
 
 - Metadata matching:
   - Add special-case title normalization for Neverness To Everness to ensure proper metadata provider matching for hardcoded game path auto-detection, similar to existing special cases for Tony Hawk's Pro Skater and Avatar Frontiers of Pandora.
