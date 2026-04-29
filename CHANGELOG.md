@@ -4,6 +4,11 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Pending]
+
+- Add Games:
+  - Collapse non-hardcoded scan hits under known hardcoded install roots so `C:\Program Files\Neverness To Everness` stages only the canonical `HARDCODED` entry instead of extra `Client`/`NTEGlobal` duplicates.
+
 ## [0.8.10] - 2026-04-29
 
 - Metadata matching:

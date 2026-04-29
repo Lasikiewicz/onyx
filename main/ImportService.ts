@@ -256,6 +256,8 @@ export class ImportService {
         }
       }
 
+      this.collapseResultsForHardcodedRoots(results);
+
       progressCallback?.(`Scan complete. Found ${results.length} total game${results.length !== 1 ? 's' : ''}.`);
     } catch (error) {
       console.error('Error in scanAllSources:', error);
@@ -1935,6 +1937,52 @@ export class ImportService {
       'hardcoded': 'Official Launcher',
     };
     return names[appId] || appId;
+  }
+
+  private normalizePathForComparison(pathValue?: string): string {
+    return (pathValue || '').replace(/\\/g, '/').replace(/\/+/g, '/').toLowerCase().trim();
+  }
+
+  private isPathWithinRoot(pathValue: string, rootPath: string): boolean {
+    return pathValue === rootPath || pathValue.startsWith(`${rootPath}/`);
+  }
+
+  private collapseResultsForHardcodedRoots(results: ScannedGameResult[]): void {
+    const hardcodedRoots = new Set(
+      results
+        .filter((game) => game.source === 'hardcoded')
+        .map((game) => this.normalizePathForComparison(game.installPath))
+        .filter(Boolean),
+    );
+
+    if (hardcodedRoots.size === 0) {
+      return;
+    }
+
+    const filteredResults = results.filter((game) => {
+      if (game.source === 'hardcoded') {
+        return true;
+      }
+
+      const normalizedInstallPath = this.normalizePathForComparison(game.installPath);
+      const normalizedExePath = this.normalizePathForComparison(game.exePath);
+
+      for (const root of hardcodedRoots) {
+        if (
+          (normalizedInstallPath && this.isPathWithinRoot(normalizedInstallPath, root)) ||
+          (normalizedExePath && this.isPathWithinRoot(normalizedExePath, root))
+        ) {
+          console.log(`[ImportService] Dropping duplicate non-hardcoded result under hardcoded root: ${game.title} (${game.installPath})`);
+          return false;
+        }
+      }
+
+      return true;
+    });
+
+    if (filteredResults.length !== results.length) {
+      results.splice(0, results.length, ...filteredResults);
+    }
   }
 
   /**

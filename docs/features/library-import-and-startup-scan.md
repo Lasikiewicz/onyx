@@ -47,6 +47,7 @@ Finds games from configured launchers/folders and imports them into the local li
 - Sources include configured launchers, manual library folders, and hardcoded known game paths.
 - Hardcoded known game paths include:
   - `C:\Program Files\Neverness To Everness` — automatically discovered if installed
+- When a hardcoded path match is found, scan results under that same install root are collapsed to the hardcoded entry so launcher support folders do not appear as separate games.
 - Launcher detection and launcher-specific metadata come from [LauncherDetectionService.ts](../../main/LauncherDetectionService.ts) and [LauncherService.ts](../../main/LauncherService.ts).
 - Matching uses known IDs, executable paths, launcher identifiers, and title heuristics.
 - Renderer-side post-import maintenance flows launched from Game Manager now route through [useGameManagerRefresh.ts](../../renderer/src/components/gameManager/useGameManagerRefresh.ts), which owns refresh confirmation/progress state plus match-fix and boxart-fix continuation behavior after library updates are started from the manager.
@@ -78,6 +79,7 @@ Finds games from configured launchers/folders and imports them into the local li
 
 - Review matcher logic and ID conventions.
 - Confirm source IDs remain stable between scans.
+- Verify hardcoded-root collapse is active for known game paths (for example, Neverness To Everness) so nested launcher folders such as `Client` and `NTEGlobal` are not staged as separate games.
 
 ### Symptom: Games disappear after refresh
 
