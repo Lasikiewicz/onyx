@@ -50,6 +50,26 @@ Resolves game metadata (titles, identifiers, links, artwork candidates) from con
 - Steam descriptions prefer the Steam Store `about_the_game` HTML field for the app `description`, fall back to `short_description` when needed, and keep `detailed_description` in `summary`.
 - Explicit per-game metadata reapply flows bypass the in-memory metadata cache so a user-triggered rematch or re-fetch pulls fresh provider data instead of reusing an older cached description payload.
 
+## Game Title Matching Strategy
+
+[GameMatcher.ts](../../main/GameMatcher.ts) implements confidence-based matching between scanned games and metadata provider results.
+
+### Title Normalization
+
+- Titles are normalized to lowercase and have special characters removed for consistent comparison.
+- Special cases handle games where standard normalization is insufficient:
+  - `Tony Hawk's Pro Skater 3+4` → `tony hawks pro skater 3 4`
+  - `AFOP` → `avatar frontiers of pandora`
+  - `Cyberpunk 2077` → `cyberpunk 2077`
+  - `Neverness To Everness` → `neverness to everness` (hardcoded game path auto-detection)
+
+### Matching Confidence Scoring
+
+- Titles are scored using exact match (0.5), fuzzy match (0.2-0.4), or word overlap heuristics.
+- Steam App ID matches boost confidence (+0.4); mismatches penalize (-0.2).
+- Source matching (e.g., Steam provider) adds bonuses for provider consistency.
+- A match must exceed 0.3 confidence to be accepted.
+
 ## Failure Modes and Triage
 
 ### Symptom: Metadata refresh always fails
@@ -63,6 +83,13 @@ Resolves game metadata (titles, identifiers, links, artwork candidates) from con
 - Check matcher inputs (title, app ID, platform hints).
 - Confirm provider score/ranking behavior.
 - Retry with manual metadata editor flow.
+- If a specific game consistently matches incorrectly, consider adding a special-case title normalization rule in [GameMatcher.ts](../../main/GameMatcher.ts).
+
+### Symptom: Game not matched (confidence too low)
+
+- Verify the game exists in at least one configured metadata provider (IGDB, RAWG, Steam, SteamGridDB, etc.).
+- For hardcoded game paths (e.g., `C:\Program Files\Neverness To Everness`), ensure the title is normalized to match provider records.
+- Manually apply the correct match via the "Fix Match" editor in Game Manager or Add Games.
 
 ### Symptom: Partial updates only (e.g., links update but not images)
 
@@ -78,6 +105,7 @@ Resolves game metadata (titles, identifiers, links, artwork candidates) from con
 
 - **Main process core**
   - [MetadataFetcherService.ts](../../main/MetadataFetcherService.ts)
+  - [GameMatcher.ts](../../main/GameMatcher.ts)
   - [MetadataProvider.ts](../../main/MetadataProvider.ts)
   - [MetadataCache.ts](../../main/MetadataCache.ts)
   - [MetadataValidator.ts](../../main/MetadataValidator.ts)

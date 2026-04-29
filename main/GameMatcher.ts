@@ -174,6 +174,9 @@ export class GameMatcher {
     if (normalized.includes('cyberpunk') && normalized.includes('2077')) {
       return 'cyberpunk 2077';
     }
+    if (normalized.includes('neverness') && normalized.includes('everness')) {
+      return 'neverness to everness'; // Consistent normalization for hardcoded game
+    }
 
     return normalized
       .replace(/[^\w\s]/g, '') // Remove special characters

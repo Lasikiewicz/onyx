@@ -16,6 +16,8 @@ describe('GameMatcher', () => {
       expect(matcher.normalizeTitle("Tony Hawk's Pro Skater 3+4")).toBe('tony hawks pro skater 3 4');
       expect(matcher.normalizeTitle('AFOP')).toBe('avatar frontiers of pandora');
       expect(matcher.normalizeTitle('Cyberpunk 2077')).toBe('cyberpunk 2077');
+      expect(matcher.normalizeTitle('Neverness To Everness')).toBe('neverness to everness');
+      expect(matcher.normalizeTitle('NEVERNESS TO EVERNESS')).toBe('neverness to everness');
     });
   });
 
