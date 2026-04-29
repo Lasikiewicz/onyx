@@ -4,6 +4,13 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Pending]
+
+- Add Games:
+  - Automatically detect and index Neverness To Everness from `C:\Program Files\Neverness To Everness` during library scans by adding hardcoded game path scanning to ImportService, displayed with "Official Launcher" as the source.
+- UI/Rendering:
+  - Fix blur effect on game tiles during pulse/breathing animation by enabling GPU acceleration with `translateZ(0)` in keyframes, adding `backface-visibility: hidden`, and applying font-smoothing hints to prevent rendering artifacts during scale transforms.
+
 ## [0.8.8] - 2026-04-15
 
 - Startup/runtime:

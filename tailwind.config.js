@@ -15,8 +15,8 @@ export default {
       },
       keyframes: {
         'breathing-scale': {
-          '0%, 100%': { transform: 'scale(1.02)' },
-          '50%': { transform: 'scale(1.06)' },
+          '0%, 100%': { transform: 'scale(1.02) translateZ(0)' },
+          '50%': { transform: 'scale(1.06) translateZ(0)' },
         },
         'slide-x': {
           '0%, 100%': { transform: 'translateX(0) scale(1.1)' },

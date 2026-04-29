@@ -44,7 +44,9 @@ Finds games from configured launchers/folders and imports them into the local li
 
 ## Discovery and Data Sources
 
-- Sources include configured launchers plus manual library folders.
+- Sources include configured launchers, manual library folders, and hardcoded known game paths.
+- Hardcoded known game paths include:
+  - `C:\Program Files\Neverness To Everness` — automatically discovered if installed
 - Launcher detection and launcher-specific metadata come from [LauncherDetectionService.ts](../../main/LauncherDetectionService.ts) and [LauncherService.ts](../../main/LauncherService.ts).
 - Matching uses known IDs, executable paths, launcher identifiers, and title heuristics.
 - Renderer-side post-import maintenance flows launched from Game Manager now route through [useGameManagerRefresh.ts](../../renderer/src/components/gameManager/useGameManagerRefresh.ts), which owns refresh confirmation/progress state plus match-fix and boxart-fix continuation behavior after library updates are started from the manager.

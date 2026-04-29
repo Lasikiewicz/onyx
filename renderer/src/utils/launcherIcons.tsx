@@ -36,6 +36,7 @@ const LAUNCHER_DISPLAY_NAMES: Record<string, string> = {
   humble: 'Humble',
   itch: 'itch.io',
   rockstar: 'Rockstar Games',
+  hardcoded: 'Official Launcher',
   other: 'Other',
 };
 
@@ -98,6 +99,8 @@ const LAUNCHER_ALIASES: Record<string, string> = {
   'itch.io': 'itch',
   'rockstar': 'rockstar',
   'rockstar games': 'rockstar',
+  'hardcoded': 'hardcoded',
+  'official launcher': 'hardcoded',
   'other': 'other',
 };
 

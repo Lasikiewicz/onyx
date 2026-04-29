@@ -298,6 +298,15 @@
   transition: opacity 400ms ease-out, transform 400ms ease-out;
 }
 
+/* GPU acceleration for breathing-scale animation to prevent blur */
+.animate-breathing-scale {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  perspective: 1000px;
+}
+
 /* Prevent animation on initial page load */
 .no-animation {
   animation: none !important;

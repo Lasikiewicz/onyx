@@ -208,6 +208,34 @@ export class ImportService {
         }
       }
 
+      // Scan hardcoded game paths (known game directories)
+      const hardcodedPaths = this.getHardcodedGamePaths();
+      if (hardcodedPaths.length > 0 && !this.isScanCancelled) {
+        progressCallback?.(`Checking ${hardcodedPaths.length} known game location${hardcodedPaths.length !== 1 ? 's' : ''}...`);
+        for (const gameInfo of hardcodedPaths) {
+          if (this.isScanCancelled) {
+            console.log('[ImportService] Scan cancelled by user (during hardcoded paths)');
+            progressCallback?.('Scan cancelled by user.');
+            return results;
+          }
+
+          try {
+            if (existsSync(gameInfo.path)) {
+              progressCallback?.(`Checking for ${gameInfo.name}...`);
+              const game = this.scanHardcodedGamePath(gameInfo.path, gameInfo.name);
+              if (game) {
+                progressCallback?.(`Found: ${game.title}`);
+                results.push(game);
+              }
+            } else {
+              console.log(`[ImportService] Hardcoded game path does not exist: ${gameInfo.path}`);
+            }
+          } catch (error) {
+            console.error(`[ImportService] Error scanning hardcoded game path ${gameInfo.path}:`, error);
+          }
+        }
+      }
+
       // Auto-detect Battle.net games via registry if not already configured
       // This ensures Blizzard games are found even if the user hasn't enabled Battle.net in Configure Apps
       const battleAlreadyScanned = enabledConfigs.some((config) => config.id === 'battle');
@@ -1904,7 +1932,54 @@ export class ImportService {
       'battle': 'Battle.net',
       'humble': 'Humble Bundle',
       'itch': 'itch.io',
+      'hardcoded': 'Official Launcher',
     };
     return names[appId] || appId;
+  }
+
+  /**
+   * Get list of hardcoded known game paths to scan
+   * Returns an array of game paths that should always be checked
+   */
+  private getHardcodedGamePaths(): Array<{ path: string; name: string }> {
+    return [
+      {
+        path: 'C:\\Program Files\\Neverness To Everness',
+        name: 'Neverness To Everness',
+      },
+    ];
+  }
+
+  /**
+   * Scan a hardcoded game path for a single game
+   * Looks for executables in the game directory
+   */
+  private scanHardcodedGamePath(gamePath: string, gameName: string): ScannedGameResult | null {
+    try {
+      const exeCandidates = this.findExecutables(gamePath, 0, 20);
+
+      if (exeCandidates.length === 0) {
+        console.log(`[ImportService] No executables found in hardcoded path: ${gamePath}`);
+        return null;
+      }
+
+      // Use the first executable found (closest to root)
+      const mainExe = exeCandidates[0];
+
+      console.log(`[ImportService] Found game at hardcoded path: ${gameName} (${mainExe})`);
+
+      return {
+        uuid: `hardcoded-${gameName}-${Date.now()}`,
+        source: 'hardcoded',
+        originalName: gameName,
+        installPath: gamePath,
+        exePath: mainExe,
+        title: gameName,
+        status: 'ready',
+      };
+    } catch (error) {
+      console.error(`[ImportService] Error scanning hardcoded game path ${gamePath}:`, error);
+      return null;
+    }
   }
 }
