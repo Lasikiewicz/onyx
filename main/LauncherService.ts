@@ -4,9 +4,12 @@ import { existsSync, readdirSync } from 'node:fs';
 import { shell } from 'electron';
 import { GameStore, Game } from './GameStore.js';
 import { isSafeExternalUrl } from './SecurityUtils.js';
+import { resolveKnownGameLauncherExecutable } from './knownGameLaunchers.js';
 
 /** Common uninstaller executable names to look for in the game folder */
 const UNINSTALLER_NAMES = ['uninstall.exe', 'Uninstall.exe', 'unins000.exe', 'unins001.exe', 'unins002.exe'];
+
+const escapePowerShellSingleQuoted = (value: string): string => `'${value.replace(/'/g, "''")}'`;
 
 export class LauncherService {
   private gameStore: GameStore;
@@ -216,18 +219,24 @@ export class LauncherService {
         // Fall through to exe launch below
       }
 
+      const knownLauncherExe = resolveKnownGameLauncherExecutable(game);
+
       // Non-launcher game or fallback: launch the executable
-      if (!game.exePath) {
+      if (!game.exePath && !knownLauncherExe) {
         return { success: false, error: 'Executable path not set for this game' };
       }
 
       // Use normalized native paths on Windows to avoid EACCES (spawn can fail with forward slashes)
-      let exePath = game.exePath;
+      let exePath = knownLauncherExe || game.exePath;
       if (exePath.startsWith('"') && exePath.endsWith('"')) {
         exePath = exePath.slice(1, -1);
       }
       exePath = normalize(exePath);
       const workingDir = normalize(dirname(exePath));
+
+      if (knownLauncherExe && normalize(game.exePath || '') !== exePath) {
+        console.log(`[LauncherService] Resolved known launcher executable for ${game.title}: ${exePath}`);
+      }
 
       console.log(`[LauncherService] Executing exe: ${exePath}`);
       console.log(`[LauncherService] Working directory: ${workingDir}`);
@@ -249,15 +258,37 @@ export class LauncherService {
       if (process.platform === 'win32') {
         // On Windows, use PowerShell's Start-Process to handle UAC elevation prompts properly 
         // while also supporting working directories and arguments.
-        const psArgs = args.length > 0 ? ` -ArgumentList ${args.map(a => `"${a.replace(/"/g, '`"')}"`).join(', ')}` : '';
-        const psCommand = `Start-Process -FilePath "${exePath}" -WorkingDirectory "${workingDir}"${psArgs}`;
+        const psArgs = args.length > 0
+          ? ` -ArgumentList @(${args.map(escapePowerShellSingleQuoted).join(', ')})`
+          : '';
+        const psCommand = `$ErrorActionPreference = 'Stop'; Start-Process -FilePath ${escapePowerShellSingleQuoted(exePath)} -WorkingDirectory ${escapePowerShellSingleQuoted(workingDir)}${psArgs}`;
         
         console.log(`[LauncherService] Using PowerShell launch: ${psCommand}`);
-        child = spawn('powershell.exe', ['-NoProfile', '-Command', psCommand], {
-          detached: true,
-          stdio: 'ignore',
-          windowsHide: true
+        const launchResult = await new Promise<{ success: boolean; error?: string }>((resolve) => {
+          const psChild = spawn('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', psCommand], {
+            stdio: ['ignore', 'ignore', 'pipe'],
+            windowsHide: true
+          });
+
+          let stderr = '';
+          psChild.stderr?.on('data', (chunk) => {
+            stderr += chunk.toString();
+          });
+          psChild.on('error', (error) => {
+            resolve({ success: false, error: error.message });
+          });
+          psChild.on('close', (code) => {
+            if (code === 0) {
+              resolve({ success: true });
+            } else {
+              resolve({ success: false, error: stderr.trim() || `PowerShell launch failed with exit code ${code}` });
+            }
+          });
         });
+
+        if (!launchResult.success) {
+          return { success: false, error: launchResult.error || 'PowerShell launch failed' };
+        }
       } else {
         child = spawn(exePath, args, {
           detached: true,
@@ -278,6 +309,9 @@ export class LauncherService {
       await this.gameStore.saveGame(game);
 
       if (isXbox) {
+        return { success: true };
+      }
+      if (process.platform === 'win32') {
         return { success: true };
       }
       return { success: true, pid: child?.pid };

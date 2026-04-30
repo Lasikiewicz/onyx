@@ -28,6 +28,7 @@ It explains module boundaries, data flow, and release pipeline expectations.
 - `renderer/src/hooks/useAppShellModalControls.ts` owns the root modal callback bundles for settings, importer, Game Manager, and update-library flows, so `App.tsx` does not also carry those modal prop matrices inline.
 - App-shell preference bootstrap is intentionally one-time at renderer startup; later shell state changes must not implicitly reload persisted preferences, or root UI state like view mode and active selection can snap back to saved values.
 - `renderer/src/hooks/useGameLaunchFlow.ts` owns renderer-side launch confirmation, launch execution, PID polling, and running-state updates for the app shell, so `App.tsx` does not also carry the whole launch/process workflow inline.
+- `main/knownGameLaunchers.ts` owns title-specific executable corrections before `main/LauncherService.ts` invokes a local process. This keeps launcher quirks such as Neverness To Everness root-launcher recovery out of the generic import scanners and renderer play-button flow.
 - `renderer/src/hooks/useImporterWorkbench.ts` owns importer open guards, startup/background scan handoff, importer reset behavior, and post-import follow-up, so `App.tsx` can treat importer lifecycle as a focused hook instead of another root-level modal workflow.
 - `renderer/src/hooks/useImportWorkbenchScan.ts` now trims staged screenshot/link payloads and keeps scan-progress state separate from the heavy staged editor, while `renderer/src/components/importer/ImportWorkbench.tsx` renders a lightweight progress surface during active scans so large scan batches do not blank the renderer by mounting the full `GamePropertiesPanel` tree mid-scan.
 - `renderer/src/components/gameProperties/useGamePropertiesMetadata.ts` and `renderer/src/components/gameProperties/useGamePropertiesImages.ts` now expose stable reset callbacks so `GamePropertiesPanel.tsx` can safely reset staged editor state when the selected game changes without falling into an effect-driven render loop.
@@ -117,7 +118,7 @@ It explains module boundaries, data flow, and release pipeline expectations.
 ## Module Index
 
 <!-- AUTO-GENERATED:MODULE_INDEX:START -->
-- Main process source files: 73
+- Main process source files: 75
 - Renderer source files: 167
 - Automation scripts: 30
 - GitHub workflow files: 7

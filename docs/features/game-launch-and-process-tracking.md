@@ -34,6 +34,7 @@ Launches games from multiple sources and tracks running state for UX actions (mi
 
 - Launch sources include executable paths, launcher-managed titles, and URI-based launch targets.
 - Launcher resolution and process tracking live in [LauncherService.ts](../../main/LauncherService.ts) with supporting app bootstrap in [main.ts](../../main/main.ts).
+- Known title launchers that can be misidentified by generic executable scanning are normalized before launch. [knownGameLaunchers.ts](../../main/knownGameLaunchers.ts) currently redirects Neverness To Everness entries under the install root to `NTEGlobalLauncher.exe`, including older records that point at nested client executables or only the install folder.
 - Running-state updates are emitted back to renderer through IPC/state events and local shell state managed in [useGameLaunchFlow.ts](../../renderer/src/hooks/useGameLaunchFlow.ts).
 - PID-less launches still use a timeout fallback to clear stale running state, but that fallback no longer triggers automatic window restore because exit timing is not reliable there.
 
@@ -67,6 +68,7 @@ Launches games from multiple sources and tracks running state for UX actions (mi
 
 - **Main process**
   - [LauncherService.ts](../../main/LauncherService.ts)
+  - [knownGameLaunchers.ts](../../main/knownGameLaunchers.ts)
   - [LauncherDetectionService.ts](../../main/LauncherDetectionService.ts)
   - [ipc/appHandlers.ts](../../main/ipc/appHandlers.ts)
   - [main.ts](../../main/main.ts)
