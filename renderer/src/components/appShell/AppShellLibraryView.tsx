@@ -3,6 +3,7 @@ import { LibraryGrid } from '../LibraryGrid';
 import { LibraryListView, type ListViewOptions } from '../LibraryListView';
 import type { Game } from '../../types/game';
 import type { WelcomeScreenProps } from '../WelcomeScreen';
+import type { RightClickMenuEditorSection } from '../rightClickMenu/RightClickMenuHeader';
 import { AppShellCategoryBar } from './AppShellCategoryBar';
 
 const LibraryCarousel = lazy(() =>
@@ -72,7 +73,7 @@ interface AppShellLibraryViewProps {
   onEditCategories: (game: Game) => void;
   onEditGame: (game: Game) => void;
   onEditImages: (game: Game) => void;
-  onEmptySpaceMenu: (x: number, y: number) => void;
+  onEmptySpaceMenu: (x: number, y: number, initialEditorSection?: RightClickMenuEditorSection | null) => void;
   onFixMatch: (game: Game) => void;
   onGameClick: (game: Game) => void;
   onGameContextMenu: (game: Game, x: number, y: number) => void;
@@ -167,7 +168,7 @@ export function AppShellLibraryView({
           if (!target.closest('[data-game-card]')) {
             event.preventDefault();
             event.stopPropagation();
-            onEmptySpaceMenu(event.clientX, event.clientY);
+            onEmptySpaceMenu(event.clientX, event.clientY, 'games-view');
           }
         }}
         onContextMenu={(event) => {
@@ -175,7 +176,7 @@ export function AppShellLibraryView({
           if (!target.closest('[data-game-card]')) {
             event.preventDefault();
             event.stopPropagation();
-            onEmptySpaceMenu(event.clientX, event.clientY);
+            onEmptySpaceMenu(event.clientX, event.clientY, 'games-view');
           }
         }}
       >

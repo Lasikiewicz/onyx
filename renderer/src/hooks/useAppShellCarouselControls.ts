@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 import type { Game } from '../types/game';
+import type { RightClickMenuEditorSection } from '../components/rightClickMenu/RightClickMenuHeader';
 
 interface UseAppShellCarouselControlsOptions {
   carouselButtonColors: { playColor?: string; editColor?: string; modManagerColor?: string };
@@ -16,7 +17,7 @@ interface UseAppShellCarouselControlsOptions {
   setCarouselLogoSize: (size: number) => void;
   setDetailsBarSize: (size: number) => void;
   setGameContextMenu: (menu: { x: number; y: number; game: Game } | null) => void;
-  setRightClickMenu: (menu: { x: number; y: number } | null) => void;
+  setRightClickMenu: (menu: { x: number; y: number; initialEditorSection?: RightClickMenuEditorSection | null } | null) => void;
   showCarouselDetails: boolean;
   showCarouselLogos: boolean;
 }

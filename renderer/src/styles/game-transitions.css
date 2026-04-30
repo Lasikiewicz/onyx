@@ -84,6 +84,29 @@
   animation: slowSpin 8s linear infinite;
 }
 
+@keyframes onyxLogoLoaderSpin {
+  from {
+    transform: rotateX(-28deg) rotateY(-35deg);
+  }
+
+  to {
+    transform: rotateX(-28deg) rotateY(325deg);
+  }
+}
+
+.onyx-logo-loader-cube {
+  animation: onyxLogoLoaderSpin 2.8s linear infinite;
+  transform: rotateX(-28deg) rotateY(-35deg);
+  transform-style: preserve-3d;
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .onyx-logo-loader-cube {
+    animation: none;
+  }
+}
+
 /* Animation Classes */
 .game-transition-fade {
   animation: fadeIn 500ms ease-out;

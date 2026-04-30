@@ -12,6 +12,7 @@ import { ImportWorkbenchFooter } from './ImportWorkbenchFooter';
 import { ImportWorkbenchEditor } from './ImportWorkbenchEditor';
 import { ImportWorkbenchHeader } from './ImportWorkbenchHeader';
 import { ImportWorkbenchEmptyState } from './ImportWorkbenchEmptyState';
+import { OnyxLogoSpinner } from './OnyxLogoSpinner';
 import { useImportWorkbenchScan } from '../../hooks/useImportWorkbenchScan';
 import { useImportWorkbenchActions } from '../../hooks/useImportWorkbenchActions';
 import { SOURCE_LABELS, getSourceIcon, getStatusColor, getStatusIcon } from './ImportWorkbenchDisplayUtils';
@@ -183,12 +184,9 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
                     <div className="flex-1 flex flex-col overflow-hidden">
                         {isScanning ? (
                             <div className="flex h-full flex-col items-center justify-center gap-4 px-8 text-center text-gray-300">
-                                <div className="h-12 w-12 animate-spin rounded-full border-4 border-blue-500/30 border-t-blue-400" />
+                                <OnyxLogoSpinner />
                                 <div className="space-y-2">
                                     <h2 className="text-xl font-semibold text-white">Scanning your libraries</h2>
-                                    <p className="max-w-xl text-sm text-gray-400">
-                                        Onyx keeps the importer editor lightweight while scanning so large result sets and metadata updates do not blank the app.
-                                    </p>
                                     {scanProgress && (
                                         <p className="text-sm text-blue-300">{scanProgress}</p>
                                     )}

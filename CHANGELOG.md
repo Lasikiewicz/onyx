@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Pending]
 
+- Add Games:
+  - Replace the lightweight scanning screen's generic spinner with a compact spinning Onyx cube logo and remove the redundant importer-lightweight explainer copy.
+- App shell:
+  - Open the right-click menu directly on Games View controls from the library surface and directly on Game Details controls from the details panel.
+
 ## [0.8.13] - 2026-04-30
 
 - Game launch:

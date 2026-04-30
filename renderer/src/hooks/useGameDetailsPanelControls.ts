@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import type { Game } from '../types/game';
 import type { GameDetailsPanelProps } from '../components/GameDetailsPanel';
+import type { RightClickMenuEditorSection } from '../components/rightClickMenu/RightClickMenuHeader';
 import { usePreferenceWriter } from './usePreferenceWriter';
 
 type ViewMode = GameDetailsPanelProps['viewMode'];
@@ -57,7 +58,7 @@ interface UseGameDetailsPanelControlsOptions {
   setGameContextMenu: (menu: { game: Game; x: number; y: number } | null) => void;
   setPanelWidth: (value: number) => void;
   setPanelWidthByViewState: (value: Record<ViewMode, number>) => void;
-  setRightClickMenu: (menu: { x: number; y: number } | null) => void;
+  setRightClickMenu: (menu: { x: number; y: number; initialEditorSection?: RightClickMenuEditorSection | null } | null) => void;
   updateGameInState: (game: Game) => void;
   viewMode: ViewMode;
   visibleLinkTypes: Record<string, boolean>;
@@ -127,7 +128,7 @@ export function useGameDetailsPanelControls({
 
   const handleRightClick = useCallback((x: number, y: number) => {
     setGameContextMenu(null);
-    setRightClickMenu({ x, y });
+    setRightClickMenu({ x, y, initialEditorSection: 'details-view' });
   }, [setGameContextMenu, setRightClickMenu]);
 
   return {

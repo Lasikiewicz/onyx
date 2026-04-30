@@ -41,6 +41,7 @@ import { Game, GameMetadata } from './types/game';
 import { areAPIsConfigured } from './utils/apiValidation';
 import { useAppShellCarouselControls } from './hooks/useAppShellCarouselControls';
 import { useAppShellGameConfirmations } from './hooks/useAppShellGameConfirmations';
+import type { RightClickMenuEditorSection } from './components/rightClickMenu/RightClickMenuHeader';
 
 const OnyxSettingsModal = lazy(() =>
   import('./components/OnyxSettingsModal').then((module) => ({ default: module.OnyxSettingsModal })),
@@ -296,7 +297,7 @@ function App() {
     source?: string;
   }> | null>(null);
   const [foundGames, setFoundGames] = useState<Array<any> | null>(null);
-  const [rightClickMenu, setRightClickMenu] = useState<{ x: number; y: number } | null>(null);
+  const [rightClickMenu, setRightClickMenu] = useState<{ x: number; y: number; initialEditorSection?: RightClickMenuEditorSection | null } | null>(null);
   const [gameContextMenu, setGameContextMenu] = useState<{ x: number; y: number; game: Game } | null>(null);
   const gridContainerRef = useRef<HTMLDivElement>(null);
 
@@ -581,9 +582,9 @@ function App() {
   }, [autoSizeToFit, viewMode, filteredGames.length, calculateAutoSize]);
 
 
-  const handleOpenShellContextMenu = useCallback((x: number, y: number) => {
+  const handleOpenShellContextMenu = useCallback((x: number, y: number, initialEditorSection: RightClickMenuEditorSection | null = null) => {
     setGameContextMenu(null);
-    setRightClickMenu({ x, y });
+    setRightClickMenu({ x, y, initialEditorSection });
   }, []);
 
   const handleOpenGameContextMenu = useCallback((game: Game, x: number, y: number) => {
@@ -1542,6 +1543,7 @@ function App() {
         <RightClickMenu
           x={rightClickMenu.x}
           y={rightClickMenu.y}
+          initialEditorSection={rightClickMenu.initialEditorSection}
           onClose={() => setRightClickMenu(null)}
           {...rightClickMenuProps}
         />

@@ -20,6 +20,7 @@ export interface RightClickMenuProps {
   x: number;
   y: number;
   onClose: () => void;
+  initialEditorSection?: RightClickMenuEditorSection | null;
   viewMode: 'grid' | 'list' | 'logo' | 'carousel' | 'coverflow';
   onViewModeChange?: (mode: 'grid' | 'list' | 'logo' | 'carousel' | 'coverflow') => void;
   activeGame?: Game;
@@ -173,6 +174,7 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
   x,
   y,
   onClose,
+  initialEditorSection = null,
   viewMode,
   onViewModeChange,
   activeGame,
@@ -281,7 +283,7 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
 }) => {
   const menuRef = useRef<HTMLDivElement>(null);
   const buttonColorsPopupRef = useRef<HTMLDivElement>(null);
-  const [activeEditorSection, setActiveEditorSection] = useState<RightClickMenuEditorSection | null>(null);
+  const [activeEditorSection, setActiveEditorSection] = useState<RightClickMenuEditorSection | null>(initialEditorSection);
   const [menuTransparency, setMenuTransparency] = useState(12);
   const [buttonColorsPopup, setButtonColorsPopup] = React.useState<{
     editorKey: 'carousel' | 'details';
@@ -471,11 +473,8 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
   }, []);
 
   useEffect(() => {
-    if (viewMode === 'carousel' || viewMode === 'coverflow') {
-      return;
-    }
-    setActiveEditorSection(null);
-  }, [viewMode]);
+    setActiveEditorSection(viewMode === 'carousel' || viewMode === 'coverflow' ? null : initialEditorSection);
+  }, [initialEditorSection, viewMode, x, y]);
 
   const handleViewModeChange = (mode: 'grid' | 'list' | 'logo' | 'carousel' | 'coverflow') => {
     if (onViewModeChange) {
