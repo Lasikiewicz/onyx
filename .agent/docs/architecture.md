@@ -112,6 +112,7 @@ It explains module boundaries, data flow, and release pipeline expectations.
 - Static analysis: `eslint.config.mjs` and `npm run lint` provide lightweight repo-wide checks for import duplication and targeted hook hygiene without forcing a formatter.
 - The lint config intentionally relaxes `no-unused-vars` for legacy-heavy `main/` services and disables `react-hooks/exhaustive-deps` in a short list of hotspot renderer files until those modules are decomposed further, so lint stays actionable instead of devolving into broad migration noise.
 - Release/build script entrypoints that use ESM now use explicit `.mjs` filenames such as `scripts/generate-icons.mjs`, `scripts/validate-icons.mjs`, and `scripts/increment-build.mjs` so Node does not reparse typeless release tooling during local packaging or version bumps.
+- Release versioning may be set explicitly for milestone releases (for example `0.9.0`) before promotion, while routine patch releases can still use `scripts/increment-build.mjs`.
 - Secrets baseline gate: `npm run scan:secrets`
 - Commit-time guardrails: `.husky/pre-commit`
 - Package manager policy: npm-only (`packageManager` is `npm@10` and CI must not install/use pnpm for packaging)

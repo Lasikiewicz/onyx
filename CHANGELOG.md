@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Pending]
 
+## [0.9.0] - 2026-04-30
+
 - Add Games:
   - Improve first-import artwork quality by preferring Steam 2x covers and SteamGridDB visual assets over lower-resolution general metadata artwork.
 - Image cache:
