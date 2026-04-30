@@ -4,6 +4,15 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Pending]
+
+## [0.8.12] - 2026-04-30
+
+- Add Games:
+  - Fix aggressive executable filtering in manual folder scanning that prevented `NTEGlobalLauncher.exe` from being detected when users add Neverness To Everness via Custom Folder.
+  - Fix Neverness To Everness hardcoded detection to specifically target `NTEGlobalLauncher.exe` to ensure the correct launcher executable opens when playing the game.
+  - Fix PowerShell `Start-Process` game launch execution to no longer apply `-WindowStyle Hidden`, resolving an issue where UAC-launched games and launchers would start correctly but remain completely invisible in the background.
+
 ## [0.8.11] - 2026-04-29
 
 - Add Games:

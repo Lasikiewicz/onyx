@@ -245,19 +245,18 @@ export class LauncherService {
         console.log(`[LauncherService] Parsed launch arguments: ${JSON.stringify(args)}`);
       }
 
-      let child: ReturnType<typeof spawn>;
+      let child: ReturnType<typeof spawn> | undefined;
       if (process.platform === 'win32') {
-        // On Windows, use "start" via the system shell so the game launches like a shortcut.
-        // Using shell: true avoids Node's CreateProcess argument quoting mangling paths with spaces.
-        const escapedExe = exePath.replace(/"/g, '""');
-        const argsForCmd = args.map(a => (a.includes(' ') ? `"${a.replace(/"/g, '""')}"` : a)).join(' ');
-        const startCmd = `start "" "${escapedExe}"${argsForCmd ? ' ' + argsForCmd : ''}`;
-        console.log(`[LauncherService] Using shell launch: ${startCmd}`);
-        child = spawn(startCmd, [], {
+        // On Windows, use PowerShell's Start-Process to handle UAC elevation prompts properly 
+        // while also supporting working directories and arguments.
+        const psArgs = args.length > 0 ? ` -ArgumentList ${args.map(a => `"${a.replace(/"/g, '`"')}"`).join(', ')}` : '';
+        const psCommand = `Start-Process -FilePath "${exePath}" -WorkingDirectory "${workingDir}"${psArgs}`;
+        
+        console.log(`[LauncherService] Using PowerShell launch: ${psCommand}`);
+        child = spawn('powershell.exe', ['-NoProfile', '-Command', psCommand], {
           detached: true,
           stdio: 'ignore',
-          shell: true,
-          cwd: workingDir,
+          windowsHide: true
         });
       } else {
         child = spawn(exePath, args, {
@@ -268,10 +267,12 @@ export class LauncherService {
         });
       }
 
-      child.unref();
-      child.on('error', (error) => {
-        console.error(`Failed to launch game: ${error.message}`);
-      });
+      if (child) {
+        child.unref();
+        child.on('error', (error) => {
+          console.error(`Failed to launch game: ${error.message}`);
+        });
+      }
 
       game.lastPlayed = new Date().toISOString();
       await this.gameStore.saveGame(game);
@@ -279,7 +280,7 @@ export class LauncherService {
       if (isXbox) {
         return { success: true };
       }
-      return { success: true, pid: child.pid };
+      return { success: true, pid: child?.pid };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       console.error('Error launching game:', errorMessage);

@@ -222,7 +222,7 @@ export class ImportService {
           try {
             if (existsSync(gameInfo.path)) {
               progressCallback?.(`Checking for ${gameInfo.name}...`);
-              const game = this.scanHardcodedGamePath(gameInfo.path, gameInfo.name);
+              const game = this.scanHardcodedGamePath(gameInfo.path, gameInfo.name, gameInfo.exeName);
               if (game) {
                 progressCallback?.(`Found: ${game.title}`);
                 results.push(game);
@@ -906,7 +906,7 @@ export class ImportService {
               !lowerName.includes('autorun') &&
               !lowerName.includes('vc_redist') &&
               !lowerName.includes('vcredist') &&
-              !lowerName.includes('launcher') &&
+              (!lowerName.includes('launcher') || lowerName === 'ntegloballauncher.exe') &&
               !lowerName.includes('updater') &&
               !lowerName.includes('update') &&
               !lowerName.includes('patcher') &&
@@ -1989,11 +1989,12 @@ export class ImportService {
    * Get list of hardcoded known game paths to scan
    * Returns an array of game paths that should always be checked
    */
-  private getHardcodedGamePaths(): Array<{ path: string; name: string }> {
+  private getHardcodedGamePaths(): Array<{ path: string; name: string; exeName?: string }> {
     return [
       {
         path: 'C:\\Program Files\\Neverness To Everness',
         name: 'Neverness To Everness',
+        exeName: 'NTEGlobalLauncher.exe',
       },
     ];
   }
@@ -2002,17 +2003,34 @@ export class ImportService {
    * Scan a hardcoded game path for a single game
    * Looks for executables in the game directory
    */
-  private scanHardcodedGamePath(gamePath: string, gameName: string): ScannedGameResult | null {
+  private scanHardcodedGamePath(gamePath: string, gameName: string, exeName?: string): ScannedGameResult | null {
     try {
-      const exeCandidates = this.findExecutables(gamePath, 0, 20);
+      let mainExe = '';
 
-      if (exeCandidates.length === 0) {
-        console.log(`[ImportService] No executables found in hardcoded path: ${gamePath}`);
-        return null;
+      if (exeName) {
+        const exactPath = join(gamePath, exeName);
+        if (existsSync(exactPath)) {
+          mainExe = exactPath;
+        }
       }
 
-      // Use the first executable found (closest to root)
-      const mainExe = exeCandidates[0];
+      if (!mainExe) {
+        const exeCandidates = this.findExecutables(gamePath, 0, 20);
+
+        if (exeCandidates.length === 0) {
+          console.log(`[ImportService] No executables found in hardcoded path: ${gamePath}`);
+          return null;
+        }
+        
+        mainExe = exeCandidates[0];
+        
+        if (exeName) {
+          const matchingExe = exeCandidates.find(exe => exe.toLowerCase().endsWith(`\\${exeName.toLowerCase()}`) || exe.toLowerCase().endsWith(`/${exeName.toLowerCase()}`));
+          if (matchingExe) {
+            mainExe = matchingExe;
+          }
+        }
+      }
 
       console.log(`[ImportService] Found game at hardcoded path: ${gameName} (${mainExe})`);
 

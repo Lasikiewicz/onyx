@@ -46,7 +46,7 @@ Finds games from configured launchers/folders and imports them into the local li
 
 - Sources include configured launchers, manual library folders, and hardcoded known game paths.
 - Hardcoded known game paths include:
-  - `C:\Program Files\Neverness To Everness` — automatically discovered if installed
+  - `C:\Program Files\Neverness To Everness` — automatically discovered if installed (specifically targets `NTEGlobalLauncher.exe`)
 - When a hardcoded path match is found, scan results under that same install root are collapsed to the hardcoded entry so launcher support folders do not appear as separate games.
 - Launcher detection and launcher-specific metadata come from [LauncherDetectionService.ts](../../main/LauncherDetectionService.ts) and [LauncherService.ts](../../main/LauncherService.ts).
 - Matching uses known IDs, executable paths, launcher identifiers, and title heuristics.
