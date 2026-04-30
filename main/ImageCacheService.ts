@@ -20,16 +20,21 @@ function getFfmpegPath(): { path: string; source: 'bundled' | 'system' } {
   return { path: 'ffmpeg', source: 'system' };
 }
 
-/** Max longest-side dimension by image type for cache (reduces size and load time). */
+/** Max longest-side dimension by image type for cache (keeps UI-scale artwork crisp while bounding file size). */
 const MAX_DIMENSION_BY_TYPE: Record<string, number> = {
-  boxart: 600,
-  logo: 400,
-  banner: 800,
-  alternativeBanner: 800,
-  hero: 800,
-  icon: 128,
+  boxart: 1200,
+  logo: 800,
+  banner: 1920,
+  alternativeBanner: 1920,
+  hero: 1920,
+  icon: 256,
 };
-const DEFAULT_MAX_DIMENSION = 800;
+const DEFAULT_MAX_DIMENSION = 1200;
+
+function getMaxDimensionForImageType(imageType: string): number {
+  if (imageType.startsWith('screenshot')) return 1920;
+  return MAX_DIMENSION_BY_TYPE[imageType] ?? DEFAULT_MAX_DIMENSION;
+}
 
 /** Max fps for animated cache (drops frames to reduce size). */
 const ANIMATED_MAX_FPS = 24;
@@ -285,7 +290,7 @@ export class ImageCacheService {
   ): Promise<Buffer | null> {
     try {
       const sharp = await getSharp();
-      const maxDim = MAX_DIMENSION_BY_TYPE[imageType] ?? DEFAULT_MAX_DIMENSION;
+      const maxDim = getMaxDimensionForImageType(imageType);
       const quality =
         imageType === 'banner' || imageType === 'alternativeBanner' || imageType === 'hero'
           ? WEBP_ANIMATED_QUALITY_BACKGROUND
@@ -318,7 +323,7 @@ export class ImageCacheService {
   ): Promise<Buffer | null> {
     try {
       const sharp = await getSharp();
-      const maxDim = MAX_DIMENSION_BY_TYPE[imageType] ?? DEFAULT_MAX_DIMENSION;
+      const maxDim = getMaxDimensionForImageType(imageType);
       const dimensionSteps = [1, 0.85, 0.7, 0.55];
       const qualitySteps = [70, 55, 45, 35, 28, 22];
       let bestData: Buffer | null = null;
@@ -370,7 +375,7 @@ export class ImageCacheService {
     try {
       await fsPromises.writeFile(inp, imageData);
       const { path: ffmpegPath } = getFfmpegPath();
-      const maxDim = MAX_DIMENSION_BY_TYPE[imageType] ?? DEFAULT_MAX_DIMENSION;
+      const maxDim = getMaxDimensionForImageType(imageType);
       const dimensionSteps = [1, 0.8, 0.65];
       const fpsSteps = [12, 8, 6];
       const qualitySteps = [55, 40];
@@ -496,7 +501,7 @@ export class ImageCacheService {
     const startedAtMs = Date.now();
     const attempt: OptimizationStageAttempt = { attempted: true, startedAtMs };
     const ext = sourceExt.toLowerCase();
-    const maxDim = MAX_DIMENSION_BY_TYPE[imageType] ?? DEFAULT_MAX_DIMENSION;
+    const maxDim = getMaxDimensionForImageType(imageType);
     const base = `onyx-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const tmpDir = tmpdir();
     const inp = path.join(tmpDir, `${base}-in${ext}`);

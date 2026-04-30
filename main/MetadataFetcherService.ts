@@ -247,15 +247,17 @@ export class MetadataFetcherService {
   }
 
   /**
-   * Merge artwork from multiple sources, prioritizing Official Store → IGDB → RAWG
+   * Merge artwork from multiple sources, prioritizing official and dedicated visual providers
+   * before general metadata providers.
    */
   private mergeArtwork(artworkArray: Array<{ artwork: GameArtwork | null; source: string }>): GameArtwork {
     const merged: GameArtwork = {};
 
     const getSourcePriority = (source: string): number => {
       if (source === "steam") return 5;
+      if (source === "steamgriddb") return 4.5;
+      if (source === "giantbomb") return 4.25;
       if (source === "igdb") return 4;
-      if (source === "steamgriddb") return 3.5; // SGDB assets are often higher quality than RAWG
       if (source === "rawg") return 3;
       return 1;
     };

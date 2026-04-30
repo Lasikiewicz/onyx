@@ -40,6 +40,7 @@ Caches image assets and optimizes them (including worker-based processing) for f
 
 - Cached files are persisted on disk in app-managed cache directories.
 - Optimized derivatives are separate from raw downloads and may vary by asset type.
+- First-import optimization preserves UI-scale assets: covers are cached up to 1200px, logos/icons up to 800px/256px, and banners/heroes/screenshots up to 1920px on the longest side before compression.
 - Queue state is runtime-only; cached artifacts persist across runs until invalidated or cleared.
 - Games can temporarily persist remote artwork URLs until the importer/cache queue finishes; startup recovery now re-queues those games so a prior interrupted session does not leave new imports permanently uncached.
 - Startup cache cleanup in [GameStore.ts](../../main/GameStore.ts) preserves valid `onyx-local://` artwork URLs even when they include cache-busting query strings, and now clears broken alternative banners, icons, and screenshot entries alongside box art/banner/logo/hero fields.
@@ -59,6 +60,12 @@ Caches image assets and optimizes them (including worker-based processing) for f
 - Check worker errors and format conversion failures.
 - Re-run optimize flow on affected games only.
 - If the library record still points at deleted cached files, restart once to trigger startup cleanup of stale `onyx-local://` references before re-fetching artwork.
+
+### Symptom: Newly imported images look blurry
+
+- Confirm the metadata merge selected Steam 2x or SteamGridDB artwork instead of a lower-resolution general metadata provider asset.
+- Check the optimization decision in the image queue; covers, banners, heroes, and screenshots should retain display-scale dimensions after first import.
+- Clear or replace old cached artwork for affected games if they were imported before the higher-resolution cache ceilings were applied.
 
 ### Symptom: Old art remains after metadata refresh
 

@@ -52,4 +52,21 @@ describe('SteamMetadataProvider', () => {
     expect(result?.description).toBe('Short store blurb');
     expect(result?.summary).toBe('<p>Detailed store body</p>');
   });
+
+  it('prefers 2x Steam box art when both cover sizes are available', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input: string | URL | Request) => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+
+      return {
+        ok: url.includes('library_600x900'),
+        headers: new Headers({ 'content-type': 'image/jpeg' }),
+      } as Response;
+    });
+
+    const provider = new SteamMetadataProvider({} as any);
+    const result = await provider.getArtwork('steam-620');
+
+    expect(result?.boxArtUrl).toContain('library_600x900_2x.jpg');
+    expect(result?.boxArtResolution).toEqual({ width: 1200, height: 1800 });
+  });
 });

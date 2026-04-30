@@ -7,14 +7,19 @@
 import { parentPort } from 'node:worker_threads';
 
 const MAX_DIMENSION_BY_TYPE: Record<string, number> = {
-  boxart: 600,
-  logo: 400,
-  banner: 800,
-  alternativeBanner: 800,
-  hero: 800,
-  icon: 128,
+  boxart: 1200,
+  logo: 800,
+  banner: 1920,
+  alternativeBanner: 1920,
+  hero: 1920,
+  icon: 256,
 };
-const DEFAULT_MAX_DIMENSION = 800;
+const DEFAULT_MAX_DIMENSION = 1200;
+
+function getMaxDimensionForImageType(imageType: string): number {
+  if (imageType.startsWith('screenshot')) return 1920;
+  return MAX_DIMENSION_BY_TYPE[imageType] ?? DEFAULT_MAX_DIMENSION;
+}
 const JPEG_QUALITY = 85;
 const WEBP_QUALITY = 85;
 const PNG_COMPRESSION = 6;
@@ -52,7 +57,7 @@ async function runStatic(
     sharpConcurrencySet = true;
   }
   const ext = sourceExt.toLowerCase();
-  const maxDim = MAX_DIMENSION_BY_TYPE[imageType] ?? DEFAULT_MAX_DIMENSION;
+  const maxDim = getMaxDimensionForImageType(imageType);
   let pipeline = sharp(imageData, { limitInputPixels: STATIC_LIMIT_INPUT_PIXELS }).resize(maxDim, maxDim, { fit: 'inside', withoutEnlargement: true });
   if (ext === '.jpg' || ext === '.jpeg') {
     pipeline = pipeline.jpeg({ quality: JPEG_QUALITY, mozjpeg: true });
@@ -156,7 +161,7 @@ async function runAnimatedWebp(imageData: Buffer, imageType: string): Promise<Bu
     sharp.concurrency(1);
     sharpConcurrencySet = true;
   }
-  const maxDim = MAX_DIMENSION_BY_TYPE[imageType] ?? DEFAULT_MAX_DIMENSION;
+  const maxDim = getMaxDimensionForImageType(imageType);
   const quality =
     imageType === 'banner' || imageType === 'alternativeBanner' || imageType === 'hero'
       ? WEBP_ANIMATED_QUALITY_BACKGROUND

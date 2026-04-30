@@ -440,13 +440,13 @@ export class SteamMetadataProvider implements MetadataProvider {
 
       const artwork: GameArtwork = {};
 
-      // Box Art: library_600x900.jpg or library_600x900_2x.jpg (official Steam box art)
-      if (boxArtResponse?.ok) {
-        artwork.boxArtUrl = boxArtUrl;
-        artwork.boxArtResolution = { width: 600, height: 900 }; // Standard Steam library cover size
-      } else if (boxArt2xResponse?.ok) {
+      // Box Art: prefer library_600x900_2x.jpg when available so first imports do not cache a low-res cover.
+      if (boxArt2xResponse?.ok) {
         artwork.boxArtUrl = boxArtUrl2x;
         artwork.boxArtResolution = { width: 1200, height: 1800 }; // 2x resolution Steam library cover
+      } else if (boxArtResponse?.ok) {
+        artwork.boxArtUrl = boxArtUrl;
+        artwork.boxArtResolution = { width: 600, height: 900 }; // Standard Steam library cover size
       }
 
       // Banner: library_hero.jpg (preferred) or header.jpg (fallback) - official Steam banners
