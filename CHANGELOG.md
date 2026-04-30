@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Pending]
 
+## [0.8.13] - 2026-04-30
+
 - Game launch:
   - Resolve Neverness To Everness library entries to the root `NTEGlobalLauncher.exe` before launching, including older entries that point at nested client executables or only the install folder.
   - Surface Windows PowerShell `Start-Process` launch failures instead of reporting success when the launcher command fails before opening.
