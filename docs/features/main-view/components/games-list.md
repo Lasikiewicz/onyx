@@ -15,7 +15,7 @@ Left panel of the library window that shows the list of games as tiles (grid/lis
 
 - **Categories bar** (when "Show Categories" is on): Row of filter buttons at top or bottom of the left panel only. Position (top/bottom), alignment (left/center/right), and size configurable. Expanding or showing categories does not change the right panel’s position or height.
 - **Game tiles**: Grid (LibraryGrid), list (LibraryListView), or logo view in grid/list/logo mode; carousel (LibraryCarousel) or coverflow (LibraryCoverFlow) in their modes. See view-type docs for unique features.
-- **Controller focus targets**: Grid, logo, and list entries expose stable controller attributes so [`useControllerNavigation.ts`](../../../../renderer/src/hooks/useControllerNavigation.ts) can move the active selection with a standard-mapped DualSense without duplicating list state.
+- **Controller focus targets**: Grid, logo, and list entries keep stable controller attributes for future controller navigation, but the app shell currently marks controller support coming soon and keeps polling disabled.
 
 ## Settings and Toggles
 
@@ -26,12 +26,12 @@ Left panel of the library window that shows the list of games as tiles (grid/lis
 1. User enables "Show Categories": categories bar appears inside the left panel only (top or bottom per setting). Game details panel stays full height and aligned; no full-width bar above both panels.
 2. User selects a game: selection highlights; game details panel updates. Tops of games list column and game details panel align (with pt-4 on the right when categories off or at bottom).
 3. View mode change: grid/list/logo show two panels; carousel/coverflow show full-width list only.
-4. Controller navigation: D-pad/stick input cycles visible games and scrolls the selected card into view; Cross transfers focus to the selected game's details action row while keeping `activeGameId` as the single selection source.
+4. Controller navigation is currently gated off in [App.tsx](../../../../renderer/src/App.tsx) while the Controller settings section is marked coming soon.
 
 ## Discovery and Data Sources
 
 - Games from library state ([App.tsx](../../../../renderer/src/App.tsx)); category and display options from [UserPreferencesService](../../../../main/UserPreferencesService.ts). Filtering by search, sort, launcher, category applied before passing to list components.
-- Controller selection uses the same filtered `displayGames` passed through [AppShellLibraryView.tsx](../../../../renderer/src/components/appShell/AppShellLibraryView.tsx), so search/category/launcher filters define the gamepad-visible selection order.
+- When controller navigation returns, controller selection will use the same filtered `displayGames` passed through [AppShellLibraryView.tsx](../../../../renderer/src/components/appShell/AppShellLibraryView.tsx), so search/category/launcher filters define the gamepad-visible selection order.
 
 ## Data Model and Persistence
 
@@ -58,7 +58,7 @@ Left panel of the library window that shows the list of games as tiles (grid/lis
   - [LibraryGrid.tsx](../../../../renderer/src/components/LibraryGrid.tsx)
   - [LibraryListView.tsx](../../../../renderer/src/components/LibraryListView.tsx)
   - [SortableGameCard.tsx](../../../../renderer/src/components/SortableGameCard.tsx) — grid/logo controller focus target wrapper
-  - [useControllerNavigation.ts](../../../../renderer/src/hooks/useControllerNavigation.ts) — gamepad selection movement and grid/list focus routing
+  - [useControllerNavigation.ts](../../../../renderer/src/hooks/useControllerNavigation.ts) — gamepad selection movement and grid/list focus routing, currently gated off while marked coming soon
   - [LibraryCarousel.tsx](../../../../renderer/src/components/LibraryCarousel.tsx)
   - [LibraryCoverFlow.tsx](../../../../renderer/src/components/LibraryCoverFlow.tsx)
   - [RightClickMenu.tsx](../../../../renderer/src/components/RightClickMenu.tsx) — list/grid options including show categories

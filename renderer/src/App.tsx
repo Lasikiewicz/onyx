@@ -60,6 +60,7 @@ const BugReportModal = lazy(() =>
   import('./components/BugReportModal').then((module) => ({ default: module.BugReportModal })),
 );
 const lazyRenderFallback = null;
+const CONTROLLER_NAVIGATION_AVAILABLE = false;
 
 function App() {
   // Main App Component
@@ -1261,7 +1262,7 @@ function App() {
   useControllerNavigation({
     activeGameId,
     displayGames,
-    enabled: enableGamepadSupport,
+    enabled: CONTROLLER_NAVIGATION_AVAILABLE && enableGamepadSupport,
     gamepadButtonLayout,
     gamepadNavigationSpeed,
     isGameContextMenuOpen: gameContextMenu !== null,

@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Pending]
 
+- App shell:
+  - Mark controller navigation as coming soon and keep runtime gamepad polling disabled while controller input support is finalized.
+- Tests:
+  - Allow the suspend/resume mock fallback test to accept either `powershell.exe` or `powershell` while still verifying the PowerShell cmdlet fallback.
+
 ## [0.9.1] - 2026-05-14
 
 - App shell:

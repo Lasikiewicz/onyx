@@ -1,6 +1,8 @@
 import React from 'react';
 import { SettingsInput, SettingsSection, SettingsToggle } from './SettingsComponents';
 
+const CONTROLLER_NAVIGATION_AVAILABLE = false;
+
 interface SettingsGeneralTabProps {
   startWithComputer: boolean;
   startMinimized: boolean;
@@ -100,15 +102,19 @@ export const SettingsGeneralTab: React.FC<SettingsGeneralTabProps> = ({
         </div>
       </SettingsSection>
 
-      <SettingsSection title="Controller" description="Configure controller navigation for the main library view">
+      <SettingsSection title="Controller" description="Coming soon: controller navigation is currently disabled">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+          <div className="md:col-span-2 rounded-lg border border-blue-500/30 bg-blue-600/10 px-3 py-2 text-xs text-blue-100">
+            Coming soon - controller navigation is disabled while input support is being finalized.
+          </div>
           <SettingsToggle
             label="Controller Navigation"
-            description="Use a DualSense or standard gamepad to navigate grid, logo, and list views"
-            checked={enableGamepadSupport}
+            description="Gamepad navigation for grid, logo, and list views will return in a future update"
+            checked={CONTROLLER_NAVIGATION_AVAILABLE && enableGamepadSupport}
             onChange={() => onToggle('enableGamepadSupport')}
+            disabled={!CONTROLLER_NAVIGATION_AVAILABLE}
           />
-          <div className="bg-gray-800/40 border border-gray-700/50 rounded-lg p-3 space-y-2">
+          <div className="bg-gray-800/40 border border-gray-700/50 rounded-lg p-3 space-y-2 opacity-50 pointer-events-none">
             <div>
               <label className="text-gray-200 text-sm font-medium block mb-0.5">
                 Button Labels
@@ -120,6 +126,7 @@ export const SettingsGeneralTab: React.FC<SettingsGeneralTabProps> = ({
             <select
               value={gamepadButtonLayout}
               onChange={(event) => onGamepadButtonLayoutChange(event.target.value as 'xbox' | 'playstation')}
+              disabled={!CONTROLLER_NAVIGATION_AVAILABLE}
               className="w-full px-2.5 py-1.5 bg-gray-900/80 border border-gray-600 rounded text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all"
             >
               <option value="playstation">PlayStation</option>
@@ -139,6 +146,7 @@ export const SettingsGeneralTab: React.FC<SettingsGeneralTabProps> = ({
             }}
             step={10}
             suffix="ms"
+            disabled={!CONTROLLER_NAVIGATION_AVAILABLE}
           />
         </div>
       </SettingsSection>

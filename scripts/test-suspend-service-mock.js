@@ -39,12 +39,12 @@ const { execSync } = require('child_process');
     const pid = 12345;
     const result = await svc.suspendProcess(pid);
     assert.strictEqual(result, true);
-    assert.ok(commands.some(c => c.command === 'powershell' && c.args.join(' ').includes(`Suspend-Process -Id ${pid}`)));
+    assert.ok(commands.some(c => c.command.startsWith('powershell') && c.args.join(' ').includes(`Suspend-Process -Id ${pid}`)));
 
     // Test resume
     const res = await svc.resumeProcess(pid);
     assert.strictEqual(res, true);
-    assert.ok(commands.some(c => c.command === 'powershell' && c.args.join(' ').includes(`Resume-Process -Id ${pid}`)));
+    assert.ok(commands.some(c => c.command.startsWith('powershell') && c.args.join(' ').includes(`Resume-Process -Id ${pid}`)));
 
     console.log('✓ ProcessSuspendService mock tests passed');
     process.exit(0);

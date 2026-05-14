@@ -2,7 +2,7 @@
 
 ## What This Feature Does
 
-Controls app startup, tray integration, controller navigation, hardware acceleration, and basic window behavior. Part of [Settings and preferences](../settings-and-preferences.md).
+Controls app startup, tray integration, the coming-soon controller navigation surface, hardware acceleration, and basic window behavior. Part of [Settings and preferences](../settings-and-preferences.md).
 
 ## Related Documentation
 
@@ -26,9 +26,9 @@ Controls app startup, tray integration, controller navigation, hardware accelera
 - `Close to Tray` -> `closeToTray`
 - `Start Closed to Tray` -> `startClosedToTray`
 - `Hardware Acceleration` -> `enableHardwareAcceleration`
-- `Controller Navigation` -> `enableGamepadSupport`
-- `Button Labels` -> `gamepadButtonLayout`
-- `Navigation Repeat` -> `gamepadNavigationSpeed`
+- `Controller Navigation` -> `enableGamepadSupport` (currently disabled and marked coming soon)
+- `Button Labels` -> `gamepadButtonLayout` (currently disabled and marked coming soon)
+- `Navigation Repeat` -> `gamepadNavigationSpeed` (currently disabled and marked coming soon)
 - `Minimize on Game Launch` -> `minimizeOnGameLaunch`
 - `Restore Window on Game Exit` -> `restoreAfterLaunch`
 - `Confirm Game Launch` -> `confirmGameLaunch`
@@ -42,14 +42,14 @@ Controls app startup, tray integration, controller navigation, hardware accelera
    - `Start Minimized` launches the main window and minimizes it to the taskbar.
    - `Start Closed to Tray` keeps the main window hidden and relies on the tray icon.
 5. App reloads preferences after save and updates active runtime state where supported.
-6. Controller settings apply after save; the app shell refreshes them and [useControllerNavigation.ts](../../../renderer/src/hooks/useControllerNavigation.ts) starts or stops polling without a restart.
+6. Controller settings remain visible for future support, but the General tab marks them coming soon and the app shell keeps [useControllerNavigation.ts](../../../renderer/src/hooks/useControllerNavigation.ts) gated off.
 
 ## Discovery and Data Sources
 
 - UI lives in [SettingsGeneralTab.tsx](../../../renderer/src/components/settings/SettingsGeneralTab.tsx), mounted by [OnyxSettingsModal.tsx](../../../renderer/src/components/OnyxSettingsModal.tsx).
 - Persistence uses [UserPreferencesService.ts](../../../main/UserPreferencesService.ts) defaults and save flow.
 - Runtime consumers include tray/window lifecycle and launch behavior in [main.ts](../../../main/main.ts) / [App.tsx](../../../renderer/src/App.tsx).
-- Controller navigation is consumed by [useControllerNavigation.ts](../../../renderer/src/hooks/useControllerNavigation.ts), which reads the refreshed settings from [App.tsx](../../../renderer/src/App.tsx).
+- Controller navigation is implemented by [useControllerNavigation.ts](../../../renderer/src/hooks/useControllerNavigation.ts), but [App.tsx](../../../renderer/src/App.tsx) currently disables the bridge while the settings controls are marked coming soon.
 
 ## Data Model and Persistence
 
@@ -79,10 +79,8 @@ Controls app startup, tray integration, controller navigation, hardware accelera
 
 ### Symptom: Controller input does nothing
 
-- Confirm `Controller Navigation` is enabled and the app window has focus.
-- Press any controller button once after focusing Onyx so Chromium exposes the gamepad through `navigator.getGamepads()`.
-- When Chromium detects the device, Onyx shows a controller-ready toast. The first decoded controller command also shows a controller-input toast. If ready appears but input does not, check `window.__onyxControllerDebug` in DevTools for the sampled device id, mapping, pressed buttons, axes, routed action, active controller mode, and overlay state.
-- Controller navigation currently applies to grid, logo, and list views; carousel and coverflow are not wired yet.
+- Expected while the Controller section is marked coming soon.
+- [App.tsx](../../../renderer/src/App.tsx) keeps controller polling disabled until controller input support is finalized.
 
 ## File Ownership Map
 

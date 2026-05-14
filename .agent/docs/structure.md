@@ -42,3 +42,4 @@ Always check this map first before editing code.
 ## Automation Notes
 
 - Script-driven asset generation should avoid writing duplicate tracked outputs when one source asset is sufficient for multiple logical keys.
+- `scripts/test-suspend-service-mock.js` verifies the suspend/resume PowerShell cmdlet fallback intent without depending on whether the runtime chooses `powershell.exe` or `powershell`.
