@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Pending]
 
+## [0.9.1] - 2026-05-14
+
 - App shell:
   - Add DualSense/controller navigation for grid, logo, and list library views, including game cycling, details action-row focus, top-bar focus, and controller-opened context menus.
   - Add visible General settings controls for controller navigation, button-label layout, and navigation repeat speed so saved gamepad preferences are no longer hidden.
