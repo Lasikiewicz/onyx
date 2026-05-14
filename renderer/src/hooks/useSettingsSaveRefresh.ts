@@ -7,6 +7,9 @@ interface UseSettingsSaveRefreshOptions {
   setShowLogoOverBoxart: (value: boolean) => void;
   setLogoPosition: (value: 'top' | 'middle' | 'bottom' | 'underneath') => void;
   setConfirmGameLaunch: (value: boolean) => void;
+  setEnableGamepadSupport: (value: boolean) => void;
+  setGamepadButtonLayout: (value: 'xbox' | 'playstation') => void;
+  setGamepadNavigationSpeed: (value: number) => void;
   setDisableAllAnimations: (value: boolean) => void;
   setDisableAnimatedBanners: (value: boolean) => void;
   setDisableAnimatedBoxarts: (value: boolean) => void;
@@ -24,6 +27,9 @@ export function useSettingsSaveRefresh({
   setShowLogoOverBoxart,
   setLogoPosition,
   setConfirmGameLaunch,
+  setEnableGamepadSupport,
+  setGamepadButtonLayout,
+  setGamepadNavigationSpeed,
   setDisableAllAnimations,
   setDisableAnimatedBanners,
   setDisableAnimatedBoxarts,
@@ -51,6 +57,15 @@ export function useSettingsSaveRefresh({
       }
       if (prefs.confirmGameLaunch !== undefined) {
         setConfirmGameLaunch(prefs.confirmGameLaunch);
+      }
+      if (prefs.enableGamepadSupport !== undefined) {
+        setEnableGamepadSupport(prefs.enableGamepadSupport);
+      }
+      if (prefs.gamepadButtonLayout !== undefined) {
+        setGamepadButtonLayout(prefs.gamepadButtonLayout);
+      }
+      if (prefs.gamepadNavigationSpeed !== undefined) {
+        setGamepadNavigationSpeed(prefs.gamepadNavigationSpeed);
       }
       if (prefs.disableAllAnimations !== undefined) {
         setDisableAllAnimations(prefs.disableAllAnimations);
@@ -84,6 +99,9 @@ export function useSettingsSaveRefresh({
   }, [
     loadLibrary,
     setConfirmGameLaunch,
+    setEnableGamepadSupport,
+    setGamepadButtonLayout,
+    setGamepadNavigationSpeed,
     setDisableAllAnimations,
     setDisableAnimatedBackgrounds,
     setDisableAnimatedBanners,

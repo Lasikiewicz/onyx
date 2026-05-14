@@ -115,6 +115,7 @@ const SortableGameCardComponent: React.FC<SortableGameCardProps> = ({
       tabIndex={tabIndex}
       className="cursor-pointer outline-none overflow-hidden rounded-xl transition-all duration-200"
       data-game-card
+      data-controller-game-card={game.id}
     >
       <div className={`${isFocused ? 'animate-breathing-scale z-10 will-change-transform' : ''}`} style={isFocused ? { willChange: 'transform', perspective: '1000px' } : {}}>
         <GameCard

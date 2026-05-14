@@ -1339,6 +1339,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
               <>
                 <button
                   onClick={() => onFavorite?.(game)}
+                  data-controller-action="favorite"
                   className={`group rounded transition-colors ${game.favorite ? 'text-yellow-400' : 'text-gray-300 hover:bg-gray-700'
                     }`}
                   title="Favorite"
@@ -1352,6 +1353,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
                 {onEdit && (
                   <button
                     onClick={() => onEdit(game)}
+                    data-controller-action="edit"
                     style={{
                       backgroundColor: rightPanelButtonColors?.editColor || '#6b7280',
                       color: getContrastingTextColor(rightPanelButtonColors?.editColor || '#6b7280'),
@@ -1383,6 +1385,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
                         }
                       }
                     }}
+                    data-controller-action="mod-manager"
                     style={{
                       backgroundColor: rightPanelButtonColors?.modManagerColor || '#a855f7',
                       color: getContrastingTextColor(rightPanelButtonColors?.modManagerColor || '#a855f7'),
@@ -1403,6 +1406,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
                 <button
                   onClick={() => onPlay?.(game)}
                   disabled={isLaunching || isRunning}
+                  data-controller-action="play"
                   style={{
                     backgroundColor: rightPanelButtonColors?.playColor || '#0ea5e9',
                     color: getContrastingTextColor(rightPanelButtonColors?.playColor || '#0ea5e9'),

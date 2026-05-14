@@ -18,6 +18,7 @@ import { useAppShellSelection } from './hooks/useAppShellSelection';
 import { useAppShellBackgroundMedia } from './hooks/useAppShellBackgroundMedia';
 import { useAppShellViewState } from './hooks/useAppShellViewState';
 import { useMainViewShellControls } from './hooks/useMainViewShellControls';
+import { useControllerNavigation } from './hooks/useControllerNavigation';
 import { useRightClickMenuControls } from './hooks/useRightClickMenuControls';
 import { useAppShellSurfaceActions } from './hooks/useAppShellSurfaceActions';
 import { useGameDetailsPanelControls } from './hooks/useGameDetailsPanelControls';
@@ -289,6 +290,9 @@ function App() {
   const [linkDisplayOrder, setLinkDisplayOrder] = useState<string[]>(LINK_DISPLAY_ORDER);
   const [visibleLinkTypes, setVisibleLinkTypes] = useState<Record<string, boolean>>(DEFAULT_VISIBLE_LINK_TYPES);
   const [confirmGameLaunch, setConfirmGameLaunch] = useState(false);
+  const [enableGamepadSupport, setEnableGamepadSupport] = useState(true);
+  const [gamepadNavigationSpeed, setGamepadNavigationSpeed] = useState(180);
+  const [gamepadButtonLayout, setGamepadButtonLayout] = useState<'xbox' | 'playstation'>('playstation');
   const [missingGames, setMissingGames] = useState<Array<{
     id: string;
     title: string;
@@ -391,6 +395,9 @@ function App() {
     setAutoSizeToFit,
     setActiveGameId,
     setConfirmGameLaunch,
+    setEnableGamepadSupport,
+    setGamepadButtonLayout,
+    setGamepadNavigationSpeed,
     setLinkDisplayOrder,
     setVisibleLinkTypes,
     setSelectedCategory,
@@ -732,6 +739,9 @@ function App() {
     setShowLogoOverBoxart,
     setLogoPosition,
     setConfirmGameLaunch,
+    setEnableGamepadSupport,
+    setGamepadButtonLayout,
+    setGamepadNavigationSpeed,
     setDisableAllAnimations,
     setDisableAnimatedBanners,
     setDisableAnimatedBoxarts,
@@ -1246,6 +1256,24 @@ function App() {
     updateGameInState,
     viewMode,
     visibleLinkTypes,
+  });
+
+  useControllerNavigation({
+    activeGameId,
+    displayGames,
+    enabled: enableGamepadSupport,
+    gamepadButtonLayout,
+    gamepadNavigationSpeed,
+    isGameContextMenuOpen: gameContextMenu !== null,
+    isShellContextMenuOpen: rightClickMenu !== null,
+    onCloseGameContextMenu: () => setGameContextMenu(null),
+    onCloseShellContextMenu: () => setRightClickMenu(null),
+    onGameContextMenu: handleOpenGameContextMenu,
+    onGameSelect: handleGameClick,
+    onShellContextMenu: handleOpenShellContextMenu,
+    onStatus: showToast,
+    overlaysOpen,
+    viewMode,
   });
 
   const {

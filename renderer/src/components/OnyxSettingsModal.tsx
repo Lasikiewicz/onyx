@@ -217,8 +217,13 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
               closeToTray={settings.closeToTray}
               confirmGameLaunch={settings.confirmGameLaunch}
               enableHardwareAcceleration={settings.enableHardwareAcceleration}
+              enableGamepadSupport={settings.enableGamepadSupport}
+              gamepadButtonLayout={settings.gamepadButtonLayout}
+              gamepadNavigationSpeed={settings.gamepadNavigationSpeed}
               minimizeOnGameLaunch={settings.minimizeOnGameLaunch}
               minimizeToTray={settings.minimizeToTray}
+              onGamepadButtonLayoutChange={(layout) => setSettings((prev) => ({ ...prev, gamepadButtonLayout: layout }))}
+              onGamepadNavigationSpeedChange={(speed) => setSettings((prev) => ({ ...prev, gamepadNavigationSpeed: speed }))}
               onToggle={handleToggle}
               restoreAfterLaunch={settings.restoreAfterLaunch}
               showSystemTrayIcon={settings.showSystemTrayIcon}

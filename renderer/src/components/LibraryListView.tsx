@@ -195,6 +195,7 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                 onClick={() => onGameClick?.(game)}
                 onMouseEnter={() => prefetchGameArtwork(game)}
                 data-game-card="true"
+                data-controller-game-card={game.id}
                 onContextMenu={(e) => handleGameElementContextMenu(e, game)}
                 tabIndex={0}
                 onFocus={() => {

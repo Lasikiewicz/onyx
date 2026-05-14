@@ -36,6 +36,7 @@ This parent file is the settings overview and routing document. Detailed behavio
 - This feature owns the app's complete settings surface.
 - Detailed toggle inventories are maintained in the tab-specific runbooks.
 - Shared persistence is centered on [UserPreferencesService](../../main/UserPreferencesService.ts), with some tabs also calling dedicated IPC or credential storage APIs.
+- Controller navigation settings (`enableGamepadSupport`, `gamepadNavigationSpeed`, `gamepadButtonLayout`) default in [UserPreferencesService](../../main/UserPreferencesService.ts) and are applied at runtime by [useAppPreferences.ts](../../renderer/src/hooks/useAppPreferences.ts) and [useControllerNavigation.ts](../../renderer/src/hooks/useControllerNavigation.ts).
 
 ## Confirmed End-to-End Flows
 
@@ -58,6 +59,7 @@ This parent file is the settings overview and routing document. Detailed behavio
 ## Data Model and Persistence
 
 - Most settings persist in the user preferences store ([UserPreferencesService.ts](../../main/UserPreferencesService.ts)).
+- Gamepad settings are ordinary user preferences, not a separate controller profile store; the renderer treats missing legacy values as enabled PlayStation-layout defaults.
 - Some operational values use dedicated APIs or related stores:
   - background scanning configuration
   - API credentials ([APICredentialsService.ts](../../main/APICredentialsService.ts))

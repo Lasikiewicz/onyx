@@ -18,6 +18,9 @@ export interface OnyxSettings {
   closeToTray: boolean;
   confirmGameLaunch: boolean;
   restoreAfterLaunch: boolean;
+  enableGamepadSupport: boolean;
+  gamepadButtonLayout: 'xbox' | 'playstation';
+  gamepadNavigationSpeed: number;
   defaultStartupPage: 'library' | 'recent' | 'favorites';
   disableAllAnimations: boolean;
   disableAnimatedBanners: boolean;
@@ -69,6 +72,9 @@ const defaultSettings: OnyxSettings = {
   closeToTray: false,
   confirmGameLaunch: false,
   restoreAfterLaunch: false,
+  enableGamepadSupport: true,
+  gamepadButtonLayout: 'playstation',
+  gamepadNavigationSpeed: 180,
   defaultStartupPage: 'library',
   disableAllAnimations: false,
   disableAnimatedBanners: false,
@@ -136,6 +142,9 @@ export const useOnyxSettingsModalPersistence = ({
           closeToTray: prefs.closeToTray ?? false,
           confirmGameLaunch: prefs.confirmGameLaunch ?? false,
           restoreAfterLaunch: prefs.restoreAfterLaunch ?? false,
+          enableGamepadSupport: prefs.enableGamepadSupport ?? true,
+          gamepadButtonLayout: prefs.gamepadButtonLayout ?? 'playstation',
+          gamepadNavigationSpeed: prefs.gamepadNavigationSpeed ?? 180,
           defaultStartupPage: (prefs.defaultStartupPage as OnyxSettings['defaultStartupPage']) ?? 'library',
           disableAllAnimations: prefs.disableAllAnimations ?? false,
           disableAnimatedBanners: prefs.disableAnimatedBanners ?? false,
@@ -317,6 +326,9 @@ export const useOnyxSettingsModalPersistence = ({
         closeToTray: settings.closeToTray,
         confirmGameLaunch: settings.confirmGameLaunch,
         restoreAfterLaunch: settings.restoreAfterLaunch,
+        enableGamepadSupport: settings.enableGamepadSupport,
+        gamepadButtonLayout: settings.gamepadButtonLayout,
+        gamepadNavigationSpeed: settings.gamepadNavigationSpeed,
         defaultStartupPage: settings.defaultStartupPage,
         disableAllAnimations: settings.disableAllAnimations,
         disableAnimatedBanners: settings.disableAnimatedBanners,

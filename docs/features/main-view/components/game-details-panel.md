@@ -14,6 +14,7 @@ Right-hand panel in the library window (grid/list/logo modes) that shows the sel
 ## User-Facing Surfaces
 
 - Right panel: hero/banner/boxart background, logo, boxart position/size, metadata (release date, platform, genres, etc.), description (resizable width/height), link bar, Play/Edit/Mod Manager and other actions. Right-click opens context menu. Resizable panel width via left-edge drag. Bottom action bar (Edit, Play, links) is resizable by dragging its top edge; bar height and content scale are persisted.
+- The bottom action buttons expose controller targets so Cross from a highlighted game moves focus to Play, Left/Right cycles Favorite/Edit/Mod Manager/Play when present, Cross activates the focused action, and Circle returns focus to game selection.
 - The description/details column split remains horizontally resizable, but the divider is visually hidden until hover/drag feedback appears.
 - The top-level "Description" and "Details" headings are intentionally omitted so the panel starts directly with game content.
 - When the selected game changes, the panel keeps text content stable, buffers the next logo until it is ready instead of swapping immediately, and lets the logo grow into its chosen size on mount. The logo area is centered in the open space between the panel edge and the boxart in [`GameDetailsPanel.tsx`](../../../../renderer/src/components/GameDetailsPanel.tsx).
@@ -29,6 +30,7 @@ Right-hand panel in the library window (grid/list/logo modes) that shows the sel
 1. User selects a game in the games list: panel shows that game’s details; background and logo update. Selection and game data come from [App.tsx](../../../../renderer/src/App.tsx) state and the game object.
 2. User resizes panel (width or any divider): handlers in [GameDetailsPanel.tsx](../../../../renderer/src/components/GameDetailsPanel.tsx) update local state and call `onPanelWidthChange` / `onFanartHeightChange` / `onDescriptionWidthChange` / `onDetailsPanelBottomBarHeightChange`; [App.tsx](../../../../renderer/src/App.tsx) persists via `savePreferences`. Same preferences are applied when changing values from [RightClickMenu](../../../../renderer/src/components/RightClickMenu.tsx).
 3. User clicks Play / Edit / etc.: handlers passed from [App.tsx](../../../../renderer/src/App.tsx) run (launch, open Game Manager, etc.). See [Game launch and process tracking](../../game-launch-and-process-tracking.md).
+4. Controller action-row flow: [useControllerNavigation.ts](../../../../renderer/src/hooks/useControllerNavigation.ts) focuses the Play button first, cycles only enabled action buttons, and activates them through the same button click handlers used by mouse input.
 
 ## Discovery and Data Sources
 
@@ -83,6 +85,7 @@ Right-hand panel in the library window (grid/list/logo modes) that shows the sel
 - **Renderer**
   - [GameDetailsPanel.tsx](../../../../renderer/src/components/GameDetailsPanel.tsx) — panel UI, resize handles, banner/description/bottom bar, links, action buttons.
   - [App.tsx](../../../../renderer/src/App.tsx) — props, layout wrapper, and shell composition for the panel.
+  - [useControllerNavigation.ts](../../../../renderer/src/hooks/useControllerNavigation.ts) — controller entry into and navigation across the bottom action row.
   - [useGameDetailsPanelControls.ts](../../../../renderer/src/hooks/useGameDetailsPanelControls.ts) — root panel callback bundle, right-panel actions, and divider persistence wiring.
   - [RightClickMenuDividersSection.tsx](../../../../renderer/src/components/rightClickMenu/RightClickMenuDividersSection.tsx) — Dividers column sliders (panel width, fanart height, description width, bottom bar height) for grid/list/logo.
   - [GameLinks.tsx](../../../../renderer/src/components/GameLinks.tsx) — link bar in the panel (see [Links and link management](../../links-and-link-management.md)).

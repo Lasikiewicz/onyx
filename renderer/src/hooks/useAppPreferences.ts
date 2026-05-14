@@ -83,6 +83,9 @@ interface UseAppPreferencesOptions {
   setAutoSizeToFit: (value: boolean) => void;
   setActiveGameId: (value: string | null) => void;
   setConfirmGameLaunch: (value: boolean) => void;
+  setEnableGamepadSupport: (value: boolean) => void;
+  setGamepadButtonLayout: (value: 'xbox' | 'playstation') => void;
+  setGamepadNavigationSpeed: (value: number) => void;
   setLinkDisplayOrder: (value: string[]) => void;
   setVisibleLinkTypes: (value: Record<string, boolean>) => void;
   setSelectedCategory: (value: string | null) => void;
@@ -164,6 +167,9 @@ export function useAppPreferences({
   setAutoSizeToFit,
   setActiveGameId,
   setConfirmGameLaunch,
+  setEnableGamepadSupport,
+  setGamepadButtonLayout,
+  setGamepadNavigationSpeed,
   setLinkDisplayOrder,
   setVisibleLinkTypes,
   setSelectedCategory,
@@ -341,6 +347,9 @@ export function useAppPreferences({
       window.electronAPI.savePreferences({ isFirstLaunch: false });
     }
     if (prefs.confirmGameLaunch !== undefined) setConfirmGameLaunch(prefs.confirmGameLaunch);
+    if (prefs.enableGamepadSupport !== undefined) setEnableGamepadSupport(prefs.enableGamepadSupport);
+    if (prefs.gamepadButtonLayout !== undefined) setGamepadButtonLayout(prefs.gamepadButtonLayout);
+    if (prefs.gamepadNavigationSpeed !== undefined) setGamepadNavigationSpeed(prefs.gamepadNavigationSpeed);
     if (prefs.linkDisplayOrder && prefs.linkDisplayOrder.length > 0) setLinkDisplayOrder(prefs.linkDisplayOrder);
     if (prefs.visibleLinkTypes && Object.keys(prefs.visibleLinkTypes).length > 0) setVisibleLinkTypes(prefs.visibleLinkTypes);
 
@@ -384,6 +393,9 @@ export function useAppPreferences({
     setCategoriesPositionByView,
     setCategoriesSizeByView,
     setConfirmGameLaunch,
+    setEnableGamepadSupport,
+    setGamepadButtonLayout,
+    setGamepadNavigationSpeed,
     setCoverFlowButtonColors,
     setCoverFlowButtonPosition,
     setCoverFlowCoverSize,

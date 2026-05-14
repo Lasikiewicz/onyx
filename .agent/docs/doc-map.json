@@ -79,6 +79,14 @@
       "scope": "Build, CI/CD, and quality gates"
     },
     {
+      "id": "renderer-test-coverage",
+      "prefixes": [
+        "renderer/tests/"
+      ],
+      "doc": ".agent/docs/architecture.md",
+      "scope": "Renderer test coverage and quality gates"
+    },
+    {
       "id": "developer-automation",
       "prefixes": [
         "scripts/",

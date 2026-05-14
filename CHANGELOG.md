@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Pending]
 
+- App shell:
+  - Add DualSense/controller navigation for grid, logo, and list library views, including game cycling, details action-row focus, top-bar focus, and controller-opened context menus.
+  - Add visible General settings controls for controller navigation, button-label layout, and navigation repeat speed so saved gamepad preferences are no longer hidden.
+  - Add controller connection/input toasts, live debug state, analog button-value handling, and non-standard D-pad/hat-axis handling so DualSense detection issues are easier to diagnose across USB, Bluetooth, and Steam Input modes.
+  - Align the Custom Defaults Manager with the main app menu styling by using the same compact gray panel shell, blue active states, small rounded controls, and neutral action rows.
+
 ## [0.9.0] - 2026-04-30
 
 - Add Games:

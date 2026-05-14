@@ -155,6 +155,9 @@ export interface UserPreferences {
   startInFullscreen?: boolean; // Start app in fullscreen mode
   hideMouseCursorInFullscreen?: boolean; // Auto-hide cursor in fullscreen
   cursorHideTimeout?: number; // Timeout in ms before hiding cursor (default 3000)
+  enableGamepadSupport?: boolean;
+  gamepadNavigationSpeed?: number;
+  gamepadButtonLayout?: 'xbox' | 'playstation';
   // Top bar element positions
   topBarPositions?: {
     searchBar?: 'left' | 'middle' | 'right';
@@ -371,6 +374,9 @@ export class UserPreferencesService {
       startInFullscreen: false,
       hideMouseCursorInFullscreen: true,
       cursorHideTimeout: 3000,
+      enableGamepadSupport: true,
+      gamepadNavigationSpeed: 180,
+      gamepadButtonLayout: 'playstation',
       detailsPanelOpacity: 80,
       isFirstLaunch: true,
       enableHardwareAcceleration: true,

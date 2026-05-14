@@ -1,5 +1,5 @@
 import React from 'react';
-import { SettingsSection, SettingsToggle } from './SettingsComponents';
+import { SettingsInput, SettingsSection, SettingsToggle } from './SettingsComponents';
 
 interface SettingsGeneralTabProps {
   startWithComputer: boolean;
@@ -12,6 +12,9 @@ interface SettingsGeneralTabProps {
   minimizeOnGameLaunch: boolean;
   restoreAfterLaunch: boolean;
   confirmGameLaunch: boolean;
+  enableGamepadSupport: boolean;
+  gamepadButtonLayout: 'xbox' | 'playstation';
+  gamepadNavigationSpeed: number;
   onToggle: (
     key:
       | 'startWithComputer'
@@ -23,8 +26,11 @@ interface SettingsGeneralTabProps {
       | 'enableHardwareAcceleration'
       | 'minimizeOnGameLaunch'
       | 'restoreAfterLaunch'
-      | 'confirmGameLaunch',
+      | 'confirmGameLaunch'
+      | 'enableGamepadSupport',
   ) => void;
+  onGamepadButtonLayoutChange: (layout: 'xbox' | 'playstation') => void;
+  onGamepadNavigationSpeedChange: (speed: number) => void;
 }
 
 export const SettingsGeneralTab: React.FC<SettingsGeneralTabProps> = ({
@@ -38,7 +44,12 @@ export const SettingsGeneralTab: React.FC<SettingsGeneralTabProps> = ({
   minimizeOnGameLaunch,
   restoreAfterLaunch,
   confirmGameLaunch,
+  enableGamepadSupport,
+  gamepadButtonLayout,
+  gamepadNavigationSpeed,
   onToggle,
+  onGamepadButtonLayoutChange,
+  onGamepadNavigationSpeedChange,
 }) => {
   return (
     <div className="space-y-6 p-6">
@@ -85,6 +96,49 @@ export const SettingsGeneralTab: React.FC<SettingsGeneralTabProps> = ({
             description="Use GPU for rendering (Requires Restart)"
             checked={enableHardwareAcceleration}
             onChange={() => onToggle('enableHardwareAcceleration')}
+          />
+        </div>
+      </SettingsSection>
+
+      <SettingsSection title="Controller" description="Configure controller navigation for the main library view">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+          <SettingsToggle
+            label="Controller Navigation"
+            description="Use a DualSense or standard gamepad to navigate grid, logo, and list views"
+            checked={enableGamepadSupport}
+            onChange={() => onToggle('enableGamepadSupport')}
+          />
+          <div className="bg-gray-800/40 border border-gray-700/50 rounded-lg p-3 space-y-2">
+            <div>
+              <label className="text-gray-200 text-sm font-medium block mb-0.5">
+                Button Labels
+              </label>
+              <p className="text-gray-400 text-xs">
+                Choose the controller family used for action mapping copy
+              </p>
+            </div>
+            <select
+              value={gamepadButtonLayout}
+              onChange={(event) => onGamepadButtonLayoutChange(event.target.value as 'xbox' | 'playstation')}
+              className="w-full px-2.5 py-1.5 bg-gray-900/80 border border-gray-600 rounded text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all"
+            >
+              <option value="playstation">PlayStation</option>
+              <option value="xbox">Xbox</option>
+            </select>
+          </div>
+          <SettingsInput
+            label="Navigation Repeat"
+            description="Lower values repeat held stick/D-pad movement faster"
+            type="number"
+            value={gamepadNavigationSpeed}
+            onChange={(value) => {
+              const parsed = Number(value);
+              if (Number.isFinite(parsed)) {
+                onGamepadNavigationSpeedChange(Math.max(100, Math.min(650, parsed)));
+              }
+            }}
+            step={10}
+            suffix="ms"
           />
         </div>
       </SettingsSection>

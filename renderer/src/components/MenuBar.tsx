@@ -430,6 +430,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
       <input
         type="text"
         value={searchQuery}
+        data-controller-top-control="search"
         onChange={(e) => onSearchChange?.(e.target.value)}
         placeholder="Q Search"
         aria-label="Search library"
@@ -460,6 +461,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
   const renderSortBy = () => (
     <div className="relative" ref={sortDropdownRef}>
       <button
+        data-controller-top-control="sort"
         onClick={() => {
           setIsSortDropdownOpen(!isSortDropdownOpen);
           setIsFilterDropdownOpen(false);
@@ -503,6 +505,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
     return (
       <div className="relative" ref={launcherDropdownRef}>
         <button
+          data-controller-top-control="launcher"
           onClick={() => {
             setIsLauncherDropdownOpen(!isLauncherDropdownOpen);
             setIsFilterDropdownOpen(false);
@@ -581,6 +584,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
     return (
       <div className="relative" ref={filterDropdownRef}>
         <button
+          data-controller-top-control="categories"
           onClick={() => {
             setIsFilterDropdownOpen(!isFilterDropdownOpen);
             setIsSortDropdownOpen(false);
@@ -871,9 +875,13 @@ export const MenuBar: React.FC<MenuBarProps> = ({
             }}
           >
             <button
-              onClick={() => {
+              data-controller-menu-trigger
+              onClick={(event) => {
                 setIsFilterDropdownOpen(false);
                 setIsSortDropdownOpen(false);
+                if (event.detail === 0) {
+                  setIsOnyxSettingsMenuOpen((isOpen) => !isOpen);
+                }
               }}
               className="group p-1.5 hover:bg-gray-700/40 rounded transition-colors flex items-center justify-center"
               title="Onyx Settings"
@@ -910,7 +918,10 @@ export const MenuBar: React.FC<MenuBarProps> = ({
             </button>
 
             {/* Dropdown Menu */}
-            <div className={`absolute left-0 top-full mt-1 bg-gray-800 border border-gray-700 rounded-lg shadow-xl z-50 min-w-[240px] transition-all duration-300 origin-top-left ${isOnyxSettingsMenuOpen ? 'opacity-100 scale-100 visible pointer-events-auto' : 'opacity-0 scale-95 invisible pointer-events-none'}`}>
+            <div
+              data-controller-app-menu={isOnyxSettingsMenuOpen ? 'open' : 'closed'}
+              className={`absolute left-0 top-full mt-1 bg-gray-800 border border-gray-700 rounded-lg shadow-xl z-50 min-w-[240px] transition-all duration-300 origin-top-left ${isOnyxSettingsMenuOpen ? 'opacity-100 scale-100 visible pointer-events-auto' : 'opacity-0 scale-95 invisible pointer-events-none'}`}
+            >
               <div className="p-1">
                 {onUpdateLibrary && (
                   <button

@@ -162,6 +162,7 @@ export function AppShellLibraryView({
     <div className={`flex flex-col overflow-hidden ${isCarouselLikeView ? 'w-full' : 'flex-1'}`}>
       <div
         ref={gridContainerRef}
+        data-controller-library-surface
         className={`flex-1 overflow-y-auto relative z-10 ${isCarouselLikeView ? '' : (showCategories && (viewMode === 'grid' || viewMode === 'list' || viewMode === 'logo') ? 'p-0' : 'p-4')}`}
         onContextMenuCapture={(event) => {
           const target = event.target as HTMLElement;
