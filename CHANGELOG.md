@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Pending]
 
+- App shell:
+  - Preserve maximized window state across relaunches by serializing preference writes and flushing the latest BrowserWindow state before app quit paths complete.
+
 ## [0.9.2] - 2026-05-14
 
 - App shell:

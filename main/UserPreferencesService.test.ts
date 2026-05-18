@@ -66,4 +66,55 @@ describe('UserPreferencesService', () => {
             expect(normalize('1080P')).toBe('1080p');
         });
     });
+
+    describe('savePreferences', () => {
+        it('preserves the latest window state across concurrent partial saves', async () => {
+            const service = new UserPreferencesService();
+            const defaults = (service as any).createDefaultPreferences();
+            const state: Record<string, any> = {
+                preferences: {
+                    ...defaults,
+                    windowState: {
+                        x: 10,
+                        y: 10,
+                        width: 1280,
+                        height: 720,
+                        isMaximized: false,
+                    },
+                },
+                customDefaults: {},
+                schemaVersion: 1,
+            };
+            const clone = (value: any) => JSON.parse(JSON.stringify(value));
+
+            (service as any).store = {
+                get: vi.fn((key: string, defaultValue?: any) => (
+                    state[key] === undefined ? defaultValue : clone(state[key])
+                )),
+                set: vi.fn((key: string, value: any) => {
+                    state[key] = clone(value);
+                }),
+            };
+
+            await Promise.all([
+                service.savePreferences({
+                    windowState: {
+                        x: 0,
+                        y: 0,
+                        width: 1920,
+                        height: 1080,
+                        isMaximized: true,
+                    },
+                }),
+                service.savePreferences({ viewMode: 'list' }),
+            ]);
+
+            expect(state.preferences.windowState).toMatchObject({
+                width: 1920,
+                height: 1080,
+                isMaximized: true,
+            });
+            expect(state.preferences.viewMode).toBe('list');
+        });
+    });
 });

@@ -120,7 +120,7 @@ Owns the renderer root experience in [`App.tsx`](../../renderer/src/App.tsx): li
 
 - The shell itself does not persist a separate app-shell document store.
 - Persistent shell-affecting state is loaded from preferences in [`App.tsx`](../../renderer/src/App.tsx) and written through [`UserPreferencesService.ts`](../../main/UserPreferencesService.ts).
-- Main-window shell state is persisted from [`main.ts`](../../main/main.ts): move/resize writes are debounced, while maximize/unmaximize/fullscreen transitions save immediately so renderer reloads or fast relaunches still reopen with the latest window mode.
+- Main-window shell state is persisted from [`main.ts`](../../main/main.ts): move/resize writes are debounced, while maximize/unmaximize/fullscreen transitions save immediately and app quit paths flush the latest window mode before shutdown. [`UserPreferencesService.ts`](../../main/UserPreferencesService.ts) serializes preference writes so later partial saves cannot overwrite a newly persisted maximized or fullscreen state with stale values.
 - Transient overlay state such as `toast`, `startupProgress`, `foundGames`, `missingGames`, `updateNotification`, and `crashDumpPaths` lives in [`App.tsx`](../../renderer/src/App.tsx) and is only held in memory.
 
 ## Failure Modes and Triage
@@ -145,7 +145,7 @@ Owns the renderer root experience in [`App.tsx`](../../renderer/src/App.tsx): li
 
 - Check preference load/apply flow in [`useAppPreferences.ts`](../../renderer/src/hooks/useAppPreferences.ts).
 - Check the persisted settings source in [Settings and Preferences Overview](./settings-and-preferences.md).
-- Check [`main.ts`](../../main/main.ts) window-state persistence if the issue is specifically about maximized or fullscreen restoration after a reload/relaunch.
+- Check [`main.ts`](../../main/main.ts) window-state persistence and [`UserPreferencesService.ts`](../../main/UserPreferencesService.ts) write ordering if the issue is specifically about maximized or fullscreen restoration after a reload/relaunch.
 
 ### Symptom: switching views or other shell controls snap back immediately
 

@@ -250,6 +250,9 @@ let win: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let trayService: TrayService | null = null;
 let isAppQuitting = false;
+let isFlushingWindowStateBeforeQuit = false;
+let hasRunBeforeQuitCleanup = false;
+let flushWindowStateBeforeQuit: (() => Promise<void>) | null = null;
 let previousCrashSessionState: CrashSessionState | null = null;
 
 type StartupWindowMode = 'normal' | 'minimized' | 'tray';
@@ -1059,13 +1062,15 @@ async function createWindow() {
   // Maximize/fullscreen transitions are written immediately so fast reloads/relaunches
   // do not lose the latest shell state while move/resize remains debounced.
   let saveWindowStateTimeout: NodeJS.Timeout | null = null;
+  let pendingWindowStateSave: Promise<void> = Promise.resolve();
   const persistWindowState = async () => {
-    if (!win) return;
+    const targetWindow = win;
+    if (!targetWindow) return;
 
     try {
-      const bounds = win.getBounds();
-      const isMaximized = win.isMaximized();
-      const isFullscreen = win.isFullScreen();
+      const bounds = targetWindow.getBounds();
+      const isMaximized = targetWindow.isMaximized();
+      const isFullscreen = targetWindow.isFullScreen();
 
       await userPreferencesService.savePreferences({
         windowState: {
@@ -1082,6 +1087,24 @@ async function createWindow() {
     }
   };
 
+  const queueWindowStateSave = () => {
+    pendingWindowStateSave = persistWindowState();
+    return pendingWindowStateSave;
+  };
+
+  const flushWindowStateSave = async () => {
+    if (saveWindowStateTimeout) {
+      clearTimeout(saveWindowStateTimeout);
+      saveWindowStateTimeout = null;
+    }
+
+    await pendingWindowStateSave;
+    const currentSave = queueWindowStateSave();
+    await currentSave;
+  };
+
+  flushWindowStateBeforeQuit = flushWindowStateSave;
+
   const scheduleWindowStateSave = () => {
     if (!win) return;
 
@@ -1091,7 +1114,7 @@ async function createWindow() {
 
     saveWindowStateTimeout = setTimeout(() => {
       saveWindowStateTimeout = null;
-      void persistWindowState();
+      void queueWindowStateSave();
     }, 500);
   };
 
@@ -1101,7 +1124,7 @@ async function createWindow() {
       saveWindowStateTimeout = null;
     }
 
-    void persistWindowState();
+    void queueWindowStateSave();
   };
 
   win.on('move', scheduleWindowStateSave);
@@ -1125,11 +1148,7 @@ async function createWindow() {
     try {
       // Save window state before closing
       if (win) {
-        if (saveWindowStateTimeout) {
-          clearTimeout(saveWindowStateTimeout);
-          saveWindowStateTimeout = null;
-        }
-        await persistWindowState();
+        await flushWindowStateSave();
       }
 
       const prefs = await userPreferencesService.getPreferences();
@@ -1166,6 +1185,12 @@ async function createWindow() {
     const shouldPromptForPreviousCrash = previousCrashSessionState?.lastExitedCleanly === false;
     if (shouldPromptForPreviousCrash && dumpPaths.length > 0 && win && !win.isDestroyed()) {
       win.webContents.send('crash:dumpsAvailable', { paths: dumpPaths });
+    }
+  });
+
+  win.on('closed', () => {
+    if (flushWindowStateBeforeQuit === flushWindowStateSave) {
+      flushWindowStateBeforeQuit = null;
     }
   });
 
@@ -2209,8 +2234,26 @@ app.whenReady().then(async () => {
 });
 
 // Cleanup global shortcuts and background scan on app quit
-app.on('before-quit', () => {
+app.on('before-quit', (event) => {
+  if (!isFlushingWindowStateBeforeQuit && flushWindowStateBeforeQuit) {
+    event.preventDefault();
+    isFlushingWindowStateBeforeQuit = true;
+    flushWindowStateBeforeQuit()
+      .catch((error) => {
+        console.error('[Shutdown] Failed to flush window state before quit:', error);
+      })
+      .finally(() => {
+        app.quit();
+      });
+    return;
+  }
+
   isAppQuitting = true;
+  if (hasRunBeforeQuitCleanup) {
+    return;
+  }
+  hasRunBeforeQuitCleanup = true;
+
   writeCrashSessionState({
     lastExitedCleanly: true,
     lastExitAt: new Date().toISOString(),

@@ -237,6 +237,7 @@ import Store from './electronStoreShim.js';
 export class UserPreferencesService {
   private store: Store<UserPreferencesSchema>;
   private readonly schemaVersion = 1;
+  private storeWriteQueue: Promise<void> = Promise.resolve();
 
   constructor() {
     this.store = new Store<UserPreferencesSchema>({
@@ -251,6 +252,15 @@ export class UserPreferencesService {
 
   private async ensureStore(): Promise<Store<UserPreferencesSchema>> {
     return this.store;
+  }
+
+  private async withStoreWrite<T>(operation: () => Promise<T>): Promise<T> {
+    const run = this.storeWriteQueue.then(operation, operation);
+    this.storeWriteQueue = run.then(
+      () => undefined,
+      () => undefined,
+    );
+    return run;
   }
 
   private createDefaultPreferences(): UserPreferences {
@@ -1334,63 +1344,69 @@ export class UserPreferencesService {
    * Get user preferences
    */
   async getPreferences(): Promise<UserPreferences> {
-    const store = await this.ensureStore();
-    const current = store.get('preferences', this.createDefaultPreferences()) as Partial<UserPreferences>;
-    const normalized = await this.normalizePreferences(current);
-    const currentSchemaVersion = store.get('schemaVersion', 0) as number;
+    return this.withStoreWrite(async () => {
+      const store = await this.ensureStore();
+      const current = store.get('preferences', this.createDefaultPreferences()) as Partial<UserPreferences>;
+      const normalized = await this.normalizePreferences(current);
+      const currentSchemaVersion = store.get('schemaVersion', 0) as number;
 
-    if (currentSchemaVersion !== this.schemaVersion) {
-      store.set('schemaVersion', this.schemaVersion);
-    }
+      if (currentSchemaVersion !== this.schemaVersion) {
+        store.set('schemaVersion', this.schemaVersion);
+      }
 
-    // Only save the cleaned version without duplicates
-    const forStorage = this.stripDuplicateFieldsForStorage(normalized);
-    store.set('preferences', forStorage);
+      // Only save the cleaned version without duplicates
+      const forStorage = this.stripDuplicateFieldsForStorage(normalized);
+      store.set('preferences', forStorage);
 
-    // But return the full normalized version for app use
-    return normalized;
+      // But return the full normalized version for app use
+      return normalized;
+    });
   }
 
   /**
    * Save user preferences
    */
   async savePreferences(preferences: Partial<UserPreferences>): Promise<void> {
-    const store = await this.ensureStore();
-    const current = await this.normalizePreferences(store.get('preferences', this.createDefaultPreferences()));
-    const baseSections = preferences.sections ?? current.sections;
-    const mergedInput: Partial<UserPreferences> = {
-      ...current,
-      ...preferences,
-      // Only normalize from sections when explicitly provided to avoid overwriting fresh updates.
-      sections: preferences.sections ? preferences.sections : undefined,
-      currentResolution: preferences.currentResolution ?? current.currentResolution,
-    };
-    const merged = await this.normalizePreferences(mergedInput);
+    await this.withStoreWrite(async () => {
+      const store = await this.ensureStore();
+      const current = await this.normalizePreferences(store.get('preferences', this.createDefaultPreferences()));
+      const baseSections = preferences.sections ?? current.sections;
+      const mergedInput: Partial<UserPreferences> = {
+        ...current,
+        ...preferences,
+        // Only normalize from sections when explicitly provided to avoid overwriting fresh updates.
+        sections: preferences.sections ? preferences.sections : undefined,
+        currentResolution: preferences.currentResolution ?? current.currentResolution,
+      };
+      const merged = await this.normalizePreferences(mergedInput);
 
-    // Update current resolution sections from merged values so UI changes persist
-    const resolutionKey = merged.currentResolution || await this.getCurrentResolution();
-    const rebuiltSections = this.buildReadableSections(merged);
-    merged.sections = {
-      ...(baseSections || {}),
-      [resolutionKey]: rebuiltSections[resolutionKey],
-    };
+      // Update current resolution sections from merged values so UI changes persist
+      const resolutionKey = merged.currentResolution || await this.getCurrentResolution();
+      const rebuiltSections = this.buildReadableSections(merged);
+      merged.sections = {
+        ...(baseSections || {}),
+        [resolutionKey]: rebuiltSections[resolutionKey],
+      };
 
-    // Strip duplicate fields before saving to disk (sections are the source of truth)
-    const forStorage = this.stripDuplicateFieldsForStorage(merged);
-    store.set('preferences', forStorage);
-    store.set('schemaVersion', this.schemaVersion);
+      // Strip duplicate fields before saving to disk (sections are the source of truth)
+      const forStorage = this.stripDuplicateFieldsForStorage(merged);
+      store.set('preferences', forStorage);
+      store.set('schemaVersion', this.schemaVersion);
+    });
   }
 
   /**
    * Reset preferences to defaults
    */
   async resetPreferences(): Promise<void> {
-    const store = await this.ensureStore();
-    const defaults = this.createDefaultPreferences();
-    const forStorage = this.stripDuplicateFieldsForStorage(defaults);
-    store.set('preferences', forStorage);
-    store.set('customDefaults', {});
-    store.set('schemaVersion', this.schemaVersion);
+    await this.withStoreWrite(async () => {
+      const store = await this.ensureStore();
+      const defaults = this.createDefaultPreferences();
+      const forStorage = this.stripDuplicateFieldsForStorage(defaults);
+      store.set('preferences', forStorage);
+      store.set('customDefaults', {});
+      store.set('schemaVersion', this.schemaVersion);
+    });
   }
 
   async getBaselineDefaults(): Promise<BaselineDefaults> {
