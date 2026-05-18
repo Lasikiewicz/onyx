@@ -244,10 +244,11 @@ export interface UserPreferences {
   detailsPanelOpacity?: number;
   detailsPanelBottomBarHeight?: number;
   topBarPositions?: {
-    searchBar?: 'left' | 'middle' | 'right';
-    sortBy?: 'left' | 'middle' | 'right';
-    launcher?: 'left' | 'middle' | 'right';
-    categories?: 'left' | 'middle' | 'right';
+    searchBar?: 'left' | 'middle' | 'right' | 'hidden';
+    sortBy?: 'left' | 'middle' | 'right' | 'hidden';
+    launcher?: 'left' | 'middle' | 'right' | 'hidden';
+    categories?: 'left' | 'middle' | 'right' | 'hidden';
+    pinnedCategories?: 'left' | 'middle' | 'right' | 'hidden';
   };
   isFirstLaunch?: boolean;
   hasSeenPostImportTutorial?: boolean;

@@ -37,6 +37,8 @@ This parent file is the settings overview and routing document. Detailed behavio
 - Detailed toggle inventories are maintained in the tab-specific runbooks.
 - Shared persistence is centered on [UserPreferencesService](../../main/UserPreferencesService.ts), with some tabs also calling dedicated IPC or credential storage APIs.
 - Controller navigation settings (`enableGamepadSupport`, `gamepadNavigationSpeed`, `gamepadButtonLayout`) default in [UserPreferencesService](../../main/UserPreferencesService.ts), but the General tab currently marks them coming soon and [App.tsx](../../renderer/src/App.tsx) keeps [useControllerNavigation.ts](../../renderer/src/hooks/useControllerNavigation.ts) disabled.
+- Top-bar layout settings (`topBarPositions`) default in [UserPreferencesService](../../main/UserPreferencesService.ts), are loaded by [useAppShellViewState.ts](../../renderer/src/hooks/useAppShellViewState.ts), and are edited from the fixed top bar's right-click layout menu in [MenuBar.tsx](../../renderer/src/components/MenuBar.tsx) / [TopBarContextMenu.tsx](../../renderer/src/components/TopBarContextMenu.tsx).
+- Tray settings (`showSystemTrayIcon`, `minimizeToTray`, `closeToTray`) are stored as General preferences and consumed by [main.ts](../../main/main.ts), [appHandlers.ts](../../main/ipc/appHandlers.ts), and [tray.ts](../../main/ui/tray.ts) so minimize, close, and tray-restore behavior stay aligned.
 
 ## Confirmed End-to-End Flows
 
@@ -46,6 +48,7 @@ This parent file is the settings overview and routing document. Detailed behavio
 4. Main-process services persist preferences, credentials, or operational config.
 5. Renderer refreshes state and runtime consumers pick up changes immediately or on next startup, depending on the setting.
 6. The settings modal is lazy-loaded from [App.tsx](../../renderer/src/App.tsx), so the initial app shell does not pay the full settings bundle cost until the user opens Settings.
+7. Top-bar layout edits are applied from the top-bar context menu rather than the settings modal, but they use the same preferences store and restore with the rest of the app shell on launch.
 
 ## Discovery and Data Sources
 
@@ -53,12 +56,13 @@ This parent file is the settings overview and routing document. Detailed behavio
 - Extracted tab bodies: [SettingsGeneralTab.tsx](../../renderer/src/components/settings/SettingsGeneralTab.tsx), [SettingsAnimationsTab.tsx](../../renderer/src/components/settings/SettingsAnimationsTab.tsx), [SettingsIntegrationsTab.tsx](../../renderer/src/components/settings/SettingsIntegrationsTab.tsx), [SettingsAboutTab.tsx](../../renderer/src/components/settings/SettingsAboutTab.tsx), [SettingsLibrariesTab.tsx](../../renderer/src/components/settings/SettingsLibrariesTab.tsx), [SettingsAdvancedTab.tsx](../../renderer/src/components/settings/SettingsAdvancedTab.tsx), [SettingsLinksTab.tsx](../../renderer/src/components/settings/SettingsLinksTab.tsx), [SettingsScanningTab.tsx](../../renderer/src/components/settings/SettingsScanningTab.tsx), and [SettingsSuspendTab.tsx](../../renderer/src/components/settings/SettingsSuspendTab.tsx)
 - Shared modal workflow hooks: [useOnyxSettingsModalShellState.ts](../../renderer/src/hooks/useOnyxSettingsModalShellState.ts), [useOnyxSettingsLibrarySources.ts](../../renderer/src/hooks/useOnyxSettingsLibrarySources.ts), and [useOnyxSettingsModalPersistence.ts](../../renderer/src/hooks/useOnyxSettingsModalPersistence.ts)
 - Shared persistence: [UserPreferencesService.ts](../../main/UserPreferencesService.ts)
-- Runtime application of settings happens in [App.tsx](../../renderer/src/App.tsx), [useAppPreferences.ts](../../renderer/src/hooks/useAppPreferences.ts), [useSettingsSaveRefresh.ts](../../renderer/src/hooks/useSettingsSaveRefresh.ts), [usePreferenceWriter.ts](../../renderer/src/hooks/usePreferenceWriter.ts), [useRightClickMenuControls.ts](../../renderer/src/hooks/useRightClickMenuControls.ts), [useAppShellModalControls.ts](../../renderer/src/hooks/useAppShellModalControls.ts), Electron bootstrap code, metadata services, import services, and launcher flows.
+- Runtime application of settings happens in [App.tsx](../../renderer/src/App.tsx), [useAppPreferences.ts](../../renderer/src/hooks/useAppPreferences.ts), [useAppShellViewState.ts](../../renderer/src/hooks/useAppShellViewState.ts), [useSettingsSaveRefresh.ts](../../renderer/src/hooks/useSettingsSaveRefresh.ts), [usePreferenceWriter.ts](../../renderer/src/hooks/usePreferenceWriter.ts), [useRightClickMenuControls.ts](../../renderer/src/hooks/useRightClickMenuControls.ts), [useAppShellModalControls.ts](../../renderer/src/hooks/useAppShellModalControls.ts), Electron bootstrap code, metadata services, import services, and launcher flows.
 - Per-tab behavior is documented in [settings/README.md](./settings/README.md) and the linked tab docs.
 
 ## Data Model and Persistence
 
 - Most settings persist in the user preferences store ([UserPreferencesService.ts](../../main/UserPreferencesService.ts)).
+- The top-bar layout preference stores individual positions for `searchBar`, `sortBy`, `launcher`, `categories`, and `pinnedCategories`, including the `hidden` state for each item.
 - Gamepad settings are ordinary user preferences, not a separate controller profile store; the renderer keeps the stored values for future support while the controller surface is marked coming soon.
 - Some operational values use dedicated APIs or related stores:
   - background scanning configuration
@@ -80,6 +84,11 @@ This parent file is the settings overview and routing document. Detailed behavio
 - Check whether the affected subsystem only reads the setting at startup.
 - Inspect the relevant tab runbook for subsystem-specific application rules.
 
+### Symptom: Top-bar controls do not restore, move, or hide correctly
+
+- Confirm `topBarPositions` has the expected keys in [UserPreferencesService.ts](../../main/UserPreferencesService.ts).
+- Check [useAppShellViewState.ts](../../renderer/src/hooks/useAppShellViewState.ts) for preference load/defaults and [MenuBar.tsx](../../renderer/src/components/MenuBar.tsx) for rendering hidden versus positioned controls.
+
 ### Symptom: A settings area is unclear or incomplete
 
 - Treat the matching tab doc in [settings/](./settings/README.md) as the first required update target.
@@ -98,9 +107,13 @@ This parent file is the settings overview and routing document. Detailed behavio
   - [electronStoreShim.ts](../../main/electronStoreShim.ts)
   - [ipc/appHandlers.ts](../../main/ipc/appHandlers.ts)
   - [main.ts](../../main/main.ts)
+  - [tray.ts](../../main/ui/tray.ts)
 - **Renderer**
   - [OnyxSettingsModal.tsx](../../renderer/src/components/OnyxSettingsModal.tsx)
   - [App.tsx](../../renderer/src/App.tsx)
+  - [MenuBar.tsx](../../renderer/src/components/MenuBar.tsx)
+  - [TopBarContextMenu.tsx](../../renderer/src/components/TopBarContextMenu.tsx)
+  - [useAppShellViewState.ts](../../renderer/src/hooks/useAppShellViewState.ts)
   - [useSettingsSaveRefresh.ts](../../renderer/src/hooks/useSettingsSaveRefresh.ts)
   - [usePreferenceWriter.ts](../../renderer/src/hooks/usePreferenceWriter.ts)
   - [useRightClickMenuControls.ts](../../renderer/src/hooks/useRightClickMenuControls.ts)

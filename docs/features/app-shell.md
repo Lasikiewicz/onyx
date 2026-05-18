@@ -22,6 +22,8 @@ Owns the renderer root experience in [`App.tsx`](../../renderer/src/App.tsx): li
 - The shell preference bridge in [`useAppPreferences.ts`](../../renderer/src/hooks/useAppPreferences.ts), which owns initial preference load, baseline defaults, refresh, and resolution-change preference reapplication.
 - [`useAppPreferences.ts`](../../renderer/src/hooks/useAppPreferences.ts) must treat initial preference bootstrap as a one-time startup action; normal in-session shell changes such as switching library view must not trigger a fresh preference load from disk.
 - The shell preference-persistence bridge in [`useAppShellPreferencePersistence.ts`](../../renderer/src/hooks/useAppShellPreferencePersistence.ts), which owns debounced renderer-side preference writes for core shell layout/display state and validates restored active-game selection against the current library.
+- The shell selection bridge in [`useAppShellSelection.ts`](../../renderer/src/hooks/useAppShellSelection.ts), which waits for initial preferences before falling back to the first visible game and writes clicked game selections through `activeGameId` so relaunching restores the last selected library entry.
+- The top bar in [`MenuBar.tsx`](../../renderer/src/components/MenuBar.tsx) and layout menu in [`TopBarContextMenu.tsx`](../../renderer/src/components/TopBarContextMenu.tsx), which expose right-click layout controls for search, sort, launcher, category menu, and pinned category buttons across left, middle, right, and hidden states.
 - The shell animated-media policy bridge in [`useAnimatedMediaPolicy.ts`](../../renderer/src/hooks/useAnimatedMediaPolicy.ts), which strips animated image formats during overlays or disabled animation categories and enforces shell-wide video pause/resume behavior.
 - The shell modal-state bridge in [`useAppShellModals.ts`](../../renderer/src/hooks/useAppShellModals.ts), which centralizes shell modal open/close state and tab/game targeting for settings, Game Manager, onboarding, and adjacent modal entry points.
 - The shell system-state bridge in [`useAppShellSystemState.ts`](../../renderer/src/hooks/useAppShellSystemState.ts), which centralizes updater/changelog state, dev update-preview helpers, background-scan pause while update prompts are open, and crash-dump prompt actions.
@@ -66,13 +68,15 @@ Owns the renderer root experience in [`App.tsx`](../../renderer/src/App.tsx): li
 ## Settings and Toggles
 
 - App-shell behavior depends on persisted preferences loaded and applied by [`App.tsx`](../../renderer/src/App.tsx), especially view mode, layout preferences, startup page, animation controls, and launch/restore options.
+- Top-bar layout preferences include search, sort, launcher, category menu, and pinned category positions. The right-click layout menu can move all controls together, hide/show all controls, or hide/move individual controls without closing after each setting change.
+- Tray behavior depends on `showSystemTrayIcon`, `minimizeToTray`, and `closeToTray`; minimize-to-tray only hides to tray when the tray icon is available, while tray restore reopens the window in its saved normal, maximized, or fullscreen state.
 - Startup scan gating depends on updater dismissal and startup scan settings documented in [Library Import and Startup Scan](./library-import-and-startup-scan.md).
 - Update modal behavior depends on the updater flow documented in [Updater and Release Install](./updater.md).
 
 ## Confirmed End-to-End Flows
 
 1. Renderer boots in [`App.tsx`](../../renderer/src/App.tsx); [`useAppPreferences.ts`](../../renderer/src/hooks/useAppPreferences.ts) loads preferences, applies baseline defaults when needed, restores shell state, and then the library window mounts with the persisted shell configuration.
-2. [`App.tsx`](../../renderer/src/App.tsx) reconciles `activeGameId` against the currently visible filtered library; if the saved or previous selection is no longer visible, the shell promotes the first visible game so switching games, changing filters, and right-panel rendering stay in sync.
+2. [`useAppShellSelection.ts`](../../renderer/src/hooks/useAppShellSelection.ts) waits until initial preferences finish loading, restores `activeGameId` when it is still visible, writes clicked selections immediately, and only promotes the first visible game when the saved or previous selection is no longer valid.
 3. Main-process startup/update events reach the renderer via preload listeners; [`useAppShellEvents.ts`](../../renderer/src/hooks/useAppShellEvents.ts) updates root state in [`App.tsx`](../../renderer/src/App.tsx) and [`AppShellOverlays.tsx`](../../renderer/src/components/appShell/AppShellOverlays.tsx) renders the matching overlay.
 4. Startup scans show progress first, then use [`StartupScanOverlay.tsx`](../../renderer/src/components/appShell/StartupScanOverlay.tsx) to either dismiss quietly or route found games into the importer.
 5. [`useAppShellModals.ts`](../../renderer/src/hooks/useAppShellModals.ts) normalizes settings, Game Manager, onboarding, and related modal routes so shell callbacks can target tabs or games without each surface reimplementing the same state transitions.
@@ -82,7 +86,8 @@ Owns the renderer root experience in [`App.tsx`](../../renderer/src/App.tsx): li
 9. [`useStartupScanReview.ts`](../../renderer/src/hooks/useStartupScanReview.ts) owns the startup overlay’s cancel/review actions so found-games review routes into the importer through one focused handoff path.
 10. [`useGameManagerShellBridge.ts`](../../renderer/src/hooks/useGameManagerShellBridge.ts) owns the shell-side Game Manager maintenance bridge, including delete/save follow-up and maintenance-mode importer handoff.
 11. [`useMainViewShellControls.ts`](../../renderer/src/hooks/useMainViewShellControls.ts) bundles MenuBar and TopBar shell actions, including refresh/import/settings entry points and preference-backed search/view updates, so root control routing stays consistent across main-view surfaces.
-12. [`useRightClickMenuControls.ts`](../../renderer/src/hooks/useRightClickMenuControls.ts) bundles the root right-click settings menu actions, including per-view preference writes and active-game handoff, so `RightClickMenu` routing no longer stays inline in [`App.tsx`](../../renderer/src/App.tsx). The shell keeps a transient initial editor section on right-click open state so library-surface right-clicks focus Games View controls and details-panel right-clicks focus Game Details controls.
+12. Right-clicking anywhere on the fixed top bar opens [`TopBarContextMenu.tsx`](../../renderer/src/components/TopBarContextMenu.tsx). Position and visibility changes call the shell preference writer while leaving the menu open for repeated edits, and explicit `Close` or outside click dismisses the menu.
+13. [`useRightClickMenuControls.ts`](../../renderer/src/hooks/useRightClickMenuControls.ts) bundles the root right-click settings menu actions, including per-view preference writes and active-game handoff, so `RightClickMenu` routing no longer stays inline in [`App.tsx`](../../renderer/src/App.tsx). The shell keeps a transient initial editor section on right-click open state so library-surface right-clicks focus Games View controls and details-panel right-clicks focus Game Details controls.
 13. [`RightClickMenuCarouselSection.tsx`](../../renderer/src/components/rightClickMenu/RightClickMenuCarouselSection.tsx) now owns the carousel-only editor controls, including selected-art sizing, detail-bar sizing, carousel logo and button alignment, and the per-game carousel logo override path.
 14. [`RightClickMenuCoverFlowSection.tsx`](../../renderer/src/components/rightClickMenu/RightClickMenuCoverFlowSection.tsx) now owns the cover-flow-only editor controls, including cover size, reflection, side opacity, cover offset, and cover-flow button styling.
 15. [`RightClickMenuDetailsSection.tsx`](../../renderer/src/components/rightClickMenu/RightClickMenuDetailsSection.tsx) now owns the shared Game Details editor column for grid, list, and logo view menus.
@@ -121,6 +126,8 @@ Owns the renderer root experience in [`App.tsx`](../../renderer/src/App.tsx): li
 - The shell itself does not persist a separate app-shell document store.
 - Persistent shell-affecting state is loaded from preferences in [`App.tsx`](../../renderer/src/App.tsx) and written through [`UserPreferencesService.ts`](../../main/UserPreferencesService.ts).
 - Main-window shell state is persisted from [`main.ts`](../../main/main.ts): move/resize writes are debounced, while maximize/unmaximize/fullscreen transitions save immediately and app quit paths flush the latest window mode before shutdown. [`UserPreferencesService.ts`](../../main/UserPreferencesService.ts) serializes preference writes so later partial saves cannot overwrite a newly persisted maximized or fullscreen state with stale values.
+- Top-bar layout is stored in `topBarPositions`, including `pinnedCategories` and the `hidden` state for each top-bar item. Active selection is stored in `activeGameId` when the user selects a visible game.
+- Tray settings are stored in general preferences and mirrored in the main process so minimize, close, tray menu restore, and tray-icon visibility share the same runtime flags.
 - Transient overlay state such as `toast`, `startupProgress`, `foundGames`, `missingGames`, `updateNotification`, and `crashDumpPaths` lives in [`App.tsx`](../../renderer/src/App.tsx) and is only held in memory.
 
 ## Failure Modes and Triage
@@ -156,6 +163,17 @@ Owns the renderer root experience in [`App.tsx`](../../renderer/src/App.tsx): li
 
 - Check the selection reconciliation logic in [`useAppShellSelection.ts`](../../renderer/src/hooks/useAppShellSelection.ts), especially the visible-selection fallback when the previous game is no longer in `filteredGames`.
 - Check that the current view component (`LibraryGrid`, `LibraryListView`, `LibraryCarousel`, or `LibraryCoverFlow`) is forwarding `onGameClick` back through [`AppShellLibraryView.tsx`](../../renderer/src/components/appShell/AppShellLibraryView.tsx).
+- Confirm preference bootstrap has completed before fallback selection runs, and verify clicked games write `activeGameId` through [`UserPreferencesService.ts`](../../main/UserPreferencesService.ts).
+
+### Symptom: top-bar layout menu closes after each change or does not open everywhere
+
+- Check [`MenuBar.tsx`](../../renderer/src/components/MenuBar.tsx) for the shared top-bar context-menu opener and [`TopBarContextMenu.tsx`](../../renderer/src/components/TopBarContextMenu.tsx) for close behavior.
+- Confirm `onPositionsChange` updates preferences without clearing the open context-menu state, and that the top bar surface is not marked as an Electron drag region that blocks context-menu events.
+
+### Symptom: restoring from tray does not preserve maximize/fullscreen state
+
+- Check tray restore actions in [`main/ui/tray.ts`](../../main/ui/tray.ts) and window-state restoration in [`main.ts`](../../main/main.ts).
+- Confirm minimize-to-tray is reading the latest `minimizeToTray` and `showSystemTrayIcon` flags before hiding the window.
 
 ### Symptom: WebP banners, logos, or boxarts are missing
 
@@ -190,6 +208,7 @@ Owns the renderer root experience in [`App.tsx`](../../renderer/src/App.tsx): li
 - [AppShellLibraryView.tsx](../../renderer/src/components/appShell/AppShellLibraryView.tsx) - reusable left-panel library surface that renders category rows, welcome handoff, and grid/list/carousel/coverflow view branching for the app shell.
 - [useAppShellLibraryFilters.ts](../../renderer/src/hooks/useAppShellLibraryFilters.ts) - bundled category pinning, category counts, launcher derivation, and filtered-library sorting for the root shell.
 - [useAppShellSelection.ts](../../renderer/src/hooks/useAppShellSelection.ts) - bundled active-game lookup and visible-library selection reconciliation for the root shell.
+- [TopBarContextMenu.tsx](../../renderer/src/components/TopBarContextMenu.tsx) - top-bar layout menu for moving or hiding shell controls without leaving the menu.
 - [useControllerNavigation.ts](../../renderer/src/hooks/useControllerNavigation.ts) - browser Gamepad API polling, controller focus routing, connection/input toasts, and debug state for grid/list/logo shell control, currently gated off while marked coming soon.
 - [useAppShellBackgroundMedia.ts](../../renderer/src/hooks/useAppShellBackgroundMedia.ts) - bundled background artwork/video selection, animated fallback handling, blur optimization, and adjacent-art preloading for the root shell.
 - [useAppShellGameConfirmations.ts](../../renderer/src/hooks/useAppShellGameConfirmations.ts) - bundled hide/uninstall confirmation state and follow-up actions for the root shell.
@@ -202,4 +221,5 @@ Owns the renderer root experience in [`App.tsx`](../../renderer/src/App.tsx): li
 - [FoundGamesModal.tsx](../../renderer/src/components/FoundGamesModal.tsx) - reusable found-games review modal used by the startup overlay when scans discover new titles.
 - [MenuBar.tsx](../../renderer/src/components/MenuBar.tsx) - top-level shell entry points into importer, settings, updater, tutorial, and other library actions.
 - [main.ts](../../main/main.ts) - owns BrowserWindow creation plus persisted bounds/maximize/fullscreen restoration for the main app shell.
+- [tray.ts](../../main/ui/tray.ts) - owns tray menu rendering, tray restore actions, recent-game shortcuts, and tray-aware show/focus behavior.
 

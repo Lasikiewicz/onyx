@@ -314,6 +314,7 @@ function App() {
       sortBy: 'left',
       launcher: 'left',
       categories: 'left',
+      pinnedCategories: 'left',
     },
     defaultFanartHeightByView: {
       grid: 320,
@@ -456,6 +457,7 @@ function App() {
     filteredGames,
     games,
     loading,
+    preferencesLoading: isInitialLoad,
     setActiveGameId,
   });
 

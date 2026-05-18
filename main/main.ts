@@ -254,8 +254,40 @@ let isFlushingWindowStateBeforeQuit = false;
 let hasRunBeforeQuitCleanup = false;
 let flushWindowStateBeforeQuit: (() => Promise<void>) | null = null;
 let previousCrashSessionState: CrashSessionState | null = null;
+let minimizeToTrayEnabled = false;
+let showSystemTrayIconEnabled = true;
 
 type StartupWindowMode = 'normal' | 'minimized' | 'tray';
+
+function syncTrayPreferenceFlags(prefs: Pick<UserPreferences, 'minimizeToTray' | 'showSystemTrayIcon'> | null | undefined) {
+  minimizeToTrayEnabled = prefs?.minimizeToTray === true;
+  showSystemTrayIconEnabled = prefs?.showSystemTrayIcon ?? true;
+}
+
+async function showMainWindowFromTray() {
+  if (!win) {
+    await createWindow();
+    return;
+  }
+
+  const prefs = await userPreferencesService.getPreferences().catch(() => null);
+
+  if (win.isMinimized()) {
+    win.restore();
+  }
+
+  win.show();
+
+  if (prefs?.windowState?.isMaximized && !win.isMaximized()) {
+    win.maximize();
+  }
+
+  if (prefs?.windowState?.isFullscreen && !win.isFullScreen()) {
+    win.setFullScreen(true);
+  }
+
+  win.focus();
+}
 
 function getStartupModeArg(argv: string[]): StartupWindowMode | null {
   const startupModeArg = argv.find((arg) => arg.startsWith('--startup-mode='));
@@ -386,6 +418,7 @@ async function initializeSuspendService(): Promise<void> {
 
 // Hardware acceleration check
 userPreferencesService.getPreferences().then(prefs => {
+  syncTrayPreferenceFlags(prefs);
   if (prefs.enableHardwareAcceleration === false) {
     console.log('Disabling hardware acceleration based on user preference');
     app.disableHardwareAcceleration();
@@ -546,7 +579,8 @@ registerAppIPCHandlers(
         tray.destroy();
         tray = null;
       }
-    }
+    },
+    updateSettings: syncTrayPreferenceFlags,
   }
 );
 registerLauncherIPCHandlers(launcherService, launcherDetectionService, trayService, gameStore, () => processSuspendService);
@@ -818,8 +852,9 @@ function createTray() {
       if (win.isVisible()) {
         win.hide();
       } else {
-        win.show();
-        win.focus();
+        showMainWindowFromTray().catch((error) => {
+          console.error('[Tray] Failed to restore window:', error);
+        });
       }
     } else {
       createWindow();
@@ -899,6 +934,7 @@ async function createWindow() {
   let prefs: UserPreferences | undefined;
   try {
     prefs = await userPreferencesService.getPreferences();
+    syncTrayPreferenceFlags(prefs);
     windowState = prefs.windowState;
     isFirstLaunch = prefs.isFirstLaunch !== false;
   } catch (error) {
@@ -1140,6 +1176,19 @@ async function createWindow() {
   });
   win.on('leave-full-screen', () => {
     win?.webContents.send('fullscreen-changed', false);
+  });
+
+  win.on('minimize', (event: Electron.Event) => {
+    if (!minimizeToTrayEnabled) return;
+
+    if (!tray && showSystemTrayIconEnabled) {
+      createTray();
+    }
+
+    if (tray) {
+      event.preventDefault();
+      win?.hide();
+    }
   });
 
   // Handle window close based on preferences

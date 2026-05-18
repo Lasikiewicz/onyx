@@ -7,7 +7,7 @@ Exposes maintenance and destructive application actions such as cache inspection
 ## User-Facing Surfaces
 
 - `Onyx Settings` -> `Advanced` tab.
-- Maintenance action buttons.
+- Maintenance action buttons. The System Folders actions fill the available grid width so the cache-folder and app-data-folder entries remain balanced in the Advanced tab layout.
 
 ## Settings and Toggles
 
@@ -22,6 +22,7 @@ Exposes maintenance and destructive application actions such as cache inspection
 2. Renderer calls the corresponding IPC action.
 3. Main process opens a path or performs destructive library reset logic.
 4. App UI refreshes after action completion where needed.
+5. The System Folders section uses a two-column responsive grid on wider viewports and a single column on narrow viewports so the two folder actions occupy the full row instead of leaving a third empty slot.
 
 ## Discovery and Data Sources
 
@@ -44,6 +45,10 @@ Exposes maintenance and destructive application actions such as cache inspection
 ### Symptom: Remove all games leaves stale UI entries
 
 - Confirm the renderer reloaded the library after the bulk delete completed.
+
+### Symptom: System Folders buttons look cramped or leave unused width
+
+- Check the grid classes in [`SettingsAdvancedTab.tsx`](../../../renderer/src/components/settings/SettingsAdvancedTab.tsx); the two folder actions should fill the available section width at the active breakpoint.
 
 ## File Ownership Map
 

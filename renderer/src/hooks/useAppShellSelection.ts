@@ -7,6 +7,7 @@ interface UseAppShellSelectionOptions {
   filteredGames: Game[];
   games: Game[];
   loading: boolean;
+  preferencesLoading: boolean;
   setActiveGameId: Dispatch<SetStateAction<string | null>>;
 }
 
@@ -15,6 +16,7 @@ export function useAppShellSelection({
   filteredGames,
   games,
   loading,
+  preferencesLoading,
   setActiveGameId,
 }: UseAppShellSelectionOptions) {
   const activeGame = useMemo(() => {
@@ -30,7 +32,7 @@ export function useAppShellSelection({
   }, [activeGameId, filteredGames, games]);
 
   useEffect(() => {
-    if (loading || filteredGames.length === 0) {
+    if (loading || preferencesLoading || filteredGames.length === 0) {
       return;
     }
 
@@ -41,10 +43,13 @@ export function useAppShellSelection({
     if (!hasVisibleSelection) {
       setActiveGameId(filteredGames[0].id);
     }
-  }, [activeGameId, filteredGames, loading, setActiveGameId]);
+  }, [activeGameId, filteredGames, loading, preferencesLoading, setActiveGameId]);
 
   const handleGameClick = useCallback((game: Game) => {
     setActiveGameId(game.id);
+    window.electronAPI.savePreferences({ activeGameId: game.id }).catch((error) => {
+      console.error('Error saving active game ID:', error);
+    });
   }, [setActiveGameId]);
 
   return {

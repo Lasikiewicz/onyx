@@ -49,7 +49,7 @@ export const SettingsAdvancedTab: React.FC<SettingsAdvancedTabProps> = ({
 
       <div className="space-y-4">
         <h4 className="text-base font-medium text-white">System Folders</h4>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div className="flex items-center justify-between p-3 bg-gray-700/30 rounded-lg border border-gray-600 hover:bg-gray-700/50 transition-colors">
             <div className="flex-1 min-w-0 pr-3">
               <h4 className="text-xs font-medium text-white mb-0.5">Image Cache</h4>

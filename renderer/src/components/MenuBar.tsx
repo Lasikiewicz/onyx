@@ -105,7 +105,7 @@ const SortablePinnedCategory: React.FC<SortablePinnedCategoryProps> = ({ id, isS
         }
         onClick();
       }}
-      className={`px-3 py-1.5 rounded text-sm transition-colors whitespace-nowrap active:scale-95 ${isSelected
+      className={`h-7 px-3 py-0.5 rounded text-sm transition-colors whitespace-nowrap active:scale-95 ${isSelected
         ? 'bg-blue-600/40 text-blue-200 border border-blue-500/40 shadow-sm shadow-blue-500/20'
         : 'bg-gray-700/20 text-gray-300 hover:bg-gray-700/40 hover:text-white border border-gray-600/30'
         }`}
@@ -138,7 +138,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
   launchers = [],
   selectedLauncher,
   onLauncherChange,
-  topBarPositions = { searchBar: 'left', sortBy: 'left', launcher: 'left', categories: 'left' },
+  topBarPositions = { searchBar: 'left', sortBy: 'left', launcher: 'left', categories: 'left', pinnedCategories: 'left' },
   onTopBarPositionsChange,
   showCategoriesInGameList = false,
   showImageQueueDetail: showImageQueueDetailProp,
@@ -174,6 +174,11 @@ export const MenuBar: React.FC<MenuBarProps> = ({
     ? showImageQueueDetailProp
     : internalShowImageQueueDetail;
   const setShowImageQueueDetail = setShowImageQueueDetailProp ?? setInternalShowImageQueueDetail;
+  const openTopBarContextMenu = (event: React.MouseEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setTopBarContextMenu({ x: event.clientX, y: event.clientY });
+  };
   const visiblePinnedCategories = pinnedCategories.filter((category) => {
     const count = categoryCounts?.[category] ?? 0;
     return count > 0 || allCategories.includes(category);
@@ -434,7 +439,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
         onChange={(e) => onSearchChange?.(e.target.value)}
         placeholder="Q Search"
         aria-label="Search library"
-        className="w-full pr-7 pl-3 py-1 bg-gray-700/20 border border-gray-600/30 rounded text-sm text-gray-300 placeholder-gray-500 hover:bg-gray-700/30 hover:border-gray-600/50 focus:outline-none focus:ring-1 focus:ring-blue-500/50 focus:bg-gray-700/40 focus:text-white transition-colors"
+        className="h-7 w-full pr-7 pl-3 py-0.5 bg-gray-700/45 border border-gray-500/60 rounded text-sm text-white placeholder-gray-300 hover:bg-gray-700/55 hover:border-gray-400/70 focus:outline-none focus:ring-1 focus:ring-blue-500/60 focus:bg-gray-700/65 focus:text-white transition-colors"
       />
       {searchQuery && (
         <button
@@ -467,7 +472,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
           setIsFilterDropdownOpen(false);
           setIsLauncherDropdownOpen(false);
         }}
-        className="px-3 py-1.5 bg-gray-700/20 hover:bg-gray-700/40 border border-gray-600/30 rounded text-sm text-gray-300 hover:text-white transition-colors"
+        className="h-7 px-3 py-0.5 bg-gray-700/20 hover:bg-gray-700/40 border border-gray-600/30 rounded text-sm text-gray-300 hover:text-white transition-colors"
         title="Sort by"
       >
         Sort by
@@ -511,7 +516,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
             setIsFilterDropdownOpen(false);
             setIsSortDropdownOpen(false);
           }}
-          className={`px-3 py-1.5 bg-gray-700/20 hover:bg-gray-700/40 border border-gray-600/30 rounded text-sm transition-colors ${selectedLauncher
+          className={`h-7 px-3 py-0.5 bg-gray-700/20 hover:bg-gray-700/40 border border-gray-600/30 rounded text-sm transition-colors ${selectedLauncher
             ? 'bg-blue-600/30 text-blue-300 border-blue-500/30'
             : 'text-gray-300 hover:text-white'
             }`}
@@ -591,7 +596,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
             setIsLauncherDropdownOpen(false);
             setCategorySearchQuery('');
           }}
-          className={`px-3 py-1.5 bg-gray-700/20 hover:bg-gray-700/40 border border-gray-600/30 rounded text-sm transition-all flex items-center gap-2 ${selectedCategory && selectedCategory !== 'favorites' && selectedCategory !== 'hidden'
+          className={`h-7 px-3 py-0.5 bg-gray-700/20 hover:bg-gray-700/40 border border-gray-600/30 rounded text-sm transition-all flex items-center gap-2 ${selectedCategory && selectedCategory !== 'favorites' && selectedCategory !== 'hidden'
             ? 'bg-blue-600/30 text-blue-300 border-blue-500/30'
             : 'text-gray-300 hover:text-white'
             }`}
@@ -820,44 +825,99 @@ export const MenuBar: React.FC<MenuBarProps> = ({
   };
 
 
+  const renderPinnedCategoryControls = () => {
+    if (showCategoriesInGameList) return null;
+
+    const hasFavoritesButton = hasFavoriteGames;
+    const hasPinnedCategoryButtons = visiblePinnedCategories.length > 0;
+    if (!hasFavoritesButton && !hasPinnedCategoryButtons) return null;
+
+    return (
+      <div className="flex items-center gap-2" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+        {hasFavoritesButton && (
+          <button
+            onClick={() => {
+              const isSelected = selectedCategory === 'favorites';
+              onCategoryChange?.(isSelected ? null : 'favorites');
+            }}
+            className={`h-7 px-3 py-0.5 rounded text-sm transition-colors flex items-center gap-2 ${selectedCategory === 'favorites'
+              ? 'bg-blue-600/30 text-blue-300 border border-blue-500/30'
+              : 'bg-gray-700/20 text-gray-300 hover:bg-gray-700/40 hover:text-white border border-gray-600/30'
+              }`}
+            title="Favorites"
+          >
+            <svg className="w-4 h-4 text-yellow-400 group- hover:animate-gentle-bounce group-hover:animate-gentle-bounce" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+            </svg>
+            <span>Favorites</span>
+          </button>
+        )}
+
+        {hasPinnedCategoryButtons && (
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext
+              items={visiblePinnedCategories}
+              strategy={horizontalListSortingStrategy}
+            >
+              <div className="flex items-center gap-2" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+                {visiblePinnedCategories.map((pinnedCategory) => (
+                  <SortablePinnedCategory
+                    key={pinnedCategory}
+                    id={pinnedCategory}
+                    isSelected={selectedCategory === pinnedCategory}
+                    onClick={() => {
+                      onCategoryChange?.(selectedCategory === pinnedCategory ? null : pinnedCategory);
+                    }}
+                  />
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
+        )}
+      </div>
+    );
+  };
+
+
   // Group elements by position
   const elementsByPosition = { left: [] as React.ReactNode[], middle: [] as React.ReactNode[], right: [] as React.ReactNode[] };
 
-  // Add elements to their configured positions
-  if (topBarPositions.searchBar === 'left') elementsByPosition.left.push(<React.Fragment key="search">{renderSearchBar()}</React.Fragment>);
-  else if (topBarPositions.searchBar === 'middle') elementsByPosition.middle.push(<React.Fragment key="search">{renderSearchBar()}</React.Fragment>);
-  else elementsByPosition.right.push(<React.Fragment key="search">{renderSearchBar()}</React.Fragment>);
+  const addPositionedElement = (key: string, position: TopBarPositions[keyof TopBarPositions], element: React.ReactNode) => {
+    if (position === 'hidden') return;
+    elementsByPosition[position].push(<React.Fragment key={key}>{element}</React.Fragment>);
+  };
 
-  if (topBarPositions.sortBy === 'left') elementsByPosition.left.push(<React.Fragment key="sort">{renderSortBy()}</React.Fragment>);
-  else if (topBarPositions.sortBy === 'middle') elementsByPosition.middle.push(<React.Fragment key="sort">{renderSortBy()}</React.Fragment>);
-  else elementsByPosition.right.push(<React.Fragment key="sort">{renderSortBy()}</React.Fragment>);
+  addPositionedElement('search', topBarPositions.searchBar, renderSearchBar());
+  addPositionedElement('sort', topBarPositions.sortBy, renderSortBy());
+  addPositionedElement('launcher', topBarPositions.launcher, renderLauncher());
+  addPositionedElement('categories', topBarPositions.categories, renderCategories());
 
-  if (topBarPositions.launcher === 'left') elementsByPosition.left.push(<React.Fragment key="launcher">{renderLauncher()}</React.Fragment>);
-  else if (topBarPositions.launcher === 'middle') elementsByPosition.middle.push(<React.Fragment key="launcher">{renderLauncher()}</React.Fragment>);
-  else elementsByPosition.right.push(<React.Fragment key="launcher">{renderLauncher()}</React.Fragment>);
+  const pinnedCategoryControls = renderPinnedCategoryControls();
+  if (pinnedCategoryControls) {
+    addPositionedElement('pinned-categories', topBarPositions.pinnedCategories, pinnedCategoryControls);
+  }
 
-  if (topBarPositions.categories === 'left') elementsByPosition.left.push(<React.Fragment key="categories">{renderCategories()}</React.Fragment>);
-  else if (topBarPositions.categories === 'middle') elementsByPosition.middle.push(<React.Fragment key="categories">{renderCategories()}</React.Fragment>);
-  else elementsByPosition.right.push(<React.Fragment key="categories">{renderCategories()}</React.Fragment>);
+  const renderPositionedElements = (items: React.ReactNode[]) => (
+    <div className="flex items-center gap-2 translate-y-px">
+      {items}
+    </div>
+  );
 
   return (
     <div
       className="h-10 fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 bg-gradient-to-b from-black/60 to-transparent"
-      style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
-      onContextMenu={(e) => {
-        e.preventDefault();
-        setTopBarContextMenu({ x: e.clientX, y: e.clientY });
-      }}
+      style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+      onContextMenu={openTopBarContextMenu}
     >
       {/* Left section - System buttons + configurable elements */}
       <div
         className="flex items-center gap-2"
         style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
-        onContextMenu={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          setTopBarContextMenu({ x: e.clientX, y: e.clientY });
-        }}
+        onContextMenu={openTopBarContextMenu}
       >
         {/* Onyx Settings Button with Dropdown */}
         {onOnyxSettings && (
@@ -1077,68 +1137,18 @@ export const MenuBar: React.FC<MenuBarProps> = ({
         )}
 
         {/* Configurable elements on the left */}
-        {elementsByPosition.left}
+        {elementsByPosition.left.length > 0 && renderPositionedElements(elementsByPosition.left)}
 
-        {/* Favorites Button */}
-        {hasFavoriteGames && !showCategoriesInGameList && (
-          <button
-            onClick={() => {
-              const isSelected = selectedCategory === 'favorites';
-              onCategoryChange?.(isSelected ? null : 'favorites');
-            }}
-            className={`px-3 py-1.5 rounded text-sm transition-colors flex items-center gap-2 ${selectedCategory === 'favorites'
-              ? 'bg-blue-600/30 text-blue-300 border border-blue-500/30'
-              : 'bg-gray-700/20 text-gray-300 hover:bg-gray-700/40 hover:text-white border border-gray-600/30'
-              }`}
-            title="Favorites"
-          >
-            <svg className="w-4 h-4 text-yellow-400 group- hover:animate-gentle-bounce group-hover:animate-gentle-bounce" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363 1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
-            </svg>
-            <span>Favorites</span>
-          </button>
-        )}
-
-        {/* Pinned Categories */}
-        {visiblePinnedCategories.length > 0 && !showCategoriesInGameList && (
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragEnd={handleDragEnd}
-          >
-            <SortableContext
-              items={visiblePinnedCategories}
-              strategy={horizontalListSortingStrategy}
-            >
-              <div className="flex items-center gap-2" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
-                {visiblePinnedCategories.map((pinnedCategory) => (
-                  <SortablePinnedCategory
-                    key={pinnedCategory}
-                    id={pinnedCategory}
-                    isSelected={selectedCategory === pinnedCategory}
-                    onClick={() => {
-                      onCategoryChange?.(selectedCategory === pinnedCategory ? null : pinnedCategory);
-                    }}
-                  />
-                ))}
-              </div>
-            </SortableContext>
-          </DndContext>
-        )}
       </div>
 
       {/* Middle section */}
       {elementsByPosition.middle.length > 0 && (
         <div
-          className="flex items-center gap-2 absolute left-1/2 transform -translate-x-1/2"
+          className="absolute left-1/2 flex -translate-x-1/2 items-center"
           style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
-          onContextMenu={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            setTopBarContextMenu({ x: e.clientX, y: e.clientY });
-          }}
+          onContextMenu={openTopBarContextMenu}
         >
-          {elementsByPosition.middle}
+          {renderPositionedElements(elementsByPosition.middle)}
         </div>
       )}
 
@@ -1147,18 +1157,14 @@ export const MenuBar: React.FC<MenuBarProps> = ({
         <div
           className="flex items-center gap-2 mr-32"
           style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
-          onContextMenu={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            setTopBarContextMenu({ x: e.clientX, y: e.clientY });
-          }}
+          onContextMenu={openTopBarContextMenu}
         >
-          {elementsByPosition.right}
+          {elementsByPosition.right.length > 0 && renderPositionedElements(elementsByPosition.right)}
           {showDevelopMenu && (
             <div className="relative" ref={developMenuRef}>
               <button
                 onClick={() => setIsDevelopMenuOpen((prev) => !prev)}
-                className="px-3 py-1.5 bg-gray-700/20 hover:bg-gray-700/40 border border-gray-600/30 rounded text-sm text-gray-300 hover:text-white transition-colors"
+                className="h-7 px-3 py-0.5 bg-gray-700/20 hover:bg-gray-700/40 border border-gray-600/30 rounded text-sm text-gray-300 hover:text-white transition-colors"
                 title="Develop"
               >
                 Develop
@@ -1247,7 +1253,6 @@ export const MenuBar: React.FC<MenuBarProps> = ({
           positions={topBarPositions}
           onPositionsChange={(positions) => {
             onTopBarPositionsChange?.(positions);
-            setTopBarContextMenu(null);
           }}
         />
       )}

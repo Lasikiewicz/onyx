@@ -6,6 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Pending]
 
+## [0.10.0] - 2026-05-18
+
+- App shell:
+  - Persist the last selected game immediately so relaunching restores the most recently selected library entry after preferences finish loading.
+  - Restore the main window from the tray with its previous maximized or fullscreen state instead of reopening as a smaller window that needs manual maximizing.
+  - Make the full top bar open the Top Bar Layout menu on right-click, keep that menu open while settings change, and prevent right-clicks inside the menu from repositioning it.
+- Top bar:
+  - Add Move All, Hide All, Show All, and individual Hide controls for search, sort, launcher, category menu, and pinned category buttons.
+  - Let pinned category buttons such as Games and VR use the same left, middle, right, and hidden placement controls as the other top-bar items.
+  - Tighten top-bar control heights, align configurable buttons with the Onyx and window controls, and improve search text contrast.
+- Tray:
+  - Compact the tray right-click menu while keeping the custom menu large enough for recent games and actions.
+  - Make Minimize to Tray respect the saved tray settings, matching Close to Tray behavior when the tray icon is enabled.
+- Settings:
+  - Make the Advanced tab System Folders actions fill the available settings width more evenly.
+
 ## [0.9.3] - 2026-05-18
 
 - App shell:

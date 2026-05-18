@@ -1,12 +1,13 @@
 import React, { useEffect, useRef } from 'react';
 
-export type TopBarElementPosition = 'left' | 'middle' | 'right';
+export type TopBarElementPosition = 'left' | 'middle' | 'right' | 'hidden';
 
 export interface TopBarPositions {
   searchBar: TopBarElementPosition;
   sortBy: TopBarElementPosition;
   launcher: TopBarElementPosition;
   categories: TopBarElementPosition;
+  pinnedCategories: TopBarElementPosition;
 }
 
 interface TopBarContextMenuProps {
@@ -55,54 +56,102 @@ export const TopBarContextMenu: React.FC<TopBarContextMenuProps> = ({
     });
   };
 
+  const handleAllPositionChange = (position: Exclude<TopBarElementPosition, 'hidden'>) => {
+    onPositionsChange({
+      searchBar: position,
+      sortBy: position,
+      launcher: position,
+      categories: position,
+      pinnedCategories: position,
+    });
+  };
+
+  const handleHideAll = () => {
+    onPositionsChange({
+      searchBar: 'hidden',
+      sortBy: 'hidden',
+      launcher: 'hidden',
+      categories: 'hidden',
+      pinnedCategories: 'hidden',
+    });
+  };
+
+  const handleShowAll = () => {
+    onPositionsChange({
+      searchBar: positions.searchBar === 'hidden' ? 'left' : positions.searchBar,
+      sortBy: positions.sortBy === 'hidden' ? 'left' : positions.sortBy,
+      launcher: positions.launcher === 'hidden' ? 'left' : positions.launcher,
+      categories: positions.categories === 'hidden' ? 'left' : positions.categories,
+      pinnedCategories: positions.pinnedCategories === 'hidden' ? 'left' : positions.pinnedCategories,
+    });
+  };
+
   const renderPositionButtons = (element: keyof TopBarPositions, label: string) => {
     return (
       <div className="px-3 py-2 bg-gray-700/30 rounded-md">
         <label className="block text-xs text-gray-400 mb-2 font-semibold">{label}</label>
-        <div className="grid grid-cols-3 gap-1">
-          <button
-            onClick={() => handlePositionChange(element, 'left')}
-            className={`px-2 py-1 text-xs rounded transition-colors ${
-              positions[element] === 'left'
-                ? 'bg-blue-600/40 text-white border border-blue-500'
-                : 'bg-gray-600 text-gray-300 hover:bg-gray-500 border border-gray-500'
-            }`}
-          >
-            Left
-          </button>
-          <button
-            onClick={() => handlePositionChange(element, 'middle')}
-            className={`px-2 py-1 text-xs rounded transition-colors ${
-              positions[element] === 'middle'
-                ? 'bg-blue-600/40 text-white border border-blue-500'
-                : 'bg-gray-600 text-gray-300 hover:bg-gray-500 border border-gray-500'
-            }`}
-          >
-            Middle
-          </button>
-          <button
-            onClick={() => handlePositionChange(element, 'right')}
-            className={`px-2 py-1 text-xs rounded transition-colors ${
-              positions[element] === 'right'
-                ? 'bg-blue-600/40 text-white border border-blue-500'
-                : 'bg-gray-600 text-gray-300 hover:bg-gray-500 border border-gray-500'
-            }`}
-          >
-            Right
-          </button>
+        <div className="grid grid-cols-4 gap-1">
+          {(['left', 'middle', 'right', 'hidden'] as const).map((position) => (
+            <button
+              key={position}
+              onClick={() => handlePositionChange(element, position)}
+              className={`px-2 py-1 text-xs rounded transition-colors ${
+                positions[element] === position
+                  ? 'bg-blue-600/40 text-white border border-blue-500'
+                  : 'bg-gray-600 text-gray-300 hover:bg-gray-500 border border-gray-500'
+              }`}
+            >
+              {position === 'middle' ? 'Middle' : position === 'hidden' ? 'Hide' : position.charAt(0).toUpperCase() + position.slice(1)}
+            </button>
+          ))}
         </div>
       </div>
     );
   };
 
+  const renderMoveAllButtons = () => (
+    <div className="px-3 py-2 bg-gray-700/30 rounded-md">
+      <label className="block text-xs text-gray-400 mb-2 font-semibold">Move All</label>
+      <div className="grid grid-cols-3 gap-1">
+        {(['left', 'middle', 'right'] as const).map((position) => (
+          <button
+            key={position}
+            onClick={() => handleAllPositionChange(position)}
+            className="px-2 py-1 text-xs rounded transition-colors bg-gray-600 text-gray-300 hover:bg-gray-500 border border-gray-500"
+          >
+            {position === 'middle' ? 'Middle' : position.charAt(0).toUpperCase() + position.slice(1)}
+          </button>
+        ))}
+      </div>
+      <div className="grid grid-cols-2 gap-1 mt-2">
+        <button
+          onClick={handleHideAll}
+          className="px-2 py-1 text-xs rounded transition-colors bg-gray-600 text-gray-300 hover:bg-gray-500 border border-gray-500"
+        >
+          Hide All
+        </button>
+        <button
+          onClick={handleShowAll}
+          className="px-2 py-1 text-xs rounded transition-colors bg-gray-600 text-gray-300 hover:bg-gray-500 border border-gray-500"
+        >
+          Show All
+        </button>
+      </div>
+    </div>
+  );
+
   return (
     <div
       ref={menuRef}
       className="fixed bg-gray-800 border border-gray-700 rounded-lg shadow-xl z-50 py-2"
+      onContextMenu={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+      }}
       style={{ 
         left: `${x}px`, 
         top: `${y}px`,
-        minWidth: '280px',
+        minWidth: '320px',
       }}
     >
       <div className="px-3 py-2 border-b border-gray-700 mb-2">
@@ -111,10 +160,12 @@ export const TopBarContextMenu: React.FC<TopBarContextMenuProps> = ({
       </div>
 
       <div className="space-y-2 px-2">
+        {renderMoveAllButtons()}
         {renderPositionButtons('searchBar', 'Search Bar Position')}
         {renderPositionButtons('sortBy', 'Sort By Position')}
         {renderPositionButtons('launcher', 'Launcher Position')}
-        {renderPositionButtons('categories', 'Categories Position')}
+        {renderPositionButtons('categories', 'Category Menu Position')}
+        {renderPositionButtons('pinnedCategories', 'Pinned Categories Position')}
       </div>
 
       <div className="px-3 py-2 border-t border-gray-700 mt-2">

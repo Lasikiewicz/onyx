@@ -234,11 +234,16 @@ export function registerAppIPCHandlers(
     steamAuthService: SteamAuthService,
     bugReportService: BugReportService,
     refreshMetadataServices?: () => Promise<void>,
-    trayControls?: { createTray: () => void; destroyTray: () => void }
+    trayControls?: {
+        createTray: () => void;
+        destroyTray: () => void;
+        updateSettings?: (settings: { showSystemTrayIcon: boolean; minimizeToTray: boolean }) => void;
+    }
 ) {
     // System Tray & Startup Handlers
     ipcMain.handle('app:applySystemTraySettings', async (_event, settings: { showSystemTrayIcon: boolean; minimizeToTray: boolean }) => {
         if (trayControls) {
+            trayControls.updateSettings?.(settings);
             if (settings.showSystemTrayIcon) {
                 trayControls.createTray();
             } else {
@@ -321,7 +326,15 @@ export function registerAppIPCHandlers(
     });
     // Window Control Handlers
     ipcMain.handle('app:minimizeWindow', async () => {
-        if (winReference.current) winReference.current.minimize();
+        if (winReference.current) {
+            const prefs = await userPreferencesService.getPreferences();
+            if (prefs.minimizeToTray && (prefs.showSystemTrayIcon ?? true)) {
+                trayControls?.createTray();
+                winReference.current.hide();
+            } else {
+                winReference.current.minimize();
+            }
+        }
         return { success: !!winReference.current };
     });
 

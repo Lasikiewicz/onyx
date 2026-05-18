@@ -160,10 +160,11 @@ export interface UserPreferences {
   gamepadButtonLayout?: 'xbox' | 'playstation';
   // Top bar element positions
   topBarPositions?: {
-    searchBar?: 'left' | 'middle' | 'right';
-    sortBy?: 'left' | 'middle' | 'right';
-    launcher?: 'left' | 'middle' | 'right';
-    categories?: 'left' | 'middle' | 'right';
+    searchBar?: 'left' | 'middle' | 'right' | 'hidden';
+    sortBy?: 'left' | 'middle' | 'right' | 'hidden';
+    launcher?: 'left' | 'middle' | 'right' | 'hidden';
+    categories?: 'left' | 'middle' | 'right' | 'hidden';
+    pinnedCategories?: 'left' | 'middle' | 'right' | 'hidden';
   };
   isFirstLaunch?: boolean;
   isViewFlippedByView?: Record<'grid' | 'list' | 'logo' | 'carousel' | 'coverflow', boolean>;
@@ -394,6 +395,7 @@ export class UserPreferencesService {
       confirmGameLaunch: false,
       restoreAfterLaunch: true,
       defaultStartupPage: 'library',
+      topBarPositions: { searchBar: 'left', sortBy: 'left', launcher: 'left', categories: 'left', pinnedCategories: 'left' },
       perGameViewSizeOverrides: {},
       perGameViewCustomByView: {
         grid: {},

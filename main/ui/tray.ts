@@ -34,6 +34,31 @@ export class TrayService {
         this.tray = tray;
     }
 
+    private async showOnyxWindow() {
+        if (!this.win) {
+            await this.createWindow();
+            return;
+        }
+
+        const prefs = await this.userPreferencesService.getPreferences().catch(() => null);
+
+        if (this.win.isMinimized()) {
+            this.win.restore();
+        }
+
+        this.win.show();
+
+        if (prefs?.windowState?.isMaximized && !this.win.isMaximized()) {
+            this.win.maximize();
+        }
+
+        if (prefs?.windowState?.isFullscreen && !this.win.isFullScreen()) {
+            this.win.setFullScreen(true);
+        }
+
+        this.win.focus();
+    }
+
     private registerTrayMenuIpc() {
         ipcMain.on('tray-menu:action', async (_event, actionId: string) => {
             const action = this.trayMenuActions.get(actionId);
@@ -115,7 +140,7 @@ export class TrayService {
 
                 menuItems.push({ type: 'header', label: title });
                 source.forEach((game) => {
-                    const label = game.title.length > 50 ? `${game.title.substring(0, 47)}...` : game.title;
+                    const label = game.title.length > 42 ? `${game.title.substring(0, 39)}...` : game.title;
                     const actionId = this.createActionId('launch');
                     this.trayMenuActions.set(actionId, async () => {
                         await launchGameFromTray(game);
@@ -134,12 +159,12 @@ export class TrayService {
             const lastPlayedGames = visibleGames
                 .filter(game => game.lastPlayed)
                 .sort((a, b) => new Date(b.lastPlayed || 0).getTime() - new Date(a.lastPlayed || 0).getTime())
-                .slice(0, 5);
+                .slice(0, 3);
 
             const lastInstalledGames = visibleGames
                 .filter(game => game.dateAdded)
                 .sort((a, b) => new Date(b.dateAdded || 0).getTime() - new Date(a.dateAdded || 0).getTime())
-                .slice(0, 5);
+                .slice(0, 3);
 
             addGameSection('Recently Played', lastPlayedGames);
             addGameSection('Recently Installed', lastInstalledGames);
@@ -148,13 +173,8 @@ export class TrayService {
         }
 
         const showOnyxActionId = this.createActionId('show');
-        this.trayMenuActions.set(showOnyxActionId, () => {
-            if (this.win) {
-                this.win.show();
-                this.win.focus();
-            } else {
-                this.createWindow();
-            }
+        this.trayMenuActions.set(showOnyxActionId, async () => {
+            await this.showOnyxWindow();
         });
 
         const exitActionId = this.createActionId('exit');
@@ -188,17 +208,17 @@ export class TrayService {
         });
 
         const estimatedHeight = Math.min(
-            620,
+            440,
             Math.max(
-                140,
-                16 + menuItems.reduce((total, item) => {
-                    if (item.type === 'item') return total + 44;
-                    if (item.type === 'header') return total + 28;
-                    return total + 10;
+                104,
+                8 + menuItems.reduce((total, item) => {
+                    if (item.type === 'item') return total + 31;
+                    if (item.type === 'header') return total + 20;
+                    return total + 6;
                 }, 0)
             )
         );
-        const width = 364;
+        const width = 328;
         let x = Math.min(
             display.workArea.x + display.workArea.width - width - 8,
             Math.max(display.workArea.x + 8, trayBounds.x - width + trayBounds.width)
@@ -261,23 +281,23 @@ export class TrayService {
         height: 100%;
         background: #0f172a;
         border: 1px solid rgba(71, 85, 105, 0.7);
-        border-radius: 10px;
-        box-shadow: 0 8px 18px rgba(2, 6, 23, 0.4);
+        border-radius: 8px;
+        box-shadow: 0 6px 14px rgba(2, 6, 23, 0.36);
         overflow: hidden;
       }
       .scroll {
         height: 100%;
         overflow-y: auto;
         overflow-x: hidden;
-        padding: 6px 0;
+        padding: 3px 0;
       }
       .header {
         color: #94a3b8;
-        font-size: 12px;
+        font-size: 10px;
         font-weight: 600;
         letter-spacing: 0.25px;
         text-transform: uppercase;
-        padding: 8px 14px 6px;
+        padding: 5px 10px 3px;
       }
       .item {
         width: 100%;
@@ -285,16 +305,16 @@ export class TrayService {
         background: transparent;
         color: #e2e8f0;
         text-align: left;
-        font-size: 15px;
-        line-height: 1.35;
+        font-size: 13px;
+        line-height: 1.2;
         font-weight: 600;
-        padding: 10px 14px;
+        padding: 6px 10px;
         cursor: pointer;
       }
       .item-content {
         display: flex;
         align-items: center;
-        gap: 11px;
+        gap: 7px;
         min-width: 0;
       }
       .item-label {
@@ -305,10 +325,10 @@ export class TrayService {
       }
       .item-icon,
       .item-fallback {
-        width: 22px;
-        height: 22px;
+        width: 18px;
+        height: 18px;
         border-radius: 4px;
-        flex: 0 0 22px;
+        flex: 0 0 18px;
       }
       .item-icon {
         object-fit: cover;
@@ -318,7 +338,7 @@ export class TrayService {
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        font-size: 10px;
+        font-size: 9px;
         font-weight: 700;
         color: #cbd5e1;
         background: rgba(51, 65, 85, 0.9);
@@ -332,10 +352,10 @@ export class TrayService {
       }
       .separator {
         height: 1px;
-        margin: 7px 10px;
+        margin: 3px 8px;
         background: rgba(71, 85, 105, 0.6);
       }
-      .scroll::-webkit-scrollbar { width: 8px; }
+      .scroll::-webkit-scrollbar { width: 6px; }
       .scroll::-webkit-scrollbar-track { background: transparent; }
       .scroll::-webkit-scrollbar-thumb { background: rgba(100, 116, 139, 0.7); border-radius: 8px; }
       .scroll::-webkit-scrollbar-thumb:hover { background: rgba(148, 163, 184, 0.85); }
@@ -436,7 +456,7 @@ export class TrayService {
         })();`, true).catch(() => 0);
 
         if (typeof measuredContentHeight === 'number' && measuredContentHeight > 0) {
-            const fittedHeight = Math.min(620, Math.max(140, measuredContentHeight));
+            const fittedHeight = Math.min(440, Math.max(104, measuredContentHeight));
             if (fittedHeight !== estimatedHeight) {
                 y = Math.min(
                     display.workArea.y + display.workArea.height - fittedHeight - 8,
@@ -462,7 +482,7 @@ export class TrayService {
             const games = await this.gameStore.getLibrary();
             const visibleGames = games.filter(game => !game.hidden);
 
-            // Get last 5 played games
+            // Get last 3 played games
             const lastPlayedGames = visibleGames
                 .filter(game => game.lastPlayed)
                 .sort((a, b) => {
@@ -470,9 +490,9 @@ export class TrayService {
                     const dateB = new Date(b.lastPlayed || 0).getTime();
                     return dateB - dateA;
                 })
-                .slice(0, 5);
+                .slice(0, 3);
 
-            // Get last 5 installed games (by dateAdded)
+            // Get last 3 installed games (by dateAdded)
             const lastInstalledGames = visibleGames
                 .filter(game => game.dateAdded)
                 .sort((a, b) => {
@@ -480,7 +500,7 @@ export class TrayService {
                     const dateB = new Date(b.dateAdded || 0).getTime();
                     return dateB - dateA;
                 })
-                .slice(0, 5);
+                .slice(0, 3);
 
             // Add "Recently Played" section
             if (lastPlayedGames.length > 0) {
@@ -490,7 +510,7 @@ export class TrayService {
                 });
 
                 lastPlayedGames.forEach((game) => {
-                    const label = game.title.length > 50 ? game.title.substring(0, 47) + '...' : game.title;
+                    const label = game.title.length > 42 ? game.title.substring(0, 39) + '...' : game.title;
                     menuItems.push({
                         label: '  ' + label, // Indent with spaces
                         click: async () => {
@@ -517,7 +537,7 @@ export class TrayService {
                 });
 
                 lastInstalledGames.forEach((game) => {
-                    const label = game.title.length > 50 ? game.title.substring(0, 47) + '...' : game.title;
+                    const label = game.title.length > 42 ? game.title.substring(0, 39) + '...' : game.title;
                     menuItems.push({
                         label: '  ' + label, // Indent with spaces
                         click: async () => {
@@ -542,13 +562,8 @@ export class TrayService {
         menuItems.push(
             {
                 label: 'Show Onyx',
-                click: () => {
-                    if (this.win) {
-                        this.win.show();
-                        this.win.focus();
-                    } else {
-                        this.createWindow();
-                    }
+                click: async () => {
+                    await this.showOnyxWindow();
                 },
             },
             {
@@ -668,13 +683,8 @@ export class TrayService {
             const fallbackMenu = Menu.buildFromTemplate([
                 {
                     label: 'Show Onyx',
-                    click: () => {
-                        if (this.win) {
-                            this.win.show();
-                            this.win.focus();
-                        } else {
-                            this.createWindow();
-                        }
+                    click: async () => {
+                        await this.showOnyxWindow();
                     },
                 },
                 {

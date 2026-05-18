@@ -103,6 +103,7 @@ export function useAppShellViewState() {
     sortBy: 'left',
     launcher: 'left',
     categories: 'left',
+    pinnedCategories: 'left',
   });
   const [fanartHeightByView, setFanartHeightByView] = useState<Record<'grid' | 'list' | 'logo', number>>({
     grid: 320,
