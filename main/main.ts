@@ -256,37 +256,44 @@ let flushWindowStateBeforeQuit: (() => Promise<void>) | null = null;
 let previousCrashSessionState: CrashSessionState | null = null;
 let minimizeToTrayEnabled = false;
 let showSystemTrayIconEnabled = true;
+let closeToTrayEnabled = true;
 
 type StartupWindowMode = 'normal' | 'minimized' | 'tray';
 
-function syncTrayPreferenceFlags(prefs: Pick<UserPreferences, 'minimizeToTray' | 'showSystemTrayIcon'> | null | undefined) {
+function syncTrayPreferenceFlags(prefs: Pick<UserPreferences, 'minimizeToTray' | 'showSystemTrayIcon' | 'closeToTray'> | null | undefined) {
   minimizeToTrayEnabled = prefs?.minimizeToTray === true;
   showSystemTrayIconEnabled = prefs?.showSystemTrayIcon ?? true;
+  closeToTrayEnabled = prefs?.closeToTray !== false;
 }
 
 async function showMainWindowFromTray() {
   if (!win) {
     await createWindow();
-    return;
+    if (!win) return;
   }
-
-  const prefs = await userPreferencesService.getPreferences().catch(() => null);
 
   if (win.isMinimized()) {
     win.restore();
   }
 
   win.show();
-
-  if (prefs?.windowState?.isMaximized && !win.isMaximized()) {
-    win.maximize();
-  }
-
-  if (prefs?.windowState?.isFullscreen && !win.isFullScreen()) {
-    win.setFullScreen(true);
-  }
-
   win.focus();
+
+  userPreferencesService.getPreferences()
+    .then((prefs) => {
+      if (!win || win.isDestroyed()) return;
+
+      if (prefs.windowState?.isMaximized && !win.isMaximized()) {
+        win.maximize();
+      }
+
+      if (prefs.windowState?.isFullscreen && !win.isFullScreen()) {
+        win.setFullScreen(true);
+      }
+    })
+    .catch((error) => {
+      console.error('[Tray] Failed to apply saved window state after restore:', error);
+    });
 }
 
 function getStartupModeArg(argv: string[]): StartupWindowMode | null {
@@ -849,7 +856,7 @@ function createTray() {
 
   tray.on('click', () => {
     if (win) {
-      if (win.isVisible()) {
+      if (win.isVisible() && !win.isMinimized() && win.isFocused()) {
         win.hide();
       } else {
         showMainWindowFromTray().catch((error) => {
@@ -1194,6 +1201,16 @@ async function createWindow() {
   // Handle window close based on preferences
   win.on('close', async (event) => {
     if (isAppQuitting) return;
+
+    if (closeToTrayEnabled) {
+      event.preventDefault();
+      win?.hide();
+      void flushWindowStateSave().catch((error) => {
+        console.error('Error saving window state on close-to-tray:', error);
+      });
+      return;
+    }
+
     try {
       // Save window state before closing
       if (win) {
@@ -1201,6 +1218,7 @@ async function createWindow() {
       }
 
       const prefs = await userPreferencesService.getPreferences();
+      syncTrayPreferenceFlags(prefs);
       // Check closeToTray (fallback to minimizeToTray if closeToTray is undefined for backward compatibility)
       if (prefs.closeToTray !== false) {
         // If closeToTray is true or undefined (default), minimize
@@ -2195,11 +2213,9 @@ app.whenReady().then(async () => {
     winReference: { get current() { return win; } },
     performBackgroundScan,
     onShowWindow: () => {
-      if (win) {
-        if (win.isMinimized()) win.restore();
-        win.show();
-        win.focus();
-      }
+      showMainWindowFromTray().catch((error) => {
+        console.error('[Startup] Failed to show window:', error);
+      });
     },
     addUpdateStatusListener,
     checkForUpdates,

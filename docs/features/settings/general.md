@@ -57,7 +57,7 @@ Controls app startup, tray integration, the coming-soon controller navigation su
 - Defaults are defined in [UserPreferencesService.createDefaultPreferences()](../../../main/UserPreferencesService.ts).
 - Some settings apply immediately; some require restart or next launch.
 - Startup registration is applied through [appHandlers.ts](../../../main/ipc/appHandlers.ts) and consumed during bootstrap in [main.ts](../../../main/main.ts).
-- `showSystemTrayIcon`, `minimizeToTray`, and `closeToTray` are mirrored into main-process tray/window runtime state so renderer minimize requests and BrowserWindow close/minimize events use the same saved values.
+- `showSystemTrayIcon`, `minimizeToTray`, and `closeToTray` are mirrored into main-process tray/window runtime state so renderer minimize requests and BrowserWindow close/minimize events use the same saved values. Close-to-tray hides immediately and persists window state asynchronously so startup scans cannot block the user from closing or reopening the shell.
 
 ## Failure Modes and Triage
 
@@ -79,6 +79,11 @@ Controls app startup, tray integration, the coming-soon controller navigation su
 - Confirm `Minimize to Tray` and `System Tray Icon` are both enabled and saved.
 - Check [appHandlers.ts](../../../main/ipc/appHandlers.ts) for renderer minimize requests and [main.ts](../../../main/main.ts) for the BrowserWindow minimize event path.
 - Check [tray.ts](../../../main/ui/tray.ts) if the tray restore action reopens the window but does not preserve maximized/fullscreen state.
+
+### Symptom: Tray icon appears unresponsive during startup scan
+
+- Check that [main.ts](../../../main/main.ts) and [tray.ts](../../../main/ui/tray.ts) show/focus the BrowserWindow before waiting on preference readback.
+- Check that [appHandlers.ts](../../../main/ipc/appHandlers.ts), [preload.ts](../../../main/preload.ts), and [useOnyxSettingsModalPersistence.ts](../../../renderer/src/hooks/useOnyxSettingsModalPersistence.ts) pass `closeToTray` through the live tray settings update path.
 
 ### Symptom: Hardware acceleration toggle changes nothing
 

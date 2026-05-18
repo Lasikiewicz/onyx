@@ -33,7 +33,7 @@ This is the architecture-level companion to the user-facing settings overview in
 - Most settings persist through [`UserPreferencesService.ts`](../../main/UserPreferencesService.ts).
 - Settings are divided broadly into shell/view preferences, scanning/library configuration, API and credential-backed integrations, link display/management, launch/suspend behavior, and updater/about/maintenance options.
 - `topBarPositions` is a shell preference with per-item left/middle/right/hidden values for search, sort, launcher, category menu, and pinned category controls.
-- Tray preferences are read by both settings save handlers and main-process window/tray consumers so minimize-to-tray, close-to-tray, and tray restore use the same effective values.
+- Tray preferences are read by both settings save handlers and main-process window/tray consumers so minimize-to-tray, close-to-tray, and tray restore use the same effective values. The live tray settings update path includes `closeToTray`, letting close behavior update without requiring a restart.
 - Some values are true preferences, while others are operational config or credentials:
 - preferences: [`UserPreferencesService.ts`](../../main/UserPreferencesService.ts)
 - credentials: [`APICredentialsService.ts`](../../main/APICredentialsService.ts)
@@ -47,6 +47,7 @@ This is the architecture-level companion to the user-facing settings overview in
 4. Renderer runtime consumers either react immediately through existing state updates in [`App.tsx`](../../renderer/src/App.tsx) and related hooks, re-read settings through explicit refresh flows such as [`useAppPreferences.ts`](../../renderer/src/hooks/useAppPreferences.ts), or pick the new setting up on next startup if the feature is startup-only.
 5. Main-process startup consumers such as updater/scanning/window/tray flows read stored settings on launch and change app behavior before or alongside renderer startup.
 6. Top-bar layout edits from [`TopBarContextMenu.tsx`](../../renderer/src/components/TopBarContextMenu.tsx) update renderer state and persist `topBarPositions`, then the next app launch restores those item positions and hidden states through [`useAppShellViewState.ts`](../../renderer/src/hooks/useAppShellViewState.ts).
+7. Tray open/close paths show or hide the BrowserWindow synchronously, then perform preference-dependent state work asynchronously so startup scanning cannot block basic shell visibility controls.
 
 ## Discovery and Data Sources
 

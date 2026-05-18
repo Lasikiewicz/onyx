@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Pending]
 
+## [0.10.1] - 2026-05-18
+
+- Tray:
+  - Show and focus the main window immediately when restoring from the tray, even while startup library scanning is still running.
+  - Hide the main window immediately for Close to Tray and save window state asynchronously so close behavior is not blocked by startup scan or preference I/O.
+  - Keep live tray runtime flags in sync with the saved Close to Tray setting so opening and closing the app remains available during scan activity.
+
 ## [0.10.0] - 2026-05-18
 
 - App shell:

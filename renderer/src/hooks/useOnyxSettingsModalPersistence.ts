@@ -400,6 +400,7 @@ export const useOnyxSettingsModalPersistence = ({
       await window.electronAPI.applySystemTraySettings({
         showSystemTrayIcon: settings.showSystemTrayIcon,
         minimizeToTray: settings.minimizeToTray,
+        closeToTray: settings.closeToTray,
       });
 
       await window.electronAPI.applyStartupSettings({

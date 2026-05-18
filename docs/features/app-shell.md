@@ -69,7 +69,7 @@ Owns the renderer root experience in [`App.tsx`](../../renderer/src/App.tsx): li
 
 - App-shell behavior depends on persisted preferences loaded and applied by [`App.tsx`](../../renderer/src/App.tsx), especially view mode, layout preferences, startup page, animation controls, and launch/restore options.
 - Top-bar layout preferences include search, sort, launcher, category menu, and pinned category positions. The right-click layout menu can move all controls together, hide/show all controls, or hide/move individual controls without closing after each setting change.
-- Tray behavior depends on `showSystemTrayIcon`, `minimizeToTray`, and `closeToTray`; minimize-to-tray only hides to tray when the tray icon is available, while tray restore reopens the window in its saved normal, maximized, or fullscreen state.
+- Tray behavior depends on `showSystemTrayIcon`, `minimizeToTray`, and `closeToTray`; minimize-to-tray only hides to tray when the tray icon is available, while tray restore immediately shows/focuses the window and then reapplies saved maximized/fullscreen state after preferences are available.
 - Startup scan gating depends on updater dismissal and startup scan settings documented in [Library Import and Startup Scan](./library-import-and-startup-scan.md).
 - Update modal behavior depends on the updater flow documented in [Updater and Release Install](./updater.md).
 
@@ -127,7 +127,7 @@ Owns the renderer root experience in [`App.tsx`](../../renderer/src/App.tsx): li
 - Persistent shell-affecting state is loaded from preferences in [`App.tsx`](../../renderer/src/App.tsx) and written through [`UserPreferencesService.ts`](../../main/UserPreferencesService.ts).
 - Main-window shell state is persisted from [`main.ts`](../../main/main.ts): move/resize writes are debounced, while maximize/unmaximize/fullscreen transitions save immediately and app quit paths flush the latest window mode before shutdown. [`UserPreferencesService.ts`](../../main/UserPreferencesService.ts) serializes preference writes so later partial saves cannot overwrite a newly persisted maximized or fullscreen state with stale values.
 - Top-bar layout is stored in `topBarPositions`, including `pinnedCategories` and the `hidden` state for each top-bar item. Active selection is stored in `activeGameId` when the user selects a visible game.
-- Tray settings are stored in general preferences and mirrored in the main process so minimize, close, tray menu restore, and tray-icon visibility share the same runtime flags.
+- Tray settings are stored in general preferences and mirrored in the main process so minimize, close, tray menu restore, and tray-icon visibility share the same runtime flags. Open/close-to-tray paths do not wait for preference reads before showing or hiding the BrowserWindow, so startup scan activity cannot make the tray icon appear unresponsive.
 - Transient overlay state such as `toast`, `startupProgress`, `foundGames`, `missingGames`, `updateNotification`, and `crashDumpPaths` lives in [`App.tsx`](../../renderer/src/App.tsx) and is only held in memory.
 
 ## Failure Modes and Triage
@@ -174,6 +174,12 @@ Owns the renderer root experience in [`App.tsx`](../../renderer/src/App.tsx): li
 
 - Check tray restore actions in [`main/ui/tray.ts`](../../main/ui/tray.ts) and window-state restoration in [`main.ts`](../../main/main.ts).
 - Confirm minimize-to-tray is reading the latest `minimizeToTray` and `showSystemTrayIcon` flags before hiding the window.
+- Confirm the restore path calls `show()`/`focus()` before asynchronous preference readback applies saved maximized/fullscreen state.
+
+### Symptom: tray icon does not open or close the app while startup scan is running
+
+- Check [`showMainWindowFromTray`](../../main/main.ts) and [`TrayService.showOnyxWindow`](../../main/ui/tray.ts); both should show and focus the window before reading preferences.
+- Check the close handler in [`main.ts`](../../main/main.ts); close-to-tray should hide the window immediately and save window state asynchronously instead of waiting for preference I/O.
 
 ### Symptom: WebP banners, logos, or boxarts are missing
 

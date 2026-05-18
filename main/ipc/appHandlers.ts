@@ -237,11 +237,11 @@ export function registerAppIPCHandlers(
     trayControls?: {
         createTray: () => void;
         destroyTray: () => void;
-        updateSettings?: (settings: { showSystemTrayIcon: boolean; minimizeToTray: boolean }) => void;
+        updateSettings?: (settings: { showSystemTrayIcon: boolean; minimizeToTray: boolean; closeToTray?: boolean }) => void;
     }
 ) {
     // System Tray & Startup Handlers
-    ipcMain.handle('app:applySystemTraySettings', async (_event, settings: { showSystemTrayIcon: boolean; minimizeToTray: boolean }) => {
+    ipcMain.handle('app:applySystemTraySettings', async (_event, settings: { showSystemTrayIcon: boolean; minimizeToTray: boolean; closeToTray?: boolean }) => {
         if (trayControls) {
             trayControls.updateSettings?.(settings);
             if (settings.showSystemTrayIcon) {

@@ -37,26 +37,31 @@ export class TrayService {
     private async showOnyxWindow() {
         if (!this.win) {
             await this.createWindow();
-            return;
+            if (!this.win) return;
         }
-
-        const prefs = await this.userPreferencesService.getPreferences().catch(() => null);
 
         if (this.win.isMinimized()) {
             this.win.restore();
         }
 
         this.win.show();
-
-        if (prefs?.windowState?.isMaximized && !this.win.isMaximized()) {
-            this.win.maximize();
-        }
-
-        if (prefs?.windowState?.isFullscreen && !this.win.isFullScreen()) {
-            this.win.setFullScreen(true);
-        }
-
         this.win.focus();
+
+        this.userPreferencesService.getPreferences()
+            .then((prefs) => {
+                if (!this.win || this.win.isDestroyed()) return;
+
+                if (prefs.windowState?.isMaximized && !this.win.isMaximized()) {
+                    this.win.maximize();
+                }
+
+                if (prefs.windowState?.isFullscreen && !this.win.isFullScreen()) {
+                    this.win.setFullScreen(true);
+                }
+            })
+            .catch((error) => {
+                console.error('[Tray Menu] Failed to apply saved window state after restore:', error);
+            });
     }
 
     private registerTrayMenuIpc() {

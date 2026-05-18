@@ -157,7 +157,7 @@ export const electronAPI = {
     },
   },
   minimizeToTray: () => ipcRenderer.invoke('app:minimizeToTray'),
-  applySystemTraySettings: (settings: { showSystemTrayIcon: boolean; minimizeToTray: boolean }) => ipcRenderer.invoke('app:applySystemTraySettings', settings),
+  applySystemTraySettings: (settings: { showSystemTrayIcon: boolean; minimizeToTray: boolean; closeToTray?: boolean }) => ipcRenderer.invoke('app:applySystemTraySettings', settings),
   applyStartupSettings: (settings: { startWithComputer: boolean; startMinimized: boolean; startClosedToTray: boolean }) => ipcRenderer.invoke('app:applyStartupSettings', settings),
 
   // Process monitoring
