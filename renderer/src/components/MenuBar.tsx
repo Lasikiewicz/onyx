@@ -949,7 +949,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
   return (
     <div
       className="h-10 fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 bg-gradient-to-b from-black/60 to-transparent"
-      style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+      style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
       onContextMenu={openTopBarContextMenu}
     >
       {/* Left section - System buttons + configurable elements */}

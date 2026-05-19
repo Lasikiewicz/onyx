@@ -190,8 +190,8 @@ export const SettingsAboutTab: React.FC<SettingsAboutTabProps> = ({
         ))}
       </div>
 
-      <div className="mt-auto pt-12">
-        <p className="text-xs text-slate-700">
+      <div className="mt-4">
+        <p className="text-xs text-slate-500">
           Copyright 2026 Onyx. All rights reserved.
         </p>
       </div>
