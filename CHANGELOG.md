@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Pending]
 
+## [0.10.2] - 2026-05-19
+
 - Top bar:
   - Require a click on the Onyx icon to open the Settings menu instead of hovering over it.
   - Remove the hover background highlight from the Onyx settings icon button.
