@@ -315,6 +315,7 @@ function App() {
       launcher: 'left',
       categories: 'left',
       pinnedCategories: 'left',
+      removeButtonBackgrounds: true,
     },
     defaultFanartHeightByView: {
       grid: 320,

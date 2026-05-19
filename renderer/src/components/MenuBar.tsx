@@ -19,7 +19,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import iconPng from '../../../resources/icon.png';
 import iconSvg from '../../../resources/icon.svg';
-import { TopBarContextMenu, TopBarPositions } from './TopBarContextMenu';
+import { TopBarContextMenu, TopBarPositions, TopBarElementPosition } from './TopBarContextMenu';
 import type { OptimizationStatus } from '../types/optimization';
 import { LauncherIcon, getLauncherDisplayName } from '../utils/launcherIcons';
 
@@ -72,9 +72,10 @@ interface SortablePinnedCategoryProps {
   id: string;
   isSelected: boolean;
   onClick: () => void;
+  removeBackgrounds?: boolean;
 }
 
-const SortablePinnedCategory: React.FC<SortablePinnedCategoryProps> = ({ id, isSelected, onClick }) => {
+const SortablePinnedCategory: React.FC<SortablePinnedCategoryProps> = ({ id, isSelected, onClick, removeBackgrounds }) => {
   const {
     attributes,
     listeners,
@@ -105,9 +106,13 @@ const SortablePinnedCategory: React.FC<SortablePinnedCategoryProps> = ({ id, isS
         }
         onClick();
       }}
-      className={`h-7 px-3 py-0.5 rounded text-sm transition-colors whitespace-nowrap active:scale-95 ${isSelected
-        ? 'bg-blue-600/40 text-blue-200 border border-blue-500/40 shadow-sm shadow-blue-500/20'
-        : 'bg-gray-700/20 text-gray-300 hover:bg-gray-700/40 hover:text-white border border-gray-600/30'
+      className={`h-7 px-3 py-0.5 rounded text-sm transition-colors whitespace-nowrap active:scale-95 ${removeBackgrounds
+        ? (isSelected
+            ? 'bg-blue-600/40 text-blue-200 border border-transparent shadow-sm shadow-blue-500/20'
+            : 'border border-transparent text-gray-300 hover:text-white hover:bg-white/5')
+        : (isSelected
+            ? 'bg-blue-600/40 text-blue-200 border border-blue-500/40 shadow-sm shadow-blue-500/20'
+            : 'bg-gray-700/20 text-gray-300 hover:bg-gray-700/40 hover:text-white border border-gray-600/30')
         }`}
     >
       {id}
@@ -162,7 +167,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
   const [isOnyxSettingsMenuOpen, setIsOnyxSettingsMenuOpen] = useState(false);
   const [isDevelopMenuOpen, setIsDevelopMenuOpen] = useState(false);
   const [isPackagedRuntime, setIsPackagedRuntime] = useState<boolean | null>(null);
-  const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   const [topBarContextMenu, setTopBarContextMenu] = useState<{ x: number; y: number } | null>(null);
   const [categorySearchQuery, setCategorySearchQuery] = useState('');
   const [optimizationStatus, setOptimizationStatus] = useState<OptimizationStatus | null>(null);
@@ -400,6 +405,18 @@ export const MenuBar: React.FC<MenuBarProps> = ({
     };
   }, []);
 
+  useEffect(() => {
+    const handleOpenTopBarMenu = (event: Event) => {
+      const customEvent = event as CustomEvent<{ x: number; y: number }>;
+      setTopBarContextMenu(customEvent.detail);
+    };
+
+    window.addEventListener('open-top-bar-menu', handleOpenTopBarMenu);
+    return () => {
+      window.removeEventListener('open-top-bar-menu', handleOpenTopBarMenu);
+    };
+  }, []);
+
   // Unified optimization status (importer and cache optimize)
   useEffect(() => {
     window.electronAPI.optimization?.getStatus?.()
@@ -439,7 +456,10 @@ export const MenuBar: React.FC<MenuBarProps> = ({
         onChange={(e) => onSearchChange?.(e.target.value)}
         placeholder="Q Search"
         aria-label="Search library"
-        className="h-7 w-full pr-7 pl-3 py-0.5 bg-gray-700/45 border border-gray-500/60 rounded text-sm text-white placeholder-gray-300 hover:bg-gray-700/55 hover:border-gray-400/70 focus:outline-none focus:ring-1 focus:ring-blue-500/60 focus:bg-gray-700/65 focus:text-white transition-colors"
+        className={`h-7 w-full pr-7 pl-3 py-0.5 rounded text-sm text-white placeholder-gray-300 focus:outline-none focus:ring-1 focus:ring-blue-500/60 transition-colors ${topBarPositions?.removeButtonBackgrounds
+          ? 'bg-transparent border border-transparent hover:bg-white/5 hover:border-white/10 focus:bg-white/10 focus:border-white/20'
+          : 'bg-gray-700/45 border border-gray-500/60 hover:bg-gray-700/55 hover:border-gray-400/70 focus:bg-gray-700/65'
+        }`}
       />
       {searchQuery && (
         <button
@@ -471,8 +491,12 @@ export const MenuBar: React.FC<MenuBarProps> = ({
           setIsSortDropdownOpen(!isSortDropdownOpen);
           setIsFilterDropdownOpen(false);
           setIsLauncherDropdownOpen(false);
+          setIsOnyxSettingsMenuOpen(false);
         }}
-        className="h-7 px-3 py-0.5 bg-gray-700/20 hover:bg-gray-700/40 border border-gray-600/30 rounded text-sm text-gray-300 hover:text-white transition-colors"
+        className={`h-7 px-3 py-0.5 rounded text-sm transition-colors ${topBarPositions?.removeButtonBackgrounds
+          ? 'border border-transparent text-gray-300 hover:text-white hover:bg-white/5'
+          : 'bg-gray-700/20 hover:bg-gray-700/40 border border-gray-600/30 text-gray-300 hover:text-white'
+        }`}
         title="Sort by"
       >
         Sort by
@@ -515,10 +539,15 @@ export const MenuBar: React.FC<MenuBarProps> = ({
             setIsLauncherDropdownOpen(!isLauncherDropdownOpen);
             setIsFilterDropdownOpen(false);
             setIsSortDropdownOpen(false);
+            setIsOnyxSettingsMenuOpen(false);
           }}
-          className={`h-7 px-3 py-0.5 bg-gray-700/20 hover:bg-gray-700/40 border border-gray-600/30 rounded text-sm transition-colors ${selectedLauncher
-            ? 'bg-blue-600/30 text-blue-300 border-blue-500/30'
-            : 'text-gray-300 hover:text-white'
+          className={`h-7 px-3 py-0.5 rounded text-sm transition-colors ${topBarPositions?.removeButtonBackgrounds
+            ? (selectedLauncher
+                ? 'bg-blue-600/30 text-blue-300 border border-transparent shadow-sm shadow-blue-500/10'
+                : 'border border-transparent text-gray-300 hover:text-white hover:bg-white/5')
+            : ('bg-gray-700/20 hover:bg-gray-700/40 border border-gray-600/30 ' + (selectedLauncher
+                ? 'bg-blue-600/30 text-blue-300 border-blue-500/30'
+                : 'text-gray-300 hover:text-white'))
             }`}
           title="Launcher"
         >
@@ -594,11 +623,16 @@ export const MenuBar: React.FC<MenuBarProps> = ({
             setIsFilterDropdownOpen(!isFilterDropdownOpen);
             setIsSortDropdownOpen(false);
             setIsLauncherDropdownOpen(false);
+            setIsOnyxSettingsMenuOpen(false);
             setCategorySearchQuery('');
           }}
-          className={`h-7 px-3 py-0.5 bg-gray-700/20 hover:bg-gray-700/40 border border-gray-600/30 rounded text-sm transition-all flex items-center gap-2 ${selectedCategory && selectedCategory !== 'favorites' && selectedCategory !== 'hidden'
-            ? 'bg-blue-600/30 text-blue-300 border-blue-500/30'
-            : 'text-gray-300 hover:text-white'
+          className={`h-7 px-3 py-0.5 rounded text-sm transition-all flex items-center gap-2 ${topBarPositions?.removeButtonBackgrounds
+            ? (selectedCategory && selectedCategory !== 'favorites' && selectedCategory !== 'hidden'
+                ? 'bg-blue-600/30 text-blue-300 border border-transparent shadow-sm shadow-blue-500/10'
+                : 'border border-transparent text-gray-300 hover:text-white hover:bg-white/5')
+            : ('bg-gray-700/20 hover:bg-gray-700/40 border border-gray-600/30 ' + (selectedCategory && selectedCategory !== 'favorites' && selectedCategory !== 'hidden'
+                ? 'bg-blue-600/30 text-blue-300 border-blue-500/30'
+                : 'text-gray-300 hover:text-white'))
             }`}
           title="Categories"
         >
@@ -840,9 +874,13 @@ export const MenuBar: React.FC<MenuBarProps> = ({
               const isSelected = selectedCategory === 'favorites';
               onCategoryChange?.(isSelected ? null : 'favorites');
             }}
-            className={`h-7 px-3 py-0.5 rounded text-sm transition-colors flex items-center gap-2 ${selectedCategory === 'favorites'
-              ? 'bg-blue-600/30 text-blue-300 border border-blue-500/30'
-              : 'bg-gray-700/20 text-gray-300 hover:bg-gray-700/40 hover:text-white border border-gray-600/30'
+            className={`h-7 px-3 py-0.5 rounded text-sm transition-colors flex items-center gap-2 ${topBarPositions?.removeButtonBackgrounds
+              ? (selectedCategory === 'favorites'
+                  ? 'bg-blue-600/30 text-blue-300 border border-transparent shadow-sm shadow-blue-500/10'
+                  : 'border border-transparent text-gray-300 hover:text-white hover:bg-white/5')
+              : (selectedCategory === 'favorites'
+                  ? 'bg-blue-600/30 text-blue-300 border border-blue-500/30'
+                  : 'bg-gray-700/20 text-gray-300 hover:bg-gray-700/40 hover:text-white border border-gray-600/30')
               }`}
             title="Favorites"
           >
@@ -872,6 +910,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
                     onClick={() => {
                       onCategoryChange?.(selectedCategory === pinnedCategory ? null : pinnedCategory);
                     }}
+                    removeBackgrounds={topBarPositions?.removeButtonBackgrounds}
                   />
                 ))}
               </div>
@@ -886,7 +925,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
   // Group elements by position
   const elementsByPosition = { left: [] as React.ReactNode[], middle: [] as React.ReactNode[], right: [] as React.ReactNode[] };
 
-  const addPositionedElement = (key: string, position: TopBarPositions[keyof TopBarPositions], element: React.ReactNode) => {
+  const addPositionedElement = (key: string, position: TopBarElementPosition, element: React.ReactNode) => {
     if (position === 'hidden') return;
     elementsByPosition[position].push(<React.Fragment key={key}>{element}</React.Fragment>);
   };
@@ -924,26 +963,27 @@ export const MenuBar: React.FC<MenuBarProps> = ({
           <div
             className="relative"
             ref={onyxSettingsMenuRef}
-            onMouseEnter={() => {
-              if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
-              setIsOnyxSettingsMenuOpen(true);
-            }}
-            onMouseLeave={() => {
-              hoverTimeoutRef.current = setTimeout(() => {
-                setIsOnyxSettingsMenuOpen(false);
-              }, 150);
-            }}
+
+
+
+
+
+
+
+
+
           >
             <button
               data-controller-menu-trigger
-              onClick={(event) => {
+              onClick={() => {
                 setIsFilterDropdownOpen(false);
                 setIsSortDropdownOpen(false);
-                if (event.detail === 0) {
-                  setIsOnyxSettingsMenuOpen((isOpen) => !isOpen);
-                }
+                setIsLauncherDropdownOpen(false);
+                setIsDevelopMenuOpen(false);
+                setIsOnyxSettingsMenuOpen((isOpen) => !isOpen);
+
               }}
-              className="group p-1.5 hover:bg-gray-700/40 rounded transition-colors flex items-center justify-center"
+              className="group p-1.5 rounded transition-colors flex items-center justify-center"
               title="Onyx Settings"
             >
               <svg className="w-6 h-6 hover:animate-wobble group-hover:animate-wobble"
@@ -1163,8 +1203,17 @@ export const MenuBar: React.FC<MenuBarProps> = ({
           {showDevelopMenu && (
             <div className="relative" ref={developMenuRef}>
               <button
-                onClick={() => setIsDevelopMenuOpen((prev) => !prev)}
-                className="h-7 px-3 py-0.5 bg-gray-700/20 hover:bg-gray-700/40 border border-gray-600/30 rounded text-sm text-gray-300 hover:text-white transition-colors"
+                onClick={() => {
+                  setIsFilterDropdownOpen(false);
+                  setIsSortDropdownOpen(false);
+                  setIsLauncherDropdownOpen(false);
+                  setIsOnyxSettingsMenuOpen(false);
+                  setIsDevelopMenuOpen((prev) => !prev);
+                }}
+                className={`h-7 px-3 py-0.5 rounded text-sm transition-colors ${topBarPositions?.removeButtonBackgrounds
+                  ? 'border border-transparent text-gray-300 hover:text-white hover:bg-white/5'
+                  : 'bg-gray-700/20 hover:bg-gray-700/40 border border-gray-600/30 text-gray-300 hover:text-white'
+                }`}
                 title="Develop"
               >
                 Develop

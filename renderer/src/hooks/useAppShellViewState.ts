@@ -104,6 +104,7 @@ export function useAppShellViewState() {
     launcher: 'left',
     categories: 'left',
     pinnedCategories: 'left',
+    removeButtonBackgrounds: true,
   });
   const [fanartHeightByView, setFanartHeightByView] = useState<Record<'grid' | 'list' | 'logo', number>>({
     grid: 320,

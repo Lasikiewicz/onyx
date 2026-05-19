@@ -8,6 +8,7 @@ export interface TopBarPositions {
   launcher: TopBarElementPosition;
   categories: TopBarElementPosition;
   pinnedCategories: TopBarElementPosition;
+  removeButtonBackgrounds?: boolean;
 }
 
 interface TopBarContextMenuProps {
@@ -166,6 +167,18 @@ export const TopBarContextMenu: React.FC<TopBarContextMenuProps> = ({
         {renderPositionButtons('launcher', 'Launcher Position')}
         {renderPositionButtons('categories', 'Category Menu Position')}
         {renderPositionButtons('pinnedCategories', 'Pinned Categories Position')}
+        
+        <div className="px-3 py-2 bg-gray-700/30 rounded-md">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={positions.removeButtonBackgrounds ?? false}
+              onChange={(e) => onPositionsChange({ ...positions, removeButtonBackgrounds: e.target.checked })}
+              className="w-3.5 h-3.5 bg-gray-700 border-gray-600 rounded text-blue-500 focus:ring-blue-500 focus:ring-offset-gray-800"
+            />
+            <span className="text-xs text-gray-300 font-semibold">Remove Button Backgrounds</span>
+          </label>
+        </div>
       </div>
 
       <div className="px-3 py-2 border-t border-gray-700 mt-2">

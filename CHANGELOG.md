@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Pending]
 
+- Top bar:
+  - Require a click on the Onyx icon to open the Settings menu instead of hovering over it.
+  - Remove the hover background highlight from the Onyx settings icon button.
+  - Add a `Remove button backgrounds` toggle to the top bar layout menu so all top-bar button backgrounds and borders can be hidden; enable it by default so the bar starts with a transparent appearance.
+  - Apply the transparent background style to the search box when the toggle is on, including transparent border and subtle hover/focus states.
+- Right-click menu:
+  - Add a `Top Bar` button in the right-click menu header between Dividers and Game Details; clicking it closes the menu and opens the Top Bar layout popover at the cursor position.
+  - Convert the always-visible Menu Transparency slider into a compact `Transparency` button that opens a popover slider with a live percentage readout and Solid/Transparent end labels.
+
 ## [0.10.1] - 2026-05-18
 
 - Tray:
