@@ -24,7 +24,7 @@ export function useAppShellBackgroundMedia({
 
   const backgroundImageUrl = (activeGame?.useAlternativeBackground && activeGame?.alternativeBannerUrl)
     ? activeGame.alternativeBannerUrl
-    : activeGame?.heroUrl || activeGame?.bannerUrl || activeGame?.boxArtUrl || '';
+    : activeGame?.bannerUrl || activeGame?.heroUrl || activeGame?.boxArtUrl || '';
 
   const backgroundFromAltBanner = !!(activeGame?.useAlternativeBackground && activeGame?.alternativeBannerUrl === backgroundImageUrl);
   const backgroundFromHero = !!(activeGame?.heroUrl === backgroundImageUrl);

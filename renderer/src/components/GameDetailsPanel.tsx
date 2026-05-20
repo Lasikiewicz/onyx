@@ -299,7 +299,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
   // Preload current game images so they are decoded before <img> mounts (faster first paint)
   useEffect(() => {
     if (!game) return;
-    const bgUrl = game.heroUrl || game.bannerUrl || game.boxArtUrl || '';
+    const bgUrl = game.bannerUrl || game.heroUrl || game.boxArtUrl || '';
     const urls = [bgUrl, game.logoUrl, game.boxArtUrl].filter(Boolean) as string[];
     const images: HTMLImageElement[] = [];
     const animatedRe = /\.(gif|webp|apng|webm)(\?|$)/i;
@@ -612,11 +612,12 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
     );
   }
 
-  // Banner at top of panel always uses primary artwork (hero/banner/boxArt).
+  // Banner at top of panel always uses the explicitly selected banner first,
+  // then falls back to hero art and box art.
   // Alternative Background toggle only affects the full-page backdrop in App.tsx.
-  const backgroundImageUrl = game.heroUrl || game.bannerUrl || game.boxArtUrl || '';
-  const backgroundFromHero = game.heroUrl === backgroundImageUrl;
+  const backgroundImageUrl = game.bannerUrl || game.heroUrl || game.boxArtUrl || '';
   const backgroundFromBanner = game.bannerUrl === backgroundImageUrl;
+  const backgroundFromHero = game.heroUrl === backgroundImageUrl;
   const backgroundFromBoxart = game.boxArtUrl === backgroundImageUrl;
   const backgroundMediaKind: 'banner' | 'boxart' = (backgroundFromHero || backgroundFromBanner)
     ? 'banner'

@@ -65,4 +65,21 @@ describe('GameDetailsPanel rendering', () => {
     expect(await screen.findByText('Installation Folder')).toBeTruthy();
     expect(screen.getByText('15 GB')).toBeTruthy();
   });
+
+  it('prefers the saved banner over hero art for the panel background', async () => {
+    render(
+      <GameDetailsPanel
+        game={{
+          ...baseGame,
+          id: 'game-4',
+          bannerUrl: 'https://example.com/saved-banner.jpg',
+          heroUrl: 'https://example.com/older-hero.jpg',
+        }}
+        viewMode="grid"
+      />
+    );
+
+    const background = await screen.findByAltText('Fallback Title Game');
+    expect(background.getAttribute('src')).toContain('saved-banner.jpg');
+  });
 });

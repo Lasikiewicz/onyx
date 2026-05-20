@@ -36,6 +36,7 @@ Right-hand panel in the library window (grid/list/logo modes) that shows the sel
 
 - **Active game:** From [App.tsx](../../../../renderer/src/App.tsx) (selected game / active game state).
 - **Artwork and metadata:** From the [game](../../../../renderer/src/types/game.ts) object (e.g. `heroUrl`, `bannerUrl`, `boxArtUrl`, `logoUrl`, `description`, `links`, metadata fields).
+- **Primary background precedence:** The panel prefers `bannerUrl` first, then `heroUrl`, then `boxArtUrl`, so an explicitly chosen banner stays visible after relaunch even when older hero art is still present on the same game record.
 - **Description content:** The Description section renders sanitized HTML from `game.description`; for Steam-refreshed games this now normally comes from the Steam Store `about_the_game` field rather than the shorter store blurb.
 - **Description sizing:** The description/details row now stretches to the available vertical space in the panel, while the saved description height preference acts as a minimum height rather than a hard cap.
 - **Artwork clearance:** Both description and details align below the logo clearance line so large logos cannot overlap the opening content. Left-side boxart now mirrors the right-side overlay position on the left edge while the description reserves matching wrap space beside it, and right-side boxart still pushes the details column down below the hanging artwork instead of squeezing that column narrower.
