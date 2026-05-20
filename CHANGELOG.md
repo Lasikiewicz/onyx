@@ -9,6 +9,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Game details panel:
   - Prefer the saved `bannerUrl` over older `heroUrl` artwork when choosing the primary background, so images selected from Edit Images continue to show after relaunch.
   - Document the banner-first background precedence in the game details panel runbook.
+  - Set 300px as the standard default game logo size across view modes, with slider adjustment range from 50px to 600px.
+  - Auto-fit the description text container to the available panel height by removing the minimum height constraint, enabling internal scrolling and keeping surrounding content visible.
+  - Cap the logo clearance padding dynamically at a maximum of 110px to prevent large empty vertical gaps under wide logos.
 
 ## [0.10.3] - 2026-05-19
 

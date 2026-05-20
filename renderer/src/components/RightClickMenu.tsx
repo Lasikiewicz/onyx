@@ -225,7 +225,7 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
   // Right panel (GameDetailsPanel) specific props
   rightPanelBoxartPosition = 'right',
   onRightPanelBoxartPositionChange,
-  rightPanelLogoSize: _rightPanelLogoSize = 95,
+  rightPanelLogoSize: _rightPanelLogoSize = 300,
   onRightPanelLogoSizeChange,
   rightPanelBoxartSize = 120,
   onRightPanelBoxartSizeChange,
@@ -669,7 +669,7 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
     fanartHeight: 320,
     descriptionWidth: 50,
     detailsPanelBottomBarHeight: 72,
-    perGameLogoSize: 100,
+    perGameLogoSize: 300,
     rightPanelBoxartSize: 120,
     rightPanelTextSize: 14,
     rightPanelButtonSize: 14,
@@ -681,8 +681,8 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
   };
   const detailsPanelTransparency = Math.max(0, Math.min(100, 100 - detailsPanelOpacity));
   const defaultDetailsPanelTransparency = Math.max(0, Math.min(100, 100 - sliderDefaults.detailsPanelOpacity));
-  const detailsLogoSliderMax = Math.max(50, Math.floor(fanartHeight * 0.6));
-  const detailsLogoSliderDefault = Math.min(sliderDefaults.perGameLogoSize, detailsLogoSliderMax);
+  const detailsLogoSliderMax = 600;
+  const detailsLogoSliderDefault = 300;
 
   const defaultButtonColors = DEFAULT_BUTTON_COLORS;
 

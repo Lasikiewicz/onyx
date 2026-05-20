@@ -69,6 +69,7 @@ This parent file is the settings overview and routing document. Detailed behavio
   - API credentials ([APICredentialsService.ts](../../main/APICredentialsService.ts))
   - launcher and library configuration
 - Defaults originate in [UserPreferencesService.createDefaultPreferences()](../../main/UserPreferencesService.ts).
+- Game Details logo size (`rightPanelLogoSize`) defaults to `300` px to present a large, high-fidelity logo standardly. The description text container dynamically auto-fits to the available height of the panel using `minHeight: 0` and `overflowY: 'auto'` to prevent content from pushing details below the fold.
 
 ## Failure Modes and Triage
 

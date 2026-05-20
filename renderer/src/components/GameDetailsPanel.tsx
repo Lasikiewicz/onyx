@@ -667,9 +667,9 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
   const requestedLogoHeight = localLogoSize !== undefined
     ? localLogoSize
     : (game.logoSizePerViewMode?.[viewMode] || game.logoSizePerViewMode?.carousel || rightPanelLogoSize);
-  const effectiveLogoHeight = Math.min(requestedLogoHeight, Math.floor(fanartHeight * 0.6));
+  const effectiveLogoHeight = requestedLogoHeight;
   const logoClearancePadding = (game.logoUrl || !game.boxArtUrl)
-    ? Math.ceil(effectiveLogoHeight * 0.5) + 24
+    ? Math.min(Math.ceil(effectiveLogoHeight * 0.3) + 20, 110)
     : 0;
   const maxBoxartWidthForSide = rightPanelBoxartPosition === 'left'
     ? Math.max(120, descriptionColumnWidth - 72)
@@ -873,12 +873,12 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
 
         {/* Logo - Position based on rightPanelBoxartPosition */}
         <div
-          className="absolute bottom-0 z-20 flex items-center justify-center"
+          className="absolute bottom-0 z-20 flex items-center justify-center px-6"
           data-logo-area
           style={{
             ...logoAreaPositionStyle,
             transform: 'translateY(50%)',
-            maxHeight: '60%',
+            maxHeight: `${requestedLogoHeight}px`,
             contain: 'layout style',
           }}
         >
@@ -1013,7 +1013,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
                 ref={descriptionRef}
                 className={`${rightPanelBoxartPosition === 'left' ? '' : 'space-y-6'} relative pr-3 min-h-0 flex-1`}
                 style={{
-                  minHeight: `${descriptionHeight}px`,
+                  minHeight: 0,
                   overflowY: 'auto',
                   overflowX: 'hidden'
                 }}
@@ -1214,12 +1214,12 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
             <h3 className="text-lg font-semibold text-white mb-4">Resize Logo</h3>
             <div className="space-y-4">
               <div>
-                <label className="text-sm text-gray-400 mb-2 block">Logo Height: {localLogoSize !== undefined ? localLogoSize : (game.logoSize || 48)}px</label>
+                <label className="text-sm text-gray-400 mb-2 block">Logo Height: {localLogoSize !== undefined ? localLogoSize : (game.logoSize || 300)}px</label>
                 <input
                   type="range"
-                  min="24"
-                  max="200"
-                  value={localLogoSize !== undefined ? localLogoSize : (game.logoSize || 48)}
+                  min="50"
+                  max="600"
+                  value={localLogoSize !== undefined ? localLogoSize : (game.logoSize || 300)}
                   onChange={(e) => {
                     const newSize = Number(e.target.value);
                     setLocalLogoSize(newSize);
