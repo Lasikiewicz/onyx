@@ -4,7 +4,7 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [0.10.5] - 2026-05-28
+## [0.10.6] - 2026-05-28
 
 - App shell:
   - Set the 1080p grid defaults to the tuned larger-tile layout, including wider details panel, lower panel opacity, hidden categories, and right-side artwork defaults.
