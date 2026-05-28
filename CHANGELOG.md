@@ -4,6 +4,17 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.10.5] - 2026-05-28
+
+- App shell:
+  - Set the 1080p grid defaults to the tuned larger-tile layout, including wider details panel, lower panel opacity, hidden categories, and right-side artwork defaults.
+- Library import:
+  - Prefer Unreal Engine `Binaries\Win64\*-Shipping.exe` launch executables during folder scans, preventing shallow bootstrap executables such as LEGO Batman Legacy of the Dark Knight's root exe from being selected.
+- Right-click menu:
+  - Freeze the layout and position of the right-click menu while dragging the right panel width slider, preventing it from shifting or resizing.
+- Tests:
+  - Update default preference coverage for the tuned 1080p grid baseline.
+
 ## [0.10.4] - 2026-05-20
 
 - Game details panel:

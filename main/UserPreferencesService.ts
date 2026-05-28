@@ -227,6 +227,27 @@ type ResolutionKey = '720p' | '1080p' | '1440p' | '4K';
 type BaselineDefaults = Record<ResolutionKey, Record<ViewMode, Record<string, any>>>;
 type CustomDefaultsByResolution = Partial<Record<ResolutionKey, Partial<Record<ViewMode, Record<string, any>>>>>;
 
+const GRID_1080P_BASELINE = {
+  autoSizeToFit: false,
+  gridSize: 145,
+  gameTilePadding: 10,
+  panelWidth: 967,
+  fanartHeight: 320,
+  descriptionWidth: 74,
+  detailsPanelBottomBarHeight: 72,
+  backgroundBlur: 0,
+  backgroundBrightness: 0.3,
+  showCategories: false,
+  showLogoOverBoxart: false,
+  rightPanelLogoSize: 250,
+  rightPanelBoxartPosition: 'right' as const,
+  rightPanelBoxartSize: 120,
+  rightPanelTextSize: 14,
+  rightPanelButtonSize: 14,
+  rightPanelButtonLocation: 'right' as const,
+  detailsPanelOpacity: 15,
+};
+
 interface UserPreferencesSchema {
   preferences: UserPreferences;
   customDefaults?: CustomDefaultsByResolution;
@@ -266,13 +287,13 @@ export class UserPreferencesService {
 
   private createDefaultPreferences(): UserPreferences {
     const defaults: UserPreferences = {
-      gridSize: 119,
+      gridSize: GRID_1080P_BASELINE.gridSize,
       panelWidth: 800,
-      panelWidthByView: { grid: 800, list: 800, logo: 800, carousel: 800, coverflow: 800 },
+      panelWidthByView: { grid: GRID_1080P_BASELINE.panelWidth, list: 800, logo: 800, carousel: 800, coverflow: 800 },
       fanartHeight: 320,
       fanartHeightByView: { grid: 320, list: 320, logo: 320 },
       descriptionHeight: 400,
-      descriptionWidthByView: { grid: 50, list: 50, logo: 50 },
+      descriptionWidthByView: { grid: GRID_1080P_BASELINE.descriptionWidth, list: 50, logo: 50 },
       pinnedCategories: [],
       minimizeToTray: false,
       showSystemTrayIcon: true,
@@ -338,13 +359,13 @@ export class UserPreferencesService {
       rightPanelButtonSize: 13,
       rightPanelButtonLocation: 'right',
       detailsPanelBottomBarHeight: 72,
-      rightPanelLogoSizeByView: { grid: 300, list: 300, logo: 300 },
+      rightPanelLogoSizeByView: { grid: GRID_1080P_BASELINE.rightPanelLogoSize, list: 300, logo: 300 },
       rightPanelBoxartPositionByView: { grid: 'right', list: 'right', logo: 'right' },
-      rightPanelBoxartSizeByView: { grid: 200, list: 200, logo: 200 },
-      rightPanelTextSizeByView: { grid: 13, list: 13, logo: 13 },
-      rightPanelButtonSizeByView: { grid: 13, list: 13, logo: 13 },
+      rightPanelBoxartSizeByView: { grid: GRID_1080P_BASELINE.rightPanelBoxartSize, list: 200, logo: 200 },
+      rightPanelTextSizeByView: { grid: GRID_1080P_BASELINE.rightPanelTextSize, list: 13, logo: 13 },
+      rightPanelButtonSizeByView: { grid: GRID_1080P_BASELINE.rightPanelButtonSize, list: 13, logo: 13 },
       rightPanelButtonLocationByView: { grid: 'right', list: 'right', logo: 'right' },
-      detailsPanelOpacityByView: { grid: 80, list: 80, logo: 80 },
+      detailsPanelOpacityByView: { grid: GRID_1080P_BASELINE.detailsPanelOpacity, list: 80, logo: 80 },
       titleFontSize: 24,
       titleFontFamily: 'system-ui',
       descriptionFontSize: 14,
@@ -760,19 +781,22 @@ export class UserPreferencesService {
       grid: {
         gridSize: defaults.gridSize,
         gameTilePadding: defaults.gameTilePadding,
+        autoSizeToFit: defaults.autoSizeToFit,
         panelWidth: defaults.panelWidthByView?.grid ?? defaults.panelWidth,
         fanartHeight: defaults.fanartHeightByView?.grid ?? defaults.fanartHeight,
         descriptionWidth: defaults.descriptionWidthByView?.grid ?? 50,
+        detailsPanelBottomBarHeight: defaults.detailsPanelBottomBarHeight,
         backgroundBlur: defaults.backgroundBlur,
         backgroundBrightness: defaults.backgroundBrightnessByView?.grid ?? 0.3,
+        showCategories: defaults.showCategoriesInGameListByView?.grid ?? false,
         showLogoOverBoxart: defaults.showLogoOverBoxart,
-        rightPanelLogoSize: defaults.rightPanelLogoSize,
-        rightPanelBoxartPosition: defaults.rightPanelBoxartPosition,
-        rightPanelBoxartSize: defaults.rightPanelBoxartSize,
-        rightPanelTextSize: defaults.rightPanelTextSize,
-        rightPanelButtonSize: defaults.rightPanelButtonSize,
-        rightPanelButtonLocation: defaults.rightPanelButtonLocation,
-        detailsPanelOpacity: defaults.detailsPanelOpacity,
+        rightPanelLogoSize: defaults.rightPanelLogoSizeByView?.grid ?? defaults.rightPanelLogoSize,
+        rightPanelBoxartPosition: defaults.rightPanelBoxartPositionByView?.grid ?? defaults.rightPanelBoxartPosition,
+        rightPanelBoxartSize: defaults.rightPanelBoxartSizeByView?.grid ?? defaults.rightPanelBoxartSize,
+        rightPanelTextSize: defaults.rightPanelTextSizeByView?.grid ?? defaults.rightPanelTextSize,
+        rightPanelButtonSize: defaults.rightPanelButtonSizeByView?.grid ?? defaults.rightPanelButtonSize,
+        rightPanelButtonLocation: defaults.rightPanelButtonLocationByView?.grid ?? defaults.rightPanelButtonLocation,
+        detailsPanelOpacity: defaults.detailsPanelOpacityByView?.grid ?? defaults.detailsPanelOpacity,
       },
       list: {
         panelWidth: defaults.panelWidthByView?.list ?? defaults.panelWidth,
@@ -839,9 +863,17 @@ export class UserPreferencesService {
       },
     });
 
+    const defaultsByResolution = resolutionPreset();
+
     return {
       '720p': resolutionPreset(),
-      '1080p': resolutionPreset(),
+      '1080p': {
+        ...defaultsByResolution,
+        grid: {
+          ...defaultsByResolution.grid,
+          ...GRID_1080P_BASELINE,
+        },
+      },
       '1440p': resolutionPreset(),
       '4K': resolutionPreset(),
     };

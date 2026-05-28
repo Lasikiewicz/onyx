@@ -25,7 +25,7 @@ describe('UserPreferencesService', () => {
             // We use a property-by-property check instead of toMatchSnapshot to avoid 
             // issues with absolute paths or environment-specific values if any exist.
             expect(defaults).toBeDefined();
-            expect(defaults.gridSize).toBe(119);
+            expect(defaults.gridSize).toBe(145);
             expect(defaults.panelWidth).toBe(800);
             expect(defaults.showSystemTrayIcon).toBe(true);
             expect(defaults.checkForUpdatesOnStartup).toBe(true);

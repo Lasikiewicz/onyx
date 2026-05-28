@@ -6,15 +6,15 @@ export function useAppShellViewState() {
   const [viewMode, setViewMode] = useState<'grid' | 'list' | 'logo' | 'carousel' | 'coverflow'>('grid');
   const [activeSection] = useState('library');
   const [showTopBar] = useState(false);
-  const [gridSize, setGridSize] = useState(120);
+  const [gridSize, setGridSize] = useState(145);
   const [logoSize, setLogoSize] = useState(100);
   const [pinnedCategories, setPinnedCategories] = useState<string[]>([]);
   const [hideVRTitles, setHideVRTitles] = useState(true);
   const [hideAppsTitles, setHideAppsTitles] = useState(true);
   const [hideGameTitles, setHideGameTitles] = useState(false);
-  const [gameTilePadding, setGameTilePadding] = useState(3);
+  const [gameTilePadding, setGameTilePadding] = useState(10);
   const [selectedBoxArtSize, setSelectedBoxArtSize] = useState(25);
-  const [showLogoOverBoxart, setShowLogoOverBoxart] = useState(true);
+  const [showLogoOverBoxart, setShowLogoOverBoxart] = useState(false);
   const [logoPosition, setLogoPosition] = useState<'top' | 'middle' | 'bottom' | 'underneath'>('middle');
   const [logoBackgroundColor, setLogoBackgroundColor] = useState('#374151');
   const [logoBackgroundOpacity, setLogoBackgroundOpacity] = useState(100);
@@ -45,7 +45,7 @@ export function useAppShellViewState() {
     titleTextSize: 18,
   };
   const [rightPanelLogoSizeByView, setRightPanelLogoSizeByView] = useState<Record<'grid' | 'list' | 'logo', number>>({
-    grid: 100,
+    grid: 250,
     list: 100,
     logo: 100,
   });
@@ -75,7 +75,7 @@ export function useAppShellViewState() {
     logo: 'right',
   });
   const [detailsPanelOpacityByView, setDetailsPanelOpacityByView] = useState<Record<'grid' | 'list' | 'logo', number>>({
-    grid: 80,
+    grid: 15,
     list: 80,
     logo: 80,
   });
@@ -113,7 +113,7 @@ export function useAppShellViewState() {
   });
   const [detailsPanelBottomBarHeight, setDetailsPanelBottomBarHeight] = useState(72);
   const [descriptionWidthByView, setDescriptionWidthByView] = useState<Record<'grid' | 'list' | 'logo', number>>({
-    grid: 50,
+    grid: 74,
     list: 50,
     logo: 50,
   });
@@ -124,7 +124,7 @@ export function useAppShellViewState() {
   const [disableAnimatedIcons, setDisableAnimatedIcons] = useState(false);
   const [disableAnimatedLogos, setDisableAnimatedLogos] = useState(false);
   const [panelWidthByViewState, setPanelWidthByViewState] = useState<Record<'grid' | 'list' | 'logo' | 'carousel' | 'coverflow', number>>({
-    grid: 800,
+    grid: 967,
     list: 800,
     logo: 800,
     carousel: 800,

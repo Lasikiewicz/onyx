@@ -33,7 +33,7 @@ Finds games from configured launchers/folders and imports them into the local li
 
 1. Renderer starts scan from menu/settings/startup flow.
 2. Main startup sequence initializes the packaged update service before the renderer can signal `app:ready`, then hands control to [startupCoordinator.ts](../../main/startupCoordinator.ts) to gate update checks, startup-scan timing, cancellation, and fallback startup.
-3. [ImportService.ts](../../main/ImportService.ts) orchestrates launcher readers and normalization through pluggable source-scanner modules (starting with `main/scanners/SteamScanner.ts` and `main/scanners/XboxScanner.ts`), instead of keeping launcher-specific scan logic inline.
+3. [ImportService.ts](../../main/ImportService.ts) orchestrates launcher readers and normalization through pluggable source-scanner modules (starting with `main/scanners/SteamScanner.ts` and `main/scanners/XboxScanner.ts`), instead of keeping launcher-specific scan logic inline. Shared executable ranking lives in [executableSelection.ts](../../main/executableSelection.ts) so manual and launcher folder scans prefer true game launch binaries consistently.
 4. Renderer-side update/import entry points keep effect dependencies explicit so reopening update/import flows does not rely on stale closures while lint guardrails around hook usage continue tightening.
 5. [GameMatcher.ts](../../main/GameMatcher.ts) deduplicates and resolves identity.
 6. Add Games review can adjust staged metadata and run the shared multi-provider image search/browse flow before import.
@@ -45,6 +45,7 @@ Finds games from configured launchers/folders and imports them into the local li
 ## Discovery and Data Sources
 
 - Sources include configured launchers, manual library folders, and hardcoded known game paths.
+- Folder scans include Unreal Engine `Binaries` trees and prefer `Binaries\Win64\*-Shipping.exe` launch binaries over shallow bootstrap executables when both are present.
 - Hardcoded known game paths include:
   - `C:\Program Files\Neverness To Everness` — automatically discovered if installed (specifically targets `NTEGlobalLauncher.exe`)
 - When a hardcoded path match is found, scan results under that same install root are collapsed to the hardcoded entry so launcher support folders do not appear as separate games.
@@ -75,6 +76,12 @@ Finds games from configured launchers/folders and imports them into the local li
 - Check per-launcher detection output from [`LauncherDetectionService`](../../main/LauncherDetectionService.ts).
 - Verify any manual folders exist and are accessible.
 
+### Symptom: Scan selects the wrong executable
+
+- Check [executableSelection.ts](../../main/executableSelection.ts) ranking when a game ships both root bootstrap executables and nested game binaries.
+- For Unreal Engine games, confirm the expected `Binaries\Win64\*-Shipping.exe` path exists and was not excluded by helper-executable filtering.
+- Confirm the staged game's install path groups nested Unreal shipping binaries at the game/project directory rather than the platform folder.
+
 ### Symptom: Duplicate games appear
 
 - Review matcher logic and ID conventions.
@@ -103,6 +110,7 @@ Finds games from configured launchers/folders and imports them into the local li
   - [main.ts](../../main/main.ts)
   - [startupCoordinator.ts](../../main/startupCoordinator.ts)
   - [ImportService.ts](../../main/ImportService.ts)
+  - [executableSelection.ts](../../main/executableSelection.ts)
   - [LauncherService.ts](../../main/LauncherService.ts)
   - [LauncherDetectionService.ts](../../main/LauncherDetectionService.ts)
   - [GameMatcher.ts](../../main/GameMatcher.ts)

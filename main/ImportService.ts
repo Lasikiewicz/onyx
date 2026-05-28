@@ -5,6 +5,7 @@ import { MetadataFetcherService } from './MetadataFetcherService.js';
 import { GameFilteringService } from './GameFilteringService.js';
 import { SteamScanner } from './scanners/SteamScanner.js';
 import { XboxScanner } from './scanners/XboxScanner.js';
+import { getUnrealShippingRootDirectory, selectBestGameExecutable } from './executableSelection.js';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, sep, dirname } from 'node:path';
 import { execSync } from 'node:child_process';
@@ -478,8 +479,7 @@ export class ImportService {
             });
 
             if (gameExes.length > 0) {
-              // Use the first executable found
-              const mainExe = gameExes[0];
+              const mainExe = selectBestGameExecutable(gameExes, gamePath, entry) || gameExes[0];
 
               results.push({
                 uuid: `epic-${entry}-${Date.now()}`,
@@ -586,7 +586,7 @@ export class ImportService {
       const gamesByFolder = new Map<string, string[]>();
 
       for (const exePath of gameExes) {
-        const exeDir = dirname(exePath);
+        const exeDir = getUnrealShippingRootDirectory(exePath) || dirname(exePath);
         const normalizedDir = exeDir.replace(/\\/g, sep).replace(/\/\//g, '/');
 
         if (!gamesByFolder.has(normalizedDir)) {
@@ -691,22 +691,7 @@ export class ImportService {
 
           // If no primary exe from info, try to match by folder name
           if (!primaryExePath) {
-            const matchingExe = exePaths.find(exe => {
-              const exeName = exe.split(sep).pop()?.toLowerCase().replace('.exe', '') || '';
-              return exeName === folderName.toLowerCase();
-            });
-
-            if (matchingExe) {
-              mainExe = matchingExe;
-            } else {
-              // Prefer executables closer to the folder root
-              const sortedByDepth = exePaths.sort((a, b) => {
-                const depthA = a.substring(gameDir.length).split(sep).length;
-                const depthB = b.substring(gameDir.length).split(sep).length;
-                return depthA - depthB;
-              });
-              mainExe = sortedByDepth[0];
-            }
+            mainExe = selectBestGameExecutable(exePaths, gameDir, folderName) || mainExe;
           }
 
           results.push({
@@ -758,25 +743,9 @@ export class ImportService {
           // Find executables within the game folder (allow deeper nests, but reuse global filters)
           const exeCandidates = this.findExecutables(gameDir, 0, 20);
 
-          // Choose best executable: prefer filename matching folder name, otherwise closest to root
           let mainExe: string | undefined;
           if (exeCandidates.length > 0) {
-            const normalizedTitle = title.toLowerCase();
-            const exactMatch = exeCandidates.find(p => {
-              const exeName = p.split(/[/\\]/).pop()?.toLowerCase().replace('.exe', '') || '';
-              return exeName === normalizedTitle;
-            });
-
-            if (exactMatch) {
-              mainExe = exactMatch;
-            } else {
-              // Pick the exe with the shortest relative path (closest to root)
-              mainExe = exeCandidates.sort((a, b) => {
-                const relA = a.substring(gameDir.length).split(sep).length;
-                const relB = b.substring(gameDir.length).split(sep).length;
-                return relA - relB;
-              })[0];
-            }
+            mainExe = selectBestGameExecutable(exeCandidates, gameDir, title);
           }
 
           // Try to detect GOG metadata for manual folders
@@ -968,7 +937,6 @@ export class ImportService {
               dirName === '_commonredist' ||
               dirName === 'support' ||
               dirName === 'engine' ||
-              dirName === 'binaries' || // Some games use Binaries, but often primary exe is at root
               dirName === 'tools' ||
               dirName === 'benchmark' ||
               dirName === 'extras' ||
@@ -1083,7 +1051,7 @@ export class ImportService {
       const gamesByFolder = new Map<string, string[]>();
 
       for (const exePath of gameExes) {
-        const exeDir = dirname(exePath);
+        const exeDir = getUnrealShippingRootDirectory(exePath) || dirname(exePath);
         const normalizedDir = exeDir.replace(/\\/g, sep).replace(/\/\//g, '/');
 
         if (!gamesByFolder.has(normalizedDir)) {
@@ -1117,27 +1085,7 @@ export class ImportService {
             }
           }
 
-          // Select the best executable from this folder
-          let mainExe = exePaths[0];
-
-          // Prefer executables with the same name as the directory (or the parent directory we just found)
-          const matchingExe = exePaths.find(exe => {
-            const exeName = exe.split(sep).pop()?.toLowerCase().replace('.exe', '') || '';
-            const normalizedFolder = folderName.toLowerCase();
-            return exeName === normalizedFolder || normalizedFolder.includes(exeName);
-          });
-
-          if (matchingExe) {
-            mainExe = matchingExe;
-          } else {
-            // Prefer executables closer to the folder root
-            const sortedByDepth = exePaths.sort((a, b) => {
-              const depthA = a.substring(gameDir.length).split(sep).length;
-              const depthB = b.substring(gameDir.length).split(sep).length;
-              return depthA - depthB;
-            });
-            mainExe = sortedByDepth[0];
-          }
+          const mainExe = selectBestGameExecutable(exePaths, gameDir, folderName) || exePaths[0];
 
           console.log(`[Ubisoft] Adding game: ${folderName} with exe: ${mainExe}`);
 
@@ -1241,29 +1189,8 @@ export class ImportService {
             console.log(`[Rockstar] Filtered to ${gameExes.length} game executables in ${entry}`);
 
             if (gameExes.length > 0) {
-              // Prefer executables with the same name as the game folder
-              let mainExe = gameExes[0];
+              const mainExe = selectBestGameExecutable(gameExes, gamePath, entry) || gameExes[0];
 
-              // Try to find an exe with the same name as the directory
-              const matchingExe = gameExes.find(exe => {
-                const exeName = exe.split(sep).pop()?.toLowerCase().replace('.exe', '') || '';
-                const gameName = entry.toLowerCase();
-                return exeName === gameName ||
-                  exeName.includes(gameName.replace(/\s+/g, '')) ||
-                  gameName.includes(exeName);
-              });
-
-              if (matchingExe) {
-                mainExe = matchingExe;
-              } else {
-                // Prefer executables closer to root (fewer directory separators)
-                const exeWithDepth = gameExes.map(exe => ({
-                  exe,
-                  depth: (exe.match(/[/\\]/g) || []).length
-                }));
-                exeWithDepth.sort((a, b) => a.depth - b.depth);
-                mainExe = exeWithDepth[0].exe;
-              }
 
               console.log(`[Rockstar] ✓ Found Rockstar game: ${entry} (${mainExe})`);
 
@@ -1360,7 +1287,7 @@ export class ImportService {
       const normalizedBasePath = folderPath.replace(/\\/g, '/').toLowerCase();
 
       for (const exePath of gameExes) {
-        const exeDir = dirname(exePath);
+        const exeDir = getUnrealShippingRootDirectory(exePath) || dirname(exePath);
         // Normalize the directory path (use forward slashes for consistency)
         const normalizedDir = exeDir.replace(/\\/g, '/');
 
@@ -1375,6 +1302,26 @@ export class ImportService {
           gamesByFolder.set(normalizedDir, []);
         }
         gamesByFolder.get(normalizedDir)!.push(exePath);
+      }
+
+      const directGameFolders = Array.from(gamesByFolder.keys());
+      for (const [gameDir, exePaths] of Array.from(gamesByFolder.entries())) {
+        for (const parentDir of directGameFolders) {
+          if (gameDir === parentDir || !gameDir.toLowerCase().startsWith(`${parentDir.toLowerCase()}/`)) {
+            continue;
+          }
+
+          const parentExePaths = gamesByFolder.get(parentDir);
+          if (!parentExePaths) {
+            continue;
+          }
+
+          for (const exePath of exePaths) {
+            if (!parentExePaths.includes(exePath)) {
+              parentExePaths.push(exePath);
+            }
+          }
+        }
       }
 
       console.log(`[ImportService] Found ${gamesByFolder.size} unique game folders`);
@@ -1416,28 +1363,8 @@ export class ImportService {
 
           console.log(`[ImportService] Processing game folder: ${folderName} (${gameDir}) with ${exePaths.length} executable(s)`);
 
-          // Select the best executable from this folder
-          let mainExe = exePaths[0];
-
-          // Prefer executables with the same name as the directory
-          const matchingExe = exePaths.find(exe => {
-            const exeName = exe.split(sep).pop()?.toLowerCase().replace('.exe', '') || '';
-            return exeName === folderName.toLowerCase();
-          });
-
-          if (matchingExe) {
-            mainExe = matchingExe;
-          } else {
-            // If no exact match, prefer executables closer to the folder root (fewer path separators)
-            const sortedByDepth = exePaths.sort((a, b) => {
-              // Count separators relative to the game directory
-              const depthA = a.substring(gameDir.length).split(sep).length;
-              const depthB = b.substring(gameDir.length).split(sep).length;
-              return depthA - depthB; // Prefer shallower (closer to folder root)
-            });
-            mainExe = sortedByDepth[0];
-            console.log(`[ImportService] Selected executable (closest to root): ${mainExe}`);
-          }
+          const mainExe = selectBestGameExecutable(exePaths, gameDir, folderName) || exePaths[0];
+          console.log(`[ImportService] Selected executable: ${mainExe}`);
 
           // Filter using shared game filtering service
           const exeFileName = mainExe.split(/[/\\]/).pop() || '';
@@ -1859,26 +1786,7 @@ export class ImportService {
           // Use the folder name as the game title
           const folderName = gameDir.split(/[/\\]/).pop() || 'Unknown';
 
-          // Select the best executable from this folder
-          let mainExe = exePaths[0];
-
-          // Prefer executables with the same name as the directory
-          const matchingExe = exePaths.find(exe => {
-            const exeName = exe.split(sep).pop()?.toLowerCase().replace('.exe', '') || '';
-            return exeName === folderName.toLowerCase();
-          });
-
-          if (matchingExe) {
-            mainExe = matchingExe;
-          } else {
-            // Prefer executables closer to the folder root
-            const sortedByDepth = exePaths.sort((a, b) => {
-              const depthA = a.substring(gameDir.length).split(sep).length;
-              const depthB = b.substring(gameDir.length).split(sep).length;
-              return depthA - depthB;
-            });
-            mainExe = sortedByDepth[0];
-          }
+          const mainExe = selectBestGameExecutable(exePaths, gameDir, folderName) || exePaths[0];
 
           // Filter using shared game filtering service
           const exeFileName = mainExe.split(/[/\\]/).pop() || '';
@@ -2022,8 +1930,8 @@ export class ImportService {
           return null;
         }
         
-        mainExe = exeCandidates[0];
-        
+        mainExe = selectBestGameExecutable(exeCandidates, gamePath, gameName) || exeCandidates[0];
+
         if (exeName) {
           const matchingExe = exeCandidates.find(exe => exe.toLowerCase().endsWith(`\\${exeName.toLowerCase()}`) || exe.toLowerCase().endsWith(`/${exeName.toLowerCase()}`));
           if (matchingExe) {

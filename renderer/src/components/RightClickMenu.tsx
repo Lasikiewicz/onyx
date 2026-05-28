@@ -298,6 +298,15 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
   const [showCustomDefaultsModal, setShowCustomDefaultsModal] = React.useState(false);
   const [screenResolution, setScreenResolution] = React.useState<'720p' | '1080p' | '1440p' | '4K'>('1080p');
 
+  // Stable panel width state for dividers section to prevent moving/resizing on drag
+  const [stablePanelWidth, setStablePanelWidth] = useState<number>(panelWidth);
+
+  useEffect(() => {
+    setStablePanelWidth(panelWidth);
+  }, [activeEditorSection]);
+
+  const effectivePanelWidth = activeEditorSection === 'dividers' ? stablePanelWidth : panelWidth;
+
   // State for Reset Confirmation Dialog
   const [showResetConfirmation, setShowResetConfirmation] = React.useState(false);
   const [resetResolution, setResetResolution] = React.useState('');
@@ -316,8 +325,8 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
   const dividerGuardInset = activeEditorSection === 'dividers' ? 18 : 0;
   const defaultMenuWidth = viewMode === 'list' ? 1240 : 980;
   const focusedAreaWidth = focusedSectionTarget === 'details-panel'
-      ? panelWidth
-      : Math.max(320, window.innerWidth - panelWidth);
+      ? effectivePanelWidth
+      : Math.max(320, window.innerWidth - effectivePanelWidth);
   const dividerIsOnStartEdge = activeEditorSection === 'dividers'
     ? true
     : focusedSectionTarget === 'details-panel'
@@ -373,8 +382,9 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
   }, []);
 
   // Local state for per-game logo sizes - updates immediately for UI responsiveness
+  const defaultLocalGridLogoSize = screenResolution === '1080p' ? 250 : 100;
   const [localLogoSizes, setLocalLogoSizes] = React.useState({
-    grid: activeGame?.logoSizePerViewMode?.grid ?? 100,
+    grid: activeGame?.logoSizePerViewMode?.grid ?? defaultLocalGridLogoSize,
     list: activeGame?.logoSizePerViewMode?.list ?? 100,
     logo: activeGame?.logoSizePerViewMode?.logo ?? 100,
     carousel: activeGame?.logoSizePerViewMode?.carousel ?? 100,
@@ -387,7 +397,7 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
   React.useEffect(() => {
     if (activeGame) {
       setLocalLogoSizes({
-        grid: activeGame.logoSizePerViewMode?.grid ?? 100,
+        grid: activeGame.logoSizePerViewMode?.grid ?? defaultLocalGridLogoSize,
         list: activeGame.logoSizePerViewMode?.list ?? 100,
         logo: activeGame.logoSizePerViewMode?.logo ?? 100,
         carousel: activeGame.logoSizePerViewMode?.carousel ?? 100,
@@ -397,7 +407,7 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
     }
-  }, [activeGame]); // Keep local state aligned with the currently active game
+  }, [activeGame, defaultLocalGridLogoSize]); // Keep local state aligned with the currently active game
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -441,8 +451,8 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
       let top = y;
 
       if (isFocusedEditorSection) {
-        const detailsPanelLeft = isViewFlipped ? 0 : viewportWidth - panelWidth;
-        const gamesPanelLeft = isViewFlipped ? panelWidth : 0;
+        const detailsPanelLeft = isViewFlipped ? 0 : viewportWidth - effectivePanelWidth;
+        const gamesPanelLeft = isViewFlipped ? effectivePanelWidth : 0;
         const areaBaseLeft = focusedSectionTarget === 'details-panel' ? detailsPanelLeft : gamesPanelLeft;
         const availableAreaWidth = Math.max(0, focusedAreaWidth - panelInsetStart - panelInsetEnd);
         const centeredLeftOffset = panelInsetStart + Math.max(0, (availableAreaWidth - focusedPanelWidth) / 2);
@@ -457,7 +467,7 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
       menuRef.current.style.left = `${left}px`;
       menuRef.current.style.top = `${top}px`;
     }
-  }, [x, y, viewMode, isFocusedEditorSection, activeEditorSection, panelWidth, isViewFlipped, panelInsetStart, panelInsetEnd, focusedSectionTarget, focusedAreaWidth, focusedAreaHeight, focusedPanelWidth, focusedPanelHeightPx]);
+  }, [x, y, viewMode, isFocusedEditorSection, activeEditorSection, effectivePanelWidth, isViewFlipped, panelInsetStart, panelInsetEnd, focusedSectionTarget, focusedAreaWidth, focusedAreaHeight, focusedPanelWidth, focusedPanelHeightPx]);
 
   React.useEffect(() => {
     const handleViewportChange = () => {
@@ -516,6 +526,7 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
       if (defaults.detailsPanelBottomBarHeight !== undefined) onDetailsPanelBottomBarHeightChange?.(defaults.detailsPanelBottomBarHeight);
       if (defaults.backgroundBlur !== undefined) onBackgroundBlurChange?.(defaults.backgroundBlur);
       if (defaults.backgroundBrightness !== undefined) onBackgroundBrightnessChange?.(defaults.backgroundBrightness);
+      if (defaults.showCategories !== undefined) onShowCategoriesInGameListChange?.(defaults.showCategories);
       if (defaults.showLogoOverBoxart !== undefined) onShowLogoOverBoxartChange?.(defaults.showLogoOverBoxart);
     } else if (mode === 'logo') {
       if (defaults.autoSizeToFit !== undefined) onAutoSizeToFitChange?.(defaults.autoSizeToFit);
@@ -561,6 +572,7 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
     }
 
     // Apply right panel defaults (shared by all view modes in the JSON)
+    if (defaults.rightPanelLogoSize !== undefined) onRightPanelLogoSizeChange?.(defaults.rightPanelLogoSize);
     if (defaults.rightPanelBoxartPosition !== undefined) onRightPanelBoxartPositionChange?.(defaults.rightPanelBoxartPosition);
     if (defaults.rightPanelBoxartSize !== undefined) onRightPanelBoxartSizeChange?.(defaults.rightPanelBoxartSize);
     if (defaults.rightPanelTextSize !== undefined) onRightPanelTextSizeChange?.(defaults.rightPanelTextSize);
@@ -595,7 +607,7 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
 
     const { logoSizePerViewMode: _logoSizePerViewMode, ...restOfGame } = activeGame;
     const updatedGame = restOfGame as Game;
-    setLocalLogoSizes({ grid: 100, list: 100, logo: 100, carousel: 100 });
+    setLocalLogoSizes({ grid: defaultLocalGridLogoSize, list: 100, logo: 100, carousel: 100 });
     onActiveGameChange(updatedGame);
 
     try {
@@ -646,14 +658,15 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
     setShowCustomDefaultsModal(true);
   };
 
+  const use1080pGridDefaults = screenResolution === '1080p' && viewMode === 'grid';
   const sliderDefaults = {
-    gridSize: 120,
+    gridSize: use1080pGridDefaults ? 145 : 120,
     logoSize: 100,
     listSize: 128,
     detailsBarSize: 14,
     selectedBoxArtSize: 25,
-    gameTilePadding: 3,
-    backgroundBlur: 40,
+    gameTilePadding: use1080pGridDefaults ? 10 : 3,
+    backgroundBlur: use1080pGridDefaults ? 0 : 40,
     backgroundBrightnessPercent: 30,
     carouselLogoSize: 100,
     carouselDescriptionSize: 18,
@@ -665,15 +678,15 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
     listLogoSize: 96,
     listTitleTextSize: 18,
     listSectionTextSize: 14,
-    panelWidth: 800,
+    panelWidth: use1080pGridDefaults ? 967 : 800,
     fanartHeight: 320,
-    descriptionWidth: 50,
+    descriptionWidth: use1080pGridDefaults ? 74 : 50,
     detailsPanelBottomBarHeight: 72,
-    perGameLogoSize: 300,
+    perGameLogoSize: use1080pGridDefaults ? 250 : 300,
     rightPanelBoxartSize: 120,
     rightPanelTextSize: 14,
     rightPanelButtonSize: 14,
-    detailsPanelOpacity: 80,
+    detailsPanelOpacity: use1080pGridDefaults ? 15 : 80,
     coverFlowCoverSize: 300,
     coverFlowReflection: 60,
     coverFlowVerticalOffset: 0,
@@ -682,7 +695,7 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
   const detailsPanelTransparency = Math.max(0, Math.min(100, 100 - detailsPanelOpacity));
   const defaultDetailsPanelTransparency = Math.max(0, Math.min(100, 100 - sliderDefaults.detailsPanelOpacity));
   const detailsLogoSliderMax = 600;
-  const detailsLogoSliderDefault = 300;
+  const detailsLogoSliderDefault = sliderDefaults.perGameLogoSize;
 
   const defaultButtonColors = DEFAULT_BUTTON_COLORS;
 
