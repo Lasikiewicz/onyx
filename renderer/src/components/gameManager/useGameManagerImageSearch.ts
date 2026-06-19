@@ -123,7 +123,7 @@ export function useGameManagerImageSearch({
     const target = event.target as HTMLImageElement;
     target.style.display = 'none';
     target.parentElement?.parentElement?.remove();
-  }, [markImageResultUrlAsFailed]);
+  }, [markImageResultUrlAsFailed]); // Remove failed image result container from DOM
 
   const resetImageWorkflow = useCallback(() => {
     setShowImageSearch(null);
