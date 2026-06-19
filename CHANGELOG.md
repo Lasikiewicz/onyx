@@ -4,6 +4,8 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Pending]
+
 ## [0.10.7] - 2026-06-19
 
 - Game Manager:
