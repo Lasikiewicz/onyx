@@ -96,7 +96,7 @@ export function GameManagerImagesTab({
   const currentTitle = editedGame?.title || selectedGame?.title || '';
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
+    <>
       <div className="p-2 space-y-2 flex-shrink-0 bg-gray-900/95 z-10 border-b border-gray-800">
         <GameArtworkStrip
           editedGame={editedGame}
@@ -263,6 +263,6 @@ export function GameManagerImagesTab({
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }
