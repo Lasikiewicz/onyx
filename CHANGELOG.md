@@ -7,7 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [0.10.7] - 2026-06-19
 
 - Game Manager:
-  - Fix blank screen issue when editing banner images in the Images tab by properly wrapping GameManagerImagesTab children in a flex column container.
+  - Fix blank screen when editing images by removing duplicate DOM node removal that threw uncaught DOMException, breaking component rendering.
 
 ## [0.10.6] - 2026-05-28
 
