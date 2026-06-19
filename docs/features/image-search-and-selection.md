@@ -49,6 +49,8 @@ Lets users search provider/web image sources, preview candidates, and assign box
 - Manual per-type search now keeps discovery order by appending provider batches as they arrive (no score/exact-match resorting or front insertion during active search).
 - `metadata:searchImages` now returns SteamGridDB type results directly for this flow, while IGDB metadata continues via its own parallel search channel in the renderer.
 - The Images `all` tab renders from a single ordered merged stream across providers, so section ordering reflects discovery time consistently instead of per-provider grouping priority.
+- Failed remote image candidates are recorded in renderer state and excluded during result shaping instead of being removed from the DOM manually, keeping React ownership intact when provider/CDN assets 404.
+- Broken top-strip box art falls back through React state rather than replacing child markup directly, so the preview strip remains stable when saved artwork is unavailable.
 - Add Games image editing can also browse a local image/WEBM file, cache it, and apply it before the game is imported.
 - Add Games mirrors Game Manager's linked image-field updates for background artwork, so choosing a banner also updates the imported `heroUrl`/background display path instead of reverting to older artwork after import.
 

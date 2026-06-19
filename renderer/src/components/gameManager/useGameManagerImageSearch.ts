@@ -118,12 +118,9 @@ export function useGameManagerImageSearch({
     });
   }, []);
 
-  const handleImageResultLoadError = useCallback((url: string | undefined, event: React.SyntheticEvent<HTMLImageElement>) => {
+  const handleImageResultLoadError = useCallback((url: string | undefined, _event: React.SyntheticEvent<HTMLImageElement>) => {
     markImageResultUrlAsFailed(url);
-    const target = event.target as HTMLImageElement;
-    target.style.display = 'none';
-    target.parentElement?.parentElement?.remove();
-  }, [markImageResultUrlAsFailed]); // Remove failed image result container from DOM
+  }, [markImageResultUrlAsFailed]);
 
   const resetImageWorkflow = useCallback(() => {
     setShowImageSearch(null);

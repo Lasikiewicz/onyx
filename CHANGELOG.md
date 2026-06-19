@@ -4,6 +4,11 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Pending]
+
+- Game Manager:
+  - Keep failed image-search results and broken top-strip box art under React state control, preventing CDN image 404s from corrupting the DOM and crashing the Images tab.
+
 ## [0.10.8] - 2026-06-19
 
 - Code quality:

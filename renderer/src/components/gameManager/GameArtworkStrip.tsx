@@ -1,4 +1,4 @@
-import type { SyntheticEvent } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { Game } from '../../types/game';
 
 type ArtworkType = 'boxart' | 'banner' | 'alternativeBanner' | 'logo' | 'icon';
@@ -15,21 +15,25 @@ interface GameArtworkStripProps {
   onOpenContextMenu: (event: ArtworkMenuEvent, type: ArtworkType) => void;
 }
 
-function handleBrokenImage(event: SyntheticEvent<HTMLImageElement>) {
-  const target = event.target as HTMLImageElement;
-  target.style.display = 'none';
-  target.parentElement?.classList.add('flex', 'items-center', 'justify-center');
-  if (target.parentElement) {
-    target.parentElement.innerHTML = '<span class="text-[8px] text-gray-500 text-center p-1">No Image</span>';
-  }
-}
-
 export function GameArtworkStrip({
   editedGame,
   selectedGame,
   onOpenImageSearch,
   onOpenContextMenu,
 }: GameArtworkStripProps) {
+  const boxArtUrl = editedGame.boxArtUrl || selectedGame.boxArtUrl;
+  const [brokenBoxArtUrl, setBrokenBoxArtUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (brokenBoxArtUrl && brokenBoxArtUrl !== boxArtUrl) {
+      setBrokenBoxArtUrl(null);
+    }
+  }, [boxArtUrl, brokenBoxArtUrl]);
+
+  const handleBrokenBoxArt = useCallback(() => {
+    setBrokenBoxArtUrl(boxArtUrl || null);
+  }, [boxArtUrl]);
+
   return (
     <div className="flex gap-2 mb-1 items-start">
       <div
@@ -40,11 +44,11 @@ export function GameArtworkStrip({
         }}
         className="h-36 w-auto aspect-[2/3] relative group cursor-pointer border border-gray-700 rounded-lg overflow-hidden bg-gray-800 hover:border-green-500 transition-colors flex-shrink-0"
       >
-        {(editedGame.boxArtUrl || selectedGame.boxArtUrl) ? (
+        {boxArtUrl && brokenBoxArtUrl !== boxArtUrl ? (
           (editedGame.boxArtIsVideo || selectedGame.boxArtIsVideo) ? (
             <video
-              key={editedGame.boxArtUrl || selectedGame.boxArtUrl}
-              src={editedGame.boxArtUrl || selectedGame.boxArtUrl}
+              key={boxArtUrl}
+              src={boxArtUrl}
               muted
               loop
               playsInline
@@ -53,11 +57,11 @@ export function GameArtworkStrip({
             />
           ) : (
             <img
-              key={editedGame.boxArtUrl || selectedGame.boxArtUrl}
-              src={editedGame.boxArtUrl || selectedGame.boxArtUrl}
+              key={boxArtUrl}
+              src={boxArtUrl}
               alt="Boxart"
               className="w-full h-full object-cover"
-              onError={handleBrokenImage}
+              onError={handleBrokenBoxArt}
             />
           )
         ) : (
