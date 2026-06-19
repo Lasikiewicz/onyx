@@ -96,7 +96,7 @@ export function GameManagerImagesTab({
   const currentTitle = editedGame?.title || selectedGame?.title || '';
 
   return (
-    <>
+    <div className="flex flex-col h-full overflow-hidden">
       <div className="p-2 space-y-2 flex-shrink-0 bg-gray-900/95 z-10 border-b border-gray-800">
         <GameArtworkStrip
           editedGame={editedGame}
@@ -107,7 +107,7 @@ export function GameManagerImagesTab({
       </div>
 
       {!hasRawImageResults && (
-        <div className="border-t border-gray-800 pt-4 px-4">
+        <div className="border-t border-gray-800 pt-4 px-4 flex-shrink-0">
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-300 mb-2">
               {showImageSearch ? `Search for ${showImageSearch.type}` : 'Search Images'}
@@ -175,7 +175,7 @@ export function GameManagerImagesTab({
       )}
 
       {hasRawImageResults && (
-        <div className="border-t border-gray-800 bg-gray-900 px-4 pt-4 pb-2">
+        <div className="border-t border-gray-800 bg-gray-900 px-4 pt-4 pb-2 flex-shrink-0">
           <div className="flex items-center justify-between mb-4 border-b border-gray-700 pb-2">
             <div className="flex items-center gap-1">
               {['all', 'boxart', 'logo', 'banner', 'alternativeBanner', 'icon'].map((tab) => {
@@ -263,6 +263,6 @@ export function GameManagerImagesTab({
           </div>
         </div>
       </div>
-    </>
+    </div>
   );
 }

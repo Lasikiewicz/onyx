@@ -4,6 +4,11 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Pending]
+
+- Game Manager:
+  - Fix blank screen issue when editing banner images in the Images tab by properly wrapping GameManagerImagesTab children in a flex column container.
+
 ## [0.10.6] - 2026-05-28
 
 - App shell:
