@@ -181,7 +181,7 @@ export interface UserPreferences {
   backgroundBrightnessByView?: { grid?: number; list?: number; logo?: number; carousel?: number; coverflow?: number };
   backgroundMode?: 'image' | 'color';
   backgroundColor?: string;
-  viewMode?: 'grid' | 'list' | 'logo' | 'carousel' | 'coverflow';
+  viewMode?: 'grid' | 'list' | 'logo' | 'carousel' | 'coverflow' | 'card';
   listViewOptions?: {
     showDescription: boolean;
     showCategories: boolean;
@@ -252,7 +252,7 @@ export interface UserPreferences {
   };
   isFirstLaunch?: boolean;
   hasSeenPostImportTutorial?: boolean;
-  isViewFlippedByView?: Record<'grid' | 'list' | 'logo' | 'carousel' | 'coverflow', boolean>;
+  isViewFlippedByView?: Record<'grid' | 'list' | 'logo' | 'carousel' | 'coverflow' | 'card', boolean>;
   // Fullscreen settings
   startInFullscreen?: boolean;
   hideMouseCursorInFullscreen?: boolean;

@@ -93,7 +93,7 @@ interface RightClickMenuHeaderProps {
   menuBackdropBlur: string;
   menuTransparency: number;
   menuTransparencyPercent: number;
-  viewMode: 'grid' | 'list' | 'logo' | 'carousel' | 'coverflow';
+  viewMode: 'grid' | 'list' | 'logo' | 'carousel' | 'coverflow' | 'card';
   onClose: () => void;
   onOpenCustomDefaults: () => void;
   onResetToDefaults: () => void;

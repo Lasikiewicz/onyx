@@ -1,6 +1,6 @@
 interface RightClickMenuViewModeSwitchProps {
-  viewMode: 'grid' | 'list' | 'logo' | 'carousel' | 'coverflow';
-  onViewModeChange: (mode: 'grid' | 'list' | 'logo' | 'carousel' | 'coverflow') => void;
+  viewMode: 'grid' | 'list' | 'logo' | 'carousel' | 'coverflow' | 'card';
+  onViewModeChange: (mode: 'grid' | 'list' | 'logo' | 'carousel' | 'coverflow' | 'card') => void;
 }
 
 const viewModes = [
@@ -9,6 +9,12 @@ const viewModes = [
     label: 'Grid',
     title: 'Grid View',
     path: 'M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z',
+  },
+  {
+    mode: 'card',
+    label: 'Card/Poster',
+    title: 'Card / Poster View',
+    path: 'M4 5a2 2 0 012-2h4a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V5zM14 8a2 2 0 012-2h4a2 2 0 012 2v3a2 2 0 01-2 2h-4a2 2 0 01-2-2V8zM14 15a2 2 0 012-2h4a2 2 0 012 2v1a2 2 0 01-2 2h-4a2 2 0 01-2-2v-1z',
   },
   {
     mode: 'list',
@@ -41,7 +47,7 @@ export function RightClickMenuViewModeSwitch({
   onViewModeChange,
 }: RightClickMenuViewModeSwitchProps) {
   return (
-    <div className="px-3 py-1 grid grid-cols-5 gap-1.5">
+    <div className="px-3 py-1 grid grid-cols-6 gap-1.5">
       {viewModes.map(({ mode, label, title, path }) => (
         <button
           key={mode}

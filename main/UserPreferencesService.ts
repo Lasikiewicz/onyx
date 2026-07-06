@@ -1,7 +1,10 @@
 export interface UserPreferences {
   gridSize: number;
+  cardColumns?: number;
+  cardPostersOnly?: boolean;
+  cardSmartFill?: boolean;
   panelWidth: number;
-  panelWidthByView?: { grid?: number; list?: number; logo?: number; carousel?: number; coverflow?: number };
+  panelWidthByView?: { grid?: number; list?: number; logo?: number; carousel?: number; coverflow?: number; card?: number };
   fanartHeight: number;
   descriptionHeight: number;
   descriptionWidthByView?: { grid?: number; list?: number; logo?: number };
@@ -34,10 +37,10 @@ export interface UserPreferences {
   logoBackgroundColor?: string;
   logoBackgroundOpacity?: number;
   backgroundBlur?: number;
-  backgroundBrightnessByView?: { grid?: number; list?: number; logo?: number; carousel?: number; coverflow?: number };
+  backgroundBrightnessByView?: { grid?: number; list?: number; logo?: number; carousel?: number; coverflow?: number; card?: number };
   backgroundMode?: 'image' | 'color';
   backgroundColor?: string;
-  viewMode?: 'grid' | 'list' | 'logo' | 'carousel' | 'coverflow';
+  viewMode?: 'grid' | 'list' | 'logo' | 'carousel' | 'coverflow' | 'card';
   listViewOptions?: {
     showDescription: boolean;
     showCategories: boolean;
@@ -167,7 +170,7 @@ export interface UserPreferences {
     pinnedCategories?: 'left' | 'middle' | 'right' | 'hidden';
   };
   isFirstLaunch?: boolean;
-  isViewFlippedByView?: Record<'grid' | 'list' | 'logo' | 'carousel' | 'coverflow', boolean>;
+  isViewFlippedByView?: Record<'grid' | 'list' | 'logo' | 'carousel' | 'coverflow' | 'card', boolean>;
   coverFlowCoverSize?: number;
   coverFlowReflection?: number;
   coverFlowVerticalOffset?: number;
@@ -180,13 +183,14 @@ export interface UserPreferences {
   confirmGameLaunch?: boolean;
   restoreAfterLaunch?: boolean;
   defaultStartupPage?: 'library' | 'favorites' | 'recent';
-  perGameViewSizeOverrides?: Record<string, { grid?: number; list?: number; logo?: number; carousel?: number; coverflow?: number }>;
+  perGameViewSizeOverrides?: Record<string, { grid?: number; list?: number; logo?: number; carousel?: number; coverflow?: number; card?: number }>;
   perGameViewCustomByView?: {
     grid?: Record<string, { gameName?: string; size: number }>;
     list?: Record<string, { gameName?: string; size: number }>;
     logo?: Record<string, { gameName?: string; size: number }>;
     carousel?: Record<string, { gameName?: string; size: number }>;
     coverflow?: Record<string, { gameName?: string; size: number }>;
+    card?: Record<string, { gameName?: string; size: number }>;
   };
   perGameViewSizeOverridesMigrated?: boolean;
   sections?: {
@@ -196,6 +200,7 @@ export interface UserPreferences {
       logoView?: Record<string, any>;
       carouselView?: Record<string, any>;
       coverflowView?: Record<string, any>;
+      cardView?: Record<string, any>;
     };
     '1080p'?: {
       gridView?: Record<string, any>;
@@ -203,6 +208,7 @@ export interface UserPreferences {
       logoView?: Record<string, any>;
       carouselView?: Record<string, any>;
       coverflowView?: Record<string, any>;
+      cardView?: Record<string, any>;
     };
     '1440p'?: {
       gridView?: Record<string, any>;
@@ -210,6 +216,7 @@ export interface UserPreferences {
       logoView?: Record<string, any>;
       carouselView?: Record<string, any>;
       coverflowView?: Record<string, any>;
+      cardView?: Record<string, any>;
     };
     '4K'?: {
       gridView?: Record<string, any>;
@@ -217,12 +224,13 @@ export interface UserPreferences {
       logoView?: Record<string, any>;
       carouselView?: Record<string, any>;
       coverflowView?: Record<string, any>;
+      cardView?: Record<string, any>;
     };
   };
   currentResolution?: ResolutionKey;
 }
 
-type ViewMode = 'grid' | 'list' | 'logo' | 'carousel' | 'coverflow';
+type ViewMode = 'grid' | 'list' | 'logo' | 'carousel' | 'coverflow' | 'card';
 type ResolutionKey = '720p' | '1080p' | '1440p' | '4K';
 type BaselineDefaults = Record<ResolutionKey, Record<ViewMode, Record<string, any>>>;
 type CustomDefaultsByResolution = Partial<Record<ResolutionKey, Partial<Record<ViewMode, Record<string, any>>>>>;
@@ -288,8 +296,11 @@ export class UserPreferencesService {
   private createDefaultPreferences(): UserPreferences {
     const defaults: UserPreferences = {
       gridSize: GRID_1080P_BASELINE.gridSize,
+      cardColumns: 4,
+      cardPostersOnly: false,
+      cardSmartFill: false,
       panelWidth: 800,
-      panelWidthByView: { grid: GRID_1080P_BASELINE.panelWidth, list: 800, logo: 800, carousel: 800, coverflow: 800 },
+      panelWidthByView: { grid: GRID_1080P_BASELINE.panelWidth, list: 800, logo: 800, carousel: 800, coverflow: 800, card: 800 },
       fanartHeight: 320,
       fanartHeightByView: { grid: 320, list: 320, logo: 320 },
       descriptionHeight: 400,
@@ -323,6 +334,7 @@ export class UserPreferencesService {
         logo: 0.3,
         carousel: 0.3,
         coverflow: 0.3,
+        card: 1,
       },
       backgroundMode: 'image',
       backgroundColor: '#000000',
@@ -739,6 +751,26 @@ export class UserPreferencesService {
       gamesCustomSettings: byView.coverflow || {},
     });
 
+    const createCardViewSection = () => ({
+      '// Card / Poster View Settings': 'Card / Poster View',
+      '// Description': 'Card / Poster View displays games as wide cards or poster-only tiles',
+      settings: {
+        '// Games Per Row': 'Number of cards or posters shown in each row',
+        cardColumns: preferences.cardColumns,
+        '// Posters Only': 'Show only poster artwork instead of wide cards',
+        cardPostersOnly: preferences.cardPostersOnly,
+        '// Smart Fill': 'Automatically size cards or posters to fit on screen',
+        cardSmartFill: preferences.cardSmartFill,
+        '// Tile Spacing': 'Spacing between card/poster tiles',
+        gameTilePadding: preferences.gameTilePadding,
+        '// Background Blur': 'Blur amount for background image (0-100)',
+        backgroundBlur: preferences.backgroundBlur,
+        '// Background Brightness': 'Brightness/darkness of background image (0.0-1.0)',
+        backgroundBrightness: preferences.backgroundBrightnessByView?.card,
+      },
+      gamesCustomSettings: byView.card || {},
+    });
+
     // Create resolution-nested sections
     return {
       '720p': {
@@ -747,6 +779,7 @@ export class UserPreferencesService {
         logoView: createLogoViewSection(),
         carouselView: createCarouselViewSection(),
         coverflowView: createCoverflowViewSection(),
+        cardView: createCardViewSection(),
       },
       '1080p': {
         gridView: createGridViewSection(),
@@ -754,6 +787,7 @@ export class UserPreferencesService {
         logoView: createLogoViewSection(),
         carouselView: createCarouselViewSection(),
         coverflowView: createCoverflowViewSection(),
+        cardView: createCardViewSection(),
       },
       '1440p': {
         gridView: createGridViewSection(),
@@ -761,6 +795,7 @@ export class UserPreferencesService {
         logoView: createLogoViewSection(),
         carouselView: createCarouselViewSection(),
         coverflowView: createCoverflowViewSection(),
+        cardView: createCardViewSection(),
       },
       '4K': {
         gridView: createGridViewSection(),
@@ -768,6 +803,7 @@ export class UserPreferencesService {
         logoView: createLogoViewSection(),
         carouselView: createCarouselViewSection(),
         coverflowView: createCoverflowViewSection(),
+        cardView: createCardViewSection(),
       },
     };
   }
@@ -860,6 +896,14 @@ export class UserPreferencesService {
         coverFlowShowButtons: defaults.coverFlowShowButtons,
         coverFlowButtonPosition: defaults.coverFlowButtonPosition,
         backgroundBrightness: defaults.backgroundBrightnessByView?.coverflow ?? 0.3,
+      },
+      card: {
+        cardColumns: defaults.cardColumns,
+        cardPostersOnly: defaults.cardPostersOnly,
+        cardSmartFill: defaults.cardSmartFill,
+        gameTilePadding: defaults.gameTilePadding,
+        backgroundBlur: 0,
+        backgroundBrightness: defaults.backgroundBrightnessByView?.card ?? 1,
       },
     });
 
@@ -1145,6 +1189,19 @@ export class UserPreferencesService {
       }
     }
 
+    // Extract from cardView
+    if (viewSections.cardView?.settings) {
+      const cardSettings = viewSections.cardView.settings;
+      if (cardSettings.cardColumns !== undefined) extracted.cardColumns = cardSettings.cardColumns;
+      if (cardSettings.cardPostersOnly !== undefined) extracted.cardPostersOnly = cardSettings.cardPostersOnly;
+      if (cardSettings.cardSmartFill !== undefined) extracted.cardSmartFill = cardSettings.cardSmartFill;
+      if (cardSettings.gameTilePadding !== undefined) extracted.gameTilePadding = cardSettings.gameTilePadding;
+      if (cardSettings.backgroundBlur !== undefined) extracted.backgroundBlur = cardSettings.backgroundBlur;
+      if (cardSettings.backgroundBrightness !== undefined) {
+        extracted.backgroundBrightnessByView = { ...extracted.backgroundBrightnessByView, card: cardSettings.backgroundBrightness };
+      }
+    }
+
     // Extract per-game custom settings
     const perGameCustom: NonNullable<UserPreferences['perGameViewCustomByView']> = {
       grid: viewSections.gridView?.gamesCustomSettings || {},
@@ -1152,6 +1209,7 @@ export class UserPreferencesService {
       logo: viewSections.logoView?.gamesCustomSettings || {},
       carousel: viewSections.carouselView?.gamesCustomSettings || {},
       coverflow: viewSections.coverflowView?.gamesCustomSettings || {},
+      card: viewSections.cardView?.gamesCustomSettings || {},
     };
 
     extracted.perGameViewCustomByView = perGameCustom;
@@ -1215,6 +1273,11 @@ export class UserPreferencesService {
       coverFlowShowButtons,
       coverFlowButtonPosition,
       coverFlowButtonColors,
+
+      // Card / Poster view duplicates
+      cardColumns,
+      cardPostersOnly,
+      cardSmartFill,
 
       // Per-game custom settings (now in sections)
       perGameViewCustomByView,
@@ -1321,6 +1384,7 @@ export class UserPreferencesService {
         logo: { ...(defaults.perGameViewCustomByView?.logo || {}), ...(preferences?.perGameViewCustomByView?.logo || {}), ...(fromSections.perGameViewCustomByView?.logo || {}) },
         carousel: { ...(defaults.perGameViewCustomByView?.carousel || {}), ...(preferences?.perGameViewCustomByView?.carousel || {}), ...(fromSections.perGameViewCustomByView?.carousel || {}) },
         coverflow: { ...(defaults.perGameViewCustomByView?.coverflow || {}), ...(preferences?.perGameViewCustomByView?.coverflow || {}), ...(fromSections.perGameViewCustomByView?.coverflow || {}) },
+        card: { ...(defaults.perGameViewCustomByView?.card || {}), ...(preferences?.perGameViewCustomByView?.card || {}), ...(fromSections.perGameViewCustomByView?.card || {}) },
       },
       perGameViewSizeOverridesMigrated: preferences?.perGameViewSizeOverridesMigrated ?? defaults.perGameViewSizeOverridesMigrated,
       isViewFlippedByView: {
@@ -1329,6 +1393,7 @@ export class UserPreferencesService {
         logo: false,
         carousel: false,
         coverflow: false,
+        card: false,
         ...(preferences?.isViewFlippedByView || {}),
       },
     };
@@ -1350,7 +1415,7 @@ export class UserPreferencesService {
     }
 
     const resolutions: ResolutionKey[] = ['720p', '1080p', '1440p', '4K'];
-    const viewModes: ViewMode[] = ['grid', 'list', 'logo', 'carousel', 'coverflow'];
+    const viewModes: ViewMode[] = ['grid', 'list', 'logo', 'carousel', 'coverflow', 'card'];
 
     for (const resolution of resolutions) {
       const byView = customDefaults[resolution];
@@ -1466,7 +1531,7 @@ export class UserPreferencesService {
     const store = await this.ensureStore();
     const current = this.normalizeCustomDefaults(store.get('customDefaults', {}));
     const resolutionKey = this.normalizeResolutionKey(resolution);
-    const viewModes: ViewMode[] = ['grid', 'list', 'logo', 'carousel', 'coverflow'];
+    const viewModes: ViewMode[] = ['grid', 'list', 'logo', 'carousel', 'coverflow', 'card'];
 
     const nextForResolution: Partial<Record<ViewMode, Record<string, any>>> = {
       ...(current[resolutionKey] || {}),
@@ -1508,7 +1573,7 @@ export class UserPreferencesService {
     const perGameByView = preferences.perGameViewCustomByView || {};
 
     let count = 0;
-    for (const viewMode of ['grid', 'list', 'logo', 'carousel', 'coverflow']) {
+    for (const viewMode of ['grid', 'list', 'logo', 'carousel', 'coverflow', 'card']) {
       const gameSettings = perGameByView[viewMode as ViewMode] || {};
       count += Object.keys(gameSettings).length;
     }
@@ -1536,7 +1601,7 @@ export class UserPreferencesService {
     }> = [];
 
     const resolutions: ResolutionKey[] = ['720p', '1080p', '1440p', '4K'];
-    const viewModes: ViewMode[] = ['grid', 'list', 'logo', 'carousel', 'coverflow'];
+    const viewModes: ViewMode[] = ['grid', 'list', 'logo', 'carousel', 'coverflow', 'card'];
 
     for (const resolution of resolutions) {
       const byResolution = customDefaults[resolution] || {};
@@ -1602,7 +1667,7 @@ export class UserPreferencesService {
 
       // Parse resolutions and view modes
       const validResolutions: ResolutionKey[] = ['720p', '1080p', '1440p', '4K'];
-      const validViewModes: ViewMode[] = ['grid', 'list', 'logo', 'carousel', 'coverflow'];
+      const validViewModes: ViewMode[] = ['grid', 'list', 'logo', 'carousel', 'coverflow', 'card'];
 
       for (const resolution of validResolutions) {
         const byResolution = importedCustomDefaults[resolution];
@@ -1667,12 +1732,13 @@ export class UserPreferencesService {
     const allCustomDefaults = await this.getCustomDefaults();
     const exportData: Partial<CustomDefaultsByResolution> = {};
 
-    const viewSectionKey: Record<ViewMode, 'gridView' | 'listView' | 'logoView' | 'carouselView' | 'coverflowView'> = {
+    const viewSectionKey: Record<ViewMode, 'gridView' | 'listView' | 'logoView' | 'carouselView' | 'coverflowView' | 'cardView'> = {
       grid: 'gridView',
       list: 'listView',
       logo: 'logoView',
       carousel: 'carouselView',
       coverflow: 'coverflowView',
+      card: 'cardView',
     };
 
     // Export selected resolutions and view modes
@@ -1729,17 +1795,18 @@ export class UserPreferencesService {
     const merged = { ...current };
     const currentPreferences = await this.getPreferences();
 
-    const viewSectionKey: Record<ViewMode, 'gridView' | 'listView' | 'logoView' | 'carouselView' | 'coverflowView'> = {
+    const viewSectionKey: Record<ViewMode, 'gridView' | 'listView' | 'logoView' | 'carouselView' | 'coverflowView' | 'cardView'> = {
       grid: 'gridView',
       list: 'listView',
       logo: 'logoView',
       carousel: 'carouselView',
       coverflow: 'coverflowView',
+      card: 'cardView',
     };
 
     // Merge custom defaults based on strategy
     const validResolutions: ResolutionKey[] = ['720p', '1080p', '1440p', '4K'];
-    const validViewModes: ViewMode[] = ['grid', 'list', 'logo', 'carousel', 'coverflow'];
+    const validViewModes: ViewMode[] = ['grid', 'list', 'logo', 'carousel', 'coverflow', 'card'];
 
     const mergedSections: NonNullable<UserPreferences['sections']> = {
       ...(currentPreferences.sections || {}),

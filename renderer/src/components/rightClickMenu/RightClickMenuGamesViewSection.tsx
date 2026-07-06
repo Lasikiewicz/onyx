@@ -7,6 +7,7 @@ export interface GamesViewSliderDefaults {
   categoriesTopSize: number;
   gameTilePadding: number;
   gridSize: number;
+  cardColumns: number;
   logoSize: number;
   logoBackgroundOpacity: number;
   backgroundBlur: number;
@@ -44,6 +45,9 @@ export interface RightClickMenuGamesViewSectionProps {
   categoriesPosition: 'top' | 'bottom';
   categoriesTopAlignment: 'left' | 'center' | 'right';
   categoriesTopSize: number;
+  cardColumns: number;
+  cardPostersOnly: boolean;
+  cardSmartFill: boolean;
   focusedGamesViewLayoutClass: string;
   gameTilePadding: number;
   gridSize: number;
@@ -57,7 +61,7 @@ export interface RightClickMenuGamesViewSectionProps {
   showCategoriesInGameList: boolean;
   showLogoOverBoxart: boolean;
   sliderDefaults: GamesViewSliderDefaults;
-  viewMode: 'grid' | 'list' | 'logo';
+  viewMode: 'grid' | 'list' | 'logo' | 'card';
   onAutoSizeToFitChange?: (enabled: boolean) => void;
   onBackgroundBlurChange?: (blur: number) => void;
   onBackgroundBrightnessChange?: (brightness: number) => void;
@@ -66,6 +70,9 @@ export interface RightClickMenuGamesViewSectionProps {
   onCategoriesTopSizeChange?: (size: number) => void;
   onGameTilePaddingChange?: (padding: number) => void;
   onGridSizeChange?: (size: number) => void;
+  onCardColumnsChange?: (columns: number) => void;
+  onCardPostersOnlyChange?: (enabled: boolean) => void;
+  onCardSmartFillChange?: (enabled: boolean) => void;
   onListViewOptionsChange?: (options: ListViewOptions) => void;
   onLogoBackgroundOpacityChange?: (opacity: number) => void;
   onLogoPositionChange?: (position: 'top' | 'middle' | 'bottom' | 'underneath') => void;
@@ -78,25 +85,26 @@ export interface RightClickMenuGamesViewSectionProps {
   handleSizeChange: (value: number) => void;
 }
 
-function getSizeLabel(viewMode: 'grid' | 'list' | 'logo'): string {
+function getSizeLabel(viewMode: 'grid' | 'list' | 'logo' | 'card'): string {
   if (viewMode === 'grid') return 'Boxart Size';
   if (viewMode === 'logo') return 'Logo Size';
   return 'Game Tile Size';
 }
 
-function getSizeRange(viewMode: 'grid' | 'list' | 'logo'): { min: number; max: number } {
+function getSizeRange(viewMode: 'grid' | 'list' | 'logo' | 'card'): { min: number; max: number } {
   if (viewMode === 'list') return { min: 10, max: 300 };
   return { min: 50, max: 600 };
 }
 
-function getPaddingRange(viewMode: 'grid' | 'list' | 'logo'): { min: number; max: number } {
+function getPaddingRange(viewMode: 'grid' | 'list' | 'logo' | 'card'): { min: number; max: number } {
   if (viewMode === 'logo') return { min: 0, max: 32 };
   return { min: 0, max: 10 };
 }
 
-function getPaddingLabel(viewMode: 'grid' | 'list' | 'logo'): string {
+function getPaddingLabel(viewMode: 'grid' | 'list' | 'logo' | 'card'): string {
   if (viewMode === 'grid') return 'Boxart Padding';
   if (viewMode === 'logo') return 'Logo Padding';
+  if (viewMode === 'card') return 'Card / Poster Spacing';
   return 'Game Tile Padding';
 }
 
@@ -106,6 +114,9 @@ export function RightClickMenuGamesViewSection({
   backgroundBlur,
   backgroundBrightness,
   autoSizeToFit,
+  cardColumns,
+  cardPostersOnly,
+  cardSmartFill,
   categoriesPosition,
   categoriesTopAlignment,
   categoriesTopSize,
@@ -131,6 +142,9 @@ export function RightClickMenuGamesViewSection({
   onCategoriesTopSizeChange,
   onGameTilePaddingChange,
   onGridSizeChange,
+  onCardColumnsChange,
+  onCardPostersOnlyChange,
+  onCardSmartFillChange,
   onListViewOptionsChange,
   onLogoBackgroundOpacityChange,
   onLogoPositionChange,
@@ -300,6 +314,90 @@ export function RightClickMenuGamesViewSection({
             formatValue={(value) => `${value}px`}
             minLabel={`${sizeRange.min}px`}
             maxLabel={`${sizeRange.max}px`}
+            sliderClassName="h-2"
+          />
+        </div>
+      )}
+
+      {/* Poster Only (Card / Poster view only) */}
+      {viewMode === 'card' && onCardPostersOnlyChange && (
+        <div className="px-3 py-2 bg-gray-700/30 rounded-md">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <label className="text-xs text-gray-400 font-medium">Posters Only</label>
+              {settingDescriptionDisplay === 'icon' &&
+                renderSettingHintIcon(
+                  'Shows only poster artwork in Card / Poster view instead of the wide card layout.',
+                )}
+            </div>
+            <button
+              onClick={() => onCardPostersOnlyChange(!cardPostersOnly)}
+              className={`relative inline-flex h-3 w-6 items-center rounded-full transition-colors ${
+                cardPostersOnly ? 'bg-blue-600' : 'bg-gray-600'
+              }`}
+              title="Toggle posters only"
+            >
+              <span
+                className={`inline-block h-2 w-2 transform rounded-full bg-white transition-transform ${
+                  cardPostersOnly ? 'translate-x-3' : 'translate-x-0.5'
+                }`}
+              />
+            </button>
+          </div>
+          {renderSettingDescription(
+            'Shows only poster artwork in Card / Poster view instead of the wide card layout.',
+          )}
+        </div>
+      )}
+
+      {/* Smart Fill (Card / Poster view only) - auto-shrinks tiles so every game fits on screen with no scrolling */}
+      {viewMode === 'card' && onCardSmartFillChange && (
+        <div className="px-3 py-2 bg-gray-700/30 rounded-md">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <label className="text-xs text-gray-400 font-medium">Smart Fill</label>
+              {settingDescriptionDisplay === 'icon' &&
+                renderSettingHintIcon(
+                  'Automatically shrinks cards or posters so every game in the current view fits on one screen without scrolling.',
+                )}
+            </div>
+            <button
+              onClick={() => onCardSmartFillChange(!cardSmartFill)}
+              className={`relative inline-flex h-3 w-6 items-center rounded-full transition-colors ${
+                cardSmartFill ? 'bg-blue-600' : 'bg-gray-600'
+              }`}
+              title="Toggle smart fill"
+            >
+              <span
+                className={`inline-block h-2 w-2 transform rounded-full bg-white transition-transform ${
+                  cardSmartFill ? 'translate-x-3' : 'translate-x-0.5'
+                }`}
+              />
+            </button>
+          </div>
+          {renderSettingDescription(
+            'Automatically shrinks cards or posters so every game in the current view fits on one screen without scrolling.',
+          )}
+        </div>
+      )}
+
+      {/* Games per row (Card / Poster view only) - tiles are evenly spaced across the full width */}
+      {viewMode === 'card' && !cardSmartFill && onCardColumnsChange && (
+        <div className="px-3 py-2 bg-gray-700/30 rounded-md">
+          <MenuSliderRow
+            label="Games Per Row"
+            description="Changes how many cards or posters are shown per row. They are evenly spaced across the full width."
+            descriptionDisplay={settingDescriptionDisplay}
+            min={1}
+            max={10}
+            step={1}
+            value={cardColumns}
+            defaultValue={sliderDefaults.cardColumns}
+            onChange={onCardColumnsChange}
+            onReset={() => onCardColumnsChange(sliderDefaults.cardColumns)}
+            formatValue={(value) => `${value}`}
+            minLabel="1"
+            maxLabel="10"
             sliderClassName="h-2"
           />
         </div>

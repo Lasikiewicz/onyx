@@ -2,7 +2,7 @@ import { useEffect, useMemo } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import type { Game } from '../types/game';
 
-type ViewMode = 'grid' | 'list' | 'logo' | 'carousel' | 'coverflow';
+type ViewMode = 'grid' | 'list' | 'logo' | 'carousel' | 'coverflow' | 'card';
 
 type ListViewOptions = {
   showDescription: boolean;
@@ -23,6 +23,9 @@ type UseAppShellPreferencePersistenceArgs = {
   backgroundBrightnessByView: Record<ViewMode, number>;
   backgroundColor: string;
   backgroundMode: 'image' | 'color';
+  cardColumns: number;
+  cardPostersOnly: boolean;
+  cardSmartFill: boolean;
   gameTilePadding: number;
   games: Game[];
   gridSize: number;
@@ -70,6 +73,9 @@ export function useAppShellPreferencePersistence({
   backgroundBrightnessByView,
   backgroundColor,
   backgroundMode,
+  cardColumns,
+  cardPostersOnly,
+  cardSmartFill,
   gameTilePadding,
   games,
   gridSize,
@@ -87,6 +93,9 @@ export function useAppShellPreferencePersistence({
 }: UseAppShellPreferencePersistenceArgs) {
   const persistenceEnabled = !isInitialLoad;
   const gridSizePatch = useMemo(() => ({ gridSize }), [gridSize]);
+  const cardColumnsPatch = useMemo(() => ({ cardColumns }), [cardColumns]);
+  const cardPostersOnlyPatch = useMemo(() => ({ cardPostersOnly }), [cardPostersOnly]);
+  const cardSmartFillPatch = useMemo(() => ({ cardSmartFill }), [cardSmartFill]);
   const logoSizePatch = useMemo(() => ({ logoSize }), [logoSize]);
   const pinnedCategoriesPatch = useMemo(() => ({ pinnedCategories }), [pinnedCategories]);
   const hideVRTitlesPatch = useMemo(() => ({ hideVRTitles }), [hideVRTitles]);
@@ -129,6 +138,27 @@ export function useAppShellPreferencePersistence({
     enabled: persistenceEnabled,
     errorLabel: 'logo size',
     patch: logoSizePatch,
+  });
+
+  useDebouncedPreferencePatch({
+    delay: 500,
+    enabled: persistenceEnabled,
+    errorLabel: 'card columns',
+    patch: cardColumnsPatch,
+  });
+
+  useDebouncedPreferencePatch({
+    delay: 300,
+    enabled: persistenceEnabled,
+    errorLabel: 'card posters only',
+    patch: cardPostersOnlyPatch,
+  });
+
+  useDebouncedPreferencePatch({
+    delay: 300,
+    enabled: persistenceEnabled,
+    errorLabel: 'card smart fill',
+    patch: cardSmartFillPatch,
   });
 
   useDebouncedPreferencePatch({

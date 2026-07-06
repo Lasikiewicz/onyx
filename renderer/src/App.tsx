@@ -169,6 +169,9 @@ function App() {
     currentRightPanelButtonSize,
     currentRightPanelLogoSize,
     currentRightPanelTextSize,
+    cardColumns,
+    cardPostersOnly,
+    cardSmartFill,
     defaultListViewOptions,
     descriptionWidthByView,
     detailsBarSize,
@@ -216,6 +219,9 @@ function App() {
     setBackgroundBrightnessByView,
     setBackgroundColor,
     setBackgroundMode,
+    setCardColumns,
+    setCardPostersOnly,
+    setCardSmartFill,
     setCarouselButtonColors,
     setCarouselButtonSize,
     setCarouselDescriptionSize,
@@ -333,8 +339,12 @@ function App() {
       logo: 800,
       carousel: 800,
       coverflow: 800,
+      card: 800,
     },
     setGridSize,
+    setCardColumns,
+    setCardPostersOnly,
+    setCardSmartFill,
     setLogoSize,
     setPinnedCategories,
     setHideVRTitles,
@@ -414,6 +424,9 @@ function App() {
     backgroundBrightnessByView,
     backgroundColor,
     backgroundMode,
+    cardColumns,
+    cardPostersOnly,
+    cardSmartFill,
     gameTilePadding,
     games,
     gridSize,
@@ -1037,6 +1050,9 @@ function App() {
     categoriesAlignmentByView,
     categoriesPositionByView,
     categoriesSizeByView,
+    cardColumns,
+    cardPostersOnly,
+    cardSmartFill,
     coverFlowButtonColors,
     coverFlowButtonPosition,
     coverFlowCoverSize,
@@ -1087,6 +1103,9 @@ function App() {
     setAutoSizeToFit,
     setBackgroundBlur,
     setBackgroundBrightnessByView,
+    setCardColumns,
+    setCardPostersOnly,
+    setCardSmartFill,
     setCarouselButtonColors,
     setCarouselButtonSize,
     setCarouselDescriptionSize,
@@ -1440,6 +1459,9 @@ function App() {
             autoSizeToFit={autoSizeToFit}
             carouselGameTilePadding={carouselGameTilePadding}
             carouselViewProps={carouselViewProps}
+            cardColumns={cardColumns}
+            cardPostersOnly={cardPostersOnly}
+            cardSmartFill={cardSmartFill}
             categoriesAlignment={categoriesAlignmentByView[viewMode] ?? 'left'}
             categoriesPosition={categoriesPositionByView[viewMode] ?? 'top'}
             categoriesSize={categoriesSizeByView[viewMode] ?? 12}
@@ -1493,8 +1515,8 @@ function App() {
             welcomeScreenProps={welcomeScreenProps}
           />
 
-          {/* Right Panel - Game Details (hidden in carousel/coverflow mode and when no games exist) */}
-          {viewMode !== 'carousel' && viewMode !== 'coverflow' && filteredGames.length > 0 && !forceShowInitialOnboarding && (
+          {/* Right Panel - Game Details (hidden in carousel/coverflow/card mode and when no games exist) */}
+          {viewMode !== 'carousel' && viewMode !== 'coverflow' && viewMode !== 'card' && filteredGames.length > 0 && !forceShowInitialOnboarding && (
             <div
               className={rightPanelNeedsTopPadding ? 'pt-4 flex-none flex flex-col min-h-0' : 'flex-none flex flex-col min-h-0'}
               style={{ width: `${currentPanelWidth}px`, maxWidth: '100%' }}

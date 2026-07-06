@@ -2,7 +2,7 @@
 
 ## What This Feature Does
 
-Defines the primary library window layout after launch: menu bar, main content area (games list left, game details right or full-width for carousel/coverflow), and how layout and alignment work.
+Defines the primary library window layout after launch: menu bar, main content area (games list left, game details right or full-width for carousel/coverflow/card-poster), and how layout and alignment work.
 
 ## Related Documentation
 
@@ -13,20 +13,22 @@ Defines the primary library window layout after launch: menu bar, main content a
 
 - **Menu bar** (fixed top): Onyx menu, search, sort, launcher/category filters, pinned category buttons, and right-click layout controls. See [Menu Bar](./main-view/components/menu-bar.md).
 - **Games list** (left panel): categories bar (when shown) and scrollable game tiles. See [Games List](./main-view/components/games-list.md).
-- **Game details panel** (right panel): selected game artwork, metadata, actions. See [Game Details Panel](./main-view/components/game-details-panel.md). Hidden in carousel/coverflow.
+- **Game details panel** (right panel): selected game artwork, metadata, actions. See [Game Details Panel](./main-view/components/game-details-panel.md). Hidden in carousel/coverflow/card-poster.
 - **View types**, each with unique features:
   - [Grid View](./main-view/views/grid-view.md)
   - [List View](./main-view/views/list-view.md)
   - [Logo View](./main-view/views/logo-view.md)
   - [Carousel View](./main-view/views/carousel-view.md)
   - [Coverflow View](./main-view/views/coverflow-view.md)
+  - Card / Poster View in [AppShellLibraryView.tsx](../../renderer/src/components/appShell/AppShellLibraryView.tsx), backed by [LibraryCardView.tsx](../../renderer/src/components/LibraryCardView.tsx), [SortableCardTile.tsx](../../renderer/src/components/SortableCardTile.tsx), and [GameCardWide.tsx](../../renderer/src/components/GameCardWide.tsx).
 - **Controller navigation:** The controller navigation surface is currently marked coming soon. The mapper and preferences remain in place, but the app shell keeps gamepad polling disabled while input support is finalized.
 
 Layout: When view mode is grid/list/logo, the games list and game details panel are siblings; the top of the games list column and the top of the game details panel align. When "Show Categories" is off or categories are at bottom, the right panel gets top padding (pt-4) so its content aligns with the left panel's padded content. Categories are confined to the games list and do not affect the game details panel.
 
 ## Settings and Toggles
 
-- View mode (grid / list / logo / carousel / coverflow) and panel width per view.
+- View mode (grid / list / logo / carousel / coverflow / card-poster) and panel width per view.
+- Card / Poster View settings include `cardColumns`, `cardSmartFill`, and `cardPostersOnly`; its default background treatment is full brightness (`backgroundBrightnessByView.card = 1`) with no blur (`backgroundBlur = 0`) so poster artwork remains readable behind the full-width card surface.
 - Top bar positions and visibility for search, sort, launcher, category menu, and pinned category buttons (see settings runbooks and [Menu Bar](./main-view/components/menu-bar.md)).
 - Games-list category row positions (see [Games List](./main-view/components/games-list.md)).
 - Flipped view (right panel on left) per view mode.
@@ -36,7 +38,7 @@ Layout: When view mode is grid/list/logo, the games list and game details panel 
 
 1. App loads; renderer mounts main view with menu bar and content area.
 2. Content area shows games list (left) and game details (right) when view mode is grid/list/logo; categories live only in the games list.
-3. Carousel/coverflow use full width; game details panel is hidden.
+3. Carousel/coverflow/card-poster use full width; game details panel is hidden.
 4. Preferences (view mode, panel width, flipped layout) persist and restore on next launch.
 5. Top-bar layout changes from the right-click layout menu persist and restore on next launch, including hidden controls and pinned category placement.
 6. Controller navigation is currently gated off in [App.tsx](../../renderer/src/App.tsx); the existing hook and preferences remain ready for future re-enablement.
@@ -55,7 +57,7 @@ Layout: When view mode is grid/list/logo, the games list and game details panel 
 
 ## Data Model and Persistence
 
-- No dedicated main-view persistence; uses game library and preferences (panel width, view mode, category/list options). Stored via [UserPreferencesService](../../main/UserPreferencesService.ts); see [Settings and preferences](./settings-and-preferences.md).
+- No dedicated main-view persistence; uses game library and preferences (panel width, view mode, category/list/card-poster options). Stored via [UserPreferencesService](../../main/UserPreferencesService.ts); see [Settings and preferences](./settings-and-preferences.md).
 - Top-bar layout persistence uses the shared `topBarPositions` preference and is applied by [App.tsx](../../renderer/src/App.tsx) before rendering [MenuBar.tsx](../../renderer/src/components/MenuBar.tsx).
 
 ## Failure Modes and Triage
@@ -89,3 +91,6 @@ Layout: When view mode is grid/list/logo, the games list and game details panel 
   - [LibraryListView.tsx](../../renderer/src/components/LibraryListView.tsx)
   - [LibraryCarousel.tsx](../../renderer/src/components/LibraryCarousel.tsx)
   - [LibraryCoverFlow.tsx](../../renderer/src/components/LibraryCoverFlow.tsx)
+  - [LibraryCardView.tsx](../../renderer/src/components/LibraryCardView.tsx)
+  - [SortableCardTile.tsx](../../renderer/src/components/SortableCardTile.tsx)
+  - [GameCardWide.tsx](../../renderer/src/components/GameCardWide.tsx)

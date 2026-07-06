@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { TopBarPositions } from '../components/TopBarContextMenu';
 
-type ViewMode = 'grid' | 'list' | 'logo' | 'carousel' | 'coverflow';
+type ViewMode = 'grid' | 'list' | 'logo' | 'carousel' | 'coverflow' | 'card';
 interface UseAppPreferencesOptions {
   viewMode: ViewMode;
   defaultListViewOptions: {
@@ -20,6 +20,9 @@ interface UseAppPreferencesOptions {
   defaultDescriptionWidthByView: Record<'grid' | 'list' | 'logo', number>;
   defaultPanelWidthByView: Record<ViewMode, number>;
   setGridSize: (value: number) => void;
+  setCardColumns: (value: number) => void;
+  setCardPostersOnly: (value: boolean) => void;
+  setCardSmartFill: (value: boolean) => void;
   setLogoSize: (value: number) => void;
   setPinnedCategories: (value: string[]) => void;
   setHideVRTitles: (value: boolean) => void;
@@ -104,6 +107,9 @@ export function useAppPreferences({
   defaultDescriptionWidthByView,
   defaultPanelWidthByView,
   setGridSize,
+  setCardColumns,
+  setCardPostersOnly,
+  setCardSmartFill,
   setLogoSize,
   setPinnedCategories,
   setHideVRTitles,
@@ -206,12 +212,20 @@ export function useAppPreferences({
       if (defaults.carouselDescriptionSize !== undefined) setCarouselDescriptionSize(defaults.carouselDescriptionSize);
     } else if (viewMode === 'coverflow') {
       if (defaults.gameTilePadding !== undefined) setGameTilePadding(defaults.gameTilePadding);
+    } else if (viewMode === 'card') {
+      if (defaults.cardColumns !== undefined) setCardColumns(defaults.cardColumns);
+      if (defaults.cardPostersOnly !== undefined) setCardPostersOnly(defaults.cardPostersOnly);
+      if (defaults.cardSmartFill !== undefined) setCardSmartFill(defaults.cardSmartFill);
+      if (defaults.gameTilePadding !== undefined) setGameTilePadding(defaults.gameTilePadding);
     }
 
     if (defaults.backgroundBlur !== undefined) setBackgroundBlur(defaults.backgroundBlur);
     if (defaults.panelWidth !== undefined) setPanelWidth(defaults.panelWidth);
   }, [
     setBackgroundBlur,
+    setCardColumns,
+    setCardPostersOnly,
+    setCardSmartFill,
     setCarouselButtonSize,
     setCarouselDescriptionSize,
     setCarouselLogoSize,
@@ -231,6 +245,9 @@ export function useAppPreferences({
 
   const applyPreferences = useCallback((prefs: any, options?: { markInitialLoad?: boolean }) => {
     if (prefs.gridSize) setGridSize(prefs.gridSize);
+    if (prefs.cardColumns) setCardColumns(prefs.cardColumns);
+    if (prefs.cardPostersOnly !== undefined) setCardPostersOnly(prefs.cardPostersOnly);
+    if (prefs.cardSmartFill !== undefined) setCardSmartFill(prefs.cardSmartFill);
     if (prefs.logoSize) setLogoSize(prefs.logoSize);
     if (prefs.pinnedCategories) setPinnedCategories(prefs.pinnedCategories);
     if (prefs.hideVRTitles !== undefined) setHideVRTitles(prefs.hideVRTitles);
@@ -253,6 +270,7 @@ export function useAppPreferences({
         logo: prefs.backgroundBrightnessByView.logo ?? 0.3,
         carousel: prefs.backgroundBrightnessByView.carousel ?? 0.3,
         coverflow: prefs.backgroundBrightnessByView.coverflow ?? 0.3,
+        card: prefs.backgroundBrightnessByView.card ?? 1,
       });
     }
     if (prefs.showCarouselDetails !== undefined) setShowCarouselDetails(prefs.showCarouselDetails);
@@ -315,7 +333,7 @@ export function useAppPreferences({
     if (prefs.disableAnimatedIcons !== undefined) setDisableAnimatedIcons(prefs.disableAnimatedIcons);
     if (prefs.disableAnimatedLogos !== undefined) setDisableAnimatedLogos(prefs.disableAnimatedLogos);
     if (prefs.isViewFlippedByView !== undefined) {
-      setIsViewFlippedByView({ grid: false, list: false, logo: false, carousel: false, coverflow: false, ...prefs.isViewFlippedByView });
+      setIsViewFlippedByView({ grid: false, list: false, logo: false, carousel: false, coverflow: false, card: false, ...prefs.isViewFlippedByView });
     }
     if (prefs.topBarPositions) setTopBarPositions({ ...defaultTopBarPositions, ...prefs.topBarPositions });
     if (prefs.viewMode) setViewMode(prefs.viewMode);
@@ -413,6 +431,9 @@ export function useAppPreferences({
     setDisableAnimatedBoxarts,
     setDisableAnimatedIcons,
     setDisableAnimatedLogos,
+    setCardColumns,
+    setCardPostersOnly,
+    setCardSmartFill,
     setFanartHeightByView,
     setGameTilePadding,
     setGridButtonColors,

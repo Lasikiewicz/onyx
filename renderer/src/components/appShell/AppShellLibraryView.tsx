@@ -1,5 +1,6 @@
 import { Suspense, lazy, type RefObject } from 'react';
 import { LibraryGrid } from '../LibraryGrid';
+import { LibraryCardView } from '../LibraryCardView';
 import { LibraryListView, type ListViewOptions } from '../LibraryListView';
 import type { Game } from '../../types/game';
 import type { WelcomeScreenProps } from '../WelcomeScreen';
@@ -18,7 +19,7 @@ const WelcomeScreen = lazy(() =>
 
 const lazyRenderFallback = null;
 
-type LibraryViewMode = 'grid' | 'list' | 'logo' | 'carousel' | 'coverflow';
+type LibraryViewMode = 'grid' | 'list' | 'logo' | 'carousel' | 'coverflow' | 'card';
 
 interface AppShellLibraryViewProps {
   activeGameId: string | null;
@@ -40,6 +41,9 @@ interface AppShellLibraryViewProps {
     showCarouselDetails: boolean;
     showCarouselLogos: boolean;
   };
+  cardColumns: number;
+  cardPostersOnly: boolean;
+  cardSmartFill: boolean;
   categoriesAlignment: 'left' | 'center' | 'right';
   categoriesPosition: 'top' | 'bottom';
   categoriesSize: number;
@@ -98,6 +102,9 @@ export function AppShellLibraryView({
   autoSizeToFit,
   carouselGameTilePadding,
   carouselViewProps,
+  cardColumns,
+  cardPostersOnly,
+  cardSmartFill,
   categoriesAlignment,
   categoriesPosition,
   categoriesSize,
@@ -163,7 +170,7 @@ export function AppShellLibraryView({
       <div
         ref={gridContainerRef}
         data-controller-library-surface
-        className={`flex-1 overflow-y-auto relative z-10 ${isCarouselLikeView ? '' : (showCategories && (viewMode === 'grid' || viewMode === 'list' || viewMode === 'logo') ? 'p-0' : 'p-4')}`}
+        className={`flex-1 overflow-y-auto relative z-10 ${isCarouselLikeView ? '' : (showCategories && (viewMode === 'grid' || viewMode === 'list' || viewMode === 'logo' || viewMode === 'card') ? 'p-0' : 'p-4')}`}
         onContextMenuCapture={(event) => {
           const target = event.target as HTMLElement;
           if (!target.closest('[data-game-card]')) {
@@ -239,6 +246,22 @@ export function AppShellLibraryView({
                     onGameContextMenu={onGameContextMenu}
                     onEmptySpaceClick={onEmptySpaceMenu}
                     viewMode={viewMode}
+                  />
+                )}
+                {viewMode === 'card' && (
+                  <LibraryCardView
+                    games={displayGames}
+                    onReorder={onReorder}
+                    onPlay={onPlay}
+                    onGameClick={onGameClick}
+                    columns={cardColumns}
+                    postersOnly={cardPostersOnly}
+                    smartFill={cardSmartFill}
+                    gameTilePadding={gameTilePadding}
+                    onGameContextMenu={onGameContextMenu}
+                    onEmptySpaceClick={onEmptySpaceMenu}
+                    disableAnimatedBoxarts={disableAnimatedBoxarts}
+                    disableAnimatedLogos={disableAnimatedLogos}
                   />
                 )}
                 {viewMode === 'coverflow' && (

@@ -3,10 +3,13 @@ import type { TopBarPositions } from '../components/TopBarContextMenu';
 
 export function useAppShellViewState() {
   const [searchQuery, setSearchQuery] = useState('');
-  const [viewMode, setViewMode] = useState<'grid' | 'list' | 'logo' | 'carousel' | 'coverflow'>('grid');
+  const [viewMode, setViewMode] = useState<'grid' | 'list' | 'logo' | 'carousel' | 'coverflow' | 'card'>('grid');
   const [activeSection] = useState('library');
   const [showTopBar] = useState(false);
   const [gridSize, setGridSize] = useState(145);
+  const [cardColumns, setCardColumns] = useState(4);
+  const [cardSmartFill, setCardSmartFill] = useState(false);
+  const [cardPostersOnly, setCardPostersOnly] = useState(false);
   const [logoSize, setLogoSize] = useState(100);
   const [pinnedCategories, setPinnedCategories] = useState<string[]>([]);
   const [hideVRTitles, setHideVRTitles] = useState(true);
@@ -19,12 +22,13 @@ export function useAppShellViewState() {
   const [logoBackgroundColor, setLogoBackgroundColor] = useState('#374151');
   const [logoBackgroundOpacity, setLogoBackgroundOpacity] = useState(100);
   const [backgroundBlur, setBackgroundBlur] = useState(40);
-  const [backgroundBrightnessByView, setBackgroundBrightnessByView] = useState<Record<'grid' | 'list' | 'logo' | 'carousel' | 'coverflow', number>>({
+  const [backgroundBrightnessByView, setBackgroundBrightnessByView] = useState<Record<'grid' | 'list' | 'logo' | 'carousel' | 'coverflow' | 'card', number>>({
     grid: 0.3,
     list: 0.3,
     logo: 0.3,
     carousel: 0.3,
     coverflow: 0.3,
+    card: 1,
   });
   const [showCarouselDetails, setShowCarouselDetails] = useState(true);
   const [showCarouselLogos, setShowCarouselLogos] = useState(true);
@@ -79,12 +83,13 @@ export function useAppShellViewState() {
     list: 80,
     logo: 80,
   });
-  const [isViewFlippedByView, setIsViewFlippedByView] = useState<Record<'grid' | 'list' | 'logo' | 'carousel' | 'coverflow', boolean>>({
+  const [isViewFlippedByView, setIsViewFlippedByView] = useState<Record<'grid' | 'list' | 'logo' | 'carousel' | 'coverflow' | 'card', boolean>>({
     grid: false,
     list: false,
     logo: false,
     carousel: false,
     coverflow: false,
+    card: false,
   });
   const [rightPanelButtonColors, setRightPanelButtonColors] = useState<{ playColor?: string; editColor?: string; modManagerColor?: string }>({ playColor: '#0ea5e9', editColor: '#6b7280', modManagerColor: '#a855f7' });
   const [carouselButtonColors, setCarouselButtonColors] = useState<{ playColor?: string; editColor?: string; modManagerColor?: string }>({ playColor: '#0ea5e9', editColor: '#6b7280', modManagerColor: '#a855f7' });
@@ -123,12 +128,13 @@ export function useAppShellViewState() {
   const [disableAnimatedBackgrounds, setDisableAnimatedBackgrounds] = useState(false);
   const [disableAnimatedIcons, setDisableAnimatedIcons] = useState(false);
   const [disableAnimatedLogos, setDisableAnimatedLogos] = useState(false);
-  const [panelWidthByViewState, setPanelWidthByViewState] = useState<Record<'grid' | 'list' | 'logo' | 'carousel' | 'coverflow', number>>({
+  const [panelWidthByViewState, setPanelWidthByViewState] = useState<Record<'grid' | 'list' | 'logo' | 'carousel' | 'coverflow' | 'card', number>>({
     grid: 967,
     list: 800,
     logo: 800,
     carousel: 800,
     coverflow: 800,
+    card: 800,
   });
   const [showCategoriesByView, setShowCategoriesByView] = useState<Record<string, boolean>>({
     grid: false,
@@ -197,6 +203,9 @@ export function useAppShellViewState() {
     carouselDescriptionSize,
     carouselGameTilePadding,
     carouselLogoSize,
+    cardColumns,
+    cardPostersOnly,
+    cardSmartFill,
     categoriesAlignmentByView,
     categoriesPositionByView,
     categoriesSizeByView,
@@ -266,6 +275,9 @@ export function useAppShellViewState() {
     setBackgroundBrightnessByView,
     setBackgroundColor,
     setBackgroundMode,
+    setCardColumns,
+    setCardPostersOnly,
+    setCardSmartFill,
     setCarouselButtonColors,
     setCarouselButtonSize,
     setCarouselDescriptionSize,

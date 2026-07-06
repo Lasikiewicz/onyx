@@ -25,6 +25,9 @@ interface UseRightClickMenuControlsOptions {
   categoriesAlignmentByView: Record<ViewMode, 'left' | 'center' | 'right'>;
   categoriesPositionByView: Record<ViewMode, 'top' | 'bottom'>;
   categoriesSizeByView: Record<ViewMode, number>;
+  cardColumns: number;
+  cardPostersOnly: boolean;
+  cardSmartFill: boolean;
   coverFlowButtonColors: ButtonColors;
   coverFlowButtonPosition: 'left' | 'middle' | 'right';
   coverFlowCoverSize: number;
@@ -82,6 +85,9 @@ interface UseRightClickMenuControlsOptions {
   setCategoriesAlignmentByView: (value: Record<ViewMode, 'left' | 'center' | 'right'>) => void;
   setCategoriesPositionByView: (value: Record<ViewMode, 'top' | 'bottom'>) => void;
   setCategoriesSizeByView: (value: Record<ViewMode, number>) => void;
+  setCardColumns: (value: number) => void;
+  setCardPostersOnly: (value: boolean) => void;
+  setCardSmartFill: (value: boolean) => void;
   setCoverFlowButtonColors: (value: ButtonColors) => void;
   setCoverFlowButtonPosition: (value: 'left' | 'middle' | 'right') => void;
   setCoverFlowCoverSize: (value: number) => void;
@@ -141,6 +147,9 @@ export function useRightClickMenuControls({
   categoriesAlignmentByView,
   categoriesPositionByView,
   categoriesSizeByView,
+  cardColumns,
+  cardPostersOnly,
+  cardSmartFill,
   coverFlowButtonColors,
   coverFlowButtonPosition,
   coverFlowCoverSize,
@@ -198,6 +207,9 @@ export function useRightClickMenuControls({
   setCategoriesAlignmentByView,
   setCategoriesPositionByView,
   setCategoriesSizeByView,
+  setCardColumns,
+  setCardPostersOnly,
+  setCardSmartFill,
   setCoverFlowButtonColors,
   setCoverFlowButtonPosition,
   setCoverFlowCoverSize,
@@ -275,6 +287,9 @@ export function useRightClickMenuControls({
     categoriesPosition: categoriesPositionByView[viewMode] ?? 'top',
     categoriesTopAlignment: categoriesAlignmentByView[viewMode] ?? 'left',
     categoriesTopSize: categoriesSizeByView[viewMode] ?? 12,
+    cardColumns,
+    cardPostersOnly,
+    cardSmartFill,
     coverFlowButtonColors,
     coverFlowButtonPosition,
     coverFlowCoverSize,
@@ -365,6 +380,15 @@ export function useRightClickMenuControls({
       saveByViewValue(fanartHeightByView, setFanartHeightByView, 'fanartHeightByView', detailViewMode, height);
     },
     onGameTilePaddingChange: setGameTilePadding,
+    onCardColumnsChange: (value: number) => {
+      saveValue(setCardColumns, 'cardColumns', value);
+    },
+    onCardPostersOnlyChange: (value: boolean) => {
+      saveValue(setCardPostersOnly, 'cardPostersOnly', value);
+    },
+    onCardSmartFillChange: (value: boolean) => {
+      saveValue(setCardSmartFill, 'cardSmartFill', value);
+    },
     onGridButtonColorsChange: (colors) => {
       saveValue(setGridButtonColors, 'gridButtonColors', colors);
     },

@@ -40,7 +40,7 @@ interface RightClickMenuDetailsSectionProps {
   rightPanelTextSize: number;
   settingDescriptionDisplay: 'icon' | 'inline';
   sliderDefaults: SliderDefaults;
-  viewMode: 'grid' | 'list' | 'logo' | 'carousel' | 'coverflow';
+  viewMode: 'grid' | 'list' | 'logo' | 'carousel' | 'coverflow' | 'card';
   onGridButtonColorsChange?: (colors: ButtonColors) => void;
   onListButtonColorsChange?: (colors: ButtonColors) => void;
   onLogoButtonColorsChange?: (colors: ButtonColors) => void;

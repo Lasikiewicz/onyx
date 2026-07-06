@@ -21,12 +21,18 @@ export interface RightClickMenuProps {
   y: number;
   onClose: () => void;
   initialEditorSection?: RightClickMenuEditorSection | null;
-  viewMode: 'grid' | 'list' | 'logo' | 'carousel' | 'coverflow';
-  onViewModeChange?: (mode: 'grid' | 'list' | 'logo' | 'carousel' | 'coverflow') => void;
+  viewMode: 'grid' | 'list' | 'logo' | 'carousel' | 'coverflow' | 'card';
+  onViewModeChange?: (mode: 'grid' | 'list' | 'logo' | 'carousel' | 'coverflow' | 'card') => void;
   activeGame?: Game;
   onActiveGameChange?: (game: Game) => void;
   gridSize?: number;
   onGridSizeChange?: (size: number) => void;
+  cardColumns?: number;
+  onCardColumnsChange?: (columns: number) => void;
+  cardPostersOnly?: boolean;
+  onCardPostersOnlyChange?: (enabled: boolean) => void;
+  cardSmartFill?: boolean;
+  onCardSmartFillChange?: (enabled: boolean) => void;
   logoSize?: number;
   onLogoSizeChange?: (size: number) => void;
   autoSizeToFit?: boolean;
@@ -181,6 +187,12 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
   onActiveGameChange,
   gridSize = 120,
   onGridSizeChange,
+  cardColumns = 4,
+  onCardColumnsChange,
+  cardPostersOnly = false,
+  onCardPostersOnlyChange,
+  cardSmartFill = false,
+  onCardSmartFillChange,
   logoSize = 100,
   onLogoSizeChange,
   autoSizeToFit = false,
@@ -486,7 +498,7 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
     setActiveEditorSection(viewMode === 'carousel' || viewMode === 'coverflow' ? null : initialEditorSection);
   }, [initialEditorSection, viewMode, x, y]);
 
-  const handleViewModeChange = (mode: 'grid' | 'list' | 'logo' | 'carousel' | 'coverflow') => {
+  const handleViewModeChange = (mode: 'grid' | 'list' | 'logo' | 'carousel' | 'coverflow' | 'card') => {
     if (onViewModeChange) {
       onViewModeChange(mode);
     }
@@ -509,7 +521,7 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
     setShowResetConfirmation(true);
   };
 
-  const applyDefaultsForView = (mode: 'grid' | 'list' | 'logo' | 'carousel' | 'coverflow', resKey: string) => {
+  const applyDefaultsForView = (mode: 'grid' | 'list' | 'logo' | 'carousel' | 'coverflow' | 'card', resKey: string) => {
     if (!baselineDefaults || !baselineDefaults[resKey]) return;
 
     const defaults = baselineDefaults[resKey][mode];
@@ -569,6 +581,13 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
       if (defaults.coverFlowSideOpacity !== undefined) onCoverFlowSideOpacityChange?.(defaults.coverFlowSideOpacity);
       if (defaults.coverFlowShowButtons !== undefined) onCoverFlowShowButtonsChange?.(defaults.coverFlowShowButtons);
       if (defaults.backgroundBrightness !== undefined) onBackgroundBrightnessChange?.(defaults.backgroundBrightness);
+    } else if (mode === 'card') {
+      if (defaults.cardColumns !== undefined) onCardColumnsChange?.(defaults.cardColumns);
+      if (defaults.cardPostersOnly !== undefined) onCardPostersOnlyChange?.(defaults.cardPostersOnly);
+      if (defaults.cardSmartFill !== undefined) onCardSmartFillChange?.(defaults.cardSmartFill);
+      if (defaults.gameTilePadding !== undefined) onGameTilePaddingChange?.(defaults.gameTilePadding);
+      if (defaults.backgroundBlur !== undefined) onBackgroundBlurChange?.(defaults.backgroundBlur);
+      if (defaults.backgroundBrightness !== undefined) onBackgroundBrightnessChange?.(defaults.backgroundBrightness);
     }
 
     // Apply right panel defaults (shared by all view modes in the JSON)
@@ -589,7 +608,7 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
 
   const handleResetAllViews = () => {
     // Apply defaults for all view modes
-    const modes: ('grid' | 'list' | 'logo' | 'carousel' | 'coverflow')[] = ['grid', 'list', 'logo', 'carousel', 'coverflow'];
+    const modes: ('grid' | 'list' | 'logo' | 'carousel' | 'coverflow' | 'card')[] = ['grid', 'list', 'logo', 'carousel', 'coverflow', 'card'];
     modes.forEach(mode => applyDefaultsForView(mode, resetResolution));
 
     // If there's an active game, show dialog to ask about clearing per-game overrides
@@ -616,7 +635,7 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
       const currentMap = { ...(prefs.perGameViewSizeOverrides || {}) };
       delete currentMap[activeGame.id];
       const perViewCustom = { ...(prefs.perGameViewCustomByView || {}) } as any;
-      ['grid', 'list', 'logo', 'carousel', 'coverflow'].forEach((mode) => {
+      ['grid', 'list', 'logo', 'carousel', 'coverflow', 'card'].forEach((mode) => {
         if (perViewCustom[mode]) {
           const updated = { ...perViewCustom[mode] };
           delete updated[activeGame.id];
@@ -659,15 +678,17 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
   };
 
   const use1080pGridDefaults = screenResolution === '1080p' && viewMode === 'grid';
+  const useCardPosterDefaults = viewMode === 'card';
   const sliderDefaults = {
     gridSize: use1080pGridDefaults ? 145 : 120,
+    cardColumns: 4,
     logoSize: 100,
     listSize: 128,
     detailsBarSize: 14,
     selectedBoxArtSize: 25,
     gameTilePadding: use1080pGridDefaults ? 10 : 3,
-    backgroundBlur: use1080pGridDefaults ? 0 : 40,
-    backgroundBrightnessPercent: 30,
+    backgroundBlur: use1080pGridDefaults || useCardPosterDefaults ? 0 : 40,
+    backgroundBrightnessPercent: useCardPosterDefaults ? 100 : 30,
     carouselLogoSize: 100,
     carouselDescriptionSize: 18,
     carouselButtonSize: 14,
@@ -970,6 +991,9 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                 backgroundBlur={backgroundBlur}
                 backgroundBrightness={backgroundBrightness}
                 autoSizeToFit={autoSizeToFit}
+                cardColumns={cardColumns}
+                cardPostersOnly={cardPostersOnly}
+                cardSmartFill={cardSmartFill}
                 categoriesPosition={categoriesPosition}
                 categoriesTopAlignment={categoriesTopAlignment}
                 categoriesTopSize={categoriesTopSize}
@@ -995,6 +1019,9 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                 onCategoriesTopSizeChange={onCategoriesTopSizeChange}
                 onGameTilePaddingChange={onGameTilePaddingChange}
                 onGridSizeChange={onGridSizeChange}
+                onCardColumnsChange={onCardColumnsChange}
+                onCardPostersOnlyChange={onCardPostersOnlyChange}
+                onCardSmartFillChange={onCardSmartFillChange}
                 onListViewOptionsChange={onListViewOptionsChange}
                 onLogoBackgroundOpacityChange={onLogoBackgroundOpacityChange}
                 onLogoPositionChange={onLogoPositionChange}

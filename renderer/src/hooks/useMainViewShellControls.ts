@@ -17,8 +17,8 @@ interface UseMainViewShellControlsOptions {
   setIsSteamConfigOpen: (open: boolean) => void;
   setSearchQuery: (value: string) => void;
   setTopBarPositions: (value: TopBarPositions) => void;
-  setViewMode: (value: 'grid' | 'list' | 'logo' | 'carousel' | 'coverflow') => void;
-  viewMode: 'grid' | 'list' | 'logo' | 'carousel' | 'coverflow';
+  setViewMode: (value: 'grid' | 'list' | 'logo' | 'carousel' | 'coverflow' | 'card') => void;
+  viewMode: 'grid' | 'list' | 'logo' | 'carousel' | 'coverflow' | 'card';
 }
 
 export function useMainViewShellControls({

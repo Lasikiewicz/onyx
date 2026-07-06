@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 
-type ViewMode = 'grid' | 'list' | 'logo' | 'carousel' | 'coverflow';
+type ViewMode = 'grid' | 'list' | 'logo' | 'carousel' | 'coverflow' | 'card';
 type ResolutionKey = '720p' | '1080p' | '1440p' | '4K';
 type TabType = 'export' | 'import' | 'manage';
 
@@ -42,6 +42,7 @@ const VIEW_MODE_LABELS: Record<ViewMode, string> = {
   logo: 'Logo View',
   carousel: 'Carousel View',
   coverflow: 'Coverflow View',
+  card: 'Card / Poster View',
 };
 
 const RESOLUTION_LABELS: Record<ResolutionKey, string> = {
@@ -253,7 +254,7 @@ export const CustomDefaultsManager: React.FC<CustomDefaultsManagerProps> = ({
   const selectAllViewModes = () => {
     setExportSelection(prev => ({
       ...prev,
-      viewModes: new Set<ViewMode>(['grid', 'list', 'logo', 'carousel', 'coverflow']),
+      viewModes: new Set<ViewMode>(['grid', 'list', 'logo', 'carousel', 'coverflow', 'card']),
     }));
   };
 
@@ -477,7 +478,7 @@ const ExportPanel: React.FC<ExportPanelProps> = ({
             </button>
           </div>
           <div className="grid gap-1.5 sm:grid-cols-2">
-            {(['grid', 'list', 'logo', 'carousel', 'coverflow'] as ViewMode[]).map((viewMode) => (
+            {(['grid', 'list', 'logo', 'carousel', 'coverflow', 'card'] as ViewMode[]).map((viewMode) => (
               <label
                 key={viewMode}
                 className={`group ${menuButtonClass} flex cursor-pointer items-center gap-2 px-3 py-2`}

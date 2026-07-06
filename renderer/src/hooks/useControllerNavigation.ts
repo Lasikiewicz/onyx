@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import type { Game } from '../types/game';
 import type { RightClickMenuEditorSection } from '../components/rightClickMenu/RightClickMenuHeader';
 
-type ViewMode = 'grid' | 'list' | 'logo' | 'carousel' | 'coverflow';
+type ViewMode = 'grid' | 'list' | 'logo' | 'carousel' | 'coverflow' | 'card';
 type ControllerFocusMode = 'games' | 'actions' | 'top';
 type ControllerAction =
   | 'left'

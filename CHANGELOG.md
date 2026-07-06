@@ -4,6 +4,13 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Pending]
+
+- Card / Poster View:
+  - Rename the card view surfaces to Card / Poster View and add a Posters Only option that renders poster artwork without the wide details pane.
+  - Persist Card / Poster columns, smart fill, and poster-only preferences across app launches and custom defaults export/import flows.
+  - Default Card / Poster background brightness to 100% with 0% blur so artwork remains clear in that full-width view.
+
 ## [0.11.0] - 2026-07-06
 
 - Security:

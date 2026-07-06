@@ -29,7 +29,7 @@ export interface GameDetailsPanelProps {
   isHiddenView?: boolean;
   onUpdateGameInState?: (game: Game) => void;
   onRightClick?: (x: number, y: number) => void;
-  viewMode: 'grid' | 'list' | 'logo' | 'carousel' | 'coverflow';
+  viewMode: 'grid' | 'list' | 'logo' | 'carousel' | 'coverflow' | 'card';
   // Right panel styling props
   rightPanelLogoSize?: number;
   rightPanelBoxartPosition?: 'left' | 'right' | 'none';
@@ -424,7 +424,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
   useEffect(() => {
     if (showLogoResizeDialog && game) {
       // Use per-view-mode size for the current view, or fallback to global logoSize
-      const sizeForCurrentView = game.logoSizePerViewMode?.[viewMode] || game.logoSizePerViewMode?.carousel || game.logoSize;
+      const sizeForCurrentView = game.logoSizePerViewMode?.[viewMode as 'grid' | 'list' | 'logo' | 'carousel' | 'coverflow'] || game.logoSizePerViewMode?.carousel || game.logoSize;
       setLocalLogoSize(sizeForCurrentView);
     } else if (!showLogoResizeDialog) {
       setLocalLogoSize(undefined);
@@ -435,7 +435,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
   // Keep local logo size in sync with game changes (for real-time slider updates from RightClickMenu)
   useEffect(() => {
     if (game && !showLogoResizeDialog) {
-      const sizeForCurrentView = game.logoSizePerViewMode?.[viewMode] || game.logoSizePerViewMode?.carousel || game.logoSize;
+      const sizeForCurrentView = game.logoSizePerViewMode?.[viewMode as 'grid' | 'list' | 'logo' | 'carousel' | 'coverflow'] || game.logoSizePerViewMode?.carousel || game.logoSize;
       setLocalLogoSize(sizeForCurrentView);
     }
   }, [game?.logoSizePerViewMode, game?.logoSize, viewMode, game?.id]);
@@ -666,7 +666,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
   const detailsColumnWidth = Math.max(0, contentInnerWidth - descriptionColumnWidth - 4);
   const requestedLogoHeight = localLogoSize !== undefined
     ? localLogoSize
-    : (game.logoSizePerViewMode?.[viewMode] || game.logoSizePerViewMode?.carousel || rightPanelLogoSize);
+    : (game.logoSizePerViewMode?.[viewMode as 'grid' | 'list' | 'logo' | 'carousel' | 'coverflow'] || game.logoSizePerViewMode?.carousel || rightPanelLogoSize);
   const effectiveLogoHeight = requestedLogoHeight;
   const logoClearancePadding = (game.logoUrl || !game.boxArtUrl)
     ? Math.min(Math.ceil(effectiveLogoHeight * 0.3) + 20, 110)

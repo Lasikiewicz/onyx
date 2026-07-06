@@ -1,7 +1,7 @@
 import { ConfirmationDialog } from '../ConfirmationDialog';
 import { CustomDefaultsManager } from '../CustomDefaultsManager';
 
-export type ViewMode = 'grid' | 'list' | 'logo' | 'carousel' | 'coverflow';
+export type ViewMode = 'grid' | 'list' | 'logo' | 'carousel' | 'coverflow' | 'card';
 export type ResolutionKey = '720p' | '1080p' | '1440p' | '4K';
 
 export interface RightClickMenuModalsProps {
@@ -34,6 +34,8 @@ function viewModeLabel(mode: ViewMode): string {
       return 'Cover Flow';
     case 'carousel':
       return 'Carousel';
+    case 'card':
+      return 'Card / Poster';
     default:
       return 'View';
   }
