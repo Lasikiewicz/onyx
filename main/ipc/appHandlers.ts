@@ -399,6 +399,10 @@ export function registerAppIPCHandlers(
     });
 
     ipcMain.handle('app:toggleDevTools', async () => {
+        // Development only; never allow DevTools in packaged builds
+        if (app.isPackaged) {
+            return { success: false };
+        }
         if (winReference.current) winReference.current.webContents.toggleDevTools();
         return { success: !!winReference.current };
     });
@@ -525,27 +529,8 @@ export function registerAppIPCHandlers(
         doQuitAndInstall();
     });
 
-    // Update notification handlers - for coordinating with startup scan
-    let updateFoundCallback: (() => void) | null = null;
-    let updateDismissedCallback: (() => void) | null = null;
-
-    ipcMain.on('app:update-found', () => {
-        console.log('[AppUpdate] Update found - signaling startup scan to pause');
-        if (updateFoundCallback) updateFoundCallback();
-    });
-
-    ipcMain.on('app:update-dismissed', () => {
-        console.log('[AppUpdate] Update dismissed - signaling startup scan to proceed');
-        if (updateDismissedCallback) updateDismissedCallback();
-    });
-
-    // Export callbacks for main.ts to use
-    (global as any).__updateFoundCallback = (callback: () => void) => {
-        updateFoundCallback = callback;
-    };
-    (global as any).__updateDismissedCallback = (callback: () => void) => {
-        updateDismissedCallback = callback;
-    };
+    // Note: 'app:update-found' / 'app:update-dismissed' are handled by
+    // startupCoordinator.ts, which owns the update/startup-scan coordination.
 
     ipcMain.handle('app:openExternal', async (_event, url: string) => {
         if (!isSafeExternalUrl(url)) {

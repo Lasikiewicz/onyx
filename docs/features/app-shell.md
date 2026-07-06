@@ -129,6 +129,8 @@ Owns the renderer root experience in [`App.tsx`](../../renderer/src/App.tsx): li
 - Main-window shell state is persisted from [`main.ts`](../../main/main.ts): move/resize writes are debounced, while maximize/unmaximize/fullscreen transitions save immediately and app quit paths flush the latest window mode before shutdown. [`UserPreferencesService.ts`](../../main/UserPreferencesService.ts) serializes preference writes so later partial saves cannot overwrite a newly persisted maximized or fullscreen state with stale values.
 - Top-bar layout is stored in `topBarPositions`, including `pinnedCategories` and the `hidden` state for each top-bar item. Active selection is stored in `activeGameId` when the user selects a visible game.
 - Tray settings are stored in general preferences and mirrored in the main process so minimize, close, tray menu restore, and tray-icon visibility share the same runtime flags. Open/close-to-tray paths do not wait for preference reads before showing or hiding the BrowserWindow, so startup scan activity cannot make the tray icon appear unresponsive.
+- The custom tray menu popup window runs fully isolated (`contextIsolation: true`, `nodeIntegration: false`, `sandbox: true`) with its bridge limited to [`trayMenuPreload.ts`](../../main/ui/trayMenuPreload.ts) (`window.trayMenu.sendAction/close`), and [`tray.ts`](../../main/ui/tray.ts) verifies the IPC sender so only that window can trigger tray actions.
+- The main window denies `will-navigate` to non-app URLs and denies `window.open` popups in [`main.ts`](../../main/main.ts); http/https targets are routed to the system browser through the protocol allowlist in [`SecurityUtils.ts`](../../main/SecurityUtils.ts). Menu events subscribe through an allowlisted `onMenuEvent` bridge in [`preload.ts`](../../main/preload.ts).
 - Transient overlay state such as `toast`, `startupProgress`, `foundGames`, `missingGames`, `updateNotification`, and `crashDumpPaths` lives in [`App.tsx`](../../renderer/src/App.tsx) and is only held in memory.
 
 ## Failure Modes and Triage
@@ -229,4 +231,5 @@ Owns the renderer root experience in [`App.tsx`](../../renderer/src/App.tsx): li
 - [MenuBar.tsx](../../renderer/src/components/MenuBar.tsx) - top-level shell entry points into importer, settings, updater, tutorial, and other library actions.
 - [main.ts](../../main/main.ts) - owns BrowserWindow creation plus persisted bounds/maximize/fullscreen restoration for the main app shell.
 - [tray.ts](../../main/ui/tray.ts) - owns tray menu rendering, tray restore actions, recent-game shortcuts, and tray-aware show/focus behavior.
+- [trayMenuPreload.ts](../../main/ui/trayMenuPreload.ts) - minimal contextBridge API for the isolated tray menu popup window (`sendAction`/`close` only).
 

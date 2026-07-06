@@ -4,6 +4,27 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.11.0] - 2026-07-06
+
+- Security:
+  - Run the tray menu popup in a fully isolated window with a minimal bridge instead of full Node access, and accept tray actions only from that window.
+  - Block main-window navigation to external pages and deny popup windows; web links always open in the system browser through the protocol allowlist.
+  - Restrict menu-event subscriptions in the preload bridge to a fixed allowlist of channels.
+  - Verify Steam sign-in responses with Steam before saving the signed-in account, rejecting unverified responses.
+  - Disable the DevTools toggle in packaged builds.
+  - Run Windows registry launcher detection without shell string interpolation.
+- Platform:
+  - Upgrade Electron from 28 to 42.6.0, restoring a current Chromium/Node security baseline, and verify both installer profiles on the new runtime.
+  - Update production dependencies (axios, DOMPurify, form-data, follow-redirects, js-yaml) to clear all known vulnerability advisories.
+- Maintainability:
+  - main/main.ts:
+    - Extract the onyx-local artwork protocol handler into main/onyxLocalProtocol.ts with bounded URL-tracking maps so long sessions no longer grow memory without limit.
+    - Remove dead update-callback scaffolding from the app IPC handlers; the startup coordinator owns those events.
+  - Stop emitting plain console log lines to stdout in packaged builds while keeping full logs captured for bug reports (set ONYX_DEBUG=1 to re-enable).
+  - Remove a stray one-off script from the repo root and align .gitignore with the tracked default layout files.
+- Tests:
+  - Exclude invalid dates from generated release dates in the game details panel property tests, fixing a seed-dependent flake.
+
 ## [0.10.9] - 2026-06-19
 
 - Game Manager:

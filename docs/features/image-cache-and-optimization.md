@@ -44,6 +44,7 @@ Caches image assets and optimizes them (including worker-based processing) for f
 - Queue state is runtime-only; cached artifacts persist across runs until invalidated or cleared.
 - Games can temporarily persist remote artwork URLs until the importer/cache queue finishes; startup recovery now re-queues those games so a prior interrupted session does not leave new imports permanently uncached.
 - Startup cache cleanup in [GameStore.ts](../../main/GameStore.ts) preserves valid `onyx-local://` artwork URLs even when they include cache-busting query strings, and now clears broken alternative banners, icons, and screenshot entries alongside box art/banner/logo/hero fields.
+- The `onyx-local://` protocol handler that serves cached artwork to the renderer lives in [onyxLocalProtocol.ts](../../main/onyxLocalProtocol.ts) (extracted from `main.ts`); it resolves `{gameId}-{imageType}` lookups against the active cache directory, still decodes legacy URL/base64 path formats behind a traversal guard, and bounds its failed-URL tracking maps so long sessions cannot grow them without limit.
 
 ## Failure Modes and Triage
 
@@ -76,6 +77,7 @@ Caches image assets and optimizes them (including worker-based processing) for f
 
 - **Main process**
   - [ImageCacheService.ts](../../main/ImageCacheService.ts)
+  - [onyxLocalProtocol.ts](../../main/onyxLocalProtocol.ts)
   - [ImageOptimizationController.ts](../../main/ImageOptimizationController.ts)
   - [ImageOptimizationQueue.ts](../../main/ImageOptimizationQueue.ts)
   - [ImageOptimizerWorkerHost.ts](../../main/ImageOptimizerWorkerHost.ts)

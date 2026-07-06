@@ -15,7 +15,7 @@ release
 .DS_Store
 *.local
 .env
-files
+plan
 
 # Editor directories and files
 .vscode/*

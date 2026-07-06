@@ -30,6 +30,7 @@ Detects crash dumps from prior runs, prompts the user, and generates bug-report 
 
 ## Discovery and Data Sources
 
+- [BugReportService.ts](../../main/BugReportService.ts) intercepts `console.log/warn/error` at startup and keeps the last 1000 entries in in-memory buffers that feed generated bug reports. In packaged builds, plain `console.log` lines are captured into those buffers but no longer emitted to stdout (warn/error still emit); set `ONYX_DEBUG=1` to re-enable stdout emission for a packaged build.
 - Crash evidence comes from crash-dump artifacts such as native `.dmp` files, generated readable `-report.txt` files, and `js-crash-*.txt` logs written after unhandled main-process failures.
 - Main-process analysis happens before or during renderer startup notification.
 - Session-exit state is persisted in the app user-data folder so a normal shutdown does not keep re-triggering the crash modal on later launches.

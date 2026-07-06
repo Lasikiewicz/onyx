@@ -81,8 +81,19 @@ export const electronAPI = {
   deleteManualFolderConfig: (folderId: string) => ipcRenderer.invoke('manualFolders:deleteConfig', folderId),
   // Xbox service methods
   scanXboxGames: (path: string, autoMerge?: boolean) => ipcRenderer.invoke('xbox:scanGames', path, autoMerge),
-  // Menu event listeners
+  // Menu event listeners (allowlisted, mirroring the generic `on` below)
   onMenuEvent: (channel: string, callback: () => void) => {
+    const allowedMenuChannels = new Set([
+      'menu:addGame',
+      'menu:scanFolder',
+      'menu:updateSteamLibrary',
+      'menu:configureSteam',
+      'menu:checkForUpdates',
+    ]);
+    if (!allowedMenuChannels.has(channel)) {
+      console.warn(`Attempt to register to unauthorized menu IPC channel: ${channel}`);
+      return () => { };
+    }
     const handler = () => callback();
     ipcRenderer.on(channel, handler);
     return (): void => {

@@ -1,4 +1,5 @@
 import { app, Menu, Tray, BrowserWindow, ipcMain, screen, nativeImage } from 'electron';
+import path from 'node:path';
 import { GameStore, Game } from '../GameStore.js';
 import { LauncherService } from '../LauncherService.js';
 import { UserPreferencesService } from '../UserPreferencesService.js';
@@ -64,8 +65,15 @@ export class TrayService {
             });
     }
 
+    private isTrayMenuSender(event: Electron.IpcMainEvent): boolean {
+        return !!this.trayMenuWindow
+            && !this.trayMenuWindow.isDestroyed()
+            && event.sender === this.trayMenuWindow.webContents;
+    }
+
     private registerTrayMenuIpc() {
-        ipcMain.on('tray-menu:action', async (_event, actionId: string) => {
+        ipcMain.on('tray-menu:action', async (event, actionId: string) => {
+            if (!this.isTrayMenuSender(event)) return;
             const action = this.trayMenuActions.get(actionId);
             if (!action) return;
             try {
@@ -77,7 +85,8 @@ export class TrayService {
             }
         });
 
-        ipcMain.on('tray-menu:close', () => {
+        ipcMain.on('tray-menu:close', (event) => {
+            if (!this.isTrayMenuSender(event)) return;
             this.closeCustomTrayMenu();
         });
     }
@@ -252,8 +261,10 @@ export class TrayService {
             backgroundColor: '#00000000',
             roundedCorners: true,
             webPreferences: {
-                nodeIntegration: true,
-                contextIsolation: false,
+                preload: path.join(__dirname, 'trayMenuPreload.js'),
+                nodeIntegration: false,
+                contextIsolation: true,
+                sandbox: true,
                 devTools: false,
             },
         });
@@ -371,7 +382,6 @@ export class TrayService {
       <div class="scroll" id="menu"></div>
     </div>
     <script>
-      const { ipcRenderer } = require('electron');
       const menuItems = ${itemsJson};
       const menu = document.getElementById('menu');
 
@@ -393,7 +403,7 @@ export class TrayService {
 
         const btn = document.createElement('button');
         btn.className = 'item';
-        btn.onclick = () => ipcRenderer.send('tray-menu:action', item.actionId);
+        btn.onclick = () => window.trayMenu.sendAction(item.actionId);
 
         const content = document.createElement('span');
         content.className = 'item-content';
@@ -426,7 +436,7 @@ export class TrayService {
       }
 
       window.addEventListener('keydown', (event) => {
-        if (event.key === 'Escape') ipcRenderer.send('tray-menu:close');
+        if (event.key === 'Escape') window.trayMenu.close();
       });
     </script>
   </body>

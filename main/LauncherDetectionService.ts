@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs';
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import { platform } from 'node:os';
 
 export interface DetectedLauncher {
@@ -29,13 +29,15 @@ export class LauncherDetectionService {
     }
 
     try {
-      const result = execSync(`reg query "${key}" /v "${valueName}"`, {
+      // Args array (no shell) removes any command-injection surface
+      const result = execFileSync('reg', ['query', key, '/v', valueName], {
         encoding: 'utf-8',
         stdio: ['pipe', 'pipe', 'ignore'],
       });
 
-      // Parse the registry output
-      const match = result.match(new RegExp(`${valueName}\\s+REG_[^\\s]+\\s+(.+)`));
+      // Parse the registry output (escape valueName so regex metacharacters match literally)
+      const escapedValueName = valueName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const match = result.match(new RegExp(`${escapedValueName}\\s+REG_[^\\s]+\\s+(.+)`));
       if (match && match[1]) {
         return match[1].trim();
       }

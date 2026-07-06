@@ -79,6 +79,14 @@ It explains module boundaries, data flow, and release pipeline expectations.
 - `main/MetadataFetcherService.ts`, `main/SteamMetadataProvider.ts`, `main/ImageCacheService.ts`, and `main/ImageOptimizerWorker.worker.ts` now preserve sharper first-import artwork by preferring Steam 2x covers and dedicated visual providers before lower-resolution general metadata assets, then caching covers, heroes, banners, logos, icons, and screenshots at UI-scale dimensions.
 - `main/main.ts` now persists a lightweight clean-exit marker for crash-dump triage and re-queues games that still have remote artwork URLs on startup, so old crash artifacts do not trigger false prompts after normal exits and interrupted image-cache work resumes on the next launch instead of leaving newer games on uncached remote art.
 - `main/ProcessSuspendService.ts` now keeps launch-tracking context such as installation directory/platform/source, prefers CIM-based Windows process enumeration, and uses direct PID existence checks before suspend/resume rediscovery, so suspend workflows are less dependent on fragile `Get-Process` path lookups after launch.
+- `main/onyxLocalProtocol.ts` now owns the entire `onyx-local` protocol handler (registration, current `{gameId}-{imageType}` lookup, legacy URL/base64 path decoding with traversal guard, and retry-throttling), extracted from `main/main.ts`; its failed-URL tracking maps are bounded (reset past 2,000 entries) so long sessions cannot grow them without limit.
+- `main/ui/trayMenuPreload.ts` now owns the minimal contextBridge API (`window.trayMenu.sendAction/close`) for the custom tray menu popup; `main/ui/tray.ts` creates that window with `contextIsolation: true`, `nodeIntegration: false`, `sandbox: true`, and verifies the IPC sender on `tray-menu:action`/`tray-menu:close` so only the tray-menu window can invoke tray actions.
+- `main/main.ts` now installs main-window navigation guards: `will-navigate` is denied for anything other than the app's own dev-server/file URL, and `setWindowOpenHandler` denies all popups while routing http/https targets through `openSafeExternal` in `main/SecurityUtils.ts`.
+- `main/preload.ts` `onMenuEvent` now enforces a menu-channel allowlist (the five `menu:*` channels) matching the allowlist pattern already used by the generic `on` subscription API.
+- `main/SteamAuthService.ts` now verifies Steam OpenID positive assertions with a `check_authentication` round-trip before persisting auth state, failing closed when Steam does not confirm `is_valid:true`.
+- `main/LauncherDetectionService.ts` registry reads now use `execFileSync('reg', [...])` with an args array (no shell string interpolation) and regex-escape the value name when parsing output.
+- `main/BugReportService.ts` still captures all `console.*` output into its bug-report buffers, but packaged builds no longer emit plain `console.log` lines to stdout (warn/error still emit); set `ONYX_DEBUG=1` to re-enable emission.
+- `main/ipc/appHandlers.ts` no longer carries the dead `app:update-found`/`app:update-dismissed` callback scaffolding; `main/startupCoordinator.ts` is the sole owner of those channels. `app:toggleDevTools` is also gated to non-packaged builds.
 
 ## Data and Control Flow
 
@@ -123,11 +131,12 @@ It explains module boundaries, data flow, and release pipeline expectations.
 - Secrets baseline gate: `npm run scan:secrets`
 - Commit-time guardrails: `.husky/pre-commit`
 - Package manager policy: npm-only (`packageManager` is `npm@10` and CI must not install/use pnpm for packaging)
+- Electron runtime baseline: Electron 42.x with `@types/node` 22; both packaging profiles (`build:alpha`, `build:prod`) are verified on this runtime, and future Electron major bumps must re-verify both installer profiles before promotion.
 
 ## Module Index
 
 <!-- AUTO-GENERATED:MODULE_INDEX:START -->
-- Main process source files: 77
+- Main process source files: 79
 - Renderer source files: 169
 - Automation scripts: 30
 - GitHub workflow files: 7

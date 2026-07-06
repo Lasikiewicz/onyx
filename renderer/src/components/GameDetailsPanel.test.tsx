@@ -143,7 +143,7 @@ describe('Bug Condition Exploration: Animated Images Cause Switching Delays', ()
       logoUrl: fc.option(staticImageUrlArb, { nil: undefined }),
       description: fc.option(fc.string({ maxLength: 200 }), { nil: undefined }),
       platform: fc.constantFrom('steam', 'epic', 'gog', 'xbox'),
-      releaseDate: fc.option(fc.date().map((d: Date) => d.toISOString()), { nil: undefined }),
+      releaseDate: fc.option(fc.date({ noInvalidDate: true }).map((d: Date) => d.toISOString()), { nil: undefined }),
     }).filter((game: GeneratedAnimatedTestGame) => 
       // Ensure at least one animated image is present
       game.boxArtUrl !== undefined || 

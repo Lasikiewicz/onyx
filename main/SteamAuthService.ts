@@ -133,6 +133,16 @@ export class SteamAuthService {
                 if (steamIdMatch) {
                   const steamId = steamIdMatch[1];
 
+                  if (!(await this.verifyOpenIdAssertion(url))) {
+                    await this.clearAuth();
+                    if (this.authWindow) {
+                      this.authWindow.close();
+                      this.authWindow = null;
+                    }
+                    resolve({ success: false, error: 'Steam OpenID response failed verification' });
+                    return;
+                  }
+
                   // Try to get username from Steam profile (public API, no key needed for basic info)
                   let username = 'Steam User';
                   try {
@@ -213,6 +223,16 @@ export class SteamAuthService {
                   authCompleted = true;
                   const steamId = steamIdMatch[1];
 
+                  if (!(await this.verifyOpenIdAssertion(url))) {
+                    await this.clearAuth();
+                    if (this.authWindow) {
+                      this.authWindow.close();
+                      this.authWindow = null;
+                    }
+                    resolve({ success: false, error: 'Steam OpenID response failed verification' });
+                    return;
+                  }
+
                   let username = 'Steam User';
                   try {
                     const profileUrl = `https://steamcommunity.com/profiles/${steamId}/?xml=1`;
@@ -274,6 +294,16 @@ export class SteamAuthService {
                 if (steamIdMatch) {
                   authCompleted = true;
                   const steamId = steamIdMatch[1];
+
+                  if (!(await this.verifyOpenIdAssertion(url))) {
+                    await this.clearAuth();
+                    if (this.authWindow) {
+                      this.authWindow.close();
+                      this.authWindow = null;
+                    }
+                    resolve({ success: false, error: 'Steam OpenID response failed verification' });
+                    return;
+                  }
 
                   let username = 'Steam User';
                   try {
@@ -340,6 +370,39 @@ export class SteamAuthService {
         resolve({ success: false, error: error instanceof Error ? error.message : 'Failed to start authentication' });
       }
     });
+  }
+
+  /**
+   * Verify an OpenID positive assertion with Steam (check_authentication).
+   * Without this round-trip, the Steam ID in the return URL is self-asserted.
+   */
+  private async verifyOpenIdAssertion(url: URL): Promise<boolean> {
+    try {
+      const params = new URLSearchParams();
+      url.searchParams.forEach((value, key) => {
+        if (key.startsWith('openid.')) params.set(key, value);
+      });
+      params.set('openid.mode', 'check_authentication');
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      try {
+        const response = await fetch('https://steamcommunity.com/openid/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: params.toString(),
+          signal: controller.signal,
+        });
+        if (!response.ok) return false;
+        const text = await response.text();
+        return /is_valid\s*:\s*true/i.test(text);
+      } finally {
+        clearTimeout(timeoutId);
+      }
+    } catch (err) {
+      console.warn('[SteamAuth] OpenID check_authentication request failed:', err);
+      return false;
+    }
   }
 
   /**

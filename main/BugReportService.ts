@@ -61,15 +61,22 @@ export class BugReportService {
     const originalError = console.error.bind(console);
     const originalWarn = console.warn.bind(console);
 
+    // Packaged builds stay quiet on stdout for plain logs (warn/error still emit).
+    // Everything is still captured in the buffers below, so bug reports keep
+    // their full diagnostic detail. Set ONYX_DEBUG=1 to re-enable emission.
+    const emitPlainLogs = !app.isPackaged || !!process.env.ONYX_DEBUG;
+
     console.log = (...args: any[]) => {
-      const message = args.map(arg => 
+      const message = args.map(arg =>
         typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
       ).join(' ');
       this.logBuffer.push(`[LOG] ${new Date().toISOString()} - ${message}`);
       if (this.logBuffer.length > this.maxBufferSize) {
         this.logBuffer.shift();
       }
-      originalLog(...args);
+      if (emitPlainLogs) {
+        originalLog(...args);
+      }
     };
 
     console.error = (...args: any[]) => {
