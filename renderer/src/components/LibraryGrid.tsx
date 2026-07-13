@@ -14,6 +14,12 @@ import {
 } from '@dnd-kit/sortable';
 import { Game } from '../types/game';
 import { SortableGameCard } from './SortableGameCard';
+import { computeSmartFillColumns } from '../utils/smartFillColumns';
+
+// Tile aspect ratios used to compute smart-fill column counts.
+// Must match the aspect-[2/3] (boxart) / aspect-[16/9] (logo) classes in GameCard.tsx.
+const BOXART_TILE_ASPECT_HEIGHT_OVER_WIDTH = 1.5;
+const LOGO_TILE_ASPECT_HEIGHT_OVER_WIDTH = 9 / 16;
 
 interface LibraryGridProps {
   games: Game[];
@@ -37,7 +43,7 @@ interface LibraryGridProps {
   showLogoOverBoxart?: boolean;
   logoPosition?: 'top' | 'middle' | 'bottom' | 'underneath';
   useLogosInsteadOfBoxart?: boolean;
-  autoSizeToFit?: boolean;
+  smartFill?: boolean;
   logoBackgroundColor?: string;
   logoBackgroundOpacity?: number;
   onGameContextMenu?: (game: Game, x: number, y: number) => void;
@@ -62,7 +68,7 @@ export const LibraryGrid: React.FC<LibraryGridProps> = ({
   showLogoOverBoxart = true,
   logoPosition = 'middle',
   useLogosInsteadOfBoxart = false,
-  autoSizeToFit = false,
+  smartFill = false,
   descriptionSize = 14,
   onGameContextMenu,
   onEmptySpaceClick,
@@ -81,6 +87,30 @@ export const LibraryGrid: React.FC<LibraryGridProps> = ({
 
   const gridRef = useRef<HTMLDivElement>(null);
   const [focusedIndex, setFocusedIndex] = useState<number>(-1);
+  const [smartFillColumns, setSmartFillColumns] = useState(1);
+
+  useEffect(() => {
+    if (!smartFill || !gridRef.current) return;
+
+    const container = gridRef.current;
+    const recompute = () => {
+      setSmartFillColumns(
+        computeSmartFillColumns(
+          container.clientWidth,
+          container.clientHeight,
+          items.length,
+          gameTilePadding,
+          useLogosInsteadOfBoxart ? LOGO_TILE_ASPECT_HEIGHT_OVER_WIDTH : BOXART_TILE_ASPECT_HEIGHT_OVER_WIDTH,
+        ),
+      );
+    };
+
+    recompute();
+
+    const observer = new ResizeObserver(recompute);
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, [smartFill, items.length, gameTilePadding, useLogosInsteadOfBoxart]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -195,8 +225,8 @@ export const LibraryGrid: React.FC<LibraryGridProps> = ({
             <div
               className="grid"
               style={{
-                gridTemplateColumns: autoSizeToFit
-                  ? `repeat(auto-fill, ${useLogosInsteadOfBoxart ? logoSize : gridSize}px)`
+                gridTemplateColumns: smartFill
+                  ? `repeat(${smartFillColumns}, 1fr)`
                   : `repeat(auto-fit, ${useLogosInsteadOfBoxart ? logoSize : gridSize}px)`,
                 gap: `${gameTilePadding}px`,
                 justifyContent: 'start',

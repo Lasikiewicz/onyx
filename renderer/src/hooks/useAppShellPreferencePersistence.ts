@@ -18,7 +18,6 @@ type ListViewOptions = {
 
 type UseAppShellPreferencePersistenceArgs = {
   activeGameId: string | null;
-  autoSizeToFit: boolean;
   backgroundBlur: number;
   backgroundBrightnessByView: Record<ViewMode, number>;
   backgroundColor: string;
@@ -29,6 +28,7 @@ type UseAppShellPreferencePersistenceArgs = {
   gameTilePadding: number;
   games: Game[];
   gridSize: number;
+  gridSmartFill: boolean;
   hideAppsTitles: boolean;
   hideGameTitles: boolean;
   hideVRTitles: boolean;
@@ -68,7 +68,6 @@ function useDebouncedPreferencePatch({ delay, enabled, errorLabel, patch }: Debo
 
 export function useAppShellPreferencePersistence({
   activeGameId,
-  autoSizeToFit,
   backgroundBlur,
   backgroundBrightnessByView,
   backgroundColor,
@@ -79,6 +78,7 @@ export function useAppShellPreferencePersistence({
   gameTilePadding,
   games,
   gridSize,
+  gridSmartFill,
   hideAppsTitles,
   hideGameTitles,
   hideVRTitles,
@@ -93,6 +93,7 @@ export function useAppShellPreferencePersistence({
 }: UseAppShellPreferencePersistenceArgs) {
   const persistenceEnabled = !isInitialLoad;
   const gridSizePatch = useMemo(() => ({ gridSize }), [gridSize]);
+  const gridSmartFillPatch = useMemo(() => ({ gridSmartFill }), [gridSmartFill]);
   const cardColumnsPatch = useMemo(() => ({ cardColumns }), [cardColumns]);
   const cardPostersOnlyPatch = useMemo(() => ({ cardPostersOnly }), [cardPostersOnly]);
   const cardSmartFillPatch = useMemo(() => ({ cardSmartFill }), [cardSmartFill]);
@@ -128,9 +129,16 @@ export function useAppShellPreferencePersistence({
 
   useDebouncedPreferencePatch({
     delay: 500,
-    enabled: persistenceEnabled && !autoSizeToFit,
+    enabled: persistenceEnabled,
     errorLabel: 'grid size',
     patch: gridSizePatch,
+  });
+
+  useDebouncedPreferencePatch({
+    delay: 300,
+    enabled: persistenceEnabled,
+    errorLabel: 'grid smart fill',
+    patch: gridSmartFillPatch,
   });
 
   useDebouncedPreferencePatch({

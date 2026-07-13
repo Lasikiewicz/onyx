@@ -14,6 +14,7 @@ import {
 } from '@dnd-kit/sortable';
 import { Game } from '../types/game';
 import { SortableCardTile } from './SortableCardTile';
+import { computeSmartFillColumns } from '../utils/smartFillColumns';
 
 interface LibraryCardViewProps {
   games: Game[];
@@ -35,34 +36,6 @@ interface LibraryCardViewProps {
 // GameCardWide supports either 2:1 wide cards or 2:3 poster-only tiles.
 const WIDE_CARD_ASPECT_HEIGHT_OVER_WIDTH = 0.5;
 const POSTER_CARD_ASPECT_HEIGHT_OVER_WIDTH = 1.5;
-
-// Sub-pixel/measurement rounding tolerance so a layout that fits "exactly" doesn't get
-// bumped to an extra column just because of float imprecision.
-const FIT_TOLERANCE_PX = 1;
-
-function computeSmartFillColumns(
-  containerWidth: number,
-  containerHeight: number,
-  count: number,
-  gap: number,
-  aspectHeightOverWidth: number,
-): number {
-  if (count <= 0 || containerWidth <= 0 || containerHeight <= 0) return 1;
-
-  for (let cols = 1; cols <= count; cols++) {
-    const cardWidth = (containerWidth - gap * (cols - 1)) / cols;
-    if (cardWidth <= 0) continue;
-    const cardHeight = cardWidth * aspectHeightOverWidth;
-    const rows = Math.ceil(count / cols);
-    const totalHeight = rows * cardHeight + gap * (rows - 1);
-    if (totalHeight <= containerHeight + FIT_TOLERANCE_PX) {
-      return cols;
-    }
-  }
-
-  // Nothing fit row-by-row (extremely tall/narrow container) - fall back to one row.
-  return count;
-}
 
 export const LibraryCardView: React.FC<LibraryCardViewProps> = ({
   games,

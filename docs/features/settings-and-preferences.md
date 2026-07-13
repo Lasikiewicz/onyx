@@ -70,6 +70,7 @@ This parent file is the settings overview and routing document. Detailed behavio
   - launcher and library configuration
 - Defaults originate in [UserPreferencesService.createDefaultPreferences()](../../main/UserPreferencesService.ts).
 - Game Details logo size (`rightPanelLogoSize`) defaults to `300` px to present a large, high-fidelity logo standardly. The description text container dynamically auto-fits to the available height of the panel using `minHeight: 0` and `overflowY: 'auto'` to prevent content from pushing details below the fold.
+- Grid and Logo views share a single `gridSmartFill` preference (right-click menu "Smart Fill") that auto-shrinks tiles so every game fits on one screen without scrolling, replacing the earlier grid-only pixel-size "Fill Available Space" behavior; see [Grid View](./main-view/views/grid-view.md) and [Logo View](./main-view/views/logo-view.md) for the tile-fitting details.
 
 ## Failure Modes and Triage
 

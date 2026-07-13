@@ -18,7 +18,7 @@ Displays the games list as a grid of tiles that emphasize game logos instead of 
 
 ## Settings and Toggles
 
-- Logo size, logo position (top/middle/bottom/underneath), logo over boxart, logo background color/opacity; grid size and tile padding. Shared with grid view where applicable; logo-specific options apply when view mode is "logo". Configured via [RightClickMenu.tsx](../../../../renderer/src/components/RightClickMenu.tsx) and [UserPreferencesService](../../../../main/UserPreferencesService.ts).
+- Logo size, logo position (top/middle/bottom/underneath), logo over boxart, logo background color/opacity; grid size and tile padding. Shared with grid view where applicable; logo-specific options apply when view mode is "logo". Smart Fill (persisted `gridSmartFill`, shared with grid view) auto-shrinks tiles so every game fits on one screen without scrolling, using the `aspect-[16/9]` logo tile ratio; the logo size slider is hidden while Smart Fill is active. Configured via [RightClickMenu.tsx](../../../../renderer/src/components/RightClickMenu.tsx) and [UserPreferencesService](../../../../main/UserPreferencesService.ts).
 
 ## Confirmed End-to-End Flows
 

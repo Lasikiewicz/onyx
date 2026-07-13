@@ -41,7 +41,7 @@ export interface RightClickMenuGamesViewSectionProps {
   activeGame?: Game;
   backgroundBlur: number;
   backgroundBrightness: number;
-  autoSizeToFit: boolean;
+  gridSmartFill: boolean;
   categoriesPosition: 'top' | 'bottom';
   categoriesTopAlignment: 'left' | 'center' | 'right';
   categoriesTopSize: number;
@@ -62,7 +62,7 @@ export interface RightClickMenuGamesViewSectionProps {
   showLogoOverBoxart: boolean;
   sliderDefaults: GamesViewSliderDefaults;
   viewMode: 'grid' | 'list' | 'logo' | 'card';
-  onAutoSizeToFitChange?: (enabled: boolean) => void;
+  onGridSmartFillChange?: (enabled: boolean) => void;
   onBackgroundBlurChange?: (blur: number) => void;
   onBackgroundBrightnessChange?: (brightness: number) => void;
   onCategoriesPositionChange?: (position: 'top' | 'bottom') => void;
@@ -113,7 +113,7 @@ export function RightClickMenuGamesViewSection({
   activeGame,
   backgroundBlur,
   backgroundBrightness,
-  autoSizeToFit,
+  gridSmartFill,
   cardColumns,
   cardPostersOnly,
   cardSmartFill,
@@ -134,7 +134,7 @@ export function RightClickMenuGamesViewSection({
   showLogoOverBoxart,
   sliderDefaults,
   viewMode,
-  onAutoSizeToFitChange,
+  onGridSmartFillChange,
   onBackgroundBlurChange,
   onBackgroundBrightnessChange,
   onCategoriesPositionChange,
@@ -292,7 +292,7 @@ export function RightClickMenuGamesViewSection({
       )}
 
       {/* Size control per view */}
-      {((viewMode === 'grid' && onGridSizeChange) || (viewMode === 'logo' && onLogoSizeChange)) && (
+      {!gridSmartFill && ((viewMode === 'grid' && onGridSizeChange) || (viewMode === 'logo' && onLogoSizeChange)) && (
         <div className="px-3 py-2 bg-gray-700/30 rounded-md">
           <MenuSliderRow
             label={sizeLabel}
@@ -403,32 +403,33 @@ export function RightClickMenuGamesViewSection({
         </div>
       )}
 
-      {viewMode === 'grid' && onAutoSizeToFitChange && (
+      {/* Smart Fill (Grid / Logo view only) - auto-shrinks tiles so every game fits on screen with no scrolling */}
+      {(viewMode === 'grid' || viewMode === 'logo') && onGridSmartFillChange && (
         <div className="px-3 py-2 bg-gray-700/30 rounded-md">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
-              <label className="text-xs text-gray-400 font-medium">Fill Available Space</label>
+              <label className="text-xs text-gray-400 font-medium">Smart Fill</label>
               {settingDescriptionDisplay === 'icon' &&
                 renderSettingHintIcon(
-                  'Automatically sizes the grid cards to better fill the available games area.',
+                  'Automatically shrinks tiles so every game in the current view fits on one screen without scrolling.',
                 )}
             </div>
             <button
-              onClick={() => onAutoSizeToFitChange(!autoSizeToFit)}
+              onClick={() => onGridSmartFillChange(!gridSmartFill)}
               className={`relative inline-flex h-3 w-6 items-center rounded-full transition-colors ${
-                autoSizeToFit ? 'bg-blue-600' : 'bg-gray-600'
+                gridSmartFill ? 'bg-blue-600' : 'bg-gray-600'
               }`}
-              title="Toggle fill available space"
+              title="Toggle smart fill"
             >
               <span
                 className={`inline-block h-2 w-2 transform rounded-full bg-white transition-transform ${
-                  autoSizeToFit ? 'translate-x-3' : 'translate-x-0.5'
+                  gridSmartFill ? 'translate-x-3' : 'translate-x-0.5'
                 }`}
               />
             </button>
           </div>
           {renderSettingDescription(
-            'Automatically sizes the grid cards to better fill the available games area.',
+            'Automatically shrinks tiles so every game in the current view fits on one screen without scrolling.',
           )}
         </div>
       )}

@@ -16,7 +16,6 @@ type ResolvedListViewOptions = ListViewOptions & {
 interface UseRightClickMenuControlsOptions {
   activeGame: Game | null;
   backgroundBlur: number;
-  autoSizeToFit: boolean;
   backgroundBrightnessByView: Record<ViewMode, number>;
   carouselButtonColors: ButtonColors;
   carouselButtonSize: number;
@@ -49,6 +48,7 @@ interface UseRightClickMenuControlsOptions {
   gameTilePadding: number;
   gridButtonColors: ButtonColors;
   gridSize: number;
+  gridSmartFill: boolean;
   isViewFlippedByView: Record<ViewMode, boolean>;
   listButtonColors: ButtonColors;
   listViewOptions: ResolvedListViewOptions;
@@ -76,7 +76,6 @@ interface UseRightClickMenuControlsOptions {
   selectedBoxArtSize: number;
   setActiveGameId: (id: string | null) => void;
   setBackgroundBlur: (value: number) => void;
-  setAutoSizeToFit: (value: boolean) => void;
   setBackgroundBrightnessByView: (value: Record<ViewMode, number>) => void;
   setCarouselButtonColors: (value: ButtonColors) => void;
   setCarouselButtonSize: (value: number) => void;
@@ -103,6 +102,7 @@ interface UseRightClickMenuControlsOptions {
   setGameTilePadding: (value: number) => void;
   setGridButtonColors: (value: ButtonColors) => void;
   setGridSize: (value: number) => void;
+  setGridSmartFill: (value: boolean) => void;
   setIsViewFlippedByView: (value: Record<ViewMode, boolean>) => void;
   setListButtonColors: (value: ButtonColors) => void;
   setListViewOptions: (value: ResolvedListViewOptions) => void;
@@ -138,7 +138,6 @@ interface UseRightClickMenuControlsOptions {
 export function useRightClickMenuControls({
   activeGame,
   backgroundBlur,
-  autoSizeToFit,
   backgroundBrightnessByView,
   carouselButtonColors,
   carouselButtonSize,
@@ -171,6 +170,7 @@ export function useRightClickMenuControls({
   gameTilePadding,
   gridButtonColors,
   gridSize,
+  gridSmartFill,
   isViewFlippedByView,
   listButtonColors,
   listViewOptions,
@@ -198,7 +198,6 @@ export function useRightClickMenuControls({
   selectedBoxArtSize,
   setActiveGameId,
   setBackgroundBlur,
-  setAutoSizeToFit,
   setBackgroundBrightnessByView,
   setCarouselButtonColors,
   setCarouselButtonSize,
@@ -225,6 +224,7 @@ export function useRightClickMenuControls({
   setGameTilePadding,
   setGridButtonColors,
   setGridSize,
+  setGridSmartFill,
   setIsViewFlippedByView,
   setListButtonColors,
   setListViewOptions,
@@ -277,7 +277,6 @@ export function useRightClickMenuControls({
 
   return {
     activeGame: activeGame ?? undefined,
-    autoSizeToFit,
     backgroundBlur,
     backgroundBrightness: currentBackgroundBrightness,
     carouselButtonColors,
@@ -305,6 +304,7 @@ export function useRightClickMenuControls({
     gameTilePadding,
     gridButtonColors,
     gridSize,
+    gridSmartFill,
     isViewFlipped: isViewFlippedByView[viewMode],
     listSize: listViewSize,
     listButtonColors,
@@ -316,8 +316,8 @@ export function useRightClickMenuControls({
     logoSize,
     onActiveGameChange: handleActiveGameChange,
     onBackgroundBlurChange: setBackgroundBlur,
-    onAutoSizeToFitChange: (enabled: boolean) => {
-      saveValue(setAutoSizeToFit, 'autoSizeToFit', enabled);
+    onGridSmartFillChange: (enabled: boolean) => {
+      saveValue(setGridSmartFill, 'gridSmartFill', enabled);
     },
     onBackgroundBrightnessChange: (brightness: number) => {
       saveByViewValue(backgroundBrightnessByView, setBackgroundBrightnessByView, 'backgroundBrightnessByView', viewMode, brightness);

@@ -199,7 +199,7 @@ export interface UserPreferences {
     logoSize?: number;
   };
   listViewSize?: number;
-  autoSizeToFit?: boolean;
+  gridSmartFill?: boolean;
   titleFontSize?: number;
   titleFontFamily?: string;
   descriptionFontSize?: number;

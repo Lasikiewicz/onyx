@@ -61,7 +61,7 @@ export interface UserPreferences {
   logoSize?: number;
   logoViewSize?: number;
   logoHeight?: number;
-  autoSizeToFit?: boolean;
+  gridSmartFill?: boolean;
   showCarouselDetails?: boolean;
   showCarouselLogos?: boolean;
   detailsBarSize?: number;
@@ -236,7 +236,7 @@ type BaselineDefaults = Record<ResolutionKey, Record<ViewMode, Record<string, an
 type CustomDefaultsByResolution = Partial<Record<ResolutionKey, Partial<Record<ViewMode, Record<string, any>>>>>;
 
 const GRID_1080P_BASELINE = {
-  autoSizeToFit: false,
+  gridSmartFill: false,
   gridSize: 145,
   gameTilePadding: 10,
   panelWidth: 967,
@@ -354,7 +354,7 @@ export class UserPreferencesService {
       logoSize: 100,
       logoViewSize: 100,
       logoHeight: 100,
-      autoSizeToFit: false,
+      gridSmartFill: false,
       showCarouselDetails: true,
       showCarouselLogos: true,
       detailsBarSize: 14,
@@ -525,6 +525,8 @@ export class UserPreferencesService {
         backgroundBrightness: preferences.backgroundBrightnessByView?.grid,
         '// Show Logo Over Boxart': 'Display game logo on top of boxart tile',
         showLogoOverBoxart: preferences.showLogoOverBoxart,
+        '// Smart Fill': 'Automatically shrink tiles so every game fits on screen without scrolling',
+        gridSmartFill: preferences.gridSmartFill,
         '// ── Grid-Specific Settings ──': '',
         '// Description Size': 'Font size for description text in grid tiles',
         gridDescriptionSize: preferences.gridDescriptionSize,
@@ -638,8 +640,8 @@ export class UserPreferencesService {
         '// ── Logo-Specific Settings ──': '',
         '// Logo Height': 'Maximum height for logos',
         logoHeight: preferences.logoHeight,
-        '// Auto Size To Fit': 'Automatically adjust logo size to fit screen',
-        autoSizeToFit: preferences.autoSizeToFit,
+        '// Smart Fill': 'Automatically shrink tiles so every game fits on screen without scrolling',
+        gridSmartFill: preferences.gridSmartFill,
         '// Button Colors': 'Colors for play/edit/mod manager buttons',
         logoButtonColors: preferences.logoButtonColors,
         '// ── Categories Display ──': '',
@@ -817,7 +819,7 @@ export class UserPreferencesService {
       grid: {
         gridSize: defaults.gridSize,
         gameTilePadding: defaults.gameTilePadding,
-        autoSizeToFit: defaults.autoSizeToFit,
+        gridSmartFill: defaults.gridSmartFill,
         panelWidth: defaults.panelWidthByView?.grid ?? defaults.panelWidth,
         fanartHeight: defaults.fanartHeightByView?.grid ?? defaults.fanartHeight,
         descriptionWidth: defaults.descriptionWidthByView?.grid ?? 50,
@@ -852,6 +854,7 @@ export class UserPreferencesService {
       logo: {
         logoSize: defaults.logoSize ?? defaults.logoViewSize ?? 100,
         gameTilePadding: defaults.gameTilePadding,
+        gridSmartFill: defaults.gridSmartFill,
         logoBackgroundOpacity: defaults.logoBackgroundOpacity,
         panelWidth: defaults.panelWidthByView?.logo ?? defaults.panelWidth,
         fanartHeight: defaults.fanartHeightByView?.logo ?? defaults.fanartHeight,
@@ -974,6 +977,7 @@ export class UserPreferencesService {
       if (gridSettings.gridSize !== undefined) extracted.gridSize = gridSettings.gridSize;
       if (gridSettings.gameTilePadding !== undefined) extracted.gameTilePadding = gridSettings.gameTilePadding;
       if (gridSettings.showLogoOverBoxart !== undefined) extracted.showLogoOverBoxart = gridSettings.showLogoOverBoxart;
+      if (gridSettings.gridSmartFill !== undefined) extracted.gridSmartFill = gridSettings.gridSmartFill;
       if (gridSettings.gridDescriptionSize !== undefined) extracted.gridDescriptionSize = gridSettings.gridDescriptionSize;
       if (gridSettings.gridButtonSize !== undefined) extracted.gridButtonSize = gridSettings.gridButtonSize;
       if (gridSettings.gridButtonLocation !== undefined) extracted.gridButtonLocation = gridSettings.gridButtonLocation;
@@ -1100,7 +1104,7 @@ export class UserPreferencesService {
       if (logoSettings.logoPosition !== undefined) extracted.logoPosition = logoSettings.logoPosition;
       if (logoSettings.logoBackgroundOpacity !== undefined) extracted.logoBackgroundOpacity = logoSettings.logoBackgroundOpacity;
       if (logoSettings.logoHeight !== undefined) extracted.logoHeight = logoSettings.logoHeight;
-      if (logoSettings.autoSizeToFit !== undefined) extracted.autoSizeToFit = logoSettings.autoSizeToFit;
+      if (logoSettings.gridSmartFill !== undefined) extracted.gridSmartFill = logoSettings.gridSmartFill;
       if (logoSettings.logoButtonColors !== undefined) extracted.logoButtonColors = logoSettings.logoButtonColors;
       if (logoSettings.showCategories !== undefined) {
         extracted.showCategoriesInGameListByView = { ...extracted.showCategoriesInGameListByView, logo: logoSettings.showCategories };
@@ -1250,8 +1254,10 @@ export class UserPreferencesService {
       logoBackgroundOpacity,
       logoViewSize,
       logoHeight,
-      autoSizeToFit,
       logoButtonColors,
+
+      // Grid / Logo view duplicate
+      gridSmartFill,
 
       // Carousel view duplicates
       showCarouselDetails,

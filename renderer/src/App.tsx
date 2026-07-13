@@ -1,4 +1,4 @@
-import React, { Suspense, lazy, useState, useEffect, useRef, useCallback } from 'react';
+import React, { Suspense, lazy, useState, useRef, useCallback } from 'react';
 import { useGameLibrary } from './hooks/useGameLibrary';
 import { useFullscreen } from './hooks/useFullscreen';
 import { useAppShellEvents } from './hooks/useAppShellEvents';
@@ -138,7 +138,6 @@ function App() {
 
   const {
     activeSection,
-    autoSizeToFit,
     backgroundBlur,
     backgroundBrightnessByView,
     backgroundColor,
@@ -188,6 +187,7 @@ function App() {
     gridButtonColors,
     gridDescriptionSize,
     gridSize,
+    gridSmartFill,
     hideAppsTitles,
     hideGameTitles,
     hideVRTitles,
@@ -214,7 +214,6 @@ function App() {
     selectedBoxArtSize,
     selectedCategory,
     selectedLauncher,
-    setAutoSizeToFit,
     setBackgroundBlur,
     setBackgroundBrightnessByView,
     setBackgroundColor,
@@ -250,6 +249,7 @@ function App() {
     setGameTilePadding,
     setGridButtonColors,
     setGridSize,
+    setGridSmartFill,
     setHideAppsTitles,
     setHideGameTitles,
     setHideVRTitles,
@@ -405,7 +405,7 @@ function App() {
     setDetailsPanelBottomBarHeight,
     setPanelWidthByViewState,
     setPanelWidth,
-    setAutoSizeToFit,
+    setGridSmartFill,
     setActiveGameId,
     setConfirmGameLaunch,
     setEnableGamepadSupport,
@@ -419,7 +419,6 @@ function App() {
 
   useAppShellPreferencePersistence({
     activeGameId,
-    autoSizeToFit,
     backgroundBlur,
     backgroundBrightnessByView,
     backgroundColor,
@@ -430,6 +429,7 @@ function App() {
     gameTilePadding,
     games,
     gridSize,
+    gridSmartFill,
     hideAppsTitles,
     hideGameTitles,
     hideVRTitles,
@@ -478,133 +478,6 @@ function App() {
   const handleReorder = async (reorderedGames: Game[]) => {
     await reorderGames(reorderedGames);
   };
-
-  const calculateAutoSize = useCallback(() => {
-    if (!gridContainerRef.current || viewMode !== 'grid' || filteredGames.length === 0) {
-      return;
-    }
-
-    const container = gridContainerRef.current;
-    const containerWidth = container.clientWidth;
-    const containerHeight = container.clientHeight;
-    const horizontalPadding = 32;
-    const verticalPadding = 32;
-    const availableWidth = containerWidth - horizontalPadding;
-    const availableHeight = containerHeight - verticalPadding;
-
-    if (availableWidth <= 0 || availableHeight <= 0) {
-      return;
-    }
-
-    const totalGames = filteredGames.length;
-    const gap = gameTilePadding;
-    let bestSize = 0;
-    let bestRemainingWidth = Infinity;
-
-    for (let columns = 1; columns <= 20; columns++) {
-      const totalGapWidth = gap * (columns - 1);
-      const tileWidth = (availableWidth - totalGapWidth) / columns;
-
-      if (tileWidth < 50) continue;
-
-      const tileHeight = tileWidth * 1.5;
-      const rowsNeeded = Math.ceil(totalGames / columns);
-      const totalHeightNeeded = (tileHeight * rowsNeeded) + (gap * (rowsNeeded - 1));
-
-      if (totalHeightNeeded <= availableHeight) {
-        const usedWidth = (tileWidth * columns) + (gap * (columns - 1));
-        const remainingWidth = availableWidth - usedWidth;
-
-        if (
-          bestSize === 0 ||
-          remainingWidth < bestRemainingWidth ||
-          (Math.abs(remainingWidth - bestRemainingWidth) < 5 && tileWidth > bestSize)
-        ) {
-          bestSize = tileWidth;
-          bestRemainingWidth = remainingWidth;
-        }
-      }
-    }
-
-    if (bestSize > 0) {
-      setGridSize(Math.round(bestSize));
-      return;
-    }
-
-    for (let testSize = 200; testSize >= 50; testSize -= 10) {
-      const tileHeight = testSize * 1.5;
-
-      for (let columns = 1; columns <= 20; columns++) {
-        const totalGapWidth = gap * (columns - 1);
-        const tileWidth = (availableWidth - totalGapWidth) / columns;
-
-        if (Math.abs(tileWidth - testSize) < 10) {
-          const rowsNeeded = Math.ceil(totalGames / columns);
-          const totalHeightNeeded = (tileHeight * rowsNeeded) + (gap * (rowsNeeded - 1));
-
-          if (totalHeightNeeded <= availableHeight) {
-            setGridSize(Math.round(tileWidth));
-            return;
-          }
-        }
-      }
-    }
-
-    const minColumns = Math.ceil(Math.sqrt(totalGames));
-    const totalGapWidth = gap * (minColumns - 1);
-    const fallbackSize = Math.round((availableWidth - totalGapWidth) / minColumns);
-    setGridSize(Math.max(50, Math.min(500, fallbackSize)));
-  }, [viewMode, filteredGames.length, gameTilePadding]);
-
-  useEffect(() => {
-    if (!autoSizeToFit || viewMode !== 'grid' || filteredGames.length === 0) {
-      return;
-    }
-
-    const timeoutId = setTimeout(() => {
-      calculateAutoSize();
-    }, 100);
-
-    return () => clearTimeout(timeoutId);
-  }, [autoSizeToFit, filteredGames.length, gameTilePadding, hideGameTitles, viewMode, calculateAutoSize, currentPanelWidth]);
-
-  useEffect(() => {
-    if (!autoSizeToFit || viewMode !== 'grid' || !gridContainerRef.current) {
-      return;
-    }
-
-    const container = gridContainerRef.current;
-    let resizeTimeout: NodeJS.Timeout;
-
-    const resizeObserver = new ResizeObserver(() => {
-      clearTimeout(resizeTimeout);
-      resizeTimeout = setTimeout(() => {
-        if (filteredGames.length > 0) {
-          calculateAutoSize();
-        }
-      }, 150);
-    });
-
-    resizeObserver.observe(container);
-
-    const handleWindowResize = () => {
-      clearTimeout(resizeTimeout);
-      resizeTimeout = setTimeout(() => {
-        if (filteredGames.length > 0) {
-          calculateAutoSize();
-        }
-      }, 150);
-    };
-
-    window.addEventListener('resize', handleWindowResize);
-
-    return () => {
-      resizeObserver.disconnect();
-      window.removeEventListener('resize', handleWindowResize);
-      clearTimeout(resizeTimeout);
-    };
-  }, [autoSizeToFit, viewMode, filteredGames.length, calculateAutoSize]);
-
 
   const handleOpenShellContextMenu = useCallback((x: number, y: number, initialEditorSection: RightClickMenuEditorSection | null = null) => {
     setGameContextMenu(null);
@@ -1040,7 +913,6 @@ function App() {
 
   const rightClickMenuProps = useRightClickMenuControls({
     activeGame,
-    autoSizeToFit,
     backgroundBlur,
     backgroundBrightnessByView,
     carouselButtonColors,
@@ -1073,6 +945,7 @@ function App() {
     gameTilePadding,
     gridButtonColors,
     gridSize,
+    gridSmartFill,
     isViewFlippedByView,
     listButtonColors,
     listViewOptions,
@@ -1100,7 +973,6 @@ function App() {
     detailsPanelOpacityByView,
     selectedBoxArtSize,
     setActiveGameId,
-    setAutoSizeToFit,
     setBackgroundBlur,
     setBackgroundBrightnessByView,
     setCardColumns,
@@ -1128,6 +1000,7 @@ function App() {
     setGameTilePadding,
     setGridButtonColors,
     setGridSize,
+    setGridSmartFill,
     setIsViewFlippedByView,
     setListButtonColors,
     setListViewOptions,
@@ -1456,12 +1329,12 @@ function App() {
           {/* Left Panel - Game Library (flexible width, full width in carousel/coverflow mode). Categories bar is inside this panel only. */}
           <AppShellLibraryView
             activeGameId={activeGameId}
-            autoSizeToFit={autoSizeToFit}
             carouselGameTilePadding={carouselGameTilePadding}
             carouselViewProps={carouselViewProps}
             cardColumns={cardColumns}
             cardPostersOnly={cardPostersOnly}
             cardSmartFill={cardSmartFill}
+            gridSmartFill={gridSmartFill}
             categoriesAlignment={categoriesAlignmentByView[viewMode] ?? 'left'}
             categoriesPosition={categoriesPositionByView[viewMode] ?? 'top'}
             categoriesSize={categoriesSizeByView[viewMode] ?? 12}

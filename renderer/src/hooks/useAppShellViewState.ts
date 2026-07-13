@@ -161,7 +161,7 @@ export function useAppShellViewState() {
   const [listViewOptions, setListViewOptions] = useState(defaultListViewOptions);
   const [listViewSize, setListViewSize] = useState(128);
   const [_panelWidth, setPanelWidth] = useState(800);
-  const [autoSizeToFit, setAutoSizeToFit] = useState(false);
+  const [gridSmartFill, setGridSmartFill] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedLauncher, setSelectedLauncher] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<'title' | 'releaseDate' | 'playtime' | 'lastPlayed'>('title');
@@ -193,7 +193,6 @@ export function useAppShellViewState() {
 
   return {
     activeSection,
-    autoSizeToFit,
     backgroundBlur,
     backgroundBrightnessByView,
     backgroundColor,
@@ -244,6 +243,7 @@ export function useAppShellViewState() {
     gridButtonColors,
     gridDescriptionSize,
     gridSize,
+    gridSmartFill,
     hideAppsTitles,
     hideGameTitles,
     hideVRTitles,
@@ -270,7 +270,6 @@ export function useAppShellViewState() {
     selectedBoxArtSize,
     selectedCategory,
     selectedLauncher,
-    setAutoSizeToFit,
     setBackgroundBlur,
     setBackgroundBrightnessByView,
     setBackgroundColor,
@@ -306,6 +305,7 @@ export function useAppShellViewState() {
     setGameTilePadding,
     setGridButtonColors,
     setGridSize,
+    setGridSmartFill,
     setHideAppsTitles,
     setHideGameTitles,
     setHideVRTitles,
