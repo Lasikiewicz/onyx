@@ -9,7 +9,7 @@ It explains module boundaries, data flow, and release pipeline expectations.
 - `renderer/src/`: React UI, user interaction logic, and calls to secure preload APIs.
 - `main/preload.ts`: Controlled bridge API between renderer and main process.
 - `dist-electron/`: Build output only; never edit manually.
-- `package.json` version changes are release metadata only; each push-live version bump must stage the matching promoted `CHANGELOG.md` section before branch promotion so updater surfaces, release automation, and branch builds read the same version narrative.
+- `package.json` version changes are release metadata only; each push-live version bump must stage the matching promoted `CHANGELOG.md` section before branch promotion so updater surfaces, release automation, and branch builds read the same version narrative. The current promoted release metadata is `0.11.2`, dated 2026-07-13 in the changelog.
 - Large renderer surfaces may extract pure helpers into feature-local folders such as `renderer/src/components/gameManager/` so orchestration-heavy components do not also own every normalization/filtering utility inline.
 - `renderer/src/components/appShell/` owns root overlay composition for the app shell, so `App.tsx` does not also carry every startup/update/crash/tutorial modal block inline.
 - `renderer/src/hooks/useAppShellEvents.ts` owns root renderer listener wiring for menu actions, startup/background scan events, updater status, and crash-dump availability, leaving `App.tsx` focused more on shell state and composition than subscription setup.
