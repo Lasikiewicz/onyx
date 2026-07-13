@@ -4,6 +4,12 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Pending]
+
+- Right-click menu:
+  - Keep Smart Fill in the same position before view-specific size controls across Card / Poster, Grid, and Logo views.
+  - Prevent invalid nested buttons in the button-color trigger while preserving mouse and keyboard activation.
+
 ## [0.11.1] - 2026-07-06
 
 - Card / Poster View:

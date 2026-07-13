@@ -291,6 +291,67 @@ export function RightClickMenuGamesViewSection({
         </>
       )}
 
+      {/* Smart Fill - common position across Card, Grid, and Logo views - auto-shrinks tiles so every game fits on screen with no scrolling */}
+      {viewMode === 'card' && onCardSmartFillChange && (
+        <div className="px-3 py-2 bg-gray-700/30 rounded-md">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <label className="text-xs text-gray-400 font-medium">Smart Fill</label>
+              {settingDescriptionDisplay === 'icon' &&
+                renderSettingHintIcon(
+                  'Automatically shrinks cards or posters so every game in the current view fits on one screen without scrolling.',
+                )}
+            </div>
+            <button
+              onClick={() => onCardSmartFillChange(!cardSmartFill)}
+              className={`relative inline-flex h-3 w-6 items-center rounded-full transition-colors ${
+                cardSmartFill ? 'bg-blue-600' : 'bg-gray-600'
+              }`}
+              title="Toggle smart fill"
+            >
+              <span
+                className={`inline-block h-2 w-2 transform rounded-full bg-white transition-transform ${
+                  cardSmartFill ? 'translate-x-3' : 'translate-x-0.5'
+                }`}
+              />
+            </button>
+          </div>
+          {renderSettingDescription(
+            'Automatically shrinks cards or posters so every game in the current view fits on one screen without scrolling.',
+          )}
+        </div>
+      )}
+
+      {(viewMode === 'grid' || viewMode === 'logo') && onGridSmartFillChange && (
+        <div className="px-3 py-2 bg-gray-700/30 rounded-md">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <label className="text-xs text-gray-400 font-medium">Smart Fill</label>
+              {settingDescriptionDisplay === 'icon' &&
+                renderSettingHintIcon(
+                  'Automatically shrinks tiles so every game in the current view fits on one screen without scrolling.',
+                )}
+            </div>
+            <button
+              onClick={() => onGridSmartFillChange(!gridSmartFill)}
+              className={`relative inline-flex h-3 w-6 items-center rounded-full transition-colors ${
+                gridSmartFill ? 'bg-blue-600' : 'bg-gray-600'
+              }`}
+              title="Toggle smart fill"
+            >
+              <span
+                className={`inline-block h-2 w-2 transform rounded-full bg-white transition-transform ${
+                  gridSmartFill ? 'translate-x-3' : 'translate-x-0.5'
+                }`}
+              />
+            </button>
+          </div>
+          {renderSettingDescription(
+            'Automatically shrinks tiles so every game in the current view fits on one screen without scrolling.',
+          )}
+        </div>
+      )}
+
       {/* Size control per view */}
       {!gridSmartFill && ((viewMode === 'grid' && onGridSizeChange) || (viewMode === 'logo' && onLogoSizeChange)) && (
         <div className="px-3 py-2 bg-gray-700/30 rounded-md">
@@ -350,37 +411,6 @@ export function RightClickMenuGamesViewSection({
         </div>
       )}
 
-      {/* Smart Fill (Card / Poster view only) - auto-shrinks tiles so every game fits on screen with no scrolling */}
-      {viewMode === 'card' && onCardSmartFillChange && (
-        <div className="px-3 py-2 bg-gray-700/30 rounded-md">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <label className="text-xs text-gray-400 font-medium">Smart Fill</label>
-              {settingDescriptionDisplay === 'icon' &&
-                renderSettingHintIcon(
-                  'Automatically shrinks cards or posters so every game in the current view fits on one screen without scrolling.',
-                )}
-            </div>
-            <button
-              onClick={() => onCardSmartFillChange(!cardSmartFill)}
-              className={`relative inline-flex h-3 w-6 items-center rounded-full transition-colors ${
-                cardSmartFill ? 'bg-blue-600' : 'bg-gray-600'
-              }`}
-              title="Toggle smart fill"
-            >
-              <span
-                className={`inline-block h-2 w-2 transform rounded-full bg-white transition-transform ${
-                  cardSmartFill ? 'translate-x-3' : 'translate-x-0.5'
-                }`}
-              />
-            </button>
-          </div>
-          {renderSettingDescription(
-            'Automatically shrinks cards or posters so every game in the current view fits on one screen without scrolling.',
-          )}
-        </div>
-      )}
-
       {/* Games per row (Card / Poster view only) - tiles are evenly spaced across the full width */}
       {viewMode === 'card' && !cardSmartFill && onCardColumnsChange && (
         <div className="px-3 py-2 bg-gray-700/30 rounded-md">
@@ -400,37 +430,6 @@ export function RightClickMenuGamesViewSection({
             maxLabel="10"
             sliderClassName="h-2"
           />
-        </div>
-      )}
-
-      {/* Smart Fill (Grid / Logo view only) - auto-shrinks tiles so every game fits on screen with no scrolling */}
-      {(viewMode === 'grid' || viewMode === 'logo') && onGridSmartFillChange && (
-        <div className="px-3 py-2 bg-gray-700/30 rounded-md">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <label className="text-xs text-gray-400 font-medium">Smart Fill</label>
-              {settingDescriptionDisplay === 'icon' &&
-                renderSettingHintIcon(
-                  'Automatically shrinks tiles so every game in the current view fits on one screen without scrolling.',
-                )}
-            </div>
-            <button
-              onClick={() => onGridSmartFillChange(!gridSmartFill)}
-              className={`relative inline-flex h-3 w-6 items-center rounded-full transition-colors ${
-                gridSmartFill ? 'bg-blue-600' : 'bg-gray-600'
-              }`}
-              title="Toggle smart fill"
-            >
-              <span
-                className={`inline-block h-2 w-2 transform rounded-full bg-white transition-transform ${
-                  gridSmartFill ? 'translate-x-3' : 'translate-x-0.5'
-                }`}
-              />
-            </button>
-          </div>
-          {renderSettingDescription(
-            'Automatically shrinks tiles so every game in the current view fits on one screen without scrolling.',
-          )}
         </div>
       )}
 
