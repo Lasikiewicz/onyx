@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import type { Game } from '../types/game';
+import { getImportIgnoreKey } from '../types/importer';
 import type { ImportSource, ImportStatus, StagedGame } from '../types/importer';
 
 export type ImportWorkbenchPreScannedGame = {
@@ -124,6 +125,14 @@ export function useImportWorkbenchScan({
                     .filter(Boolean),
             );
 
+            let ignoredGameKeys = new Set<string>();
+            try {
+                const preferences = await window.electronAPI.getPreferences();
+                ignoredGameKeys = new Set(preferences.ignoredGames || []);
+            } catch (error) {
+                console.warn('[Importer] Failed to load ignored games:', error);
+            }
+
             const titleMappings: Record<string, string> = {
                 afop: 'Avatar: Frontiers of Pandora',
                 'avatar frontiers of pandora': 'Avatar: Frontiers of Pandora',
@@ -157,6 +166,17 @@ export function useImportWorkbenchScan({
             for (let i = 0; i < scannedGames.length; i++) {
                 const scanned = scannedGames[i];
                 setScanStats(prev => ({ ...prev, processed: i + 1 }));
+
+                const ignoreKey = getImportIgnoreKey(
+                    scanned.source,
+                    scanned.appId,
+                    scanned.originalName || scanned.title || scanned.name,
+                );
+                if (ignoredGameKeys.has(ignoreKey)) {
+                    console.log(`[Importer] Skipping ignored game: ${scanned.title || scanned.name || scanned.originalName}`);
+                    setScanStats(prev => ({ ...prev, skipped: prev.skipped + 1 }));
+                    continue;
+                }
 
                 // Skip duplicates
                 if (scanned.appId) {

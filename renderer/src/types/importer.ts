@@ -1,6 +1,10 @@
 export type ImportStatus = 'pending' | 'scanning' | 'matched' | 'ambiguous' | 'ready' | 'error' | 'Duplicate - skipped';
 export type ImportSource = 'steam' | 'epic' | 'gog' | 'xbox' | 'ubisoft' | 'rockstar' | 'ea' | 'battle' | 'manual_file' | 'manual_folder';
 
+export function getImportIgnoreKey(source: string, appId?: string, originalName?: string): string {
+  return `${source}-${appId || originalName || ''}`;
+}
+
 export interface StagedGame {
   uuid: string; // Temporary unique ID for the UI list
   source: string;

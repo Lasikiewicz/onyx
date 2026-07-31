@@ -47,7 +47,7 @@ Provides the staged import-review workspace for bringing newly discovered or man
 6. The staged Images tab follows the same search flow as Game Manager: artwork clicks switch the active image type, existing search results stay in place until the user starts a new search, and the staged editor reuses the shared tabbed result browser instead of a separate importer-only result grid.
 7. The staged Images tab now also keeps the same provider/API detail row visible after results load, including per-provider counts derived from staged search results when live provider-status events are no longer active.
 8. Image selections made from the shared staged Images tab are flushed straight back into the importer queue, so the artwork strip and staged row keep the newly chosen image instead of snapping back to the previous staged value.
-9. Ignored entries stay out of the ready/import view, while ready entries remain in the queue until the user starts import.
+9. Ignored entries stay out of the ready/import view, while ready entries remain in the queue until the user starts import. Ignored scan identities are persisted in preferences and filtered before new queue entries are created, so an executable ignored in one scan does not reappear in later scans.
 10. Import commits the reviewed staged games through the main-process import pipeline and persists them into the library, after which the importer closes or refreshes surrounding UI state.
 
 ## Discovery and Data Sources
@@ -68,6 +68,7 @@ Provides the staged import-review workspace for bringing newly discovered or man
 
 - If Add Games opens but the queue is empty after a scan, inspect the scan/import pipeline documented in [library-import-and-startup-scan.md](./library-import-and-startup-scan.md) and verify launcher/library settings first.
 - If staged edits are not reflected after switching between queued games, inspect [`GamePropertiesPanel.tsx`](../../renderer/src/components/GamePropertiesPanel.tsx) and the staged-edit merge helpers in [`EditableGame.ts`](../../renderer/src/types/EditableGame.ts).
+- If an ignored executable reappears after a later scan, inspect the shared ignore-key helper in [`importer.ts`](../../renderer/src/types/importer.ts), ignore persistence in [`useImportWorkbenchActions.ts`](../../renderer/src/hooks/useImportWorkbenchActions.ts), and preference filtering in [`useImportWorkbenchScan.ts`](../../renderer/src/hooks/useImportWorkbenchScan.ts).
 - If metadata or image enrichment fails inside Add Games, check provider availability and then follow the deeper triage steps in [metadata-matching-and-enrichment.md](./metadata-matching-and-enrichment.md) and [image-search-and-selection.md](./image-search-and-selection.md).
 - If import completes but games are missing or malformed in the library, inspect the import handoff from [`ImportWorkbench.tsx`](../../renderer/src/components/importer/ImportWorkbench.tsx) into the main-process store/import services.
 

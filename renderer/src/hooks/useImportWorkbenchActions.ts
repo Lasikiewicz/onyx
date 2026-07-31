@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import type React from 'react';
 import type { Game } from '../types/game';
+import { getImportIgnoreKey } from '../types/importer';
 import type { ImportStatus, StagedGame } from '../types/importer';
 import type { GamePropertiesPanelHandle } from '../components/GamePropertiesPanel';
 
@@ -73,7 +74,7 @@ export function useImportWorkbenchActions({
 
     const handleIgnoreGame = useCallback(
         async (game: StagedGame) => {
-            const gameId = `${game.source}-${game.appId || game.originalName}`;
+            const gameId = getImportIgnoreKey(game.source, game.appId, game.originalName);
             try {
                 const prefs = await window.electronAPI.getPreferences();
                 const ignored = new Set(prefs.ignoredGames || []);
