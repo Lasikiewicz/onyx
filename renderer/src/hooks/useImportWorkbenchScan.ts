@@ -115,9 +115,21 @@ export function useImportWorkbenchScan({
 
             const existingInstallPaths = new Set(
                 existingLibrary
-                    .map(g => normalizePath((g as any).installationDirectory))
+                    .flatMap(g => {
+                        const installPath = normalizePath((g as any).installationDirectory);
+                        const exePath = normalizePath((g as any).exePath);
+                        const exeDirectory = exePath.includes('/') ? exePath.slice(0, exePath.lastIndexOf('/')) : '';
+                        return [installPath, exeDirectory];
+                    })
                     .filter(Boolean),
             );
+
+            const isExistingInstallPath = (candidate: string): boolean => {
+                if (existingInstallPaths.has(candidate)) return true;
+                return Array.from(existingInstallPaths).some(existing =>
+                    candidate.startsWith(`${existing}/`) || existing.startsWith(`${candidate}/`),
+                );
+            };
 
             const existingExePaths = new Set(
                 existingLibrary
@@ -199,7 +211,7 @@ export function useImportWorkbenchScan({
                     const normalizedInstall = normalizePath(scanned.installPath);
                     if (
                         normalizedInstall &&
-                        (existingInstallPaths.has(normalizedInstall) || currentScanPaths.has(normalizedInstall))
+                        (isExistingInstallPath(normalizedInstall) || currentScanPaths.has(normalizedInstall))
                     ) {
                         console.log(`[Importer] Skipping duplicate by install path: ${scanned.title} (${scanned.installPath})`);
                         setScanStats(prev => ({ ...prev, skipped: prev.skipped + 1 }));

@@ -82,6 +82,11 @@ export function registerScanningHandlers(
                         })
                         .filter(Boolean)
                 );
+                const isExistingInstallDir = (candidate: string) =>
+                    existingInstallDirs.has(candidate) ||
+                    Array.from(existingInstallDirs).some(existing =>
+                        candidate.startsWith(`${existing}/`) || existing.startsWith(`${candidate}/`),
+                    );
 
                 const newGames = scannedResults.filter(g => {
                     if (g.source === 'steam' && g.appId) {
@@ -92,7 +97,7 @@ export function registerScanningHandlers(
                         if (existingExePaths.has(normalized)) return false;
                     }
                     const scannedInstallDir = normalizeDir(g.installPath || (g.exePath ? dirname(g.exePath) : ''));
-                    if (scannedInstallDir && existingInstallDirs.has(scannedInstallDir)) return false;
+                    if (scannedInstallDir && isExistingInstallDir(scannedInstallDir)) return false;
                     return true;
                 });
 

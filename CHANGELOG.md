@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - Add Games:
   - Persist ignored scan identities and skip them before they are staged, preventing ignored executables from being offered again in later scans.
+  - Match saved install directories and executable parent directories across nested paths, preventing already-imported launcher games from being detected again.
 
 ## [0.11.2] - 2026-07-13
 
