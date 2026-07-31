@@ -593,7 +593,7 @@ registerAppIPCHandlers(
   }
 );
 registerLauncherIPCHandlers(launcherService, launcherDetectionService, trayService, gameStore, () => processSuspendService);
-const { performBackgroundScan, startBackgroundScan, stopBackgroundScan } = registerScanningHandlers({ get current() { return win; } }, gameStore, appConfigService, importService, metadataFetcher, imageCacheService);
+const { performBackgroundScan, startBackgroundScan, stopBackgroundScan } = registerScanningHandlers({ get current() { return win; } }, gameStore, appConfigService, importService, metadataFetcher, imageCacheService, userPreferencesService);
 const { unregisterSuspendShortcut, syncSuspendShortcutState } = registerSuspendHandlers(() => processSuspendService, userPreferencesService, gameStore);
 
 // Create application menu

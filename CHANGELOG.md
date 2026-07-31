@@ -4,6 +4,15 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.11.4] - 2026-07-31
+
+- Startup scanning:
+  - Respect persisted ignored-game identities and installed-path duplicates when reporting new games.
+- Categories:
+  - Stop automatically pinning every discovered category to the top bar.
+- Card / Poster View:
+  - Persist Poster Smart Fill through the canonical card-view preference section so it survives reloads.
+
 ## [0.11.3] - 2026-07-31
 
 - Add Games:

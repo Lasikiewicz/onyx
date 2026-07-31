@@ -1320,10 +1320,15 @@ export class UserPreferencesService {
       fromSections = await this.extractFromSections(preferences.sections, preferences.currentResolution);
     }
 
+    const canonicalFromSections = { ...fromSections };
+    if (preferences?.cardColumns !== undefined) delete canonicalFromSections.cardColumns;
+    if (preferences?.cardPostersOnly !== undefined) delete canonicalFromSections.cardPostersOnly;
+    if (preferences?.cardSmartFill !== undefined) delete canonicalFromSections.cardSmartFill;
+
     const merged: UserPreferences = {
       ...defaults,
       ...(preferences || {}),
-      ...fromSections, // Override with values from sections if they exist
+      ...canonicalFromSections, // Sections are canonical unless a direct card preference update is being saved.
       rightPanelLogoSizeByView: this.mergeByViewMaps(
         defaults.rightPanelLogoSizeByView,
         preferences?.rightPanelLogoSizeByView,

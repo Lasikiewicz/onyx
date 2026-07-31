@@ -5,6 +5,7 @@ import { AppConfigService } from '../AppConfigService.js';
 import { ImportService } from '../ImportService.js';
 import { MetadataFetcherService } from '../MetadataFetcherService.js';
 import { ImageCacheService } from '../ImageCacheService.js';
+import type { UserPreferencesService } from '../UserPreferencesService.js';
 import { existsSync } from 'node:fs';
 
 let backgroundScanInterval: NodeJS.Timeout | null = null;
@@ -27,7 +28,8 @@ export function registerScanningHandlers(
     appConfigService: AppConfigService,
     importService: ImportService,
     metadataFetcher: MetadataFetcherService,
-    imageCacheService: ImageCacheService
+    imageCacheService: ImageCacheService,
+    userPreferencesService: Pick<UserPreferencesService, 'getPreferences'>,
 ) {
     const performBackgroundScan = async (skipEnabledCheck: boolean = false, fromStartup: boolean = false) => {
         try {
@@ -65,6 +67,8 @@ export function registerScanningHandlers(
 
             if (scannedResults.length > 0) {
                 const existingLibrary = await gameStore.getLibrary();
+                const preferences = await userPreferencesService.getPreferences();
+                const ignoredGames = new Set(preferences.ignoredGames || []);
                 const existingGameIds = new Set(existingLibrary.map(g => g.id));
                 const existingExePaths = new Set(
                     existingLibrary
@@ -89,6 +93,8 @@ export function registerScanningHandlers(
                     );
 
                 const newGames = scannedResults.filter(g => {
+                    const ignoreKey = `${g.source}-${g.appId || g.originalName || g.title || ''}`;
+                    if (ignoredGames.has(ignoreKey)) return false;
                     if (g.source === 'steam' && g.appId) {
                         if (existingGameIds.has(`steam-${g.appId}`)) return false;
                     }

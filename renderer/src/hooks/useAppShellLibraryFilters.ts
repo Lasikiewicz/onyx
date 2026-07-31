@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, type Dispatch, type SetStateAction } from 'react';
+import { useCallback, useMemo, type Dispatch, type SetStateAction } from 'react';
 import type { Game } from '../types/game';
 
 interface UseAppShellLibraryFiltersOptions {
@@ -26,16 +26,12 @@ export function useAppShellLibraryFilters({
   setPinnedCategories,
   sortBy,
 }: UseAppShellLibraryFiltersOptions) {
-  const autoPinOptOutRef = useRef<Set<string>>(new Set());
-
   const handleTogglePinCategory = useCallback((category: string) => {
     setPinnedCategories((previous) => {
       if (previous.includes(category)) {
-        autoPinOptOutRef.current.add(category);
         return previous.filter((value) => value !== category);
       }
 
-      autoPinOptOutRef.current.delete(category);
       return [...previous, category];
     });
   }, [setPinnedCategories]);
@@ -64,28 +60,6 @@ export function useAppShellLibraryFilters({
       },
     };
   }, [games]);
-
-  useEffect(() => {
-    setPinnedCategories((previous) => {
-      const updated = [...previous];
-      let changed = false;
-
-      for (const category of allCategories) {
-        if (!previous.includes(category) && !autoPinOptOutRef.current.has(category)) {
-          updated.push(category);
-          changed = true;
-        }
-      }
-
-      for (const category of Array.from(autoPinOptOutRef.current)) {
-        if (!allCategories.includes(category)) {
-          autoPinOptOutRef.current.delete(category);
-        }
-      }
-
-      return changed ? updated : previous;
-    });
-  }, [allCategories, setPinnedCategories]);
 
   const hasFavoriteGames = useMemo(() => games.some((game) => game.favorite === true), [games]);
   const hasVRCategory = useMemo(() => allCategories.includes('VR'), [allCategories]);
