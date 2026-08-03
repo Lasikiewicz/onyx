@@ -503,21 +503,6 @@ export function useAppPreferences({
     initialize();
   }, []);
 
-  useEffect(() => {
-    const handleResize = () => {
-      const newResKey = getResolutionKey();
-      if (newResKey !== currentResolutionRef.current) {
-        console.log(`[App] Resolution change detected: ${currentResolutionRef.current} -> ${newResKey}. Auto-applying baseline defaults.`);
-        currentResolutionRef.current = newResKey;
-        applyBaselineDefaults(newResKey);
-        window.electronAPI.savePreferences({ currentResolution: newResKey });
-      }
-    };
-
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, [applyBaselineDefaults]);
-
   return {
     isInitialLoad,
     refreshPreferences,

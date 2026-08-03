@@ -6,11 +6,25 @@ import { ImportService } from '../ImportService.js';
 import { MetadataFetcherService } from '../MetadataFetcherService.js';
 import { ImageCacheService } from '../ImageCacheService.js';
 import type { UserPreferencesService } from '../UserPreferencesService.js';
-import { existsSync } from 'node:fs';
+import { promises as fsp } from 'node:fs';
 
 let backgroundScanInterval: NodeJS.Timeout | null = null;
 let runningGames = new Set<string>();
 let backgroundScanPaused = false;
+
+/**
+ * Async replacement for fs.existsSync - this runs on the main process, so a sync fs call here
+ * (checking every library game's exe, potentially hundreds of them) blocks window paint/input
+ * and IPC handling for its duration, same class of bug as the ImportService scanners.
+ */
+async function pathExists(path: string): Promise<boolean> {
+    try {
+        await fsp.access(path);
+        return true;
+    } catch {
+        return false;
+    }
+}
 
 export function getBackgroundScanUiChannels(fromStartup: boolean): {
     progressChannel: 'startup:progress' | null;
@@ -154,25 +168,27 @@ export function registerScanningHandlers(
                 });
             }
 
-            const missingGames = existingLibrary.filter(game => {
+            const missingGames = [];
+            for (const game of existingLibrary) {
                 // Special handling for Steam games (check against scan results instead of file system)
                 if (game.source === 'steam') {
-                    if (!isSteamEnabled) return false; // Skip if scanning disabled
-                    return !scannedSteamIds.has(game.id);
+                    if (!isSteamEnabled) continue; // Skip if scanning disabled
+                    if (!scannedSteamIds.has(game.id)) missingGames.push(game);
+                    continue;
                 }
 
                 // Skip games without exe paths (like some Steam games that launch via protocol)
                 if (!game.exePath || game.exePath.trim() === '') {
-                    return false;
+                    continue;
                 }
 
                 // Check if the exe file still exists
-                const fileExists = existsSync(game.exePath);
+                const fileExists = await pathExists(game.exePath);
                 if (!fileExists) {
                     console.log(`[BackgroundScan] Game missing: ${game.title} (${game.exePath})`);
+                    missingGames.push(game);
                 }
-                return !fileExists;
-            });
+            }
 
             if (missingGames.length > 0) {
                 console.log(`[BackgroundScan] Found ${missingGames.length} missing games`);
@@ -305,21 +321,25 @@ export function registerScanningHandlers(
                 });
             }
 
-            const missingGames = existingLibrary.filter(game => {
+            const missingGames = [];
+            for (const game of existingLibrary) {
                 // Special handling for Steam games (check against scan results instead of file system)
                 if (game.source === 'steam') {
-                    if (!isSteamEnabled) return false; // Skip if scanning disabled
-                    return !scannedSteamIds.has(game.id);
+                    if (!isSteamEnabled) continue; // Skip if scanning disabled
+                    if (!scannedSteamIds.has(game.id)) missingGames.push(game);
+                    continue;
                 }
 
                 // Skip games without exe paths (like some Steam games that launch via protocol)
                 if (!game.exePath || game.exePath.trim() === '') {
-                    return false;
+                    continue;
                 }
 
                 // Check if the exe file still exists
-                return !existsSync(game.exePath);
-            });
+                if (!(await pathExists(game.exePath))) {
+                    missingGames.push(game);
+                }
+            }
 
             console.log(`[BackgroundScan] Found ${missingGames.length} missing games during manual scan`);
 

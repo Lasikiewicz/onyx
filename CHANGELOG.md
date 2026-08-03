@@ -4,6 +4,13 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.11.8] - 2026-08-03
+
+- Library scanning:
+  - Fixed the remaining synchronous file checks in the background "missing games" detection that could still momentarily freeze Onyx during a scan.
+- Grid/Logo and Card/Poster Smart Fill:
+  - Smart Fill (and other view settings like grid/logo size) no longer gets silently reset when dragging the app window between monitors of different resolution (e.g. a 1080p and a 1440p display). This was previously auto-reapplying per-resolution baseline defaults on every window resize instead of only on first launch.
+
 ## [0.11.7] - 2026-08-03
 
 - Library scanning:
