@@ -40,6 +40,9 @@ Resolves game metadata (titles, identifiers, links, artwork candidates) from con
 - Provider services fetch remote API payloads and provider adapters normalize them into the app metadata model.
 - Metadata cache reduces repeated fetches and supports refresh workflows.
 - Artwork merging prefers dedicated high-quality visual sources for first-import media: Steam keeps top priority, SteamGridDB now beats lower-resolution general metadata artwork, and Steam covers prefer the `library_600x900_2x.jpg` asset when it exists.
+- [MetadataFetcherService.ts](../../main/MetadataFetcherService.ts) treats IGDB as a fallback-only provider in both `fetchArtworkForGame` and `fetchDescriptionForGame`: the faster, more lenient providers (Steam/SteamGridDB/GiantBomb/RAWG) run first, and IGDB is only queried afterward if the result is still missing key fields (box art/logo for artwork; description/links for description). The one exception is links-only refreshes, where Steam/RAWG are skipped and IGDB is the sole source.
+- [MetadataFetcherService.ts](../../main/MetadataFetcherService.ts) caches which providers fail `validateAllProviders()` (`knownInvalidProviders`) and every subsequent real search/artwork/description call in that session skips a provider already known to be broken instead of retrying — and timing out on — it for every game. `isAvailable()` alone only reflects whether a key is *configured*, not whether it was confirmed to actually work.
+- Every provider call reachable from a scan/search path is individually timeout-bounded (`withTimeout`), tuned so the slowest possible combination still resolves inside the renderer's own client-side timeouts even accounting for [RateLimitCoordinator.ts](../../main/RateLimitCoordinator.ts)'s 2-concurrent-per-service queuing — a single hanging/misconfigured provider (e.g. an axios client with no request timeout) cannot stall the others sharing a `Promise.allSettled`/`Promise.all` call.
 - The renderer-side per-game metadata workflow is now split so [`GameManagerMetadataTab.tsx`](../../renderer/src/components/gameManager/GameManagerMetadataTab.tsx) owns the Metadata tab layout while [`useGameManagerMetadata.ts`](../../renderer/src/components/gameManager/useGameManagerMetadata.ts) owns save, fix-match search, match-apply, and cancel-edit orchestration for the Game Manager flow.
 - The Add Games staged-editor metadata workflow now also flows through [`useGamePropertiesMetadata.ts`](../../renderer/src/components/gameProperties/useGamePropertiesMetadata.ts), which owns staged undo, fix-match search, and match-apply behavior outside the main staged-editor shell.
 
@@ -78,6 +81,11 @@ Resolves game metadata (titles, identifiers, links, artwork candidates) from con
 - Check API credentials are present and valid.
 - Confirm provider-specific HTTP endpoints are reachable.
 - Inspect provider status call and per-provider error messages.
+
+### Symptom: One bad/invalid provider key seems to slow down or block metadata for every game
+
+- Confirm the provider's `validateCredentials()` result is actually reflected in `knownInvalidProviders` in [MetadataFetcherService.ts](../../main/MetadataFetcherService.ts) — `isAvailable()` alone only means "a key is configured", not "confirmed working".
+- Check that the provider's search/artwork/description calls are wrapped in `withTimeout` rather than awaited directly; an unbounded call (e.g. an axios client created without a `timeout` option) inside a shared `Promise.allSettled`/`Promise.all` can stall sibling providers even though they don't reject.
 
 ### Symptom: Wrong game matched
 

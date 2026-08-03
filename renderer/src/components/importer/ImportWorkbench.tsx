@@ -26,6 +26,7 @@ export interface ImportWorkbenchProps {
     existingLibrary?: Game[];
     autoStartScan?: boolean;
     initialMode?: 'nuclear' | 'images' | 'links' | null;
+    onOpenApiSettings?: () => void;
     onRefreshComplete?: () => Promise<void> | void;
     preScannedGames?: Array<{
         uuid?: string;
@@ -45,6 +46,7 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
     isOpen,
     onClose,
     onImport,
+    onOpenApiSettings,
     existingLibrary = [],
     autoStartScan = false,
     preScannedGames,
@@ -59,6 +61,7 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
     const [scanProgress, setScanProgress] = useState('');
     const [showIgnored, setShowIgnored] = useState(false);
     const [showCloseConfirm, setShowCloseConfirm] = useState(false);
+    const [invalidApiProviders, setInvalidApiProviders] = useState<string[]>([]);
 
     // New state for real-time scanning
     const [currentlyProcessingGame, setCurrentlyProcessingGame] = useState<string | null>(null);
@@ -113,6 +116,7 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
         setGameProcessingStates,
         setScanStats,
         setError,
+        setInvalidApiProviders,
     });
 
     const { handleUpdateGame, handleSkipGame, handleIgnoreGame, handleImport } = useImportWorkbenchActions({
@@ -141,6 +145,16 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
         }
     };
 
+    const handleApiWarningClick = () => {
+        if (isScanning) {
+            abortScanRef.current = true;
+            if (window.electronAPI.cancelScanAllSources) {
+                window.electronAPI.cancelScanAllSources().catch(console.error);
+            }
+        }
+        onOpenApiSettings?.();
+    };
+
 
     if (!isOpen) return null;
 
@@ -157,6 +171,9 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
                     showIgnored={showIgnored}
                     onToggleIgnored={() => setShowIgnored(!showIgnored)}
                     onCloseClick={handleCloseClick}
+                    invalidApiProviders={invalidApiProviders}
+                    onApiWarningClick={handleApiWarningClick}
+                    onRestartScan={handleScanAll}
                 />
 
                 {/* Main Content */}
@@ -182,7 +199,15 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
 
                     {/* Main Panel - Game Details / Empty Hero */}
                     <div className="flex-1 flex flex-col overflow-hidden">
-                        {isScanning ? (
+                        {selectedGame ? (
+                            <ImportWorkbenchEditor
+                                selectedGame={selectedGame}
+                                queue={visibleGames}
+                                isScanning={isScanning}
+                                panelRef={panelRef}
+                                onUpdateGame={handleUpdateGame}
+                            />
+                        ) : isScanning ? (
                             <div className="flex h-full flex-col items-center justify-center gap-4 px-8 text-center text-gray-300">
                                 <OnyxLogoSpinner />
                                 <div className="space-y-2">
@@ -197,14 +222,6 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
                                     )}
                                 </div>
                             </div>
-                        ) : selectedGame ? (
-                            <ImportWorkbenchEditor
-                                selectedGame={selectedGame}
-                                queue={visibleGames}
-                                isScanning={isScanning}
-                                panelRef={panelRef}
-                                onUpdateGame={handleUpdateGame}
-                            />
                         ) : (
                             <ImportWorkbenchEmptyState isScanning={isScanning} onScanAll={handleScanAll} />
                         )}

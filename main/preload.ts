@@ -116,6 +116,10 @@ export const electronAPI = {
       'metadata:imageSearchProviderStatus',
       'app:update-status',
       'crash:dumpsAvailable',
+      'import:scanProgress',
+      'import:gamesFoundInSource',
+      'import:gameDiscovered',
+      'import:gameProcessingUpdate',
     ]);
     if (!allowedChannels.has(channel)) {
       console.warn(`Attempt to register to unauthorized IPC channel: ${channel}`);

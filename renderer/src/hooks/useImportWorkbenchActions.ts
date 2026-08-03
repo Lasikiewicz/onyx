@@ -106,10 +106,18 @@ export function useImportWorkbenchActions({
             // Flush current panel edits to queue and get merged game so import uses latest data
             const updatedGame = (await panelRef.current?.saveToParent?.()) as StagedGame | undefined;
 
-            const listToImport =
+            const merged =
                 selectedId && updatedGame
                     ? visibleGames.map(staged => (staged.uuid === selectedId ? updatedGame : staged))
                     : visibleGames;
+
+            const listToImport = merged.filter(staged => staged.status === 'ready');
+
+            if (listToImport.length === 0) {
+                setError('No games ready to import');
+                setIsImporting(false);
+                return;
+            }
 
             const gamesToImport: Game[] = listToImport.map(staged => {
                 let gameId: string;

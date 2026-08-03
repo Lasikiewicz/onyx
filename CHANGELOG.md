@@ -4,6 +4,19 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Pending]
+
+- Add Games:
+  - Import only commits staged games marked "ready" instead of also silently importing incomplete "Attention Needed" entries.
+  - Games now stage into the queue as soon as each source (Steam, Epic, Xbox, launcher folders, ...) finishes scanning, instead of all appearing at once only after the entire multi-source scan completes.
+  - Metadata and artwork fetching for staged games now runs through a shared worker pool instead of one game at a time, meaningfully speeding up scans.
+  - Scan progress percentage no longer jumps around or exceeds 100%.
+  - A staged game's details can now be viewed while a scan is still running, instead of being locked behind the scanning spinner until it finishes.
+  - A persistent warning now appears in the header when a configured metadata provider key is invalid or expired, replacing a message that flashed and disappeared; clicking it pauses the active scan and opens Settings on the API Integrations tab, with a "Restart Scan" action once the key is fixed.
+  - A metadata provider already confirmed invalid is now skipped for the rest of a scan instead of being retried — and timed out on — for every remaining game.
+  - IGDB, the slowest and strictest metadata provider, is now only queried as a fallback once the faster providers didn't already find what was needed, instead of unconditionally on every game.
+  - Ubisoft and GOG scans no longer show a game's alternate executable subfolders (e.g. Far Cry 6's `bin` and `bin_plus`) as separate duplicate games.
+
 ## [0.11.4] - 2026-07-31
 
 - Startup scanning:

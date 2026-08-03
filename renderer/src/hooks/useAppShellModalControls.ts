@@ -25,6 +25,7 @@ interface UseAppShellModalControlsOptions {
   isUpdateLibraryOpen: boolean;
   loadLibrary: () => Promise<void>;
   onyxSettingsInitialTab: OnyxSettingsModalProps['initialTab'];
+  openApiSettings: () => void;
   openImportWorkbenchWithGames: (games: Array<any>, options?: { autoStartScan?: boolean }) => void;
   preScannedGames: Array<{
     uuid?: string;
@@ -60,6 +61,7 @@ export function useAppShellModalControls({
   isUpdateLibraryOpen,
   loadLibrary,
   onyxSettingsInitialTab,
+  openApiSettings,
   openImportWorkbenchWithGames,
   preScannedGames,
   refreshAfterSettingsSave,
@@ -84,6 +86,7 @@ export function useAppShellModalControls({
     isOpen: isImportWorkbenchOpen,
     onClose: closeImportWorkbench,
     onImport: handleImport,
+    onOpenApiSettings: openApiSettings,
     onRefreshComplete: loadLibrary,
     preScannedGames: preScannedGames.length > 0 ? preScannedGames : undefined,
   };

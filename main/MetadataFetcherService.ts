@@ -81,6 +81,16 @@ export class MetadataFetcherService {
   private steamGridDBProvider?: SteamGridDBMetadataProvider;
   private giantBombProvider?: GiantBombMetadataProvider;
 
+  // Providers confirmed invalid/expired by the last validateAllProviders() run (e.g. a
+  // configured-but-wrong RAWG key). isAvailable() only reflects whether a key is
+  // *configured*, not whether it actually works — without this, every game in a scan
+  // would keep retrying (and timing out on) a provider we already know is broken.
+  private knownInvalidProviders: Set<string> = new Set();
+
+  private isProviderUsable(provider?: { isAvailable(): boolean; name: string }): boolean {
+    return !!provider && provider.isAvailable() && !this.knownInvalidProviders.has(provider.name);
+  }
+
   constructor(
     igdbService?: IGDBService | null,
     steamService?: SteamService | null,
@@ -124,7 +134,11 @@ export class MetadataFetcherService {
     const validationPromises = this.providers.map(async (provider) => {
       if (provider.validateCredentials) {
         try {
-          const isValid = await provider.validateCredentials();
+          const isValid = await withTimeout(
+            provider.validateCredentials(),
+            8000,
+            `${provider.name} validation timed out`
+          );
           results[provider.name] = isValid;
         } catch (error) {
           console.error(`[MetadataFetcherService] Validation failed for ${provider.name}:`, error);
@@ -134,6 +148,14 @@ export class MetadataFetcherService {
         // Provider doesn't need credentials or doesn't support validation
         // Steam provider is generally always valid if service is available
         results[provider.name] = provider.isAvailable();
+      }
+
+      // Cache the result so real searches during this scan skip a provider we already
+      // know is broken, instead of retrying (and timing out on) it for every game.
+      if (results[provider.name]) {
+        this.knownInvalidProviders.delete(provider.name);
+      } else {
+        this.knownInvalidProviders.add(provider.name);
       }
     });
 
@@ -530,12 +552,20 @@ export class MetadataFetcherService {
 
     const allResults: GameSearchResult[] = [];
 
-    // Add all providers
-    const providersToSearch = [...this.providers];
+    // Add all providers, minus any confirmed invalid by the last credential check —
+    // no point re-querying (and re-timing-out on) a key we already know is broken.
+    const providersToSearch = this.providers.filter(p => !this.knownInvalidProviders.has(p.name));
 
-    // Carry out searches across all providers
+    // Carry out searches across all providers. Each provider call is timeout-bounded so
+    // one hanging/misconfigured provider (e.g. an invalid RAWG key with no axios timeout)
+    // can't stall Promise.allSettled — and therefore this whole search — indefinitely.
+    // 8s (not the usual 15s) because this is the path behind the Add Games "Identify" step,
+    // which the renderer itself gives up on after 10s — the main-process bound must stay
+    // under that so Promise.allSettled resolves before the renderer times out on its own.
     const results = await Promise.allSettled(
-      providersToSearch.map(provider => provider.search(query))
+      providersToSearch.map(provider =>
+        withTimeout(provider.search(query), 8000, `${provider.name} search timed out`)
+      )
     );
 
     results.forEach((result, index) => {
@@ -576,8 +606,9 @@ export class MetadataFetcherService {
 
     const query = steamAppId || title;
 
-    // Run searches in parallel and report results as they come in
-    const providersToSearch = [...this.providers];
+    // Run searches in parallel and report results as they come in, minus any provider
+    // already confirmed invalid by the last credential check.
+    const providersToSearch = this.providers.filter(p => !this.knownInvalidProviders.has(p.name));
 
     await Promise.allSettled(
       providersToSearch.map(async (provider) => {
@@ -846,13 +877,13 @@ export class MetadataFetcherService {
     }
 
     // 2. SteamGridDB Provider - High quality artwork
-    if (this.steamGridDBProvider?.isAvailable()) {
+    if (this.isProviderUsable(this.steamGridDBProvider)) {
       console.log(`[fetchArtworkForGame] Adding SteamGridDB provider for "${matchedGame.title}"`);
       if (matchedGame.source === 'steamgriddb') {
         artworkPromises.push({
           promise: withTimeout(
-            this.steamGridDBProvider.getArtwork(matchedGame.id, resolvedSteamAppId, preferAnimatedBoxart, preferAnimatedBanner),
-            15000,
+            this.steamGridDBProvider!.getArtwork(matchedGame.id, resolvedSteamAppId, preferAnimatedBoxart, preferAnimatedBanner),
+            8000,
             "SteamGridDB Artwork Timeout"
           ).catch((err: any) => {
             console.warn(`[fetchArtworkForGame] SteamGridDB timeout/error: ${err.message}`);
@@ -867,7 +898,7 @@ export class MetadataFetcherService {
               const results = await this.steamGridDBProvider!.search(matchedGame.title, resolvedSteamAppId);
               return results.length > 0 ? this.steamGridDBProvider!.getArtwork(results[0].id, resolvedSteamAppId, preferAnimatedBoxart, preferAnimatedBanner) : null;
             })(),
-            15000,
+            8000,
             "SteamGridDB Search/Artwork Timeout"
           ).catch((err: any) => {
             console.warn(`[fetchArtworkForGame] SteamGridDB search timeout/error: ${err.message}`);
@@ -879,13 +910,13 @@ export class MetadataFetcherService {
     }
 
     // 3. Giant Bomb Provider - High quality artwork
-    if (this.giantBombProvider?.isAvailable()) {
+    if (this.isProviderUsable(this.giantBombProvider)) {
       console.log(`[fetchArtworkForGame] Adding Giant Bomb provider for "${matchedGame.title}"`);
       if (matchedGame.source === 'giantbomb') {
         artworkPromises.push({
           promise: withTimeout(
-            this.giantBombProvider.getArtwork(matchedGame.id, resolvedSteamAppId),
-            15000,
+            this.giantBombProvider!.getArtwork(matchedGame.id, resolvedSteamAppId),
+            8000,
             "Giant Bomb Artwork Timeout"
           ).catch((err: any) => {
             console.warn(`[fetchArtworkForGame] Giant Bomb timeout/error: ${err.message}`);
@@ -900,7 +931,7 @@ export class MetadataFetcherService {
               const results = await this.giantBombProvider!.search(matchedGame.title, resolvedSteamAppId);
               return results.length > 0 ? this.giantBombProvider!.getArtwork(results[0].id, resolvedSteamAppId) : null;
             })(),
-            15000,
+            8000,
             "Giant Bomb Search/Artwork Timeout"
           ).catch((err: any) => {
             console.warn(`[fetchArtworkForGame] Giant Bomb search timeout/error: ${err.message}`);
@@ -912,13 +943,13 @@ export class MetadataFetcherService {
     }
 
     // 4. RAWG Provider
-    if (this.rawgProvider?.isAvailable()) {
+    if (this.isProviderUsable(this.rawgProvider)) {
       console.log(`[fetchArtworkForGame] Adding RAWG provider for "${matchedGame.title}"`);
       if (matchedGame.source === 'rawg') {
         artworkPromises.push({
           promise: withTimeout(
-            this.rawgProvider.getArtwork(matchedGame.id),
-            15000,
+            this.rawgProvider!.getArtwork(matchedGame.id),
+            8000,
             "RAWG Artwork Timeout"
           ).catch((err: any) => {
             console.warn(`[fetchArtworkForGame] RAWG timeout/error: ${err.message}`);
@@ -933,7 +964,7 @@ export class MetadataFetcherService {
               const results = await this.rawgProvider!.search(matchedGame.title);
               return results.length > 0 ? this.rawgProvider!.getArtwork(results[0].id) : null;
             })(),
-            15000,
+            8000,
             "RAWG Search/Artwork Timeout"
           ).catch((err: any) => {
             console.warn(`[fetchArtworkForGame] RAWG search timeout/error: ${err.message}`);
@@ -944,7 +975,7 @@ export class MetadataFetcherService {
       }
     }
 
-    if (artworkPromises.length === 0 && !this.igdbProvider?.isAvailable()) {
+    if (artworkPromises.length === 0 && !this.isProviderUsable(this.igdbProvider)) {
       console.warn(`[fetchArtworkForGame] No metadata providers available for "${matchedGame.title}"`);
       return this.getEmptyMetadata();
     }
@@ -963,14 +994,20 @@ export class MetadataFetcherService {
         .filter((item): item is { artwork: GameArtwork; source: string } => item !== null);
     }
 
-    // 5. IGDB - Always fetch when available (press kit, logos, covers) for variety even if primary providers already have boxArt
-    if (this.igdbProvider?.isAvailable()) {
+    // 5. IGDB - fallback only. IGDB is optional and the slowest/strictest provider (see
+    // RateLimitCoordinator's per-service pacing), so it's only queried when the faster,
+    // more lenient primary providers above didn't already cover the key visual assets —
+    // not fired unconditionally on every game.
+    const primaryArtworkPreview = artworkWithSources.length > 0 ? this.mergeArtwork(artworkWithSources) : ({} as GameArtwork);
+    const needsIgdbArtwork = !primaryArtworkPreview.boxArtUrl || !primaryArtworkPreview.logoUrl;
+
+    if (needsIgdbArtwork && this.isProviderUsable(this.igdbProvider)) {
       try {
         let igdbArtwork: GameArtwork | null = null;
         if (matchedGame.source === 'igdb') {
           igdbArtwork = await withTimeout(
-            this.igdbProvider.getArtwork(matchedGame.id, resolvedSteamAppId),
-            15000,
+            this.igdbProvider!.getArtwork(matchedGame.id, resolvedSteamAppId),
+            8000,
             "IGDB Artwork Timeout"
           );
         } else {
@@ -979,7 +1016,7 @@ export class MetadataFetcherService {
               const results = await this.igdbProvider!.search(matchedGame.title, resolvedSteamAppId);
               return results.length > 0 ? this.igdbProvider!.getArtwork(results[0].id, resolvedSteamAppId) : null;
             })(),
-            15000,
+            8000,
             "IGDB Search/Artwork Timeout"
           );
         }
@@ -1041,49 +1078,67 @@ export class MetadataFetcherService {
       }
     }
 
-    // 2. Fallback Providers (IGDB, RAWG)
-    // Always use IGDB for links, even if Steam ID found — but with a strict timeout
-    if (this.igdbProvider?.isAvailable()) {
+    // 2. RAWG - fast and lenient, run alongside Steam. Skip if linksOnly is requested.
+    if (!linksOnly && this.isProviderUsable(this.rawgProvider)) {
       providersToTry.push(async () => {
         try {
           return await withTimeout(
             (async () => {
-              if (matchedGame.source === 'igdb') {
-                return this.igdbProvider!.getDescription(matchedGame.id, linksOnly);
+              if (matchedGame.source === 'rawg') {
+                return this.rawgProvider!.getDescription(matchedGame.id, linksOnly);
               }
-              // Pass steamAppIdToUse so the IGDB provider can perform a precise exact-match lookup 
-              // to find the exact IGDB item corresponding to this Steam title.
-              const results = await this.igdbProvider!.search(matchedGame.title, steamAppIdToUse, linksOnly);
-              if (results.length === 0) return null;
-              // Prefer exact title match so we get the main game entry (with full links), not a DLC/variant that may have few links
-              const searchTitle = (matchedGame.title || '').trim().toLowerCase();
-              const exact = results.find((r) => (r.title || '').trim().toLowerCase() === searchTitle);
-              const best = exact ?? results[0];
-              return this.igdbProvider!.getDescription(best.id, linksOnly);
+              const results = await this.rawgProvider!.search(matchedGame.title, steamAppIdToUse, linksOnly);
+              return results.length > 0 ? this.rawgProvider!.getDescription(results[0].id, linksOnly) : null;
             })(),
-            15000,
-            `IGDB description timeout for "${matchedGame.title}"`
+            8000,
+            `RAWG description timeout for "${matchedGame.title}"`
           );
         } catch (err: any) {
-          console.warn(`[fetchDescriptionForGame] IGDB timed out/failed for "${matchedGame.title}": ${err.message}`);
+          console.warn(`[fetchDescriptionForGame] RAWG timed out/failed for "${matchedGame.title}": ${err.message}`);
           return null;
         }
       });
     }
 
-    // Skip RAWG if linksOnly is requested
-    if (!linksOnly && this.rawgProvider?.isAvailable()) {
-      providersToTry.push(async () => {
-        if (matchedGame.source === 'rawg') {
-          return this.rawgProvider!.getDescription(matchedGame.id, linksOnly);
-        }
-        const results = await this.rawgProvider!.search(matchedGame.title, steamAppIdToUse, linksOnly);
-        return results.length > 0 ? this.rawgProvider!.getDescription(results[0].id, linksOnly) : null;
-      });
+    // Run Steam + RAWG in parallel first — both are fast and lenient.
+    const primaryResults = await Promise.all(providersToTry.map(p => p()));
+    const collectedDescriptions: (GameDescription | null)[] = [...primaryResults];
+
+    // 3. IGDB - fallback only (except linksOnly mode, where it's the sole source of links,
+    // since Steam/RAWG are skipped above in that mode). IGDB is optional and the
+    // slowest/strictest provider, so it's only queried when Steam/RAWG didn't already
+    // cover the description and links — not fired unconditionally on every game.
+    const primaryDescriptionPreview = this.mergeDescriptions(collectedDescriptions, steamAppIdToUse);
+    const needsIgdbDescription =
+      linksOnly || !primaryDescriptionPreview.description || !(primaryDescriptionPreview.links && primaryDescriptionPreview.links.length > 0);
+
+    if (needsIgdbDescription && this.isProviderUsable(this.igdbProvider)) {
+      try {
+        const igdbDescription = await withTimeout(
+          (async () => {
+            if (matchedGame.source === 'igdb') {
+              return this.igdbProvider!.getDescription(matchedGame.id, linksOnly);
+            }
+            // Pass steamAppIdToUse so the IGDB provider can perform a precise exact-match lookup
+            // to find the exact IGDB item corresponding to this Steam title.
+            const results = await this.igdbProvider!.search(matchedGame.title, steamAppIdToUse, linksOnly);
+            if (results.length === 0) return null;
+            // Prefer exact title match so we get the main game entry (with full links), not a DLC/variant that may have few links
+            const searchTitle = (matchedGame.title || '').trim().toLowerCase();
+            const exact = results.find((r) => (r.title || '').trim().toLowerCase() === searchTitle);
+            const best = exact ?? results[0];
+            return this.igdbProvider!.getDescription(best.id, linksOnly);
+          })(),
+          8000,
+          `IGDB description timeout for "${matchedGame.title}"`
+        );
+        collectedDescriptions.push(igdbDescription);
+      } catch (err: any) {
+        console.warn(`[fetchDescriptionForGame] IGDB timed out/failed for "${matchedGame.title}": ${err.message}`);
+      }
     }
 
-    const results = await Promise.all(providersToTry.map(p => p()));
-    for (const res of results) {
+    for (const res of collectedDescriptions) {
       if (res) descriptions.push(res);
     }
 

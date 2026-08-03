@@ -15,6 +15,9 @@ export interface ImportWorkbenchHeaderProps {
     showIgnored: boolean;
     onToggleIgnored: () => void;
     onCloseClick: () => void;
+    invalidApiProviders?: string[];
+    onApiWarningClick?: () => void;
+    onRestartScan?: () => void;
 }
 
 export const ImportWorkbenchHeader: React.FC<ImportWorkbenchHeaderProps> = ({
@@ -26,6 +29,9 @@ export const ImportWorkbenchHeader: React.FC<ImportWorkbenchHeaderProps> = ({
     showIgnored,
     onToggleIgnored,
     onCloseClick,
+    invalidApiProviders = [],
+    onApiWarningClick,
+    onRestartScan,
 }) => {
     return (
         <div className="min-h-[60px] flex items-center justify-between gap-4 px-6 border-b border-gray-800 bg-gray-900/50 flex-wrap py-2">
@@ -54,6 +60,26 @@ export const ImportWorkbenchHeader: React.FC<ImportWorkbenchHeaderProps> = ({
                 </div>
             )}
             <div className="flex items-center gap-3 ml-auto shrink-0">
+                {invalidApiProviders.length > 0 && (
+                    <button
+                        onClick={onApiWarningClick}
+                        title="Some metadata API keys appear to be invalid or expired. Click to pause the scan and fix them in Settings."
+                        className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-yellow-900/40 border border-yellow-600/50 text-yellow-300 hover:bg-yellow-900/60"
+                    >
+                        <span aria-hidden="true">⚠</span>
+                        <span>
+                            {invalidApiProviders.join(', ')} {invalidApiProviders.length === 1 ? 'key needs' : 'keys need'} attention
+                        </span>
+                    </button>
+                )}
+                {invalidApiProviders.length > 0 && !isScanning && onRestartScan && (
+                    <button
+                        onClick={onRestartScan}
+                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium"
+                    >
+                        Restart Scan
+                    </button>
+                )}
                 <button
                     onClick={onToggleIgnored}
                     className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${

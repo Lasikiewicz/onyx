@@ -118,7 +118,10 @@ export class ImportService {
    * Scans all enabled app locations from Onyx Settings > Apps
    * Returns a simplified structure that the frontend can convert to StagedGame
    */
-  async scanAllSources(progressCallback?: (message: string) => void): Promise<ScannedGameResult[]> {
+  async scanAllSources(
+    progressCallback?: (message: string) => void,
+    onGamesFound?: (games: ScannedGameResult[]) => void
+  ): Promise<ScannedGameResult[]> {
     this.isScanCancelled = false;
     const results: ScannedGameResult[] = [];
 
@@ -160,6 +163,7 @@ export class ImportService {
             games.forEach(game => {
               progressCallback?.(`Found: ${game.title}`);
             });
+            onGamesFound?.(games);
           } else {
             progressCallback?.(`No games found in ${appName}`);
           }
@@ -194,6 +198,7 @@ export class ImportService {
                 folderGames.forEach(game => {
                   progressCallback?.(`Found: ${game.title}`);
                 });
+                onGamesFound?.(folderGames);
               } else {
                 progressCallback?.(`No games found in ${folder}`);
               }
@@ -226,6 +231,7 @@ export class ImportService {
               const game = this.scanHardcodedGamePath(gameInfo.path, gameInfo.name, gameInfo.exeName);
               if (game) {
                 progressCallback?.(`Found: ${game.title}`);
+                onGamesFound?.([game]);
                 results.push(game);
               }
             } else {
@@ -582,12 +588,17 @@ export class ImportService {
         return results;
       }
 
-      // Group executables by their containing directory
+      // Group executables by the top-level folder directly under gamesPath, not by the exe's
+      // immediate containing directory — same rationale as the Ubisoft scanner: some GOG
+      // installs nest the real executable under variant subfolders (e.g. bin/, bin_plus/),
+      // which would otherwise each be mistaken for a separate game.
       const gamesByFolder = new Map<string, string[]>();
 
       for (const exePath of gameExes) {
-        const exeDir = getUnrealShippingRootDirectory(exePath) || dirname(exePath);
-        const normalizedDir = exeDir.replace(/\\/g, sep).replace(/\/\//g, '/');
+        const relativePath = exePath.substring(gamesPath.length);
+        const parts = relativePath.split(/[/\\]/).filter(Boolean);
+        const gameDir = parts.length > 0 ? join(gamesPath, parts[0]) : gamesPath;
+        const normalizedDir = gameDir.replace(/\\/g, sep).replace(/\/\//g, '/');
 
         if (!gamesByFolder.has(normalizedDir)) {
           gamesByFolder.set(normalizedDir, []);
@@ -1047,12 +1058,18 @@ export class ImportService {
         return results;
       }
 
-      // Group executables by their containing directory
+      // Group executables by the top-level folder directly under gamesPath (e.g. "Far Cry 6"),
+      // not by the exe's immediate containing directory. Ubisoft installs commonly nest the
+      // real executable under subfolders like bin/ or bin_plus/ (e.g. Far Cry 6 ships both a
+      // standard and an enhanced-edition exe) — grouping by the exe's own directory would
+      // treat "bin" and "bin_plus" as two separate games instead of one.
       const gamesByFolder = new Map<string, string[]>();
 
       for (const exePath of gameExes) {
-        const exeDir = getUnrealShippingRootDirectory(exePath) || dirname(exePath);
-        const normalizedDir = exeDir.replace(/\\/g, sep).replace(/\/\//g, '/');
+        const relativePath = exePath.substring(gamesPath.length);
+        const parts = relativePath.split(/[/\\]/).filter(Boolean);
+        const gameDir = parts.length > 0 ? join(gamesPath, parts[0]) : gamesPath;
+        const normalizedDir = gameDir.replace(/\\/g, sep).replace(/\/\//g, '/');
 
         if (!gamesByFolder.has(normalizedDir)) {
           gamesByFolder.set(normalizedDir, []);

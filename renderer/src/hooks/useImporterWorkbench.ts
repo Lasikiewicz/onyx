@@ -203,6 +203,11 @@ export function useImporterWorkbench({
     return false;
   }, [setIsOnyxSettingsOpen, setOnyxSettingsInitialTab, showToast]);
 
+  const openApiSettings = useCallback(() => {
+    setIsOnyxSettingsOpen(true);
+    setOnyxSettingsInitialTab('apis');
+  }, [setIsOnyxSettingsOpen, setOnyxSettingsInitialTab]);
+
   const handleUpdateSteamLibrary = useCallback(async () => {
     const apisConfigured = await requireConfiguredApis();
     if (!apisConfigured) {
@@ -268,6 +273,7 @@ export function useImporterWorkbench({
     handleUpdateSteamLibrary,
     importWorkbenchInitialMode,
     isImportWorkbenchOpen,
+    openApiSettings,
     openImportWorkbench,
     openImportWorkbenchWithGames,
     preScannedGames,
