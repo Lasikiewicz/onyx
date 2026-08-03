@@ -73,6 +73,8 @@ export const LibraryCardView: React.FC<LibraryCardViewProps> = ({
           items.length,
           gameTilePadding,
           postersOnly ? POSTER_CARD_ASPECT_HEIGHT_OVER_WIDTH : WIDE_CARD_ASPECT_HEIGHT_OVER_WIDTH,
+          // Smart Fill only ever shrinks - never fewer columns (bigger tiles) than configured.
+          columns,
         ),
       );
     };
@@ -81,8 +83,25 @@ export const LibraryCardView: React.FC<LibraryCardViewProps> = ({
 
     const observer = new ResizeObserver(recompute);
     observer.observe(container);
-    return () => observer.disconnect();
-  }, [smartFill, items.length, gameTilePadding, postersOnly]);
+
+    // ResizeObserver only fires on container box-size changes; moving the window to a display
+    // with a different scale factor can change layout without that, leaving Smart Fill stale.
+    window.addEventListener('resize', recompute);
+    let dprMedia = window.matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`);
+    const onDprChange = () => {
+      recompute();
+      dprMedia.removeEventListener('change', onDprChange);
+      dprMedia = window.matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`);
+      dprMedia.addEventListener('change', onDprChange);
+    };
+    dprMedia.addEventListener('change', onDprChange);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', recompute);
+      dprMedia.removeEventListener('change', onDprChange);
+    };
+  }, [smartFill, items.length, gameTilePadding, postersOnly, columns]);
 
   const effectiveColumns = smartFill ? smartFillColumns : columns;
 

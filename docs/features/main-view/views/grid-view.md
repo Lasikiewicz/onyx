@@ -43,6 +43,8 @@ Displays the games list as a resizable grid of cover-art (or boxart) tiles. Supp
 ### Symptom: Tiles too large/small or not filling space
 
 - Verify `gridSize`/`logoSize` when Smart Fill is off. When Smart Fill is on, check the `ResizeObserver`-driven column computation in [LibraryGrid.tsx](../../../../renderer/src/components/LibraryGrid.tsx), which calls [smartFillColumns.ts](../../../../renderer/src/utils/smartFillColumns.ts) with the tile aspect ratio (`aspect-[2/3]` for boxart, `aspect-[16/9]` for logo, matching [GameCard.tsx](../../../../renderer/src/components/GameCard.tsx)) — a wrong aspect constant under- or over-fills the available space.
+- Smart Fill only ever *shrinks* tiles: `computeSmartFillColumns` takes a `minColumns` floor (derived from `gridSize`/`logoSize`, mirroring the non-Smart-Fill `repeat(auto-fit, Npx)` layout) so it never returns fewer columns — i.e. bigger tiles — than the configured tile size, even with very few games in view.
+- If Smart Fill appears frozen on a stale column count after moving the window to a different display, note that `ResizeObserver` only reacts to the container's CSS-pixel box size; [LibraryGrid.tsx](../../../../renderer/src/components/LibraryGrid.tsx) also listens for `window resize` and DPI changes (via a self-resubscribing `matchMedia('(resolution: ...)')` query) to force a recompute when the screen/scale factor changes without a corresponding box-size change.
 
 ## File Ownership Map
 

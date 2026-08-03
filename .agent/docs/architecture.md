@@ -102,6 +102,7 @@ It explains module boundaries, data flow, and release pipeline expectations.
 - `main/LauncherDetectionService.ts` registry reads now use `execFileSync('reg', [...])` with an args array (no shell string interpolation) and regex-escape the value name when parsing output.
 - `main/BugReportService.ts` still captures all `console.*` output into its bug-report buffers, but packaged builds no longer emit plain `console.log` lines to stdout (warn/error still emit); set `ONYX_DEBUG=1` to re-enable emission.
 - `main/ipc/appHandlers.ts` no longer carries the dead `app:update-found`/`app:update-dismissed` callback scaffolding; `main/startupCoordinator.ts` is the sole owner of those channels. `app:toggleDevTools` is also gated to non-packaged builds.
+- `renderer/src/utils/smartFillColumns.ts` now takes a `minColumns` floor so Smart Fill only ever shrinks tiles (never returns fewer columns / bigger tiles than the configured `gridSize`/`logoSize`/`cardColumns` baseline). `renderer/src/components/LibraryGrid.tsx` and `renderer/src/components/LibraryCardView.tsx` compute that floor from their respective size settings and also recompute on `window resize` and DPI (`matchMedia('(resolution: ...)')`) changes, not just `ResizeObserver`, since moving the window to a display with a different scale factor can leave the observed container's CSS-pixel box size unchanged while still requiring a relayout.
 
 ## Data and Control Flow
 

@@ -4,6 +4,12 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.11.6] - 2026-08-03
+
+- Grid/Logo and Card/Poster Smart Fill:
+  - Smart Fill no longer enlarges tiles past their configured size when a library has few games — it now only ever shrinks tiles to fit.
+  - Smart Fill no longer gets stuck on a stale layout after moving the app window to a different screen or resolution.
+
 ## [0.11.5] - 2026-08-03
 
 - Add Games:

@@ -93,7 +93,15 @@ export const LibraryGrid: React.FC<LibraryGridProps> = ({
     if (!smartFill || !gridRef.current) return;
 
     const container = gridRef.current;
+    const baseTileSize = useLogosInsteadOfBoxart ? logoSize : gridSize;
     const recompute = () => {
+      // Natural (non-smart-fill) column count for the configured tile size, mirroring the
+      // `repeat(auto-fit, Npx)` layout used when Smart Fill is off - Smart Fill must never
+      // produce fewer columns (i.e. bigger tiles) than this.
+      const baseColumns = Math.max(
+        1,
+        Math.floor((container.clientWidth + gameTilePadding) / (baseTileSize + gameTilePadding)),
+      );
       setSmartFillColumns(
         computeSmartFillColumns(
           container.clientWidth,
@@ -101,6 +109,7 @@ export const LibraryGrid: React.FC<LibraryGridProps> = ({
           items.length,
           gameTilePadding,
           useLogosInsteadOfBoxart ? LOGO_TILE_ASPECT_HEIGHT_OVER_WIDTH : BOXART_TILE_ASPECT_HEIGHT_OVER_WIDTH,
+          baseColumns,
         ),
       );
     };
@@ -109,8 +118,28 @@ export const LibraryGrid: React.FC<LibraryGridProps> = ({
 
     const observer = new ResizeObserver(recompute);
     observer.observe(container);
-    return () => observer.disconnect();
-  }, [smartFill, items.length, gameTilePadding, useLogosInsteadOfBoxart]);
+
+    // ResizeObserver only fires when the container's CSS-pixel box size changes. Moving the
+    // window to a display with a different scale factor (DPI) can change the effective layout
+    // without changing that box size, which otherwise leaves Smart Fill stuck on a stale column
+    // count. A `matchMedia(resolution)` query only fires once as the DPR drifts away from its
+    // initial value, so re-subscribe at the new DPR each time it changes.
+    window.addEventListener('resize', recompute);
+    let dprMedia = window.matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`);
+    const onDprChange = () => {
+      recompute();
+      dprMedia.removeEventListener('change', onDprChange);
+      dprMedia = window.matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`);
+      dprMedia.addEventListener('change', onDprChange);
+    };
+    dprMedia.addEventListener('change', onDprChange);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', recompute);
+      dprMedia.removeEventListener('change', onDprChange);
+    };
+  }, [smartFill, items.length, gameTilePadding, useLogosInsteadOfBoxart, gridSize, logoSize]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
