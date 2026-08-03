@@ -87,19 +87,23 @@ export const LibraryCardView: React.FC<LibraryCardViewProps> = ({
     // ResizeObserver only fires on container box-size changes; moving the window to a display
     // with a different scale factor can change layout without that, leaving Smart Fill stale.
     window.addEventListener('resize', recompute);
-    let dprMedia = window.matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`);
+    // matchMedia isn't guaranteed to exist in every environment (e.g. jsdom in tests) - skip
+    // the DPI-change listener there rather than throwing.
+    const supportsMatchMedia = typeof window.matchMedia === 'function';
+    let dprMedia = supportsMatchMedia ? window.matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`) : null;
     const onDprChange = () => {
       recompute();
+      if (!dprMedia) return;
       dprMedia.removeEventListener('change', onDprChange);
       dprMedia = window.matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`);
       dprMedia.addEventListener('change', onDprChange);
     };
-    dprMedia.addEventListener('change', onDprChange);
+    dprMedia?.addEventListener('change', onDprChange);
 
     return () => {
       observer.disconnect();
       window.removeEventListener('resize', recompute);
-      dprMedia.removeEventListener('change', onDprChange);
+      dprMedia?.removeEventListener('change', onDprChange);
     };
   }, [smartFill, items.length, gameTilePadding, postersOnly, columns]);
 

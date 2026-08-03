@@ -84,6 +84,7 @@ interface UseAppPreferencesOptions {
   setPanelWidthByViewState: (value: Record<ViewMode, number>) => void;
   setPanelWidth: (value: number) => void;
   setGridSmartFill: (value: boolean) => void;
+  setGridMaximizeSpace: (value: boolean) => void;
   setActiveGameId: (value: string | null) => void;
   setConfirmGameLaunch: (value: boolean) => void;
   setEnableGamepadSupport: (value: boolean) => void;
@@ -171,6 +172,7 @@ export function useAppPreferences({
   setPanelWidthByViewState,
   setPanelWidth,
   setGridSmartFill,
+  setGridMaximizeSpace,
   setActiveGameId,
   setConfirmGameLaunch,
   setEnableGamepadSupport,
@@ -194,11 +196,13 @@ export function useAppPreferences({
     if (viewMode === 'grid') {
       if (defaults.gridSize !== undefined) setGridSize(defaults.gridSize);
       if (defaults.gridSmartFill !== undefined) setGridSmartFill(defaults.gridSmartFill);
+      if (defaults.gridMaximizeSpace !== undefined) setGridMaximizeSpace(defaults.gridMaximizeSpace);
       if (defaults.showLogoOverBoxart !== undefined) setShowLogoOverBoxart(defaults.showLogoOverBoxart);
       if (defaults.gameTilePadding !== undefined) setGameTilePadding(defaults.gameTilePadding);
     } else if (viewMode === 'logo') {
       if (defaults.logoSize !== undefined) setLogoSize(defaults.logoSize);
       if (defaults.gridSmartFill !== undefined) setGridSmartFill(defaults.gridSmartFill);
+      if (defaults.gridMaximizeSpace !== undefined) setGridMaximizeSpace(defaults.gridMaximizeSpace);
       if (defaults.logoBackgroundOpacity !== undefined) setLogoBackgroundOpacity(defaults.logoBackgroundOpacity);
       if (defaults.gameTilePadding !== undefined) setGameTilePadding(defaults.gameTilePadding);
     } else if (viewMode === 'list') {
@@ -235,6 +239,7 @@ export function useAppPreferences({
     setGameTilePadding,
     setGridSize,
     setGridSmartFill,
+    setGridMaximizeSpace,
     setListViewOptions,
     setLogoBackgroundOpacity,
     setLogoSize,
@@ -361,6 +366,7 @@ export function useAppPreferences({
     const savedPanelWidth = (prefs.panelWidthByView && prefs.viewMode ? prefs.panelWidthByView[prefs.viewMode as ViewMode] : undefined) ?? prefs.panelWidth;
     if (savedPanelWidth) setPanelWidth(savedPanelWidth);
     if (prefs.gridSmartFill !== undefined) setGridSmartFill(prefs.gridSmartFill);
+    if (prefs.gridMaximizeSpace !== undefined) setGridMaximizeSpace(prefs.gridMaximizeSpace);
     if (prefs.activeGameId) setActiveGameId(prefs.activeGameId);
     if (prefs.isFirstLaunch && baselineDefaultsRef.current) {
       console.log(`[App] First launch detected. Applying baseline defaults for ${currentResolutionRef.current}.`);
@@ -441,6 +447,7 @@ export function useAppPreferences({
     setGridButtonColors,
     setGridSize,
     setGridSmartFill,
+    setGridMaximizeSpace,
     setHideAppsTitles,
     setHideGameTitles,
     setHideVRTitles,

@@ -188,6 +188,7 @@ function App() {
     gridDescriptionSize,
     gridSize,
     gridSmartFill,
+    gridMaximizeSpace,
     hideAppsTitles,
     hideGameTitles,
     hideVRTitles,
@@ -250,6 +251,7 @@ function App() {
     setGridButtonColors,
     setGridSize,
     setGridSmartFill,
+    setGridMaximizeSpace,
     setHideAppsTitles,
     setHideGameTitles,
     setHideVRTitles,
@@ -406,6 +408,7 @@ function App() {
     setPanelWidthByViewState,
     setPanelWidth,
     setGridSmartFill,
+    setGridMaximizeSpace,
     setActiveGameId,
     setConfirmGameLaunch,
     setEnableGamepadSupport,
@@ -430,6 +433,7 @@ function App() {
     games,
     gridSize,
     gridSmartFill,
+    gridMaximizeSpace,
     hideAppsTitles,
     hideGameTitles,
     hideVRTitles,
@@ -947,6 +951,7 @@ function App() {
     gridButtonColors,
     gridSize,
     gridSmartFill,
+    gridMaximizeSpace,
     isViewFlippedByView,
     listButtonColors,
     listViewOptions,
@@ -1002,6 +1007,7 @@ function App() {
     setGridButtonColors,
     setGridSize,
     setGridSmartFill,
+    setGridMaximizeSpace,
     setIsViewFlippedByView,
     setListButtonColors,
     setListViewOptions,
@@ -1104,6 +1110,7 @@ function App() {
     currentDescriptionWidth,
     currentFanartHeight,
     currentPanelWidth,
+    gridMaximizeSpace,
     descriptionWidthByView,
     detailsPanelBottomBarHeight,
     detailsPanelOpacity: currentDetailsPanelOpacity,
@@ -1337,6 +1344,9 @@ function App() {
             cardPostersOnly={cardPostersOnly}
             cardSmartFill={cardSmartFill}
             gridSmartFill={gridSmartFill}
+            gridMaximizeSpace={gridMaximizeSpace}
+            panelWidth={currentPanelWidth}
+            onPanelWidthChange={gameDetailsPanelProps.onPanelWidthChange}
             categoriesAlignment={categoriesAlignmentByView[viewMode] ?? 'left'}
             categoriesPosition={categoriesPositionByView[viewMode] ?? 'top'}
             categoriesSize={categoriesSizeByView[viewMode] ?? 12}

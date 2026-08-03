@@ -42,6 +42,7 @@ export interface RightClickMenuGamesViewSectionProps {
   backgroundBlur: number;
   backgroundBrightness: number;
   gridSmartFill: boolean;
+  gridMaximizeSpace: boolean;
   categoriesPosition: 'top' | 'bottom';
   categoriesTopAlignment: 'left' | 'center' | 'right';
   categoriesTopSize: number;
@@ -63,6 +64,7 @@ export interface RightClickMenuGamesViewSectionProps {
   sliderDefaults: GamesViewSliderDefaults;
   viewMode: 'grid' | 'list' | 'logo' | 'card';
   onGridSmartFillChange?: (enabled: boolean) => void;
+  onGridMaximizeSpaceChange?: (enabled: boolean) => void;
   onBackgroundBlurChange?: (blur: number) => void;
   onBackgroundBrightnessChange?: (brightness: number) => void;
   onCategoriesPositionChange?: (position: 'top' | 'bottom') => void;
@@ -114,6 +116,7 @@ export function RightClickMenuGamesViewSection({
   backgroundBlur,
   backgroundBrightness,
   gridSmartFill,
+  gridMaximizeSpace,
   cardColumns,
   cardPostersOnly,
   cardSmartFill,
@@ -135,6 +138,7 @@ export function RightClickMenuGamesViewSection({
   sliderDefaults,
   viewMode,
   onGridSmartFillChange,
+  onGridMaximizeSpaceChange,
   onBackgroundBlurChange,
   onBackgroundBrightnessChange,
   onCategoriesPositionChange,
@@ -348,6 +352,36 @@ export function RightClickMenuGamesViewSection({
           </div>
           {renderSettingDescription(
             'Automatically shrinks tiles so every game in the current view fits on one screen without scrolling.',
+          )}
+        </div>
+      )}
+
+      {gridSmartFill && (viewMode === 'grid' || viewMode === 'logo') && onGridMaximizeSpaceChange && (
+        <div className="px-3 py-2 bg-gray-700/30 rounded-md">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <label className="text-xs text-gray-400 font-medium">Maximize Space</label>
+              {settingDescriptionDisplay === 'icon' &&
+                renderSettingHintIcon(
+                  'Automatically resizes the details panel so the games view always uses the biggest tiles it can with no leftover space at the bottom. The details panel stays at least 25% of the window width.',
+                )}
+            </div>
+            <button
+              onClick={() => onGridMaximizeSpaceChange(!gridMaximizeSpace)}
+              className={`relative inline-flex h-3 w-6 items-center rounded-full transition-colors ${
+                gridMaximizeSpace ? 'bg-blue-600' : 'bg-gray-600'
+              }`}
+              title="Toggle maximize space"
+            >
+              <span
+                className={`inline-block h-2 w-2 transform rounded-full bg-white transition-transform ${
+                  gridMaximizeSpace ? 'translate-x-3' : 'translate-x-0.5'
+                }`}
+              />
+            </button>
+          </div>
+          {renderSettingDescription(
+            'Automatically resizes the details panel so the games view always uses the biggest tiles it can with no leftover space at the bottom. The details panel stays at least 25% of the window width.',
           )}
         </div>
       )}

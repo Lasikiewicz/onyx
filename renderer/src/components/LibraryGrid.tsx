@@ -14,12 +14,21 @@ import {
 } from '@dnd-kit/sortable';
 import { Game } from '../types/game';
 import { SortableGameCard } from './SortableGameCard';
-import { computeSmartFillColumns } from '../utils/smartFillColumns';
+import { computeSmartFillColumns, computeMaximizeSpaceLayout } from '../utils/smartFillColumns';
 
 // Tile aspect ratios used to compute smart-fill column counts.
 // Must match the aspect-[2/3] (boxart) / aspect-[16/9] (logo) classes in GameCard.tsx.
 const BOXART_TILE_ASPECT_HEIGHT_OVER_WIDTH = 1.5;
 const LOGO_TILE_ASPECT_HEIGHT_OVER_WIDTH = 9 / 16;
+
+// Maximize Space never lets the details panel shrink past this share of the total row width.
+const MAXIMIZE_SPACE_MIN_PANEL_WIDTH_RATIO = 0.25;
+// Mirrors the existing manual drag-handle cap (GameDetailsPanel.tsx) so Maximize Space stays
+// within the same bounds a user could reach by dragging the panel themselves.
+const MAXIMIZE_SPACE_MAX_PANEL_WIDTH_RATIO = 0.75;
+const MAXIMIZE_SPACE_MIN_PANEL_WIDTH_PX = 400;
+// Ignore sub-pixel differences so we don't churn onPanelWidthChange/persistence forever.
+const PANEL_WIDTH_CHANGE_TOLERANCE_PX = 2;
 
 interface LibraryGridProps {
   games: Game[];
@@ -44,6 +53,13 @@ interface LibraryGridProps {
   logoPosition?: 'top' | 'middle' | 'bottom' | 'underneath';
   useLogosInsteadOfBoxart?: boolean;
   smartFill?: boolean;
+  /** When true (and smartFill is on), also resizes the details panel so tiles are as large as
+   * possible with no leftover vertical space, keeping the panel at least 25% of the total width. */
+  maximizeSpace?: boolean;
+  /** Current details-panel width in px - required to compute Maximize Space layouts. */
+  panelWidth?: number;
+  /** Called with the new panel width when Maximize Space wants to resize the details panel. */
+  onPanelWidthChange?: (width: number) => void;
   logoBackgroundColor?: string;
   logoBackgroundOpacity?: number;
   onGameContextMenu?: (game: Game, x: number, y: number) => void;
@@ -69,6 +85,9 @@ export const LibraryGrid: React.FC<LibraryGridProps> = ({
   logoPosition = 'middle',
   useLogosInsteadOfBoxart = false,
   smartFill = false,
+  maximizeSpace = false,
+  panelWidth = 0,
+  onPanelWidthChange,
   descriptionSize = 14,
   onGameContextMenu,
   onEmptySpaceClick,
@@ -89,11 +108,24 @@ export const LibraryGrid: React.FC<LibraryGridProps> = ({
   const [focusedIndex, setFocusedIndex] = useState<number>(-1);
   const [smartFillColumns, setSmartFillColumns] = useState(1);
 
+  // Read via refs inside the recompute effect below so panel-width churn (including the
+  // Maximize Space feedback loop itself) doesn't force the ResizeObserver/listeners to
+  // tear down and re-subscribe on every tick.
+  const panelWidthRef = useRef(panelWidth);
+  useEffect(() => {
+    panelWidthRef.current = panelWidth;
+  }, [panelWidth]);
+  const onPanelWidthChangeRef = useRef(onPanelWidthChange);
+  useEffect(() => {
+    onPanelWidthChangeRef.current = onPanelWidthChange;
+  }, [onPanelWidthChange]);
+
   useEffect(() => {
     if (!smartFill || !gridRef.current) return;
 
     const container = gridRef.current;
     const baseTileSize = useLogosInsteadOfBoxart ? logoSize : gridSize;
+    const aspectRatio = useLogosInsteadOfBoxart ? LOGO_TILE_ASPECT_HEIGHT_OVER_WIDTH : BOXART_TILE_ASPECT_HEIGHT_OVER_WIDTH;
     const recompute = () => {
       // Natural (non-smart-fill) column count for the configured tile size, mirroring the
       // `repeat(auto-fit, Npx)` layout used when Smart Fill is off - Smart Fill must never
@@ -102,13 +134,41 @@ export const LibraryGrid: React.FC<LibraryGridProps> = ({
         1,
         Math.floor((container.clientWidth + gameTilePadding) / (baseTileSize + gameTilePadding)),
       );
+
+      if (maximizeSpace) {
+        const currentPanelWidth = panelWidthRef.current;
+        const totalWidth = container.clientWidth + currentPanelWidth;
+        const minPanelWidth = Math.max(MAXIMIZE_SPACE_MIN_PANEL_WIDTH_PX, totalWidth * MAXIMIZE_SPACE_MIN_PANEL_WIDTH_RATIO);
+        const maxPanelWidth = totalWidth * MAXIMIZE_SPACE_MAX_PANEL_WIDTH_RATIO;
+        // Maximize Space deliberately overrides the "never grow past configured size" floor
+        // (baseColumns) that plain Smart Fill respects - forcing at least baseColumns columns
+        // while also solving for the exact-fit tile size demands far more width than is ever
+        // available, which made this fail immediately and silently fall back to the old
+        // waste-tolerant layout. Search the full column range instead.
+        const layout = computeMaximizeSpaceLayout(
+          totalWidth,
+          container.clientHeight,
+          items.length,
+          gameTilePadding,
+          aspectRatio,
+          minPanelWidth,
+          maxPanelWidth,
+          1,
+        );
+        setSmartFillColumns(layout.columns);
+        if (Math.abs(layout.panelWidth - currentPanelWidth) > PANEL_WIDTH_CHANGE_TOLERANCE_PX) {
+          onPanelWidthChangeRef.current?.(Math.round(layout.panelWidth));
+        }
+        return;
+      }
+
       setSmartFillColumns(
         computeSmartFillColumns(
           container.clientWidth,
           container.clientHeight,
           items.length,
           gameTilePadding,
-          useLogosInsteadOfBoxart ? LOGO_TILE_ASPECT_HEIGHT_OVER_WIDTH : BOXART_TILE_ASPECT_HEIGHT_OVER_WIDTH,
+          aspectRatio,
           baseColumns,
         ),
       );
@@ -125,21 +185,25 @@ export const LibraryGrid: React.FC<LibraryGridProps> = ({
     // count. A `matchMedia(resolution)` query only fires once as the DPR drifts away from its
     // initial value, so re-subscribe at the new DPR each time it changes.
     window.addEventListener('resize', recompute);
-    let dprMedia = window.matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`);
+    // matchMedia isn't guaranteed to exist in every environment (e.g. jsdom in tests) - skip
+    // the DPI-change listener there rather than throwing.
+    const supportsMatchMedia = typeof window.matchMedia === 'function';
+    let dprMedia = supportsMatchMedia ? window.matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`) : null;
     const onDprChange = () => {
       recompute();
+      if (!dprMedia) return;
       dprMedia.removeEventListener('change', onDprChange);
       dprMedia = window.matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`);
       dprMedia.addEventListener('change', onDprChange);
     };
-    dprMedia.addEventListener('change', onDprChange);
+    dprMedia?.addEventListener('change', onDprChange);
 
     return () => {
       observer.disconnect();
       window.removeEventListener('resize', recompute);
-      dprMedia.removeEventListener('change', onDprChange);
+      dprMedia?.removeEventListener('change', onDprChange);
     };
-  }, [smartFill, items.length, gameTilePadding, useLogosInsteadOfBoxart, gridSize, logoSize]);
+  }, [smartFill, maximizeSpace, items.length, gameTilePadding, useLogosInsteadOfBoxart, gridSize, logoSize]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {

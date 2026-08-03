@@ -29,6 +29,7 @@ type UseAppShellPreferencePersistenceArgs = {
   games: Game[];
   gridSize: number;
   gridSmartFill: boolean;
+  gridMaximizeSpace: boolean;
   hideAppsTitles: boolean;
   hideGameTitles: boolean;
   hideVRTitles: boolean;
@@ -79,6 +80,7 @@ export function useAppShellPreferencePersistence({
   games,
   gridSize,
   gridSmartFill,
+  gridMaximizeSpace,
   hideAppsTitles,
   hideGameTitles,
   hideVRTitles,
@@ -94,6 +96,7 @@ export function useAppShellPreferencePersistence({
   const persistenceEnabled = !isInitialLoad;
   const gridSizePatch = useMemo(() => ({ gridSize }), [gridSize]);
   const gridSmartFillPatch = useMemo(() => ({ gridSmartFill }), [gridSmartFill]);
+  const gridMaximizeSpacePatch = useMemo(() => ({ gridMaximizeSpace }), [gridMaximizeSpace]);
   const cardColumnsPatch = useMemo(() => ({ cardColumns }), [cardColumns]);
   const cardPostersOnlyPatch = useMemo(() => ({ cardPostersOnly }), [cardPostersOnly]);
   const cardSmartFillPatch = useMemo(() => ({ cardSmartFill }), [cardSmartFill]);
@@ -139,6 +142,13 @@ export function useAppShellPreferencePersistence({
     enabled: persistenceEnabled,
     errorLabel: 'grid smart fill',
     patch: gridSmartFillPatch,
+  });
+
+  useDebouncedPreferencePatch({
+    delay: 300,
+    enabled: persistenceEnabled,
+    errorLabel: 'grid maximize space',
+    patch: gridMaximizeSpacePatch,
   });
 
   useDebouncedPreferencePatch({

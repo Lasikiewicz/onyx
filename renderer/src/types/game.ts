@@ -200,6 +200,7 @@ export interface UserPreferences {
   };
   listViewSize?: number;
   gridSmartFill?: boolean;
+  gridMaximizeSpace?: boolean;
   titleFontSize?: number;
   titleFontFamily?: string;
   descriptionFontSize?: number;

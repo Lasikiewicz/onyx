@@ -40,6 +40,8 @@ export interface GameDetailsPanelProps {
   detailsPanelOpacity?: number;
   panelWidth?: number;
   onPanelWidthChange?: (width: number) => void;
+  /** Disables manual dragging of the panel-width divider (e.g. while Maximize Space owns it). */
+  disablePanelResize?: boolean;
   fanartHeight?: number;
   onFanartHeightChange?: (height: number) => void;
   descriptionWidth?: number;
@@ -89,6 +91,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
   detailsPanelOpacity = 80,
   panelWidth: propPanelWidth,
   onPanelWidthChange,
+  disablePanelResize = false,
   fanartHeight: propFanartHeight = 320,
   onFanartHeightChange,
   descriptionWidth: propDescriptionWidth = 50,
@@ -601,13 +604,15 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
           <p className="text-gray-100 text-lg">Select a game</p>
           <p className="text-gray-300 text-sm mt-2">Click on a game card to view details</p>
         </div>
-        <div
-          className="absolute left-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-blue-500 transition-colors z-10"
-          onMouseDown={(e) => {
-            e.preventDefault();
-            setIsResizing(true);
-          }}
-        />
+        {!disablePanelResize && (
+          <div
+            className="absolute left-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-blue-500 transition-colors z-10"
+            onMouseDown={(e) => {
+              e.preventDefault();
+              setIsResizing(true);
+            }}
+          />
+        )}
       </div>
     );
   }
@@ -806,13 +811,15 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
         onRightClick?.(e.clientX, e.clientY);
       }}
     >
-      <div
-        className="absolute left-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-blue-500 transition-colors z-10"
-        onMouseDown={(e) => {
-          e.preventDefault();
-          setIsResizing(true);
-        }}
-      />
+      {!disablePanelResize && (
+        <div
+          className="absolute left-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-blue-500 transition-colors z-10"
+          onMouseDown={(e) => {
+            e.preventDefault();
+            setIsResizing(true);
+          }}
+        />
+      )}
 
       {/* Background Image - Resizable */}
       <div

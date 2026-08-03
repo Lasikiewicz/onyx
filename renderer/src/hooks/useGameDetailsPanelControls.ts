@@ -13,6 +13,7 @@ interface UseGameDetailsPanelControlsOptions {
   currentDescriptionWidth: number;
   currentFanartHeight: number;
   currentPanelWidth: number;
+  gridMaximizeSpace: boolean;
   descriptionWidthByView: Record<DetailsViewMode, number>;
   detailsPanelBottomBarHeight: number;
   detailsPanelOpacity: number;
@@ -69,6 +70,7 @@ export function useGameDetailsPanelControls({
   currentDescriptionWidth,
   currentFanartHeight,
   currentPanelWidth,
+  gridMaximizeSpace,
   descriptionWidthByView,
   detailsPanelBottomBarHeight,
   detailsPanelOpacity,
@@ -176,6 +178,7 @@ export function useGameDetailsPanelControls({
     onUpdateGameInState: updateGameInState,
     overlaysOpen,
     panelWidth: currentPanelWidth,
+    disablePanelResize: (viewMode === 'grid' || viewMode === 'logo') && gridMaximizeSpace,
     rightPanelBoxartPosition,
     rightPanelBoxartSize,
     rightPanelButtonColors: viewMode === 'grid'

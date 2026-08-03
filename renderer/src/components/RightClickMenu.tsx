@@ -37,6 +37,8 @@ export interface RightClickMenuProps {
   onLogoSizeChange?: (size: number) => void;
   gridSmartFill?: boolean;
   onGridSmartFillChange?: (enabled: boolean) => void;
+  gridMaximizeSpace?: boolean;
+  onGridMaximizeSpaceChange?: (enabled: boolean) => void;
   listSize?: number;
   onListSizeChange?: (size: number) => void;
   gameTilePadding?: number;
@@ -197,6 +199,8 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
   onLogoSizeChange,
   gridSmartFill = false,
   onGridSmartFillChange,
+  gridMaximizeSpace = false,
+  onGridMaximizeSpaceChange,
   listSize = 120,
   onListSizeChange,
   gameTilePadding = 3,
@@ -530,6 +534,7 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
     // Apply view-specific settings
     if (mode === 'grid') {
       if (defaults.gridSmartFill !== undefined) onGridSmartFillChange?.(defaults.gridSmartFill);
+      if (defaults.gridMaximizeSpace !== undefined) onGridMaximizeSpaceChange?.(defaults.gridMaximizeSpace);
       if (defaults.gridSize !== undefined) onGridSizeChange?.(defaults.gridSize);
       if (defaults.gameTilePadding !== undefined) onGameTilePaddingChange?.(defaults.gameTilePadding);
       if (defaults.panelWidth !== undefined) onPanelWidthChange?.(defaults.panelWidth);
@@ -542,6 +547,7 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
       if (defaults.showLogoOverBoxart !== undefined) onShowLogoOverBoxartChange?.(defaults.showLogoOverBoxart);
     } else if (mode === 'logo') {
       if (defaults.gridSmartFill !== undefined) onGridSmartFillChange?.(defaults.gridSmartFill);
+      if (defaults.gridMaximizeSpace !== undefined) onGridMaximizeSpaceChange?.(defaults.gridMaximizeSpace);
       if (defaults.logoSize !== undefined) onLogoSizeChange?.(defaults.logoSize);
       if (defaults.gameTilePadding !== undefined) onGameTilePaddingChange?.(defaults.gameTilePadding);
       if (defaults.logoBackgroundOpacity !== undefined) onLogoBackgroundOpacityChange?.(defaults.logoBackgroundOpacity);
@@ -991,6 +997,7 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                 backgroundBlur={backgroundBlur}
                 backgroundBrightness={backgroundBrightness}
                 gridSmartFill={gridSmartFill}
+                gridMaximizeSpace={gridMaximizeSpace}
                 cardColumns={cardColumns}
                 cardPostersOnly={cardPostersOnly}
                 cardSmartFill={cardSmartFill}
@@ -1012,6 +1019,7 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                 sliderDefaults={sliderDefaults}
                 viewMode={viewMode}
                 onGridSmartFillChange={onGridSmartFillChange}
+                onGridMaximizeSpaceChange={onGridMaximizeSpaceChange}
                 onBackgroundBlurChange={onBackgroundBlurChange}
                 onBackgroundBrightnessChange={onBackgroundBrightnessChange}
                 onCategoriesPositionChange={onCategoriesPositionChange}

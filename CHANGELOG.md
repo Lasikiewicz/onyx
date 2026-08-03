@@ -4,6 +4,13 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.12.0] - 2026-08-03
+
+- Grid/Logo Smart Fill:
+  - Added a "Maximize Space" option (Grid/Logo view, shown when Smart Fill is on) that automatically resizes the Game Details panel so the games view always uses the biggest possible tiles with no leftover space at the bottom, while keeping the details panel at least 25% of the window width.
+  - The Game Details panel's manual resize handle is hidden while Maximize Space is on, since it now controls the panel width automatically.
+  - Smart Fill and Maximize Space are now on by default for Grid/Logo view.
+
 ## [0.11.8] - 2026-08-03
 
 - Library scanning:

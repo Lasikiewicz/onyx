@@ -49,6 +49,7 @@ interface UseRightClickMenuControlsOptions {
   gridButtonColors: ButtonColors;
   gridSize: number;
   gridSmartFill: boolean;
+  gridMaximizeSpace: boolean;
   isViewFlippedByView: Record<ViewMode, boolean>;
   listButtonColors: ButtonColors;
   listViewOptions: ResolvedListViewOptions;
@@ -103,6 +104,7 @@ interface UseRightClickMenuControlsOptions {
   setGridButtonColors: (value: ButtonColors) => void;
   setGridSize: (value: number) => void;
   setGridSmartFill: (value: boolean) => void;
+  setGridMaximizeSpace: (value: boolean) => void;
   setIsViewFlippedByView: (value: Record<ViewMode, boolean>) => void;
   setListButtonColors: (value: ButtonColors) => void;
   setListViewOptions: (value: ResolvedListViewOptions) => void;
@@ -171,6 +173,7 @@ export function useRightClickMenuControls({
   gridButtonColors,
   gridSize,
   gridSmartFill,
+  gridMaximizeSpace,
   isViewFlippedByView,
   listButtonColors,
   listViewOptions,
@@ -225,6 +228,7 @@ export function useRightClickMenuControls({
   setGridButtonColors,
   setGridSize,
   setGridSmartFill,
+  setGridMaximizeSpace,
   setIsViewFlippedByView,
   setListButtonColors,
   setListViewOptions,
@@ -305,6 +309,7 @@ export function useRightClickMenuControls({
     gridButtonColors,
     gridSize,
     gridSmartFill,
+    gridMaximizeSpace,
     isViewFlipped: isViewFlippedByView[viewMode],
     listSize: listViewSize,
     listButtonColors,
@@ -318,6 +323,9 @@ export function useRightClickMenuControls({
     onBackgroundBlurChange: setBackgroundBlur,
     onGridSmartFillChange: (enabled: boolean) => {
       saveValue(setGridSmartFill, 'gridSmartFill', enabled);
+    },
+    onGridMaximizeSpaceChange: (enabled: boolean) => {
+      saveValue(setGridMaximizeSpace, 'gridMaximizeSpace', enabled);
     },
     onBackgroundBrightnessChange: (brightness: number) => {
       saveByViewValue(backgroundBrightnessByView, setBackgroundBrightnessByView, 'backgroundBrightnessByView', viewMode, brightness);

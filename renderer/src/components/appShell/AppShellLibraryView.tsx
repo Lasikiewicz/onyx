@@ -24,6 +24,9 @@ type LibraryViewMode = 'grid' | 'list' | 'logo' | 'carousel' | 'coverflow' | 'ca
 interface AppShellLibraryViewProps {
   activeGameId: string | null;
   gridSmartFill: boolean;
+  gridMaximizeSpace: boolean;
+  panelWidth: number;
+  onPanelWidthChange?: (width: number) => void;
   carouselGameTilePadding: number;
   carouselViewProps: {
     carouselButtonColors: { playColor?: string; editColor?: string; modManagerColor?: string };
@@ -100,6 +103,9 @@ interface AppShellLibraryViewProps {
 export function AppShellLibraryView({
   activeGameId,
   gridSmartFill,
+  gridMaximizeSpace,
+  panelWidth,
+  onPanelWidthChange,
   carouselGameTilePadding,
   carouselViewProps,
   cardColumns,
@@ -238,6 +244,9 @@ export function AppShellLibraryView({
                     logoPosition={logoPosition}
                     useLogosInsteadOfBoxart={viewMode === 'logo'}
                     smartFill={gridSmartFill}
+                    maximizeSpace={gridMaximizeSpace}
+                    panelWidth={panelWidth}
+                    onPanelWidthChange={onPanelWidthChange}
                     logoBackgroundColor={logoBackgroundColor}
                     logoBackgroundOpacity={logoBackgroundOpacity}
                     descriptionSize={gridDescriptionSize}

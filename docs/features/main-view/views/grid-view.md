@@ -44,14 +44,16 @@ Displays the games list as a resizable grid of cover-art (or boxart) tiles. Supp
 
 - Verify `gridSize`/`logoSize` when Smart Fill is off. When Smart Fill is on, check the `ResizeObserver`-driven column computation in [LibraryGrid.tsx](../../../../renderer/src/components/LibraryGrid.tsx), which calls [smartFillColumns.ts](../../../../renderer/src/utils/smartFillColumns.ts) with the tile aspect ratio (`aspect-[2/3]` for boxart, `aspect-[16/9]` for logo, matching [GameCard.tsx](../../../../renderer/src/components/GameCard.tsx)) — a wrong aspect constant under- or over-fills the available space.
 - Smart Fill only ever *shrinks* tiles: `computeSmartFillColumns` takes a `minColumns` floor (derived from `gridSize`/`logoSize`, mirroring the non-Smart-Fill `repeat(auto-fit, Npx)` layout) so it never returns fewer columns — i.e. bigger tiles — than the configured tile size, even with very few games in view.
-- If Smart Fill appears frozen on a stale column count after moving the window to a different display, note that `ResizeObserver` only reacts to the container's CSS-pixel box size; [LibraryGrid.tsx](../../../../renderer/src/components/LibraryGrid.tsx) also listens for `window resize` and DPI changes (via a self-resubscribing `matchMedia('(resolution: ...)')` query) to force a recompute when the screen/scale factor changes without a corresponding box-size change.
+- If Smart Fill appears frozen on a stale column count after moving the window to a different display, note that `ResizeObserver` only reacts to the container's CSS-pixel box size; [LibraryGrid.tsx](../../../../renderer/src/components/LibraryGrid.tsx) also listens for `window resize` and DPI changes (via a self-resubscribing `matchMedia('(resolution: ...)')` query, guarded since `matchMedia` isn't available in every environment) to force a recompute when the screen/scale factor changes without a corresponding box-size change.
+- If Maximize Space (`gridMaximizeSpace`) leaves leftover space at the bottom instead of filling it, check that `computeMaximizeSpaceLayout()` in [smartFillColumns.ts](../../../../renderer/src/utils/smartFillColumns.ts) is being called with `minColumns = 1`, not the `baseColumns` floor used by plain Smart Fill — forcing "at least N columns" while also solving for the exact-fit tile height requires far more width than exists, fails the panel-floor check immediately, and silently falls back to the old waste-tolerant layout. Maximize Space is meant to override that floor entirely, not respect it.
 
 ## File Ownership Map
 
 - **Renderer**
-  - [LibraryGrid.tsx](../../../../renderer/src/components/LibraryGrid.tsx) — tile rendering and Smart Fill column computation
-  - [smartFillColumns.ts](../../../../renderer/src/utils/smartFillColumns.ts) — shared Smart Fill column-fitting algorithm (also used by Card/Poster view)
+  - [LibraryGrid.tsx](../../../../renderer/src/components/LibraryGrid.tsx) — tile rendering, Smart Fill column computation, and Maximize Space panel-width adjustment (`maximizeSpace`/`panelWidth`/`onPanelWidthChange` props)
+  - [smartFillColumns.ts](../../../../renderer/src/utils/smartFillColumns.ts) — shared Smart Fill column-fitting algorithm and `computeMaximizeSpaceLayout()` (also used by Card/Poster view, though Card/Poster has no Maximize Space option since it has no resizable details panel)
   - [SortableGameCard.tsx](../../../../renderer/src/components/SortableGameCard.tsx)
-  - [App.tsx](../../../../renderer/src/App.tsx) — gridSize, ref, preferences
+  - [App.tsx](../../../../renderer/src/App.tsx) — gridSize, ref, preferences, wires `currentPanelWidth`/`onPanelWidthChange` (shared with the manual drag handle) into `LibraryGrid.tsx` for Maximize Space
+  - [GameDetailsPanel.tsx](../../../../renderer/src/components/GameDetailsPanel.tsx) — hides its manual resize divider (`disablePanelResize`) while Maximize Space owns the panel width
 - **Main**
-  - [UserPreferencesService.ts](../../../../main/UserPreferencesService.ts) — grid size, `gridSmartFill`, and tile options
+  - [UserPreferencesService.ts](../../../../main/UserPreferencesService.ts) — grid size, `gridSmartFill` (defaults `true`), `gridMaximizeSpace` (Grid/Logo only, defaults `true`), and tile options
