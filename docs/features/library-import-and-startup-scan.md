@@ -104,6 +104,11 @@ Finds games from configured launchers/folders and imports them into the local li
 - Confirm staged metadata is being trimmed before it is written into importer queue state, especially screenshots and links from multi-provider metadata.
 - Inspect main-process renderer crash logs from `render-process-gone` for the crash reason and exit code.
 
+### Symptom: App is "Not Responding" during a scan, or the tray icon won't restore the window until the scan finishes
+
+- All filesystem I/O in [ImportService.ts](../../main/ImportService.ts)'s scanners (`findExecutables`, the per-launcher folder walkers, manifest/`.info` reads, and the Battle.net registry lookup) runs on the async `fs.promises`/`child_process.exec` APIs, not `*Sync`/`execSync`. Since Electron's main process is single-threaded, any sync fs/exec call there blocks window paint/input and the tray's `click` handler ([main.ts](../../main/main.ts) `tray.on('click', ...)`) for as long as the call takes — reintroducing a `*Sync` or `execSync` call in a scanner is the most likely cause of this symptom coming back.
+- If a new scanner is added, use `fsp.readdir`/`fsp.stat`/`fsp.readFile`/`fsp.access` (see the `pathExists` helper) instead of the sync `node:fs` equivalents, and prefer `promisify(exec)`/`execFile` over `execSync` for any shell-out.
+
 ## File Ownership Map
 
 - **Main process**

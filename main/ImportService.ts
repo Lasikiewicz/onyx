@@ -6,9 +6,25 @@ import { GameFilteringService } from './GameFilteringService.js';
 import { SteamScanner } from './scanners/SteamScanner.js';
 import { XboxScanner } from './scanners/XboxScanner.js';
 import { getUnrealShippingRootDirectory, selectBestGameExecutable } from './executableSelection.js';
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { promises as fsp } from 'node:fs';
 import { join, sep, dirname } from 'node:path';
-import { execSync } from 'node:child_process';
+import { exec } from 'node:child_process';
+import { promisify } from 'node:util';
+
+const execAsync = promisify(exec);
+
+/**
+ * Async replacement for fs.existsSync - scanning runs on the main process, so any sync fs call
+ * here blocks the whole app (window paint, tray clicks) for the duration of the I/O.
+ */
+async function pathExists(path: string): Promise<boolean> {
+  try {
+    await fsp.access(path);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 export interface ScannedGameResult {
   uuid: string;
@@ -72,22 +88,23 @@ export class ImportService {
     this.isScanCancelled = true;
   }
 
-  private getEnabledConfigs(configs: Record<string, ConfiguredSource>): ConfiguredSource[] {
-    return Object.values(configs).filter((config) => {
-      const isEnabled = config.enabled && (
-        (config.path && existsSync(config.path)) ||
-        config.id === 'battle' ||
-        config.id === 'epic'
-      );
+  private async getEnabledConfigs(configs: Record<string, ConfiguredSource>): Promise<ConfiguredSource[]> {
+    const results: ConfiguredSource[] = [];
+
+    for (const config of Object.values(configs)) {
+      const pathFound = config.path ? await pathExists(config.path) : false;
+      const isEnabled = config.enabled && (pathFound || config.id === 'battle' || config.id === 'epic');
 
       if (!isEnabled) {
         console.log(
-          `[ImportService] Skipping ${config.id}: enabled=${config.enabled}, path=${config.path}, exists=${config.path ? existsSync(config.path) : false}`,
+          `[ImportService] Skipping ${config.id}: enabled=${config.enabled}, path=${config.path}, exists=${pathFound}`,
         );
+      } else {
+        results.push(config);
       }
+    }
 
-      return isEnabled;
-    });
+    return results;
   }
 
   private async scanConfiguredSource(config: ConfiguredSource): Promise<ScannedGameResult[]> {
@@ -136,7 +153,7 @@ export class ImportService {
       console.log(`[ImportService] Found ${Object.keys(configs).length} app configs`);
       progressCallback?.(`Checking ${Object.keys(configs).length} configured locations...`);
 
-      const enabledConfigs = this.getEnabledConfigs(configs as Record<string, ConfiguredSource>);
+      const enabledConfigs = await this.getEnabledConfigs(configs as Record<string, ConfiguredSource>);
 
       console.log(`[ImportService] Scanning ${enabledConfigs.length} enabled app configs`);
       progressCallback?.(`Scanning ${enabledConfigs.length} location${enabledConfigs.length !== 1 ? 's' : ''}...`);
@@ -190,9 +207,9 @@ export class ImportService {
 
           const folder = config.path;
           try {
-            if (existsSync(folder)) {
+            if (await pathExists(folder)) {
               progressCallback?.(`Scanning manual root ${folder} (subfolders = game names)...`);
-              const folderGames = this.scanManualFolder(folder, config.autoCategory, config.name);
+              const folderGames = await this.scanManualFolder(folder, config.autoCategory, config.name);
               if (folderGames.length > 0) {
                 progressCallback?.(`Found ${folderGames.length} game${folderGames.length !== 1 ? 's' : ''} in ${folder}`);
                 folderGames.forEach(game => {
@@ -226,9 +243,9 @@ export class ImportService {
           }
 
           try {
-            if (existsSync(gameInfo.path)) {
+            if (await pathExists(gameInfo.path)) {
               progressCallback?.(`Checking for ${gameInfo.name}...`);
-              const game = this.scanHardcodedGamePath(gameInfo.path, gameInfo.name, gameInfo.exeName);
+              const game = await this.scanHardcodedGamePath(gameInfo.path, gameInfo.name, gameInfo.exeName);
               if (game) {
                 progressCallback?.(`Found: ${game.title}`);
                 onGamesFound?.([game]);
@@ -361,18 +378,18 @@ export class ImportService {
 
       // Epic Games stores manifests typically in ProgramData; also try under provided epicPath
       const defaultManifests = join(process.env.ProgramData || 'C:\\ProgramData', 'Epic', 'EpicGamesLauncher', 'Data', 'Manifests');
-      const manifestsPath = existsSync(defaultManifests)
+      const manifestsPath = (await pathExists(defaultManifests))
         ? defaultManifests
         : join(epicPath, 'Epic Games Launcher', 'Data', 'Manifests');
 
-      if (existsSync(manifestsPath)) {
+      if (await pathExists(manifestsPath)) {
         // Try to read from manifests first (preferred method)
-        const manifestFiles = readdirSync(manifestsPath).filter(f => f.endsWith('.item'));
+        const manifestFiles = (await fsp.readdir(manifestsPath)).filter(f => f.endsWith('.item'));
 
         for (const manifestFile of manifestFiles) {
           try {
             const manifestPath = join(manifestsPath, manifestFile);
-            const manifestContent = readFileSync(manifestPath, 'utf-8');
+            const manifestContent = await fsp.readFile(manifestPath, 'utf-8');
             const manifest = JSON.parse(manifestContent);
 
             // Epic manifest structure
@@ -382,13 +399,13 @@ export class ImportService {
             const catalogNamespace = manifest.CatalogNamespace;
             const catalogItemId = manifest.CatalogItemId;
 
-            if (installLocation && existsSync(installLocation)) {
+            if (installLocation && (await pathExists(installLocation))) {
               // Find the executable
               let exePath: string | undefined;
 
               if (launchExecutable) {
                 const fullExePath = join(installLocation, launchExecutable);
-                if (existsSync(fullExePath)) {
+                if (await pathExists(fullExePath)) {
                   exePath = fullExePath;
                 }
               }
@@ -402,7 +419,7 @@ export class ImportService {
                 ];
 
                 for (const exe of commonExes) {
-                  if (existsSync(exe)) {
+                  if (await pathExists(exe)) {
                     exePath = exe;
                     break;
                   }
@@ -433,12 +450,12 @@ export class ImportService {
 
       // Fallback: Scan Epic Games directory directly for game folders
       // This handles cases where manifests aren't available or games are installed directly
-      if (!existsSync(epicPath)) {
+      if (!(await pathExists(epicPath))) {
         return results;
       }
 
       try {
-        const entries = readdirSync(epicPath);
+        const entries = await fsp.readdir(epicPath);
 
         for (const entry of entries) {
           // Skip the Epic Games Launcher folder and other non-game folders
@@ -449,7 +466,7 @@ export class ImportService {
           const gamePath = join(epicPath, entry);
 
           try {
-            const stats = statSync(gamePath);
+            const stats = await fsp.stat(gamePath);
             if (!stats.isDirectory()) {
               continue;
             }
@@ -461,7 +478,7 @@ export class ImportService {
             }
 
             // Look for executables in this game folder (deep scan)
-            const exeFiles = this.findExecutables(gamePath, 0, 20);
+            const exeFiles = await this.findExecutables(gamePath, 0, 20);
 
             // Filter out helper executables
             const gameExes = exeFiles.filter(exe => {
@@ -533,10 +550,10 @@ export class ImportService {
         gamesPath = join(gogPath, 'Games');
       }
 
-      if (!existsSync(gamesPath)) {
+      if (!(await pathExists(gamesPath))) {
         // Try alternative location
         const altGamesPath = join(gogPath, 'Galaxy', 'Games');
-        if (existsSync(altGamesPath)) {
+        if (await pathExists(altGamesPath)) {
           return this.scanGOGGamesFolder(altGamesPath);
         }
         console.warn(`GOG Games folder not found: ${gamesPath}`);
@@ -554,14 +571,14 @@ export class ImportService {
    * Scan GOG games folder for executables
    * Recursively scans all subdirectories and creates a game entry for each folder containing a valid executable
    */
-  private scanGOGGamesFolder(gamesPath: string): ScannedGameResult[] {
+  private async scanGOGGamesFolder(gamesPath: string): Promise<ScannedGameResult[]> {
     const results: ScannedGameResult[] = [];
 
     try {
       console.log(`[GOG] Scanning games folder: ${gamesPath}`);
 
       // Find all executables recursively in the folder
-      const allExeFiles = this.findExecutables(gamesPath, 0, 20);
+      const allExeFiles = await this.findExecutables(gamesPath, 0, 20);
       console.log(`[GOG] Found ${allExeFiles.length} total executables`);
 
       // Filter out helper executables
@@ -645,7 +662,7 @@ export class ImportService {
 
           while (searchPath.startsWith(normalizedGamesPath)) {
             try {
-              const contents = readdirSync(searchPath);
+              const contents = await fsp.readdir(searchPath);
               const found = contents.find(f => f.match(/^goggame-\d+\.info$/));
               if (found) {
                 infoFile = found;
@@ -664,7 +681,7 @@ export class ImportService {
           if (infoFile) {
             try {
               const infoPath = join(infoDir, infoFile);
-              const infoContent = readFileSync(infoPath, 'utf-8');
+              const infoContent = await fsp.readFile(infoPath, 'utf-8');
               infoData = JSON.parse(infoContent);
 
               // Extract the game name from .info file if available
@@ -682,7 +699,7 @@ export class ImportService {
                 const absolutePath = join(infoDir, taskPath);
 
                 // Check if the resolved exe exists
-                if (existsSync(absolutePath)) {
+                if (await pathExists(absolutePath)) {
                   primaryExePath = absolutePath;
                 }
 
@@ -735,16 +752,16 @@ export class ImportService {
    * Scan manual root folder where each immediate subfolder is treated as a game.
    * Game title = subfolder name. Picks the first viable executable under that subfolder.
    */
-  private scanManualFolder(rootPath: string, autoCategory?: string[], folderName?: string): ScannedGameResult[] {
+  private async scanManualFolder(rootPath: string, autoCategory?: string[], folderName?: string): Promise<ScannedGameResult[]> {
     const results: ScannedGameResult[] = [];
 
     try {
-      const entries = readdirSync(rootPath);
+      const entries = await fsp.readdir(rootPath);
 
       for (const entry of entries) {
         const gameDir = join(rootPath, entry);
         try {
-          const stats = statSync(gameDir);
+          const stats = await fsp.stat(gameDir);
           if (!stats.isDirectory()) {
             continue;
           }
@@ -752,7 +769,7 @@ export class ImportService {
           const title = entry;
 
           // Find executables within the game folder (allow deeper nests, but reuse global filters)
-          const exeCandidates = this.findExecutables(gameDir, 0, 20);
+          const exeCandidates = await this.findExecutables(gameDir, 0, 20);
 
           let mainExe: string | undefined;
           if (exeCandidates.length > 0) {
@@ -766,11 +783,11 @@ export class ImportService {
           let finalExe = mainExe;
 
           try {
-            const dirContents = readdirSync(gameDir);
+            const dirContents = await fsp.readdir(gameDir);
             const infoFile = dirContents.find(f => f.match(/^goggame-(\d+)\.info$/));
             if (infoFile) {
               const infoPath = join(gameDir, infoFile);
-              const infoContent = readFileSync(infoPath, 'utf-8');
+              const infoContent = await fsp.readFile(infoPath, 'utf-8');
               const infoData = JSON.parse(infoContent);
 
               if (infoData.name) finalTitle = infoData.name;
@@ -782,7 +799,7 @@ export class ImportService {
                 if (primaryTask.path) {
                   const taskPath = primaryTask.path.replace(/\\/g, sep);
                   const absolutePath = join(gameDir, taskPath);
-                  if (existsSync(absolutePath)) {
+                  if (await pathExists(absolutePath)) {
                     finalExe = absolutePath;
                   }
                 }
@@ -823,7 +840,7 @@ export class ImportService {
   /**
    * Find executable files in a directory (recursive, deep scan with high max depth)
    */
-  private findExecutables(dirPath: string, depth: number = 0, maxDepth: number = 20): string[] {
+  private async findExecutables(dirPath: string, depth: number = 0, maxDepth: number = 20): Promise<string[]> {
     const executables: string[] = [];
 
     if (depth > maxDepth) return executables;
@@ -860,13 +877,17 @@ export class ImportService {
     ];
 
     try {
-      const entries = readdirSync(dirPath);
+      const dirEntries = await fsp.readdir(dirPath, { withFileTypes: true });
 
-      for (const entry of entries) {
+      for (const dirEntry of dirEntries) {
+        const entry = dirEntry.name;
         const fullPath = join(dirPath, entry);
 
         try {
-          const stats = statSync(fullPath);
+          // A symlink/junction reports neither isFile() nor isDirectory() via Dirent - fall back
+          // to a real stat for those so junctioned game folders (common with some launchers)
+          // still get scanned.
+          const stats = (dirEntry.isFile() || dirEntry.isDirectory()) ? dirEntry : await fsp.stat(fullPath);
 
           if (stats.isFile() && entry.toLowerCase().endsWith('.exe')) {
             const lowerName = entry.toLowerCase();
@@ -960,7 +981,7 @@ export class ImportService {
               continue;
             }
             // Recursively search subdirectories
-            const subExes = this.findExecutables(fullPath, depth + 1, maxDepth);
+            const subExes = await this.findExecutables(fullPath, depth + 1, maxDepth);
             executables.push(...subExes);
           }
         } catch (err) {
@@ -996,11 +1017,11 @@ export class ImportService {
 
       console.log(`[Ubisoft] Checking games folder: ${gamesPath}`);
 
-      if (!existsSync(gamesPath)) {
+      if (!(await pathExists(gamesPath))) {
         console.warn(`[Ubisoft] Games folder not found: ${gamesPath}`);
         // Try alternative path structure (some installations might be different)
         const altPath = join(ubisoftPath, 'Games');
-        if (existsSync(altPath)) {
+        if (await pathExists(altPath)) {
           console.log(`[Ubisoft] Found games in alternative path: ${altPath}`);
           gamesPath = altPath;
         } else {
@@ -1009,7 +1030,7 @@ export class ImportService {
       }
 
       console.log(`[Ubisoft] Scanning games folder: ${gamesPath}`);
-      const scannedGames = this.scanUbisoftGamesFolder(gamesPath);
+      const scannedGames = await this.scanUbisoftGamesFolder(gamesPath);
       console.log(`[Ubisoft] Found ${scannedGames.length} games`);
       return scannedGames;
     } catch (error) {
@@ -1022,14 +1043,14 @@ export class ImportService {
    * Scan Ubisoft games folder for executables
    * Recursively scans all subdirectories and creates a game entry for each folder containing a valid executable
    */
-  private scanUbisoftGamesFolder(gamesPath: string): ScannedGameResult[] {
+  private async scanUbisoftGamesFolder(gamesPath: string): Promise<ScannedGameResult[]> {
     const results: ScannedGameResult[] = [];
 
     try {
       console.log(`[Ubisoft] Scanning games folder: ${gamesPath}`);
 
       // Find all executables recursively in the folder
-      const allExeFiles = this.findExecutables(gamesPath, 0, 20);
+      const allExeFiles = await this.findExecutables(gamesPath, 0, 20);
       console.log(`[Ubisoft] Found ${allExeFiles.length} total executables`);
 
       // Filter out helper executables
@@ -1141,7 +1162,7 @@ export class ImportService {
       console.log(`[Rockstar] Starting scan with path: ${rockstarPath}`);
       const results: ScannedGameResult[] = [];
 
-      if (!existsSync(rockstarPath)) {
+      if (!(await pathExists(rockstarPath))) {
         console.warn(`[Rockstar] Rockstar Games folder not found: ${rockstarPath}`);
         return results;
       }
@@ -1149,7 +1170,7 @@ export class ImportService {
       // Rockstar games are typically in subdirectories of the Rockstar Games folder
       // Each game has its own folder (e.g., Grand Theft Auto V, Red Dead Redemption 2)
       try {
-        const entries = readdirSync(rockstarPath);
+        const entries = await fsp.readdir(rockstarPath);
         console.log(`[Rockstar] Found ${entries.length} entries in Rockstar Games folder`);
 
         for (const entry of entries) {
@@ -1166,7 +1187,7 @@ export class ImportService {
           const gamePath = join(rockstarPath, entry);
 
           try {
-            const stats = statSync(gamePath);
+            const stats = await fsp.stat(gamePath);
             if (!stats.isDirectory()) {
               continue;
             }
@@ -1174,7 +1195,7 @@ export class ImportService {
             console.log(`[Rockstar] Scanning game folder: ${entry}`);
 
             // Look for .exe files in the game folder (deep scan)
-            const exeFiles = this.findExecutables(gamePath, 0, 20);
+            const exeFiles = await this.findExecutables(gamePath, 0, 20);
             console.log(`[Rockstar] Found ${exeFiles.length} executables in ${entry}`);
 
             // Filter out helper executables and launchers
@@ -1251,7 +1272,7 @@ export class ImportService {
     const results: ScannedGameResult[] = [];
 
     try {
-      if (!existsSync(folderPath)) {
+      if (!(await pathExists(folderPath))) {
         console.error(`[ImportService] Folder does not exist: ${folderPath}`);
         return [];
       }
@@ -1259,7 +1280,7 @@ export class ImportService {
       console.log(`[ImportService] Scanning folder "${folderPath}" recursively for games...`);
 
       // Find all executables recursively in the folder
-      const allExeFiles = this.findExecutables(folderPath, 0, 20);
+      const allExeFiles = await this.findExecutables(folderPath, 0, 20);
       console.log(`[ImportService] Found ${allExeFiles.length} total executables in "${folderPath}"`);
 
       // Filter out helper executables
@@ -1445,7 +1466,7 @@ export class ImportService {
       console.log(`[EA] Starting scan with path: ${eaPath}`);
       const results: ScannedGameResult[] = [];
 
-      if (!existsSync(eaPath)) {
+      if (!(await pathExists(eaPath))) {
         console.warn(`[EA] Path does not exist: ${eaPath}`);
         return results;
       }
@@ -1463,7 +1484,7 @@ export class ImportService {
       ];
 
       for (const gamesPath of possiblePaths) {
-        if (existsSync(gamesPath)) {
+        if (await pathExists(gamesPath)) {
           console.log(`[EA] Scanning: ${gamesPath}`);
           const scanned = await this.scanGenericGamesFolder(gamesPath, 'ea');
           results.push(...scanned);
@@ -1487,11 +1508,11 @@ export class ImportService {
       console.log(`[Battle.net] Starting scan with path: ${battlePath}`);
       const results: ScannedGameResult[] = [];
 
-      if (!battlePath || !existsSync(battlePath)) {
+      if (!battlePath || !(await pathExists(battlePath))) {
         console.warn(`[Battle.net] Configured path does not exist or is empty: "${battlePath}". Will still attempt registry scan.`);
       } else {
         // 1. Check if the provided path is actually a game folder itself (common Blizzard structure)
-        if (existsSync(join(battlePath, '.build.info'))) {
+        if (await pathExists(join(battlePath, '.build.info'))) {
           console.log(`[Battle.net] Provided path looks like a Blizzard game folder: ${battlePath}`);
           const scanned = await this.scanGenericGamesFolder(battlePath, 'battle', false);
           results.push(...scanned);
@@ -1500,7 +1521,7 @@ export class ImportService {
           // Don't scan the root path to avoid picking up the launcher itself
           const gamesPath = join(battlePath, 'Games');
 
-          if (existsSync(gamesPath)) {
+          if (await pathExists(gamesPath)) {
             console.log(`[Battle.net] Scanning games directory: ${gamesPath}`);
             const scanned = await this.scanGenericGamesFolder(gamesPath, 'battle');
             results.push(...scanned);
@@ -1510,16 +1531,16 @@ export class ImportService {
 
           // 3. Improved check: If the path provided is the Battle.net launcher folder, check the parent
           // Many users point to "C:\\Program Files (x86)\\Battle.net" but games are in "C:\\Program Files (x86)"
-          const isLauncherDir = existsSync(join(battlePath, 'Battle.net.exe')) ||
+          const isLauncherDir = (await pathExists(join(battlePath, 'Battle.net.exe'))) ||
             battlePath.toLowerCase().endsWith('battle.net') ||
             battlePath.toLowerCase().endsWith('battlenet');
 
           if (isLauncherDir) {
             const parentDir = dirname(battlePath);
-            if (existsSync(parentDir) && parentDir !== battlePath) {
+            if ((await pathExists(parentDir)) && parentDir !== battlePath) {
               console.log(`[Battle.net] Detected launcher directory, also scanning parent: ${parentDir}`);
               try {
-                const parentEntries = readdirSync(parentDir, { withFileTypes: true });
+                const parentEntries = await fsp.readdir(parentDir, { withFileTypes: true });
                 for (const entry of parentEntries) {
                   if (entry.isDirectory()) {
                     const dirName = entry.name.toLowerCase();
@@ -1528,7 +1549,7 @@ export class ImportService {
 
                     const potentialGamePath = join(parentDir, entry.name);
                     // Check if it's a Blizzard game (has .build.info)
-                    if (existsSync(join(potentialGamePath, '.build.info'))) {
+                    if (await pathExists(join(potentialGamePath, '.build.info'))) {
                       // Avoid duplicate if already found
                       if (results.some(r => r.installPath === potentialGamePath)) continue;
 
@@ -1545,7 +1566,7 @@ export class ImportService {
           }
 
           // 4. Additional check for subdirectories (existing logic)
-          const entries = readdirSync(battlePath, { withFileTypes: true });
+          const entries = await fsp.readdir(battlePath, { withFileTypes: true });
           for (const entry of entries) {
             if (entry.isDirectory()) {
               const dirName = entry.name.toLowerCase();
@@ -1589,7 +1610,8 @@ export class ImportService {
               // Use -EncodedCommand to avoid $_ being consumed by cmd.exe shell
               const psScript = `Get-ItemProperty '${baseKey}\\*' -ErrorAction SilentlyContinue | Where-Object { $_.Publisher -match 'Blizzard' -or $_.Publisher -match 'Battle.net' -or $_.UninstallString -match 'Blizzard Uninstaller' } | Select-Object DisplayName, InstallLocation | ConvertTo-Json -Compress`;
               const encodedCmd = Buffer.from(psScript, 'utf16le').toString('base64');
-              const output = execSync(`powershell -NoProfile -NonInteractive -EncodedCommand ${encodedCmd}`, { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] }).trim();
+              const { stdout } = await execAsync(`powershell -NoProfile -NonInteractive -EncodedCommand ${encodedCmd}`, { encoding: 'utf-8' });
+              const output = stdout.trim();
 
               if (output) {
                 const gamesArr = output.startsWith('[') ? JSON.parse(output) : [JSON.parse(output)];
@@ -1601,7 +1623,7 @@ export class ImportService {
                     // Skip the launcher itself
                     if (name === 'Battle.net' || path.toLowerCase().includes('battle.net')) continue;
 
-                    if (!results.some(r => r.installPath === path) && existsSync(path)) {
+                    if (!results.some(r => r.installPath === path) && (await pathExists(path))) {
                       console.log(`[Battle.net] Found game via registry: ${name} at ${path}`);
                       const scanned = await this.scanGenericGamesFolder(path, 'battle', false);
                       results.push(...scanned);
@@ -1635,7 +1657,7 @@ export class ImportService {
       console.log(`[Humble] Starting scan with path: ${humblePath}`);
       const results: ScannedGameResult[] = [];
 
-      if (!existsSync(humblePath)) {
+      if (!(await pathExists(humblePath))) {
         console.warn(`[Humble] Path does not exist: ${humblePath}`);
         return results;
       }
@@ -1662,7 +1684,7 @@ export class ImportService {
       console.log(`[itch.io] Starting scan with path: ${itchPath}`);
       const results: ScannedGameResult[] = [];
 
-      if (!existsSync(itchPath)) {
+      if (!(await pathExists(itchPath))) {
         console.warn(`[itch.io] Path does not exist: ${itchPath}`);
         return results;
       }
@@ -1691,7 +1713,7 @@ export class ImportService {
       console.log(`[${source}] Scanning games folder: ${gamesPath}`);
 
       // Find all executables recursively in the folder
-      const allExeFiles = this.findExecutables(gamesPath, 0, 20);
+      const allExeFiles = await this.findExecutables(gamesPath, 0, 20);
       console.log(`[${source}] Found ${allExeFiles.length} total executables`);
 
       // Filter out helper executables
@@ -1928,19 +1950,19 @@ export class ImportService {
    * Scan a hardcoded game path for a single game
    * Looks for executables in the game directory
    */
-  private scanHardcodedGamePath(gamePath: string, gameName: string, exeName?: string): ScannedGameResult | null {
+  private async scanHardcodedGamePath(gamePath: string, gameName: string, exeName?: string): Promise<ScannedGameResult | null> {
     try {
       let mainExe = '';
 
       if (exeName) {
         const exactPath = join(gamePath, exeName);
-        if (existsSync(exactPath)) {
+        if (await pathExists(exactPath)) {
           mainExe = exactPath;
         }
       }
 
       if (!mainExe) {
-        const exeCandidates = this.findExecutables(gamePath, 0, 20);
+        const exeCandidates = await this.findExecutables(gamePath, 0, 20);
 
         if (exeCandidates.length === 0) {
           console.log(`[ImportService] No executables found in hardcoded path: ${gamePath}`);

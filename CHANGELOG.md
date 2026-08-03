@@ -4,6 +4,12 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.11.7] - 2026-08-03
+
+- Library scanning:
+  - Fixed Onyx becoming "Not Responding" while a library scan (especially the startup scan) is running.
+  - Fixed the system tray icon not being able to open the window until a startup scan finishes when the app starts minimized to tray.
+
 ## [0.11.6] - 2026-08-03
 
 - Grid/Logo and Card/Poster Smart Fill:
