@@ -83,7 +83,14 @@ export class GameStore {
   private store: Store<StoreSchema>;
   private gamesCache: Game[] | null = null;
   private saveTimeout: NodeJS.Timeout | null = null;
+  private pendingSaveSince: number | null = null;
   private readonly SAVE_DELAY = 2000;
+  /**
+   * Upper bound on how long a pending save may be deferred by repeated scheduleSave calls.
+   * Without this cap a continuous stream of saves (the image optimization queue saves once
+   * per game) resets the debounce forever and nothing ever reaches disk.
+   */
+  private readonly MAX_SAVE_DELAY = 10000;
 
   constructor() {
     this.store = new Store<StoreSchema>({
@@ -114,13 +121,23 @@ export class GameStore {
    */
   private scheduleSave(games: Game[]): void {
     this.gamesCache = games;
+
+    const now = Date.now();
+    if (this.pendingSaveSince === null) {
+      this.pendingSaveSince = now;
+    }
+
     if (this.saveTimeout) {
       clearTimeout(this.saveTimeout);
     }
 
-    this.saveTimeout = setTimeout(async () => {
-      await this.flush();
-    }, this.SAVE_DELAY);
+    // Debounce bursts, but never defer a pending save beyond MAX_SAVE_DELAY.
+    const waited = now - this.pendingSaveSince;
+    const delay = Math.max(0, Math.min(this.SAVE_DELAY, this.MAX_SAVE_DELAY - waited));
+
+    this.saveTimeout = setTimeout(() => {
+      void this.flush();
+    }, delay);
   }
 
   /**
@@ -131,6 +148,7 @@ export class GameStore {
       clearTimeout(this.saveTimeout);
       this.saveTimeout = null;
     }
+    this.pendingSaveSince = null;
 
     if (this.gamesCache) {
       if (isDebugOptimizationEnabled()) debugOptimizationLog(`GameStore flush start games=${this.gamesCache.length}`);
@@ -164,6 +182,7 @@ export class GameStore {
       clearTimeout(this.saveTimeout);
       this.saveTimeout = null;
     }
+    this.pendingSaveSince = null;
 
     if (this.gamesCache && this.store) {
       if (isDebugOptimizationEnabled()) debugOptimizationLog(`GameStore flushSync start games=${this.gamesCache.length}`);

@@ -23,6 +23,9 @@ export interface ImportWorkbenchSidebarProps {
     getSourceIcon: (source: string) => React.ReactNode;
     sourceLabels: Record<ImportSource, string>;
     showIgnored: boolean;
+    deselectedIds: Set<string>;
+    onToggleGameSelection: (uuid: string) => void;
+    onSetSourceSelection: (source: string, selected: boolean) => void;
 }
 
 export const ImportWorkbenchSidebar: React.FC<ImportWorkbenchSidebarProps> = ({
@@ -42,6 +45,9 @@ export const ImportWorkbenchSidebar: React.FC<ImportWorkbenchSidebarProps> = ({
     getSourceIcon,
     sourceLabels,
     showIgnored,
+    deselectedIds,
+    onToggleGameSelection,
+    onSetSourceSelection,
 }) => {
     return (
         <div
@@ -55,11 +61,29 @@ export const ImportWorkbenchSidebar: React.FC<ImportWorkbenchSidebarProps> = ({
             <div className="h-full overflow-y-auto">
                         {Object.entries(groupedGames).map(([source, games]) => {
                             if (!games || games.length === 0) return null;
+                            const sourceLabel = sourceLabels[source as ImportSource] || source;
+                            const selectedInSource = games.filter(g => !deselectedIds.has(g.uuid)).length;
+                            const allSelected = selectedInSource === games.length;
+                            const noneSelected = selectedInSource === 0;
                             return (
                                 <div key={source} className="border-b border-gray-800">
                                     <div className="px-4 py-2 bg-gray-800/50 text-sm font-medium text-gray-300 sticky top-0 flex items-center gap-2">
+                                        {!showIgnored && (
+                                            <input
+                                                type="checkbox"
+                                                checked={allSelected}
+                                                ref={el => {
+                                                    if (el) el.indeterminate = !allSelected && !noneSelected;
+                                                }}
+                                                onChange={() => onSetSourceSelection(source, !allSelected)}
+                                                disabled={isScanning}
+                                                className="w-4 h-4 flex-shrink-0 accent-blue-500 cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
+                                                title={allSelected ? `Deselect all ${sourceLabel} games` : `Select all ${sourceLabel} games`}
+                                                aria-label={allSelected ? `Deselect all ${sourceLabel} games` : `Select all ${sourceLabel} games`}
+                                            />
+                                        )}
                                         {getSourceIcon(source)}
-                                        {sourceLabels[source as ImportSource] || source} ({games.length})
+                                        {sourceLabel} ({games.length})
                                     </div>
                                     {games.map(game => (
                                         <div
@@ -76,6 +100,20 @@ export const ImportWorkbenchSidebar: React.FC<ImportWorkbenchSidebarProps> = ({
                                                     : 'hover:bg-gray-800/50'
                                             }`}
                                         >
+                                            {/* Include-in-import checkbox */}
+                                            {!showIgnored && (
+                                                <input
+                                                    type="checkbox"
+                                                    checked={!deselectedIds.has(game.uuid)}
+                                                    onChange={() => onToggleGameSelection(game.uuid)}
+                                                    onClick={e => e.stopPropagation()}
+                                                    disabled={isScanning}
+                                                    className="w-4 h-4 flex-shrink-0 accent-blue-500 cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
+                                                    title={deselectedIds.has(game.uuid) ? 'Include in import' : 'Exclude from import'}
+                                                    aria-label={`Include ${game.title} in import`}
+                                                />
+                                            )}
+
                                             {/* Thumbnail */}
                                             <div className="w-10 h-14 bg-gray-800 rounded overflow-hidden flex-shrink-0">
                                                 {game.boxArtUrl ? (

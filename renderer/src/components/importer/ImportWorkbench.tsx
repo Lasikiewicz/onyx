@@ -2,7 +2,7 @@
  * ImportWorkbench - A clean, maintainable game importer
  * Uses GamePropertiesPanel for unified game editing
  */
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useCallback } from 'react';
 import { StagedGame, ImportSource } from '../../types/importer';
 import { Game } from '../../types/game';
 import { GamePropertiesPanelHandle } from '../GamePropertiesPanel';
@@ -60,6 +60,9 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
     const [error, setError] = useState<string | null>(null);
     const [scanProgress, setScanProgress] = useState('');
     const [showIgnored, setShowIgnored] = useState(false);
+    // Per-game import selection. Tracks *de*selected uuids rather than selected ones so that
+    // games discovered later during a streaming scan default to selected.
+    const [deselectedIds, setDeselectedIds] = useState<Set<string>>(new Set());
     const [showCloseConfirm, setShowCloseConfirm] = useState(false);
     const [invalidApiProviders, setInvalidApiProviders] = useState<string[]>([]);
 
@@ -94,8 +97,49 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
         return groups;
     }, [visibleGames]);
 
-    // Count ready games
-    const readyCount = useMemo(() => visibleGames.filter(g => g.status === 'ready').length, [visibleGames]);
+    // Count ready games, and how many of those are actually selected for import
+    const readyGames = useMemo(() => visibleGames.filter(g => g.status === 'ready'), [visibleGames]);
+    const readyCount = readyGames.length;
+    const selectedReadyCount = useMemo(
+        () => readyGames.filter(g => !deselectedIds.has(g.uuid)).length,
+        [readyGames, deselectedIds],
+    );
+
+    const toggleGameSelection = useCallback((uuid: string) => {
+        setDeselectedIds(prev => {
+            const next = new Set(prev);
+            if (next.has(uuid)) {
+                next.delete(uuid);
+            } else {
+                next.add(uuid);
+            }
+            return next;
+        });
+    }, []);
+
+    const setSourceSelection = useCallback(
+        (source: string, selected: boolean) => {
+            setDeselectedIds(prev => {
+                const next = new Set(prev);
+                (groupedGames[source] || []).forEach(g => {
+                    if (selected) {
+                        next.delete(g.uuid);
+                    } else {
+                        next.add(g.uuid);
+                    }
+                });
+                return next;
+            });
+        },
+        [groupedGames],
+    );
+
+    const setAllSelection = useCallback(
+        (selected: boolean) => {
+            setDeselectedIds(selected ? new Set<string>() : new Set(visibleGames.map(g => g.uuid)));
+        },
+        [visibleGames],
+    );
 
     const { handleScanAll } = useImportWorkbenchScan({
         isOpen,
@@ -126,6 +170,7 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
 
         selectedId,
         visibleGames,
+        deselectedIds,
 
         setQueue,
         setSelectedId,
@@ -195,6 +240,9 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
                         getSourceIcon={getSourceIcon}
                         sourceLabels={SOURCE_LABELS}
                         showIgnored={showIgnored}
+                        deselectedIds={deselectedIds}
+                        onToggleGameSelection={toggleGameSelection}
+                        onSetSourceSelection={setSourceSelection}
                     />
 
                     {/* Main Panel - Game Details / Empty Hero */}
@@ -232,8 +280,11 @@ export const ImportWorkbench: React.FC<ImportWorkbenchProps> = ({
                     isImporting={isImporting}
                     importProgress={importProgress}
                     readyCount={readyCount}
+                    selectedReadyCount={selectedReadyCount}
                     visibleCount={visibleGames.length}
                     onImport={handleImport}
+                    onSelectAll={() => setAllSelection(true)}
+                    onSelectNone={() => setAllSelection(false)}
                 />
 
                 {/* Error Toast */}

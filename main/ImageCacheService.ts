@@ -88,8 +88,10 @@ const WEBP_QUALITY = 85;
 const PNG_COMPRESSION = 6;
 
 let sharpConcurrencySet = false;
+/** The callable Sharp factory (the module's default export), not the module namespace. */
+type SharpModule = (typeof import('sharp'))['default'];
 /** Get Sharp instance with concurrency limited once per process to avoid libvips thread explosion. */
-async function getSharp(): Promise<typeof import('sharp')> {
+async function getSharp(): Promise<SharpModule> {
   const sharp = (await import('sharp')).default;
   if (!sharpConcurrencySet) {
     sharp.concurrency(1);

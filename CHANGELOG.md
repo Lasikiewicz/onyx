@@ -4,6 +4,23 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.13.0] - 2026-08-05
+
+- Add Games:
+  - Added a checkbox on every scanned game so you can choose exactly which games to import, instead of importing everything that was found.
+  - Added a checkbox on each launcher heading (e.g. "Xbox Game Pass (6)") that selects or clears every game from that launcher at once, and shows a partial state when only some are selected.
+  - Added "Select all" and "Select none" shortcuts next to the import count.
+  - The footer now reads "5 of 10 ready selected" and the import button counts only the games you actually selected.
+  - Everything is selected by default, and games found later in a scan are selected automatically, so importing everything still takes one click.
+- Library saving:
+  - Fixed the game library being rewritten to disk once per game while artwork was being optimized, which could stall Onyx during large imports. A 10-game import now writes the library once instead of eleven times.
+  - Long-running imports now save periodically instead of only at the end, so progress is no longer held in memory indefinitely.
+- Image optimization:
+  - Updated the image processing library to a newer release that includes several security fixes, since it processes artwork downloaded from third-party sources.
+- Updates and security:
+  - Updated the auto-updater to a version that no longer forwards authorization headers when an update download is redirected to another host.
+  - Updated the underlying Electron runtime to pick up the latest Chromium security patches.
+
 ## [0.12.0] - 2026-08-03
 
 - Grid/Logo Smart Fill:

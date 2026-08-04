@@ -14,6 +14,8 @@ export interface UseImportWorkbenchActionsParams {
 
     selectedId: string | null;
     visibleGames: StagedGame[];
+    /** uuids the user has unchecked; these are excluded from the import. */
+    deselectedIds: Set<string>;
 
     setQueue: React.Dispatch<React.SetStateAction<StagedGame[]>>;
     setSelectedId: React.Dispatch<React.SetStateAction<string | null>>;
@@ -30,6 +32,7 @@ export function useImportWorkbenchActions({
 
     selectedId,
     visibleGames,
+    deselectedIds,
 
     setQueue,
     setSelectedId,
@@ -111,10 +114,16 @@ export function useImportWorkbenchActions({
                     ? visibleGames.map(staged => (staged.uuid === selectedId ? updatedGame : staged))
                     : visibleGames;
 
-            const listToImport = merged.filter(staged => staged.status === 'ready');
+            const listToImport = merged.filter(
+                staged => staged.status === 'ready' && !deselectedIds.has(staged.uuid),
+            );
 
             if (listToImport.length === 0) {
-                setError('No games ready to import');
+                setError(
+                    merged.some(staged => staged.status === 'ready')
+                        ? 'No games selected to import'
+                        : 'No games ready to import',
+                );
                 setIsImporting(false);
                 return;
             }
@@ -179,6 +188,7 @@ export function useImportWorkbenchActions({
             setImportProgress(null);
         }
     }, [
+        deselectedIds,
         onClose,
         onImport,
         panelRef,

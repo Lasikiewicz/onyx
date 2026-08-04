@@ -337,9 +337,10 @@ export function createImageOptimizationQueue(
               iconUrl: cached.iconUrl ?? game.iconUrl,
             };
             await gameStore.saveGame(updated);
-            if (isDebugOptimizationEnabled()) debugOptimizationLog(`queue flushPending start gameId=${item.gameId}`);
-            await gameStore.flushPending();
-            if (isDebugOptimizationEnabled()) debugOptimizationLog(`queue flushPending done gameId=${item.gameId}`);
+            // Deliberately no flush per game: each flush rewrites the entire library
+            // synchronously, so flushing here cost one full-file write per optimized game.
+            // GameStore batches these and caps its debounce, and the run flushes once when
+            // the queue drains (see scheduleWorkers).
             if (isDebugOptimizationEnabled()) debugOptimizationLog(`queue saveGame done gameId=${item.gameId}`);
           }
         })();
@@ -438,6 +439,11 @@ export function createImageOptimizationQueue(
             if (getQueuedItemsCount() === 0 && activeWorkers === 0) {
               processing = false;
               currentItem = null;
+              // Single write for every artwork update accumulated during this run.
+              if (isDebugOptimizationEnabled()) debugOptimizationLog(`queue run drained, final flush`);
+              void gameStore.flushPending().catch((err) => {
+                console.warn('[ImageOptimizationQueue] Final flush failed:', err);
+              });
               if (queueRunId) {
                 // Ensure no jobs stay "queued": mark any still non-terminal as failed so UI never shows finished + N queued
                 const status = getControllerStatus();
