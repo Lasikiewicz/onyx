@@ -21,6 +21,18 @@ export interface SettingsModalApiCredentials {
   giantBombApiKey: string;
 }
 
+export type MetadataProviderId = 'igdb' | 'rawg' | 'steamgriddb' | 'giantbomb';
+
+export type MetadataProviderEnabledMap = Record<MetadataProviderId, boolean>;
+
+/** Providers are on unless the user has switched them off, matching the main-process default. */
+const DEFAULT_PROVIDER_ENABLED: MetadataProviderEnabledMap = {
+  igdb: true,
+  rawg: true,
+  steamgriddb: true,
+  giantbomb: true,
+};
+
 type InitialTab =
   | 'general'
   | 'apis'
@@ -77,6 +89,7 @@ export const useOnyxSettingsModalShellState = ({
     giantBombApiKey: '',
   });
   const [activeAPITab, setActiveAPITab] = useState<'igdb' | 'rawg' | 'steamgriddb' | 'giantbomb'>('steamgriddb');
+  const [apiProviderEnabled, setApiProviderEnabled] = useState<MetadataProviderEnabledMap>(DEFAULT_PROVIDER_ENABLED);
   const [apiStatus, setApiStatus] = useState({
     igdbConfigured: false,
     rawgConfigured: false,
@@ -140,6 +153,15 @@ export const useOnyxSettingsModalShellState = ({
       } catch (error) {
         console.error('Error loading API credentials:', error);
       }
+
+      try {
+        const enabled = await window.electronAPI.getAPIProviderEnabled?.();
+        if (enabled) {
+          setApiProviderEnabled({ ...DEFAULT_PROVIDER_ENABLED, ...enabled });
+        }
+      } catch (error) {
+        console.error('Error loading API provider states:', error);
+      }
     };
 
     void loadShellState();
@@ -185,6 +207,10 @@ export const useOnyxSettingsModalShellState = ({
     });
   };
 
+  const handleAPIProviderEnabledChange = (provider: MetadataProviderId, enabled: boolean) => {
+    setApiProviderEnabled((prev) => ({ ...prev, [provider]: enabled }));
+  };
+
   const handleCheckForUpdates = async () => {
     setUpdateError(null);
     if (!isPackagedApp) {
@@ -228,9 +254,11 @@ export const useOnyxSettingsModalShellState = ({
     activeAPITab,
     activeTab,
     apiCredentials,
+    apiProviderEnabled,
     apiStatus,
     appVersion,
     handleAPIInputChange,
+    handleAPIProviderEnabledChange,
     handleCheckForUpdates,
     handleDownloadUpdate,
     handleOpenBugReportFromAbout,

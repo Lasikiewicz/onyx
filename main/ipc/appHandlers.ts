@@ -600,6 +600,20 @@ export function registerAppIPCHandlers(
         return { success: true };
     });
 
+    ipcMain.handle('api:getProviderEnabled', async () => {
+        return await apiCredentialsService.getProviderEnabled();
+    });
+
+    ipcMain.handle('api:setProviderEnabled', async (_event, updates) => {
+        await apiCredentialsService.setProviderEnabled(updates || {});
+        // Rebuild the provider list so a provider switched off stops being called immediately,
+        // rather than only after the next restart.
+        if (refreshMetadataServices) {
+            await refreshMetadataServices();
+        }
+        return { success: true };
+    });
+
     // App Config Handlers
     ipcMain.handle('appConfig:getAll', async () => {
         return await appConfigService.getAppConfigs();

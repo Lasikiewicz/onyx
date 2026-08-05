@@ -4,6 +4,13 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.15.5] - 2026-08-05
+
+- API Integrations:
+  - Added a switch to turn each metadata provider on or off in Settings > API Integrations, so you can stop Onyx calling a service that is down — such as RAWG — without deleting your API key. Turn it back on when the service recovers and your key is still there.
+  - A provider that is switched off is skipped entirely during scans and metadata lookups, rather than being tried and left to fail or time out.
+  - Tabs for switched-off providers are now marked "Off" so you can see at a glance which ones are in use.
+
 ## [0.15.4] - 2026-08-05
 
 - Fixes:

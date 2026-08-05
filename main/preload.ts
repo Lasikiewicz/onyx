@@ -180,6 +180,9 @@ export const electronAPI = {
   // API credentials methods
   getAPICredentials: () => ipcRenderer.invoke('api:getCredentials'),
   saveAPICredentials: (credentials: { igdbClientId?: string; igdbClientSecret?: string; steamGridDBApiKey?: string; rawgApiKey?: string; giantBombApiKey?: string }) => ipcRenderer.invoke('api:saveCredentials', credentials),
+  // Per-provider on/off switches; a disabled provider is never called, but its key stays saved
+  getAPIProviderEnabled: (): Promise<Record<'igdb' | 'rawg' | 'steamgriddb' | 'giantbomb', boolean>> => ipcRenderer.invoke('api:getProviderEnabled'),
+  setAPIProviderEnabled: (updates: Partial<Record<'igdb' | 'rawg' | 'steamgriddb' | 'giantbomb', boolean>>) => ipcRenderer.invoke('api:setProviderEnabled', updates),
   // Launcher detection methods
   detectLaunchers: () => ipcRenderer.invoke('launcher:detectAll'),
   detectLauncher: (launcherId: string) => ipcRenderer.invoke('launcher:detect', launcherId),

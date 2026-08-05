@@ -410,22 +410,28 @@ const importService = new ImportService(steamService, xboxService, appConfigServ
 
 /** Refresh metadata fetcher with current API credentials. Call after saving credentials so Start scan uses all added APIs. */
 async function refreshMetadataServices(): Promise<void> {
-  const creds = await apiCredentialsService.getCredentials();
+  const [creds, providerEnabled] = await Promise.all([
+    apiCredentialsService.getCredentials(),
+    apiCredentialsService.getProviderEnabled(),
+  ]);
   let newIgdbService: IGDBService | null = null;
   let newSteamGridDBService: SteamGridDBService | null = null;
   let newRawgService: RAWGService | null = null;
   let newGiantBombService: GiantBombService | null = null;
 
-  if (creds.igdbClientId && creds.igdbClientSecret) {
+  // A provider switched off in Settings > APIs is left null, so it never reaches
+  // metadataFetcher's provider list and no request is made to a service the user has
+  // turned off (e.g. one that is down). Keys stay saved either way.
+  if (providerEnabled.igdb && creds.igdbClientId && creds.igdbClientSecret) {
     newIgdbService = new IGDBService(creds.igdbClientId, creds.igdbClientSecret);
   }
-  if (creds.steamGridDBApiKey) {
+  if (providerEnabled.steamgriddb && creds.steamGridDBApiKey) {
     newSteamGridDBService = new SteamGridDBService(creds.steamGridDBApiKey);
   }
-  if (creds.rawgApiKey) {
+  if (providerEnabled.rawg && creds.rawgApiKey) {
     newRawgService = new RAWGService(creds.rawgApiKey);
   }
-  if (creds.giantBombApiKey) {
+  if (providerEnabled.giantbomb && creds.giantBombApiKey) {
     newGiantBombService = new GiantBombService(creds.giantBombApiKey);
   }
 
@@ -433,7 +439,11 @@ async function refreshMetadataServices(): Promise<void> {
   metadataFetcher.setSteamGridDBService(newSteamGridDBService);
   metadataFetcher.setRAWGService(newRawgService);
   metadataFetcher.setGiantBombService(newGiantBombService);
-  console.log('[App] Metadata services refreshed with saved credentials');
+
+  const disabled = Object.entries(providerEnabled).filter(([, on]) => !on).map(([id]) => id);
+  console.log(
+    `[App] Metadata services refreshed with saved credentials${disabled.length ? ` (disabled: ${disabled.join(', ')})` : ''}`
+  );
 }
 
 // Initialize metadata services at startup

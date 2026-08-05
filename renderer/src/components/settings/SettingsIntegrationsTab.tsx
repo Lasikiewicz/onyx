@@ -1,7 +1,14 @@
 import React from 'react';
-import { SettingsInput } from './SettingsComponents';
+import { SettingsInput, SettingsToggle } from './SettingsComponents';
 
 type APITabType = 'igdb' | 'rawg' | 'steamgriddb' | 'giantbomb';
+
+const PROVIDER_LABELS: Record<APITabType, string> = {
+  steamgriddb: 'SteamGridDB',
+  igdb: 'IGDB',
+  rawg: 'RAWG',
+  giantbomb: 'Giant Bomb',
+};
 
 interface APICredentials {
   igdbClientId: string;
@@ -21,20 +28,33 @@ interface APIStatus {
 interface SettingsIntegrationsTabProps {
   activeAPITab: APITabType;
   apiCredentials: APICredentials;
+  apiProviderEnabled: Record<APITabType, boolean>;
   apiStatus: APIStatus;
   onActiveTabChange: (tab: APITabType) => void;
   onAPIInputChange: (key: keyof APICredentials, value: string) => void;
+  onAPIProviderEnabledChange: (provider: APITabType, enabled: boolean) => void;
   onOpenExternal: (url: string) => void;
 }
 
 export const SettingsIntegrationsTab: React.FC<SettingsIntegrationsTabProps> = ({
   activeAPITab,
   apiCredentials,
+  apiProviderEnabled,
   apiStatus,
   onActiveTabChange,
   onAPIInputChange,
+  onAPIProviderEnabledChange,
   onOpenExternal,
 }) => {
+  const providerToggle = (provider: APITabType, description: string) => (
+    <SettingsToggle
+      label={`Use ${PROVIDER_LABELS[provider]}`}
+      description={description}
+      checked={apiProviderEnabled[provider] !== false}
+      onChange={(checked) => onAPIProviderEnabledChange(provider, checked)}
+    />
+  );
+
   return (
     <>
       <div className="space-y-6 animate-fade-in p-6">
@@ -60,7 +80,11 @@ export const SettingsIntegrationsTab: React.FC<SettingsIntegrationsTabProps> = (
                   tab === 'igdb' ? 'IGDB (Optional)' :
                     tab === 'rawg' ? 'RAWG (Optional)' :
                       'Giant Bomb (Unavailable)'}
-                {((tab === 'igdb' && apiStatus.igdbConfigured) ||
+                {apiProviderEnabled[tab] === false ? (
+                  <span className="text-[10px] uppercase tracking-wide font-semibold text-amber-400/90 border border-amber-500/30 bg-amber-500/10 rounded px-1.5 py-0.5">
+                    Off
+                  </span>
+                ) : ((tab === 'igdb' && apiStatus.igdbConfigured) ||
                   (tab === 'steamgriddb' && apiStatus.steamGridDBConfigured) ||
                   (tab === 'rawg' && apiStatus.rawgConfigured)) && (
                     <svg className="w-3.5 h-3.5 text-green-500 group- hover:animate-wobble group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -75,6 +99,7 @@ export const SettingsIntegrationsTab: React.FC<SettingsIntegrationsTabProps> = (
         <div className="animate-fade-in">
           {activeAPITab === 'steamgriddb' && (
             <div className="space-y-6">
+              {providerToggle('steamgriddb', 'Turn off to stop Onyx contacting SteamGridDB without deleting your key. This is the main source of covers, heroes and logos, so artwork results will be much poorer while it is off.')}
               <SettingsInput
                 label="API Key"
                 value={apiCredentials.steamGridDBApiKey}
@@ -88,6 +113,7 @@ export const SettingsIntegrationsTab: React.FC<SettingsIntegrationsTabProps> = (
 
           {activeAPITab === 'igdb' && (
             <div className="space-y-6">
+              {providerToggle('igdb', 'Turn off to stop Onyx contacting IGDB without deleting your credentials. Useful while the service is down or rate limiting you.')}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <SettingsInput
                   label="Client ID"
@@ -110,6 +136,7 @@ export const SettingsIntegrationsTab: React.FC<SettingsIntegrationsTabProps> = (
 
           {activeAPITab === 'rawg' && (
             <div className="space-y-6">
+              {providerToggle('rawg', 'Turn off to stop Onyx contacting RAWG without deleting your key. Useful while the service is down, so scans do not wait on it.')}
               <SettingsInput
                 label="API Key"
                 value={apiCredentials.rawgApiKey}

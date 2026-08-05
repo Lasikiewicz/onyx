@@ -6,8 +6,20 @@ export interface APICredentials {
   giantBombApiKey?: string;
 }
 
+export type MetadataProviderId = 'igdb' | 'rawg' | 'steamgriddb' | 'giantbomb';
+
+export type MetadataProviderEnabledMap = Record<MetadataProviderId, boolean>;
+
+export const METADATA_PROVIDER_IDS: readonly MetadataProviderId[] = ['igdb', 'rawg', 'steamgriddb', 'giantbomb'];
+
 interface APICredentialsSchema {
   credentials: APICredentials;
+  /**
+   * Per-provider on/off switches. Unset means enabled, so existing installs keep every
+   * configured provider active. These are plain settings, not secrets, so they always live in
+   * electron-store and never in the OS credential store.
+   */
+  providerEnabled: Partial<MetadataProviderEnabledMap>;
 }
 
 import Store from './electronStoreShim.js';
@@ -73,6 +85,7 @@ export class APICredentialsService {
       name: 'api-credentials',
       defaults: {
         credentials: {},
+        providerEnabled: {},
       },
     });
 
@@ -254,6 +267,40 @@ export class APICredentialsService {
   }
 
   /**
+   * Read the per-provider on/off switches. A provider with no stored value is enabled, so
+   * installs that predate this setting behave exactly as before.
+   */
+  async getProviderEnabled(): Promise<MetadataProviderEnabledMap> {
+    const store = await this.ensureStore();
+    const stored = (store.get('providerEnabled', {}) || {}) as Partial<MetadataProviderEnabledMap>;
+
+    const resolved = {} as MetadataProviderEnabledMap;
+    for (const id of METADATA_PROVIDER_IDS) {
+      resolved[id] = stored[id] !== false;
+    }
+    return resolved;
+  }
+
+  /**
+   * Turn providers on or off. Unknown ids and non-boolean values are ignored rather than
+   * persisted — this is a renderer-supplied payload.
+   */
+  async setProviderEnabled(updates: Partial<MetadataProviderEnabledMap>): Promise<void> {
+    const store = await this.ensureStore();
+    const current = (store.get('providerEnabled', {}) || {}) as Partial<MetadataProviderEnabledMap>;
+    const next: Partial<MetadataProviderEnabledMap> = { ...current };
+
+    for (const id of METADATA_PROVIDER_IDS) {
+      const value = updates?.[id];
+      if (typeof value === 'boolean') {
+        next[id] = value;
+      }
+    }
+
+    store.set('providerEnabled', next);
+  }
+
+  /**
    * Clear API credentials
    */
   async clearCredentials(): Promise<void> {
@@ -276,6 +323,8 @@ export class APICredentialsService {
 
     // Remove any legacy store values
     store.delete('credentials');
+    // A full reset should also restore every provider to its default enabled state
+    store.delete('providerEnabled');
   }
 }
 

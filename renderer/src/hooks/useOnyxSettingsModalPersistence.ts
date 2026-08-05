@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { DEFAULT_VISIBLE_LINK_TYPES, LINK_DISPLAY_ORDER } from '../components/GameLinks';
 import type { SettingsLibraryAppConfig } from './useOnyxSettingsLibrarySources';
-import type { SettingsModalApiCredentials } from './useOnyxSettingsModalShellState';
+import type { MetadataProviderEnabledMap, SettingsModalApiCredentials } from './useOnyxSettingsModalShellState';
 
 export interface OnyxSettings {
   minimizeToTray: boolean;
@@ -43,6 +43,7 @@ export interface SettingsDestructiveConfirmationState {
 
 interface UseOnyxSettingsModalPersistenceOptions {
   apiCredentials: SettingsModalApiCredentials;
+  apiProviderEnabled: MetadataProviderEnabledMap;
   apps: SettingsLibraryAppConfig[];
   isCapturingSuspendShortcut: boolean;
   isOpen: boolean;
@@ -92,6 +93,7 @@ const defaultSettings: OnyxSettings = {
 
 export const useOnyxSettingsModalPersistence = ({
   apiCredentials,
+  apiProviderEnabled,
   apps,
   isCapturingSuspendShortcut,
   isOpen,
@@ -362,6 +364,9 @@ export const useOnyxSettingsModalPersistence = ({
         steamGridDBApiKey: apiCredentials.steamGridDBApiKey,
         rawgApiKey: apiCredentials.rawgApiKey,
       });
+
+      // Saved after the keys so the provider rebuild triggered here sees both
+      await window.electronAPI.setAPIProviderEnabled?.(apiProviderEnabled);
 
       if (!result.success) {
         throw new Error(result.error || 'Failed to save preferences');

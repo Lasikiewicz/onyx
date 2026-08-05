@@ -60,9 +60,11 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
     activeAPITab,
     activeTab,
     apiCredentials,
+    apiProviderEnabled,
     apiStatus,
     appVersion,
     handleAPIInputChange,
+    handleAPIProviderEnabledChange,
     handleCheckForUpdates,
     handleDownloadUpdate,
     handleOpenBugReportFromAbout,
@@ -100,6 +102,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
     settings,
   } = useOnyxSettingsModalPersistence({
     apiCredentials,
+    apiProviderEnabled,
     apps,
     isCapturingSuspendShortcut,
     isOpen,
@@ -294,9 +297,11 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
             <SettingsIntegrationsTab
               activeAPITab={activeAPITab}
               apiCredentials={apiCredentials}
+              apiProviderEnabled={apiProviderEnabled}
               apiStatus={apiStatus}
               onActiveTabChange={setActiveAPITab}
               onAPIInputChange={handleAPIInputChange}
+              onAPIProviderEnabledChange={handleAPIProviderEnabledChange}
               onOpenExternal={(url) => void window.electronAPI?.openExternal(url)}
             />
           )}
