@@ -83,6 +83,62 @@ function getAnimatedContentFormat(buffer: Buffer): '.gif' | '.webp' | '.webm' | 
   if (buffer[0] === 0x1a && buffer[1] === 0x45 && buffer[2] === 0xdf && buffer[3] === 0xa3) return '.webm'; // EBML
   return null;
 }
+/** Upper bound on a single artwork download held in main-process memory. */
+const MAX_DOWNLOAD_BYTES = 64 * 1024 * 1024;
+const MAX_DOWNLOAD_REDIRECTS = 5;
+
+interface FfmpegRunResult {
+  status: number | null;
+  signal: NodeJS.Signals | null;
+  stderr: string;
+  timedOut: boolean;
+  error?: Error;
+}
+
+/**
+ * Run ffmpeg without blocking the main thread, capturing stderr and exit status.
+ * Replaces a spawnSync call that could stall the whole app (no paint, no IPC, no tray)
+ * for up to the full timeout on every animated asset.
+ */
+function runFfmpegCaptured(ffmpegPath: string, args: string[], timeoutMs: number): Promise<FfmpegRunResult> {
+  return new Promise<FfmpegRunResult>((resolve) => {
+    const MAX_STDERR = 64 * 1024;
+    let settled = false;
+    let stderr = '';
+    let timer: NodeJS.Timeout | null = null;
+
+    const finish = (result: FfmpegRunResult) => {
+      if (settled) return;
+      settled = true;
+      if (timer) clearTimeout(timer);
+      resolve(result);
+    };
+
+    let child: ReturnType<typeof spawn>;
+    try {
+      child = spawn(ffmpegPath, args, { windowsHide: true, stdio: ['ignore', 'ignore', 'pipe'] });
+    } catch (err) {
+      resolve({ status: null, signal: null, stderr: '', timedOut: false, error: err as Error });
+      return;
+    }
+
+    timer = setTimeout(() => {
+      try {
+        child.kill();
+      } catch {
+        // ignore
+      }
+      finish({ status: null, signal: null, stderr, timedOut: true, error: new Error('ffmpeg timed out') });
+    }, timeoutMs);
+
+    child.stderr?.on('data', (chunk: Buffer | string) => {
+      if (stderr.length < MAX_STDERR) stderr += String(chunk);
+    });
+    child.on('error', (err) => finish({ status: null, signal: null, stderr, timedOut: false, error: err }));
+    child.on('close', (code, signal) => finish({ status: code, signal, stderr, timedOut: false }));
+  });
+}
+
 const JPEG_QUALITY = 85;
 const WEBP_QUALITY = 85;
 const PNG_COMPRESSION = 6;
@@ -243,7 +299,13 @@ export class ImageCacheService {
   private getFilenameFromUrl(url: string, gameId: string, imageType: string): string {
     // Use simple, predictable filename: {gameId}-{imageType}.{ext}
     // This makes it easy to find files in the protocol handler
-    const ext = path.extname(new URL(url).pathname) || '.jpg';
+    // Malformed URLs must not throw from deep inside the cache path.
+    let ext = '.jpg';
+    try {
+      ext = path.extname(new URL(url).pathname) || '.jpg';
+    } catch {
+      // Keep the default extension.
+    }
     // Sanitize gameId to be filesystem-safe
     const safeGameId = gameId.replace(/[<>:"/\\|?*]/g, '_');
     return `${safeGameId}-${imageType}${ext}`;
@@ -252,23 +314,59 @@ export class ImageCacheService {
   /**
    * Download an image from a URL
    */
-  private async downloadImage(url: string): Promise<Buffer> {
+  private async downloadImage(url: string, redirectsRemaining = MAX_DOWNLOAD_REDIRECTS): Promise<Buffer> {
     return new Promise((resolve, reject) => {
       const urlObj = new URL(url);
       const isHttps = urlObj.protocol === 'https:';
       const client = isHttps ? https : http;
 
       const request = client.get(url, (response) => {
-        if (response.statusCode !== 200) {
+        const status = response.statusCode ?? 0;
+
+        // Follow redirects: image CDNs routinely 301/302, and rejecting them silently
+        // lost artwork that was actually available.
+        if (status >= 300 && status < 400 && response.headers.location) {
+          response.resume(); // drain
+          if (redirectsRemaining <= 0) {
+            reject(new Error('Too many redirects while downloading image'));
+            return;
+          }
+          const next = new URL(response.headers.location, url).toString();
+          this.downloadImage(next, redirectsRemaining - 1).then(resolve, reject);
+          return;
+        }
+
+        if (status !== 200) {
+          response.resume();
           reject(new Error(`Failed to download image: ${response.statusCode}`));
           return;
         }
 
+        // Reject oversized payloads up front where the server declares them.
+        const declared = Number(response.headers['content-length']);
+        if (Number.isFinite(declared) && declared > MAX_DOWNLOAD_BYTES) {
+          response.destroy();
+          reject(new Error(`Image exceeds size limit (${declared} bytes)`));
+          return;
+        }
+
         const chunks: Buffer[] = [];
-        response.on('data', (chunk) => chunks.push(chunk));
+        let received = 0;
+        response.on('data', (chunk: Buffer) => {
+          received += chunk.length;
+          // Cap the running total too: content-length can be absent or wrong, and an
+          // unbounded stream would otherwise buffer straight into main-process memory.
+          if (received > MAX_DOWNLOAD_BYTES) {
+            response.destroy();
+            reject(new Error('Image exceeds size limit'));
+            return;
+          }
+          chunks.push(chunk);
+        });
         response.on('end', () => {
           resolve(Buffer.concat(chunks));
         });
+        response.on('error', reject);
       });
 
       request.on('error', (error) => {
@@ -522,16 +620,12 @@ export class ImageCacheService {
           ? ['-y', '-i', inp, '-vf', vf, '-c:v', 'libwebp_anim', '-quality', String(quality), '-loop', '0', outp]
           : ['-y', '-i', inp, '-vf', vf, outp];
       attempt.args = [ffmpegPath, ...args];
-      const result = spawnSync(ffmpegPath, args, {
-        encoding: 'utf8',
-        timeout: 60000,
-        windowsHide: true,
-      });
+      const result = await runFfmpegCaptured(ffmpegPath, args, 60000);
       attempt.finishedAtMs = Date.now();
       attempt.durationMs = attempt.finishedAtMs - startedAtMs;
       attempt.exitCode = result.status;
       attempt.signal = result.signal;
-      attempt.timedOut = result.error != null && String((result.error as Error).message ?? '').toLowerCase().includes('timed out');
+      attempt.timedOut = result.timedOut;
       if (typeof result.stderr === 'string' && result.stderr.length > 0) {
         attempt.stderrTail = result.stderr.slice(-1200);
       }

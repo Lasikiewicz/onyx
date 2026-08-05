@@ -21,40 +21,76 @@ interface StoreOptions<T> {
 
 export default class Store<T = any> {
   private filePath: string;
+  private backupPath: string;
   private data: Record<string, any>;
 
   constructor(options: StoreOptions<T> = {}) {
     const name = options.name || 'config';
     const userDataDir = appModule ? appModule.getPath('userData') : os.tmpdir();
     this.filePath = path.join(userDataDir, `${name}.json`);
+    this.backupPath = `${this.filePath}.bak`;
     this.data = options.defaults && typeof options.defaults === 'object'
       ? { ...(options.defaults as any) }
       : {};
     this.load();
   }
 
+  /** Parse `raw`, merging into defaults. Returns false when the payload is not usable. */
+  private applyRaw(raw: string): boolean {
+    if (raw.trim().length === 0) return false;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return false;
+    this.data = { ...this.data, ...parsed };
+    return true;
+  }
+
   private load(): void {
+    let loaded = false;
     try {
       if (fs.existsSync(this.filePath)) {
-        const raw = fs.readFileSync(this.filePath, 'utf8');
-        if (raw.trim().length > 0) {
-          const parsed = JSON.parse(raw);
-          if (parsed && typeof parsed === 'object') {
-            this.data = { ...this.data, ...parsed };
-          }
-        }
+        loaded = this.applyRaw(fs.readFileSync(this.filePath, 'utf8'));
       }
-    } catch {
-      // Ignore corrupt files; keep in-memory defaults
+    } catch (err) {
+      // The primary file is unreadable or corrupt. Never silently fall through to empty
+      // defaults: that would let the next save() overwrite real user data with nothing.
+      // Preserve the bad file, then try the last-known-good backup.
+      console.error(`[Store] Failed to read ${this.filePath}:`, err);
+      try {
+        fs.renameSync(this.filePath, `${this.filePath}.corrupt-${Date.now()}`);
+      } catch {
+        // Best effort only.
+      }
+      try {
+        if (fs.existsSync(this.backupPath)) {
+          loaded = this.applyRaw(fs.readFileSync(this.backupPath, 'utf8'));
+          if (loaded) console.warn(`[Store] Recovered ${this.filePath} from backup.`);
+        }
+      } catch (backupErr) {
+        console.error(`[Store] Backup recovery failed for ${this.filePath}:`, backupErr);
+      }
+    }
+
+    // Snapshot a known-good copy once per process, so a later corruption has something
+    // to recover from. Cheap: one extra write at startup, not per save.
+    if (loaded) {
+      try {
+        fs.copyFileSync(this.filePath, this.backupPath);
+      } catch {
+        // Best effort only.
+      }
     }
   }
 
   private save(): void {
     try {
       fs.mkdirSync(path.dirname(this.filePath), { recursive: true });
-      fs.writeFileSync(this.filePath, JSON.stringify(this.data, null, 2), 'utf8');
-    } catch {
-      // Ignore persistence errors (e.g. read-only filesystem)
+      // Write-then-rename so a crash mid-write cannot truncate the real file.
+      // rename() is atomic on NTFS and POSIX filesystems.
+      const tmpPath = `${this.filePath}.tmp`;
+      fs.writeFileSync(tmpPath, JSON.stringify(this.data), 'utf8');
+      fs.renameSync(tmpPath, this.filePath);
+    } catch (err) {
+      console.error(`[Store] Failed to persist ${this.filePath}:`, err);
     }
   }
 

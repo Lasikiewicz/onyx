@@ -59,6 +59,10 @@ Finds games from configured launchers/folders and imports them into the local li
 - User preferences ([UserPreferencesService.ts](../../main/UserPreferencesService.ts)) determine whether startup and background scans run automatically.
 - Launcher and library configuration must remain stable across rescans to avoid duplicates.
 - Importer staging trims oversized scan-time metadata arrays (currently screenshots and links) before storing them in renderer state so large scans remain stable.
+- Scan cancellation is reference-counted. [ImportService.ts](../../main/ImportService.ts) tracks `activeScanCount` and only the outermost scan resets `isScanCancelled`, so overlapping background/manual/missing-games scans no longer un-cancel one another. `isScanInProgress()` exposes that state.
+- [scanningHandlers.ts](../../main/ipc/scanningHandlers.ts) guards `performBackgroundScan` with an in-flight flag: the hourly interval and the `app:performBackgroundScan` IPC could otherwise both enter and run full multi-source disk walks concurrently.
+- `startup:cancel-scan` in [startupCoordinator.ts](../../main/startupCoordinator.ts) invokes an injected `cancelBackgroundScan` callback (wired to `importService.cancelScanAllSources` in [main.ts](../../main/main.ts)). The `startupScanCancelled` flag alone is only checked *before* the scan begins, so without this the button did nothing once a scan was underway.
+- Folder-size classification in [GameFilteringService.ts](../../main/GameFilteringService.ts) counts breadth-first and short-circuits once the large-folder threshold is exceeded, caching the verdict per folder. It previously used `readdirSync(path, { recursive: true })`, fully enumerating a multi-GB install just to compare a count against 20/100 — twice for `manual` sources.
 
 ## Failure Modes and Triage
 

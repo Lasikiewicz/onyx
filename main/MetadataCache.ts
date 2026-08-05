@@ -11,6 +11,12 @@ interface CachedMetadata {
 export class MetadataCache {
   private cache = new Map<string, CachedMetadata>();
   private readonly CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
+  /**
+   * Hard bound on retained entries. Each entry holds full metadata (descriptions,
+   * screenshot arrays), and expiry was only ever evaluated on read, so a full-library
+   * refresh grew this map monotonically for the lifetime of the process.
+   */
+  private readonly MAX_ENTRIES = 500;
 
   /**
    * Get cached metadata
@@ -34,10 +40,22 @@ export class MetadataCache {
    * Set cached metadata
    */
   set(key: string, metadata: GameMetadata): void {
+    // Re-inserting moves the key to the end of Map iteration order, so the first
+    // entries are the least recently written and are evicted first.
+    this.cache.delete(key);
     this.cache.set(key, {
       metadata,
       timestamp: Date.now(),
     });
+
+    if (this.cache.size > this.MAX_ENTRIES) {
+      this.clearExpired();
+      while (this.cache.size > this.MAX_ENTRIES) {
+        const oldest = this.cache.keys().next();
+        if (oldest.done) break;
+        this.cache.delete(oldest.value);
+      }
+    }
   }
 
   /**

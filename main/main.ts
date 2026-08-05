@@ -48,7 +48,7 @@ if (!gotTheLock) {
 }
 
 import path from 'node:path';
-import { readdirSync, statSync, existsSync, readFileSync, copyFileSync, mkdirSync, unlinkSync, writeFileSync, promises as fsPromises } from 'node:fs';
+import { readdirSync, statSync, existsSync, readFileSync, copyFileSync, mkdirSync, unlinkSync, writeFileSync, promises as fsPromises, constants as fsConstants } from 'node:fs';
 import { platform } from 'node:os';
 import { analyzeCrashDumps, setupJavaScriptErrorHandler } from './crashDumpAnalyzer.js';
 
@@ -224,25 +224,60 @@ function migrateAlphaUserDataFromOnyx(): void {
     return;
   }
   try {
-    function copyRecursive(src: string, dest: string): void {
-      const entries = readdirSync(src, { withFileTypes: true });
-      for (const e of entries) {
-        const srcPath = path.join(src, e.name);
-        const destPath = path.join(dest, e.name);
-        if (e.isDirectory()) {
-          if (!existsSync(destPath)) mkdirSync(destPath, { recursive: true });
-          copyRecursive(srcPath, destPath);
-        } else if (!existsSync(destPath)) {
-          mkdirSync(path.dirname(destPath), { recursive: true });
-          copyFileSync(srcPath, destPath);
-        }
+    mkdirSync(current, { recursive: true });
+
+    // Only the store files are copied synchronously. They are small, and services read
+    // them during bootstrap so they must exist first. Everything else — chiefly the image
+    // cache, which can be gigabytes — is copied in the background, because doing it here
+    // blocked startup entirely before the window existed.
+    for (const file of ALPHA_MIGRATION_STORE_FILES) {
+      const srcPath = path.join(legacy, file);
+      const destPath = path.join(current, file);
+      if (existsSync(srcPath) && !existsSync(destPath)) {
+        copyFileSync(srcPath, destPath);
       }
     }
-    copyRecursive(legacy, current);
-    fsPromises.writeFile(marker, '').catch(() => { });
-    console.log('[Alpha] Migrated userData from Onyx to Onyx Alpha.');
+
+    void copyRemainingLegacyUserData(legacy, current, marker);
   } catch (err) {
     console.error('[Alpha] Migration from Onyx userData failed:', err);
+  }
+}
+
+/** Store files services read during bootstrap; see migrateAlphaUserDataFromOnyx. */
+const ALPHA_MIGRATION_STORE_FILES = [
+  'game-library.json',
+  'user-preferences.json',
+  'app-configs.json',
+  'steam-auth.json',
+];
+
+async function copyRecursiveAsync(src: string, dest: string): Promise<void> {
+  const entries = await fsPromises.readdir(src, { withFileTypes: true });
+  for (const e of entries) {
+    const srcPath = path.join(src, e.name);
+    const destPath = path.join(dest, e.name);
+    if (e.isDirectory()) {
+      await fsPromises.mkdir(destPath, { recursive: true });
+      await copyRecursiveAsync(srcPath, destPath);
+    } else {
+      try {
+        // COPYFILE_EXCL preserves the original "never overwrite an existing file" behaviour.
+        await fsPromises.copyFile(srcPath, destPath, fsConstants.COPYFILE_EXCL);
+      } catch {
+        // Destination already exists, or the source vanished — skip it.
+      }
+    }
+  }
+}
+
+async function copyRemainingLegacyUserData(legacy: string, current: string, marker: string): Promise<void> {
+  try {
+    await copyRecursiveAsync(legacy, current);
+    await fsPromises.writeFile(marker, '');
+    console.log('[Alpha] Migrated userData from Onyx to Onyx Alpha.');
+  } catch (err) {
+    console.error('[Alpha] Background migration from Onyx userData failed:', err);
   }
 }
 migrateAlphaUserDataFromOnyx();
@@ -1199,9 +1234,13 @@ async function createWindow() {
     }
   });
 
+  // Set once we have confirmed the window really should close, so the re-issued
+  // close() below is allowed straight through instead of re-entering this handler.
+  let allowWindowClose = false;
+
   // Handle window close based on preferences
-  win.on('close', async (event) => {
-    if (isAppQuitting) return;
+  win.on('close', (event) => {
+    if (isAppQuitting || allowWindowClose) return;
 
     if (closeToTrayEnabled) {
       event.preventDefault();
@@ -1212,25 +1251,33 @@ async function createWindow() {
       return;
     }
 
-    try {
-      // Save window state before closing
-      if (win) {
-        await flushWindowStateSave();
+    // The cached flag says "really close", but it can be stale. Electron only honours
+    // preventDefault() synchronously — after an await the close is already committed —
+    // so block the close now and re-decide from the persisted preference.
+    event.preventDefault();
+
+    void (async () => {
+      try {
+        if (win) {
+          await flushWindowStateSave();
+        }
+
+        const prefs = await userPreferencesService.getPreferences();
+        syncTrayPreferenceFlags(prefs);
+        // Check closeToTray (fallback to minimizeToTray if closeToTray is undefined for backward compatibility)
+        if (prefs.closeToTray !== false) {
+          // If closeToTray is true or undefined (default), minimize
+          win?.hide();
+          return;
+        }
+      } catch (error) {
+        console.error('Error checking preferences on close:', error);
       }
 
-      const prefs = await userPreferencesService.getPreferences();
-      syncTrayPreferenceFlags(prefs);
-      // Check closeToTray (fallback to minimizeToTray if closeToTray is undefined for backward compatibility)
-      if (prefs.closeToTray !== false) {
-        // If closeToTray is true or undefined (default), minimize
-        event.preventDefault();
-        win?.hide();
-        return;
-      }
-      // If closeToTray is false, let it close (app.quit will be called by 'window-all-closed' or similar if it's the last window)
-    } catch (error) {
-      console.error('Error checking preferences on close:', error);
-    }
+      // closeToTray is genuinely off (or prefs failed to load): close for real.
+      allowWindowClose = true;
+      win?.close();
+    })();
   });
 
   // Security: lock down navigation. The renderer is a local app; any attempt to
@@ -1610,6 +1657,7 @@ app.whenReady().then(async () => {
         console.error('[Startup] Failed to show window:', error);
       });
     },
+    cancelBackgroundScan: () => importService.cancelScanAllSources(),
     addUpdateStatusListener,
     checkForUpdates,
   });

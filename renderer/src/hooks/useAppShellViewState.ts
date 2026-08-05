@@ -1,5 +1,19 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { TopBarPositions } from '../components/TopBarContextMenu';
+
+// Module-level constant: as an inline object this got a new identity every render and
+// cascaded fresh identities through useAppPreferences' applyPreferences/refreshPreferences.
+const DEFAULT_LIST_VIEW_OPTIONS = {
+  showDescription: true,
+  showCategories: false,
+  showPlaytime: true,
+  showReleaseDate: true,
+  showGenres: true,
+  showPlatform: false,
+  showLauncher: true,
+  showLogos: false,
+  titleTextSize: 18,
+};
 
 export function useAppShellViewState() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -37,17 +51,7 @@ export function useAppShellViewState() {
   const [carouselButtonSize, setCarouselButtonSize] = useState(14);
   const [carouselDescriptionSize, setCarouselDescriptionSize] = useState(18);
   const [gridDescriptionSize] = useState(14);
-  const defaultListViewOptions = {
-    showDescription: true,
-    showCategories: false,
-    showPlaytime: true,
-    showReleaseDate: true,
-    showGenres: true,
-    showPlatform: false,
-    showLauncher: true,
-    showLogos: false,
-    titleTextSize: 18,
-  };
+  const defaultListViewOptions = DEFAULT_LIST_VIEW_OPTIONS;
   const [rightPanelLogoSizeByView, setRightPanelLogoSizeByView] = useState<Record<'grid' | 'list' | 'logo', number>>({
     grid: 250,
     list: 100,
@@ -160,7 +164,13 @@ export function useAppShellViewState() {
   const [backgroundColor, setBackgroundColor] = useState('#000000');
   const [listViewOptions, setListViewOptions] = useState(defaultListViewOptions);
   const [listViewSize, setListViewSize] = useState(128);
-  const [_panelWidth, setPanelWidth] = useState(800);
+  // Write-only: nothing reads this value, but `setPanelWidth` is part of the hook's public
+  // surface (App and useAppPreferences call it). Backed by a ref so panel drags and
+  // preference loads don't re-render the whole App tree for a value nobody consumes.
+  const panelWidthRef = useRef(800);
+  const setPanelWidth = useCallback((value: number) => {
+    panelWidthRef.current = value;
+  }, []);
   const [gridSmartFill, setGridSmartFill] = useState(true);
   const [gridMaximizeSpace, setGridMaximizeSpace] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -183,14 +193,13 @@ export function useAppShellViewState() {
   const carouselGameTilePadding = (viewMode === 'carousel' || viewMode === 'coverflow') && gameTilePadding > 3 ? 1 : gameTilePadding;
 
   useEffect(() => {
-    if ((viewMode === 'carousel' || viewMode === 'coverflow') && backgroundBlur !== 0) {
-      setBackgroundBlur(0);
-    }
-
-    if (viewMode !== 'carousel' && viewMode !== 'coverflow') {
+    if (viewMode === 'carousel' || viewMode === 'coverflow') {
+      // Functional update so this effect no longer depends on the value it writes.
+      setBackgroundBlur((prev) => (prev !== 0 ? 0 : prev));
+    } else {
       setPanelWidth(panelWidthByViewState[viewMode]);
     }
-  }, [backgroundBlur, panelWidthByViewState, viewMode]);
+  }, [panelWidthByViewState, setPanelWidth, viewMode]);
 
   return {
     activeSection,

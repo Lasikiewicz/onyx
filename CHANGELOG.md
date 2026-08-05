@@ -4,6 +4,35 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.14.0] - 2026-08-05
+
+- Library safety:
+  - Onyx now writes your library and settings files atomically, so a crash or power loss while saving can no longer leave a half-written file behind.
+  - If a library or settings file is ever found damaged, Onyx now keeps a copy of it and restores from an automatic backup instead of silently starting with an empty library.
+  - Library and settings files are written more compactly, making them meaningfully smaller and faster to save.
+- Performance:
+  - Fixed the app freezing for up to a minute while converting animated artwork.
+  - Fixed a stall when loading artwork: cached images are now read without blocking the rest of the app, which noticeably smooths out scrolling through a large library.
+  - Fixed artwork being re-downloaded and re-decoded every time the library refreshed, which was the cause of logos and covers flickering after saves, imports and settings changes.
+  - Fixed a runaway loop in fullscreen mode that continuously re-checked cursor settings in the background.
+  - Startup no longer waits for old app data to be copied across; only the essential files are moved up front and the rest is copied in the background.
+  - Scanning no longer walks an entire game install just to judge how big a folder is, so scans over large libraries finish faster.
+  - Reduced repeated background work while browsing: video playback checks, artwork cache listings and list descriptions are no longer recomputed on every interaction.
+- Fixes:
+  - Fixed "close to tray" occasionally closing the app instead of hiding it to the tray.
+  - Fixed cancelling a startup scan doing nothing once the scan had already begun.
+  - Fixed overlapping library scans interfering with each other, where starting one scan could cancel or un-cancel another.
+  - Fixed background scans being able to run on top of each other.
+  - Fixed repeated background system queries stacking up when the machine was busy.
+  - Fixed notification messages sometimes disappearing early when several appeared in quick succession.
+- Security:
+  - Hardened Xbox game scanning against malformed game manifests, which could previously influence a system command.
+  - Folder scanning now rejects invalid locations and refuses to scan an entire drive.
+  - Artwork downloads are now size-limited and follow redirects properly, so a bad image link cannot consume unbounded memory.
+- Internal:
+  - Added automated tests covering library file saving and damaged-file recovery.
+  - Added [`TODO.md`](TODO.md) tracking the remaining audit findings.
+
 ## [0.13.1] - 2026-08-05
 
 - Security and packaging:

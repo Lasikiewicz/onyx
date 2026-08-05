@@ -11,6 +11,8 @@ export interface StartupCoordinatorOptions {
   winReference: WindowReference;
   performBackgroundScan: (emitStartupEvents: boolean, sendStartupOverlay: boolean) => Promise<void>;
   onShowWindow: () => void;
+  /** Cancels an already-running scan. Without this, cancelling only skips a scan that hasn't started. */
+  cancelBackgroundScan?: () => void;
   addUpdateStatusListener?: (listener: UpdateStatusListener) => void;
   checkForUpdates?: () => void;
   fallbackDelayMs?: number;
@@ -24,6 +26,7 @@ export function registerStartupCoordinator({
   winReference,
   performBackgroundScan,
   onShowWindow,
+  cancelBackgroundScan,
   addUpdateStatusListener: registerUpdateStatusListener = addUpdateStatusListener,
   checkForUpdates: triggerUpdateCheck = checkForUpdates,
   fallbackDelayMs = 5000,
@@ -162,6 +165,13 @@ export function registerStartupCoordinator({
   ipcMain.handle('startup:cancel-scan', () => {
     startupScanCancelled = true;
     console.log('[StartupScan] Startup scan cancelled by user action');
+    // The flag alone only prevents a scan that hasn't started yet; an already-running
+    // scan has to be told to stop, otherwise cancelling does nothing once it is underway.
+    try {
+      cancelBackgroundScan?.();
+    } catch (err) {
+      console.error('[StartupScan] Failed to cancel running scan:', err);
+    }
     resolvePendingStartupWait();
     return { success: true };
   });

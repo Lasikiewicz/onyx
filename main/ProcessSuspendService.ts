@@ -192,7 +192,14 @@ export class ProcessSuspendService {
     let attempts = 0;
     const maxAttempts = 30;
 
+    // Each tick shells out to PowerShell (Get-CimInstance Win32_Process), which routinely
+    // takes longer than the 1500ms period on a loaded machine. Without this guard the ticks
+    // overlap and PowerShell processes pile up.
+    let tickInFlight = false;
+
     const interval = setInterval(async () => {
+      if (tickInFlight) return;
+      tickInFlight = true;
       attempts += 1;
 
       try {
@@ -225,6 +232,8 @@ export class ProcessSuspendService {
         }
       } catch (error) {
         console.error(`[Suspend] Launch tracking error for ${options.title}:`, error);
+      } finally {
+        tickInFlight = false;
       }
 
       if (attempts >= maxAttempts) {
@@ -849,17 +858,29 @@ ${shouldForeground ? '[OnyxUser32]::SetForegroundWindow($hWnd) | Out-Null' : ''}
       return; // Already monitoring
     }
 
+    // Same overlap hazard as launch tracking: each iteration awaits a per-game process
+    // probe, so a slow sweep must not have the next tick start on top of it.
+    let sweepInFlight = false;
+
     this.monitoringInterval = setInterval(async () => {
-      // Clean up stopped processes
-      for (const [gameId, gameInfo] of this.runningGames.entries()) {
-        const isRunning = await this.isProcessRunning(gameInfo.pid);
-        if (!isRunning) {
-          const rediscovered = await this.tryRediscoverTrackedGame(gameInfo);
-          if (!rediscovered) {
-            this.runningGames.delete(gameId);
-            this.suspendedGames.delete(gameId);
+      if (sweepInFlight) return;
+      sweepInFlight = true;
+      try {
+        // Clean up stopped processes
+        for (const [gameId, gameInfo] of this.runningGames.entries()) {
+          const isRunning = await this.isProcessRunning(gameInfo.pid);
+          if (!isRunning) {
+            const rediscovered = await this.tryRediscoverTrackedGame(gameInfo);
+            if (!rediscovered) {
+              this.runningGames.delete(gameId);
+              this.suspendedGames.delete(gameId);
+            }
           }
         }
+      } catch (error) {
+        console.error('[Suspend] Process monitoring sweep failed:', error);
+      } finally {
+        sweepInFlight = false;
       }
     }, intervalMs);
   }

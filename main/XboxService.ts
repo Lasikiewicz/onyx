@@ -415,6 +415,15 @@ export class XboxService {
       if (!nameMatch) return null;
       const packageName = nameMatch[1];
 
+      // AppxManifest.xml is attacker-controllable (it comes from whatever folder the user
+      // scanned), and packageName is interpolated into a PowerShell -Command string below.
+      // Constrain it to the documented Appx identity grammar so backticks, quotes and $(...)
+      // can never reach the shell.
+      if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,49}$/.test(packageName)) {
+        console.warn(`[XboxService] Rejecting malformed package identity: ${packageName.slice(0, 80)}`);
+        return null;
+      }
+
       // Extract Publisher hash from Publisher attribute
       // Format: Publisher="CN=<HASH>" -> extract the hash part
       const publisherMatch = manifestContent.match(/<Identity[^>]+Publisher="CN=([^"]+)"/);

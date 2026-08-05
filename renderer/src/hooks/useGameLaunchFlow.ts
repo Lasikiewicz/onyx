@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Game } from '../types/game';
 
 interface UseGameLaunchFlowOptions {
@@ -10,6 +10,18 @@ export function useGameLaunchFlow({ confirmGameLaunch }: UseGameLaunchFlowOption
   const [runningGames, setRunningGames] = useState<Set<string>>(new Set());
   const [launchConfirmation, setLaunchConfirmation] = useState<{ game: Game } | null>(null);
   const minimizedForTrackedLaunchesRef = useRef<Set<string>>(new Set());
+  // Every polling interval started by this hook, so unmount can stop them. Previously each
+  // interval was only cleared from inside its own callback, so a monitor whose process
+  // stayed alive kept polling after the component was gone.
+  const activeIntervalsRef = useRef<Set<ReturnType<typeof setInterval>>>(new Set());
+
+  useEffect(() => {
+    const intervals = activeIntervalsRef.current;
+    return () => {
+      for (const interval of intervals) clearInterval(interval);
+      intervals.clear();
+    };
+  }, []);
 
   const restoreWindowAfterLaunchIfNeeded = useCallback(async (gameId: string) => {
     const prefs = await window.electronAPI.getPreferences();
@@ -32,10 +44,13 @@ export function useGameLaunchFlow({ confirmGameLaunch }: UseGameLaunchFlowOption
 
   const monitorGameProcess = useCallback(async (gameId: string, pid: number) => {
     const checkInterval = setInterval(async () => {
+      // Tracked so unmount can clear it; otherwise this keeps polling forever whenever the
+      // process stays alive, and nothing outside the callback can stop it.
       try {
         const isRunning = await checkProcessRunning(pid);
         if (!isRunning) {
           clearInterval(checkInterval);
+          activeIntervalsRef.current.delete(checkInterval);
           setRunningGames((prev) => {
             const next = new Set(prev);
             next.delete(gameId);
@@ -47,9 +62,11 @@ export function useGameLaunchFlow({ confirmGameLaunch }: UseGameLaunchFlowOption
       } catch (error) {
         console.error('Error checking process:', error);
         clearInterval(checkInterval);
+        activeIntervalsRef.current.delete(checkInterval);
         minimizedForTrackedLaunchesRef.current.delete(gameId);
       }
     }, 2000);
+    activeIntervalsRef.current.add(checkInterval);
   }, [checkProcessRunning, restoreWindowAfterLaunchIfNeeded]);
 
   const pollForGameProcess = useCallback(async (gameId: string) => {
@@ -60,6 +77,7 @@ export function useGameLaunchFlow({ confirmGameLaunch }: UseGameLaunchFlowOption
       pollCount += 1;
       if (pollCount > maxPolls) {
         clearInterval(checkInterval);
+        activeIntervalsRef.current.delete(checkInterval);
         minimizedForTrackedLaunchesRef.current.delete(gameId);
         setRunningGames((prev) => {
           const next = new Set(prev);
@@ -69,6 +87,7 @@ export function useGameLaunchFlow({ confirmGameLaunch }: UseGameLaunchFlowOption
         await window.electronAPI.scanning?.gameStopped?.(gameId);
       }
     }, 2000);
+    activeIntervalsRef.current.add(checkInterval);
   }, []);
 
   const launchGame = useCallback(async (game: Game) => {

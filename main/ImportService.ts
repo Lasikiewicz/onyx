@@ -64,6 +64,7 @@ export class ImportService {
   private steamScanner: SteamScanner;
   private xboxScanner: XboxScanner;
   private isScanCancelled: boolean = false;
+  private activeScanCount = 0;
 
   constructor(
     steamService: SteamService,
@@ -86,6 +87,11 @@ export class ImportService {
   cancelScanAllSources(): void {
     console.log('[ImportService] Cancelling scan...');
     this.isScanCancelled = true;
+  }
+
+  /** True while any scan is in flight; used to avoid clobbering a running scan's cancel flag. */
+  isScanInProgress(): boolean {
+    return this.activeScanCount > 0;
   }
 
   private async getEnabledConfigs(configs: Record<string, ConfiguredSource>): Promise<ConfiguredSource[]> {
@@ -139,7 +145,12 @@ export class ImportService {
     progressCallback?: (message: string) => void,
     onGamesFound?: (games: ScannedGameResult[]) => void
   ): Promise<ScannedGameResult[]> {
-    this.isScanCancelled = false;
+    // Only the outermost scan resets the cancel flag. Background, manual and missing-games
+    // scans can overlap; without this guard a later scan un-cancels an in-flight one.
+    if (this.activeScanCount === 0) {
+      this.isScanCancelled = false;
+    }
+    this.activeScanCount++;
     const results: ScannedGameResult[] = [];
 
     try {
@@ -286,6 +297,9 @@ export class ImportService {
     } catch (error) {
       console.error('Error in scanAllSources:', error);
       progressCallback?.(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      // Runs for the early returns inside the try as well.
+      this.activeScanCount = Math.max(0, this.activeScanCount - 1);
     }
 
     return results;

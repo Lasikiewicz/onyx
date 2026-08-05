@@ -4,6 +4,11 @@
 **Scope:** Full read-only audit of `main/`, `renderer/src/`, and repo-level health (deps, tests, lint, build config).
 **Baseline:** commit `01e3f35` (0.12.0), branch `master`.
 
+> **Status (0.14.0):** 36 of the ~50 findings below have been fixed across 0.13.0–0.14.0.
+> This document is kept as the original audit record — it is *not* updated as items are
+> resolved. For what remains outstanding, with current file/line references, see
+> [`TODO.md`](../../TODO.md).
+
 ## How to read this
 
 Every finding cites `file:line` and was verified against source. Findings are grouped by severity, then by theme. **No source files under `main/` or `renderer/src/` were changed as part of this audit** — this document is the deliverable, and each item is written so it can be picked up as its own task later. The only code change made alongside this report is the dependency bump described in [Dependency remediation](#dependency-remediation).

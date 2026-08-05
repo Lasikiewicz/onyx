@@ -176,8 +176,17 @@ export function useAnimatedMediaPolicy({
     };
 
     applyPausePolicy();
+
+    // applyPausePolicy walks every <video> in the document. This observer watches the whole
+    // body subtree, so without coalescing, any DOM change anywhere (typing in search,
+    // hovering a tile, opening a menu) triggered a full-document walk synchronously.
+    let pendingFrame: number | null = null;
     const observer = new MutationObserver(() => {
-      applyPausePolicy();
+      if (pendingFrame !== null) return;
+      pendingFrame = requestAnimationFrame(() => {
+        pendingFrame = null;
+        applyPausePolicy();
+      });
     });
     observer.observe(document.body, { childList: true, subtree: true });
 
@@ -187,6 +196,7 @@ export function useAnimatedMediaPolicy({
 
     return () => {
       observer.disconnect();
+      if (pendingFrame !== null) cancelAnimationFrame(pendingFrame);
       document.removeEventListener('play', enforceFromEventTarget, true);
       document.removeEventListener('loadeddata', enforceFromEventTarget, true);
       document.removeEventListener('canplay', enforceFromEventTarget, true);

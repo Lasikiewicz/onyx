@@ -833,6 +833,8 @@ export const GameManager: React.FC<GameManagerProps> = ({
                         />
                       ) : (
                         <img
+                          loading="lazy"
+                          decoding="async"
                           src={game.boxArtUrl || gameListPlaceholderUrl}
                           alt={game.title}
                           className="w-16 h-20 object-cover rounded flex-shrink-0"
@@ -862,6 +864,8 @@ export const GameManager: React.FC<GameManagerProps> = ({
                             />
                           ) : (
                             <img
+                              loading="lazy"
+                              decoding="async"
                               src={game.iconUrl}
                               alt={game.title}
                               className="w-full h-full object-contain"

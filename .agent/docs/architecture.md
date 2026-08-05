@@ -44,6 +44,27 @@ It explains module boundaries, data flow, and release pipeline expectations.
 - Metadata fetching for staged games funnels through one shared queue (`pendingMetadataQueueRef`) drained by a fixed-size rolling worker pool (`METADATA_CONCURRENCY`, currently 6) in `useImportWorkbenchScan.ts`, rather than each source batch running its own independent concurrent-batch loop — multiple independent loops would let far more requests hit the rate-limited main process at once than intended. Workers pull the next queued game the instant they finish their own (not "wait for the whole batch"), and poll briefly instead of exiting when the queue is momentarily empty, until a `discoveryCompleteRef` flag (set once `scanAllSources()` has fully resolved, or once a one-shot pre-scanned handoff list is queued) confirms no more batches can arrive — otherwise most of the pool would exit right after the first small batch and only one or two lingering workers would pick up games trickling in from later sources.
 - `renderer/src/hooks/useImportWorkbenchActions.ts`'s import action only imports staged games with `status === 'ready'`, matching the footer's ready-count label; previously it imported every visible (non-ignored) staged game regardless of status, silently including incomplete "Attention Needed" entries.
 - Per-game import selection is owned by `renderer/src/components/importer/ImportWorkbench.tsx` as a set of *de*selected staged uuids (not selected ones), so entries staged later during a streaming scan default to selected. `useImportWorkbenchActions.ts` intersects that set with `status === 'ready'` when building the import list, and `ImportWorkbenchSidebar.tsx`/`ImportWorkbenchFooter.tsx` render row, per-source, and select-all controls against the same state.
+- `main/electronStoreShim.ts` is the single persistence primitive for every store (`game-library`,
+  `user-preferences`, `app-configs`, `steam-auth`). It writes **atomically** (`.tmp` + `rename`) and
+  serialises compactly. On a parse failure it preserves the bad file as `.corrupt-<ts>` and recovers
+  from the `.bak` snapshot taken once per process at load; it must never fall through to empty
+  defaults, because the next `set()` would overwrite real user data with nothing. Covered by
+  `main/electronStoreShim.test.ts`.
+- Long-running main-process work must not block the main thread. Established patterns:
+  `runFfmpegCaptured` in `main/ImageCacheService.ts` (async `spawn` with captured stderr and a
+  timeout) replaces `spawnSync`; `main/onyxLocalProtocol.ts` serves cached artwork via
+  `fs.promises.readFile`, attempting each candidate extension and treating `ENOENT` as a miss.
+  `main/XboxService.ts` is the remaining offender — see `TODO.md` (H5).
+- Scan lifecycle: `main/ImportService.ts` tracks `activeScanCount` so only the outermost scan resets
+  `isScanCancelled`; overlapping background/manual/missing-games scans no longer un-cancel each
+  other. `main/ipc/scanningHandlers.ts` guards `performBackgroundScan` with an in-flight flag, and
+  `main/startupCoordinator.ts` takes a `cancelBackgroundScan` callback so cancelling actually stops
+  a scan that has already started rather than only skipping one that has not.
+- Renderer artwork URLs carry a **session-stable** cache-busting token owned by
+  `renderer/src/hooks/useGameLibrary.ts`. It is re-stamped only via
+  `loadLibrary({ refreshImages: true })`, which is wired to the `gameStore:libraryUpdated` event.
+  Do not mint a fresh timestamp per load: `loadLibrary` runs after every save, delete, import and
+  settings change, and doing so invalidates every cover, logo and hero in the library each time.
 - `electron-store` is a **devDependency**, not a runtime dependency, and is deliberately absent from the packaged app. All persistence goes through `main/electronStoreShim.ts`, which `GameStore`, `UserPreferencesService`, `AppConfigService`, `SteamAuthService`, and `APICredentialsService` all consume. The package remains installed only because `scripts/test-credentials-migration*.js` use it directly. Do not reintroduce it as a runtime dependency: electron-builder bundles `dependencies` into the asar, and it pulls in a high-severity `fast-uri` advisory transitively via `conf` → `ajv`.
 - `main/GameStore.ts` owns write batching for the library file. Its debounce is bounded by `MAX_SAVE_DELAY` so a continuous stream of `saveGame` calls cannot defer persistence indefinitely, and `main/ImageOptimizationQueue.ts` therefore no longer flushes per game — it relies on that batching and issues a single flush when the queue drains. Any new caller that loops over `saveGame` should follow the same rule: never call `flushPending()` inside the loop, because each flush re-serialises and synchronously rewrites the entire library.
 - `main/ipc/scanningHandlers.ts` receives the user-preferences reader so startup/background scan notifications apply persisted ignored-game identities before emitting new-game events.
@@ -159,7 +180,7 @@ It explains module boundaries, data flow, and release pipeline expectations.
 ## Module Index
 
 <!-- AUTO-GENERATED:MODULE_INDEX:START -->
-- Main process source files: 79
+- Main process source files: 80
 - Renderer source files: 173
 - Automation scripts: 30
 - GitHub workflow files: 7

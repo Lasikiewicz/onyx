@@ -63,6 +63,8 @@ function writeCrashContext(): void {
   }
 }
 
+let crashContextTimer: NodeJS.Timeout | null = null;
+
 export function debugOptimizationLog(message: string): void {
   if (!init() || !enabled || !logPath) return;
   try {
@@ -72,7 +74,16 @@ export function debugOptimizationLog(message: string): void {
     if (recentLines.length > CRASH_CONTEXT_LINES * 2) {
       recentLines.splice(0, recentLines.length - CRASH_CONTEXT_LINES);
     }
-    writeCrashContext();
+    // Coalesced: this is called ~10x per game during optimization, and rewriting the whole
+    // crash-context tail synchronously on every line doubled the sync writes per log call.
+    // A short debounce keeps the file current without paying that cost per line.
+    if (crashContextTimer === null) {
+      crashContextTimer = setTimeout(() => {
+        crashContextTimer = null;
+        writeCrashContext();
+      }, 250);
+      crashContextTimer.unref?.();
+    }
   } catch {
     /* ignore */
   }

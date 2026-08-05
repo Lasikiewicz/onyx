@@ -4,6 +4,10 @@ import { GameContextMenu } from './GameContextMenu';
 import { prefetchGameArtwork } from '../utils/imagePrefetch';
 import { LauncherIcon, getLauncherDisplayName } from '../utils/launcherIcons';
 
+// Shared across renders and rows: constructing a DOMParser per row per render was pure waste.
+const sharedDomParser = new DOMParser();
+const descriptionPreviewCache = new Map<string, string>();
+
 export interface ListViewOptions {
   showDescription: boolean;
   showCategories: boolean;
@@ -95,14 +99,23 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
   const getDescriptionPreview = (description?: string) => {
     if (!description) return '';
 
+    const cached = descriptionPreviewCache.get(description);
+    if (cached !== undefined) return cached;
+
+    let preview: string;
     try {
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(`<div>${description}</div>`, 'text/html');
-      const text = doc.body.textContent || '';
-      return text.replace(/\s+/g, ' ').trim();
+      // Reuses one module-level parser and memoises the result. This is called inline in
+      // the row map of an unmemoized component, so it previously constructed a DOMParser
+      // and reparsed every visible description on every render.
+      const doc = sharedDomParser.parseFromString(`<div>${description}</div>`, 'text/html');
+      preview = (doc.body.textContent || '').replace(/\s+/g, ' ').trim();
     } catch {
-      return description.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+      preview = description.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
     }
+
+    if (descriptionPreviewCache.size > 2000) descriptionPreviewCache.clear();
+    descriptionPreviewCache.set(description, preview);
+    return preview;
   };
 
   const displayMode = listViewOptions.displayMode || 'boxart-title';
@@ -299,6 +312,8 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                           />
                         ) : (
                           <img
+                            loading="lazy"
+                            decoding="async"
                             src={game.logoUrl}
                             alt={game.title}
                             className="max-w-full max-h-full object-contain transition-transform duration-300 group-hover:scale-110"
@@ -398,6 +413,8 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                           />
                         ) : (
                           <img
+                            loading="lazy"
+                            decoding="async"
                             src={game.iconUrl}
                             alt={game.title}
                             className="max-w-full max-h-full object-contain"
@@ -512,6 +529,8 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                           />
                         ) : (
                           <img
+                            loading="lazy"
+                            decoding="async"
                             src={game.boxArtUrl}
                             alt={game.title}
                             className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
@@ -536,6 +555,8 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                           />
                         ) : (
                           <img
+                            loading="lazy"
+                            decoding="async"
                             src={game.logoUrl}
                             alt={game.title}
                             className="w-full h-full object-contain p-2 transition-transform duration-300 group-hover:scale-110"

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 interface FullscreenState {
   isFullscreen: boolean;
@@ -25,7 +25,9 @@ export function useFullscreen(): UseFullscreenReturn {
   });
 
   const [cursorHideTimeout, setCursorHideTimeout] = useState<number | null>(null);
-  const [mouseIdleTimer, setMouseIdleTimer] = useState<NodeJS.Timeout | null>(null);
+  // Held in a ref, not state: this timer is reset on every mousemove, and as state it fed
+  // its own effect's dependency array — the effect set it, which re-ran the effect, forever.
+  const mouseIdleTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Initialize fullscreen state
   useEffect(() => {
@@ -64,9 +66,9 @@ export function useFullscreen(): UseFullscreenReturn {
   useEffect(() => {
     if (!state.isFullscreen) {
       // Clear any existing timer and show cursor
-      if (mouseIdleTimer) {
-        clearTimeout(mouseIdleTimer);
-        setMouseIdleTimer(null);
+      if (mouseIdleTimerRef.current) {
+        clearTimeout(mouseIdleTimerRef.current);
+        mouseIdleTimerRef.current = null;
       }
       document.documentElement.classList.remove('hide-cursor');
       return;
@@ -89,7 +91,7 @@ export function useFullscreen(): UseFullscreenReturn {
     };
 
     setupCursorHiding();
-  }, [mouseIdleTimer, state.isFullscreen]);
+  }, [state.isFullscreen]);
 
   // Handle mouse movement for cursor hiding
   useEffect(() => {
@@ -102,16 +104,14 @@ export function useFullscreen(): UseFullscreenReturn {
       document.documentElement.classList.remove('hide-cursor');
 
       // Clear existing timer
-      if (mouseIdleTimer) {
-        clearTimeout(mouseIdleTimer);
+      if (mouseIdleTimerRef.current) {
+        clearTimeout(mouseIdleTimerRef.current);
       }
 
       // Set new timer to hide cursor
-      const timer = setTimeout(() => {
+      mouseIdleTimerRef.current = setTimeout(() => {
         document.documentElement.classList.add('hide-cursor');
       }, cursorHideTimeout);
-
-      setMouseIdleTimer(timer);
     };
 
     // Initial setup
@@ -122,11 +122,12 @@ export function useFullscreen(): UseFullscreenReturn {
 
     return () => {
       window.removeEventListener('mousemove', handleMouseMove);
-      if (mouseIdleTimer) {
-        clearTimeout(mouseIdleTimer);
+      if (mouseIdleTimerRef.current) {
+        clearTimeout(mouseIdleTimerRef.current);
+        mouseIdleTimerRef.current = null;
       }
     };
-  }, [state.isFullscreen, cursorHideTimeout, mouseIdleTimer]);
+  }, [state.isFullscreen, cursorHideTimeout]);
 
   const toggle = useCallback(async () => {
     try {

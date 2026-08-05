@@ -16,6 +16,17 @@ import { Game } from '../types/game';
 import { SortableCardTile } from './SortableCardTile';
 import { computeSmartFillColumns } from '../utils/smartFillColumns';
 
+/**
+ * containIntrinsicSize is required alongside contentVisibility. Without it, skipped tiles
+ * collapse to zero height, which makes the scrollbar jump and forces repeated layout
+ * invalidation while scrolling. `auto` reuses the last rendered size once a tile has been
+ * painted, so the placeholder height stays correct across tile sizes.
+ */
+const CARD_TILE_CONTAINMENT_STYLE: React.CSSProperties = {
+  contentVisibility: 'auto',
+  containIntrinsicSize: 'auto 220px',
+};
+
 interface LibraryCardViewProps {
   games: Game[];
   onReorder: (reorderedGames: Game[]) => Promise<void>;
@@ -219,7 +230,7 @@ export const LibraryCardView: React.FC<LibraryCardViewProps> = ({
               }}
             >
               {items.map((game, index) => (
-                <div key={game.id} style={{ contentVisibility: 'auto' }}>
+                <div key={game.id} style={CARD_TILE_CONTAINMENT_STYLE}>
                   <SortableCardTile
                     game={game}
                     onPlay={onPlay}

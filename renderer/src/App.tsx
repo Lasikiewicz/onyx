@@ -1,4 +1,4 @@
-import React, { Suspense, lazy, useState, useRef, useCallback } from 'react';
+import React, { Suspense, lazy, useState, useRef, useCallback, useEffect } from 'react';
 import { useGameLibrary } from './hooks/useGameLibrary';
 import { useFullscreen } from './hooks/useFullscreen';
 import { useAppShellEvents } from './hooks/useAppShellEvents';
@@ -599,9 +599,20 @@ function App() {
   };
 
   // Toast notification helper
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const showToast = useCallback((message: string, type: 'success' | 'error' = 'success') => {
     setToast({ message, type });
-    setTimeout(() => setToast(null), 3000);
+    // Replace any in-flight timer: overlapping toasts each scheduled their own, so an
+    // earlier timer would clear a newer toast. Also cleared on unmount below.
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = setTimeout(() => {
+      toastTimerRef.current = null;
+      setToast(null);
+    }, 3000);
+  }, []);
+
+  useEffect(() => () => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
   }, []);
 
   const {

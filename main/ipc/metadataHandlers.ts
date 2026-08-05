@@ -82,10 +82,23 @@ function createImageUrlFilter() {
 
         const urls = [...new Set(images.map((item) => item.url).filter((url): url is string => !!url))];
         const validity = new Map<string, boolean>();
-        await Promise.all(urls.map(async (url) => {
-            const ok = await validateWithCache(url);
-            validity.set(url, ok);
-        }));
+
+        // Bounded concurrency: search results can carry dozens of candidate URLs, and each
+        // probe costs up to ~11s, so an unthrottled Promise.all fired the whole burst at
+        // once with no per-host limit.
+        const MAX_CONCURRENT_VALIDATIONS = 6;
+        let cursor = 0;
+        const workers = Array.from(
+            { length: Math.min(MAX_CONCURRENT_VALIDATIONS, urls.length) },
+            async () => {
+                while (cursor < urls.length) {
+                    const url = urls[cursor++];
+                    if (!url) continue;
+                    validity.set(url, await validateWithCache(url));
+                }
+            },
+        );
+        await Promise.all(workers);
 
         const filtered = images.filter((item) => {
             if (!item.url) return false;

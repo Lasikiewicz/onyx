@@ -1,6 +1,6 @@
 import { ipcMain, dialog } from 'electron';
 import path from 'node:path';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, statSync, promises as fsPromises } from 'node:fs';
 import { cpus } from 'node:os';
 import { SteamService } from '../SteamService.js';
 import { XboxService } from '../XboxService.js';
@@ -12,6 +12,42 @@ import type { ImageQueueItem } from '../ImageOptimizationQueue.js';
 import type { ImageJobStatus } from '../ImageOptimizationController.js';
 
 type ImageQueue = { add: (gameId: string, gameTitle: string, urls: ImageQueueItem['urls']) => void };
+
+/**
+ * Cached set of `{gameId}-{imageType}` keys that have an animated .webm derivative.
+ *
+ * gameStore:getLibrary runs on every library load, and this previously did a synchronous
+ * readdir of the whole image cache each time — roughly 6 files per game, so a 1000-game
+ * library meant a 6000-entry blocking directory listing per fetch. Cached with a short TTL
+ * and invalidated whenever the optimizer writes new artwork.
+ */
+const WEBM_KEYS_TTL_MS = 5_000;
+let webmKeysCache: { dir: string; keys: Set<string>; loadedAt: number } | null = null;
+
+export function invalidateWebmKeysCache(): void {
+    webmKeysCache = null;
+}
+
+async function getCachedWebmKeys(cacheDir: string): Promise<Set<string>> {
+    const now = Date.now();
+    if (webmKeysCache && webmKeysCache.dir === cacheDir && now - webmKeysCache.loadedAt < WEBM_KEYS_TTL_MS) {
+        return webmKeysCache.keys;
+    }
+
+    const keys = new Set<string>();
+    try {
+        const files = await fsPromises.readdir(cacheDir);
+        for (const f of files) {
+            const fl = f.toLowerCase();
+            if (fl.endsWith('.webm')) keys.add(fl.slice(0, -5));
+        }
+    } catch {
+        // Cache directory unreadable — treat as empty rather than failing the library load.
+    }
+
+    webmKeysCache = { dir: cacheDir, keys, loadedAt: now };
+    return keys;
+}
 
 const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
@@ -156,9 +192,25 @@ export function registerGameIPCHandlers(
     });
 
     // Xbox Service Handlers
-    ipcMain.handle('xbox:scanGames', async (_event, path: string, autoMerge: boolean = false) => {
+    ipcMain.handle('xbox:scanGames', async (_event, scanPath: string, autoMerge: boolean = false) => {
         try {
-            const games = await xboxService.scanGames(path);
+            // This kicks off a deep recursive directory walk. Reject anything that is not a
+            // real, existing directory, and refuse filesystem/drive roots — scanning `C:\`
+            // would walk the entire disk and hang the app.
+            if (typeof scanPath !== 'string' || scanPath.trim().length === 0) {
+                console.warn('[xbox:scanGames] Rejected empty scan path');
+                return [];
+            }
+            const normalized = path.resolve(scanPath);
+            if (path.dirname(normalized) === normalized) {
+                console.warn(`[xbox:scanGames] Refusing to scan filesystem root: ${normalized}`);
+                return [];
+            }
+            if (!existsSync(normalized) || !statSync(normalized).isDirectory()) {
+                console.warn(`[xbox:scanGames] Rejected non-directory scan path: ${normalized}`);
+                return [];
+            }
+            const games = await xboxService.scanGames(normalized);
             if (autoMerge) {
                 // Merge logic if needed
             }
@@ -178,13 +230,7 @@ export function registerGameIPCHandlers(
                 const isWebmUrl = (url?: string) => !!url && /\.webm(\?|$)/i.test(url);
                 const cacheDir = imageCacheService.getCacheDir();
                 if (existsSync(cacheDir)) {
-                    const { readdirSync } = require('node:fs');
-                    const files = readdirSync(cacheDir) as string[];
-                    const webmKeys = new Set<string>();
-                    for (const f of files) {
-                        const fl = f.toLowerCase();
-                        if (fl.endsWith('.webm')) webmKeys.add(fl.slice(0, -5));
-                    }
+                    const webmKeys = await getCachedWebmKeys(cacheDir);
                     const entries: { urlKey: keyof Game; flagKey: keyof Game; keySuffix: string }[] = [
                         { urlKey: 'boxArtUrl', flagKey: 'boxArtIsVideo', keySuffix: 'boxart' },
                         { urlKey: 'bannerUrl', flagKey: 'bannerIsVideo', keySuffix: 'banner' },
@@ -247,6 +293,7 @@ export function registerGameIPCHandlers(
                     iconUrl: '',
                 });
             }
+            invalidateWebmKeysCache();
             return { success: true };
         } catch (error) {
             console.error('Error in gameStore:clearAllImages handler:', error);

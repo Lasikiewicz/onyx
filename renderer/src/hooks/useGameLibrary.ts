@@ -62,12 +62,27 @@ function convertFileUrlToLocalProtocol(url: string): string {
   return url;
 }
 
+/**
+ * Cache-busting token for artwork URLs.
+ *
+ * This is deliberately stable for the lifetime of the session rather than re-stamped on
+ * every load. `loadLibrary()` runs after every save, delete, import and settings change;
+ * minting a fresh timestamp each time changed every artwork URL in the library, forcing a
+ * full re-fetch and re-decode of every cover, logo and hero through the local protocol
+ * handler (the cause of the logo flicker). Only bump it when the artwork files on disk may
+ * actually have been rewritten under an unchanged URL.
+ */
+let imageCacheToken = Date.now();
+
 export function useGameLibrary() {
   const [games, setGames] = useState<Game[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const loadLibrary = async () => {
+  const loadLibrary = async (options?: { refreshImages?: boolean }) => {
+    if (options?.refreshImages) {
+      imageCacheToken = Date.now();
+    }
     try {
       setLoading(true);
       setError(null);
@@ -107,9 +122,9 @@ export function useGameLibrary() {
 
       const library = await window.electronAPI.getLibrary();
       const perGameOverrides = prefs.perGameViewSizeOverrides || {};
-      // Convert file:// URLs to onyx-local:// when loading (for backward compatibility)
-      // Add cache-busting timestamp to force fresh image loads
-      const timestamp = Date.now();
+      // Convert file:// URLs to onyx-local:// when loading (for backward compatibility).
+      // Uses the session-stable token so repeated loads keep artwork URLs identical.
+      const timestamp = imageCacheToken;
       const convertedGames = library.map((game: Game) => ({
         ...game,
         logoSizePerViewMode: {
@@ -216,7 +231,9 @@ export function useGameLibrary() {
   useEffect(() => {
     const handleLibraryUpdate = (_event: any) => {
       console.log('[useGameLibrary] Library updated, reloading...');
-      loadLibrary();
+      // Main-process change: artwork may have been re-cached in place (optimization,
+      // metadata refresh), so this is the one path that re-stamps the image token.
+      loadLibrary({ refreshImages: true });
     };
 
     const removeLibraryUpdate = window.electronAPI?.on && window.electronAPI.on('gameStore:libraryUpdated', handleLibraryUpdate);

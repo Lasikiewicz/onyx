@@ -473,6 +473,8 @@ export const LibraryCoverFlow: React.FC<LibraryCoverFlowProps> = ({
                     }
                     return (
                       <img
+                        loading="lazy"
+                        decoding="async"
                         src={artworkUrl}
                         alt={game.title}
                         className="w-full h-full object-cover"
@@ -553,6 +555,8 @@ export const LibraryCoverFlow: React.FC<LibraryCoverFlowProps> = ({
                     }
                     return (
                       <img
+                        loading="lazy"
+                        decoding="async"
                         src={artworkUrl}
                         alt=""
                         className="w-full h-full object-cover object-top"

@@ -113,7 +113,9 @@ export class GameStore {
       return [...this.gamesCache];
     }
     const store = await this.ensureStore();
-    return (store as any).get('games', []);
+    // Copy: `get` hands back the store's live internal array, and callers mutate the
+    // result (e.g. gameHandlers flag updates), which would silently mutate persisted state.
+    return [...((store as any).get('games', []) as Game[])];
   }
 
   /**

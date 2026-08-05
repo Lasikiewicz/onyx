@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, useMemo, useRef, useEffect } from 'react';
 
 export type FocusRegion = 'library' | 'topBar' | 'contextMenu' | 'settings' | 'details' | null;
 
@@ -136,20 +136,38 @@ export function FocusProvider({ children, onConfirm, onBack }: FocusProviderProp
     setIndex(0);
   }, [region]);
 
-  const value: FocusContextType = {
-    region,
-    index,
-    setRegion,
-    setIndex,
-    navigateUp,
-    navigateDown,
-    navigateLeft,
-    navigateRight,
-    confirm,
-    back,
-    setMaxIndex,
-    getMaxIndex,
-  };
+  // Memoized: as a fresh object literal every render, every consumer re-rendered whenever
+  // this provider's parent did, even when region/index were unchanged.
+  const value: FocusContextType = useMemo(
+    () => ({
+      region,
+      index,
+      setRegion,
+      setIndex,
+      navigateUp,
+      navigateDown,
+      navigateLeft,
+      navigateRight,
+      confirm,
+      back,
+      setMaxIndex,
+      getMaxIndex,
+    }),
+    [
+      region,
+      index,
+      setRegion,
+      setIndex,
+      navigateUp,
+      navigateDown,
+      navigateLeft,
+      navigateRight,
+      confirm,
+      back,
+      setMaxIndex,
+      getMaxIndex,
+    ],
+  );
 
   return <FocusContext.Provider value={value}>{children}</FocusContext.Provider>;
 }

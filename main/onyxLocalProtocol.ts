@@ -1,6 +1,7 @@
 import { app, protocol, session } from 'electron';
 import path from 'node:path';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { readFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import type { ImageCacheService } from './ImageCacheService.js';
 
@@ -24,6 +25,7 @@ export function registerOnyxLocalProtocol(imageCacheService: ImageCacheService):
   const MAX_TRACKED_URLS = 2000;
   const failedUrls = new Set<string>();
   const failedUrlCounts = new Map<string, number>();
+  const successUrlCounts = new Map<string, number>();
 
   console.log('[onyx-local] Registering protocol handler...');
 
@@ -152,42 +154,51 @@ export function registerOnyxLocalProtocol(imageCacheService: ImageCacheService):
         for (const ext of extensions) {
           const filename = `${prefix}${ext}`;
           const filePath = path.join(cacheDir, filename);
-          if (existsSync(filePath)) {
-            if (count === 1) console.log(`[onyx-local] ✓ Found: ${filename}`);
 
-            // Clear from failed set if it was there (file now exists)
-            if (failedUrls.has(requestUrl)) {
-              failedUrls.delete(requestUrl);
-              failedUrlCounts.delete(requestUrl);
+          // Read directly and treat ENOENT as "wrong extension". This runs once per image
+          // the renderer paints, so it must not block the main thread: a stat+read pair of
+          // sync calls per candidate extension meant ~100 blocking reads to paint a grid.
+          let fileData: Buffer;
+          try {
+            fileData = await readFile(filePath);
+          } catch (readError) {
+            const code = (readError as NodeJS.ErrnoException)?.code;
+            if (code === 'ENOENT' || code === 'EISDIR') continue;
+            if (count === 1) {
+              console.error(`[onyx-local] Error reading file ${filename}:`, readError);
             }
-
-            try {
-              const fileData = readFileSync(filePath);
-              let mimeType = 'image/jpeg';
-              if (ext === '.png') mimeType = 'image/png';
-              else if (ext === '.gif') mimeType = 'image/gif';
-              else if (ext === '.webp') mimeType = 'image/webp';
-              else if (ext === '.webm') mimeType = 'video/webm';
-              else if (ext === '.ico') mimeType = 'image/x-icon';
-              else if (ext === '.avif') mimeType = 'image/avif';
-
-              // Only log successful loads occasionally to avoid spam
-              const successCount = failedUrlCounts.get(requestUrl + '_success') || 0;
-              failedUrlCounts.set(requestUrl + '_success', successCount + 1);
-              if (successCount === 0 || successCount % 50 === 0) {
-                console.log(`[onyx-local] Successfully serving file: ${filename}`);
-              }
-
-              return new Response(fileData, { headers: { 'Content-Type': mimeType } });
-            } catch (readError) {
-              // If reading the file fails, log but don't block other requests
-              if (count === 1) {
-                console.error(`[onyx-local] Error reading file ${filename}:`, readError);
-              }
-              // Continue to return 404 below
-              break;
-            }
+            break; // Real read failure — fall through to 404 below.
           }
+
+          if (count === 1) console.log(`[onyx-local] ✓ Found: ${filename}`);
+
+          // Clear from failed set if it was there (file now exists)
+          if (failedUrls.has(requestUrl)) {
+            failedUrls.delete(requestUrl);
+            failedUrlCounts.delete(requestUrl);
+          }
+
+          let mimeType = 'image/jpeg';
+          if (ext === '.png') mimeType = 'image/png';
+          else if (ext === '.gif') mimeType = 'image/gif';
+          else if (ext === '.webp') mimeType = 'image/webp';
+          else if (ext === '.webm') mimeType = 'video/webm';
+          else if (ext === '.ico') mimeType = 'image/x-icon';
+          else if (ext === '.avif') mimeType = 'image/avif';
+
+          // Only log successful loads occasionally to avoid spam. Counted in its own map so
+          // success keys do not consume the failure map's MAX_TRACKED_URLS budget.
+          const successCount = successUrlCounts.get(requestUrl) || 0;
+          successUrlCounts.set(requestUrl, successCount + 1);
+          if (successUrlCounts.size > MAX_TRACKED_URLS) successUrlCounts.clear();
+          if (successCount === 0 || successCount % 50 === 0) {
+            console.log(`[onyx-local] Successfully serving file: ${filename}`);
+          }
+
+          // `Buffer` from fs/promises is ArrayBufferLike-backed and not assignable to BodyInit;
+          // re-wrap over a plain ArrayBuffer. The memcpy is trivial next to the blocking
+          // synchronous read this replaced.
+          return new Response(new Uint8Array(fileData), { headers: { 'Content-Type': mimeType } });
         }
 
         // Case-insensitive fallback (URL may be lowercased by browser; file on disk may have different casing)

@@ -1,4 +1,5 @@
-import { readdirSync, statSync } from 'node:fs';
+import { readdirSync, statSync, type Dirent } from 'node:fs';
+import { join } from 'node:path';
 
 /**
  * Shared game filtering logic for all launchers
@@ -6,6 +7,10 @@ import { readdirSync, statSync } from 'node:fs';
  * Uses hybrid approach: publisher whitelist + system apps + keywords + size heuristics
  */
 export class GameFilteringService {
+  private static readonly LARGE_FOLDER_THRESHOLD = 100; // likely a game
+  private static readonly SMALL_FOLDER_THRESHOLD = 20;  // likely a utility
+  private readonly folderSizeCache = new Map<string, 'large' | 'small' | 'unknown'>();
+
   private static readonly KNOWN_GAME_PUBLISHERS: ReadonlySet<string> = new Set([
     // AAA Publishers
     'ea', 'activision', 'ubisoft', '2k', 'square', 'rockstar', 'bethesda', 'capcom',
@@ -160,16 +165,53 @@ export class GameFilteringService {
    * Utilities: typically < 20 files
    */
   private estimateFolderSize(folderPath: string): 'large' | 'small' | 'unknown' {
-    try {
-      const files = readdirSync(folderPath, { recursive: true });
-      const fileCount = files.length;
+    // Cached per folder: isLikelyNonGame can ask about the same folder more than once
+    // during a single scan (twice for `manual` sources).
+    const cached = this.folderSizeCache.get(folderPath);
+    if (cached) return cached;
 
-      if (fileCount > 100) return 'large';  // likely game
-      if (fileCount < 20) return 'small';   // likely utility
-      return 'unknown';
-    } catch (err) {
+    const result = this.countFilesUpTo(folderPath, GameFilteringService.LARGE_FOLDER_THRESHOLD + 1);
+    this.folderSizeCache.set(folderPath, result);
+    return result;
+  }
+
+  /**
+   * Count files breadth-first, stopping as soon as `limit` is reached.
+   *
+   * The previous implementation used `readdirSync(path, { recursive: true })`, which fully
+   * enumerates a game install — tens of thousands of files across tens of GB — purely to
+   * compare the total against 20/100. Short-circuiting bounds the work to `limit` entries.
+   */
+  private countFilesUpTo(rootPath: string, limit: number): 'large' | 'small' | 'unknown' {
+    let count = 0;
+    const queue: string[] = [rootPath];
+
+    try {
+      while (queue.length > 0) {
+        const dir = queue.shift()!;
+        let entries: Dirent[];
+        try {
+          entries = readdirSync(dir, { withFileTypes: true });
+        } catch {
+          continue; // Unreadable subdirectory — ignore and keep going.
+        }
+
+        for (const entry of entries) {
+          if (entry.isDirectory()) {
+            queue.push(join(dir, entry.name));
+          } else {
+            count++;
+            if (count >= limit) return 'large';
+          }
+        }
+      }
+    } catch {
       return 'unknown';
     }
+
+    if (count > GameFilteringService.LARGE_FOLDER_THRESHOLD) return 'large';
+    if (count < GameFilteringService.SMALL_FOLDER_THRESHOLD) return 'small';
+    return 'unknown';
   }
 
   /**

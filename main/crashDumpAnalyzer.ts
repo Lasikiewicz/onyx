@@ -47,9 +47,25 @@ function findDmpFiles(dir: string): string[] {
     return result;
 }
 
+/**
+ * Only the tail of a dump is scanned. Reading a whole .dmp and running two full-buffer
+ * string conversions over it cost roughly 3x the file size in peak RSS (~600MB for a
+ * 200MB dump) plus multi-second regex scans, on the main process, at startup.
+ */
+const MAX_DUMP_SCAN_BYTES = 16 * 1024 * 1024;
+
 function analyzeDumpFile(filePath: string): string {
     try {
-        const buf = fs.readFileSync(filePath);
+        const { size } = fs.statSync(filePath);
+        const readBytes = Math.min(size, MAX_DUMP_SCAN_BYTES);
+        const buf = Buffer.alloc(readBytes);
+        const fd = fs.openSync(filePath, 'r');
+        try {
+            // Read the tail: crash context sits near the end of the dump.
+            fs.readSync(fd, buf, 0, readBytes, Math.max(0, size - readBytes));
+        } finally {
+            fs.closeSync(fd);
+        }
 
         // Extract Ascii strings
         const asciiText = buf.toString('ascii').replace(/[^\x20-\x7E\r\n]/g, '');

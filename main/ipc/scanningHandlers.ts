@@ -45,7 +45,16 @@ export function registerScanningHandlers(
     imageCacheService: ImageCacheService,
     userPreferencesService: Pick<UserPreferencesService, 'getPreferences'>,
 ) {
+    let backgroundScanInFlight = false;
+
     const performBackgroundScan = async (skipEnabledCheck: boolean = false, fromStartup: boolean = false) => {
+        // The hourly interval and the app:performBackgroundScan IPC can fire together;
+        // without this guard both run a full multi-source disk walk concurrently.
+        if (backgroundScanInFlight) {
+            console.log('[BackgroundScan] Skipping scan - a scan is already in progress');
+            return;
+        }
+        backgroundScanInFlight = true;
         try {
             const channels = getBackgroundScanUiChannels(fromStartup);
             if (backgroundScanPaused) {
@@ -207,6 +216,8 @@ export function registerScanningHandlers(
             }
         } catch (error) {
             console.error('[BackgroundScan] Error during background scan:', error);
+        } finally {
+            backgroundScanInFlight = false;
         }
     };
 
