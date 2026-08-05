@@ -4,6 +4,11 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.15.2] - 2026-08-05
+
+- Fixes:
+  - Fixed the Minimum Details Size slider only having two or three usable positions. Dragging it now resizes the details panel smoothly across the whole range, and the panel matches the percentage you set instead of overshooting it — it previously jumped to around 60% of the window when set to 50%.
+
 ## [0.15.1] - 2026-08-05
 
 - Games view:

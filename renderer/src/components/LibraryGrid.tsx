@@ -21,15 +21,11 @@ import { computeSmartFillColumns, computeMaximizeSpaceLayout } from '../utils/sm
 const BOXART_TILE_ASPECT_HEIGHT_OVER_WIDTH = 1.5;
 const LOGO_TILE_ASPECT_HEIGHT_OVER_WIDTH = 9 / 16;
 
-// Fallback floor for the details panel share of the row width. The effective value is the
-// user's `minPanelWidthPercent` preference (25-50%); this is only the default.
+// Default details panel share of the row width when no preference is set.
 const MAXIMIZE_SPACE_DEFAULT_MIN_PANEL_WIDTH_PERCENT = 25;
 // Bounds the preference is clamped to, mirroring the slider range in the right-click menu.
 const MAXIMIZE_SPACE_MIN_PANEL_PERCENT_FLOOR = 25;
 const MAXIMIZE_SPACE_MIN_PANEL_PERCENT_CEILING = 50;
-// Mirrors the existing manual drag-handle cap (GameDetailsPanel.tsx) so Maximize Space stays
-// within the same bounds a user could reach by dragging the panel themselves.
-const MAXIMIZE_SPACE_MAX_PANEL_WIDTH_RATIO = 0.75;
 const MAXIMIZE_SPACE_MIN_PANEL_WIDTH_PX = 400;
 // Ignore sub-pixel differences so we don't churn onPanelWidthChange/persistence forever.
 const PANEL_WIDTH_CHANGE_TOLERANCE_PX = 2;
@@ -145,17 +141,30 @@ export const LibraryGrid: React.FC<LibraryGridProps> = ({
       if (maximizeSpace) {
         const currentPanelWidth = panelWidthRef.current;
         const totalWidth = container.clientWidth + currentPanelWidth;
-        // Clamped rather than trusted: the value round-trips through persisted preferences,
-        // and a floor above the 75% ceiling would leave no feasible layout at all.
-        const minPanelPercent = Math.min(
+        // Clamped rather than trusted: the value round-trips through persisted preferences.
+        const panelPercent = Math.min(
           MAXIMIZE_SPACE_MIN_PANEL_PERCENT_CEILING,
           Math.max(
             MAXIMIZE_SPACE_MIN_PANEL_PERCENT_FLOOR,
             Number.isFinite(minPanelWidthPercent) ? minPanelWidthPercent : MAXIMIZE_SPACE_DEFAULT_MIN_PANEL_WIDTH_PERCENT,
           ),
         );
-        const minPanelWidth = Math.max(MAXIMIZE_SPACE_MIN_PANEL_WIDTH_PX, totalWidth * (minPanelPercent / 100));
-        const maxPanelWidth = totalWidth * MAXIMIZE_SPACE_MAX_PANEL_WIDTH_RATIO;
+        // The setting bounds the panel from BOTH sides, which is why the same value is passed
+        // as floor and cap.
+        //
+        // Passing only a floor (and a loose 75% cap) made the setting behave as two or three
+        // discrete states: the floor merely selects which column count wins, and the panel
+        // then takes whatever width that column count's exact vertical fit demands. With a
+        // typical library that lands nowhere near the floor and jumps in large steps — at
+        // 1920x1080 with 50 games, 25-32% all produced 32%, 33-48% produced 49%, and 49-50%
+        // produced 61%, i.e. above the slider's own maximum.
+        //
+        // Binding both ends makes the panel track the slider linearly and never exceed it;
+        // the games view then shrink-to-fits in whatever width is left, which is Smart Fill's
+        // normal job.
+        const panelWidthTarget = Math.max(MAXIMIZE_SPACE_MIN_PANEL_WIDTH_PX, totalWidth * (panelPercent / 100));
+        const minPanelWidth = panelWidthTarget;
+        const maxPanelWidth = panelWidthTarget;
         // Maximize Space deliberately overrides the "never grow past configured size" floor
         // (baseColumns) that plain Smart Fill respects - forcing at least baseColumns columns
         // while also solving for the exact-fit tile size demands far more width than is ever

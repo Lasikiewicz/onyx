@@ -368,7 +368,7 @@ export function RightClickMenuGamesViewSection({
               <label className="text-xs text-gray-400 font-medium">Maximize Space</label>
               {settingDescriptionDisplay === 'icon' &&
                 renderSettingHintIcon(
-                  'Automatically resizes the details panel so the games view always uses the biggest tiles it can with no leftover space at the bottom. The details panel stays at least 25% of the window width.',
+                  'Automatically resizes the game tiles to make the best use of the space left over by the details panel. Use Minimum Details Size below to choose how much of the window the details panel takes.',
                 )}
             </div>
             <button
@@ -386,7 +386,7 @@ export function RightClickMenuGamesViewSection({
             </button>
           </div>
           {renderSettingDescription(
-            'Automatically resizes the details panel so the games view always uses the biggest tiles it can with no leftover space at the bottom. The details panel never shrinks below the minimum size set below.',
+            'Automatically resizes the game tiles to make the best use of the space left over by the details panel. Use Minimum Details Size below to choose how much of the window the details panel takes.',
           )}
         </div>
       )}
@@ -395,7 +395,7 @@ export function RightClickMenuGamesViewSection({
         <div className="px-3 py-2 bg-gray-700/30 rounded-md">
           <MenuSliderRow
             label="Minimum Details Size"
-            description="The smallest the game details panel may shrink to while Maximize Space is fitting the tiles. Raise it to keep more room for details, at the cost of smaller tiles."
+            description="How much of the window the game details panel takes while Maximize Space is on. Raise it for more room for details; the tiles get the rest, so they shrink as this grows."
             descriptionDisplay={settingDescriptionDisplay}
             min={25}
             max={50}

@@ -18,22 +18,63 @@ describe('computeMaximizeSpaceLayout', () => {
     }
   });
 
-  it('honours a 25% floor and a 50% floor differently', () => {
-    const totalWidth = 2560;
-    const at25 = computeMaximizeSpaceLayout(totalWidth, 1200, 200, 10, BOXART, totalWidth * 0.25, totalWidth * 0.75, 1);
-    const at50 = computeMaximizeSpaceLayout(totalWidth, 1200, 200, 10, BOXART, totalWidth * 0.5, totalWidth * 0.75, 1);
+  /**
+   * How LibraryGrid actually calls this for the "Minimum Details Size" setting: the chosen
+   * percentage is passed as BOTH floor and cap, so the panel tracks the slider exactly.
+   *
+   * Passing only a floor (with a loose 75% cap) made the setting behave as two or three
+   * discrete states, because the floor only selects which column count wins and the panel
+   * then takes whatever that column count's exact vertical fit demands.
+   */
+  const layoutForPercent = (pct: number, totalWidth: number, height: number, count: number) => {
+    const target = Math.max(400, totalWidth * (pct / 100));
+    return computeMaximizeSpaceLayout(totalWidth, height, count, 10, BOXART, target, target, 1);
+  };
 
-    expect(at25.panelWidth).toBeGreaterThanOrEqual(totalWidth * 0.25);
-    expect(at50.panelWidth).toBeGreaterThanOrEqual(totalWidth * 0.5);
-    // The higher floor genuinely reserves more room for the details panel.
+  it('tracks the requested percentage exactly across the whole slider range', () => {
+    const totalWidth = 1920;
+    for (let pct = 25; pct <= 50; pct++) {
+      const layout = layoutForPercent(pct, totalWidth, 950, 50);
+      expect(layout.panelWidth).toBeCloseTo(totalWidth * (pct / 100), 5);
+    }
+  });
+
+  it('never exceeds the requested percentage, at any library size', () => {
+    // The reported bug: at 1920x1080 with 50 games the panel reached 61% while the slider
+    // was at 50%, and only had two or three distinct states across the range.
+    for (const count of [6, 20, 44, 50, 200, 2000]) {
+      for (const pct of [25, 30, 40, 50]) {
+        const layout = layoutForPercent(pct, 1920, 950, count);
+        expect(layout.panelWidth).toBeLessThanOrEqual(1920 * (pct / 100) + 0.5);
+      }
+    }
+  });
+
+  it('gives a distinct panel width for every step of the slider', () => {
+    const widths = new Set<number>();
+    for (let pct = 25; pct <= 50; pct++) {
+      widths.add(Math.round(layoutForPercent(pct, 1920, 950, 50).panelWidth));
+    }
+    // 26 steps, 26 distinct widths - no flat regions where dragging does nothing.
+    expect(widths.size).toBe(26);
+  });
+
+  it('gives more room to details and fewer columns as the percentage rises', () => {
+    const at25 = layoutForPercent(25, 2560, 1200, 200);
+    const at50 = layoutForPercent(50, 2560, 1200, 200);
+
     expect(at50.panelWidth).toBeGreaterThan(at25.panelWidth);
-
-    // ...and therefore yields *fewer* columns. This layout is height-constrained: rows =
-    // ceil(count / cols), so more columns means fewer rows and thus larger tiles. Raising the
-    // floor shrinks the games view, which forces the search to stop at a lower column count.
-    // Bigger minimum details panel therefore means smaller tiles, which is the trade the
-    // setting exists to let the user make.
+    // Fewer columns, not more. This layout is height-constrained: rows = ceil(count / cols),
+    // so more columns means fewer rows and thus larger tiles. Shrinking the games view lowers
+    // the column count, so a bigger details panel means smaller tiles - the trade the setting
+    // exists to let the user make.
     expect(at50.columns).toBeLessThanOrEqual(at25.columns);
+  });
+
+  it('keeps the absolute 400px floor on very narrow windows', () => {
+    // 25% of 1200px is 300px, below the readable minimum for the details panel.
+    const layout = layoutForPercent(25, 1200, 800, 50);
+    expect(layout.panelWidth).toBeGreaterThanOrEqual(400);
   });
 
   it('never returns a panel wider than the cap', () => {
