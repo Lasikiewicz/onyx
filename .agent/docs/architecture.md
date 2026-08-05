@@ -158,6 +158,7 @@ It explains module boundaries, data flow, and release pipeline expectations.
 - **A component must not re-read a preference its parent owns.** `renderer/src/components/GameDetailsPanel.tsx` loads only the keys App does not pass as props; an async `getPreferences()` on mount resolves after the prop-sync effects and will otherwise clobber them.
 - **App-shell handler identity is part of the contract.** The `React.memo`'d library tiles only benefit if `useGameLibrary`, the `App.tsx` game-action handlers, and every `use*Controls` prop bag are all referentially stable. New shell handlers must be memoized and threaded through the owning bridge rather than passed inline.
 - `react-hooks/exhaustive-deps` is enabled across all renderer files with no per-file exclusions; effects should be narrowed to the fields they read rather than suppressed.
+- **Long lists are windowed.** `@tanstack/react-virtual` backs `LibraryListView` and the Game Manager game list so DOM node count does not scale with library size. Grid and Card views intentionally use CSS containment (`contentVisibility` + `containIntrinsicSize`) instead, because windowing interacts badly with their drag-and-drop reordering. Any new list that can hold the whole library should be windowed rather than relying on containment alone.
 
 ### Main-Thread Blocking Policy
 
@@ -199,7 +200,7 @@ It explains module boundaries, data flow, and release pipeline expectations.
 
 <!-- AUTO-GENERATED:MODULE_INDEX:START -->
 - Main process source files: 81
-- Renderer source files: 173
+- Renderer source files: 174
 - Automation scripts: 30
 - GitHub workflow files: 7
 - Key entrypoints:

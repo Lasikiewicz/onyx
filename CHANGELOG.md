@@ -7,6 +7,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [0.15.0] - 2026-08-05
 
 - Performance:
+  - List view and the Game Manager's game list now only build the rows you can actually see, so large libraries open and scroll smoothly instead of building thousands of rows up front.
+  - The Game Manager no longer starts playing an animated cover for every game in your library the moment it opens — only the visible ones.
   - Scanning for Xbox and Game Pass games no longer freezes the app. The scan now runs in the background, and looks up game registration once for the whole scan instead of once per game — a large Game Pass library previously started a separate Windows process for every game found.
   - Scans no longer walk the same folders repeatedly when a game install links back into itself.
   - Game tiles no longer re-render on every keystroke while searching; the whole library view now stays still as you type.
@@ -17,6 +19,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   - Artwork prefetching no longer grows its list of loaded images without limit over a long session, and preloaded animated artwork is now released once its details have been read.
   - App and tray icon lookups are now resolved once instead of on every window creation.
   - Image search results and the carousel's game strip now load their thumbnails lazily.
+- Security:
+  - Updated the HTML sanitizer (dompurify) to 3.4.13.
 - Fixes:
   - Fixed the game details panel snapping its panel width, artwork height and description size back to previously saved values shortly after opening.
   - Fixed the details panel's bottom bar height sometimes never being saved while the app was busy.

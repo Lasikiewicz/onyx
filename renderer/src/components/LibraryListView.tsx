@@ -1,4 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { Game } from '../types/game';
 import { GameContextMenu } from './GameContextMenu';
 import { prefetchGameArtwork } from '../utils/imagePrefetch';
@@ -141,6 +142,30 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
   const [focusedIndex, setFocusedIndex] = useState<number>(-1);
   const listRef = useRef<HTMLDivElement>(null);
 
+  // Windowed rendering. This view previously built one DOM subtree per game with no
+  // containment at all, so a 2000-game library created thousands of nodes and started
+  // thousands of image loads at once.
+  //
+  // Rows vary in height with display mode and with whether a description wraps, so the
+  // estimate below is only a starting point — `measureElement` corrects each row once it
+  // renders. ROW_GAP reproduces the old `space-y-2` spacing, which absolute positioning
+  // would otherwise drop.
+  const ROW_GAP = 8;
+  const estimatedRowHeight = (displayMode === 'title-only' ? 96 : Math.max(artworkFrameHeight, tileHeight)) + ROW_GAP;
+
+  const estimateSize = useCallback(() => estimatedRowHeight, [estimatedRowHeight]);
+
+  const rowVirtualizer = useVirtualizer({
+    count: games.length,
+    getScrollElement: () => listRef.current,
+    estimateSize,
+    // A few rows of slack above and below so keyboard/scroll movement does not expose gaps.
+    overscan: 6,
+    getItemKey: (index) => games[index]?.id ?? index,
+  });
+
+  const virtualRows = rowVirtualizer.getVirtualItems();
+
   // Handle right-click on game boxart/logo (opens game context menu)
   const handleGameElementContextMenu = (e: React.MouseEvent, game: Game) => {
     e.preventDefault();
@@ -148,13 +173,16 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
     setContextMenu({ game, x: e.clientX, y: e.clientY });
   };
 
+  // Read through a ref so the document listener registers once rather than being torn down
+  // on every arrow press and every parent render.
+  const keyNavRef = useRef({ games, focusedIndex, onGameClick, rowVirtualizer });
+  keyNavRef.current = { games, focusedIndex, onGameClick, rowVirtualizer };
+
   // Handle keyboard navigation for gamepad support
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      const { games, focusedIndex, onGameClick, rowVirtualizer } = keyNavRef.current;
       if (!listRef.current || games.length === 0) return;
-
-      const items = Array.from(listRef.current.querySelectorAll('[data-game-card]'));
-      if (items.length === 0) return;
 
       let newIndex = focusedIndex;
 
@@ -183,15 +211,19 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
 
       if (newIndex !== focusedIndex) {
         setFocusedIndex(newIndex);
-        (items[newIndex] as HTMLElement)?.focus();
-        // Scroll into view if needed
-        (items[newIndex] as HTMLElement)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        // The target row may be outside the rendered window, so ask the virtualizer to bring
+        // it in first; focus can only move once the element actually exists.
+        rowVirtualizer.scrollToIndex(newIndex, { align: 'auto' });
+        requestAnimationFrame(() => {
+          const row = listRef.current?.querySelector(`[data-index="${newIndex}"] [data-game-card]`);
+          (row as HTMLElement | null)?.focus();
+        });
       }
     };
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [games, focusedIndex, onGameClick]);
+  }, []);
 
   return (
     <div
@@ -202,13 +234,31 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
         onEmptySpaceClick?.(e.clientX, e.clientY);
       }}
     >
-      <div ref={listRef} className="flex-1 overflow-y-auto">
-        <div className="space-y-2 p-2">
-          {games.map((game, index) => {
+      <div ref={listRef} className="flex-1 overflow-y-auto p-2">
+        <div style={{ height: `${rowVirtualizer.getTotalSize()}px`, position: 'relative' }}>
+          {virtualRows.map((virtualRow) => {
+            const index = virtualRow.index;
+            const game = games[index];
+            if (!game) return null;
             const launcherLabel = formatLauncher(game.source || game.platform);
             return (
+              // Positioned wrapper carries the measurement. `measureElement` reads the border
+              // box, which excludes margins, so the inter-row gap lives here as padding to
+              // keep it inside the measured height.
               <div
-                key={game.id}
+                key={virtualRow.key}
+                ref={rowVirtualizer.measureElement}
+                data-index={index}
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  transform: `translateY(${virtualRow.start}px)`,
+                  paddingBottom: `${ROW_GAP}px`,
+                }}
+              >
+              <div
                 onClick={() => onGameClick?.(game)}
                 onMouseEnter={() => prefetchGameArtwork(game)}
                 data-game-card="true"
@@ -648,6 +698,7 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
                 )}
 
 
+              </div>
               </div>
             );
           })}

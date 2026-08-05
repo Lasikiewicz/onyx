@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { Game } from '../types/game';
 import { MatchFixDialog } from './MatchFixDialog';
 import { RefreshMetadataDialog } from './RefreshMetadataDialog';
@@ -274,6 +275,26 @@ export const GameManager: React.FC<GameManagerProps> = ({
   const sortedLocalGames = useMemo(() => {
     return [...localGames].sort((a, b) => a.title.localeCompare(b.title));
   }, [localGames]);
+
+  // Windowed rendering for the left-hand game list.
+  //
+  // This list rendered one row per game with no containment, and in boxart/icon mode each row
+  // can mount an autoplaying <video>. On a large library that started thousands of media
+  // loads the moment the manager opened. Windowing means only the visible rows exist, so only
+  // those videos are ever created.
+  const gameListScrollRef = useRef<HTMLDivElement>(null);
+
+  // Rows are a fixed height per view mode (artwork box + p-3), plus the 8px space-y-2 gap.
+  const gameRowHeight = gameListView === 'boxart' ? 104 : gameListView === 'icon' ? 64 : 56;
+  const estimateGameRow = useCallback(() => gameRowHeight + 8, [gameRowHeight]);
+
+  const gameListVirtualizer = useVirtualizer({
+    count: sortedLocalGames.length,
+    getScrollElement: () => gameListScrollRef.current,
+    estimateSize: estimateGameRow,
+    overscan: 8,
+    getItemKey: (index) => sortedLocalGames[index]?.id ?? index,
+  });
 
   // Artwork fields of the selected game, narrowed so the sync effect below keys only on the
   // URLs it actually compares rather than on the whole game object.
@@ -800,7 +821,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
         {/* Main Content */}
         <div className="flex-1 flex overflow-hidden">
           {/* Left Panel - Game List */}
-          <div className="w-80 border-r border-gray-800 overflow-y-auto">
+          <div ref={gameListScrollRef} className="w-80 border-r border-gray-800 overflow-y-auto">
             <div className="p-4">
               <div className="flex items-center justify-between mb-3 bg-gray-900 border-b border-gray-700 pb-2 top-0 sticky z-10">
                 <h3 className="text-sm font-semibold text-gray-300">Imported Games ({localGames.length})</h3>
@@ -837,10 +858,27 @@ export const GameManager: React.FC<GameManagerProps> = ({
                   </button>
                 </div>
               </div>
-              <div className="space-y-2">
-                {sortedLocalGames.map((game) => (
+              <div style={{ height: `${gameListVirtualizer.getTotalSize()}px`, position: 'relative' }}>
+                {gameListVirtualizer.getVirtualItems().map((virtualRow) => {
+                  const game = sortedLocalGames[virtualRow.index];
+                  if (!game) return null;
+                  return (
+                  // Positioned wrapper carries the measurement; the 8px gap lives here as
+                  // padding so it is inside the measured border box.
+                  <div
+                    key={virtualRow.key}
+                    ref={gameListVirtualizer.measureElement}
+                    data-index={virtualRow.index}
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      width: '100%',
+                      transform: `translateY(${virtualRow.start}px)`,
+                      paddingBottom: '8px',
+                    }}
+                  >
                   <button
-                    key={game.id}
                     onClick={() => handleGameSelect(game.id)}
                     className={`w-full flex items-center gap-3 p-3 rounded-lg transition-colors ${selectedGameId === game.id
                       ? 'bg-blue-600/30 border border-blue-500/50'
@@ -913,7 +951,9 @@ export const GameManager: React.FC<GameManagerProps> = ({
                       </p>
                     </div>
                   </button>
-                ))}
+                  </div>
+                  );
+                })}
               </div>
             </div>
           </div>

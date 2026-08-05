@@ -2,29 +2,12 @@
 
 Remaining items from the optimization and bug-bash audit
 ([`docs/audit/2026-08-05-optimization-and-bug-bash.md`](docs/audit/2026-08-05-optimization-and-bug-bash.md)).
-36 of ~50 findings were fixed across 0.13.0–0.14.0, and a further 16 in 0.15.0 (H5, H14,
-M1–M10, L1–L4, L6, T1); what follows is everything still open, ordered by value per unit of
-regression risk.
+36 of ~50 findings were fixed across 0.13.0–0.14.0, and the rest in 0.15.0 (H5, H14, H16,
+M1–M10, L1–L4, L6, T1). All High and Medium findings are now closed; what follows is the
+remaining tooling work and the open decisions.
 
 Each entry keeps its original audit ID (H = high, M = medium, L = low) so it can be traced
 back to the report's detail and reproduction notes.
-
----
-
-## High severity
-
-### H16 — No virtualization in any library view
-`LibraryGrid.tsx:337`, `LibraryCardView.tsx:221`, `LibraryListView.tsx:190`, `GameManager.tsx:815`
-
-Every view renders one DOM subtree per game. Grid and Card now mitigate with
-`contentVisibility` + `containIntrinsicSize`; `LibraryListView` and GameManager's list have
-neither, and GameManager autoplays a `<video>` per row. A 2000-game library builds thousands of
-nodes and starts thousands of media loads at once.
-
-*Approach:* windowing (e.g. `@tanstack/virtual`) for List and GameManager first — they are the
-worst and the simplest. Grid/Card may not need it now that containment is correct.
-
-*Risk:* medium — new dependency, and drag-and-drop reordering interacts with windowing.
 
 ---
 
@@ -63,8 +46,11 @@ match the runtime shape), `useGamePropertiesImages.ts` (7) and `useGameManagerIm
   The app ships unsigned *and* the updater does not verify signatures on downloaded updates.
   Updates come over HTTPS from GitHub so this is not trivially exploitable, but it is the largest
   remaining supply-chain gap. Needs a deliberate call, not a code fix.
-- **`dompurify` 3.4.11 → 3.4.13.** The only remaining `npm audit` finding (low). The existing
-  `^3.3.2` range already permits it — one `npm update dompurify`.
+- **`npm audit`.** `dompurify` was updated to 3.4.13 in 0.15.0. The 7 findings that remain
+  (2 moderate, 5 high) are all **dev-only** — `vite`, `postcss`, `esbuild`, and `node-gyp`'s
+  `tar`/`undici`/`brace-expansion`/`fast-uri`. None ship inside the asar, so they affect the
+  build environment rather than users. Clearing them means bumping Vite/PostCSS majors, which
+  is a deliberate toolchain upgrade rather than a patch.
 - **`dotenv` as a runtime dependency** (`package.json`). Referenced only at `main/main.ts:188-189`
   inside a dev-looking `require`, but it ships inside the asar. Same question already answered for
   `electron-store` in 0.13.1.
@@ -77,6 +63,7 @@ match the runtime shape), `useGamePropertiesImages.ts` (7) and `useGameManagerIm
 
 H5 (Xbox scan converted to async fs and batched PowerShell, with 23 characterisation tests
 written first; junction-cycle guard added to both `XboxService` and `ImportService`),
+H16 (windowed List view and Game Manager list via `@tanstack/react-virtual`),
 H14 (memoization across the app shell), M1–M3 (GameDetailsPanel preference bootstrap, debounced
 save, resize stale closures), M4–M5 (preference re-apply and selection force-reset), M6 (global
 keydown re-subscription), M7 (`runningGames` never draining), M8 (sync registry reads), M9
