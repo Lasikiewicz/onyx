@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { act, render } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useControllerNavigation } from '../src/hooks/useControllerNavigation';
@@ -29,8 +29,8 @@ function createGamepad(
   axes: number[] = [0, 0],
   options: { mapping?: GamepadMappingType; valuedActions?: ButtonAction[] } = {},
 ) {
-  const pressed = new Set(pressedActions.map((action) => buttonIndexByAction[action]));
-  const valued = new Set((options.valuedActions ?? []).map((action) => buttonIndexByAction[action]));
+  const pressed = new Set<number>(pressedActions.map((action) => buttonIndexByAction[action]));
+  const valued = new Set<number>((options.valuedActions ?? []).map((action) => buttonIndexByAction[action]));
   return {
     axes,
     buttons: Array.from({ length: 16 }, (_, index) => ({

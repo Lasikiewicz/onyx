@@ -21,6 +21,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   - Image search results and the carousel's game strip now load their thumbnails lazily.
 - Security:
   - Updated the HTML sanitizer (dompurify) to 3.4.13.
+  - Hardened the internal artwork URL handler so a folder sitting next to the artwork cache can no longer be read through it, and applied the same check to the older fallback handler, which previously had none.
 - Fixes:
   - Fixed the game details panel snapping its panel width, artwork height and description size back to previously saved values shortly after opening.
   - Fixed the details panel's bottom bar height sometimes never being saved while the app was busy.

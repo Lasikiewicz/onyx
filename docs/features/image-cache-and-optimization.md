@@ -50,6 +50,12 @@ Caches image assets and optimizes them (including worker-based processing) for f
 - Startup cache cleanup in [GameStore.ts](../../main/GameStore.ts) preserves valid `onyx-local://` artwork URLs even when they include cache-busting query strings, and now clears broken alternative banners, icons, and screenshot entries alongside box art/banner/logo/hero fields.
 - The `onyx-local://` protocol handler that serves cached artwork to the renderer lives in [onyxLocalProtocol.ts](../../main/onyxLocalProtocol.ts) (extracted from `main.ts`); it resolves `{gameId}-{imageType}` lookups against the active cache directory, still decodes legacy URL/base64 path formats behind a traversal guard, and bounds its failed-URL tracking maps so long sessions cannot grow them without limit.
 
+## Security Boundaries
+
+- The `onyx-local` protocol serves files off disk to the renderer, so its containment check is the boundary between "cached artwork" and "any file the user can read". `isPathWithinRoots` in [onyxLocalProtocol.ts](../../main/onyxLocalProtocol.ts) is exported and directly tested in [onyxLocalProtocol.test.ts](../../main/onyxLocalProtocol.test.ts).
+- That check is deliberately **segment-aware, not a string prefix**. A plain `startsWith(cacheDir)` accepts `…/cache-evil/payload.png` as being inside `…/cache`, because the string prefix matches even though the directories are siblings. A candidate must equal a root or continue it with a path separator.
+- Both handlers apply it: the modern `protocol.handle` path and the legacy `registerFileProtocol` fallback, which decodes a caller-supplied base64 path and previously served it with no containment check at all.
+
 ## Failure Modes and Triage
 
 ### Symptom: Library images load slowly

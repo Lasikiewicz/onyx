@@ -191,6 +191,9 @@ It explains module boundaries, data flow, and release pipeline expectations.
 - The lint config intentionally relaxes `no-unused-vars` for legacy-heavy `main/` services. The former `react-hooks/exhaustive-deps` exclusion list (`App.tsx`, `GameManager.tsx`, `GameDetailsPanel.tsx`, `importer/ImportWorkbench.tsx`) was removed once those files were decomposed; the rule now applies to every renderer file and must not be re-disabled per file, since those were precisely the files where the stale-closure and preference-clobbering defects lived.
 - Release/build script entrypoints that use ESM now use explicit `.mjs` filenames such as `scripts/generate-icons.mjs`, `scripts/validate-icons.mjs`, and `scripts/increment-build.mjs` so Node does not reparse typeless release tooling during local packaging or version bumps.
 - Release versioning may be set explicitly for milestone releases (for example `0.9.0`) before promotion, while routine patch releases can still use `scripts/increment-build.mjs`; that script updates the app version in `package.json` for release metadata and pairs with the promoted `CHANGELOG.md` section.
+- Test collection: `vitest.config.mts` matches `main/**/*.{test,spec}.ts` and `renderer/**/*.{test,spec}.{ts,tsx}`. The renderer glob must keep both extensions — when it matched `.tsx` only, a `.test.ts` under `renderer/` was silently skipped rather than failing.
+- Type coverage of tests: root `tsconfig.json` includes `renderer/tests` and `vitest.setup.ts` alongside `renderer/src`, so test files are type-checked by `npm run build` rather than drifting untyped.
+- Preferred test shape for filesystem code: drive real directories under the OS temp dir and inject a seam for anything that spawns a process, rather than mocking `fs`. `main/XboxService.test.ts` is the reference — it was written against the synchronous implementation and then ran unchanged against the async one, which is what made that conversion verifiable.
 - Secrets baseline gate: `npm run scan:secrets`
 - Commit-time guardrails: `.husky/pre-commit`
 - Package manager policy: npm-only (`packageManager` is `npm@10` and CI must not install/use pnpm for packaging)
@@ -199,7 +202,7 @@ It explains module boundaries, data flow, and release pipeline expectations.
 ## Module Index
 
 <!-- AUTO-GENERATED:MODULE_INDEX:START -->
-- Main process source files: 81
+- Main process source files: 83
 - Renderer source files: 174
 - Automation scripts: 30
 - GitHub workflow files: 7

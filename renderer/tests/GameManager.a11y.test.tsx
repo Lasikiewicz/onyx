@@ -1,4 +1,3 @@
-import React from 'react';
 import { beforeEach, describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { GameManager } from '../src/components/GameManager';
@@ -7,7 +6,9 @@ import type { Game } from '../src/types/game';
 const baseGame: Game = {
   id: 'game-1',
   title: 'Test Game',
-  executableName: 'test.exe',
+  exePath: 'C:/Games/Test/test.exe',
+  boxArtUrl: '',
+  bannerUrl: '',
   source: 'manual',
   platform: 'steam',
   installSize: 0,
@@ -15,12 +16,6 @@ const baseGame: Game = {
   pinned: false,
   hidden: false,
 };
-
-declare global {
-  interface Window {
-    electronAPI: any;
-  }
-}
 
 beforeEach(() => {
   (globalThis as any).window = (globalThis as any).window ?? {} as any;

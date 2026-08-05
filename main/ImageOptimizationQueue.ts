@@ -58,7 +58,8 @@ export interface ImageQueueStatus {
   imageJobs?: ImageJobStatus[];
 }
 
-const imageTypesFromUrls = (urls: ImageQueueItem['urls']) => {
+/** Exported for testing: maps the artwork URL bag to ordered {type, url} pairs. */
+export const imageTypesFromUrls = (urls: ImageQueueItem['urls']) => {
   const out: { type: string; url: string }[] = [];
   if (urls.boxArtUrl) out.push({ type: 'boxart', url: urls.boxArtUrl });
   if (urls.bannerUrl) out.push({ type: 'banner', url: urls.bannerUrl });
@@ -69,7 +70,14 @@ const imageTypesFromUrls = (urls: ImageQueueItem['urls']) => {
   return out;
 };
 
-const sourceExtFromUrl = (url: string): string | undefined => {
+/**
+ * Exported for testing: derive an uppercase file extension from an artwork URL.
+ *
+ * The input is provider-supplied, so it may be a `file://` URL, a percent-encoded path, a
+ * remote URL with a query string, or plain junk; anything unparseable yields undefined rather
+ * than throwing.
+ */
+export const sourceExtFromUrl = (url: string): string | undefined => {
   if (!url) return undefined;
   try {
     if (url.startsWith('file://')) {
@@ -95,13 +103,15 @@ const inferSourceExtFromCache = (cacheDir: string, gameId: string, imageType: st
   return undefined;
 };
 
-const isKnownStaticExt = (sourceExt?: string): boolean => {
+/** Exported for testing: which extensions are treated as static (non-animated) artwork. */
+export const isKnownStaticExt = (sourceExt?: string): boolean => {
   if (!sourceExt) return false;
   const normalized = sourceExt.toUpperCase();
   return normalized === 'JPG' || normalized === 'JPEG' || normalized === 'PNG' || normalized === 'ICO' || normalized === 'AVIF';
 };
 
-const countUrlEntries = (urls: ImageQueueItem['urls']): number =>
+/** Exported for testing: how many artwork URLs an item actually carries. */
+export const countUrlEntries = (urls: ImageQueueItem['urls']): number =>
   (urls.boxArtUrl ? 1 : 0) +
   (urls.bannerUrl ? 1 : 0) +
   (urls.alternativeBannerUrl ? 1 : 0) +

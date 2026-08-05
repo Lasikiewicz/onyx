@@ -6,6 +6,36 @@ import { homedir } from 'node:os';
 import type { ImageCacheService } from './ImageCacheService.js';
 
 /**
+ * Is `candidate` inside one of `roots`?
+ *
+ * Exported for testing, and deliberately not a bare `startsWith`: that treats
+ * `C:\Users\me\cache-evil\payload.png` as being inside `C:\Users\me\cache`, because the
+ * string prefix matches even though the directories are siblings. The comparison here is
+ * segment-aware — a candidate must either equal a root or continue it with a separator.
+ *
+ * Case-insensitive on Windows, where paths are case-insensitive in practice.
+ */
+export function isPathWithinRoots(candidate: string, roots: string[]): boolean {
+  if (!candidate) return false;
+
+  const isWindows = process.platform === 'win32';
+  const normalize = (value: string) => {
+    // Resolve `..`/`.` segments, strip any trailing separator, and unify case on Windows.
+    const resolved = path.normalize(value).replace(/[\\/]+$/, '');
+    return isWindows ? resolved.toLowerCase() : resolved;
+  };
+
+  const normalizedCandidate = normalize(candidate);
+
+  return roots.some((root) => {
+    if (!root) return false;
+    const normalizedRoot = normalize(root);
+    if (normalizedCandidate === normalizedRoot) return true;
+    return normalizedCandidate.startsWith(normalizedRoot + path.sep);
+  });
+}
+
+/**
  * Registers the `onyx-local` custom protocol, which serves cached artwork
  * (boxart/banner/logo/hero/icon/screenshots) from the image cache directory
  * to the renderer.
@@ -383,10 +413,8 @@ export function registerOnyxLocalProtocol(imageCacheService: ImageCacheService):
       // Normalize the path to resolve any .. or . segments
       finalPath = path.normalize(finalPath);
 
-      // SECURITY: Ensure path is within cache directory or is a valid absolute path to prevent traversal attacks
-      const isTraversed = process.platform === 'win32'
-        ? !finalPath.toLowerCase().startsWith(cacheDir.toLowerCase()) && !finalPath.toLowerCase().startsWith(app.getPath('userData').toLowerCase())
-        : !finalPath.startsWith(cacheDir) && !finalPath.startsWith(app.getPath('userData'));
+      // SECURITY: Ensure path is within cache directory or userData to prevent traversal attacks
+      const isTraversed = !isPathWithinRoots(finalPath, [cacheDir, app.getPath('userData')]);
 
       if (isTraversed) {
         console.error(`[onyx-local] ⛔ BLOCKED Path Traversal Attempt or unauthorized access: ${finalPath}`);
@@ -626,6 +654,14 @@ export function registerOnyxLocalProtocol(imageCacheService: ImageCacheService):
               ? decodedPath.replace(/\//g, '\\')
               : decodedPath;
             finalPath = path.normalize(finalPath);
+
+            // Same traversal guard as the modern handler above. This legacy fallback decodes
+            // a caller-supplied base64 path and previously served it unchecked.
+            if (!isPathWithinRoots(finalPath, [imageCacheService.getCacheDir(), app.getPath('userData')])) {
+              console.error(`[onyx-local] ⛔ BLOCKED Path Traversal Attempt (legacy handler): ${finalPath}`);
+              callback({ error: -10 }); // ACCESS_DENIED
+              return;
+            }
 
             if (existsSync(finalPath)) {
               callback({ path: finalPath });

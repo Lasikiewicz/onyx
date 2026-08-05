@@ -21,14 +21,18 @@ comments in the repo are no-ops for rules that were never enabled. `:77-81` disa
 `no-unused-vars` for all of `main/**`; `scripts/**` is entirely unlinted.
 
 ### T3 — Test coverage for the risky modules
-Zero tests on `ImportService.ts` (1998 lines), `ImageCacheService.ts` (1643), `ImageOptimizationQueue.ts`,
-`onyxLocalProtocol.ts`, `SteamScanner`/`EpicScanner`, and the Steam auth/credentials path.
-`electronStoreShim.test.ts` (0.14.0) and `XboxService.test.ts` (0.15.0, 23 tests driving real
-temp directories rather than mocking `fs`) are the patterns to follow.
+**Config gaps: fixed in 0.15.0.** `vitest.config.mts` now matches `renderer/**/*.{test,spec}.{ts,tsx}`,
+and root `tsconfig.json` includes `renderer/tests` and `vitest.setup.ts` — which immediately
+surfaced 10 latent type errors in the previously unchecked renderer test files.
 
-Config gaps: `vitest.config.mts:8` matches `renderer/**/*.test.tsx` only, so a `.test.ts` under
-`renderer/` is **silently skipped**; root `tsconfig.json:23` includes only `renderer/src`, so
-`renderer/tests/**` is never type-checked by `npm run build`.
+**Covered in 0.15.0:** `XboxService.ts` (23 tests, driving real temp directories rather than
+mocking `fs`), `onyxLocalProtocol.ts` (path-containment guard), `ImageOptimizationQueue.ts`
+(URL/extension classification helpers). Suite went from 150 to 220 tests.
+
+**Still uncovered:** `ImportService.ts` (1998 lines), `ImageCacheService.ts` (1643), the
+`SteamScanner`/`EpicScanner` modules, and the Steam auth/credentials path. `electronStoreShim.test.ts`
+(0.14.0) and `XboxService.test.ts` (0.15.0) are the patterns to follow — prefer real temp
+directories and an injected seam for anything that spawns a process, over mocking `fs`.
 
 ### T4 — TypeScript strictness
 `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, `noImplicitOverride` and
