@@ -4,6 +4,11 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.13.1] - 2026-08-05
+
+- Security and packaging:
+  - Removed the unused `electron-store` package from the shipped app. Onyx has used its own storage layer for some time, but the original package was still being bundled and carried a known high-severity vulnerability in one of its dependencies. Onyx's saved data, settings, and credentials are unaffected and continue to load as before.
+
 ## [0.13.0] - 2026-08-05
 
 - Add Games:

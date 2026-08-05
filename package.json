@@ -1,7 +1,7 @@
 {
   "name": "onyx-launcher",
   "productName": "Onyx",
-  "version": "0.13.0",
+  "version": "0.13.1",
   "description": "The premium unified game library.",
   "main": "dist-electron/main.js",
   "scripts": {
@@ -75,6 +75,7 @@
     "cross-env": "^7.0.3",
     "electron": "^42.8.1",
     "electron-builder": "^26.0.12",
+    "electron-store": "^11.0.2",
     "eslint": "^9.39.4",
     "eslint-plugin-import": "^2.32.0",
     "eslint-plugin-react-hooks": "^7.0.1",
@@ -97,7 +98,6 @@
     "axios": "^1.13.2",
     "dompurify": "^3.3.2",
     "dotenv": "^17.2.3",
-    "electron-store": "^11.0.2",
     "electron-updater": "^6.8.9",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
