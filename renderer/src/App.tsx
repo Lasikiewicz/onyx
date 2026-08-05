@@ -189,6 +189,7 @@ function App() {
     gridSize,
     gridSmartFill,
     gridMaximizeSpace,
+    detailsPanelMinWidthPercent,
     hideAppsTitles,
     hideGameTitles,
     hideVRTitles,
@@ -252,6 +253,7 @@ function App() {
     setGridSize,
     setGridSmartFill,
     setGridMaximizeSpace,
+    setDetailsPanelMinWidthPercent,
     setHideAppsTitles,
     setHideGameTitles,
     setHideVRTitles,
@@ -409,6 +411,7 @@ function App() {
     setPanelWidth,
     setGridSmartFill,
     setGridMaximizeSpace,
+    setDetailsPanelMinWidthPercent,
     setActiveGameId,
     setConfirmGameLaunch,
     setEnableGamepadSupport,
@@ -982,6 +985,7 @@ function App() {
     gridSize,
     gridSmartFill,
     gridMaximizeSpace,
+    detailsPanelMinWidthPercent,
     isViewFlippedByView,
     listButtonColors,
     listViewOptions,
@@ -1038,6 +1042,7 @@ function App() {
     setGridSize,
     setGridSmartFill,
     setGridMaximizeSpace,
+    setDetailsPanelMinWidthPercent,
     setIsViewFlippedByView,
     setListButtonColors,
     setListViewOptions,
@@ -1375,6 +1380,7 @@ function App() {
             cardSmartFill={cardSmartFill}
             gridSmartFill={gridSmartFill}
             gridMaximizeSpace={gridMaximizeSpace}
+            detailsPanelMinWidthPercent={detailsPanelMinWidthPercent}
             panelWidth={currentPanelWidth}
             onPanelWidthChange={gameDetailsPanelProps.onPanelWidthChange}
             categoriesAlignment={categoriesAlignmentByView[viewMode] ?? 'left'}

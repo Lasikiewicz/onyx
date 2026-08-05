@@ -201,6 +201,8 @@ export interface UserPreferences {
   listViewSize?: number;
   gridSmartFill?: boolean;
   gridMaximizeSpace?: boolean;
+  /** Floor for the details panel width under Maximize Space, as a percent of the row (25-50). */
+  detailsPanelMinWidthPercent?: number;
   titleFontSize?: number;
   titleFontFamily?: string;
   descriptionFontSize?: number;

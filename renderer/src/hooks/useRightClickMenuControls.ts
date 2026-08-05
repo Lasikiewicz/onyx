@@ -50,6 +50,7 @@ interface UseRightClickMenuControlsOptions {
   gridSize: number;
   gridSmartFill: boolean;
   gridMaximizeSpace: boolean;
+  detailsPanelMinWidthPercent: number;
   isViewFlippedByView: Record<ViewMode, boolean>;
   listButtonColors: ButtonColors;
   listViewOptions: ResolvedListViewOptions;
@@ -105,6 +106,7 @@ interface UseRightClickMenuControlsOptions {
   setGridSize: (value: number) => void;
   setGridSmartFill: (value: boolean) => void;
   setGridMaximizeSpace: (value: boolean) => void;
+  setDetailsPanelMinWidthPercent: (value: number) => void;
   setIsViewFlippedByView: (value: Record<ViewMode, boolean>) => void;
   setListButtonColors: (value: ButtonColors) => void;
   setListViewOptions: (value: ResolvedListViewOptions) => void;
@@ -174,6 +176,7 @@ export function useRightClickMenuControls({
   gridSize,
   gridSmartFill,
   gridMaximizeSpace,
+  detailsPanelMinWidthPercent,
   isViewFlippedByView,
   listButtonColors,
   listViewOptions,
@@ -229,6 +232,7 @@ export function useRightClickMenuControls({
   setGridSize,
   setGridSmartFill,
   setGridMaximizeSpace,
+  setDetailsPanelMinWidthPercent,
   setIsViewFlippedByView,
   setListButtonColors,
   setListViewOptions,
@@ -313,6 +317,7 @@ export function useRightClickMenuControls({
     gridSize,
     gridSmartFill,
     gridMaximizeSpace,
+    detailsPanelMinWidthPercent,
     isViewFlipped: isViewFlippedByView[viewMode],
     listSize: listViewSize,
     listButtonColors,
@@ -329,6 +334,9 @@ export function useRightClickMenuControls({
     },
     onGridMaximizeSpaceChange: (enabled: boolean) => {
       saveValue(setGridMaximizeSpace, 'gridMaximizeSpace', enabled);
+    },
+    onDetailsPanelMinWidthPercentChange: (value: number) => {
+      saveValue(setDetailsPanelMinWidthPercent, 'detailsPanelMinWidthPercent', value);
     },
     onBackgroundBrightnessChange: (brightness: number) => {
       saveByViewValue(backgroundBrightnessByView, setBackgroundBrightnessByView, 'backgroundBrightnessByView', viewMode, brightness);
@@ -514,6 +522,7 @@ export function useRightClickMenuControls({
     gameTilePadding,
     gridButtonColors,
     gridMaximizeSpace,
+    detailsPanelMinWidthPercent,
     gridSize,
     gridSmartFill,
     handleActiveGameChange,
@@ -572,6 +581,7 @@ export function useRightClickMenuControls({
     setGameTilePadding,
     setGridButtonColors,
     setGridMaximizeSpace,
+    setDetailsPanelMinWidthPercent,
     setGridSize,
     setGridSmartFill,
     setIsViewFlippedByView,

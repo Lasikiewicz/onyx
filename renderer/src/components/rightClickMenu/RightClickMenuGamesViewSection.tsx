@@ -5,6 +5,7 @@ import type { RightClickMenuEditorSection } from './RightClickMenuHeader';
 
 export interface GamesViewSliderDefaults {
   categoriesTopSize: number;
+  detailsPanelMinWidthPercent: number;
   gameTilePadding: number;
   gridSize: number;
   cardColumns: number;
@@ -43,6 +44,7 @@ export interface RightClickMenuGamesViewSectionProps {
   backgroundBrightness: number;
   gridSmartFill: boolean;
   gridMaximizeSpace: boolean;
+  detailsPanelMinWidthPercent: number;
   categoriesPosition: 'top' | 'bottom';
   categoriesTopAlignment: 'left' | 'center' | 'right';
   categoriesTopSize: number;
@@ -65,6 +67,7 @@ export interface RightClickMenuGamesViewSectionProps {
   viewMode: 'grid' | 'list' | 'logo' | 'card';
   onGridSmartFillChange?: (enabled: boolean) => void;
   onGridMaximizeSpaceChange?: (enabled: boolean) => void;
+  onDetailsPanelMinWidthPercentChange?: (value: number) => void;
   onBackgroundBlurChange?: (blur: number) => void;
   onBackgroundBrightnessChange?: (brightness: number) => void;
   onCategoriesPositionChange?: (position: 'top' | 'bottom') => void;
@@ -117,6 +120,7 @@ export function RightClickMenuGamesViewSection({
   backgroundBrightness,
   gridSmartFill,
   gridMaximizeSpace,
+  detailsPanelMinWidthPercent,
   cardColumns,
   cardPostersOnly,
   cardSmartFill,
@@ -139,6 +143,7 @@ export function RightClickMenuGamesViewSection({
   viewMode,
   onGridSmartFillChange,
   onGridMaximizeSpaceChange,
+  onDetailsPanelMinWidthPercentChange,
   onBackgroundBlurChange,
   onBackgroundBrightnessChange,
   onCategoriesPositionChange,
@@ -381,8 +386,29 @@ export function RightClickMenuGamesViewSection({
             </button>
           </div>
           {renderSettingDescription(
-            'Automatically resizes the details panel so the games view always uses the biggest tiles it can with no leftover space at the bottom. The details panel stays at least 25% of the window width.',
+            'Automatically resizes the details panel so the games view always uses the biggest tiles it can with no leftover space at the bottom. The details panel never shrinks below the minimum size set below.',
           )}
+        </div>
+      )}
+
+      {gridSmartFill && gridMaximizeSpace && (viewMode === 'grid' || viewMode === 'logo') && onDetailsPanelMinWidthPercentChange && (
+        <div className="px-3 py-2 bg-gray-700/30 rounded-md">
+          <MenuSliderRow
+            label="Minimum Details Size"
+            description="The smallest the game details panel may shrink to while Maximize Space is fitting the tiles. Raise it to keep more room for details, at the cost of smaller tiles."
+            descriptionDisplay={settingDescriptionDisplay}
+            min={25}
+            max={50}
+            step={1}
+            value={detailsPanelMinWidthPercent}
+            defaultValue={sliderDefaults.detailsPanelMinWidthPercent}
+            onChange={(value) => onDetailsPanelMinWidthPercentChange(value)}
+            onReset={() => onDetailsPanelMinWidthPercentChange(sliderDefaults.detailsPanelMinWidthPercent)}
+            formatValue={(value) => `${value}%`}
+            minLabel="25%"
+            maxLabel="50%"
+            sliderClassName="h-1.5"
+          />
         </div>
       )}
 

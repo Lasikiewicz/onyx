@@ -25,6 +25,7 @@ interface AppShellLibraryViewProps {
   activeGameId: string | null;
   gridSmartFill: boolean;
   gridMaximizeSpace: boolean;
+  detailsPanelMinWidthPercent: number;
   panelWidth: number;
   onPanelWidthChange?: (width: number) => void;
   carouselGameTilePadding: number;
@@ -104,6 +105,7 @@ export function AppShellLibraryView({
   activeGameId,
   gridSmartFill,
   gridMaximizeSpace,
+  detailsPanelMinWidthPercent,
   panelWidth,
   onPanelWidthChange,
   carouselGameTilePadding,
@@ -245,6 +247,7 @@ export function AppShellLibraryView({
                     useLogosInsteadOfBoxart={viewMode === 'logo'}
                     smartFill={gridSmartFill}
                     maximizeSpace={gridMaximizeSpace}
+                    minPanelWidthPercent={detailsPanelMinWidthPercent}
                     panelWidth={panelWidth}
                     onPanelWidthChange={onPanelWidthChange}
                     logoBackgroundColor={logoBackgroundColor}

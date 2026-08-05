@@ -203,7 +203,7 @@ It explains module boundaries, data flow, and release pipeline expectations.
 
 <!-- AUTO-GENERATED:MODULE_INDEX:START -->
 - Main process source files: 83
-- Renderer source files: 174
+- Renderer source files: 175
 - Automation scripts: 30
 - GitHub workflow files: 7
 - Key entrypoints:

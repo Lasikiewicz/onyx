@@ -4,6 +4,13 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.15.1] - 2026-08-05
+
+- Games view:
+  - Added a Minimum Details Size setting for Grid and Logo views, shown when Maximize Space is on. The details panel could only ever shrink to 25% of the window; you can now raise that floor up to 50% to keep more room for game details, at the cost of slightly smaller tiles.
+- Fixes:
+  - Fixed the buttons along the top of the right-click menu being squashed, with labels like "Top Bar" and "Game Details" wrapping onto two lines, when the menu was narrow. They now stay on one line and move to a second row instead.
+
 ## [0.15.0] - 2026-08-05
 
 - Performance:

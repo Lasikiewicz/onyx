@@ -39,6 +39,8 @@ export interface RightClickMenuProps {
   onGridSmartFillChange?: (enabled: boolean) => void;
   gridMaximizeSpace?: boolean;
   onGridMaximizeSpaceChange?: (enabled: boolean) => void;
+  detailsPanelMinWidthPercent?: number;
+  onDetailsPanelMinWidthPercentChange?: (value: number) => void;
   listSize?: number;
   onListSizeChange?: (size: number) => void;
   gameTilePadding?: number;
@@ -201,6 +203,8 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
   onGridSmartFillChange,
   gridMaximizeSpace = false,
   onGridMaximizeSpaceChange,
+  detailsPanelMinWidthPercent = 25,
+  onDetailsPanelMinWidthPercentChange,
   listSize = 120,
   onListSizeChange,
   gameTilePadding = 3,
@@ -535,6 +539,7 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
     if (mode === 'grid') {
       if (defaults.gridSmartFill !== undefined) onGridSmartFillChange?.(defaults.gridSmartFill);
       if (defaults.gridMaximizeSpace !== undefined) onGridMaximizeSpaceChange?.(defaults.gridMaximizeSpace);
+      if (defaults.detailsPanelMinWidthPercent !== undefined) onDetailsPanelMinWidthPercentChange?.(defaults.detailsPanelMinWidthPercent);
       if (defaults.gridSize !== undefined) onGridSizeChange?.(defaults.gridSize);
       if (defaults.gameTilePadding !== undefined) onGameTilePaddingChange?.(defaults.gameTilePadding);
       if (defaults.panelWidth !== undefined) onPanelWidthChange?.(defaults.panelWidth);
@@ -548,6 +553,7 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
     } else if (mode === 'logo') {
       if (defaults.gridSmartFill !== undefined) onGridSmartFillChange?.(defaults.gridSmartFill);
       if (defaults.gridMaximizeSpace !== undefined) onGridMaximizeSpaceChange?.(defaults.gridMaximizeSpace);
+      if (defaults.detailsPanelMinWidthPercent !== undefined) onDetailsPanelMinWidthPercentChange?.(defaults.detailsPanelMinWidthPercent);
       if (defaults.logoSize !== undefined) onLogoSizeChange?.(defaults.logoSize);
       if (defaults.gameTilePadding !== undefined) onGameTilePaddingChange?.(defaults.gameTilePadding);
       if (defaults.logoBackgroundOpacity !== undefined) onLogoBackgroundOpacityChange?.(defaults.logoBackgroundOpacity);
@@ -699,6 +705,7 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
     carouselDescriptionSize: 18,
     carouselButtonSize: 14,
     categoriesTopSize: 12,
+    detailsPanelMinWidthPercent: 25,
     logoBackgroundOpacity: 100,
     listTileHeight: 128,
     listBoxartSize: 96,
@@ -998,6 +1005,7 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                 backgroundBrightness={backgroundBrightness}
                 gridSmartFill={gridSmartFill}
                 gridMaximizeSpace={gridMaximizeSpace}
+                detailsPanelMinWidthPercent={detailsPanelMinWidthPercent}
                 cardColumns={cardColumns}
                 cardPostersOnly={cardPostersOnly}
                 cardSmartFill={cardSmartFill}
@@ -1020,6 +1028,7 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
                 viewMode={viewMode}
                 onGridSmartFillChange={onGridSmartFillChange}
                 onGridMaximizeSpaceChange={onGridMaximizeSpaceChange}
+                onDetailsPanelMinWidthPercentChange={onDetailsPanelMinWidthPercentChange}
                 onBackgroundBlurChange={onBackgroundBlurChange}
                 onBackgroundBrightnessChange={onBackgroundBrightnessChange}
                 onCategoriesPositionChange={onCategoriesPositionChange}

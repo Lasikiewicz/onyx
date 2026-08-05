@@ -28,10 +28,10 @@ function TransparencyButton({ menuTransparency, menuTransparencyPercent, onSetMe
   }, [open]);
 
   return (
-    <div className="relative" ref={containerRef}>
+    <div className="relative shrink-0" ref={containerRef}>
       <button
         onClick={() => setOpen((v) => !v)}
-        className={`px-2 py-1 text-[11px] rounded transition-colors border font-medium flex items-center gap-1.5 ${
+        className={`px-2 py-1 text-[11px] rounded transition-colors border font-medium flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
           open
             ? 'bg-blue-700 text-white border-blue-600'
             : 'bg-gray-700 text-gray-300 hover:bg-gray-600 border-gray-600'
@@ -132,16 +132,19 @@ export function RightClickMenuHeader({
           : undefined
       }
     >
-      <div className="flex items-center justify-between">
+      {/* flex-wrap + shrink-0 groups: with a plain justify-between row the buttons were
+          compressed on narrower menus and their labels wrapped onto two lines. Groups now move
+          to a second line instead of squashing. */}
+      <div className="flex items-center justify-between gap-2 flex-wrap gap-y-1.5">
         {/* Left – Flip View */}
-        <div>
+        <div className="shrink-0">
           {viewMode !== 'coverflow' && (
             <button
               onClick={() => {
                 onViewFlipChange?.(!isViewFlipped);
                 onClose();
               }}
-              className="px-2 py-1 text-[11px] rounded transition-colors bg-gray-700 text-gray-300 hover:bg-gray-600 border border-gray-600 font-medium flex items-center gap-1"
+              className="px-2 py-1 text-[11px] rounded transition-colors bg-gray-700 text-gray-300 hover:bg-gray-600 border border-gray-600 font-medium flex items-center gap-1 whitespace-nowrap shrink-0"
               title={viewMode === 'carousel' ? 'Flip the view - swap carousel and details sections' : 'Flip the view - swap left and right sections'}
             >
               <svg className="w-3 h-3 group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -153,7 +156,7 @@ export function RightClickMenuHeader({
         </div>
 
         {/* Centre – section buttons */}
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 shrink-0 flex-wrap gap-y-1.5">
           {isSectionedEditor &&
             ([
               ['games-view', 'Games View'],
@@ -177,7 +180,7 @@ export function RightClickMenuHeader({
                     );
                   }
                 }}
-                className={`px-2 py-1 text-[11px] rounded transition-colors border font-medium ${
+                className={`px-2 py-1 text-[11px] rounded transition-colors border font-medium whitespace-nowrap shrink-0 ${
                   activeEditorSection === sectionKey
                     ? 'bg-blue-700 text-white border-blue-600'
                     : 'bg-gray-700 text-gray-300 hover:bg-gray-600 border-gray-600'
@@ -189,7 +192,7 @@ export function RightClickMenuHeader({
         </div>
 
         {/* Right – Transparency, Reset, Defaults */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           {isSectionedEditor && (
             <TransparencyButton
               menuTransparency={menuTransparency}
@@ -199,14 +202,14 @@ export function RightClickMenuHeader({
           )}
           <button
             onClick={onResetToDefaults}
-            className="px-2 py-1 text-[11px] rounded transition-colors bg-gray-700 text-gray-300 hover:bg-gray-600 border border-gray-600 font-medium"
+            className="px-2 py-1 text-[11px] rounded transition-colors bg-gray-700 text-gray-300 hover:bg-gray-600 border border-gray-600 font-medium whitespace-nowrap shrink-0"
             title="Reset view settings to defaults for your resolution"
           >
             Reset
           </button>
           <button
             onClick={onOpenCustomDefaults}
-            className="px-2 py-1 text-[11px] rounded transition-colors bg-blue-700 text-gray-300 hover:bg-blue-600 border border-blue-600 font-medium"
+            className="px-2 py-1 text-[11px] rounded transition-colors bg-blue-700 text-gray-300 hover:bg-blue-600 border border-blue-600 font-medium whitespace-nowrap shrink-0"
             title="Save or restore your custom defaults"
           >
             Defaults

@@ -21,8 +21,12 @@ import { computeSmartFillColumns, computeMaximizeSpaceLayout } from '../utils/sm
 const BOXART_TILE_ASPECT_HEIGHT_OVER_WIDTH = 1.5;
 const LOGO_TILE_ASPECT_HEIGHT_OVER_WIDTH = 9 / 16;
 
-// Maximize Space never lets the details panel shrink past this share of the total row width.
-const MAXIMIZE_SPACE_MIN_PANEL_WIDTH_RATIO = 0.25;
+// Fallback floor for the details panel share of the row width. The effective value is the
+// user's `minPanelWidthPercent` preference (25-50%); this is only the default.
+const MAXIMIZE_SPACE_DEFAULT_MIN_PANEL_WIDTH_PERCENT = 25;
+// Bounds the preference is clamped to, mirroring the slider range in the right-click menu.
+const MAXIMIZE_SPACE_MIN_PANEL_PERCENT_FLOOR = 25;
+const MAXIMIZE_SPACE_MIN_PANEL_PERCENT_CEILING = 50;
 // Mirrors the existing manual drag-handle cap (GameDetailsPanel.tsx) so Maximize Space stays
 // within the same bounds a user could reach by dragging the panel themselves.
 const MAXIMIZE_SPACE_MAX_PANEL_WIDTH_RATIO = 0.75;
@@ -56,6 +60,8 @@ interface LibraryGridProps {
   /** When true (and smartFill is on), also resizes the details panel so tiles are as large as
    * possible with no leftover vertical space, keeping the panel at least 25% of the total width. */
   maximizeSpace?: boolean;
+  /** Floor for the details panel width under Maximize Space, as a percent of the row (25-50). */
+  minPanelWidthPercent?: number;
   /** Current details-panel width in px - required to compute Maximize Space layouts. */
   panelWidth?: number;
   /** Called with the new panel width when Maximize Space wants to resize the details panel. */
@@ -86,6 +92,7 @@ export const LibraryGrid: React.FC<LibraryGridProps> = ({
   useLogosInsteadOfBoxart = false,
   smartFill = false,
   maximizeSpace = false,
+  minPanelWidthPercent = 25,
   panelWidth = 0,
   onPanelWidthChange,
   descriptionSize = 14,
@@ -138,7 +145,16 @@ export const LibraryGrid: React.FC<LibraryGridProps> = ({
       if (maximizeSpace) {
         const currentPanelWidth = panelWidthRef.current;
         const totalWidth = container.clientWidth + currentPanelWidth;
-        const minPanelWidth = Math.max(MAXIMIZE_SPACE_MIN_PANEL_WIDTH_PX, totalWidth * MAXIMIZE_SPACE_MIN_PANEL_WIDTH_RATIO);
+        // Clamped rather than trusted: the value round-trips through persisted preferences,
+        // and a floor above the 75% ceiling would leave no feasible layout at all.
+        const minPanelPercent = Math.min(
+          MAXIMIZE_SPACE_MIN_PANEL_PERCENT_CEILING,
+          Math.max(
+            MAXIMIZE_SPACE_MIN_PANEL_PERCENT_FLOOR,
+            Number.isFinite(minPanelWidthPercent) ? minPanelWidthPercent : MAXIMIZE_SPACE_DEFAULT_MIN_PANEL_WIDTH_PERCENT,
+          ),
+        );
+        const minPanelWidth = Math.max(MAXIMIZE_SPACE_MIN_PANEL_WIDTH_PX, totalWidth * (minPanelPercent / 100));
         const maxPanelWidth = totalWidth * MAXIMIZE_SPACE_MAX_PANEL_WIDTH_RATIO;
         // Maximize Space deliberately overrides the "never grow past configured size" floor
         // (baseColumns) that plain Smart Fill respects - forcing at least baseColumns columns
@@ -203,7 +219,7 @@ export const LibraryGrid: React.FC<LibraryGridProps> = ({
       window.removeEventListener('resize', recompute);
       dprMedia?.removeEventListener('change', onDprChange);
     };
-  }, [smartFill, maximizeSpace, items.length, gameTilePadding, useLogosInsteadOfBoxart, gridSize, logoSize]);
+  }, [smartFill, maximizeSpace, minPanelWidthPercent, items.length, gameTilePadding, useLogosInsteadOfBoxart, gridSize, logoSize]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {

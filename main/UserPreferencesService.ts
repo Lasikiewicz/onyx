@@ -63,6 +63,8 @@ export interface UserPreferences {
   logoHeight?: number;
   gridSmartFill?: boolean;
   gridMaximizeSpace?: boolean;
+  /** Floor for the details panel width under Maximize Space, as a percent of the row (25-50). */
+  detailsPanelMinWidthPercent?: number;
   showCarouselDetails?: boolean;
   showCarouselLogos?: boolean;
   detailsBarSize?: number;
@@ -358,6 +360,7 @@ export class UserPreferencesService {
       logoHeight: 100,
       gridSmartFill: true,
       gridMaximizeSpace: true,
+      detailsPanelMinWidthPercent: 25,
       showCarouselDetails: true,
       showCarouselLogos: true,
       detailsBarSize: 14,
@@ -532,6 +535,8 @@ export class UserPreferencesService {
         gridSmartFill: preferences.gridSmartFill,
         '// Maximize Space': 'When Smart Fill is on, auto-adjust the details panel width so tiles are as large as possible with no leftover space',
         gridMaximizeSpace: preferences.gridMaximizeSpace,
+        '// Minimum Details Size': 'Smallest the details panel may shrink to under Maximize Space, as a percent of the window width (25-50)',
+        detailsPanelMinWidthPercent: preferences.detailsPanelMinWidthPercent,
         '// ── Grid-Specific Settings ──': '',
         '// Description Size': 'Font size for description text in grid tiles',
         gridDescriptionSize: preferences.gridDescriptionSize,
@@ -649,6 +654,8 @@ export class UserPreferencesService {
         gridSmartFill: preferences.gridSmartFill,
         '// Maximize Space': 'When Smart Fill is on, auto-adjust the details panel width so tiles are as large as possible with no leftover space',
         gridMaximizeSpace: preferences.gridMaximizeSpace,
+        '// Minimum Details Size': 'Smallest the details panel may shrink to under Maximize Space, as a percent of the window width (25-50)',
+        detailsPanelMinWidthPercent: preferences.detailsPanelMinWidthPercent,
         '// Button Colors': 'Colors for play/edit/mod manager buttons',
         logoButtonColors: preferences.logoButtonColors,
         '// ── Categories Display ──': '',
@@ -828,6 +835,7 @@ export class UserPreferencesService {
         gameTilePadding: defaults.gameTilePadding,
         gridSmartFill: defaults.gridSmartFill,
         gridMaximizeSpace: defaults.gridMaximizeSpace,
+        detailsPanelMinWidthPercent: defaults.detailsPanelMinWidthPercent,
         panelWidth: defaults.panelWidthByView?.grid ?? defaults.panelWidth,
         fanartHeight: defaults.fanartHeightByView?.grid ?? defaults.fanartHeight,
         descriptionWidth: defaults.descriptionWidthByView?.grid ?? 50,
@@ -864,6 +872,7 @@ export class UserPreferencesService {
         gameTilePadding: defaults.gameTilePadding,
         gridSmartFill: defaults.gridSmartFill,
         gridMaximizeSpace: defaults.gridMaximizeSpace,
+        detailsPanelMinWidthPercent: defaults.detailsPanelMinWidthPercent,
         logoBackgroundOpacity: defaults.logoBackgroundOpacity,
         panelWidth: defaults.panelWidthByView?.logo ?? defaults.panelWidth,
         fanartHeight: defaults.fanartHeightByView?.logo ?? defaults.fanartHeight,
@@ -988,6 +997,7 @@ export class UserPreferencesService {
       if (gridSettings.showLogoOverBoxart !== undefined) extracted.showLogoOverBoxart = gridSettings.showLogoOverBoxart;
       if (gridSettings.gridSmartFill !== undefined) extracted.gridSmartFill = gridSettings.gridSmartFill;
       if (gridSettings.gridMaximizeSpace !== undefined) extracted.gridMaximizeSpace = gridSettings.gridMaximizeSpace;
+      if (gridSettings.detailsPanelMinWidthPercent !== undefined) extracted.detailsPanelMinWidthPercent = gridSettings.detailsPanelMinWidthPercent;
       if (gridSettings.gridDescriptionSize !== undefined) extracted.gridDescriptionSize = gridSettings.gridDescriptionSize;
       if (gridSettings.gridButtonSize !== undefined) extracted.gridButtonSize = gridSettings.gridButtonSize;
       if (gridSettings.gridButtonLocation !== undefined) extracted.gridButtonLocation = gridSettings.gridButtonLocation;
@@ -1116,6 +1126,7 @@ export class UserPreferencesService {
       if (logoSettings.logoHeight !== undefined) extracted.logoHeight = logoSettings.logoHeight;
       if (logoSettings.gridSmartFill !== undefined) extracted.gridSmartFill = logoSettings.gridSmartFill;
       if (logoSettings.gridMaximizeSpace !== undefined) extracted.gridMaximizeSpace = logoSettings.gridMaximizeSpace;
+      if (logoSettings.detailsPanelMinWidthPercent !== undefined) extracted.detailsPanelMinWidthPercent = logoSettings.detailsPanelMinWidthPercent;
       if (logoSettings.logoButtonColors !== undefined) extracted.logoButtonColors = logoSettings.logoButtonColors;
       if (logoSettings.showCategories !== undefined) {
         extracted.showCategoriesInGameListByView = { ...extracted.showCategoriesInGameListByView, logo: logoSettings.showCategories };
@@ -1270,6 +1281,7 @@ export class UserPreferencesService {
       // Grid / Logo view duplicate
       gridSmartFill,
       gridMaximizeSpace,
+      detailsPanelMinWidthPercent,
 
       // Carousel view duplicates
       showCarouselDetails,

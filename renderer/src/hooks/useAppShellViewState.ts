@@ -173,6 +173,8 @@ export function useAppShellViewState() {
   }, []);
   const [gridSmartFill, setGridSmartFill] = useState(true);
   const [gridMaximizeSpace, setGridMaximizeSpace] = useState(true);
+  // Percent of the row width the details panel may not shrink below under Maximize Space.
+  const [detailsPanelMinWidthPercent, setDetailsPanelMinWidthPercent] = useState(25);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedLauncher, setSelectedLauncher] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<'title' | 'releaseDate' | 'playtime' | 'lastPlayed'>('title');
@@ -255,6 +257,7 @@ export function useAppShellViewState() {
     gridSize,
     gridSmartFill,
     gridMaximizeSpace,
+    detailsPanelMinWidthPercent,
     hideAppsTitles,
     hideGameTitles,
     hideVRTitles,
@@ -318,6 +321,7 @@ export function useAppShellViewState() {
     setGridSize,
     setGridSmartFill,
     setGridMaximizeSpace,
+    setDetailsPanelMinWidthPercent,
     setHideAppsTitles,
     setHideGameTitles,
     setHideVRTitles,
