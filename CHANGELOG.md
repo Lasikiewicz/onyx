@@ -4,6 +4,13 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.15.3] - 2026-08-05
+
+- Games view:
+  - Minimum Details Size now defaults to 40%.
+- Fixes:
+  - Fixed the right-click menu jumping and resizing under the cursor while adjusting Minimum Details Size. The menu now stays put while the setting takes effect behind it.
+
 ## [0.15.2] - 2026-08-05
 
 - Fixes:

@@ -174,7 +174,7 @@ export function useAppShellViewState() {
   const [gridSmartFill, setGridSmartFill] = useState(true);
   const [gridMaximizeSpace, setGridMaximizeSpace] = useState(true);
   // Percent of the row width the details panel may not shrink below under Maximize Space.
-  const [detailsPanelMinWidthPercent, setDetailsPanelMinWidthPercent] = useState(25);
+  const [detailsPanelMinWidthPercent, setDetailsPanelMinWidthPercent] = useState(40);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedLauncher, setSelectedLauncher] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<'title' | 'releaseDate' | 'playtime' | 'lastPlayed'>('title');

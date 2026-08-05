@@ -22,7 +22,7 @@ const BOXART_TILE_ASPECT_HEIGHT_OVER_WIDTH = 1.5;
 const LOGO_TILE_ASPECT_HEIGHT_OVER_WIDTH = 9 / 16;
 
 // Default details panel share of the row width when no preference is set.
-const MAXIMIZE_SPACE_DEFAULT_MIN_PANEL_WIDTH_PERCENT = 25;
+const MAXIMIZE_SPACE_DEFAULT_MIN_PANEL_WIDTH_PERCENT = 40;
 // Bounds the preference is clamped to, mirroring the slider range in the right-click menu.
 const MAXIMIZE_SPACE_MIN_PANEL_PERCENT_FLOOR = 25;
 const MAXIMIZE_SPACE_MIN_PANEL_PERCENT_CEILING = 50;
@@ -88,7 +88,7 @@ export const LibraryGrid: React.FC<LibraryGridProps> = ({
   useLogosInsteadOfBoxart = false,
   smartFill = false,
   maximizeSpace = false,
-  minPanelWidthPercent = 25,
+  minPanelWidthPercent = 40,
   panelWidth = 0,
   onPanelWidthChange,
   descriptionSize = 14,

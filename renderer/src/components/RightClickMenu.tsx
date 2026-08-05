@@ -203,7 +203,7 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
   onGridSmartFillChange,
   gridMaximizeSpace = false,
   onGridMaximizeSpaceChange,
-  detailsPanelMinWidthPercent = 25,
+  detailsPanelMinWidthPercent = 40,
   onDetailsPanelMinWidthPercentChange,
   listSize = 120,
   onListSizeChange,
@@ -318,14 +318,26 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
   const [showCustomDefaultsModal, setShowCustomDefaultsModal] = React.useState(false);
   const [screenResolution, setScreenResolution] = React.useState<'720p' | '1080p' | '1440p' | '4K'>('1080p');
 
-  // Stable panel width state for dividers section to prevent moving/resizing on drag
+  // Frozen panel width for the focused editor sections.
+  //
+  // A focused section sizes and positions itself over one of the two panels, so it is laid
+  // out from `panelWidth`. Several settings inside those sections *change* `panelWidth` —
+  // the Dividers width slider directly, and Games View's Maximize Space / Minimum Details
+  // Size indirectly — which made the menu resize and jump under the cursor while dragging.
+  // Snapshotting on section entry lets the setting take effect behind the menu while the
+  // menu itself stays put.
   const [stablePanelWidth, setStablePanelWidth] = useState<number>(panelWidth);
 
+  // Read through a ref: this must capture the width as it was when the section was entered,
+  // so re-running whenever `panelWidth` changes is exactly what it must not do.
+  const livePanelWidthRef = useRef(panelWidth);
+  livePanelWidthRef.current = panelWidth;
+
   useEffect(() => {
-    setStablePanelWidth(panelWidth);
+    setStablePanelWidth(livePanelWidthRef.current);
   }, [activeEditorSection]);
 
-  const effectivePanelWidth = activeEditorSection === 'dividers' ? stablePanelWidth : panelWidth;
+  const effectivePanelWidth = activeEditorSection !== null ? stablePanelWidth : panelWidth;
 
   // State for Reset Confirmation Dialog
   const [showResetConfirmation, setShowResetConfirmation] = React.useState(false);
@@ -705,7 +717,7 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
     carouselDescriptionSize: 18,
     carouselButtonSize: 14,
     categoriesTopSize: 12,
-    detailsPanelMinWidthPercent: 25,
+    detailsPanelMinWidthPercent: 40,
     logoBackgroundOpacity: 100,
     listTileHeight: 128,
     listBoxartSize: 96,

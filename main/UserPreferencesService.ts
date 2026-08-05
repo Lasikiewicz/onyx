@@ -241,6 +241,7 @@ type CustomDefaultsByResolution = Partial<Record<ResolutionKey, Partial<Record<V
 const GRID_1080P_BASELINE = {
   gridSmartFill: true,
   gridMaximizeSpace: true,
+  detailsPanelMinWidthPercent: 40,
   gridSize: 145,
   gameTilePadding: 10,
   panelWidth: 967,
@@ -360,7 +361,7 @@ export class UserPreferencesService {
       logoHeight: 100,
       gridSmartFill: true,
       gridMaximizeSpace: true,
-      detailsPanelMinWidthPercent: 25,
+      detailsPanelMinWidthPercent: 40,
       showCarouselDetails: true,
       showCarouselLogos: true,
       detailsBarSize: 14,
