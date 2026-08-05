@@ -2,6 +2,16 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { TopBarPositions } from '../components/TopBarContextMenu';
 
 type ViewMode = 'grid' | 'list' | 'logo' | 'carousel' | 'coverflow' | 'card';
+
+/**
+ * `markInitialLoad` doubles as the "this is the startup bootstrap" flag. Only the bootstrap
+ * may apply session-position preferences (view mode, active game, startup page); later calls
+ * apply display settings only.
+ */
+interface ApplyPreferencesOptions {
+  markInitialLoad?: boolean;
+}
+
 interface UseAppPreferencesOptions {
   viewMode: ViewMode;
   defaultListViewOptions: {
@@ -186,7 +196,7 @@ export function useAppPreferences({
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const currentResolutionRef = useRef<string>(getResolutionKey());
   const baselineDefaultsRef = useRef<any>(null);
-  const applyPreferencesRef = useRef<(prefs: any, options?: { markInitialLoad?: boolean }) => void>(() => {});
+  const applyPreferencesRef = useRef<(prefs: any, options?: ApplyPreferencesOptions) => void>(() => {});
 
   const applyBaselineDefaults = useCallback((resKey: string) => {
     if (!baselineDefaultsRef.current || !baselineDefaultsRef.current[resKey]) return;
@@ -251,7 +261,12 @@ export function useAppPreferences({
     viewMode,
   ]);
 
-  const applyPreferences = useCallback((prefs: any, options?: { markInitialLoad?: boolean }) => {
+  const applyPreferences = useCallback((prefs: any, options?: ApplyPreferencesOptions) => {
+    // Session-owned state: `viewMode` and `activeGameId` are the user's *current* position in
+    // the app, not display settings. Re-applying them outside the startup bootstrap (e.g. from
+    // refreshPreferences after a settings import) snaps the view and the selected game back to
+    // whatever was last persisted.
+    const isBootstrap = options?.markInitialLoad === true;
     if (prefs.gridSize) setGridSize(prefs.gridSize);
     if (prefs.cardColumns) setCardColumns(prefs.cardColumns);
     if (prefs.cardPostersOnly !== undefined) setCardPostersOnly(prefs.cardPostersOnly);
@@ -344,7 +359,7 @@ export function useAppPreferences({
       setIsViewFlippedByView({ grid: false, list: false, logo: false, carousel: false, coverflow: false, card: false, ...prefs.isViewFlippedByView });
     }
     if (prefs.topBarPositions) setTopBarPositions({ ...defaultTopBarPositions, ...prefs.topBarPositions });
-    if (prefs.viewMode) setViewMode(prefs.viewMode);
+    if (isBootstrap && prefs.viewMode) setViewMode(prefs.viewMode);
     if (prefs.backgroundMode) setBackgroundMode(prefs.backgroundMode as 'image' | 'color');
     if (prefs.backgroundColor) setBackgroundColor(prefs.backgroundColor);
     if (prefs.listViewOptions) {
@@ -367,7 +382,7 @@ export function useAppPreferences({
     if (savedPanelWidth) setPanelWidth(savedPanelWidth);
     if (prefs.gridSmartFill !== undefined) setGridSmartFill(prefs.gridSmartFill);
     if (prefs.gridMaximizeSpace !== undefined) setGridMaximizeSpace(prefs.gridMaximizeSpace);
-    if (prefs.activeGameId) setActiveGameId(prefs.activeGameId);
+    if (isBootstrap && prefs.activeGameId) setActiveGameId(prefs.activeGameId);
     if (prefs.isFirstLaunch && baselineDefaultsRef.current) {
       console.log(`[App] First launch detected. Applying baseline defaults for ${currentResolutionRef.current}.`);
       applyBaselineDefaults(currentResolutionRef.current);
@@ -380,7 +395,7 @@ export function useAppPreferences({
     if (prefs.linkDisplayOrder && prefs.linkDisplayOrder.length > 0) setLinkDisplayOrder(prefs.linkDisplayOrder);
     if (prefs.visibleLinkTypes && Object.keys(prefs.visibleLinkTypes).length > 0) setVisibleLinkTypes(prefs.visibleLinkTypes);
 
-    if (prefs.defaultStartupPage) {
+    if (isBootstrap && prefs.defaultStartupPage) {
       if (prefs.defaultStartupPage === 'favorites') {
         setSelectedCategory('favorites');
       } else if (prefs.defaultStartupPage === 'recent') {

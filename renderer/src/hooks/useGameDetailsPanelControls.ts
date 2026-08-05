@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import type { Game } from '../types/game';
 import type { GameDetailsPanelProps } from '../components/GameDetailsPanel';
 import type { RightClickMenuEditorSection } from '../components/rightClickMenu/RightClickMenuHeader';
@@ -133,7 +133,34 @@ export function useGameDetailsPanelControls({
     setRightClickMenu({ x, y, initialEditorSection: 'details-view' });
   }, [setGameContextMenu, setRightClickMenu]);
 
-  return {
+  const handleDescriptionWidthChange = useCallback((width: number) => {
+    saveByViewValue(descriptionWidthByView, setDescriptionWidthByView, 'descriptionWidthByView', detailViewMode, width);
+  }, [descriptionWidthByView, detailViewMode, saveByViewValue, setDescriptionWidthByView]);
+
+  // Deliberately stable: GameDetailsPanel debounces its bottom-bar save on this identity, so a
+  // per-render function starves the timer and the write never lands until renders stop.
+  const handleBottomBarHeightChange = useCallback((height: number) => {
+    saveValue(setDetailsPanelBottomBarHeight, 'detailsPanelBottomBarHeight', height);
+  }, [saveValue, setDetailsPanelBottomBarHeight]);
+
+  const handleFanartHeightChange = useCallback((height: number) => {
+    saveByViewValue(fanartHeightByView, setFanartHeightByView, 'fanartHeightByView', detailViewMode, height);
+  }, [detailViewMode, fanartHeightByView, saveByViewValue, setFanartHeightByView]);
+
+  const handlePanelWidthChange = useCallback((width: number) => {
+    setPanelWidth(width);
+    saveByViewValue(panelWidthByViewState, setPanelWidthByViewState, 'panelWidthByView', viewMode, width);
+  }, [panelWidthByViewState, saveByViewValue, setPanelWidth, setPanelWidthByViewState, viewMode]);
+
+  const resolvedButtonColors = viewMode === 'grid'
+    ? gridButtonColors
+    : viewMode === 'list'
+      ? listButtonColors
+      : viewMode === 'logo'
+        ? logoButtonColors
+        : rightPanelButtonColors;
+
+  return useMemo(() => ({
     descriptionWidth: currentDescriptionWidth,
     detailsPanelBottomBarHeight,
     detailsPanelOpacity,
@@ -149,26 +176,17 @@ export function useGameDetailsPanelControls({
     isRunning: activeGame ? runningGames.has(activeGame.id) : false,
     isViewFlipped: isViewFlippedByView[viewMode],
     linkDisplayOrder,
-    onDescriptionWidthChange: (width) => {
-      saveByViewValue(descriptionWidthByView, setDescriptionWidthByView, 'descriptionWidthByView', detailViewMode, width);
-    },
-    onDetailsPanelBottomBarHeightChange: (height) => {
-      saveValue(setDetailsPanelBottomBarHeight, 'detailsPanelBottomBarHeight', height);
-    },
+    onDescriptionWidthChange: handleDescriptionWidthChange,
+    onDetailsPanelBottomBarHeightChange: handleBottomBarHeightChange,
     onEdit: handleEditGame,
     onEditCategories: handleEditCategories,
     onEditImages: handleEditImages,
-    onFanartHeightChange: (height) => {
-      saveByViewValue(fanartHeightByView, setFanartHeightByView, 'fanartHeightByView', detailViewMode, height);
-    },
+    onFanartHeightChange: handleFanartHeightChange,
     onFavorite: handleToggleFavorite,
     onFixMatch: handleFixMatch,
     onHide: handleHideGame,
     onOpenInGameManager: handleOpenInGameManager,
-    onPanelWidthChange: (width) => {
-      setPanelWidth(width);
-      saveByViewValue(panelWidthByViewState, setPanelWidthByViewState, 'panelWidthByView', viewMode, width);
-    },
+    onPanelWidthChange: handlePanelWidthChange,
     onPin: handleTogglePin,
     onPlay: handlePlay,
     onRightClick: handleRightClick,
@@ -181,18 +199,59 @@ export function useGameDetailsPanelControls({
     disablePanelResize: (viewMode === 'grid' || viewMode === 'logo') && gridMaximizeSpace,
     rightPanelBoxartPosition,
     rightPanelBoxartSize,
-    rightPanelButtonColors: viewMode === 'grid'
-      ? gridButtonColors
-      : viewMode === 'list'
-        ? listButtonColors
-        : viewMode === 'logo'
-          ? logoButtonColors
-          : rightPanelButtonColors,
+    rightPanelButtonColors: resolvedButtonColors,
     rightPanelButtonLocation,
     rightPanelButtonSize,
     rightPanelLogoSize,
     rightPanelTextSize,
     viewMode,
     visibleLinkTypes,
-  };
+  }), [
+    activeGame,
+    currentDescriptionWidth,
+    currentFanartHeight,
+    currentPanelWidth,
+    detailsPanelBottomBarHeight,
+    detailsPanelOpacity,
+    disableAllAnimations,
+    disableAnimatedBackgrounds,
+    disableAnimatedBanners,
+    disableAnimatedBoxarts,
+    disableAnimatedIcons,
+    disableAnimatedLogos,
+    gridMaximizeSpace,
+    handleBottomBarHeightChange,
+    handleDescriptionWidthChange,
+    handleEditCategories,
+    handleEditGame,
+    handleEditImages,
+    handleFanartHeightChange,
+    handleFixMatch,
+    handleHideGame,
+    handleOpenInGameManager,
+    handlePanelWidthChange,
+    handlePlay,
+    handleRightClick,
+    handleSaveGame,
+    handleToggleFavorite,
+    handleTogglePin,
+    handleUnhideGame,
+    handleUninstallGame,
+    isViewFlippedByView,
+    launchingGameId,
+    linkDisplayOrder,
+    overlaysOpen,
+    resolvedButtonColors,
+    rightPanelBoxartPosition,
+    rightPanelBoxartSize,
+    rightPanelButtonLocation,
+    rightPanelButtonSize,
+    rightPanelLogoSize,
+    rightPanelTextSize,
+    runningGames,
+    selectedCategory,
+    updateGameInState,
+    viewMode,
+    visibleLinkTypes,
+  ]);
 }

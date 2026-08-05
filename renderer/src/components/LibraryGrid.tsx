@@ -221,9 +221,16 @@ export const LibraryGrid: React.FC<LibraryGridProps> = ({
     setFocusedIndex(index);
   }, []);
 
+  // The keydown listener below reads these through a ref. `focusedIndex` changes on every
+  // arrow press and `items`/`onGameClick` change on every App render, so keeping them in the
+  // dep array tore the document listener down and re-added it continuously.
+  const keyNavRef = useRef({ items, focusedIndex, gameTilePadding, onGameClick });
+  keyNavRef.current = { items, focusedIndex, gameTilePadding, onGameClick };
+
   // Handle keyboard navigation for gamepad support
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      const { items, focusedIndex, gameTilePadding, onGameClick } = keyNavRef.current;
       if (!gridRef.current || items.length === 0) return;
 
       const cards = Array.from(gridRef.current.querySelectorAll('[data-game-card]'));
@@ -276,22 +283,23 @@ export const LibraryGrid: React.FC<LibraryGridProps> = ({
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [items, focusedIndex, gameTilePadding, onGameClick]);
+  }, []);
 
-  const handleDragEnd = async (event: DragEndEvent) => {
+  const handleDragEnd = useCallback(async (event: DragEndEvent) => {
     const { active, over } = event;
 
     if (over && active.id !== over.id) {
-      const oldIndex = items.findIndex((item) => item.id === active.id);
-      const newIndex = items.findIndex((item) => item.id === over.id);
+      const current = keyNavRef.current.items;
+      const oldIndex = current.findIndex((item) => item.id === active.id);
+      const newIndex = current.findIndex((item) => item.id === over.id);
 
-      const newItems = arrayMove(items, oldIndex, newIndex);
+      const newItems = arrayMove(current, oldIndex, newIndex);
       setItems(newItems);
 
       // Save the new order to the backend
       await onReorder(newItems);
     }
-  };
+  }, [onReorder]);
 
   return (
     <div className="w-full h-full flex flex-col">

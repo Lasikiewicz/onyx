@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import DOMPurify from 'dompurify';
 import { Game } from '../types/game';
@@ -117,7 +117,19 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
   const minSelectedWidth = 100;
   const minSelectedHeight = 150;
 
-  const selectedGameWidth = Math.max(minSelectedWidth, (selectedBoxArtSize * (typeof window !== 'undefined' ? window.innerWidth : 1920) / 100));
+  // Subscribed rather than read during render: `window.innerWidth` read inline never updates,
+  // so the selected tile kept whatever size the window had when the carousel first rendered.
+  const [viewportWidth, setViewportWidth] = useState(() => (typeof window !== 'undefined' ? window.innerWidth : 1920));
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handleResize = () => setViewportWidth(window.innerWidth);
+    window.addEventListener('resize', handleResize);
+    handleResize();
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const selectedGameWidth = Math.max(minSelectedWidth, (selectedBoxArtSize * viewportWidth / 100));
   // Use the same aspect ratio as base games (100px width / 150px height = 0.667)
   const selectedGameHeight = Math.max(minSelectedHeight, selectedGameWidth * 1.5); // Match box art aspect ratio
 
@@ -357,6 +369,7 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
                       <img
                         src={selectedGame.logoUrl}
                         alt={selectedGame.title}
+                        decoding="async"
                         className="drop-shadow-lg cursor-pointer hover:drop-shadow-xl transition-all duration-200 hover:scale-105"
                         style={{
                           width: `${selectedGame.logoSizePerViewMode?.carousel || propCarouselLogoSize}px`,
@@ -603,6 +616,8 @@ export const LibraryCarousel: React.FC<LibraryCarouselProps> = ({
                               <img
                                 src={url}
                                 alt={game.title}
+                                loading="lazy"
+                                decoding="async"
                                 className="w-full h-full object-cover transition-transform duration-300"
                                 onError={(e) => {
                                   const target = e.target as HTMLImageElement;

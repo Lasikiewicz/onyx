@@ -160,7 +160,7 @@ import { DuckDuckGoImageService } from './DuckDuckGoImageService.js';
 import { registerGameIPCHandlers } from './ipc/gameHandlers.js';
 import { registerMetadataIPCHandlers } from './ipc/metadataHandlers.js';
 import { registerAppIPCHandlers } from './ipc/appHandlers.js';
-import { registerScanningHandlers } from './ipc/scanningHandlers.js';
+import { registerScanningHandlers, clearRunningGames } from './ipc/scanningHandlers.js';
 import { registerSuspendHandlers } from './ipc/suspendHandlers.js';
 import { registerLauncherIPCHandlers } from './ipc/launcherHandlers.js';
 import { TrayService } from './ui/tray.js';
@@ -721,6 +721,57 @@ function createMenu() {
   Menu.setApplicationMenu(menu);
 }
 
+/**
+ * Resolve the first candidate path that exists, caching the answer.
+ *
+ * Icon locations are fixed for the lifetime of the process, but tray and window creation each
+ * re-probed them with a run of `existsSync` calls — and `createWindow` runs again every time
+ * the window is recreated from the tray. Cached by candidate list; a miss is cached too, so a
+ * genuinely missing icon does not re-probe on every window.
+ */
+const resolvedIconPathCache = new Map<string, string | null>();
+
+function resolveFirstExistingPath(candidates: string[]): string | null {
+  const cacheKey = candidates.join(' ');
+  const cached = resolvedIconPathCache.get(cacheKey);
+  if (cached !== undefined) {
+    return cached;
+  }
+
+  const found = candidates.find((candidate) => existsSync(candidate)) ?? null;
+  resolvedIconPathCache.set(cacheKey, found);
+  return found;
+}
+
+/** Candidate icon paths in preference order for the current platform and packaging mode. */
+function getIconCandidates(): string[] {
+  if (app.isPackaged) {
+    return process.platform === 'win32'
+      ? [path.join(process.resourcesPath, 'icon.ico'), path.join(process.resourcesPath, 'icon.png')]
+      : [path.join(process.resourcesPath, 'icon.png'), path.join(process.resourcesPath, 'icon.svg')];
+  }
+
+  return process.platform === 'win32'
+    ? [path.join(__dirname, '../build/icon.ico'), path.join(__dirname, '../resources/icon.png')]
+    : [path.join(__dirname, '../resources/icon.svg'), path.join(__dirname, '../resources/icon.png')];
+}
+
+/**
+ * Tray candidates. Identical to `getIconCandidates` on Windows; off-Windows the tray prefers
+ * PNG over SVG (SVG tray icons render poorly), so the order is deliberately different.
+ */
+function getTrayIconCandidates(): string[] {
+  if (app.isPackaged) {
+    return process.platform === 'win32'
+      ? [path.join(process.resourcesPath, 'icon.ico'), path.join(process.resourcesPath, 'icon.png')]
+      : [path.join(process.resourcesPath, 'icon.png'), path.join(process.resourcesPath, 'icon.svg')];
+  }
+
+  return process.platform === 'win32'
+    ? [path.join(__dirname, '../build/icon.ico'), path.join(__dirname, '../resources/icon.png')]
+    : [path.join(__dirname, '../resources/icon.png'), path.join(__dirname, '../resources/icon.svg')];
+}
+
 // Create system tray
 function createTray() {
   // System tray icons work better with ICO on Windows, PNG on other platforms
@@ -728,62 +779,13 @@ function createTray() {
   let icon: Electron.NativeImage;
 
   try {
-    if (app.isPackaged) {
-      // In packaged app, prefer ICO for Windows system tray (best Windows support)
-      if (process.platform === 'win32') {
-        // Try ICO first on Windows (best for system tray)
-        const icoPath = path.join(process.resourcesPath, 'icon.ico');
-        const pngPath = path.join(process.resourcesPath, 'icon.png');
-
-        if (existsSync(icoPath)) {
-          iconPath = icoPath;
-        } else if (existsSync(pngPath)) {
-          iconPath = pngPath;
-        } else {
-          throw new Error('No icon file found');
-        }
-      } else {
-        // On other platforms, prefer PNG
-        const pngPath = path.join(process.resourcesPath, 'icon.png');
-        const svgPath = path.join(process.resourcesPath, 'icon.svg');
-
-        if (existsSync(pngPath)) {
-          iconPath = pngPath;
-        } else if (existsSync(svgPath)) {
-          iconPath = svgPath;
-        } else {
-          throw new Error('No icon file found');
-        }
-      }
-    } else {
-      // In development, prefer ICO on Windows, PNG on other platforms
-      if (process.platform === 'win32') {
-        const icoPath = path.join(__dirname, '../build/icon.ico');
-        const pngPath = path.join(__dirname, '../resources/icon.png');
-
-        if (existsSync(icoPath)) {
-          iconPath = icoPath;
-        } else if (existsSync(pngPath)) {
-          iconPath = pngPath;
-        } else {
-          throw new Error('No icon file found');
-        }
-      } else {
-        const pngPath = path.join(__dirname, '../resources/icon.png');
-        const svgPath = path.join(__dirname, '../resources/icon.svg');
-
-        if (existsSync(pngPath)) {
-          iconPath = pngPath;
-        } else if (existsSync(svgPath)) {
-          iconPath = svgPath;
-        } else {
-          throw new Error('No icon file found');
-        }
-      }
+    const resolvedTrayIcon = resolveFirstExistingPath(getTrayIconCandidates());
+    if (!resolvedTrayIcon) {
+      throw new Error('No icon file found');
     }
+    iconPath = resolvedTrayIcon;
 
     console.log('Loading tray icon from:', iconPath);
-    console.log('Icon file exists:', existsSync(iconPath));
 
     // Load the icon
     icon = nativeImage.createFromPath(iconPath);
@@ -910,49 +912,10 @@ async function createWindow() {
   // Load app icon (prefer PNG/ICO on Windows, SVG on other platforms)
   let appIcon: Electron.NativeImage | undefined;
   try {
-    if (app.isPackaged) {
-      // In packaged app, prefer ICO on Windows for better taskbar support
-      if (process.platform === 'win32') {
-        const icoPath = path.join(process.resourcesPath, 'icon.ico');
-        const pngPath = path.join(process.resourcesPath, 'icon.png');
-
-        if (existsSync(icoPath)) {
-          appIcon = nativeImage.createFromPath(icoPath);
-        } else if (existsSync(pngPath)) {
-          appIcon = nativeImage.createFromPath(pngPath);
-        }
-      } else {
-        // On other platforms, try SVG first, then PNG
-        const svgPath = path.join(process.resourcesPath, 'icon.svg');
-        const pngPath = path.join(process.resourcesPath, 'icon.png');
-
-        if (existsSync(svgPath)) {
-          appIcon = nativeImage.createFromPath(svgPath);
-        } else if (existsSync(pngPath)) {
-          appIcon = nativeImage.createFromPath(pngPath);
-        }
-      }
-    } else {
-      // In development, prefer ICO on Windows
-      if (process.platform === 'win32') {
-        const icoPath = path.join(__dirname, '../build/icon.ico');
-        const pngPath = path.join(__dirname, '../resources/icon.png');
-
-        if (existsSync(icoPath)) {
-          appIcon = nativeImage.createFromPath(icoPath);
-        } else if (existsSync(pngPath)) {
-          appIcon = nativeImage.createFromPath(pngPath);
-        }
-      } else {
-        const svgPath = path.join(__dirname, '../resources/icon.svg');
-        const pngPath = path.join(__dirname, '../resources/icon.png');
-
-        if (existsSync(svgPath)) {
-          appIcon = nativeImage.createFromPath(svgPath);
-        } else if (existsSync(pngPath)) {
-          appIcon = nativeImage.createFromPath(pngPath);
-        }
-      }
+    // Cached: this runs on every window creation, including recreation from the tray.
+    const iconPath = resolveFirstExistingPath(getIconCandidates());
+    if (iconPath) {
+      appIcon = nativeImage.createFromPath(iconPath);
     }
 
     // Verify icon is not empty
@@ -1306,6 +1269,11 @@ async function createWindow() {
   win.webContents.on('did-finish-load', async () => {
     win?.webContents.send('main-process-message', new Date().toLocaleString());
     console.log('Window loaded, checking if electronAPI is available...');
+
+    // A fresh renderer has no launch monitors, so any game it previously reported as running
+    // can never be cleared by a `scanning:gameStopped`. Drop them or background scanning
+    // stays disabled for the rest of the session.
+    clearRunningGames();
 
     if (startupWindowMode === 'tray') {
       console.log('[Startup] Starting in tray mode; keeping main window hidden.');

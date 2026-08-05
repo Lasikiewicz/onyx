@@ -275,28 +275,54 @@ export const GameManager: React.FC<GameManagerProps> = ({
     return [...localGames].sort((a, b) => a.title.localeCompare(b.title));
   }, [localGames]);
 
+  // Artwork fields of the selected game, narrowed so the sync effect below keys only on the
+  // URLs it actually compares rather than on the whole game object.
+  const selectedGameId_ = selectedGame?.id;
+  const selectedBoxArtUrl = selectedGame?.boxArtUrl;
+  const selectedBannerUrl = selectedGame?.bannerUrl;
+  const selectedLogoUrl = selectedGame?.logoUrl;
+
+  // Kept in a ref because the effect below must read the *current* selected game without
+  // re-running whenever any unrelated field on it changes.
+  const selectedGameRef = useRef(selectedGame);
+  selectedGameRef.current = selectedGame;
+
   // Update editedGame when selectedGame changes (e.g., after library reload)
   useEffect(() => {
-    if (selectedGame && editedGame && selectedGame.id === editedGame.id) {
-      const hasChanges =
-        selectedGame.boxArtUrl !== editedGame.boxArtUrl ||
-        selectedGame.bannerUrl !== editedGame.bannerUrl ||
-        selectedGame.logoUrl !== editedGame.logoUrl;
+    const current = selectedGameRef.current;
+    if (!current) return;
 
-      if (hasChanges) {
-        setEditedGame({
-          ...selectedGame,
-          // Preserve *IsVideo from editedGame when selectedGame doesn't have them (e.g. library not yet refreshed after webm upload)
-          boxArtIsVideo: selectedGame.boxArtIsVideo ?? editedGame.boxArtIsVideo,
-          bannerIsVideo: selectedGame.bannerIsVideo ?? editedGame.bannerIsVideo,
-          alternativeBannerIsVideo: selectedGame.alternativeBannerIsVideo ?? editedGame.alternativeBannerIsVideo,
-          logoIsVideo: selectedGame.logoIsVideo ?? editedGame.logoIsVideo,
-          heroIsVideo: selectedGame.heroIsVideo ?? editedGame.heroIsVideo,
-          iconIsVideo: selectedGame.iconIsVideo ?? editedGame.iconIsVideo,
-        });
-      }
-    }
-  }, [selectedGame?.boxArtUrl, selectedGame?.bannerUrl, selectedGame?.logoUrl, selectedGame?.id]);
+    // Functional update: reading editedGame from state here instead of closing over it keeps
+    // it out of the dependency list, so a user edit does not retrigger this sync.
+    setEditedGame((prevEdited) => {
+      if (!prevEdited || current.id !== prevEdited.id) return prevEdited;
+
+      const hasChanges =
+        current.boxArtUrl !== prevEdited.boxArtUrl ||
+        current.bannerUrl !== prevEdited.bannerUrl ||
+        current.logoUrl !== prevEdited.logoUrl;
+
+      if (!hasChanges) return prevEdited;
+
+      return {
+        ...current,
+        // Preserve *IsVideo from editedGame when selectedGame doesn't have them (e.g. library not yet refreshed after webm upload)
+        boxArtIsVideo: current.boxArtIsVideo ?? prevEdited.boxArtIsVideo,
+        bannerIsVideo: current.bannerIsVideo ?? prevEdited.bannerIsVideo,
+        alternativeBannerIsVideo: current.alternativeBannerIsVideo ?? prevEdited.alternativeBannerIsVideo,
+        logoIsVideo: current.logoIsVideo ?? prevEdited.logoIsVideo,
+        heroIsVideo: current.heroIsVideo ?? prevEdited.heroIsVideo,
+        iconIsVideo: current.iconIsVideo ?? prevEdited.iconIsVideo,
+      };
+    });
+  }, [selectedBoxArtUrl, selectedBannerUrl, selectedLogoUrl, selectedGameId_]);
+
+  // Whether a selection already exists. Held in a ref rather than a dependency: this effect
+  // resets localGames wholesale, so re-running it every time the user picks a different game
+  // would discard local edits. The read below is a one-shot "has the modal already been
+  // seeded?" check, not something the effect should react to.
+  const hasSelectionRef = useRef(false);
+  hasSelectionRef.current = Boolean(selectedGameId);
 
   // Sync local games with prop when modal opens or games change significantly
   useEffect(() => {
@@ -305,7 +331,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
       const sortedGames = [...games].sort((a, b) => a.title.localeCompare(b.title));
       setLocalGames(sortedGames);
       // Set initial game and tab when modal first opens
-      if (initialGameId && !selectedGameId) {
+      if (initialGameId && !hasSelectionRef.current) {
         setSelectedGameId(initialGameId);
         const game = games.find((g: Game) => g.id === initialGameId);
         if (game) {
@@ -321,11 +347,11 @@ export const GameManager: React.FC<GameManagerProps> = ({
 
   // Reset search state when selected game changes (do not switch tab; respect initialTab / user choice)
   useEffect(() => {
-    if (selectedGame) {
+    if (selectedGameId_) {
       resetImageWorkflow();
       resetMetadataWorkflow();
     }
-  }, [resetImageWorkflow, resetMetadataWorkflow, selectedGame?.id]);
+  }, [resetImageWorkflow, resetMetadataWorkflow, selectedGameId_]);
 
   // Update local games when prop changes, but preserve selected game and tab
   useEffect(() => {
@@ -387,7 +413,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
         setShouldSelectFirstGameAfterRefresh(false);
       }
     }
-  }, [games, selectedGameId, isOpen, shouldSelectFirstGameAfterRefresh]);
+  }, [games, selectedGameId, isOpen, shouldSelectFirstGameAfterRefresh, setShouldSelectFirstGameAfterRefresh]);
 
   // Load games when modal opens - now handled by the localGames sync effect above
 

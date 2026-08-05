@@ -41,6 +41,8 @@ export function ImageSearchResultsSections({
                     <img
                       src={result.boxArtUrl || result.coverUrl}
                       alt={result.name}
+                      loading="lazy"
+                      decoding="async"
                       className="w-full h-full object-cover"
                       onError={(event) => {
                         handleImageResultLoadError(result.boxArtUrl || result.coverUrl, event);
@@ -70,6 +72,8 @@ export function ImageSearchResultsSections({
                   <img
                     src={result.logoUrl}
                     alt="Logo"
+                    loading="lazy"
+                    decoding="async"
                     className="max-w-full max-h-full object-contain"
                     onError={(event) => {
                       handleImageResultLoadError(result.logoUrl, event);
@@ -99,6 +103,8 @@ export function ImageSearchResultsSections({
                       <img
                         src={url}
                         alt={result.name}
+                        loading="lazy"
+                        decoding="async"
                         className="w-full h-full object-cover"
                         onError={(event) => {
                           handleImageResultLoadError(url, event);
@@ -133,6 +139,8 @@ export function ImageSearchResultsSections({
                       <img
                         src={url}
                         alt={result.name}
+                        loading="lazy"
+                        decoding="async"
                         className="w-full h-full object-cover"
                         onError={(event) => {
                           handleImageResultLoadError(url, event);
@@ -166,6 +174,8 @@ export function ImageSearchResultsSections({
                     <img
                       src={url}
                       alt="Icon"
+                      loading="lazy"
+                      decoding="async"
                       className="w-full h-full object-contain"
                       onError={(event) => {
                         handleImageResultLoadError(url, event);

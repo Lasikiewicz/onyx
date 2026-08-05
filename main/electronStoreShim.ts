@@ -104,6 +104,20 @@ export default class Store<T = any> {
     this.save();
   }
 
+  /**
+   * Apply several keys in one write.
+   *
+   * `set` serializes and rewrites the whole file every call, so N consecutive sets rewrite the
+   * file N times. Callers updating related keys together (preferences + schema version, a
+   * reset that clears several keys) should use this instead.
+   */
+  setMany(entries: Record<string, any>): void {
+    for (const [key, value] of Object.entries(entries)) {
+      (this.data as any)[key] = value;
+    }
+    this.save();
+  }
+
   delete(key: string): void {
     if (key in this.data) {
       delete this.data[key];

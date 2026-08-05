@@ -45,6 +45,20 @@ interface LibraryListViewProps {
   onEmptySpaceClick?: (x: number, y: number) => void;
 }
 
+// Hoisted out of the parameter list: an inline object default is a fresh identity on every
+// render, which defeats any React.memo on this component.
+const DEFAULT_LIST_VIEW_OPTIONS: ListViewOptions = {
+  showDescription: true,
+  showCategories: false,
+  showPlaytime: true,
+  showReleaseDate: true,
+  showGenres: true,
+  showPlatform: false,
+  showLauncher: true,
+  showLogos: false,
+  titleTextSize: 18,
+};
+
 export const LibraryListView: React.FC<LibraryListViewProps> = ({
   games,
   onPlay,
@@ -59,17 +73,7 @@ export const LibraryListView: React.FC<LibraryListViewProps> = ({
   onUnhide,
   onUninstall,
   isHiddenView = false,
-  listViewOptions = {
-    showDescription: true,
-    showCategories: false,
-    showPlaytime: true,
-    showReleaseDate: true,
-    showGenres: true,
-    showPlatform: false,
-    showLauncher: true,
-    showLogos: false,
-    titleTextSize: 18,
-  },
+  listViewOptions = DEFAULT_LIST_VIEW_OPTIONS,
   listViewSize = 128,
   onEmptySpaceClick,
 }) => {

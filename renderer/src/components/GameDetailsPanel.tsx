@@ -62,6 +62,16 @@ export interface GameDetailsPanelProps {
   overlaysOpen?: boolean;
 }
 
+// Helpers to detect animated media (animated image formats).
+// We exclude webp here as many webp files are static, and lumping them all into "animated"
+// causes them to be hidden when animations are disabled.
+// Module scope rather than component scope: they close over nothing, and as component-local
+// consts they were a fresh identity every render inside effect dependency lists.
+const DEFAULT_PANEL_WIDTHS: Record<ViewKey, number> = { grid: 800, list: 800, logo: 800 };
+
+const isAnimatedImage = (url: string) => /\.(gif|apng)(\?|$)/i.test(url);
+const isAnimatedMedia = (url: string, isVideo?: boolean) => !!isVideo || isAnimatedImage(url);
+
 export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
   game,
   onPlay,
@@ -222,8 +232,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
     }
   };
 
-  const defaultPanelWidths: Record<ViewKey, number> = { grid: 800, list: 800, logo: 800 };
-  const [panelWidths, setPanelWidths] = useState<Record<ViewKey, number>>(defaultPanelWidths);
+  const [panelWidths, setPanelWidths] = useState<Record<ViewKey, number>>(DEFAULT_PANEL_WIDTHS);
   const [fanartHeight, setFanartHeight] = useState(propFanartHeight);
   const [descriptionHeight, setDescriptionHeight] = useState(400);
   const [descriptionWidth, setDescriptionWidth] = useState(propDescriptionWidth);
@@ -240,7 +249,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
   const descriptionContainerRef = useRef<HTMLDivElement>(null);
   const bottomBarRef = useRef<HTMLDivElement>(null);
   const viewKey: ViewKey = viewMode === 'list' ? 'list' : viewMode === 'logo' ? 'logo' : 'grid';
-  const activePanelWidth = (propPanelWidth ?? panelWidths[viewKey] ?? defaultPanelWidths[viewKey]);
+  const activePanelWidth = (propPanelWidth ?? panelWidths[viewKey] ?? DEFAULT_PANEL_WIDTHS[viewKey]);
   const normalizedOpacity = Math.max(0, Math.min(100, detailsPanelOpacity));
   const panelTransparency = 1 - (normalizedOpacity / 100);
   const panelBackground = `rgba(26, 31, 46, ${normalizedOpacity / 100})`;
@@ -299,11 +308,21 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
     isVideo: !!game?.logoIsVideo,
   });
 
+  // Artwork fields read by the two effects below. Pulled out as locals so the dependency
+  // lists name exactly what is used — depending on the whole `game` object would re-run these
+  // on any unrelated field change (favorite, playtime, categories).
+  const gameId = game?.id;
+  const gameHeroUrl = game?.heroUrl;
+  const gameBannerUrl = game?.bannerUrl;
+  const gameBoxArtUrl = game?.boxArtUrl;
+  const gameLogoUrl = game?.logoUrl;
+  const gameLogoIsVideo = game?.logoIsVideo;
+
   // Preload current game images so they are decoded before <img> mounts (faster first paint)
   useEffect(() => {
-    if (!game) return;
-    const bgUrl = game.bannerUrl || game.heroUrl || game.boxArtUrl || '';
-    const urls = [bgUrl, game.logoUrl, game.boxArtUrl].filter(Boolean) as string[];
+    if (!gameId) return;
+    const bgUrl = gameBannerUrl || gameHeroUrl || gameBoxArtUrl || '';
+    const urls = [bgUrl, gameLogoUrl, gameBoxArtUrl].filter(Boolean) as string[];
     const images: HTMLImageElement[] = [];
     const animatedRe = /\.(gif|webp|apng|webm)(\?|$)/i;
     for (const url of urls) {
@@ -317,23 +336,23 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
     return () => {
       for (const img of images) img.src = '';
     };
-  }, [game?.id, game?.heroUrl, game?.bannerUrl, game?.boxArtUrl, game?.logoUrl]);
+  }, [gameId, gameHeroUrl, gameBannerUrl, gameBoxArtUrl, gameLogoUrl]);
 
   useEffect(() => {
-    if (!game?.logoUrl) {
+    if (!gameLogoUrl) {
       setDisplayedLogo({ url: '', isVideo: false });
       return;
     }
 
     const disableAnimatedLogosBySettings = disableAnimatedLogos && !overlaysOpen;
-    const canRenderLogo = game.logoIsVideo || !isAnimatedMedia(game.logoUrl, game.logoIsVideo) || !disableAnimatedLogosBySettings;
+    const canRenderLogo = gameLogoIsVideo || !isAnimatedMedia(gameLogoUrl, gameLogoIsVideo) || !disableAnimatedLogosBySettings;
     if (!canRenderLogo) {
       setDisplayedLogo({ url: '', isVideo: false });
       return;
     }
 
-    if (game.logoIsVideo) {
-      setDisplayedLogo({ url: game.logoUrl, isVideo: true });
+    if (gameLogoIsVideo) {
+      setDisplayedLogo({ url: gameLogoUrl, isVideo: true });
       return;
     }
 
@@ -341,7 +360,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
     const img = new Image();
     img.onload = () => {
       if (!cancelled) {
-        setDisplayedLogo({ url: game.logoUrl || '', isVideo: false });
+        setDisplayedLogo({ url: gameLogoUrl, isVideo: false });
       }
     };
     img.onerror = () => {
@@ -349,10 +368,10 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
         setDisplayedLogo({ url: '', isVideo: false });
       }
     };
-    img.src = game.logoUrl;
+    img.src = gameLogoUrl;
 
     if (img.complete && img.naturalWidth > 0) {
-      setDisplayedLogo({ url: game.logoUrl, isVideo: false });
+      setDisplayedLogo({ url: gameLogoUrl, isVideo: false });
     }
 
     return () => {
@@ -361,23 +380,45 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
       img.onerror = null;
       img.src = '';
     };
-  }, [game?.id, game?.logoUrl, game?.logoIsVideo, disableAnimatedLogos, overlaysOpen]);
+  }, [gameId, gameLogoUrl, gameLogoIsVideo, disableAnimatedLogos, overlaysOpen]);
 
-  // Load preferences on mount
+  // Load panel-local preferences on mount.
+  //
+  // This deliberately only fills in values the parent did NOT supply. App bootstraps
+  // app-shell preferences once at startup and passes panel width, fanart height,
+  // description width, bottom bar height and the link settings down as props; re-reading
+  // them from disk here resolves *after* the prop-sync effects below and snapped them back
+  // to their persisted values (the "snaps back to saved values" bug). The remaining keys
+  // (fonts, visible details, boxart width, description height) are owned by this panel and
+  // have no prop, so they still load here.
+  //
+  // `hasPropX` is captured once on mount on purpose — this is a bootstrap, not a sync.
+  const propOwnershipRef = useRef({
+    panelWidth: propPanelWidth !== undefined,
+    fanartHeight: propFanartHeight !== undefined,
+    descriptionWidth: propDescriptionWidth !== undefined,
+    bottomBarHeight: propBottomBarHeight !== undefined,
+    linkDisplayOrder: linkDisplayOrderFromProps !== undefined && linkDisplayOrderFromProps !== null,
+    visibleLinkTypes: visibleLinkTypesFromProps !== undefined,
+  });
+
   useEffect(() => {
+    const owned = propOwnershipRef.current;
     const loadPreferences = async () => {
       try {
         const prefs = await window.electronAPI.getPreferences();
-        const panelWidthByView = prefs.panelWidthByView || {};
-        const fallbackPanelWidth = prefs.panelWidth ?? defaultPanelWidths.grid;
-        setPanelWidths({
-          grid: panelWidthByView.grid ?? fallbackPanelWidth,
-          list: panelWidthByView.list ?? fallbackPanelWidth,
-          logo: panelWidthByView.logo ?? fallbackPanelWidth,
-        });
-        if (prefs.fanartHeight) setFanartHeight(prefs.fanartHeight);
-        if (prefs.descriptionHeight) setDescriptionHeight(prefs.descriptionHeight);
-        if (prefs.descriptionWidth !== undefined) setDescriptionWidth(prefs.descriptionWidth);
+        if (!owned.panelWidth) {
+          const panelWidthByView = prefs.panelWidthByView || {};
+          const fallbackPanelWidth = prefs.panelWidth ?? DEFAULT_PANEL_WIDTHS.grid;
+          setPanelWidths({
+            grid: panelWidthByView.grid ?? fallbackPanelWidth,
+            list: panelWidthByView.list ?? fallbackPanelWidth,
+            logo: panelWidthByView.logo ?? fallbackPanelWidth,
+          });
+        }
+        if (!owned.fanartHeight && prefs.fanartHeight) setFanartHeight(prefs.fanartHeight);
+        if (!owned.descriptionWidth && prefs.descriptionWidth !== undefined) setDescriptionWidth(prefs.descriptionWidth);
+        if (!owned.bottomBarHeight && prefs.detailsPanelBottomBarHeight !== undefined) setBottomBarHeight(prefs.detailsPanelBottomBarHeight);
         if (prefs.titleFontSize) setTitleFontSize(prefs.titleFontSize);
         if (prefs.titleFontFamily) setTitleFontFamily(prefs.titleFontFamily);
         if (prefs.descriptionFontSize) setDescriptionFontSize(prefs.descriptionFontSize);
@@ -387,13 +428,16 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
         if (prefs.visibleDetails) setVisibleDetails(prefs.visibleDetails);
         if (prefs.boxartWidth) setBoxartWidth(prefs.boxartWidth);
         if (prefs.descriptionHeight !== undefined) setDescriptionHeight(prefs.descriptionHeight);
-        if (prefs.detailsPanelBottomBarHeight !== undefined) setBottomBarHeight(prefs.detailsPanelBottomBarHeight);
-        if (prefs.visibleLinkTypes && Object.keys(prefs.visibleLinkTypes).length > 0) {
-          setVisibleLinkTypes(prefs.visibleLinkTypes);
-        } else {
-          setVisibleLinkTypes(DEFAULT_VISIBLE_LINK_TYPES);
+        if (!owned.visibleLinkTypes) {
+          if (prefs.visibleLinkTypes && Object.keys(prefs.visibleLinkTypes).length > 0) {
+            setVisibleLinkTypes(prefs.visibleLinkTypes);
+          } else {
+            setVisibleLinkTypes(DEFAULT_VISIBLE_LINK_TYPES);
+          }
         }
-        if (prefs.linkDisplayOrder && prefs.linkDisplayOrder.length > 0) setLinkDisplayOrder(prefs.linkDisplayOrder);
+        if (!owned.linkDisplayOrder && prefs.linkDisplayOrder && prefs.linkDisplayOrder.length > 0) {
+          setLinkDisplayOrder(prefs.linkDisplayOrder);
+        }
       } catch (error) {
         console.error('Error loading preferences:', error);
       }
@@ -423,25 +467,30 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [propPanelWidth]);
 
+  // Logo-size fields, again narrowed so the effects below key only on what they read.
+  const gameLogoSize = game?.logoSize;
+  const gameLogoSizePerViewMode = game?.logoSizePerViewMode;
+  const sizeForCurrentView = gameLogoSizePerViewMode?.[viewMode as 'grid' | 'list' | 'logo' | 'carousel' | 'coverflow']
+    || gameLogoSizePerViewMode?.carousel
+    || gameLogoSize;
+
   // Initialize local logo size when dialog opens or when game changes, reset when it closes
   useEffect(() => {
-    if (showLogoResizeDialog && game) {
+    if (showLogoResizeDialog && gameId) {
       // Use per-view-mode size for the current view, or fallback to global logoSize
-      const sizeForCurrentView = game.logoSizePerViewMode?.[viewMode as 'grid' | 'list' | 'logo' | 'carousel' | 'coverflow'] || game.logoSizePerViewMode?.carousel || game.logoSize;
       setLocalLogoSize(sizeForCurrentView);
     } else if (!showLogoResizeDialog) {
       setLocalLogoSize(undefined);
       setIsSavingLogoSize(false);
     }
-  }, [showLogoResizeDialog, game?.logoSize, game?.logoSizePerViewMode, viewMode]);
+  }, [showLogoResizeDialog, gameId, sizeForCurrentView]);
 
   // Keep local logo size in sync with game changes (for real-time slider updates from RightClickMenu)
   useEffect(() => {
-    if (game && !showLogoResizeDialog) {
-      const sizeForCurrentView = game.logoSizePerViewMode?.[viewMode as 'grid' | 'list' | 'logo' | 'carousel' | 'coverflow'] || game.logoSizePerViewMode?.carousel || game.logoSize;
+    if (gameId && !showLogoResizeDialog) {
       setLocalLogoSize(sizeForCurrentView);
     }
-  }, [game?.logoSizePerViewMode, game?.logoSize, viewMode, game?.id]);
+  }, [gameId, showLogoResizeDialog, sizeForCurrentView]);
 
   // Close the logo resize UI whenever a context menu is invoked anywhere
   useEffect(() => {
@@ -455,6 +504,27 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
       document.removeEventListener('contextmenu', handleGlobalContextMenu, true);
     };
   }, []);
+
+  // Resize handlers are read through a ref so the mousemove listener below can depend only on
+  // the drag flags. Putting the callbacks in the dep array either tore the listener down
+  // mid-drag or (when omitted, as before) left the drag calling the versions captured when it
+  // started.
+  const resizeCallbacksRef = useRef({
+    onPanelWidthChange,
+    onFanartHeightChange,
+    onDescriptionWidthChange,
+    onDetailsPanelBottomBarHeightChange,
+  });
+  resizeCallbacksRef.current = {
+    onPanelWidthChange,
+    onFanartHeightChange,
+    onDescriptionWidthChange,
+    onDetailsPanelBottomBarHeightChange,
+  };
+
+  // Whether App owns the bottom bar height. A stable boolean rather than the callback itself,
+  // so the debounced save below is not restarted by an unstable function identity.
+  const ownsBottomBarHeight = onDetailsPanelBottomBarHeightChange !== undefined;
 
   // Save preferences when they change (omit bottom bar height when App owns it via callback)
   useEffect(() => {
@@ -475,7 +545,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
           visibleDetails,
           boxartWidth,
         };
-        if (onDetailsPanelBottomBarHeightChange === undefined) {
+        if (!ownsBottomBarHeight) {
           prefs.detailsPanelBottomBarHeight = bottomBarHeight;
         }
         await window.electronAPI.savePreferences(prefs);
@@ -486,7 +556,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
     // Debounce saves
     const timeoutId = setTimeout(savePreferences, 500);
     return () => clearTimeout(timeoutId);
-  }, [panelWidths, activePanelWidth, fanartHeight, descriptionHeight, descriptionWidth, bottomBarHeight, onDetailsPanelBottomBarHeightChange, titleFontSize, titleFontFamily, descriptionFontSize, descriptionFontFamily, detailsFontSize, detailsFontFamily, visibleDetails, boxartWidth]);
+  }, [panelWidths, activePanelWidth, fanartHeight, descriptionHeight, descriptionWidth, bottomBarHeight, ownsBottomBarHeight, titleFontSize, titleFontFamily, descriptionFontSize, descriptionFontFamily, detailsFontSize, detailsFontFamily, visibleDetails, boxartWidth]);
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -499,7 +569,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
         const maxWidth = window.innerWidth * 0.75;
         const clampedWidth = Math.max(minWidth, Math.min(maxWidth, newWidth));
         setPanelWidths(prev => ({ ...prev, [viewKey]: clampedWidth }));
-        onPanelWidthChange?.(clampedWidth);
+        resizeCallbacksRef.current.onPanelWidthChange?.(clampedWidth);
       } else if (isResizingFanart && fanartRef.current) {
         const rect = fanartRef.current.getBoundingClientRect();
         const newHeight = e.clientY - rect.top;
@@ -507,7 +577,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
         const maxHeight = 600;
         const clampedHeight = Math.max(minHeight, Math.min(maxHeight, newHeight));
         setFanartHeight(clampedHeight);
-        onFanartHeightChange?.(clampedHeight);
+        resizeCallbacksRef.current.onFanartHeightChange?.(clampedHeight);
       } else if (isResizingDescription && descriptionRef.current) {
         const rect = descriptionRef.current.getBoundingClientRect();
         const newHeight = e.clientY - rect.top;
@@ -523,7 +593,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
         const maxPercentage = 80;
         const clampedPercentage = Math.max(minPercentage, Math.min(maxPercentage, percentage));
         setDescriptionWidth(clampedPercentage);
-        onDescriptionWidthChange?.(clampedPercentage);
+        resizeCallbacksRef.current.onDescriptionWidthChange?.(clampedPercentage);
       } else if (isResizingBottomBar && bottomBarRef.current) {
         const rect = bottomBarRef.current.getBoundingClientRect();
         const newHeight = rect.bottom - e.clientY;
@@ -531,7 +601,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
         const maxHeight = 140;
         const clampedHeight = Math.max(minHeight, Math.min(maxHeight, newHeight));
         setBottomBarHeight(clampedHeight);
-        onDetailsPanelBottomBarHeightChange?.(clampedHeight);
+        resizeCallbacksRef.current.onDetailsPanelBottomBarHeightChange?.(clampedHeight);
       }
     };
 
@@ -633,10 +703,6 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
     (backgroundFromBoxart && game.boxArtIsVideo)
   ));
   
-  // Helper function to detect animated media (animated image formats)
-  // We exclude webp here as many webp files are static, and lumping them all into "animated" causes them to be hidden when animations are disabled.
-  const isAnimatedImage = (url: string) => /\.(gif|apng)(\?|$)/i.test(url);
-  const isAnimatedMedia = (url: string, isVideo?: boolean) => !!isVideo || isAnimatedImage(url);
   const isBoxartVideo = !!game.boxArtIsVideo;
   const disableAnimatedBannersBySettings = disableAnimatedBanners && !overlaysOpen;
   const disableAnimatedBoxartsBySettings = disableAnimatedBoxarts && !overlaysOpen;

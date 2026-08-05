@@ -479,9 +479,32 @@ function App() {
     setActiveGameId,
   });
 
-  const handleReorder = async (reorderedGames: Game[]) => {
+  // Toast notification helper. Declared before the memoized handlers below because their
+  // dependency arrays reference it during render.
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const showToast = useCallback((message: string, type: 'success' | 'error' = 'success') => {
+    setToast({ message, type });
+    // Replace any in-flight timer: overlapping toasts each scheduled their own, so an
+    // earlier timer would clear a newer toast. Also cleared on unmount below.
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = setTimeout(() => {
+      toastTimerRef.current = null;
+      setToast(null);
+    }, 3000);
+  }, []);
+
+  useEffect(() => () => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+  }, []);
+
+  // `games` is read by handlers that must keep a stable identity (they flow into React.memo'd
+  // tiles). Reading it through a ref keeps the handler off the library's re-render path.
+  const gamesRef = useRef(games);
+  gamesRef.current = games;
+
+  const handleReorder = useCallback(async (reorderedGames: Game[]) => {
     await reorderGames(reorderedGames);
-  };
+  }, [reorderGames]);
 
   const handleOpenShellContextMenu = useCallback((x: number, y: number, initialEditorSection: RightClickMenuEditorSection | null = null) => {
     setGameContextMenu(null);
@@ -493,23 +516,23 @@ function App() {
     setGameContextMenu({ game, x, y });
   }, []);
 
-  const handleEditGame = (game: Game) => {
+  const handleEditGame = useCallback((game: Game) => {
     openGameManager({ gameId: game.id, tab: 'metadata' });
-  };
+  }, [openGameManager]);
 
-  const handleEditCategories = (game: Game) => {
+  const handleEditCategories = useCallback((game: Game) => {
     openCategoriesEditor(game);
-  };
+  }, [openCategoriesEditor]);
 
-  const handleEditImages = (game: Game) => {
+  const handleEditImages = useCallback((game: Game) => {
     openGameManager({ gameId: game.id, tab: 'images' });
-  };
+  }, [openGameManager]);
 
-  const handleFixMatch = (game: Game) => {
+  const handleFixMatch = useCallback((game: Game) => {
     openGameManager({ gameId: game.id, tab: 'metadata' });
-  };
+  }, [openGameManager]);
 
-  const handleSelectMetadataMatch = async (result: { id: string; source: string }) => {
+  const handleSelectMetadataMatch = useCallback(async (result: { id: string; source: string }) => {
     if (!fixingGame) return;
 
     try {
@@ -530,14 +553,14 @@ function App() {
       console.error('Error updating metadata:', error);
       showToast('An error occurred while updating metadata', 'error');
     }
-  };
+  }, [fixingGame, loadLibrary, showToast]);
 
-  const handleSaveGame = async (game: Game, oldGame?: Game) => {
+  const handleSaveGame = useCallback(async (game: Game, oldGame?: Game) => {
     try {
       console.log('Saving game from App:', game.title, 'favorite:', game.favorite);
       // Get old game if not provided
       if (!oldGame) {
-        oldGame = games.find((g: Game) => g.id === game.id);
+        oldGame = gamesRef.current.find((g: Game) => g.id === game.id);
       }
       const success = await window.electronAPI.saveGame(game, oldGame);
       if (success) {
@@ -554,9 +577,9 @@ function App() {
       console.error('Error in handleSaveGame:', err);
       showToast('Failed to save game', 'error');
     }
-  };
+  }, [loadLibrary, showToast]);
 
-  const handleAddFolder = async (path: string, categories: string[], icon?: string) => {
+  const handleAddFolder = useCallback(async (path: string, categories: string[], icon?: string) => {
     try {
       // Create config with default name (folder basename)
       const folderName = path.split(/[/\\]/).pop() || 'Manual Folder';
@@ -583,10 +606,10 @@ function App() {
       console.error('Error adding manual folder:', err);
       showToast('Failed to add folder', 'error');
     }
-  };
+  }, [loadLibrary, showToast]);
 
 
-  const handleAddGame = async (game: Game) => {
+  const handleAddGame = useCallback(async (game: Game) => {
     // Check if APIs are configured
     const apisConfigured = await areAPIsConfigured();
     if (!apisConfigured) {
@@ -596,24 +619,7 @@ function App() {
       return;
     }
     await addCustomGame(game);
-  };
-
-  // Toast notification helper
-  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const showToast = useCallback((message: string, type: 'success' | 'error' = 'success') => {
-    setToast({ message, type });
-    // Replace any in-flight timer: overlapping toasts each scheduled their own, so an
-    // earlier timer would clear a newer toast. Also cleared on unmount below.
-    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
-    toastTimerRef.current = setTimeout(() => {
-      toastTimerRef.current = null;
-      setToast(null);
-    }, 3000);
-  }, []);
-
-  useEffect(() => () => {
-    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
-  }, []);
+  }, [addCustomGame, openOnyxSettings, setIsModalOpen, showToast]);
 
   const {
     autoStartScan,
@@ -703,7 +709,7 @@ function App() {
   });
 
   // Missing games handlers
-  const handleRemoveMissingGames = async (gameIds: string[]) => {
+  const handleRemoveMissingGames = useCallback(async (gameIds: string[]) => {
     try {
       const result = await window.electronAPI.removeMissingGames(gameIds);
       if (result.success) {
@@ -719,20 +725,20 @@ function App() {
     } finally {
       setMissingGames(null);
     }
-  };
+  }, [loadLibrary, showToast]);
 
-  const handleCancelMissingGames = () => {
+  const handleCancelMissingGames = useCallback(() => {
     setMissingGames(null);
-  };
+  }, []);
 
   // Handle Steam games import
 
   // Handle Steam configuration scan
-  const handleSteamConfigScan = async (steamPath?: string) => {
+  const handleSteamConfigScan = useCallback(async (steamPath?: string) => {
     setIsScanningSteam(true);
 
     try {
-      const beforeCount = games.length;
+      const beforeCount = gamesRef.current.length;
       const result = await window.electronAPI.scanGamesWithPath(steamPath);
 
       if (result.success) {
@@ -757,7 +763,7 @@ function App() {
     } finally {
       setIsScanningSteam(false);
     }
-  };
+  }, [loadLibrary, showToast]);
 
   useAppShellEvents({
     showToast,
@@ -789,7 +795,7 @@ function App() {
 
 
   // Handle save from metadata editor
-  const handleSaveGameWithMetadata = async (title: string, exePath: string, metadata: GameMetadata) => {
+  const handleSaveGameWithMetadata = useCallback(async (title: string, exePath: string, metadata: GameMetadata) => {
     try {
       // Create game with all metadata
       const gameId = `custom-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -821,20 +827,20 @@ function App() {
       console.error('Error saving game with metadata:', err);
       showToast('Failed to save game', 'error');
     }
-  };
+  }, [closeMetadataEditor, loadLibrary, showToast]);
 
-  const handleToggleFavorite = async (game: Game) => {
+  const handleToggleFavorite = useCallback(async (game: Game) => {
     const newFavoriteValue = game.favorite !== true; // Explicitly set to true or false
     const updatedGame = { ...game, favorite: newFavoriteValue };
     console.log('Toggling favorite for game:', game.title, 'Current favorite:', game.favorite, 'New favorite value:', newFavoriteValue);
     await handleSaveGame(updatedGame);
-  };
+  }, [handleSaveGame]);
 
-  const handleTogglePin = async (game: Game) => {
+  const handleTogglePin = useCallback(async (game: Game) => {
     const newPinnedValue = game.pinned !== true; // Explicitly set to true or false
     const updatedGame = { ...game, pinned: newPinnedValue };
     await handleSaveGame(updatedGame);
-  };
+  }, [handleSaveGame]);
 
   const {
     handleCancelHide,
@@ -855,7 +861,7 @@ function App() {
   });
 
   // Handle exit with confirmation
-  const handleExit = async () => {
+  const handleExit = useCallback(async () => {
     try {
       const exitInfo = await window.electronAPI.requestExit();
 
@@ -886,7 +892,7 @@ function App() {
         await window.electronAPI.exit();
       }
     }
-  };
+  }, []);
 
   const {
     backgroundVideoKind,
@@ -907,13 +913,26 @@ function App() {
   // Check if this is an Alpha build
   const isAlphaBuild = __BUILD_PROFILE__ === 'alpha' || (typeof process !== 'undefined' && process.env?.NODE_ENV === 'development');
 
+  const openGameManagerDefault = useCallback(() => openGameManager(), [openGameManager]);
+  const closeAddGameModal = useCallback(() => setIsModalOpen(false), [setIsModalOpen]);
+  const closeSteamConfig = useCallback(() => setIsSteamConfigOpen(false), [setIsSteamConfigOpen]);
+  const closeAPISettings = useCallback(() => setIsAPISettingsOpen(false), [setIsAPISettingsOpen]);
+  const closeBugReport = useCallback(() => setIsBugReportOpen(false), [setIsBugReportOpen]);
+  const closeRightClickMenu = useCallback(() => setRightClickMenu(null), []);
+  const closeGameContextMenu = useCallback(() => setGameContextMenu(null), []);
+  const toggleHideVRTitles = useCallback(() => setHideVRTitles(prev => !prev), [setHideVRTitles]);
+  const toggleHideAppsTitles = useCallback(() => setHideAppsTitles(prev => !prev), [setHideAppsTitles]);
+  const handleSaveCategories = useCallback(async (game: Game) => {
+    await handleSaveGame(game);
+  }, [handleSaveGame]);
+
   const { menuBarProps, topBarProps } = useMainViewShellControls({
     handleExit,
     handleScanFolder,
     handleUpdateSteamLibrary,
     isAlphaBuild,
     loadLibrary,
-    openGameManager: () => openGameManager(),
+    openGameManager: openGameManagerDefault,
     openLibraryTutorial,
     openOnyxSettings,
     openSimulatedUpdateModal,
@@ -1181,8 +1200,8 @@ function App() {
     gamepadNavigationSpeed,
     isGameContextMenuOpen: gameContextMenu !== null,
     isShellContextMenuOpen: rightClickMenu !== null,
-    onCloseGameContextMenu: () => setGameContextMenu(null),
-    onCloseShellContextMenu: () => setRightClickMenu(null),
+    onCloseGameContextMenu: closeGameContextMenu,
+    onCloseShellContextMenu: closeRightClickMenu,
     onGameContextMenu: handleOpenGameContextMenu,
     onGameSelect: handleGameClick,
     onShellContextMenu: handleOpenShellContextMenu,
@@ -1320,8 +1339,8 @@ function App() {
           hideVRTitles={hideVRTitles}
           hideAppsTitles={hideAppsTitles}
           showCategoriesInGameList={showCategoriesByView[viewMode] ?? false}
-          onToggleHideVRTitles={() => setHideVRTitles(prev => !prev)}
-          onToggleHideAppsTitles={() => setHideAppsTitles(prev => !prev)}
+          onToggleHideVRTitles={toggleHideVRTitles}
+          onToggleHideAppsTitles={toggleHideAppsTitles}
           launchers={allLaunchers}
           selectedLauncher={selectedLauncher}
           onLauncherChange={setSelectedLauncher}
@@ -1428,7 +1447,7 @@ function App() {
       {/* Add Game Modal */}
       <AddGameModal
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        onClose={closeAddGameModal}
         onAdd={handleAddGame}
       />
 
@@ -1446,7 +1465,7 @@ function App() {
       {/* Steam Configuration Modal */}
       <SteamConfigModal
         isOpen={isSteamConfigOpen}
-        onClose={() => setIsSteamConfigOpen(false)}
+        onClose={closeSteamConfig}
         onScan={handleSteamConfigScan}
       />
 
@@ -1456,9 +1475,7 @@ function App() {
         isOpen={isCategoriesEditorOpen}
         game={editingCategoriesGame}
         onClose={closeCategoriesEditor}
-        onSave={async (game) => {
-          await handleSaveGame(game);
-        }}
+        onSave={handleSaveCategories}
         allCategories={allCategories}
       />
 
@@ -1471,7 +1488,7 @@ function App() {
       {/* API Settings Modal */}
       <APISettingsModal
         isOpen={isAPISettingsOpen}
-        onClose={() => setIsAPISettingsOpen(false)}
+        onClose={closeAPISettings}
       />
 
 
@@ -1494,7 +1511,7 @@ function App() {
           x={rightClickMenu.x}
           y={rightClickMenu.y}
           initialEditorSection={rightClickMenu.initialEditorSection}
-          onClose={() => setRightClickMenu(null)}
+          onClose={closeRightClickMenu}
           {...rightClickMenuProps}
         />
       )}
@@ -1518,7 +1535,7 @@ function App() {
       <Suspense fallback={lazyRenderFallback}>
         <BugReportModal
           isOpen={isBugReportOpen}
-          onClose={() => setIsBugReportOpen(false)}
+          onClose={closeBugReport}
         />
       </Suspense>
 

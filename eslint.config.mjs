@@ -91,17 +91,6 @@ export default tseslint.config(
     },
   },
   {
-    files: [
-      'renderer/src/App.tsx',
-      'renderer/src/components/GameManager.tsx',
-      'renderer/src/components/GameDetailsPanel.tsx',
-      'renderer/src/components/importer/ImportWorkbench.tsx',
-    ],
-    rules: {
-      'react-hooks/exhaustive-deps': 'off',
-    },
-  },
-  {
     files: ['**/*.{test,spec}.{ts,tsx}', 'renderer/tests/**/*.tsx', 'vitest.setup.ts'],
     languageOptions: {
       globals: {

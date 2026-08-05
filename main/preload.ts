@@ -257,7 +257,7 @@ export const electronAPI = {
   },
   // Background scanning control
   scanning: {
-    gameStarted: (gameId: string) => ipcRenderer.invoke('scanning:gameStarted', gameId),
+    gameStarted: (gameId: string, pid?: number) => ipcRenderer.invoke('scanning:gameStarted', gameId, pid),
     gameStopped: (gameId: string) => ipcRenderer.invoke('scanning:gameStopped', gameId),
   },
   // Fullscreen methods

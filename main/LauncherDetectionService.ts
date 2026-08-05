@@ -1,6 +1,9 @@
-import { existsSync } from 'node:fs';
-import { execFileSync } from 'node:child_process';
+import { promises as fsp } from 'node:fs';
+import { execFile } from 'node:child_process';
 import { platform } from 'node:os';
+import { promisify } from 'node:util';
+
+const execFileAsync = promisify(execFile);
 
 export interface DetectedLauncher {
   id: string;
@@ -21,27 +24,30 @@ export class LauncherDetectionService {
   }
 
   /**
-   * Read a Windows Registry value
+   * Read a Windows Registry value.
+   *
+   * Async on purpose: detection issues one `reg query` per value across seven launchers, and
+   * spawning those synchronously blocks the main process — window paint, input and every
+   * other IPC handler — for the duration.
    */
-  private readRegistryValue(key: string, valueName: string): string | null {
+  private async readRegistryValue(key: string, valueName: string): Promise<string | null> {
     if (!this.isWindows) {
       return null;
     }
 
     try {
       // Args array (no shell) removes any command-injection surface
-      const result = execFileSync('reg', ['query', key, '/v', valueName], {
+      const { stdout } = await execFileAsync('reg', ['query', key, '/v', valueName], {
         encoding: 'utf-8',
-        stdio: ['pipe', 'pipe', 'ignore'],
       });
 
       // Parse the registry output (escape valueName so regex metacharacters match literally)
       const escapedValueName = valueName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const match = result.match(new RegExp(`${escapedValueName}\\s+REG_[^\\s]+\\s+(.+)`));
+      const match = stdout.match(new RegExp(`${escapedValueName}\\s+REG_[^\\s]+\\s+(.+)`));
       if (match && match[1]) {
         return match[1].trim();
       }
-    } catch (error) {
+    } catch {
       // Registry key doesn't exist or access denied
       return null;
     }
@@ -52,9 +58,10 @@ export class LauncherDetectionService {
   /**
    * Check if a path exists
    */
-  private checkPath(path: string): boolean {
+  private async checkPath(path: string): Promise<boolean> {
     try {
-      return existsSync(path);
+      await fsp.access(path);
+      return true;
     } catch {
       return false;
     }
@@ -88,17 +95,17 @@ export class LauncherDetectionService {
   /**
    * Detect Steam installation
    */
-  private detectSteam(): DetectedLauncher | null {
+  private async detectSteam(): Promise<DetectedLauncher | null> {
     // Try registry first
-    const registryPath = this.readRegistryValue(
+    const registryPath = await this.readRegistryValue(
       'HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\Valve\\Steam',
       'InstallPath'
-    ) || this.readRegistryValue(
+    ) || await this.readRegistryValue(
       'HKEY_LOCAL_MACHINE\\SOFTWARE\\Valve\\Steam',
       'InstallPath'
     );
 
-    if (registryPath && this.checkPath(registryPath)) {
+    if (registryPath && await this.checkPath(registryPath)) {
       return {
         id: 'steam',
         name: 'Steam',
@@ -115,7 +122,7 @@ export class LauncherDetectionService {
     ];
 
     for (const path of defaultPaths) {
-      if (this.checkPath(path)) {
+      if (await this.checkPath(path)) {
         return {
           id: 'steam',
           name: 'Steam',
@@ -132,16 +139,16 @@ export class LauncherDetectionService {
   /**
    * Detect Epic Games Launcher
    */
-  private detectEpic(): DetectedLauncher | null {
+  private async detectEpic(): Promise<DetectedLauncher | null> {
     // Epic Games Launcher registry location
-    const registryPath = this.readRegistryValue(
+    const registryPath = await this.readRegistryValue(
       'HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\Epic Games\\EpicGamesLauncher',
       'AppDataPath'
     );
 
     if (registryPath) {
       const launcherPath = registryPath.replace(/\\Epic Games Launcher$/, '');
-      if (this.checkPath(launcherPath)) {
+      if (await this.checkPath(launcherPath)) {
         return {
           id: 'epic',
           name: 'Epic Games',
@@ -159,7 +166,7 @@ export class LauncherDetectionService {
     ];
 
     for (const path of defaultPaths) {
-      if (this.checkPath(path)) {
+      if (await this.checkPath(path)) {
         return {
           id: 'epic',
           name: 'Epic Games',
@@ -176,17 +183,17 @@ export class LauncherDetectionService {
   /**
    * Detect GOG Galaxy
    */
-  private detectGOG(): DetectedLauncher | null {
+  private async detectGOG(): Promise<DetectedLauncher | null> {
     // GOG Galaxy registry location
-    const registryPath = this.readRegistryValue(
+    const registryPath = await this.readRegistryValue(
       'HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\GOG.com\\GalaxyClient',
       'path'
-    ) || this.readRegistryValue(
+    ) || await this.readRegistryValue(
       'HKEY_LOCAL_MACHINE\\SOFTWARE\\GOG.com\\GalaxyClient',
       'path'
     );
 
-    if (registryPath && this.checkPath(registryPath)) {
+    if (registryPath && await this.checkPath(registryPath)) {
       return {
         id: 'gog',
         name: 'GOG Galaxy',
@@ -203,7 +210,7 @@ export class LauncherDetectionService {
     ];
 
     for (const path of defaultPaths) {
-      if (this.checkPath(path)) {
+      if (await this.checkPath(path)) {
         return {
           id: 'gog',
           name: 'GOG Galaxy',
@@ -220,17 +227,17 @@ export class LauncherDetectionService {
   /**
    * Detect EA App / Origin
    */
-  private detectEA(): DetectedLauncher | null {
+  private async detectEA(): Promise<DetectedLauncher | null> {
     // EA App registry location
-    const registryPath = this.readRegistryValue(
+    const registryPath = await this.readRegistryValue(
       'HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\Electronic Arts\\EA Desktop',
       'Install Dir'
-    ) || this.readRegistryValue(
+    ) || await this.readRegistryValue(
       'HKEY_LOCAL_MACHINE\\SOFTWARE\\Electronic Arts\\EA Desktop',
       'Install Dir'
     );
 
-    if (registryPath && this.checkPath(registryPath)) {
+    if (registryPath && await this.checkPath(registryPath)) {
       return {
         id: 'ea',
         name: 'EA App',
@@ -241,14 +248,14 @@ export class LauncherDetectionService {
     }
 
     // Try Origin registry
-    const originPath = this.readRegistryValue(
+    const originPath = await this.readRegistryValue(
       'HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\Origin',
       'ClientPath'
     );
 
     if (originPath) {
       const originDir = originPath.replace(/\\Origin.exe$/, '');
-      if (this.checkPath(originDir)) {
+      if (await this.checkPath(originDir)) {
         return {
           id: 'ea',
           name: 'Origin',
@@ -267,7 +274,7 @@ export class LauncherDetectionService {
     ];
 
     for (const path of defaultPaths) {
-      if (this.checkPath(path)) {
+      if (await this.checkPath(path)) {
         return {
           id: 'ea',
           name: 'EA App / Origin',
@@ -284,7 +291,7 @@ export class LauncherDetectionService {
   /**
    * Detect Xbox Game Pass (Windows Store games)
    */
-  private detectXbox(): DetectedLauncher | null {
+  private async detectXbox(): Promise<DetectedLauncher | null> {
     // Xbox games are typically in these locations
     const defaultPaths = [
       'C:\\XboxGames',
@@ -292,7 +299,7 @@ export class LauncherDetectionService {
     ];
 
     for (const path of defaultPaths) {
-      if (this.checkPath(path)) {
+      if (await this.checkPath(path)) {
         return {
           id: 'xbox',
           name: 'Xbox Game Pass',
@@ -309,17 +316,17 @@ export class LauncherDetectionService {
   /**
    * Detect Ubisoft Connect
    */
-  private detectUbisoft(): DetectedLauncher | null {
+  private async detectUbisoft(): Promise<DetectedLauncher | null> {
     // Try registry first
-    const registryPath = this.readRegistryValue(
+    const registryPath = await this.readRegistryValue(
       'HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\Ubisoft\\Launcher',
       'InstallDir'
-    ) || this.readRegistryValue(
+    ) || await this.readRegistryValue(
       'HKEY_LOCAL_MACHINE\\SOFTWARE\\Ubisoft\\Launcher',
       'InstallDir'
     );
 
-    if (registryPath && this.checkPath(registryPath)) {
+    if (registryPath && await this.checkPath(registryPath)) {
       return {
         id: 'ubisoft',
         name: 'Ubisoft Connect',
@@ -336,7 +343,7 @@ export class LauncherDetectionService {
     ];
 
     for (const path of defaultPaths) {
-      if (this.checkPath(path)) {
+      if (await this.checkPath(path)) {
         return {
           id: 'ubisoft',
           name: 'Ubisoft Connect',
@@ -353,17 +360,17 @@ export class LauncherDetectionService {
   /**
    * Detect Battle.net
    */
-  private detectBattle(): DetectedLauncher | null {
+  private async detectBattle(): Promise<DetectedLauncher | null> {
     // Try registry first
-    const registryPath = this.readRegistryValue(
+    const registryPath = await this.readRegistryValue(
       'HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Battle.net',
       'InstallLocation'
-    ) || this.readRegistryValue(
+    ) || await this.readRegistryValue(
       'HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Battle.net',
       'InstallLocation'
     );
 
-    if (registryPath && this.checkPath(registryPath)) {
+    if (registryPath && await this.checkPath(registryPath)) {
       return {
         id: 'battle',
         name: 'Battle.net',
@@ -380,7 +387,7 @@ export class LauncherDetectionService {
     ];
 
     for (const path of defaultPaths) {
-      if (this.checkPath(path)) {
+      if (await this.checkPath(path)) {
         return {
           id: 'battle',
           name: 'Battle.net',
@@ -402,8 +409,6 @@ export class LauncherDetectionService {
       return [];
     }
 
-    const detected: DetectedLauncher[] = [];
-
     const detectors = [
       () => this.detectSteam(),
       () => this.detectEpic(),
@@ -414,18 +419,19 @@ export class LauncherDetectionService {
       () => this.detectBattle(),
     ];
 
-    for (const detector of detectors) {
+    // Run in parallel: the detectors are independent and each is dominated by process-spawn
+    // latency, so serialising them multiplies the wait for no benefit. Order of the returned
+    // array still follows `detectors` because Promise.all preserves position.
+    const results = await Promise.all(detectors.map(async (detector) => {
       try {
-        const result = detector();
-        if (result) {
-          detected.push(result);
-        }
+        return await detector();
       } catch (error) {
         console.error('Error detecting launcher:', error);
+        return null;
       }
-    }
+    }));
 
-    return detected;
+    return results.filter((result): result is DetectedLauncher => result !== null);
   }
 
   /**

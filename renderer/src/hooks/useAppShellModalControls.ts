@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import type { Game } from '../types/game';
 import type { OnyxSettingsModalProps } from '../components/OnyxSettingsModal';
 import type { GameManagerProps } from '../components/GameManager';
@@ -71,15 +71,17 @@ export function useAppShellModalControls({
     openImportWorkbenchWithGames(gamesToImport, { autoStartScan: appType === 'steam' });
   }, [openImportWorkbenchWithGames]);
 
-  const onyxSettingsModalProps: OnyxSettingsModalProps = {
+  const closeUpdateLibrary = useCallback(() => setIsUpdateLibraryOpen(false), [setIsUpdateLibraryOpen]);
+
+  const onyxSettingsModalProps: OnyxSettingsModalProps = useMemo(() => ({
     initialTab: onyxSettingsInitialTab,
     isOpen: isOnyxSettingsOpen,
     onClose: closeOnyxSettings,
     onSave: refreshAfterSettingsSave,
     onShowImportModal: handleShowImportModal,
-  };
+  }), [closeOnyxSettings, handleShowImportModal, isOnyxSettingsOpen, onyxSettingsInitialTab, refreshAfterSettingsSave]);
 
-  const importWorkbenchProps: ImportWorkbenchProps = {
+  const importWorkbenchProps: ImportWorkbenchProps = useMemo(() => ({
     autoStartScan,
     existingLibrary: games,
     initialMode: importWorkbenchInitialMode,
@@ -89,9 +91,19 @@ export function useAppShellModalControls({
     onOpenApiSettings: openApiSettings,
     onRefreshComplete: loadLibrary,
     preScannedGames: preScannedGames.length > 0 ? preScannedGames : undefined,
-  };
+  }), [
+    autoStartScan,
+    closeImportWorkbench,
+    games,
+    handleImport,
+    importWorkbenchInitialMode,
+    isImportWorkbenchOpen,
+    loadLibrary,
+    openApiSettings,
+    preScannedGames,
+  ]);
 
-  const gameManagerProps: GameManagerProps = {
+  const gameManagerProps: GameManagerProps = useMemo(() => ({
     games,
     initialGameId: gameManagerInitialGameId,
     initialTab: gameManagerInitialTab,
@@ -102,14 +114,25 @@ export function useAppShellModalControls({
     onReloadLibrary: loadLibrary,
     onRequestOptimizer: handleRequestOptimizer,
     onSaveGame: handleSaveGameFromManager,
-  };
+  }), [
+    closeGameManager,
+    gameManagerInitialGameId,
+    gameManagerInitialTab,
+    games,
+    handleDeleteGameFromManager,
+    handleOpenImporterWithMode,
+    handleRequestOptimizer,
+    handleSaveGameFromManager,
+    isGameManagerOpen,
+    loadLibrary,
+  ]);
 
-  const updateLibraryModalProps: UpdateLibraryModalProps = {
+  const updateLibraryModalProps: UpdateLibraryModalProps = useMemo(() => ({
     isOpen: isUpdateLibraryOpen,
-    onClose: () => setIsUpdateLibraryOpen(false),
+    onClose: closeUpdateLibrary,
     onShowImportModal: handleShowImportModal,
     onUpdate: loadLibrary,
-  };
+  }), [closeUpdateLibrary, handleShowImportModal, isUpdateLibraryOpen, loadLibrary]);
 
   return {
     gameManagerProps,

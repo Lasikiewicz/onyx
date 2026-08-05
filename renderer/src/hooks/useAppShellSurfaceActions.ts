@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import type { Game } from '../types/game';
 import type { WelcomeScreenProps } from '../components/WelcomeScreen';
 import type { GameContextMenuProps } from '../components/GameContextMenu';
@@ -148,58 +148,109 @@ export function useAppShellSurfaceActions({
     setToast(null);
   }, [setToast]);
 
+  const handleInstallUpdate = useCallback(() => {
+    window.electronAPI.quitAndInstall?.();
+  }, []);
+
+  const handleOpenGeneralSettings = useCallback(() => openOnyxSettings('general'), [openOnyxSettings]);
+
+  const appShellOverlayProps = useMemo(() => ({
+    changelogError,
+    changelogLoading,
+    changelogSource,
+    crashDumpPaths,
+    currentVersion,
+    foundGames,
+    isUpdateModalTest,
+    missingGames,
+    onCancelFoundGames: handleCancelFoundGames,
+    onCancelMissingGames: handleCancelMissingGames,
+    onCloseLibraryTutorial: closeLibraryTutorial,
+    onDismissCrashDumps: handleDismissCrashDumps,
+    onDismissToast: handleDismissToast,
+    onDismissUpdate: handleDismissUpdateNotification,
+    onInstallUpdate: handleInstallUpdate,
+    onOpenCrashDumpFolder: handleOpenCrashDumpFolder,
+    onOpenSettings: handleOpenGeneralSettings,
+    onOpenUpdateLibrary: handleUpdateSteamLibrary,
+    onRemoveMissingGames: handleRemoveMissingGames,
+    onReviewFoundGames: handleReviewFoundGames,
+    onSaveCrashDumps: handleSaveCrashDumps,
+    onUpdateNow: handleUpdateNow,
+    showLibraryTutorial,
+    startupProgress,
+    toast,
+    updateNotification,
+  }) satisfies AppShellOverlaysProps, [
+    changelogError,
+    changelogLoading,
+    changelogSource,
+    closeLibraryTutorial,
+    crashDumpPaths,
+    currentVersion,
+    foundGames,
+    handleCancelFoundGames,
+    handleCancelMissingGames,
+    handleDismissCrashDumps,
+    handleDismissToast,
+    handleDismissUpdateNotification,
+    handleInstallUpdate,
+    handleOpenCrashDumpFolder,
+    handleOpenGeneralSettings,
+    handleRemoveMissingGames,
+    handleReviewFoundGames,
+    handleSaveCrashDumps,
+    handleUpdateNow,
+    handleUpdateSteamLibrary,
+    isUpdateModalTest,
+    missingGames,
+    showLibraryTutorial,
+    startupProgress,
+    toast,
+    updateNotification,
+  ]);
+
+  const gameContextMenuProps = useMemo(() => (gameContextMenu ? {
+    game: gameContextMenu.game,
+    isHiddenView: selectedCategory === 'hidden',
+    onClose: closeGameContextMenu,
+    onEdit: handleEditGame,
+    onEditCategories: handleEditCategories,
+    onEditImages: handleEditImages,
+    onFavorite: handleToggleFavorite,
+    onFixMatch: handleFixMatch,
+    onHide: handleHideGame,
+    onPin: handleTogglePin,
+    onPlay: handlePlay,
+    onUnhide: handleUnhideGame,
+    onUninstall: handleUninstallGame,
+    x: gameContextMenu.x,
+    y: gameContextMenu.y,
+  } satisfies GameContextMenuProps : null), [
+    closeGameContextMenu,
+    gameContextMenu,
+    handleEditCategories,
+    handleEditGame,
+    handleEditImages,
+    handleFixMatch,
+    handleHideGame,
+    handlePlay,
+    handleToggleFavorite,
+    handleTogglePin,
+    handleUnhideGame,
+    handleUninstallGame,
+    selectedCategory,
+  ]);
+
+  const welcomeScreenProps = useMemo(() => ({
+    onAddFolder: handleWelcomeAddFolder,
+    onOpenSettings: handleWelcomeOpenSettings,
+    onScanGames: handleWelcomeScanGames,
+  }) satisfies WelcomeScreenProps, [handleWelcomeAddFolder, handleWelcomeOpenSettings, handleWelcomeScanGames]);
+
   return {
-    appShellOverlayProps: {
-      changelogError,
-      changelogLoading,
-      changelogSource,
-      crashDumpPaths,
-      currentVersion,
-      foundGames,
-      isUpdateModalTest,
-      missingGames,
-      onCancelFoundGames: handleCancelFoundGames,
-      onCancelMissingGames: handleCancelMissingGames,
-      onCloseLibraryTutorial: closeLibraryTutorial,
-      onDismissCrashDumps: handleDismissCrashDumps,
-      onDismissToast: handleDismissToast,
-      onDismissUpdate: handleDismissUpdateNotification,
-      onInstallUpdate: () => {
-        window.electronAPI.quitAndInstall?.();
-      },
-      onOpenCrashDumpFolder: handleOpenCrashDumpFolder,
-      onOpenSettings: () => openOnyxSettings('general'),
-      onOpenUpdateLibrary: handleUpdateSteamLibrary,
-      onRemoveMissingGames: handleRemoveMissingGames,
-      onReviewFoundGames: handleReviewFoundGames,
-      onSaveCrashDumps: handleSaveCrashDumps,
-      onUpdateNow: handleUpdateNow,
-      showLibraryTutorial,
-      startupProgress,
-      toast,
-      updateNotification,
-    } satisfies AppShellOverlaysProps,
-    gameContextMenuProps: gameContextMenu ? {
-      game: gameContextMenu.game,
-      isHiddenView: selectedCategory === 'hidden',
-      onClose: closeGameContextMenu,
-      onEdit: handleEditGame,
-      onEditCategories: handleEditCategories,
-      onEditImages: handleEditImages,
-      onFavorite: handleToggleFavorite,
-      onFixMatch: handleFixMatch,
-      onHide: handleHideGame,
-      onPin: handleTogglePin,
-      onPlay: handlePlay,
-      onUnhide: handleUnhideGame,
-      onUninstall: handleUninstallGame,
-      x: gameContextMenu.x,
-      y: gameContextMenu.y,
-    } satisfies GameContextMenuProps : null,
-    welcomeScreenProps: {
-      onAddFolder: handleWelcomeAddFolder,
-      onOpenSettings: handleWelcomeOpenSettings,
-      onScanGames: handleWelcomeScanGames,
-    } satisfies WelcomeScreenProps,
+    appShellOverlayProps,
+    gameContextMenuProps,
+    welcomeScreenProps,
   };
 }

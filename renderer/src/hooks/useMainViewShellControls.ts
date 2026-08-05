@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import type { TopBarPositions } from '../components/TopBarContextMenu';
 
 interface UseMainViewShellControlsOptions {
@@ -53,31 +53,59 @@ export function useMainViewShellControls({
     setViewMode(viewMode === 'grid' ? 'list' : 'grid');
   }, [setViewMode, viewMode]);
 
-  return {
-    menuBarProps: {
-      onAbout: () => openOnyxSettings('about'),
-      onAPISettings: () => openOnyxSettings('apis'),
-      onBugReport: isAlphaBuild ? () => setIsBugReportOpen(true) : undefined,
-      onConfigureSteam: () => setIsSteamConfigOpen(true),
-      onExit: handleExit,
-      onForceCloseOnboarding: () => setForceShowInitialOnboarding(false),
-      onForceOpenOnboarding: () => setForceShowInitialOnboarding(true),
-      onForceOpenUpdateFound: openSimulatedUpdateModal,
-      onGameManager: openGameManager,
-      onOnyxSettings: () => openOnyxSettings('general'),
-      onScanFolder: handleScanFolder,
-      onShowLibraryTutorial: openLibraryTutorial,
-      onTopBarPositionsChange: handleTopBarPositionsChange,
-      onUpdateLibrary: handleUpdateSteamLibrary,
-      onUpdateSteamLibrary: handleUpdateSteamLibrary,
-      topBarRefresh: loadLibrary,
-    },
-    topBarProps: {
-      onFolder: handleScanFolder,
-      onGridToggle: handleGridToggle,
-      onRefresh: loadLibrary,
-      onSearch: setSearchQuery,
-      onSettings: () => setIsSteamConfigOpen(true),
-    },
-  };
+  const handleAbout = useCallback(() => openOnyxSettings('about'), [openOnyxSettings]);
+  const handleApiSettings = useCallback(() => openOnyxSettings('apis'), [openOnyxSettings]);
+  const handleGeneralSettings = useCallback(() => openOnyxSettings('general'), [openOnyxSettings]);
+  const handleBugReport = useCallback(() => setIsBugReportOpen(true), [setIsBugReportOpen]);
+  const handleConfigureSteam = useCallback(() => setIsSteamConfigOpen(true), [setIsSteamConfigOpen]);
+  const handleForceCloseOnboarding = useCallback(() => setForceShowInitialOnboarding(false), [setForceShowInitialOnboarding]);
+  const handleForceOpenOnboarding = useCallback(() => setForceShowInitialOnboarding(true), [setForceShowInitialOnboarding]);
+
+  // MenuBar and TopBar are memoization-sensitive: MenuBar is ~1500 lines and re-rendered on
+  // every search keystroke if this object is rebuilt each render.
+  const menuBarProps = useMemo(() => ({
+    onAbout: handleAbout,
+    onAPISettings: handleApiSettings,
+    onBugReport: isAlphaBuild ? handleBugReport : undefined,
+    onConfigureSteam: handleConfigureSteam,
+    onExit: handleExit,
+    onForceCloseOnboarding: handleForceCloseOnboarding,
+    onForceOpenOnboarding: handleForceOpenOnboarding,
+    onForceOpenUpdateFound: openSimulatedUpdateModal,
+    onGameManager: openGameManager,
+    onOnyxSettings: handleGeneralSettings,
+    onScanFolder: handleScanFolder,
+    onShowLibraryTutorial: openLibraryTutorial,
+    onTopBarPositionsChange: handleTopBarPositionsChange,
+    onUpdateLibrary: handleUpdateSteamLibrary,
+    onUpdateSteamLibrary: handleUpdateSteamLibrary,
+    topBarRefresh: loadLibrary,
+  }), [
+    handleAbout,
+    handleApiSettings,
+    handleBugReport,
+    handleConfigureSteam,
+    handleExit,
+    handleForceCloseOnboarding,
+    handleForceOpenOnboarding,
+    handleGeneralSettings,
+    handleScanFolder,
+    handleTopBarPositionsChange,
+    handleUpdateSteamLibrary,
+    isAlphaBuild,
+    loadLibrary,
+    openGameManager,
+    openLibraryTutorial,
+    openSimulatedUpdateModal,
+  ]);
+
+  const topBarProps = useMemo(() => ({
+    onFolder: handleScanFolder,
+    onGridToggle: handleGridToggle,
+    onRefresh: loadLibrary,
+    onSearch: setSearchQuery,
+    onSettings: handleConfigureSteam,
+  }), [handleConfigureSteam, handleGridToggle, handleScanFolder, loadLibrary, setSearchQuery]);
+
+  return { menuBarProps, topBarProps };
 }

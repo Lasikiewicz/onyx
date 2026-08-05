@@ -134,7 +134,9 @@ export function useGameLaunchFlow({ confirmGameLaunch }: UseGameLaunchFlowOption
         await window.electronAPI.minimizeWindow();
       }
 
-      await window.electronAPI.scanning?.gameStarted?.(game.id);
+      // Pass the pid so main can verify liveness itself: if this renderer never sends
+      // gameStopped (crash, reload), background scanning would otherwise stay disabled.
+      await window.electronAPI.scanning?.gameStarted?.(game.id, result.pid);
 
       setTimeout(() => {
         setLaunchingGameId(null);

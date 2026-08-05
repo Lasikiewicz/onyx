@@ -9,8 +9,69 @@ import type { UserPreferencesService } from '../UserPreferencesService.js';
 import { promises as fsp } from 'node:fs';
 
 let backgroundScanInterval: NodeJS.Timeout | null = null;
-let runningGames = new Set<string>();
 let backgroundScanPaused = false;
+
+/**
+ * Games the renderer has reported as running. Background scanning is suppressed while this is
+ * non-empty, so a stale entry disables background scanning for the rest of the session.
+ *
+ * `scanning:gameStopped` is the happy path, but it never arrives if the game crashes, the
+ * renderer reloads, or the launch-monitor interval is torn down mid-session. Each entry
+ * therefore carries enough context to be verified independently — see `pruneRunningGames`.
+ */
+interface RunningGameEntry {
+    /** Process id when the launcher reported one; absent for the poll-only launch path. */
+    pid?: number;
+    startedAt: number;
+}
+
+const runningGames = new Map<string, RunningGameEntry>();
+
+/**
+ * How long a pid-less entry may sit before it is assumed dead. The renderer's fallback poll
+ * gives up after ~60s, so anything older than this has no monitor left to clear it.
+ */
+const PIDLESS_ENTRY_TTL_MS = 2 * 60 * 1000;
+
+/** Cross-platform liveness check; mirrors the `process:checkExists` handler. */
+async function isProcessAlive(pid: number): Promise<boolean> {
+    if (!Number.isFinite(pid) || pid <= 0) return false;
+    try {
+        // Signal 0 performs the permission/existence check without delivering a signal.
+        process.kill(pid, 0);
+        return true;
+    } catch (error) {
+        // EPERM means the process exists but is owned by another user.
+        return (error as NodeJS.ErrnoException)?.code === 'EPERM';
+    }
+}
+
+/**
+ * Drop entries that can no longer correspond to a live game, so a missed `gameStopped` cannot
+ * disable background scanning permanently.
+ */
+async function pruneRunningGames(): Promise<void> {
+    const now = Date.now();
+    for (const [gameId, entry] of [...runningGames]) {
+        if (entry.pid !== undefined) {
+            if (!(await isProcessAlive(entry.pid))) {
+                runningGames.delete(gameId);
+                console.log(`[BackgroundScan] Dropping stale running game ${gameId} (pid ${entry.pid} is gone)`);
+            }
+        } else if (now - entry.startedAt > PIDLESS_ENTRY_TTL_MS) {
+            runningGames.delete(gameId);
+            console.log(`[BackgroundScan] Dropping stale running game ${gameId} (no pid, older than TTL)`);
+        }
+    }
+}
+
+/** Cleared when the renderer reloads: the new renderer has no launch monitors for old entries. */
+export function clearRunningGames(): void {
+    if (runningGames.size > 0) {
+        console.log(`[BackgroundScan] Clearing ${runningGames.size} running game(s) after renderer reload`);
+    }
+    runningGames.clear();
+}
 
 /**
  * Async replacement for fs.existsSync - this runs on the main process, so a sync fs call here
@@ -69,7 +130,9 @@ export function registerScanningHandlers(
                 }
             }
 
-            // Skip background scan if games are currently running
+            // Skip background scan if games are currently running. Verify first: an entry whose
+            // process has exited (crash, missed gameStopped) must not keep scanning disabled.
+            await pruneRunningGames();
             if (runningGames.size > 0) {
                 console.log(`[BackgroundScan] Skipping scan - ${runningGames.size} game(s) currently running`);
                 return;
@@ -403,9 +466,12 @@ export function registerScanningHandlers(
     });
 
     // Track running games to pause background scanning during gameplay
-    ipcMain.handle('scanning:gameStarted', (_event, gameId: string) => {
-        runningGames.add(gameId);
-        console.log(`[BackgroundScan] Game started: ${gameId}, running games: ${runningGames.size}`);
+    ipcMain.handle('scanning:gameStarted', (_event, gameId: string, pid?: number) => {
+        runningGames.set(gameId, {
+            pid: typeof pid === 'number' && Number.isFinite(pid) && pid > 0 ? pid : undefined,
+            startedAt: Date.now(),
+        });
+        console.log(`[BackgroundScan] Game started: ${gameId} (pid ${pid ?? 'unknown'}), running games: ${runningGames.size}`);
     });
 
     ipcMain.handle('scanning:gameStopped', (_event, gameId: string) => {

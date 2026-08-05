@@ -4,6 +4,26 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.15.0] - 2026-08-05
+
+- Performance:
+  - Game tiles no longer re-render on every keystroke while searching; the whole library view now stays still as you type.
+  - Fixed the game details panel and the menu bar being rebuilt from scratch on every interaction, which was the largest remaining source of stutter while browsing.
+  - Fixed the library's keyboard navigation re-registering its key handler on every arrow press.
+  - Detecting installed launchers no longer freezes the app: the registry lookups now run in the background and all launchers are checked at once instead of one after another.
+  - Resetting settings now writes the settings file once instead of three times.
+  - Artwork prefetching no longer grows its list of loaded images without limit over a long session, and preloaded animated artwork is now released once its details have been read.
+  - App and tray icon lookups are now resolved once instead of on every window creation.
+  - Image search results and the carousel's game strip now load their thumbnails lazily.
+- Fixes:
+  - Fixed the game details panel snapping its panel width, artwork height and description size back to previously saved values shortly after opening.
+  - Fixed the details panel's bottom bar height sometimes never being saved while the app was busy.
+  - Fixed dragging a panel divider continuing to use stale sizes for the rest of the drag.
+  - Fixed the selected game jumping to the first game in the list whenever a search or filter hid it; your selection is now kept and comes back when you clear the filter.
+  - Fixed importing settings snapping the view mode, selected game and starting page back to their saved values.
+  - Fixed background scanning staying switched off for the rest of the session if a game crashed or the window was reloaded while a game was running.
+  - Fixed the carousel's selected cover keeping the wrong size after the window was resized.
+
 ## [0.14.0] - 2026-08-05
 
 - Library safety:

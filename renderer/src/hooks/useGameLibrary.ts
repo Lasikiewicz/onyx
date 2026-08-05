@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Game } from '../types/game';
 
 // Helper function to add cache buster to URLs
@@ -79,7 +79,10 @@ export function useGameLibrary() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const loadLibrary = async (options?: { refreshImages?: boolean }) => {
+  // Every function below is a stable identity: they close over nothing but setState and
+  // window.electronAPI. App.tsx memoizes its own handlers on top of these, and React.memo on
+  // the game tiles can only hit if the whole chain is stable.
+  const loadLibrary = useCallback(async (options?: { refreshImages?: boolean }) => {
     if (options?.refreshImages) {
       imageCacheToken = Date.now();
     }
@@ -146,9 +149,9 @@ export function useGameLibrary() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const updateGameInState = (updatedGame: Game) => {
+  const updateGameInState = useCallback((updatedGame: Game) => {
     // Update the game in local state without reloading
     // DO NOT add cache busters here - that causes image reloads on every state update
     // Images already have cache busters from initial load, keep URLs stable during edits
@@ -164,9 +167,9 @@ export function useGameLibrary() {
     setGames(prevGames =>
       prevGames.map(g => g.id === updatedGame.id ? gameWithConvertedUrls : g)
     );
-  };
+  }, []);
 
-  const saveGame = async (game: Game) => {
+  const saveGame = useCallback(async (game: Game) => {
     try {
       const success = await window.electronAPI.saveGame(game);
       if (success) {
@@ -179,9 +182,9 @@ export function useGameLibrary() {
       console.error('Error saving game:', err);
       return false;
     }
-  };
+  }, [loadLibrary]);
 
-  const reorderGames = async (reorderedGames: Game[]) => {
+  const reorderGames = useCallback(async (reorderedGames: Game[]) => {
     try {
       const success = await window.electronAPI.reorderGames(reorderedGames);
       if (success) {
@@ -194,9 +197,9 @@ export function useGameLibrary() {
       console.error('Error reordering games:', err);
       return false;
     }
-  };
+  }, []);
 
-  const addCustomGame = async (_game: Game) => {
+  const addCustomGame = useCallback(async (_game: Game) => {
     try {
       // The game is already saved by the IPC handler, just reload the library
       await loadLibrary();
@@ -205,9 +208,9 @@ export function useGameLibrary() {
       console.error('Error adding custom game:', err);
       return false;
     }
-  };
+  }, [loadLibrary]);
 
-  const deleteGame = async (gameId: string) => {
+  const deleteGame = useCallback(async (gameId: string) => {
     try {
       const success = await window.electronAPI.deleteGame(gameId);
       if (success) {
@@ -220,12 +223,12 @@ export function useGameLibrary() {
       console.error('Error deleting game:', err);
       return false;
     }
-  };
+  }, [loadLibrary]);
 
   // Load library when component mounts
   useEffect(() => {
     loadLibrary();
-  }, []);
+  }, [loadLibrary]);
 
   // Listen for library updates from main process (e.g., when games are removed)
   useEffect(() => {
@@ -241,7 +244,7 @@ export function useGameLibrary() {
     return () => {
       if (typeof removeLibraryUpdate === 'function') removeLibraryUpdate();
     };
-  }, []);
+  }, [loadLibrary]);
 
   return {
     games,

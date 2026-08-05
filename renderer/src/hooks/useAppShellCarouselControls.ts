@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import type { Game } from '../types/game';
 import type { RightClickMenuEditorSection } from '../components/rightClickMenu/RightClickMenuHeader';
 
@@ -46,23 +46,46 @@ export function useAppShellCarouselControls({
     setRightClickMenu({ x, y });
   }, [setGameContextMenu, setRightClickMenu]);
 
+  const handleCarouselButtonSizeChange = useCallback((size: number) => saveValue(setCarouselButtonSize, 'carouselButtonSize', size), [saveValue, setCarouselButtonSize]);
+  const handleCarouselDescriptionSizeChange = useCallback((size: number) => saveValue(setCarouselDescriptionSize, 'carouselDescriptionSize', size), [saveValue, setCarouselDescriptionSize]);
+  const handleCarouselLogoSizeChange = useCallback((size: number) => saveValue(setCarouselLogoSize, 'carouselLogoSize', size), [saveValue, setCarouselLogoSize]);
+  const handleDetailsBarSizeChange = useCallback((size: number) => saveValue(setDetailsBarSize, 'detailsBarSize', size), [saveValue, setDetailsBarSize]);
+  const closeGameContextMenu = useCallback(() => setGameContextMenu(null), [setGameContextMenu]);
+
+  const carouselViewProps = useMemo(() => ({
+    carouselButtonColors,
+    carouselButtonSize,
+    carouselDescriptionSize,
+    carouselLogoSize,
+    detailsBarSize,
+    isViewFlipped,
+    onCarouselButtonSizeChange: handleCarouselButtonSizeChange,
+    onCarouselDescriptionSizeChange: handleCarouselDescriptionSizeChange,
+    onCarouselLogoSizeChange: handleCarouselLogoSizeChange,
+    onDetailsBarSizeChange: handleDetailsBarSizeChange,
+    onEmptySpaceRightClick: handleEmptySpaceRightClick,
+    selectedBoxArtSize,
+    showCarouselDetails,
+    showCarouselLogos,
+  }), [
+    carouselButtonColors,
+    carouselButtonSize,
+    carouselDescriptionSize,
+    carouselLogoSize,
+    detailsBarSize,
+    handleCarouselButtonSizeChange,
+    handleCarouselDescriptionSizeChange,
+    handleCarouselLogoSizeChange,
+    handleDetailsBarSizeChange,
+    handleEmptySpaceRightClick,
+    isViewFlipped,
+    selectedBoxArtSize,
+    showCarouselDetails,
+    showCarouselLogos,
+  ]);
+
   return {
-    carouselViewProps: {
-      carouselButtonColors,
-      carouselButtonSize,
-      carouselDescriptionSize,
-      carouselLogoSize,
-      detailsBarSize,
-      isViewFlipped,
-      onCarouselButtonSizeChange: (size: number) => saveValue(setCarouselButtonSize, 'carouselButtonSize', size),
-      onCarouselDescriptionSizeChange: (size: number) => saveValue(setCarouselDescriptionSize, 'carouselDescriptionSize', size),
-      onCarouselLogoSizeChange: (size: number) => saveValue(setCarouselLogoSize, 'carouselLogoSize', size),
-      onDetailsBarSizeChange: (size: number) => saveValue(setDetailsBarSize, 'detailsBarSize', size),
-      onEmptySpaceRightClick: handleEmptySpaceRightClick,
-      selectedBoxArtSize,
-      showCarouselDetails,
-      showCarouselLogos,
-    },
-    closeGameContextMenu: gameContextMenu ? () => setGameContextMenu(null) : undefined,
+    carouselViewProps,
+    closeGameContextMenu: gameContextMenu ? closeGameContextMenu : undefined,
   };
 }

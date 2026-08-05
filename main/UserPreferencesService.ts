@@ -1512,8 +1512,8 @@ export class UserPreferencesService {
 
       // Strip duplicate fields before saving to disk (sections are the source of truth)
       const forStorage = this.stripDuplicateFieldsForStorage(merged);
-      store.set('preferences', forStorage);
-      store.set('schemaVersion', this.schemaVersion);
+      // One write, not two: every `set` serializes and rewrites the whole file.
+      store.setMany({ preferences: forStorage, schemaVersion: this.schemaVersion });
     });
   }
 
@@ -1525,9 +1525,12 @@ export class UserPreferencesService {
       const store = await this.ensureStore();
       const defaults = this.createDefaultPreferences();
       const forStorage = this.stripDuplicateFieldsForStorage(defaults);
-      store.set('preferences', forStorage);
-      store.set('customDefaults', {});
-      store.set('schemaVersion', this.schemaVersion);
+      // One write instead of three full-file rewrites.
+      store.setMany({
+        preferences: forStorage,
+        customDefaults: {},
+        schemaVersion: this.schemaVersion,
+      });
     });
   }
 

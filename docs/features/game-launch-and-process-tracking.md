@@ -42,6 +42,7 @@ Launches games from multiple sources and tracks running state for UX actions (mi
 
 - Launch metadata is stored on the game record, including paths, launcher identifiers, and source details.
 - Running process state is runtime-only and is held in [useGameLaunchFlow.ts](../../renderer/src/hooks/useGameLaunchFlow.ts).
+- The main process keeps its own copy in [scanningHandlers.ts](../../main/ipc/scanningHandlers.ts) purely to suppress background scanning during gameplay. It is a `Map<gameId, { pid?, startedAt }>`, not a bare `Set`, because the renderer's `scanning:gameStopped` is not guaranteed to arrive — a game crash, a renderer reload, or a torn-down monitor interval all leave the entry behind, and a single stale entry disabled background scanning for the rest of the session. Three independent drains cover that: `scanning:gameStarted` now carries the PID (`gameStarted(gameId, pid)` in [preload.ts](../../main/preload.ts)) so entries are verified with a `process.kill(pid, 0)` liveness check before each scan; PID-less entries (the poll-only launch path) expire after a 2-minute TTL, comfortably past the renderer's ~60s fallback poll; and `clearRunningGames()` runs on the main window's `did-finish-load`, since a fresh renderer has no monitors for anything the previous one reported.
 - User preferences ([UserPreferencesService.ts](../../main/UserPreferencesService.ts)) govern launch confirmation and window behavior around active sessions.
 
 ## Failure Modes and Triage
@@ -57,6 +58,12 @@ Launches games from multiple sources and tracks running state for UX actions (mi
 - Confirm process PID tracking is correct in launcher/process handling.
 - Check process existence polling/termination handling.
 - Verify game stop events are being emitted to renderer.
+
+### Symptom: background scanning stops happening for the rest of the session
+
+- Check `runningGames` in [scanningHandlers.ts](../../main/ipc/scanningHandlers.ts): a non-empty map suppresses every background scan. `[BackgroundScan] Skipping scan - N game(s) currently running` with no game actually running means a drain is not firing.
+- Confirm the renderer is passing `result.pid` into `scanning:gameStarted`; without a PID the entry can only be cleared by the slower TTL path.
+- Confirm `clearRunningGames()` is still wired to the main window's `did-finish-load` in [main.ts](../../main/main.ts).
 
 ### Symptom: App minimizes or restores at the wrong time
 

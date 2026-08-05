@@ -152,6 +152,18 @@ It explains module boundaries, data flow, and release pipeline expectations.
 - `main/main.ts` also owns BrowserWindow bounds/maximize/fullscreen persistence; move and resize writes stay debounced, maximize/fullscreen transitions persist immediately, and quit paths flush the latest state before shutdown. `main/UserPreferencesService.ts` serializes preference writes so concurrent partial saves do not restore stale window-state values over the latest shell mode.
 - `main/ui/tray.ts` owns the compact custom tray menu and must use the same show/focus helper as native tray actions so recent-game launch, Show Onyx, and tray-icon clicks preserve window mode consistently.
 
+### Renderer State Ownership Boundaries
+
+- **Preference bootstrap is one-directional and happens once.** `renderer/src/hooks/useAppPreferences.ts` distinguishes the startup bootstrap from later re-applications via `markInitialLoad`; only the bootstrap may write session-position state (`viewMode`, `activeGameId`, `defaultStartupPage`). Anything wired to `refreshPreferences` (e.g. `onSettingsImported`) applies display settings only.
+- **A component must not re-read a preference its parent owns.** `renderer/src/components/GameDetailsPanel.tsx` loads only the keys App does not pass as props; an async `getPreferences()` on mount resolves after the prop-sync effects and will otherwise clobber them.
+- **App-shell handler identity is part of the contract.** The `React.memo`'d library tiles only benefit if `useGameLibrary`, the `App.tsx` game-action handlers, and every `use*Controls` prop bag are all referentially stable. New shell handlers must be memoized and threaded through the owning bridge rather than passed inline.
+- `react-hooks/exhaustive-deps` is enabled across all renderer files with no per-file exclusions; effects should be narrowed to the fields they read rather than suppressed.
+
+### Running-Game Tracking Contract
+
+- `scanning:gameStarted` takes `(gameId, pid?)`. The PID is what lets the main process verify the entry itself.
+- `main/ipc/scanningHandlers.ts` must never treat `scanning:gameStopped` as the sole drain for `runningGames`: it does not arrive on game crash or renderer reload, and any stale entry suppresses background scanning for the remainder of the session. Liveness check, TTL, and a `did-finish-load` clear are all load-bearing.
+
 ### Known-Game Image Fetch Contract
 
 - `metadata:fetchGameImages` treats requests with known identifiers (`gameId`, `steamAppId`, or `igdbId`) as known-game flows.
@@ -169,7 +181,7 @@ It explains module boundaries, data flow, and release pipeline expectations.
 - Packaging: `npm run dist`
 - Renderer bundle shaping: `vite.config.mts` defines manual chunking for React/vendor-heavy dependencies so large secondary UI flows can be lazy-loaded without bloating the initial app shell.
 - Static analysis: `eslint.config.mjs` and `npm run lint` provide lightweight repo-wide checks for import duplication and targeted hook hygiene without forcing a formatter.
-- The lint config intentionally relaxes `no-unused-vars` for legacy-heavy `main/` services and disables `react-hooks/exhaustive-deps` in a short list of hotspot renderer files until those modules are decomposed further, so lint stays actionable instead of devolving into broad migration noise.
+- The lint config intentionally relaxes `no-unused-vars` for legacy-heavy `main/` services. The former `react-hooks/exhaustive-deps` exclusion list (`App.tsx`, `GameManager.tsx`, `GameDetailsPanel.tsx`, `importer/ImportWorkbench.tsx`) was removed once those files were decomposed; the rule now applies to every renderer file and must not be re-disabled per file, since those were precisely the files where the stale-closure and preference-clobbering defects lived.
 - Release/build script entrypoints that use ESM now use explicit `.mjs` filenames such as `scripts/generate-icons.mjs`, `scripts/validate-icons.mjs`, and `scripts/increment-build.mjs` so Node does not reparse typeless release tooling during local packaging or version bumps.
 - Release versioning may be set explicitly for milestone releases (for example `0.9.0`) before promotion, while routine patch releases can still use `scripts/increment-build.mjs`; that script updates the app version in `package.json` for release metadata and pairs with the promoted `CHANGELOG.md` section.
 - Secrets baseline gate: `npm run scan:secrets`

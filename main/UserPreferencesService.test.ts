@@ -10,6 +10,7 @@ vi.mock('./dynamicImport.js', () => ({
 class MockStore {
     get() { return {}; }
     set() { }
+    setMany() { }
 }
 
 describe('UserPreferencesService', () => {
@@ -93,6 +94,11 @@ describe('UserPreferencesService', () => {
                 )),
                 set: vi.fn((key: string, value: any) => {
                     state[key] = clone(value);
+                }),
+                setMany: vi.fn((entries: Record<string, any>) => {
+                    for (const [key, value] of Object.entries(entries)) {
+                        state[key] = clone(value);
+                    }
                 }),
             };
 
