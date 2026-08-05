@@ -4,6 +4,14 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.15.4] - 2026-08-05
+
+- Fixes:
+  - Fixed installed EA App and Origin games never being found by a scan, so titles like Battlefield 6 were missing from the library. Onyx was pointing its EA search at the EA app's own program folder instead of the folder your EA games are installed in, and so never looked anywhere games actually live.
+  - EA and Origin games installed outside the default folder — on a second drive, or in a library folder you chose yourself — are now found too. Onyx asks EA where each game was installed rather than only guessing at the usual locations.
+  - Scanning for EA games no longer stops working when the saved EA location is wrong or out of date; the usual install folders are always checked as well.
+  - Fixed EA's own helper programs being offered as games to import.
+
 ## [0.15.3] - 2026-08-05
 
 - Games view:

@@ -6,6 +6,7 @@ import { GameFilteringService } from './GameFilteringService.js';
 import { SteamScanner } from './scanners/SteamScanner.js';
 import { XboxScanner } from './scanners/XboxScanner.js';
 import { getUnrealShippingRootDirectory, selectBestGameExecutable } from './executableSelection.js';
+import { readEaInstalledGames } from './eaRegistry.js';
 import { promises as fsp } from 'node:fs';
 import { join, sep, dirname } from 'node:path';
 import { exec } from 'node:child_process';
@@ -99,7 +100,9 @@ export class ImportService {
 
     for (const config of Object.values(configs)) {
       const pathFound = config.path ? await pathExists(config.path) : false;
-      const isEnabled = config.enabled && (pathFound || config.id === 'battle' || config.id === 'epic');
+      // battle, epic and ea locate games without the configured path (registry / manifests), so a
+      // missing or stale path must not disable them outright.
+      const isEnabled = config.enabled && (pathFound || config.id === 'battle' || config.id === 'epic' || config.id === 'ea');
 
       if (!isEnabled) {
         console.log(
@@ -1492,37 +1495,104 @@ export class ImportService {
   }
 
   /**
-   * Scan EA App / Origin for installed games
-   * Games are typically in: {EAPath}\Games or subdirectories
+   * Scan EA App / Origin for installed games.
+   *
+   * Unlike most launchers, EA's client folder and its games folder are unrelated trees
+   * (\Electronic Arts\EA Desktop vs \EA Games), so the configured path alone is not enough to
+   * find anything — the well-known library roots and the registry are probed regardless of it.
    */
   private async scanEA(eaPath: string): Promise<ScannedGameResult[]> {
     try {
       console.log(`[EA] Starting scan with path: ${eaPath}`);
       const results: ScannedGameResult[] = [];
 
-      if (!(await pathExists(eaPath))) {
-        console.warn(`[EA] Path does not exist: ${eaPath}`);
-        return results;
+      // The configured path may point at the client executable rather than a folder — older
+      // auto-detection stored EADesktop.exe here. Scan the folder holding it instead of bailing.
+      let configuredRoot = (eaPath || '').trim().replace(/[\\/]+$/, '');
+      if (configuredRoot && /\.exe$/i.test(configuredRoot)) {
+        configuredRoot = dirname(configuredRoot);
+        console.log(`[EA] Configured path is an executable, using its folder: ${configuredRoot}`);
+      }
+
+      // Never treat a drive root as a library root — that would walk the entire drive
+      if (configuredRoot && configuredRoot === dirname(configuredRoot)) {
+        console.warn(`[EA] Ignoring configured path, it resolves to a drive root: ${configuredRoot}`);
+        configuredRoot = '';
+      }
+
+      // The client folder is full of helper executables (EAGEP.exe, Link2EA.exe, EACefSubProcess.exe…)
+      // that a generic scan happily reports as games. Probe library sub-folders beneath it, but
+      // never walk it as a library root.
+      const isClientDir = configuredRoot
+        ? configuredRoot.toLowerCase().includes(`${sep}electronic arts${sep}`.toLowerCase())
+        || configuredRoot.toLowerCase().endsWith(`${sep}electronic arts`.toLowerCase())
+        || (await pathExists(join(configuredRoot, 'EADesktop.exe')))
+        || (await pathExists(join(configuredRoot, 'EALauncher.exe')))
+        || (await pathExists(join(configuredRoot, 'Origin.exe')))
+        : false;
+
+      if (isClientDir) {
+        console.log(`[EA] Configured path is the EA client folder, not a games library: ${configuredRoot}`);
       }
 
       // EA App games can be in multiple locations:
       // 1. {EAPath}\Games (common)
       // 2. Direct subdirectories of {EAPath}
       // 3. {EAPath}\Program Files\EA Games (older Origin)
-
+      // 4. The default library roots, which the configured path never points at when it was
+      //    detected from the client's registry entry
       const possiblePaths = [
-        join(eaPath, 'Games'),
-        join(eaPath, 'Program Files', 'EA Games'),
-        join(eaPath, 'Program Files (x86)', 'EA Games'),
-        eaPath, // Scan the root path itself
+        ...(configuredRoot
+          ? [
+            join(configuredRoot, 'Games'),
+            join(configuredRoot, 'Program Files', 'EA Games'),
+            join(configuredRoot, 'Program Files (x86)', 'EA Games'),
+            ...(isClientDir ? [] : [configuredRoot]), // Scan the root path itself
+          ]
+          : []),
+        'C:\\Program Files\\EA Games',
+        'C:\\Program Files (x86)\\EA Games',
+        'C:\\Program Files\\Origin Games',
+        'C:\\Program Files (x86)\\Origin Games',
       ];
 
+      const scannedRoots: string[] = [];
       for (const gamesPath of possiblePaths) {
+        const normalizedRoot = gamesPath.replace(/[\\/]+$/, '').toLowerCase();
+        if (scannedRoots.includes(normalizedRoot)) {
+          continue;
+        }
+
         if (await pathExists(gamesPath)) {
+          scannedRoots.push(normalizedRoot);
           console.log(`[EA] Scanning: ${gamesPath}`);
           const scanned = await this.scanGenericGamesFolder(gamesPath, 'ea');
           results.push(...scanned);
         }
+      }
+
+      // Query the registry for games installed outside every root above — a secondary drive or
+      // a custom library folder is invisible to path guessing.
+      for (const game of await readEaInstalledGames()) {
+        const normalizedInstallDir = game.installDir.replace(/\\/g, '/').toLowerCase();
+
+        const alreadyCovered = scannedRoots.some((root) => {
+          const normalizedRoot = root.replace(/\\/g, '/');
+          return normalizedInstallDir === normalizedRoot || normalizedInstallDir.startsWith(`${normalizedRoot}/`);
+        });
+        if (alreadyCovered) {
+          continue;
+        }
+
+        if (!(await pathExists(game.installDir))) {
+          console.warn(`[EA] Registry lists "${game.name}" at a path that no longer exists: ${game.installDir}`);
+          continue;
+        }
+
+        console.log(`[EA] Found game via registry: ${game.name} at ${game.installDir}`);
+        // isLibraryRoot=false: the registry names the game folder itself, not a folder of games
+        const scanned = await this.scanGenericGamesFolder(game.installDir, 'ea', false);
+        results.push(...scanned);
       }
 
       console.log(`[EA] Found ${results.length} games total`);

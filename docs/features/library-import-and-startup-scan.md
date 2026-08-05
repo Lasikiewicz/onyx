@@ -50,6 +50,10 @@ Finds games from configured launchers/folders and imports them into the local li
   - `C:\Program Files\Neverness To Everness` — automatically discovered if installed (specifically targets `NTEGlobalLauncher.exe`)
 - When a hardcoded path match is found, scan results under that same install root are collapsed to the hardcoded entry so launcher support folders do not appear as separate games.
 - Launcher detection and launcher-specific metadata come from [LauncherDetectionService.ts](../../main/LauncherDetectionService.ts) and [LauncherService.ts](../../main/LauncherService.ts). Both the registry reads and the seven per-launcher probes are async and run in parallel; they were `execFileSync`, which blocked the main process for the whole detection pass.
+- EA App / Origin discovery ([eaRegistry.ts](../../main/eaRegistry.ts)) does not work like the other launchers, because EA installs its client and its games into unrelated trees (`C:\Program Files\Electronic Arts\EA Desktop` vs `C:\Program Files\EA Games`). Three rules hold:
+  - **The configured path is a games library root, never the client folder.** `detectEA` derives it from the per-game `Install Dir` values under `HKLM\SOFTWARE\[WOW6432Node\]EA Games\<title>`, then the well-known `EA Games`/`Origin Games` roots, and only stores the client directory as a last resort. It previously read an `Install Dir` value that EA Desktop does not write, fell through to Origin's `ClientPath`, and stored `EADesktop.exe` itself.
+  - **`scanEA` does not trust that path.** It probes the well-known library roots and the registry on every scan, so a stale or client-pointing path still finds games, and `getEnabledConfigs` keeps the source enabled when the path is missing.
+  - **The client folder is never walked as a library root.** `EAGEP.exe`, `Link2EA.exe`, `EACefSubProcess.exe` and friends all pass the generic executable filter and scan as games if it is.
 - Xbox scanning ([XboxService.ts](../../main/XboxService.ts)) is fully asynchronous. Three constraints hold there and must survive future edits:
   - **No synchronous fs or `spawnSync`.** Directory walks use `fs.promises`, and every PowerShell call goes through the single `runPowerShell` helper (async `execFile`, `windowsHide`, bounded timeout and buffer). The scan previously recursed with `readdirSync`/`statSync` to depth 20 and made three `spawnSync` calls, freezing the UI for the duration.
   - **One `Get-AppxPackage` enumeration per scan, not per game.** `extractPackageInfo` runs once per game folder, and each run used to spawn its own PowerShell to resolve a PackageFamilyName — a 30-game Game Pass install paid 30 process startups, the dominant cost of an Xbox scan. The table is now loaded once by `loadPackageFamilyNames`, cached on the service, and cleared at the top of `scanGames` so a later scan still sees newly installed packages. Because the query no longer interpolates the manifest-supplied package name, that value never reaches a shell; the identity-grammar check on it remains as defence in depth.
@@ -94,6 +98,12 @@ Finds games from configured launchers/folders and imports them into the local li
 - Validate launcher paths/config in settings.
 - Check per-launcher detection output from [`LauncherDetectionService`](../../main/LauncherDetectionService.ts).
 - Verify any manual folders exist and are accessible.
+
+### Symptom: an installed EA App game is never found
+
+- Check the `[EA]` scan log lines. `Configured path is the EA client folder, not a games library` is expected and harmless — the scan continues into the well-known roots and the registry.
+- Confirm the game is registered: `reg query "HKLM\SOFTWARE\WOW6432Node\EA Games" /s /v "Install Dir"`. If the game is absent there and is not under an `EA Games`/`Origin Games` root, nothing will find it; add its folder as a manual library instead.
+- If the registry lists the game but the scan skips it, check for the `Registry lists "<name>" at a path that no longer exists` warning — EA leaves entries behind after an uninstall or a drive letter change.
 
 ### Symptom: Scan selects the wrong executable
 

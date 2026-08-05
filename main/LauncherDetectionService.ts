@@ -1,7 +1,9 @@
 import { promises as fsp } from 'node:fs';
 import { execFile } from 'node:child_process';
 import { platform } from 'node:os';
+import { dirname } from 'node:path';
 import { promisify } from 'node:util';
+import { readEaInstalledGames } from './eaRegistry.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -225,52 +227,56 @@ export class LauncherDetectionService {
   }
 
   /**
-   * Detect EA App / Origin
+   * Normalise a registry value that points at an executable rather than the folder holding it.
+   */
+  private toDirectory(registryPath: string): string {
+    const trimmed = registryPath.trim();
+    return /\.exe$/i.test(trimmed) ? dirname(trimmed) : trimmed.replace(/[\\/]+$/, '');
+  }
+
+  /**
+   * Detect EA App / Origin.
+   *
+   * The path stored for a source is the root the scanner walks, so for EA that must be a *games
+   * library* root — not the client folder. EA installs its client under \Electronic Arts\EA Desktop
+   * and its games under an unrelated tree (\EA Games), so a client path yields nothing to scan.
    */
   private async detectEA(): Promise<DetectedLauncher | null> {
-    // EA App registry location
-    const registryPath = await this.readRegistryValue(
-      'HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\Electronic Arts\\EA Desktop',
-      'Install Dir'
-    ) || await this.readRegistryValue(
-      'HKEY_LOCAL_MACHINE\\SOFTWARE\\Electronic Arts\\EA Desktop',
-      'Install Dir'
-    );
+    // Best source: the root EA actually installed games into. This is the only branch that
+    // finds a library on a non-default drive, which no amount of path guessing will.
+    const installRootCounts = new Map<string, { path: string; count: number }>();
+    for (const game of await readEaInstalledGames()) {
+      const root = dirname(game.installDir);
+      // Guard against a game installed at a drive root, which would make the whole drive the scan root
+      if (!root || root === dirname(root)) continue;
 
-    if (registryPath && await this.checkPath(registryPath)) {
-      return {
-        id: 'ea',
-        name: 'EA App',
-        path: registryPath,
-        detected: true,
-        detectionMethod: 'registry',
-      };
+      const existing = installRootCounts.get(root.toLowerCase());
+      if (existing) {
+        existing.count++;
+      } else {
+        installRootCounts.set(root.toLowerCase(), { path: root, count: 1 });
+      }
     }
 
-    // Try Origin registry
-    const originPath = await this.readRegistryValue(
-      'HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\Origin',
-      'ClientPath'
-    );
-
-    if (originPath) {
-      const originDir = originPath.replace(/\\Origin.exe$/, '');
-      if (await this.checkPath(originDir)) {
+    const rootsByGameCount = Array.from(installRootCounts.values()).sort((a, b) => b.count - a.count);
+    for (const root of rootsByGameCount) {
+      if (await this.checkPath(root.path)) {
         return {
           id: 'ea',
-          name: 'Origin',
-          path: originDir,
+          name: 'EA App',
+          path: root.path,
           detected: true,
           detectionMethod: 'registry',
         };
       }
     }
 
-    // Try default paths
+    // Try the well-known library roots
     const defaultPaths = [
       'C:\\Program Files\\EA Games',
       'C:\\Program Files (x86)\\EA Games',
-      'C:\\Program Files\\Electronic Arts',
+      'C:\\Program Files\\Origin Games',
+      'C:\\Program Files (x86)\\Origin Games',
     ];
 
     for (const path of defaultPaths) {
@@ -281,6 +287,37 @@ export class LauncherDetectionService {
           path: path,
           detected: true,
           detectionMethod: 'path',
+        };
+      }
+    }
+
+    // Last resort: the client folder, so the source is at least reported as detected and
+    // scanEA can probe the library sub-folders beneath it. `InstallLocation` is the value EA
+    // Desktop actually writes; `Install Dir` and the Origin ClientPath cover older installs,
+    // and ClientPath names the executable rather than its directory.
+    const clientPath = await this.readRegistryValue(
+      'HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\Electronic Arts\\EA Desktop',
+      'InstallLocation'
+    ) || await this.readRegistryValue(
+      'HKEY_LOCAL_MACHINE\\SOFTWARE\\Electronic Arts\\EA Desktop',
+      'InstallLocation'
+    ) || await this.readRegistryValue(
+      'HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\Electronic Arts\\EA Desktop',
+      'Install Dir'
+    ) || await this.readRegistryValue(
+      'HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\Origin',
+      'ClientPath'
+    );
+
+    if (clientPath) {
+      const clientDir = this.toDirectory(clientPath);
+      if (clientDir && await this.checkPath(clientDir)) {
+        return {
+          id: 'ea',
+          name: 'EA App / Origin',
+          path: clientDir,
+          detected: true,
+          detectionMethod: 'registry',
         };
       }
     }
