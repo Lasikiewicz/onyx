@@ -16,7 +16,7 @@ export class XboxScanner implements SourceScanner {
 
   async scan(xboxPath: string): Promise<ScannedGameResult[]> {
     try {
-      const xboxGames = this.xboxService.scanGames(xboxPath);
+      const xboxGames = await this.xboxService.scanGames(xboxPath);
 
       return xboxGames.map((game: XboxGame) => {
         // XboxService returns installPath as the full exe path for both UWP and PC games

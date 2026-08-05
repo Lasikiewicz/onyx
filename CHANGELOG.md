@@ -7,6 +7,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [0.15.0] - 2026-08-05
 
 - Performance:
+  - Scanning for Xbox and Game Pass games no longer freezes the app. The scan now runs in the background, and looks up game registration once for the whole scan instead of once per game — a large Game Pass library previously started a separate Windows process for every game found.
+  - Scans no longer walk the same folders repeatedly when a game install links back into itself.
   - Game tiles no longer re-render on every keystroke while searching; the whole library view now stays still as you type.
   - Fixed the game details panel and the menu bar being rebuilt from scratch on every interaction, which was the largest remaining source of stutter while browsing.
   - Fixed the library's keyboard navigation re-registering its key handler on every arrow press.

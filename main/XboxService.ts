@@ -1,8 +1,43 @@
-import { readdirSync, statSync, existsSync, readFileSync } from 'node:fs';
+import { promises as fsp } from 'node:fs';
 import { join } from 'node:path';
 import { platform } from 'node:os';
-import { spawnSync } from 'node:child_process';
+import { execFile } from 'node:child_process';
 import { GameFilteringService } from './GameFilteringService.js';
+
+/**
+ * Run a PowerShell script and return stdout, or null on any failure.
+ *
+ * Every PowerShell call in this file goes through here. They were `spawnSync`, which blocks
+ * the Electron main process — window paint, input and all other IPC — for the whole process
+ * startup. A 30-game Game Pass install serialised 30 of those.
+ */
+function runPowerShell(script: string, timeoutMs = 30_000): Promise<string | null> {
+  return new Promise((resolve) => {
+    execFile(
+      'powershell.exe',
+      ['-NoProfile', '-NonInteractive', '-Command', script],
+      { encoding: 'utf8', windowsHide: true, timeout: timeoutMs, maxBuffer: 16 * 1024 * 1024 },
+      (error, stdout) => {
+        if (error) {
+          resolve(null);
+          return;
+        }
+        const trimmed = stdout?.trim();
+        resolve(trimmed ? trimmed : null);
+      },
+    );
+  });
+}
+
+/** Async `existsSync`. */
+async function pathExists(path: string): Promise<boolean> {
+  try {
+    await fsp.access(path);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 export interface XboxGame {
   id: string;
@@ -27,16 +62,16 @@ export class XboxService {
    * ONLY returns UWP games that Microsoft officially registered as game installations
    * This is the most reliable way to filter games from utilities in UWP
    */
-  private scanWindowsAppsWithGamingServicesValidation(winAppsPath: string): XboxGame[] {
+  private async scanWindowsAppsWithGamingServicesValidation(winAppsPath: string): Promise<XboxGame[]> {
     const games: XboxGame[] = [];
 
-    if (!existsSync(winAppsPath)) {
+    if (!await pathExists(winAppsPath)) {
       console.warn(`WindowsApps folder not found: ${winAppsPath}`);
       return games;
     }
 
     // Get the authoritative list from GamingServices registry
-    const gamingServicePackages = this.getGamingServicesPackageFamilies();
+    const gamingServicePackages = await this.getGamingServicesPackageFamilies();
 
     if (gamingServicePackages.size === 0) {
       console.warn(`[XboxService] No games found in GamingServices registry - cannot validate UWP games`);
@@ -46,7 +81,7 @@ export class XboxService {
     console.log(`[XboxService] Found ${gamingServicePackages.size} games in GamingServices registry`);
 
     try {
-      const entries = readdirSync(winAppsPath);
+      const entries = await fsp.readdir(winAppsPath);
 
       for (const entry of entries) {
         const pfnLower = entry.toLowerCase();
@@ -59,10 +94,10 @@ export class XboxService {
         const fullPath = join(winAppsPath, entry);
 
         try {
-          const stats = statSync(fullPath);
+          const stats = await fsp.stat(fullPath);
           if (stats.isDirectory()) {
             try {
-              const subEntries = readdirSync(fullPath);
+              const subEntries = await fsp.readdir(fullPath);
               const hasExe = subEntries.some(e => e.toLowerCase().endsWith('.exe'));
 
               if (hasExe) {
@@ -103,17 +138,17 @@ export class XboxService {
     return games;
   }
 
-  private scanWindowsApps(winAppsPath: string): XboxGame[] {
+  private async scanWindowsApps(winAppsPath: string): Promise<XboxGame[]> {
     const games: XboxGame[] = [];
 
-    if (!existsSync(winAppsPath)) {
+    if (!await pathExists(winAppsPath)) {
       console.warn(`WindowsApps folder not found: ${winAppsPath}`);
       return games;
     }
 
     try {
       // WindowsApps requires special permissions, so we'll try to read it
-      const entries = readdirSync(winAppsPath);
+      const entries = await fsp.readdir(winAppsPath);
 
       for (const entry of entries) {
         // UWP apps are typically in folders with long names like:
@@ -121,11 +156,11 @@ export class XboxService {
         const fullPath = join(winAppsPath, entry);
 
         try {
-          const stats = statSync(fullPath);
+          const stats = await fsp.stat(fullPath);
           if (stats.isDirectory()) {
             // Look for .exe files in the folder (UWP games have executables)
             try {
-              const subEntries = readdirSync(fullPath);
+              const subEntries = await fsp.readdir(fullPath);
               const hasExe = subEntries.some(e => e.toLowerCase().endsWith('.exe'));
 
               if (hasExe) {
@@ -173,10 +208,10 @@ export class XboxService {
    * - C:\XboxGames\GameName\Game.exe
    * - C:\XboxGames\GameName\SubFolder\Game.exe
    */
-  private scanXboxGames(xboxGamesPath: string): XboxGame[] {
+  private async scanXboxGames(xboxGamesPath: string): Promise<XboxGame[]> {
     const games: XboxGame[] = [];
 
-    if (!existsSync(xboxGamesPath)) {
+    if (!await pathExists(xboxGamesPath)) {
       console.warn(`[XboxService] XboxGames folder not found: ${xboxGamesPath}`);
       return games;
     }
@@ -184,14 +219,14 @@ export class XboxService {
     console.log(`[XboxService] Scanning XboxGames folder: ${xboxGamesPath}`);
 
     try {
-      const entries = readdirSync(xboxGamesPath);
+      const entries = await fsp.readdir(xboxGamesPath);
       console.log(`[XboxService] Found ${entries.length} entries in XboxGames folder`);
 
       for (const entry of entries) {
         const fullPath = join(xboxGamesPath, entry);
 
         try {
-          const stats = statSync(fullPath);
+          const stats = await fsp.stat(fullPath);
           if (!stats.isDirectory()) {
             continue;
           }
@@ -217,7 +252,7 @@ export class XboxService {
           console.log(`[XboxService] Scanning game folder: ${entry}`);
 
           // Deep scan for executables (up to 20 levels deep)
-          const exeFiles = this.findExecutables(fullPath, 0, 20);
+          const exeFiles = await this.findExecutables(fullPath, 0, 20);
           console.log(`[XboxService] Found ${exeFiles.length} executables in ${entry}`);
 
           // Filter out helper executables BUT KEEP gamelaunchhelper (we need it for launching)
@@ -245,7 +280,7 @@ export class XboxService {
 
           if (gameExes.length > 0) {
             // Verify install path exists before adding
-            if (!existsSync(fullPath)) {
+            if (!await pathExists(fullPath)) {
               console.warn(`[XboxService] Skipping ${entry} - directory no longer exists`);
               continue;
             }
@@ -308,7 +343,7 @@ export class XboxService {
             }
 
             // Try to extract package info for proper launching
-            const packageInfo = this.extractPackageInfo(fullPath);
+            const packageInfo = await this.extractPackageInfo(fullPath);
 
             if (packageInfo) {
               // We have package info - this is a proper UWP/MSIX game
@@ -337,19 +372,20 @@ export class XboxService {
             // Log detailed information about the folder structure for debugging
             console.log(`[XboxService] No valid game executables found in ${entry}`);
 
-            // Check if folder has specific structures that might indicate issues
+            // Check if folder has specific structures that might indicate issues.
+            // withFileTypes gives directory-ness from the single readdir, so this diagnostic
+            // path no longer stats every entry just to build a log line.
             try {
-              const folderContents = readdirSync(fullPath);
+              const dirents = await fsp.readdir(fullPath, { withFileTypes: true });
+              const folderContents = dirents.map(d => d.name);
               const hasContentFolder = folderContents.some(f => f.toLowerCase() === 'content');
               const hasBinariesFolder = folderContents.some(f => f.toLowerCase().includes('binaries'));
               const hasBuildFolder = folderContents.some(f => f.toLowerCase() === 'build');
 
               if (hasContentFolder || hasBinariesFolder || hasBuildFolder) {
                 console.log(`[XboxService]   └─ Folder has expected structure (Content: ${hasContentFolder}, Binaries: ${hasBinariesFolder}, Build: ${hasBuildFolder})`);
-                console.log(`[XboxService]   └─ Sub-folders: ${folderContents.filter(f => {
-                  const stat = statSync(join(fullPath, f));
-                  return stat.isDirectory();
-                }).slice(0, 5).join(', ')}${folderContents.length > 5 ? '...' : ''}`);
+                const subFolders = dirents.filter(d => d.isDirectory()).map(d => d.name);
+                console.log(`[XboxService]   └─ Sub-folders: ${subFolders.slice(0, 5).join(', ')}${folderContents.length > 5 ? '...' : ''}`);
               } else {
                 console.log(`[XboxService]   └─ Root contents: ${folderContents.slice(0, 5).join(', ')}${folderContents.length > 5 ? '...' : ''}`);
               }
@@ -371,25 +407,89 @@ export class XboxService {
   }
 
   /**
+   * Map of Appx package Name -> PackageFamilyName for every installed package.
+   *
+   * Populated once per scan by a single `Get-AppxPackage` enumeration. Previously every game
+   * folder ran its own `Get-AppxPackage | Where-Object ...`, so a 30-game library paid 30
+   * PowerShell startups — the dominant cost of an Xbox scan. Reset by `scanGames`, so a later
+   * scan still sees packages installed since.
+   */
+  private packageFamilyNamesByName: Map<string, string> | null = null;
+
+  /** Discard the cached package table so the next scan re-queries the system. */
+  private resetPackageFamilyCache(): void {
+    this.packageFamilyNamesByName = null;
+  }
+
+  /**
+   * Resolve one Appx package Name to its PackageFamilyName, loading the whole table on first
+   * use. Returns null when the package is not installed or the query fails.
+   */
+  private async getPackageFamilyName(packageName: string): Promise<string | null> {
+    if (!this.packageFamilyNamesByName) {
+      this.packageFamilyNamesByName = await this.loadPackageFamilyNames();
+    }
+    return this.packageFamilyNamesByName.get(packageName.toLowerCase()) ?? null;
+  }
+
+  private async loadPackageFamilyNames(): Promise<Map<string, string>> {
+    const table = new Map<string, string>();
+
+    if (platform() !== 'win32') {
+      return table;
+    }
+
+    // No interpolation: this enumerates everything and the filtering happens in JS, which also
+    // removes the need to sanitize a manifest-supplied name into a PowerShell command string.
+    const output = await runPowerShell(
+      "Get-AppxPackage | Select-Object Name, PackageFamilyName | ConvertTo-Json -Compress",
+    );
+    if (!output) {
+      console.warn('[XboxService] Could not enumerate installed packages');
+      return table;
+    }
+
+    try {
+      const parsed = JSON.parse(output);
+      const list = Array.isArray(parsed) ? parsed : [parsed];
+      for (const entry of list) {
+        const name = entry?.Name;
+        const pfn = entry?.PackageFamilyName;
+        if (typeof name === 'string' && typeof pfn === 'string' && name && pfn) {
+          table.set(name.toLowerCase(), pfn);
+        }
+      }
+    } catch {
+      console.warn('[XboxService] Failed to parse installed package list');
+    }
+
+    return table;
+  }
+
+  /**
    * Extract package information from AppxManifest.xml for PC Game Pass games
    * Returns: { packageFamilyName, appId, appUserModelId, launchUri } or null if not found
    */
-  private extractPackageInfo(gameFolderPath: string): { packageFamilyName: string; appId: string; appUserModelId: string; launchUri: string } | null {
+  private async extractPackageInfo(gameFolderPath: string): Promise<{ packageFamilyName: string; appId: string; appUserModelId: string; launchUri: string } | null> {
     try {
       // Search for AppxManifest.xml in the game folder
       const manifestFiles: string[] = [];
-      const searchForManifest = (dirPath: string, depth: number = 0, maxDepth: number = 10): void => {
+      const searchForManifest = async (dirPath: string, depth: number = 0, maxDepth: number = 10): Promise<void> => {
         if (depth > maxDepth) return;
+        // One manifest is all this method uses; stop walking once we have it.
+        if (manifestFiles.length > 0) return;
         try {
-          const entries = readdirSync(dirPath);
+          const entries = await fsp.readdir(dirPath);
           for (const entry of entries) {
+            if (manifestFiles.length > 0) return;
             const fullPath = join(dirPath, entry);
             try {
-              const stats = statSync(fullPath);
+              const stats = await fsp.stat(fullPath);
               if (stats.isFile() && entry.toLowerCase() === 'appxmanifest.xml') {
                 manifestFiles.push(fullPath);
+                return;
               } else if (stats.isDirectory() && depth < maxDepth) {
-                searchForManifest(fullPath, depth + 1, maxDepth);
+                await searchForManifest(fullPath, depth + 1, maxDepth);
               }
             } catch (err) {
               continue;
@@ -400,7 +500,7 @@ export class XboxService {
         }
       };
 
-      searchForManifest(gameFolderPath);
+      await searchForManifest(gameFolderPath);
 
       if (manifestFiles.length === 0) {
         return null;
@@ -408,7 +508,7 @@ export class XboxService {
 
       // Read and parse the manifest XML
       const manifestPath = manifestFiles[0];
-      const manifestContent = readFileSync(manifestPath, 'utf-8');
+      const manifestContent = await fsp.readFile(manifestPath, 'utf-8');
 
       // Extract Identity Name (Package Name)
       const nameMatch = manifestContent.match(/<Identity[^>]+Name="([^"]+)"/);
@@ -416,9 +516,9 @@ export class XboxService {
       const packageName = nameMatch[1];
 
       // AppxManifest.xml is attacker-controllable (it comes from whatever folder the user
-      // scanned), and packageName is interpolated into a PowerShell -Command string below.
-      // Constrain it to the documented Appx identity grammar so backticks, quotes and $(...)
-      // can never reach the shell.
+      // scanned). The package name no longer reaches a shell — `getPackageFamilyName` looks it
+      // up in a table built from an uninterpolated `Get-AppxPackage` enumeration — but the
+      // identity grammar check stays as defence in depth and to reject junk manifests early.
       if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,49}$/.test(packageName)) {
         console.warn(`[XboxService] Rejecting malformed package identity: ${packageName.slice(0, 80)}`);
         return null;
@@ -429,25 +529,10 @@ export class XboxService {
       const publisherMatch = manifestContent.match(/<Identity[^>]+Publisher="CN=([^"]+)"/);
       if (!publisherMatch) return null;
 
-      // Now get the actual PackageFamilyName from Get-AppxPackage
-      // We can't compute the publisher hash ourselves, so we query the system
-      const result = spawnSync('powershell', [
-        '-NoProfile',
-        '-NonInteractive',
-        '-Command',
-        `Get-AppxPackage | Where-Object { $_.Name -eq "${packageName}" } | Select-Object -First 1 PackageFamilyName | ConvertTo-Json`
-      ], {
-        encoding: 'utf-8',
-        windowsHide: true,
-      });
-
-      if (result.status !== 0 || !result.stdout) {
-        console.warn(`[XboxService] Failed to get PackageFamilyName for ${packageName}`);
-        return null;
-      }
-
-      const parsed = JSON.parse(result.stdout.trim());
-      const packageFamilyName = parsed?.PackageFamilyName;
+      // Resolve the PackageFamilyName. We cannot compute the publisher hash ourselves, so the
+      // system has to tell us — but that lookup is now a single Get-AppxPackage enumeration
+      // cached for the whole scan, rather than one PowerShell startup per game folder.
+      const packageFamilyName = await this.getPackageFamilyName(packageName);
       if (!packageFamilyName) {
         console.warn(`[XboxService] No PackageFamilyName found for ${packageName}`);
         return null;
@@ -470,21 +555,40 @@ export class XboxService {
   }
 
   /**
-   * Find executable files in a directory (recursive, deep scan with high max depth)
+   * Find executable files in a directory (recursive, deep scan with high max depth).
+   *
+   * `visited` holds the resolved real paths of directories already walked. Xbox install trees
+   * contain directory junctions, and without this a junction pointing at an ancestor is only
+   * bounded by `maxDepth` — 20 levels of re-walking the same subtree.
    */
-  private findExecutables(dirPath: string, depth: number = 0, maxDepth: number = 20): string[] {
+  private async findExecutables(
+    dirPath: string,
+    depth: number = 0,
+    maxDepth: number = 20,
+    visited: Set<string> = new Set(),
+  ): Promise<string[]> {
     const executables: string[] = [];
 
     if (depth > maxDepth) return executables;
 
     try {
-      const entries = readdirSync(dirPath);
+      const realPath = await fsp.realpath(dirPath);
+      if (visited.has(realPath)) {
+        return executables;
+      }
+      visited.add(realPath);
+    } catch {
+      // Unresolvable path: fall through and let readdir report the failure.
+    }
+
+    try {
+      const entries = await fsp.readdir(dirPath);
 
       for (const entry of entries) {
         const fullPath = join(dirPath, entry);
 
         try {
-          const stats = statSync(fullPath);
+          const stats = await fsp.stat(fullPath);
 
           if (stats.isFile() && entry.toLowerCase().endsWith('.exe')) {
             const lowerName = entry.toLowerCase();
@@ -516,7 +620,7 @@ export class XboxService {
             }
 
             // Recursively search subdirectories
-            const subExes = this.findExecutables(fullPath, depth + 1, maxDepth);
+            const subExes = await this.findExecutables(fullPath, depth + 1, maxDepth, visited);
             executables.push(...subExes);
           }
         } catch (err) {
@@ -600,7 +704,7 @@ export class XboxService {
    * Heuristic filter to drop obvious non-game UWP apps (music, system, utilities)
    * Uses hybrid approach: publisher whitelist + system app detection + keyword filtering + size heuristics
    */
-  private isLikelyNonGame(app: { Name?: string; PackageFamilyName?: string; AppUserModelId?: string; InstallLocation?: string }): boolean {
+  private async isLikelyNonGame(app: { Name?: string; PackageFamilyName?: string; AppUserModelId?: string; InstallLocation?: string }): Promise<boolean> {
     const name = (app.Name || '').toLowerCase();
     const pfn = (app.PackageFamilyName || '').toLowerCase();
     const aumid = (app.AppUserModelId || '').toLowerCase();
@@ -659,7 +763,7 @@ export class XboxService {
 
     // STEP 4: Size heuristic - count files
     try {
-      const files = readdirSync(installPath, { recursive: true });
+      const files = await fsp.readdir(installPath, { recursive: true });
       const fileCount = files.length;
       // Utilities < 20 files; Games > 100 files
       if (fileCount < 20) {
@@ -722,7 +826,7 @@ export class XboxService {
    * Read GamingServices registry to get known game package family names.
    * Strong positive signal that the package is an actual game install.
    */
-  private getGamingServicesPackageFamilies(): Set<string> {
+  private async getGamingServicesPackageFamilies(): Promise<Set<string>> {
     const packages = new Set<string>();
 
     if (platform() !== 'win32') {
@@ -747,15 +851,7 @@ $results = foreach ($root in $roots) {
 $results | Sort-Object -Unique | ConvertTo-Json
 `.trim();
 
-      const psResult = spawnSync('powershell.exe', ['-NoProfile', '-Command', psScript], {
-        encoding: 'utf8',
-      });
-
-      if (psResult.status !== 0 || psResult.error) {
-        return packages;
-      }
-
-      const output = psResult.stdout?.trim();
+      const output = await runPowerShell(psScript);
       if (!output) {
         return packages;
       }
@@ -778,7 +874,7 @@ $results | Sort-Object -Unique | ConvertTo-Json
    * Discover UWP / MSIX entries via Start menu (Windows discovery)
    * Uses PowerShell Get-StartApps to retrieve AppUserModelIds that can be launched with shell:AppsFolder.
    */
-  private scanUwpStartApps(): XboxGame[] {
+  private async scanUwpStartApps(): Promise<XboxGame[]> {
     if (platform() !== 'win32') {
       return [];
     }
@@ -809,22 +905,9 @@ $results = foreach ($app in $startApps) {
 $results | ConvertTo-Json -Depth 4
 `.trim();
 
-      const psResult = spawnSync('powershell.exe', ['-NoProfile', '-Command', psScript], {
-        encoding: 'utf8',
-      });
-
-      if (psResult.error) {
-        console.warn(`[XboxService] PowerShell error: ${psResult.error.message}`);
-        return [];
-      }
-
-      if (psResult.status !== 0) {
-        console.warn(`[XboxService] PowerShell exited with code ${psResult.status}: ${psResult.stderr?.toString()}`);
-        return [];
-      }
-
-      const output = psResult.stdout?.trim();
+      const output = await runPowerShell(psScript);
       if (!output) {
+        console.warn('[XboxService] Get-StartApps returned no usable output');
         return [];
       }
 
@@ -842,7 +925,7 @@ $results | ConvertTo-Json -Depth 4
       }
 
       // Gather GamingServices PFNs - use as authoritative source
-      const gamingServicePackages = this.getGamingServicesPackageFamilies();
+      const gamingServicePackages = await this.getGamingServicesPackageFamilies();
 
       const games: XboxGame[] = [];
       for (const app of apps) {
@@ -885,12 +968,14 @@ $results | ConvertTo-Json -Depth 4
    * MAIN public scan method - entry point for Xbox game detection
    * Strategy: Prefer C:\XboxGames (definitive PC Game Pass) + UWP validation via GamingServices registry
    */
-  public scanGames(xboxPath: string): XboxGame[] {
+  public async scanGames(xboxPath: string): Promise<XboxGame[]> {
     if (platform() !== 'win32') {
       throw new Error('Xbox Game Pass scanning is currently only supported on Windows');
     }
 
     console.log(`[XboxService] Scanning Xbox games from path: ${xboxPath}`);
+    // Each scan re-queries installed packages, so games installed since the last scan resolve.
+    this.resetPackageFamilyCache();
     const gamesMap = new Map<string, XboxGame>();
     const addGame = (game: XboxGame) => {
       if (!game) return;
@@ -904,7 +989,7 @@ $results | ConvertTo-Json -Depth 4
     // This is the authoritative source for installed Game Pass titles
     if (xboxPath.includes('XboxGames')) {
       console.log(`[XboxService] Scanning XboxGames path (PC Game Pass): ${xboxPath}`);
-      const xboxGames = this.scanXboxGames(xboxPath);
+      const xboxGames = await this.scanXboxGames(xboxPath);
       xboxGames.forEach(addGame);
       // If we found PC games, return them (don't bother with UWP scanning)
       if (xboxGames.length > 0) {
@@ -918,7 +1003,7 @@ $results | ConvertTo-Json -Depth 4
     // For UWP, MUST validate against GamingServices registry (only include games MS officially registered)
     if (xboxPath.includes('WindowsApps')) {
       console.log(`[XboxService] Scanning WindowsApps path (UWP Games)`);
-      const winAppsGames = this.scanWindowsAppsWithGamingServicesValidation(xboxPath);
+      const winAppsGames = await this.scanWindowsAppsWithGamingServicesValidation(xboxPath);
       winAppsGames.forEach(addGame);
     }
 

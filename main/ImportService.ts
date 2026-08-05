@@ -345,7 +345,7 @@ export class ImportService {
    */
   private async scanXbox(xboxPath: string): Promise<ScannedGameResult[]> {
     try {
-      const xboxGames = this.xboxService.scanGames(xboxPath);
+      const xboxGames = await this.xboxService.scanGames(xboxPath);
 
       return xboxGames.map((game: XboxGame) => {
         // XboxService returns installPath as the full exe path for both UWP and PC games
@@ -852,12 +852,32 @@ export class ImportService {
   }
 
   /**
-   * Find executable files in a directory (recursive, deep scan with high max depth)
+   * Find executable files in a directory (recursive, deep scan with high max depth).
+   *
+   * `visited` holds the resolved real paths of directories already walked. This walk
+   * deliberately follows junctions (see the Dirent fallback below, which exists so junctioned
+   * game folders are scanned), so without it a junction pointing at an ancestor is bounded
+   * only by `maxDepth` — 20 levels of re-walking the same subtree.
    */
-  private async findExecutables(dirPath: string, depth: number = 0, maxDepth: number = 20): Promise<string[]> {
+  private async findExecutables(
+    dirPath: string,
+    depth: number = 0,
+    maxDepth: number = 20,
+    visited: Set<string> = new Set(),
+  ): Promise<string[]> {
     const executables: string[] = [];
 
     if (depth > maxDepth) return executables;
+
+    try {
+      const realPath = await fsp.realpath(dirPath);
+      if (visited.has(realPath)) {
+        return executables;
+      }
+      visited.add(realPath);
+    } catch {
+      // Unresolvable path: fall through and let readdir report the failure.
+    }
 
     const excludeNames = [
       'gamelaunchhelper.exe',
@@ -995,7 +1015,7 @@ export class ImportService {
               continue;
             }
             // Recursively search subdirectories
-            const subExes = await this.findExecutables(fullPath, depth + 1, maxDepth);
+            const subExes = await this.findExecutables(fullPath, depth + 1, maxDepth, visited);
             executables.push(...subExes);
           }
         } catch (err) {

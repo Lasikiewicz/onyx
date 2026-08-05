@@ -49,7 +49,12 @@ Finds games from configured launchers/folders and imports them into the local li
 - Hardcoded known game paths include:
   - `C:\Program Files\Neverness To Everness` — automatically discovered if installed (specifically targets `NTEGlobalLauncher.exe`)
 - When a hardcoded path match is found, scan results under that same install root are collapsed to the hardcoded entry so launcher support folders do not appear as separate games.
-- Launcher detection and launcher-specific metadata come from [LauncherDetectionService.ts](../../main/LauncherDetectionService.ts) and [LauncherService.ts](../../main/LauncherService.ts).
+- Launcher detection and launcher-specific metadata come from [LauncherDetectionService.ts](../../main/LauncherDetectionService.ts) and [LauncherService.ts](../../main/LauncherService.ts). Both the registry reads and the seven per-launcher probes are async and run in parallel; they were `execFileSync`, which blocked the main process for the whole detection pass.
+- Xbox scanning ([XboxService.ts](../../main/XboxService.ts)) is fully asynchronous. Three constraints hold there and must survive future edits:
+  - **No synchronous fs or `spawnSync`.** Directory walks use `fs.promises`, and every PowerShell call goes through the single `runPowerShell` helper (async `execFile`, `windowsHide`, bounded timeout and buffer). The scan previously recursed with `readdirSync`/`statSync` to depth 20 and made three `spawnSync` calls, freezing the UI for the duration.
+  - **One `Get-AppxPackage` enumeration per scan, not per game.** `extractPackageInfo` runs once per game folder, and each run used to spawn its own PowerShell to resolve a PackageFamilyName — a 30-game Game Pass install paid 30 process startups, the dominant cost of an Xbox scan. The table is now loaded once by `loadPackageFamilyNames`, cached on the service, and cleared at the top of `scanGames` so a later scan still sees newly installed packages. Because the query no longer interpolates the manifest-supplied package name, that value never reaches a shell; the identity-grammar check on it remains as defence in depth.
+  - **Junction cycles are bounded by identity, not depth.** `findExecutables` in both [XboxService.ts](../../main/XboxService.ts) and [ImportService.ts](../../main/ImportService.ts) threads a `visited` set of resolved real paths through the recursion. Both walks deliberately follow directory junctions, so without it a junction pointing at an ancestor is bounded only by `maxDepth` — 20 levels of re-walking the same subtree.
+- `scanGames` dispatches on the *path string*: a path containing `XboxGames` takes the PC Game Pass branch, and one containing `WindowsApps` takes the UWP branch. Behaviour is pinned by [XboxService.test.ts](../../main/XboxService.test.ts).
 - Matching uses known IDs, executable paths, launcher identifiers, and title heuristics.
 - Renderer-side post-import maintenance flows launched from Game Manager now route through [useGameManagerRefresh.ts](../../renderer/src/components/gameManager/useGameManagerRefresh.ts), which owns refresh confirmation/progress state plus match-fix and boxart-fix continuation behavior after library updates are started from the manager.
 
@@ -65,6 +70,16 @@ Finds games from configured launchers/folders and imports them into the local li
 - Folder-size classification in [GameFilteringService.ts](../../main/GameFilteringService.ts) counts breadth-first and short-circuits once the large-folder threshold is exceeded, caching the verdict per folder. It previously used `readdirSync(path, { recursive: true })`, fully enumerating a multi-GB install just to compare a count against 20/100 — twice for `manual` sources.
 
 ## Failure Modes and Triage
+
+### Symptom: the UI freezes during an Xbox or launcher scan
+
+- Check for reintroduced synchronous calls: `grep -n "Sync(" main/XboxService.ts main/LauncherDetectionService.ts` should match nothing but the comments explaining why they were removed.
+- Confirm `extractPackageInfo` still resolves package family names through the cached table rather than spawning PowerShell per game folder.
+- Confirm no new PowerShell call bypasses the `runPowerShell` helper, which is what applies the timeout and `windowsHide`.
+
+### Symptom: an Xbox scan takes far longer than the number of games suggests
+
+- A junction cycle re-walks the same subtree up to `maxDepth` times. Confirm the `visited` set is still threaded through every recursive `findExecutables` call in both [XboxService.ts](../../main/XboxService.ts) and [ImportService.ts](../../main/ImportService.ts) — a call site that omits the argument silently starts a fresh set.
 
 ### Symptom: Startup scan never starts
 

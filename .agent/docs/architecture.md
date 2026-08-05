@@ -159,6 +159,12 @@ It explains module boundaries, data flow, and release pipeline expectations.
 - **App-shell handler identity is part of the contract.** The `React.memo`'d library tiles only benefit if `useGameLibrary`, the `App.tsx` game-action handlers, and every `use*Controls` prop bag are all referentially stable. New shell handlers must be memoized and threaded through the owning bridge rather than passed inline.
 - `react-hooks/exhaustive-deps` is enabled across all renderer files with no per-file exclusions; effects should be narrowed to the fields they read rather than suppressed.
 
+### Main-Thread Blocking Policy
+
+- Scanners and services on the main process must not use synchronous fs (`readdirSync`, `statSync`, `readFileSync`, `existsSync`) or `spawnSync`/`execFileSync`. The main process is single-threaded and shared with window paint, input and every IPC handler, so a blocking call there freezes the whole app. `main/XboxService.ts`, `main/LauncherDetectionService.ts`, `main/ImportService.ts` and `main/ipc/scanningHandlers.ts` are all async for this reason.
+- Process spawns are the expensive case, not the fs calls: prefer one batched query over N per-item queries. `XboxService` loads the whole `Get-AppxPackage` table once per scan instead of once per game folder.
+- Recursive directory walks that follow junctions/symlinks must carry a `visited` set of resolved real paths. Depth limits alone do not bound a cycle.
+
 ### Running-Game Tracking Contract
 
 - `scanning:gameStarted` takes `(gameId, pid?)`. The PID is what lets the main process verify the entry itself.
@@ -192,7 +198,7 @@ It explains module boundaries, data flow, and release pipeline expectations.
 ## Module Index
 
 <!-- AUTO-GENERATED:MODULE_INDEX:START -->
-- Main process source files: 80
+- Main process source files: 81
 - Renderer source files: 173
 - Automation scripts: 30
 - GitHub workflow files: 7

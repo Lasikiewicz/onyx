@@ -2,8 +2,8 @@
 
 Remaining items from the optimization and bug-bash audit
 ([`docs/audit/2026-08-05-optimization-and-bug-bash.md`](docs/audit/2026-08-05-optimization-and-bug-bash.md)).
-36 of ~50 findings were fixed across 0.13.0–0.14.0, and a further 15 in 0.15.0 (H14, M1–M10,
-L1–L4, L6, T1); what follows is everything still open, ordered by value per unit of
+36 of ~50 findings were fixed across 0.13.0–0.14.0, and a further 16 in 0.15.0 (H5, H14,
+M1–M10, L1–L4, L6, T1); what follows is everything still open, ordered by value per unit of
 regression risk.
 
 Each entry keeps its original audit ID (H = high, M = medium, L = low) so it can be traced
@@ -12,24 +12,6 @@ back to the report's detail and reproduction notes.
 ---
 
 ## High severity
-
-### H5 — Xbox scan is fully synchronous
-`main/XboxService.ts:879` (+ `main/scanners/XboxScanner.ts:19`)
-
-`scanGames()` is a sync method: `readdirSync`/`statSync` recursion to depth 20 (`:466`), a
-manifest search to depth 10 (`:381`), `readFileSync` (`:411`), and **three** `spawnSync('powershell', …)`
-calls (`:425`, `:741`, `:803`). `extractPackageInfo` runs once per game folder (`:311`), so a
-30-game Game Pass install serialises 30 PowerShell startups with the UI frozen. `XboxScanner.scan`
-wraps it in an `async` that never yields.
-
-Also: `findExecutables` follows directory junctions (`:497`; same in `ImportService.ts:890`) with
-no visited-inode set, so junction cycles are bounded only by `maxDepth`.
-
-*Approach:* convert to `fs.promises` throughout; replace the three `spawnSync` calls with the
-async `runFfmpegCaptured`-style helper already added to `ImageCacheService.ts`; batch the
-per-game `Get-AppxPackage` query into one call for the whole scan; add a visited real-path set.
-
-*Risk:* high — 920 lines, zero test coverage. Write characterisation tests first.
 
 ### H16 — No virtualization in any library view
 `LibraryGrid.tsx:337`, `LibraryCardView.tsx:221`, `LibraryListView.tsx:190`, `GameManager.tsx:815`
@@ -57,8 +39,9 @@ comments in the repo are no-ops for rules that were never enabled. `:77-81` disa
 
 ### T3 — Test coverage for the risky modules
 Zero tests on `ImportService.ts` (1998 lines), `ImageCacheService.ts` (1643), `ImageOptimizationQueue.ts`,
-`onyxLocalProtocol.ts`, `XboxService.ts`, all three scanners, and the Steam auth/credentials path.
-`electronStoreShim.test.ts` was added in 0.14.0 and is the pattern to follow.
+`onyxLocalProtocol.ts`, `SteamScanner`/`EpicScanner`, and the Steam auth/credentials path.
+`electronStoreShim.test.ts` (0.14.0) and `XboxService.test.ts` (0.15.0, 23 tests driving real
+temp directories rather than mocking `fs`) are the patterns to follow.
 
 Config gaps: `vitest.config.mts:8` matches `renderer/**/*.test.tsx` only, so a `.test.ts` under
 `renderer/` is **silently skipped**; root `tsconfig.json:23` includes only `renderer/src`, so
@@ -92,6 +75,8 @@ match the runtime shape), `useGamePropertiesImages.ts` (7) and `useGameManagerIm
 
 ## Completed in 0.15.0
 
+H5 (Xbox scan converted to async fs and batched PowerShell, with 23 characterisation tests
+written first; junction-cycle guard added to both `XboxService` and `ImportService`),
 H14 (memoization across the app shell), M1–M3 (GameDetailsPanel preference bootstrap, debounced
 save, resize stale closures), M4–M5 (preference re-apply and selection force-reset), M6 (global
 keydown re-subscription), M7 (`runningGames` never draining), M8 (sync registry reads), M9
