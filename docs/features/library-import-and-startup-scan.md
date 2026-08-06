@@ -45,8 +45,15 @@ Finds games from configured launchers/folders and imports them into the local li
 ## Discovery and Data Sources
 
 - Sources include configured launchers, manual library folders, and hardcoded known game paths.
-- Folder scans include Unreal Engine `Binaries` trees and prefer `Binaries\Win64\*-Shipping.exe` launch binaries over shallow bootstrap executables when both are present.
-- Hardcoded known game paths include:
+- Folder scans include Unreal Engine `Binaries` trees and prefer `Binaries\Win64\*-Shipping.exe` launch binaries over shallow bootstrap executables when both are present. On Linux the same ranking applies to `Binaries/Linux/*-Linux-Shipping`, where the shipping binary carries no extension (or is a `.sh` launcher script) — see [executableSelection.ts](../../main/executableSelection.ts).
+- **Which sources exist is platform-dependent, not just which paths they use.** [platformSupport.ts](../../main/platformSupport.ts) owns the platform seam and the Linux launcher-root tables, and [librarySourceDefaults.ts](../../renderer/src/utils/librarySourceDefaults.ts) owns the corresponding UI list:
+  - **Windows:** Steam, Epic, EA App/Origin, GOG Galaxy, Ubisoft Connect, Battle.net, Xbox Game Pass, Humble, itch.io, Rockstar.
+  - **Linux:** Steam, Epic (via Heroic), GOG (via Heroic, falling back to `~/GOG Games`), Lutris, Bottles, itch.io. Xbox Game Pass, EA App, Ubisoft Connect, Battle.net, Humble and Rockstar are omitted because no Linux client exists — listing them would only produce rows that can never match.
+- Steam discovery on Linux probes every root the client can occupy, in preference order: `~/.steam/steam`, `~/.steam/root`, the pre-2019 `~/.local/share/Steam`, the Flatpak sandbox (`~/.var/app/com.valvesoftware.Steam/...`) and the Snap sandbox. `libraryfolders.vdf` parsing only folds forward slashes to native separators on Windows; doing so on Linux would mangle every path.
+- Epic and GOG on Linux come from Heroic Games Launcher via [HeroicService.ts](../../main/HeroicService.ts), which reads `legendaryConfig/legendary/installed.json` (Epic) and `gog_store/installed.json` plus `store_cache/gog_library.json` (GOG) as plain JSON. No Heroic process or CLI is invoked. DLC entries are skipped because they share their parent's install directory and would otherwise import as duplicates. Native and Flatpak Heroic installs are both found.
+- **Executable recognition is platform-specific**, owned by `describeGameExecutableCandidate` in [platformSupport.ts](../../main/platformSupport.ts) rather than by the scanners. Windows matches `.exe` only. Linux additionally matches `.x86_64`, `.x64`, `.x86`, `.appimage` and `.sh`, plus extension-less files carrying the executable bit — that last branch is restricted to names with no suffix at all, so asset trees (`.pak`, `.dat`, `.so.1`) never reach the extra `stat`. `.exe` remains in the Linux list because Steam and Heroic libraries are full of Windows builds run through Proton/Wine. Linux-only exclusion names and the `lib`/`lib64`/`lib32` directory skips are gated behind `!IS_WINDOWS` so they cannot change which executables a Windows scan finds.
+- Configured source paths are resolved through `expandPathVariables` before any existence check, so `~`-prefixed Linux defaults and `%LOCALAPPDATA%`/`%USERPROFILE%` Windows defaults both work. This is also why itch.io, Humble and Rockstar now scan on Windows at all: their defaults are variable-based, the old code checked for a folder named literally `%LOCALAPPDATA%\itch`, and the source was skipped in silence despite defaulting to enabled.
+- Hardcoded known game paths are Windows-only (they are all `C:\`-rooted) and include:
   - `C:\Program Files\Neverness To Everness` — automatically discovered if installed (specifically targets `NTEGlobalLauncher.exe`)
 - When a hardcoded path match is found, scan results under that same install root are collapsed to the hardcoded entry so launcher support folders do not appear as separate games.
 - Launcher detection and launcher-specific metadata come from [LauncherDetectionService.ts](../../main/LauncherDetectionService.ts) and [LauncherService.ts](../../main/LauncherService.ts). Both the registry reads and the seven per-launcher probes are async and run in parallel; they were `execFileSync`, which blocked the main process for the whole detection pass.
@@ -145,6 +152,8 @@ Finds games from configured launchers/folders and imports them into the local li
   - [startupCoordinator.ts](../../main/startupCoordinator.ts)
   - [ImportService.ts](../../main/ImportService.ts)
   - [executableSelection.ts](../../main/executableSelection.ts)
+  - [platformSupport.ts](../../main/platformSupport.ts) - platform seam: platform flags, path-variable expansion, Linux launcher-root tables, and what counts as a game executable per platform.
+  - [HeroicService.ts](../../main/HeroicService.ts) - reads Heroic Games Launcher's Epic and GOG install records, which is how those libraries exist on Linux.
   - [LauncherService.ts](../../main/LauncherService.ts)
   - [LauncherDetectionService.ts](../../main/LauncherDetectionService.ts)
   - [GameMatcher.ts](../../main/GameMatcher.ts)

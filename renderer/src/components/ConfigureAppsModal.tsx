@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { getLibrarySourceDefinitions, resolveHostPlatform } from '../utils/librarySourceDefaults';
 
 interface AppConfig {
   id: string;
@@ -16,70 +17,6 @@ interface ConfigureAppsModalProps {
   onScan?: (appId: string) => Promise<void>;
   onShowImportModal?: (games: Array<any>, appType?: 'steam' | 'xbox' | 'other') => void;
 }
-
-// Default game install locations for Windows
-const getDefaultPaths = (appId: string): string[] => {
-  const paths: Record<string, string[]> = {
-    steam: [
-      'C:\\Program Files (x86)\\Steam',
-      'C:\\Program Files\\Steam',
-    ],
-    epic: [
-      'C:\\Program Files\\Epic Games',
-      'C:\\Program Files (x86)\\Epic Games',
-    ],
-    ea: [
-      'C:\\Program Files\\EA Games',
-      'C:\\Program Files (x86)\\EA Games',
-      'C:\\Program Files\\Electronic Arts',
-    ],
-    gog: [
-      'C:\\Program Files (x86)\\GOG Galaxy',
-      'C:\\Program Files\\GOG Galaxy',
-    ],
-    ubisoft: [
-      'C:\\Program Files (x86)\\Ubisoft\\Ubisoft Game Launcher',
-      'C:\\Program Files\\Ubisoft\\Ubisoft Game Launcher',
-    ],
-    battle: [
-      'C:\\Program Files (x86)\\Battle.net',
-      'C:\\Program Files\\Battle.net',
-    ],
-    xbox: [
-      'C:\\XboxGames',
-      'C:\\Program Files\\WindowsApps',
-    ],
-    humble: [
-      'C:\\Program Files\\Humble App',
-      'C:\\Program Files (x86)\\Humble App',
-      '%LOCALAPPDATA%\\Humble App',
-    ],
-    itch: [
-      '%LOCALAPPDATA%\\itch',
-      'C:\\Program Files\\itch',
-      'C:\\Program Files (x86)\\itch',
-    ],
-    rockstar: [
-      'C:\\Program Files\\Rockstar Games',
-      'C:\\Program Files (x86)\\Rockstar Games',
-      '%USERPROFILE%\\Documents\\Rockstar Games',
-    ],
-  };
-  return paths[appId] || [];
-};
-
-const defaultApps: Omit<AppConfig, 'enabled' | 'path'>[] = [
-  { id: 'steam', name: 'Steam', defaultPaths: getDefaultPaths('steam'), placeholder: 'C:\\Program Files (x86)\\Steam' },
-  { id: 'epic', name: 'Epic Games', defaultPaths: getDefaultPaths('epic'), placeholder: 'C:\\Program Files\\Epic Games' },
-  { id: 'ea', name: 'EA App / Origin', defaultPaths: getDefaultPaths('ea'), placeholder: 'C:\\Program Files\\EA Games' },
-  { id: 'gog', name: 'GOG Galaxy', defaultPaths: getDefaultPaths('gog'), placeholder: 'C:\\Program Files (x86)\\GOG Galaxy' },
-  { id: 'ubisoft', name: 'Ubisoft Connect', defaultPaths: getDefaultPaths('ubisoft'), placeholder: 'C:\\Program Files (x86)\\Ubisoft\\Ubisoft Game Launcher' },
-  { id: 'battle', name: 'Battle.net', defaultPaths: getDefaultPaths('battle'), placeholder: 'C:\\Program Files (x86)\\Battle.net' },
-  { id: 'xbox', name: 'Xbox Game Pass', defaultPaths: getDefaultPaths('xbox'), placeholder: 'C:\\XboxGames' },
-  { id: 'humble', name: 'Humble', defaultPaths: getDefaultPaths('humble'), placeholder: 'C:\\Program Files\\Humble App' },
-  { id: 'itch', name: 'itch.io', defaultPaths: getDefaultPaths('itch'), placeholder: '%LOCALAPPDATA%\\itch' },
-  { id: 'rockstar', name: 'Rockstar Games', defaultPaths: getDefaultPaths('rockstar'), placeholder: 'C:\\Program Files\\Rockstar Games' },
-];
 
 // Helper to check if a path exists (we'll need to add IPC for this, but for now we'll just use the first default)
 const findExistingPath = async (defaultPaths: string[]): Promise<string> => {
@@ -109,6 +46,9 @@ export const ConfigureAppsModal: React.FC<ConfigureAppsModalProps> = ({
   const loadAppConfigs = async () => {
     setIsLoading(true);
     try {
+      // The available sources differ per platform, so resolve the list at load time.
+      const defaultApps = getLibrarySourceDefinitions(await resolveHostPlatform());
+
       // Load saved app configs
       const savedConfigs = await window.electronAPI.getAppConfigs();
       

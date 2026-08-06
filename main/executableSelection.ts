@@ -7,16 +7,25 @@ const getFileName = (exePath: string): string => {
   return parts[parts.length - 1] || '';
 };
 
-const getBaseName = (exePath: string): string => getFileName(exePath).replace(/\.exe$/i, '');
+/**
+ * Extensions an executable may carry, so a name compares cleanly against the game title. Linux
+ * builds either carry no extension at all or one of these.
+ */
+const EXECUTABLE_EXTENSION_PATTERN = /\.(?:exe|x86_64|x64|x86|appimage|sh)$/i;
+
+const getBaseName = (exePath: string): string => getFileName(exePath).replace(EXECUTABLE_EXTENSION_PATTERN, '');
 
 const stripUnrealShippingSuffix = (baseName: string): string =>
-  baseName.replace(/-(?:win64|win32|wingdk|linux|mac)-shipping$/i, '').replace(/-shipping$/i, '');
+  baseName.replace(/-(?:win64|win32|wingdk|linux|linuxarm64|mac)-shipping$/i, '').replace(/-shipping$/i, '');
 
 export function isUnrealShippingExecutable(exePath: string): boolean {
   const normalizedPath = normalizePathSeparators(exePath).toLowerCase();
   const fileName = getFileName(exePath).toLowerCase();
 
-  return normalizedPath.includes('/binaries/') && /(?:-shipping|-(?:win64|win32|wingdk|linux|mac)-shipping)\.exe$/.test(fileName);
+  // The extension is optional: Unreal's Linux shipping binaries are extension-less
+  // (`Game-Linux-Shipping`) or a launcher shell script, where Windows ships `.exe`.
+  return normalizedPath.includes('/binaries/')
+    && /(?:-shipping|-(?:win64|win32|wingdk|linux|linuxarm64|mac)-shipping)(?:\.(?:exe|sh))?$/.test(fileName);
 }
 
 export function getUnrealShippingRootDirectory(exePath: string): string | undefined {
@@ -54,7 +63,7 @@ function getExecutableScore(exePath: string, gameDir: string, gameTitle: string)
   if (isUnrealShippingExecutable(exePath)) {
     score += 1000;
 
-    if (normalizedPath.includes('/binaries/win64/')) {
+    if (normalizedPath.includes('/binaries/win64/') || normalizedPath.includes('/binaries/linux/')) {
       score += 100;
     } else if (normalizedPath.includes('/binaries/win32/')) {
       score += 50;

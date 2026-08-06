@@ -42,4 +42,5 @@ Always check this map first before editing code.
 ## Automation Notes
 
 - Script-driven asset generation should avoid writing duplicate tracked outputs when one source asset is sufficient for multiple logical keys.
+- `scripts/generate-icons.mjs` derives three tracked outputs from `resources/icon.svg`: `resources/icon.png`, `build/icon.ico` (Windows) and `build/icon.png` (Linux, 512x512 — electron-builder expands the whole Linux icon set from it). `scripts/validate-icons.mjs` treats `build/icon.png` as **required**, not optional, because Linux packaging fails without it. Note that `generate-icons` runs from `predist` only, so it rewrites those tracked files during packaging runs (`npm run dist`, `build:prod`, `build:alpha`, `build:linux`) but not during `npm run build`, whose `prebuild` only validates them.
 - `scripts/test-suspend-service-mock.js` verifies the suspend/resume PowerShell cmdlet fallback intent without depending on whether the runtime chooses `powershell.exe` or `powershell`.

@@ -85,6 +85,7 @@ function analyzeDumpFile(filePath: string): string {
                 lower.includes('access violation') ||
                 lower.endsWith('.dll') ||
                 lower.endsWith('.exe') ||
+                lower.includes('.so') ||
                 lower.endsWith('.node') ||
                 lower.endsWith('.js');
         });

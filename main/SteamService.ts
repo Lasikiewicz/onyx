@@ -1,7 +1,7 @@
 import { join } from 'node:path';
-import { platform } from 'node:os';
 import { readFile, readdir, access } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
+import { IS_WINDOWS, expandPathVariables, getLinuxSteamRootCandidates } from './platformSupport.js';
 
 export interface SteamGame {
   appId: string;
@@ -50,10 +50,14 @@ export class SteamService {
    * Set a custom Steam installation path
    */
   setSteamPath(path: string): void {
-    if (!existsSync(path)) {
-      throw new Error(`Steam path does not exist: ${path}`);
+    // Configured and defaulted paths may carry variables (`~` on Linux, `%VAR%` on Windows), so
+    // resolve before validating — and store the resolved form, since every later `join` uses it.
+    const resolved = expandPathVariables(path);
+
+    if (!existsSync(resolved)) {
+      throw new Error(`Steam path does not exist: ${resolved}`);
     }
-    this.customSteamPath = path;
+    this.customSteamPath = resolved;
   }
 
   /**
@@ -67,21 +71,20 @@ export class SteamService {
   }
 
   /**
-   * Get the default Steam installation path on Windows
+   * Get the default Steam installation path for the current platform.
+   *
+   * Linux has no single location: the native client, the pre-2019 layout, and the Flatpak and Snap
+   * sandboxes each keep their own root, so every candidate is probed in preference order.
    */
   private getDefaultSteamPath(): string {
-    if (platform() !== 'win32') {
-      throw new Error('Steam scanning is currently only supported on Windows');
-    }
+    const candidates = IS_WINDOWS
+      ? ['C:\\Program Files (x86)\\Steam', 'C:\\Program Files\\Steam']
+      : getLinuxSteamRootCandidates();
 
-    const defaultPath = 'C:\\Program Files (x86)\\Steam';
-    const altPath = 'C:\\Program Files\\Steam';
-
-    if (existsSync(defaultPath)) {
-      return defaultPath;
-    }
-    if (existsSync(altPath)) {
-      return altPath;
+    for (const candidate of candidates) {
+      if (existsSync(candidate)) {
+        return candidate;
+      }
     }
 
     throw new Error('Steam installation not found in default locations');
@@ -181,7 +184,10 @@ export class SteamService {
         for (const key in folders) {
           // Skip non-numeric keys and special keys
           if (key !== 'TimeNextStatsReport' && key !== 'contentstatsid' && folders[key]?.path) {
-            const libraryPath = folders[key].path.replace(/\\\\/g, '\\').replace(/\//g, '\\');
+            // VDF escapes backslashes, so `C:\\Games` means `C:\Games`. Only Windows then folds
+            // forward slashes to native separators — doing that on Linux would mangle every path.
+            const unescaped = folders[key].path.replace(/\\\\/g, '\\');
+            const libraryPath = IS_WINDOWS ? unescaped.replace(/\//g, '\\') : unescaped;
             try {
               await access(libraryPath);
               if (!libraries.includes(libraryPath)) {

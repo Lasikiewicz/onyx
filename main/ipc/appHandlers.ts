@@ -261,10 +261,16 @@ export function registerAppIPCHandlers(
             startupModeArg = '--startup-mode=minimized';
         }
 
+        // Inside an AppImage, app.getPath('exe') points at the read-only temporary mount, which is
+        // gone by the next boot. APPIMAGE holds the real path of the .AppImage file the user keeps.
+        // Failures are deliberately left to reject: the settings save flow relies on the rejection
+        // to tell the user their startup preference did not stick.
+        const launchPath = process.env.APPIMAGE || app.getPath('exe');
+
         app.setLoginItemSettings({
             openAtLogin: settings.startWithComputer,
             openAsHidden: settings.startClosedToTray,
-            path: app.getPath('exe'),
+            path: launchPath,
             args: startupModeArg ? [startupModeArg] : []
         });
         return { success: true };
@@ -460,6 +466,10 @@ export function registerAppIPCHandlers(
 
     // App Info Handlers
     ipcMain.handle('app:getVersion', () => app.getVersion());
+
+    // The renderer needs the host platform to choose the right default launcher paths and to hide
+    // sources that have no client on this OS.
+    ipcMain.handle('app:getPlatform', () => process.platform);
     ipcMain.handle('app:getName', () => app.getName());
     ipcMain.handle('app:getAppProfile', () => {
         const isAlpha = app.isPackaged

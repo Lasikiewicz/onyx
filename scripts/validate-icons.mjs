@@ -37,8 +37,8 @@ const requiredIcons = {
   buildPng: {
     path: join(projectRoot, 'build', 'icon.png'),
     name: 'build/icon.png',
-    required: false,
-    description: 'Build PNG icon (optional)',
+    required: true,
+    description: 'Linux PNG icon (electron-builder derives the Linux icon set from it)',
   },
 };
 

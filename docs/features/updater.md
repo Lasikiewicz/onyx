@@ -37,6 +37,8 @@ Alpha builds use GitHub Releases API prerelease selection logic. Production uses
 
 - Update source is GitHub releases and packaged-app update metadata.
 - Main orchestration lives in [AppUpdateService.ts](../../main/AppUpdateService.ts).
+- The alpha channel's manual GitHub-API check selects a release asset per platform via `findPlatformInstallerAsset`: the NSIS `*Setup*.exe` on Windows, and the `.AppImage` on Linux. `quitAndInstall` chmods the downloaded file on non-Windows first, because a downloaded AppImage arrives without the executable bit and cannot otherwise be spawned.
+- **Only the AppImage is a viable Linux update target.** The `.deb` and `.rpm` artifacts are published for installation but never auto-updated, because replacing them requires the system package manager. A Linux user who installed from deb/rpm updates through their distro, not through Onyx.
 - Startup coordination with library scan/update prompts runs through [main.ts](../../main/main.ts) and renderer app readiness state.
 - The renderer fetches the full changelog source through `app:getChangelog`, parses version sections from `CHANGELOG.md`, and renders grouped per-version release bullets in the update modal, split into `New features` and `Fixed issues`, instead of a raw preformatted markdown block.
 

@@ -1,9 +1,19 @@
 import { promises as fsp } from 'node:fs';
 import { execFile } from 'node:child_process';
-import { platform } from 'node:os';
-import { dirname } from 'node:path';
+import { homedir } from 'node:os';
+import { dirname, join } from 'node:path';
 import { promisify } from 'node:util';
 import { readEaInstalledGames } from './eaRegistry.js';
+import {
+  IS_WINDOWS,
+  findFirstExistingPath,
+  getLinuxBottlesRoots,
+  getLinuxGogGameRoots,
+  getLinuxItchRoots,
+  getLinuxLutrisRoots,
+  getLinuxSteamRootCandidates,
+} from './platformSupport.js';
+import { findHeroicConfigRoot } from './HeroicService.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -16,13 +26,18 @@ export interface DetectedLauncher {
 }
 
 /**
- * Service to auto-detect installed game launchers on Windows
+ * Service to auto-detect installed game launchers.
+ *
+ * Windows detection is registry-first with well-known path fallbacks. Linux has no registry, and the
+ * Windows-only stores (Xbox, EA App, Ubisoft Connect, Battle.net, Rockstar) have no native client at
+ * all — there Epic and GOG libraries arrive via Heroic, and Lutris/Bottles manage everything else.
+ * So the two platforms detect a genuinely different set of launchers, not the same set differently.
  */
 export class LauncherDetectionService {
   private isWindows: boolean;
 
   constructor() {
-    this.isWindows = platform() === 'win32';
+    this.isWindows = IS_WINDOWS;
   }
 
   /**
@@ -439,22 +454,123 @@ export class LauncherDetectionService {
   }
 
   /**
+   * First existing path among `candidates`, reported under the given launcher identity.
+   */
+  private async detectByPaths(
+    id: string,
+    name: string,
+    candidates: string[],
+  ): Promise<DetectedLauncher | null> {
+    for (const path of candidates) {
+      if (await this.checkPath(path)) {
+        return { id, name, path, detected: true, detectionMethod: 'path' };
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Detect Steam on Linux across the native, legacy, Flatpak and Snap locations.
+   */
+  private async detectLinuxSteam(): Promise<DetectedLauncher | null> {
+    return this.detectByPaths('steam', 'Steam', getLinuxSteamRootCandidates());
+  }
+
+  /**
+   * Detect Heroic, reported once per store it fronts so Epic and GOG appear as separate sources in
+   * the UI exactly as they do on Windows. The reported path is Heroic's config root: the scanners
+   * read Heroic's install records from there rather than walking a games folder.
+   */
+  private async detectLinuxHeroic(source: 'epic' | 'gog'): Promise<DetectedLauncher | null> {
+    const configRoot = await findHeroicConfigRoot();
+    if (!configRoot) {
+      return null;
+    }
+
+    return {
+      id: source,
+      name: source === 'epic' ? 'Epic Games (Heroic)' : 'GOG (Heroic)',
+      path: configRoot,
+      detected: true,
+      detectionMethod: 'path',
+    };
+  }
+
+  /** Native GOG installs land outside Heroic too, so probe the installer's default roots. */
+  private async detectLinuxGogGames(): Promise<DetectedLauncher | null> {
+    return this.detectByPaths('gog', 'GOG Games', getLinuxGogGameRoots());
+  }
+
+  /**
+   * Detect Lutris by its data directory, but report the folder it *installs games into*: the stored
+   * path is what the scanner walks, and Lutris' data directory holds its sqlite library rather than
+   * any games.
+   */
+  private async detectLinuxLutris(): Promise<DetectedLauncher | null> {
+    const dataRoot = await findFirstExistingPath(getLinuxLutrisRoots());
+    if (!dataRoot) {
+      return null;
+    }
+
+    const gamesRoot = await findFirstExistingPath([join(homedir(), 'Games')]);
+    return {
+      id: 'lutris',
+      name: 'Lutris',
+      path: gamesRoot ?? dataRoot,
+      detected: true,
+      detectionMethod: 'path',
+    };
+  }
+
+  /** Detect Bottles, reporting the bottles root so each prefix's `drive_c` is reachable by a scan. */
+  private async detectLinuxBottles(): Promise<DetectedLauncher | null> {
+    const dataRoot = await findFirstExistingPath(getLinuxBottlesRoots());
+    if (!dataRoot) {
+      return null;
+    }
+
+    const bottlesRoot = await findFirstExistingPath([join(dataRoot, 'bottles')]);
+    return {
+      id: 'bottles',
+      name: 'Bottles',
+      path: bottlesRoot ?? dataRoot,
+      detected: true,
+      detectionMethod: 'path',
+    };
+  }
+
+  private async detectLinuxItch(): Promise<DetectedLauncher | null> {
+    const roots = getLinuxItchRoots();
+    // The desktop app keeps installed games under `apps/`; that is the folder worth scanning.
+    return this.detectByPaths('itch', 'itch.io', [...roots.map((root) => join(root, 'apps')), ...roots]);
+  }
+
+  private linuxDetectors(): Array<() => Promise<DetectedLauncher | null>> {
+    return [
+      () => this.detectLinuxSteam(),
+      () => this.detectLinuxHeroic('epic'),
+      () => this.detectLinuxHeroic('gog').then((heroic) => heroic ?? this.detectLinuxGogGames()),
+      () => this.detectLinuxLutris(),
+      () => this.detectLinuxBottles(),
+      () => this.detectLinuxItch(),
+    ];
+  }
+
+  /**
    * Detect all installed launchers
    */
   async detectAllLaunchers(): Promise<DetectedLauncher[]> {
-    if (!this.isWindows) {
-      return [];
-    }
-
-    const detectors = [
-      () => this.detectSteam(),
-      () => this.detectEpic(),
-      () => this.detectGOG(),
-      () => this.detectEA(),
-      () => this.detectXbox(),
-      () => this.detectUbisoft(),
-      () => this.detectBattle(),
-    ];
+    const detectors = this.isWindows
+      ? [
+        () => this.detectSteam(),
+        () => this.detectEpic(),
+        () => this.detectGOG(),
+        () => this.detectEA(),
+        () => this.detectXbox(),
+        () => this.detectUbisoft(),
+        () => this.detectBattle(),
+      ]
+      : this.linuxDetectors();
 
     // Run in parallel: the detectors are independent and each is dominated by process-spawn
     // latency, so serialising them multiplies the wait for no benefit. Order of the returned
@@ -476,7 +592,23 @@ export class LauncherDetectionService {
    */
   async detectLauncher(launcherId: string): Promise<DetectedLauncher | null> {
     if (!this.isWindows) {
-      return null;
+      switch (launcherId) {
+        case 'steam':
+          return this.detectLinuxSteam();
+        case 'epic':
+          return this.detectLinuxHeroic('epic');
+        case 'gog':
+          return (await this.detectLinuxHeroic('gog')) ?? this.detectLinuxGogGames();
+        case 'lutris':
+          return this.detectLinuxLutris();
+        case 'bottles':
+          return this.detectLinuxBottles();
+        case 'itch':
+          return this.detectLinuxItch();
+        default:
+          // Xbox, EA App, Ubisoft Connect, Battle.net and Rockstar have no Linux client.
+          return null;
+      }
     }
 
     switch (launcherId) {

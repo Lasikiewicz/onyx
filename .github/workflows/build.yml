@@ -25,6 +25,11 @@ permissions:
 jobs:
   build:
     runs-on: windows-latest
+    # Exposed so the Linux job attaches its artifacts to this exact release rather than
+    # recomputing the tag and risking a mismatch. Additive only: no step below reads these.
+    outputs:
+      tag: ${{ steps.build_profile.outputs.tag_prefix }}${{ steps.version.outputs.version }}
+      profile: ${{ steps.build_profile.outputs.profile }}
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     
@@ -172,3 +177,73 @@ jobs:
             ${{ steps.source_bundle.outputs.source_tarball }}
           draft: false
           token: ${{ secrets.GITHUB_TOKEN }}
+
+  # Linux packaging runs as a separate job that attaches to the release the Windows job already
+  # created. Deliberately structured this way rather than as a matrix: the Windows job owns the tag,
+  # the release and its notes, and `needs: build` means a Linux failure can never prevent the
+  # Windows installer from publishing. Assets are added with `gh release upload`, which only adds
+  # files — it cannot rewrite the tag, the notes or the existing Windows assets.
+  build-linux:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      # electron-builder shells out to rpmbuild for the .rpm target, which is not present on the
+      # runner image. fakeroot is used by the .deb target.
+      - name: Install Linux packaging tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y rpm fakeroot
+
+      - name: Install dependencies
+        run: |
+          npm config set fetch-retries 5
+          npm config set fetch-retry-mintimeout 20000
+          npm config set fetch-retry-maxtimeout 120000
+          for attempt in 1 2 3; do
+            echo "npm ci attempt $attempt/3"
+            if npm ci --prefer-offline --no-audit; then
+              exit 0
+            fi
+            if [ "$attempt" -lt 3 ]; then
+              sleep $((15 * attempt))
+            fi
+          done
+          echo "npm ci failed after 3 attempts" >&2
+          exit 1
+
+      - name: Build Linux packages
+        run: |
+          if [ "${{ needs.build.outputs.profile }}" = "alpha" ]; then
+            npm run build:linux:alpha
+          else
+            npm run build:linux
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: List built artifacts
+        run: ls -la release
+
+      - name: Attach Linux artifacts to the release
+        if: github.event_name == 'push'
+        run: |
+          shopt -s nullglob
+          artifacts=(release/*.AppImage release/*.deb release/*.rpm)
+          if [ ${#artifacts[@]} -eq 0 ]; then
+            echo "No Linux artifacts were produced" >&2
+            exit 1
+          fi
+          echo "Uploading: ${artifacts[*]}"
+          gh release upload "${{ needs.build.outputs.tag }}" "${artifacts[@]}" --clobber
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

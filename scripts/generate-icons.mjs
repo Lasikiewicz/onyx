@@ -11,6 +11,7 @@ const sourceIconPath = 'resources/icon.svg';
 const pngIconPath = 'resources/icon.png';
 const buildDir = 'build';
 const icoOutputPath = `${buildDir}/icon.ico`;
+const buildPngPath = `${buildDir}/icon.png`;
 
 /**
  * Converts SVG to PNG if needed
@@ -56,6 +57,25 @@ async function generateIco() {
 }
 
 /**
+ * Writes the 512x512 PNG electron-builder derives the whole Linux icon set from.
+ */
+async function generateBuildPng() {
+  try {
+    await mkdir(buildDir, { recursive: true });
+
+    await sharp(sourceIconPath)
+      .png()
+      .resize(512, 512)
+      .toFile(buildPngPath);
+
+    console.log(`Generated ${buildPngPath}`);
+  } catch (error) {
+    console.error(`Error generating build PNG: ${error.message}`);
+    throw error;
+  }
+}
+
+/**
  * Main function to generate all icon formats
  */
 async function generateIcons() {
@@ -67,6 +87,9 @@ async function generateIcons() {
 
     // Generate ICO for Windows
     await generateIco();
+
+    // Generate PNG for Linux packaging
+    await generateBuildPng();
 
     console.log('\nAll icons generated successfully!');
   } catch (error) {

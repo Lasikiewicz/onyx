@@ -34,6 +34,12 @@ Launches games from multiple sources and tracks running state for UX actions (mi
 
 - Launch sources include executable paths, launcher-managed titles, and URI-based launch targets.
 - Launcher resolution and process tracking live in [LauncherService.ts](../../main/LauncherService.ts) with supporting app bootstrap in [main.ts](../../main/main.ts).
+- **Resolution order:** a stored `launchUri` on the game record is checked **first**, before any source-derived protocol branch. This is how Linux launcher integrations work — a Heroic-managed game carries `heroic://launch/<runner>/<appName>`, and routing through Heroic is what preserves the per-game Wine/Proton prefix, environment and wrappers Heroic was configured with. Spawning the game binary directly would discard all of it.
+  - Xbox is the deliberate exception: its `shell:AppsFolder\…` URIs need `explorer.exe` rather than the shell's external handler, so the generic branch skips any `shell:`-prefixed URI and leaves those to the Xbox branch.
+  - On Windows the only writer of `launchUri` is [XboxService.ts](../../main/XboxService.ts), and it only ever writes `''` or a `shell:` URI, so the generic branch is inert on Windows and existing libraries are unaffected.
+- The Windows-only store protocols (`com.epicgames.launcher://`, `origin2://`, `goggalaxy://`, `uplay://`, `shell:AppsFolder\`) are gated behind `HAS_NATIVE_STORE_CLIENTS`; off Windows those branches fall through to a stored launch URI or a direct executable launch. `steam://` is **not** gated, because the native Linux Steam client registers that handler.
+- Direct executable launch differs by platform: Windows goes through PowerShell `Start-Process` so UAC elevation prompts work, while other platforms `spawn` detached. On non-Windows the executable bit is checked first and a missing one is reported with the `chmod +x` command to run, because the raw spawn failure for that is an opaque `EACCES`.
+- Uninstall fallback is platform-specific: with no uninstaller in the game folder, Windows opens `ms-settings:appsfeatures`; elsewhere there is no system equivalent, so the user is told to use their package manager or the launcher that installed the game. `UNINSTALLER_NAMES` gains `uninstall.sh`/`uninstall` on Linux only, so the file picked in a Windows game folder cannot change.
 - Known title launchers that can be misidentified by generic executable scanning are normalized before launch. [knownGameLaunchers.ts](../../main/knownGameLaunchers.ts) currently redirects Neverness To Everness entries under the install root to `NTEGlobalLauncher.exe`, including older records that point at nested client executables or only the install folder.
 - Running-state updates are emitted back to renderer through IPC/state events and local shell state managed in [useGameLaunchFlow.ts](../../renderer/src/hooks/useGameLaunchFlow.ts).
 - PID-less launches still use a timeout fallback to clear stale running state, but that fallback no longer triggers automatic window restore because exit timing is not reliable there.
@@ -76,6 +82,8 @@ Launches games from multiple sources and tracks running state for UX actions (mi
 - **Main process**
   - [LauncherService.ts](../../main/LauncherService.ts)
   - [knownGameLaunchers.ts](../../main/knownGameLaunchers.ts)
+  - [platformSupport.ts](../../main/platformSupport.ts) - platform flags gating the Windows-only store protocols and the PowerShell vs `spawn` launch paths.
+  - [HeroicService.ts](../../main/HeroicService.ts) - produces the `heroic://launch/<runner>/<appName>` URIs the generic launch-URI branch consumes on Linux.
   - [LauncherDetectionService.ts](../../main/LauncherDetectionService.ts)
   - [ipc/appHandlers.ts](../../main/ipc/appHandlers.ts)
   - [main.ts](../../main/main.ts)

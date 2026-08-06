@@ -7,6 +7,8 @@ import { SteamScanner } from './scanners/SteamScanner.js';
 import { XboxScanner } from './scanners/XboxScanner.js';
 import { getUnrealShippingRootDirectory, selectBestGameExecutable } from './executableSelection.js';
 import { readEaInstalledGames } from './eaRegistry.js';
+import { readHeroicInstalledGames, type HeroicGame } from './HeroicService.js';
+import { IS_WINDOWS, describeGameExecutableCandidate, expandPathVariables } from './platformSupport.js';
 import { promises as fsp } from 'node:fs';
 import { join, sep, dirname } from 'node:path';
 import { exec } from 'node:child_process';
@@ -99,17 +101,24 @@ export class ImportService {
     const results: ConfiguredSource[] = [];
 
     for (const config of Object.values(configs)) {
-      const pathFound = config.path ? await pathExists(config.path) : false;
-      // battle, epic and ea locate games without the configured path (registry / manifests), so a
-      // missing or stale path must not disable them outright.
-      const isEnabled = config.enabled && (pathFound || config.id === 'battle' || config.id === 'epic' || config.id === 'ea');
+      // Default source paths carry variables (`%LOCALAPPDATA%` on Windows, `~` on Linux) so one
+      // config shape works on both platforms; they must be resolved before any path check.
+      const expandedPath = expandPathVariables(config.path || '');
+      const pathFound = expandedPath ? await pathExists(expandedPath) : false;
+      // battle, epic, gog and ea locate games without the configured path (registry, store
+      // manifests, or Heroic's install records), so a missing or stale path must not disable them.
+      const locatesGamesWithoutPath = config.id === 'battle'
+        || config.id === 'epic'
+        || config.id === 'ea'
+        || (!IS_WINDOWS && config.id === 'gog');
+      const isEnabled = config.enabled && (pathFound || locatesGamesWithoutPath);
 
       if (!isEnabled) {
         console.log(
-          `[ImportService] Skipping ${config.id}: enabled=${config.enabled}, path=${config.path}, exists=${pathFound}`,
+          `[ImportService] Skipping ${config.id}: enabled=${config.enabled}, path=${expandedPath}, exists=${pathFound}`,
         );
       } else {
-        results.push(config);
+        results.push({ ...config, path: expandedPath });
       }
     }
 
@@ -128,6 +137,9 @@ export class ImportService {
       battle: (path) => this.scanBattle(path),
       humble: (path) => this.scanHumble(path),
       itch: (path) => this.scanItch(path),
+      // Linux-only sources; on Windows they are never configured so the entries are inert.
+      lutris: (path) => this.scanLutris(path),
+      bottles: (path) => this.scanBottles(path),
     };
 
     const scanner = scanners[config.id];
@@ -389,9 +401,39 @@ export class ImportService {
    * Scan Epic Games Launcher for installed games
    * First tries to read from manifests, then falls back to scanning game folders directly
    */
+  /**
+   * Map games Heroic reports as installed onto scan results.
+   *
+   * `launchUri` is what makes these launch correctly: routing through Heroic's protocol keeps the
+   * per-game Wine/Proton prefix and environment Heroic was configured with, which spawning the
+   * binary directly would discard.
+   */
+  private toHeroicScanResults(games: HeroicGame[]): ScannedGameResult[] {
+    return games.map((game) => ({
+      uuid: `${game.source}-${game.appName}-${Date.now()}`,
+      source: game.source,
+      originalName: game.title,
+      installPath: game.installPath,
+      exePath: game.exePath,
+      launchUri: game.launchUri,
+      appId: game.appName,
+      title: game.title,
+      status: 'ambiguous' as const,
+      isDownloading: this.gameFilteringService.isLikelyDownloading(game.installPath),
+    }));
+  }
+
   private async scanEpic(epicPath: string): Promise<ScannedGameResult[]> {
     try {
       const results: ScannedGameResult[] = [];
+
+      // There is no native Epic Games Launcher on Linux, so there are no `.item` manifests to read;
+      // Heroic's install records are the equivalent source.
+      if (!IS_WINDOWS) {
+        const heroicGames = await readHeroicInstalledGames(['legendary']);
+        console.log(`[ImportService] scanEpic found ${heroicGames.length} Heroic (Epic) game(s)`);
+        return this.toHeroicScanResults(heroicGames);
+      }
 
       // Epic Games stores manifests typically in ProgramData; also try under provided epicPath
       const defaultManifests = join(process.env.ProgramData || 'C:\\ProgramData', 'Epic', 'EpicGamesLauncher', 'Data', 'Manifests');
@@ -557,6 +599,23 @@ export class ImportService {
   private async scanGOG(gogPath: string): Promise<ScannedGameResult[]> {
     try {
       const results: ScannedGameResult[] = [];
+
+      // GOG Galaxy is Windows-only. On Linux, Heroic manages the GOG library; native GOG installers
+      // drop games into a plain folder instead, so fall through to the folder walk when Heroic has
+      // nothing (or the configured path points at such a folder).
+      if (!IS_WINDOWS) {
+        const heroicGames = await readHeroicInstalledGames(['gog']);
+        if (heroicGames.length > 0) {
+          console.log(`[ImportService] scanGOG found ${heroicGames.length} Heroic (GOG) game(s)`);
+          return this.toHeroicScanResults(heroicGames);
+        }
+
+        if (gogPath && (await pathExists(gogPath))) {
+          return this.scanGOGGamesFolder(gogPath);
+        }
+
+        return results;
+      }
 
       // GOG games are in: {GOGPath}\Games
       // If path is already the Games folder, use it directly
@@ -911,6 +970,22 @@ export class ImportService {
       'autorun',
       'vc_redist.x64',
       'rapidcrc',
+      // Linux-only additions. Kept off Windows deliberately: these are matched against the base
+      // name, so a Windows game shipping `reaper.exe` or `install.exe` would start being filtered
+      // out — Linux support must not change what a Windows scan finds.
+      ...(IS_WINDOWS ? [] : [
+        // Steam's Linux container runtime, which sits inside scanned library folders
+        'reaper',
+        'srt-bwrap',
+        'pressure-vessel-wrap',
+        'steam-runtime-launcher-service',
+        // Extension-less helpers that would otherwise pass the executable-bit check below
+        'unitycrashhandler',
+        'unitycrashhandler64',
+        'xdg-open',
+        'install',
+        'install.sh',
+      ]),
     ];
 
     try {
@@ -926,9 +1001,14 @@ export class ImportService {
           // still get scanned.
           const stats = (dirEntry.isFile() || dirEntry.isDirectory()) ? dirEntry : await fsp.stat(fullPath);
 
-          if (stats.isFile() && entry.toLowerCase().endsWith('.exe')) {
-            const lowerName = entry.toLowerCase();
-            const baseName = lowerName.replace('.exe', '');
+          // What counts as an executable is platform-specific: `.exe` on Windows, but on Linux also
+          // `.x86_64`/`.sh`/AppImage and extension-less ELF binaries identified by their exec bit.
+          const executableCandidate = stats.isFile()
+            ? await describeGameExecutableCandidate(fullPath, entry)
+            : null;
+
+          if (executableCandidate) {
+            const { lowerName, baseName } = executableCandidate;
 
             // Check exact matches first
             if (excludeNames.includes(lowerName) || excludeNames.includes(baseName)) {
@@ -1015,6 +1095,11 @@ export class ImportService {
               dirName === 'manuals' ||
               dirName === 'patch' ||
               dirName === 'patches') {
+              continue;
+            }
+            // Linux shared-object trees, never the game entry point. Scoped off Windows so the set
+            // of folders a Windows scan walks is unchanged.
+            if (!IS_WINDOWS && (dirName === 'lib' || dirName === 'lib64' || dirName === 'lib32')) {
               continue;
             }
             // Recursively search subdirectories
@@ -1807,10 +1892,53 @@ export class ImportService {
   }
 
   /**
+   * Scan Lutris' game install root (Linux).
+   *
+   * Lutris records its library in a sqlite database Onyx does not read, so the configured path is the
+   * folder Lutris installs games into rather than its data directory — the games there are ordinary
+   * native or Wine-prefixed installs and scan like any other library root.
+   */
+  private async scanLutris(lutrisPath: string): Promise<ScannedGameResult[]> {
+    try {
+      if (!lutrisPath || !(await pathExists(lutrisPath))) {
+        console.warn(`[Lutris] Path does not exist: ${lutrisPath}`);
+        return [];
+      }
+
+      const results = await this.scanGenericGamesFolder(lutrisPath, 'lutris');
+      console.log(`[Lutris] Found ${results.length} games total`);
+      return results;
+    } catch (error) {
+      console.error('[Lutris] Error scanning Lutris:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Scan Bottles (Linux). Each bottle is a Wine prefix, so the games live under
+   * `<bottle>/drive_c` — scanning the bottles root reaches them without special-casing prefixes.
+   */
+  private async scanBottles(bottlesPath: string): Promise<ScannedGameResult[]> {
+    try {
+      if (!bottlesPath || !(await pathExists(bottlesPath))) {
+        console.warn(`[Bottles] Path does not exist: ${bottlesPath}`);
+        return [];
+      }
+
+      const results = await this.scanGenericGamesFolder(bottlesPath, 'bottles');
+      console.log(`[Bottles] Found ${results.length} games total`);
+      return results;
+    } catch (error) {
+      console.error('[Bottles] Error scanning Bottles:', error);
+      return [];
+    }
+  }
+
+  /**
    * Generic method to scan a games folder for any launcher
    * Recursively scans all subdirectories and creates a game entry for each folder containing a valid executable
    */
-  private async scanGenericGamesFolder(gamesPath: string, source: 'ea' | 'battle' | 'humble' | 'itch', isLibraryRoot: boolean = true): Promise<ScannedGameResult[]> {
+  private async scanGenericGamesFolder(gamesPath: string, source: 'ea' | 'battle' | 'humble' | 'itch' | 'lutris' | 'bottles', isLibraryRoot: boolean = true): Promise<ScannedGameResult[]> {
     const results: ScannedGameResult[] = [];
 
     try {
@@ -2041,6 +2169,11 @@ export class ImportService {
    * Returns an array of game paths that should always be checked
    */
   private getHardcodedGamePaths(): Array<{ path: string; name: string; exeName?: string }> {
+    // Every entry here is a Windows-only install location; probing them elsewhere is pure waste.
+    if (!IS_WINDOWS) {
+      return [];
+    }
+
     return [
       {
         path: 'C:\\Program Files\\Neverness To Everness',

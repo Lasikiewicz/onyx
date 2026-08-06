@@ -56,6 +56,23 @@ function sanitizeUpdateErrorMessage(raw?: string): string | undefined {
   return normalized.length > 240 ? `${normalized.slice(0, 237)}...` : normalized;
 }
 
+/**
+ * Pick the release asset that installs on the running platform. Windows ships an NSIS setup exe;
+ * Linux ships an AppImage (self-contained and the only Linux artifact that can replace a running
+ * install in place — .deb/.rpm need the system package manager, so they are not offered here).
+ */
+function findPlatformInstallerAsset<T extends { name: string }>(assets: T[]): T | undefined {
+  if (process.platform === 'win32') {
+    return assets.find((asset) => asset.name.endsWith('.exe') && asset.name.toLowerCase().includes('setup'));
+  }
+
+  if (process.platform === 'linux') {
+    return assets.find((asset) => asset.name.toLowerCase().endsWith('.appimage'));
+  }
+
+  return undefined;
+}
+
 const GITHUB_OWNER = 'Lasikiewicz';
 const GITHUB_REPO = 'onyx';
 const GITHUB_API = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/releases`;
@@ -176,18 +193,19 @@ async function checkForUpdatesAlpha(): Promise<void> {
       return;
     }
 
-    const exeAsset = latest.release.assets.find(
-      (a) => a.name.endsWith('.exe') && a.name.toLowerCase().includes('setup')
-    );
-    if (!exeAsset) {
-      send({ status: 'error', error: sanitizeUpdateErrorMessage('No Setup exe found in release') });
+    const installerAsset = findPlatformInstallerAsset(latest.release.assets);
+    if (!installerAsset) {
+      send({
+        status: 'error',
+        error: sanitizeUpdateErrorMessage(`No ${process.platform} installer found in release`),
+      });
       return;
     }
 
     pendingAlphaUpdate = {
       tag: latest.release.tag_name,
       version: latest.version,
-      downloadUrl: exeAsset.browser_download_url
+      downloadUrl: installerAsset.browser_download_url
     };
     send({ status: 'available', version: latest.version });
   } catch (e) {
@@ -286,7 +304,9 @@ export function downloadUpdate(): Promise<string[] | null> {
       statusListeners.forEach((l) => l(payload));
     };
     const url = pendingAlphaUpdate.downloadUrl;
-    const filename = path.basename(new URL(url).pathname) || `Onyx.Alpha.Setup.${pendingAlphaUpdate.version}.exe`;
+    const fallbackExtension = process.platform === 'win32' ? 'exe' : 'AppImage';
+    const filename = path.basename(new URL(url).pathname)
+      || `Onyx.Alpha.Setup.${pendingAlphaUpdate.version}.${fallbackExtension}`;
     const destPath = path.join(app.getPath('temp'), filename);
 
     send({ status: 'downloading' });
@@ -346,6 +366,15 @@ export function quitAndInstall(): void {
   if (!app.isPackaged) return;
 
   if (downloadedAlphaPath && fs.existsSync(downloadedAlphaPath)) {
+    // A downloaded AppImage arrives without the executable bit, so it cannot be spawned as-is.
+    if (process.platform !== 'win32') {
+      try {
+        fs.chmodSync(downloadedAlphaPath, 0o755);
+      } catch (error) {
+        console.error('[AppUpdate] Could not mark the downloaded update executable:', error);
+      }
+    }
+
     const { spawn } = require('child_process');
     spawn(downloadedAlphaPath, [], { detached: true, stdio: 'ignore' }).unref();
     app.quit();

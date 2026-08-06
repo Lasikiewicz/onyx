@@ -227,6 +227,8 @@ export const electronAPI = {
   getMetadataProviderStatus: () => ipcRenderer.invoke('metadata:getProviderStatus'),
   // App version
   getVersion: () => ipcRenderer.invoke('app:getVersion'),
+  // Host platform ('win32' | 'linux' | 'darwin'), used to pick platform-appropriate library sources
+  getPlatform: (): Promise<NodeJS.Platform> => ipcRenderer.invoke('app:getPlatform'),
   getChangelog: (request?: string | { version?: string; preferLocal?: boolean }) => ipcRenderer.invoke('app:getChangelog', request),
   // App name (for detecting Alpha builds)
   getName: () => ipcRenderer.invoke('app:getName'),

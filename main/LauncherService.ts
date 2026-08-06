@@ -1,13 +1,31 @@
 import { spawn, execFile } from 'child_process';
 import { dirname, join, normalize } from 'path';
-import { existsSync, readdirSync } from 'node:fs';
+import { constants as fsConstants, existsSync, promises as fsp, readdirSync } from 'node:fs';
 import { shell } from 'electron';
 import { GameStore, Game } from './GameStore.js';
 import { isSafeExternalUrl } from './SecurityUtils.js';
 import { resolveKnownGameLauncherExecutable } from './knownGameLaunchers.js';
+import { IS_WINDOWS } from './platformSupport.js';
 
-/** Common uninstaller executable names to look for in the game folder */
-const UNINSTALLER_NAMES = ['uninstall.exe', 'Uninstall.exe', 'unins000.exe', 'unins001.exe', 'unins002.exe'];
+/**
+ * Whether the Windows-only store clients (Epic Games Launcher, EA App/Origin, GOG Galaxy, Ubisoft
+ * Connect, Xbox) can be present. Their `com.epicgames.launcher://`, `origin2://`, `goggalaxy://`,
+ * `uplay://` and `shell:AppsFolder\` handlers exist on Windows only, so elsewhere those branches
+ * must be skipped in favour of a stored launch URI or a direct executable launch.
+ *
+ * Steam is deliberately not covered: `steam://` is registered by the native Linux client too.
+ */
+const HAS_NATIVE_STORE_CLIENTS = IS_WINDOWS;
+
+/**
+ * Common uninstaller executable names to look for in the game folder. The Linux entries cover the
+ * `uninstall.sh` GOG's native installers write and the extension-less variant some ship instead;
+ * they are kept off Windows so the file this picks in a Windows game folder cannot change.
+ */
+const UNINSTALLER_NAMES = [
+  'uninstall.exe', 'Uninstall.exe', 'unins000.exe', 'unins001.exe', 'unins002.exe',
+  ...(IS_WINDOWS ? [] : ['uninstall.sh', 'uninstall']),
+];
 
 const escapePowerShellSingleQuoted = (value: string): string => `'${value.replace(/'/g, "''")}'`;
 
@@ -38,6 +56,24 @@ export class LauncherService {
 
       if (!game) {
         return { success: false, error: `Game with ID ${gameId} not found` };
+      }
+
+      // A stored launch URI wins over every source-derived protocol guess below. This is how the
+      // Linux launcher integrations work: a Heroic game must go through `heroic://` so Heroic
+      // applies the Wine/Proton prefix, environment and wrappers it was configured with, which
+      // spawning the game binary directly would discard.
+      //
+      // Xbox is the one exception — its `shell:AppsFolder\...` URIs need explorer.exe rather than
+      // the shell's external handler, so they stay with the Xbox branch further down.
+      const storedLaunchUri = typeof game.launchUri === 'string' ? game.launchUri.trim() : '';
+      if (storedLaunchUri && !storedLaunchUri.toLowerCase().startsWith('shell:')) {
+        console.log(`[LauncherService] Launching via stored launch URI: ${storedLaunchUri}`);
+        await shell.openExternal(storedLaunchUri);
+
+        game.lastPlayed = new Date().toISOString();
+        await this.gameStore.saveGame(game);
+
+        return { success: true };
       }
 
       // Check ID format to determine launcher (most reliable method)
@@ -73,7 +109,7 @@ export class LauncherService {
       // Epic Games: epic-<CatalogItemId> or epic-<AppName>
       const epicMatch = gameId.match(/^epic-(.+)$/);
       const isEpic = epicMatch || game.platform === 'epic' || game.source === 'epic';
-      if (isEpic && game.installationDirectory) {
+      if (isEpic && game.installationDirectory && HAS_NATIVE_STORE_CLIENTS) {
         // Epic uses: com.epicgames.launcher://apps/<InstallPath>?action=launch&silent=true
         // InstallPath needs to be URI encoded
         const installPathEncoded = encodeURIComponent(game.installationDirectory);
@@ -91,7 +127,7 @@ export class LauncherService {
       // EA/Origin: ea-<OfferId> or origin-<OfferId>
       const eaMatch = gameId.match(/^(ea|origin)-(.+)$/);
       const isEA = eaMatch || game.platform === 'ea' || game.source === 'ea' || game.platform === 'origin' || game.source === 'origin';
-      if (isEA && eaMatch && eaMatch[2]) {
+      if (isEA && eaMatch && eaMatch[2] && HAS_NATIVE_STORE_CLIENTS) {
         // EA uses: origin2://game/launch?offerIds=<OfferId>
         const offerId = eaMatch[2];
         const eaUrl = `origin2://game/launch?offerIds=${offerId}`;
@@ -108,7 +144,7 @@ export class LauncherService {
       // GOG: gog-<ProductId> (Product IDs should be numeric)
       const gogMatch = gameId.match(/^gog-(\d+)$/);
       const isGOG = gogMatch || game.platform === 'gog' || game.source === 'gog';
-      if (isGOG && gogMatch && gogMatch[1]) {
+      if (isGOG && gogMatch && gogMatch[1] && HAS_NATIVE_STORE_CLIENTS) {
         // GOG uses: goggalaxy://launchGame/<ProductID>
         const productId = gogMatch[1];
         const gogUrl = `goggalaxy://launchGame/${productId}`;
@@ -125,7 +161,7 @@ export class LauncherService {
       // Ubisoft Connect: ubisoft-<GameId> (Game IDs should be numeric)
       const ubisoftMatch = gameId.match(/^ubisoft-(\d+)$/);
       const isUbisoft = ubisoftMatch || game.platform === 'ubisoft' || game.source === 'ubisoft';
-      if (isUbisoft && ubisoftMatch && ubisoftMatch[1]) {
+      if (isUbisoft && ubisoftMatch && ubisoftMatch[1] && HAS_NATIVE_STORE_CLIENTS) {
         // Ubisoft uses: uplay://launch/<GameID>
         const gameUbisoftId = ubisoftMatch[1];
         const ubisoftUrl = `uplay://launch/${gameUbisoftId}`;
@@ -147,9 +183,9 @@ export class LauncherService {
         // Fall through to exe launch below
       }
 
-      // Xbox (UWP/PC Game Pass)
+      // Xbox (UWP/PC Game Pass) — Windows-only by construction
       const isXbox = gameId.startsWith('xbox-') || game.platform === 'xbox' || game.source === 'xbox';
-      if (isXbox) {
+      if (isXbox && HAS_NATIVE_STORE_CLIENTS) {
         const xboxKind = (game as any).xboxKind as string | undefined;
         const appUserModelId = (game as any).appUserModelId as string | undefined;
         const launchUri = (game as any).launchUri as string | undefined || (appUserModelId ? `shell:AppsFolder\\${appUserModelId}` : undefined);
@@ -290,6 +326,17 @@ export class LauncherService {
           return { success: false, error: launchResult.error || 'PowerShell launch failed' };
         }
       } else {
+        // Games unpacked from an archive routinely lose the executable bit, and the raw spawn
+        // failure for that is an opaque EACCES. Check first so the user gets told what to fix.
+        try {
+          await fsp.access(exePath, fsConstants.X_OK);
+        } catch {
+          return {
+            success: false,
+            error: `"${exePath}" is not marked executable. Run: chmod +x "${exePath}"`,
+          };
+        }
+
         child = spawn(exePath, args, {
           detached: true,
           stdio: 'ignore',
@@ -381,7 +428,26 @@ export class LauncherService {
   }
 
   /**
-   * Open the game's uninstaller if present in the game folder; otherwise open Windows Settings > Apps.
+   * Fallback when no uninstaller sits in the game folder. Windows has a system page for this;
+   * elsewhere there is no equivalent — Linux uninstalls go through the distro's package manager or
+   * the launcher that installed the game — so report that instead of opening the wrong thing.
+   */
+  private async openUninstallFallback(gameTitle: string): Promise<{ success: boolean; error?: string; openedUninstaller?: boolean }> {
+    if (IS_WINDOWS) {
+      await shell.openExternal('ms-settings:appsfeatures');
+      return { success: true, openedUninstaller: false };
+    }
+
+    console.log(`[LauncherService] No uninstaller found for "${gameTitle}" and no system uninstall UI on this platform`);
+    return {
+      success: false,
+      openedUninstaller: false,
+      error: 'No uninstaller was found in the game folder. Remove this game with your package manager or the launcher that installed it.',
+    };
+  }
+
+  /**
+   * Open the game's uninstaller if present in the game folder; otherwise fall back per platform.
    */
   async openGameUninstaller(gameId: string): Promise<{ success: boolean; error?: string; openedUninstaller?: boolean }> {
     try {
@@ -393,9 +459,8 @@ export class LauncherService {
 
       const gameDir = game.exePath ? dirname(game.exePath) : game.installationDirectory;
       if (!gameDir || !existsSync(gameDir)) {
-        console.log(`[LauncherService] No game folder for "${game.title}", opening Windows Settings > Apps`);
-        await shell.openExternal('ms-settings:appsfeatures');
-        return { success: true, openedUninstaller: false };
+        console.log(`[LauncherService] No game folder for "${game.title}"`);
+        return this.openUninstallFallback(game.title);
       }
 
       const dirEntries = readdirSync(gameDir, { withFileTypes: true });
@@ -415,9 +480,8 @@ export class LauncherService {
         }
       }
 
-      console.log(`[LauncherService] No uninstaller found in "${gameDir}", opening Windows Settings > Apps`);
-      await shell.openExternal('ms-settings:appsfeatures');
-      return { success: true, openedUninstaller: false };
+      console.log(`[LauncherService] No uninstaller found in "${gameDir}"`);
+      return this.openUninstallFallback(game.title);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       console.error('[LauncherService] Error in openGameUninstaller:', errorMessage);

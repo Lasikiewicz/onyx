@@ -4,6 +4,24 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.16.0] - 2026-08-06 - The Linux Update
+
+- Linux support (testing):
+  - Onyx now runs on Linux, packaged as an AppImage, a .deb and an .rpm.
+  - Steam libraries are found automatically whether Steam was installed natively, from Flatpak or from Snap, including the older `~/.local/share/Steam` layout and libraries kept on other drives.
+  - Epic and GOG libraries are read from Heroic Games Launcher, which is how those stores exist on Linux; both native and Flatpak Heroic installs are found.
+  - Games installed through Heroic launch through Heroic, so each one keeps the Wine or Proton settings you gave it instead of being started directly and losing them.
+  - Lutris, Bottles and itch.io are detected and their game folders can be scanned.
+  - Native Linux games are now recognised during a scan. Onyx previously only looked for Windows `.exe` files, so it found nothing; it now also picks up `.x86_64`, `.sh` and AppImage entry points, and plain executable files with no extension.
+  - Unreal Engine games built for Linux are recognised, and the correct game binary is picked rather than a helper or a launcher script.
+  - Windows games in a Steam or Heroic library still show up, since those run through Proton or Wine.
+  - Settings > Apps now lists the sources that exist on your system: Xbox Game Pass, EA App, Ubisoft Connect, Battle.net, Humble and Rockstar are hidden on Linux, because none of them has a Linux version.
+  - Starting a game that has lost its executable permission now says so and gives you the command to fix it, instead of failing with an unexplained error.
+  - Onyx can start with your session on Linux, and keeps working after you move the AppImage file.
+- Fixes:
+  - Fixed itch.io, Humble and Rockstar Games never being scanned on Windows even when switched on. Their default locations are written using Windows shortcuts such as `%LOCALAPPDATA%`, and Onyx was looking for a folder named literally that, so the check always failed and the source was skipped in silence.
+  - Uninstalling a game with no uninstaller in its folder no longer opens the Windows Settings app on systems that do not have one.
+
 ## [0.15.5] - 2026-08-05
 
 - API Integrations:
