@@ -18,6 +18,12 @@ on:
       - 'website/**'
       - 'docs/**'
       - '.agent/**'
+  # Manual trigger, so a release can be built without inventing a commit. Needed whenever a push
+  # event fails to start a run — GitHub throttles webhook delivery during Actions incidents, which
+  # silently drops the trigger and leaves the branch built but unreleased.
+  # The build profile still comes from the ref you dispatch against: `develop` builds Alpha,
+  # anything else builds Production.
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -75,8 +81,11 @@ jobs:
       - name: Determine build profile
         id: build_profile
         run: |
-          # On push: use current branch; on pull_request: use PR target branch
-          $branch = "${{ github.event_name == 'push' && github.ref_name || github.base_ref }}"
+          # On pull_request: use the PR target branch. On push and workflow_dispatch: use the ref
+          # itself. Inverted from the original `event_name == 'push'` test because `github.base_ref`
+          # is empty for workflow_dispatch, which would have silently built a manually dispatched
+          # `develop` run with the Production profile and tagged it `v<version>`.
+          $branch = "${{ github.event_name == 'pull_request' && github.base_ref || github.ref_name }}"
           if ($branch -eq "develop") {
             echo "profile=alpha" >> $env:GITHUB_OUTPUT
             echo "tag_prefix=alpha-v" >> $env:GITHUB_OUTPUT
@@ -109,7 +118,7 @@ jobs:
         shell: pwsh
 
       - name: Create and push tag
-        if: github.event_name == 'push'
+        if: github.event_name != 'pull_request'
         run: |
           $tag = "${{ steps.build_profile.outputs.tag_prefix }}${{ steps.version.outputs.version }}"
           git config user.name "github-actions[bot]"
@@ -119,7 +128,7 @@ jobs:
         shell: pwsh
       
       - name: Delete old release
-        if: github.event_name == 'push'
+        if: github.event_name != 'pull_request'
         run: |
           $tag = "${{ steps.build_profile.outputs.tag_prefix }}${{ steps.version.outputs.version }}"
           gh release delete $tag -y || true
@@ -128,7 +137,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create source tarball
-        if: github.event_name == 'push'
+        if: github.event_name != 'pull_request'
         id: source_bundle
         run: |
           $tag = "${{ steps.build_profile.outputs.tag_prefix }}${{ steps.version.outputs.version }}"
@@ -138,7 +147,7 @@ jobs:
         shell: pwsh
 
       - name: Prepare release notes from changelog
-        if: github.event_name == 'push'
+        if: github.event_name != 'pull_request'
         run: |
           $version = "${{ steps.version.outputs.version }}"
           $changelog = Get-Content CHANGELOG.md -Raw
@@ -163,7 +172,7 @@ jobs:
         shell: pwsh
       
       - name: Create Release
-        if: github.event_name == 'push'
+        if: github.event_name != 'pull_request'
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ steps.build_profile.outputs.tag_prefix }}${{ steps.version.outputs.version }}
@@ -235,7 +244,7 @@ jobs:
         run: ls -la release
 
       - name: Attach Linux artifacts to the release
-        if: github.event_name == 'push'
+        if: github.event_name != 'pull_request'
         run: |
           shopt -s nullglob
           artifacts=(release/*.AppImage release/*.deb release/*.rpm)

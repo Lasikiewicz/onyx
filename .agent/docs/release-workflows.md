@@ -90,6 +90,22 @@ cd website && npx wrangler pages deploy dist --project-name=onyx --branch=main
 
 Deploy to Cloudflare Pages production branch only.
 
+## 6) Rebuild a release without a new commit
+
+A push is not a guaranteed trigger. GitHub throttles webhook delivery during Actions incidents, which
+drops the event and leaves the branch promoted but with no build, no tag and no release. Verify after
+promoting, and dispatch manually if nothing started:
+
+```bash
+gh run list --limit 5
+gh workflow run build.yml --ref develop
+gh workflow run build.yml --ref main
+```
+
+The profile comes from the ref: `develop` builds Alpha (`alpha-v<version>`, prerelease), anything else
+builds Production (`v<version>`). A dispatched run tags, deletes any existing release for that tag, and
+publishes exactly as a push-triggered run does.
+
 ## Auto-update behavior
 
 - Alpha users receive updates from published GitHub pre-releases built from `develop`.
