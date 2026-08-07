@@ -36,21 +36,21 @@ jobs:
     outputs:
       tag: ${{ steps.build_profile.outputs.tag_prefix }}${{ steps.version.outputs.version }}
       profile: ${{ steps.build_profile.outputs.profile }}
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-    
+    # FORCE_JAVASCRIPT_ACTIONS_TO_NODE24 was removed here: every action below now targets node24
+    # natively, so it was a no-op, and keeping it would suppress the warning that announces the
+    # *next* runtime deprecation instead of surfacing it.
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: '24'
           cache: 'npm'
       
       - name: Cache Electron
-        uses: actions/cache@v3
+        uses: actions/cache@v6
         with:
           path: |
             ~/.electron
@@ -173,7 +173,7 @@ jobs:
       
       - name: Create Release
         if: github.event_name != 'pull_request'
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ steps.build_profile.outputs.tag_prefix }}${{ steps.version.outputs.version }}
           name: ${{ steps.build_profile.outputs.profile == 'alpha' && 'Onyx Alpha' || 'Onyx' }} ${{ steps.version.outputs.version }}
@@ -198,10 +198,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: '24'
           cache: 'npm'
@@ -247,12 +247,22 @@ jobs:
         if: github.event_name != 'pull_request'
         run: |
           shopt -s nullglob
-          artifacts=(release/*.AppImage release/*.deb release/*.rpm)
-          if [ ${#artifacts[@]} -eq 0 ]; then
-            echo "No Linux artifacts were produced" >&2
+          packages=(release/*.AppImage release/*.deb release/*.rpm)
+          if [ ${#packages[@]} -eq 0 ]; then
+            echo "No Linux packages were produced" >&2
             exit 1
           fi
-          echo "Uploading: ${artifacts[*]}"
-          gh release upload "${{ needs.build.outputs.tag }}" "${artifacts[@]}" --clobber
+
+          # latest-linux.yml is electron-updater's feed for the AppImage. It is checked separately
+          # and treated as fatal because without it in the release every packaged Linux build fails
+          # its update check — the packages upload fine and the breakage only shows up at runtime.
+          feed=(release/latest-linux.yml)
+          if [ ${#feed[@]} -eq 0 ]; then
+            echo "latest-linux.yml is missing; AppImage auto-update would be broken" >&2
+            exit 1
+          fi
+
+          echo "Uploading: ${packages[*]} ${feed[*]}"
+          gh release upload "${{ needs.build.outputs.tag }}" "${packages[@]}" "${feed[@]}" --clobber
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

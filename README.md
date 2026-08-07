@@ -1,11 +1,36 @@
 # Onyx - Premium Unified Game Library
 
-[![License: GPLv3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE) [![Platform: Windows](https://img.shields.io/badge/Platform-Windows-0078d6?logo=windows)](https://onyxlauncher.co.uk/)
+[![License: GPLv3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE) [![Platform: Windows](https://img.shields.io/badge/Platform-Windows-0078d6?logo=windows)](https://onyxlauncher.co.uk/) [![Platform: Linux (Testing)](https://img.shields.io/badge/Platform-Linux%20(Testing)-f0b429?logo=linux&logoColor=white)](https://onyxlauncher.co.uk/)
 
 A modern Electron application built with React, TypeScript, Vite, and Tailwind CSS. Onyx provides a unified interface for managing games from multiple launchers (Steam, Epic, GOG, Xbox, and more).
 
-- **Download:** [https://onyxlauncher.co.uk/](https://onyxlauncher.co.uk/) · [GitHub Releases](https://github.com/Lasikiewicz/onyx/releases) (Windows installer)
+- **Download:** [https://onyxlauncher.co.uk/](https://onyxlauncher.co.uk/) · [GitHub Releases](https://github.com/Lasikiewicz/onyx/releases) — Windows installer, plus AppImage / `.deb` / `.rpm` for Linux
 - **Free and open source** — GPL-3.0-or-later license · [Changelog](CHANGELOG.md) / [What's new](https://github.com/Lasikiewicz/onyx/releases)
+
+## Platform Support
+
+**Windows** is the primary, fully supported platform.
+
+**Linux** support is in **testing** as of 0.16.0. What works, and what does not:
+
+| | Windows | Linux |
+|---|---|---|
+| Steam | Yes | Yes — native, Flatpak and Snap installs |
+| Epic | Yes — Epic Games Launcher | Yes — via [Heroic](https://heroicgameslauncher.com/) |
+| GOG | Yes — GOG Galaxy | Yes — via Heroic, or a `~/GOG Games` folder scan |
+| Lutris / Bottles | — | Detected; games found by folder scan |
+| itch.io | Yes | Yes |
+| Xbox Game Pass, EA App, Ubisoft Connect, Battle.net, Humble, Rockstar | Yes | **No Linux client exists** — these sources are hidden on Linux |
+| Suspend / Resume | Disabled by default | Not supported |
+
+Notes for Linux:
+
+- Games installed through Heroic are launched **through Heroic**, so each one keeps the Wine/Proton configuration you gave it. Onyx does not run the game binary directly.
+- Native Linux games are detected by extension (`.x86_64`, `.sh`, AppImage) or by the executable bit. Windows games in a Steam or Heroic library are also listed, since those run under Proton/Wine.
+- Only the **AppImage** receives in-app updates. `.deb` and `.rpm` installs update through your distribution's package manager.
+- Expect rough edges — please [open an issue](https://github.com/Lasikiewicz/onyx/issues) for anything you hit.
+
+**macOS** is not supported and is not currently planned.
 
 ### Screenshots
 
@@ -169,6 +194,14 @@ npm run dist
 - Automatically increments build version
 - Generates and validates icons
 
+**Linux Builds** (run on Linux; `rpmbuild` and `fakeroot` must be installed for the `.rpm`/`.deb` targets):
+```bash
+npm run build:linux
+```
+- Produces an AppImage, a `.deb` and an `.rpm` in `release/`
+- `npm run build:linux:alpha` builds the Alpha profile instead
+- `LINUX_MAINTAINER="Name <email>"` overrides the maintainer embedded in the `.deb`/`.rpm` metadata
+
 ### Automated Builds via GitHub Actions
 
 The project includes automated builds via GitHub Actions:
@@ -176,9 +209,21 @@ The project includes automated builds via GitHub Actions:
 - **Pushing to `develop` branch**: Automatically builds Alpha version and creates a pre-release on GitHub
 - **Pushing to `main` branch**: Automatically builds Production version and creates a stable release on GitHub
 
+Each release carries a Windows installer plus Linux packages. These are built by two separate jobs: a
+Windows job that owns the tag, the release and its notes, and a Linux job that attaches its AppImage,
+`.deb`, `.rpm` and `latest-linux.yml` to that same release. The Linux job runs `needs: build`, so a
+Linux packaging failure can never stop the Windows installer from publishing.
+
 Releases are tagged as:
 - Alpha: `alpha-v{version}` (marked as pre-release)
 - Production: `v{version}` (stable release)
+
+If a push does not start a run — GitHub throttles webhook delivery during Actions incidents, which
+drops the event silently — trigger the build manually instead of making an empty commit:
+
+```bash
+gh workflow run build.yml --ref main
+```
 
 **Workflow:**
 1. Work and test locally on `master` branch
