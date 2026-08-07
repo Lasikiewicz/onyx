@@ -57,26 +57,26 @@ export const RemoveDeletedGamesDialog: React.FC<RemoveDeletedGamesDialogProps> =
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-            <div className="bg-[#1a1f2e] rounded-2xl shadow-2xl border border-white/5 w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+            <div className="bg-gradient-to-br from-gray-900 to-slate-950 rounded-2xl shadow-2xl border border-gray-700/50 w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
                 {/* Header */}
-                <div className="px-6 py-5 border-b border-white/5 flex items-center justify-between bg-white/[0.02]">
+                <div className="px-6 py-5 border-b border-gray-800 flex items-center justify-between">
                     <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center justify-center shadow-lg shadow-red-500/5">
-                            <svg className="w-6 h-6 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <div className="w-11 h-11 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center justify-center flex-shrink-0">
+                            <svg className="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                             </svg>
                         </div>
                         <div>
                             <h2 className="text-xl font-bold text-white tracking-tight">Remove Deleted Games</h2>
-                            <p className="text-slate-400 text-sm">Clean up your library from uninstalled games</p>
+                            <p className="text-gray-400 text-sm mt-0.5">Games are removed from your library only — no files are deleted from disk</p>
                         </div>
                     </div>
                     <button
                         onClick={onCancel}
-                        className="group p-2 hover:bg-white/5 rounded-xl transition-all"
+                        className="group p-2 hover:bg-gray-800 rounded-lg transition-colors flex-shrink-0"
                     >
-                        <svg className="w-6 h-6 text-slate-500 group-hover:text-white transition-colors group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-5 h-5 text-gray-500 group-hover:text-white transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                         </svg>
                     </button>
@@ -92,65 +92,75 @@ export const RemoveDeletedGamesDialog: React.FC<RemoveDeletedGamesDialogProps> =
                             </div>
                             <div className="text-center space-y-2">
                                 <p className="text-white font-semibold text-lg">Scanning your system...</p>
-                                <p className="text-slate-400 text-sm max-w-[280px]">Verifying Steam library and local file paths for all games</p>
+                                <p className="text-gray-400 text-sm max-w-[280px]">Verifying Steam library and local file paths for all games</p>
                             </div>
                         </div>
                     ) : missingGames.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-16 space-y-6 text-center">
-                            <div className="w-20 h-20 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shadow-lg shadow-emerald-500/5">
-                                <svg className="w-10 h-10 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <div className="w-16 h-16 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
+                                <svg className="w-8 h-8 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5 13l4 4L19 7" />
                                 </svg>
                             </div>
                             <div className="space-y-2">
-                                <h3 className="text-xl font-bold text-white">Library is Healthy</h3>
-                                <p className="text-slate-400 max-w-sm mx-auto">None of the games in your library are currently reported as missing or deleted from your system.</p>
+                                <h3 className="text-xl font-bold text-white">Library is healthy</h3>
+                                <p className="text-gray-400 text-sm max-w-sm mx-auto">None of the games in your library are currently reported as missing or deleted from your system.</p>
                             </div>
                         </div>
                     ) : (
-                        <div className="space-y-5">
-                            <div className="flex items-center justify-between">
-                                <p className="text-slate-400 text-sm font-medium">
-                                    Found <span className="text-white font-bold">{missingGames.length}</span> uninstalled game{missingGames.length !== 1 ? 's' : ''}
+                        <div className="space-y-4">
+                            <div className="flex items-center justify-between px-1">
+                                <p className="text-gray-400 text-sm font-medium">
+                                    {missingGames.length} uninstalled game{missingGames.length !== 1 ? 's' : ''} found
                                 </p>
                                 <button
                                     onClick={toggleAll}
-                                    className="text-blue-400 hover:text-blue-300 text-sm font-bold transition-colors"
+                                    className="px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-300 bg-gray-800 hover:bg-gray-700 border border-gray-700 transition-colors"
                                 >
-                                    {selectedIds.size === missingGames.length ? 'Deselect All' : 'Select All'}
+                                    {selectedIds.size === missingGames.length ? 'Deselect all' : 'Select all'}
                                 </button>
                             </div>
 
                             <div className="space-y-2">
                                 {missingGames.map((game) => (
-                                    <div
+                                    <label
                                         key={game.id}
-                                        className={`group flex items-center gap-4 p-4 rounded-xl transition-all cursor-pointer border ${selectedIds.has(game.id)
-                                                ? 'bg-blue-500/10 border-blue-500/30 shadow-lg shadow-blue-500/5'
-                                                : 'bg-white/[0.03] border-white/5 hover:bg-white/[0.06] hover:border-white/10'
+                                        className={`group flex items-start gap-4 p-4 rounded-xl transition-colors cursor-pointer border ${selectedIds.has(game.id)
+                                            ? 'bg-blue-500/10 border-blue-500/30'
+                                            : 'bg-gray-800/40 border-gray-700/30 hover:bg-gray-800/60'
                                             }`}
-                                        onClick={() => toggleGameSelection(game.id)}
                                     >
-                                        <div className={`w-6 h-6 rounded-lg border-2 flex-shrink-0 flex items-center justify-center transition-all ${selectedIds.has(game.id)
-                                                ? 'bg-blue-500 border-blue-400 shadow-[0_0_10px_rgba(59,130,246,0.5)]'
-                                                : 'border-white/10 bg-slate-900 group-hover:border-white/20'
+                                        <input
+                                            type="checkbox"
+                                            checked={selectedIds.has(game.id)}
+                                            onChange={() => toggleGameSelection(game.id)}
+                                            className="sr-only"
+                                        />
+                                        <div className={`w-5 h-5 mt-0.5 rounded-md border flex-shrink-0 flex items-center justify-center transition-colors ${selectedIds.has(game.id)
+                                            ? 'bg-blue-500 border-blue-500'
+                                            : 'border-gray-600 bg-gray-900 group-hover:border-gray-500'
                                             }`}>
                                             {selectedIds.has(game.id) && (
-                                                <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                                                 </svg>
                                             )}
                                         </div>
                                         <div className="flex-1 min-w-0">
-                                            <div className="font-bold text-slate-100 truncate group-hover:text-white transition-colors">{game.title}</div>
-                                            <div className="text-xs text-slate-400 truncate flex items-center gap-2 mt-0.5">
-                                                <span className="capitalize px-1.5 py-0.5 rounded bg-slate-800 text-[10px] font-bold border border-white/5 text-slate-300 tracking-wider">
+                                            <div className="flex justify-between items-start gap-2">
+                                                <div className="font-semibold text-white truncate">{game.title}</div>
+                                                <div className="px-2 py-0.5 rounded text-[10px] font-medium bg-gray-700 text-gray-300 uppercase tracking-wider flex-shrink-0">
                                                     {game.source || 'Manual'}
-                                                </span>
-                                                <span className="truncate opacity-70 italic">{game.exePath || 'No path defined'}</span>
+                                                </div>
+                                            </div>
+                                            <div
+                                                className="text-xs text-gray-500 mt-1 font-mono break-all group-hover:text-gray-400 transition-colors"
+                                                title={game.exePath || undefined}
+                                            >
+                                                {game.exePath || 'No path defined'}
                                             </div>
                                         </div>
-                                    </div>
+                                    </label>
                                 ))}
                             </div>
                         </div>
@@ -158,18 +168,16 @@ export const RemoveDeletedGamesDialog: React.FC<RemoveDeletedGamesDialogProps> =
                 </div>
 
                 {/* Footer */}
-                <div className="px-6 py-5 border-t border-white/5 flex items-center justify-between bg-white/[0.02]">
-                    <div className="text-sm font-medium">
+                <div className="px-6 py-4 border-t border-gray-800 flex items-center justify-between gap-4">
+                    <div className="text-sm text-gray-400 min-w-0 truncate">
                         {missingGames.length > 0 && !isScanning && (
-                            <span className="text-slate-400">
-                                <span className="text-blue-400 font-bold">{selectedIds.size}</span> selected for removal
-                            </span>
+                            <span>{selectedIds.size} of {missingGames.length} selected</span>
                         )}
                     </div>
-                    <div className="flex gap-3">
+                    <div className="flex gap-3 flex-shrink-0">
                         <button
                             onClick={onCancel}
-                            className="px-6 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold rounded-xl transition-all border border-white/5 active:scale-95"
+                            className="px-5 py-2.5 bg-gray-800 hover:bg-gray-700 text-white font-medium rounded-lg transition-colors border border-gray-700"
                         >
                             {missingGames.length === 0 && !isScanning ? 'Close' : 'Cancel'}
                         </button>
@@ -177,7 +185,7 @@ export const RemoveDeletedGamesDialog: React.FC<RemoveDeletedGamesDialogProps> =
                             <button
                                 onClick={handleRemove}
                                 disabled={selectedIds.size === 0 || isRemoving}
-                                className="group px-6 py-2.5 bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-400 text-white font-bold rounded-xl transition-all shadow-xl shadow-red-950/40 disabled:opacity-30 disabled:cursor-not-allowed disabled:active:scale-100 flex items-center gap-2 active:scale-95"
+                                className="px-5 py-2.5 bg-red-600 hover:bg-red-500 text-white font-medium rounded-lg transition-colors border border-red-500/50 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-red-600 flex items-center gap-2"
                             >
                                 {isRemoving ? (
                                     <>
@@ -186,10 +194,10 @@ export const RemoveDeletedGamesDialog: React.FC<RemoveDeletedGamesDialogProps> =
                                     </>
                                 ) : (
                                     <>
-                                        <svg className="w-4 h-4 group-hover:animate-wobble" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                         </svg>
-                                        <span>Remove Selected</span>
+                                        <span>Remove{selectedIds.size > 0 ? ` ${selectedIds.size}` : ''}</span>
                                     </>
                                 )}
                             </button>

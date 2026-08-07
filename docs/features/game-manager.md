@@ -22,6 +22,7 @@ Provides the main per-game maintenance workspace for the library. The Game Manag
 - Artwork editing flows, including local browse/upload, aggregated provider search, quick search, provider filtering, and artwork context menus.
 - Link editing flows, including manual link changes, icon inference, and link-icon upload/search helpers.
 - Maintenance dialogs launched from the manager, including remove-deleted-games review, boxart fix, and metadata refresh confirmation flows.
+- The remove-deleted-games review in [`RemoveDeletedGamesDialog.tsx`](../../renderer/src/components/RemoveDeletedGamesDialog.tsx) follows the shared modal styling used by [`FoundGamesModal.tsx`](../../renderer/src/components/FoundGamesModal.tsx): gradient panel, one row per game with the title and source badge on the first line and the executable path on its own monospace line. Each row is a `<label>` wrapping a visually hidden checkbox, so the whole row is clickable and keyboard focusable. The header states that removal affects the library only and leaves files on disk untouched.
 
 ## Settings and Toggles
 

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import {
   DndContext,
@@ -22,6 +22,7 @@ import iconSvg from '../../../resources/icon.svg';
 import { TopBarContextMenu, TopBarPositions, TopBarElementPosition } from './TopBarContextMenu';
 import type { OptimizationStatus } from '../types/optimization';
 import { LauncherIcon, getLauncherDisplayName } from '../utils/launcherIcons';
+import { DEV_DIALOG_ENTRIES, DevDialogPreview } from './develop/DevDialogPreview';
 
 interface MenuBarProps {
   onScanFolder?: () => void;
@@ -166,6 +167,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
   const [isLauncherDropdownOpen, setIsLauncherDropdownOpen] = useState(false);
   const [isOnyxSettingsMenuOpen, setIsOnyxSettingsMenuOpen] = useState(false);
   const [isDevelopMenuOpen, setIsDevelopMenuOpen] = useState(false);
+  const [previewDialogId, setPreviewDialogId] = useState<string | null>(null);
   const [isPackagedRuntime, setIsPackagedRuntime] = useState<boolean | null>(null);
 
   const [topBarContextMenu, setTopBarContextMenu] = useState<{ x: number; y: number } | null>(null);
@@ -368,6 +370,36 @@ export const MenuBar: React.FC<MenuBarProps> = ({
   const developMenuRef = useRef<HTMLDivElement>(null);
 
   const showDevelopMenu = import.meta.env.DEV || isPackagedRuntime === false;
+
+  // Every Develop entry — direct actions and mock-data dialog previews — flattened into one
+  // alphabetical list. Actions take precedence over a preview sharing the same id, so "Report a
+  // Bug" opens the real modal on builds that provide the handler and the mock mount elsewhere.
+  const developMenuEntries = useMemo(() => {
+    const actions: Array<{ id: string; label: string; onSelect: () => void }> = [
+      {
+        id: 'toggle-console',
+        label: 'Toggle Console',
+        onSelect: async () => {
+          try {
+            await window.electronAPI.toggleDevTools();
+          } catch (error) {
+            console.error('Error toggling DevTools:', error);
+          }
+        },
+      },
+      { id: 'open-onboarding', label: 'Open Initial Onboarding', onSelect: () => onForceOpenOnboarding?.() },
+      { id: 'close-onboarding', label: 'Close Initial Onboarding', onSelect: () => onForceCloseOnboarding?.() },
+      { id: 'open-update-found', label: 'Open Update Found', onSelect: () => onForceOpenUpdateFound?.() },
+      { id: 'bug-report', label: 'Report a Bug', onSelect: onBugReport ?? (() => setPreviewDialogId('bug-report')) },
+    ];
+
+    const actionIds = new Set(actions.map((action) => action.id));
+    const previews = DEV_DIALOG_ENTRIES
+      .filter((entry) => !actionIds.has(entry.id))
+      .map((entry) => ({ id: entry.id, label: entry.label, onSelect: () => setPreviewDialogId(entry.id) }));
+
+    return [...actions, ...previews].sort((a, b) => a.label.localeCompare(b.label));
+  }, [onBugReport, onForceCloseOnboarding, onForceOpenOnboarding, onForceOpenUpdateFound]);
 
   useEffect(() => {
     (async () => {
@@ -1220,65 +1252,20 @@ export const MenuBar: React.FC<MenuBarProps> = ({
               </button>
 
               {isDevelopMenuOpen && (
-                <div className="absolute right-0 mt-1 w-64 bg-gray-800 border border-gray-700 rounded-lg shadow-xl z-50">
-                  <div className="p-2 space-y-1">
-                    <button
-                      onClick={async () => {
-                        try {
-                          await window.electronAPI.toggleDevTools();
-                        } catch (error) {
-                          console.error('Error toggling DevTools:', error);
-                        }
-                        setIsDevelopMenuOpen(false);
-                      }}
-                      className="w-full text-left px-3 py-2 rounded text-sm text-gray-300 hover:bg-gray-700 whitespace-nowrap"
-                    >
-                      Toggle Console
-                    </button>
-
-                    <button
-                      onClick={() => {
-                        onForceOpenOnboarding?.();
-                        setIsDevelopMenuOpen(false);
-                      }}
-                      className="w-full text-left px-3 py-2 rounded text-sm text-gray-300 hover:bg-gray-700 whitespace-nowrap"
-                    >
-                      Open Initial Onboarding
-                    </button>
-
-                    <button
-                      onClick={() => {
-                        onForceCloseOnboarding?.();
-                        setIsDevelopMenuOpen(false);
-                      }}
-                      className="w-full text-left px-3 py-2 rounded text-sm text-gray-300 hover:bg-gray-700 whitespace-nowrap"
-                    >
-                      Close Initial Onboarding
-                    </button>
-
-                    <div className="my-1 border-t border-gray-700/70" />
-
-                    <button
-                      onClick={() => {
-                        onForceOpenUpdateFound?.();
-                        setIsDevelopMenuOpen(false);
-                      }}
-                      className="w-full text-left px-3 py-2 rounded text-sm text-gray-300 hover:bg-gray-700 whitespace-nowrap"
-                    >
-                      Open Update Found
-                    </button>
-
-                    {onBugReport && (
+                <div className="absolute right-0 mt-1 w-[48rem] max-w-[85vw] bg-gray-800 border border-gray-700 rounded-lg shadow-2xl z-50 p-2">
+                  <div className="grid grid-cols-3 gap-x-2 gap-y-0.5 leading-snug">
+                    {developMenuEntries.map((entry) => (
                       <button
+                        key={entry.id}
                         onClick={() => {
-                          onBugReport();
                           setIsDevelopMenuOpen(false);
+                          entry.onSelect();
                         }}
-                        className="w-full text-left px-3 py-2 rounded text-sm text-gray-300 hover:bg-gray-700 whitespace-nowrap"
+                        className="text-left px-3 py-2 rounded text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors"
                       >
-                        Report a Bug
+                        {entry.label}
                       </button>
-                    )}
+                    ))}
                   </div>
                 </div>
               )}
@@ -1291,6 +1278,15 @@ export const MenuBar: React.FC<MenuBarProps> = ({
             </div>
           )}
         </div>
+      )}
+
+      {/* Dev-only dialog gallery. Portalled to body so it escapes the top bar's drag region
+          and stacks above the rest of the shell. */}
+      {showDevelopMenu && previewDialogId && createPortal(
+        <div style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+          <DevDialogPreview dialogId={previewDialogId} onClose={() => setPreviewDialogId(null)} />
+        </div>,
+        document.body
       )}
 
       {/* Top Bar Context Menu */}

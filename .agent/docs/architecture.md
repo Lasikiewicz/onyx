@@ -169,6 +169,13 @@ It explains module boundaries, data flow, and release pipeline expectations.
 - `react-hooks/exhaustive-deps` is enabled across all renderer files with no per-file exclusions; effects should be narrowed to the fields they read rather than suppressed.
 - **Long lists are windowed.** `@tanstack/react-virtual` backs `LibraryListView` and the Game Manager game list so DOM node count does not scale with library size. Grid and Card views intentionally use CSS containment (`contentVisibility` + `containIntrinsicSize`) instead, because windowing interacts badly with their drag-and-drop reordering. Any new list that can hold the whole library should be windowed rather than relying on containment alone.
 
+### Develop Menu and Dialog Previews
+
+- The `Develop` menu in `renderer/src/components/MenuBar.tsx` renders only when `import.meta.env.DEV` is true or the runtime reports itself unpackaged. It is a single flat, alphabetically sorted grid: direct actions (Toggle Console, onboarding force open/close, Open Update Found, Report a Bug) and dialog previews are the same `{ id, label, onSelect }` shape and are rendered by the same code path.
+- `renderer/src/components/develop/DevDialogPreview.tsx` owns the preview host. It mounts real dialog components with fabricated props so states that normally need a real trigger (a deleted game, a failed metadata match, a crash dump on disk) can be inspected without producing that condition. It must stay side-effect free: every callback logs and closes, and nothing writes to `electron-store`.
+- Actions win over a preview sharing the same `id`, so `Report a Bug` opens the real modal on builds that supply `onBugReport` and the mock mount elsewhere.
+- **Preview imports must not defeat code splitting.** `App.tsx` lazy-loads `BugReportModal` and `MetadataSearchModal`; `DevDialogPreview` loads those two through `React.lazy` behind a `Suspense` boundary for the same reason. Adding a static import of a lazily-loaded modal here silently pulls it back into the main chunk — `npm run build` reports this as a "dynamically imported but also statically imported" warning.
+
 ### Main-Thread Blocking Policy
 
 - Scanners and services on the main process must not use synchronous fs (`readdirSync`, `statSync`, `readFileSync`, `existsSync`) or `spawnSync`/`execFileSync`. The main process is single-threaded and shared with window paint, input and every IPC handler, so a blocking call there freezes the whole app. `main/XboxService.ts`, `main/LauncherDetectionService.ts`, `main/ImportService.ts` and `main/ipc/scanningHandlers.ts` are all async for this reason.
@@ -219,7 +226,7 @@ It explains module boundaries, data flow, and release pipeline expectations.
 
 <!-- AUTO-GENERATED:MODULE_INDEX:START -->
 - Main process source files: 90
-- Renderer source files: 177
+- Renderer source files: 178
 - Automation scripts: 30
 - GitHub workflow files: 7
 - Key entrypoints:

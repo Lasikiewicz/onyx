@@ -4,6 +4,17 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.16.1] - 2026-08-07
+
+- Remove Deleted Games:
+  - The dialog now follows the same styling as the rest of Onyx's windows instead of its own one-off look.
+  - Each game's file path is now shown in full on its own line, rather than being squeezed alongside the store badge and cut off after a few characters, so you can tell which install a row actually refers to.
+  - The header now says that removing a game takes it out of your library only and leaves the files on your disk untouched.
+  - Rows can now be selected with the keyboard as well as the mouse.
+- Developer tooling (not shown in normal builds):
+  - The Develop menu is now a single alphabetical list rather than a short menu with a submenu, and every entry sits at the top level.
+  - It can now open any of Onyx's dialogs with stand-in data, so a dialog can be checked without having to reproduce the situation that normally triggers it — deleting a game to see the removal dialog, for instance.
+
 ## [0.16.0] - 2026-08-06 - The Linux Update
 
 - Linux support (testing):
