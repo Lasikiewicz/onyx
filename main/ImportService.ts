@@ -2065,7 +2065,7 @@ export class ImportService {
             name: folderName,
             folderPath: gameDir,
             exeName: exeFileName,
-            source: source as any,
+            source: source as 'steam' | 'epic' | 'gog' | 'ubisoft' | 'ea' | 'battle' | 'itch' | 'humble' | 'xbox' | 'manual',
           })) {
             console.log(`[${source}] Filtering out non-game: ${folderName}`);
             continue; // Skip this one

@@ -265,7 +265,7 @@ export function GamePropertiesMetadataTab({
               <label className="block text-[10px] uppercase tracking-wider font-semibold text-gray-500 mb-0.5">Launch arguments</label>
               <input
                 type="text"
-                value={editedFields.launchArgs ?? (game as any).launchArgs ?? ''}
+                value={editedFields.launchArgs ?? (game as StagedGame).launchArgs ?? ''}
                 onChange={(e) => updateField('launchArgs', e.target.value)}
                 disabled={editingDisabled}
                 placeholder="e.g. -savetouserdir"

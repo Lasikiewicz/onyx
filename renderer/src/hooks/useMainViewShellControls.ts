@@ -19,6 +19,7 @@ interface UseMainViewShellControlsOptions {
   setTopBarPositions: (value: TopBarPositions) => void;
   setViewMode: (value: 'grid' | 'list' | 'logo' | 'carousel' | 'coverflow' | 'card') => void;
   viewMode: 'grid' | 'list' | 'logo' | 'carousel' | 'coverflow' | 'card';
+  openRemoveDeletedGames: () => void;
 }
 
 export function useMainViewShellControls({
@@ -39,6 +40,7 @@ export function useMainViewShellControls({
   setTopBarPositions,
   setViewMode,
   viewMode,
+  openRemoveDeletedGames,
 }: UseMainViewShellControlsOptions) {
   const handleTopBarPositionsChange = useCallback(async (positions: TopBarPositions) => {
     setTopBarPositions(positions);
@@ -60,6 +62,7 @@ export function useMainViewShellControls({
   const handleConfigureSteam = useCallback(() => setIsSteamConfigOpen(true), [setIsSteamConfigOpen]);
   const handleForceCloseOnboarding = useCallback(() => setForceShowInitialOnboarding(false), [setForceShowInitialOnboarding]);
   const handleForceOpenOnboarding = useCallback(() => setForceShowInitialOnboarding(true), [setForceShowInitialOnboarding]);
+  const handleRemoveDeletedGames = useCallback(() => openRemoveDeletedGames(), [openRemoveDeletedGames]);
 
   // MenuBar and TopBar are memoization-sensitive: MenuBar is ~1500 lines and re-rendered on
   // every search keystroke if this object is rebuilt each render.
@@ -79,6 +82,7 @@ export function useMainViewShellControls({
     onTopBarPositionsChange: handleTopBarPositionsChange,
     onUpdateLibrary: handleUpdateSteamLibrary,
     onUpdateSteamLibrary: handleUpdateSteamLibrary,
+    onRemoveDeletedGames: handleRemoveDeletedGames,
     topBarRefresh: loadLibrary,
   }), [
     handleAbout,
@@ -89,6 +93,7 @@ export function useMainViewShellControls({
     handleForceCloseOnboarding,
     handleForceOpenOnboarding,
     handleGeneralSettings,
+    handleRemoveDeletedGames,
     handleScanFolder,
     handleTopBarPositionsChange,
     handleUpdateSteamLibrary,

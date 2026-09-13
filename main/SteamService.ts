@@ -421,7 +421,7 @@ export class SteamService {
           clearTimeout(timeout);
 
           if (response.ok) {
-            const data = (await response.json()) as any;
+            const data = await response.json() as { response?: { games?: Array<{ appid: number | string; playtime_forever?: number }> } };
             if (data?.response?.games) {
               for (const game of data.response.games) {
                 const appId = String(game.appid);
@@ -521,12 +521,12 @@ export class SteamService {
         return [];
       }
 
-      const data = (await response.json()) as any;
+      const data = await response.json() as { items?: Array<{ id: number | string; name: string; tiny_image?: string }> };
       if (data && data.items) {
-        return data.items.map((item: any) => ({
+        return data.items.map((item) => ({
           appId: String(item.id),
           name: item.name,
-          tinyImage: item.tiny_image,
+          tinyImage: item.tiny_image || '',
         }));
       }
       return [];
@@ -553,11 +553,12 @@ export class SteamService {
         return null;
       }
 
-      const data = (await response.json()) as any;
+      const data = await response.json() as { [appId: string]: { success: boolean; data?: { name?: string; about_the_game?: string; short_description?: string; developers?: string[]; publishers?: string[] } } };
       if (data && data[appId] && data[appId].success) {
         const appData = data[appId].data;
+        if (!appData) return null;
         return {
-          name: appData.name,
+          name: appData.name ?? '',
           description: appData.about_the_game || appData.short_description || '',
           developers: appData.developers || [],
           publishers: appData.publishers || [],

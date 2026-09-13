@@ -186,9 +186,9 @@ export class LauncherService {
       // Xbox (UWP/PC Game Pass) — Windows-only by construction
       const isXbox = gameId.startsWith('xbox-') || game.platform === 'xbox' || game.source === 'xbox';
       if (isXbox && HAS_NATIVE_STORE_CLIENTS) {
-        const xboxKind = (game as any).xboxKind as string | undefined;
-        const appUserModelId = (game as any).appUserModelId as string | undefined;
-        const launchUri = (game as any).launchUri as string | undefined || (appUserModelId ? `shell:AppsFolder\\${appUserModelId}` : undefined);
+        const xboxKind = game.xboxKind;
+        const appUserModelId = game.appUserModelId;
+        const launchUri = game.launchUri ?? (appUserModelId ? `shell:AppsFolder\\${appUserModelId}` : undefined);
 
         console.log(`[LauncherService] Launching Xbox game: ${game.title}`);
         console.log(`  xboxKind: ${xboxKind}`);

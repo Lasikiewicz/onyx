@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 
 export function usePreferenceWriter() {
   const savePreferences = useCallback((patch: Record<string, unknown>) => {
-    window.electronAPI.savePreferences(patch as any);
+    window.electronAPI.savePreferences(patch);
   }, []);
 
   const saveValue = useCallback(<T,>(setter: (value: T) => void, prefKey: string, value: T) => {

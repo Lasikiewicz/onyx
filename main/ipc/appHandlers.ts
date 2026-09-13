@@ -314,7 +314,7 @@ export function registerAppIPCHandlers(
             } catch (err: any) {
                 if (err && typeof err === 'object' && 'code' in err) {
                     // ESRSCH => no such process; EPERM => process exists but we lack permission
-                    if ((err as any).code === 'EPERM') {
+                    if (err.code === 'EPERM') {
                         return true;
                     }
                 }
@@ -731,7 +731,7 @@ export function registerAppIPCHandlers(
                     [resolution]: {
                         [mode]: options.overrideSettings && typeof options.overrideSettings === 'object'
                             ? options.overrideSettings
-                            : (byResolution as any)[mode] || {},
+                            : byResolution[mode] || {},
                     },
                 };
             }
@@ -802,8 +802,8 @@ export function registerAppIPCHandlers(
         return await userPreferencesService.getSavedDefaultsList();
     });
 
-    ipcMain.handle('customDefaults:delete', async (_event, options: { resolution: string; viewMode: string }) => {
-        await userPreferencesService.deleteCustomDefault(options as any);
+    ipcMain.handle('customDefaults:delete', async (_event, options: { resolution: '720p' | '1080p' | '1440p' | '4K'; viewMode: 'grid' | 'list' | 'logo' | 'carousel' | 'coverflow' | 'card' }) => {
+        await userPreferencesService.deleteCustomDefault(options);
         return { success: true };
     });
 
@@ -811,9 +811,9 @@ export function registerAppIPCHandlers(
         return await userPreferencesService.validateImportFile(data);
     });
 
-    ipcMain.handle('customDefaults:exportSelective', async (_event, options: { resolutions: string[]; viewModes: string[]; includePerGameSettings: boolean; currentResolution: string }) => {
+    ipcMain.handle('customDefaults:exportSelective', async (_event, options: { resolutions: ('720p' | '1080p' | '1440p' | '4K')[]; viewModes: ('grid' | 'list' | 'logo' | 'carousel' | 'coverflow' | 'card')[]; includePerGameSettings: boolean; currentResolution: '720p' | '1080p' | '1440p' | '4K' }) => {
         try {
-            const exportData = await userPreferencesService.exportCustomDefaultsSelective(options as any);
+            const exportData = await userPreferencesService.exportCustomDefaultsSelective(options);
 
             const defaultFileName = `onyx-custom-defaults-${options.resolutions.join('-')}-${new Date().toISOString().slice(0, 10)}.json`;
             const saveResult = await dialog.showSaveDialog({

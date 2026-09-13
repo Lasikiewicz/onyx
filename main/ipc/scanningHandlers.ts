@@ -214,7 +214,7 @@ export function registerScanningHandlers(
                                 source: game.source,
                                 installationDirectory: game.installPath,
                                 platform: 'pc',
-                            } as any);
+                            });
                         } catch (err) {
                             console.error(`[BackgroundScan] Error importing new game ${game.title}:`, err);
                         }

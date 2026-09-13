@@ -1101,8 +1101,8 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
                       style={{
                         fontSize: `${rightPanelTextSize}px`,
                         fontFamily: descriptionFontFamily,
-                        ['--desc-media-max-height' as any]: `${mediaMaxHeight}px`,
-                        ['--desc-media-side-width' as any]: `${mediaSideWidth}px`,
+                        ['--desc-media-max-height']: `${mediaMaxHeight}px`,
+                        ['--desc-media-side-width']: `${mediaSideWidth}px`,
                       } as React.CSSProperties}
                       dangerouslySetInnerHTML={{ __html: renderedDescriptionHtml }}
                     />

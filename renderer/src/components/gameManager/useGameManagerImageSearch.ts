@@ -355,7 +355,7 @@ export function useGameManagerImageSearch({
     try {
       if (useWeb) {
         activeSearches += 1;
-        void window.electronAPI.searchWebImages(query, effectiveImageType as any)
+        void window.electronAPI.searchWebImages(query, effectiveImageType)
           .then((response: any) => {
             if (selectedGameIdRef.current !== selectedGame.id || currentSearchQueryRef.current !== query) return;
             if (!response.success || !response.images) return;
@@ -434,7 +434,7 @@ export function useGameManagerImageSearch({
         }
 
         activeSearches += 1;
-        void window.electronAPI.searchImages(query, effectiveImageType as any, steamAppId, includeAnimatedInRequests)
+        void window.electronAPI.searchImages(query, effectiveImageType, steamAppId, includeAnimatedInRequests)
           .then((sgdbResponse: any) => {
             if (selectedGameIdRef.current !== selectedGame.id || currentSearchQueryRef.current !== query) return;
             if (!sgdbResponse.success || !sgdbResponse.images) return;
@@ -536,7 +536,7 @@ export function useGameManagerImageSearch({
     setError(null);
     setIsSearchingImages(true);
 
-    (window.electronAPI as any)
+    window.electronAPI
       .fetchGameImages(selectedGame.title, steamAppId, undefined, includeAnimatedInRequests, runId, selectedGame.id)
       .then(() => {
         if (fastSearchActiveRunIdRef.current === runId) {
@@ -588,7 +588,7 @@ export function useGameManagerImageSearch({
         return undefined;
       })();
 
-      const response = await (window.electronAPI as any).fetchGameImages(
+      const response = await window.electronAPI.fetchGameImages(
         gameResult.name,
         selectedGame.id.startsWith('steam-') ? selectedGame.id.replace('steam-', '') : undefined,
         igdbIdParam,
@@ -657,7 +657,7 @@ export function useGameManagerImageSearch({
 
     try {
       const startTime = Date.now();
-      const response = await (window.electronAPI as any).fastImageSearch(query, runId);
+      const response = await window.electronAPI.fastImageSearch(query, runId);
 
       if (response && (response.boxArtUrl || response.bannerUrl || response.logoUrl || response.heroUrl)) {
         const syntheticResult: FastSearchGame = {
@@ -803,7 +803,7 @@ export function useGameManagerImageSearch({
 
     if (!imageUrl.startsWith('onyx-local://')) {
       try {
-        await window.electronAPI.deleteCachedImage(selectedGame.id, type as any);
+        await window.electronAPI.deleteCachedImage(selectedGame.id, type);
       } catch (err) {
         console.warn('Error deleting old image:', err);
       }
@@ -916,10 +916,7 @@ export function useGameManagerImageSearch({
         return;
       }
 
-      const cacheLocalFile = (window.electronAPI as any).cacheLocalFile;
-      const result = cacheLocalFile
-        ? await cacheLocalFile(imagePath, selectedGame.id, type)
-        : { url: null, isVideo: false, error: 'Local cache API is unavailable in this build.' };
+      const result = await window.electronAPI.cacheLocalFile(imagePath, selectedGame.id, type);
 
       if (!result?.url) {
         setError(result?.error || 'Failed to add file to cache. Try another image.');

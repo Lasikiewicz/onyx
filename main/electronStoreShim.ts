@@ -29,8 +29,9 @@ export default class Store<T = any> {
     const userDataDir = appModule ? appModule.getPath('userData') : os.tmpdir();
     this.filePath = path.join(userDataDir, `${name}.json`);
     this.backupPath = `${this.filePath}.bak`;
-    this.data = options.defaults && typeof options.defaults === 'object'
-      ? { ...(options.defaults as any) }
+    const defaults = options.defaults as Record<string, unknown> | undefined;
+    this.data = defaults && typeof defaults === 'object'
+      ? { ...defaults }
       : {};
     this.load();
   }
@@ -95,12 +96,12 @@ export default class Store<T = any> {
   }
 
   get<Key extends keyof T & string, U = any>(key: Key | string, defaultValue?: U): U | T[Key] {
-    const value = (this.data as any)[key];
-    return (value === undefined ? defaultValue : value) as any;
+    const value = this.data[key];
+    return (value === undefined ? defaultValue : value) as U | T[Key];
   }
 
   set<Key extends keyof T & string>(key: Key | string, value: any): void {
-    (this.data as any)[key] = value;
+    this.data[key] = value;
     this.save();
   }
 
@@ -113,7 +114,7 @@ export default class Store<T = any> {
    */
   setMany(entries: Record<string, any>): void {
     for (const [key, value] of Object.entries(entries)) {
-      (this.data as any)[key] = value;
+      this.data[key] = value;
     }
     this.save();
   }

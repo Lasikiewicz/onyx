@@ -102,7 +102,7 @@ export const useGamePropertiesImages = ({
   };
 
   const getNumericSteamAppId = () => {
-    const rawAppId = (game as any).appId || (game as any).steamAppId;
+    const rawAppId = ('appId' in game ? game.appId : undefined) || (game as { steamAppId?: string }).steamAppId;
     return rawAppId && /^\d+$/.test(String(rawAppId)) ? String(rawAppId) : undefined;
   };
 
@@ -265,7 +265,7 @@ export const useGamePropertiesImages = ({
       );
 
       const response = await Promise.race([
-        (window.electronAPI as any).fetchGameImages(
+        window.electronAPI.fetchGameImages(
           query,
           steamAppId,
           undefined,
@@ -315,7 +315,7 @@ export const useGamePropertiesImages = ({
       );
 
       const response = await Promise.race([
-        (window.electronAPI as any).fetchGameImages(
+        window.electronAPI.fetchGameImages(
           query,
           steamAppId,
           undefined,
@@ -399,7 +399,7 @@ export const useGamePropertiesImages = ({
 
   const handleBrowseImage = async (type: ImageType) => {
     try {
-      const imagePath = await (window.electronAPI as any).showImageOrWebmDialog?.();
+      const imagePath = await window.electronAPI.showImageOrWebmDialog?.();
       if (!imagePath) return;
       if (/\.(webp)$/i.test(imagePath)) {
         setError('WebP files are not supported. Please choose another image format or a WEBM file.');
@@ -425,7 +425,7 @@ export const useGamePropertiesImages = ({
       resultId: gameResult.id,
       resultName: gameResult.name,
       resultSource: gameResult.source,
-      gameId: (game as any).id,
+      gameId: isStaged ? (game as StagedGame).uuid : (game as Game).id,
       showAnimatedImages: false,
       timestamp: new Date().toISOString(),
     });
@@ -456,7 +456,7 @@ export const useGamePropertiesImages = ({
         return undefined;
       })();
 
-      const response = await (window.electronAPI as any).fetchGameImages(
+      const response = await window.electronAPI.fetchGameImages(
         gameResult.name,
         steamAppId,
         igdbIdParam,
@@ -527,7 +527,7 @@ export const useGamePropertiesImages = ({
       console.log(`[FastSearch] Searching for "${query}"...`);
       const startTime = Date.now();
 
-      const response = await (window.electronAPI as any).fastImageSearch(query, runId);
+      const response = await window.electronAPI.fastImageSearch(query, runId);
 
       console.log(`[FastSearch] Completed in ${Date.now() - startTime}ms`);
 

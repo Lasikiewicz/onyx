@@ -1,22 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { UserPreferencesService } from './UserPreferencesService.js';
-import * as dynamicImportModule from './dynamicImport.js';
-
-vi.mock('./dynamicImport.js', () => ({
-    dynamicImport: vi.fn(),
-}));
-
-// Mock Store class
-class MockStore {
-    get() { return {}; }
-    set() { }
-    setMany() { }
-}
 
 describe('UserPreferencesService', () => {
-    // Setup mock for dynamicImport before each test
-    vi.mocked(dynamicImportModule.dynamicImport).mockResolvedValue({ default: MockStore });
-
     const service = new UserPreferencesService();
 
     describe('createDefaultPreferences', () => {

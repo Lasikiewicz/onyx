@@ -17,6 +17,10 @@ export class SteamGridDBMetadataProvider implements MetadataProvider {
     return this.steamGridDBService !== null;
   }
 
+  getService(): SteamGridDBService | null {
+    return this.steamGridDBService;
+  }
+
   async validateCredentials(): Promise<boolean> {
     if (!this.steamGridDBService) return false;
     return this.steamGridDBService.validateCredentials();

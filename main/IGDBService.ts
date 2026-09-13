@@ -440,7 +440,7 @@ limit 10;`;
               if (game.age_ratings) {
                 game.age_ratings.forEach((ar) => {
                   if (typeof ar === 'number') ageRatingIds.push(ar);
-                  else if (typeof ar === 'object' && ar !== null && 'id' in ar) ageRatingIds.push((ar as any).id);
+                  else if (typeof ar === 'object' && ar !== null && 'id' in ar) ageRatingIds.push((ar as { id: number; rating?: number; category?: number }).id);
                 });
               }
             });
@@ -493,7 +493,7 @@ limit 10;`;
             // Age Rating (PEGI Only)
             if (!linksOnly && game.age_ratings) {
               for (const ar of game.age_ratings) {
-                const ageRatingId = typeof ar === 'number' ? ar : (ar as any).id;
+                const ageRatingId = typeof ar === 'number' ? ar : (ar as { id: number; rating?: number; category?: number }).id;
                 if (ageRatingId && ageRatingMap.has(ageRatingId)) {
                   const arData = ageRatingMap.get(ageRatingId)!;
                   if (arData.category === 2) { // 2 = PEGI

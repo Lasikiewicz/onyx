@@ -1858,7 +1858,7 @@ export class UserPreferencesService {
           merged[resolution] = {};
         }
 
-        const existingResolutionSections = (mergedSections[resolution] || {}) as NonNullable<UserPreferences['sections']>[ResolutionKey];
+        const existingResolutionSections = (mergedSections[resolution] || {}) as Partial<Record<'gridView' | 'listView' | 'logoView' | 'carouselView' | 'coverflowView' | 'cardView', Record<string, any>>>;
 
         for (const viewMode of validViewModes) {
           const importedViewSettings = importedByResolution[viewMode];
@@ -1868,11 +1868,11 @@ export class UserPreferencesService {
             }
 
             const sectionKey = viewSectionKey[viewMode];
-            const existingSection = (existingResolutionSections as any)[sectionKey] || {};
+            const existingSection = existingResolutionSections[sectionKey] || {};
             const existingSettings = existingSection.settings;
 
             if (options.mergeStrategy === 'overwrite' || !existingSettings) {
-              (existingResolutionSections as any)[sectionKey] = {
+              existingResolutionSections[sectionKey] = {
                 ...existingSection,
                 settings: importedViewSettings,
               };

@@ -115,7 +115,7 @@ export class GameStore {
     const store = await this.ensureStore();
     // Copy: `get` hands back the store's live internal array, and callers mutate the
     // result (e.g. gameHandlers flag updates), which would silently mutate persisted state.
-    return [...((store as any).get('games', []) as Game[])];
+    return [...store.get('games', [])];
   }
 
   /**
@@ -190,7 +190,7 @@ export class GameStore {
       if (isDebugOptimizationEnabled()) debugOptimizationLog(`GameStore flushSync start games=${this.gamesCache.length}`);
       const gamesToSave = this.gamesCache;
       this.gamesCache = null;
-      (this.store as any).set('games', gamesToSave);
+      this.store.set('games', gamesToSave);
       if (isDebugOptimizationEnabled()) debugOptimizationLog(`GameStore flushSync done`);
       console.log(`[GameStore] Library flushed to disk [SYNC] (${gamesToSave.length} games)`);
     }
@@ -224,7 +224,7 @@ export class GameStore {
     });
 
     if (changed) {
-      (store as any).set('games', migratedGames);
+      store.set('games', migratedGames);
     }
 
     return overrides;

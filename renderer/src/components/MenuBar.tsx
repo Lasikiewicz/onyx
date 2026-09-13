@@ -29,6 +29,7 @@ interface MenuBarProps {
   onUpdateSteamLibrary?: () => void;
   onUpdateLibrary?: () => void;
   onGameManager?: () => void;
+  onRemoveDeletedGames?: () => void;
   onConfigureSteam?: () => void;
   onOnyxSettings?: () => void;
   onAPISettings?: () => void;
@@ -152,6 +153,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
   // onScanFolder, // Unused
   onUpdateLibrary,
   onGameManager,
+  onRemoveDeletedGames,
   onOnyxSettings,
   // onAPISettings, // Unused
   onAbout,
@@ -1067,6 +1069,21 @@ export const MenuBar: React.FC<MenuBarProps> = ({
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                     </svg>
                     <span className="flex-1">Add Games</span>
+                  </button>
+                )}
+
+                {onRemoveDeletedGames && (
+                  <button
+                    onClick={() => {
+                      onRemoveDeletedGames();
+                      setIsOnyxSettingsMenuOpen(false);
+                    }}
+                    className="group w-full flex items-center gap-3 px-4 py-2.5 text-left text-gray-200 hover:bg-gray-700 rounded transition-colors whitespace-nowrap"
+                  >
+                    <svg className="w-5 h-5 flex-shrink-0 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                    <span className="flex-1">Remove Uninstalled Games</span>
                   </button>
                 )}
 

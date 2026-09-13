@@ -577,7 +577,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
       return;
     }
     try {
-      const imagePath = await (window.electronAPI as any).showImageOrWebmDialog?.();
+      const imagePath = await window.electronAPI.showImageOrWebmDialog?.();
       if (!imagePath) return;
       if (/\.(webp)$/i.test(imagePath)) {
         setError('WebP files are not supported. Please choose a .webm video or another image format.');
@@ -585,7 +585,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
       }
       // Cache the local file in main process and get an onyx-local URL. Never put file:// in game state
       // so the UI does not try to load it in <img> (blocked / breaks React DOM).
-      const cacheLocalFile = (window.electronAPI as any).cacheLocalFile;
+      const cacheLocalFile = window.electronAPI.cacheLocalFile;
       const result = cacheLocalFile
         ? await cacheLocalFile(imagePath, gameId, type)
         : { url: null, isVideo: false, error: 'Local cache API is unavailable in this build.' };
@@ -1295,7 +1295,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
           y={contextMenu.y}
           imageType={contextMenu.type}
           onClose={() => setContextMenu(null)}
-          onSelectFromFile={() => handleBrowseImage(contextMenu.type as any)}
+          onSelectFromFile={() => handleBrowseImage(contextMenu.type)}
           onSearchImages={() => {
             openImageSearchAndSearch(contextMenu.type);
             setContextMenu(null);

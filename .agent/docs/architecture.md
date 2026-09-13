@@ -22,7 +22,7 @@ It explains module boundaries, data flow, and release pipeline expectations.
 - `renderer/src/hooks/useStartupScanReview.ts` owns startup scan found-games review and dismissal handoff, so importer-opening actions for startup overlays do not stay embedded in `App.tsx`.
 - `renderer/src/hooks/useGameManagerShellBridge.ts` owns the app-shell side of Game Manager maintenance wiring, including save/delete handoff and importer-open maintenance actions, so `App.tsx` does not also carry those modal-bridge callbacks inline.
 - `renderer/src/hooks/useMainViewShellControls.ts` owns the root MenuBar/TopBar action wiring for shell entry points such as scan, refresh, settings, tutorial, updater preview, and preference-backed view/search controls, so `App.tsx` does not also carry those callback bundles inline.
-- `renderer/src/components/MenuBar.tsx` owns the fixed top-bar control surface and routes full-bar right-clicks into `renderer/src/components/TopBarContextMenu.tsx`, which edits `topBarPositions` without closing after every change.
+- `renderer/src/components/MenuBar.tsx` owns the fixed top-bar control surface and routes full-bar right-clicks into `renderer/src/components/TopBarContextMenu.tsx`, which edits `topBarPositions` without closing after every change. The Add Games section of the menu also launches a "Remove Uninstalled Games" action (wired through `useMainViewShellControls`'s `menuBarProps` from `renderer/src/App.tsx`) that opens `renderer/src/components/RemoveDeletedGamesDialog.tsx` after a `getMissingGames` scan, closing the dropdown but leaving the dialog modal open.
 - `renderer/src/hooks/useRightClickMenuControls.ts` owns the root right-click settings menu callback bundle, including active-game handoff and preference-backed per-view display-control writes, so `App.tsx` does not also carry the entire `RightClickMenu` action matrix inline.
 - `renderer/src/hooks/useAppShellSurfaceActions.ts` owns the smaller shell-surface callback bundles for Welcome Screen onboarding, game context menu actions, and root overlay actions, so `App.tsx` does not also carry those per-surface prop blocks inline.
 - `renderer/src/hooks/useControllerNavigation.ts` owns browser Gamepad API polling, repeat throttling, connection/input diagnostics, and standard/non-standard button and D-pad input normalization for the main library shell, but `renderer/src/App.tsx` currently keeps that runtime bridge disabled while the General settings controller controls are marked coming soon.
@@ -58,7 +58,7 @@ It explains module boundaries, data flow, and release pipeline expectations.
   serialises compactly. On a parse failure it preserves the bad file as `.corrupt-<ts>` and recovers
   from the `.bak` snapshot taken once per process at load; it must never fall through to empty
   defaults, because the next `set()` would overwrite real user data with nothing. Covered by
-  `main/electronStoreShim.test.ts`.
+  `main/electronStoreShim.test.ts`. `main/UserPreferencesService.ts` now consumes `electronStoreShim` directly — the old runtime-swap loader `main/dynamicImport.ts` was removed as dead code after its test (which mocked the loader) was refactored to construct the shim in a temp dir, and `main/tsconfig.preload.json` no longer lists the file.
 - Long-running main-process work must not block the main thread. Established patterns:
   `runFfmpegCaptured` in `main/ImageCacheService.ts` (async `spawn` with captured stderr and a
   timeout) replaces `spawnSync`; `main/onyxLocalProtocol.ts` serves cached artwork via
@@ -228,7 +228,7 @@ It explains module boundaries, data flow, and release pipeline expectations.
 ## Module Index
 
 <!-- AUTO-GENERATED:MODULE_INDEX:START -->
-- Main process source files: 90
+- Main process source files: 89
 - Renderer source files: 179
 - Automation scripts: 30
 - GitHub workflow files: 7

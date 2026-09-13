@@ -313,6 +313,6 @@ export class GameFilteringService {
    * Filter an array of game candidates
    */
   filterGames(games: Array<{ name: string; folderPath?: string; exeName: string; source: any }>): typeof games {
-    return games.filter(game => !this.isLikelyNonGame(game as any));
+    return games.filter(game => !this.isLikelyNonGame(game));
   }
 }

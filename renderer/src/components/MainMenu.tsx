@@ -129,8 +129,8 @@ export const MainMenu: React.FC<MainMenuProps> = ({
               <button
                 onClick={async () => {
                   // Toggle DevTools
-                  if (window.electronAPI && (window.electronAPI as any).toggleDevTools) {
-                    await (window.electronAPI as any).toggleDevTools();
+                  if (window.electronAPI && window.electronAPI.toggleDevTools) {
+                    await window.electronAPI.toggleDevTools();
                   }
                   onClose();
                 }}

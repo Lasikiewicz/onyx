@@ -658,7 +658,7 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
       const prefs = await window.electronAPI.getPreferences();
       const currentMap = { ...(prefs.perGameViewSizeOverrides || {}) };
       delete currentMap[activeGame.id];
-      const perViewCustom = { ...(prefs.perGameViewCustomByView || {}) } as any;
+      const perViewCustom = { ...(prefs.perGameViewCustomByView || {}) } as Record<string, Record<string, { gameName?: string; size: number }>>;
       ['grid', 'list', 'logo', 'carousel', 'coverflow', 'card'].forEach((mode) => {
         if (perViewCustom[mode]) {
           const updated = { ...perViewCustom[mode] };
@@ -868,7 +868,7 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
         const currentMap = prefs.perGameViewSizeOverrides || {};
         const gameMap = currentMap[activeGame.id] || {};
         const perViewCustom = prefs.perGameViewCustomByView || {};
-        const currentViewCustom = (perViewCustom as any)[viewModeType] || {};
+        const currentViewCustom = perViewCustom[viewModeType] || {};
         await window.electronAPI.savePreferences({
           perGameViewSizeOverrides: {
             ...currentMap,

@@ -198,7 +198,7 @@ export class SteamMetadataProvider implements MetadataProvider {
         return [];
       }
 
-      const data = await response.json() as any;
+      const data = await response.json() as { items?: Array<{ id: number | string; name: string; tiny_image?: string }> };
       const items = data?.items;
 
       if (!items || !Array.isArray(items) || items.length === 0) {
@@ -211,8 +211,8 @@ export class SteamMetadataProvider implements MetadataProvider {
       console.log(`[Steam searchGames] Found ${limitedItems.length} matches for "${title}"`);
 
       const results: GameSearchResult[] = limitedItems
-        .filter((item: any) => item.id && item.name)
-        .map((item: any) => ({
+        .filter((item) => item.id && item.name)
+        .map((item) => ({
           id: `steam-${item.id}`,
           title: item.name,
           source: this.name,

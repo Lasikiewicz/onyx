@@ -388,8 +388,8 @@ export function useImportWorkbenchScan({
             const existingInstallPaths = new Set(
                 existingLibrary
                     .flatMap(g => {
-                        const installPath = normalizePath((g as any).installationDirectory);
-                        const exePath = normalizePath((g as any).exePath);
+                        const installPath = normalizePath((g as { installationDirectory?: string }).installationDirectory);
+                        const exePath = normalizePath(g.exePath);
                         const exeDirectory = exePath.includes('/') ? exePath.slice(0, exePath.lastIndexOf('/')) : '';
                         return [installPath, exeDirectory];
                     })
@@ -405,7 +405,7 @@ export function useImportWorkbenchScan({
 
             const existingExePaths = new Set(
                 existingLibrary
-                    .map(g => normalizePath((g as any).exePath))
+                    .map(g => normalizePath(g.exePath))
                     .filter(Boolean),
             );
 
@@ -599,7 +599,7 @@ export function useImportWorkbenchScan({
             discoveryCompleteRef.current = true;
 
             // Keep the existing scan-normalization path by sending through processScannedGames.
-            await processScannedGames(normalized as any[]);
+            await processScannedGames(normalized);
         },
         [processScannedGames],
     );

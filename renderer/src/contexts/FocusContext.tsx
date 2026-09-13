@@ -2,6 +2,11 @@ import React, { createContext, useContext, useState, useCallback, useMemo, useRe
 
 export type FocusRegion = 'library' | 'topBar' | 'contextMenu' | 'settings' | 'details' | null;
 
+type FocusActionElement = HTMLElement & {
+  __focusConfirm?: () => void;
+  __focusBack?: () => void;
+};
+
 interface FocusContextType {
   region: FocusRegion;
   index: number;
@@ -80,19 +85,19 @@ export function FocusProvider({ children, onConfirm, onBack }: FocusProviderProp
 
     // Fallback to DOM element handlers
     if (region === 'contextMenu') {
-      const menuElement = document.querySelector('[data-context-menu]') as any;
+      const menuElement = document.querySelector('[data-context-menu]') as FocusActionElement | null;
       if (menuElement?.__focusConfirm) {
         menuElement.__focusConfirm();
         return;
       }
     } else if (region === 'settings') {
-      const settingsElement = document.querySelector('[data-settings-sidebar]') as any;
+      const settingsElement = document.querySelector('[data-settings-sidebar]') as FocusActionElement | null;
       if (settingsElement?.__focusConfirm) {
         settingsElement.__focusConfirm();
         return;
       }
     } else if (region === 'topBar') {
-      const menuBarElement = document.querySelector('[data-menu-bar]') as any;
+      const menuBarElement = document.querySelector('[data-menu-bar]') as FocusActionElement | null;
       if (menuBarElement?.__focusConfirm) {
         menuBarElement.__focusConfirm();
         return;
@@ -111,19 +116,19 @@ export function FocusProvider({ children, onConfirm, onBack }: FocusProviderProp
 
     // Fallback to DOM element handlers
     if (region === 'contextMenu') {
-      const menuElement = document.querySelector('[data-context-menu]') as any;
+      const menuElement = document.querySelector('[data-context-menu]') as FocusActionElement | null;
       if (menuElement?.__focusBack) {
         menuElement.__focusBack();
         return;
       }
     } else if (region === 'settings') {
-      const settingsElement = document.querySelector('[data-settings-sidebar]') as any;
+      const settingsElement = document.querySelector('[data-settings-sidebar]') as FocusActionElement | null;
       if (settingsElement?.__focusBack) {
         settingsElement.__focusBack();
         return;
       }
     } else if (region === 'topBar') {
-      const menuBarElement = document.querySelector('[data-menu-bar]') as any;
+      const menuBarElement = document.querySelector('[data-menu-bar]') as FocusActionElement | null;
       if (menuBarElement?.__focusBack) {
         menuBarElement.__focusBack();
         return;

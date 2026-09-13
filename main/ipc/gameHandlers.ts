@@ -399,7 +399,7 @@ export function registerGameIPCHandlers(
     // ImageCache Handlers
     ipcMain.handle('imageCache:deleteImage', async (_event, gameId: string, imageType: string) => {
         try {
-            await imageCacheService.deleteCachedImage(gameId, imageType as any);
+            await imageCacheService.deleteCachedImage(gameId, imageType);
             return { success: true };
         } catch (error) {
             return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };

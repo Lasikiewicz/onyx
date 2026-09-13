@@ -38,7 +38,8 @@ import { APISettingsModal } from './components/APISettingsModal';
 import { AppShellOverlays } from './components/appShell/AppShellOverlays';
 import { AppShellConfirmationDialogs } from './components/appShell/AppShellConfirmationDialogs';
 import { AppShellLibraryView } from './components/appShell/AppShellLibraryView';
-import { Game, GameMetadata } from './types/game';
+import { RemoveDeletedGamesDialog } from './components/RemoveDeletedGamesDialog';
+import { Game, GameMetadata, MissingGame } from './types/game';
 import { areAPIsConfigured } from './utils/apiValidation';
 import { useAppShellCarouselControls } from './hooks/useAppShellCarouselControls';
 import { useAppShellGameConfirmations } from './hooks/useAppShellGameConfirmations';
@@ -311,6 +312,9 @@ function App() {
     platform?: string;
     source?: string;
   }> | null>(null);
+  const [isRemoveDeletedGamesOpen, setIsRemoveDeletedGamesOpen] = useState(false);
+  const [removeDeletedGames, setRemoveDeletedGames] = useState<MissingGame[]>([]);
+  const [isScanningRemoveDeletedGames, setIsScanningRemoveDeletedGames] = useState(false);
   const [foundGames, setFoundGames] = useState<Array<any> | null>(null);
   const [rightClickMenu, setRightClickMenu] = useState<{ x: number; y: number; initialEditorSection?: RightClickMenuEditorSection | null } | null>(null);
   const [gameContextMenu, setGameContextMenu] = useState<{ x: number; y: number; game: Game } | null>(null);
@@ -734,6 +738,32 @@ function App() {
     setMissingGames(null);
   }, []);
 
+  // Remove Deleted Games (main menu entry point)
+  const openRemoveDeletedGames = useCallback(async () => {
+    setIsRemoveDeletedGamesOpen(true);
+    setIsScanningRemoveDeletedGames(true);
+    try {
+      const result = await window.electronAPI.getMissingGames();
+      if (result && result.success) {
+        setRemoveDeletedGames(result.games);
+      } else {
+        showToast('Failed to get missing games', 'error');
+        setIsRemoveDeletedGamesOpen(false);
+      }
+    } catch (error) {
+      console.error('Error getting missing games:', error);
+      showToast('Failed to get missing games', 'error');
+      setIsRemoveDeletedGamesOpen(false);
+    } finally {
+      setIsScanningRemoveDeletedGames(false);
+    }
+  }, [showToast]);
+
+  const handleRemoveFromRemoveDeletedDialog = useCallback(async (gameIds: string[]) => {
+    setIsRemoveDeletedGamesOpen(false);
+    await handleRemoveMissingGames(gameIds);
+  }, [handleRemoveMissingGames]);
+
   // Handle Steam games import
 
   // Handle Steam configuration scan
@@ -947,6 +977,7 @@ function App() {
     setTopBarPositions,
     setViewMode,
     viewMode,
+    openRemoveDeletedGames,
   });
 
   const rightClickMenuProps = useRightClickMenuControls({
@@ -1316,6 +1347,7 @@ function App() {
           onUpdateSteamLibrary={menuBarProps.onUpdateSteamLibrary}
           onUpdateLibrary={menuBarProps.onUpdateLibrary}
           onGameManager={menuBarProps.onGameManager}
+          onRemoveDeletedGames={menuBarProps.onRemoveDeletedGames}
           onConfigureSteam={menuBarProps.onConfigureSteam}
           onOnyxSettings={menuBarProps.onOnyxSettings}
           onAPISettings={menuBarProps.onAPISettings}
@@ -1455,6 +1487,15 @@ function App() {
         isOpen={isModalOpen}
         onClose={closeAddGameModal}
         onAdd={handleAddGame}
+      />
+
+      {/* Remove Deleted Games Dialog */}
+      <RemoveDeletedGamesDialog
+        isOpen={isRemoveDeletedGamesOpen}
+        missingGames={removeDeletedGames}
+        isScanning={isScanningRemoveDeletedGames}
+        onRemove={handleRemoveFromRemoveDeletedDialog}
+        onCancel={() => setIsRemoveDeletedGamesOpen(false)}
       />
 
 

@@ -175,7 +175,7 @@ export const useOnyxSettingsModalShellState = ({
         clearTimeout(updateCheckTimeoutRef.current);
         updateCheckTimeoutRef.current = null;
       }
-      setUpdateStatus(payload.status as any);
+      setUpdateStatus(payload.status as 'idle' | 'checking' | 'available' | 'not-available' | 'downloading' | 'downloaded' | 'error');
       setUpdateVersion(payload.version ?? null);
       setUpdateError(sanitizeUpdateErrorForDisplay(payload.error ?? null));
     });

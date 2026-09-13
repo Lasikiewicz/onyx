@@ -6,6 +6,7 @@ import { UserPreferencesService } from '../UserPreferencesService.js';
 import { withTimeout } from '../RetryUtils.js';
 import { ScannedGameResult } from '../ImportService.js';
 import type { ImageQueueItem } from '../ImageOptimizationQueue.js';
+import type { IGDBService } from '../IGDBService.js';
 
 let activeImageSearchRequestId: number | undefined;
 
@@ -194,7 +195,7 @@ export function registerMetadataIPCHandlers(
                     source: 'steam',
                     externalId: steamAppId,
                     steamAppId,
-                } as any,
+                },
                 steamAppId,
                 true
             );
@@ -630,24 +631,8 @@ export function registerMetadataIPCHandlers(
 
             if (!gameId) return [];
 
-            // Fetch specific image type
-            const service = (sgdb as any).steamGridDBService; // Access raw service if possible, or use provider methods
-            // Since we can't easily access the raw service through the provider wrapper without casting or updating provider,
-            // we will try to use the provider's logic or internal service if exposed.
-            // But wait, we exposed `SteamGridDBService` via `getSteamGridDBProvider`? No, we exposed the provider.
-            // Let's assume we can access the underlying service or we update the provider to expose specific fetchers.
-            // For now, let's assume we have to use what we have or try to cast to any to access the private service property if needed 
-            // OR better: Update MetadataFetcher to expose the service directly? No, we exposed the provider.
-
-            // Let's check `SteamGridDBMetadataProvider` implementation (we didn't view it but we can guess).
-            // Actually, `SteamGridDBService` has `getVerticalGrids`, `getHeroes`, etc.
-            // If the provider has `pk` or `service` property we can use it.
-            // The provider typically wraps these calls.
-
             // Allow direct access to service for full image searches (bypassing the "one best match" logic of provider)
-            // This relies on the provider storing the service in a property we can access (e.g. `steamGridDBService`)
-            // If not, we might be limited.
-            const rawService = (sgdb as any).steamGridDBService;
+            const rawService = sgdb.getService();
             if (rawService) {
                 let images: any[] = [];
                 if (imageType === 'boxart' || imageType === 'all') {
@@ -903,7 +888,7 @@ export function registerMetadataIPCHandlers(
     // Configuration Handlers
     ipcMain.handle('metadata:setIGDBConfig', async (_event, config: IGDBConfig) => {
         try {
-            metadataFetcher.setIGDBService(config.clientId ? { clientId: config.clientId } as any : null);
+            metadataFetcher.setIGDBService(config.clientId ? { clientId: config.clientId } as unknown as IGDBService : null);
             return true;
         } catch (error) {
             return false;

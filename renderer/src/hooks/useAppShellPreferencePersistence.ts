@@ -56,7 +56,7 @@ function useDebouncedPreferencePatch({ delay, enabled, errorLabel, patch }: Debo
 
     const savePatch = async () => {
       try {
-        await window.electronAPI.savePreferences(patch as any);
+        await window.electronAPI.savePreferences(patch);
       } catch (error) {
         console.error(`Error saving ${errorLabel}:`, error);
       }

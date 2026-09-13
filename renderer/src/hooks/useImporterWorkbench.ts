@@ -61,7 +61,7 @@ async function enrichImportedArtwork(games: Game[]) {
     await Promise.all(batch.map(async (game) => {
       try {
         console.log(`[Import] [Background] Fetching banners for: ${game.title}`);
-        const metadata = await window.electronAPI.searchArtwork(game.title, (game as any).appId);
+        const metadata = await window.electronAPI.searchArtwork(game.title, (game as { appId?: string }).appId);
 
         if (!metadata) {
           return;
@@ -84,7 +84,7 @@ async function enrichImportedArtwork(games: Game[]) {
         }
 
         try {
-          const steamAppId = (game as any).appId;
+          const steamAppId = (game as { appId?: string }).appId;
           const bannerSearch = await window.electronAPI.searchImages(game.title, 'banner', steamAppId);
 
           if (bannerSearch?.success && bannerSearch.images) {

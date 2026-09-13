@@ -66,7 +66,8 @@ export class SteamGridDBService {
     const mime = (image.mime || '').toLowerCase();
     const url = (image.url || '').toLowerCase();
     const notes = (image.notes || '').toLowerCase();
-    const explicitFlag = (image as any).isAnimated === true || (image as any).animated === true || (image as any).is_animated === true;
+    const rawImage = image as SteamGridDBImage & { isAnimated?: boolean; animated?: boolean; is_animated?: boolean };
+    const explicitFlag = rawImage.isAnimated === true || rawImage.animated === true || rawImage.is_animated === true;
 
     if (explicitFlag) return true;
     if (mime.includes('webp') || mime.includes('gif') || mime.includes('apng')) return true;

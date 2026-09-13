@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Pending
 
+- Add Games:
+  - The main menu's Add Games section now has a "Remove Uninstalled Games" entry, so you can open the Remove Deleted Games review straight from the library without going through Game Manager. It scans for missing games, shows the same confirmation dialog, and leaves the files on disk untouched.
+- Maintainability:
+  - Removed the remaining `as any` casts in production code (~35 files across `main/` and `renderer/src/`) in favour of typed property access and targeted type shapes; runtime behavior is unchanged. `npm run build` and the full test suite still pass with 0 `as any` remaining in `main/` and `renderer/src/`.
+  - Removed the unused `dynamicImport` loader under `main/`. The user-preferences test now builds the store shim directly and the preload tsconfig no longer lists the file.
 - Fixes:
   - Fixed manual image search on the Add Games list hanging forever and never showing results for games with no Steam App ID (for example EA App titles like Battlefield 6). A staged game's temporary id was being mistaken for an already-known game, so the automatic match that finds fresh artwork never ran; staged games now always go through the normal image search.
   - Fixed image search stalling permanently when a metadata provider (IGDB, RAWG or SteamGridDB) hung on a request. Provider requests now all carry timeouts, so one slow or misbehaving provider can no longer block or wedge the search queue.
