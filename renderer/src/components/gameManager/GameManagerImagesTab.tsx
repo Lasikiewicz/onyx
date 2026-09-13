@@ -52,6 +52,7 @@ interface GameManagerImagesTabProps {
   getImageResultCountForTab: (tab: ImageType) => number;
   getRenderableImageUrl: (value?: string) => string | undefined;
   onSelectImage: (imageUrl: string, type: ImageType) => void;
+  onRemoveImage: (type: ImageType) => void;
   matchesProviderFilter: (source?: string) => boolean;
   onUploadCustomImageClick: () => void;
   onUploadWebmClick: () => void;
@@ -88,6 +89,7 @@ export function GameManagerImagesTab({
   getImageResultCountForTab,
   getRenderableImageUrl,
   onSelectImage,
+  onRemoveImage,
   matchesProviderFilter,
   onUploadCustomImageClick,
   onUploadWebmClick,
@@ -243,6 +245,7 @@ export function GameManagerImagesTab({
                 getRenderableImageUrl={getRenderableImageUrl}
                 handleImageResultLoadError={onImageLoadError}
                 handleSelectImage={onSelectImage}
+                handleRemoveImage={onRemoveImage}
                 getImageResultCountForTab={getImageResultCountForTab}
                 matchesProviderFilter={matchesProviderFilter}
               />

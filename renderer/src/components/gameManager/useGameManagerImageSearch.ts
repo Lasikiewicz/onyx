@@ -858,6 +858,53 @@ export function useGameManagerImageSearch({
     }
   }, [editedGame, imageChangedGameIdsRef, onSaveGame, selectedGame, setActiveTab, setEditedGame, setError, setLocalGames]);
 
+  const handleRemoveImage = useCallback(async (type: ImageType) => {
+    if (!selectedGame || !editedGame) return;
+
+    setActiveTab('images');
+
+    const updatedGame = { ...editedGame };
+    if (type === 'boxart') {
+      updatedGame.boxArtUrl = '';
+      updatedGame.boxArtIsVideo = false;
+    } else if (type === 'banner') {
+      updatedGame.bannerUrl = '';
+      updatedGame.heroUrl = '';
+      updatedGame.bannerIsVideo = false;
+      updatedGame.heroIsVideo = false;
+    } else if (type === 'alternativeBanner') {
+      updatedGame.alternativeBannerUrl = '';
+      updatedGame.alternativeBannerIsVideo = false;
+      updatedGame.useAlternativeBackground = false;
+    } else if (type === 'logo') {
+      updatedGame.logoUrl = '';
+      updatedGame.logoIsVideo = false;
+    } else if (type === 'icon') {
+      updatedGame.iconUrl = '';
+      updatedGame.iconIsVideo = false;
+    }
+
+    try {
+      await window.electronAPI.deleteCachedImage(selectedGame.id, type);
+    } catch (err) {
+      console.warn('Error deleting removed image from cache:', err);
+    }
+
+    setEditedGame(updatedGame);
+    setLocalGames(prevGames => prevGames.map(game => game.id === updatedGame.id ? updatedGame : game));
+    imageChangedGameIdsRef.current.add(updatedGame.id);
+
+    try {
+      await onSaveGame(updatedGame, selectedGame);
+      setSuccess(`${type === 'alternativeBanner' ? 'Alt Banner' : type.charAt(0).toUpperCase() + type.slice(1)} removed`);
+    } catch (err) {
+      setError('Failed to remove image');
+      console.error('Error removing image:', err);
+      setLocalGames(prevGames => prevGames.map(game => game.id === selectedGame.id ? selectedGame : game));
+      setEditedGame({ ...selectedGame });
+    }
+  }, [editedGame, imageChangedGameIdsRef, onSaveGame, selectedGame, setActiveTab, setEditedGame, setError, setLocalGames, setSuccess]);
+
   const handleBrowseImage = useCallback(async (type: ImageType) => {
     if (!selectedGame || !editedGame) return;
 
@@ -914,6 +961,7 @@ export function useGameManagerImageSearch({
     handleFastSearch,
     handleSelectFastGame,
     handleSelectImage,
+    handleRemoveImage,
     handleBrowseImage,
     hasRawImageResults: hasAnyRawImageResults(imageSearchResults, steamGridDBResults),
     hasVisibleImageResults: hasAnyVisibleImageResults(orderedResultsByType, providerFilter),

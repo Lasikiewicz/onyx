@@ -366,6 +366,37 @@ export const useGamePropertiesImages = ({
     setTimeout(() => setSuccess(null), 2000);
   };
 
+  const removeImage = (type: ImageType) => {
+    const nextFields = { ...editedFields };
+
+    if (type === 'boxart') {
+      nextFields.boxArtUrl = '';
+    } else if (type === 'banner') {
+      nextFields.bannerUrl = '';
+      nextFields.heroUrl = '';
+    } else if (type === 'alternativeBanner') {
+      nextFields.alternativeBannerUrl = '';
+      nextFields.useAlternativeBackground = false;
+    } else if (type === 'logo') {
+      nextFields.logoUrl = '';
+    } else if (type === 'icon') {
+      nextFields.iconUrl = '';
+    }
+
+    const gameId = isStaged ? (game as StagedGame).uuid : (game as Game).id;
+    void window.electronAPI
+      .deleteCachedImage(gameId, type)
+      .catch((error) => console.warn('[ImporterImageRemove] cache delete error', error));
+
+    setEditedFields(nextFields);
+    void persistEditedFields(nextFields).catch((error) => {
+      console.error('[ImporterImageRemove] error', error);
+      setError('Failed to remove image');
+    });
+    setSuccess(`Removed ${type === 'alternativeBanner' ? 'Alt Banner' : type}`);
+    setTimeout(() => setSuccess(null), 2000);
+  };
+
   const handleBrowseImage = async (type: ImageType) => {
     try {
       const imagePath = await (window.electronAPI as any).showImageOrWebmDialog?.();
@@ -581,6 +612,7 @@ export const useGamePropertiesImages = ({
     orderedResultsByType,
     providerFilter,
     providerProgress: effectiveProviderProgress,
+    removeImage,
     resetImageState,
     selectedFastGameId,
     setActiveImageSearchTab,

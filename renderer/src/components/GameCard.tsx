@@ -62,9 +62,9 @@ const GameCardComponent: React.FC<GameCardProps> = ({
   const hasLogo = game.logoUrl && (!disableAnimatedLogos || !isAnimatedImage(game.logoUrl));
   const isLogoUnderneath = hasLogo && showLogoOverBoxart && logoPosition === 'underneath';
 
-  // Determine which image to show
-  let imageToShow: string | undefined =
-    useLogoInsteadOfBoxart && game.logoUrl ? game.logoUrl : (game.boxArtUrl || game.bannerUrl);
+  let imageToShow: string | undefined = useLogoInsteadOfBoxart
+    ? game.logoUrl
+    : (game.boxArtUrl || game.bannerUrl);
   if (imageToShow && disableAnimatedBoxarts && isAnimatedImage(imageToShow)) {
     imageToShow = undefined;
   }
@@ -162,7 +162,11 @@ const GameCardComponent: React.FC<GameCardProps> = ({
           )
         ) : (
           <div className="w-full h-full bg-gray-700/50 flex items-center justify-center">
-            <span className="text-gray-300 text-sm">No Image</span>
+            {useLogoInsteadOfBoxart ? (
+              <span className="text-gray-300 text-sm px-3 text-center line-clamp-2">{game.title}</span>
+            ) : (
+              <span className="text-gray-300 text-sm">No Image</span>
+            )}
           </div>
         )}
 

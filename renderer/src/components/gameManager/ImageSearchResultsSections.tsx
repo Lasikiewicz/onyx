@@ -11,9 +11,13 @@ interface ImageSearchResultsSectionsProps {
   getRenderableImageUrl: (value?: string) => string | undefined;
   handleImageResultLoadError: (url: string | undefined, event: React.SyntheticEvent<HTMLImageElement>) => void;
   handleSelectImage: (imageUrl: string, type: ImageType) => void;
+  handleRemoveImage: (type: ImageType) => void;
   getImageResultCountForTab: (tab: ImageType) => number;
   matchesProviderFilter: (source?: string) => boolean;
 }
+
+const typeLabel = (type: ImageType) =>
+  type === 'alternativeBanner' ? 'Alternative Banner' : type.charAt(0).toUpperCase() + type.slice(1);
 
 export function ImageSearchResultsSections({
   activeImageSearchTab,
@@ -21,16 +25,31 @@ export function ImageSearchResultsSections({
   getRenderableImageUrl,
   handleImageResultLoadError,
   handleSelectImage,
+  handleRemoveImage,
   getImageResultCountForTab,
   matchesProviderFilter,
 }: ImageSearchResultsSectionsProps) {
+  const noImageTile = (type: ImageType, className: string) => (
+    <div
+      key={`no-image-${type}`}
+      onClick={() => handleRemoveImage(type)}
+      className={`group cursor-pointer flex items-center justify-center flex-col gap-1 rounded border border-dashed border-gray-600 bg-gray-800/40 hover:border-red-500 hover:bg-red-500/10 transition-all ${className}`}
+      title={`No image for ${typeLabel(type)}`}
+    >
+      <svg className="w-6 h-6 text-gray-500 group-hover:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+      </svg>
+      <span className="text-[10px] text-gray-500 group-hover:text-red-300 px-1 text-center">Don't use image</span>
+    </div>
+  );
+
   return (
     <div className="space-y-8">
-      {(activeImageSearchTab === 'all' || activeImageSearchTab === 'boxart') &&
-        (getImageResultCountForTab('boxart') > 0) && (
+      {((activeImageSearchTab === 'all' && getImageResultCountForTab('boxart') > 0) || activeImageSearchTab === 'boxart') && (
           <div>
             {activeImageSearchTab === 'all' && <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">Box Art & Covers</h4>}
             <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-10 gap-3">
+              {noImageTile('boxart', 'aspect-[2/3]')}
               {orderedResultsByType.boxart.filter((result: any) => matchesProviderFilter(result.source)).map((result, idx) => (
                 <div
                   key={`igdb-boxart-${result.id}-${idx}`}
@@ -58,11 +77,11 @@ export function ImageSearchResultsSections({
           </div>
         )}
 
-      {(activeImageSearchTab === 'all' || activeImageSearchTab === 'logo') &&
-        (getImageResultCountForTab('logo') > 0) && (
+      {((activeImageSearchTab === 'all' && getImageResultCountForTab('logo') > 0) || activeImageSearchTab === 'logo') && (
           <div>
             {activeImageSearchTab === 'all' && <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">Logos</h4>}
             <div className="grid grid-cols-4 sm:grid-cols-6 gap-3 bg-gray-900/50 p-4 rounded-lg border border-gray-800">
+              {noImageTile('logo', 'h-24')}
               {orderedResultsByType.logo.filter((result: any) => matchesProviderFilter(result.source)).map((result, idx) => (
                 <div
                   key={`igdb-logo-${idx}`}
@@ -85,11 +104,11 @@ export function ImageSearchResultsSections({
           </div>
         )}
 
-      {(activeImageSearchTab === 'all' || activeImageSearchTab === 'banner') &&
-        (getImageResultCountForTab('banner') > 0) && (
+      {((activeImageSearchTab === 'all' && getImageResultCountForTab('banner') > 0) || activeImageSearchTab === 'banner') && (
           <div>
             {activeImageSearchTab === 'all' && <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">Banners & Screenshots</h4>}
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+              {noImageTile('banner', 'aspect-video')}
               {orderedResultsByType.banner.filter((result: any) => matchesProviderFilter(result.source)).map((result, idx) => {
                 const url = getRenderableImageUrl(result.bannerUrl || result.screenshotUrls?.[0]);
                 if (!url) return null;
@@ -121,11 +140,11 @@ export function ImageSearchResultsSections({
           </div>
         )}
 
-      {(activeImageSearchTab === 'all' || activeImageSearchTab === 'alternativeBanner') &&
-        (getImageResultCountForTab('alternativeBanner') > 0) && (
+      {((activeImageSearchTab === 'all' && getImageResultCountForTab('alternativeBanner') > 0) || activeImageSearchTab === 'alternativeBanner') && (
           <div>
             {activeImageSearchTab === 'all' && <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">Alternative Banners</h4>}
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+              {noImageTile('alternativeBanner', 'aspect-video')}
               {orderedResultsByType.banner.filter((result: any) => matchesProviderFilter(result.source)).map((result, idx) => {
                 const url = getRenderableImageUrl(result.bannerUrl || result.screenshotUrls?.[0]);
                 if (!url) return null;
@@ -157,11 +176,11 @@ export function ImageSearchResultsSections({
           </div>
         )}
 
-      {(activeImageSearchTab === 'all' || activeImageSearchTab === 'icon') &&
-        (getImageResultCountForTab('icon') > 0) && (
+      {((activeImageSearchTab === 'all' && getImageResultCountForTab('icon') > 0) || activeImageSearchTab === 'icon') && (
           <div>
             {activeImageSearchTab === 'all' && <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">Icons</h4>}
             <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-12 gap-3 bg-gray-900/50 p-4 rounded-lg border border-gray-800">
+              {noImageTile('icon', 'aspect-square')}
               {orderedResultsByType.icon.filter((result: any) => matchesProviderFilter(result.source)).map((result, idx) => {
                 const url = getRenderableImageUrl(result.iconUrl);
                 if (!url) return null;

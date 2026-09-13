@@ -10,6 +10,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   - Fixed manual image search on the Add Games list hanging forever and never showing results for games with no Steam App ID (for example EA App titles like Battlefield 6). A staged game's temporary id was being mistaken for an already-known game, so the automatic match that finds fresh artwork never ran; staged games now always go through the normal image search.
   - Fixed image search stalling permanently when a metadata provider (IGDB, RAWG or SteamGridDB) hung on a request. Provider requests now all carry timeouts, so one slow or misbehaving provider can no longer block or wedge the search queue.
   - The image search UI now gives up after a grace period and shows "Image search timed out. Please try again." instead of leaving the spinner running forever.
+- Images:
+  - You can now clear an image instead of being forced to replace it: a "Don't use image" tile is the first result in every image search section (Box Art, Logos, Banners, Alternative Banners and Icons), and right-clicking an artwork slot in Game Manager now offers a "Remove {type}" action.
+  - The "Don't use image" tile shows on each type tab even when that search found no images, so a wrongly assigned image (for example a similar-looking game's logo) can always be removed.
+  - Removing an image clears the matching fields, deletes the cached file and saves immediately; the same clear flow works in the Add Games editor.
+  - Games without a logo now show their title as text in Logo view instead of silently falling back to another game's art.
 
 ## [0.16.1] - 2026-08-07
 

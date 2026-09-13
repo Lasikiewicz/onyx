@@ -175,6 +175,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
     handleFastSearch,
     handleSelectFastGame,
     handleSelectImage,
+    handleRemoveImage,
     handleBrowseImage,
     hasRawImageResults,
     hasVisibleImageResults,
@@ -1035,6 +1036,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
                       getImageResultCountForTab={getVisibleImageResultCountForTab}
                       getRenderableImageUrl={getRenderableImageUrl}
                       onSelectImage={handleSelectImage}
+                      onRemoveImage={handleRemoveImage}
                       matchesProviderFilter={matchesActiveProviderFilter}
                       onUploadCustomImageClick={handleUploadCustomImageClick}
                       onUploadWebmClick={handleUploadWebmClick}
@@ -1298,6 +1300,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
             openImageSearchAndSearch(contextMenu.type);
             setContextMenu(null);
           }}
+          onRemoveImage={() => handleRemoveImage(contextMenu.type)}
         />
       )}
 

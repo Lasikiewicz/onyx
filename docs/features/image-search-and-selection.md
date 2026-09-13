@@ -54,6 +54,10 @@ Lets users search provider/web image sources, preview candidates, and assign box
 - Broken top-strip box art falls back through React state rather than replacing child markup directly, so the preview strip remains stable when saved artwork is unavailable.
 - Add Games image editing can also browse a local image/WEBM file, cache it, and apply it before the game is imported.
 - Add Games mirrors Game Manager's linked image-field updates for background artwork, so choosing a banner also updates the imported `heroUrl`/background display path instead of reverting to older artwork after import.
+- A dashed "Don't use image" tile is always the first result in every result section (Box Art & Covers, Logos, Banners & Screenshots, Alternative Banners, Icons). Choosing it clears that artwork type's stored fields immediately instead of applying a candidate.
+- When a specific type tab is active, its section (and the "Don't use image" tile) renders even when that provider search returned zero images, so a wrongly assigned image can always be removed without first finding a matching search result.
+- Removing an image clears the linked per-type fields (banner removal also clears `heroUrl`; alt-banner removal also resets `useAlternativeBackground`), purges the cached file via `imageCache:deleteImage`, and persists the cleared fields immediately — `handleRemoveImage` in [useGameManagerImageSearch.ts](../../renderer/src/components/gameManager/useGameManagerImageSearch.ts) for library games and `removeImage` in [useGamePropertiesImages.ts](../../renderer/src/components/gameProperties/useGamePropertiesImages.ts) for the Add Games staged editor.
+- The artwork-slot context menu ([ImageContextMenu.tsx](../../renderer/src/components/ImageContextMenu.tsx)) adds a red "Remove {type}" action next to the file/search actions, so an image can be cleared without opening a search. A library game with no logo shows its title text in the logo tile ([GameCard.tsx](../../renderer/src/components/GameCard.tsx)) instead of falling back to boxart/hero artwork, so removed logos do not get silently replaced by a similar game's art.
 
 ## Discovery and Data Sources
 

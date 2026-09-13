@@ -25,6 +25,7 @@ Displays the games list as a grid of tiles that emphasize game logos instead of 
 1. User switches view mode to logo: grid re-renders with logo-centric layout; logo size and position from preferences.
 2. User adjusts logo size or position: tiles update; preferences saved.
 3. Reorder and selection behave as in Grid View.
+4. A game without a `logoUrl` shows its title text centered on the tile instead of falling back to boxart/hero artwork, so removing a logo (Images tab "Don't use image" tile or slot context menu) visibly reverts the tile to text rather than substituting a similar game's image.
 
 ## Discovery and Data Sources
 

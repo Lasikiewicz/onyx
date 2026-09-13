@@ -104,6 +104,7 @@ export const GamePropertiesPanel = forwardRef<GamePropertiesPanelHandle, GamePro
     openImageSearch,
     providerFilter,
     providerProgress,
+    removeImage,
     resetImageState,
     selectedFastGameId,
     setFastSearchResults,
@@ -460,7 +461,8 @@ export const GamePropertiesPanel = forwardRef<GamePropertiesPanelHandle, GamePro
             onImageSearchTabChange={handleImageSearchTabChange}
             getImageResultCountForTab={getVisibleImageResultCountForTab}
             getRenderableImageUrl={getRenderableImageUrl}
-            onSelectImage={(imageUrl, type) => applyImage(type, imageUrl)}
+onSelectImage={(imageUrl, type) => applyImage(type, imageUrl)}
+            onRemoveImage={removeImage}
             matchesProviderFilter={matchesActiveProviderFilter}
             onUploadCustomImageClick={() => {
               const uploadType = showImageSearch?.type || (activeImageSearchTab === 'all' ? 'boxart' : activeImageSearchTab);
