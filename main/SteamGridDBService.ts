@@ -1,3 +1,5 @@
+import { withTimeout } from './RetryUtils.js';
+
 export interface SteamGridDBConfig {
   apiKey: string;
 }
@@ -118,7 +120,7 @@ export class SteamGridDBService {
     return new Promise<T>((resolve, reject) => {
       this.requestQueue.push(async () => {
         try {
-          const result = await execute();
+          const result = await withTimeout(execute(), 15_000);
           resolve(result);
         } catch (error) {
           reject(error);

@@ -42,7 +42,8 @@ Lets users search provider/web image sources, preview candidates, and assign box
 - Selecting any image candidate keeps the user on the Images tab and updates the top preview strip immediately.
 - Re-running a search is explicit via the search controls (for example, Quick All or New Search).
 - When image results are already open, the header actions keep both local custom-image upload and `Upload WEBM` available for the current artwork type, so a selected Logo tab can swap in a custom logo without leaving the results view.
-- When the request already has known game identity (for example `gameId`, `steamAppId`, or `igdbId`), the main-process image fetch flow skips Auto-Match/title re-identification and proceeds directly with provider fetches.
+- When the request carries known game identity (`steamAppId` or `igdbId`), the main-process image fetch flow skips Auto-Match/title re-identification and proceeds directly with provider fetches. A bare invitation to `metadata:fetchGameImages` with only a staged-game `gameId` (a uuid) is not treated as known-game identity, so Add Games manual search still runs Auto-Match for non-Steam staged games.
+- Direct provider calls inside `metadata:fetchGameImages` are `withTimeout`-bounded (IGDB/RAWG 10s, aggregate RAWG 20s), and the Add Games renderer image search races the request against a client-side timeout so a hung provider surfaces "Image search timed out" instead of an endless spinner.
 - In provider-specific fallback stages, IGDB and RAWG fetch work can overlap so slower provider lookups do not fully serialize image-result delivery.
 - Progressive image batches are rendered as soon as they are emitted by providers (no wait for full multi-provider completion in the Images tab).
 - Renderer accumulation for progressive events is append-only with cross-batch dedupe so newly found images keep discovery order instead of jumping ahead by provider grouping.
@@ -75,6 +76,12 @@ Lets users search provider/web image sources, preview candidates, and assign box
 - Verify query construction includes game title/platform hints.
 - Inspect network failures and fallback behavior.
 
+### Symptom: Search hangs indefinitely or shows "Image search timed out"
+
+- Confirm the provider API services were created with HTTP timeouts ([IGDBService.ts](../../main/IGDBService.ts), [RAWGService.ts](../../main/RAWGService.ts), [SteamGridDBService.ts](../../main/SteamGridDBService.ts)) — a fetch-based axios client without a `timeout` option never settles and can permanently jam that provider's request queue.
+- Confirm the handler's provider calls are `withTimeout`-bounded ([metadataHandlers.ts](../../main/ipc/metadataHandlers.ts)) and the renderer image search races against a client-side timeout ([useGamePropertiesImages.ts](../../renderer/src/components/gameProperties/useGamePropertiesImages.ts)).
+- If the request had only a staged-game uuid (no `steamAppId`/`igdbId`), verify Auto-Match ran instead of being skipped.
+
 ### Symptom: Selected image does not persist
 
 - Confirm save call succeeded (`saveGame`/metadata update path).
@@ -92,6 +99,8 @@ Lets users search provider/web image sources, preview candidates, and assign box
   - [DuckDuckGoImageService.ts](../../main/DuckDuckGoImageService.ts)
   - [artworkUrlUtils.ts](../../main/artworkUrlUtils.ts)
   - [ipc/appHandlers.ts](../../main/ipc/appHandlers.ts)
+  - [ipc/metadataHandlers.ts](../../main/ipc/metadataHandlers.ts) - `metadata:fetchGameImages` aggregator; Auto-Match gating and per-provider timeouts
+  - [IGDBService.ts](../../main/IGDBService.ts), [RAWGService.ts](../../main/RAWGService.ts), [SteamGridDBService.ts](../../main/SteamGridDBService.ts) - provider clients with HTTP-level timeouts
 - **Renderer**
   - [GameManager.tsx](../../renderer/src/components/GameManager.tsx)
   - [gameManager/useGameManagerImageSearch.ts](../../renderer/src/components/gameManager/useGameManagerImageSearch.ts)
@@ -100,3 +109,4 @@ Lets users search provider/web image sources, preview candidates, and assign box
   - [BoxartFixDialog.tsx](../../renderer/src/components/BoxartFixDialog.tsx)
   - [GameDetailsPanel.tsx](../../renderer/src/components/GameDetailsPanel.tsx)
   - [ImageContextMenu.tsx](../../renderer/src/components/ImageContextMenu.tsx)
+  - [gameProperties/useGamePropertiesImages.ts](../../renderer/src/components/gameProperties/useGamePropertiesImages.ts) - Add Games image search with client-side timeout guard

@@ -6,6 +6,7 @@ export interface AxiosResponse<T = any> {
 export interface AxiosRequestConfig {
   params?: Record<string, any>;
   headers?: Record<string, string>;
+  timeout?: number;
 }
 
 export interface AxiosInstance {
@@ -43,15 +44,23 @@ async function doRequest<T>(
     data,
     params,
     headers,
-  }: { baseURL?: string; data?: any; params?: Record<string, any>; headers?: Record<string, string> } = {}
+    timeout,
+  }: { baseURL?: string; data?: any; params?: Record<string, any>; headers?: Record<string, string>; timeout?: number } = {}
 ): Promise<AxiosResponse<T>> {
   const finalUrl = buildUrl(baseURL, url, params);
+  const controller = new AbortController();
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  if (timeout && timeout > 0) {
+    timeoutId = setTimeout(() => controller.abort(), timeout);
+  }
+
   const init: RequestInit = {
     method,
     headers: {
       'Content-Type': data != null && typeof data === 'string' ? 'text/plain' : 'application/json',
       ...(headers || {}),
     },
+    signal: controller.signal,
   };
 
   if (method === 'POST') {
@@ -68,10 +77,14 @@ async function doRequest<T>(
   try {
     response = await fetch(finalUrl, init);
   } catch (err: any) {
-    const error: any = new Error(err?.message || 'Network error');
+    if (timeoutId) clearTimeout(timeoutId);
+    const error: any = new Error(
+      err?.name === 'AbortError' ? `Request timed out after ${timeout}ms` : err?.message || 'Network error'
+    );
     error.isAxiosError = true;
     throw error;
   }
+  if (timeoutId) clearTimeout(timeoutId);
 
   const status = response.status;
   let parsed: any = null;
@@ -96,13 +109,14 @@ async function doRequest<T>(
   return { status, data: parsed as T };
 }
 
-function createInstance(baseURL?: string): AxiosInstance {
+function createInstance(baseURL?: string, timeout?: number): AxiosInstance {
   return {
     get<T = any>(url: string, config?: AxiosRequestConfig): Promise<AxiosResponse<T>> {
       return doRequest<T>('GET', url, {
         baseURL,
         params: config?.params,
         headers: config?.headers,
+        timeout: config?.timeout ?? timeout,
       });
     },
     post<T = any>(url: string, data?: any, config?: AxiosRequestConfig): Promise<AxiosResponse<T>> {
@@ -111,20 +125,21 @@ function createInstance(baseURL?: string): AxiosInstance {
         data,
         params: config?.params,
         headers: config?.headers,
+        timeout: config?.timeout ?? timeout,
       });
     },
   };
 }
 
 const axios = {
-  create(config: { baseURL?: string } = {}): AxiosInstance {
-    return createInstance(config.baseURL);
+  create(config: { baseURL?: string; timeout?: number } = {}): AxiosInstance {
+    return createInstance(config.baseURL, config.timeout);
   },
   get<T = any>(url: string, config?: AxiosRequestConfig): Promise<AxiosResponse<T>> {
-    return doRequest<T>('GET', url, { params: config?.params, headers: config?.headers });
+    return doRequest<T>('GET', url, { params: config?.params, headers: config?.headers, timeout: config?.timeout });
   },
   post<T = any>(url: string, data?: any, config?: AxiosRequestConfig): Promise<AxiosResponse<T>> {
-    return doRequest<T>('POST', url, { data, params: config?.params, headers: config?.headers });
+    return doRequest<T>('POST', url, { data, params: config?.params, headers: config?.headers, timeout: config?.timeout });
   },
   isAxiosError(error: any): boolean {
     return !!(error && error.isAxiosError);

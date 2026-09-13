@@ -138,6 +138,7 @@ export class RAWGService {
   private initializeAxios() {
     this.axiosInstance = axios.create({
       baseURL: 'https://api.rawg.io/api?key=' + encodeURIComponent(this.apiKey),
+      timeout: 10_000,
     });
   }
 

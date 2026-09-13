@@ -189,13 +189,15 @@ It explains module boundaries, data flow, and release pipeline expectations.
 
 ### Known-Game Image Fetch Contract
 
-- `metadata:fetchGameImages` treats requests with known identifiers (`gameId`, `steamAppId`, or `igdbId`) as known-game flows.
+- `metadata:fetchGameImages` treats requests carrying `steamAppId` or `igdbId` as known-game flows.
 - In known-game flows, the handler skips Auto-Match/title re-identification and fetches provider artwork directly.
-- Auto-Match remains an unknown-query fallback only when no game identifiers are provided.
+- Auto-Match remains an unknown-query fallback only when no game identifiers are provided. A bare `gameId` (e.g. a staged-game uuid) is **not** treated as known-game identity, so non-Steam staged games still run Auto-Match instead of silently returning zero results.
+- Every direct provider call in the handler is `withTimeout`-bounded (IGDB/RAWG search/getArtwork 10s, aggregate RAWG 20s), and provider services create HTTP clients with explicit timeouts so a hung provider never blocks image search indefinitely. Renderer-side image search also races against a client timeout so the UI surfaces "Image search timed out" instead of a forever spinner.
 
 ## HTTP Client Notes
 
 - `main/axiosShim.ts` is expected to preserve `baseURL` path segments when joining relative request paths (e.g., IGDB `https://api.igdb.com/v4` + `/games` -> `https://api.igdb.com/v4/games`).
+- `main/axiosShim.ts` also honors `AxiosRequestConfig.timeout` via an `AbortController`; requests that exceed the timeout reject with an error flagged `isAxiosError` ("Request timed out after Nms"). This keeps provider clients created with a `timeout` option bounded even in environments running the fetch-based shim.
 
 ## Build and Delivery Pipeline
 
@@ -226,7 +228,7 @@ It explains module boundaries, data flow, and release pipeline expectations.
 
 <!-- AUTO-GENERATED:MODULE_INDEX:START -->
 - Main process source files: 90
-- Renderer source files: 178
+- Renderer source files: 179
 - Automation scripts: 30
 - GitHub workflow files: 7
 - Key entrypoints:

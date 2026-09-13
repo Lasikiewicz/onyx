@@ -4,6 +4,13 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## Pending
+
+- Fixes:
+  - Fixed manual image search on the Add Games list hanging forever and never showing results for games with no Steam App ID (for example EA App titles like Battlefield 6). A staged game's temporary id was being mistaken for an already-known game, so the automatic match that finds fresh artwork never ran; staged games now always go through the normal image search.
+  - Fixed image search stalling permanently when a metadata provider (IGDB, RAWG or SteamGridDB) hung on a request. Provider requests now all carry timeouts, so one slow or misbehaving provider can no longer block or wedge the search queue.
+  - The image search UI now gives up after a grace period and shows "Image search timed out. Please try again." instead of leaving the spinner running forever.
+
 ## [0.16.1] - 2026-08-07
 
 - Remove Deleted Games:

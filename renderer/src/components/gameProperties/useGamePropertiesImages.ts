@@ -260,14 +260,21 @@ export const useGamePropertiesImages = ({
     setProviderProgress(buildImporterProviderProgress(type));
 
     try {
-      const response = await (window.electronAPI as any).fetchGameImages(
-        query,
-        steamAppId,
-        undefined,
-        false,
-        runId,
-        gameId,
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Image search timed out')), 60_000)
       );
+
+      const response = await Promise.race([
+        (window.electronAPI as any).fetchGameImages(
+          query,
+          steamAppId,
+          undefined,
+          false,
+          runId,
+          gameId,
+        ),
+        timeoutPromise,
+      ]);
 
       if (response?.success && Array.isArray(response.images)) {
         setSteamGridDBResults(categorizeFetchedImages(response.images));
@@ -277,7 +284,7 @@ export const useGamePropertiesImages = ({
       }
     } catch (error) {
       console.error('[ImporterImageSearch] error', { runId, query, error });
-      setError('Failed to fetch images from sources');
+      setError(error instanceof Error && error.message === 'Image search timed out' ? 'Image search timed out. Please try again.' : 'Failed to fetch images from sources');
     } finally {
       setIsSearchingImages(false);
     }
@@ -303,14 +310,21 @@ export const useGamePropertiesImages = ({
     setProviderProgress(buildImporterProviderProgress(type));
 
     try {
-      const response = await (window.electronAPI as any).fetchGameImages(
-        query,
-        steamAppId,
-        undefined,
-        false,
-        runId,
-        gameId,
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Image search timed out')), 60_000)
       );
+
+      const response = await Promise.race([
+        (window.electronAPI as any).fetchGameImages(
+          query,
+          steamAppId,
+          undefined,
+          false,
+          runId,
+          gameId,
+        ),
+        timeoutPromise,
+      ]);
 
       if (response?.success && Array.isArray(response.images)) {
         setSteamGridDBResults(categorizeFetchedImages(response.images));
@@ -320,7 +334,7 @@ export const useGamePropertiesImages = ({
       }
     } catch (error) {
       console.error('[ImporterImageSearch] error', { runId, query, error });
-      setError('Failed to fetch images from sources');
+      setError(error instanceof Error && error.message === 'Image search timed out' ? 'Image search timed out. Please try again.' : 'Failed to fetch images from sources');
     } finally {
       setIsSearchingImages(false);
     }

@@ -709,7 +709,10 @@ export function registerMetadataIPCHandlers(
         activeImageSearchRequestId = requestId;
         const hasSteamAppId = typeof steamAppId === 'string' && steamAppId.trim().length > 0;
         const hasIgdbId = typeof igdbId === 'number' && !isNaN(igdbId);
-        const isKnownGameRequest = Boolean(gameId) || hasSteamAppId || hasIgdbId;
+        // Only real identifiers make this a "known" game request. Staged (importer) games pass
+        // their uuid as gameId, but with no Steam/IGDB id they still need the Auto-Match fallback
+        // (Steam title resolution + SteamGridDB/RAWG) to find artwork.
+        const isKnownGameRequest = hasSteamAppId || hasIgdbId;
 
         const isStale = () => requestId !== undefined && activeImageSearchRequestId !== requestId;
         const sendProviderStatus = (currentProvider: string, remaining: string[]) => {
@@ -799,11 +802,11 @@ export function registerMetadataIPCHandlers(
                     const rawgProvider = metadataFetcher.getRAWGProvider();
                     if (!rawgProvider?.isAvailable()) return [];
 
-                    const rawgResults = await rawgProvider.search(gameName);
+                    const rawgResults = await withTimeout(rawgProvider.search(gameName), 10_000);
                     const rawgResultId = rawgResults[0]?.id;
                     if (!rawgResultId) return [];
 
-                    const rawgArtwork = await rawgProvider.getArtwork(rawgResultId);
+                    const rawgArtwork = await withTimeout(rawgProvider.getArtwork(rawgResultId), 10_000);
                     const rawgImagesRaw = mapArtworkToImages(rawgArtwork, 'RAWG', gameName);
                     return rawgImagesRaw.filter((image: any) => !!image?.url);
                 } catch (err) {
@@ -820,12 +823,12 @@ export function registerMetadataIPCHandlers(
                     if (typeof igdbId === 'number' && !isNaN(igdbId)) {
                         igdbResultId = `igdb-${igdbId}`;
                     } else {
-                        const igdbResults = await igdbProvider.search(gameName, steamAppId);
+                        const igdbResults = await withTimeout(igdbProvider.search(gameName, steamAppId), 10_000);
                         igdbResultId = igdbResults[0]?.id;
                     }
 
                     if (igdbResultId) {
-                        const igdbArtwork = await igdbProvider.getArtwork(igdbResultId, steamAppId);
+                        const igdbArtwork = await withTimeout(igdbProvider.getArtwork(igdbResultId, steamAppId), 10_000);
                         const igdbImagesRaw = mapArtworkToImages(igdbArtwork, 'IGDB', gameName);
                         const igdbImages = igdbImagesRaw.filter((image: any) => !!image?.url);
                         if (igdbImages.length > 0) {
@@ -847,7 +850,12 @@ export function registerMetadataIPCHandlers(
             }
 
             sendProviderStatus('RAWG', []);
-            const rawgImages = await rawgImagesPromise;
+            let rawgImages: any[] = [];
+            try {
+                rawgImages = await withTimeout(rawgImagesPromise, 20_000);
+            } catch (error) {
+                console.warn('RAWG provider fetch timed out:', error);
+            }
             if (rawgImages.length > 0) {
                 results.push(...rawgImages);
                 if (!event.sender.isDestroyed()) {
@@ -857,6 +865,7 @@ export function registerMetadataIPCHandlers(
 
             // Send final "complete" status
             sendProviderStatus('', []);
+            console.log(`[fetchGameImages] COMPLETE for "${gameName}" (requestId: ${requestId}) -> ${results.length} images`);
 
             return { success: true, images: results };
         } catch (error) {

@@ -88,6 +88,7 @@ export class IGDBService {
     this.clientSecret = clientSecret;
     this.axiosInstance = axios.create({
       baseURL: 'https://api.igdb.com/v4',
+      timeout: 10_000,
     });
   }
 
@@ -178,6 +179,7 @@ export class IGDBService {
           client_secret: this.clientSecret,
           grant_type: 'client_credentials',
         },
+        timeout: 10_000,
       });
 
       if (response.data && response.data.access_token) {
@@ -222,6 +224,7 @@ export class IGDBService {
           client_secret: this.clientSecret,
           grant_type: 'client_credentials',
         },
+        timeout: 10_000,
       });
 
       const { access_token, expires_in } = response.data;
