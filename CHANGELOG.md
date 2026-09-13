@@ -4,7 +4,7 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## Pending
+## [0.16.2] - 2026-09-13
 
 - Add Games:
   - The main menu's Add Games section now has a "Remove Uninstalled Games" entry, so you can open the Remove Deleted Games review straight from the library without going through Game Manager. It scans for missing games, shows the same confirmation dialog, and leaves the files on disk untouched.
