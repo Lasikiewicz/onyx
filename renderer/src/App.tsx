@@ -1215,6 +1215,7 @@ function App() {
     rightPanelLogoSize: currentRightPanelLogoSize,
     rightPanelTextSize: currentRightPanelTextSize,
     runningGames,
+    setGridMaximizeSpace,
     selectedCategory,
     setDescriptionWidthByView,
     setDetailsPanelBottomBarHeight,
