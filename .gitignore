@@ -29,3 +29,6 @@ plan
 
 # WinUI rewrite source (WIP)
 winui/
+
+# Local backlog (planning layout, see plan/README.md)
+/todo.md

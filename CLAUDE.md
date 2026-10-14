@@ -90,3 +90,17 @@ Implemented but off by default — don't assume they're live:
 - **Steam playtime display** (`renderer/src/components/GameDetailsPanel.tsx`) — hidden UI block.
 
 See `.agent/docs/known-issues-disabled-features.md`.
+
+## Planning and backlog
+
+Follows the same layout as Saltbox. The full conventions are in [`plan/README.md`](plan/README.md).
+
+- [`todo.md`](todo.md) is the single backlog: one line per plan, linking its summary, never a
+  detailed entry. Completed plans move to `plan/archive/`.
+- Each plan has a summary at `plan/<name>.md`. It is the only place status and ticks live.
+  Details and decisions are in `plan/active/<name>/plan.md`, and each small step is a
+  `stepN-topic.md` with Work, Checks and dated Results.
+- **Before ending a turn that changed code or plans**, update the summary and `todo.md`. A step is
+  ticked only when its own checks have been run. A check that wasn't run stays an unticked box.
+- Never mark a smoke test as verified without running it. "Compiles and unit tests pass" is not
+  the same as "works in the app".
