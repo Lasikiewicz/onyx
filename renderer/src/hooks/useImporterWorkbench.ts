@@ -177,8 +177,11 @@ export function useImporterWorkbench({
     setIsImportWorkbenchOpen(true);
   }, []);
 
+  // Intentionally does not call window.electronAPI.showWindow(). Background scans reach this
+  // path while the window may be hidden to the tray, and the importer should open without
+  // stealing focus or forcing the window back into view. User-initiated entry points that
+  // need the window raised (e.g. handleUpdateSteamLibrary) call showWindow() themselves.
   const openImportWorkbenchWithGames = useCallback((foundGames: ImporterHandoffGameCandidate[], options?: { autoStartScan?: boolean }) => {
-    window.electronAPI.showWindow?.();
     setStartupProgress(null);
     window.electronAPI.cancelStartupScan?.();
     setFoundGames(null);

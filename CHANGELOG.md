@@ -4,6 +4,13 @@ All notable changes to Onyx are documented in this file. For download links and 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+- Fixes:
+  - Library saves no longer lose pending changes if the store fails to resolve during a flush. The in-memory library stays in place until it is written, so a failed flush can be retried instead of dropping the pending changes.
+- Maintainability:
+  - Documented that background-scan importer handoffs intentionally do not raise the window, so the importer opens without pulling a tray-hidden app back into view.
+
 ## [0.16.2] - 2026-09-13
 
 - Add Games:

@@ -153,12 +153,18 @@ export class GameStore {
     this.pendingSaveSince = null;
 
     if (this.gamesCache) {
-      if (isDebugOptimizationEnabled()) debugOptimizationLog(`GameStore flush start games=${this.gamesCache.length}`);
+      // Keep the cache populated while the store resolves so reads stay correct, and so a
+      // failure in ensureStore() leaves the pending data in place for a retry.
       const store = await this.ensureStore();
+      // The cache may have been flushed or replaced during the await. Snapshot and clear
+      // synchronously here, with no await before store.set, so a scheduleSave() that lands
+      // afterwards arranges its own fresh write instead of being clobbered by this flush.
       const gamesToSave = this.gamesCache;
-      this.gamesCache = null; // Clear cache before setting to avoid race conditions
+      if (!gamesToSave) return;
+      this.gamesCache = null;
+      if (isDebugOptimizationEnabled()) debugOptimizationLog(`GameStore flush start games=${gamesToSave.length}`);
       if (isDebugOptimizationEnabled()) debugOptimizationLog(`GameStore flush set games count=${gamesToSave.length}`);
-      (store as any).set('games', gamesToSave);
+      store.set('games', gamesToSave);
       if (isDebugOptimizationEnabled()) debugOptimizationLog(`GameStore flush done`);
       console.log(`[GameStore] Library flushed to disk (${gamesToSave.length} games)`);
     }
