@@ -98,3 +98,9 @@ Caches image assets and optimizes them (including worker-based processing) for f
   - [RefreshMetadataDialog.tsx](../../renderer/src/components/RefreshMetadataDialog.tsx)
   - [GameDetailsPanel.tsx](../../renderer/src/components/GameDetailsPanel.tsx)
   - [App.tsx](../../renderer/src/App.tsx)
+
+## Artwork writes and protocol roots (2026-10)
+
+- The optimizer writes back through `GameStore.updateGame`, and only the artwork fields it produced. A field the user changed while the job ran is kept.
+- `onyx-local://` serves files only from the image cache directory and its legacy location `userData/cache/images`. Other files in the app data folder are refused (`isPathWithinRoots`).
+- Every read on the protocol path is async. Case-insensitive lookup uses a 30 s name index, not a directory listing per miss.

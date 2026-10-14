@@ -1,7 +1,7 @@
 import { app, protocol, session } from 'electron';
 import path from 'node:path';
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
-import { readFile } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
+import { readFile, readdir } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import type { ImageCacheService } from './ImageCacheService.js';
 
@@ -33,6 +33,46 @@ export function isPathWithinRoots(candidate: string, roots: string[]): boolean {
     if (normalizedCandidate === normalizedRoot) return true;
     return normalizedCandidate.startsWith(normalizedRoot + path.sep);
   });
+}
+
+const MIME_BY_EXTENSION: Record<string, string> = {
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.png': 'image/png',
+  '.gif': 'image/gif',
+  '.webp': 'image/webp',
+  '.webm': 'video/webm',
+  '.ico': 'image/x-icon',
+  '.avif': 'image/avif',
+};
+
+function mimeTypeForExtension(ext: string): string {
+  return MIME_BY_EXTENSION[ext.toLowerCase()] ?? 'image/jpeg';
+}
+
+/**
+ * Lowercased file name -> full path for one cache directory, rebuilt at most every
+ * CASE_INDEX_TTL_MS. The case-insensitive fallback used to re-list the directory synchronously on
+ * every miss, which blocked the main thread once per painted image (A9).
+ */
+const CASE_INDEX_TTL_MS = 30_000;
+let caseIndex: { dir: string; builtAt: number; files: Map<string, string> } | null = null;
+
+async function findFileCaseInsensitive(cacheDir: string, lowerName: string): Promise<string | null> {
+  const now = Date.now();
+  if (!caseIndex || caseIndex.dir !== cacheDir || now - caseIndex.builtAt > CASE_INDEX_TTL_MS) {
+    try {
+      const names = await readdir(cacheDir);
+      caseIndex = {
+        dir: cacheDir,
+        builtAt: now,
+        files: new Map(names.map((name) => [name.toLowerCase(), path.join(cacheDir, name)])),
+      };
+    } catch {
+      return null;
+    }
+  }
+  return caseIndex.files.get(lowerName) ?? null;
 }
 
 /**
@@ -128,44 +168,22 @@ export function registerOnyxLocalProtocol(imageCacheService: ImageCacheService):
         imageType = rawType === 'alternativebanner' ? 'alternativeBanner' : rawType;
       } else {
         // Old format - try to decode and extract
-        try {
-          const filename = path.basename(decodedUrlPath);
-          const parts = filename.split('-');
-          if (parts.length >= 2) {
-            if (parts[0] === 'steam' && parts.length > 1) {
-              gameId = parts[0] + '-' + parts[1];
-              imageType = parts[2] || 'boxart';
-            } else if (parts[0] === 'custom' && parts.length > 2) {
-              gameId = parts[0] + '-' + parts[1] + '-' + parts[2];
-              imageType = parts[3] || 'boxart';
-            } else {
-              // Try to find image type in filename
-              const typeMatch = filename.match(/-?(boxart|banner|alternativeBanner|logo|hero|icon|screenshot-\d+)-?/);
-              if (typeMatch) {
-                imageType = typeMatch[1];
-                gameId = filename.substring(0, filename.indexOf('-' + imageType));
-              }
+        const filename = path.basename(decodedUrlPath);
+        const parts = filename.split('-');
+        if (parts.length >= 2) {
+          if (parts[0] === 'steam' && parts.length > 1) {
+            gameId = parts[0] + '-' + parts[1];
+            imageType = parts[2] || 'boxart';
+          } else if (parts[0] === 'custom' && parts.length > 2) {
+            gameId = parts[0] + '-' + parts[1] + '-' + parts[2];
+            imageType = parts[3] || 'boxart';
+          } else {
+            // Try to find image type in filename
+            const typeMatch = filename.match(/-?(boxart|banner|alternativeBanner|logo|hero|icon|screenshot-\d+)-?/);
+            if (typeMatch) {
+              imageType = typeMatch[1];
+              gameId = filename.substring(0, filename.indexOf('-' + imageType));
             }
-          }
-        } catch (e) {
-          // Can't decode, try base64
-          try {
-            let base64 = decodedUrlPath.replace(/-/g, '+').replace(/_/g, '/');
-            while (base64.length % 4) base64 += '=';
-            const decoded = Buffer.from(base64, 'base64').toString('utf-8');
-            const filename = path.basename(decoded);
-            const parts = filename.split('-');
-            if (parts.length >= 2) {
-              if (parts[0] === 'steam' && parts.length > 1) {
-                gameId = parts[0] + '-' + parts[1];
-                imageType = parts[2] || 'boxart';
-              } else if (parts[0] === 'custom' && parts.length > 2) {
-                gameId = parts[0] + '-' + parts[1] + '-' + parts[2];
-                imageType = parts[3] || 'boxart';
-              }
-            }
-          } catch (e2) {
-            // Can't decode at all
           }
         }
       }
@@ -173,6 +191,8 @@ export function registerOnyxLocalProtocol(imageCacheService: ImageCacheService):
       // Get cache directory from ImageCacheService so protocol lookup always
       // matches the real active cache path (including fallback paths).
       const cacheDir = imageCacheService.getCacheDir();
+      // The legacy location of the same cache. It is the only userData path that may be served.
+      const legacyCacheDir = path.join(app.getPath('userData'), 'cache', 'images');
 
       if (gameId && imageType && existsSync(cacheDir)) {
         // Try to find file: {gameId}-{imageType}.{ext}
@@ -208,13 +228,7 @@ export function registerOnyxLocalProtocol(imageCacheService: ImageCacheService):
             failedUrlCounts.delete(requestUrl);
           }
 
-          let mimeType = 'image/jpeg';
-          if (ext === '.png') mimeType = 'image/png';
-          else if (ext === '.gif') mimeType = 'image/gif';
-          else if (ext === '.webp') mimeType = 'image/webp';
-          else if (ext === '.webm') mimeType = 'video/webm';
-          else if (ext === '.ico') mimeType = 'image/x-icon';
-          else if (ext === '.avif') mimeType = 'image/avif';
+          const mimeType = mimeTypeForExtension(ext);
 
           // Only log successful loads occasionally to avoid spam. Counted in its own map so
           // success keys do not consume the failure map's MAX_TRACKED_URLS budget.
@@ -231,32 +245,22 @@ export function registerOnyxLocalProtocol(imageCacheService: ImageCacheService):
           return new Response(new Uint8Array(fileData), { headers: { 'Content-Type': mimeType } });
         }
 
-        // Case-insensitive fallback (URL may be lowercased by browser; file on disk may have different casing)
-        try {
-          const files = readdirSync(cacheDir) as string[];
-          for (const f of files) {
-            const fl = f.toLowerCase();
-            const ext = extensions.find((e) => fl === prefixLower + e);
-            if (!ext) continue;
-            const filePath = path.join(cacheDir, f);
-            if (!existsSync(filePath)) continue;
-            if (count === 1) console.log(`[onyx-local] ✓ Found (case-insensitive): ${f}`);
-            if (failedUrls.has(requestUrl)) {
-              failedUrls.delete(requestUrl);
-              failedUrlCounts.delete(requestUrl);
-            }
-            const fileData = readFileSync(filePath);
-            let mimeType = 'image/jpeg';
-            if (ext === '.png') mimeType = 'image/png';
-            else if (ext === '.gif') mimeType = 'image/gif';
-            else if (ext === '.webp') mimeType = 'image/webp';
-            else if (ext === '.webm') mimeType = 'video/webm';
-            else if (ext === '.ico') mimeType = 'image/x-icon';
-            else if (ext === '.avif') mimeType = 'image/avif';
-            return new Response(fileData, { headers: { 'Content-Type': mimeType } });
+        // Case-insensitive fallback (URL may be lowercased by the browser; the file on disk may differ in case).
+        // Looks up a cached name index, so a miss doesn't re-list the directory (A9).
+        for (const ext of extensions) {
+          const filePath = await findFileCaseInsensitive(cacheDir, `${prefixLower}${ext}`);
+          if (!filePath) continue;
+          if (count === 1) console.log(`[onyx-local] ✓ Found (case-insensitive): ${path.basename(filePath)}`);
+          if (failedUrls.has(requestUrl)) {
+            failedUrls.delete(requestUrl);
+            failedUrlCounts.delete(requestUrl);
           }
-        } catch (_e) {
-          // Ignore
+          try {
+            const fileData = await readFile(filePath);
+            return new Response(new Uint8Array(fileData), { headers: { 'Content-Type': mimeTypeForExtension(ext) } });
+          } catch {
+            continue;
+          }
         }
 
         // File not found - return 404 but don't mark as failed until we've tried a few times
@@ -264,22 +268,6 @@ export function registerOnyxLocalProtocol(imageCacheService: ImageCacheService):
         if (count === 1) {
           console.log(`[onyx-local] File not found: ${safeGameId}-${imageType}.{jpg|png|gif|webp|webm|...}`);
           console.log(`[onyx-local] Cache dir: ${cacheDir}`);
-          // List available files for this game ID to help debug
-          try {
-            const files = readdirSync(cacheDir);
-            const matchingFiles = files.filter((f: string) => f.startsWith(safeGameId + '-'));
-            if (matchingFiles.length > 0) {
-              console.log(`[onyx-local] Found ${matchingFiles.length} file(s) for game ID ${safeGameId}:`, matchingFiles.slice(0, 5));
-            } else {
-              // Try to find files with similar game IDs
-              const similarFiles = files.filter((f: string) => f.includes('-boxart') || f.includes('-banner'));
-              if (similarFiles.length > 0) {
-                console.log(`[onyx-local] Sample files in cache:`, similarFiles.slice(0, 5));
-              }
-            }
-          } catch (e) {
-            // Ignore errors listing directory
-          }
         }
 
         // Return 404 for this specific image - don't block other images
@@ -414,11 +402,11 @@ export function registerOnyxLocalProtocol(imageCacheService: ImageCacheService):
       finalPath = path.normalize(finalPath);
 
       // SECURITY: Ensure path is within cache directory or userData to prevent traversal attacks
-      const isTraversed = !isPathWithinRoots(finalPath, [cacheDir, app.getPath('userData')]);
+      const isTraversed = !isPathWithinRoots(finalPath, [cacheDir, legacyCacheDir]);
 
       if (isTraversed) {
         console.error(`[onyx-local] ⛔ BLOCKED Path Traversal Attempt or unauthorized access: ${finalPath}`);
-        console.error(`[onyx-local] Authorized: ${cacheDir} or ${app.getPath('userData')}`);
+        console.error(`[onyx-local] Authorized: ${cacheDir} or ${legacyCacheDir}`);
         return new Response(null, {
           status: 403,
           statusText: 'Forbidden',
@@ -460,7 +448,7 @@ export function registerOnyxLocalProtocol(imageCacheService: ImageCacheService):
             for (const imageCacheDir of cacheDirs) {
               if (existsSync(imageCacheDir)) {
                 try {
-                  const cacheFiles = readdirSync(imageCacheDir);
+                  const cacheFiles = await readdir(imageCacheDir);
                   console.error(`  Checking cache directory: ${imageCacheDir} (${cacheFiles.length} files)`);
 
                   // Try multiple matching strategies:
@@ -505,7 +493,7 @@ export function registerOnyxLocalProtocol(imageCacheService: ImageCacheService):
                     console.error(`  Serving from: ${correctPath}`);
 
                     if (existsSync(correctPath)) {
-                      const fileData = readFileSync(correctPath);
+                      const fileData = await readFile(correctPath);
                       const ext = path.extname(correctPath).toLowerCase();
                       let mimeType = 'application/octet-stream';
                       if (ext === '.jpg' || ext === '.jpeg') mimeType = 'image/jpeg';
@@ -534,26 +522,6 @@ export function registerOnyxLocalProtocol(imageCacheService: ImageCacheService):
                 console.error(`  Cache directory does not exist: ${imageCacheDir}`);
               }
             }
-          } else {
-            console.error(`  ✓ Parent directory exists: ${parentDir}`);
-            // List files in parent directory to help debug
-            try {
-              const files = readdirSync(parentDir);
-              console.error(`  Files in directory (${files.length}): ${files.slice(0, 5).join(', ')}${files.length > 5 ? '...' : ''}`);
-
-              // Try to find similar files
-              const filename = path.basename(finalPath);
-              const similar = files.filter(f => {
-                const fLower = f.toLowerCase();
-                const nameLower = filename.toLowerCase();
-                return fLower.includes(nameLower.substring(0, 10)) || nameLower.includes(fLower.substring(0, 10));
-              });
-              if (similar.length > 0) {
-                console.error(`  Similar files found: ${similar.join(', ')}`);
-              }
-            } catch (e) {
-              console.error(`  Could not list directory: ${e}`);
-            }
           }
         }
         // Return 404 with headers to prevent retries
@@ -581,15 +549,9 @@ export function registerOnyxLocalProtocol(imageCacheService: ImageCacheService):
       }
 
       // Read file and return as Response
-      const fileData = readFileSync(finalPath);
-      const ext = path.extname(finalPath).toLowerCase();
-      let mimeType = 'application/octet-stream';
-      if (ext === '.jpg' || ext === '.jpeg') mimeType = 'image/jpeg';
-      else if (ext === '.png') mimeType = 'image/png';
-      else if (ext === '.gif') mimeType = 'image/gif';
-      else if (ext === '.webp') mimeType = 'image/webp';
-      else if (ext === '.webm') mimeType = 'video/webm';
-
+      // Async read: this runs once per image the renderer paints, so it must not block the main thread (A9).
+      const fileData = await readFile(finalPath);
+      const mimeType = mimeTypeForExtension(path.extname(finalPath));
       return new Response(fileData, {
         headers: { 'Content-Type': mimeType },
       });

@@ -79,3 +79,20 @@ describe('isPathWithinRoots', () => {
     expect(isPathWithinRoots(j(root.toUpperCase(), 'ART.PNG'), [root])).toBe(false);
   });
 });
+
+describe('onyx-local roots (A9)', () => {
+  // Config, credentials and the database live directly in userData. They must not be served, even
+  // though the cache is a child of userData. Only the cache and its legacy location are roots.
+  const userData = isWindows ? 'C:\Users\me\AppData\Roaming\Onyx' : '/home/me/.config/Onyx';
+  const cacheDir = path.join(userData, 'cache', 'images-current');
+  const legacyCacheDir = path.join(userData, 'cache', 'images');
+  const roots = [cacheDir, legacyCacheDir];
+
+  it('denies a file directly in userData', () => {
+    expect(isPathWithinRoots(path.join(userData, 'config.json'), roots)).toBe(false);
+  });
+
+  it('allows files in the legacy image cache', () => {
+    expect(isPathWithinRoots(path.join(legacyCacheDir, 'steam-1-boxart.jpg'), roots)).toBe(true);
+  });
+});

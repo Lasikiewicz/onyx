@@ -3,21 +3,34 @@ import type { Game } from '../types/game';
 
 interface UseGameLaunchFlowOptions {
   confirmGameLaunch: boolean;
+  /** Shows a user-facing message (the app toast). Failures and blocked launches go through here, not alert(). */
+  notify?: (message: string, type?: 'success' | 'error') => void;
 }
 
-export function useGameLaunchFlow({ confirmGameLaunch }: UseGameLaunchFlowOptions) {
+export function useGameLaunchFlow({ confirmGameLaunch, notify }: UseGameLaunchFlowOptions) {
   const [launchingGameId, setLaunchingGameId] = useState<string | null>(null);
   const [runningGames, setRunningGames] = useState<Set<string>>(new Set());
+  // Refs mirror the state so launchGame, which is memoised, can check them without going stale.
+  const runningGamesRef = useRef<Set<string>>(new Set());
+  const launchingGameIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    runningGamesRef.current = runningGames;
+  }, [runningGames]);
   const [launchConfirmation, setLaunchConfirmation] = useState<{ game: Game } | null>(null);
   const minimizedForTrackedLaunchesRef = useRef<Set<string>>(new Set());
   // Every polling interval started by this hook, so unmount can stop them. Previously each
   // interval was only cleared from inside its own callback, so a monitor whose process
   // stayed alive kept polling after the component was gone.
   const activeIntervalsRef = useRef<Set<ReturnType<typeof setInterval>>>(new Set());
+  const launchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const intervals = activeIntervalsRef.current;
     return () => {
+      if (launchTimeoutRef.current !== null) {
+        clearTimeout(launchTimeoutRef.current);
+        launchTimeoutRef.current = null;
+      }
       for (const interval of intervals) clearInterval(interval);
       intervals.clear();
     };
@@ -90,7 +103,7 @@ export function useGameLaunchFlow({ confirmGameLaunch }: UseGameLaunchFlowOption
     activeIntervalsRef.current.add(checkInterval);
   }, []);
 
-  const launchGame = useCallback(async (game: Game) => {
+  const launchGameFlow = useCallback(async (game: Game) => {
     setLaunchingGameId(game.id);
     try {
       try {
@@ -104,7 +117,7 @@ export function useGameLaunchFlow({ confirmGameLaunch }: UseGameLaunchFlowOption
             setLaunchingGameId(null);
 
             if (!resumeResult.success) {
-              alert(`Failed to resume game: ${resumeResult.error || 'Unknown error'}`);
+              notify?.(`Failed to resume game: ${resumeResult.error || 'Unknown error'}`, 'error');
               return;
             }
 
@@ -124,7 +137,7 @@ export function useGameLaunchFlow({ confirmGameLaunch }: UseGameLaunchFlowOption
       const result = await window.electronAPI.launchGame(game.id);
       if (!result.success) {
         console.error('Failed to launch game:', result.error);
-        alert(`Failed to launch game: ${result.error || 'Unknown error'}`);
+        notify?.(`Failed to launch ${game.title}: ${result.error || 'Unknown error'}`, 'error');
         setLaunchingGameId(null);
         return;
       }
@@ -138,7 +151,11 @@ export function useGameLaunchFlow({ confirmGameLaunch }: UseGameLaunchFlowOption
       // gameStopped (crash, reload), background scanning would otherwise stay disabled.
       await window.electronAPI.scanning?.gameStarted?.(game.id, result.pid);
 
-      setTimeout(() => {
+      if (launchTimeoutRef.current !== null) {
+        clearTimeout(launchTimeoutRef.current);
+      }
+      launchTimeoutRef.current = setTimeout(() => {
+        launchTimeoutRef.current = null;
         setLaunchingGameId(null);
         setRunningGames((prev) => new Set(prev).add(game.id));
 
@@ -154,10 +171,25 @@ export function useGameLaunchFlow({ confirmGameLaunch }: UseGameLaunchFlowOption
       }, 1000);
     } catch (error) {
       console.error('Error launching game:', error);
-      alert(`Error launching game: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      notify?.(`Error launching ${game.title}: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
       setLaunchingGameId(null);
     }
-  }, [monitorGameProcess, pollForGameProcess]);
+  }, [monitorGameProcess, pollForGameProcess, notify]);
+
+  // Double-launch guard (E2): a game that is already running, or whose launch is still in progress,
+  // is not started again. Tracked in refs so a second click before the next render is caught too.
+  const launchGame = useCallback(async (game: Game) => {
+    if (runningGamesRef.current.has(game.id) || launchingGameIdRef.current === game.id) {
+      notify?.(`${game.title} is already running`, 'error');
+      return;
+    }
+    launchingGameIdRef.current = game.id;
+    try {
+      await launchGameFlow(game);
+    } finally {
+      launchingGameIdRef.current = null;
+    }
+  }, [launchGameFlow, notify]);
 
   const handlePlay = useCallback(async (game: Game) => {
     if (confirmGameLaunch) {

@@ -6,6 +6,10 @@ import { GameStore, Game } from './GameStore.js';
 import { isSafeExternalUrl } from './SecurityUtils.js';
 import { resolveKnownGameLauncherExecutable } from './knownGameLaunchers.js';
 import { IS_WINDOWS } from './platformSupport.js';
+import { buildWindowsCommandLine } from './windowsCommandLine.js';
+import { findProcessByInstallDir, listProcesses } from './ProcessLookup.js';
+import { lookupEpicAppName } from './epicManifest.js';
+import { gameProcessEvents, PROCESS_FOUND_EVENT, type ProcessFoundEvent } from './gameProcessEvents.js';
 
 /**
  * Whether the Windows-only store clients (Epic Games Launcher, EA App/Origin, GOG Galaxy, Ubisoft
@@ -28,6 +32,25 @@ const UNINSTALLER_NAMES = [
 ];
 
 const escapePowerShellSingleQuoted = (value: string): string => `'${value.replace(/'/g, "''")}'`;
+
+/** Protocol launches return no PID. Look for the game's process this long after launch. */
+const PROCESS_WATCH_INITIAL_DELAY_MS = 5_000;
+const PROCESS_WATCH_INTERVAL_MS = 2_000;
+const PROCESS_WATCH_TIMEOUT_MS = 90_000;
+
+async function isDirectory(filePath: string): Promise<boolean> {
+  try {
+    return (await fsp.stat(filePath)).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+/** The PowerShell launch prints the new process ID as its last line (`-PassThru`). */
+function parseLaunchedPid(stdout: string): number | undefined {
+  const pid = Number(stdout.trim().split(/\r?\n/).pop());
+  return Number.isInteger(pid) && pid > 0 ? pid : undefined;
+}
 
 export class LauncherService {
   private gameStore: GameStore;
@@ -67,11 +90,16 @@ export class LauncherService {
       // the shell's external handler, so they stay with the Xbox branch further down.
       const storedLaunchUri = typeof game.launchUri === 'string' ? game.launchUri.trim() : '';
       if (storedLaunchUri && !storedLaunchUri.toLowerCase().startsWith('shell:')) {
+        if (!isSafeExternalUrl(storedLaunchUri)) {
+          return { success: false, error: `Refusing to launch disallowed URI scheme: ${storedLaunchUri}` };
+        }
         console.log(`[LauncherService] Launching via stored launch URI: ${storedLaunchUri}`);
         await shell.openExternal(storedLaunchUri);
+        this.watchForInstallDirProcess(game);
 
-        game.lastPlayed = new Date().toISOString();
-        await this.gameStore.saveGame(game);
+        const lastPlayed = new Date().toISOString();
+        game.lastPlayed = lastPlayed;
+        this.gameStore.updateGame(game.id, { lastPlayed });
 
         return { success: true };
       }
@@ -87,21 +115,11 @@ export class LauncherService {
         await shell.openExternal(steamUrl);
 
         // Update lastPlayed timestamp
-        game.lastPlayed = new Date().toISOString();
-        await this.gameStore.saveGame(game);
+        const lastPlayed = new Date().toISOString();
+        game.lastPlayed = lastPlayed;
+        this.gameStore.updateGame(game.id, { lastPlayed });
 
-        // For Steam games, we need to wait a moment and then try to find the process
-        // since we launch via protocol, we don't get a PID back immediately.
-        console.log(`[LauncherService] Steam game launched via protocol. Attempting to detect PID for: ${game.title}`);
-
-        // Wait 5 seconds for the game to start before attempting to find PID
-        let pid: number | undefined;
-        setTimeout(async () => {
-          pid = await this.getActiveSteamProcessId(game);
-          if (pid) {
-            console.log(`[LauncherService] Detected Steam game PID: ${pid}`);
-          }
-        }, 5000);
+        this.watchForInstallDirProcess(game);
 
         return { success: true };
       }
@@ -110,18 +128,25 @@ export class LauncherService {
       const epicMatch = gameId.match(/^epic-(.+)$/);
       const isEpic = epicMatch || game.platform === 'epic' || game.source === 'epic';
       if (isEpic && game.installationDirectory && HAS_NATIVE_STORE_CLIENTS) {
-        // Epic uses: com.epicgames.launcher://apps/<InstallPath>?action=launch&silent=true
-        // InstallPath needs to be URI encoded
-        const installPathEncoded = encodeURIComponent(game.installationDirectory);
-        const epicUrl = `com.epicgames.launcher://apps/${installPathEncoded}?action=launch&silent=true`;
-        console.log(`[LauncherService] Launching Epic game: ${epicUrl}`);
-        await shell.openExternal(epicUrl);
+        // Epic launches by AppName (apps/<AppName>), not by install path (A6). Games imported since
+        // then have that URI stored and take the stored-URI branch above. For older games, read the
+        // AppName from the Epic manifest once and save it, so later launches use the stored URI.
+        const appName = await lookupEpicAppName(game.installationDirectory);
+        if (appName) {
+          const epicUrl = `com.epicgames.launcher://apps/${encodeURIComponent(appName)}?action=launch&silent=true`;
+          console.log(`[LauncherService] Launching Epic game: ${epicUrl}`);
+          this.gameStore.updateGame(game.id, { launchUri: epicUrl });
+          await shell.openExternal(epicUrl);
+          this.watchForInstallDirProcess(game);
 
-        // Update lastPlayed timestamp
-        game.lastPlayed = new Date().toISOString();
-        await this.gameStore.saveGame(game);
+          // Update lastPlayed timestamp
+          const lastPlayed = new Date().toISOString();
+          game.lastPlayed = lastPlayed;
+          this.gameStore.updateGame(game.id, { lastPlayed });
 
-        return { success: true };
+          return { success: true };
+        }
+        console.warn(`[LauncherService] No Epic manifest matches ${game.installationDirectory}; launching the executable instead`);
       }
 
       // EA/Origin: ea-<OfferId> or origin-<OfferId>
@@ -135,8 +160,9 @@ export class LauncherService {
         await shell.openExternal(eaUrl);
 
         // Update lastPlayed timestamp
-        game.lastPlayed = new Date().toISOString();
-        await this.gameStore.saveGame(game);
+        const lastPlayed = new Date().toISOString();
+        game.lastPlayed = lastPlayed;
+        this.gameStore.updateGame(game.id, { lastPlayed });
 
         return { success: true };
       }
@@ -152,8 +178,9 @@ export class LauncherService {
         await shell.openExternal(gogUrl);
 
         // Update lastPlayed timestamp
-        game.lastPlayed = new Date().toISOString();
-        await this.gameStore.saveGame(game);
+        const lastPlayed = new Date().toISOString();
+        game.lastPlayed = lastPlayed;
+        this.gameStore.updateGame(game.id, { lastPlayed });
 
         return { success: true };
       }
@@ -169,8 +196,9 @@ export class LauncherService {
         await shell.openExternal(ubisoftUrl);
 
         // Update lastPlayed timestamp
-        game.lastPlayed = new Date().toISOString();
-        await this.gameStore.saveGame(game);
+        const lastPlayed = new Date().toISOString();
+        game.lastPlayed = lastPlayed;
+        this.gameStore.updateGame(game.id, { lastPlayed });
 
         return { success: true };
       }
@@ -207,8 +235,9 @@ export class LauncherService {
           child.unref();
 
           // Update lastPlayed timestamp
-          game.lastPlayed = new Date().toISOString();
-          await this.gameStore.saveGame(game);
+          const lastPlayed = new Date().toISOString();
+          game.lastPlayed = lastPlayed;
+          this.gameStore.updateGame(game.id, { lastPlayed });
 
           // Do not return explorer PID here: explorer exits quickly and is not the actual game process.
           // Returning it causes renderer/background tracking to mark the game as stopped almost immediately.
@@ -235,8 +264,9 @@ export class LauncherService {
           await shell.openExternal(steamUrl);
 
           // Update lastPlayed timestamp
-          game.lastPlayed = new Date().toISOString();
-          await this.gameStore.saveGame(game);
+          const lastPlayed = new Date().toISOString();
+          game.lastPlayed = lastPlayed;
+          this.gameStore.updateGame(game.id, { lastPlayed });
 
           return { success: true };
         }
@@ -267,6 +297,14 @@ export class LauncherService {
       if (exePath.startsWith('"') && exePath.endsWith('"')) {
         exePath = exePath.slice(1, -1);
       }
+
+      // A folder can't be run. Say so, rather than letting spawn fail with an opaque error (E4).
+      if (!knownLauncherExe && (await isDirectory(exePath))) {
+        return {
+          success: false,
+          error: `No executable set for ${game.title}: "${exePath}" is a folder. Choose the game's .exe in Game Manager.`,
+        };
+      }
       exePath = normalize(exePath);
       const workingDir = normalize(dirname(exePath));
 
@@ -291,21 +329,28 @@ export class LauncherService {
       }
 
       let child: ReturnType<typeof spawn> | undefined;
+      let launchedPid: number | undefined;
       if (process.platform === 'win32') {
         // On Windows, use PowerShell's Start-Process to handle UAC elevation prompts properly 
         // while also supporting working directories and arguments.
+        // One pre-quoted string, not an array: PS 5.1 joins array elements with spaces and does not
+        // quote them, which split any argument containing a space (A5).
         const psArgs = args.length > 0
-          ? ` -ArgumentList @(${args.map(escapePowerShellSingleQuoted).join(', ')})`
+          ? ` -ArgumentList ${escapePowerShellSingleQuoted(buildWindowsCommandLine(args))}`
           : '';
-        const psCommand = `$ErrorActionPreference = 'Stop'; Start-Process -FilePath ${escapePowerShellSingleQuoted(exePath)} -WorkingDirectory ${escapePowerShellSingleQuoted(workingDir)}${psArgs}`;
+        const psCommand = `$ErrorActionPreference = 'Stop'; $p = Start-Process -FilePath ${escapePowerShellSingleQuoted(exePath)} -WorkingDirectory ${escapePowerShellSingleQuoted(workingDir)}${psArgs} -PassThru; Write-Output $p.Id`;
         
         console.log(`[LauncherService] Using PowerShell launch: ${psCommand}`);
-        const launchResult = await new Promise<{ success: boolean; error?: string }>((resolve) => {
+        const launchResult = await new Promise<{ success: boolean; error?: string; pid?: number }>((resolve) => {
           const psChild = spawn('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', psCommand], {
-            stdio: ['ignore', 'ignore', 'pipe'],
+            stdio: ['ignore', 'pipe', 'pipe'],
             windowsHide: true
           });
 
+          let stdout = '';
+          psChild.stdout?.on('data', (chunk) => {
+            stdout += chunk.toString();
+          });
           let stderr = '';
           psChild.stderr?.on('data', (chunk) => {
             stderr += chunk.toString();
@@ -315,7 +360,7 @@ export class LauncherService {
           });
           psChild.on('close', (code) => {
             if (code === 0) {
-              resolve({ success: true });
+              resolve({ success: true, pid: parseLaunchedPid(stdout) });
             } else {
               resolve({ success: false, error: stderr.trim() || `PowerShell launch failed with exit code ${code}` });
             }
@@ -325,6 +370,7 @@ export class LauncherService {
         if (!launchResult.success) {
           return { success: false, error: launchResult.error || 'PowerShell launch failed' };
         }
+        launchedPid = launchResult.pid;
       } else {
         // Games unpacked from an archive routinely lose the executable bit, and the raw spawn
         // failure for that is an opaque EACCES. Check first so the user gets told what to fix.
@@ -352,14 +398,15 @@ export class LauncherService {
         });
       }
 
-      game.lastPlayed = new Date().toISOString();
-      await this.gameStore.saveGame(game);
+      const lastPlayed = new Date().toISOString();
+      game.lastPlayed = lastPlayed;
+      this.gameStore.updateGame(game.id, { lastPlayed });
 
       if (isXbox) {
         return { success: true };
       }
       if (process.platform === 'win32') {
-        return { success: true };
+        return { success: true, pid: launchedPid };
       }
       return { success: true, pid: child?.pid };
     } catch (error) {
@@ -490,57 +537,24 @@ export class LauncherService {
   }
 
   /**
-   * Attempt to find a running process for a Steam game by matching its installation directory.
-   * This is used for Steam games launched via protocol since they don't return a PID.
+   * Protocol launches (Steam, Epic, stored launch URIs) return no PID. Poll for a process running
+   * from the game's install directory and publish it, so running state, restore-after-launch and
+   * background-scan pausing follow the real game instead of a fixed timer (A4, A7).
    */
-  private async getActiveSteamProcessId(game: Game): Promise<number | undefined> {
-    if (process.platform !== 'win32' || !game.installationDirectory) {
-      return undefined;
-    }
+  private watchForInstallDirProcess(game: Game): void {
+    const installDir = game.installationDirectory;
+    if (process.platform !== 'win32' || !installDir) return;
 
-    try {
-      // Use wmic to find processes that might be the game
-      // We look for processes where the executable path contains the game's installation directory
-      // This is a heuristic but fairly reliable for Steam games.
-      const normalizedInstallDir = game.installationDirectory.replace(/\//g, '\\').toLowerCase();
-
-      return new Promise<number | undefined>((resolve) => {
-        execFile('wmic', ['process', 'where', 'NOT ExecutablePath IS NULL', 'get', 'ExecutablePath,ProcessId'], (error, stdout) => {
-          if (error) {
-            console.error('[LauncherService] wmic error:', error);
-            resolve(undefined);
-            return;
-          }
-
-          const lines = stdout.split('\n').filter(line => line.trim().length > 0);
-          // Skip header
-          for (let i = 1; i < lines.length; i++) {
-            const line = lines[i].trim();
-            const lastSpaceIndex = line.lastIndexOf(' ');
-            if (lastSpaceIndex === -1) continue;
-
-            const exePath = line.substring(0, lastSpaceIndex).trim().toLowerCase();
-            const pidStr = line.substring(lastSpaceIndex).trim();
-            const pid = parseInt(pidStr, 10);
-
-            if (exePath.includes(normalizedInstallDir)) {
-              // Extra check: skip common helpers/overlay processes if possible
-              const exeName = exePath.split('\\').pop() || '';
-              if (!exeName.includes('steamhelper') &&
-                !exeName.includes('overlay') &&
-                !exeName.includes('crashreport') &&
-                !exeName.includes('launcher')) {
-                resolve(pid);
-                return;
-              }
-            }
-          }
-          resolve(undefined);
-        });
-      });
-    } catch (error) {
-      console.error('[LauncherService] Failed to detect Steam game process:', error);
-      return undefined;
-    }
+    const deadline = Date.now() + PROCESS_WATCH_TIMEOUT_MS;
+    const poll = async (): Promise<void> => {
+      const pid = findProcessByInstallDir(await listProcesses(), installDir);
+      if (pid !== undefined) {
+        console.log(`[LauncherService] Found process ${pid} for ${game.title}`);
+        gameProcessEvents.emit(PROCESS_FOUND_EVENT, { gameId: game.id, pid } satisfies ProcessFoundEvent);
+        return;
+      }
+      if (Date.now() < deadline) setTimeout(() => void poll(), PROCESS_WATCH_INTERVAL_MS);
+    };
+    setTimeout(() => void poll(), PROCESS_WATCH_INITIAL_DELAY_MS);
   }
 }

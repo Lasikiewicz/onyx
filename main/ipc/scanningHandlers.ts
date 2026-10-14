@@ -3,6 +3,11 @@ import { dirname } from 'node:path';
 import { GameStore } from '../GameStore.js';
 import { AppConfigService } from '../AppConfigService.js';
 import { ImportService } from '../ImportService.js';
+import { findMissingGames } from '../missingGames.js';
+import { isProcessAlive } from '../processAlive.js';
+import { gameProcessEvents, PROCESS_FOUND_EVENT, SESSION_ENDED_EVENT, type ProcessFoundEvent, type SessionEndedEvent } from '../gameProcessEvents.js';
+import { recordPlaySession } from '../playtime.js';
+import { libraryBackups } from '../libraryBackups.js';
 import { MetadataFetcherService } from '../MetadataFetcherService.js';
 import { ImageCacheService } from '../ImageCacheService.js';
 import type { UserPreferencesService } from '../UserPreferencesService.js';
@@ -27,6 +32,29 @@ interface RunningGameEntry {
 
 const runningGames = new Map<string, RunningGameEntry>();
 
+// Protocol launches have no PID at launch time. The launcher finds the real game process a few
+// seconds later and reports it here, so pausing and restore follow the game, not the launcher (A4).
+gameProcessEvents.on(PROCESS_FOUND_EVENT, (event: ProcessFoundEvent) => {
+    const entry = runningGames.get(event.gameId);
+    runningGames.set(event.gameId, {
+        pid: event.pid,
+        startedAt: entry?.startedAt ?? Date.now(),
+    });
+    console.log(`[BackgroundScan] Tracking ${event.gameId} by process ${event.pid}`);
+});
+
+/**
+ * Stop tracking a game and report its session, so playtime is recorded however the session ended:
+ * a normal stop, a process that vanished, or a stale entry (E1).
+ */
+function endRunningSession(gameId: string): void {
+    const entry = runningGames.get(gameId);
+    runningGames.delete(gameId);
+    if (entry) {
+        gameProcessEvents.emit(SESSION_ENDED_EVENT, { gameId, startedAt: entry.startedAt, endedAt: Date.now() } satisfies SessionEndedEvent);
+    }
+}
+
 /**
  * How long a pid-less entry may sit before it is assumed dead. The renderer's fallback poll
  * gives up after ~60s, so anything older than this has no monitor left to clear it.
@@ -34,17 +62,6 @@ const runningGames = new Map<string, RunningGameEntry>();
 const PIDLESS_ENTRY_TTL_MS = 2 * 60 * 1000;
 
 /** Cross-platform liveness check; mirrors the `process:checkExists` handler. */
-async function isProcessAlive(pid: number): Promise<boolean> {
-    if (!Number.isFinite(pid) || pid <= 0) return false;
-    try {
-        // Signal 0 performs the permission/existence check without delivering a signal.
-        process.kill(pid, 0);
-        return true;
-    } catch (error) {
-        // EPERM means the process exists but is owned by another user.
-        return (error as NodeJS.ErrnoException)?.code === 'EPERM';
-    }
-}
 
 /**
  * Drop entries that can no longer correspond to a live game, so a missed `gameStopped` cannot
@@ -55,11 +72,11 @@ async function pruneRunningGames(): Promise<void> {
     for (const [gameId, entry] of [...runningGames]) {
         if (entry.pid !== undefined) {
             if (!(await isProcessAlive(entry.pid))) {
-                runningGames.delete(gameId);
+                endRunningSession(gameId);
                 console.log(`[BackgroundScan] Dropping stale running game ${gameId} (pid ${entry.pid} is gone)`);
             }
         } else if (now - entry.startedAt > PIDLESS_ENTRY_TTL_MS) {
-            runningGames.delete(gameId);
+            endRunningSession(gameId);
             console.log(`[BackgroundScan] Dropping stale running game ${gameId} (no pid, older than TTL)`);
         }
     }
@@ -108,6 +125,14 @@ export function registerScanningHandlers(
 ) {
     let backgroundScanInFlight = false;
 
+    // Each finished session adds its playtime to the library record (E1). Registered here, not at
+    // module level, because the store is only available once handlers are wired up.
+    gameProcessEvents.on(SESSION_ENDED_EVENT, (session: SessionEndedEvent) => {
+        if (recordPlaySession(gameStore, session)) {
+            console.log(`[Playtime] Recorded session for ${session.gameId}`);
+        }
+    });
+
     const performBackgroundScan = async (skipEnabledCheck: boolean = false, fromStartup: boolean = false) => {
         // The hourly interval and the app:performBackgroundScan IPC can fire together;
         // without this guard both run a full multi-source disk walk concurrently.
@@ -139,11 +164,14 @@ export function registerScanningHandlers(
             }
 
             console.log('[BackgroundScan] Starting background scan...');
-            const scannedResults = await importService.scanAllSources((message) => {
+            // Background scans can be stopped by the importer. Their result is still used for the
+            // missing-games check below, so cancellation is turned off here (A3).
+            const scanReport = await importService.scanAllSourcesWithReport((message) => {
                 if (channels.progressChannel && winReference.current && !winReference.current.isDestroyed()) {
                     winReference.current.webContents.send(channels.progressChannel, { message });
                 }
-            });
+            }, undefined, { cancellable: false });
+            const scannedResults = scanReport.results;
             console.log(`[BackgroundScan] Scanned ${scannedResults.length} total games`);
 
             if (backgroundScanPaused) {
@@ -223,44 +251,9 @@ export function registerScanningHandlers(
                 }
             }
 
-            // Check for missing games (games whose exe paths no longer exist)
-            const existingLibrary = await gameStore.getLibrary();
-
-            // Get app configs to check which sources are enabled
-            const appConfigs = await appConfigService.getAppConfigs();
-            const isSteamEnabled = appConfigs['steam']?.enabled;
-
-            // Create set of scanned Steam IDs for efficient lookup
-            const scannedSteamIds = new Set<string>();
-            if (isSteamEnabled) {
-                scannedResults.forEach(g => {
-                    if (g.source === 'steam' && g.appId) {
-                        scannedSteamIds.add(`steam-${g.appId}`);
-                    }
-                });
-            }
-
-            const missingGames = [];
-            for (const game of existingLibrary) {
-                // Special handling for Steam games (check against scan results instead of file system)
-                if (game.source === 'steam') {
-                    if (!isSteamEnabled) continue; // Skip if scanning disabled
-                    if (!scannedSteamIds.has(game.id)) missingGames.push(game);
-                    continue;
-                }
-
-                // Skip games without exe paths (like some Steam games that launch via protocol)
-                if (!game.exePath || game.exePath.trim() === '') {
-                    continue;
-                }
-
-                // Check if the exe file still exists
-                const fileExists = await pathExists(game.exePath);
-                if (!fileExists) {
-                    console.log(`[BackgroundScan] Game missing: ${game.title} (${game.exePath})`);
-                    missingGames.push(game);
-                }
-            }
+            // Check for missing games. Uses the scan report, so a cancelled or failed Steam scan
+            // can't flag the whole Steam library (A3).
+            const missingGames = await findMissingGames(await gameStore.getLibrary(), scanReport, pathExists);
 
             if (missingGames.length > 0) {
                 console.log(`[BackgroundScan] Found ${missingGames.length} missing games`);
@@ -377,43 +370,9 @@ export function registerScanningHandlers(
         try {
             console.log('[BackgroundScan] Getting list of missing games...');
 
-            // Scan all sources to get current state
-            const scannedResults = await importService.scanAllSources();
-            const existingLibrary = await gameStore.getLibrary();
-
-            // Get app configs to check which sources are enabled
-            const appConfigs = await appConfigService.getAppConfigs();
-            const isSteamEnabled = appConfigs['steam']?.enabled;
-
-            // Create set of scanned Steam IDs for efficient lookup
-            const scannedSteamIds = new Set<string>();
-            if (isSteamEnabled) {
-                scannedResults.forEach(g => {
-                    if (g.source === 'steam' && g.appId) {
-                        scannedSteamIds.add(`steam-${g.appId}`);
-                    }
-                });
-            }
-
-            const missingGames = [];
-            for (const game of existingLibrary) {
-                // Special handling for Steam games (check against scan results instead of file system)
-                if (game.source === 'steam') {
-                    if (!isSteamEnabled) continue; // Skip if scanning disabled
-                    if (!scannedSteamIds.has(game.id)) missingGames.push(game);
-                    continue;
-                }
-
-                // Skip games without exe paths (like some Steam games that launch via protocol)
-                if (!game.exePath || game.exePath.trim() === '') {
-                    continue;
-                }
-
-                // Check if the exe file still exists
-                if (!(await pathExists(game.exePath))) {
-                    missingGames.push(game);
-                }
-            }
+            // Scan all sources to get current state. Not cancellable from the importer.
+            const scanReport = await importService.scanAllSourcesWithReport(undefined, undefined, { cancellable: false });
+            const missingGames = await findMissingGames(await gameStore.getLibrary(), scanReport, pathExists);
 
             console.log(`[BackgroundScan] Found ${missingGames.length} missing games during manual scan`);
 
@@ -441,10 +400,14 @@ export function registerScanningHandlers(
     ipcMain.handle('scan:removeMissingGames', async (_event, gameIds: string[]) => {
         try {
             console.log(`[BackgroundScan] Removing ${gameIds.length} missing games...`);
+            // Snapshot before removing anything, so a bulk removal can be restored (E3).
+            await libraryBackups().snapshot(await gameStore.getLibrary(), 'remove missing games');
             let removedCount = 0;
 
             for (const gameId of gameIds) {
                 try {
+                    // Delete cached artwork too, as gameStore:deleteGame does, so nothing is left behind (A11).
+                    await imageCacheService.deleteAllGameImages(gameId);
                     await gameStore.deleteGame(gameId);
                     removedCount++;
                     console.log(`[BackgroundScan] Removed missing game: ${gameId}`);
@@ -475,7 +438,7 @@ export function registerScanningHandlers(
     });
 
     ipcMain.handle('scanning:gameStopped', (_event, gameId: string) => {
-        runningGames.delete(gameId);
+        endRunningSession(gameId);
         console.log(`[BackgroundScan] Game stopped: ${gameId}, running games: ${runningGames.size}`);
     });
 

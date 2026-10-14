@@ -1,4 +1,5 @@
 import React from 'react';
+import { SettingsLibraryBackups } from './SettingsLibraryBackups';
 
 export interface SettingsDestructiveConfirmationState {
   step: number;
@@ -84,6 +85,10 @@ export const SettingsAdvancedTab: React.FC<SettingsAdvancedTabProps> = ({
             </button>
           </div>
         </div>
+      </div>
+
+      <div className="pt-6 border-t border-gray-700">
+        <SettingsLibraryBackups />
       </div>
 
       <div className="space-y-4 pt-6 border-t border-gray-700">

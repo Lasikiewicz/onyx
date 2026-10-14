@@ -89,7 +89,6 @@ export function useAppShellEvents({
     };
 
     const backgroundNewGamesHandler = (_event: unknown, data: { count: number; games: FoundGame[]; bySource?: Record<string, FoundGame[]> }) => {
-      console.log('[App] Background scan found new games:', data);
       if (Array.isArray(data.games) && data.games.length > 0) {
         handleOpenImporterWithGames(data.games);
       }
@@ -127,7 +126,6 @@ export function useAppShellEvents({
       _event: unknown,
       data: { games: Array<{ id: string; title: string; exePath?: string; platform?: string; source?: string }> },
     ) => {
-      console.log('[App] Missing games detected:', data);
       if (data.games && data.games.length > 0) {
         setMissingGames(data.games);
       }

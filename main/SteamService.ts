@@ -33,6 +33,7 @@ enum SteamStateFlag {
 
 export class SteamService {
   private customSteamPath: string | null = null;
+  private unreachableLibraries = false;
 
   // Known non-game Steam apps to skip (redistributables, tools, etc.)
   private readonly EXCLUDED_STEAM_APPIDS = new Set([
@@ -195,7 +196,8 @@ export class SteamService {
                 console.log(`Found additional Steam library: ${libraryPath}`);
               }
             } catch {
-              // Path doesn't exist or is inaccessible
+              // Path doesn't exist or is inaccessible. The scan is now partial (A3).
+              this.unreachableLibraries = true;
             }
           }
         }
@@ -280,6 +282,7 @@ export class SteamService {
       await access(steamappsPath);
     } catch {
       console.warn(`Steamapps folder not found: ${steamappsPath}`);
+      this.unreachableLibraries = true;
       return [];
     }
 
@@ -366,7 +369,13 @@ export class SteamService {
   /**
    * Scan all Steam libraries for installed games
    */
+  /** True when the last scanSteamGames() could not read a library folder, so its results are partial. */
+  hasUnreachableLibraries(): boolean {
+    return this.unreachableLibraries;
+  }
+
   public async scanSteamGames(): Promise<SteamGame[]> {
+    this.unreachableLibraries = false;
     try {
       const steamPath = this.getSteamPath();
       console.log(`Scanning Steam games from: ${steamPath}`);

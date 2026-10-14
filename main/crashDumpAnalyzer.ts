@@ -43,7 +43,9 @@ function findDmpFiles(dir: string): string[] {
                 result.push(fullPath);
             }
         }
-    } catch (err) { }
+    } catch (err) {
+        console.warn(`[CrashAnalyzer] Failed to read dump directory: ${dir}`, err);
+    }
     return result;
 }
 

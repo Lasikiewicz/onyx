@@ -2,6 +2,11 @@ import { contextBridge, ipcRenderer } from 'electron';
 
 // Note: Removed debug logging in preload for production safety
 
+// Maps each channel to a registry of raw callback -> wrapped handler, so `off()` can
+// remove the exact handler `on()` registered (the raw callback alone never matches the
+// wrapper that ipcRenderer actually holds).
+const eventWrapperRegistry = new Map<string, Map<(...args: any[]) => void, (...args: any[]) => void>>();
+
 // --------- Expose a minimal, safe API to the Renderer process ---------
 // Note: We DO NOT expose the raw ipcRenderer object to the renderer to reduce attack surface.
 // All renderer interactions must go through the documented and permissioned `electronAPI` below.
@@ -32,10 +37,11 @@ export const electronAPI = {
   saveGame: (game: any, oldGame?: any) => ipcRenderer.invoke('gameStore:saveGame', game, oldGame),
   deleteCachedImage: (gameId: string, imageType: 'boxart' | 'banner' | 'alternativeBanner' | 'logo' | 'hero' | 'icon') => ipcRenderer.invoke('imageCache:deleteImage', gameId, imageType),
   cacheLocalFile: (filePath: string, gameId: string, imageType: string) => ipcRenderer.invoke('imageCache:cacheLocalFile', filePath, gameId, imageType) as Promise<{ url: string | null; isVideo: boolean; error?: string }>,
-  reorderGames: (games: any[]) => ipcRenderer.invoke('gameStore:reorderGames', games),
+  reorderGames: (orderedIds: string[]) => ipcRenderer.invoke('gameStore:reorderGames', orderedIds),
+  listLibraryBackups: () => ipcRenderer.invoke('library:listBackups'),
+  restoreLibraryBackup: (file: string) => ipcRenderer.invoke('library:restoreBackup', file),
   addCustomGame: (gameData: { title: string; exePath: string }) => ipcRenderer.invoke('gameStore:addCustomGame', gameData),
   deleteGame: (gameId: string) => ipcRenderer.invoke('gameStore:deleteGame', gameId),
-  removeWinGDKGames: () => ipcRenderer.invoke('gameStore:removeWinGDKGames'),
   removeMissingGames: (gameIds: string[]) => ipcRenderer.invoke('scan:removeMissingGames', gameIds),
   getMissingGames: () => ipcRenderer.invoke('scan:getMissingGames'),
   // Dialog methods
@@ -130,13 +136,25 @@ export const electronAPI = {
       // This matches the expected signature: (event, data) => void
       callback(event, ...args);
     };
+    let wrappers = eventWrapperRegistry.get(channel);
+    if (!wrappers) {
+      wrappers = new Map();
+      eventWrapperRegistry.set(channel, wrappers);
+    }
+    wrappers.set(callback, handler);
     ipcRenderer.on(channel, handler);
     return (): void => {
       ipcRenderer.removeListener(channel, handler);
+      wrappers?.delete(callback);
     };
   },
   off: (channel: string, callback: (...args: any[]) => void) => {
-    ipcRenderer.removeListener(channel, callback as any);
+    const wrappers = eventWrapperRegistry.get(channel);
+    const handler = wrappers?.get(callback);
+    if (handler) {
+      ipcRenderer.removeListener(channel, handler);
+      wrappers?.delete(callback);
+    }
   },
   // User preferences methods
   getPreferences: () => ipcRenderer.invoke('preferences:get'),

@@ -60,3 +60,9 @@ Exposes maintenance and destructive application actions such as cache inspection
   - [GameStore.ts](../../../main/GameStore.ts)
   - [UserPreferencesService.ts](../../../main/UserPreferencesService.ts)
   - [ipc/appHandlers.ts](../../../main/ipc/appHandlers.ts)
+
+## Library backups (2026-10)
+
+- Settings > Advanced > **Library Backups** lists the newest five snapshots and restores one. Restoring writes a "before restore" snapshot first, then reloads the window.
+- Snapshots are written before clearing the library, before bulk removal of missing games, and before a restore.
+- Not built yet: an undo toast for single-game delete. Image deletion for a single delete still happens immediately.

@@ -54,6 +54,25 @@ interface ConfiguredSource {
   path: string;
 }
 
+export interface ScanOptions {
+  /** Whether cancelScanAllSources() stops this scan. Background and missing-game checks pass false. */
+  cancellable?: boolean;
+}
+
+export type SourceStatus = 'ok' | 'error' | 'skipped';
+
+export interface ScanReport {
+  results: ScannedGameResult[];
+  /** Keyed by config id. 'skipped' covers disabled or unreachable sources. */
+  sourceStatus: Record<string, SourceStatus>;
+  cancelled: boolean;
+}
+
+interface ScanRun {
+  cancelled: boolean;
+  cancellable: boolean;
+}
+
 /**
  * Service to orchestrate scanning from all game sources
  * Returns simplified structures that can be converted to StagedGame in the frontend
@@ -66,8 +85,8 @@ export class ImportService {
   private gameFilteringService: GameFilteringService;
   private steamScanner: SteamScanner;
   private xboxScanner: XboxScanner;
-  private isScanCancelled: boolean = false;
-  private activeScanCount = 0;
+  /** Scans in flight. Each has its own cancel state, so cancelling one leaves the others running. */
+  private activeScans = new Set<ScanRun>();
 
   constructor(
     steamService: SteamService,
@@ -89,12 +108,14 @@ export class ImportService {
    */
   cancelScanAllSources(): void {
     console.log('[ImportService] Cancelling scan...');
-    this.isScanCancelled = true;
+    for (const run of this.activeScans) {
+      if (run.cancellable) run.cancelled = true;
+    }
   }
 
   /** True while any scan is in flight; used to avoid clobbering a running scan's cancel flag. */
   isScanInProgress(): boolean {
-    return this.activeScanCount > 0;
+    return this.activeScans.size > 0;
   }
 
   private async getEnabledConfigs(configs: Record<string, ConfiguredSource>): Promise<ConfiguredSource[]> {
@@ -158,15 +179,41 @@ export class ImportService {
    */
   async scanAllSources(
     progressCallback?: (message: string) => void,
-    onGamesFound?: (games: ScannedGameResult[]) => void
+    onGamesFound?: (games: ScannedGameResult[]) => void,
+    options: ScanOptions = {}
   ): Promise<ScannedGameResult[]> {
-    // Only the outermost scan resets the cancel flag. Background, manual and missing-games
-    // scans can overlap; without this guard a later scan un-cancels an in-flight one.
-    if (this.activeScanCount === 0) {
-      this.isScanCancelled = false;
-    }
-    this.activeScanCount++;
+    return (await this.scanAllSourcesWithReport(progressCallback, onGamesFound, options)).results;
+  }
+
+  /**
+   * Same scan as scanAllSources, plus how each configured source finished. Missing-game checks
+   * need this: a source that errored, was skipped or was cancelled must not look like "its games
+   * were removed".
+   */
+  async scanAllSourcesWithReport(
+    progressCallback?: (message: string) => void,
+    onGamesFound?: (games: ScannedGameResult[]) => void,
+    options: ScanOptions = {}
+  ): Promise<ScanReport> {
+    const run: ScanRun = { cancelled: false, cancellable: options.cancellable ?? true };
+    const sourceStatus: Record<string, SourceStatus> = {};
     const results: ScannedGameResult[] = [];
+    this.activeScans.add(run);
+    try {
+      await this.runScanAllSources(run, results, sourceStatus, progressCallback, onGamesFound);
+    } finally {
+      this.activeScans.delete(run);
+    }
+    return { results, sourceStatus, cancelled: run.cancelled };
+  }
+
+  private async runScanAllSources(
+    run: ScanRun,
+    results: ScannedGameResult[],
+    sourceStatus: Record<string, SourceStatus>,
+    progressCallback?: (message: string) => void,
+    onGamesFound?: (games: ScannedGameResult[]) => void
+  ): Promise<void> {
 
     try {
       console.log('[ImportService] Starting scanAllSources');
@@ -180,16 +227,19 @@ export class ImportService {
       progressCallback?.(`Checking ${Object.keys(configs).length} configured locations...`);
 
       const enabledConfigs = await this.getEnabledConfigs(configs as Record<string, ConfiguredSource>);
+      for (const config of Object.values(configs as Record<string, ConfiguredSource>)) {
+        if (!enabledConfigs.some(enabled => enabled.id === config.id)) sourceStatus[config.id] = 'skipped';
+      }
 
       console.log(`[ImportService] Scanning ${enabledConfigs.length} enabled app configs`);
       progressCallback?.(`Scanning ${enabledConfigs.length} location${enabledConfigs.length !== 1 ? 's' : ''}...`);
 
       // Scan all sources sequentially to show progress
       for (let i = 0; i < enabledConfigs.length; i++) {
-        if (this.isScanCancelled) {
+        if (run.cancelled) {
           console.log('[ImportService] Scan cancelled by user (during apps config limit)');
           progressCallback?.('Scan cancelled by user.');
-          return results;
+          return;
         }
 
         const config = enabledConfigs[i];
@@ -212,7 +262,11 @@ export class ImportService {
           }
 
           results.push(...games);
+          // A Steam library on an offline drive yields fewer games without any error. Mark the
+          // source as not fully scanned, so the missing-games check can't read its gaps as removals.
+          sourceStatus[config.id] = config.id === 'steam' && this.steamService.hasUnreachableLibraries() ? 'skipped' : 'ok';
         } catch (error) {
+          sourceStatus[config.id] = 'error';
           console.error(`[ImportService] Error scanning ${config.id}:`, error);
           progressCallback?.(`Error scanning ${appName}: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
@@ -225,10 +279,10 @@ export class ImportService {
       if (enabledManualFolders.length > 0) {
         progressCallback?.(`Scanning ${enabledManualFolders.length} manual folder${enabledManualFolders.length !== 1 ? 's' : ''}...`);
         for (const config of enabledManualFolders) {
-          if (this.isScanCancelled) {
+          if (run.cancelled) {
             console.log('[ImportService] Scan cancelled by user (during manual folders)');
             progressCallback?.('Scan cancelled by user.');
-            return results;
+            return;
           }
 
           const folder = config.path;
@@ -259,13 +313,13 @@ export class ImportService {
 
       // Scan hardcoded game paths (known game directories)
       const hardcodedPaths = this.getHardcodedGamePaths();
-      if (hardcodedPaths.length > 0 && !this.isScanCancelled) {
+      if (hardcodedPaths.length > 0 && !run.cancelled) {
         progressCallback?.(`Checking ${hardcodedPaths.length} known game location${hardcodedPaths.length !== 1 ? 's' : ''}...`);
         for (const gameInfo of hardcodedPaths) {
-          if (this.isScanCancelled) {
+          if (run.cancelled) {
             console.log('[ImportService] Scan cancelled by user (during hardcoded paths)');
             progressCallback?.('Scan cancelled by user.');
-            return results;
+            return;
           }
 
           try {
@@ -289,7 +343,7 @@ export class ImportService {
       // Auto-detect Battle.net games via registry if not already configured
       // This ensures Blizzard games are found even if the user hasn't enabled Battle.net in Configure Apps
       const battleAlreadyScanned = enabledConfigs.some((config) => config.id === 'battle');
-      if (!this.isScanCancelled && !battleAlreadyScanned && process.platform === 'win32') {
+      if (!run.cancelled && !battleAlreadyScanned && process.platform === 'win32') {
         try {
           progressCallback?.('Auto-detecting Battle.net games...');
           console.log('[ImportService] Battle.net not configured, running auto-detection via registry...');
@@ -313,11 +367,7 @@ export class ImportService {
       console.error('Error in scanAllSources:', error);
       progressCallback?.(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
-      // Runs for the early returns inside the try as well.
-      this.activeScanCount = Math.max(0, this.activeScanCount - 1);
     }
-
-    return results;
   }
 
   /**
@@ -495,6 +545,10 @@ export class ImportService {
                 installPath: installLocation.replace(/\\/g, '/'),
                 exePath: exePath?.replace(/\\/g, '/'),
                 appId: appId,
+                // Epic launches by AppName. The install path is not a valid launch target (A6).
+                launchUri: manifest.AppName
+                  ? `com.epicgames.launcher://apps/${encodeURIComponent(String(manifest.AppName))}?action=launch&silent=true`
+                  : undefined,
                 title: appName,
                 status: 'ambiguous' as const, // Epic games need metadata matching
                 isDownloading: this.gameFilteringService.isLikelyDownloading(installLocation),

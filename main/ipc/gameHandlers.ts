@@ -5,6 +5,7 @@ import { cpus } from 'node:os';
 import { SteamService } from '../SteamService.js';
 import { XboxService } from '../XboxService.js';
 import { GameStore, Game } from '../GameStore.js';
+import { libraryBackups } from '../libraryBackups.js';
 import { ImageCacheService } from '../ImageCacheService.js';
 import { normalizeOnyxLocalUrl, parseOnyxLocalAssetUrl, sanitizeGameArtworkUrls } from '../artworkUrlUtils.js';
 import type { UserPreferencesService, UserPreferences } from '../UserPreferencesService.js';
@@ -242,16 +243,13 @@ export function registerGameIPCHandlers(
                     for (const g of games) {
                         const safeId = g.id.replace(/[<>:"/\\|?*]/g, '_').toLowerCase();
                         for (const { urlKey, flagKey, keySuffix } of entries) {
+                            // Derived from the URL on every read. A flag saved earlier must not outlive
+                            // the .webm it described once the artwork is replaced (A12).
                             const url = g[urlKey];
-                            if (!url || typeof url !== 'string') continue;
-                            if (g[flagKey as keyof Game]) continue;
-                            if (isWebmUrl(url)) {
-                                (g as unknown as Record<string, boolean>)[flagKey as string] = true;
-                                continue;
-                            }
-                            if (url.startsWith('onyx-local://') && webmKeys.has(`${safeId}-${keySuffix}`)) {
-                                (g as unknown as Record<string, boolean>)[flagKey as string] = true;
-                            }
+                            const isVideo = typeof url === 'string' && url !== '' && (
+                                isWebmUrl(url) || (url.startsWith('onyx-local://') && webmKeys.has(`${safeId}-${keySuffix}`))
+                            );
+                            (g as unknown as Record<string, boolean>)[flagKey as string] = isVideo;
                         }
                     }
                 }
@@ -268,11 +266,40 @@ export function registerGameIPCHandlers(
     /** Clear all games and image cache (e.g. for Nuclear → re-run importer). Does not relaunch. */
     ipcMain.handle('gameStore:clearLibrary', async () => {
         try {
+            // Snapshot first. If the snapshot fails, the library is left alone (E3).
+            await libraryBackups().snapshot(await gameStore.getLibrary(), 'clear library');
             await gameStore.clearLibrary();
             await imageCacheService.clearCache();
             return { success: true };
         } catch (error) {
             console.error('Error in gameStore:clearLibrary handler:', error);
+            return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+        }
+    });
+
+    // Library backups (E3). Restoring keeps a snapshot of the current library first, so a restore can
+    // itself be undone.
+    ipcMain.handle('library:listBackups', async () => {
+        try {
+            return await libraryBackups().list();
+        } catch (error) {
+            console.error('Error listing library backups:', error);
+            return [];
+        }
+    });
+
+    ipcMain.handle('library:restoreBackup', async (_event, file: unknown) => {
+        if (typeof file !== 'string') return { success: false, error: 'Invalid backup' };
+        try {
+            const backups = libraryBackups();
+            const games = await backups.read(file);
+            if (!games) return { success: false, error: 'Backup not found or damaged' };
+
+            await backups.snapshot(await gameStore.getLibrary(), 'before restore');
+            await gameStore.replaceLibrary(games);
+            return { success: true, count: games.length };
+        } catch (error) {
+            console.error('Error restoring library backup:', error);
             return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
         }
     });
@@ -345,9 +372,13 @@ export function registerGameIPCHandlers(
         }
     });
 
-    ipcMain.handle('gameStore:reorderGames', async (_event, games: Game[]) => {
+    ipcMain.handle('gameStore:reorderGames', async (_event, orderedIds: unknown) => {
         try {
-            await gameStore.reorderGames(games);
+            // The renderer sends IDs only (see GameStore.reorderGames). Reject anything else.
+            if (!Array.isArray(orderedIds) || !orderedIds.every((id) => typeof id === 'string')) {
+                return false;
+            }
+            await gameStore.reorderGames(orderedIds);
             return true;
         } catch (error) {
             return false;
@@ -377,24 +408,19 @@ export function registerGameIPCHandlers(
     ipcMain.handle('gameStore:addCustomGame', async (_event, gameData: { title: string; exePath: string }) => {
         try {
             await gameStore.saveGame({
-                id: `custom-${Date.now()}`,
+                id: `custom-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
                 title: gameData.title,
                 exePath: gameData.exePath,
                 platform: 'other',
                 boxArtUrl: '',
                 bannerUrl: '',
-                status: 'ready'
-            } as Game);
+            });
             return { success: true };
         } catch (error) {
             return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
         }
     });
 
-    ipcMain.handle('gameStore:removeWinGDKGames', async () => {
-        const removedCount = await gameStore.removeMissingGames(); // Reusing removeMissingGames logic or dedicated one
-        return { success: true, removedCount };
-    });
 
     // ImageCache Handlers
     ipcMain.handle('imageCache:deleteImage', async (_event, gameId: string, imageType: string) => {

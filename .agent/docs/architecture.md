@@ -228,8 +228,8 @@ It explains module boundaries, data flow, and release pipeline expectations.
 ## Module Index
 
 <!-- AUTO-GENERATED:MODULE_INDEX:START -->
-- Main process source files: 89
-- Renderer source files: 179
+- Main process source files: 106
+- Renderer source files: 180
 - Automation scripts: 30
 - GitHub workflow files: 7
 - Key entrypoints:
@@ -243,3 +243,7 @@ It explains module boundaries, data flow, and release pipeline expectations.
 
 - Any change to module boundaries, IPC contracts, state ownership, or release flow must update this file in the same commit.
 - Keep descriptions short, precise, and aligned to real file paths.
+
+- `gameStore:reorderGames` takes an ordered list of game IDs, not full game objects. `GameStore.reorderGames` places the listed games in the slots they already occupy, so hidden and filtered games are not touched. The renderer mirrors the rule locally.
+- `GameStore.updateGame(id, patch | fn)` is the synchronous patch API. Launch (`lastPlayed`), the optimizer (artwork URLs) and playtime use it instead of saving whole game objects read earlier.
+- Process events (`main/gameProcessEvents.ts`) carry launcher-detected PIDs and finished sessions from services to the scanning handlers, so services do not import IPC modules.

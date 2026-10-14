@@ -60,7 +60,11 @@ const GameManager = lazy(() =>
 const BugReportModal = lazy(() =>
   import('./components/BugReportModal').then((module) => ({ default: module.BugReportModal })),
 );
-const lazyRenderFallback = null;
+const lazyRenderFallback = (
+  <div className="onyx-glass-panel flex items-center justify-center h-screen">
+    <div className="w-8 h-8 border-2 border-gray-600 border-t-blue-500 rounded-full animate-spin" />
+  </div>
+);
 const CONTROLLER_NAVIGATION_AVAILABLE = false;
 
 function App() {
@@ -564,7 +568,6 @@ function App() {
 
   const handleSaveGame = useCallback(async (game: Game, oldGame?: Game) => {
     try {
-      console.log('Saving game from App:', game.title, 'favorite:', game.favorite);
       // Get old game if not provided
       if (!oldGame) {
         oldGame = gamesRef.current.find((g: Game) => g.id === game.id);
@@ -572,10 +575,6 @@ function App() {
       const success = await window.electronAPI.saveGame(game, oldGame);
       if (success) {
         await loadLibrary();
-        // Verify the game was saved correctly
-        const updatedGames = await window.electronAPI.getLibrary();
-        const savedGame = updatedGames.find((g: Game) => g.id === game.id);
-        console.log('Game after save - favorite:', savedGame?.favorite, 'Full game:', savedGame);
         showToast(`Game "${game.title}" updated successfully`, 'success');
       } else {
         showToast('Failed to save game', 'error');
@@ -824,6 +823,7 @@ function App() {
     cancelLaunchConfirmation,
   } = useGameLaunchFlow({
     confirmGameLaunch,
+    notify: showToast,
   });
 
 
@@ -865,7 +865,6 @@ function App() {
   const handleToggleFavorite = useCallback(async (game: Game) => {
     const newFavoriteValue = game.favorite !== true; // Explicitly set to true or false
     const updatedGame = { ...game, favorite: newFavoriteValue };
-    console.log('Toggling favorite for game:', game.title, 'Current favorite:', game.favorite, 'New favorite value:', newFavoriteValue);
     await handleSaveGame(updatedGame);
   }, [handleSaveGame]);
 
@@ -1605,6 +1604,5 @@ function App() {
 }
 
 export default App;
-
 
 

@@ -11,22 +11,35 @@ export const ARTWORK_URL_FIELDS = [
 
 export type ArtworkUrlField = typeof ARTWORK_URL_FIELDS[number];
 
+/**
+ * Remove the app's own cache-busting suffix from an artwork URL.
+ *
+ * Local URLs (onyx-local, file) lose their whole query and fragment, because the query is only
+ * ever a cache-buster there. Remote http(s) URLs keep every query parameter except the app's own
+ * `t` cache-buster, because a signed CDN URL needs its other parameters to load (A15). The fragment
+ * is never sent to a server, so it is always removed.
+ */
 export function stripTransientUrlSuffix(url?: string): string | undefined {
   if (url === undefined) return url;
 
   const trimmed = url.trim();
   if (!trimmed) return trimmed;
 
-  const queryIndex = trimmed.indexOf('?');
-  const hashIndex = trimmed.indexOf('#');
-  const cutIndex =
-    queryIndex === -1
-      ? hashIndex
-      : hashIndex === -1
-        ? queryIndex
-        : Math.min(queryIndex, hashIndex);
+  const withoutFragment = trimmed.split('#')[0];
+  const queryIndex = withoutFragment.indexOf('?');
+  if (queryIndex === -1) return withoutFragment;
 
-  return cutIndex === -1 ? trimmed : trimmed.slice(0, cutIndex);
+  const base = withoutFragment.slice(0, queryIndex);
+  const lower = trimmed.toLowerCase();
+  const isRemote = lower.startsWith('http://') || lower.startsWith('https://');
+  if (!isRemote) return base;
+
+  const kept = withoutFragment
+    .slice(queryIndex + 1)
+    .split('&')
+    .filter((part) => part !== '' && part.split('=')[0] !== 't');
+
+  return kept.length > 0 ? `${base}?${kept.join('&')}` : base;
 }
 
 export function normalizeOnyxLocalUrl(url?: string): string | undefined {

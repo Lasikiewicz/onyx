@@ -148,7 +148,9 @@ export function useImportWorkbenchActions({
                     title: staged.title,
                     platform: staged.platform || staged.source,
                     source: launcherSource,
-                    exePath: staged.exePath || staged.installPath,
+                    // Only a real executable goes here. A folder fallback (installPath) made the launch
+                    // open Explorer on the folder; the folder is kept in installationDirectory (E4).
+                    exePath: staged.exePath || '',
                     launchArgs: staged.launchArgs,
                     boxArtUrl: staged.boxArtUrl,
                     bannerUrl: staged.bannerUrl,

@@ -15,6 +15,7 @@ export const ALLOWED_EXTERNAL_PROTOCOLS: ReadonlySet<string> = new Set([
   'xbox:',
   'nexusm:',
   'vortex:',
+  'heroic:',
 ]);
 
 export function isSafeExternalUrl(rawUrl: string): boolean {

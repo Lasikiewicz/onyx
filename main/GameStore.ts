@@ -106,16 +106,55 @@ export class GameStore {
   }
 
   /**
+   * The library array that every mutation reads from and writes back to, synchronously.
+   *
+   * Callers must not `await` between calling this and `scheduleSave()`. If they do, two
+   * overlapping mutations can read the same snapshot and the later write silently drops the
+   * earlier one (A2). Returns the live cache when there is one, otherwise a clone of the
+   * persisted array: `store.get` hands back the store's internal objects, and mutating those
+   * would change persisted state before anything is saved.
+   */
+  private getWorkingCopy(): Game[] {
+    return this.gamesCache ?? structuredClone(this.store.get('games', []));
+  }
+
+  /**
    * Get all games from the store
    */
   async getLibrary(): Promise<Game[]> {
-    if (this.gamesCache) {
-      return [...this.gamesCache];
-    }
-    const store = await this.ensureStore();
-    // Copy: `get` hands back the store's live internal array, and callers mutate the
-    // result (e.g. gameHandlers flag updates), which would silently mutate persisted state.
-    return [...store.get('games', [])];
+    // Deep copy: callers mutate the returned games (e.g. gameHandlers flag updates), and a
+    // shallow copy would still share nested arrays such as links with the cache.
+    return structuredClone(this.gamesCache ?? this.store.get('games', []));
+  }
+
+  /**
+   * Get a copy of one game by ID, or undefined if it isn't in the library.
+   */
+  getGame(gameId: string): Game | undefined {
+    const game = (this.gamesCache ?? this.store.get('games', [])).find(g => g.id === gameId);
+    return game ? structuredClone(game) : undefined;
+  }
+
+  /**
+   * Patch one game by ID. `patch` is either the fields to merge, or a function that receives
+   * the current game and returns the fields to change (or nothing, to leave it alone).
+   * Fields not named in the patch keep their current values, so a caller that only changes
+   * one field can't overwrite a concurrent edit to another. Returns false if no game matches.
+   */
+  updateGame(
+    gameId: string,
+    patch: Partial<Game> | ((game: Game) => Partial<Game> | null | undefined),
+  ): boolean {
+    const games = this.getWorkingCopy();
+    const index = games.findIndex(g => g.id === gameId);
+    if (index < 0) return false;
+
+    const changes = typeof patch === 'function' ? patch(games[index]) : patch;
+    if (!changes) return false;
+
+    games[index] = sanitizeGameArtworkUrls({ ...games[index], ...changes });
+    this.scheduleSave(games);
+    return true;
   }
 
   /**
@@ -203,8 +242,7 @@ export class GameStore {
   }
 
   async migratePerGameViewSizeOverrides(): Promise<Record<string, { grid?: number; list?: number; logo?: number; carousel?: number; coverflow?: number }>> {
-    const store = await this.ensureStore();
-    const games = await this.getLibrary();
+    const games = this.getWorkingCopy();
 
     const overrides: Record<string, { grid?: number; list?: number; logo?: number; carousel?: number; coverflow?: number }> = {};
     let changed = false;
@@ -230,7 +268,7 @@ export class GameStore {
     });
 
     if (changed) {
-      store.set('games', migratedGames);
+      this.scheduleSave(migratedGames);
     }
 
     return overrides;
@@ -241,13 +279,12 @@ export class GameStore {
    */
   async saveGame(game: Game): Promise<void> {
     if (isDebugOptimizationEnabled()) debugOptimizationLog(`GameStore saveGame entry gameId=${game.id} title=${game.title?.slice(0, 30) ?? ''}`);
-    const store = await this.ensureStore();
-    const games = await this.getLibrary();
+    const games = this.getWorkingCopy();
     const existingIndex = games.findIndex(g => g.id === game.id);
 
     // Create a deep copy to ensure all properties are saved
     const gameToSave: Game = sanitizeGameArtworkUrls({
-      ...game,
+      ...structuredClone(game),
       // Preserve favorite property as-is (true, false, or undefined)
       favorite: game.favorite,
       lockedFields: game.lockedFields ? { ...game.lockedFields } : undefined,
@@ -280,18 +317,16 @@ export class GameStore {
    * Save multiple games to the store, avoiding duplicates
    */
   async saveGames(newGames: Game[]): Promise<void> {
-    const store = await this.ensureStore();
-    const existingGames = await this.getLibrary();
     const gamesMap = new Map<string, Game>();
 
     // Add existing games to map
-    existingGames.forEach(game => {
+    this.getWorkingCopy().forEach(game => {
       gamesMap.set(game.id, game);
     });
 
     // Merge new games (new games override existing ones with same id)
     newGames.forEach(game => {
-      gamesMap.set(game.id, game);
+      gamesMap.set(game.id, structuredClone(game));
     });
 
     this.scheduleSave(Array.from(gamesMap.values()));
@@ -310,36 +345,54 @@ export class GameStore {
     imageCacheService?: { cacheImages: (urls: { boxArtUrl?: string; bannerUrl?: string; alternativeBannerUrl?: string; logoUrl?: string; heroUrl?: string; iconUrl?: string; screenshots?: string[] }, gameId: string) => Promise<{ boxArtUrl?: string; bannerUrl?: string; alternativeBannerUrl?: string; logoUrl?: string; heroUrl?: string; iconUrl?: string; screenshots?: string[] }> },
     shouldCacheImages: boolean = false
   ): Promise<void> {
-    const store = await this.ensureStore();
-    const existingGames = await this.getLibrary();
-    const gamesMap = new Map<string, Game>();
+    // Image caching is slow and async, so it all happens before the library is read. The merge
+    // below is fully synchronous, so nothing can write to the library between its read and its
+    // write (A2). Holding a snapshot across the awaits would drop any save made in the meantime.
+    const existingBefore = new Map(this.getWorkingCopy().map(game => [game.id, game]));
+    const cachedArt = new Map<string, { boxArtUrl: string; bannerUrl: string }>();
 
-    // Add existing games to map
-    existingGames.forEach(game => {
+    if (shouldCacheImages && imageCacheService) {
+      for (const steamGame of steamGames) {
+        const gameId = `steam-${steamGame.appId}`;
+        const existing = existingBefore.get(gameId);
+        // Only games that are new, or existing Steam games with both art slots unlocked, use cached art.
+        if (existing) {
+          if (existing.platform !== 'steam') continue;
+          if (existing.lockedFields?.boxArtUrl || existing.lockedFields?.bannerUrl) continue;
+        }
+
+        const boxArtUrl = `https://cdn.cloudflare.steamstatic.com/steam/apps/${steamGame.appId}/header.jpg`;
+        const bannerUrl = `https://cdn.cloudflare.steamstatic.com/steam/apps/${steamGame.appId}/Library_600x900.jpg`;
+        const cached = await imageCacheService.cacheImages({ boxArtUrl, bannerUrl }, gameId);
+        cachedArt.set(gameId, {
+          boxArtUrl: cached.boxArtUrl || boxArtUrl,
+          bannerUrl: cached.bannerUrl || bannerUrl,
+        });
+      }
+    }
+
+    // Synchronous from here on: read the current library, merge, and schedule the write.
+    const gamesMap = new Map<string, Game>();
+    this.getWorkingCopy().forEach(game => {
       gamesMap.set(game.id, game);
     });
 
-    // Convert SteamGame to Game and merge (using for...of for async operations)
     for (const steamGame of steamGames) {
       const gameId = `steam-${steamGame.appId}`;
       const existingGame = gamesMap.get(gameId);
+      const cached = cachedArt.get(gameId);
+      const steamBoxArt = `https://cdn.cloudflare.steamstatic.com/steam/apps/${steamGame.appId}/header.jpg`;
+      const steamBanner = `https://cdn.cloudflare.steamstatic.com/steam/apps/${steamGame.appId}/Library_600x900.jpg`;
 
       // If game exists, preserve lockedFields and only update unlocked fields
       if (existingGame && existingGame.platform === 'steam') {
         const lockedFields = existingGame.lockedFields || {};
-        let boxArtUrl = lockedFields.boxArtUrl
+        const boxArtUrl = lockedFields.boxArtUrl
           ? existingGame.boxArtUrl
-          : `https://cdn.cloudflare.steamstatic.com/steam/apps/${steamGame.appId}/header.jpg`;
-        let bannerUrl = lockedFields.bannerUrl
+          : (cached?.boxArtUrl ?? steamBoxArt);
+        const bannerUrl = lockedFields.bannerUrl
           ? existingGame.bannerUrl
-          : `https://cdn.cloudflare.steamstatic.com/steam/apps/${steamGame.appId}/Library_600x900.jpg`;
-
-        // Cache images if enabled and not locked
-        if (shouldCacheImages && imageCacheService && !lockedFields.boxArtUrl && !lockedFields.bannerUrl) {
-          const cached = await imageCacheService.cacheImages({ boxArtUrl, bannerUrl }, gameId);
-          boxArtUrl = cached.boxArtUrl || boxArtUrl;
-          bannerUrl = cached.bannerUrl || bannerUrl;
-        }
+          : (cached?.bannerUrl ?? steamBanner);
 
         const updatedGame: Game = {
           ...existingGame, // Preserve all existing fields
@@ -353,23 +406,13 @@ export class GameStore {
         gamesMap.set(gameId, updatedGame);
       } else if (!existingGame) {
         // New game - create fresh
-        let boxArtUrl = `https://cdn.cloudflare.steamstatic.com/steam/apps/${steamGame.appId}/header.jpg`;
-        let bannerUrl = `https://cdn.cloudflare.steamstatic.com/steam/apps/${steamGame.appId}/Library_600x900.jpg`;
-
-        // Cache images if enabled
-        if (shouldCacheImages && imageCacheService) {
-          const cached = await imageCacheService.cacheImages({ boxArtUrl, bannerUrl }, gameId);
-          boxArtUrl = cached.boxArtUrl || boxArtUrl;
-          bannerUrl = cached.bannerUrl || bannerUrl;
-        }
-
         const game: Game = {
           id: gameId,
           title: steamGame.name,
           platform: 'steam',
           exePath: '', // Steam games don't have direct exe paths, would need to construct from installDir
-          boxArtUrl,
-          bannerUrl,
+          boxArtUrl: cached?.boxArtUrl ?? steamBoxArt,
+          bannerUrl: cached?.bannerUrl ?? steamBanner,
         };
         gamesMap.set(gameId, game);
       }
@@ -385,9 +428,7 @@ export class GameStore {
    * Delete a game from the store
    */
   async deleteGame(gameId: string): Promise<void> {
-    const store = await this.ensureStore();
-    const games = await this.getLibrary();
-    const filteredGames = games.filter(g => g.id !== gameId);
+    const filteredGames = this.getWorkingCopy().filter(g => g.id !== gameId);
     this.scheduleSave(filteredGames);
   }
 
@@ -395,8 +436,16 @@ export class GameStore {
    * Clear all games from the store
    */
   async clearLibrary(): Promise<void> {
-    const store = await this.ensureStore();
     this.scheduleSave([]);
+  }
+
+  /**
+   * Replace the whole library, and write it to disk straight away. Used to restore a backup (E3),
+   * so the restored state is persisted before the call returns.
+   */
+  async replaceLibrary(games: Game[]): Promise<void> {
+    this.scheduleSave(structuredClone(games));
+    await this.flushPending();
   }
 
   /**
@@ -412,8 +461,7 @@ export class GameStore {
     iconUrl?: string,
     screenshots?: string[]
   ): Promise<boolean> {
-    const store = await this.ensureStore();
-    const games = await this.getLibrary();
+    const games = this.getWorkingCopy();
     const gameIndex = games.findIndex(g => g.id === gameId);
 
     if (gameIndex >= 0) {
@@ -447,8 +495,6 @@ export class GameStore {
    * Only clears URLs if the corresponding file doesn't exist
    */
   async clearBrokenOnyxLocalUrls(cacheDir?: string): Promise<number> {
-    const store = await this.ensureStore();
-    const games = await this.getLibrary();
     let clearedCount = 0;
 
     // If no cache dir provided, we can't check if files exist, so don't clear anything
@@ -457,6 +503,7 @@ export class GameStore {
       return 0;
     }
 
+    const games = this.getWorkingCopy();
     const { existsSync } = require('node:fs');
 
     const clearIfMissing = (
@@ -555,112 +602,32 @@ export class GameStore {
   }
 
   /**
-   * Reorder games in the store according to the provided order
+   * Apply a manual order to the games named in `orderedIds`.
+   *
+   * The renderer only knows the games currently on screen, so it sends IDs rather than the
+   * full library. Each listed game takes the slot that a listed game already occupies, in
+   * the order given. Games that are not listed, including hidden and filtered ones, stay
+   * exactly where they were. Unknown and duplicate IDs are ignored. The stored objects are
+   * reused, so renderer-only fields (cache-busters, merged view settings) are never persisted.
    */
-  async reorderGames(reorderedGames: Game[]): Promise<void> {
-    const store = await this.ensureStore();
-    this.scheduleSave(reorderedGames);
-  }
+  async reorderGames(orderedIds: string[]): Promise<void> {
+    const games = this.getWorkingCopy();
+    const gamesById = new Map(games.map(game => [game.id, game]));
 
-  /**
-   * Get a list of games that are missing from the disk
-   * @param steamService - Optional SteamService to check if Steam games are still installed
-   * @returns Array of missing games
-   */
-  async getMissingGames(steamService?: { scanSteamGames: () => Promise<Array<{ appId: string }>> }): Promise<Game[]> {
-    const games = await this.getLibrary();
-    const { existsSync } = require('node:fs');
-    const missingGames: Game[] = [];
+    const requested = [...new Set(orderedIds)].filter(id => gamesById.has(id));
+    const requestedSet = new Set(requested);
+    const slots: number[] = [];
+    games.forEach((game, index) => {
+      if (requestedSet.has(game.id)) slots.push(index);
+    });
 
-    // Get list of installed Steam games if SteamService is provided
-    let installedSteamAppIds: Set<string> | null = null;
-    if (steamService) {
-      try {
-        const steamGames = await steamService.scanSteamGames();
-        installedSteamAppIds = new Set(steamGames.map(g => g.appId));
-        console.log(`[GameStore] Found ${installedSteamAppIds.size} installed Steam games`);
-      } catch (error) {
-        console.warn('[GameStore] Could not scan Steam games:', error);
-      }
-    }
+    // `requested` and `slots` have the same length, because each is the set of listed games
+    // that exist in the library.
+    requested.forEach((id, i) => {
+      const game = gamesById.get(id);
+      if (game) games[slots[i]] = game;
+    });
 
-    for (const game of games) {
-      let isMissing = false;
-
-      // Check Steam games
-      if (game.id.startsWith('steam-')) {
-        if (installedSteamAppIds) {
-          const appIdMatch = game.id.match(/^steam-(.+)$/);
-          if (appIdMatch && appIdMatch[1]) {
-            const appId = appIdMatch[1];
-            if (!installedSteamAppIds.has(appId)) {
-              console.log(`[GameStore] Steam game no longer installed: ${game.title} (AppID: ${appId})`);
-              isMissing = true;
-            }
-          }
-        } else {
-          // If we can't check Steam, don't mark as missing
-          continue;
-        }
-      } else {
-        // For non-Steam games, check if exePath or installationDirectory exists
-        const pathsToCheck: string[] = [];
-
-        if (game.exePath && !game.exePath.startsWith('steam://') && !game.exePath.startsWith('http://') && !game.exePath.startsWith('https://')) {
-          pathsToCheck.push(game.exePath);
-        }
-
-        if (game.installationDirectory) {
-          pathsToCheck.push(game.installationDirectory);
-        }
-
-        // If we have paths to check, verify at least one exists
-        if (pathsToCheck.length > 0) {
-          const anyPathExists = pathsToCheck.some(path => {
-            try {
-              return existsSync(path);
-            } catch (error) {
-              return false;
-            }
-          });
-
-          if (!anyPathExists) {
-            console.log(`[GameStore] Game files no longer exist: ${game.title} (exePath: ${game.exePath}, installDir: ${game.installationDirectory})`);
-            isMissing = true;
-          }
-        } else {
-          // If no paths to check (e.g., custom game with no exePath), keep it
-          continue;
-        }
-      }
-
-      if (isMissing) {
-        missingGames.push(game);
-      }
-    }
-
-    return missingGames;
-  }
-
-  /**
-   * Check for missing games and remove them from the store
-   * @param steamService - Optional SteamService to check if Steam games are still installed
-   * @returns Number of games removed
-   */
-  async removeMissingGames(steamService?: { scanSteamGames: () => Promise<Array<{ appId: string }>> }): Promise<number> {
-    const missingGames = await this.getMissingGames(steamService);
-
-    if (missingGames.length > 0) {
-      const store = await this.ensureStore();
-      const games = await this.getLibrary();
-      const missingIds = new Set(missingGames.map(g => g.id));
-      const gamesToKeep = games.filter(g => !missingIds.has(g.id));
-
-      console.log(`[GameStore] Removing ${missingGames.length} missing game(s) from library`);
-      this.scheduleSave(gamesToKeep);
-    }
-
-    return missingGames.length;
+    this.scheduleSave(games);
   }
 }
-

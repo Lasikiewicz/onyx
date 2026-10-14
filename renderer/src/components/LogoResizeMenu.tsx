@@ -20,7 +20,6 @@ export const LogoResizeMenu: React.FC<LogoResizeMenuProps> = ({
   onSizeChange,
   rightPanelLogoSize,
 }) => {
-  console.log('LogoResizeMenu rendering at', x, y);
   const menuRef = useRef<HTMLDivElement>(null);
   const [logoSize, setLogoSize] = useState<number>(game.logoSizePerViewMode?.carousel || rightPanelLogoSize);
   const [isSaving, setIsSaving] = useState(false);
@@ -35,7 +34,6 @@ export const LogoResizeMenu: React.FC<LogoResizeMenuProps> = ({
   useEffect(() => {
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        console.log('Escape pressed, closing logo menu');
         onClose();
       }
     };

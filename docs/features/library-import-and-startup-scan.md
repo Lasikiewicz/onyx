@@ -168,3 +168,11 @@ Finds games from configured launchers/folders and imports them into the local li
   - [UpdateLibraryModal.tsx](../../renderer/src/components/UpdateLibraryModal.tsx)
   - [MissingGamesModal.tsx](../../renderer/src/components/MissingGamesModal.tsx)
   - [RemoveDeletedGamesDialog.tsx](../../renderer/src/components/RemoveDeletedGamesDialog.tsx)
+
+## Missing-game checks and scan cancellation (2026-10)
+
+- Scans have per-run cancel state. `cancelScanAllSources()` cancels only runs started with `cancellable` (the importer's). Background and missing-game scans opt out.
+- `scanAllSourcesWithReport` returns `sourceStatus` per configured source: `ok`, `error` or `skipped`. A Steam library folder that cannot be read marks Steam `skipped`, so its games are not reported as missing.
+- The missing-game rule lives in `main/missingGames.ts` and is used by the background scan and `scan:getMissingGames`. A cancelled scan reports nothing.
+- `scan:removeMissingGames` takes a library snapshot first and deletes each game's cached artwork with it.
+- Background-scan handoffs to the importer do not raise the window (see `importer-architecture.md`).

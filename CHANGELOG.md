@@ -6,10 +6,41 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+- Library data safety:
+  - Dragging games to reorder them no longer deletes hidden or filtered games. The order is now applied only to the games on screen, and hidden games keep their place.
+  - Concurrent library saves no longer overwrite each other. Saves made while the Steam merge or artwork optimizer is running are kept.
+  - Artwork optimization only replaces artwork URLs that the job produced, so artwork you picked while the job ran is kept.
+  - Library reads return copies, so a caller can no longer change the cached library by accident.
+  - Library backups: a snapshot is written before clearing the library, before removing missing games in bulk, and before a restore. The newest five are kept. Settings > Advanced lists the backups and restores one.
+- Missing games:
+  - A Steam library that could not be scanned (an error, a cancelled scan, or a library folder on an offline drive) no longer marks Steam games as missing. Cancelling the importer no longer stops the background scan.
+  - Removing missing games also deletes their cached artwork.
+- Launching:
+  - Games that are already running or still launching can't be started again. You see a message instead.
+  - Launch failures show in the app toast instead of a system alert.
+  - Windows launches report the game's process ID, and protocol launches (Steam, Epic, stored launch URIs) find the game's process by its install folder. Running state follows the game.
+  - Epic games launch by their Epic app name. Games imported before this fix get the name from their Epic manifest on the next launch.
+  - Launch arguments containing spaces are passed to the game intact.
+  - A folder can no longer be stored as a game's executable. Launching a game with no executable shows a clear message.
+  - Steam's process detection uses the Windows process list instead of the removed `wmic` tool.
+- Playtime:
+  - Each play session adds its minutes and one play to the game's record. Sessions under 60 seconds are ignored, and a single session counts at most 24 hours.
+- Security:
+  - The Steam sign-in response is handled before any request goes to the return host.
+  - The app window sandboxes its page and only loads its own entry page.
+  - The production page no longer allows inline scripts. The development server keeps them for hot reload.
+  - Artwork served from the cache directory is limited to the image cache. Other files in the app data folder are refused.
+  - Remote artwork keeps its signed query parameters. Only the app's own cache-buster is removed.
+- Images:
+  - Video status for artwork is recalculated on every read, so a replaced `.webm` no longer keeps its video flag.
+  - Artwork file reads no longer block the main process.
 - Fixes:
   - Library saves no longer lose pending changes if the store fails to resolve during a flush. The in-memory library stays in place until it is written, so a failed flush can be retried instead of dropping the pending changes.
+  - A window error no longer blanks the whole app: an error boundary shows a reload prompt instead.
+  - New custom games get a unique ID with a random suffix.
 - Maintainability:
   - Documented that background-scan importer handoffs intentionally do not raise the window, so the importer opens without pulling a tray-hidden app back into view.
+  - The Windows command-line quoting, process lookup, Epic manifest and missing-game rules are separate, unit-tested modules.
 
 ## [0.16.2] - 2026-09-13
 

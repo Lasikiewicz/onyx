@@ -184,12 +184,30 @@ export function useGameLibrary() {
     }
   }, [loadLibrary]);
 
-  const reorderGames = useCallback(async (reorderedGames: Game[]) => {
+  // `visibleGames` is only the games on screen (filtered, searched or hidden views). Send their
+  // IDs, so main can reorder them without touching games that aren't shown.
+  const reorderGames = useCallback(async (visibleGames: Game[]) => {
+    const orderedIds = [...new Set(visibleGames.map((game) => game.id))];
     try {
-      const success = await window.electronAPI.reorderGames(reorderedGames);
+      const success = await window.electronAPI.reorderGames(orderedIds);
       if (success) {
-        // Update local state immediately for better UX
-        setGames(reorderedGames);
+        // Mirror main's slot rule locally: the listed games take each other's positions and
+        // every other game stays put. Keeps hidden games in the list without a reload.
+        setGames((prev) => {
+          const listed = new Set(orderedIds);
+          const byId = new Map(prev.map((game) => [game.id, game]));
+          const slots: number[] = [];
+          prev.forEach((game, index) => {
+            if (listed.has(game.id)) slots.push(index);
+          });
+          const next = [...prev];
+          let slot = 0;
+          orderedIds.forEach((id) => {
+            const game = byId.get(id);
+            if (game) next[slots[slot++]] = game;
+          });
+          return next;
+        });
         return true;
       }
       return false;
@@ -233,7 +251,6 @@ export function useGameLibrary() {
   // Listen for library updates from main process (e.g., when games are removed)
   useEffect(() => {
     const handleLibraryUpdate = (_event: any) => {
-      console.log('[useGameLibrary] Library updated, reloading...');
       // Main-process change: artwork may have been re-cached in place (optimization,
       // metadata refresh), so this is the one path that re-stamps the image token.
       loadLibrary({ refreshImages: true });

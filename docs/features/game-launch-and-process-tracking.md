@@ -93,3 +93,13 @@ Launches games from multiple sources and tracks running state for UX actions (mi
   - [GameCard.tsx](../../renderer/src/components/GameCard.tsx)
   - [RightClickMenu.tsx](../../renderer/src/components/RightClickMenu.tsx)
   - [GameContextMenu.tsx](../../renderer/src/components/GameContextMenu.tsx)
+
+## Process tracking and launch paths (2026-10)
+
+- **Exe launches (Windows)** use `Start-Process -PassThru` and return the new PID. Arguments are passed as one pre-quoted command line (`main/windowsCommandLine.ts`), so values with spaces stay intact.
+- **Protocol launches** (Steam, Epic, stored `launchUri`) return no PID. `LauncherService.watchForInstallDirProcess` polls `main/ProcessLookup.ts` (CIM process list, whole-segment install-directory match, helper executables skipped) for up to 90 s and publishes the match on `main/gameProcessEvents.ts` as `process-found`. `scanningHandlers` records the PID against the running game.
+- **Epic** launches by AppName: `apps/<AppName>`. The scan stores the URI on import; older games get the AppName from the Epic manifest (`main/epicManifest.ts`) at launch and save it. No match falls back to the exe.
+- **Double-launch guard:** `useGameLaunchFlow.launchGame` refuses a game that is running or still launching, and reports through the toast.
+- **Playtime:** a finished session (normal stop, vanished process, or stale entry) emits `session-ended`; `main/playtime.ts` adds minutes and one play, with a 60 s minimum and a 24 h cap.
+- **Folders are not executables:** launch returns "No executable set" when `exePath` points at a folder.
+- **Not yet verified on Windows:** the restore-after-launch and background-scan pause scenarios, and the Epic launch. Both paths are unit-tested only.

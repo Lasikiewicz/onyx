@@ -291,6 +291,10 @@ export function createImageOptimizationQueue(
 
       try {
         const processGamePromise = (async () => {
+          // Artwork URLs as they were when this job started. Caching takes a while, and the user
+          // may pick different art in the meantime. The write-back below only replaces a field
+          // that still holds this value (A2 step 4).
+          const startGame = gameStore.getGame(item.gameId);
           const cached = await imageCacheService.cacheImages(
             item.urls,
             item.gameId,
@@ -330,23 +334,23 @@ export function createImageOptimizationQueue(
 
           if (cancelling) return;
 
-          if (isDebugOptimizationEnabled()) debugOptimizationLog(`queue getLibrary before saveGame gameId=${item.gameId}`);
+          if (isDebugOptimizationEnabled()) debugOptimizationLog(`queue saveGame before patch gameId=${item.gameId}`);
           await new Promise<void>((r) => setImmediate(r));
-          const games = await gameStore.getLibrary();
-          const game = games.find((g) => g.id === item.gameId);
-          if (isDebugOptimizationEnabled()) debugOptimizationLog(`queue game found=${Boolean(game)} gameId=${item.gameId} librarySize=${games.length}`);
-          if (game) {
-            if (isDebugOptimizationEnabled()) debugOptimizationLog(`queue saveGame start gameId=${item.gameId}`);
-            const updated: Game = {
-              ...game,
-              boxArtUrl: cached.boxArtUrl ?? game.boxArtUrl,
-              bannerUrl: cached.bannerUrl ?? game.bannerUrl,
-              alternativeBannerUrl: cached.alternativeBannerUrl ?? game.alternativeBannerUrl,
-              logoUrl: cached.logoUrl ?? game.logoUrl,
-              heroUrl: cached.heroUrl ?? game.heroUrl,
-              iconUrl: cached.iconUrl ?? game.iconUrl,
-            };
-            await gameStore.saveGame(updated);
+          // Patch only the artwork URLs this job produced. Everything else on the game, including
+          // edits made while the job ran, is left alone (A2 step 3).
+          const artworkFields = ['boxArtUrl', 'bannerUrl', 'alternativeBannerUrl', 'logoUrl', 'heroUrl', 'iconUrl'] as const;
+          const patched = gameStore.updateGame(item.gameId, (current) => {
+            const changes: Partial<Game> = {};
+            for (const field of artworkFields) {
+              const next = cached[field];
+              if (next === undefined || next === null) continue;
+              if (startGame && current[field] !== startGame[field]) continue;
+              changes[field] = next;
+            }
+            return changes;
+          });
+          if (isDebugOptimizationEnabled()) debugOptimizationLog(`queue game patched=${patched} gameId=${item.gameId}`);
+          if (patched) {
             // Deliberately no flush per game: each flush rewrites the entire library
             // synchronously, so flushing here cost one full-file write per optimized game.
             // GameStore batches these and caps its debounce, and the run flushes once when

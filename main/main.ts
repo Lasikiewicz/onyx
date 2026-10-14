@@ -48,6 +48,7 @@ if (!gotTheLock) {
 }
 
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { readdirSync, statSync, existsSync, readFileSync, copyFileSync, mkdirSync, unlinkSync, writeFileSync, promises as fsPromises, constants as fsConstants } from 'node:fs';
 import { platform } from 'node:os';
 import { analyzeCrashDumps, setupJavaScriptErrorHandler } from './crashDumpAnalyzer.js';
@@ -481,16 +482,25 @@ userPreferencesService.getPreferences().then(prefs => {
   console.error('Error checking hardware acceleration preference:', err);
 });
 
-if (app.isPackaged) {
-  process.env.DIST = path.join(__dirname, '../dist');
-} else {
-  process.env.DIST = path.join(__dirname, '../dist');
-}
+process.env.DIST = path.join(__dirname, '../dist');
 process.env.VITE_PUBLIC = app.isPackaged
   ? process.env.DIST
   : path.join(process.env.DIST, '../');
 
 const VITE_DEV_SERVER_URL = process.env['VITE_DEV_SERVER_URL'];
+
+/** True if `url` is the built app entry page (dist/index.html), ignoring any fragment. Fails closed. */
+function isAppEntryFileUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'file:') return false;
+    const normalize = (p: string) => path.resolve(p).toLowerCase();
+    const entryPath = path.join(process.env.DIST ?? '', 'index.html');
+    return normalize(fileURLToPath(parsed)) === normalize(entryPath);
+  } catch {
+    return false;
+  }
+}
 const preload = path.join(__dirname, 'preload.js');
 
 // Initialize Tray service
@@ -1002,6 +1012,7 @@ async function createWindow() {
       preload,
       nodeIntegration: false,
       contextIsolation: true,
+      sandbox: true,
       webSecurity: true,
     },
     titleBarStyle: 'hidden',
@@ -1257,9 +1268,11 @@ async function createWindow() {
   // navigate the main window elsewhere (e.g. a crafted link in remote metadata)
   // is denied. http/https links open in the system browser via the protocol allowlist.
   win.webContents.on('will-navigate', (event, navigationUrl) => {
+    // Only the app's own entry page may load in the window. A bare file:// prefix check would let
+    // any local file load in the renderer (A10).
     const isAllowed = VITE_DEV_SERVER_URL
       ? navigationUrl.startsWith(VITE_DEV_SERVER_URL)
-      : navigationUrl.startsWith('file://');
+      : isAppEntryFileUrl(navigationUrl);
     if (!isAllowed) {
       event.preventDefault();
       console.warn(`[Security] Blocked main window navigation to: ${navigationUrl}`);

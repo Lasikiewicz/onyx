@@ -113,241 +113,124 @@ export class SteamAuthService {
 
         let authCompleted = false;
 
-        // Listen for navigation to capture the authentication response
-        this.authWindow.webContents.on('will-navigate', async (event, navigationUrl) => {
+        // Single handler for the OpenID response. Steam redirects to the return URL, so the same
+        // response can arrive through several navigation events. Only the first one is processed (A8).
+        const handleAuthResponse = async (navigationUrl: string): Promise<void> => {
           if (authCompleted) return;
-
-          // Check if this is our return URL
-          if (navigationUrl.startsWith(returnUrl) || navigationUrl.includes('openid.mode=id_res')) {
-            event.preventDefault();
-            authCompleted = true;
-
-            try {
-              // Parse the URL to extract OpenID parameters
-              const url = new URL(navigationUrl);
-              const claimedId = url.searchParams.get('openid.claimed_id') || url.searchParams.get('openid.identity');
-
-              if (claimedId) {
-                // Steam ID is in the format: https://steamcommunity.com/openid/id/76561198000000000
-                const steamIdMatch = claimedId.match(/\/id\/(\d+)$/);
-                if (steamIdMatch) {
-                  const steamId = steamIdMatch[1];
-
-                  if (!(await this.verifyOpenIdAssertion(url))) {
-                    await this.clearAuth();
-                    if (this.authWindow) {
-                      this.authWindow.close();
-                      this.authWindow = null;
-                    }
-                    resolve({ success: false, error: 'Steam OpenID response failed verification' });
-                    return;
-                  }
-
-                  // Try to get username from Steam profile (public API, no key needed for basic info)
-                  let username = 'Steam User';
-                  try {
-                    const profileUrl = `https://steamcommunity.com/profiles/${steamId}/?xml=1`;
-                    const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), 5000);
-                    try {
-                      const response = await fetch(profileUrl, {
-                        method: 'GET',
-                        headers: {
-                          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-                        },
-                        signal: controller.signal,
-                      });
-                      if (response.ok) {
-                        const text = await response.text();
-                        const xmlMatch = text.match(/<steamID><!\[CDATA\[(.*?)\]\]><\/steamID>/);
-                        if (xmlMatch) {
-                          username = xmlMatch[1];
-                        }
-                      }
-                    } finally {
-                      clearTimeout(timeoutId);
-                    }
-                  } catch (err) {
-                    console.warn('Could not fetch Steam username, using default:', err);
-                    // Username fetch failed, but we still have the Steam ID
-                  }
-
-                  await this.saveAuthState({
-                    steamId,
-                    username,
-                    authenticated: true,
-                    lastAuthTime: Date.now(),
-                  });
-
-                  if (this.authWindow) {
-                    this.authWindow.close();
-                    this.authWindow = null;
-                  }
-
-                  resolve({ success: true, steamId, username });
-                  return;
-                }
-              }
-
-              // If we get here, authentication failed
-              await this.clearAuth();
-              if (this.authWindow) {
-                this.authWindow.close();
-                this.authWindow = null;
-              }
-              resolve({ success: false, error: 'Failed to extract Steam ID from response' });
-            } catch (err) {
-              console.error('Error processing Steam authentication:', err);
-              await this.clearAuth();
-              if (this.authWindow) {
-                this.authWindow.close();
-                this.authWindow = null;
-              }
-              resolve({ success: false, error: err instanceof Error ? err.message : 'Authentication failed' });
-            }
-          }
-        });
-
-        // Also listen for did-navigate-in-page for single-page app redirects
-        this.authWindow.webContents.on('did-navigate-in-page', async (event, navigationUrl, isMainFrame) => {
-          if (authCompleted || !isMainFrame) return;
-
-          if (navigationUrl.includes('openid.mode=id_res') || navigationUrl.includes('onyx-launcher.app/auth/steam')) {
-            try {
-              const url = new URL(navigationUrl);
-              const claimedId = url.searchParams.get('openid.claimed_id') || url.searchParams.get('openid.identity');
-
-              if (claimedId) {
-                const steamIdMatch = claimedId.match(/\/id\/(\d+)$/);
-                if (steamIdMatch) {
-                  authCompleted = true;
-                  const steamId = steamIdMatch[1];
-
-                  if (!(await this.verifyOpenIdAssertion(url))) {
-                    await this.clearAuth();
-                    if (this.authWindow) {
-                      this.authWindow.close();
-                      this.authWindow = null;
-                    }
-                    resolve({ success: false, error: 'Steam OpenID response failed verification' });
-                    return;
-                  }
-
-                  let username = 'Steam User';
-                  try {
-                    const profileUrl = `https://steamcommunity.com/profiles/${steamId}/?xml=1`;
-                    const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), 5000);
-                    try {
-                      const response = await fetch(profileUrl, {
-                        method: 'GET',
-                        headers: {
-                          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-                        },
-                        signal: controller.signal,
-                      });
-                      const text = await response.text();
-                      const xmlMatch = text.match(/<steamID><!\[CDATA\[(.*?)\]\]><\/steamID>/);
-                      if (xmlMatch) {
-                        username = xmlMatch[1];
-                      }
-                    } finally {
-                      clearTimeout(timeoutId);
-                    }
-                  } catch (err) {
-                    console.warn('Could not fetch Steam username:', err);
-                  }
-
-                  await this.saveAuthState({
-                    steamId,
-                    username,
-                    authenticated: true,
-                    lastAuthTime: Date.now(),
-                  });
-
-                  if (this.authWindow) {
-                    this.authWindow.close();
-                    this.authWindow = null;
-                  }
-
-                  resolve({ success: true, steamId, username });
-                }
-              }
-            } catch (err) {
-              console.error('Error processing Steam authentication (in-page):', err);
-            }
-          }
-        });
-
-        // Check URL after page finishes loading (in case redirect happens after load)
-        this.authWindow.webContents.on('did-finish-load', async () => {
-          if (authCompleted) return;
+          authCompleted = true;
 
           try {
-            const currentUrl = this.authWindow?.webContents.getURL();
-            if (currentUrl && (currentUrl.includes('openid.mode=id_res') || currentUrl.includes('onyx-launcher.app/auth/steam'))) {
-              const url = new URL(currentUrl);
-              const claimedId = url.searchParams.get('openid.claimed_id') || url.searchParams.get('openid.identity');
+            // Parse the URL to extract OpenID parameters
+            const url = new URL(navigationUrl);
+            const claimedId = url.searchParams.get('openid.claimed_id') || url.searchParams.get('openid.identity');
 
-              if (claimedId) {
-                const steamIdMatch = claimedId.match(/\/id\/(\d+)$/);
-                if (steamIdMatch) {
-                  authCompleted = true;
-                  const steamId = steamIdMatch[1];
+            if (claimedId) {
+              // Steam ID is in the format: https://steamcommunity.com/openid/id/76561198000000000
+              const steamIdMatch = claimedId.match(/\/id\/(\d+)$/);
+              if (steamIdMatch) {
+                const steamId = steamIdMatch[1];
 
-                  if (!(await this.verifyOpenIdAssertion(url))) {
-                    await this.clearAuth();
-                    if (this.authWindow) {
-                      this.authWindow.close();
-                      this.authWindow = null;
-                    }
-                    resolve({ success: false, error: 'Steam OpenID response failed verification' });
-                    return;
+                if (!(await this.verifyOpenIdAssertion(url))) {
+                  await this.clearAuth();
+                  if (this.authWindow) {
+                    this.authWindow.close();
+                    this.authWindow = null;
                   }
+                  resolve({ success: false, error: 'Steam OpenID response failed verification' });
+                  return;
+                }
 
-                  let username = 'Steam User';
+                // Try to get username from Steam profile (public API, no key needed for basic info)
+                let username = 'Steam User';
+                try {
+                  const profileUrl = `https://steamcommunity.com/profiles/${steamId}/?xml=1`;
+                  const controller = new AbortController();
+                  const timeoutId = setTimeout(() => controller.abort(), 5000);
                   try {
-                    const profileUrl = `https://steamcommunity.com/profiles/${steamId}/?xml=1`;
-                    const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), 5000);
-                    try {
-                      const response = await fetch(profileUrl, {
-                        method: 'GET',
-                        headers: {
-                          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-                        },
-                        signal: controller.signal,
-                      });
+                    const response = await fetch(profileUrl, {
+                      method: 'GET',
+                      headers: {
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                      },
+                      signal: controller.signal,
+                    });
+                    if (response.ok) {
                       const text = await response.text();
                       const xmlMatch = text.match(/<steamID><!\[CDATA\[(.*?)\]\]><\/steamID>/);
                       if (xmlMatch) {
                         username = xmlMatch[1];
                       }
-                    } finally {
-                      clearTimeout(timeoutId);
                     }
-                  } catch (err) {
-                    console.warn('Could not fetch Steam username:', err);
+                  } finally {
+                    clearTimeout(timeoutId);
                   }
-
-                  await this.saveAuthState({
-                    steamId,
-                    username,
-                    authenticated: true,
-                    lastAuthTime: Date.now(),
-                  });
-
-                  if (this.authWindow) {
-                    this.authWindow.close();
-                    this.authWindow = null;
-                  }
-
-                  resolve({ success: true, steamId, username });
+                } catch (err) {
+                  console.warn('Could not fetch Steam username, using default:', err);
+                  // Username fetch failed, but we still have the Steam ID
                 }
+
+                await this.saveAuthState({
+                  steamId,
+                  username,
+                  authenticated: true,
+                  lastAuthTime: Date.now(),
+                });
+
+                if (this.authWindow) {
+                  this.authWindow.close();
+                  this.authWindow = null;
+                }
+
+                resolve({ success: true, steamId, username });
+                return;
               }
             }
+
+            // If we get here, authentication failed
+            await this.clearAuth();
+            if (this.authWindow) {
+              this.authWindow.close();
+              this.authWindow = null;
+            }
+            resolve({ success: false, error: 'Failed to extract Steam ID from response' });
           } catch (err) {
-            console.error('Error checking URL after page load:', err);
+            console.error('Error processing Steam authentication:', err);
+            await this.clearAuth();
+            if (this.authWindow) {
+              this.authWindow.close();
+              this.authWindow = null;
+            }
+            resolve({ success: false, error: err instanceof Error ? err.message : 'Authentication failed' });
+          }
+
+        };
+
+        // Stop the assertion reaching onyx-launcher.app. Steam answers with a server-side 302, which
+        // will-redirect sees before the request to the return host is made (A8).
+        this.authWindow.webContents.on('will-redirect', (event, navigationUrl) => {
+          if (!navigationUrl.startsWith(returnUrl)) return;
+          event.preventDefault();
+          void handleAuthResponse(navigationUrl);
+        });
+
+        this.authWindow.webContents.on('will-navigate', (event, navigationUrl) => {
+          if (!navigationUrl.startsWith(returnUrl) && !navigationUrl.includes('openid.mode=id_res')) return;
+          event.preventDefault();
+          void handleAuthResponse(navigationUrl);
+        });
+
+        // SPA navigation and load-time checks deliver the same response, handled by the same function.
+        this.authWindow.webContents.on('did-navigate-in-page', (_event, navigationUrl, isMainFrame) => {
+          if (!isMainFrame) return;
+          if (navigationUrl.includes('openid.mode=id_res') || navigationUrl.includes('onyx-launcher.app/auth/steam')) {
+            void handleAuthResponse(navigationUrl);
+          }
+        });
+
+        this.authWindow.webContents.on('did-finish-load', () => {
+          const currentUrl = this.authWindow?.webContents.getURL();
+          if (currentUrl && (currentUrl.includes('openid.mode=id_res') || currentUrl.includes('onyx-launcher.app/auth/steam'))) {
+            void handleAuthResponse(currentUrl);
           }
         });
 

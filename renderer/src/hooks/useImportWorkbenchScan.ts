@@ -10,6 +10,7 @@ export type ImportWorkbenchPreScannedGame = {
     installPath?: string;
     exePath?: string;
     appId?: string;
+    launchUri?: string;
     title?: string;
     name?: string;
 };
@@ -592,6 +593,7 @@ export function useImportWorkbenchScan({
                 installPath: g.installPath,
                 exePath: g.exePath,
                 appId: g.appId,
+                launchUri: g.launchUri,
             }));
 
             // This is a one-shot, complete list (not a streaming discovery like
