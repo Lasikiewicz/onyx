@@ -194,6 +194,7 @@ It explains module boundaries, data flow, and release pipeline expectations.
 - `metadata:fetchGameImages` treats requests carrying `steamAppId` or `igdbId` as known-game flows.
 - In known-game flows, the handler skips Auto-Match/title re-identification and fetches provider artwork directly.
 - Auto-Match remains an unknown-query fallback only when no game identifiers are provided. A bare `gameId` (e.g. a staged-game uuid) is **not** treated as known-game identity, so non-Steam staged games still run Auto-Match instead of silently returning zero results.
+- Steam artwork order (`main/SteamMetadataProvider.ts#getArtwork`): Steam's own library cache on this PC first (`<steam>/appcache/librarycache/<appid>/`, including hashed subfolders), then the store's hashed asset list from `IStoreBrowseService/GetItems`, then the legacy CDN checks. Local files are copied into the image cache under `steam-<appid>` through `setSteamLocalArtCacher`, which `main/main.ts` wires to `ImageCacheService.cacheImage`, so the Add Games preview can show them before import. Without the cacher, the file URL is returned and only the import step caches it.
 - Every direct provider call in the handler is `withTimeout`-bounded (IGDB/RAWG search/getArtwork 10s, aggregate RAWG 20s), and provider services create HTTP clients with explicit timeouts so a hung provider never blocks image search indefinitely. Renderer-side image search also races against a client timeout so the UI surfaces "Image search timed out" instead of a forever spinner.
 
 ## HTTP Client Notes

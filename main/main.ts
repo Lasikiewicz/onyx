@@ -147,6 +147,7 @@ function getCrashDumpFilePaths(): string[] {
 }
 
 import { SteamService } from './SteamService.js';
+import { setSteamLocalArtCacher } from './SteamMetadataProvider.js';
 import { GameStore, type Game } from './GameStore.js';
 import { MetadataFetcherService, IGDBConfig } from './MetadataFetcherService.js';
 import { LauncherService } from './LauncherService.js';
@@ -400,6 +401,8 @@ const launcherDetectionService = new LauncherDetectionService();
 const steamAuthService = new SteamAuthService();
 const bugReportService = new BugReportService();
 const imageCacheService = new ImageCacheService();
+// Local Steam art is copied into the cache when it is found, so Add Games can preview it before import.
+setSteamLocalArtCacher((fileUrl, gameId, imageType) => imageCacheService.cacheImage(fileUrl, gameId, imageType));
 const launcherService = new LauncherService(gameStore);
 
 // winReference for services that need it (GamepadService, etc.)

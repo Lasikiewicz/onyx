@@ -1,7 +1,21 @@
 import { SteamService, SteamGame } from './SteamService.js';
 import { MetadataProvider, GameSearchResult, GameArtwork, GameInstallInfo } from './MetadataProvider.js';
-import { existsSync } from 'node:fs';
+import { existsSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
+
+/**
+ * Copies a local image file into the image cache under a game ID and returns the cache URL
+ * (`onyx-local://<gameId>-<type>`), or '' when the copy fails.
+ */
+export type LocalArtCacher = (fileUrl: string, gameId: string, imageType: 'boxart' | 'banner' | 'logo') => Promise<string>;
+
+let localArtCacher: LocalArtCacher | null = null;
+
+/** Wired up once at startup. Without it, local Steam art is used as a file URL and only imported games cache it. */
+export function setSteamLocalArtCacher(cacher: LocalArtCacher | null): void {
+  localArtCacher = cacher;
+}
 
 /**
  * Steam Metadata Provider
@@ -417,6 +431,109 @@ export class SteamMetadataProvider implements MetadataProvider {
     }
   }
 
+  /**
+   * Art Steam has already downloaded for this app, from its own library cache. Local files are used
+   * before any network lookup. Newer games keep their box art in a hashed subfolder instead.
+   */
+  private localLibraryArt(steamAppId: string): { box?: string; hero?: string; logo?: string } {
+    try {
+      const steamRoot = this.steamService?.getSteamPath();
+      if (!steamRoot) return {};
+      const dir = join(steamRoot, 'appcache', 'librarycache', steamAppId);
+      if (!existsSync(dir)) return {};
+
+      const fileUrl = (...parts: string[]): string | undefined => {
+        const file = join(dir, ...parts);
+        return existsSync(file) && statSync(file).size > 0 ? pathToFileURL(file).href : undefined;
+      };
+
+      return {
+        box: fileUrl('library_600x900_2x.jpg') ?? fileUrl('library_600x900.jpg') ?? this.newestHashedCapsule(dir),
+        hero: fileUrl('library_hero.jpg'),
+        logo: fileUrl('logo.png'),
+      };
+    } catch {
+      // A missing or unreadable Steam folder is not an error: the network sources still apply.
+      return {};
+    }
+  }
+
+  /**
+   * Copies a local Steam file into the image cache under the game's Steam ID (`steam-<appid>`, the
+   * convention for Steam games), so the Add Games preview can show it before the game is imported.
+   * Falls back to the file URL when there is no cacher or the copy fails.
+   */
+  private async cacheLocalArt(
+    fileUrl: string | undefined,
+    steamAppId: string,
+    imageType: 'boxart' | 'banner' | 'logo',
+  ): Promise<string | undefined> {
+    if (!fileUrl || !localArtCacher) return fileUrl;
+    try {
+      return (await localArtCacher(fileUrl, `steam-${steamAppId}`, imageType)) || fileUrl;
+    } catch {
+      return fileUrl;
+    }
+  }
+
+  /** The newest `library_capsule.jpg` under the hashed subfolders of an app's library cache folder. */
+  private newestHashedCapsule(dir: string): string | undefined {
+    let best: { file: string; mtime: number } | undefined;
+    try {
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        if (!entry.isDirectory()) continue;
+        const file = join(dir, entry.name, 'library_capsule.jpg');
+        if (!existsSync(file) || statSync(file).size === 0) continue;
+        const mtime = statSync(file).mtimeMs;
+        if (!best || mtime > best.mtime) best = { file, mtime };
+      }
+    } catch {
+      return undefined;
+    }
+    return best ? pathToFileURL(best.file).href : undefined;
+  }
+
+  /**
+   * The store's own asset list for an app, as hashed image URLs. Newer games have no legacy CDN path,
+   * so this is the network source for their box art and banner.
+   */
+  private async fetchStoreAssetUrls(steamAppId: string): Promise<{ libraryCapsule?: string; libraryHero?: string } | null> {
+    const input = JSON.stringify({
+      ids: [{ appid: Number(steamAppId) }],
+      context: { language: 'english', country_code: 'US' },
+      data_request: { include_assets: true },
+    });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+    try {
+      const response = await fetch(
+        `https://api.steampowered.com/IStoreBrowseService/GetItems/v1/?input_json=${encodeURIComponent(input)}`,
+        {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'application/json, text/plain, */*',
+          },
+          signal: controller.signal,
+        },
+      );
+      if (!response.ok) return null;
+      const json = await response.json() as {
+        response?: { store_items?: Array<{ assets?: Record<string, string> }> };
+      };
+      const assets = json.response?.store_items?.[0]?.assets;
+      const format = assets?.asset_url_format;
+      if (!assets || !format) return null;
+      // asset_url_format is "steam/apps/<id>/${FILENAME}?t=<n>". Each asset name is the hashed path under it.
+      const urlFor = (file?: string) =>
+        file ? `https://shared.fastly.steamstatic.com/store_item_assets/${format.replace('${FILENAME}', file)}` : undefined;
+      return { libraryCapsule: urlFor(assets.library_capsule), libraryHero: urlFor(assets.library_hero) };
+    } catch {
+      return null;
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
+
   async getArtwork(id: string, steamAppId?: string): Promise<GameArtwork | null> {
     if (!steamAppId) {
       // Extract Steam App ID from provider ID
@@ -428,6 +545,9 @@ export class SteamMetadataProvider implements MetadataProvider {
     }
 
     try {
+      const local = this.localLibraryArt(steamAppId);
+      const store = await this.fetchStoreAssetUrls(steamAppId);
+
       // Steam CDN URLs - Official images (highest priority):
       // Box Art: library_600x900.jpg or library_600x900_2x.jpg (vertical cover art)
       // Banner: library_hero.jpg or header.jpg (horizontal banner)
@@ -531,6 +651,24 @@ export class SteamMetadataProvider implements MetadataProvider {
       if (foundLogoUrl) {
         artwork.logoUrl = foundLogoUrl;
         // Steam logos vary in size, but typically around 231x87 or larger for library assets
+        artwork.logoResolution = { width: 231, height: 87 };
+      }
+
+      // Art already on disk, then the store's hashed assets, win over the legacy CDN checks above.
+      const boxArt = (await this.cacheLocalArt(local.box, steamAppId, 'boxart')) ?? store?.libraryCapsule;
+      if (boxArt) {
+        artwork.boxArtUrl = boxArt;
+        artwork.boxArtResolution = { width: 600, height: 900 };
+      }
+      const hero = (await this.cacheLocalArt(local.hero, steamAppId, 'banner')) ?? store?.libraryHero;
+      if (hero) {
+        artwork.bannerUrl = hero;
+        artwork.heroUrl = hero;
+        artwork.bannerResolution = { width: 1920, height: 620 };
+        artwork.heroResolution = { width: 1920, height: 620 };
+      }
+      if (local.logo) {
+        artwork.logoUrl = (await this.cacheLocalArt(local.logo, steamAppId, 'logo')) ?? local.logo;
         artwork.logoResolution = { width: 231, height: 87 };
       }
 

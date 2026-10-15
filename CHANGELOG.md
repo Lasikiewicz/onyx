@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - Add Games:
   - "Attention Needed" games open the match picker with a title search and list the candidates. A candidate is applied only when you pick it.
-  - Newer Steam games (2025 onward) get their banner from Steam's store image, because their legacy Steam artwork paths no longer exist.
+  - Steam artwork uses Steam's own library cache on this PC when it has the image, then Steam's store asset list. Newer Steam games (2025 onward) get their box art and banner from there, because their legacy artwork paths no longer exist.
   - Artwork lookups are more reliable: failed lookups are not cached, GiantBomb is turned off, title matches are checked before artwork is used, and the importer waits longer for slow providers.
 - Display:
   - Animated artwork and videos pause while the window is hidden to the tray and while the artwork is scrolled out of view, and resume when they are visible again.

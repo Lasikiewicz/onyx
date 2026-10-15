@@ -103,7 +103,9 @@ Resolves game metadata (titles, identifiers, links, artwork candidates) from con
 
 ### Symptom: Newer Steam game has no banner
 
-- Games from about 2025 onward are not on Steam's legacy `steam/apps/<id>/` paths, which return 404. `main/SteamMetadataProvider.ts#fetchStoreHeaderImage` takes the hashed `header_image` URL from the store API instead.
+- Steam artwork is resolved in this order: Steam's own library cache on this PC (`<steam>/appcache/librarycache/<appid>/`, including hashed subfolders), then the store's hashed asset list (`IStoreBrowseService/GetItems`), then the legacy CDN paths. `main/SteamMetadataProvider.ts#getArtwork` owns the order.
+- Games from about 2025 onward are not on Steam's legacy `steam/apps/<id>/` paths, which return 404. The store asset list gives their hashed `library_capsule` (box art) and `library_hero` (banner). The header fallback, `fetchStoreHeaderImage`, is used only when the asset list gives nothing.
+- A local Steam file is copied into the image cache under `steam-<appid>` when found, so Add Games can preview it before import. If that copy fails, the file URL is used and only the import step caches it.
 - Box art and logo have no equivalent in the store API. A game with a banner but no box art stays "Attention Needed", because box art is the import's minimum requirement (`useImportWorkbenchScan.ts`).
 - SteamGridDB matches by Steam app ID, then by text. Text results are rejected unless the title matches, so a near match such as "Aion" for "AION 2" is not used.
 
