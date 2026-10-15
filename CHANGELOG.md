@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-10-15
+
 - Add Games:
   - "Attention Needed" games open the match picker with a title search and list the candidates. A candidate is applied only when you pick it.
   - Steam artwork uses Steam's own library cache on this PC when it has the image, then Steam's store asset list. Newer Steam games (2025 onward) get their box art and banner from there, because their legacy artwork paths no longer exist.
