@@ -53,6 +53,7 @@ interface UseGameDetailsPanelControlsOptions {
   rightPanelTextSize: number;
   runningGames: Set<string>;
   selectedCategory: string | null;
+  setGridMaximizeSpace: (value: boolean) => void;
   setDescriptionWidthByView: (value: Record<DetailsViewMode, number>) => void;
   setDetailsPanelBottomBarHeight: (value: number) => void;
   setFanartHeightByView: (value: Record<DetailsViewMode, number>) => void;
@@ -110,6 +111,7 @@ export function useGameDetailsPanelControls({
   rightPanelTextSize,
   runningGames,
   selectedCategory,
+  setGridMaximizeSpace,
   setDescriptionWidthByView,
   setDetailsPanelBottomBarHeight,
   setFanartHeightByView,
@@ -152,6 +154,13 @@ export function useGameDetailsPanelControls({
     saveByViewValue(panelWidthByViewState, setPanelWidthByViewState, 'panelWidthByView', viewMode, width);
   }, [panelWidthByViewState, saveByViewValue, setPanelWidth, setPanelWidthByViewState, viewMode]);
 
+  const handlePanelResizeStart = useCallback(() => {
+    if (gridMaximizeSpace) {
+      setGridMaximizeSpace(false);
+      saveValue(setGridMaximizeSpace, 'gridMaximizeSpace', false);
+    }
+  }, [gridMaximizeSpace, saveValue, setGridMaximizeSpace]);
+
   const resolvedButtonColors = viewMode === 'grid'
     ? gridButtonColors
     : viewMode === 'list'
@@ -187,6 +196,7 @@ export function useGameDetailsPanelControls({
     onHide: handleHideGame,
     onOpenInGameManager: handleOpenInGameManager,
     onPanelWidthChange: handlePanelWidthChange,
+    onPanelResizeStart: handlePanelResizeStart,
     onPin: handleTogglePin,
     onPlay: handlePlay,
     onRightClick: handleRightClick,
@@ -196,7 +206,7 @@ export function useGameDetailsPanelControls({
     onUpdateGameInState: updateGameInState,
     overlaysOpen,
     panelWidth: currentPanelWidth,
-    disablePanelResize: (viewMode === 'grid' || viewMode === 'logo') && gridMaximizeSpace,
+    disablePanelResize: false,
     rightPanelBoxartPosition,
     rightPanelBoxartSize,
     rightPanelButtonColors: resolvedButtonColors,
@@ -229,6 +239,7 @@ export function useGameDetailsPanelControls({
     handleFixMatch,
     handleHideGame,
     handleOpenInGameManager,
+    handlePanelResizeStart,
     handlePanelWidthChange,
     handlePlay,
     handleRightClick,

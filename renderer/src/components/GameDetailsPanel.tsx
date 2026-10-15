@@ -9,6 +9,7 @@ import { getContrastingTextColor } from '../utils/colorUtils';
 import { LauncherIcon, getLauncherDisplayName } from '../utils/launcherIcons';
 
 type ViewKey = 'grid' | 'list' | 'logo';
+type ResizeTarget = 'panel' | 'fanart' | 'description' | 'descriptionWidth' | 'bottomBar';
 
 export interface GameDetailsPanelProps {
   game: Game | null;
@@ -40,6 +41,7 @@ export interface GameDetailsPanelProps {
   detailsPanelOpacity?: number;
   panelWidth?: number;
   onPanelWidthChange?: (width: number) => void;
+  onPanelResizeStart?: () => void;
   /** Disables manual dragging of the panel-width divider (e.g. while Maximize Space owns it). */
   disablePanelResize?: boolean;
   fanartHeight?: number;
@@ -101,6 +103,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
   detailsPanelOpacity = 80,
   panelWidth: propPanelWidth,
   onPanelWidthChange,
+  onPanelResizeStart,
   disablePanelResize = false,
   fanartHeight: propFanartHeight = 320,
   onFanartHeightChange,
@@ -127,6 +130,15 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
       const doc = parser.parseFromString(`<div>${sanitizedHtml}</div>`, 'text/html');
       const root = doc.body.firstElementChild as HTMLElement | null;
       if (!root) return sanitizedHtml;
+
+      // Description pages can contain several autoplaying videos. Keep their initial
+      // load lightweight; the visibility effect below promotes only nearby videos to
+      // active buffering/playback.
+      root.querySelectorAll('video[autoplay]').forEach((video) => {
+        video.setAttribute('data-onyx-description-video', 'true');
+        video.removeAttribute('autoplay');
+        video.setAttribute('preload', 'metadata');
+      });
 
       type Section = {
         headingHtml: string;
@@ -237,17 +249,16 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
   const [descriptionHeight, setDescriptionHeight] = useState(400);
   const [descriptionWidth, setDescriptionWidth] = useState(propDescriptionWidth);
   const [descriptionViewport, setDescriptionViewport] = useState({ width: 0, height: 0 });
-  const [isResizing, setIsResizing] = useState(false);
-  const [isResizingFanart, setIsResizingFanart] = useState(false);
-  const [isResizingDescription, setIsResizingDescription] = useState(false);
-  const [isResizingDescriptionWidth, setIsResizingDescriptionWidth] = useState(false);
-  const [isResizingBottomBar, setIsResizingBottomBar] = useState(false);
   const [bottomBarHeight, setBottomBarHeight] = useState(propBottomBarHeight ?? 72);
   const panelRef = useRef<HTMLDivElement>(null);
   const fanartRef = useRef<HTMLDivElement>(null);
   const descriptionRef = useRef<HTMLDivElement>(null);
   const descriptionContainerRef = useRef<HTMLDivElement>(null);
   const bottomBarRef = useRef<HTMLDivElement>(null);
+  const activeResizeRef = useRef<ResizeTarget | null>(null);
+  const resizePointerEventRef = useRef<PointerEvent | null>(null);
+  const resizeFrameRef = useRef<number | null>(null);
+  const previousBodyResizeStyleRef = useRef<{ cursor: string; userSelect: string } | null>(null);
   const viewKey: ViewKey = viewMode === 'list' ? 'list' : viewMode === 'logo' ? 'logo' : 'grid';
   const activePanelWidth = (propPanelWidth ?? panelWidths[viewKey] ?? DEFAULT_PANEL_WIDTHS[viewKey]);
   const normalizedOpacity = Math.max(0, Math.min(100, detailsPanelOpacity));
@@ -505,10 +516,8 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
     };
   }, []);
 
-  // Resize handlers are read through a ref so the mousemove listener below can depend only on
-  // the drag flags. Putting the callbacks in the dep array either tore the listener down
-  // mid-drag or (when omitted, as before) left the drag calling the versions captured when it
-  // started.
+  // Resize callbacks are read through a ref so the pointer listener can stay mounted for the
+  // lifetime of the panel without capturing stale persistence callbacks during a drag.
   const resizeCallbacksRef = useRef({
     onPanelWidthChange,
     onFanartHeightChange,
@@ -559,44 +568,49 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
   }, [panelWidths, activePanelWidth, fanartHeight, descriptionHeight, descriptionWidth, bottomBarHeight, ownsBottomBarHeight, titleFontSize, titleFontFamily, descriptionFontSize, descriptionFontFamily, detailsFontSize, detailsFontFamily, visibleDetails, boxartWidth]);
 
   useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      if (isResizing && panelRef.current) {
+    const applyResize = () => {
+      resizeFrameRef.current = null;
+      const target = activeResizeRef.current;
+      const event = resizePointerEventRef.current;
+      if (!target || !event) return;
+
+      if (target === 'panel' && panelRef.current) {
         // Measure from the live panel edge so the divider tracks the shell split,
         // not the full window width.
         const panelRect = panelRef.current.getBoundingClientRect();
-        const newWidth = panelRect.right - e.clientX;
+        const newWidth = panelRect.right - event.clientX;
         const minWidth = 400;
         const maxWidth = window.innerWidth * 0.75;
         const clampedWidth = Math.max(minWidth, Math.min(maxWidth, newWidth));
         setPanelWidths(prev => ({ ...prev, [viewKey]: clampedWidth }));
         resizeCallbacksRef.current.onPanelWidthChange?.(clampedWidth);
-      } else if (isResizingFanart && fanartRef.current) {
+      } else if (target === 'fanart' && fanartRef.current) {
         const rect = fanartRef.current.getBoundingClientRect();
-        const newHeight = e.clientY - rect.top;
+        const newHeight = event.clientY - rect.top;
         const minHeight = 200;
         const maxHeight = 600;
         const clampedHeight = Math.max(minHeight, Math.min(maxHeight, newHeight));
         setFanartHeight(clampedHeight);
         resizeCallbacksRef.current.onFanartHeightChange?.(clampedHeight);
-      } else if (isResizingDescription && descriptionRef.current) {
+      } else if (target === 'description' && descriptionRef.current) {
         const rect = descriptionRef.current.getBoundingClientRect();
-        const newHeight = e.clientY - rect.top;
+        const newHeight = event.clientY - rect.top;
         const minHeight = 200;
         const maxHeight = 600;
         const clampedHeight = Math.max(minHeight, Math.min(maxHeight, newHeight));
         setDescriptionHeight(clampedHeight);
-      } else if (isResizingDescriptionWidth && descriptionContainerRef.current) {
+      } else if (target === 'descriptionWidth' && descriptionContainerRef.current) {
         const rect = descriptionContainerRef.current.getBoundingClientRect();
-        const relativeX = e.clientX - rect.left;
+        const relativeX = event.clientX - rect.left;
         const percentage = (relativeX / rect.width) * 100;
         const minPercentage = 20;
         const maxPercentage = 80;
         const clampedPercentage = Math.max(minPercentage, Math.min(maxPercentage, percentage));
         setDescriptionWidth(clampedPercentage);
         resizeCallbacksRef.current.onDescriptionWidthChange?.(clampedPercentage);
-      } else if (isResizingBottomBar && bottomBarRef.current) {
+      } else if (target === 'bottomBar' && bottomBarRef.current) {
         const rect = bottomBarRef.current.getBoundingClientRect();
-        const newHeight = rect.bottom - e.clientY;
+        const newHeight = rect.bottom - event.clientY;
         const minHeight = 48;
         const maxHeight = 140;
         const clampedHeight = Math.max(minHeight, Math.min(maxHeight, newHeight));
@@ -605,23 +619,57 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
       }
     };
 
-    const handleMouseUp = () => {
-      setIsResizing(false);
-      setIsResizingFanart(false);
-      setIsResizingDescription(false);
-      setIsResizingDescriptionWidth(false);
-      setIsResizingBottomBar(false);
+    const finishResize = () => {
+      activeResizeRef.current = null;
+      resizePointerEventRef.current = null;
+      if (resizeFrameRef.current !== null) {
+        window.cancelAnimationFrame(resizeFrameRef.current);
+        resizeFrameRef.current = null;
+      }
+      if (previousBodyResizeStyleRef.current) {
+        document.body.style.cursor = previousBodyResizeStyleRef.current.cursor;
+        document.body.style.userSelect = previousBodyResizeStyleRef.current.userSelect;
+        previousBodyResizeStyleRef.current = null;
+      }
     };
 
-    if (isResizing || isResizingFanart || isResizingDescription || isResizingDescriptionWidth || isResizingBottomBar) {
-      document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseup', handleMouseUp);
-      return () => {
-        document.removeEventListener('mousemove', handleMouseMove);
-        document.removeEventListener('mouseup', handleMouseUp);
-      };
+    const handlePointerMove = (event: PointerEvent) => {
+      if (!activeResizeRef.current) return;
+      resizePointerEventRef.current = event;
+      if (resizeFrameRef.current === null) {
+        resizeFrameRef.current = window.requestAnimationFrame(applyResize);
+      }
+    };
+
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', finishResize);
+    window.addEventListener('pointercancel', finishResize);
+    window.addEventListener('blur', finishResize);
+    return () => {
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', finishResize);
+      window.removeEventListener('pointercancel', finishResize);
+      window.removeEventListener('blur', finishResize);
+      finishResize();
+    };
+  }, [viewKey]);
+
+  const startResize = (target: ResizeTarget, event: React.PointerEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (target === 'panel') {
+      onPanelResizeStart?.();
     }
-  }, [isResizing, isResizingFanart, isResizingDescription, isResizingDescriptionWidth, isResizingBottomBar, viewKey]);
+    activeResizeRef.current = target;
+    resizePointerEventRef.current = event.nativeEvent;
+    previousBodyResizeStyleRef.current = {
+      cursor: document.body.style.cursor,
+      userSelect: document.body.style.userSelect,
+    };
+    document.body.style.cursor = target === 'panel' || target === 'descriptionWidth' ? 'col-resize' : 'row-resize';
+    document.body.style.userSelect = 'none';
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+  };
 
   useEffect(() => {
     if (!descriptionRef.current) return;
@@ -643,6 +691,77 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
     observer.observe(element);
     return () => observer.disconnect();
   }, [game?.id, descriptionWidth, descriptionHeight]);
+
+  useEffect(() => {
+    const descriptionElement = descriptionRef.current;
+    if (!descriptionElement || typeof IntersectionObserver === 'undefined') return;
+
+    const videos = Array.from(
+      descriptionElement.querySelectorAll<HTMLVideoElement>('video[data-onyx-description-video="true"]')
+    );
+    if (videos.length === 0) return;
+
+    const visibleVideos = new Set<HTMLVideoElement>();
+    const isAppActive = () => (
+      document.visibilityState !== 'hidden'
+      && (typeof document.hasFocus !== 'function' || document.hasFocus())
+    );
+    let appIsActive = isAppActive();
+
+    const syncVideoPlayback = (video: HTMLVideoElement, isInView: boolean) => {
+      if (isInView) visibleVideos.add(video);
+      else visibleVideos.delete(video);
+
+      if (appIsActive && isInView) {
+        video.preload = 'auto';
+        const playPromise = video.play();
+        playPromise?.catch(() => {
+          // Autoplay can still be blocked by the browser or media policy.
+        });
+      } else if (!video.paused) {
+        video.pause();
+      }
+    };
+
+    const syncAppVisibility = (isActive: boolean) => {
+      appIsActive = isActive;
+      videos.forEach((video) => {
+        if (appIsActive && visibleVideos.has(video)) {
+          const playPromise = video.play();
+          playPromise?.catch(() => {
+            // Autoplay can still be blocked by the browser or media policy.
+          });
+        } else if (!video.paused) {
+          video.pause();
+        }
+      });
+    };
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        const video = entry.target as HTMLVideoElement;
+        syncVideoPlayback(video, entry.isIntersecting);
+      });
+    }, { root: descriptionElement, rootMargin: '0px', threshold: 0.01 });
+
+    videos.forEach((video) => observer.observe(video));
+    const handleVisibilityChange = () => {
+      syncAppVisibility(document.visibilityState !== 'hidden');
+    };
+    const handleWindowBlur = () => syncAppVisibility(false);
+    const handleWindowFocus = () => syncAppVisibility(isAppActive());
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('blur', handleWindowBlur);
+    window.addEventListener('focus', handleWindowFocus);
+
+    return () => {
+      observer.disconnect();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('blur', handleWindowBlur);
+      window.removeEventListener('focus', handleWindowFocus);
+    };
+  }, [game?.id, renderedDescriptionHtml]);
 
   const handleLogoSizeChange = async (newSize: number) => {
     if (!game) return;
@@ -677,10 +796,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
         {!disablePanelResize && (
           <div
             className="absolute left-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-blue-500 transition-colors z-10"
-            onMouseDown={(e) => {
-              e.preventDefault();
-              setIsResizing(true);
-            }}
+            onPointerDown={(e) => startResize('panel', e)}
           />
         )}
       </div>
@@ -880,10 +996,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
       {!disablePanelResize && (
         <div
           className="absolute left-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-blue-500 transition-colors z-10"
-          onMouseDown={(e) => {
-            e.preventDefault();
-            setIsResizing(true);
-          }}
+          onPointerDown={(e) => startResize('panel', e)}
         />
       )}
 
@@ -1035,10 +1148,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
         {backgroundImageUrl && (
           <div
             className="absolute bottom-0 left-0 right-0 h-1 cursor-row-resize hover:bg-blue-500 transition-colors z-10"
-            onMouseDown={(e) => {
-              e.preventDefault();
-              setIsResizingFanart(true);
-            }}
+            onPointerDown={(e) => startResize('fanart', e)}
           />
         )}
       </div>
@@ -1086,7 +1196,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
                 ref={descriptionRef}
                 className={`${rightPanelBoxartPosition === 'left' ? '' : 'space-y-6'} relative pr-3 min-h-0 flex-1`}
                 style={{
-                  minHeight: 0,
+                  minHeight: `${descriptionHeight}px`,
                   overflowY: 'auto',
                   overflowX: 'hidden'
                 }}
@@ -1128,21 +1238,23 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
               {/* Resize handle for description */}
               <div
                 className="absolute bottom-0 left-0 right-0 h-1 cursor-row-resize hover:bg-blue-500 transition-colors z-10"
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  setIsResizingDescription(true);
-                }}
+                onPointerDown={(e) => startResize('description', e)}
               />
             </div>
 
             {/* Vertical divider */}
             <div
-              className="w-1 cursor-col-resize hover:bg-blue-500/40 transition-colors bg-transparent flex-shrink-0"
-              onMouseDown={(e) => {
-                e.preventDefault();
-                setIsResizingDescriptionWidth(true);
-              }}
-            />
+              role="separator"
+              aria-label="Resize description and details"
+              aria-orientation="vertical"
+              className="group relative z-20 -mx-1 w-3 flex-shrink-0 cursor-col-resize touch-none select-none"
+              onPointerDown={(e) => startResize('descriptionWidth', e)}
+            >
+              <div
+                aria-hidden="true"
+                className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-transparent transition-colors group-hover:bg-blue-500/60"
+              />
+            </div>
 
             {/* Details Section - Right side */}
             <div
@@ -1402,10 +1514,7 @@ export const GameDetailsPanel: React.FC<GameDetailsPanelProps> = ({
           {/* Resize handle at top of bottom bar */}
           <div
             className="absolute left-0 right-0 top-0 h-1 cursor-row-resize hover:bg-blue-500 transition-colors z-10"
-            onMouseDown={(e) => {
-              e.preventDefault();
-              setIsResizingBottomBar(true);
-            }}
+            onPointerDown={(e) => startResize('bottomBar', e)}
           />
           <div className={`flex items-center w-full ${rightPanelButtonLocation === 'middle' ? 'justify-between' : 'justify-between'}`} style={{ gap: scaledGap }}>
           {(() => {
