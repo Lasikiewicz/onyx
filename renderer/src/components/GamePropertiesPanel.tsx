@@ -1,4 +1,4 @@
-import { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
+import { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import { Game } from '../types/game';
 import { StagedGame } from '../types/importer';
 import {
@@ -66,6 +66,7 @@ export const GamePropertiesPanel = forwardRef<GamePropertiesPanelHandle, GamePro
     isSearchingMetadata,
     metadataSearchQuery,
     metadataSearchResults,
+    openFixMatchFor,
     resetMetadataState,
     setMetadataSearchQuery,
     showFixMatch,
@@ -131,6 +132,17 @@ export const GamePropertiesPanel = forwardRef<GamePropertiesPanelHandle, GamePro
     resetMetadataState();
     resetImageState();
   }, [game, resetImageState, resetMetadataState]);
+
+  // Importer games the scan couldn't match open the candidate list once, pre-searched with the
+  // title (step 6). This effect is declared after the reset above, so the reset can't close it.
+  const autoOpenedGameKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!isStaged || (game as StagedGame).status !== 'ambiguous') return;
+    const key = (game as StagedGame).uuid;
+    if (autoOpenedGameKeyRef.current === key) return;
+    autoOpenedGameKeyRef.current = key;
+    void openFixMatchFor(game.title ?? '');
+  }, [game, isStaged, openFixMatchFor]);
 
   const updateField = <K extends keyof EditableGameFields>(field: K, value: EditableGameFields[K]) => {
     setEditedFields((prev) => ({ ...prev, [field]: value }));

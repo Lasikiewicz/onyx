@@ -9,6 +9,33 @@ export interface ValidateMetadataOptions {
 }
 
 /**
+ * Similarity between two game titles, 0 to 1, after the same normalization the validator uses.
+ * Used to decide whether a title-based search result is the game we asked for (A-artwork step 4).
+ */
+export function titleSimilarity(a: string, b: string): number {
+  const na = getGameMatcher().normalizeTitle(a);
+  const nb = getGameMatcher().normalizeTitle(b);
+  const longer = na.length > nb.length ? na : nb;
+  const shorter = na.length > nb.length ? nb : na;
+  if (longer.length === 0) return 1.0;
+  return 1 - levenshtein(longer, shorter) / longer.length;
+}
+
+function levenshtein(str1: string, str2: string): number {
+  const matrix: number[][] = [];
+  for (let i = 0; i <= str2.length; i++) matrix[i] = [i];
+  for (let j = 0; j <= str1.length; j++) matrix[0][j] = j;
+  for (let i = 1; i <= str2.length; i++) {
+    for (let j = 1; j <= str1.length; j++) {
+      matrix[i][j] = str2.charAt(i - 1) === str1.charAt(j - 1)
+        ? matrix[i - 1][j - 1]
+        : Math.min(matrix[i - 1][j - 1] + 1, matrix[i][j - 1] + 1, matrix[i - 1][j] + 1);
+    }
+  }
+  return matrix[str2.length][str1.length];
+}
+
+/**
  * Validates that fetched metadata matches the expected game
  */
 export class MetadataValidator {

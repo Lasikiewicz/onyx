@@ -16,6 +16,14 @@ const API_CREDENTIAL_SERVICE_NAME = IS_DEV
   ? (IS_ALPHA ? 'onyx-alpha-dev-api-credentials' : 'onyx-dev-api-credentials')
   : (IS_ALPHA ? 'onyx-alpha-api-credentials' : 'onyx-api-credentials');
 
+// Must run before any module below touches Electron's GPU setup. TypeScript emits the imports in
+// source order, so this sits above them, and the reader is required inline. Electron ignores
+// app.disableHardwareAcceleration() after ready, and the preference service loads too late.
+const { readHardwareAccelerationEnabled } = require('./hardwareAccelerationPreference.js') as typeof import('./hardwareAccelerationPreference');
+if (!readHardwareAccelerationEnabled(app.getPath('userData'))) {
+  app.disableHardwareAcceleration();
+}
+
 // Single instance lock - prevent multiple copies of the app from running
 const gotTheLock = app.requestSingleInstanceLock();
 if (!gotTheLock) {
@@ -471,15 +479,10 @@ async function initializeSuspendService(): Promise<void> {
   }
 }
 
-// Hardware acceleration check
 userPreferencesService.getPreferences().then(prefs => {
   syncTrayPreferenceFlags(prefs);
-  if (prefs.enableHardwareAcceleration === false) {
-    console.log('Disabling hardware acceleration based on user preference');
-    app.disableHardwareAcceleration();
-  }
 }).catch(err => {
-  console.error('Error checking hardware acceleration preference:', err);
+  console.error('Error loading preferences at startup:', err);
 });
 
 process.env.DIST = path.join(__dirname, '../dist');
@@ -1630,8 +1633,18 @@ app.whenReady().then(async () => {
     createTray();
   }
 
-  await initializeSuspendService();
-  await syncSuspendShortcutState();
+  // Each startup step is guarded on its own. The suspend hotkey can be taken by another app, and an
+  // unhandled throw here used to skip the menu, the updater and the startup coordinator (startup plan).
+  try {
+    await initializeSuspendService();
+  } catch (error) {
+    console.error('[Startup] Suspend service failed to initialise:', error);
+  }
+  try {
+    await syncSuspendShortcutState();
+  } catch (error) {
+    console.error('[Startup] Suspend shortcut not registered (already in use or invalid):', error);
+  }
 
   createMenu();
 

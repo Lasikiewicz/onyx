@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+- Add Games:
+  - "Attention Needed" games open the match picker with a title search and list the candidates. A candidate is applied only when you pick it.
+  - Newer Steam games (2025 onward) get their banner from Steam's store image, because their legacy Steam artwork paths no longer exist.
+  - Artwork lookups are more reliable: failed lookups are not cached, GiantBomb is turned off, title matches are checked before artwork is used, and the importer waits longer for slow providers.
+- Display:
+  - Animated artwork and videos pause while the window is hidden to the tray and while the artwork is scrolled out of view, and resume when they are visible again.
+- Settings:
+  - Turning off Hardware Acceleration now takes effect on the next start. It cuts GPU memory use noticeably, at the cost of more CPU work for rendering.
+- Install:
+  - The installer ships only the English Chromium locale pack, which makes the installed app about 45 MB smaller.
 - Library data safety:
   - Dragging games to reorder them no longer deletes hidden or filtered games. The order is now applied only to the games on screen, and hidden games keep their place.
   - Concurrent library saves no longer overwrite each other. Saves made while the Steam merge or artwork optimizer is running are kept.

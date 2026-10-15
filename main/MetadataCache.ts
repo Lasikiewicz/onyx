@@ -6,6 +6,21 @@ interface CachedMetadata {
 }
 
 /**
+ * Only a lookup that found something is worth caching for 24 hours. A failed lookup (no artwork,
+ * no description, no links) cached this way would keep showing "Attention Needed" until the TTL
+ * expired, even after the provider recovered or the match was fixed.
+ */
+export function hasCacheableMetadata(metadata: GameMetadata): boolean {
+  return !!(
+    metadata.boxArtUrl ||
+    metadata.bannerUrl ||
+    metadata.logoUrl ||
+    metadata.description ||
+    (metadata.links && metadata.links.length > 0)
+  );
+}
+
+/**
  * Cache for game metadata to avoid redundant API calls
  */
 export class MetadataCache {

@@ -101,6 +101,12 @@ Resolves game metadata (titles, identifiers, links, artwork candidates) from con
 - For hardcoded game paths (e.g., `C:\Program Files\Neverness To Everness`), ensure the title is normalized to match provider records.
 - Manually apply the correct match via the "Fix Match" editor in Game Manager or Add Games.
 
+### Symptom: Newer Steam game has no banner
+
+- Games from about 2025 onward are not on Steam's legacy `steam/apps/<id>/` paths, which return 404. `main/SteamMetadataProvider.ts#fetchStoreHeaderImage` takes the hashed `header_image` URL from the store API instead.
+- Box art and logo have no equivalent in the store API. A game with a banner but no box art stays "Attention Needed", because box art is the import's minimum requirement (`useImportWorkbenchScan.ts`).
+- SteamGridDB matches by Steam app ID, then by text. Text results are rejected unless the title matches, so a near match such as "Aion" for "AION 2" is not used.
+
 ### Symptom: Partial updates only (e.g., links update but not images)
 
 - Confirm refresh mode/flags (`linksOnly`, game selection).

@@ -87,7 +87,9 @@ Controls app startup, tray integration, the coming-soon controller navigation su
 
 ### Symptom: Hardware acceleration toggle changes nothing
 
-- Expected until restart if runtime only reads it on startup.
+- The preference is read from `user-preferences.json` before the app is ready (`main/hardwareAccelerationPreference.ts`, called from `main/main.ts`). The change applies on the next launch, which the setting label states.
+- Check that the file holds `"enableHardwareAcceleration": false` under `preferences`. A file with a byte-order mark is read correctly. A missing or unreadable file falls back to enabled.
+- With the setting off, the GPU process should drop to a few tens of MB. If it stays large, confirm the app was restarted after the change.
 
 ### Symptom: Controller input does nothing
 

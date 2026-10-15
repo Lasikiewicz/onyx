@@ -388,6 +388,35 @@ export class SteamMetadataProvider implements MetadataProvider {
     });
   }
 
+  /**
+   * The store's own header image for an app. Newer games (2025 onward) are not on the legacy CDN
+   * paths; the store API lists their hashed `store_item_assets` URL (artwork plan, step 7).
+   */
+  private async fetchStoreHeaderImage(steamAppId: string): Promise<string | null> {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 8000);
+      try {
+        const response = await fetch(`https://store.steampowered.com/api/appdetails?appids=${steamAppId}&l=english`, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'application/json, text/plain, */*',
+            'Referer': 'https://store.steampowered.com/',
+          },
+          signal: controller.signal,
+        });
+        if (!response.ok) return null;
+        const json = await response.json() as Record<string, { success?: boolean; data?: { header_image?: string } }>;
+        const headerImage = json[steamAppId]?.success ? json[steamAppId].data?.header_image : undefined;
+        return headerImage || null;
+      } finally {
+        clearTimeout(timeoutId);
+      }
+    } catch {
+      return null;
+    }
+  }
+
   async getArtwork(id: string, steamAppId?: string): Promise<GameArtwork | null> {
     if (!steamAppId) {
       // Extract Steam App ID from provider ID
@@ -441,16 +470,20 @@ export class SteamMetadataProvider implements MetadataProvider {
       const artwork: GameArtwork = {};
 
       // Box Art: prefer library_600x900_2x.jpg when available so first imports do not cache a low-res cover.
+      // A null response means the check itself failed or timed out, so it says nothing about the
+      // image. Only a real non-OK answer means "not there". The standard cover is used when the
+      // check is unknown, because Steam serves it for nearly every app ID (A slow check should not
+      // drop art that exists).
       if (boxArt2xResponse?.ok) {
         artwork.boxArtUrl = boxArtUrl2x;
         artwork.boxArtResolution = { width: 1200, height: 1800 }; // 2x resolution Steam library cover
-      } else if (boxArtResponse?.ok) {
+      } else if (boxArtResponse?.ok || (boxArtResponse === null && boxArt2xResponse === null)) {
         artwork.boxArtUrl = boxArtUrl;
         artwork.boxArtResolution = { width: 600, height: 900 }; // Standard Steam library cover size
       }
 
       // Banner: library_hero.jpg (preferred) or header.jpg (fallback) - official Steam banners
-      if (bannerResponse?.ok) {
+      if (bannerResponse?.ok || bannerResponse === null) {
         artwork.bannerUrl = bannerUrl;
         artwork.heroUrl = bannerUrl;
         artwork.bannerResolution = { width: 1920, height: 620 }; // Standard Steam hero size
@@ -463,6 +496,13 @@ export class SteamMetadataProvider implements MetadataProvider {
         // Fallback to header if hero is not available
         artwork.bannerUrl = headerUrl;
         artwork.bannerResolution = { width: 460, height: 215 }; // Standard Steam header size
+      } else if (bannerResponse !== null && headerResponse !== null && !bannerResponse.ok && !headerResponse.ok) {
+        // Both legacy paths are confirmed missing: a newer game. Use the store's hashed header image (step 7).
+        const storeHeader = await this.fetchStoreHeaderImage(steamAppId);
+        if (storeHeader) {
+          artwork.bannerUrl = storeHeader;
+          artwork.bannerResolution = { width: 460, height: 215 };
+        }
       }
 
       // Logo: Try multiple variations (official Steam logos)

@@ -102,6 +102,9 @@ const config = {
     'node_modules/@img/**'
   ],
   compression: 'maximum',
+  // Ship only the English Chromium locale pack. Onyx has no other UI languages, and the
+  // default bundles ~47 MB of unused locale files.
+  electronLanguages: ['en-US'],
   nsis: {
     oneClick: false,
     allowToChangeInstallationDirectory: true,

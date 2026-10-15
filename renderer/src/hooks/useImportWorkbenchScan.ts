@@ -134,7 +134,8 @@ export function useImportWorkbenchScan({
         try {
             matchResponse = await Promise.race([
                 window.electronAPI.searchAndMatch(scanned),
-                new Promise<any>((_, reject) => setTimeout(() => reject(new Error('Identify timeout')), 10000)),
+                // Matches the main-process budget for title search across providers (artwork plan, step 5).
+                new Promise<any>((_, reject) => setTimeout(() => reject(new Error('Identify timeout')), 20000)),
             ]);
 
             if (matchResponse.success && matchResponse.match?.title) {
@@ -175,7 +176,8 @@ export function useImportWorkbenchScan({
             metadata = await Promise.race([
                 window.electronAPI.searchArtwork(searchTitle, steamAppIdToPass, true),
                 new Promise<any>((_, reject) =>
-                    setTimeout(() => reject(new Error('Import metadata timeout')), 45000),
+                    // Same limit as the main process's artwork call (60 s), so the renderer doesn't give up first.
+                    setTimeout(() => reject(new Error('Import metadata timeout')), 60000),
                 ),
             ]);
 

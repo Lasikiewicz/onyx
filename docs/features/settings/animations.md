@@ -39,6 +39,12 @@ Controls whether UI and artwork animation features remain active at runtime.
 
 ## Failure Modes and Triage
 
+### Symptom: Videos keep playing while the window is hidden or the artwork is off screen
+
+- `renderer/src/hooks/useAnimatedMediaPolicy.ts` pauses every `<video>` while `document.visibilityState` is `hidden` (minimised or closed to tray), and pauses a video that an `IntersectionObserver` reports as not intersecting.
+- Resume happens only for videos the policy paused, marked with `data-onyx-paused-by-policy`. A video that was already stopped is not started. Visibility and scroll pauses keep the playback position, unlike the settings pauses, which rewind to the first frame.
+- Check the marker attribute on the element first. Its absence means the policy did not pause it.
+
 ### Symptom: Icons still animate after disabling
 
 - Confirm `disableAllAnimations` or `disableAnimatedIcons` was reloaded into app state.

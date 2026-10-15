@@ -69,4 +69,46 @@ describe('SteamMetadataProvider', () => {
     expect(result?.boxArtUrl).toContain('library_600x900_2x.jpg');
     expect(result?.boxArtResolution).toEqual({ width: 1200, height: 1800 });
   });
+
+  it('still returns box art and banner when the CDN checks fail or time out', async () => {
+    vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('network unreachable'));
+
+    const provider = new SteamMetadataProvider({} as any);
+    const result = await provider.getArtwork('steam-1808500');
+
+    expect(result?.boxArtUrl).toContain('/1808500/library_600x900.jpg');
+    expect(result?.bannerUrl).toContain('/1808500/library_hero.jpg');
+  });
+
+  it('uses the store header image as the banner for a newer game on hashed paths (step 7)', async () => {
+    const hashed = 'https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/3393110/abc123/header.jpg?t=1';
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input: string | URL | Request) => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+      if (url.includes('store.steampowered.com/api/appdetails')) {
+        return {
+          ok: true,
+          json: async () => ({ '3393110': { success: true, data: { header_image: hashed } } }),
+        } as unknown as Response;
+      }
+      // Legacy CDN paths: confirmed missing for this game.
+      return { ok: false, headers: new Headers() } as Response;
+    });
+
+    const provider = new SteamMetadataProvider({} as any);
+    const result = await provider.getArtwork('steam-3393110');
+
+    expect(result?.bannerUrl).toBe(hashed);
+  });
+
+  it('does not invent box art when Steam confirms the cover is missing', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async () => ({
+      ok: false,
+      headers: new Headers(),
+    } as Response));
+
+    const provider = new SteamMetadataProvider({} as any);
+    const result = await provider.getArtwork('steam-999999');
+
+    expect(result?.boxArtUrl).toBeUndefined();
+  });
 });

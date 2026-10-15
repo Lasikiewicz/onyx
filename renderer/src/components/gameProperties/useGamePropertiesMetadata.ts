@@ -192,9 +192,34 @@ export const useGamePropertiesMetadata = ({
     return [...sortedSteamResults, ...sortedOtherResults];
   };
 
-  const handleFixMatchSearch = async () => {
+  // Lists candidates for a text query and never applies one. The auto-open path relies on this:
+  // the Steam-ID branch of handleFixMatchSearch writes a match into the form by itself, and it
+  // reads the previous game's state when the panel opens for a new game.
+  const runTextSearch = async (query: string) => {
+    setIsSearchingMetadata(true);
+    setMetadataSearchResults([]);
+    setError(null);
+
+    try {
+      const response = await window.electronAPI.searchGames(query);
+      const results = Array.isArray(response) ? response : (response.results || []);
+      const sortedResults = sortMetadataResults(results, query);
+
+      if (sortedResults.length > 0) {
+        setMetadataSearchResults(sortedResults);
+      } else {
+        setError('No results found. Try a different search term or configure metadata providers in Settings > APIs.');
+      }
+    } catch {
+      setError('Search failed');
+    } finally {
+      setIsSearchingMetadata(false);
+    }
+  };
+
+  const handleFixMatchSearch = async (queryOverride?: string) => {
     const steamAppId = getSteamAppId();
-    const query = metadataSearchQuery.trim() || editedFields.title.trim();
+    const query = (queryOverride ?? metadataSearchQuery).trim() || editedFields.title.trim();
 
     if (steamAppId) {
       setIsSearchingMetadata(true);
@@ -220,25 +245,7 @@ export const useGamePropertiesMetadata = ({
       return;
     }
 
-    setIsSearchingMetadata(true);
-    setMetadataSearchResults([]);
-    setError(null);
-
-    try {
-      const response = await window.electronAPI.searchGames(query);
-      const results = Array.isArray(response) ? response : (response.results || []);
-      const sortedResults = sortMetadataResults(results, query);
-
-      if (sortedResults.length > 0) {
-        setMetadataSearchResults(sortedResults);
-      } else {
-        setError('No results found. Try a different search term or configure metadata providers in Settings > APIs.');
-      }
-    } catch {
-      setError('Search failed');
-    } finally {
-      setIsSearchingMetadata(false);
-    }
+    await runTextSearch(query);
   };
 
   const handleApplyMatch = async (result: MetadataMatchResult) => {
@@ -282,7 +289,18 @@ export const useGamePropertiesMetadata = ({
     await handleFixMatchSearch();
   };
 
+  // Opens the match picker already searched for `title`. Used by the panel after a game change, so
+  // the search doesn't depend on state that is still stale at that point (step 6).
+  const openFixMatchFor = async (title: string) => {
+    setShowFixMatch(true);
+    setMetadataSearchQuery(title);
+    const query = title.trim();
+    if (!query) return;
+    await runTextSearch(query);
+  };
+
   return {
+    openFixMatchFor,
     canUndo,
     handleApplyMatch,
     handleFixMatchSearch,

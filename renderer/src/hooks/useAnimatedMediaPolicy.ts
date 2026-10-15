@@ -28,7 +28,7 @@ const getVideoKind = (video: HTMLVideoElement): 'background' | 'banner' | 'boxar
   return 'unknown';
 };
 
-type PauseReason = 'overlay' | 'all' | 'background' | 'banner' | 'boxart' | 'icon' | 'logo' | null;
+type PauseReason = 'overlay' | 'all' | 'background' | 'banner' | 'boxart' | 'icon' | 'logo' | 'hidden' | 'offscreen' | null;
 
 export function useAnimatedMediaPolicy({
   filteredGames,
@@ -120,9 +120,16 @@ export function useAnimatedMediaPolicy({
 
     const pauseMarker = 'data-onyx-paused-by-policy';
 
+    // Videos currently scrolled out of view. Tracked by IntersectionObserver below.
+    const offscreenVideos = new WeakSet<HTMLVideoElement>();
+    const observedVideos = new WeakSet<HTMLVideoElement>();
+
     const getPauseReason = (video: HTMLVideoElement): PauseReason => {
       if (overlaysOpen) return 'overlay';
       if (disableAllAnimations) return 'all';
+      // Window hidden (minimised or closed to tray): nothing should be animating.
+      if (document.visibilityState === 'hidden') return 'hidden';
+      if (offscreenVideos.has(video)) return 'offscreen';
 
       const kind = getVideoKind(video);
       if (disableAnimatedBackgrounds && kind === 'background') return 'background';
@@ -135,14 +142,16 @@ export function useAnimatedMediaPolicy({
 
     const enforceVideoPolicy = (video: HTMLVideoElement) => {
       const pauseReason = getPauseReason(video);
-      const shouldSeekToFirstFrame = pauseReason !== null && pauseReason !== 'overlay';
+      // Settings pauses rewind to the first frame so the static poster shows. Visibility and
+      // scroll pauses keep the position, so scrolling back does not restart the clip.
+      const shouldSeekToFirstFrame =
+        pauseReason !== null && pauseReason !== 'overlay' && pauseReason !== 'hidden' && pauseReason !== 'offscreen';
 
       if (pauseReason !== null) {
-        if (!video.hasAttribute(pauseMarker)) {
-          video.setAttribute(pauseMarker, '1');
-        }
-
+        // Only mark videos this policy actually paused. A video that was already stopped must
+        // not be started again when the policy releases it.
         if (!video.paused) {
+          video.setAttribute(pauseMarker, '1');
           video.pause();
         }
 
@@ -164,9 +173,29 @@ export function useAnimatedMediaPolicy({
 
     const applyPausePolicy = () => {
       document.querySelectorAll('video').forEach((node) => {
-        enforceVideoPolicy(node as HTMLVideoElement);
+        const video = node as HTMLVideoElement;
+        if (intersectionObserver && !observedVideos.has(video)) {
+          observedVideos.add(video);
+          intersectionObserver.observe(video);
+        }
+        enforceVideoPolicy(video);
       });
     };
+
+    // Pause videos that are scrolled out of view. The first callback after observe() reports the
+    // initial state, so off-screen videos are paused as soon as they are found.
+    const intersectionObserver = typeof IntersectionObserver === 'undefined'
+      ? null
+      : new IntersectionObserver((entries) => {
+          entries.forEach((entry) => {
+            const video = entry.target as HTMLVideoElement;
+            if (entry.isIntersecting) offscreenVideos.delete(video);
+            else offscreenVideos.add(video);
+            enforceVideoPolicy(video);
+          });
+        });
+
+    const handleVisibilityChange = () => applyPausePolicy();
 
     const enforceFromEventTarget = (event: Event) => {
       const target = event.target;
@@ -193,13 +222,16 @@ export function useAnimatedMediaPolicy({
     document.addEventListener('play', enforceFromEventTarget, true);
     document.addEventListener('loadeddata', enforceFromEventTarget, true);
     document.addEventListener('canplay', enforceFromEventTarget, true);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
       observer.disconnect();
+      intersectionObserver?.disconnect();
       if (pendingFrame !== null) cancelAnimationFrame(pendingFrame);
       document.removeEventListener('play', enforceFromEventTarget, true);
       document.removeEventListener('loadeddata', enforceFromEventTarget, true);
       document.removeEventListener('canplay', enforceFromEventTarget, true);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [
     overlaysOpen,

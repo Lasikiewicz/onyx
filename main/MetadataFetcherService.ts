@@ -10,8 +10,27 @@ import { SteamGridDBMetadataProvider } from "./SteamGridDBMetadataProvider.js";
 import { GiantBombService } from "./GiantBombService.js";
 import { GiantBombMetadataProvider } from "./GiantBombMetadataProvider.js";
 import { getRateLimitCoordinator } from "./RateLimitCoordinator.js";
-import { getMetadataCache } from "./MetadataCache.js";
-import { getMetadataValidator } from "./MetadataValidator.js";
+import { getMetadataCache, hasCacheableMetadata } from "./MetadataCache.js";
+
+/** A title-search result must be at least this similar to the game's title to be used (0 to 1). */
+const TITLE_MATCH_MIN_SIMILARITY = 0.6;
+
+/**
+ * The top title-search result, if it is similar enough to what was asked for. Taking results[0]
+ * blindly attached the wrong art to games whose titles the provider didn't have (artwork step 4).
+ */
+function confidentTopResult<T extends { title?: string }>(results: T[], wantedTitle: string): T | undefined {
+  const top = results[0];
+  if (!top?.title) return undefined;
+  return titleSimilarity(top.title, wantedTitle) >= TITLE_MATCH_MIN_SIMILARITY ? top : undefined;
+}
+
+/**
+ * Giant Bomb is currently unavailable (see CLAUDE.md), so it is kept out of the artwork chain.
+ * Its provider code stays in place. Set this to true to bring it back.
+ */
+const GIANT_BOMB_ENABLED = false;
+import { getMetadataValidator, titleSimilarity } from "./MetadataValidator.js";
 import { withRetry, withTimeout } from "./RetryUtils.js";
 import { ScannedGameResult } from "./ImportService.js";
 import { getGameMatcher } from "./GameMatcher.js";
@@ -778,7 +797,10 @@ export class MetadataFetcherService {
       console.warn(`[MetadataFetcher] Metadata validation failed for ${gameTitle}`);
     }
 
-    cache.set(cacheKey, mergedMetadata);
+    // Failed lookups are not cached, so the next import tries again instead of replaying the miss.
+    if (hasCacheableMetadata(mergedMetadata)) {
+      cache.set(cacheKey, mergedMetadata);
+    }
     return mergedMetadata;
   }
 
@@ -859,16 +881,24 @@ export class MetadataFetcherService {
 
             // 3. If no exact match, prefer results that don't look like demos
             if (!bestMatch) {
-              bestMatch = steamResults.find(r => !/\bdemo\b/i.test(r.title)) || steamResults[0];
+              const candidate = steamResults.find(r => !/\bdemo\b/i.test(r.title)) || steamResults[0];
+              // Only a candidate whose title is close enough: a loose guess would attach another game's art.
+              if (candidate && titleSimilarity(candidate.title, matchedGame.title) >= TITLE_MATCH_MIN_SIMILARITY) {
+                bestMatch = candidate;
+              }
             }
 
-            resolvedSteamAppId = bestMatch.steamAppId;
-            console.log(`[fetchArtworkForGame] Resolved Steam App ID from search: ${resolvedSteamAppId} ("${bestMatch.title}")`);
+            if (bestMatch) {
+              resolvedSteamAppId = bestMatch.steamAppId;
+              console.log(`[fetchArtworkForGame] Resolved Steam App ID from search: ${resolvedSteamAppId} ("${bestMatch.title}")`);
 
-            artworkPromises.push({
-              promise: this.steamProvider.getArtwork(`steam-${resolvedSteamAppId}`, resolvedSteamAppId),
-              source: "steam"
-            });
+              artworkPromises.push({
+                promise: this.steamProvider.getArtwork(`steam-${resolvedSteamAppId}`, resolvedSteamAppId),
+                source: "steam"
+              });
+            } else {
+              console.log(`[fetchArtworkForGame] No close Steam title match for "${matchedGame.title}"`);
+            }
           }
         } catch (e) {
           console.warn(`[fetchArtworkForGame] Steam search failed:`, e);
@@ -896,7 +926,8 @@ export class MetadataFetcherService {
           promise: withTimeout(
             (async () => {
               const results = await this.steamGridDBProvider!.search(matchedGame.title, resolvedSteamAppId);
-              return results.length > 0 ? this.steamGridDBProvider!.getArtwork(results[0].id, resolvedSteamAppId, preferAnimatedBoxart, preferAnimatedBanner) : null;
+              const top = confidentTopResult(results, matchedGame.title);
+              return top ? this.steamGridDBProvider!.getArtwork(top.id, resolvedSteamAppId, preferAnimatedBoxart, preferAnimatedBanner) : null;
             })(),
             8000,
             "SteamGridDB Search/Artwork Timeout"
@@ -910,7 +941,7 @@ export class MetadataFetcherService {
     }
 
     // 3. Giant Bomb Provider - High quality artwork
-    if (this.isProviderUsable(this.giantBombProvider)) {
+    if (GIANT_BOMB_ENABLED && this.isProviderUsable(this.giantBombProvider)) {
       console.log(`[fetchArtworkForGame] Adding Giant Bomb provider for "${matchedGame.title}"`);
       if (matchedGame.source === 'giantbomb') {
         artworkPromises.push({
@@ -962,7 +993,8 @@ export class MetadataFetcherService {
           promise: withTimeout(
             (async () => {
               const results = await this.rawgProvider!.search(matchedGame.title);
-              return results.length > 0 ? this.rawgProvider!.getArtwork(results[0].id) : null;
+              const top = confidentTopResult(results, matchedGame.title);
+              return top ? this.rawgProvider!.getArtwork(top.id) : null;
             })(),
             8000,
             "RAWG Search/Artwork Timeout"
@@ -1014,7 +1046,8 @@ export class MetadataFetcherService {
           igdbArtwork = await withTimeout(
             (async () => {
               const results = await this.igdbProvider!.search(matchedGame.title, resolvedSteamAppId);
-              return results.length > 0 ? this.igdbProvider!.getArtwork(results[0].id, resolvedSteamAppId) : null;
+              const top = confidentTopResult(results, matchedGame.title);
+              return top ? this.igdbProvider!.getArtwork(top.id, resolvedSteamAppId) : null;
             })(),
             8000,
             "IGDB Search/Artwork Timeout"

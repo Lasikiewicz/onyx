@@ -161,6 +161,7 @@ It explains module boundaries, data flow, and release pipeline expectations.
 - `main/main.ts` now uses Electron's `render-process-gone` event for renderer crash logging so scan/import crashes report structured exit reasons instead of relying on deprecated `webContents.on('crashed')` behavior.
 - `main/main.ts` also owns BrowserWindow bounds/maximize/fullscreen persistence; move and resize writes stay debounced, maximize/fullscreen transitions persist immediately, and quit paths flush the latest state before shutdown. `main/UserPreferencesService.ts` serializes preference writes so concurrent partial saves do not restore stale window-state values over the latest shell mode.
 - `main/ui/tray.ts` owns the compact custom tray menu and must use the same show/focus helper as native tray actions so recent-game launch, Show Onyx, and tray-icon clicks preserve window mode consistently.
+- `main/main.ts` reads the Hardware Acceleration preference with `main/hardwareAccelerationPreference.ts` and calls `app.disableHardwareAcceleration()` before the app is ready. Electron ignores that call after ready, and `UserPreferencesService` loads asynchronously, so the check must read the preferences file directly. The check sits above the other module imports because TypeScript emits `require` calls in source order, and a call placed below them ran after most services had loaded and had no effect.
 
 ### Renderer State Ownership Boundaries
 
@@ -217,6 +218,7 @@ It explains module boundaries, data flow, and release pipeline expectations.
 - Commit-time guardrails: `.husky/pre-commit`
 - Package manager policy: npm-only (`packageManager` is `npm@10` and CI must not install/use pnpm for packaging)
 - Electron runtime baseline: Electron 42.x with `@types/node` 22; both packaging profiles (`build:alpha`, `build:prod`) are verified on this runtime, and future Electron major bumps must re-verify both installer profiles before promotion.
+- Windows packaging ships only the English Chromium locale pack (`electronLanguages: ['en-US']` in `electron-builder.config.js`). If `electron-builder` fails with `EPERM ... rename 'win-unpacked.tmp'` during Electron's zip extraction, `-c.electronDist=node_modules/electron/dist` packages from the installed Electron copy and skips that step.
 - Linux packaging: `electron-builder.config.js` defines AppImage, deb and rpm x64 targets, driven by `npm run build:linux` / `npm run build:linux:alpha`. `linux.executableName` is lowercase (`onyx`/`onyx-alpha`) because it becomes the binary name on PATH and the `.desktop` `Exec` value, and `desktop.entry.StartupWMClass` matches it so the window associates with its launcher entry. `linux.icon` points at `build/icon.png`, which `scripts/generate-icons.mjs` now regenerates at 512x512 from the source SVG and `scripts/validate-icons.mjs` treats as **required** rather than optional. `linux.maintainer` is embedded in published deb/rpm metadata; it defaults to the project's GitHub noreply address and is overridable with `LINUX_MAINTAINER`. macOS remains out of scope (`mac: null`) — no signing/notarization setup and no macOS launcher integrations exist.
 - `.github/workflows/build.yml` also accepts `workflow_dispatch`, so a release can be built without inventing a commit. This exists because a push event is not a reliable trigger: GitHub throttles webhook delivery during Actions incidents, which silently drops the trigger and leaves a branch promoted but unreleased (this happened to `0.16.0`). Dispatch with `gh workflow run build.yml --ref <branch>`; the profile still comes from the ref, so `develop` builds Alpha and anything else builds Production. Two details make dispatch behave like a push: the profile step reads `github.ref_name` unless the event is a `pull_request` (`github.base_ref` is empty for `workflow_dispatch`, which would otherwise have tagged a dispatched `develop` run as Production `v<version>`), and every publish step is gated on `github.event_name != 'pull_request'` rather than `== 'push'` so a dispatched run actually publishes instead of building and discarding. `workflow_dispatch` is only offered for workflows present on the default branch (`master`).
 - `.github/workflows/build.yml` runs Windows and Linux as **two jobs, not a matrix**, and the split is deliberate. The `build` job (windows-latest) exclusively owns the tag, the release and its notes, exposing `outputs.tag`/`outputs.profile`. The `build-linux` job (ubuntu-latest) declares `needs: build` and attaches its artifacts to that already-created release with `gh release upload --clobber`, which can only add assets — it cannot rewrite the tag, the notes, or the Windows assets. Consequently a Linux packaging failure can never prevent the Windows installer from publishing. `build-linux` installs `rpm` and `fakeroot` via apt because `rpmbuild` is absent from the runner image and the rpm target shells out to it.
@@ -228,8 +230,8 @@ It explains module boundaries, data flow, and release pipeline expectations.
 ## Module Index
 
 <!-- AUTO-GENERATED:MODULE_INDEX:START -->
-- Main process source files: 106
-- Renderer source files: 180
+- Main process source files: 110
+- Renderer source files: 181
 - Automation scripts: 30
 - GitHub workflow files: 7
 - Key entrypoints:
