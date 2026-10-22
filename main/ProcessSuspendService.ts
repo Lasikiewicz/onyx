@@ -103,6 +103,8 @@ export class ProcessSuspendService {
   private sweepInFlight = false;
   private minimizeDelayMs: number;
   private native: NativeSuspendPort | null;
+  /** Hotkey resumes that failed. Kept out of the hotkey slot, still written to the recovery file. */
+  private detachedRecoveries: PersistedSuspendRecord[] = [];
 
   private runCommandSafe: ExecRunner = (command: string, args: string[] = [], opts: { timeout?: number } = {}) => {
     if (this.execRunner) return this.execRunner(command, args, opts);
@@ -264,22 +266,31 @@ export class ProcessSuspendService {
     }
   }
 
+  private recordFromGame(info: ProcessInfo): PersistedSuspendRecord {
+    const targets = info.suspendedTargets ?? [{ pid: info.pid, startedAtMs: info.startedAtMs }];
+    return {
+      gameId: info.gameId,
+      title: info.title,
+      suspendedAt: info.suspendedAt ?? Date.now(),
+      exePath: info.exePath,
+      installationDirectory: info.installationDirectory,
+      platform: info.platform,
+      source: info.source,
+      targets,
+    };
+  }
+
   private persistSuspendedGames(): void {
     const records: PersistedSuspendRecord[] = [];
     for (const gameId of this.suspendedGames) {
       const info = this.runningGames.get(gameId);
       if (!info) continue;
-      const targets = info.suspendedTargets ?? [{ pid: info.pid, startedAtMs: info.startedAtMs }];
-      records.push({
-        gameId,
-        title: info.title,
-        suspendedAt: info.suspendedAt ?? Date.now(),
-        exePath: info.exePath,
-        installationDirectory: info.installationDirectory,
-        platform: info.platform,
-        source: info.source,
-        targets,
-      });
+      records.push(this.recordFromGame(info));
+    }
+    const held = new Set(records.flatMap((record) => record.targets.map((target) => `${target.pid}:${target.startedAtMs ?? ''}`)));
+    for (const detached of this.detachedRecoveries) {
+      const novel = detached.targets.some((target) => !held.has(`${target.pid}:${target.startedAtMs ?? ''}`));
+      if (novel) records.push(detached);
     }
     this.writePersisted(records);
   }
@@ -288,6 +299,85 @@ export class ProcessSuspendService {
     this.runningGames.delete(gameId);
     this.suspendedGames.delete(gameId);
     this.persistSuspendedGames();
+  }
+
+  /**
+   * Drop the foreground hotkey slot without deleting its paused processes from the
+   * recovery file. The next press is free to pause a different window. A press on
+   * one of these processes resumes it instead of suspending it a second time.
+   */
+  private releaseHotkeySlotKeepRecovery(): void {
+    const info = this.runningGames.get('foreground-window');
+    if (info?.status === 'suspended') {
+      const targets = (info.suspendedTargets ?? [{ pid: info.pid, startedAtMs: info.startedAtMs }])
+        .filter((target) => Number.isInteger(target.pid) && target.pid > 0);
+      if (targets.length > 0) {
+        const record = this.recordFromGame({ ...info, gameId: `foreground-recovery-${info.pid}`, suspendedTargets: targets });
+        this.detachedRecoveries = this.detachedRecoveries.filter((entry) =>
+          !entry.targets.some((target) => targets.some((kept) => kept.pid === target.pid && kept.startedAtMs === target.startedAtMs)),
+        );
+        this.detachedRecoveries.push(record);
+      }
+    }
+    this.runningGames.delete('foreground-window');
+    this.suspendedGames.delete('foreground-window');
+    this.persistSuspendedGames();
+  }
+
+  private recordMatchesLivePid(record: PersistedSuspendRecord, pid: number, processes: SnapshotProcess[]): boolean {
+    const target = record.targets.find((entry) => entry.pid === pid);
+    if (!target) return false;
+    if (processes.length === 0) return true;
+    const live = processes.find((entry) => entry.pid === pid);
+    if (!live) return false;
+    return isSameProcessStart(target.startedAtMs, live.startedAtMs);
+  }
+
+  private async suspensionRecordingPid(pid: number): Promise<PersistedSuspendRecord | null> {
+    const processes = await this.getAllProcesses();
+    const records = [...this.detachedRecoveries];
+    for (const gameId of this.suspendedGames) {
+      const info = this.runningGames.get(gameId);
+      if (info?.status === 'suspended') records.push(this.recordFromGame(info));
+    }
+    return records.find((record) => this.recordMatchesLivePid(record, pid, processes)) ?? null;
+  }
+
+  private async resumeRecordedSuspension(record: PersistedSuspendRecord): Promise<{ success: boolean; error?: string }> {
+    const inMemory = this.runningGames.get(record.gameId);
+    if (inMemory?.status === 'suspended') {
+      return this.resumeGameUnlocked(record.gameId);
+    }
+
+    this.detachedRecoveries = this.detachedRecoveries.filter((entry) => entry.gameId !== record.gameId);
+    const root = record.targets[0];
+    this.runningGames.set(record.gameId, {
+      pid: root?.pid ?? 0,
+      gameId: record.gameId,
+      title: record.title,
+      exePath: record.exePath,
+      installationDirectory: record.installationDirectory,
+      platform: record.platform,
+      source: record.source,
+      status: 'suspended',
+      suspendedAt: record.suspendedAt,
+      startedAtMs: root?.startedAtMs,
+      suspendedTargets: record.targets,
+    });
+    this.suspendedGames.add(record.gameId);
+    const result = await this.resumeGameUnlocked(record.gameId);
+    const info = this.runningGames.get(record.gameId);
+    if (result.success || info?.status !== 'suspended') {
+      this.runningGames.delete(record.gameId);
+      this.suspendedGames.delete(record.gameId);
+      this.persistSuspendedGames();
+      return result;
+    }
+    this.detachedRecoveries.push(this.recordFromGame(info));
+    this.runningGames.delete(record.gameId);
+    this.suspendedGames.delete(record.gameId);
+    this.persistSuspendedGames();
+    return result;
   }
 
   startLaunchTrackingSession(options: LaunchTrackingOptions): void {
@@ -1058,7 +1148,9 @@ ${shouldForeground ? '[OnyxUser32]::SetForegroundWindow($hWnd) | Out-Null' : ''}
   /**
    * Hotkey behavior from Nyrna: toggle the foreground window, not the launch PID.
    * If Onyx itself is in front, hide it and look again. A saved suspend is resumed
-   * on the next press; a failed resume forgets that pid so the next press can suspend.
+   * on the next press. A failed resume clears the hotkey slot but leaves the paused
+   * processes in the recovery file. A later press resumes a recorded process instead
+   * of suspending it again, so the Windows suspend count does not climb.
    */
   async toggleForeground(hideSelf?: () => void): Promise<{ success: boolean; error?: string; title?: string; action?: 'suspend' | 'resume' }> {
     return this.withGameLock('foreground-window', () => this.toggleForegroundUnlocked(hideSelf));
@@ -1069,7 +1161,7 @@ ${shouldForeground ? '[OnyxUser32]::SetForegroundWindow($hWnd) | Out-Null' : ''}
     if (existing?.status === 'suspended') {
       const result = await this.resumeGameUnlocked('foreground-window');
       if (!result.success) {
-        this.forgetGame('foreground-window');
+        this.releaseHotkeySlotKeepRecovery();
       }
       return { ...result, title: existing.title, action: 'resume' };
     }
@@ -1085,6 +1177,12 @@ ${shouldForeground ? '[OnyxUser32]::SetForegroundWindow($hWnd) | Out-Null' : ''}
       }
       if (decision === 'refuse-shell') {
         return { success: false, error: 'The foreground window is File Explorer, not a game.', title: foreground.executable };
+      }
+
+      const recorded = await this.suspensionRecordingPid(foreground.pid);
+      if (recorded) {
+        const result = await this.resumeRecordedSuspension(recorded);
+        return { ...result, title: recorded.title || foreground.executable, action: 'resume' };
       }
 
       this.trackLaunchedGame(
@@ -1398,6 +1496,13 @@ ${shouldForeground ? '[OnyxUser32]::SetForegroundWindow($hWnd) | Out-Null' : ''}
         await this.resumeGame(gameId);
       } catch (error) {
         console.error(`[Suspend] Failed to resume ${gameId} during shutdown:`, error);
+      }
+    }
+    for (const record of [...this.detachedRecoveries]) {
+      try {
+        await this.resumeRecordedSuspension(record);
+      } catch (error) {
+        console.error(`[Suspend] Failed to resume ${record.title} during shutdown:`, error);
       }
     }
   }

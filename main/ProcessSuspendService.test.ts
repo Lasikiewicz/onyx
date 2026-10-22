@@ -373,26 +373,90 @@ describe('ProcessSuspendService', () => {
     expect(suspended).toEqual([]);
   });
 
-  it('forgets a foreground suspend when resume fails so the next press can try again', async () => {
+  it('keeps a failed hotkey resume in the recovery file and does not suspend that process again', async () => {
+    const suspended: number[] = [];
+    let foregroundPid = 42;
     const native: NativeSuspendPort = {
-      suspend() {},
+      suspend(pid) { suspended.push(pid); },
       resume() { throw new Error('Access is denied'); },
+      childPids() { return []; },
+      foreground() { return { pid: foregroundPid, hwnd: 7, executable: 'game.exe', path: 'C:\\Games\\Foo\\game.exe' }; },
+      showWindow() {},
+    };
+    const persistencePath = path.join(tempDir, 'suspended-processes.json');
+    const processes = [cim({ pid: 42, name: 'game', path: 'C:\\Games\\Foo\\game.exe', startedAtMs: 100 })];
+    const { svc } = createHarness({
+      native,
+      persistencePath,
+      failNative: true,
+      failCmdlet: true,
+      processes,
+    });
+    expect((await svc.toggleForeground()).success).toBe(true);
+    expect(suspended).toEqual([42]);
+    const resumed = await svc.toggleForeground();
+    expect(resumed.success).toBe(false);
+    expect(resumed.action).toBe('resume');
+    expect(svc.hasSuspendedGames()).toBe(false);
+    expect(await svc.getRunningGames()).toEqual([]);
+
+    const persisted = JSON.parse(readFileSync(persistencePath, 'utf8')) as Array<{ gameId: string; targets: Array<{ pid: number }> }>;
+    expect(persisted.map((record) => record.gameId)).not.toContain('foreground-window');
+    expect(persisted.flatMap((record) => record.targets.map((target) => target.pid))).toEqual([42]);
+
+    const again = await svc.toggleForeground();
+    expect(again.action).toBe('resume');
+    expect(again.success).toBe(false);
+    expect(suspended).toEqual([42]);
+
+    foregroundPid = 77;
+    processes.push(cim({ pid: 77, name: 'other', path: 'C:\\Games\\Other\\other.exe', startedAtMs: 200 }));
+    const other = await svc.toggleForeground();
+    expect(other).toEqual(expect.objectContaining({ success: true, action: 'suspend' }));
+    expect(suspended).toEqual([42, 77]);
+
+    const recovered = new ProcessSuspendService(async (_command, args) => {
+      const script = args.join(' ');
+      if (script.includes('Win32_Process')) {
+        return { stdout: JSON.stringify(processes), stderr: '', code: 0 };
+      }
+      if (script.includes('NtResumeProcess')) {
+        return {
+          stdout: JSON.stringify(targetPids(script).map((pid) => ({ pid, ok: true, error: null }))),
+          stderr: '',
+          code: 0,
+        };
+      }
+      throw new Error(`Unexpected recovery command: ${script.slice(0, 160)}`);
+    }, { persistencePath, minimizeDelayMs: 0, native: null });
+    (recovered as unknown as { isWindows: boolean }).isWindows = true;
+    await recovered.recoverOrphanedSuspensions();
+    const afterRecovery = JSON.parse(readFileSync(persistencePath, 'utf8')) as Array<{ targets: Array<{ pid: number }> }>;
+    expect(afterRecovery.flatMap((record) => record.targets.map((target) => target.pid))).not.toContain(42);
+  });
+
+  it('resumes a tracked suspended game from the hotkey instead of suspending it again', async () => {
+    const suspended: number[] = [];
+    const resumed: number[] = [];
+    const native: NativeSuspendPort = {
+      suspend(pid) { suspended.push(pid); },
+      resume(pid) { resumed.push(pid); },
       childPids() { return []; },
       foreground() { return { pid: 42, hwnd: 7, executable: 'game.exe', path: 'C:\\Games\\Foo\\game.exe' }; },
       showWindow() {},
     };
     const { svc } = createHarness({
       native,
-      failNative: true,
-      failCmdlet: true,
       processes: [cim({ pid: 42, name: 'game', path: 'C:\\Games\\Foo\\game.exe', startedAtMs: 100 })],
     });
-    expect((await svc.toggleForeground()).success).toBe(true);
-    const resumed = await svc.toggleForeground();
-    expect(resumed.success).toBe(false);
-    expect(resumed.action).toBe('resume');
+    svc.trackLaunchedGame('g', 42, 'Foo', 'C:\\Games\\Foo\\game.exe', 'C:\\Games\\Foo', undefined, undefined, 100);
+    expect((await svc.suspendGame('g')).success).toBe(true);
+    expect(suspended).toEqual([42]);
+    const hotkey = await svc.toggleForeground();
+    expect(hotkey).toEqual(expect.objectContaining({ success: true, action: 'resume' }));
+    expect(suspended).toEqual([42]);
+    expect(resumed).toEqual([42]);
     expect(svc.hasSuspendedGames()).toBe(false);
-    expect(await svc.getRunningGames()).toEqual([]);
   });
 
   it('keeps the CIM child list when the process snapshot fails', async () => {

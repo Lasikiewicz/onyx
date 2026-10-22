@@ -29,9 +29,10 @@ The Windows calls match [Nyrna](https://github.com/Merrit/nyrna): `NtSuspendProc
 1. Renderer requests suspend/resume via the preload suspend API.
 2. The shortcut asks for the foreground window first. If that window is Onyx, Onyx hides itself and looks again (up to three times). File Explorer is refused. Otherwise that window's process is suspended, then every descendant.
 3. Launcher IPC still captures a pre-launch process baseline, and [ProcessSuspendService.ts](../../main/ProcessSuspendService.ts) tracks the launched game. Suspending that entry uses the foreground process when its path is the game, instead of a store launcher stub.
-4. A failed suspend restores the window. A failed foreground resume forgets that hotkey target so the next press is not stuck retrying it.
-5. Quitting Onyx resumes paused games. A crash leaves `suspended-processes.json`; the next launch resumes a pid only when its creation time still matches.
-6. These flows are covered by unit tests. They have not been exercised against a real game on Windows in this change.
+4. A failed suspend restores the window. A failed foreground resume forgets the hotkey slot, and leaves the still-paused processes in `suspended-processes.json`.
+5. Quitting Onyx resumes paused games, including a hotkey pause whose resume had failed. A crash leaves `suspended-processes.json`; the next launch resumes a pid only when its creation time still matches.
+6. A later hotkey press on a process that is already in that file resumes it. It does not suspend the process again, so the Windows suspend count does not climb. A different foreground window can still be paused.
+7. These flows are covered by unit tests. The native pause and resume path has been tried with real games on Windows. The failed-resume recovery path is covered by unit tests.
 
 ## Discovery and Data Sources
 
@@ -45,6 +46,7 @@ The Windows calls match [Nyrna](https://github.com/Merrit/nyrna): `NtSuspendProc
 - `enableSuspendFeature` and `suspendShortcut` live in user preferences.
 - While a game is suspended, its pid list and each process's creation time are kept in memory and in `suspended-processes.json` under the app user-data directory.
 - A pid is resumed only when that creation time still matches, so a reused pid is left alone.
+- A failed hotkey resume removes the `foreground-window` slot and keeps the remaining pids under a recovery id in the same file. Later saves of other paused games do not drop that record.
 
 ## Failure Modes and Triage
 
@@ -63,7 +65,7 @@ The Windows calls match [Nyrna](https://github.com/Merrit/nyrna): `NtSuspendProc
 ### Symptom: A game stays frozen
 
 - Quit Onyx, or launch it again. Both paths resume recorded pids whose creation time still matches.
-- If resume itself failed, the hotkey forgets that target. Resume the process from Task Manager if it is still frozen.
+- If the hotkey resume failed, the shortcut is no longer stuck on that window, but the recovery file still has the process. Quit Onyx or start it again to thaw it. The next hotkey press on that same window tries to resume it and does not pause it a second time. Resume the process from Task Manager if it is still frozen.
 
 ### Symptom: Shortcut works inconsistently
 
